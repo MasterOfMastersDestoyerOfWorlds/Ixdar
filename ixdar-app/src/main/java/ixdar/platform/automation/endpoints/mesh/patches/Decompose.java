@@ -15,6 +15,8 @@ import ixdar.platform.automation.AutomationEndpoint;
 
 import ixdar.geometry.mesh.data.Patch;
 
+import ixdar.geometry.mesh.data.PatchColors;
+
 import ixdar.geometry.mesh.data.PatchDecomposition;
 
 import ixdar.geometry.mesh.data.load.MeshLoader;
@@ -57,6 +59,7 @@ public class Decompose extends AutomationEndpoint implements AutomationRoute {
             pj.addProperty("id", p.id());
             pj.addProperty("branch_id", p.branchId());
             pj.addProperty("color", p.color());
+            pj.addProperty("flat_color", PatchColors.uniquePatchColorHex(p.id()));
             pj.addProperty("curvature_mean", p.curvatureMean());
             JsonArray centroid = new JsonArray();
             for (float c : p.centroid())
@@ -84,7 +87,8 @@ public class Decompose extends AutomationEndpoint implements AutomationRoute {
                         "Path to an OBJ mesh file.", "~/Blends/Hand/Hand.obj")
                 .param(RESOLUTION, RouteParamType.INT, false, String.valueOf(NUM_128),
                         "Voxel resolution for skeletonization.", "128")
-                .responseHint("{ok, vertex_count, patches:[{id, branch_id, color, centroid, ...}]}")
+                .responseHint(
+                        "{ok, vertex_count, patches:[{id, branch_id, color, flat_color, centroid, ...}]}")
                 .build();
     }
 }

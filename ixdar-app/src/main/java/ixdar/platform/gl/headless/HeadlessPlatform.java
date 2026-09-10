@@ -1,6 +1,5 @@
 package ixdar.platform.gl.headless;
 
-import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -8,25 +7,15 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
-import java.nio.file.Files;
-
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import javax.imageio.ImageIO;
-
-import org.lwjgl.BufferUtils;
-
 import com.google.gson.Gson;
-
-import ixdar.platform.json.GsonJsonTree;
-import ixdar.platform.json.JsonValue;
 
 import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
@@ -34,6 +23,8 @@ import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
 import ixdar.geometry.mesh.quadlayout.quantization.OjAlgoIntegerProgram;
 import ixdar.geometry.mesh.quadlayout.solver.chol.DesktopCholeskyBackend;
 import ixdar.geometry.mesh.quadlayout.solver.chol.NativeCholeskyBackend;
+import ixdar.graphics.image.PixelImage;
+import ixdar.graphics.image.PngWriter;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.AssimpModelRuntime;
 import ixdar.graphics.render.model.ModelRuntime;
@@ -47,6 +38,8 @@ import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.gl.lwjgl.StbImageDecoder;
+import ixdar.platform.json.GsonJsonTree;
+import ixdar.platform.json.JsonValue;
 
 /**
  * Headless platform for offscreen rendering using LWJGL GLFW. Creates an
@@ -58,10 +51,6 @@ public class HeadlessPlatform implements Platform {
     public static final int NUM_512 = 512;
     public static final int NUM_4 = 4;
     public static final double NUM_1e9 = 1e9;
-    public static final int NUM_24 = 24;
-    public static final int NUM_0xF = 0xFF;
-    public static final int NUM_16 = 16;
-    public static final int NUM_8 = 8;
 
     private final DesktopCholeskyBackend choleskyBackend = new DesktopCholeskyBackend();
     private final ManifoldMeshBooleanBackend manifoldBooleanBackend = new ManifoldMeshBooleanBackend();
@@ -496,30 +485,15 @@ public class HeadlessPlatform implements Platform {
                 headlessGL.UNSIGNED_BYTE(),
                 0);
 
-        // Create BufferedImage (AWT uses top-left origin, OpenGL uses bottom-left)
-        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-
-        // Flip Y and copy pixels
+        // GL's origin is the bottom row, PixelImage's is the top, so the copy flips Y.
+        PixelImage image = new PixelImage(width, height);
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int pixel = pixels[y * width + x];
-                // Convert from GL format (ABGR in int) to AWT format (ARGB)
-                int a = (pixel >> NUM_24) & NUM_0xF;
-                int r = (pixel >> NUM_16) & NUM_0xF;
-                int g = (pixel >> NUM_8) & NUM_0xF;
-                int b = pixel & NUM_0xF;
-                int awtPixel = (a << NUM_24) | (r << NUM_16) | (g << NUM_8) | b;
-                image.setRGB(x, height - 1 - y, awtPixel);
+                image.set(x, height - 1 - y, pixels[y * width + x]);
             }
         }
 
-        // Write PNG
-        File outputFile = new File(outputPath);
-        File parent = outputFile.getParentFile();
-        if (parent != null) {
-            parent.mkdirs();
-        }
-        ImageIO.write(image, "png", outputFile);
+        PngWriter.write(image, new File(outputPath));
 
         log("[HeadlessPlatform] Screenshot saved: " + outputPath);
     }

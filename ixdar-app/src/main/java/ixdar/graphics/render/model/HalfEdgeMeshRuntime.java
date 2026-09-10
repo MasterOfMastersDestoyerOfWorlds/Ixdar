@@ -972,9 +972,9 @@ public class HalfEdgeMeshRuntime {
 
     /**
      * Golden-ratio-hue HSL colour derived from the tag name. Matches
-     * {@code PatchRenderer.uniquePatchColor(pid)} for a tag named
-     * {@code "patch_<pid>"}, so tags originating from the decomposer render
-     * identically in the live viewer and the offline multiview PNGs.
+     * {@code PatchColors.uniquePatchColor(pid)} for a tag named
+     * {@code "patch_<pid>"}, so a decomposer tag renders in the colour the
+     * decomposition JSON reports as its {@code flat_color}.
      *
      * @param tagName tag identifier; names matching {@code patch_<int>} are
      *                colored from the patch id, all others fall back to a

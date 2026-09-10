@@ -105,6 +105,7 @@ The existing `ixdar.model` / `tmeshPipeline.off` / `benchmark.off` properties ar
 - **Magic numbers:** literals other than `-1, 0, 1, 2` must be named constants. Field initializers and annotations are exempt.
 - **Duplicated string literals:** a repeated string that *carries meaning* — a map key, a format string, a system-property name, a file path — should be a constant. A repeated string that is only **string-assembly glue** — an operand of `+`, or an `append(...)` argument — stays inline, however often it repeats. `ARC = "arc "`, `AND = " and "`, `CLOSE_PAREN = ")"` name nothing; they are punctuation wearing a constant's clothes, and they push the declarations a reader actually needs off the top of the file. Usage decides this, not length: `KEY_FACES = "Faces"` is real and `" and "` is glue at the same character count. `MeaningfulDuplicateStringLiteralsCheck` enforces exactly this, and `InlineGlueStringConstantsRecipe` inlines glue constants back automatically.
 - **No inline fully-qualified class names:** write `Collectors.toSet()` with an import, not `java.util.stream.Collectors.toSet()`. The only exception is genuine simple-name collisions across packages.
+- **Banned packages** (`IllegalImport` plus a `RegexpSinglelineJava` for fully-qualified references): `java.awt`, `javax.swing`, `javax.imageio`, `java.applet`, `java.beans`. There is one renderer — the GL one — and rendering anything means driving a scene and capturing it, never rasterizing on the CPU. Write PNGs with `ixdar.graphics.image.PngWriter` over a `PixelImage`; `AutomationEndpoint.imageBytes` and `HeadlessPlatform.screenshot` already do. Add a package to the list in `~/Code/autofix/src/main/resources/checkstyle.xml` rather than to a review checklist.
 
 # Building and testing
 
@@ -205,7 +206,15 @@ uv run ixdar-cli launch --list-entries
 
 `mesh-dsl-validate --dsl` takes either DSL source text or a path to a `.dsl` file (relative paths resolve against the scene's working directory — `ixdar-app` — and then the checkout root). `ixdar-cli list-meshes --names` prints just the mesh names.
 
-Then `Read` the PNG. **Do not write a per-scene headless renderer** (`RenderEmbeddedTMesh` and the like were a wrong turn); feed the scene's own `QuadLayoutRuntime`/overlays and screenshot it. `ixdar-cli multiview <png>` composites an 8-angle grid under the image limit.
+Then `Read` the PNG. **Do not write a per-scene headless renderer** (`RenderEmbeddedTMesh` and `PatchRenderer` were both wrong turns and are gone); feed the scene's own `QuadLayoutRuntime`/overlays and screenshot it. `ixdar-cli multiview <png>` composites an 8-angle grid under the image limit, and its `viewOrder` field names the cells left to right, top to bottom.
+
+A patch decomposition renders the same way — `P` turns the overlay on, `Shift+P` steps `LAMBERT` to `FLAT`:
+
+```
+uv run ixdar-cli run-scene --scene mesh-viewer --mesh <name-or-path> --key P --key SHIFT+P --multiview out.png
+```
+
+In `FLAT` each patch is painted its exact `PatchColors.uniquePatchColor`, so a pixel sampled out of that PNG matches the `flat_color` field `mesh-patches-decompose` reports and identifies the patch. Every such colour has channel minimum 66 and maximum 215 and is never grey, so the viewer's grey backdrop cannot be mistaken for a patch.
 
 Do not hand-roll a bespoke visualizer (an SVG unwrap, a custom exporter): the runtime already draws meshes, arcs, and node markers on the surface.
 
@@ -233,6 +242,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 
 **Server-backed commands** (generated from the automation routes manifest):
 - `ixdar-cli click [--x] [--y] [--normalized] [--button] [--settle]` — Click at a point on the active mouse handler, then wait for the click to be drawn.
+- `ixdar-cli frame [--selection] [--bounds] [--padding] [--azimuth] [--elevation]` — Fit the camera to a named selection or an explicit bounding box, filling the view with it.
 - `ixdar-cli health` — Liveness probe reporting server status, recording/replaying flags, and port.
 - `ixdar-cli hover [--x] [--y] [--normalized] [--persistent] [--settle]` — Move the cursor without clicking, then wait for the hover to be drawn.
 - `ixdar-cli hover-clear` — Release the persistent automation hover lock on the active trade mouse handler.
@@ -243,16 +253,14 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli mesh-dsl-validate --dsl [--export]` — Validate DSL source text, or the contents of a .dsl file path, against the skill schema.
 - `ixdar-cli mesh-fingerprint` — Compute the canonical SHA-256 fingerprint of the active viewer mesh.
 - `ixdar-cli mesh-patches-decompose --path [--resolution]` — Hybrid skeleton and curvature patch decomposition of a reference mesh.
-- `ixdar-cli mesh-patches-render-flat-multiview --path [--resolution] [--out-path]` — Decompose a mesh into semantic patches and render a flat-shaded multiview composite PNG.
-- `ixdar-cli mesh-patches-render-multiview --path [--resolution] [--out-path]` — Decompose a mesh into semantic patches and render a shaded multiview composite PNG.
 - `ixdar-cli mesh-seamless-diagnosis [--highlight]` — Report the seamless solver's singular-system diagnosis: how the singularity was classified, the null vector's support and the mesh vertices it sits on.
 - `ixdar-cli mesh-segmentation --path [--method] [--n-clusters]` — Segment a mesh into labeled vertex groups by connected components, curvature, or spatial clustering.
 - `ixdar-cli mesh-skeleton-compare --generated --reference [--resolution]` — Compare TEASAR skeletons of two meshes and recommend parameter fixes.
 - `ixdar-cli mesh-skeleton-compare-detailed --generated --reference [--resolution]` — Detailed skeleton comparison returning per-joint 3D position deltas.
 - `ixdar-cli mesh-skeleton-sensitivity --dsl --reference [--resolution] [--epsilon]` — Compute the Jacobian of skeleton joints w.r.t. DSL parameters.
-- `ixdar-cli multiview [--out] [--inline]` — Capture 8 orbit viewpoints and composite them into a labeled 4x2 grid PNG.
+- `ixdar-cli multiview [--out] [--inline]` — Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG.
 - `ixdar-cli orbit-get` — Report the active mesh viewer's current camera orbit and mesh radius.
-- `ixdar-cli orbit-set [--azimuth] [--elevation] [--distance]` — Set the active mesh viewer's camera orbit (azimuth, elevation, distance).
+- `ixdar-cli orbit-set [--azimuth] [--elevation] [--distance] [--target]` — Set the active mesh viewer's camera orbit (azimuth, elevation, distance).
 - `ixdar-cli projection-get` — Report whether the active mesh viewer is using orthographic projection.
 - `ixdar-cli projection-set [--orthographic]` — Toggle the active mesh viewer between orthographic and perspective projection.
 - `ixdar-cli record-start` — Begin a new recording session, clearing any previously buffered events.
@@ -263,7 +271,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli replay-resume` — Clear the paused flag on the replay engine; no-op when nothing is running.
 - `ixdar-cli replay-start --file [--mode]` — Launch a replay from a previously saved recording file.
 - `ixdar-cli replay-status` — Snapshot of the replay engine: running flag, status, current file, paused flag.
-- `ixdar-cli screenshot [--out] [--inline]` — Capture a PNG screenshot of the current framebuffer to a file.
+- `ixdar-cli screenshot [--out] [--inline] [--crop] [--scale]` — Capture a PNG screenshot of the current framebuffer to a file.
 - `ixdar-cli scroll [--delta]` — Deliver a synthesized scroll event to the active mouse handler.
 - `ixdar-cli type [--text]` — Synthesize character events on the active key handler, one per character of the text.
 - `ixdar-cli ui-state` — Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.
@@ -280,6 +288,8 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli dsl-optimize` — Batch-optimize mesh DSL parameters against a reference OBJ.
 - `ixdar-cli duplication-report` — Report duplicated code ranked by how much repetition factoring it out would remove.
 - `ixdar-cli gen-docs` — Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry.
+- `ixdar-cli image-diff` — Compare two PNG screenshots, reporting RMSE and how many pixels differ beyond a fuzz.
+- `ixdar-cli image-stats` — Report a PNG's mean, minimum and maximum channel values and whether it is a blank frame.
 - `ixdar-cli install-alias` — Install a global ixdar-cli wrapper into ~/.local/bin.
 - `ixdar-cli launch` — Run a .vscode/launch.json entry non-headless, then report its first log lines and a screenshot.
 - `ixdar-cli list-meshes` — List mesh files a scene can load, with the short names run-scene resolves.

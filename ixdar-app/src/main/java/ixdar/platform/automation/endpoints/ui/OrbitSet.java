@@ -4,6 +4,8 @@ import java.io.IOException;
 
 import com.google.gson.JsonObject;
 
+import org.joml.Vector3f;
+
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
@@ -18,10 +20,12 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
     public static final String AZIMUTH = "azimuth";
     public static final String ELEVATION = "elevation";
     public static final String DISTANCE = "distance";
+    public static final String TARGET = "target";
     public static final String OK = "ok";
     public static final String ERROR = "error";
     public static final float NUM_0 = 0f;
     public static final float NUM_3_5 = 3.5f;
+    public static final int NUM_3 = 3;
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         float azimuth = body.has(AZIMUTH)
@@ -33,6 +37,9 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
         float distance = body.has(DISTANCE)
                 ? body.get(DISTANCE).getAsFloat()
                 : NUM_3_5;
+        String target = body.has(TARGET) && !body.get(TARGET).isJsonNull()
+                ? body.get(TARGET).getAsString()
+                : "";
         try {
             // First call: set orbit (runs at end of frame N)
             runtime.runOnMainThread(() -> {
@@ -45,6 +52,13 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
                     return err;
                 }
                 OrbitMouseTrap orbit = modelScene.orbitMouse;
+                String[] fields = target.trim().split("\\s*,\\s*");
+                if (fields.length == NUM_3) {
+                    orbit.setTarget(new Vector3f(
+                            Float.parseFloat(fields[0]),
+                            Float.parseFloat(fields[1]),
+                            Float.parseFloat(fields[2])));
+                }
                 orbit.setOrbit(azimuth, elevation, distance);
                 return null;
             });
@@ -55,6 +69,10 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
                 result.addProperty(AZIMUTH, azimuth);
                 result.addProperty(ELEVATION, elevation);
                 result.addProperty(DISTANCE, distance);
+                if (runtime.canvas instanceof ModelScene modelScene) {
+                    result.add(TARGET, runtime.vector3Array(
+                            modelScene.orbitMouse.getTarget(new Vector3f())));
+                }
                 return result;
             });
         } catch (Exception e) {
@@ -76,7 +94,10 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
                         "Orbit elevation angle in radians.", "0.6")
                 .param(DISTANCE, RouteParamType.FLOAT, false, String.valueOf(NUM_3_5),
                         "Camera distance from the orbit target.", "5.0")
-                .responseHint("{ok, azimuth, elevation, distance}")
+                .param(TARGET, RouteParamType.STRING, false, "",
+                        "Point the orbit pivots around, as x,y,z; empty leaves the pivot where it is.",
+                        "0.1,-0.4,0.2")
+                .responseHint("{ok, azimuth, elevation, distance, target}")
                 .build();
     }
 }

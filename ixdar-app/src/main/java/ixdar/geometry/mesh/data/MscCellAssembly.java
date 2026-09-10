@@ -169,7 +169,7 @@ public final class MscCellAssembly {
             centroid[1] /= vertCount;
             centroid[2] /= vertCount;
             String color = String.format("%06X",
-                    PatchRenderer.uniquePatchColor(patchId) & NUM_0xFFFFF);
+                    PatchColors.uniquePatchColor(patchId) & NUM_0xFFFFF);
             patches.add(new Patch(patchId++, verts, faces, /*branch=*/-1,
                     centroid, /*meanCurvature=*/NUM_0, color));
         }

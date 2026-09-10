@@ -58,6 +58,62 @@
       "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}"
     },
     {
+      "commandName": "frame",
+      "path": "/ui/frame",
+      "method": "POST",
+      "description": "Fit the camera to a named selection or an explicit bounding box, filling the view with it.",
+      "sourceClass": "ixdar.platform.automation.endpoints.ui.Frame",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/Frame.java",
+      "params": [
+        {
+          "name": "selection",
+          "cliName": "selection",
+          "type": "string",
+          "required": false,
+          "default": "mesh",
+          "help": "What to frame: mesh, overlay, tag:NAME, edge-mark:LABEL, patch:ID, or a bare name.",
+          "example": "tag:cranium"
+        },
+        {
+          "name": "bounds",
+          "cliName": "bounds",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Explicit box as minX,minY,minZ,maxX,maxY,maxZ; overrides the selection.",
+          "example": "-1,-1,-1,1,1,1"
+        },
+        {
+          "name": "padding",
+          "cliName": "padding",
+          "type": "float",
+          "required": false,
+          "default": "0.15",
+          "help": "Margin around the box as a fraction of its radius.",
+          "example": "0.25"
+        },
+        {
+          "name": "azimuth",
+          "cliName": "azimuth",
+          "type": "float",
+          "required": false,
+          "default": "",
+          "help": "Orbit azimuth in radians to view from; omitted keeps the current angle.",
+          "example": "1.5708"
+        },
+        {
+          "name": "elevation",
+          "cliName": "elevation",
+          "type": "float",
+          "required": false,
+          "default": "",
+          "help": "Orbit elevation in radians to view from; omitted keeps the current angle.",
+          "example": "0.6"
+        }
+      ],
+      "responseHint": "{ok, selection, matchedVertices, boundsMin, boundsMax, center, radius, padding, azimuth, elevation, distance, requestedDistance, error?}"
+    },
+    {
       "commandName": "health",
       "path": "/health",
       "method": "GET",
@@ -361,83 +417,7 @@
           "example": "128"
         }
       ],
-      "responseHint": "{ok, vertex_count, patches:[{id, branch_id, color, centroid, ...}]}"
-    },
-    {
-      "commandName": "mesh-patches-render-flat-multiview",
-      "path": "/mesh/patches/render-flat-multiview",
-      "method": "POST",
-      "description": "Decompose a mesh into semantic patches and render a flat-shaded multiview composite PNG.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.patches.RenderFlatMultiview",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/patches/RenderFlatMultiview.java",
-      "params": [
-        {
-          "name": "path",
-          "cliName": "path",
-          "type": "string",
-          "required": true,
-          "default": "",
-          "help": "Path to the OBJ mesh file to render.",
-          "example": "~/Blends/Hand/Hand.obj"
-        },
-        {
-          "name": "resolution",
-          "cliName": "resolution",
-          "type": "int",
-          "required": false,
-          "default": "128",
-          "help": "Voxel resolution for patch decomposition.",
-          "example": "128"
-        },
-        {
-          "name": "out_path",
-          "cliName": "out_path",
-          "type": "string",
-          "required": false,
-          "default": "",
-          "help": "Destination PNG path; defaults to a timestamped file under screenshots/automation.",
-          "example": "~/out/patches-flat.png"
-        }
-      ],
-      "responseHint": "{ok, path, width, height, patch_count, palette:[{id, flat_color, vertex_count}]}"
-    },
-    {
-      "commandName": "mesh-patches-render-multiview",
-      "path": "/mesh/patches/render-multiview",
-      "method": "POST",
-      "description": "Decompose a mesh into semantic patches and render a shaded multiview composite PNG.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.patches.RenderMultiview",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/patches/RenderMultiview.java",
-      "params": [
-        {
-          "name": "path",
-          "cliName": "path",
-          "type": "string",
-          "required": true,
-          "default": "",
-          "help": "Path to the OBJ mesh file to render.",
-          "example": "~/Blends/Hand/Hand.obj"
-        },
-        {
-          "name": "resolution",
-          "cliName": "resolution",
-          "type": "int",
-          "required": false,
-          "default": "128",
-          "help": "Voxel resolution for patch decomposition.",
-          "example": "128"
-        },
-        {
-          "name": "out_path",
-          "cliName": "out_path",
-          "type": "string",
-          "required": false,
-          "default": "",
-          "help": "Destination PNG path; defaults to a timestamped file under screenshots/automation.",
-          "example": "~/out/patches.png"
-        }
-      ],
-      "responseHint": "{ok, path, width, height, patch_count}"
+      "responseHint": "{ok, vertex_count, patches:[{id, branch_id, color, flat_color, centroid, ...}]}"
     },
     {
       "commandName": "mesh-seamless-diagnosis",
@@ -624,7 +604,7 @@
       "commandName": "multiview",
       "path": "/ui/multiview",
       "method": "POST",
-      "description": "Capture 8 orbit viewpoints and composite them into a labeled 4x2 grid PNG.",
+      "description": "Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG.",
       "sourceClass": "ixdar.platform.automation.endpoints.ui.MultiviewScreenshot",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/MultiviewScreenshot.java",
       "params": [
@@ -647,7 +627,7 @@
           "example": "true"
         }
       ],
-      "responseHint": "{path, width, height, views, sha256, base64?}"
+      "responseHint": "{ok, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}"
     },
     {
       "commandName": "orbit-get",
@@ -657,7 +637,7 @@
       "sourceClass": "ixdar.platform.automation.endpoints.ui.OrbitGet",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/OrbitGet.java",
       "params": [],
-      "responseHint": "{ok, azimuth, elevation, distance, mesh_radius?}"
+      "responseHint": "{ok, azimuth, elevation, distance, target, mesh_radius?}"
     },
     {
       "commandName": "orbit-set",
@@ -693,9 +673,18 @@
           "default": "3.5",
           "help": "Camera distance from the orbit target.",
           "example": "5.0"
+        },
+        {
+          "name": "target",
+          "cliName": "target",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Point the orbit pivots around, as x,y,z; empty leaves the pivot where it is.",
+          "example": "0.1,-0.4,0.2"
         }
       ],
-      "responseHint": "{ok, azimuth, elevation, distance}"
+      "responseHint": "{ok, azimuth, elevation, distance, target}"
     },
     {
       "commandName": "projection-get",
@@ -861,9 +850,27 @@
           "default": "false",
           "help": "Also return the PNG as base64 in the response.",
           "example": "true"
+        },
+        {
+          "name": "crop",
+          "cliName": "crop",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Region to keep as x,y,width,height in pixels from the top-left; empty keeps all.",
+          "example": "600,300,120,80"
+        },
+        {
+          "name": "scale",
+          "cliName": "scale",
+          "type": "int",
+          "required": false,
+          "default": "1",
+          "help": "Nearest-neighbour enlargement factor applied after cropping.",
+          "example": "4"
         }
       ],
-      "responseHint": "{path, width, height, sha256, inlineBase64, base64?}"
+      "responseHint": "{path, width, height, framebufferWidth, framebufferHeight, scale, crop, sha256, inlineBase64, base64?}"
     },
     {
       "commandName": "scroll",

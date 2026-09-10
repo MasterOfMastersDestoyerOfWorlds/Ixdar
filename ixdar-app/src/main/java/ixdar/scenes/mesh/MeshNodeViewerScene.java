@@ -31,7 +31,7 @@ import ixdar.geometry.mesh.data.Patch;
 import ixdar.geometry.mesh.data.MorseSmaleDecomposer;
 
 import ixdar.geometry.mesh.data.MorseSmaleComplex;
-import ixdar.geometry.mesh.data.PatchRenderer;
+import ixdar.geometry.mesh.data.PatchColors;
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.load.ObjMeshParser;
@@ -101,6 +101,7 @@ public class MeshNodeViewerScene extends ModelScene {
     private GeometryBundle meshBundle;
     private volatile HalfEdgeMeshRuntime meshRuntime;
     private HalfEdgeMeshRuntime overlayRuntime;
+    private ArrayMesh overlayMesh;
     private NodeGraphRuntime lastGraphRuntime;
 
     // VIEW-7: catalog + per-mesh decomposition cache + overlay state
@@ -636,6 +637,7 @@ public class MeshNodeViewerScene extends ModelScene {
         disposeOverlay();
         try {
             ArrayMesh refMesh = MeshLoader.load(objPath);
+            overlayMesh = refMesh;
             overlayRuntime = new HalfEdgeMeshRuntime();
             overlayRuntime.upload(refMesh);
             overlayRuntime.setSolidColor(ColorRGB.BLUE_WHITE.toVector4f());
@@ -654,6 +656,7 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     private void disposeOverlay() {
+        overlayMesh = null;
         if (overlayRuntime != null) {
             overlayRuntime.dispose();
             overlayRuntime = null;
@@ -779,6 +782,46 @@ public class MeshNodeViewerScene extends ModelScene {
      */
     public MeshTopology getMesh() {
         return mesh;
+    }
+
+    /**
+     * Reference mesh loaded as a semi-transparent overlay, in the same world space as the mesh.
+     *
+     * @return the overlay mesh, or {@code null} when no overlay is loaded
+     */
+    public MeshTopology getOverlayMesh() {
+        return overlayMesh;
+    }
+
+    /**
+     * The bundle carrying the current mesh's named slots — tags, edge marks — whether it arrived
+     * from a mesh file or from the DSL graph's final output.
+     *
+     * @return the geometry bundle, or {@code null} when nothing is loaded
+     */
+    public GeometryBundle getGeometryBundle() {
+        if (meshBundle != null) {
+            return meshBundle;
+        }
+        if (lastGraphRuntime != null
+                && lastGraphRuntime.lastOutput(DEFAULT_DSL_FINAL_PORT) instanceof GeometryBundle bundle) {
+            return bundle;
+        }
+        return null;
+    }
+
+    /**
+     * Patches of the current mesh, decomposing it first when nothing has yet asked for one. The
+     * decomposition can take seconds and replaces a half-edge mesh with its array form.
+     *
+     * @return the decomposed patches, empty when no mesh is loaded
+     */
+    public List<Patch> decomposePatches() {
+        ensureDecomposition();
+        if (cachedDiagnostics == null) {
+            return List.of();
+        }
+        return cachedDiagnostics.decomposition().patches();
     }
 
     // ==================== VIEW-7 model switching + patch overlay
@@ -1053,9 +1096,7 @@ public class MeshNodeViewerScene extends ModelScene {
 
     /**
      * Compute the feature-edge categories appropriate for the current shader mode
-     * and push them to the runtime. Category assignment mirrors
-     * {@code PatchRenderer.drawFeatureEdgeOverlay} so the on-screen colors match
-     * the offline PNG diagnostic — the two paths must stay in lockstep.
+     * and push them to the runtime.
      */
     private void applyFeatureEdgeOverlay() {
         if (meshRuntime == null || cachedDiagnostics == null)
@@ -1204,7 +1245,7 @@ public class MeshNodeViewerScene extends ModelScene {
             tags.put(name, mask);
             Vector4f color;
             if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.FLAT) {
-                int rgb = PatchRenderer.uniquePatchColor(p.id());
+                int rgb = PatchColors.uniquePatchColor(p.id());
                 color = new Vector4f(
                         ((rgb >> NUM_16) & NUM_0xf) / NUM_255,
                         ((rgb >> NUM_8) & NUM_0xf) / NUM_255,

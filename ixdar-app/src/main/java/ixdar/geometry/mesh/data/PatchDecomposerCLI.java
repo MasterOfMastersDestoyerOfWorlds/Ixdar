@@ -1,6 +1,5 @@
 package ixdar.geometry.mesh.data;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
 
 import java.io.BufferedWriter;
@@ -12,8 +11,6 @@ import java.util.List;
 
 import java.util.Arrays;
 
-import javax.imageio.ImageIO;
-
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -22,28 +19,17 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * Headless CLI for the patch decomposition pipeline, callable without the automation server.
- *
- * <pre>
- *   decompose &lt;obj_path&gt; [resolution]
- *   render &lt;obj_path&gt; &lt;out_png&gt; [resolution]
- *   segment &lt;method&gt; &lt;obj_path&gt; [n_clusters]
- * </pre>
- *
- * All commands print a single JSON object to stdout. Errors go to stderr and
- * the process exits non-zero.
+ * Every sub-command prints one JSON object to stdout; {@link #usage()} lists them. Rendering a
+ * decomposition belongs to the GL renderer, not here.
  */
 public final class PatchDecomposerCLI {
     public static final String OK = "ok";
     public static final String USER_DIR = "user.dir";
-    public static final String PNG = "PNG";
     public static final String PATH = "path";
-    public static final String WIDTH = "width";
-    public static final String HEIGHT = "height";
-    public static final String PATCH_COUNT = "patch_count";
     public static final String ID = "id";
     public static final String COLOR = "color";
+    public static final String FLAT_COLOR = "flat_color";
     public static final String VERTEX_COUNT = "vertex_count";
-    public static final String PALETTE = "palette";
     public static final String P = "p";
     public static final String N = "\n";
     public static final int NUM_128 = 128;
@@ -77,8 +63,6 @@ public final class PatchDecomposerCLI {
         try {
             switch (args[0]) {
                 case "decompose" -> decompose(args);
-                case "render" -> render(args);
-                case "render-flat" -> renderFlat(args);
                 case "segment" -> segment(args);
                 case "stats" -> stats(args);
                 case "crest-lines" -> crestLines(args);
@@ -104,73 +88,6 @@ public final class PatchDecomposerCLI {
         ArrayMesh mesh = MeshLoader.load(path);
         PatchDecomposition d = SemanticPatchDecomposer.decompose(mesh, resolution);
         System.out.println(decompositionToJson(d));
-    }
-
-    private static void render(String[] args) throws Exception {
-        if (args.length < NUM_3) throw new IllegalArgumentException("render requires <obj_path> <out_png>");
-        String path = args[1];
-        String outPath = args[2];
-        int resolution = args.length > NUM_3 ? Integer.parseInt(args[NUM_3]) : NUM_128;
-        ArrayMesh mesh = MeshLoader.load(path);
-        PatchDecomposition d = SemanticPatchDecomposer.decompose(mesh, resolution);
-        BufferedImage img = PatchRenderer.renderMultiview(mesh, d);
-        File out = new File(outPath);
-        if (!out.isAbsolute()) out = new File(System.getProperty(USER_DIR), outPath);
-        File parent = out.getParentFile();
-        if (parent != null) parent.mkdirs();
-        ImageIO.write(img, PNG, out);
-        JsonObject res = new JsonObject();
-        res.addProperty(OK, true);
-        res.addProperty(PATH, out.getAbsolutePath());
-        res.addProperty(WIDTH, img.getWidth());
-        res.addProperty(HEIGHT, img.getHeight());
-        res.addProperty(PATCH_COUNT, d.patches().size());
-        // Emit per-patch palette so the Python caller can build a colored-legend
-        // prompt without re-running decompose.
-        JsonArray palette = new JsonArray();
-        for (Patch p : d.patches()) {
-            JsonObject pj = new JsonObject();
-            pj.addProperty(ID, p.id());
-            pj.addProperty(COLOR, p.color());
-            pj.addProperty(VERTEX_COUNT, p.vertexIndices().length);
-            palette.add(pj);
-        }
-        res.add(PALETTE, palette);
-        System.out.println(res);
-    }
-
-    private static void renderFlat(String[] args) throws Exception {
-        if (args.length < NUM_3) throw new IllegalArgumentException("render-flat requires <obj_path> <out_png>");
-        String path = args[1];
-        String outPath = args[2];
-        int resolution = args.length > NUM_3 ? Integer.parseInt(args[NUM_3]) : NUM_128;
-        ArrayMesh mesh = MeshLoader.load(path);
-        PatchDecomposition d = SemanticPatchDecomposer.decompose(mesh, resolution);
-        BufferedImage img = PatchRenderer.renderMultiviewFlat(mesh, d);
-        File out = new File(outPath);
-        if (!out.isAbsolute()) out = new File(System.getProperty(USER_DIR), outPath);
-        File parent = out.getParentFile();
-        if (parent != null) parent.mkdirs();
-        ImageIO.write(img, PNG, out);
-        JsonObject res = new JsonObject();
-        res.addProperty(OK, true);
-        res.addProperty(PATH, out.getAbsolutePath());
-        res.addProperty(WIDTH, img.getWidth());
-        res.addProperty(HEIGHT, img.getHeight());
-        res.addProperty(PATCH_COUNT, d.patches().size());
-        // Per-patch globally-unique flat colour so the Python side can build
-        // (hex -> patch_id) and (hex -> patch_name) lookups without re-running
-        // the decomposition.
-        JsonArray palette = new JsonArray();
-        for (Patch p : d.patches()) {
-            JsonObject pj = new JsonObject();
-            pj.addProperty(ID, p.id());
-            pj.addProperty("flat_color", PatchRenderer.uniquePatchColorHex(p.id()));
-            pj.addProperty(VERTEX_COUNT, p.vertexIndices().length);
-            palette.add(pj);
-        }
-        res.add(PALETTE, palette);
-        System.out.println(res);
     }
 
     private static void segment(String[] args) throws Exception {
@@ -209,6 +126,7 @@ public final class PatchDecomposerCLI {
             pj.addProperty(ID, p.id());
             pj.addProperty("branch_id", p.branchId());
             pj.addProperty(COLOR, p.color());
+            pj.addProperty(FLAT_COLOR, PatchColors.uniquePatchColorHex(p.id()));
             pj.addProperty("curvature_mean", p.curvatureMean());
             JsonArray centroid = new JsonArray();
             for (float c : p.centroid()) centroid.add(c);
@@ -346,8 +264,6 @@ public final class PatchDecomposerCLI {
     private static void usage() {
         System.err.println("Usage:");
         System.err.println("  decompose <obj_path> [resolution]");
-        System.err.println("  render <obj_path> <out_png> [resolution]");
-        System.err.println("  render-flat <obj_path> <out_png> [resolution]");
         System.err.println("  segment <method> <obj_path> [n_clusters]");
         System.err.println("  stats <obj_path>");
         System.err.println("  crest-lines <obj_path> <out_obj>");

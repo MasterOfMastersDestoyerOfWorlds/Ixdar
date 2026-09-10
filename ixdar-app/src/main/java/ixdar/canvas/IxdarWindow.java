@@ -40,8 +40,6 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.function.Supplier;
 
-import javax.swing.JFrame;
-
 import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWImage;
@@ -77,7 +75,6 @@ public class IxdarWindow {
     /** Automation platform id, matching the value the headless render entrypoints use. */
     public static final int HEADLESS_PLATFORM_ID = 1;
 
-    public static JFrame frame;
     public static float startTime;
 
     public static long window;
@@ -156,15 +153,6 @@ public class IxdarWindow {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    /**
-     * Width-over-height aspect ratio of the underlying Swing frame.
-     *
-     * @return {@code frame.getWidth() / frame.getHeight()}
-     */
-    public static float getAspectRatio() {
-        return ((float) frame.getWidth()) / ((float) frame.getHeight());
     }
 
     /**

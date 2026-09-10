@@ -1,51 +1,9 @@
 package ixdar.platform.automation.endpoints;
 
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import ixdar.audio.AudioSystem;
-import ixdar.canvas.Canvas3D;
-import ixdar.canvas.IxdarWindow;
-import ixdar.game.City;
-import ixdar.geometry.mesh.MeshCanonicalFingerprint;
-import ixdar.geometry.mesh.data.MeshDistance;
-import ixdar.geometry.mesh.data.MeshSkeletonComparator;
-import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.load.MeshLoader;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.point.IrregularQuadGrid;
-import ixdar.graphics.render.text.HyperString;
-import ixdar.graphics.render.text.HyperWord;
-import ixdar.gui.ui.menu.MenuBox;
-import ixdar.gui.ui.menu.MenuItem;
-import ixdar.gui.ui.tools.RoutePlanningTool;
-import ixdar.platform.Platforms;
-import ixdar.platform.automation.AutomationApiServer;
-import ixdar.platform.automation.AutomationPortFile;
-import ixdar.platform.automation.AutomationRecorder;
-import ixdar.platform.automation.AutomationReplayEngine;
-import ixdar.platform.automation.AutomationReplayEngine.ReplayMode;
-import ixdar.platform.automation.endpoints.input.InjectKey;
-import ixdar.platform.input.KeyGuy;
-import ixdar.platform.input.MouseTrap;
-import ixdar.platform.input.OrbitMouseTrap;
-import ixdar.platform.input.TradeMouseTrap;
-import ixdar.scenes.anatomy.IrregularGridScene;
-import ixdar.scenes.main.MainScene;
-import ixdar.scenes.mesh.MeshNodeViewerScene;
-import ixdar.scenes.trade.TradeScene;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.security.MessageDigest;
-import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -53,8 +11,33 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import javax.imageio.ImageIO;
+
 import org.joml.Vector3f;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import ixdar.canvas.Canvas3D;
+import ixdar.geometry.mesh.data.MeshDistance;
+import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
+import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.graphics.render.text.HyperString;
+import ixdar.graphics.render.text.HyperWord;
+import ixdar.platform.Platforms;
+import ixdar.platform.automation.AutomationApiServer;
+import ixdar.platform.automation.AutomationInputBinder;
+import ixdar.platform.automation.AutomationPortFile;
+import ixdar.platform.automation.AutomationRecorder;
+import ixdar.platform.automation.AutomationReplayEngine;
+import ixdar.platform.input.KeyGuy;
+import ixdar.platform.input.MouseTrap;
+import ixdar.scenes.main.MainScene;
+import ixdar.scenes.mesh.MeshNodeViewerScene;
+import ixdar.scenes.trade.TradeScene;
 
 public class AutomationRuntime {
     public static final String KEY = "key";

@@ -2,8 +2,10 @@ import io
 import json
 import os
 import subprocess
+import struct
 import tempfile
 import unittest
+import zlib
 from unittest.mock import patch
 
 from ixdar_automation_cli import automation_client
@@ -12,10 +14,46 @@ from ixdar_automation_cli import ixdar_cli
 from ixdar_automation_cli import mesh_catalog
 from ixdar_automation_cli import quilt_mesh_fingerprint
 from ixdar_automation_cli.cli_commands import launch_entry
+from ixdar_automation_cli import png_image
+from ixdar_automation_cli import quilt_mesh_fingerprint
+from ixdar_automation_cli.cli_commands import image_commands
 from ixdar_automation_cli.cli_commands import new_scene
 from ixdar_automation_cli.cli_commands import run_scene
 from ixdar_automation_cli.cli_commands import shutdown_scene
 from ixdar_automation_cli.cli_registry import cli_command, get_registry
+
+
+def write_test_png(path, width, height, pixel, filter_type=0):
+    """Write an 8-bit RGB PNG so image tests do not need a rendered screenshot or Pillow.
+
+    :param path: file to write
+    :param width: image width in pixels
+    :param height: image height in pixels
+    :param pixel: callable taking x and y and returning an (r, g, b) tuple
+    :param filter_type: PNG row filter to encode with; 0 is none, 2 is up, 4 is Paeth
+    """
+    def chunk(tag, body):
+        return struct.pack(">I", len(body)) + tag + body + struct.pack(">I", zlib.crc32(tag + body))
+
+    raw = b""
+    previous = bytes(width * 3)
+    for y in range(height):
+        row = b"".join(bytes(pixel(x, y)) for x in range(width))
+        if filter_type == 0:
+            encoded = row
+        elif filter_type == 2:
+            encoded = bytes((row[i] - previous[i]) & 0xFF for i in range(len(row)))
+        else:
+            raise ValueError(f"test writer does not encode filter {filter_type}")
+        raw += bytes([filter_type]) + encoded
+        previous = row
+    with open(path, "wb") as handle:
+        handle.write(
+            b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw))
+            + chunk(b"IEND", b"")
+        )
 
 
 class FakeResponse:
@@ -784,6 +822,90 @@ class CliTest(unittest.TestCase):
                 request = urlopen.call_args[0][0]
                 self.assertTrue(request.full_url.endswith(path))
                 self.assertEqual(2, json.loads(request.data.decode("utf-8"))["settle"])
+
+    def test_png_decoder_reads_unfiltered_and_filtered_rows(self):
+        def gradient(x, y):
+            return (x * 3 % 256, y * 7 % 256, 40)
+
+        with tempfile.TemporaryDirectory() as directory:
+            plain = os.path.join(directory, "plain.png")
+            filtered = os.path.join(directory, "filtered.png")
+            write_test_png(plain, 40, 24, gradient, filter_type=0)
+            write_test_png(filtered, 40, 24, gradient, filter_type=2)
+            # The same pixels through two different row filters must decode to the same bytes,
+            # which is what proves the unfilter step and not just the inflate step is right.
+            self.assertEqual(png_image.read_png(plain).rgb, png_image.read_png(filtered).rgb)
+            self.assertEqual((40, 24), (png_image.read_png(plain).width, png_image.read_png(plain).height))
+
+    def test_image_diff_reports_zero_for_identical_and_the_changed_pixels_otherwise(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = os.path.join(directory, "first.png")
+            second = os.path.join(directory, "second.png")
+            write_test_png(first, 30, 20, lambda x, y: (10, 20, 30))
+            # A ring of 12 pixels: everything else is identical.
+            ring = {(x, 5) for x in range(9, 15)} | {(x, 9) for x in range(9, 15)}
+            write_test_png(second, 30, 20, lambda x, y: (200, 20, 30) if (x, y) in ring else (10, 20, 30))
+
+            self.assertEqual(0, ixdar_cli.main(["image-diff", first, first]))
+            identical = png_image.compare_images(png_image.read_png(first), png_image.read_png(first), 8)
+            self.assertEqual(0, identical["differingPixels"])
+            self.assertEqual(0.0, identical["rmse"])
+            self.assertTrue(identical["identical"])
+
+            changed = png_image.compare_images(png_image.read_png(first), png_image.read_png(second), 8)
+            self.assertEqual(12, changed["differingPixels"])
+            self.assertEqual(190, changed["maxChannelDelta"])
+            self.assertGreater(changed["rmse"], 0.0)
+            self.assertFalse(changed["identical"])
+
+    def test_image_diff_fails_when_more_pixels_differ_than_allowed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = os.path.join(directory, "first.png")
+            second = os.path.join(directory, "second.png")
+            write_test_png(first, 16, 16, lambda x, y: (0, 0, 0))
+            write_test_png(second, 16, 16, lambda x, y: (255, 255, 255))
+            self.assertEqual(6, ixdar_cli.main(["image-diff", first, second, "--max-differing", "0"]))
+            self.assertEqual(0, ixdar_cli.main(["image-diff", first, second, "--max-differing", "256"]))
+
+    def test_image_diff_rejects_images_of_different_sizes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            small = os.path.join(directory, "small.png")
+            large = os.path.join(directory, "large.png")
+            write_test_png(small, 8, 8, lambda x, y: (0, 0, 0))
+            write_test_png(large, 9, 8, lambda x, y: (0, 0, 0))
+            self.assertEqual(6, ixdar_cli.main(["image-diff", small, large]))
+
+    def test_image_stats_fails_on_a_black_frame(self):
+        # MESH-53: an all-black multiview composite must fail loudly rather than read as a render.
+        with tempfile.TemporaryDirectory() as directory:
+            black = os.path.join(directory, "multiview-black.png")
+            drawn = os.path.join(directory, "multiview-drawn.png")
+            write_test_png(black, 32, 16, lambda x, y: (0, 0, 0))
+            write_test_png(drawn, 32, 16, lambda x, y: (0, 0, 0) if y < 8 else (90, 110, 130))
+
+            self.assertEqual(6, ixdar_cli.main(["image-stats", black]))
+            self.assertEqual(0, ixdar_cli.main(["image-stats", drawn]))
+            self.assertTrue(png_image.image_statistics(png_image.read_png(black))["blank"])
+            self.assertFalse(png_image.image_statistics(png_image.read_png(drawn))["blank"])
+            # A dim-but-not-uniform frame still fails an explicit brightness floor.
+            self.assertEqual(6, ixdar_cli.main(["image-stats", drawn, "--min-mean", "200"]))
+
+    def test_positional_command_arguments_are_parsed(self):
+        parser = ixdar_cli._build_parser()
+        parsed = parser.parse_args(["image-diff", "a.png", "b.png"])
+        self.assertEqual("a.png", parsed.first)
+        self.assertEqual("b.png", parsed.second)
+        self.assertEqual(image_commands.DEFAULT_FUZZ, parsed.fuzz)
+
+    def test_screenshot_and_frame_routes_expose_their_new_flags(self):
+        server_commands = ixdar_cli._server_commands()
+        screenshot_flags = {param["cliName"] for param in server_commands["screenshot"]["params"]}
+        self.assertIn("crop", screenshot_flags)
+        self.assertIn("scale", screenshot_flags)
+        self.assertIn("target", {param["cliName"] for param in server_commands["orbit-set"]["params"]})
+        self.assertIn("frame", server_commands)
+        frame_flags = {param["cliName"] for param in server_commands["frame"]["params"]}
+        self.assertEqual({"selection", "bounds", "padding", "azimuth", "elevation"}, frame_flags)
 
 
 if __name__ == "__main__":

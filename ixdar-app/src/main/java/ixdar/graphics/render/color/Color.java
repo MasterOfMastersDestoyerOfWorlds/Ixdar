@@ -73,8 +73,6 @@ public interface Color {
 
     /**
      * Convert HSB (hue/saturation/brightness) to an RGB {@link ColorRGB}.
-     * Mirrors {@link java.awt.Color#HSBtoRGB(float, float, float)} but returns
-     * a {@code Color} instance directly.
      *
      * @param hue hue in [0, 1); fractional turns are taken modulo 1
      * @param saturation saturation in [0, 1]
@@ -129,8 +127,7 @@ public interface Color {
 
     /**
      * Convenience wrapper around {@link #HSBtoRGB(float, float, float)} that
-     * rewraps the result as a {@link ColorRGB}, matching the
-     * {@code java.awt.Color.getHSBColor} signature for callers porting AWT code.
+     * rewraps the result as a {@link ColorRGB}.
      *
      * @param h hue in [0, 1)
      * @param s saturation in [0, 1]

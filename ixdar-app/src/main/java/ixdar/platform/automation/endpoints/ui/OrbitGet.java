@@ -4,6 +4,8 @@ import java.io.IOException;
 
 import com.google.gson.JsonObject;
 
+import org.joml.Vector3f;
+
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
@@ -29,6 +31,7 @@ public class OrbitGet extends AutomationEndpoint implements AutomationRoute {
         result.addProperty("azimuth", orbit.getAzimuth());
         result.addProperty("elevation", orbit.getElevation());
         result.addProperty("distance", orbit.getDistance());
+        result.add("target", runtime.vector3Array(orbit.getTarget(new Vector3f())));
         if (modelScene instanceof MeshNodeViewerScene mvs && mvs.getMesh() != null) {
             result.addProperty("mesh_radius", mvs.getMeshRadius());
         }
@@ -40,7 +43,7 @@ public class OrbitGet extends AutomationEndpoint implements AutomationRoute {
         return RouteDoc.builder()
                 .commandName("orbit-get")
                 .description("Report the active mesh viewer's current camera orbit and mesh radius.")
-                .responseHint("{ok, azimuth, elevation, distance, mesh_radius?}")
+                .responseHint("{ok, azimuth, elevation, distance, target, mesh_radius?}")
                 .build();
     }
 }

@@ -3,32 +3,28 @@ package ixdar.platform.automation.endpoints.ui;
 import java.io.File;
 import java.util.Base64;
 
-import javax.imageio.ImageIO;
-
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
-import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.text.Font;
+import ixdar.graphics.image.PixelImage;
+import ixdar.graphics.image.PngWriter;
 import ixdar.platform.Platforms;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.automation.AutomationPortFile;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
-import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
-
 @AutomationRouteAnnotation(path = "ui/multiview", method = APIMethod.POST)
 public class MultiviewScreenshot extends AutomationEndpoint implements AutomationRoute {
     public static final String PATH = "path";
     public static final String INLINE = "inline";
     public static final String ERROR = "error";
+    public static final String OK = "ok";
     public static final float NUM_1_45 = 1.45f;
     public static final int NUM_4 = 4;
     public static final float NUM_0_4 = 0.4f;
@@ -37,13 +33,10 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
     public static final int NUM_8 = 8;
 
     /**
-     * Capture 8 viewpoints (front/right/back/left/top/bottom/3-4 front-R/3-4
-     * front-L) and composite into a labeled 4x2 grid PNG.
+     * Capture 8 viewpoints into a 4x2 grid PNG, filled in the order {@code viewOrder} names.
      *
-     * Uses separate runOnMainThread calls for each view: one to set orbit (scene
-     * re-renders naturally on the next frame), then one to read pixels. This avoids
-     * re-entrantly calling drawScene() from within processMainThreadCommands(),
-     * which causes a hang.
+     * <p>Each view needs two {@code runOnMainThread} calls — set the orbit, then read the next
+     * frame — because reading in the same call re-enters {@code drawScene()} and hangs.
      */
     @Override
     public JsonObject endpointHandler(JsonObject body) throws Exception {
@@ -87,7 +80,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 return new JsonObject();
             });
 
-            BufferedImage[] captures = new BufferedImage[NUM_8];
+            PixelImage[] captures = new PixelImage[NUM_8];
             int[] dims = new int[2];
             float viewDist = saved[NUM_3];
 
@@ -121,13 +114,10 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                             Platforms.gl().RGBA(),
                             Platforms.gl().UNSIGNED_BYTE(),
                             w * h * NUM_4);
-                    BufferedImage img = new BufferedImage(
-                            w,
-                            h,
-                            BufferedImage.TYPE_INT_RGB);
+                    PixelImage img = new PixelImage(w, h);
                     for (int y = 0; y < h; y++) {
                         for (int x = 0; x < w; x++) {
-                            img.setRGB(x, y, pixels[(h - 1 - y) * w + x]);
+                            img.set(x, y, pixels[(h - 1 - y) * w + x] | PixelImage.OPAQUE);
                         }
                     }
                     captures[viewIndex] = img;
@@ -151,10 +141,18 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 err.addProperty(ERROR, "Framebuffer dimensions are 0");
                 return err;
             }
-            BufferedImage composite = new BufferedImage(
-                    NUM_4 * cellW,
-                    2 * cellH,
-                    BufferedImage.TYPE_INT_RGB);
+            PixelImage composite = new PixelImage(NUM_4 * cellW, 2 * cellH);
+            int blankViews = 0;
+            for (int i = 0; i < NUM_8; i++) {
+                if (captures[i] == null) {
+                    blankViews++;
+                    continue;
+                }
+                composite.blit(captures[i], (i % NUM_4) * cellW, (i / NUM_4) * cellH);
+                if (captures[i].isUniform()) {
+                    blankViews++;
+                }
+            }
 
             // Write to disk
             File checkout = AutomationPortFile.checkoutRoot().toFile();
@@ -172,15 +170,27 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             File parent = out.getParentFile();
             if (parent != null)
                 parent.mkdirs();
-            ImageIO.write(composite, "PNG", out);
+            PngWriter.write(composite, out);
 
             byte[] pngBytes = imageBytes(composite);
             JsonObject result = new JsonObject();
+            result.addProperty(OK, blankViews < NUM_8);
             result.addProperty(PATH, out.getAbsolutePath());
             result.addProperty("width", NUM_4 * cellW);
             result.addProperty("height", 2 * cellH);
             result.addProperty("views", NUM_8);
+            result.addProperty("blankViews", blankViews);
+            result.addProperty("cellWidth", cellW);
+            result.addProperty("cellHeight", cellH);
+            JsonArray viewOrder = new JsonArray();
+            for (String label : labels) {
+                viewOrder.add(label);
+            }
+            result.add("viewOrder", viewOrder);
             result.addProperty("sha256", sha256(pngBytes));
+            if (blankViews == NUM_8) {
+                result.addProperty(ERROR, "every view rendered blank; the scene drew nothing");
+            }
             if (inline) {
                 result.addProperty(
                         "base64",
@@ -188,10 +198,9 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             }
             return result;
 
-        } catch (
-
-        Exception e) {
+        } catch (Exception e) {
             JsonObject err = new JsonObject();
+            err.addProperty(OK, false);
             err.addProperty(ERROR, e.getMessage());
             return err;
         }
@@ -201,12 +210,13 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
     public RouteDoc describe() {
         return RouteDoc.builder()
                 .commandName("multiview")
-                .description("Capture 8 orbit viewpoints and composite them into a labeled 4x2 grid PNG.")
+                .description("Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG.")
                 .paramAliased(PATH, "out", RouteParamType.STRING, false, "",
                         "Output file path; empty writes under screenshots/automation/.", "/tmp/multiview.png")
                 .param(INLINE, RouteParamType.BOOL, false, "false",
                         "Also return the composite PNG as base64 in the response.", "true")
-                .responseHint("{path, width, height, views, sha256, base64?}")
+                .responseHint("{ok, path, width, height, views, blankViews, cellWidth, cellHeight, "
+                        + "viewOrder, sha256, error?, base64?}")
                 .build();
     }
 }

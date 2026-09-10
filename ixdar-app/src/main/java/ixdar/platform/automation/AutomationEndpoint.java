@@ -1,20 +1,18 @@
 package ixdar.platform.automation;
 
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
-import javax.imageio.ImageIO;
-
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 
+import ixdar.graphics.image.PixelImage;
+import ixdar.graphics.image.PngWriter;
 import ixdar.platform.Platforms;
 import ixdar.platform.automation.endpoints.AutomationRuntime;
 
@@ -149,16 +147,14 @@ public class AutomationEndpoint {
     }
 
     /**
-     * Encode the given image as PNG bytes via {@link ImageIO}.
+     * Encode the given image as PNG bytes via {@link PngWriter}.
      *
      * @param image source image
      * @throws IOException if PNG encoding fails
      * @return PNG-encoded byte array
      */
-    public byte[] imageBytes(BufferedImage image) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(image, "PNG", baos);
-        return baos.toByteArray();
+    public byte[] imageBytes(PixelImage image) throws IOException {
+        return PngWriter.toBytes(image);
     }
 
     /**

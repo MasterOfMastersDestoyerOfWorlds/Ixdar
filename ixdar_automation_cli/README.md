@@ -24,6 +24,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | Command | Description |
 | --- | --- |
 | [`click`](#click) | Click at a point on the active mouse handler, then wait for the click to be drawn. |
+| [`frame`](#frame) | Fit the camera to a named selection or an explicit bounding box, filling the view with it. |
 | [`health`](#health) | Liveness probe reporting server status, recording/replaying flags, and port. |
 | [`hover`](#hover) | Move the cursor without clicking, then wait for the hover to be drawn. |
 | [`hover-clear`](#hover-clear) | Release the persistent automation hover lock on the active trade mouse handler. |
@@ -34,14 +35,12 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`mesh-dsl-validate`](#mesh-dsl-validate) | Validate DSL source text, or the contents of a .dsl file path, against the skill schema. |
 | [`mesh-fingerprint`](#mesh-fingerprint) | Compute the canonical SHA-256 fingerprint of the active viewer mesh. |
 | [`mesh-patches-decompose`](#mesh-patches-decompose) | Hybrid skeleton and curvature patch decomposition of a reference mesh. |
-| [`mesh-patches-render-flat-multiview`](#mesh-patches-render-flat-multiview) | Decompose a mesh into semantic patches and render a flat-shaded multiview composite PNG. |
-| [`mesh-patches-render-multiview`](#mesh-patches-render-multiview) | Decompose a mesh into semantic patches and render a shaded multiview composite PNG. |
 | [`mesh-seamless-diagnosis`](#mesh-seamless-diagnosis) | Report the seamless solver's singular-system diagnosis: how the singularity was classified, the null vector's support and the mesh vertices it sits on. |
 | [`mesh-segmentation`](#mesh-segmentation) | Segment a mesh into labeled vertex groups by connected components, curvature, or spatial clustering. |
 | [`mesh-skeleton-compare`](#mesh-skeleton-compare) | Compare TEASAR skeletons of two meshes and recommend parameter fixes. |
 | [`mesh-skeleton-compare-detailed`](#mesh-skeleton-compare-detailed) | Detailed skeleton comparison returning per-joint 3D position deltas. |
 | [`mesh-skeleton-sensitivity`](#mesh-skeleton-sensitivity) | Compute the Jacobian of skeleton joints w.r.t. DSL parameters. |
-| [`multiview`](#multiview) | Capture 8 orbit viewpoints and composite them into a labeled 4x2 grid PNG. |
+| [`multiview`](#multiview) | Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG. |
 | [`orbit-get`](#orbit-get) | Report the active mesh viewer's current camera orbit and mesh radius. |
 | [`orbit-set`](#orbit-set) | Set the active mesh viewer's camera orbit (azimuth, elevation, distance). |
 | [`projection-get`](#projection-get) | Report whether the active mesh viewer is using orthographic projection. |
@@ -74,6 +73,8 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`dsl-optimize`](#dsl-optimize) | Batch-optimize mesh DSL parameters against a reference OBJ. |
 | [`duplication-report`](#duplication-report) | Report duplicated code ranked by how much repetition factoring it out would remove. |
 | [`gen-docs`](#gen-docs) | Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry. |
+| [`image-diff`](#image-diff) | Compare two PNG screenshots, reporting RMSE and how many pixels differ beyond a fuzz. |
+| [`image-stats`](#image-stats) | Report a PNG's mean, minimum and maximum channel values and whether it is a blank frame. |
 | [`install-alias`](#install-alias) | Install a global ixdar-cli wrapper into ~/.local/bin. |
 | [`launch`](#launch) | Run a .vscode/launch.json entry non-headless, then report its first log lines and a screenshot. |
 | [`list-meshes`](#list-meshes) | List mesh files a scene can load, with the short names run-scene resolves. |
@@ -111,6 +112,22 @@ Click at a point on the active mouse handler, then wait for the click to be draw
   - `--settle` (int, default `2`) — Frames to wait for after the click, so a screenshot needs no sleep; 0 returns at once., e.g. `0`
 - **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"x": 0.5, "y": 0.25, "normalized": true, "button": 1, "settle": 0}'`
+
+### `frame`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/Frame.java)
+
+Fit the camera to a named selection or an explicit bounding box, filling the view with it.
+
+- **Route:** `POST /ui/frame`
+- **Flags:**
+  - `--selection` (string, default `mesh`) — What to frame: mesh, overlay, tag:NAME, edge-mark:LABEL, patch:ID, or a bare name., e.g. `tag:cranium`
+  - `--bounds` (string, default ``) — Explicit box as minX,minY,minZ,maxX,maxY,maxZ; overrides the selection., e.g. `-1,-1,-1,1,1,1`
+  - `--padding` (float, default `0.15`) — Margin around the box as a fraction of its radius., e.g. `0.25`
+  - `--azimuth` (float, default ``) — Orbit azimuth in radians to view from; omitted keeps the current angle., e.g. `1.5708`
+  - `--elevation` (float, default ``) — Orbit elevation in radians to view from; omitted keeps the current angle., e.g. `0.6`
+- **Response:** `{ok, selection, matchedVertices, boundsMin, boundsMax, center, radius, padding, azimuth, elevation, distance, requestedDistance, error?}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/frame -d '{"selection": "tag:cranium", "bounds": "-1,-1,-1,1,1,1", "padding": 0.25, "azimuth": 1.5708, "elevation": 0.6}'`
 
 ### `health`
 
@@ -234,36 +251,8 @@ Hybrid skeleton and curvature patch decomposition of a reference mesh.
 - **Flags:**
   - `--path` (string, required) — Path to an OBJ mesh file., e.g. `~/Blends/Hand/Hand.obj`
   - `--resolution` (int, default `128`) — Voxel resolution for skeletonization., e.g. `128`
-- **Response:** `{ok, vertex_count, patches:[{id, branch_id, color, centroid, ...}]}`
+- **Response:** `{ok, vertex_count, patches:[{id, branch_id, color, flat_color, centroid, ...}]}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/patches/decompose -d '{"path": "~/Blends/Hand/Hand.obj", "resolution": 128}'`
-
-### `mesh-patches-render-flat-multiview`
-
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/patches/RenderFlatMultiview.java)
-
-Decompose a mesh into semantic patches and render a flat-shaded multiview composite PNG.
-
-- **Route:** `POST /mesh/patches/render-flat-multiview`
-- **Flags:**
-  - `--path` (string, required) — Path to the OBJ mesh file to render., e.g. `~/Blends/Hand/Hand.obj`
-  - `--resolution` (int, default `128`) — Voxel resolution for patch decomposition., e.g. `128`
-  - `--out-path` (string, default ``) — Destination PNG path; defaults to a timestamped file under screenshots/automation., e.g. `~/out/patches-flat.png`
-- **Response:** `{ok, path, width, height, patch_count, palette:[{id, flat_color, vertex_count}]}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/patches/render-flat-multiview -d '{"path": "~/Blends/Hand/Hand.obj", "resolution": 128, "out_path": "~/out/patches-flat.png"}'`
-
-### `mesh-patches-render-multiview`
-
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/patches/RenderMultiview.java)
-
-Decompose a mesh into semantic patches and render a shaded multiview composite PNG.
-
-- **Route:** `POST /mesh/patches/render-multiview`
-- **Flags:**
-  - `--path` (string, required) — Path to the OBJ mesh file to render., e.g. `~/Blends/Hand/Hand.obj`
-  - `--resolution` (int, default `128`) — Voxel resolution for patch decomposition., e.g. `128`
-  - `--out-path` (string, default ``) — Destination PNG path; defaults to a timestamped file under screenshots/automation., e.g. `~/out/patches.png`
-- **Response:** `{ok, path, width, height, patch_count}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/patches/render-multiview -d '{"path": "~/Blends/Hand/Hand.obj", "resolution": 128, "out_path": "~/out/patches.png"}'`
 
 ### `mesh-seamless-diagnosis`
 
@@ -338,13 +327,13 @@ Compute the Jacobian of skeleton joints w.r.t. DSL parameters.
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/MultiviewScreenshot.java)
 
-Capture 8 orbit viewpoints and composite them into a labeled 4x2 grid PNG.
+Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG.
 
 - **Route:** `POST /ui/multiview`
 - **Flags:**
   - `--out` (string, default ``) — Output file path; empty writes under screenshots/automation/., e.g. `/tmp/multiview.png`
   - `--inline` (bool, default `false`) — Also return the composite PNG as base64 in the response., e.g. `true`
-- **Response:** `{path, width, height, views, sha256, base64?}`
+- **Response:** `{ok, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/multiview -d '{"path": "/tmp/multiview.png", "inline": true}'`
 
 ### `orbit-get`
@@ -354,7 +343,7 @@ Capture 8 orbit viewpoints and composite them into a labeled 4x2 grid PNG.
 Report the active mesh viewer's current camera orbit and mesh radius.
 
 - **Route:** `GET /ui/orbit`
-- **Response:** `{ok, azimuth, elevation, distance, mesh_radius?}`
+- **Response:** `{ok, azimuth, elevation, distance, target, mesh_radius?}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/orbit`
 
 ### `orbit-set`
@@ -368,8 +357,9 @@ Set the active mesh viewer's camera orbit (azimuth, elevation, distance).
   - `--azimuth` (float, default `0.0`) — Orbit azimuth angle in radians., e.g. `1.5708`
   - `--elevation` (float, default `0.0`) — Orbit elevation angle in radians., e.g. `0.6`
   - `--distance` (float, default `3.5`) — Camera distance from the orbit target., e.g. `5.0`
-- **Response:** `{ok, azimuth, elevation, distance}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/orbit -d '{"azimuth": 1.5708, "elevation": 0.6, "distance": 5.0}'`
+  - `--target` (string, default ``) — Point the orbit pivots around, as x,y,z; empty leaves the pivot where it is., e.g. `0.1,-0.4,0.2`
+- **Response:** `{ok, azimuth, elevation, distance, target}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/orbit -d '{"azimuth": 1.5708, "elevation": 0.6, "distance": 5.0, "target": "0.1,-0.4,0.2"}'`
 
 ### `projection-get`
 
@@ -488,8 +478,10 @@ Capture a PNG screenshot of the current framebuffer to a file.
 - **Flags:**
   - `--out` (string, default ``) — Output file path; empty writes under screenshots/automation/., e.g. `/tmp/shot.png`
   - `--inline` (bool, default `false`) — Also return the PNG as base64 in the response., e.g. `true`
-- **Response:** `{path, width, height, sha256, inlineBase64, base64?}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/screenshot -d '{"path": "/tmp/shot.png", "inline": true}'`
+  - `--crop` (string, default ``) — Region to keep as x,y,width,height in pixels from the top-left; empty keeps all., e.g. `600,300,120,80`
+  - `--scale` (int, default `1`) — Nearest-neighbour enlargement factor applied after cropping., e.g. `4`
+- **Response:** `{path, width, height, framebufferWidth, framebufferHeight, scale, crop, sha256, inlineBase64, base64?}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/screenshot -d '{"path": "/tmp/shot.png", "inline": true, "crop": "600,300,120,80", "scale": 4}'`
 
 ### `scroll`
 
@@ -633,6 +625,26 @@ Regenerate the CLAUDE.md command list and the CLI README from the manifest and r
 
 - `--check` — Report drift without writing (CI/pre-commit gate); non-zero exit if stale.
 
+### `image-diff`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/image_commands.py#L13)
+
+Compare two PNG screenshots, reporting RMSE and how many pixels differ beyond a fuzz.
+
+- `first` — Path to the baseline PNG.
+- `second` — Path to the PNG being compared against the baseline.
+- `--fuzz` — Per-channel value a pixel may differ by before it counts as changed.
+- `--max-differing` — Fail (exit 6) when more pixels than this differ; negative never fails.
+
+### `image-stats`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/image_commands.py#L39)
+
+Report a PNG's mean, minimum and maximum channel values and whether it is a blank frame.
+
+- `image` — Path to the PNG to measure.
+- `--min-mean` — Fail (exit 6) when the mean channel value is below this; negative only fails on a blank frame.
+
 ### `install-alias`
 
 [↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/install_alias.py#L46)
@@ -764,7 +776,7 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L643)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L616)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
