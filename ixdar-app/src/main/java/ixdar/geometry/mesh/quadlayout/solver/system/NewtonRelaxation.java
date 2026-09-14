@@ -29,6 +29,12 @@ public final class NewtonRelaxation {
     /** Line-search backtracks before the step is abandoned. */
     public static final int MAX_BACKTRACKS = 5;
 
+    /** Factor the line search grows an accepted step by while the energy still falls. */
+    public static final double EXPANSION = 2.0;
+
+    /** Growths the line search tries before settling on the best step it found. */
+    public static final int MAX_EXPANSIONS = 12;
+
     /** Armijo sufficient-decrease slope. */
     public static final double ARMIJO_SLOPE = 1.0e-4;
 
@@ -134,8 +140,10 @@ public final class NewtonRelaxation {
         energyBefore = dofs.energy();
         double energy = energyBefore;
         long startedAt = System.currentTimeMillis();
-        for (int iteration = 0; iteration < maxIterations
-                && System.currentTimeMillis() - startedAt < timeBudgetMilliseconds; iteration++) {
+        for (int iteration = 0; iteration < maxIterations; iteration++) {
+            if (System.currentTimeMillis() - startedAt >= timeBudgetMilliseconds) {
+                break;
+            }
             Arrays.fill(diagonal, 0.0);
             Arrays.fill(rightHandSide, 0.0);
             Arrays.fill(upperValues, 0.0);
@@ -189,8 +197,10 @@ public final class NewtonRelaxation {
     }
 
     /**
-     * Moves along the Newton direction from {@code min(1, 0.8 * alphaMax)},
-     * backtracking under the Armijo test; accepts into {@code dofs.solution}.
+     * Backtracks from {@code min(1, 0.8 * alphaMax)} under the Armijo test, then grows
+     * the accepted step while the energy still falls, never past
+     * {@link #MAX_STEP_MARGIN} of the non-inverting bound. The growth is what escapes
+     * a collapsed triangle's {@code 1/det²}.
      *
      * @param matrix  the assembled system, for the quadratic-energy fallback
      * @param delta   the Newton displacement of every coordinate
@@ -202,27 +212,57 @@ public final class NewtonRelaxation {
                 ? stepLimit.maxStep(dofs.solution, delta)
                 : Double.POSITIVE_INFINITY;
         lastAlphaMax = alphaMax;
-        double step = Math.min(1.0, MAX_STEP_MARGIN * alphaMax);
+        double feasibleStep = MAX_STEP_MARGIN * alphaMax;
+        double step = Math.min(1.0, feasibleStep);
+        acceptedStep = 0.0;
         if (!(step > 0.0)) {
-            acceptedStep = 0.0;
             return current;
         }
         double[] trial = new double[dofs.dofCount];
+        double energy = current;
         for (int backtrack = 0; backtrack < MAX_BACKTRACKS; backtrack++) {
-            for (int index = 0; index < dofs.dofCount; index++) {
-                trial[index] = dofs.solution[index] + step * delta[index];
-            }
-            double trialEnergy = dofs.energy != null
-                    ? dofs.energy.energy(trial)
-                    : matrix.quadraticEnergy(trial);
+            double trialEnergy = energyAtStep(matrix, trial, delta, step);
             if (trialEnergy <= current + ARMIJO_SLOPE * step * gradientDotDirection) {
-                System.arraycopy(trial, 0, dofs.solution, 0, dofs.dofCount);
                 acceptedStep = step;
-                return trialEnergy;
+                energy = trialEnergy;
+                break;
             }
             step *= BACKTRACK;
         }
-        acceptedStep = 0.0;
-        return current;
+        if (acceptedStep == 0.0) {
+            return current;
+        }
+        for (int growth = 0; growth < MAX_EXPANSIONS && acceptedStep < feasibleStep; growth++) {
+            double grownStep = Math.min(feasibleStep, acceptedStep * EXPANSION);
+            double grownEnergy = energyAtStep(matrix, trial, delta, grownStep);
+            if (!(grownEnergy < energy)) {
+                break;
+            }
+            acceptedStep = grownStep;
+            energy = grownEnergy;
+        }
+        for (int index = 0; index < dofs.dofCount; index++) {
+            dofs.solution[index] += acceptedStep * delta[index];
+        }
+        return energy;
+    }
+
+    /**
+     * The energy one step along the Newton direction, through the caller's scratch
+     * point so the search allocates nothing per trial.
+     *
+     * @param matrix the assembled system, for the quadratic-energy fallback
+     * @param trial  scratch receiving the trial point
+     * @param delta  the Newton displacement of every coordinate
+     * @param step   distance along the direction
+     * @return the energy there
+     */
+    private double energyAtStep(NormalMatrix matrix, double[] trial, double[] delta, double step) {
+        for (int index = 0; index < dofs.dofCount; index++) {
+            trial[index] = dofs.solution[index] + step * delta[index];
+        }
+        return dofs.energy != null
+                ? dofs.energy.energy(trial)
+                : matrix.quadraticEnergy(trial);
     }
 }
