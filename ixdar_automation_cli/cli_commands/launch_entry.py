@@ -1,10 +1,14 @@
-"""Run a ``.vscode/launch.json`` entry the way F5 runs it, and report what came up.
+"""Run a ``.vscode/launch.json`` entry the way F5 runs it, headless, and report what came up.
 
 A launch entry is the only definition of how a scene is meant to start on the desktop — its
-window, its ``vmArgs``, its working directory — and until now nothing could exercise one except
-a person pressing F5. That made a launch entry the one part of a change an agent could write but
-never check. This command reads the entry, launches exactly it (windowed, not headless), waits
-for the scene to report ready, and hands back the opening log lines and a screenshot.
+``vmArgs`` (profiler agent included), its arguments, its working directory — and until now nothing
+could exercise one except a person pressing F5. That made a launch entry the one part of a change
+an agent could write but never check. This command reads the entry, launches exactly it with one
+difference, the off-screen platform instead of a window, waits for the scene to report ready, and
+hands back the opening log lines and a screenshot. Headless is deliberate: a window opened from an
+agent session is never shown on the desktop, so it never receives frame callbacks and the run
+stalls; off-screen, the same main class, arguments and JVM flags run to the same ready state, and
+a crash on this path is a crash F5 would show.
 
 Usage:
     uv run ixdar-cli launch "Mesh Node Viewer"
@@ -36,6 +40,9 @@ from .run_scene import (
 )
 
 LAUNCH_JSON_RELATIVE = os.path.join(".vscode", "launch.json")
+
+# IxdarWindow.HEADLESS_PROPERTY: the off-screen platform, which run-scene uses too.
+HEADLESS_PROPERTY = "ixdar.headless"
 
 SETTINGS_JSON_RELATIVE = os.path.join(".vscode", "settings.json")
 
@@ -150,7 +157,8 @@ def resolve_vm_arguments(configuration: dict, root: str) -> list[str]:
     """Expand a launch entry's ``vmArgs`` the way VS Code does.
 
     ``${config:…}`` tokens are looked up in the workspace settings and dropped when unset, which
-    is what VS Code effectively does with an empty profiler-args setting.
+    is what VS Code effectively does with an empty profiler-args setting. ``${workspaceFolder}``
+    is substituted in the setting's value too, since that is where the profiler agent path lives.
 
     :param configuration: The launch configuration.
     :param root: Checkout root, substituted for ``${workspaceFolder}``.
@@ -160,10 +168,8 @@ def resolve_vm_arguments(configuration: dict, root: str) -> list[str]:
     settings = _settings(root)
     for token in _tokens(configuration.get("vmArgs")):
         reference = CONFIG_TOKEN.match(token)
-        if reference:
-            resolved.extend(_tokens(settings.get(reference.group("setting"), "")))
-            continue
-        resolved.append(token.replace(WORKSPACE_FOLDER_TOKEN, root))
+        tokens = _tokens(settings.get(reference.group("setting"), "")) if reference else [token]
+        resolved.extend(one.replace(WORKSPACE_FOLDER_TOKEN, root) for one in tokens)
     return resolved
 
 
@@ -171,8 +177,9 @@ def launch_command(configuration: dict, root: str, port: int) -> list[str]:
     """Assemble the JVM command line for a launch entry.
 
     The classpath is this checkout's built one rather than the one the IDE computes, and the
-    only argument added is the automation port, so what runs is otherwise the entry verbatim —
-    windowed, with its own ``vmArgs``.
+    only arguments added are the automation port and the headless switch, so what runs is
+    otherwise the entry verbatim, with its own ``vmArgs``. The headless switch comes after the
+    entry's own arguments so it wins over anything the entry says.
 
     :param configuration: The launch configuration.
     :param root: Checkout root.
@@ -186,6 +193,7 @@ def launch_command(configuration: dict, root: str, port: int) -> list[str]:
     with open(CLASSPATH_FILE, encoding="utf-8") as handle:
         classpath = handle.read().strip()
     command = ["java", *resolve_vm_arguments(configuration, root)]
+    command.append(f"-D{HEADLESS_PROPERTY}=true")
     command.append(f"-D{AUTOMATION_PORT_PROPERTY}={port}")
     command.extend([
         "-cp",
@@ -220,10 +228,11 @@ def launch(
     skip_build: bool = False,
     keep_alive: bool = False,
 ) -> CliCommandResult:
-    """Run a .vscode/launch.json entry non-headless, then report its first log lines and a screenshot.
+    """Run a .vscode/launch.json entry headless, then report its first log lines and a screenshot.
 
-    This is the F5 path, driven: same main class, args, vmArgs and working directory, plus an
-    automation port so the scene can be waited on and photographed.
+    This is the F5 path, driven: same main class, args, vmArgs (profiler agent included) and
+    working directory, plus an automation port so the scene can be waited on and photographed,
+    and the off-screen platform in place of a window so it runs from an agent session.
 
     :param entry: Launch entry name, exact or a unique substring (see --list-entries).
     :param list_entries: List the launch entry names and exit.

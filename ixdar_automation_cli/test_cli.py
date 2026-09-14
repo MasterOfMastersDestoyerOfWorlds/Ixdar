@@ -335,7 +335,8 @@ class LaunchEntryTest(unittest.TestCase):
         with open(os.path.join(directory, ".vscode", "launch.json"), "w", encoding="utf-8") as handle:
             handle.write(self.LAUNCH_JSON)
         with open(os.path.join(directory, ".vscode", "settings.json"), "w", encoding="utf-8") as handle:
-            handle.write('{\n  // profiler\n  "java.profiler.args": "-agentpath:/usr/lib/lib.so",\n}')
+            handle.write('{\n  // profiler\n  "java.profiler.args":'
+                         ' "-agentpath:${workspaceFolder}/.profiler/lib.so",\n}')
         return directory
 
     def test_strip_jsonc_removes_comments_and_trailing_commas(self):
@@ -357,7 +358,7 @@ class LaunchEntryTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "no launch entry matches"):
             launch_entry.find_configuration(configurations, "Nonexistent")
 
-    def test_launch_command_keeps_the_entry_s_vm_args_and_adds_the_port(self):
+    def test_launch_command_keeps_the_entry_s_vm_args_and_adds_the_port_headless(self):
         with tempfile.TemporaryDirectory() as directory:
             root = self._checkout(directory)
             classpath_file = os.path.join(directory, "CP")
@@ -369,10 +370,15 @@ class LaunchEntryTest(unittest.TestCase):
                 command = launch_entry.launch_command(configuration, root, 47909)
             self.assertEqual(os.path.join(root, "ixdar-app"),
                              launch_entry.working_directory(configuration, root))
-        self.assertIn("-agentpath:/usr/lib/lib.so", command)
+            # ${workspaceFolder} is substituted inside the ${config:…} value, where the profiler
+            # agent path lives; an unsubstituted token would be a fatal -agentpath.
+            self.assertIn(f"-agentpath:{root}/.profiler/lib.so", command)
         self.assertIn("-Xmx4g", command)
         self.assertIn("-Dixdar.automation.port=47909", command)
-        self.assertNotIn("-Dixdar.headless=true", command)
+        # The entry runs exactly as F5 runs it, with the off-screen platform as the one addition,
+        # placed after the entry's own vmArgs so it wins.
+        self.assertIn("-Dixdar.headless=true", command)
+        self.assertLess(command.index("-Xmx4g"), command.index("-Dixdar.headless=true"))
         self.assertEqual("mesh-viewer", command[-1])
         self.assertEqual("ixdar.canvas.IxdarWindow", command[-2])
 

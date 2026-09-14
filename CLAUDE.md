@@ -18,7 +18,7 @@ Agent work happens in a linked worktree at `.claude/worktrees/<ticket>` on a bra
 - `wt status <ticket>` — **the first command to run in a worktree**, and the whole of a resume: branch, distance from `master`, changed files, and the last note of the agent that worked here.
 - `wt sync <ticket>` — replay your uncommitted diff onto the current `master`. Run it when you start and whenever you need newer `master`. On a conflict it stops and names the files; fix the markers and run `wt continue <ticket>`, or `wt abort <ticket>` to go back.
 - `wt launch add <ticket> --scene <id> [--property k=v]` — add the `.vscode/launch.json` entry the user verifies with F5. It edits the file as JSONC, so the comments survive and the diff is only the added entry. Never hand-edit `launch.json`.
-- `wt done <ticket>` — sync, build, run that launch entry once with its screenshot kept under `tmp/`, confirm `tmp/` holds a screenshot, then mark the ticket REVIEW. It refuses with a reason on any failed step, and it never lands.
+- `wt done <ticket>` — sync, build, run that launch entry once exactly as F5 runs it but headless (`ixdar-cli launch`, same `vmArgs` including the profiler agent) with its screenshot kept under `tmp/`, confirm `tmp/` holds a screenshot, then mark the ticket REVIEW. It refuses with a reason on any failed step, the launch run cannot be skipped, and it never lands.
 - `wt commit <ticket> -m "..."` — one squashed commit on top of `master`, only when asked; the default is to leave the work uncommitted.
 
 Read-only git is fine: `git status`, `git diff`, `git log`, `git show`, `git worktree list`. Merging to `master` is `land`, which is the user's alone and is on the deny list — never run it and never suggest a way around it.
@@ -301,7 +301,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli image-diff` — Compare two PNG screenshots, reporting RMSE and how many pixels differ beyond a fuzz.
 - `ixdar-cli image-stats` — Report a PNG's mean, minimum and maximum channel values and whether it is a blank frame.
 - `ixdar-cli install-alias` — Install a global ixdar-cli wrapper into ~/.local/bin.
-- `ixdar-cli launch` — Run a .vscode/launch.json entry non-headless, then report its first log lines and a screenshot.
+- `ixdar-cli launch` — Run a .vscode/launch.json entry headless, then report its first log lines and a screenshot.
 - `ixdar-cli list-meshes` — List mesh files a scene can load, with the short names run-scene resolves.
 - `ixdar-cli mesh-overlay` — Load a reference OBJ as a semi-transparent overlay, or clear it.
 - `ixdar-cli mesh-probe` — Capture the mesh-focused automation probe bundle.

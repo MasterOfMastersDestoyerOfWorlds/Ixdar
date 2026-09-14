@@ -78,7 +78,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`image-diff`](#image-diff) | Compare two PNG screenshots, reporting RMSE and how many pixels differ beyond a fuzz. |
 | [`image-stats`](#image-stats) | Report a PNG's mean, minimum and maximum channel values and whether it is a blank frame. |
 | [`install-alias`](#install-alias) | Install a global ixdar-cli wrapper into ~/.local/bin. |
-| [`launch`](#launch) | Run a .vscode/launch.json entry non-headless, then report its first log lines and a screenshot. |
+| [`launch`](#launch) | Run a .vscode/launch.json entry headless, then report its first log lines and a screenshot. |
 | [`list-meshes`](#list-meshes) | List mesh files a scene can load, with the short names run-scene resolves. |
 | [`mesh-overlay`](#mesh-overlay) | Load a reference OBJ as a semi-transparent overlay, or clear it. |
 | [`mesh-probe`](#mesh-probe) | Capture the mesh-focused automation probe bundle. |
@@ -681,9 +681,9 @@ Install a global ixdar-cli wrapper into ~/.local/bin.
 
 ### `launch`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/launch_entry.py#L212)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/launch_entry.py#L220)
 
-Run a .vscode/launch.json entry non-headless, then report its first log lines and a screenshot.
+Run a .vscode/launch.json entry headless, then report its first log lines and a screenshot.
 
 - `entry` — Launch entry name, exact or a unique substring (see --list-entries).
 - `--list-entries` — List the launch entry names and exit.
