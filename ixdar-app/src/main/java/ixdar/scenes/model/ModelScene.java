@@ -150,18 +150,17 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Create the runtime and load the initial model. Scenes with async or
-     * multi-runtime loading override this.
-     *
-     * @throws IllegalStateException if the initial model cannot be read
+     * Create the runtime and load the initial model, reporting a load failure instead of
+     * propagating it: an unreadable initial model leaves an empty view the ESC menu can load
+     * another model into. Scenes with async or multi-runtime loading override this.
      */
     public void initModel() {
         runtime = createRuntime();
         offPath = resolveInitialModel();
         try {
             loadModelOrGraph(offPath);
-        } catch (IOException ex) {
-            throw new IllegalStateException("Failed to load initial model " + offPath, ex);
+        } catch (Exception ex) {
+            reportFailedLoad(offPath, ex);
         }
     }
 

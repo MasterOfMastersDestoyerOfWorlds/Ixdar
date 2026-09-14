@@ -700,7 +700,7 @@ Run a .vscode/launch.json entry headless, then report its first log lines and a 
 
 List mesh files a scene can load, with the short names run-scene resolves.
 
-- `--all` — Include the ``_out_quad`` results and unloadable binary files, not just the inputs.
+- `--all` — Include the ``_out_quad`` results and files with an unreadable header, not just inputs.
 - `--name` — Substring filter over the mesh name.
 - `--names` — Report only the names, for picking one without reading a table.
 

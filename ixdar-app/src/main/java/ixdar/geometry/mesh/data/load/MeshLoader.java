@@ -94,13 +94,15 @@ public final class MeshLoader {
         if (isGltf(lower)) {
             return loadGltf(file);
         }
-        String content = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
+        byte[] bytes = Files.readAllBytes(file);
         if (lower.endsWith(OBJ_EXTENSION)) {
-            return GeometryBundle.ofMesh(ObjMeshParser.load(content));
+            return GeometryBundle.ofMesh(
+                    ObjMeshParser.load(new String(bytes, StandardCharsets.UTF_8)));
         } else if (lower.endsWith(PLY_EXTENSION)) {
-            return GeometryBundle.ofMesh(PlyMeshParser.load(content));
+            return GeometryBundle.ofMesh(
+                    PlyMeshParser.load(new String(bytes, StandardCharsets.UTF_8)));
         }
-        return GeometryBundle.ofMesh(OffMeshParser.load(content));
+        return GeometryBundle.ofMesh(OffMeshParser.load(bytes));
     }
 
     /**

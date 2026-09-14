@@ -33,6 +33,10 @@ OFF_MAGIC = "OFF"
 
 BINARY_MARKER = "BINARY"
 
+OFF_COUNT_BYTES = 12
+
+OFF_COUNT_LIMIT = 1 << 27
+
 GLB_HEADER_BYTES = 12
 
 GLB_CHUNK_HEADER_BYTES = 8
@@ -106,28 +110,35 @@ def _gltf_counts(path: str) -> tuple[int, int]:
 
 
 def _off_header(path: str) -> tuple[int, int, bool]:
-    """Read an OFF file's vertex and face counts, and whether it is the binary variant.
+    """Read an OFF file's vertex and face counts, from either the ASCII or the binary body.
 
-    ``MeshLoader`` reads the text formats through ``Files.readAllBytes`` as UTF-8, so a binary OFF
-    cannot be loaded at all — detecting it here is what keeps an unusable mesh out of the runnable
-    list.
+    A ``BINARY`` keyword on the header line switches the body to 32-bit words whose byte order the
+    format does not fix, so the counts are read in whichever order makes both of them plausible.
 
     :param path: Path to an ``.off`` file.
-    :return: ``(vertices, faces, isBinary)``; counts are zero when the header cannot be read.
+    :return: ``(vertices, faces, readable)``; counts are zero when the header cannot be read.
     """
     try:
-        with open(path, encoding="utf-8", errors="replace") as handle:
-            first = handle.readline().strip()
-            if OFF_MAGIC not in first.upper():
+        with open(path, "rb") as handle:
+            header = handle.readline().decode("utf-8", errors="replace").strip().upper()
+            if OFF_MAGIC not in header:
                 return 0, 0, False
-            if BINARY_MARKER in first.upper():
-                return 0, 0, True
+            if BINARY_MARKER in header:
+                words = handle.read(OFF_COUNT_BYTES)
+                if len(words) < OFF_COUNT_BYTES:
+                    return 0, 0, False
+                for order in ("big", "little"):
+                    vertices = int.from_bytes(words[0:4], order, signed=True)
+                    faces = int.from_bytes(words[4:8], order, signed=True)
+                    if 0 <= vertices < OFF_COUNT_LIMIT and 0 <= faces < OFF_COUNT_LIMIT:
+                        return vertices, faces, True
+                return 0, 0, False
             for line in handle:
-                stripped = line.strip()
+                stripped = line.decode("utf-8", errors="replace").strip()
                 if not stripped or stripped.startswith("#"):
                     continue
                 parts = stripped.split()
-                return int(parts[0]), int(parts[1]), False
+                return int(parts[0]), int(parts[1]), True
     except (OSError, ValueError, IndexError):
         return 0, 0, False
     return 0, 0, False
@@ -152,11 +163,11 @@ def discover_meshes() -> list[dict]:
                 path = os.path.join(directory, filename)
                 is_input = stem.endswith(INPUT_SUFFIX) or extension.lower() in GLTF_EXTENSIONS
                 if extension.lower() == ".off":
-                    vertices, faces, is_binary = _off_header(path)
+                    vertices, faces, readable = _off_header(path)
                 elif extension.lower() in GLTF_EXTENSIONS:
-                    (vertices, faces), is_binary = _gltf_counts(path), False
+                    (vertices, faces), readable = _gltf_counts(path), True
                 else:
-                    vertices, faces, is_binary = 0, 0, False
+                    vertices, faces, readable = 0, 0, True
                 meshes.append({
                     "name": stem,
                     "alias": stem[:-len(INPUT_SUFFIX)] if stem.endswith(INPUT_SUFFIX) else "",
@@ -167,7 +178,7 @@ def discover_meshes() -> list[dict]:
                     "vertices": vertices,
                     "faces": faces,
                     "isInput": is_input,
-                    "loadable": not is_binary,
+                    "loadable": readable,
                 })
     meshes.sort(key=lambda entry: (entry["group"], entry["name"]))
     return meshes
@@ -195,8 +206,8 @@ def resolve_mesh(name: str) -> str:
 
     :param name: An existing path, a file stem, or a short alias such as ``fertility``.
     :return: Absolute path to the mesh file.
-    :raises ValueError: When the name matches nothing, matches differing files, or names a mesh
-        ``MeshLoader`` cannot read.
+    :raises ValueError: When the name matches nothing, matches differing files, or names a file
+        whose OFF header cannot be read.
     """
     if os.path.exists(name):
         return os.path.abspath(name)
@@ -213,8 +224,7 @@ def resolve_mesh(name: str) -> str:
             + ", ".join(inputs))
     if not any(mesh["loadable"] for mesh in matches):
         raise ValueError(
-            f"mesh {name!r} is a binary OFF file, which MeshLoader cannot read — it loads the text "
-            "formats as UTF-8")
+            f"mesh {name!r} has no readable OFF header, so its vertex and face counts are unknown")
     loadable = [mesh for mesh in matches if mesh["loadable"]]
     if len({mesh["bytes"] for mesh in loadable}) > 1:
         candidates = ", ".join(mesh["relPath"] for mesh in loadable)

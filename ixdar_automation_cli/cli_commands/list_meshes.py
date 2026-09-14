@@ -29,7 +29,7 @@ def list_meshes(
     Directories with a ``collection.dsl`` are listed after the meshes, members and keep flags
     included.
 
-    :param all: Include the ``_out_quad`` results and unloadable binary files, not just the inputs.
+    :param all: Include the ``_out_quad`` results and files with an unreadable header, not just inputs.
     :param name: Substring filter over the mesh name.
     :param names: Report only the names, for picking one without reading a table.
     """
