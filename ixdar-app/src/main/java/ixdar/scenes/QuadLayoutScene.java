@@ -115,21 +115,23 @@ public class QuadLayoutScene extends ModelScene {
     }
 
     /**
-     * Runs the pipeline through the conforming layout and its per-patch grids, and
-     * uploads the result: the quad mesh over the patch fill, with the layout arcs
-     * drawn on top.
+     * Runs the pipeline to the conforming layout and uploads it: the quad mesh over
+     * the patch fill, layout arcs on top. The previous build's fields are dropped
+     * first, so a throw part-way leaves nothing indexed by the old mesh.
      */
     private void rebuildLayout() {
+        engine = null;
+        patchSurfacesInitial = null;
+        patchCoonsInitial = null;
+        gridMapView = GRID_MAP_VIEW_OFF;
         float alphaRadians = (float) Math.toRadians(alphaDegrees);
-        QuadLayoutEngine engine = new QuadLayoutEngine(halfEdgeMesh, alphaRadians);
-        engine.buildPatchSurfaces();
-        quadRuntime.setSeamlessParametrization(engine.seamless, engine.mesh);
-        quadRuntime.setSingularities(engine.crossField.singularityIndex4, engine.mesh);
-        quadRuntime.setMotorcycleGraph(engine.arrangement);
-        quadRuntime.setEmbeddedTMesh(engine.tmesh);
-        this.engine = engine;
-        this.patchSurfacesInitial = null;
-        this.patchCoonsInitial = null;
+        QuadLayoutEngine built = new QuadLayoutEngine(halfEdgeMesh, alphaRadians);
+        built.buildPatchSurfaces();
+        quadRuntime.setSeamlessParametrization(built.seamless, built.mesh);
+        quadRuntime.setSingularities(built.crossField.singularityIndex4, built.mesh);
+        quadRuntime.setMotorcycleGraph(built.arrangement);
+        quadRuntime.setEmbeddedTMesh(built.tmesh);
+        engine = built;
         uploadSurfaces();
         quadRuntime.showTraces = false;
         quadRuntime.showNodes = false;

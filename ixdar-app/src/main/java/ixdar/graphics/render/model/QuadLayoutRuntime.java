@@ -213,6 +213,53 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
+     * Replaces the rendered mesh, dropping every overlay first: each is indexed by the previous
+     * mesh's face or vertex count, so one surviving into the next mesh's upload reads out of
+     * bounds.
+     *
+     * @param mesh source mesh, or {@code null} to clear
+     */
+    @Override
+    public void upload(MeshTopology mesh) {
+        clearMeshState();
+        super.upload(mesh);
+    }
+
+    /**
+     * Drops every overlay tied to one mesh: the parametrization and arrangement it was traced
+     * over, their buffers and marker sets, the per-patch and per-constraint index ranges, and the
+     * sphere radius cap derived from the mesh's arc lengths.
+     */
+    public void clearMeshState() {
+        arrangement = null;
+        seamlessParametrization = null;
+        seamlessMesh = null;
+        isoSurface.delete();
+        crossField.delete();
+        constraints.delete();
+        layoutLines.delete();
+        layoutFill.delete();
+        copyWireframe.delete();
+        embeddedArcs.delete();
+        embeddedZeroArcs.delete();
+        clearDiagnostic();
+        patchClouds.clear();
+        showPatchClouds = false;
+        singularities = null;
+        graphNodes = null;
+        layoutCorners = null;
+        embeddedNodes = null;
+        layoutBoundaryVertexCount = 0;
+        constraintRangeStart = null;
+        constraintRangeCount = null;
+        layoutPatchIndexStart = null;
+        layoutPatchIndexCount = null;
+        layoutPatchColors = null;
+        sphereRadiusCap = 0f;
+        diagnosticRegionRadius = 0f;
+    }
+
+    /**
      * Upload (or replace) the iso-line surface from {@code seamless}, with the attached
      * arrangement's trace records when one is set.
      *
