@@ -401,9 +401,8 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Apply a model switch requested since the last frame, on the render thread. A failure logs
-     * the whole cause chain with its frames: the throwing class and line are the only thing that
-     * tells a stale-state failure apart from an unreadable file.
+     * Apply a model switch requested since the last frame, on the render thread,
+     * reporting a failure rather than propagating it off the render thread.
      */
     public void applyPendingModel() {
         if (pendingModelPath == null) {
@@ -415,14 +414,26 @@ public abstract class ModelScene extends Scene {
             loadModelOrGraph(path);
             Platforms.get().log(" loaded " + path);
         } catch (Exception ex) {
-            Platforms.get().log(" failed to load " + path + ": " + ex);
-            for (Throwable level = ex; level != null; level = level.getCause()) {
-                if (level != ex) {
-                    Platforms.get().log(" caused by: " + level);
-                }
-                for (StackTraceElement frame : level.getStackTrace()) {
-                    Platforms.get().log("     at " + frame);
-                }
+            reportFailedLoad(path, ex);
+        }
+    }
+
+    /**
+     * Log a failed model load with the whole cause chain and its frames: the throwing
+     * class and line are the only thing that tells a stale-state failure apart from an
+     * unreadable file.
+     *
+     * @param path the model path that could not be loaded
+     * @param ex   the failure
+     */
+    public void reportFailedLoad(String path, Exception ex) {
+        Platforms.get().log(" failed to load " + path + ": " + ex);
+        for (Throwable level = ex; level != null; level = level.getCause()) {
+            if (level != ex) {
+                Platforms.get().log(" caused by: " + level);
+            }
+            for (StackTraceElement frame : level.getStackTrace()) {
+                Platforms.get().log("     at " + frame);
             }
         }
     }
