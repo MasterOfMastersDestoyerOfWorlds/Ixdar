@@ -148,6 +148,16 @@ public final class MotorcycleGraph implements MeshNode {
     /** Traces still alive when the event queue drained (orphaned motorcycles). */
     public int aliveAtQueueEndCount;
 
+    /**
+     * Boundary transitions taken because the level line had no forward exit from
+     * the trace's face, which happens when an intersection or an edge crossing
+     * leaves the state exactly on the face's own exit crossing.
+     */
+    public int stalledBoundaryCrossingCount;
+
+    /** Traces terminated because such a stalled transition found nowhere to go. */
+    public int stalledBoundaryTerminationCount;
+
     /** Trace chains containing the same node at two different positions. */
     public int repeatedChainNodeCount;
 
@@ -437,6 +447,10 @@ public final class MotorcycleGraph implements MeshNode {
             Platforms.log("[motorcycle-diag] staleDropsAlive=%d orphanedAtQueueEnd=%d%n",
                     staleEventDropsForAliveTraces, aliveAtQueueEndCount);
         }
+        if (stalledBoundaryCrossingCount > 0) {
+            Platforms.log("[motorcycle-diag] stalledBoundaryCrossings=%d stalledTerminations=%d%n",
+                    stalledBoundaryCrossingCount, stalledBoundaryTerminationCount);
+        }
         Platforms.log("[motorcycle] finalizing open traces");
         finalizeOpenTraces();
         Platforms.log("[motorcycle] subdividing arcs at every meeting");
@@ -478,6 +492,12 @@ public final class MotorcycleGraph implements MeshNode {
             FaceSegmentIndex segmentIndex, PriorityQueue<TraceEvent> queue) {
         ChartWalker.State probe = new ChartWalker.State(trace.state);
         ChartWalker.EdgeHit edgeHit = walker.nextEdgeHit(probe);
+        if (edgeHit == null) {
+            edgeHit = crossStalledBoundary(trace, walker);
+            if (edgeHit == null) {
+                return;
+            }
+        }
         double edgeLength = edgeHit.parametricDelta;
         double exitU = edgeHit.exitU;
         double exitV = edgeHit.exitV;
@@ -506,6 +526,52 @@ public final class MotorcycleGraph implements MeshNode {
                 trace.parametricLengthSoFar + edgeLength,
                 trace.traceId, -1, trace.state.activeFace, exitU, exitV, null,
                 ++trace.pendingEventSerial));
+    }
+
+    /**
+     * Carry a trace whose level line has no forward exit across the face
+     * boundary it stands on, so it continues in the neighbouring face. A trace
+     * that cannot be carried terminates where it stands.
+     *
+     * @param trace  trace whose state stalled on its face boundary
+     * @param walker chart walker performing the transition
+     * @return the forward hit in the face the trace was carried into, or
+     *         {@code null} when the trace terminated instead
+     */
+    private ChartWalker.EdgeHit crossStalledBoundary(Trace trace, ChartWalker walker) {
+        int terminalVertexId = -1;
+        ChartWalker.EdgeHit stall = trace.stalledCrossingTaken ? null
+                : walker.stalledExitHit(trace.state);
+        if (stall != null && !stall.boundary) {
+            trace.stalledCrossingTaken = true;
+            stalledBoundaryCrossingCount++;
+            ChartWalker.State next = new ChartWalker.State(trace.state);
+            boolean carried;
+            if (stall.cornerLocalIndex >= 0) {
+                ChartWalker.CrossVertexResult fan = walker.crossVertex(trace.state, stall, next);
+                carried = fan == ChartWalker.CrossVertexResult.FAN_TRANSITION;
+                if (fan == ChartWalker.CrossVertexResult.HIT_SINGULARITY) {
+                    terminalVertexId = mesh.faceVertexAt(mesh.faceIdAt(trace.state.activeFace),
+                            stall.cornerLocalIndex);
+                }
+            } else {
+                carried = walker.crossEdge(trace.state, stall, next);
+            }
+            if (carried) {
+                trace.state = next;
+                trace.faceVisitCount++;
+                ChartWalker.EdgeHit forward = walker.nextEdgeHit(new ChartWalker.State(trace.state));
+                if (forward != null) {
+                    return forward;
+                }
+            }
+        }
+        stalledBoundaryTerminationCount++;
+        int eventType = terminalVertexId >= 0 ? TraceEvent.TYPE_SINGULARITY : TraceEvent.TYPE_BOUNDARY;
+        handleTermination(trace, new TraceEvent(eventType, trace.parametricLengthSoFar,
+                trace.traceId, -1, trace.state.activeFace, trace.state.u, trace.state.v, null,
+                trace.pendingEventSerial), terminalVertexId);
+        return null;
     }
 
     private void handleEdgeCrossing(Trace trace, TraceEvent event, ChartWalker walker,

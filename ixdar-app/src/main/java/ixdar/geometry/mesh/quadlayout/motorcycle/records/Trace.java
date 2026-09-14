@@ -59,6 +59,14 @@ public final class Trace {
     public int pendingEventSerial;
 
     /**
+     * Whether this trace has already been carried across a face boundary its
+     * level line had no forward exit from. A chart cell with a degenerate image
+     * hands the trace straight back, so a second stall ends the trace rather
+     * than bouncing it between the two faces forever.
+     */
+    public boolean stalledCrossingTaken;
+
+    /**
      * Creates a live motorcycle trace from a spawn port.
      *
      * @param traceId             unique trace id

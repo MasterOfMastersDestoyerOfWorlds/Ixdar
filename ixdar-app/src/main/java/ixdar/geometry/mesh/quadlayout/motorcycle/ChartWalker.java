@@ -30,6 +30,13 @@ public final class ChartWalker {
 
     private final HalfEdgeMesh mesh;
 
+    /** Level crossings of the current face found by {@link #collectLevelCrossings}. */
+    private int candidateCount;
+    private final int[] candidateEdge = new int[CORNERS];
+    private final int[] candidateCorner = new int[CORNERS];
+    private final double[] candidateAlong = new double[CORNERS];
+    private final double[] candidateParam = new double[CORNERS];
+
     /**
      * Binds the walker to a built seamless parametrization.
      *
@@ -72,45 +79,7 @@ public final class ChartWalker {
         boolean holdsU = state.axis.holdsUConstant();
         double level = holdsU ? state.u : state.v;
         double currentAlong = holdsU ? state.v : state.u;
-
-        double[] heldDelta = new double[CORNERS];
-        for (int corner = 0; corner < CORNERS; corner++) {
-            double held = holdsU ? cornerUv[corner * 2] : cornerUv[corner * 2 + 1];
-            heldDelta[corner] = held - level;
-        }
-
-        int candidateCount = 0;
-        int[] candidateEdge = new int[CORNERS];
-        int[] candidateCorner = new int[CORNERS];
-        double[] candidateAlong = new double[CORNERS];
-        double[] candidateParam = new double[CORNERS];
-        for (int corner = 0; corner < CORNERS; corner++) {
-            if (heldDelta[corner] != 0.0) {
-                continue;
-            }
-            candidateEdge[candidateCount] = corner;
-            candidateCorner[candidateCount] = corner;
-            candidateAlong[candidateCount] = holdsU ? cornerUv[corner * 2 + 1] : cornerUv[corner * 2];
-            candidateParam[candidateCount] = 0.0;
-            candidateCount++;
-        }
-        for (int edge = 0; edge < CORNERS; edge++) {
-            if (edge == state.incomingLocalEdgeIndex) {
-                continue;
-            }
-            int next = (edge + 1) % CORNERS;
-            if (!(heldDelta[edge] * heldDelta[next] < 0.0)) {
-                continue;
-            }
-            double alongA = holdsU ? cornerUv[edge * 2 + 1] : cornerUv[edge * 2];
-            double alongB = holdsU ? cornerUv[next * 2 + 1] : cornerUv[next * 2];
-            double tEdge = heldDelta[edge] / (heldDelta[edge] - heldDelta[next]);
-            candidateEdge[candidateCount] = edge;
-            candidateCorner[candidateCount] = -1;
-            candidateAlong[candidateCount] = alongA + tEdge * (alongB - alongA);
-            candidateParam[candidateCount] = tEdge;
-            candidateCount++;
-        }
+        collectLevelCrossings(cornerUv, holdsU, level, state.incomingLocalEdgeIndex);
 
         int best = -1;
         if (state.incomingLocalEdgeIndex >= 0 && candidateCount == 1) {
@@ -128,18 +97,114 @@ public final class ChartWalker {
         if (best < 0) {
             return null;
         }
-        double parametricDelta = Math.abs(candidateAlong[best] - currentAlong);
-        if (candidateCorner[best] >= 0) {
-            int corner = candidateCorner[best];
+        return crossingHit(state, cornerUv, holdsU, level,
+                Math.abs(candidateAlong[best] - currentAlong), best);
+    }
+
+    /**
+     * The face-boundary feature a stalled trace is standing on: the level
+     * crossing nearest the current position, at zero parametric length. This is
+     * the answer to {@link #nextEdgeHit} returning {@code null}.
+     *
+     * @param state current position and direction; unchanged by this call
+     * @return the crossing to transition through, or {@code null} when the level
+     *         line misses the face entirely
+     */
+    public EdgeHit stalledExitHit(State state) {
+        double[] cornerUv = new double[CORNER_UV_FLOATS];
+        uv.faceCornerUv(mesh.faceIdAt(state.activeFace), cornerUv);
+        boolean holdsU = state.axis.holdsUConstant();
+        double level = holdsU ? state.u : state.v;
+        double currentAlong = holdsU ? state.v : state.u;
+        collectLevelCrossings(cornerUv, holdsU, level, -1);
+
+        int best = -1;
+        double bestDistance = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < candidateCount; i++) {
+            double distance = Math.abs(candidateAlong[i] - currentAlong);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = i;
+            }
+        }
+        if (best < 0) {
+            return null;
+        }
+        return crossingHit(state, cornerUv, holdsU, level, 0.0, best);
+    }
+
+    /**
+     * Fill the candidate arrays with every point where the level line meets the
+     * face boundary: corners sitting exactly on the level, and edges whose
+     * endpoint offsets strictly straddle it.
+     *
+     * @param cornerUv        the face's corner UVs
+     * @param holdsU          whether the trace holds u constant
+     * @param level           the held coordinate's value
+     * @param excludedEdge    local edge to leave out (the edge the trace entered
+     *                        through), or -1 to consider all three
+     */
+    private void collectLevelCrossings(double[] cornerUv, boolean holdsU, double level,
+            int excludedEdge) {
+        double[] heldDelta = new double[CORNERS];
+        for (int corner = 0; corner < CORNERS; corner++) {
+            double held = holdsU ? cornerUv[corner * 2] : cornerUv[corner * 2 + 1];
+            heldDelta[corner] = held - level;
+        }
+        candidateCount = 0;
+        for (int corner = 0; corner < CORNERS; corner++) {
+            if (heldDelta[corner] != 0.0) {
+                continue;
+            }
+            candidateEdge[candidateCount] = corner;
+            candidateCorner[candidateCount] = corner;
+            candidateAlong[candidateCount] = holdsU ? cornerUv[corner * 2 + 1] : cornerUv[corner * 2];
+            candidateParam[candidateCount] = 0.0;
+            candidateCount++;
+        }
+        for (int edge = 0; edge < CORNERS; edge++) {
+            if (edge == excludedEdge) {
+                continue;
+            }
+            int next = (edge + 1) % CORNERS;
+            if (!(heldDelta[edge] * heldDelta[next] < 0.0)) {
+                continue;
+            }
+            double alongA = holdsU ? cornerUv[edge * 2 + 1] : cornerUv[edge * 2];
+            double alongB = holdsU ? cornerUv[next * 2 + 1] : cornerUv[next * 2];
+            double tEdge = heldDelta[edge] / (heldDelta[edge] - heldDelta[next]);
+            candidateEdge[candidateCount] = edge;
+            candidateCorner[candidateCount] = -1;
+            candidateAlong[candidateCount] = alongA + tEdge * (alongB - alongA);
+            candidateParam[candidateCount] = tEdge;
+            candidateCount++;
+        }
+    }
+
+    /**
+     * Build the hit record for one collected candidate.
+     *
+     * @param state           state the candidate was collected for
+     * @param cornerUv        the face's corner UVs
+     * @param holdsU          whether the trace holds u constant
+     * @param level           the held coordinate's value
+     * @param parametricDelta distance from the current point to the candidate
+     * @param candidate       index into the candidate arrays
+     * @return the hit record for that candidate
+     */
+    private EdgeHit crossingHit(State state, double[] cornerUv, boolean holdsU, double level,
+            double parametricDelta, int candidate) {
+        if (candidateCorner[candidate] >= 0) {
+            int corner = candidateCorner[candidate];
             return new EdgeHit(parametricDelta, cornerUv[corner * 2], cornerUv[corner * 2 + 1],
                     corner, false, corner, 0.0);
         }
-        double exitU = holdsU ? level : candidateAlong[best];
-        double exitV = holdsU ? candidateAlong[best] : level;
+        double exitU = holdsU ? level : candidateAlong[candidate];
+        double exitV = holdsU ? candidateAlong[candidate] : level;
         int faceId = mesh.faceIdAt(state.activeFace);
-        int edgeId = mesh.faceEdgeAt(faceId, candidateEdge[best]);
-        return new EdgeHit(parametricDelta, exitU, exitV, candidateEdge[best],
-                mesh.isBoundaryEdge(edgeId), -1, candidateParam[best]);
+        int edgeId = mesh.faceEdgeAt(faceId, candidateEdge[candidate]);
+        return new EdgeHit(parametricDelta, exitU, exitV, candidateEdge[candidate],
+                mesh.isBoundaryEdge(edgeId), -1, candidateParam[candidate]);
     }
 
     /**
