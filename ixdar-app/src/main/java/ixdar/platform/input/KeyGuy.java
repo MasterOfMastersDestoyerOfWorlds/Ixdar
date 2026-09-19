@@ -45,9 +45,8 @@ public class KeyGuy extends Camera2DInputController {
     public Camera camera;
     public boolean active = true;
     public Canvas3D canvas;
-
-    boolean controlMask;
-    boolean shiftMask;
+    public boolean shiftMask;
+    public boolean controlMask;
 
     long REPRESS_TIME = 360;
     long lastPressTime;

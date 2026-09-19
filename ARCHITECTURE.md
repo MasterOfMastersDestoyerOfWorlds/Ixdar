@@ -72,9 +72,9 @@ setup has too many variables for it to be reliable; treat it as a starting point
 
 **Draw overlays on a mesh.** `HalfEdgeMeshRuntime` already has tag-partitioned coloring
 (`setTags`), scalar heat maps (`setPerVertexScalar`), and colored edge-line overlays
-(`setFeatureEdgeOverlay`). Check those before writing new GL plumbing. `QuadLayoutRuntime` now
-takes only port-typed values (mesh, `UvField`, `ArcNetwork`, `CrossField`, patch surfaces, point
-clouds and polylines), converts each into a `LineSet`, a `PointSet`, or a corner array, and
+(`setFeatureEdgeOverlay`). Check those before writing new GL plumbing. `MeshOverlayRuntime` now
+takes only general values (mesh, `UvField`, `ArcNetwork`, `CrossField`, patch surfaces, point
+clouds, coloured line groups, labels at points and polylines), converts each into a `LineSet`, a `PointSet`, or a corner array, and
 uploads through `VertexBuffer` per `VertexLayout`; decoupling overlay draw order from the runtime
 is still open.
 
@@ -119,7 +119,7 @@ commas between test names, never `+`.
 
 ## Forward-looking (not current state)
 
-- `QuadLayoutRuntime` overlay draw order moves out of the runtime so scenes decide what draws
+- `MeshOverlayRuntime` overlay draw order moves out of the runtime so scenes decide what draws
   over what.
 - Boolean provenance (`runOriginalID` from the MeshGL64 segment) is to be recovered so result
   faces can be tinted by origin.
@@ -192,7 +192,7 @@ commas between test names, never `+`.
 - **ixdar.graphics.render**: Shared render primitives: `Clock` (process-global static time, frame deltas, oscillation; the animation driver for shaders) and `Texture` (supports a deferred placeholder mode filled in by async platform loading).
 - **ixdar.graphics.render.color**: `Color` interface with the named palette, `ColorRGB`, and animated lerps driven by the static `Clock`. `PatchColorHash` mirrors the GLSL `patchColor()` hash; but surface fill and layout overlay hash different id spaces, so a shared palette does not mean matching colors.
 - **ixdar.graphics.render.lights**: Directional, point, and spot lights that push uniforms into a bound shader. Point and spot share a public attenuation lookup table.
-- **ixdar.graphics.render.model**: Mesh rendering runtimes. `HalfEdgeMeshRuntime` uploads compiled meshes and draws them with tag partitioning, scalar heat maps, feature-edge overlays, and wireframe. `QuadLayoutRuntime` extends it with quad-layout overlays: port-typed values become a `LineSet`, a `PointSet`, or a corner array, uploaded through `VertexBuffer` per `VertexLayout`. `AssimpModelRuntime` renders loaded models.
+- **ixdar.graphics.render.model**: Mesh rendering runtimes. `HalfEdgeMeshRuntime` uploads compiled meshes and draws them with tag partitioning, scalar heat maps, feature-edge overlays, and wireframe. `MeshOverlayRuntime` extends it with general overlays: points, lines, labels, fields and arcs become a `LineSet`, a `PointSet`, or a corner array, uploaded through `VertexBuffer` per `VertexLayout`. `AssimpModelRuntime` renders loaded models.
 - **ixdar.graphics.render.sdf**: Signed-distance-field drawables, the editor's 2D drawing vocabulary: `ShaderDrawable` base, `SDFLine` variants, circles, textures (MSDF). `SDFUnion` imports LWJGL directly; the one GL- abstraction violation in `graphics` outside `render/model`.
 - **ixdar.graphics.render.shaders**: Shader compilation and GL object wrappers. `ShaderProgram.ShaderType` is the central registry mapping every logical shader to its class and `.vs`/`.fs` pair; subclasses differ mainly in vertex stride and attribute layout. Sources pass through `GlslSource` for the dialect rewrite.
 - **ixdar.graphics.render.text**: MSDF font atlas loading and `HyperString`, the colored, wrappable, hoverable, clickable rich-text model used for all editor UI text. Each glyph is an SDF drawable. Private-Use-Area code points carry non-font glyphs.
@@ -215,6 +215,7 @@ commas between test names, never `+`.
 - **ixdar.platform.automation.endpoints.mesh**: Geometry inspection against the active viewer scene: `/mesh/fingerprint`, `/mesh/compare`, segmentation and overlay routes.
 - **ixdar.platform.automation.endpoints.mesh.dsl**: DSL routes: load a graph (`/mesh/dsl`), validate it, and report per-node timing for the latest run.
 - **ixdar.platform.automation.endpoints.mesh.patches**: Quad-patch decomposition routes and multiview renders of the result (default resolution 128, caller-supplied output path).
+- **ixdar.platform.automation.endpoints.mesh.rings**: Ring routes: the ranked list of neck rings a mesh's skeleton suggests, and ring authoring through surface coordinates so an agent can cut a limb without clicking. Authoring needs the `ring-tool` scene, whose overlay also draws the numbered render `ui/multiview` captures for a vision model.
 - **ixdar.platform.automation.endpoints.mesh.skeleton**: Skeleton comparison against a reference mesh and sensitivity of the score to DSL parameter perturbation. Relative paths resolve against the working directory.
 - **ixdar.platform.automation.endpoints.record**: Recording routes: start/stop/status for capturing raw input events to a JSON file.
 - **ixdar.platform.automation.endpoints.replay**: Replay routes: play a recording back through the live handlers on a dedicated thread. Cancel takes effect at the next event boundary, not immediately.
@@ -243,5 +244,6 @@ commas between test names, never `+`.
 - **ixdar.scenes.main**: `MainScene`: the 2D TSP editor scene; knots, shells, terminal, tools. The legacy lineage's user surface.
 - **ixdar.scenes.mesh**: Mesh-centric scenes: the node viewer (`MeshNodeViewerScene`, also the web entry scene) and `MeshBooleanScene`. Both execute .dsl graphs and log node timings.
 - **ixdar.scenes.model**: Model viewing support: `ModelScene` base class, `ModelCatalog` with `quadLayout` and `staging` factories, `ModelChoice` and its `Kind`.
+- **ixdar.scenes.ring**: Ring authoring: `RingScene` (scene id `ring-tool`) extends the mesh viewer with the hover-to-preview `RingTool`, the `ring` terminal command's waypoints, and the numbered thick-loop overlay the graph's `ring_NN` edge-mark labels draw as.
 - **ixdar.scenes.trade**: `TradeScene`: the trade-game scene over `CityNetwork`, with its own input handlers.
 <!-- package-map:end -->

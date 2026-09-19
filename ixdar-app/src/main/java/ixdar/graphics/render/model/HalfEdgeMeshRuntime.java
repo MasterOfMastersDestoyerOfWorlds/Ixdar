@@ -85,6 +85,18 @@ public class HalfEdgeMeshRuntime {
     public static final float NUM_0_5 = 0.5f;
     public static final int NUM_6_2 = 6;
 
+    /** Coordinates per vertex in the face pick buffer. */
+    public static final int COORDINATES_PER_VERTEX = 3;
+
+    /** Highest value a face-id colour channel can carry. */
+    public static final int PICK_CHANNEL_MAX = 255;
+
+    /** Bits a face-id colour channel is worth. */
+    public static final int PICK_CHANNEL_BITS = 8;
+
+    /** Mask of the three colour channels a face id is split across. */
+    public static final int PICK_ID_MASK = 0xFFFFFF;
+
     private final ShaderProgram meshShader;
     private final ShaderProgram meshUnlitShader;
     private final ShaderProgram meshScalarShader;
@@ -124,6 +136,14 @@ public class HalfEdgeMeshRuntime {
     private int texturedEbo;
     private int texturedIndexCount;
 
+    private final ShaderProgram meshPickShader;
+    private final VertexArrayObject pickVao;
+    private final VertexBufferObject pickPositionVbo;
+    private final VertexBufferObject pickIdVbo;
+    private int pickVertexCount;
+    private int pickFaceCount;
+    private final Vector4f projectedPoint = new Vector4f();
+
     /**
      * Build the runtime: allocate the three mesh shader programs (lit,
      * unlit, scalar), the shared VAO/VBO, and the EBO names for triangles,
@@ -146,6 +166,11 @@ public class HalfEdgeMeshRuntime {
         this.texturedVao = new VertexArrayObject();
         this.texturedVbo = new VertexBufferObject();
         this.texturedEbo = Platforms.gl().genBuffers();
+        this.meshPickShader = ShaderProgram.ShaderType.MeshPick.getShader();
+        this.meshPickShader.init();
+        this.pickVao = new VertexArrayObject();
+        this.pickPositionVbo = new VertexBufferObject();
+        this.pickIdVbo = new VertexBufferObject();
     }
 
     /**
@@ -391,24 +416,7 @@ public class HalfEdgeMeshRuntime {
             return;
         }
 
-        int width = Platforms.get().getFrameBufferWidth();
-        int height = Platforms.get().getFrameBufferHeight();
-        float aspect = width <= 0 || height <= 0 ? NUM_1 : ((float) width / (float) height);
-
-        float near = nearPlaneFor(camera);
-        float far = farPlaneFor(camera, compiledMesh.radius * 2f);
-        if (orthographic) {
-            float dist = camera.position.distance(camera.target);
-            float halfH = dist * (float) Math.tan(Math.toRadians(camera.fov / NUM_2_0));
-            float halfW = halfH * aspect;
-            projectionMatrix.identity().ortho(-halfW, halfW, -halfH, halfH, near, far);
-        } else {
-            projectionMatrix.identity().perspective(
-                    (float) Math.toRadians((float) camera.fov),
-                    aspect,
-                    near,
-                    far);
-        }
+        updateProjection(camera);
 
         // STAGES uses LAMBERT base; CREST_VS_BOUNDARY uses FLAT unlit base.
         // SCALAR swaps in the heat-map fragment shader.
@@ -504,6 +512,29 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
+     * Rebuild {@link #projectionMatrix} for a camera, perspective or orthographic per
+     * {@link #isOrthographic()}, with the near and far planes the model's size asks for.
+     *
+     * @param camera active camera
+     */
+    private void updateProjection(Camera3D camera) {
+        int width = Platforms.get().getFrameBufferWidth();
+        int height = Platforms.get().getFrameBufferHeight();
+        float aspect = width <= 0 || height <= 0 ? NUM_1 : ((float) width / (float) height);
+        float near = nearPlaneFor(camera);
+        float far = farPlaneFor(camera, compiledMesh == null ? NUM_1 : compiledMesh.radius * 2f);
+        if (orthographic) {
+            float dist = camera.position.distance(camera.target);
+            float halfH = dist * (float) Math.tan(Math.toRadians(camera.fov / NUM_2_0));
+            float halfW = halfH * aspect;
+            projectionMatrix.identity().ortho(-halfW, halfW, -halfH, halfH, near, far);
+        } else {
+            projectionMatrix.identity().perspective(
+                    (float) Math.toRadians((float) camera.fov), aspect, near, far);
+        }
+    }
+
+    /**
      * Release every GPU buffer owned by this runtime (face EBO, edge EBO,
      * feature-edge EBO, scalar VBO, plus the shared VAO/VBO). Safe to call
      * once after the last render pass; subsequent draw calls are no-ops.
@@ -532,6 +563,10 @@ public class HalfEdgeMeshRuntime {
         }
         texturedVbo.delete();
         texturedVao.delete();
+        pickPositionVbo.delete();
+        pickIdVbo.delete();
+        pickVao.delete();
+        pickVertexCount = 0;
         meshVbo.delete();
         meshVao.delete();
     }
@@ -692,6 +727,203 @@ public class HalfEdgeMeshRuntime {
      * @return upper bound of the SCALAR-mode color ramp, in scalar units
      */
     public float getScalarMax() { return scalarMax; }
+
+    /**
+     * Build the face-id draw: every face's corners repeated with that face's index encoded as a
+     * colour, so one pixel of {@link #faceIndexAtPixel} names the face under the cursor. This is a
+     * second, non-indexed copy of the surface, so {@code null} frees it again.
+     *
+     * @param mesh surface to pick on, or {@code null} to release the copy
+     */
+    public void uploadFacePickBuffer(MeshTopology mesh) {
+        pickVertexCount = 0;
+        pickFaceCount = 0;
+        if (mesh == null || mesh.faceCount() == 0) {
+            GL empty = Platforms.gl();
+            pickVao.bind();
+            pickPositionVbo.bind(empty.ARRAY_BUFFER());
+            pickPositionVbo.uploadData(empty.ARRAY_BUFFER(), new float[0], empty.STATIC_DRAW());
+            pickIdVbo.bind(empty.ARRAY_BUFFER());
+            pickIdVbo.uploadData(empty.ARRAY_BUFFER(), new float[0], empty.STATIC_DRAW());
+            meshVao.bind();
+            return;
+        }
+        int triangles = 0;
+        for (int index = 0; index < mesh.faceCount(); index++) {
+            triangles += Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(index)) - 2);
+        }
+        float[] positions = new float[COORDINATES_PER_VERTEX * NUM_3 * triangles];
+        float[] ids = new float[COORDINATES_PER_VERTEX * NUM_3 * triangles];
+        pickFaceCount = mesh.faceCount();
+        Vector3f corner = new Vector3f();
+        int vertex = 0;
+        for (int index = 0; index < mesh.faceCount(); index++) {
+            int faceId = mesh.faceIdAt(index);
+            int code = index + 1;
+            float red = ((code >> (2 * PICK_CHANNEL_BITS)) & PICK_CHANNEL_MAX) / NUM_255;
+            float green = ((code >> PICK_CHANNEL_BITS) & PICK_CHANNEL_MAX) / NUM_255;
+            float blue = (code & PICK_CHANNEL_MAX) / NUM_255;
+            for (int fan = 2; fan < mesh.faceVertexCount(faceId); fan++) {
+                for (int step = 0; step < NUM_3; step++) {
+                    int slot = step == 0 ? 0 : fan - 2 + step;
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, slot), corner);
+                    positions[COORDINATES_PER_VERTEX * vertex] = corner.x;
+                    positions[COORDINATES_PER_VERTEX * vertex + 1] = corner.y;
+                    positions[COORDINATES_PER_VERTEX * vertex + 2] = corner.z;
+                    ids[COORDINATES_PER_VERTEX * vertex] = red;
+                    ids[COORDINATES_PER_VERTEX * vertex + 1] = green;
+                    ids[COORDINATES_PER_VERTEX * vertex + 2] = blue;
+                    vertex++;
+                }
+            }
+        }
+        GL gl = Platforms.gl();
+        pickVao.bind();
+        pickPositionVbo.bind(gl.ARRAY_BUFFER());
+        pickPositionVbo.uploadData(gl.ARRAY_BUFFER(), positions, gl.STATIC_DRAW());
+        gl.vertexAttribPointer(0, COORDINATES_PER_VERTEX, gl.FLOAT(), false,
+                COORDINATES_PER_VERTEX * Float.BYTES, 0);
+        gl.enableVertexAttribArray(0);
+        pickIdVbo.bind(gl.ARRAY_BUFFER());
+        pickIdVbo.uploadData(gl.ARRAY_BUFFER(), ids, gl.STATIC_DRAW());
+        gl.vertexAttribPointer(1, COORDINATES_PER_VERTEX, gl.FLOAT(), false,
+                COORDINATES_PER_VERTEX * Float.BYTES, 0);
+        gl.enableVertexAttribArray(1);
+        meshVao.bind();
+        pickVertexCount = vertex;
+    }
+
+    /**
+     * Whether a face-id draw is uploaded and can answer a pick.
+     *
+     * @return true when {@link #uploadFacePickBuffer} has built a buffer for the live mesh
+     */
+    public boolean facePickReady() {
+        return pickVertexCount > 0;
+    }
+
+    /**
+     * The face under a framebuffer pixel: renders the id pass into the back buffer, reads that
+     * one pixel, then restores the cleared frame the scene is about to draw into.
+     *
+     * @param camera        active camera
+     * @param framebufferX  pixel x, measured from the left
+     * @param framebufferY  pixel y, measured from the top
+     * @return the face's active index, or {@code -1} when the pixel shows no surface
+     */
+    public int faceIndexAtPixel(Camera3D camera, int framebufferX, int framebufferY) {
+        if (pickVertexCount == 0 || meshPickShader.ID < 0) {
+            return -1;
+        }
+        int height = Platforms.get().getFrameBufferHeight();
+        int width = Platforms.get().getFrameBufferWidth();
+        if (framebufferX < 0 || framebufferY < 0 || framebufferX >= width
+                || framebufferY >= height) {
+            return -1;
+        }
+        GL gl = Platforms.gl();
+        updateProjection(camera);
+        // The id pass rasterizes one pixel: the viewport is that pixel and the projection is
+        // scaled and shifted so the cursor's direction fills it, which keeps the pass off the
+        // fragment cost of a full-screen draw of a scan-scale mesh.
+        int bottomY = height - 1 - framebufferY;
+        float cursorNdcX = 2f * (framebufferX + NUM_0_5) / width - NUM_1;
+        float cursorNdcY = 2f * (bottomY + NUM_0_5) / height - NUM_1;
+        Matrix4f pickProjection = new Matrix4f()
+                .scaling(width, height, NUM_1)
+                .translate(-cursorNdcX, -cursorNdcY, NUM_0)
+                .mul(projectionMatrix);
+        gl.clearColor(NUM_0, NUM_0, NUM_0, NUM_1);
+        gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
+        gl.viewport(framebufferX, bottomY, 1, 1);
+        meshPickShader.use();
+        meshPickShader.setMat4(MODEL, modelMatrix);
+        meshPickShader.setMat4(VIEW, camera.view);
+        meshPickShader.setMat4(PROJECTION, pickProjection);
+        pickVao.bind();
+        gl.drawArrays(gl.TRIANGLES(), 0, pickVertexCount);
+        int[] pixel = gl.readPixels(framebufferX, bottomY, 1, 1, gl.RGBA(),
+                gl.UNSIGNED_BYTE(), 0);
+        gl.viewport(0, 0, width, height);
+        gl.clearColor(Color.DARK_GRAY);
+        gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
+        meshVao.bind();
+        int code = pixel.length == 0 ? 0 : pixel[0] & PICK_ID_MASK;
+        int faceIndex = code - 1;
+        if (faceIndex < 0 || faceIndex >= pickFaceCount) {
+            return -1;
+        }
+        return faceIndex;
+    }
+
+    /**
+     * The world-space ray a framebuffer pixel looks along, for the exact barycentric hit inside
+     * the face the id pass named.
+     *
+     * @param camera       active camera
+     * @param framebufferX pixel x, measured from the left
+     * @param framebufferY pixel y, measured from the top
+     * @param origin       receives the ray origin, packed xyz
+     * @param direction    receives the ray direction, packed xyz, not normalised
+     * @return true when the pixel lies inside the framebuffer
+     */
+    public boolean rayThroughPixel(Camera3D camera, int framebufferX, int framebufferY,
+            float[] origin, float[] direction) {
+        int width = Platforms.get().getFrameBufferWidth();
+        int height = Platforms.get().getFrameBufferHeight();
+        if (width <= 0 || height <= 0) {
+            return false;
+        }
+        updateProjection(camera);
+        Matrix4f inverse = new Matrix4f(projectionMatrix).mul(camera.view).mul(modelMatrix)
+                .invert();
+        float normalisedX = 2f * (framebufferX + NUM_0_5) / width - NUM_1;
+        float normalisedY = NUM_1 - 2f * (framebufferY + NUM_0_5) / height;
+        Vector4f near = inverse.transform(new Vector4f(normalisedX, normalisedY, -NUM_1, NUM_1));
+        Vector4f far = inverse.transform(new Vector4f(normalisedX, normalisedY, NUM_1, NUM_1));
+        if (near.w == NUM_0 || far.w == NUM_0) {
+            return false;
+        }
+        origin[0] = near.x / near.w;
+        origin[1] = near.y / near.w;
+        origin[2] = near.z / near.w;
+        direction[0] = far.x / far.w - origin[0];
+        direction[1] = far.y / far.w - origin[1];
+        direction[2] = far.z / far.w - origin[2];
+        return true;
+    }
+
+    /**
+     * Project a world point through the model, view and projection the surface draws with, so an
+     * overlay can place a 2D mark where a 3D point landed and test it against the depth buffer.
+     *
+     * @param camera    active camera
+     * @param x         world x
+     * @param y         world y
+     * @param z         world z
+     * @param pixelDest receives framebuffer x from the left, y from the top, and the window-space
+     *                  depth in {@code [0, 1]} the point would write
+     * @return true when the point projects in front of the camera
+     */
+    public boolean projectToPixels(Camera3D camera, float x, float y, float z, float[] pixelDest) {
+        int width = Platforms.get().getFrameBufferWidth();
+        int height = Platforms.get().getFrameBufferHeight();
+        if (width <= 0 || height <= 0) {
+            return false;
+        }
+        updateProjection(camera);
+        projectedPoint.set(x, y, z, NUM_1);
+        modelMatrix.transform(projectedPoint);
+        camera.view.transform(projectedPoint);
+        projectionMatrix.transform(projectedPoint);
+        if (projectedPoint.w <= NUM_0) {
+            return false;
+        }
+        pixelDest[0] = (projectedPoint.x / projectedPoint.w * NUM_0_5 + NUM_0_5) * width;
+        pixelDest[1] = (NUM_0_5 - projectedPoint.y / projectedPoint.w * NUM_0_5) * height;
+        pixelDest[2] = projectedPoint.z / projectedPoint.w * NUM_0_5 + NUM_0_5;
+        return true;
+    }
 
     private void renderFeatureEdgeOverlay(Camera3D camera) {
         if (featureEdgeRanges.isEmpty() || meshUnlitShader.ID < 0) return;

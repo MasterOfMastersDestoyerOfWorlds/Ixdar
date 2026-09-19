@@ -32,7 +32,13 @@ public final class MeshSkeletonExtractor {
     public static final int NUM_5 = 5;
     public static final int NUM_128 = 128;
 
-    private static final int MAX_BRANCHES = 50;
+    /**
+     * Branch-extraction rounds {@link #extract(ArrayMesh, int)} allows. Every rounded limb tip
+     * spends several rounds on dead ends the length filter then discards, so a mesh whose limbs
+     * end in caps needs a budget well above its true branch count.
+     */
+    public static final int DEFAULT_BRANCH_BUDGET = 50;
+
     private static final int MIN_PATH_LENGTH = 3;
     private static final float INVALIDATION_SCALE = 0.3f;
     private static final float MAX_INVALIDATION_RADIUS = 4.0f; // voxel units
@@ -92,6 +98,19 @@ public final class MeshSkeletonExtractor {
      * @return skeleton result with branches, branch points, and root position in world space
      */
     public static SkeletonResult extract(ArrayMesh mesh, int resolution) {
+        return extract(mesh, resolution, DEFAULT_BRANCH_BUDGET);
+    }
+
+    /**
+     * Run the full TEASAR pipeline, spending at most {@code branchBudget} extraction rounds.
+     *
+     * @param mesh input triangle mesh
+     * @param resolution voxel-grid resolution along the longest bounding-box axis
+     * @param branchBudget rounds of farthest-point extraction to allow; see
+     *                     {@link #DEFAULT_BRANCH_BUDGET} for why this exceeds the branch count
+     * @return skeleton result with branches, branch points, and root position in world space
+     */
+    public static SkeletonResult extract(ArrayMesh mesh, int resolution, int branchBudget) {
         Vector3f bmin = mesh.boundsMin(new Vector3f());
         Vector3f bmax = mesh.boundsMax(new Vector3f());
         float extX = bmax.x - bmin.x, extY = bmax.y - bmin.y, extZ = bmax.z - bmin.z;
@@ -109,7 +128,7 @@ public final class MeshSkeletonExtractor {
         ext.voxelizeScanline(mesh);
         ext.markSurface();
         ext.computeDFB();
-        List<List<int[]>> rawPaths = ext.teasarExtract();
+        List<List<int[]>> rawPaths = ext.teasarExtract(branchBudget);
         return ext.buildResult(rawPaths, resolution);
     }
 
@@ -245,7 +264,7 @@ public final class MeshSkeletonExtractor {
 
     // ───────── Step 3: TEASAR path extraction ─────────
 
-    private List<List<int[]>> teasarExtract() {
+    private List<List<int[]>> teasarExtract(int branchBudget) {
         int n = rx * ry * rz;
 
         // Find root: interior/surface voxel with max DFB
@@ -297,7 +316,7 @@ public final class MeshSkeletonExtractor {
         boolean[] processed = new boolean[n];
         List<List<int[]>> branches = new ArrayList<>();
 
-        for (int iter = 0; iter < MAX_BRANCHES; iter++) {
+        for (int iter = 0; iter < branchBudget; iter++) {
             // Find farthest unprocessed voxel
             int farthest = -1;
             float maxDist = 0;

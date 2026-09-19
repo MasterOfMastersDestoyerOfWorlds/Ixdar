@@ -80,7 +80,6 @@ public abstract class ModelScene extends Scene {
     /** Closest orbit approach of {@link #focusOrbitOn}, in framed-region radii. */
     public static final float FOCUS_ORBIT_MIN_MUL = 0.5f;
 
-    /** Floats per point in a flat-xyz position array. */
     /** ESC menu of this scene's models. */
     public SceneModelMenu sceneModelMenu;
 
@@ -186,8 +185,16 @@ public abstract class ModelScene extends Scene {
             return;
         }
         applyPendingModel();
+        updateScene();
         renderScene();
         super.drawScene();
+    }
+
+    /**
+     * Scene-specific per-frame work, run after a pending model switch and before the 3D pass. The
+     * base scene has none.
+     */
+    public void updateScene() {
     }
 
     /**
@@ -196,12 +203,20 @@ public abstract class ModelScene extends Scene {
     @Override
     public void drawUI() {
         super.drawUI();
+        drawSceneOverlayText();
         if (sceneModelMenu != null && sceneModelMenu.isVisible()) {
             camera2D.updateView(VIEW_SCENE_MENU);
             chromeBackground.draw(Color.DARK_GRAY, camera2D);
             sceneModelMenu.draw(camera2D);
             camera2D.resetView();
         }
+    }
+
+    /**
+     * Scene-specific 2D overlay text, drawn over the 3D view and under the ESC menu. The base
+     * scene draws none.
+     */
+    public void drawSceneOverlayText() {
     }
 
     /**
@@ -584,6 +599,21 @@ public abstract class ModelScene extends Scene {
         }
     }
 
+    /** Toggle the ESC model menu. Scenes whose escape does something first override this. */
+    public void escapePressed() {
+        sceneModelMenu.toggle();
+    }
+
+    /**
+     * The runtime the surface is actually drawn through, which the face-id pick buffer and any
+     * overlay live on. Scenes that swap runtimes on a model change override this.
+     *
+     * @return the live surface runtime, or {@code null} before one is created
+     */
+    public HalfEdgeMeshRuntime surfaceRuntime() {
+        return runtime;
+    }
+
     /**
      * The scene's key controls, shown as the ESC menu's Controls section.
      *
@@ -602,7 +632,8 @@ public abstract class ModelScene extends Scene {
         controls.add(new ControlHint("drag", "orbit the camera"));
         controls.add(new ControlHint("scroll", "zoom"));
         controls.add(
-                new ControlHint(Keys.ESCAPE, "escape", "toggle the model scene menu", () -> sceneModelMenu.toggle()));
+                new ControlHint(Keys.ESCAPE, "escape", "toggle the model scene menu",
+                        this::escapePressed));
         super.setControls();
     }
 

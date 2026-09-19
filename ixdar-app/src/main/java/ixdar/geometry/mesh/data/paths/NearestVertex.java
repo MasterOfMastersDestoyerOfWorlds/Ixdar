@@ -22,6 +22,29 @@ public final class NearestVertex {
     }
 
     /**
+     * Distance from a point to the nearest mesh vertex, which at a point inside a closed surface
+     * is the radius of the sphere inscribed there.
+     *
+     * @param mesh mesh whose vertices are scanned
+     * @param x    point x
+     * @param y    point y
+     * @param z    point z
+     * @return the distance, or {@link Double#POSITIVE_INFINITY} when the mesh has no vertices
+     */
+    public static double distanceToNearest(MeshTopology mesh, float x, float y, float z) {
+        double bestSquared = Double.POSITIVE_INFINITY;
+        Vector3f position = new Vector3f();
+        for (int index = 0; index < mesh.vertexCount(); index++) {
+            mesh.vertexPosition(mesh.vertexIdAt(index), position);
+            double dx = position.x - x;
+            double dy = position.y - y;
+            double dz = position.z - z;
+            bestSquared = Math.min(bestSquared, dx * dx + dy * dy + dz * dz);
+        }
+        return Math.sqrt(bestSquared);
+    }
+
+    /**
      * The vertex nearest the given point, by Euclidean distance over all live
      * vertices.
      *

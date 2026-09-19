@@ -14,6 +14,11 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.audio.AudioSystem;
 import ixdar.canvas.IxdarWindow;
 import ixdar.game.City;
+import ixdar.geometry.mesh.data.EdgeMarks;
+import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.paths.SurfaceRing;
+import ixdar.geometry.mesh.data.paths.SurfaceSpline;
+import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.point.IrregularQuadGrid;
 import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.text.HyperString;
@@ -30,6 +35,8 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelCollection;
 import ixdar.scenes.model.ModelScene;
+import ixdar.scenes.ring.RingScene;
+import ixdar.scenes.ring.RingTool;
 import ixdar.scenes.trade.TradeScene;
 
 @AutomationRouteAnnotation(path = "ui/state", method = APIMethod.GET)
@@ -42,9 +49,44 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     public static final String TOOLTIP = "TOOLTIP";
     public static final String LABEL = "label";
     public static final String NAME = "name";
+
+    /** Response key naming the geometry-keyed digest of a marked edge set. */
+    public static final String FINGERPRINT = "fingerprint";
+
+    /** Response key saying whether a mesh, or a ring being authored on it, is closed. */
+    public static final String CLOSED = "closed";
     public static final String VERTEXCOUNT = "vertexCount";
     public static final String KEY = "key";
     public static final String REGION_BOTTOM = "BOTTOM";
+
+    /** Response key naming a ring's waypoint count. */
+    public static final String WAYPOINTCOUNT = "waypointCount";
+
+    /** Response key naming a ring's length. */
+    public static final String LENGTH = "length";
+
+    /** Response key naming a ring's untightened seed length. */
+    public static final String SEEDLENGTH = "seedLength";
+
+    /** Response key naming a ring's length-weighted centroid. */
+    public static final String CENTROID = "centroid";
+
+    /** Response key naming the surface point a ring is held on. */
+    public static final String PIN = "pin";
+    /**
+     * Serialise a packed coordinate triple as a JSON array.
+     *
+     * @param packed packed xyz
+     * @return the three coordinates as a JSON array
+     */
+    private static JsonArray floatArray(float[] packed) {
+        JsonArray array = new JsonArray();
+        for (float value : packed) {
+            array.add(value);
+        }
+        return array;
+    }
+
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject root = new JsonObject();
@@ -200,7 +242,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             mesh.addProperty(
                     "eulerCharacteristic",
                     meshScene.getMeshEulerCharacteristic());
-            mesh.addProperty("closed", meshScene.isMeshClosed());
+            mesh.addProperty(CLOSED, meshScene.isMeshClosed());
             mesh.addProperty("repairReport", meshScene.getMeshRepairReport());
             mesh.addProperty("radius", meshScene.getMeshRadius());
             mesh.addProperty("shaderMode", meshScene.getShaderModeName());
@@ -213,7 +255,111 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             mesh.add(
                     "boundingBoxMax",
                     runtime.vector3Array(meshScene.getBoundingBoxMax()));
+            JsonArray edgeMarks = new JsonArray();
+            for (Map.Entry<String, boolean[]> entry
+                    : meshScene.graphEdgeMarks(meshScene.getLastGraphRuntime()).entrySet()) {
+                JsonObject mark = new JsonObject();
+                mark.addProperty(LABEL, entry.getKey());
+                mark.addProperty(EDGECOUNT, markedEdgeCount(entry.getValue()));
+                mark.addProperty(FINGERPRINT,
+                        EdgeMarks.fingerprint(meshScene.getMesh(), entry.getValue()));
+                edgeMarks.add(mark);
+            }
+            mesh.add("edgeMarks", edgeMarks);
             root.add("mesh", mesh);
+        }
+
+        if (runtime.canvas instanceof RingScene ringScene && ringScene.ringWaypointCount > 0) {
+            JsonObject ringJson = new JsonObject();
+            ringJson.addProperty(WAYPOINTCOUNT, ringScene.ringWaypointCount);
+            ringJson.addProperty("points", SurfaceWaypoints.format(ringScene.ringWaypointsXyz,
+                    ringScene.ringWaypointCount));
+            SurfaceRing closedRing = ringScene.ring;
+            ringJson.addProperty(CLOSED, closedRing != null);
+            if (closedRing != null) {
+                ringJson.addProperty(EDGECOUNT, closedRing.markedEdgeCount);
+                ringJson.addProperty(LENGTH, closedRing.length);
+                ringJson.addProperty(SEEDLENGTH, closedRing.seedLength);
+                JsonArray centroid = new JsonArray();
+                centroid.add(closedRing.centroidX);
+                centroid.add(closedRing.centroidY);
+                centroid.add(closedRing.centroidZ);
+                ringJson.add(CENTROID, centroid);
+                MeshTopology ringMesh = ringScene.halfEdgeSurface();
+                if (ringMesh != null) {
+                    ringJson.addProperty(FINGERPRINT,
+                            EdgeMarks.fingerprint(ringMesh, closedRing.markedByEdgeId));
+                }
+            }
+            root.add("ring", ringJson);
+        }
+
+        if (runtime.canvas instanceof RingScene toolScene) {
+            RingTool tool = toolScene.ringTool;
+            JsonObject toolJson = new JsonObject();
+            toolJson.addProperty(ACTIVE, tool.active);
+            toolJson.addProperty("previewValid", tool.previewValid);
+            toolJson.addProperty("previewAnchorCount", tool.previewAnchorCount);
+            toolJson.addProperty("previewGirdleEdgeCount", tool.previewGirdleEdgeCount);
+            toolJson.addProperty(LENGTH, tool.previewLength);
+            toolJson.addProperty("previewMillis", tool.previewMillis);
+            toolJson.addProperty("tolerance", tool.previewTolerance);
+            toolJson.addProperty("deviation", tool.previewDeviation);
+            toolJson.addProperty("anchorCapReached", tool.previewAnchorCapReached);
+            toolJson.addProperty("geodesicsTraced", tool.previewGeodesicCount);
+            toolJson.addProperty("tiltAboutView", tool.tiltAboutView);
+            toolJson.addProperty("tiltAboutTangent", tool.tiltAboutTangent);
+            toolJson.addProperty("axisFromSkeleton", tool.axisFromSkeleton);
+            toolJson.addProperty("hoveredRing", tool.hoveredRing);
+            toolJson.addProperty("unsavedRingCount", tool.unsavedRingCount());
+            toolJson.add("previewHitPoint", floatArray(tool.previewHitPoint));
+            toolJson.add("previewAnchors", floatArray(tool.previewAnchorXyz));
+            toolJson.add("previewPlaneNormal", floatArray(tool.previewPlaneNormal));
+            toolJson.add("previewLimbAxis", floatArray(tool.previewLimbAxis));
+            toolJson.addProperty("error", tool.lastError);
+            MeshTopology toolSurface = toolScene.halfEdgeSurface();
+            JsonArray confirmed = new JsonArray();
+            for (int index = 0; index < tool.confirmedRings.size(); index++) {
+                SurfaceSpline ring = tool.confirmedRings.get(index);
+                JsonObject row = new JsonObject();
+                row.addProperty("number", tool.drawnRingNumber(index));
+                String statementId = index < tool.confirmedStatementIds.size()
+                        ? tool.confirmedStatementIds.get(index) : null;
+                row.addProperty("statement", statementId == null ? "" : statementId);
+                row.addProperty("unsaved", index < tool.confirmedRingUnsaved.size()
+                        && tool.confirmedRingUnsaved.get(index));
+                row.addProperty(EDGECOUNT, ring.markedEdgeCount);
+                row.addProperty(LENGTH, ring.length);
+                row.addProperty("anchorCount", ring.anchorCount);
+                row.addProperty("meanRadius", ring.meanRadius);
+                row.addProperty("traceDepth", ring.traceDepth);
+                row.addProperty("minimumInteriorAngleDegrees",
+                        ring.minimumInteriorAngleDegrees);
+                row.addProperty("unresolvedGaps", ring.unresolvedGaps);
+                JsonArray centroid = new JsonArray();
+                centroid.add(ring.centroidX);
+                centroid.add(ring.centroidY);
+                centroid.add(ring.centroidZ);
+                row.add(CENTROID, centroid);
+                row.add("anchors", floatArray(ring.anchorXyz));
+                row.add("sharpestCorner", floatArray(ring.sharpestCornerXyz));
+                if (toolSurface != null) {
+                    row.addProperty(FINGERPRINT,
+                            EdgeMarks.fingerprint(toolSurface, ring.markedByEdgeId));
+                }
+                confirmed.add(row);
+            }
+            toolJson.add("confirmedRings", confirmed);
+            JsonArray drawn = new JsonArray();
+            for (int ring = 0; ring < tool.drawnRingLabel.length; ring++) {
+                JsonObject label = new JsonObject();
+                label.addProperty(LABEL, tool.drawnRingLabel[ring]);
+                label.addProperty("colorRgb", ring < tool.drawnRingColorRgb.length
+                        ? tool.drawnRingColorRgb[ring] : 0);
+                drawn.add(label);
+            }
+            toolJson.add("drawnRings", drawn);
+            root.add("ringTool", toolJson);
         }
 
         if (runtime.canvas instanceof ModelScene modelScene && modelScene.modelCollection != null) {
@@ -313,6 +459,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 control.addProperty(KEY, hint.key);
                 control.addProperty("description", hint.description);
                 control.addProperty("keyCode", hint.keyCode);
+                control.addProperty("controlHeld", hint.controlHeld);
                 controls.add(control);
             }
         }
@@ -342,14 +489,30 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         return root;
     }
 
+    /**
+     * Marked entries in a per-edge mask.
+     *
+     * @param marksByEdgeId edge-id-indexed mask
+     * @return how many edges the mask marks
+     */
+    private static int markedEdgeCount(boolean[] marksByEdgeId) {
+        int marked = 0;
+        for (boolean mark : marksByEdgeId) {
+            if (mark) {
+                marked++;
+            }
+        }
+        return marked;
+    }
+
     @Override
     public RouteDoc describe() {
         return RouteDoc.builder()
                 .description("Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.")
                 .responseHint("{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, "
                         + "menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, "
-                        + "mode, trade, irregularGrid?, mesh?, collection?, textElements, menuItems, controls, "
-                        + "audio}")
+                        + "mode, trade, irregularGrid?, mesh?, ring?, collection?, textElements, menuItems, "
+                        + "controls, audio}")
                 .build();
     }
 }

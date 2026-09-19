@@ -813,6 +813,16 @@ public class WebGL implements GL {
         return pixels;
     }
 
+    /**
+     * {@inheritDoc}.
+     *
+     * <p>WebGL exposes no depth read, so every point reads as visible.
+     */
+    @Override
+    public float readDepth(int x, int y) {
+        return 1f;
+    }
+
     /** {@inheritDoc}. */
     @Override
     public int TEXTURE0() {

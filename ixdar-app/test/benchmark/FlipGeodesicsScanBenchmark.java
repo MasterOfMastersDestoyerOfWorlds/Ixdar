@@ -1,29 +1,37 @@
 package benchmark;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Locale;
+
+import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.paths.FlipGeodesics;
 import ixdar.geometry.mesh.data.paths.GeodesicSeedPath;
+import ixdar.geometry.mesh.data.paths.GirdlingPlane;
 import ixdar.geometry.mesh.data.paths.IntrinsicPathTracer;
 import ixdar.geometry.mesh.data.paths.IntrinsicTriangulation;
 import ixdar.geometry.mesh.data.paths.NearestVertex;
+import ixdar.geometry.mesh.data.paths.SplineAnchorFit;
+import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfaceRing;
+import ixdar.geometry.mesh.data.paths.SurfaceSpline;
+import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 
 /**
- * Times FlipOut on a full-resolution crawfish scan — not part of the default test globs
- * (package {@code benchmark}); run explicitly:
+ * Times FlipOut, a ring row and the ring tool's hover frame on a full-resolution crawfish scan.
  *
  * <pre>
  * mvn test -pl ixdar-app -P test -Dtest=FlipGeodesicsScanBenchmark \
@@ -31,14 +39,15 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
  * </pre>
  *
  * <p>
- * Each round rebuilds the intrinsic triangulation, because FlipOut consumes it by flipping. The
- * three stages are timed apart so the warm FlipOut cost — the number the ticket targets at under
- * 100 ms — is not hidden inside the one-off setup.
+ * Stages are timed apart so the warm cost is not hidden inside the one-off triangulation setup.
  */
 public final class FlipGeodesicsScanBenchmark {
 
     /** Input-file entry point: the scan the loop is tightened on. */
     private static final String MESH_PROPERTY = "benchmark.geodesicMesh";
+
+    /** Output-file entry point: where the manifold shell is written as OBJ, for the viewer. */
+    private static final String SHELL_PROPERTY = "benchmark.shellObj";
 
     /** Scan used when the property is absent. */
     private static final String DEFAULT_MESH = "/home/acw/crawfish/IMG_4109.glb";
@@ -69,8 +78,14 @@ public final class FlipGeodesicsScanBenchmark {
     /** Rounds discarded before the warm numbers are collected. */
     private static final int WARMUP_ROUNDS = 2;
 
+    /** Floats per packed xyz position. */
+    private static final int POSITION_STRIDE = 3;
+
     /** Nanoseconds in a millisecond. */
     private static final double NANOS_PER_MILLI = 1e6;
+
+    /** One half, the crossing fraction a cut point snaps to its edge's tail or head at. */
+    private static final double HALF = 0.5;
 
     /**
      * Weld radius applied before anything else. The scan's glTF indices split vertices at texture
@@ -79,11 +94,167 @@ public final class FlipGeodesicsScanBenchmark {
      */
     private static final float WELD_DISTANCE = 1e-6f;
 
-    /** Corners of a triangle, which is also the stride of a packed xyz position. */
-    private static final int TRIANGLE_CORNERS = 3;
-
+    /**
+     * Times the leg and body loops through their seed, FlipOut and trace stages.
+     *
+     * @throws IOException if the scan cannot be read
+     */
     @Test
     public void tightenCrawfishLegLoop() throws IOException {
+        HalfEdgeMesh mesh = crawfishShell();
+
+        timeLoop("leg", mesh, LEG_WAYPOINTS);
+        timeLoop("body", mesh, BODY_WAYPOINTS);
+    }
+
+    /**
+     * The CRAW-23 ring row for one walking leg, on the shell rather than the raw scan: the scene
+     * and {@code /mesh/rings/add} refuse IMG_4109 itself until CRAW-26 repairs its non-manifold
+     * edges, so the row is produced here the way the timings above are.
+     *
+     * @throws IOException if the scan cannot be read
+     */
+    @Test
+    public void ringRowOnTheCrawfishLeg() throws IOException {
+        HalfEdgeMesh mesh = crawfishShell();
+        String shellPath = System.getProperty(SHELL_PROPERTY, "");
+        if (!shellPath.isEmpty()) {
+            writeObj(mesh, Path.of(shellPath));
+            System.out.printf("[ring] shell written to %s%n", shellPath);
+        }
+        float[] packed = new float[LEG_WAYPOINTS.length * POSITION_STRIDE];
+        for (int waypoint = 0; waypoint < LEG_WAYPOINTS.length; waypoint++) {
+            System.arraycopy(LEG_WAYPOINTS[waypoint], 0, packed, POSITION_STRIDE * waypoint,
+                    POSITION_STRIDE);
+        }
+
+        SurfaceRing ring = SurfaceRing.through(mesh, packed, LEG_WAYPOINTS.length, true, 0,
+                FlipGeodesics.UNBOUNDED_ITERATIONS);
+
+        System.out.printf(
+                "[ring] leg row: %d edges, length %.5f (seed %.5f), centroid %.5f, %.5f, %.5f, "
+                        + "fingerprint %s%n",
+                ring.markedEdgeCount, ring.length, ring.seedLength, ring.centroidX, ring.centroidY,
+                ring.centroidZ, EdgeMarks.fingerprint(mesh, ring.markedByEdgeId));
+    }
+
+    /**
+     * Times the ring tool's hover frame — the girdling-plane search and the spline anchor fit that
+     * {@code RingTool.perFrame} runs between the GPU pick and the overlay — at six surface points,
+     * and asserts every round of a point traces the same ring.
+     *
+     * @throws IOException if the scan cannot be read
+     */
+    @Test
+    public void hoverPreviewOnTheCrawfish() throws IOException {
+        HalfEdgeMesh mesh = crawfishShell();
+        long prepareStart = System.nanoTime();
+        SurfaceGeodesics geodesics = SurfaceGeodesics.over(mesh);
+        System.out.printf(
+                "[hover] prepare: intrinsic triangulation over %d faces in %.1f ms, mean edge %.5f%n",
+                mesh.faceCount(), (System.nanoTime() - prepareStart) / NANOS_PER_MILLI,
+                geodesics.meanEdgeLength);
+
+        for (int waypoint = 0; waypoint < LEG_WAYPOINTS.length; waypoint++) {
+            timeHover("leg " + waypoint, mesh, geodesics, LEG_WAYPOINTS[waypoint]);
+        }
+        for (int waypoint = 0; waypoint < BODY_WAYPOINTS.length; waypoint++) {
+            timeHover("body " + waypoint, mesh, geodesics, BODY_WAYPOINTS[waypoint]);
+        }
+    }
+
+    /**
+     * Runs one hover point through {@link #ROUNDS} frames, printing the warm best and worst and
+     * failing when a later frame traces a different ring than the first.
+     *
+     * @param name      label printed with this point's timings
+     * @param mesh      surface the cursor is over
+     * @param geodesics engine holding the triangulation every trace runs on
+     * @param point     surface point under the cursor
+     */
+    private static void timeHover(String name, HalfEdgeMesh mesh, SurfaceGeodesics geodesics,
+            float[] point) {
+        Vector3f position = new Vector3f();
+        int hitVertexId = NearestVertex.find(mesh, point[0], point[1], point[2]);
+        mesh.vertexPosition(hitVertexId, position);
+        float[] hitPoint = { position.x, position.y, position.z };
+        int faceId = mesh.vertexFaceAt(hitVertexId, 0);
+
+        GirdlingPlane girdle = new GirdlingPlane();
+        int[] girdleVertexId = new int[0];
+        String firstRing = null;
+        double bestMillis = Double.POSITIVE_INFINITY;
+        double worstMillis = 0.0;
+        long geodesicsPerFrame = 0;
+        for (int round = 0; round < ROUNDS; round++) {
+            long geodesicsBefore = geodesics.geodesicCount;
+            long start = System.nanoTime();
+            if (!girdle.find(mesh, faceId, hitPoint, null)) {
+                System.out.printf("[hover] %s: no closed cut, %.2f ms%n", name,
+                        (System.nanoTime() - start) / NANOS_PER_MILLI);
+                return;
+            }
+            double cutMillis = (System.nanoTime() - start) / NANOS_PER_MILLI;
+            if (girdleVertexId.length < girdle.cut.stepCount) {
+                girdleVertexId = new int[girdle.cut.stepCount];
+            }
+            int firstStep = 0;
+            double nearest = Double.POSITIVE_INFINITY;
+            for (int step = 0; step < girdle.cut.stepCount; step++) {
+                int halfEdge = mesh.edgeHalfEdge(girdle.cut.edgeId[step]);
+                girdleVertexId[step] = girdle.cut.crossingFraction[step] <= HALF
+                        ? mesh.halfEdgeVertex(halfEdge)
+                        : mesh.halfEdgeEndVertex(halfEdge);
+                int base = POSITION_STRIDE * step;
+                double dx = girdle.polyline[base] - hitPoint[0];
+                double dy = girdle.polyline[base + 1] - hitPoint[1];
+                double dz = girdle.polyline[base + 2] - hitPoint[2];
+                if (dx * dx + dy * dy + dz * dz < nearest) {
+                    nearest = dx * dx + dy * dy + dz * dz;
+                    firstStep = step;
+                }
+            }
+            SurfaceSplineTracer tracer = new SurfaceSplineTracer(geodesics);
+            tracer.maximumDepth = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH - 1;
+            SplineAnchorFit fit = new SplineAnchorFit(tracer);
+            boolean fitted =
+                    fit.fit(girdle.polyline, girdle.cut.stepCount, girdleVertexId, firstStep);
+            double millis = (System.nanoTime() - start) / NANOS_PER_MILLI;
+            assertTrue(fitted, "the anchor fit failed at hover point " + name);
+
+            SurfaceSpline spline = SurfaceSpline.of(tracer);
+            String ring = String.format(Locale.ROOT,
+                    "%d-edge cut, %d anchors, %d ring edges, length %.9f, deviation %.9f, "
+                            + "fingerprint %s",
+                    girdle.cut.stepCount, fit.anchorCount, spline.markedEdgeCount, spline.length,
+                    fit.deviation, EdgeMarks.fingerprint(mesh, spline.markedByEdgeId));
+            System.out.printf("[hover] %s round %d: %.2f ms (cut %.2f, fit %.2f), %d geodesics, "
+                    + "%s%n", name, round, millis, cutMillis, millis - cutMillis,
+                    geodesics.geodesicCount - geodesicsBefore, ring);
+            if (firstRing == null) {
+                firstRing = ring;
+            }
+            assertEquals(firstRing, ring, "hover point " + name + " traced a different ring in "
+                    + "round " + round);
+            if (round < WARMUP_ROUNDS) {
+                continue;
+            }
+            bestMillis = Math.min(bestMillis, millis);
+            worstMillis = Math.max(worstMillis, millis);
+            geodesicsPerFrame = geodesics.geodesicCount - geodesicsBefore;
+        }
+        System.out.printf("[hover] %s warm: best %.2f ms, worst %.2f ms, %d geodesics per frame%n",
+                name, bestMillis, worstMillis, geodesicsPerFrame);
+    }
+
+    /**
+     * The scan's largest manifold shell: loaded, welded at {@link #WELD_DISTANCE}, stripped of the
+     * faces that make an edge non-manifold, and reduced to the biggest surviving component.
+     *
+     * @throws IOException if the scan cannot be read
+     * @return the shell as a half-edge mesh
+     */
+    private static HalfEdgeMesh crawfishShell() throws IOException {
         String meshPath = System.getProperty(MESH_PROPERTY, DEFAULT_MESH);
         long loadStart = System.nanoTime();
         ArrayMesh loaded = MeshLoader.load(meshPath);
@@ -92,14 +263,16 @@ public final class FlipGeodesicsScanBenchmark {
         ArrayMesh welded = MeshMergeByDistance.mergeToArrayMesh(loaded, WELD_DISTANCE);
         System.out.printf("[flip-geodesics] weld: %d vertices, %d faces%n",
                 welded.vertexCount(), welded.faceCount());
-        HalfEdgeMesh mesh = largestManifoldComponent(welded);
+        ManifoldShell shell = new ManifoldShell();
+        HalfEdgeMesh mesh = shell.of(welded);
+        System.out.printf("[flip-geodesics] cleanup: %d faces -> %d manifold -> %d in the largest "
+                + "component (%d vertices)%n", shell.inputFaceCount, shell.manifoldFaceCount,
+                shell.keptFaceCount, shell.keptVertexCount);
         double loadMillis = (System.nanoTime() - loadStart) / NANOS_PER_MILLI;
         System.out.printf(
                 "[flip-geodesics] mesh %s: %d vertices, %d faces, %d edges, load+weld %.1f ms%n",
                 meshPath, mesh.vertexCount(), mesh.faceCount(), mesh.edgeCount(), loadMillis);
-
-        timeLoop("leg", mesh, LEG_WAYPOINTS);
-        timeLoop("body", mesh, BODY_WAYPOINTS);
+        return mesh;
     }
 
     /**
@@ -178,133 +351,29 @@ public final class FlipGeodesicsScanBenchmark {
     }
 
     /**
-     * The largest connected manifold piece of a welded scan.
+     * Writes a mesh as a plain OBJ so the viewer scene can load the shell the ring was measured
+     * on, which the raw scan cannot be until CRAW-26 repairs its non-manifold edges.
      *
-     * <p>
-     * A raw scan keeps a handful of faces that reuse a directed edge or give an edge three
-     * neighbours; FlipOut needs a manifold surface, so those are dropped greedily in face order
-     * (190 of 936035 on IMG_4109) and only the biggest surviving component is kept.
-     *
-     * @param welded scan whose coincident vertices have already been merged
-     * @return the manifold surface as a half-edge mesh
+     * @param mesh mesh to write
+     * @param out  file to write it to
+     * @throws IOException if the file cannot be written
      */
-    private static HalfEdgeMesh largestManifoldComponent(ArrayMesh welded) {
-        float[] positions = welded.copyPositions();
-        int[] faces = welded.copyFaceIndices();
-        int faceCount = faces.length / TRIANGLE_CORNERS;
-        Set<Long> usedDirectedEdges = new HashSet<>();
-        Map<Long, Integer> undirectedEdgeUses = new HashMap<>();
-        int[] kept = new int[faces.length];
-        int keptCount = 0;
-        for (int face = 0; face < faceCount; face++) {
-            int cornerA = faces[TRIANGLE_CORNERS * face];
-            int cornerB = faces[TRIANGLE_CORNERS * face + 1];
-            int cornerC = faces[TRIANGLE_CORNERS * face + 2];
-            if (cornerA == cornerB || cornerB == cornerC || cornerA == cornerC
-                    || !edgesAreFree(usedDirectedEdges, undirectedEdgeUses, cornerA, cornerB,
-                            cornerC)) {
-                continue;
+    private static void writeObj(HalfEdgeMesh mesh, Path out) throws IOException {
+        Vector3f position = new Vector3f();
+        StringBuilder text = new StringBuilder();
+        for (int index = 0; index < mesh.vertexCount(); index++) {
+            mesh.vertexPosition(mesh.vertexIdAt(index), position);
+            text.append("v ").append(position.x).append(' ').append(position.y).append(' ')
+                    .append(position.z).append('\n');
+        }
+        for (int index = 0; index < mesh.faceCount(); index++) {
+            int faceId = mesh.faceIdAt(index);
+            text.append('f');
+            for (int corner = 0; corner < mesh.faceVertexCount(faceId); corner++) {
+                text.append(' ').append(mesh.faceVertexAt(faceId, corner) + 1);
             }
-            claimEdge(usedDirectedEdges, undirectedEdgeUses, cornerA, cornerB);
-            claimEdge(usedDirectedEdges, undirectedEdgeUses, cornerB, cornerC);
-            claimEdge(usedDirectedEdges, undirectedEdgeUses, cornerC, cornerA);
-            kept[keptCount] = cornerA;
-            kept[keptCount + 1] = cornerB;
-            kept[keptCount + 2] = cornerC;
-            keptCount += TRIANGLE_CORNERS;
+            text.append('\n');
         }
-
-        int vertexCount = positions.length / TRIANGLE_CORNERS;
-        int[] componentRoot = new int[vertexCount];
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
-            componentRoot[vertex] = vertex;
-        }
-        for (int corner = 0; corner < keptCount; corner += TRIANGLE_CORNERS) {
-            union(componentRoot, kept[corner], kept[corner + 1]);
-            union(componentRoot, kept[corner + 1], kept[corner + 2]);
-        }
-        int[] componentFaces = new int[vertexCount];
-        for (int corner = 0; corner < keptCount; corner += TRIANGLE_CORNERS) {
-            componentFaces[root(componentRoot, kept[corner])]++;
-        }
-        int biggestRoot = 0;
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
-            if (componentFaces[vertex] > componentFaces[biggestRoot]) {
-                biggestRoot = vertex;
-            }
-        }
-
-        int[] compacted = new int[vertexCount];
-        Arrays.fill(compacted, -1);
-        float[] outPositions = new float[positions.length];
-        int[] outFaces = new int[keptCount];
-        int outVertexCount = 0;
-        int outFaceCorners = 0;
-        for (int corner = 0; corner < keptCount; corner += TRIANGLE_CORNERS) {
-            if (root(componentRoot, kept[corner]) != biggestRoot) {
-                continue;
-            }
-            for (int offset = 0; offset < TRIANGLE_CORNERS; offset++) {
-                int vertex = kept[corner + offset];
-                if (compacted[vertex] < 0) {
-                    compacted[vertex] = outVertexCount;
-                    System.arraycopy(positions, TRIANGLE_CORNERS * vertex, outPositions,
-                            TRIANGLE_CORNERS * outVertexCount, TRIANGLE_CORNERS);
-                    outVertexCount++;
-                }
-                outFaces[outFaceCorners + offset] = compacted[vertex];
-            }
-            outFaceCorners += TRIANGLE_CORNERS;
-        }
-        System.out.printf("[flip-geodesics] cleanup: %d faces -> %d manifold -> %d in the largest "
-                + "component (%d vertices)%n", faceCount, keptCount / TRIANGLE_CORNERS,
-                outFaceCorners / TRIANGLE_CORNERS, outVertexCount);
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(
-                Arrays.copyOf(outPositions, TRIANGLE_CORNERS * outVertexCount),
-                Arrays.copyOf(outFaces, outFaceCorners));
-    }
-
-    private static boolean edgesAreFree(Set<Long> usedDirectedEdges,
-            Map<Long, Integer> undirectedEdgeUses, int cornerA, int cornerB, int cornerC) {
-        return edgeIsFree(usedDirectedEdges, undirectedEdgeUses, cornerA, cornerB)
-                && edgeIsFree(usedDirectedEdges, undirectedEdgeUses, cornerB, cornerC)
-                && edgeIsFree(usedDirectedEdges, undirectedEdgeUses, cornerC, cornerA);
-    }
-
-    private static boolean edgeIsFree(Set<Long> usedDirectedEdges,
-            Map<Long, Integer> undirectedEdgeUses, int from, int to) {
-        return !usedDirectedEdges.contains(directedKey(from, to))
-                && undirectedEdgeUses.getOrDefault(undirectedKey(from, to), 0) < 2;
-    }
-
-    private static void claimEdge(Set<Long> usedDirectedEdges,
-            Map<Long, Integer> undirectedEdgeUses, int from, int to) {
-        usedDirectedEdges.add(directedKey(from, to));
-        undirectedEdgeUses.merge(undirectedKey(from, to), 1, Integer::sum);
-    }
-
-    private static long directedKey(int from, int to) {
-        return ((long) from << Integer.SIZE) | Integer.toUnsignedLong(to);
-    }
-
-    private static long undirectedKey(int from, int to) {
-        return from < to ? directedKey(from, to) : directedKey(to, from);
-    }
-
-    private static int root(int[] componentRoot, int vertex) {
-        int walk = vertex;
-        while (componentRoot[walk] != walk) {
-            componentRoot[walk] = componentRoot[componentRoot[walk]];
-            walk = componentRoot[walk];
-        }
-        return walk;
-    }
-
-    private static void union(int[] componentRoot, int first, int second) {
-        int firstRoot = root(componentRoot, first);
-        int secondRoot = root(componentRoot, second);
-        if (firstRoot != secondRoot) {
-            componentRoot[firstRoot] = secondRoot;
-        }
+        Files.write(out, text.toString().getBytes(StandardCharsets.UTF_8));
     }
 }

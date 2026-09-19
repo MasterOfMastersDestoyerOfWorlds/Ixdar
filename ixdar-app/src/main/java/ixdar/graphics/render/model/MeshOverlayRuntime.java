@@ -20,21 +20,23 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
+import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.color.PatchColorHash;
 import ixdar.graphics.render.shaders.ShaderProgram;
+import ixdar.graphics.render.text.HyperString;
+import ixdar.gui.ui.Drawing;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 
 /**
- * Quad-layout inspection overlays behind public {@code show*} toggles. Each setter converts one
- * port-typed value into a {@link LineSet}, a {@link PointSet}, or a corner array, and
- * {@link VertexBuffer#upload} is the one upload path per {@link VertexLayout}. The iso-surface
- * is triangle soup: per-corner UV is discontinuous across cut edges (BZK09 Section 5).
+ * General overlays drawn over a half-edge mesh surface: points, lines, labels, fields and arcs.
+ * Each setter converts one value into a {@link LineSet}, a {@link PointSet} or a corner array,
+ * and {@link VertexBuffer#upload} is the one upload path per {@link VertexLayout}.
  */
-public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
+public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
 
     /** Colour names of the group palette in assignment order, for log lines. */
     public static final String GROUP_PALETTE_ORDER =
@@ -78,8 +80,20 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private static final float HIGHLIGHT_REGION_SCALE = 0.22f;
     private static final float HIGHLIGHT_MARKER_SCALE = 2.2f;
     private static final float PATCH_CLOUD_SCALE = 1f;
+    private static final float MARKER_SPHERE_SCALE = 1.4f;
     /** Cap on the shared sphere radius inside a diagnostic spotlight, in region radii. */
     private static final float TEAR_SPHERE_REGION_FRACTION = 0.02f;
+
+    private static final float LABEL_ROW_HEIGHT_PIXELS = 26f;
+    private static final float LABEL_OFFSET_PIXELS = 10f;
+    /**
+     * Depth slack a label keeps against the surface, absorbing the precision noise of a point
+     * sitting exactly on the faces it is drawn over.
+     */
+    private static final float LABEL_DEPTH_SLACK = 0.0005f;
+    private static final int COLOR_CHANNEL_BITS = 8;
+    private static final int COLOR_CHANNEL_MAX = 0xFF;
+    private static final int LABEL_PIXEL_VALUES = 3;
 
     private static final String BASE_COLOR = "baseColor";
     private static final String U_LINE_COLOR = "uLineColor";
@@ -167,6 +181,21 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     /** Radius of the last uploaded diagnostic's geometry around its centroid. */
     public float diagnosticRegionRadius;
 
+    /** Packed world xyz of every label's point, three floats per label. */
+    public float[] labelXyz = new float[0];
+
+    /** Text drawn beside each label's point; an empty entry draws nothing. */
+    public String[] labelText = new String[0];
+
+    /** One {@code 0x00RRGGBB} colour per label, parallel to {@link #labelText}. */
+    public int[] labelColorRgb = new int[0];
+
+    /**
+     * World distance each label's point is pulled toward the eye before its depth test, so a
+     * label sitting inside a shape is not hidden by the shell around it.
+     */
+    public float[] labelDepthLift = new float[0];
+
     private ArcNetwork arrangement;
     private UvField seamlessParametrization;
     private HalfEdgeMesh seamlessMesh;
@@ -181,6 +210,8 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private final VertexBuffer copyWireframe = new VertexBuffer();
     private final VertexBuffer embeddedArcs = new VertexBuffer();
     private final VertexBuffer embeddedZeroArcs = new VertexBuffer();
+    /** Every colour group's line segments end to end, two vertices per segment. */
+    private final VertexBuffer lineGroups = new VertexBuffer();
     private final List<VertexBuffer> diagnosticLines = new ArrayList<>();
     private final List<Color> diagnosticLineColors = new ArrayList<>();
     private final List<PointSet> diagnosticRegions = new ArrayList<>();
@@ -190,18 +221,23 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     private PointSet graphNodes;
     private PointSet layoutCorners;
     private PointSet embeddedNodes;
+    private PointSet markers;
     private int layoutBoundaryVertexCount;
     private int[] constraintRangeStart;
     private int[] constraintRangeCount;
     private int[] layoutPatchIndexStart;
     private int[] layoutPatchIndexCount;
     private Color[] layoutPatchColors;
+    private int[] lineGroupSegmentStart = new int[0];
+    private int[] lineGroupColorRgb = new int[0];
 
     private final Matrix4f model = new Matrix4f();
     private final Matrix4f localProjection = new Matrix4f();
+    private final float[] labelPixel = new float[LABEL_PIXEL_VALUES];
+    private final Vector3f labelPoint = new Vector3f();
 
     /** Build the runtime and initialise its overlay shaders. */
-    public QuadLayoutRuntime() {
+    public MeshOverlayRuntime() {
         super();
         this.uvShader = ShaderProgram.ShaderType.MeshUv.getShader();
         this.uvShader.init();
@@ -226,9 +262,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Drops every overlay tied to one mesh: the parametrization and arrangement it was traced
-     * over, their buffers and marker sets, the per-patch and per-constraint index ranges, and the
-     * sphere radius cap derived from the mesh's arc lengths.
+     * Drops every overlay tied to one mesh: the parametrization and arrangement traced over it,
+     * their buffers and marker sets, a tool's labels, line groups and markers, the per-patch and
+     * per-constraint index ranges, and the sphere radius cap.
      */
     public void clearMeshState() {
         arrangement = null;
@@ -243,6 +279,9 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         embeddedArcs.delete();
         embeddedZeroArcs.delete();
         clearDiagnostic();
+        clearLineGroups();
+        clearMarkers();
+        clearLabels();
         patchClouds.clear();
         showPatchClouds = false;
         singularities = null;
@@ -396,6 +435,81 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             singularities.add(position,
                     index4.get(vertex) > 0 ? COLOR_POSITIVE_INDEX : COLOR_NEGATIVE_INDEX, 0f);
         }
+    }
+
+    /**
+     * Upload one line buffer whose groups each draw in their own colour, so a set of curves over
+     * the surface is one upload and one draw per colour.
+     *
+     * @param segmentEndpoints every group's segments end to end, six floats per segment as two
+     *                         packed xyz endpoints
+     * @param groupSegmentStart first segment of each group plus a closing total, so it is one
+     *                          longer than the group count
+     * @param groupColorRgb    one {@code 0x00RRGGBB} colour per group
+     */
+    public void setLineGroups(float[] segmentEndpoints, int[] groupSegmentStart,
+            int[] groupColorRgb) {
+        if (segmentEndpoints == null || groupSegmentStart == null
+                || groupSegmentStart.length < 2) {
+            clearLineGroups();
+            return;
+        }
+        lineGroupSegmentStart = groupSegmentStart;
+        lineGroupColorRgb = groupColorRgb == null ? new int[0] : groupColorRgb;
+        lineGroups.upload(POSITION_LAYOUT, segmentEndpoints, null);
+    }
+
+    /** Drop the coloured line groups; nothing is drawn until {@link #setLineGroups} runs again. */
+    public void clearLineGroups() {
+        lineGroupSegmentStart = new int[0];
+        lineGroupColorRgb = new int[0];
+        lineGroups.delete();
+    }
+
+    /**
+     * Show one sphere per point, all in one colour, for the handles a tool lets a click land on.
+     *
+     * @param packedXyz packed world xyz of every point, or {@code null} to drop the markers
+     * @param colorRgb  the {@code 0x00RRGGBB} colour every sphere draws in
+     */
+    public void setMarkers(float[] packedXyz, int colorRgb) {
+        markers = PointSet.cloud(packedXyz, colorOf(colorRgb), MARKER_SPHERE_SCALE, 0f);
+        ensureSphere();
+        updateSphereRadius();
+    }
+
+    /** Drop the marker spheres. */
+    public void clearMarkers() {
+        markers = null;
+    }
+
+    /**
+     * Show text beside world points, each drawn by {@link #drawLabels} only while the surface
+     * does not hide its point.
+     *
+     * @param packedXyz packed world xyz of every label's point
+     * @param text      one text per point; empty entries draw nothing
+     * @param colorRgb  one {@code 0x00RRGGBB} colour per point
+     * @param depthLift world distance each point is pulled toward the eye before its depth test,
+     *                  zero for a point lying on the surface
+     */
+    public void setLabels(float[] packedXyz, String[] text, int[] colorRgb, float[] depthLift) {
+        if (packedXyz == null || text == null) {
+            clearLabels();
+            return;
+        }
+        labelXyz = packedXyz;
+        labelText = text;
+        labelColorRgb = colorRgb == null ? new int[0] : colorRgb;
+        labelDepthLift = depthLift == null ? new float[0] : depthLift;
+    }
+
+    /** Drop the labels; nothing is drawn until {@link #setLabels} runs again. */
+    public void clearLabels() {
+        labelXyz = new float[0];
+        labelText = new String[0];
+        labelColorRgb = new int[0];
+        labelDepthLift = new float[0];
     }
 
     /**
@@ -621,8 +735,8 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             diagnosticLineColors.add(paletteColor(palette++));
             regionClouds.add(segments.xyz);
         }
-        for (float[] markers : markerPositions) {
-            diagnosticMarkers.add(PointSet.cloud(markers, paletteColor(palette++),
+        for (float[] markerGroup : markerPositions) {
+            diagnosticMarkers.add(PointSet.cloud(markerGroup, paletteColor(palette++),
                     HIGHLIGHT_MARKER_SCALE, 0f));
         }
         diagnosticRegionRadius = cloudRadius(regionClouds, new Vector3f());
@@ -739,9 +853,11 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         boolean drawEmbeddedArcs = showEmbeddedArcs && (embeddedArcs.vertexCount > 0
                 || embeddedZeroArcs.vertexCount > 0 || embeddedNodes != null);
         boolean drawCopyWireframe = showCopyWireframe && copyWireframe.vertexCount > 0;
+        boolean drawLineGroups = lineGroups.vertexCount > 0 && lineGroupSegmentStart.length > 1;
+        boolean drawMarkers = markers != null && markers.count > 0;
         if (!drawSurface && !drawCross && !drawConstraints && !drawSingularities && !drawNodes
                 && !drawLayoutFill && !drawLayoutBoundaries && !drawQuadGrid && !drawEmbeddedArcs
-                && !drawCopyWireframe) {
+                && !drawCopyWireframe && !drawLineGroups && !drawMarkers) {
             return;
         }
         setupOverlayProjection(camera);
@@ -777,6 +893,19 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             if (showEmbeddedNodes) {
                 drawSpheres(embeddedNodes);
             }
+        }
+        if (drawLineGroups && beginUnlit(camera)) {
+            for (int group = 0; group + 1 < lineGroupSegmentStart.length; group++) {
+                int firstVertex = 2 * lineGroupSegmentStart[group];
+                int vertices =
+                        2 * (lineGroupSegmentStart[group + 1] - lineGroupSegmentStart[group]);
+                drawLines(lineGroups, firstVertex, vertices,
+                        colorOf(group < lineGroupColorRgb.length ? lineGroupColorRgb[group] : 0),
+                        LAYOUT_LINE_WIDTH, HIGHLIGHT_DEPTH_BIAS);
+            }
+        }
+        if (drawMarkers && beginUnlit(camera)) {
+            drawSpheres(markers);
         }
         if (drawCross && beginCrossField(camera)) {
             crossFieldShader.setVec4(U_LINE_COLOR, COLOR_U_ARM);
@@ -834,8 +963,54 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
             drawLines(lines, 0, lines.vertexCount, diagnosticLineColors.get(index),
                     HIGHLIGHT_LINE_WIDTH, HIGHLIGHT_DEPTH_BIAS);
         }
-        for (PointSet markers : diagnosticMarkers) {
-            drawSpheres(markers);
+        for (PointSet markerGroup : diagnosticMarkers) {
+            drawSpheres(markerGroup);
+        }
+    }
+
+    /**
+     * Draw every label beside its point, in the scene's 2D pass over a frame the 3D passes have
+     * already filled: a point projecting behind the camera, off the framebuffer, or under a
+     * nearer surface fragment draws nothing.
+     *
+     * @param camera active 3D camera, whose matrices placed the surface in the depth buffer
+     * @param screen the 2D camera the text is drawn through
+     */
+    public void drawLabels(Camera3D camera, Camera2D screen) {
+        if (labelText.length == 0 || screen == null) {
+            return;
+        }
+        GL gl = Platforms.gl();
+        int width = Platforms.get().getFrameBufferWidth();
+        int height = Platforms.get().getFrameBufferHeight();
+        for (int label = 0; label < labelText.length; label++) {
+            String text = labelText[label];
+            if (text == null || text.isEmpty() || 3 * label + 2 >= labelXyz.length) {
+                continue;
+            }
+            labelPoint.set(labelXyz[3 * label], labelXyz[3 * label + 1], labelXyz[3 * label + 2]);
+            float lift = label < labelDepthLift.length ? labelDepthLift[label] : 0f;
+            if (lift > 0f) {
+                labelPoint.add(new Vector3f(camera.position).sub(labelPoint).normalize(lift));
+            }
+            if (!projectToPixels(camera, labelPoint.x, labelPoint.y, labelPoint.z, labelPixel)) {
+                continue;
+            }
+            int pixelX = Math.round(labelPixel[0]);
+            int pixelFromBottom = height - 1 - Math.round(labelPixel[1]);
+            if (pixelX < 0 || pixelX >= width || pixelFromBottom < 0
+                    || pixelFromBottom >= height) {
+                continue;
+            }
+            if (labelPixel[2] > gl.readDepth(pixelX, pixelFromBottom) + LABEL_DEPTH_SLACK) {
+                continue;
+            }
+            HyperString drawn = new HyperString();
+            drawn.addWord(text,
+                    colorOf(label < labelColorRgb.length ? labelColorRgb[label] : 0));
+            Drawing.getDrawing().font.drawHyperString(drawn,
+                    labelPixel[0] + LABEL_OFFSET_PIXELS,
+                    height - labelPixel[1] + LABEL_OFFSET_PIXELS, LABEL_ROW_HEIGHT_PIXELS, screen);
         }
     }
 
@@ -852,6 +1027,7 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         copyWireframe.delete();
         embeddedArcs.delete();
         embeddedZeroArcs.delete();
+        lineGroups.delete();
     }
 
     private void uploadSeamlessSurface() {
@@ -1036,6 +1212,11 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         return GROUP_PALETTE[index % GROUP_PALETTE.length];
     }
 
+    private static Color colorOf(int rgb) {
+        return new ColorRGB((rgb >> (2 * COLOR_CHANNEL_BITS)) & COLOR_CHANNEL_MAX,
+                (rgb >> COLOR_CHANNEL_BITS) & COLOR_CHANNEL_MAX, rgb & COLOR_CHANNEL_MAX);
+    }
+
     private static Color nodeColor(EmbeddedNode node) {
         if (node.critical) {
             return node.singularityIndex4 > 0 ? COLOR_POSITIVE_INDEX : COLOR_NEGATIVE_INDEX;
@@ -1094,9 +1275,18 @@ public class QuadLayoutRuntime extends HalfEdgeMeshRuntime {
         Vector3f bMin = getBoundingBoxMin();
         Vector3f bMax = getBoundingBoxMax();
         float diag = bMax.distance(bMin);
+        float near = nearPlaneFor(camera);
+        float far = farPlaneFor(camera, diag);
+        if (isOrthographic()) {
+            float halfHeight = camera.position.distance(camera.target)
+                    * (float) Math.tan(Math.toRadians(camera.fov / NUM_2_0));
+            float halfWidth = halfHeight * aspect;
+            localProjection.identity()
+                    .ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, near, far);
+            return;
+        }
         localProjection.identity().perspective(
-                (float) Math.toRadians((float) camera.fov),
-                aspect, nearPlaneFor(camera), farPlaneFor(camera, diag));
+                (float) Math.toRadians((float) camera.fov), aspect, near, far);
     }
 
     private boolean beginUnlit(Camera3D camera) {

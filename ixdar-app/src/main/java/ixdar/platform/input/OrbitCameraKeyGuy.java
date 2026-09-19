@@ -86,7 +86,9 @@ public class OrbitCameraKeyGuy extends KeyGuy {
             return;
         }
         for (ControlHint hint : controls) {
-            if (hint.keyCode == key && hint.keyCode != ControlHint.NO_KEY && hint.action != null) {
+            boolean modifierHeld = !hint.controlHeld || (mods & MOD_CONTROL) != 0;
+            if (hint.keyCode == key && hint.keyCode != ControlHint.NO_KEY && hint.action != null
+                    && modifierHeld) {
                 hint.action.perform();
                 markKeyConsumed();
                 return;

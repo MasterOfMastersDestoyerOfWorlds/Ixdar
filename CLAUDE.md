@@ -1,244 +1,85 @@
-# Working with uncommitted state
+# Uncommitted state
 
-Never revert or overwrite uncommitted changes without an explicit yes/no from the user — including changes you made earlier in the same session. If a fix you tried looks wrong, made tests worse, or "feels safer to undo," the default is to leave it in place and investigate, not to roll back. Ask before any `git stash`, `git checkout -- <file>`, `git reset --hard`, or Edit/Write that restores a prior version of a file. "Reverting is the safe move" is never an unprompted decision.
-
-**You never perform the revert yourself — you name the files and I run it.** `git checkout`, `git clean`, `git reset` and shell overwrites of working-tree files are on the deny list, and that deny stands even when I have already agreed the revert should happen: agreeing to a revert is not agreeing that you should be the one to do it. So when a revert is the right move, say so and print exactly two lists — **restore to HEAD** (tracked files) and **delete** (untracked files) — then stop and wait.
-
-Do not route around the denial. `git show HEAD:path > path`, `cp` from a scratchpad copy, and Write-tool restores of prior file contents are all the denied operation wearing a different hat; a second attempt through a different tool is worse than the first, not better. The one exception is a file you created earlier in this same session that nothing else has touched — deleting or rewriting your own scratch output is not a revert.
-
-Sequence the work so the tree never sits broken across the handoff: land whatever rewrite removes the dependency on the code being reverted **first**, so that by the time the list reaches me, applying it leaves the build green. If that is not possible, say plainly that the build will be red between the revert and the follow-up.
+Never revert or overwrite uncommitted changes without an explicit yes from the user, including changes you made earlier in the session. A fix that looks wrong is investigated, not rolled back. You never perform a revert yourself: `git checkout`, `git clean`, `git reset` and shell overwrites of tracked files are denied, and `git show HEAD:path > path`, a `cp` from a scratch copy, or a Write of a prior version are the same operation in a different hat. When a revert is right, print two lists, **restore to HEAD** (tracked) and **delete** (untracked), then stop. The one exception is a file you created this session that nothing else touched. Land the rewrite that removes the dependency on the reverted code first, so applying the list leaves the build green; if that is impossible, say the build will be red in between.
 
 # Worktrees and git: `wt` is the one door
 
-Agent work happens in a linked worktree at `.claude/worktrees/<ticket>` on a branch of the same name, and **the worktree's uncommitted diff is the proposed change**. Leave it uncommitted: the branch pointer sits on `master`, so `git diff` shows exactly what would land.
+Agent work happens in a linked worktree at `.claude/worktrees/<ticket>` on a branch of the same name, and the worktree's uncommitted diff is the proposed change. Leave it uncommitted; the branch sits on `master`, so `git diff` shows exactly what would land.
 
-`git add`, `commit`, `merge`, `branch`, `checkout`, `switch`, `restore`, `reset`, `stash`, `rebase`, `apply`, `push` and the rest of the write verbs are denied everywhere, in every worktree. **A denial is about the git verb itself** — not about the `cd &&` in front of it, not about the pipe after it, not about the quoting. Don't retry the same verb a different way and don't diagnose the harness; reach for `wt`, which is allow-listed:
-
-- `wt new <ticket> [--repo Ixdar]` — create the worktree and branch off `master`, seed the Python environment, and print the brief (paths, ticket, commands).
-- `wt status <ticket>` — **the first command to run in a worktree**, and the whole of a resume: branch, distance from `master`, changed files, and the last note of the agent that worked here.
-- `wt sync <ticket>` — replay your uncommitted diff onto the current `master`. Run it when you start and whenever you need newer `master`. On a conflict it stops and names the files; fix the markers and run `wt continue <ticket>`, or `wt abort <ticket>` to go back.
-- `wt launch add <ticket> --scene <id> [--property k=v]` — add the `.vscode/launch.json` entry the user verifies with F5. It edits the file as JSONC, so the comments survive and the diff is only the added entry. Never hand-edit `launch.json`.
-- `wt done <ticket>` — sync, build, run that launch entry once exactly as F5 runs it but headless (`ixdar-cli launch`, same `vmArgs` including the profiler agent) with its screenshot kept under `tmp/`, confirm `tmp/` holds a screenshot, then mark the ticket REVIEW. It refuses with a reason on any failed step, the launch run cannot be skipped, and it never lands.
-- `wt commit <ticket> -m "..."` — one squashed commit on top of `master`, only when asked; the default is to leave the work uncommitted.
-
-Read-only git is fine: `git status`, `git diff`, `git log`, `git show`, `git worktree list`. Merging to `master` is `land`, which is the user's alone and is on the deny list — never run it and never suggest a way around it.
+Every git write verb (`add`, `commit`, `merge`, `checkout`, `restore`, `reset`, `stash`, `rebase`, `push` and the rest) is denied in every worktree. A denial is about the verb, not the `cd` in front or the pipe after it, so do not retry it another way. Use `wt`: `status` (the first command in a worktree and the whole of a resume), `sync` (replay the diff onto current `master`; on a conflict fix the markers and `continue`, or `abort`), `launch add` (the `.vscode/launch.json` entry the user verifies with F5; never hand-edit that file), `done` (sync, build, run the entry once exactly as F5 runs it but headless — `ixdar-cli launch`, same `vmArgs` including the profiler agent — check `tmp/` holds a screenshot, mark the ticket REVIEW; the launch run cannot be skipped) and `commit` (only when asked). `wt --help` has the rest. Read-only git is fine. Merging to `master` is `land`, which is the user's alone.
 
 # Conventions
 
 ## Naming
 
-Use full words. No cryptic abbreviations — a reader landing in the file cold should not have to grep to learn what an identifier means.
+Use full words; a reader landing cold should not have to grep to learn what an identifier means. Two kinds of integer are load-bearing: `edgeId`, `vertexId`, `faceId` are sparse `HalfEdgeMesh` handles, and `activeEdge`, `activeVertex`, `activeFace` are dense `[0, count)` solver indices. Mixing them silently produces wrong arrays, so never name one `e`, `v`, `ae`, `vId` or `hCanon`, and when a method takes both, the parameter name says which: `activeVertexIndex(int vertexId)`. Accumulators and frontiers get real names too: `frontier`, not `pq`.
 
-- `edgeId`, `vertexId`, `faceId` — raw `HalfEdgeMesh` handles. Sparse (mesh may have holes).
-- `activeEdge`, `activeVertex`, `activeFace` — dense `[0, count)` solver indices.
-- `halfEdge` — a half-edge handle (use `halfEdge` even when it's the canonical one; don't write `hCanon`).
-- `periodJump`, `chartVertex`, `cornerStartA`, etc. — spell it out.
-
-The id-vs-active-index distinction is load-bearing; mixing them silently produces wrong arrays. Never name a variable just `e`, `v`, `f`, `ae`, `vId`, `hCanon`, `cv`, `p` — the type of integer is the whole point.
-
-When a method takes both kinds, the parameter name says which: `activeVertexIndex(int vertexId)` (id in, active index out).
-
-Variables for loop accumulators, search frontiers, etc.: `frontier` not `pq`, `posHere`/`posOther` not `pa`/`pb`, `reachedActiveVertex` not `hitVa`, `newDistance` not `nd`.
+A constant is named for its meaning, not its value, and carries no Javadoc: the name is the documentation. `NUM_3`, `NUM_0_5` and `STR_2` are rejected by checkstyle.
 
 ## Comments
 
-Default to none. The code says *what*; identifiers carry meaning. Only write a comment when the *why* is non-obvious — a hidden constraint, a paper citation, a workaround, behavior that would surprise a reader.
+Default to none; identifiers carry the *what*. Write a comment only for a non-obvious *why*: a hidden constraint, a citation, a workaround.
 
-- **Method docs: Javadoc, not `//`.** Every non-trivial method gets a Javadoc that says what it produces and any non-obvious invariant. Inline `//` clutter inside a method body is the wrong shape — if a method needs paragraph-length explanation, that explanation belongs on the method.
-- **No `// section ====` banners.** If a class has sections, the method Javadocs are the section headers.
-- **No restating the code.** `// Mark edge non-cut` above `isCutEdge[ae] = false` is noise.
-- **Citations stay.** `BZK09 §5`, `Lyon 2021`, derivations of integer constraints — keep these, but inside the Javadoc of the method that implements them, not floating mid-body.
-- **`@param` for every parameter, always.** Every parameter on a Javadoc'd method gets an `@param` with a non-empty description, even when the name seems obvious. Same for `@return` (non-void) and `@throws`. This matches the checkstyle config in `~/Code/autofix/src/main/resources/checkstyle.xml` (`JavadocMethod` with `allowMissingParamTags=false`, `allowMissingReturnTag=false`, `validateThrows=true`).
-- **No stub Javadoc.** Never leave `TODO: document` or `TODO: describe` placeholders — checkstyle rejects them. Write the real prose, even one line.
-- **The 50-word Javadoc-description limit is a smell detector, not a target.** When `JavadocDescriptionLength` fires, do NOT nudge the wording down word-by-word to land at 49 — that wastes turns and leaves a bloated doc. Cut it to **~25 words**: state what the member produces and its one non-obvious invariant, nothing else. **Implementation details do not belong in a Javadoc** — how the method works internally (the algorithm, the data structure, the BFS/loop mechanics, why a prior approach was tried) is what pushes it over the limit; delete it. If the *why* is genuinely load-bearing, one short sentence or a `See also:` citation, not a paragraph.
+- Method docs are Javadoc, not `//`. Every non-trivial method gets one saying what it produces and its non-obvious invariant. No `// section ====` banners, no restating the code, and citations live in the Javadoc of the method that implements them.
+- `@param` for every parameter, `@return` on non-void, `@throws` where thrown, always, with non-empty descriptions. Never leave a `TODO: document` stub.
+- The 50-word description limit is a smell detector, not a target. When `JavadocDescriptionLength` fires, cut to about 25 words: what the member produces and one invariant. Implementation detail (the algorithm, the loop mechanics, what was tried before) is what pushes a doc over, so delete it. A paragraph needed to explain one parameter means the parameter is wrong.
 
-If a method needs a paragraph of Javadoc to explain a single parameter, the parameter is probably wrong — split the method or rename. A long doc is a smell, not a fix.
+## Method and class shape
 
-## Method shape
-
-- One public entry point per pipeline class (e.g. `build()`); internals are private and called in dependency order.
-- Don't interleave responsibilities across classes — if `A.foo()` calls `B.bar()` calls `A.baz()` calls `B.qux()`, the class boundary is in the wrong place.
-- Don't add a parameter that exists for only one of N callers without a clear name and a one-line Javadoc that says when `-1` (or whatever sentinel) means "default."
-
-### Class layout
-
-- **One top-level class per file.** No exceptions for "small" companion classes.
-- **Avoid nested classes.** Inner classes, static nested classes, and anonymous classes hide structure inside other files and resist refactoring. If you need a nested class, that's the signal to promote it to its own top-level file — or, more often, that it should not be a class at all (next rule).
-- **Avoid thin data classes.** A class whose only job is to hold a handful of fields for one owner (an "Entry", "Member", "Range", "Info", a result holder) is usually an indirection. Store the data as parallel arrays on the owner (`String[] names`, `int[] rangeStart`, `int[] rangeCount`, `byte[][] imageBytes`) indexed by the element's id, the same way meshes store positions and normals. A class earns its file when it is a named concept with behaviour or an identity that outlives its owner (a mesh, a layout, a collection), not when it is a row.
-- **Scratch state is fields, not classes.** Reusable working state (distance arrays, visit stamps, queues) belongs as primitive-array fields at the top of the class that uses them — a companion "Scratch"/"State" class is an indirection, not a concept. Class extraction is for named concepts, not buffers.
-- **Avoid records.** Prefer a regular class with `public final` fields. (Records read fine in isolation but in practice they accumulate carve-outs — custom `equals`, validation in compact constructors, escape-analysis worries on hot paths — at which point they're a normal class wearing a costume.)
-
-### Field visibility
-
-Prefer `public` (or `public final` / `public static final`) for fields. **Avoid package-private and `private` instance fields** — they create refactor friction (visibility juggling every time you split or merge classes) without buying meaningful encapsulation in this codebase. If you find yourself reaching for `private` on a field, ask whether the class boundary is in the right place instead.
-
-Methods are the opposite default: `private` unless the class genuinely exposes them as API.
-
-### Single-caller private methods
-
-Default: **don't extract them.** A private method that is only ever called from one place earns its existence only by being (a) a complete logical unit you can name without referring to its caller, and (b) substantial — roughly 20+ lines, or non-trivial enough that inlining would meaningfully hurt readability. "I like helper methods" is not a reason; the helper is then just an indirection layer hiding the real flow.
-
-**A loop body is not a helper.** Extracting `perFooThing(int i)` so the caller can write `for (...) perFooThing(i)` adds no information — the loop and its body already say "do this per element." Keep the work inline. Helpers exist to name a *concept*, not to shave lines off a loop. The same goes for `if`-branch bodies: don't extract a 6-line method just because it's the body of one branch.
-
-When a single-caller helper genuinely is warranted (see `CutGraph.java` for the rare cases), place it:
-
-- **Adjacent to its caller**, not in some "helpers section" at the bottom.
-- **In call order** down the file, so a top-down read of the class follows the runtime path.
-
-This rule has a custom checkstyle module (`SingleCallerHelperCheck`, currently disabled in `~/Code/autofix`) — treat it as the policy regardless.
+- One public entry point per pipeline class; internals are private and follow in dependency order. If `A.foo()` calls `B.bar()` calls `A.baz()`, the class boundary is in the wrong place.
+- One top-level class per file. Avoid nested classes, records and thin data classes (an "Entry", "Info" or result holder): store rows as parallel arrays on their owner, the way meshes store positions and normals, and keep scratch state (distance arrays, visit stamps, queues) as primitive-array fields of the class that uses them. A class earns its file when it is a named concept with behaviour or an identity that outlives its owner.
+- Fields are `public` (or `public final`). Private fields buy refactor friction, not encapsulation. Methods are the opposite: `private` unless genuinely API.
+- Do not extract single-caller private methods. A loop body or an `if` branch is not a helper; a helper names a concept and is substantial (roughly 20 lines or more). When one is warranted, it sits adjacent to its caller, in call order down the file.
 
 ## No system properties
 
-**Never add a `System.getProperty` knob.** Properties are a hack: they move a decision out of the code into an invocation nobody will remember, they are untyped and unchecked, they never show up in a stack trace or a test, and each one is a branch that silently rots.
+Never add a `System.getProperty` knob: it is untyped, unchecked, invisible to tests and stack traces, and rots. Two behaviours that both need to exist are a `public` field on the owning class with a behaviour-describing name (`coupleSeams`), a boolean for two states, an enum only for three or more. Never a speculative switch; when one behaviour lost an experiment, delete it. The existing properties that choose an *input file* (`ixdar.model`, `benchmark.off`) are the one case this does not cover.
 
-When two behaviours genuinely both need to exist, they are a **public field on the owning class**, and the caller sets it. For a two-state switch that is a `public boolean` with a behavior-describing name (`coupleSeams`, `freeRegularNodes`) — do not mint a two-member enum for it. An enum is for three or more states, or when neither state is a natural default the boolean's `false` can carry. Never add a speculative switch: if nothing sets the field yet, the field shouldn't exist. When one behaviour is just the loser of an experiment, delete it and let the commit message hold the result.
+## Checkstyle
 
-The existing `ixdar.model` / `tmeshPipeline.off` / `benchmark.off` properties are entry points choosing an *input file*, which is the one case this does not cover. Anything that changes *behaviour* is a field.
+Never skip it and never comment a rule out: a red checkstyle is a red build. Fix every violation regardless of who wrote it or how long it has been red; the fixes are mechanical, and a non-mechanical one is surfaced, not skipped. The rules are `~/Code/autofix/src/main/resources/checkstyle.xml`, and a rule change is made there, not in a review checklist. The ones that bite most:
 
-## Other checkstyle rules to know
-
-**Never skip checkstyle.** Don't run with `-Dcheckstyle.skip=true` or comment out rules to make a build pass — fix the violations. A red checkstyle is a red build, full stop. The build is checked against `~/Code/autofix/src/main/resources/checkstyle.xml`. Beyond Javadoc, the rules that bite most often:
-
-**Always fix checkstyle violations, regardless of origin.** If the build is red on checkstyle — whether the violation is in code you just wrote, code the user just wrote, or code that's been broken for ten commits — fix it. Don't ask, don't defer, don't suggest the user fix it. Treat a red checkstyle the same way you'd treat a compiler error: it's blocking, and the next move is always to clear it. The fixes are mechanical (move a declaration, add an `@param`, extract a duplicate string to a constant) and shouldn't add visible behavior changes; if any single fix is non-mechanical, surface that one specifically before applying. Don't leave a partially-fixed build expecting the user to clean up.
-
-- **Declaration order** (`DeclarationOrder`): static fields → instance fields → constructors → methods. Within each field bucket, `public → protected → package → private`. The autofix recipe reorders this for you, but write it right the first time.
-- **Magic numbers:** literals other than `-1, 0, 1, 2` must be named constants. Field initializers and annotations are exempt.
-- **Duplicated string literals:** a repeated string that *carries meaning* — a map key, a format string, a system-property name, a file path — should be a constant. A repeated string that is only **string-assembly glue** — an operand of `+`, or an `append(...)` argument — stays inline, however often it repeats. `ARC = "arc "`, `AND = " and "`, `CLOSE_PAREN = ")"` name nothing; they are punctuation wearing a constant's clothes, and they push the declarations a reader actually needs off the top of the file. Usage decides this, not length: `KEY_FACES = "Faces"` is real and `" and "` is glue at the same character count. `MeaningfulDuplicateStringLiteralsCheck` enforces exactly this, and `InlineGlueStringConstantsRecipe` inlines glue constants back automatically.
-- **No inline fully-qualified class names:** write `Collectors.toSet()` with an import, not `java.util.stream.Collectors.toSet()`. The only exception is genuine simple-name collisions across packages.
-- **Banned packages** (`IllegalImport` plus a `RegexpSinglelineJava` for fully-qualified references): `java.awt`, `javax.swing`, `javax.imageio`, `java.applet`, `java.beans`. There is one renderer — the GL one — and rendering anything means driving a scene and capturing it, never rasterizing on the CPU. Write PNGs with `ixdar.graphics.image.PngWriter` over a `PixelImage`; `AutomationEndpoint.imageBytes` and `HeadlessPlatform.screenshot` already do. Add a package to the list in `~/Code/autofix/src/main/resources/checkstyle.xml` rather than to a review checklist.
+- Declaration order: static fields, instance fields, constructors, methods; within a bucket public before private.
+- Magic numbers: literals other than `-1, 0, 1, 2, 3, 0.5` are named constants. Field initializers and annotations are exempt.
+- Duplicated strings: a repeated literal that carries meaning (a key, a format, a path) is a constant; string-assembly glue (an operand of `+` or an `append` argument) stays inline however often it repeats. `MeaningfulDuplicateStringLiteralsCheck` enforces this and `InlineGlueStringConstantsRecipe` undoes the glue constants.
+- No inline fully-qualified class names; import instead, except for a genuine simple-name collision.
+- Banned packages: `java.awt`, `javax.swing`, `javax.imageio`, `java.applet`, `java.beans`. The GL renderer is the only renderer: rendering anything means driving a scene and capturing it, never rasterizing on the CPU. PNGs are written with `ixdar.graphics.image.PngWriter` over a `PixelImage`.
 
 # Building and testing
 
-Plain maven, from the repo root. The pom carries the flags, so nothing needs `-pl`, a heap
-argument, or a `grep` filter:
+Plain maven from the repo root; the pom carries every flag.
 
 ```sh
-mvn -q compile                                        # both modules, checkstyle included
-mvn test -Dtest=SurfaceSplineTest                     # one class (or a comma-separated list)
-mvn test                                              # the whole unit suite
-mvn test -Dtest=CrawfishQuadLayoutBenchmark -Dbenchmark.stage=seamless
+mvn -q compile                          # both modules, checkstyle included
+mvn test -Dtest=SurfaceSplineTest       # one class, or a comma-separated list
+mvn test                                # the unit suite
 ```
 
-- **`mvn -q compile` prints nothing when it succeeds.** Anything it does print is a real problem, so
-  do not pipe it through a filter. Checkstyle runs in `process-sources`, so this is where violations
-  surface; never skip it, and the ruleset is `~/Code/autofix/src/main/resources/checkstyle.xml`.
-- **`mvn test` ends with surefire's own `Tests run: N, Failures: N, Errors: N, Skipped: N`.** Read
-  the last lines of maven's output; failures are named directly above that line. `-Dtest=` naming a
-  class this module does not have is not an error (`surefire.failIfNoSpecifiedTests` is false in
-  the pom), so a stale class name shows up as `Tests run: 0`, not a build failure.
-- **If you pipe maven anywhere, read `${PIPESTATUS[0]}`, never `$?`** — `$?` after a pipe is the
-  exit status of `tail`, which is a silent green when maven was red.
-- Each test gets a **300 s timeout** (`ixdar.test.timeout`, JUnit's per-test default in
-  `SEPARATE_THREAD` mode), so a hung test fails in minutes rather than eating the whole agent
-  budget. Raise it for one run with `-Dixdar.test.timeout=1200s`.
-- The test JVM gets **`-Xmx4g`** (`ixdar.test.heap`), benchmarks included. A benchmark that needs
-  more heap than that is a problem in the code under test; `-Dixdar.test.heap=-Xmx8g` is for
-  measuring how much more, not for making the run pass.
-- A JVM abort leaves evidence under `ixdar-app/target/`: `hs_err_pid*.log`, `*.hprof` on an
-  out-of-memory, and surefire's `*.dumpstream` in `target/surefire-reports/`.
+`mvn -q compile` prints nothing on success, so anything it prints is a problem; do not filter it. `mvn test` ends with surefire's `Tests run: N, Failures: N, ...` line with failures named above it, and a stale `-Dtest=` class shows as `Tests run: 0`, not an error. If you pipe maven, read `${PIPESTATUS[0]}`, never `$?`. Each test has a 300 s timeout (`-Dixdar.test.timeout=1200s` to raise it once) and the test JVM gets `-Xmx4g`; a benchmark needing more heap is a bug in the code under test. A JVM abort leaves `hs_err_pid*.log`, `*.hprof` and surefire `*.dumpstream` under `ixdar-app/target/`.
 
 # Unit tests
 
-**A `unit.mesh.*Test` never loads a mesh file and never runs the pipeline.** No `.off`, no `.obj`, no `QuadLayoutEngine` run — a unit test must be far faster than a pipeline stage. The reproducer is a hand-authored fixture in `ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/embedding/fixtures/` (`TorusLayoutFixture`, `StackedZeroRowTorusFixture`, `ScaledTorusLayoutFixture`, `PlaneLayoutFixture` are the pattern — src/main so scenes can register them in the model menu, tests stay in `test/unit/mesh/`): an explicit grid of nodes, arcs, quantized lengths and four-sided patches, implementing `LayoutFixture` so `build()` returns fresh state. If no fixture reproduces the bug, **write one** — that is part of the work, not a reason to reach for a mesh.
+A `unit.mesh.*Test` never loads a mesh file and never runs the pipeline. The reproducer is a hand-authored fixture under `ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/embedding/fixtures/` (the `*LayoutFixture` classes are the pattern) and writing one is part of the work. Reproduce on a real mesh to learn what the fixture must contain, then encode it; what is disallowed is shipping the mesh run as the test. Mesh-backed checks live in `ixdar-app/test/benchmark/`, run deliberately with `-Dtest=`.
 
-Reproducing a bug **on** a real mesh is the right way to find out what the fixture must contain. Load botijo or rockerarm, measure what actually goes wrong, then encode that configuration in a fixture. What is disallowed is shipping the mesh run as the test.
-
-Mesh-backed checks belong in `ixdar-app/test/benchmark/`, which is run deliberately with `-Dtest=...`, never in the unit suite.
-
-## No untracked scratch Java
-
-**Never write a throwaway `.java` file to get a number.** No `Probe.java`, no `DiagTest`, no `javac` against a hand-assembled classpath, no `Main` in `/tmp`. Those files answer one question, then rot outside the build: nobody else can rerun them, checkstyle never sees them, and the next agent writes the same file again.
-
-The number you want comes from a **tracked automation route** — `mesh-topology`, `mesh-holes`, `mesh-dsl-timing`, `mesh-fingerprint` and the rest of the command list under **Automation** below. If no route reports it, **add one** (or extend the report class behind one): that is the work, not a detour around it. A route is reusable, documented by `gen-docs`, and callable from the CLI.
-
-When the question is genuinely a one-off that a route cannot answer, it is a **test under `ixdar-app/test/`** — `test/unit/` for a hand-authored fixture, `test/benchmark/` for anything mesh-backed — written to survive the merge like any other file in the diff. A diagnostic either lands there or is deleted before the ticket is marked REVIEW. Every `.java` file left in the worktree at handover is part of the proposed change, so `Probe.java`, `DiagTest.java`, `TempScanDiagnostic.java` and friends must be gone by then.
+Never write a throwaway `.java` file to get a number. The number comes from a tracked automation route (add one if none reports it) or from a test under `ixdar-app/test/` that survives the merge. Every `.java` file left in the worktree at handover is part of the proposed change.
 
 # Profiling
 
-We profile with [async-profiler](https://github.com/async-profiler/async-profiler) (CPU, `event=cpu`), attached as an agent and dumping a flame-graph HTML. We **always** want the flame graph, so keep the capture as `.html`:
+Profile with async-profiler's CPU flame graph, always kept as HTML. For a scene, `ixdar-cli run-scene --profile` attaches the agent, shuts the JVM down cleanly so the capture flushes, and prints the hot-method table; `ixdar-cli profile-report profile.html --top 30 [substr ...]` re-reads a capture. High inclusive but low self time means the cost is in callees, so optimize the callee or the call count.
 
-```
--agentpath:/usr/lib/libasyncProfiler.so=start,event=cpu,file=${workspaceFolder}/profile.html
-```
-
-For a scene, don't assemble this by hand — `ixdar-cli run-scene --profile` attaches the agent, waits for the scene, shuts the JVM down cleanly (async-profiler only flushes its HTML at exit) and prints the parsed hot-method table in one command:
-
-```
-uv run ixdar-cli run-scene --scene embedded-tmesh --profile --timeout 420 \
-  --property embeddedTMesh.off=<mesh.off> --property embeddedTMesh.contractFail=true
-```
-
-The agent writes exactly one file per run (`profile.html` at the repo root by default), so don't expect a separate text dump — the textual view is extracted from that same HTML by `ixdar_automation_cli/async_profile.py`, which `run-scene` calls for you. To re-read an existing capture without re-running:
-
-```
-python3 -m ixdar_automation_cli.async_profile profile.html --top 30 [substr ...]
-```
-
-It reconstructs async-profiler's prefix-compressed `cpool` and replays the `f()/u()/n()` frame stream to report **self-time per method** (where the CPU actually was) and total samples. Trailing substrings filter an extra "inclusive / self" table to matching frames (e.g. `integrateCurvature applySparse vertexPosition`) — use this to compare a method's own cost against time spent in its callees.
-
-When reading results: a high *inclusive* but low *self* number means the cost is in callees (often mesh accessors or `HashMap.getNode` from the boxing `faceIdToActive`/`edgeIdToActive` maps), not the method itself — optimize the callee or the call count, not the method body.
-
-## Picking what to optimize
-
-Do not argue about *which* thing to optimize. When I point at a specific method or target, optimize that one — even if you believe a different hotspot is the bigger win. State the bigger opportunity **once, in a single sentence**, then drop it and do what I asked. Don't re-raise it across turns, don't re-rank the options every reply, and don't treat a small absolute time as "not worth it" — if I say 2.5s is too long, it's too long. I decide priority; you make the thing I named faster.
+When the user names a method or target, optimize that one. State a bigger opportunity once, in one sentence, then drop it. The user decides priority.
 
 # Scenes and visual debugging
 
-Interactive 3D views are **scenes**: a class `extends Scene` (or `Canvas3D`) annotated `@SceneAnnotation(id = "...")`, auto-registered by an annotation processor (no registry list to edit — like the `@MeshNodeAnnotation` primitives). The window entry point is `ixdar.canvas.IxdarWindow`, and the scene id is `args[0]`, so `IxdarWindow embedded-tmesh` runs the scene with that id. Every scene id also has (or should have) a `.vscode/launch.json` entry — `mainClass: ixdar.canvas.IxdarWindow`, `args: <id>` — for the user's F5. From the CLI a scene is run only with `ixdar-cli run-scene --scene <id>`, never `mvn exec:java` — see "Seeing a render yourself" below for why.
+An interactive view is a scene: a class extending `Scene` (or `Canvas3D`) annotated `@SceneAnnotation(id = "...")` and registered by the annotation processor. The entry point is `ixdar.canvas.IxdarWindow <id>`, and every scene id has a `.vscode/launch.json` entry for F5. Scaffold a new scene with `ixdar-cli new-scene` rather than hand-writing the boilerplate.
 
-**Don't hand-write a new scene's boilerplate** — scaffold it. This creates the Scene `.java`, the launch.json entry, and (optionally) a Maven profile in one shot:
+To see a render, use `ixdar-cli run-scene --scene <id>` and nothing else: no hand-rolled `java`, `mvn exec:java` or health-poll loops. It builds, launches headless, waits for `sceneReady`, screenshots and shuts the JVM down. Never pass a port and never sleep waiting for a scene: the scene publishes its port to `tmp/automation.port`, every command reads it, `--keep-alive` returns once the scene is ready, and `ixdar-cli shutdown` returns once the process is gone. `ixdar-cli launch "<entry>"` runs a launch entry the way F5 does. `ixdar-cli multiview` composites eight views into one PNG with `viewOrder` naming the cells. Then `Read` the PNG.
 
-```
-uv run ixdar-cli new-scene --name FooScene --id foo-canvas --subfolder ui \
-  --display-name "Foo" --base Scene --camera 3d [--maven-profile foo-scene] [--dry-run]
-```
-
-## Seeing a render yourself — always `ixdar-cli run-scene`
-
-**Never hand-roll a JVM launch.** Do NOT `setsid java … ixdar.canvas.IxdarWindow <id>`, `mvn exec:java`, or a raw `curl`/`until` health-poll loop to bring a scene up. `run-scene` is the one supported entry point: it builds, launches, waits for `sceneReady` (not just an open port), screenshots, and shuts the JVM down cleanly — no orphaned processes, no port collisions, no stale-classpath surprises. Hand-rolled `java` also picks up whatever `.class` files the IDE's incremental (ECJ) build last wrote, which can be broken even when `mvn` is green.
-
-```
-uv run ixdar-cli run-scene --scene <scene-id> [--property key=value ...] [--mesh <name>]
-```
-
-It **always runs headless** — an off-screen GL context, never a window on the desktop, so it can't interrupt whatever you're doing. The headless platform loads textures and fonts, so screenshots render text (terminal, ESC menu) just like the desktop window. Pick the model with `--property ixdar.model=<token>` or `--mesh <name>`. Run `uv run ixdar-cli run-scene --help` for the flags — output path, `--timeout`, `--profile` (see Profiling), and how to keep the scene alive (`--keep-alive`) when you need to inject input (`ixdar-cli key`/`type`/`click`/`screenshot` against the running server) rather than a one-shot capture.
-
-**Never pass a port, and never sleep waiting for a scene.** The scene binds a free port and writes it to `tmp/automation.port` under the checkout it was launched from; every `ixdar-cli` command reads that file when no `--base-url` is given, so two worktrees can each run a scene with no flags at all. `--keep-alive` returns only once `sceneReady` is true — there is nothing left to wait for — and `ixdar-cli shutdown` returns only once the JVM process is gone, so no `pgrep`/`pkill` follow-up is needed (and `pkill -f IxdarWindow` would kill your own shell). `run-scene` prints its `port` and `baseUrl`, a one-line `summary`, and, when the scene throws, the exception class and first stack frame inline as `error`. `--skip-build` copies anything newer under `src/main/resources` into `target/classes` first, so a DSL fixture you just edited is the one the scene loads.
-
-To run a scene the way **F5** runs it — windowed, with the entry's own `vmArgs` and `cwd` — use the launch entry rather than a hand-written `java`:
-
-```
-uv run ixdar-cli launch "Mesh Node Viewer" --screenshot tmp/shot.png
-uv run ixdar-cli launch --list-entries
-```
-
-`mesh-dsl-validate --dsl` takes either DSL source text or a path to a `.dsl` file (relative paths resolve against the scene's working directory — `ixdar-app` — and then the checkout root). `ixdar-cli list-meshes --names` prints just the mesh names.
-
-Then `Read` the PNG. **Do not write a per-scene headless renderer** (`RenderEmbeddedTMesh` and `PatchRenderer` were both wrong turns and are gone); feed the scene's own `QuadLayoutRuntime`/overlays and screenshot it. `ixdar-cli multiview <png>` composites an 8-angle grid under the image limit, and its `viewOrder` field names the cells left to right, top to bottom.
-
-A patch decomposition renders the same way — `P` turns the overlay on, `Shift+P` steps `LAMBERT` to `FLAT`:
-
-```
-uv run ixdar-cli run-scene --scene mesh-viewer --mesh <name-or-path> --key P --key SHIFT+P --multiview out.png
-```
-
-In `FLAT` each patch is painted its exact `PatchColors.uniquePatchColor`, so a pixel sampled out of that PNG matches the `flat_color` field `mesh-patches-decompose` reports and identifies the patch. Every such colour has channel minimum 66 and maximum 215 and is never grey, so the viewer's grey backdrop cannot be mistaken for a patch.
-
-Do not hand-roll a bespoke visualizer (an SVG unwrap, a custom exporter): the runtime already draws meshes, arcs, and node markers on the surface.
-
-> The automation server had four latent bugs (it had never actually served a request): the `Canvas3D`/`MenuBox`/`KeyGuy`/`MouseTrap` reflection pointed at the pre-move package (missing `endpoints`), `@AutomationRouteAnnotation` was `@Retention(CLASS)` instead of `RUNTIME`, `AutomationApiServer.registerAll` didn't prefix paths with `/` or group GET+POST on one path, and route `runtime` was never injected. All fixed. If automation breaks again, suspect one of these.
+Do not write a per-scene renderer or a bespoke visualizer: the runtime already draws meshes, arcs, markers and overlays on the surface, so feed the scene and capture it.
 
 # Web build (TeaVM)
 
-`./tools/teavm-build.sh` packages the browser bundle into `ixdar-app/target/teavm/ixdar/`. It installs `IXDAR:annotations` into `~/.m2` first — `annotationProcessorPaths` resolves that jar from the repository and never from the reactor, so without the install a fresh worktree silently compiles against whatever processor jar happened to be installed last — then reprints every `[ERROR]` line after the Maven output where a `tail` finds it, and ends with one summary line: verdict, `classes.js` size, `[ERROR]` count, seconds. TeaVM runs with `stopOnErrors=false`, so when it meets a method it cannot compile it writes a ~36-byte `classes.js` stub and lets Maven exit 0; the script's minimum-size check is what actually fails the build. Full output is kept at `ixdar-app/target/teavm-build.log`.
-
-Everything reachable from `ixdar.canvas.WebLauncher` has to stay inside TeaVM's class library, which is a subset of the JDK's. The traps met so far, and what to write instead:
-
-- **`Files.readString` / `Files.writeString`** — they reach `BufferedReader.transferTo`, which the classlib does not implement, and the `[ERROR] Method java.io.BufferedReader.transferTo ... was not found` line is the only warning you get. Use `new String(Files.readAllBytes(file), StandardCharsets.UTF_8)` and `Files.write(file, text.getBytes(StandardCharsets.UTF_8))`; `CollectionManifest.readUtf8` is the pattern to copy.
-- **`java.util.Arrays.compare` on `int[]`** — missing. Write the lexicographic comparison as a loop over the shared prefix followed by a length comparison. (`Arrays.equals`, `sort`, `fill` and `copyOf` are fine.)
-- **Gson** — reflection-based, so it cannot work in the browser and the profile declares it `provided`. Parse with `Platforms.get().parseJson(text)`, which returns the neutral `JsonValue` tree (browser `JSON.parse` on web, Gson on desktop and headless); `Platform.parseFontAtlas` is the same trick for the font atlas. The rule generalizes: any reflective lookup compiles but comes up empty on web, which is why `Scene` wires its automation callbacks directly instead of by reflection.
-
-When the build fails, the `[ERROR] ... was not found` lines name the exact missing method; the class you have to change is usually one step up the call graph from it, not the one you just edited.
+`./tools/teavm-build.sh` packages the browser bundle and fails the build itself when TeaVM emits a stub `classes.js`; the full log is `ixdar-app/target/teavm-build.log`. Everything reachable from `ixdar.canvas.WebLauncher` must stay inside TeaVM's class library: no `Files.readString`/`writeString` (use `readAllBytes` and `write` with `StandardCharsets.UTF_8`), no `Arrays.compare` on arrays, and no Gson or other reflection on the web path (parse with `Platforms.get().parseJson`). A `[ERROR] ... was not found` line names the missing method; the class to change is usually one step up the call graph.
 
 # Automation
 
@@ -281,6 +122,8 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli replay-resume` — Clear the paused flag on the replay engine; no-op when nothing is running.
 - `ixdar-cli replay-start --file [--mode]` — Launch a replay from a previously saved recording file.
 - `ixdar-cli replay-status` — Snapshot of the replay engine: running flag, status, current file, paused flag.
+- `ixdar-cli rings add --points [--tighten]` — Ring the shown surface through authored points and report the ring row: centroid, length and marked edge count.
+- `ixdar-cli rings-list --path [--resolution] [--min-neckness]` — Rank the neck rings a mesh's skeleton proposes, most neck-like first.
 - `ixdar-cli screenshot [--out] [--inline] [--crop] [--scale]` — Capture a PNG screenshot of the current framebuffer to a file.
 - `ixdar-cli scroll [--delta]` — Deliver a synthesized scroll event to the active mouse handler.
 - `ixdar-cli type [--text]` — Synthesize character events on the active key handler, one per character of the text.

@@ -875,6 +875,73 @@
       "responseHint": "{replaying, status, file, paused}"
     },
     {
+      "commandName": "rings add",
+      "path": "/mesh/rings/add",
+      "method": "POST",
+      "description": "Ring the shown surface through authored points and report the ring row: centroid, length and marked edge count.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.rings.Add",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/rings/Add.java",
+      "params": [
+        {
+          "name": "points",
+          "cliName": "points",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Surface points as \"x,y,z; x,y,z; ...\"; three or more bound a loop.",
+          "example": "1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65"
+        },
+        {
+          "name": "tighten",
+          "cliName": "tighten",
+          "type": "bool",
+          "required": false,
+          "default": "true",
+          "help": "Tighten the closed walk into a geodesic with FlipOut.",
+          "example": "false"
+        }
+      ],
+      "responseHint": "{ok, waypointCount, points, edgeCount, length, seedLength, centroid:[x,y,z], fingerprint}"
+    },
+    {
+      "commandName": "rings-list",
+      "path": "/mesh/rings/list",
+      "method": "POST",
+      "description": "Rank the neck rings a mesh\u0027s skeleton proposes, most neck-like first.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.rings.ListRings",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/rings/ListRings.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Path to the mesh file to propose rings on.",
+          "example": "ixdar-app/test/resources/quadlayout/figure_8/fertility_in_tri.off"
+        },
+        {
+          "name": "resolution",
+          "cliName": "resolution",
+          "type": "int",
+          "required": false,
+          "default": "128",
+          "help": "Voxel resolution for the skeleton.",
+          "example": "128"
+        },
+        {
+          "name": "min_neckness",
+          "cliName": "min_neckness",
+          "type": "float",
+          "required": false,
+          "default": "0.6",
+          "help": "Neckness a ring must reach: the skeleton\u0027s local circumference over the ring\u0027s length.",
+          "example": "0.6"
+        }
+      ],
+      "responseHint": "{ok, path, resolution, ring_count, rings:[{ring, neckness, length, seed_length, centroid, edge_count, ...}], rejected:{...}}"
+    },
+    {
       "commandName": "screenshot",
       "path": "/ui/screenshot",
       "method": "POST",
@@ -1008,7 +1075,7 @@
       "sourceClass": "ixdar.platform.automation.endpoints.ui.State",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/State.java",
       "params": [],
-      "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, collection?, textElements, menuItems, controls, audio}"
+      "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ring?, collection?, textElements, menuItems, controls, audio}"
     }
   ]
 }

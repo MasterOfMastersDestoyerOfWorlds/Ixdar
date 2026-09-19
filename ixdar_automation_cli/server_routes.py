@@ -50,11 +50,26 @@ def server_command_map(manifest: dict, claimed_names: set) -> dict:
 def add_server_parsers(subparsers, command_map: dict) -> None:
     """Add one argparse subparser per dynamic server route.
 
+    A route whose Java-declared command name carries a space (``"rings add"``) becomes a group
+    subcommand: ``ixdar-cli rings add``. Every leaf parser records its own full name under
+    ``resolved_command`` so dispatch never has to re-join the words.
+
     :param subparsers: the argparse subparsers action to add to
     :param command_map: name-to-route mapping from :func:`server_command_map`
     """
+    groups: dict = {}
     for name, route in command_map.items():
-        parser = subparsers.add_parser(name, help=route.get("description", ""))
+        if " " in name:
+            group_name, leaf_name = name.split(" ", 1)
+            if group_name not in groups:
+                group_parser = subparsers.add_parser(group_name, help=f"{group_name} commands")
+                groups[group_name] = group_parser.add_subparsers(
+                    dest=f"{group_name}_subcommand", required=True
+                )
+            parser = groups[group_name].add_parser(leaf_name, help=route.get("description", ""))
+        else:
+            parser = subparsers.add_parser(name, help=route.get("description", ""))
+        parser.set_defaults(resolved_command=name)
         for param in route.get("params", []):
             _add_param_argument(parser, param)
 

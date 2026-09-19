@@ -234,6 +234,14 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
 
     /** {@inheritDoc}. */
     @Override
+    public float readDepth(int x, int y) {
+        FloatBuffer depth = BufferUtils.createFloatBuffer(1);
+        GL11.glReadPixels(x, y, 1, 1, GL11.GL_DEPTH_COMPONENT, GL11.GL_FLOAT, depth);
+        return depth.get(0);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
     public int COLOR_BUFFER_BIT() {
         return GL11.GL_COLOR_BUFFER_BIT;
     }

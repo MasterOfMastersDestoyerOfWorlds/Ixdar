@@ -2,6 +2,7 @@ package ixdar.scenes.mesh;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 import java.util.ArrayList;
 
@@ -16,6 +17,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.joml.Vector4f;
 
@@ -36,6 +38,7 @@ import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.load.ObjMeshParser;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
@@ -74,6 +77,7 @@ public class MeshNodeViewerScene extends ModelScene {
     public static final float NUM_255 = 255f;
     public static final int NUM_8 = 8;
     public static final float NUM_1 = 1f;
+
     private static final String DSL_FOLDER = "dsl";
     private static final String DEFAULT_DSL_RESOURCE = "skull.dsl";
     private static final String DEFAULT_DSL_FINAL_NODE = "";
@@ -85,10 +89,19 @@ public class MeshNodeViewerScene extends ModelScene {
      */
     private static final int[] EDGE_MARK_COLORS = { 0xFFA000, 0x00C8FF, 0xFF00C8 };
 
+    /** Resource folder holding the DSL graphs, relative to the module directory. */
+    private static final String DSL_RESOURCE_DIRECTORY = "src/main/resources/dsl";
+
+    /** Build output the resources are copied into; a graph loaded from here has a working copy. */
+    private static final String DSL_BUILD_DIRECTORY = "target/classes/dsl";
+
     /** Log prefix for this scene's timing lines. */
     private static final String TIMING_PREFIX = "[mesh-viewer]";
 
     private static final float HALF_EXTENT = 0.5f;
+
+    /** The runtime the surface is drawn through, replaced by {@link #createRuntime} per model. */
+    public volatile HalfEdgeMeshRuntime meshRuntime;
 
     private final String dslResource;
     private final String dslFinalNode;
@@ -99,10 +112,19 @@ public class MeshNodeViewerScene extends ModelScene {
 
     private MeshTopology mesh;
     private GeometryBundle meshBundle;
-    private volatile HalfEdgeMeshRuntime meshRuntime;
+
+    /** Half-edge copy of a mesh-file model, built on demand for the walks edge overlays need. */
+    private MeshTopology halfEdgeSurface;
+
+    /** Model {@link #halfEdgeSurface} was built from, so a model switch rebuilds it. */
+    private MeshTopology halfEdgeSurfaceSource;
+
     private HalfEdgeMeshRuntime overlayRuntime;
     private ArrayMesh overlayMesh;
     private NodeGraphRuntime lastGraphRuntime;
+
+    /** File the last graph was read from, which is also the file an edit is written back into. */
+    private String loadedDslFile;
 
     // VIEW-7: catalog + per-mesh decomposition cache + overlay state
     private String currentModelKey; // absolutePath for staging-dir entries, or "" for initial load
@@ -269,6 +291,12 @@ public class MeshNodeViewerScene extends ModelScene {
         bindInputDirect(Platforms.get(), keys, mouse);
     }
 
+    /**
+     * Build the runtime the surface draws through and install it as {@link #meshRuntime}. Every
+     * model load calls this, so a subclass overriding it gets its runtime kind on every switch.
+     *
+     * @return the installed runtime
+     */
     @Override
     public HalfEdgeMeshRuntime createRuntime() {
         try {
@@ -297,7 +325,7 @@ public class MeshNodeViewerScene extends ModelScene {
             return;
         }
         try {
-            Platforms.get().loadSourceAsync(DSL_FOLDER, dslResource, Platforms.gl().getPlatformID(), dslCode -> {
+            loadDslSource(dslResource, dslCode -> {
                 NodeGraphRuntime graphRuntime = NodeGraphRuntime.fromSource(dslCode);
                 List<PythonParser.ParsedNode> ast = graphRuntime.statements;
                 lastGraphRuntime = graphRuntime;
@@ -318,11 +346,7 @@ public class MeshNodeViewerScene extends ModelScene {
                             e);
                 }
                 logTiming(graphRuntime);
-                try {
-                    meshRuntime = new HalfEdgeMeshRuntime();
-                } catch (Exception e) {
-                    throw new IllegalStateException(FAILED_TO_CREATE_MESH_GL_RUNTIME, e);
-                }
+                createRuntime();
                 meshRuntime.upload(mesh);
                 meshRuntime.frameCamera(camera);
                 if (mesh != null) {
@@ -343,8 +367,8 @@ public class MeshNodeViewerScene extends ModelScene {
 
     /**
      * The model named by {@code -Dixdar.model}: a directory opens as a collection, a catalog token
-     * resolves through the catalog, and anything else is taken as a mesh file path (the crawfish
-     * scans live outside any catalog).
+     * resolves through the catalog, a {@code .dsl} path is executed as a graph, and anything else
+     * is taken as a mesh file path (the crawfish scans live outside any catalog).
      *
      * @return the choice to load instead of the DSL graph, or {@code null} when the property is unset
      */
@@ -367,18 +391,17 @@ public class MeshNodeViewerScene extends ModelScene {
         if (!Files.exists(file) && Files.exists(Path.of(MeshLoader.MODULE_DIRECTORY, common))) {
             file = Path.of(MeshLoader.MODULE_DIRECTORY, common);
         }
-        return new ModelChoice(file.getFileName().toString(), file.toAbsolutePath().toString());
+        ModelChoice.Kind kind = common.endsWith(DSL) ? ModelChoice.Kind.DSL
+                : ModelChoice.Kind.MESH_FILE;
+        return new ModelChoice(file.getFileName().toString(), file.toAbsolutePath().toString(),
+                kind);
     }
 
     private void initObjViewer() {
         try {
             Platforms.get().loadSourceAsync("obj", objResource, Platforms.gl().getPlatformID(), objText -> {
                 ArrayMesh arrayMesh = ObjMeshParser.load(objText);
-                try {
-                    meshRuntime = new HalfEdgeMeshRuntime();
-                } catch (Exception e) {
-                    throw new IllegalStateException("Failed to create mesh GL runtime for OBJ", e);
-                }
+                createRuntime();
                 meshRuntime.upload(arrayMesh);
                 meshRuntime.frameCamera(camera);
                 Platforms.get().log("[mesh-viewer] OBJ loaded: " + objResource
@@ -698,7 +721,7 @@ public class MeshNodeViewerScene extends ModelScene {
 
         String resolvedPort = finalPort;
         String resolvedDslName = dslName;
-        Platforms.get().loadSourceAsync(DSL_FOLDER, resolvedDslName, Platforms.gl().getPlatformID(), dslCode -> {
+        loadDslSource(resolvedDslName, dslCode -> {
             NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(dslCode);
             List<PythonParser.ParsedNode> ast = runtime.statements;
             lastGraphRuntime = runtime;
@@ -715,11 +738,7 @@ public class MeshNodeViewerScene extends ModelScene {
                 throw new IllegalStateException("Failed to execute DSL: " + resolvedDslName, e);
             }
             logTiming(runtime);
-            try {
-                meshRuntime = new HalfEdgeMeshRuntime();
-            } catch (Exception e) {
-                throw new IllegalStateException(FAILED_TO_CREATE_MESH_GL_RUNTIME, e);
-            }
+            createRuntime();
             meshRuntime.upload(mesh);
             meshRuntime.frameCamera(camera);
 
@@ -736,43 +755,65 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Draws every boolean edge-marks label the graph left on its output bundle as its own colored
-     * overlay, so a seed loop and the geodesic it tightens to are told apart on screen.
+     * Draws every boolean edge-marks label the graph left on its output bundle, so a seed loop
+     * and the geodesic it tightens to are told apart on screen.
      *
      * @param runtime the graph that just ran; its last {@code geometry} output carries the marks
      */
     private void applyEdgeMarkOverlay(NodeGraphRuntime runtime) {
-        if (meshRuntime == null || mesh == null
+        showEdgeMarks(graphEdgeMarks(runtime));
+    }
+
+    /**
+     * The boolean edge-mark masks a finished graph left on its output bundle, by label.
+     *
+     * @param runtime graph to read, or {@code null} for none
+     * @return label-to-mask map, empty when the graph marked no edges
+     */
+    public Map<String, boolean[]> graphEdgeMarks(NodeGraphRuntime runtime) {
+        Map<String, boolean[]> marksByLabel = new LinkedHashMap<>();
+        if (runtime == null
                 || !(runtime.lastOutput(DEFAULT_DSL_FINAL_PORT) instanceof GeometryBundle bundle)
                 || !(bundle.slots().get(EdgeMarks.SLOT) instanceof Map<?, ?> marks)) {
-            return;
+            return marksByLabel;
         }
-        List<String> labels = new ArrayList<>();
         for (Map.Entry<?, ?> entry : marks.entrySet()) {
-            if (entry.getValue() instanceof boolean[]) {
-                labels.add(String.valueOf(entry.getKey()));
+            if (entry.getValue() instanceof boolean[] flags) {
+                marksByLabel.put(String.valueOf(entry.getKey()), flags);
             }
         }
-        if (labels.isEmpty()) {
+        return marksByLabel;
+    }
+
+    /**
+     * Draws each named per-edge mask as its own coloured feature-edge overlay, taking colours in
+     * sorted label order so a label keeps its colour between runs.
+     *
+     * @param marksByLabel edge-id-indexed masks by label; empty leaves the view untouched
+     */
+    public void showEdgeMarks(Map<String, boolean[]> marksByLabel) {
+        MeshTopology marked = halfEdgeSurface();
+        if (meshRuntime == null || marked == null || marksByLabel.isEmpty()) {
             return;
         }
+        List<String> labels = new ArrayList<>(marksByLabel.keySet());
         labels.sort(String::compareTo);
         Map<Integer, Integer> denseVertexIndex = new HashMap<>();
-        for (int index = 0; index < mesh.vertexCount(); index++) {
-            denseVertexIndex.put(mesh.vertexIdAt(index), index);
+        for (int index = 0; index < marked.vertexCount(); index++) {
+            denseVertexIndex.put(marked.vertexIdAt(index), index);
         }
         List<HalfEdgeMeshRuntime.FeatureEdgeCategory> categories = new ArrayList<>();
         for (int slot = 0; slot < labels.size(); slot++) {
-            boolean[] flags = (boolean[]) marks.get(labels.get(slot));
+            boolean[] flags = marksByLabel.get(labels.get(slot));
             List<Long> edgeKeys = new ArrayList<>();
-            for (int index = 0; index < mesh.edgeCount(); index++) {
-                int edgeId = mesh.edgeIdAt(index);
+            for (int index = 0; index < marked.edgeCount(); index++) {
+                int edgeId = marked.edgeIdAt(index);
                 if (edgeId >= flags.length || !flags[edgeId]) {
                     continue;
                 }
-                int halfEdge = mesh.edgeHalfEdge(edgeId);
-                Integer tail = denseVertexIndex.get(mesh.halfEdgeVertex(halfEdge));
-                Integer head = denseVertexIndex.get(mesh.halfEdgeEndVertex(halfEdge));
+                int halfEdge = marked.edgeHalfEdge(edgeId);
+                Integer tail = denseVertexIndex.get(marked.halfEdgeVertex(halfEdge));
+                Integer head = denseVertexIndex.get(marked.halfEdgeEndVertex(halfEdge));
                 if (tail != null && head != null) {
                     edgeKeys.add(EdgeKey.undirected(tail, head));
                 }
@@ -834,6 +875,95 @@ public class MeshNodeViewerScene extends ModelScene {
         return cachedDiagnostics.decomposition().patches();
     }
 
+    /**
+     * The surface an edge-indexed overlay walks: the graph's own mesh, or a cached half-edge copy
+     * when a mesh file loaded as an {@link ArrayMesh} with no edge adjacency.
+     *
+     * @return the surface with edge adjacency, or {@code null} if no mesh is loaded
+     */
+    public MeshTopology halfEdgeSurface() {
+        if (mesh == null || mesh.edgeCount() > 0) {
+            return mesh;
+        }
+        if (halfEdgeSurfaceSource != mesh && mesh instanceof ArrayMesh arrayMesh) {
+            halfEdgeSurfaceSource = mesh;
+            halfEdgeSurface = HalfEdgeMeshEngine.buildFromIndexedMesh(arrayMesh.copyPositions(),
+                    arrayMesh.copyFaceIndices());
+            Platforms.get().log("[mesh-viewer] half-edge copy with "
+                    + halfEdgeSurface.edgeCount() + " edges");
+        }
+        return halfEdgeSurface == null ? mesh : halfEdgeSurface;
+    }
+
+    /**
+     * The runtime the surface is drawn through, which the viewer replaces on every model change,
+     * so every overlay and the pick buffer follow the live mesh.
+     *
+     * @return the live mesh runtime, or {@code null} before one is created
+     */
+    @Override
+    public HalfEdgeMeshRuntime surfaceRuntime() {
+        return meshRuntime;
+    }
+
+    /**
+     * The DSL file backing this view: the file the last graph was read from, so an edit lands in
+     * the graph the viewer is actually showing and a reload reads it back.
+     *
+     * @return the working graph's path, or {@code null} when no DSL file backs the view
+     */
+    public String workingDslPath() {
+        if (lastGraphRuntime == null) {
+            return null;
+        }
+        if (loadedDslFile != null) {
+            return loadedDslFile;
+        }
+        return dslResource == null ? null : dslResourceFile(dslResource);
+    }
+
+    /**
+     * Hands a graph's text to {@code onLoaded}, read from its tracked working copy when one exists
+     * on disk so a reload shows the statements written into it, and from the packaged resource
+     * otherwise, which is the only copy the web build has.
+     *
+     * @param resourceName graph's path below the {@code dsl} resource folder
+     * @param onLoaded     receives the graph text
+     */
+    private void loadDslSource(String resourceName, Consumer<String> onLoaded) {
+        String working = dslResourceFile(resourceName);
+        if (working != null) {
+            try {
+                String source = Files.readString(Path.of(working));
+                loadedDslFile = working;
+                onLoaded.accept(source);
+                return;
+            } catch (IOException failure) {
+                Platforms.get().log("[mesh-viewer] could not read " + working
+                        + ", using the packaged copy: " + failure.getMessage());
+            }
+        }
+        loadedDslFile = null;
+        Platforms.get().loadSourceAsync(DSL_FOLDER, resourceName, Platforms.gl().getPlatformID(),
+                onLoaded);
+    }
+
+    /**
+     * The tracked file a DSL resource name lives in, preferred over the build output because that
+     * is the copy a written statement persists into.
+     *
+     * @param resourceName graph's path below the {@code dsl} resource folder
+     * @return the resolved path, or {@code null} when neither copy exists
+     */
+    private static String dslResourceFile(String resourceName) {
+        Path inWorkingDirectory = Path.of(DSL_RESOURCE_DIRECTORY, resourceName);
+        if (Files.exists(inWorkingDirectory)) {
+            return inWorkingDirectory.toString();
+        }
+        Path inModule = Path.of(MeshLoader.MODULE_DIRECTORY, DSL_RESOURCE_DIRECTORY, resourceName);
+        return Files.exists(inModule) ? inModule.toString() : null;
+    }
+
     // ==================== VIEW-7 model switching + patch overlay
     // ====================
 
@@ -859,7 +989,7 @@ public class MeshNodeViewerScene extends ModelScene {
         controls.add(new ControlHint("Z", "toggle wireframe", this::toggleMeshWireframe));
         controls.add(new ControlHint("P", "toggle patch overlay", this::togglePatchOverlay));
         controls.add(new ControlHint("Shift+P", "cycle shader mode", this::toggleShaderMode));
-        controls.add(new ControlHint("D", "cycle decomposer", this::toggleDecomposer));
+        controls.add(new ControlHint("D", "next patch decomposer", this::toggleDecomposer));
         super.setControls();
     }
 
@@ -922,8 +1052,10 @@ public class MeshNodeViewerScene extends ModelScene {
     private void loadDslFromAbsolutePath(String absolutePath) {
         // loadDsl() expects a resource-relative name, but the staging dir
         // contains symlinks — read the file directly and execute the graph.
+        String file = workingCopyOf(absolutePath);
         try {
-            String dslCode = new String(Files.readAllBytes(Path.of(absolutePath)));
+            String dslCode = new String(Files.readAllBytes(Path.of(file)));
+            loadedDslFile = file;
             disposeMeshRuntime();
             meshBundle = null;
             NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(dslCode);
@@ -932,17 +1064,43 @@ public class MeshNodeViewerScene extends ModelScene {
             String resolvedNode = ast.get(ast.size() - 1).id;
             mesh = runtime.executeGraphToMesh(ast, resolvedNode, DEFAULT_DSL_FINAL_PORT);
             runtime.logTimings(TIMING_PREFIX);
-            meshRuntime = new HalfEdgeMeshRuntime();
+            createRuntime();
             meshRuntime.upload(mesh);
             meshRuntime.frameCamera(camera);
             if (mesh != null) {
-                Platforms.get().log("[mesh-viewer] dsl loaded: " + absolutePath + VERTS + mesh.vertexCount()
+                Platforms.get().log("[mesh-viewer] dsl loaded: " + file + VERTS + mesh.vertexCount()
                         + FACES + mesh.faceCount());
             }
+            applyEdgeMarkOverlay(runtime);
             frameMesh(mesh);
         } catch (Exception e) {
-            Platforms.get().log("[mesh-viewer] DSL load failed for " + absolutePath + STR + e.getMessage());
+            Platforms.get().log("[mesh-viewer] DSL load failed for " + file + STR + e.getMessage());
         }
+    }
+
+    /**
+     * The tracked source a DSL path corresponds to: a graph named under {@code target/classes} is
+     * loaded from its {@code src/main/resources} copy, so a reload reads what a statement was
+     * written
+     * into.
+     *
+     * @param path path the caller asked for
+     * @return the working copy when one exists, otherwise the path unchanged
+     */
+    private static String workingCopyOf(String path) {
+        String normalized = path.replace('\\', '/');
+        int build = normalized.indexOf(DSL_BUILD_DIRECTORY);
+        int name = build + DSL_BUILD_DIRECTORY.length() + 1;
+        if (build < 0 || name >= normalized.length()) {
+            return path;
+        }
+        String resourceName = normalized.substring(name);
+        String working = dslResourceFile(resourceName);
+        if (working == null) {
+            return path;
+        }
+        Path beside = Path.of(normalized.substring(0, build), DSL_RESOURCE_DIRECTORY, resourceName);
+        return Files.exists(beside) ? beside.toString() : working;
     }
 
     /**
@@ -961,7 +1119,7 @@ public class MeshNodeViewerScene extends ModelScene {
             disposeMeshRuntime();
             meshBundle = bundle;
             mesh = bundle.mesh();
-            meshRuntime = new HalfEdgeMeshRuntime();
+            createRuntime();
             meshRuntime.uploadBundle(bundle);
             if (meshRuntime.hasTexturedDraw()) {
                 shaderMode = HalfEdgeMeshRuntime.ShaderMode.TEXTURED;

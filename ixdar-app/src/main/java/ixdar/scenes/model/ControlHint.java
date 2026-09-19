@@ -26,6 +26,11 @@ public final class ControlHint {
     public final Action action;
 
     /**
+     * Whether the key fires only with Control held; a click on the row needs no modifier.
+     */
+    public final boolean controlHeld;
+
+    /**
      * Build a key-bound, clickable control hint.
      *
      * @param keyCode key code that fires {@code action} (see {@link ixdar.platform.input.Keys})
@@ -34,7 +39,22 @@ public final class ControlHint {
      * @param action effect invoked on click or key press
      */
     public ControlHint(int keyCode, String key, String description, Action action) {
+        this(keyCode, false, key, description, action);
+    }
+
+    /**
+     * Build a clickable control hint whose key needs Control held, such as Ctrl+S.
+     *
+     * @param keyCode     key code that fires {@code action} with Control held
+     * @param controlHeld whether the key fires only with Control held
+     * @param key         key label shown to the viewer
+     * @param description short description of the effect
+     * @param action      effect invoked on click or key press
+     */
+    public ControlHint(int keyCode, boolean controlHeld, String key, String description,
+            Action action) {
         this.keyCode = keyCode;
+        this.controlHeld = controlHeld;
         this.key = key;
         this.description = description;
         this.action = action;

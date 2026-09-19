@@ -115,10 +115,12 @@ def main(argv: list[str]) -> int:
     try:
         registry = get_registry()
         server_commands = _server_commands()
+        # Grouped routes ("rings add") parse as a group subcommand and carry their full name.
+        resolved_name = getattr(args, "resolved_command", args.command_name)
         if args.command_name in registry:
             command_result = _execute_registry_command(registry[args.command_name], args, client)
-        elif args.command_name in server_commands:
-            command_result = dispatch_server_command(server_commands[args.command_name], args, client)
+        elif resolved_name in server_commands:
+            command_result = dispatch_server_command(server_commands[resolved_name], args, client)
         else:
             parser.print_help()
             return 1

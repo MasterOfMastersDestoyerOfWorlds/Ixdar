@@ -4,6 +4,8 @@ import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import static ixdar.platform.input.Keys.MOUSE_BUTTON_LEFT;
 
+import java.util.function.DoubleConsumer;
+
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 
@@ -32,6 +34,8 @@ public class OrbitMouseTrap extends MouseTrap {
     private static final float MIN_ELEVATION = (float) Math.toRadians(-85.0);
     private static final float MAX_ELEVATION = (float) Math.toRadians(85.0);
     private static final float ZOOM_BASE = 0.97f;
+    public ClickHandler toolClick;
+    public DoubleConsumer toolScroll;
 
     private final Camera3D orbitCamera;
     private final Vector3f orbitTarget = new Vector3f();
@@ -175,6 +179,10 @@ public class OrbitMouseTrap extends MouseTrap {
             boolean wasClick = leftMouseDownPos != null && leftMouseDownPos.distance(x, y) <= NUM_3;
             leftMouseDownPos = null;
             panningDrag = false;
+            if (wasClick && toolClick != null) {
+                toolClick.onClick(button);
+                return;
+            }
             if (wasClick && canvas != null && canvas.camera2D != null) {
                 Camera2D overlayCamera = canvas.camera2D;
                 float overlayX = overlayCamera.getNormalizePosX(x);
@@ -288,6 +296,10 @@ public class OrbitMouseTrap extends MouseTrap {
     @Override
     public void scrollCallback(double y) {
         if (!active) {
+            return;
+        }
+        if (toolScroll != null) {
+            toolScroll.accept(y);
             return;
         }
         super.scrollCallback(y);

@@ -757,6 +757,16 @@ public interface GL {
     int[] readPixels(int i, int j, int width, int height, int rgba, int unsigned_BYTE, int fb);
 
     /**
+     * Read the depth the bound framebuffer holds at one pixel, for testing a point against the
+     * geometry already drawn there.
+     *
+     * @param x pixel x, measured from the left
+     * @param y pixel y, measured from the bottom
+     * @return the window-space depth in {@code [0, 1]}, or 1 on a backend that cannot read depth
+     */
+    float readDepth(int x, int y);
+
+    /**
      * Backend-specific value of {@code GL_TEXTURE0}.
      *
      * @return GL_TEXTURE0 unit constant

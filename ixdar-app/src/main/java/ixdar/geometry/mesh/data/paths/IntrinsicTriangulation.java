@@ -25,6 +25,9 @@ public final class IntrinsicTriangulation {
     /** Sides of every face the intrinsic triangulation accepts. */
     public static final int TRIANGLE_SIDES = 3;
 
+    /** Half-edges of the two triangles one flip rewrites, the journal's stride. */
+    public static final int HALF_EDGES_PER_FLIP = 6;
+
     /** Mesh the triangulation was built over; its geometry fixes the initial edge lengths. */
     public MeshTopology sourceMesh;
 
@@ -82,8 +85,30 @@ public final class IntrinsicTriangulation {
     /** Number of intrinsic faces. */
     public int faceCount;
 
+    /**
+     * Whether every flip records what it overwrote so {@link #undoFlips} can put the
+     * triangulation back. A cached triangulation that many runs share must set this; a
+     * throw-away one need not pay for it.
+     */
+    public boolean recordFlips;
+
+    /** Flips recorded since the journal was last unwound. */
+    public int journalledFlipCount;
+
     private final double[] diamondX = new double[4];
     private final double[] diamondY = new double[4];
+    private int[] journalHalfEdge = new int[0];
+    private int[] journalNext = new int[0];
+    private int[] journalTail = new int[0];
+    private int[] journalFace = new int[0];
+    private double[] journalAngle = new double[0];
+    private int[] journalEdge = new int[0];
+    private double[] journalEdgeLength = new double[0];
+    private boolean[] journalEdgeWasOriginal = new boolean[0];
+    private int[] journalFaceId = new int[0];
+    private int[] journalFaceHalfEdge = new int[0];
+    private int[] journalVertex = new int[0];
+    private int[] journalVertexReference = new int[0];
 
     private IntrinsicTriangulation() {
     }
@@ -305,6 +330,10 @@ public final class IntrinsicTriangulation {
 
         int frontFace = halfEdgeFace[frontHalfEdge];
         int backFace = halfEdgeFace[backHalfEdge];
+        if (recordFlips) {
+            journalFlip(edge, frontHalfEdge, backHalfEdge, frontNext, frontPrevious, backNext,
+                    backPrevious, frontFace, backFace, tailVertex, headVertex);
+        }
         halfEdgeNext[frontHalfEdge] = backPrevious;
         halfEdgeNext[backPrevious] = frontNext;
         halfEdgeNext[frontNext] = frontHalfEdge;
@@ -329,6 +358,88 @@ public final class IntrinsicTriangulation {
         updateAngleFromClockwiseNeighbor(frontHalfEdge);
         updateAngleFromClockwiseNeighbor(backHalfEdge);
         return true;
+    }
+
+    /**
+     * Saves everything one flip is about to overwrite: the six half-edges of the two triangles,
+     * the flipped edge, the two faces and the two vertices whose reference half-edge may move.
+     */
+    private void journalFlip(int edge, int frontHalfEdge, int backHalfEdge, int frontNext,
+            int frontPrevious, int backNext, int backPrevious, int frontFace, int backFace,
+            int tailVertex, int headVertex) {
+        if (journalledFlipCount == journalEdge.length) {
+            int grown = Math.max(HALF_EDGES_PER_FLIP * HALF_EDGES_PER_FLIP,
+                    journalEdge.length * 2);
+            journalHalfEdge = Arrays.copyOf(journalHalfEdge, HALF_EDGES_PER_FLIP * grown);
+            journalNext = Arrays.copyOf(journalNext, HALF_EDGES_PER_FLIP * grown);
+            journalTail = Arrays.copyOf(journalTail, HALF_EDGES_PER_FLIP * grown);
+            journalFace = Arrays.copyOf(journalFace, HALF_EDGES_PER_FLIP * grown);
+            journalAngle = Arrays.copyOf(journalAngle, HALF_EDGES_PER_FLIP * grown);
+            journalFaceId = Arrays.copyOf(journalFaceId, 2 * grown);
+            journalFaceHalfEdge = Arrays.copyOf(journalFaceHalfEdge, 2 * grown);
+            journalVertex = Arrays.copyOf(journalVertex, 2 * grown);
+            journalVertexReference = Arrays.copyOf(journalVertexReference, 2 * grown);
+            journalEdge = Arrays.copyOf(journalEdge, grown);
+            journalEdgeLength = Arrays.copyOf(journalEdgeLength, grown);
+            journalEdgeWasOriginal = Arrays.copyOf(journalEdgeWasOriginal, grown);
+        }
+        int flip = journalledFlipCount++;
+        int[] touched = {
+            frontHalfEdge, backHalfEdge, frontNext, frontPrevious, backNext, backPrevious };
+        for (int slot = 0; slot < HALF_EDGES_PER_FLIP; slot++) {
+            int entry = HALF_EDGES_PER_FLIP * flip + slot;
+            journalHalfEdge[entry] = touched[slot];
+            journalNext[entry] = halfEdgeNext[touched[slot]];
+            journalTail[entry] = halfEdgeTail[touched[slot]];
+            journalFace[entry] = halfEdgeFace[touched[slot]];
+            journalAngle[entry] = signpostAngle[touched[slot]];
+        }
+        journalFaceId[2 * flip] = frontFace;
+        journalFaceId[2 * flip + 1] = backFace;
+        journalFaceHalfEdge[2 * flip] = faceHalfEdge[frontFace];
+        journalFaceHalfEdge[2 * flip + 1] = faceHalfEdge[backFace];
+        journalVertex[2 * flip] = tailVertex;
+        journalVertex[2 * flip + 1] = headVertex;
+        journalVertexReference[2 * flip] = vertexReferenceHalfEdge[tailVertex];
+        journalVertexReference[2 * flip + 1] = vertexReferenceHalfEdge[headVertex];
+        journalEdge[flip] = edge;
+        journalEdgeLength[flip] = edgeLength[edge];
+        journalEdgeWasOriginal[flip] = edgeIsOriginal[edge];
+    }
+
+    /**
+     * Puts every journalled flip back, newest first, so a cached triangulation returns to the
+     * state it was in when {@link #recordFlips} was switched on.
+     *
+     * <p>
+     * Only flips are undone; the connectivity is restored value by value, so the result is
+     * bit-identical and a later run on the same triangulation is deterministic.
+     */
+    public void undoFlips() {
+        for (int flip = journalledFlipCount - 1; flip >= 0; flip--) {
+            for (int slot = 0; slot < HALF_EDGES_PER_FLIP; slot++) {
+                int entry = HALF_EDGES_PER_FLIP * flip + slot;
+                int halfEdge = journalHalfEdge[entry];
+                halfEdgeNext[halfEdge] = journalNext[entry];
+                halfEdgeTail[halfEdge] = journalTail[entry];
+                halfEdgeFace[halfEdge] = journalFace[entry];
+                signpostAngle[halfEdge] = journalAngle[entry];
+            }
+            for (int slot = 0; slot < 2; slot++) {
+                faceHalfEdge[journalFaceId[2 * flip + slot]] =
+                        journalFaceHalfEdge[2 * flip + slot];
+                vertexReferenceHalfEdge[journalVertex[2 * flip + slot]] =
+                        journalVertexReference[2 * flip + slot];
+            }
+            edgeLength[journalEdge[flip]] = journalEdgeLength[flip];
+            edgeIsOriginal[journalEdge[flip]] = journalEdgeWasOriginal[flip];
+        }
+        journalledFlipCount = 0;
+    }
+
+    /** Drops the recorded flips without undoing them, keeping the triangulation as it stands. */
+    public void forgetFlips() {
+        journalledFlipCount = 0;
     }
 
     /**

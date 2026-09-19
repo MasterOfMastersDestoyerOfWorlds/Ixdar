@@ -1380,6 +1380,8 @@ public abstract class ShaderProgram {
 
         MeshUnlit(MeshShader.class, MESH_VS, "mesh_unlit.fs"),
 
+        MeshPick(MeshShader.class, "mesh_pick.vs", "mesh_pick.fs"),
+
         MeshScalar(MeshShader.class, "mesh_scalar.vs", "mesh_scalar.fs"),
 
         MeshUv(MeshShader.class, "mesh_uv.vs", "mesh_uv.fs"),

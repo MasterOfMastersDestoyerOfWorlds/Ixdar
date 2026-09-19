@@ -640,7 +640,7 @@ runs.
 - [ ] B1 `MeshNodeViewerScene` is what `WebLauncher` instantiates, and it calls
       `Files.readAllBytes`/`MeshLoader` (`java.nio.file`); that path throws in
       a browser.
-- [ ] B2 `HalfEdgeMeshRuntime`, `QuadLayoutRuntime`, `IcosphereRuntime`, and
+- [ ] B2 `HalfEdgeMeshRuntime`, `MeshOverlayRuntime`, `IcosphereRuntime`, and
       `AssimpModelRuntime` import `org.lwjgl.BufferUtils` directly instead of
       `IxBuffer`, so LWJGL buffer code is emitted into the shipped JavaScript.
       `SDFUnion` static-imports `org.lwjgl.opengl.GL13` texture constants, the

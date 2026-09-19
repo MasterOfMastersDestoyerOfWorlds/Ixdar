@@ -431,6 +431,7 @@ class CliTest(unittest.TestCase):
         self.assertIn("health", server_commands)
         self.assertIn("click", server_commands)
         self.assertIn("mesh-patches-decompose", server_commands)
+        self.assertIn("rings-list", server_commands)
         self.assertIn("record-start", server_commands)
         # Names owned by a registry command (e.g. the mesh-overlay scenario) are not duplicated.
         self.assertNotIn("mesh-overlay", server_commands)
@@ -448,6 +449,38 @@ class CliTest(unittest.TestCase):
         self.assertEqual(0, exit_code)
         request = urlopen.call_args.args[0]
         self.assertEqual("POST", request.method)
+
+    @patch("urllib.request.urlopen")
+    def test_rings_list_posts_the_mesh_path(self, urlopen):
+        urlopen.return_value = FakeResponse({"ok": True, "ring_count": 5, "rings": []})
+        exit_code = ixdar_cli.main(["rings-list", "--path", "fertility_in_tri.off",
+                                    "--min-neckness", "0.6"])
+        self.assertEqual(0, exit_code)
+        request = urlopen.call_args.args[0]
+        self.assertEqual("POST", request.method)
+        self.assertTrue(request.full_url.endswith("/mesh/rings/list"))
+        body = json.loads(request.data.decode("utf-8"))
+        self.assertEqual("fertility_in_tri.off", body["path"])
+        self.assertAlmostEqual(0.6, body["min_neckness"])
+
+    @patch("urllib.request.urlopen")
+    def test_rings_add_command_posts_points_under_a_group(self, urlopen):
+        # The route declares the grouped command name "rings add", so the CLI parses two words.
+        urlopen.return_value = FakeResponse({"ok": True, "edgeCount": 96})
+        exit_code = ixdar_cli.main(
+            ["rings", "add", "--points", "1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65"]
+        )
+        self.assertEqual(0, exit_code)
+        request = urlopen.call_args.args[0]
+        self.assertEqual("POST", request.method)
+        self.assertTrue(request.full_url.endswith("/mesh/rings/add"))
+        body = json.loads(request.data.decode("utf-8"))
+        self.assertEqual("1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65", body["points"])
+        self.assertTrue(body["tighten"])
+
+    def test_rings_add_route_is_registered_under_its_group(self):
+        ixdar_cli._build_parser()
+        self.assertIn("rings add", ixdar_cli._server_commands())
 
     @patch("urllib.request.urlopen")
     def test_hover_command_posts_payload(self, urlopen):

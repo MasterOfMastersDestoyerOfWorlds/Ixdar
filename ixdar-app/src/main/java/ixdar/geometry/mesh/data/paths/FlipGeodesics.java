@@ -35,6 +35,13 @@ public final class FlipGeodesics {
     /** Whether the path being shortened is a closed loop. */
     public boolean closed;
 
+    /**
+     * Intrinsic vertices the path must keep passing through, or null when only an open path's own
+     * ends are held. A pinned vertex's wedge is never straightened, so the path keeps its corner
+     * there while every other corner flattens.
+     */
+    public boolean[] vertexIsPinned;
+
     /** Intrinsic half-edge each path segment runs along, indexed by segment id. */
     public int[] segmentHalfEdge = new int[0];
 
@@ -56,6 +63,8 @@ public final class FlipGeodesics {
     /** Wedges straightened by the last run. */
     public long shortenCount;
 
+    private int[] occupiedEdge = new int[0];
+    private int occupiedEdgeCount;
     private int[] edgeOccupancy = new int[0];
     private int[] edgeSegmentFront = new int[0];
     private int[] edgeSegmentBack = new int[0];
@@ -65,6 +74,7 @@ public final class FlipGeodesics {
 
     /**
      * Shortens a seed path or loop in place on {@code intrinsic}, returning the tightened path.
+     * Corners at a {@link #vertexIsPinned} vertex survive the run.
      *
      * @param intrinsic     triangulation to flip; its edge lengths and signposts are updated
      * @param seedHalfEdges seed path as consecutive intrinsic half-edges in travel order
@@ -186,25 +196,34 @@ public final class FlipGeodesics {
 
     private void prepareBuffers(int[] seedHalfEdges) {
         int capacity = Math.max(seedHalfEdges.length * 4, 64);
-        segmentHalfEdge = new int[capacity];
-        segmentPrevious = new int[capacity];
-        segmentNext = new int[capacity];
-        segmentAlive = new boolean[capacity];
+        if (segmentHalfEdge.length < capacity) {
+            segmentHalfEdge = new int[capacity];
+            segmentPrevious = new int[capacity];
+            segmentNext = new int[capacity];
+            segmentAlive = new boolean[capacity];
+        }
         segmentIdCount = 0;
         if (edgeOccupancy.length < triangulation.edgeCount) {
             edgeOccupancy = new int[triangulation.edgeCount];
             edgeSegmentFront = new int[triangulation.edgeCount];
             edgeSegmentBack = new int[triangulation.edgeCount];
         } else {
-            Arrays.fill(edgeOccupancy, 0, triangulation.edgeCount, 0);
+            for (int index = 0; index < occupiedEdgeCount; index++) {
+                edgeOccupancy[occupiedEdge[index]] = 0;
+            }
         }
+        occupiedEdgeCount = 0;
         if (newPathBuffer.length < 64) {
             newPathBuffer = new int[64];
         }
-        wedgeQueue = new PriorityQueue<>(Comparator
-                .<double[]>comparingDouble(entry -> entry[0])
-                .thenComparingDouble(entry -> entry[1])
-                .thenComparingDouble(entry -> entry[2]));
+        if (wedgeQueue == null) {
+            wedgeQueue = new PriorityQueue<>(Comparator
+                    .<double[]>comparingDouble(entry -> entry[0])
+                    .thenComparingDouble(entry -> entry[1])
+                    .thenComparingDouble(entry -> entry[2]));
+        } else {
+            wedgeQueue.clear();
+        }
     }
 
     private void seedPath(int[] seedHalfEdges) {
@@ -256,6 +275,10 @@ public final class FlipGeodesics {
 
     private void enqueueWedge(int segment) {
         if (segment < 0 || !segmentAlive[segment] || segmentPrevious[segment] < 0) {
+            return;
+        }
+        if (vertexIsPinned != null
+                && vertexIsPinned[triangulation.halfEdgeTail[segmentHalfEdge[segment]]]) {
             return;
         }
         triangulation.measureSideAngles(segmentHalfEdge[segmentPrevious[segment]],
@@ -466,6 +489,10 @@ public final class FlipGeodesics {
     private void pushOutsideSegment(int halfEdge, int segment) {
         int edge = halfEdge >> 1;
         if (edgeOccupancy[edge] == 0) {
+            if (occupiedEdgeCount == occupiedEdge.length) {
+                occupiedEdge = Arrays.copyOf(occupiedEdge, Math.max(64, 2 * occupiedEdge.length));
+            }
+            occupiedEdge[occupiedEdgeCount++] = edge;
             edgeSegmentFront[edge] = segment;
             edgeSegmentBack[edge] = segment;
         } else if ((halfEdge & 1) == 0) {

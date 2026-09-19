@@ -14,7 +14,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnosticException;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
-import ixdar.graphics.render.model.QuadLayoutRuntime;
+import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ControlHint;
@@ -71,7 +71,7 @@ public class EmbeddedTMeshScene extends ModelScene {
      */
     public int failedContractOps = ArcNetwork.NONE;
 
-    private QuadLayoutRuntime quadRuntime;
+    private MeshOverlayRuntime quadRuntime;
     private ArcNetwork tmesh;
 
     /** Contraction operators bound to {@link #tmesh}; rebound whenever it is replaced. */
@@ -108,7 +108,7 @@ public class EmbeddedTMeshScene extends ModelScene {
 
     @Override
     public HalfEdgeMeshRuntime createRuntime() {
-        quadRuntime = new QuadLayoutRuntime();
+        quadRuntime = new MeshOverlayRuntime();
         runtime = quadRuntime;
         return runtime;
     }
@@ -303,7 +303,7 @@ public class EmbeddedTMeshScene extends ModelScene {
             quadRuntime.showPatchCovers(tmesh, updated);
             Platforms.get().log("[step] " + (applied == null ? "fixed point reached" : applied)
                     + " | updated patches " + updated
-                    + " coloured " + QuadLayoutRuntime.GROUP_PALETTE_ORDER);
+                    + " coloured " + MeshOverlayRuntime.GROUP_PALETTE_ORDER);
         } catch (ArrangementDiagnosticException failure) {
             quadRuntime.setEmbeddedTMesh(tmesh);
             displayDiagnostic(failure);
@@ -395,7 +395,7 @@ public class EmbeddedTMeshScene extends ModelScene {
         quadRuntime.capDiagnosticRegion(regionRadius);
         Platforms.get().log("[diagnostic] " + failure.getMessage());
         Platforms.get().log("[diagnostic] " + failure.diagnostic.describeGroups()
-                + "; palette " + QuadLayoutRuntime.GROUP_PALETTE_ORDER);
+                + "; palette " + MeshOverlayRuntime.GROUP_PALETTE_ORDER);
         Platforms.get().log("[diagnostic] failed after " + failedContractOps + " operators; press"
                 + " B to rewind to just before this one, then D (arc collapse) or N to step it");
     }

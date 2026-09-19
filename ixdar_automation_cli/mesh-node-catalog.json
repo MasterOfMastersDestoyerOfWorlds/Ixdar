@@ -2559,6 +2559,71 @@
       "description": "Inserts edge loops along a world-space axis (X, Y, or Z), splitting aligned quad faces to add resolution where needed."
     },
     {
+      "id": "loop_through_points",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the triangle mesh to ring. Output: the same bundle carrying the ring as curve geometry and its snapped edge cycle in the edge-marks slot under `label`, ready for mark_edges consumers and delete_geometry cuts.",
+          "defaultValue": null
+        },
+        {
+          "name": "points",
+          "portType": "STRING",
+          "description": "Surface points as \"x,y,z; x,y,z; ...\", stored as positions and re-snapped on reload, so the same statement re-evaluates on another aligned scan. Three are needed to bound a loop; two only define an open path.",
+          "defaultValue": ""
+        },
+        {
+          "name": "tighten",
+          "portType": "BOOLEAN",
+          "description": "If true the closed walk is straightened to a geodesic; if false the raw shortest-edge seed is kept, which is how a seed and its geodesic are drawn over one another in contrasting colours.",
+          "defaultValue": true
+        },
+        {
+          "name": "closed",
+          "portType": "BOOLEAN",
+          "description": "If true the walk returns from the last point to the first and tightens as a loop with no fixed endpoints; if false the two end points are pinned and only the interior straightens.",
+          "defaultValue": true
+        },
+        {
+          "name": "pin",
+          "portType": "BOOLEAN",
+          "description": "If true every point stays where it was authored and only the arcs between consecutive points straighten, so a ring keeps a kink at each point instead of sliding off to the nearest neck; if false the tightened loop is free to leave the points behind.",
+          "defaultValue": false
+        },
+        {
+          "name": "iterations",
+          "portType": "INT",
+          "description": "Cap on wedge straightenings: -1 runs until every wedge is straight, and a positive value stops part-way so the tightening can be watched.",
+          "defaultValue": -1
+        },
+        {
+          "name": "label",
+          "portType": "STRING",
+          "description": "Name the snapped edge cycle is stored under in the edge-marks slot, so a seed run and a tightened run of this node can both be kept on one bundle.",
+          "defaultValue": "ring"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the triangle mesh to ring. Output: the same bundle carrying the ring as curve geometry and its snapped edge cycle in the edge-marks slot under `label`, ready for mark_edges consumers and delete_geometry cuts."
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-edge BoolField, true on every edge of the conforming cycle nearest the tightened ring."
+        }
+      ],
+      "description": "Rings a surface through authored points: each point snaps to its nearest vertex, consecutive points are joined by shortest edge walks, the last closes back to the first, and FlipOut (Sharp \u0026 Crane 2020) tightens the cycle into a locally shortest geodesic, emitting the polyline and the mesh edges nearest it."
+    },
+    {
       "id": "map_range",
       "category": "Math \u0026 Logic",
       "scopes": [
@@ -3741,6 +3806,98 @@
       "description": "Resamples curve polylines to uniform segment lengths, controlled by the length parameter."
     },
     {
+      "id": "ring_at_branch",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the triangle mesh to cut. Output: the same bundle carrying the one ring in the _rings slot, its polyline as curve geometry and its edges marked `ring_00`.",
+          "defaultValue": null
+        },
+        {
+          "name": "branch",
+          "portType": "VECTOR3",
+          "description": "A point near the limb to cut, in surface coordinates; the skeleton branch with the nearest joint is the one cut. Branch numbers are not authored: they change with the voxel resolution, a point does not.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        },
+        {
+          "name": "t",
+          "portType": "FLOAT",
+          "description": "Fraction of the branch\u0027s length to cut at, 0 at its tip and 1 at the joint where it meets its parent. The plane only seeds the loop, so the tightened ring settles on the nearest constriction to that fraction.",
+          "defaultValue": 0.5
+        },
+        {
+          "name": "resolution",
+          "portType": "INT",
+          "description": "Voxel-grid resolution along the longest bounding-box axis for the skeleton; a branch too thin to appear at this resolution cannot be cut.",
+          "defaultValue": 128
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the triangle mesh to cut. Output: the same bundle carrying the one ring in the _rings slot, its polyline as curve geometry and its edges marked `ring_00`."
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-edge BoolField, true on the ring\u0027s conforming cycle."
+        }
+      ],
+      "description": "Cuts a cross-section ring across the TEASAR skeleton branch nearest an authored point, at a fraction of that branch\u0027s length: the plane there picks three surface points around the limb and FlipOut tightens the walk through them."
+    },
+    {
+      "id": "ring_candidates",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the triangle mesh to propose rings on. Output: the same bundle carrying the ranked rings in the _rings slot, their polylines as curve geometry, and one edge-marks label `ring_NN` per ring, numbered in ranked order.",
+          "defaultValue": null
+        },
+        {
+          "name": "resolution",
+          "portType": "INT",
+          "description": "Voxel-grid resolution along the longest bounding-box axis for the skeleton. 128 resolves limb-scale branches; a scan with antenna-scale branches needs 256 or more, at cubic memory cost.",
+          "defaultValue": 128
+        },
+        {
+          "name": "min_neckness",
+          "portType": "FLOAT",
+          "description": "Neckness a ring must reach to be kept: the local circumference, 2*pi times the radius of the sphere inscribed at the ring\u0027s centroid, over the tightened loop\u0027s length. 1 girdles a tube exactly; below about 0.6 the loop wanders across a blend instead of pinching a neck.",
+          "defaultValue": 0.6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the triangle mesh to propose rings on. Output: the same bundle carrying the ranked rings in the _rings slot, their polylines as curve geometry, and one edge-marks label `ring_NN` per ring, numbered in ranked order."
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-edge BoolField, true on every edge of every accepted ring\u0027s conforming cycle."
+        }
+      ],
+      "description": "Proposes neck loops automatically: every vertex joins its nearest TEASAR skeleton branch, each boundary between two branch regions seeds a loop, FlipOut tightens it, and loops that grew, collapsed or merged are dropped. Survivors are ranked by neckness, the local circumference over the loop\u0027s length."
+    },
+    {
       "id": "seamless_uv",
       "category": "Other",
       "scopes": [
@@ -3900,6 +4057,45 @@
         }
       ],
       "description": "Produces a per-face boolean selection: true for faces whose normal dotted with a direction exceeds threshold (default 0.7)."
+    },
+    {
+      "id": "select_ring",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "rings",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "A bundle carrying ring candidates in the _rings slot, as `ring_candidates` or `ring_at_branch` leaves it.",
+          "defaultValue": null
+        },
+        {
+          "name": "point",
+          "portType": "VECTOR3",
+          "description": "Surface point naming the ring: the ring with the nearest polyline point wins, so a coordinate anywhere along the intended neck selects it.",
+          "defaultValue": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "The input bundle with the picked ring alone in the _rings slot, its polyline as curve geometry, and its edges marked selected_ring; unchanged when the input carries no rings."
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-edge BoolField, true on the picked ring\u0027s conforming cycle."
+        }
+      ],
+      "description": "Chooses the proposed ring whose tightened polyline passes nearest a surface point and republishes it alone, as curve geometry, as the `selected_ring` edge marks and as a per-edge selection."
     },
     {
       "id": "separate_geometry",
@@ -4141,6 +4337,47 @@
       "description": "Blends vertex positions toward a sphere centered at the mesh centroid, controlled by a 0-to-1 factor for partial or full spherization."
     },
     {
+      "id": "spline_ring",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the triangle mesh to ring. Output: the same bundle carrying the spline as curve geometry and its snapped edge cycle in the edge-marks slot under `label`, ready for mark_edges consumers and delete_geometry cuts.",
+          "defaultValue": null
+        },
+        {
+          "name": "points",
+          "portType": "STRING",
+          "description": "Anchor points as \"x,y,z; x,y,z; ...\", stored as positions and re-snapped on reload, so the same statement re-traces the same ring on another aligned scan. Three are the minimum; the ring tool writes the four or more its fit settled on.",
+          "defaultValue": ""
+        },
+        {
+          "name": "label",
+          "portType": "STRING",
+          "description": "Name the snapped edge cycle is stored under in the edge-marks slot, so several spline rings can be kept on one bundle.",
+          "defaultValue": "spline_ring"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the triangle mesh to ring. Output: the same bundle carrying the spline as curve geometry and its snapped edge cycle in the edge-marks slot under `label`, ready for mark_edges consumers and delete_geometry cuts."
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-edge BoolField, true on every edge of the conforming cycle nearest the traced spline."
+        }
+      ],
+      "description": "Rings a surface with a closed cubic spline through authored anchor points: each anchor snaps to its nearest vertex, consecutive anchors are joined by cubic segments traced with b/Surf\u0027s recursive De Casteljau bisection over geodesic midpoints (Mancinelli et al. 2021), and both tangent handles at an anchor lie on one line so the ring turns smoothly rather than cornering. Emits the polyline as curve geometry and the mesh edges nearest it as edge marks."
+    },
+    {
       "id": "subdivide_mesh",
       "category": "Modifiers",
       "scopes": [
@@ -4356,59 +4593,6 @@
         }
       ],
       "description": "Annotates all vertices in a geometry with one or more comma-separated tag labels, stored as per-vertex boolean masks."
-    },
-    {
-      "id": "tighten_path",
-      "category": "Selection",
-      "scopes": [
-        "mesh",
-        "dungeon"
-      ],
-      "inputs": [
-        {
-          "name": "geometry",
-          "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: the triangle mesh to tighten on. Output: the same bundle carrying the tightened geodesic as curve geometry and the snapped edge cycle in the edge-marks slot under `label`.",
-          "defaultValue": null
-        },
-        {
-          "name": "path",
-          "portType": "STRING",
-          "description": "Surface waypoints as \"x,y,z; x,y,z; ...\". Each snaps to its nearest vertex and consecutive waypoints are joined by a shortest edge walk to make the seed; two waypoints suffice for an open path, three for a loop.",
-          "defaultValue": ""
-        },
-        {
-          "name": "closed",
-          "portType": "BOOLEAN",
-          "description": "If true the seed walks back from the last waypoint to the first and tightens as a loop with no fixed endpoints; if false the two end waypoints are pinned and only the interior straightens.",
-          "defaultValue": false
-        },
-        {
-          "name": "iterations",
-          "portType": "INT",
-          "description": "Cap on wedge straightenings: -1 runs until every wedge is straight, 0 emits the untightened seed walk, and a positive value stops part-way so the tightening can be watched.",
-          "defaultValue": -1
-        },
-        {
-          "name": "label",
-          "portType": "STRING",
-          "description": "Name the snapped edge cycle is stored under in the edge-marks slot, so a seed run and a tightened run of this node can both be kept on one bundle.",
-          "defaultValue": "tightened_path"
-        }
-      ],
-      "outputs": [
-        {
-          "name": "geometry",
-          "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: the triangle mesh to tighten on. Output: the same bundle carrying the tightened geodesic as curve geometry and the snapped edge cycle in the edge-marks slot under `label`."
-        },
-        {
-          "name": "selection",
-          "portType": "BOOLEAN",
-          "description": "Per-edge BoolField, true on every edge of the conforming cycle nearest the tightened geodesic."
-        }
-      ],
-      "description": "Tightens a rough path or loop through authored surface points into a locally shortest geodesic by flipping intrinsic edges (Sharp \u0026 Crane 2020 FlipOut), producing the geodesic polyline and the mesh edges nearest it."
     },
     {
       "id": "tmesh_contract",

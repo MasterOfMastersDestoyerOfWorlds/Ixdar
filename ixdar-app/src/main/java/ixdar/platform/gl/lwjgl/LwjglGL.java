@@ -6,6 +6,7 @@ import static org.lwjgl.glfw.GLFW.glfwGetMouseButton;
 import static org.lwjgl.opengl.GL11.GL_BLEND;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
+import static org.lwjgl.opengl.GL11.GL_DEPTH_COMPONENT;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_TEST;
 import static org.lwjgl.opengl.GL11.GL_FLOAT;
 import static org.lwjgl.opengl.GL11.GL_LINEAR;
@@ -619,6 +620,15 @@ public class LwjglGL implements GL {
         }
         MemoryUtil.memFree(frameBuffer);
         return pixels;
+    }
+
+    @Override
+    public float readDepth(int x, int y) {
+        FloatBuffer depth = MemoryUtil.memAllocFloat(1);
+        glReadPixels(x, y, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, depth);
+        float value = depth.get(0);
+        MemoryUtil.memFree(depth);
+        return value;
     }
 
     @Override

@@ -9,7 +9,7 @@ import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapIsoSurface;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
-import ixdar.graphics.render.model.QuadLayoutRuntime;
+import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ControlHint;
@@ -37,7 +37,7 @@ public class QuadLayoutScene extends ModelScene {
     private static final int GRID_MAP_VIEW_COUNT = 3;
 
     /** Render runtime of this scene; the diagnosis route highlights through it. */
-    public QuadLayoutRuntime quadRuntime;
+    public MeshOverlayRuntime quadRuntime;
 
     /**
      * The engine of the last build, held so the fill can be swapped without
@@ -77,7 +77,7 @@ public class QuadLayoutScene extends ModelScene {
 
     @Override
     public HalfEdgeMeshRuntime createRuntime() {
-        quadRuntime = new QuadLayoutRuntime();
+        quadRuntime = new MeshOverlayRuntime();
         return quadRuntime;
     }
 

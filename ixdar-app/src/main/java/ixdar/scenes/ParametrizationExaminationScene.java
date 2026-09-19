@@ -8,7 +8,7 @@ import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
-import ixdar.graphics.render.model.QuadLayoutRuntime;
+import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.platform.Platforms;
 import ixdar.scenes.model.ModelScene;
 
@@ -31,7 +31,7 @@ public class ParametrizationExaminationScene extends ModelScene {
      */
     public static final String CROSS_FIELD_PROPERTY = "parametrization.scene.cf";
     public String cfPath = System.getProperty(CROSS_FIELD_PROPERTY);
-    public QuadLayoutRuntime quadRuntime;
+    public MeshOverlayRuntime quadRuntime;
 
     /** Default constructor wired by the scene annotation processor. */
     public ParametrizationExaminationScene() {
@@ -40,7 +40,7 @@ public class ParametrizationExaminationScene extends ModelScene {
 
     @Override
     public HalfEdgeMeshRuntime createRuntime() {
-        quadRuntime = new QuadLayoutRuntime();
+        quadRuntime = new MeshOverlayRuntime();
         return quadRuntime;
     }
 

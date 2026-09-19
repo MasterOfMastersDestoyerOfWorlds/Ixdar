@@ -55,6 +55,8 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`replay-resume`](#replay-resume) | Clear the paused flag on the replay engine; no-op when nothing is running. |
 | [`replay-start`](#replay-start) | Launch a replay from a previously saved recording file. |
 | [`replay-status`](#replay-status) | Snapshot of the replay engine: running flag, status, current file, paused flag. |
+| [`rings add`](#rings add) | Ring the shown surface through authored points and report the ring row: centroid, length and marked edge count. |
+| [`rings-list`](#rings-list) | Rank the neck rings a mesh's skeleton proposes, most neck-like first. |
 | [`screenshot`](#screenshot) | Capture a PNG screenshot of the current framebuffer to a file. |
 | [`scroll`](#scroll) | Deliver a synthesized scroll event to the active mouse handler. |
 | [`type`](#type) | Synthesize character events on the active key handler, one per character of the text. |
@@ -495,6 +497,33 @@ Snapshot of the replay engine: running flag, status, current file, paused flag.
 - **Response:** `{replaying, status, file, paused}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/replay/status`
 
+### `rings add`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/rings/Add.java)
+
+Ring the shown surface through authored points and report the ring row: centroid, length and marked edge count.
+
+- **Route:** `POST /mesh/rings/add`
+- **Flags:**
+  - `--points` (string, required) — Surface points as "x,y,z; x,y,z; ..."; three or more bound a loop., e.g. `1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65`
+  - `--tighten` (bool, default `true`) — Tighten the closed walk into a geodesic with FlipOut., e.g. `false`
+- **Response:** `{ok, waypointCount, points, edgeCount, length, seedLength, centroid:[x,y,z], fingerprint}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/rings/add -d '{"points": "1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65", "tighten": false}'`
+
+### `rings-list`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/rings/ListRings.java)
+
+Rank the neck rings a mesh's skeleton proposes, most neck-like first.
+
+- **Route:** `POST /mesh/rings/list`
+- **Flags:**
+  - `--path` (string, required) — Path to the mesh file to propose rings on., e.g. `ixdar-app/test/resources/quadlayout/figure_8/fertility_in_tri.off`
+  - `--resolution` (int, default `128`) — Voxel resolution for the skeleton., e.g. `128`
+  - `--min-neckness` (float, default `0.6`) — Neckness a ring must reach: the skeleton's local circumference over the ring's length., e.g. `0.6`
+- **Response:** `{ok, path, resolution, ring_count, rings:[{ring, neckness, length, seed_length, centroid, edge_count, ...}], rejected:{...}}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/rings/list -d '{"path": "ixdar-app/test/resources/quadlayout/figure_8/fertility_in_tri.off", "resolution": 128, "min_neckness": 0.6}'`
+
 ### `screenshot`
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/Screenshot.java)
@@ -541,7 +570,7 @@ Synthesize character events on the active key handler, one per character of the 
 Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.
 
 - **Route:** `GET /ui/state`
-- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, collection?, textElements, menuItems, controls, audio}`
+- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ring?, collection?, textElements, menuItems, controls, audio}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/state`
 
 ## CLI commands

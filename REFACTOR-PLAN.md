@@ -109,7 +109,8 @@ is in the working tree behind it.
       its prose diagram is mirrored relative to the mesh. Fixture-to-DSL conversion itself
       deferred until after the quad-layout migration (7.2) per ruling F2
 - [-] 3.2 Runtime overlays, deferred behind 7.2 by the author's ruling: generalizing
-      `QuadLayoutRuntime` only makes sense after the quad-layout pipeline is restructured into mesh
+      `MeshOverlayRuntime` (named `QuadLayoutRuntime` when this was written) only makes sense after
+      the quad-layout pipeline is restructured into mesh
       nodes with common data structures at the seams; the goal then is a runtime exposing general
       capabilities, not stage-typed setters. The enumeration survives for that day: the child never
       calls the parent's `setTags`/`setPerVertexScalar`/`setFeatureEdgeOverlay` (its overlays draw
@@ -121,7 +122,7 @@ is in the working tree behind it.
       re-deriving the parent's private projection. Sketched fix: `LineSet` + `SphereCloud` helpers,
       `FeatureEdgeRange` reuse, `bindOverlayShader`, projection exposed (~500-600 lines).
       TODO when executed: update `ARCHITECTURE.md`'s "Draw overlays on a mesh" pattern, which
-      currently names `QuadLayoutRuntime` as the cautionary tale
+      currently names `MeshOverlayRuntime` as the cautionary tale
 - [x] 3.3 Mesh data conventions. `EdgeKey` (`ixdar.geometry.mesh.data`) is now the one place edge
       keys are packed: `undirected(a, b)` (min in high 32 bits), `directed(from, to)`,
       `minVertex`/`maxVertex` accessors. Migrated 6 private `edgeKey` clones, ~10 inline ternaries,
@@ -221,7 +222,7 @@ is in the working tree behind it.
       Answer why the old backend reported `faces new=0/36` and never flagged an intersection face
 - [ ] 6.5 `MeshNodeViewerScene` is the scene `WebLauncher` instantiates, and it calls
       `Files.readAllBytes` and `MeshLoader`, both `java.nio.file`. That path throws in a browser
-- [ ] 6.6 `HalfEdgeMeshRuntime`, `QuadLayoutRuntime`, `IcosphereRuntime` and `AssimpModelRuntime`
+- [ ] 6.6 `HalfEdgeMeshRuntime`, `MeshOverlayRuntime`, `IcosphereRuntime` and `AssimpModelRuntime`
       import `org.lwjgl.BufferUtils` directly instead of `IxBuffer`. LWJGL's buffer functions are
       emitted into the shipped JavaScript as a result. Also `SDFUnion` static-imports
       `org.lwjgl.opengl.GL13` texture constants — the one GL-abstraction violation in `graphics`
