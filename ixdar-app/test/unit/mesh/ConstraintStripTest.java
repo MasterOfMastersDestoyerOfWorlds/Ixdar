@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceStripPath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
@@ -67,7 +68,7 @@ class ConstraintStripTest {
         route.addPassage(SOURCE_FACE, onFirstEdge(), onSecondEdge());
 
         assertEquals(2, route.passageFaces.size(), "passages across a face split by one node");
-        assertEquals(1, route.crossedEdges.size(), "fan edges crossed");
+        assertEquals(1, route.crossedEdges.size(), "fan edges crossed passing the node");
     }
 
     /**
@@ -123,6 +124,30 @@ class ConstraintStripTest {
                     "copy vertex " + vertexId + " lies inside constraint face " + face);
             }
         }
+    }
+
+
+    /**
+     * A segment grazing an edge rounds both endpoint areas to one sign while the exact
+     * predicate separates them. The position must still name a point of the edge, since the
+     * crossings on it are ordered by that key.
+     */
+    @Test
+    void aGrazingCrossingStaysOnItsEdge() {
+        double[] from = { 0.09502025593767341, 0.20161972303810904, 0.7033600210242176 };
+        double[] to = { 0.32231399775539055, 0.14537839121274962, 0.5323076110318598 };
+        double[] low = { 0.20168932586005217, 0.17522563708998756, 0.6230850370499603 };
+        double[] high = { 0.20168932586005223, 0.1752256370899875, 0.6230850370499603 };
+        double atLow = ExactBarycentricOrient.area(from, to, low);
+        double atHigh = ExactBarycentricOrient.area(from, to, high);
+
+        assertEquals(-ExactBarycentricOrient.sign(from, to, high),
+            ExactBarycentricOrient.sign(from, to, low),
+            "the fixture no longer has the segment separating the edge's endpoints");
+        assertTrue(Math.signum(atLow) == Math.signum(atHigh),
+            "the fixture no longer has the two areas rounding to one sign");
+        assertTrue(atLow / (atLow - atHigh) > 1.0,
+            "the fixture no longer drives the signed interpolation off the edge");
     }
 
     /**

@@ -17,6 +17,9 @@ public final class FaceStripPath {
     /** Corners (and edges) of a triangle. */
     public static final int CORNERS = 3;
 
+    /** Where a crossing sits when both endpoint areas round to zero, so neither end is nearer. */
+    private static final double MIDPOINT = 0.5;
+
     public final EmbeddedMeshTopology topology;
 
     /** Arc the route belongs to. */
@@ -460,13 +463,13 @@ public final class FaceStripPath {
             double[] to) {
         int low = Math.min(first, second);
         int high = Math.max(first, second);
-        double atLow = ExactBarycentricOrient.area(from, to, topology.barycentricOf(sourceFace,
-                low));
-        double atHigh = ExactBarycentricOrient.area(from, to, topology.barycentricOf(sourceFace,
-                high));
         crossedEdges.add(new int[] { low, high });
         crossedVertices.add(EmbeddedMeshTopology.UNCLAIMED);
-        crossingParameters.add(atLow / (atLow - atHigh));
+        double areaAtLow = ExactBarycentricOrient.area(from, to, topology.barycentricOf(sourceFace, low));
+        double areaAtHigh = ExactBarycentricOrient.area(from, to, topology.barycentricOf(sourceFace, high));
+        double reach = Math.abs(areaAtLow) + Math.abs(areaAtHigh);
+        double crossingPosition =  reach == 0.0 ? 0.5f : Math.abs(areaAtLow) / reach;
+        crossingParameters.add(crossingPosition);
     }
 
     /**

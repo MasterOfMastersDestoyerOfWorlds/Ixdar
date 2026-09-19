@@ -126,7 +126,7 @@ public final class FaceChordWalk {
         }
         for (int corner = 0; corner < CORNERS; corner++) {
             int edgeId = topology.copy.faceEdgeAt(childFace, corner);
-            double parameter = edgeParameterOf(sourceFace, edgeId, barycentric);
+            double parameter = edgeParameterOf(sourceFace, edgeId, barycentric, true);
             if (Double.isNaN(parameter)
                     || topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                 continue;
@@ -590,7 +590,7 @@ public final class FaceChordWalk {
         }
         for (int corner = 0; corner < CORNERS; corner++) {
             int edgeId = topology.copy.faceEdgeAt(childFace, corner);
-            double parameter = edgeParameterOf(sourceFace, edgeId, targetBarycentric);
+            double parameter = edgeParameterOf(sourceFace, edgeId, targetBarycentric, false);
             if (Double.isNaN(parameter)) {
                 continue;
             }
@@ -722,22 +722,24 @@ public final class FaceChordWalk {
 
     /**
      * Parameter of a point lying on a child edge, measured from that edge's canonical
-     * start vertex. On-edge is decided by an exact collinearity sign test; the parameter
-     * itself is a projection.
+     * start vertex. On-edge is an exact collinearity sign test unless {@code nearCounts},
+     * which also takes a point within {@link #COINCIDENT_SEPARATION} of the edge.
      *
      * @param sourceFace        source active face
      * @param edgeId            child edge
      * @param targetBarycentric point's barycentric in the source face
+     * @param nearCounts        whether a point off the edge by less than double precision
+     *                          resolves counts as on it, which only node placement wants:
+     *                          the sliver it would otherwise cut leaves a vertex a later
+     *                          split of this same edge mints a second time
      * @return parameter in {@code (0, 1)}, or {@link Double#NaN} when the point is not
      *         strictly inside the edge
      */
-    private double edgeParameterOf(int sourceFace, int edgeId, double[] targetBarycentric) {
+    private double edgeParameterOf(int sourceFace, int edgeId, double[] targetBarycentric,
+            boolean nearCounts) {
         int halfEdge = topology.copy.edgeHalfEdge(edgeId);
         double[] from = requireBarycentric(sourceFace, topology.copy.halfEdgeVertex(halfEdge));
         double[] to = requireBarycentric(sourceFace, topology.copy.halfEdgeEndVertex(halfEdge));
-        if (orientSign(from, to, targetBarycentric) != 0) {
-            return Double.NaN;
-        }
         double spread = 0.0;
         double offset = 0.0;
         for (int index = 0; index < CORNERS; index++) {
@@ -750,6 +752,17 @@ public final class FaceChordWalk {
         }
         double parameter = offset / spread;
         if (!(parameter > 0.0 && parameter < 1.0)) {
+            return Double.NaN;
+        }
+        boolean projectsOntoEdge = true;
+        for (int index = 0; index < CORNERS; index++) {
+            double projected = from[index] + parameter * (to[index] - from[index]);
+            if (Math.abs(projected - targetBarycentric[index]) >= COINCIDENT_SEPARATION) {
+                projectsOntoEdge = false;
+            }
+        }
+        if (orientSign(from, to, targetBarycentric) != 0
+                && !(nearCounts && projectsOntoEdge)) {
             return Double.NaN;
         }
         return parameter;
