@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.motorcycle;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -25,6 +26,7 @@ import ixdar.geometry.mesh.nodes.api.UvField;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.ChartBarycentric;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -164,6 +166,34 @@ public final class MotorcycleGraph implements MeshNode {
     /** Crossing events whose chord pair was already met, so no node was made. */
     public int dedupedMeetingCount;
 
+    /** Crossings that landed on a mesh vertex, so their node is pinned to it. */
+    public int crossingsOnVertexCount;
+
+    /**
+     * Crossings on a mesh vertex that already carried a node and took it. Each one
+     * is a coincident node the carve would otherwise have to place twice on the
+     * same copy vertex.
+     */
+    public int crossingsSharingAVertexNodeCount;
+
+    /** Crossings inside a face that took the node already standing at their point. */
+    public int crossingsSharingAFaceNodeCount;
+
+    /** Crossings on a mesh edge that took the node already standing on it. */
+    public int crossingsSharingAnEdgeNodeCount;
+
+    /**
+     * Face exits that landed exactly on a corner, so the trace continued through
+     * the vertex fan rather than across an edge.
+     */
+    public int cornerExitCount;
+
+    /** Corner exits that landed on a cone point, where the trace has to stop. */
+    public int cornerExitSingularityCount;
+
+    /** Traces dropped because another trace already runs their whole chain. */
+    public int coveredTraceCount;
+
     /**
      * Crossings where the other trace was still alive, so the intersection node
      * joined only the candidate's chain. The other trace's boundary is left to the
@@ -196,6 +226,21 @@ public final class MotorcycleGraph implements MeshNode {
      * degree-1 dead ends in the arrangement walk).
      */
     private final Map<Integer, EmbeddedNode> nodeByVertexId = new HashMap<>();
+
+    /**
+     * Face-interior crossing nodes per active face, so a second crossing at a
+     * point already noded takes that node instead of minting a coincident one.
+     */
+    private List<List<EmbeddedNode>> crossingNodesByFace;
+
+    /**
+     * Crossing nodes on each mesh edge, so the two faces sharing an edge cannot
+     * each mint a node for one point on it.
+     */
+    private final Map<Integer, List<EmbeddedNode>> crossingNodesByEdgeId = new HashMap<>();
+
+    /** Parameter along its edge per node of {@link #crossingNodesByEdgeId}. */
+    private final Map<Integer, List<Double>> crossingParametersByEdgeId = new HashMap<>();
 
     private int nextNodeId;
     private int nextArcId;
@@ -234,6 +279,10 @@ public final class MotorcycleGraph implements MeshNode {
         this.faceCount = mesh.faceCount();
         this.walker = new ChartWalker(mesh, uv, charts, singularityIndex4);
         this.segmentIndex = new FaceSegmentIndex(faceCount);
+        this.crossingNodesByFace = new ArrayList<>(faceCount);
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            crossingNodesByFace.add(new ArrayList<>());
+        }
 
         this.network = new ArcNetwork(mesh);
         this.nodes = network.nodes;
@@ -451,6 +500,18 @@ public final class MotorcycleGraph implements MeshNode {
             Platforms.log("[motorcycle-diag] stalledBoundaryCrossings=%d stalledTerminations=%d%n",
                     stalledBoundaryCrossingCount, stalledBoundaryTerminationCount);
         }
+        if (cornerExitCount > 0) {
+            Platforms.log("[motorcycle-diag] cornerExits=%d ofThoseOnCones=%d%n",
+                    cornerExitCount, cornerExitSingularityCount);
+        }
+        int sharedCrossingNodeCount = crossingsSharingAVertexNodeCount
+                + crossingsSharingAnEdgeNodeCount + crossingsSharingAFaceNodeCount;
+        if (crossingsOnVertexCount > 0 || sharedCrossingNodeCount > 0) {
+            Platforms.log("[motorcycle-diag] crossingsOnVertex=%d sharedVertexNodes=%d"
+                    + " sharedEdgeNodes=%d sharedFaceNodes=%d%n", crossingsOnVertexCount,
+                    crossingsSharingAVertexNodeCount, crossingsSharingAnEdgeNodeCount,
+                    crossingsSharingAFaceNodeCount);
+        }
         Platforms.log("[motorcycle] finalizing open traces");
         finalizeOpenTraces();
         Platforms.log("[motorcycle] subdividing arcs at every meeting");
@@ -461,9 +522,9 @@ public final class MotorcycleGraph implements MeshNode {
         new PatchBoundaryBuilder(this).build();
         buildTraceRecordBuffer();
         Platforms.log(
-                "[motorcycle] done traces=%d arcs=%d nodes=%d patches=%d"
+                "[motorcycle] done traces=%d (covered=%d) arcs=%d nodes=%d patches=%d"
                         + " retroactiveCrossings=%d %.2fs%n",
-                traces.size(), arcs.size(), nodes.size(), patches.size(),
+                traces.size(), coveredTraceCount, arcs.size(), nodes.size(), patches.size(),
                 retroactiveCrossingCount, (System.nanoTime() - buildStartNanos) / 1.0e9);
         return this;
     }
@@ -588,10 +649,27 @@ public final class MotorcycleGraph implements MeshNode {
         trace.parametricLengthSoFar = event.parametricLength;
 
         ChartWalker.State next = new ChartWalker.State(trace.state);
-        if (!walker.crossEdge(trace.state, edgeHit, next)) {
-            handleTermination(trace, new TraceEvent(TraceEvent.TYPE_BOUNDARY,
+        boolean carried;
+        int terminalVertexId = -1;
+        if (edgeHit.cornerLocalIndex >= 0) {
+            cornerExitCount++;
+            ChartWalker.CrossVertexResult fan = walker.crossVertex(trace.state, edgeHit, next);
+            carried = fan == ChartWalker.CrossVertexResult.FAN_TRANSITION;
+            if (fan == ChartWalker.CrossVertexResult.HIT_SINGULARITY) {
+                cornerExitSingularityCount++;
+                terminalVertexId = mesh.faceVertexAt(mesh.faceIdAt(trace.state.activeFace),
+                        edgeHit.cornerLocalIndex);
+            }
+        } else {
+            carried = walker.crossEdge(trace.state, edgeHit, next);
+        }
+        if (!carried) {
+            int eventType = terminalVertexId >= 0
+                    ? TraceEvent.TYPE_SINGULARITY : TraceEvent.TYPE_BOUNDARY;
+            handleTermination(trace, new TraceEvent(eventType,
                     event.parametricLength, trace.traceId, -1, event.activeFace,
-                    edgeHit.exitU, edgeHit.exitV, null, trace.pendingEventSerial), -1);
+                    edgeHit.exitU, edgeHit.exitV, null, trace.pendingEventSerial),
+                    terminalVertexId);
             return;
         }
         trace.state = next;
@@ -628,11 +706,7 @@ public final class MotorcycleGraph implements MeshNode {
                 : Math.abs(event.v - otherSegment.entryV);
         double theirLength = otherSegment.parametricLengthAtEntry + distanceAlongSegment;
 
-        EmbeddedNode intersectionNode = null;
-        intersectionNode = new EmbeddedNode(nextNodeId++,
-                -1, event.activeFace, 0, event.u, event.v,
-                liftToPosition(mesh, walker, event.activeFace, event.u, event.v));
-        nodes.add(intersectionNode);
+        EmbeddedNode intersectionNode = nodeAtChartPoint(event.activeFace, event.u, event.v);
         addArc(trace, intersectionNode.nodeId, event.parametricLength - segment.parametricLength());
         trace.currentNodeId = intersectionNode.nodeId;
         trace.arcNodeIds.add(intersectionNode.nodeId);
@@ -677,6 +751,94 @@ public final class MotorcycleGraph implements MeshNode {
     }
 
     /**
+     * The T-mesh node standing at a point of the surface, minted when it is the
+     * first one there. Points the carve could not place apart are one node, whether
+     * they meet on a mesh vertex, on a mesh edge, or inside one face.
+     *
+     * @param activeFace active face the point was found in
+     * @param crossingU  chart u of the point
+     * @param crossingV  chart v of the point
+     * @return the node at that point
+     */
+    private EmbeddedNode nodeAtChartPoint(int activeFace, double crossingU, double crossingV) {
+        int faceId = mesh.faceIdAt(activeFace);
+        double[] cornerUv = new double[ChartWalker.CORNER_UV_FLOATS];
+        uv.faceCornerUv(faceId, cornerUv);
+        double[] barycentric = ChartBarycentric.ofChartPoint(cornerUv, crossingU, crossingV);
+        if (barycentric == null) {
+            return mintCrossingNode(activeFace, crossingU, crossingV);
+        }
+        ChartBarycentric.clampOntoTriangle(barycentric);
+        int corner = ChartBarycentric.cornerHolding(barycentric);
+        if (corner >= 0) {
+            crossingsOnVertexCount++;
+            int vertexId = mesh.faceVertexAt(faceId, corner);
+            EmbeddedNode onVertex = nodeByVertexId.get(vertexId);
+            if (onVertex != null) {
+                crossingsSharingAVertexNodeCount++;
+                return onVertex;
+            }
+            EmbeddedNode pinned = new EmbeddedNode(nextNodeId++, vertexId, -1, 0,
+                    crossingU, crossingV, mesh.vertexPosition(vertexId));
+            nodes.add(pinned);
+            nodeByVertexId.put(vertexId, pinned);
+            return pinned;
+        }
+        int localEdge = ChartBarycentric.edgeHolding(barycentric);
+        if (localEdge >= 0) {
+            int edgeId = mesh.faceEdgeAt(faceId, localEdge);
+            int fromVertexId = mesh.faceVertexAt(faceId, localEdge);
+            int toVertexId = mesh.faceVertexAt(faceId, (localEdge + 1) % ChartWalker.CORNERS);
+            double alongEdge = ChartBarycentric.parameterAlongEdge(barycentric, localEdge);
+            double fromLowerVertex = fromVertexId < toVertexId ? alongEdge : 1.0 - alongEdge;
+            List<EmbeddedNode> onEdge = crossingNodesByEdgeId.computeIfAbsent(edgeId,
+                    key -> new ArrayList<>());
+            List<Double> alongEdgeByNode = crossingParametersByEdgeId.computeIfAbsent(edgeId,
+                    key -> new ArrayList<>());
+            for (int index = 0; index < onEdge.size(); index++) {
+                if (ChartBarycentric.sameEdgePoint(alongEdgeByNode.get(index), fromLowerVertex)) {
+                    crossingsSharingAnEdgeNodeCount++;
+                    return onEdge.get(index);
+                }
+            }
+            EmbeddedNode minted = mintCrossingNode(activeFace, crossingU, crossingV);
+            onEdge.add(minted);
+            alongEdgeByNode.add(fromLowerVertex);
+            return minted;
+        }
+        List<EmbeddedNode> insideFace = crossingNodesByFace.get(activeFace);
+        for (EmbeddedNode standing : insideFace) {
+            double[] standingBarycentric = ChartBarycentric.ofChartPoint(cornerUv,
+                    standing.u, standing.v);
+            if (standingBarycentric != null
+                    && ChartBarycentric.sameChartPoint(barycentric, standingBarycentric)) {
+                crossingsSharingAFaceNodeCount++;
+                return standing;
+            }
+        }
+        EmbeddedNode minted = mintCrossingNode(activeFace, crossingU, crossingV);
+        insideFace.add(minted);
+        return minted;
+    }
+
+    /**
+     * A fresh T-mesh node at a chart position inside a face, lifted onto the
+     * surface.
+     *
+     * @param activeFace active face hosting the position
+     * @param crossingU  chart u of the position
+     * @param crossingV  chart v of the position
+     * @return the minted node, already in {@link #nodes}
+     */
+    private EmbeddedNode mintCrossingNode(int activeFace, double crossingU, double crossingV) {
+        EmbeddedNode minted = new EmbeddedNode(nextNodeId++, -1, activeFace, 0,
+                crossingU, crossingV,
+                liftToPosition(mesh, walker, activeFace, crossingU, crossingV));
+        nodes.add(minted);
+        return minted;
+    }
+
+    /**
      * Advances a trace state to a meeting point, writing only the varying
      * coordinate: the held coordinate is the trace's exactly-transported level, and
      * rounding it to the constructed intersection would break the sign-predicate
@@ -714,18 +876,19 @@ public final class MotorcycleGraph implements MeshNode {
         registerSegment(trace, segment);
         trace.parametricLengthSoFar = event.parametricLength;
         EmbeddedNode endNode = terminalVertexId >= 0 ? nodeByVertexId.get(terminalVertexId) : null;
-        if (endNode == null) {
-            endNode = new EmbeddedNode(nextNodeId++,
-                    terminalVertexId, terminalVertexId >= 0 ? -1 : event.activeFace, 0,
-                    event.u, event.v, liftToPosition(mesh, walker, event.activeFace, event.u, event.v));
+        if (endNode == null && terminalVertexId >= 0) {
+            endNode = new EmbeddedNode(nextNodeId++, terminalVertexId, -1, 0,
+                    event.u, event.v,
+                    liftToPosition(mesh, walker, event.activeFace, event.u, event.v));
+            endNode.critical = true;
+            nodes.add(endNode);
+            nodeByVertexId.put(terminalVertexId, endNode);
+        } else if (endNode == null) {
+            endNode = nodeAtChartPoint(event.activeFace, event.u, event.v);
             if (event.type == TraceEvent.TYPE_BOUNDARY) {
                 endNode.border = true;
             } else {
                 endNode.critical = true;
-            }
-            nodes.add(endNode);
-            if (terminalVertexId >= 0) {
-                nodeByVertexId.put(terminalVertexId, endNode);
             }
         }
         addArc(trace, endNode.nodeId, segment.parametricLength());
@@ -783,11 +946,8 @@ public final class MotorcycleGraph implements MeshNode {
                             + " meetings=%d lastFace=%d%n",
                     trace.traceId, trace.alive, trace.segments.size(), trace.parametricLengthSoFar,
                     trace.metOtherTraces.size(), last.activeFace);
-            EmbeddedNode endNode = new EmbeddedNode(nextNodeId++,
-                    -1, last.activeFace, 0, last.exitU, last.exitV,
-                    liftToPosition(mesh, walker, last.activeFace, last.exitU, last.exitV));
+            EmbeddedNode endNode = nodeAtChartPoint(last.activeFace, last.exitU, last.exitV);
             endNode.truncated = true;
-            nodes.add(endNode);
             addArc(trace, endNode.nodeId, last.parametricLength());
             trace.currentNodeId = endNode.nodeId;
             trace.arcNodeIds.add(endNode.nodeId);
@@ -848,10 +1008,8 @@ public final class MotorcycleGraph implements MeshNode {
                     ? Math.abs(hit.intersectionU - hit.otherSegment.entryU)
                     : Math.abs(hit.intersectionV - hit.otherSegment.entryV);
             double theirLength = hit.otherSegment.parametricLengthAtEntry + distanceAlongOther;
-            EmbeddedNode node = new EmbeddedNode(nextNodeId++, -1,
-                    segment.activeFace, 0, hit.intersectionU, hit.intersectionV,
-                    liftToPosition(mesh, walker, segment.activeFace, hit.intersectionU, hit.intersectionV));
-            nodes.add(node);
+            EmbeddedNode node = nodeAtChartPoint(segment.activeFace,
+                    hit.intersectionU, hit.intersectionV);
             double alphaIjForTi = Trace.computeAlphaIj(segment.axis, segment.sign,
                     hit.otherSegment.axis, hit.otherSegment.sign, ourLength, theirLength);
             double alphaJiForTj = Trace.computeAlphaIj(hit.otherSegment.axis, hit.otherSegment.sign,
@@ -881,8 +1039,63 @@ public final class MotorcycleGraph implements MeshNode {
      * See also: Lyon 2021 Section 5.1
      */
     private void subdivideArcsAtMeetings() {
+        buildTraceChains();
+        Map<String, Integer> firstTraceByChain = new HashMap<>();
+        for (Trace trace1 : traces) {
+            if (trace1.featureTrace || trace1.arcNodeIds.size() < 2) {
+                continue;
+            }
+            List<Integer> backwards = new ArrayList<>(trace1.arcNodeIds);
+            Collections.reverse(backwards);
+            String forwardKey = trace1.arcNodeIds.toString();
+            String backwardKey = backwards.toString();
+            String chainKey = forwardKey.compareTo(backwardKey) <= 0 ? forwardKey : backwardKey;
+            if (firstTraceByChain.putIfAbsent(chainKey, trace1.traceId) == null) {
+                continue;
+            }
+            trace1.coveredByAnotherTrail = true;
+            trace1.segments.clear();
+            trace1.chainNodeLengths.clear();
+            coveredTraceCount++;
+        }
+        for (Trace trace2 : traces) {
+            if (trace2.coveredByAnotherTrail) {
+                trace2.metOtherTraces.clear();
+                continue;
+            }
+            trace2.metOtherTraces.removeIf(
+                    meeting -> traces.get(meeting.otherTraceId).coveredByAnotherTrail);
+        }
+        buildTraceChains();
+
         List<EmbeddedArc> rebuilt = new ArrayList<>();
         int nextId = 0;
+        for (Trace trace : traces) {
+            if (trace.coveredByAnotherTrail || trace.chainNodeLengths.size() < 2) {
+                continue;
+            }
+            trace.chainArcIds.clear();
+            for (int step = 0; step + 1 < trace.arcNodeIds.size(); step++) {
+                double length = trace.chainNodeLengths.get(step + 1)
+                        - trace.chainNodeLengths.get(step);
+                EmbeddedArc arc = new EmbeddedArc(nextId++, trace.traceId,
+                        trace.arcNodeIds.get(step), trace.arcNodeIds.get(step + 1), length);
+                rebuilt.add(arc);
+                trace.chainArcIds.add(arc.arcId);
+            }
+        }
+        arcs.clear();
+        arcs.addAll(rebuilt);
+        nextArcId = nextId;
+    }
+
+    /**
+     * Splits every trace's chain at each T-mesh node it passes through, writing the
+     * node ids and their parametric positions onto the trace.
+     */
+    private void buildTraceChains() {
+        repeatedChainNodeCount = 0;
+        droppedInteriorMeetingCount = 0;
         for (Trace trace : traces) {
             if (trace.arcNodeIds.size() < 2) {
                 continue;
@@ -981,17 +1194,7 @@ public final class MotorcycleGraph implements MeshNode {
             trace.chainArcIds.clear();
             trace.chainNodeLengths.clear();
             trace.chainNodeLengths.addAll(chainLengths);
-            for (int k = 0; k < chainNodes.size() - 1; k++) {
-                double length = chainLengths.get(k + 1) - chainLengths.get(k);
-                EmbeddedArc arc = new EmbeddedArc(nextId++, trace.traceId,
-                        chainNodes.get(k), chainNodes.get(k + 1), length);
-                rebuilt.add(arc);
-                trace.chainArcIds.add(arc.arcId);
-            }
         }
-        arcs.clear();
-        arcs.addAll(rebuilt);
-        nextArcId = nextId;
     }
 
     private void assemblePatches() {

@@ -826,7 +826,8 @@ public final class SnappingCarve {
     }
 
     /**
-     * The barycentric of a node's recorded chart position in its own source face.
+     * The barycentric of a node's recorded chart position in its own source face,
+     * pulled onto the face when inverting the chart rounded it a step outside.
      *
      * @param node node whose chart position is inverted
      * @throws IllegalStateException when that face's chart is degenerate
@@ -835,20 +836,12 @@ public final class SnappingCarve {
     private double[] chartBarycentric(EmbeddedNode node) {
         double[] cornerUv = new double[2 * CORNERS];
         uv.faceCornerUv(topology.sourceMesh.faceIdAt(node.activeFace), cornerUv);
-        double firstU = cornerUv[2] - cornerUv[0];
-        double firstV = cornerUv[3] - cornerUv[1];
-        double secondU = cornerUv[4] - cornerUv[0];
-        double secondV = cornerUv[5] - cornerUv[1];
-        double determinant = firstU * secondV - firstV * secondU;
-        if (determinant == 0.0) {
+        double[] barycentric = ChartBarycentric.ofChartPoint(cornerUv, node.u, node.v);
+        if (barycentric == null) {
             throw new IllegalStateException(
                     "source active face " + node.activeFace + " has a degenerate chart");
         }
-        double offsetU = node.u - cornerUv[0];
-        double offsetV = node.v - cornerUv[1];
-        double second = (offsetU * secondV - offsetV * secondU) / determinant;
-        double third = (firstU * offsetV - firstV * offsetU) / determinant;
-        return new double[] { 1.0 - second - third, second, third };
+        return ChartBarycentric.clampOntoTriangle(barycentric);
     }
 
     /**

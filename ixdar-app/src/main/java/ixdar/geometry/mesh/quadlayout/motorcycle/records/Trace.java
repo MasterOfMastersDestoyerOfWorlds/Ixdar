@@ -67,6 +67,13 @@ public final class Trace {
     public boolean stalledCrossingTaken;
 
     /**
+     * Whether this trace ended by running onto another trace's trail along its own
+     * line and stands nowhere that trail does not, so it contributes no arc of its
+     * own and must not be finalized into a dangling one.
+     */
+    public boolean coveredByAnotherTrail;
+
+    /**
      * Creates a live motorcycle trace from a spawn port.
      *
      * @param traceId             unique trace id
