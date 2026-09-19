@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.api.Vector3Value;
+import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 
 /**
@@ -25,12 +26,13 @@ public final class NetworkNode implements MeshNode {
     public static final InputPort POINT = new InputPort("point", PortType.VECTOR3, null);
     public static final InputPort CRITICAL = new InputPort("critical", PortType.BOOLEAN, false);
     public static final InputPort BORDER = new InputPort("border", PortType.BOOLEAN, false);
+    public static final InputPort VERTEX = new InputPort("vertex", PortType.INT, -1);
     public static final OutputPort NET_OUT = new OutputPort(NET.name, PortType.ARC_NETWORK);
     public static final OutputPort ID = new OutputPort("id", PortType.INT);
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(NET, POINT, CRITICAL, BORDER);
+        return List.of(NET, POINT, CRITICAL, BORDER, VERTEX);
     }
 
     @Override
@@ -52,6 +54,8 @@ public final class NetworkNode implements MeshNode {
                 POINT.name, "Authored position; resolved to the nearest copy vertex.",
                 CRITICAL.name, "Whether the node's position is prescribed (LCBK19 Def 6.2).",
                 BORDER.name, "Whether the node lies in the surface boundary (LCBK19 Def 6.1).",
+                VERTEX.name, "Source-mesh vertex the node stands for, which is what makes a"
+                        + " critical node a singularity; -1 for a plain node.",
                 ID.name, "The new node's id, for arcs and patches to reference."
         );
     }
@@ -64,6 +68,8 @@ public final class NetworkNode implements MeshNode {
         boolean border = Boolean.TRUE.equals(ctx.getInput(BORDER.name, Boolean.class));
         int vertex = NearestVertex.find(net.topology.copy, point.x(), point.y(), point.z());
         int nodeId = net.addNode(ArcNetwork.NONE, vertex, critical, border);
+        net.nodes.get(nodeId).vertexId = ((Number) FieldBroadcast.getInputOrDefault(ctx,
+                VERTEX.name, VERTEX.defaultValue)).intValue();
         ctx.setOutput(NET_OUT.name, net);
         ctx.setOutput(ID.name, nodeId);
     }

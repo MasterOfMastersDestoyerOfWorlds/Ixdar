@@ -438,8 +438,8 @@ public final class PatchBoundaryBuilder {
             EmbeddedNode node = graph.nodes.get(entry.getKey());
             StringBuilder portDump = new StringBuilder();
             for (PatchPort port : ports) {
-                portDump.append(String.format(" (arc=%d out=%b dir=%d,%d face=%d key=%.4f)",
-                        port.arcId, port.outgoing, port.directionU, port.directionV,
+                portDump.append(String.format(" (arc=%d trace=%d out=%b dir=%d,%d face=%d key=%.4f)",
+                        port.arcId, port.traceId, port.outgoing, port.directionU, port.directionV,
                         port.activeFace, port.sortKey));
             }
             Platforms.log("[patch-diag] ambiguous ports node=%d critical=%b border=%b vertex=%d:%s%n",

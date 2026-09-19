@@ -1058,6 +1058,12 @@
           "portType": "GEOMETRY_BUNDLE",
           "description": "Triangle mesh to build the field on; manifold, possibly with boundary.",
           "defaultValue": null
+        },
+        {
+          "name": "curvature_bias",
+          "portType": "FLOAT",
+          "description": "Where the field puts singularities, in [-1, 1]: 0 is Dirichlet and -1 pulls them onto high Gaussian curvature.",
+          "defaultValue": -1.0
         }
       ],
       "outputs": [
@@ -3292,6 +3298,12 @@
           "portType": "BOOLEAN",
           "description": "Whether the node lies in the surface boundary (LCBK19 Def 6.1).",
           "defaultValue": false
+        },
+        {
+          "name": "vertex",
+          "portType": "INT",
+          "description": "Source-mesh vertex the node stands for, which is what makes a critical node a singularity; -1 for a plain node.",
+          "defaultValue": -1
         }
       ],
       "outputs": [

@@ -123,6 +123,38 @@ public final class Trace {
     }
 
     /**
+     * Distance ahead of one traversal to where it runs onto another travelling the
+     * same iso-line, or {@link Double#POSITIVE_INFINITY} when it never does. A
+     * motorcycle stops at the first point another reached no later, so two coming
+     * head-on stop where their travelled lengths agree.
+     *
+     * <p>See also: EGK*08 Section 2
+     *
+     * @param ourStart    our position along the shared line
+     * @param ourLength   our travelled length at {@code ourStart}
+     * @param ourSign     our direction along the line
+     * @param theirStart  the other traversal's position on the line
+     * @param theirLength its travelled length at {@code theirStart}
+     * @param theirSign   its direction along the line
+     * @return distance from {@code ourStart} in our direction to the crash
+     */
+    public static double collinearCrashDistance(double ourStart, double ourLength, int ourSign,
+            double theirStart, double theirLength, int theirSign) {
+        double gap = (theirStart - ourStart) * ourSign;
+        if (gap <= 0.0) {
+            return Double.POSITIVE_INFINITY;
+        }
+        if (theirSign == ourSign) {
+            return ourLength + gap >= theirLength ? gap : Double.POSITIVE_INFINITY;
+        }
+        double distance = (theirLength + gap - ourLength) * 0.5;
+        if (distance > gap) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return Math.max(0.0, distance);
+    }
+
+    /**
      * Signed αij at the start of trace ti: the ccw angle from ti's forward
      * direction to {@code lij · ti.forward − lji · tj.forward}, positive when j
      * lies on ti's ccw side.

@@ -13,6 +13,8 @@ public final class TraceEvent implements Comparable<TraceEvent> {
     public static final int TYPE_SINGULARITY = 2;
     /** Trace reaches a mesh boundary. */
     public static final int TYPE_BOUNDARY = 3;
+    /** Two traces on one iso-line run onto each other and both stop. */
+    public static final int TYPE_HEAD_ON = 4;
 
     public final int type;
     public final double parametricLength;

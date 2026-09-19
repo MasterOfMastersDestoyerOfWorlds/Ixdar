@@ -22,6 +22,7 @@ import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 import ixdar.geometry.mesh.quadlayout.solver.Preconditioner;
 import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
@@ -42,6 +43,8 @@ import ixdar.platform.Platforms;
 public class NDirectionField implements MeshNode {
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort CURVATURE_BIAS = new InputPort("curvature_bias", PortType.FLOAT,
+            -1f);
     public static final OutputPort FIELD = new OutputPort("field", PortType.CROSS_FIELD);
     public static final OutputPort SINGULARITY_COUNT = new OutputPort("singularity_count", PortType.INT);
     public static final OutputPort SINGULARITIES = new OutputPort("singularities",
@@ -76,9 +79,9 @@ public class NDirectionField implements MeshNode {
     /**
      * Smoothness parameter of where to put cf.singularities in [-1, 1]; 0 = Dirichlet.
      * -1 = holomorphic (at points of high Gaussian curvature), 1 = anti-holomorphic
-     * (at points of low Gaussian curvature).
+     * (at points of low Gaussian curvature). Set by the owner before the solve.
      */
-    public final double curvatureBias = 0;
+    public double curvatureBias;
 
     // Per-vertex tangent frame (world space).
     public Vector3f[] vertexX;
@@ -1210,7 +1213,7 @@ public class NDirectionField implements MeshNode {
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(GEOMETRY);
+        return List.of(GEOMETRY, CURVATURE_BIAS);
     }
 
     @Override
@@ -1232,6 +1235,8 @@ public class NDirectionField implements MeshNode {
                 SINGULARITY_COUNT.name, "Number of extracted singularities.",
                 SINGULARITIES.name, "Per-vertex singularity index4 attribute (0 = not singular),"
                         + " for tracing stages.",
+                CURVATURE_BIAS.name, "Where the field puts singularities, in [-1, 1]: 0 is"
+                        + " Dirichlet and -1 pulls them onto high Gaussian curvature.",
                 FEATURE_EDGES.name, "Per-edge selection of sharp feature and boundary edges.",
                 DOFS.name, "The smoothing solve's system, for solver-composing graphs."
         );
@@ -1240,8 +1245,11 @@ public class NDirectionField implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle bundle = ctx.getInput(GEOMETRY.name, GeometryBundle.class);
-        CrossField field = new NDirectionField()
-                .build(HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh()));
+        NDirectionField solve = new NDirectionField();
+        solve.curvatureBias = FieldBroadcast.floatScalarOrDefault(
+                FieldBroadcast.getInputOrDefault(ctx, CURVATURE_BIAS.name,
+                        CURVATURE_BIAS.defaultValue), 0f);
+        CrossField field = solve.build(HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh()));
         ctx.setOutput(FIELD.name, field);
         ctx.setOutput(SINGULARITY_COUNT.name, field.singularityCount());
         ctx.setOutput(SINGULARITIES.name, field.singularityIndex4);
