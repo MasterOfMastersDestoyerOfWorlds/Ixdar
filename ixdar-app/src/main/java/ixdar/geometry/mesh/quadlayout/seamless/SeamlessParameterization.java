@@ -19,7 +19,6 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.exact.SeamlessProjector;
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
-import ixdar.geometry.mesh.quadlayout.solver.InteriorPointQp;
 import ixdar.geometry.mesh.quadlayout.solver.SingularSystemDiagnoser;
 import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.system.GreedyRounding;
@@ -421,11 +420,10 @@ public final class SeamlessParameterization implements MeshNode {
     }
 
     /**
-     * BCE13 §3.4's lazy-constraint loop: evaluate every Equation 4 inequality,
-     * activate the violated plus every one below the activation threshold, and
-     * re-solve the hard-constrained convex QP over the active set with
-     * {@link InteriorPointQp} until no constraint is violated or the round cap is
-     * reached.
+     * BCE13 §3.4's lazy-constraint loop over {@link InteriorPointQp}. A singular QP
+     * propagates: every later stage needs the constraints, so nothing can stand in.
+     *
+     * <p>See also: BCE13 Section 3.4
      */
     private void runInjectivityConstraintLoop() {
         if (baseFactorHandle != null) {

@@ -9,13 +9,14 @@ import ixdar.geometry.mesh.quadlayout.solver.matrix.CompressedSparseRowArrays;
 import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
 import ixdar.geometry.mesh.quadlayout.solver.ordering.SolverPermutation;
+import ixdar.platform.Platforms;
 
 /**
- * Infeasible-start primal-dual interior-point solver for the convex QP
- * {@code min ½x'Hx − b'x subject to Ax ≥ c}. One instance per constraint set;
- * after the first factorization, iterations refactorize numerically only.
+ * Mehrotra predictor-corrector for the convex QP {@code min ½x'Hx − b'x, Ax ≥ c};
+ * both solves of an iteration share one factorization.
  *
- * <p>See also: Nocedal &amp; Wright, Numerical Optimization, §16.6.
+ * <p>See also: Mehrotra 1992, SIAM J. Optim. 2(4):575-601, doi:10.1137/0802028;
+ * Nocedal &amp; Wright, Numerical Optimization §16.6, Algorithm 16.4.
  */
 public final class InteriorPointQp {
 
@@ -26,13 +27,20 @@ public final class InteriorPointQp {
     public static final double FRACTION_TO_BOUNDARY = 0.995;
 
     /**
-     * Fixed centering parameter σ in {@code μ = σ·(s'λ/m)}. Chosen over
-     * Mehrotra's predictor-corrector because it needs one factorization and one
-     * solve per iteration instead of two solves, and stays deterministic.
+     * Exponent of Mehrotra's centering heuristic {@code σ = (μ_aff/μ)³}: a blocked
+     * affine step leaves σ near one, which pushes the iterate back onto the central
+     * path instead of pinning its slacks to the boundary.
      */
-    public static final double CENTERING_SIGMA = 0.1;
+    public static final double CENTERING_EXPONENT = 3.0;
 
-    /** Lower bound on the starting slacks {@code s = max(Ax₀ − c, floor)}. */
+    /** Floor on σ, so a long affine step still keeps a trace of centering. */
+    public static final double MIN_CENTERING_SIGMA = 1.0e-8;
+
+    /**
+     * Lower bound on the starting slacks {@code s = max(|Ax₀ − c|, floor)}. Matching
+     * a violated constraint's slack to its violation keeps the first
+     * fraction-to-boundary step from collapsing to {@code s/|r_p|}.
+     */
     public static final double SLACK_START_FLOOR = 1.0e-2;
 
     /** Starting value of every multiplier λ. */
@@ -40,6 +48,19 @@ public final class InteriorPointQp {
 
     /** Cap on the condensed diagonal ratios λ/s, guarding late-iteration blowup. */
     public static final double RATIO_CAP = 1.0e12;
+
+    /**
+     * First rung of the Tikhonov ladder on the condensed diagonal, as a fraction of
+     * the largest base-Hessian diagonal entry. It perturbs every Newton step, so it
+     * stays off until a backend actually reports a zero pivot.
+     */
+    public static final double DIAGONAL_REGULARIZATION_FRACTION = 1.0e-10;
+
+    /** Factor the regulariser is raised by when a factorization still reports a zero pivot. */
+    public static final double REGULARIZATION_ESCALATION = 1.0e2;
+
+    /** Escalations allowed before the singular system is reported to the caller. */
+    public static final int MAX_REGULARIZATION_ESCALATIONS = 6;
 
     /** Dual-residual tolerance, relative to {@code 1 + ‖b‖∞}. */
     public static final double DUAL_TOLERANCE = 1.0e-8;
@@ -49,6 +70,20 @@ public final class InteriorPointQp {
 
     /** Complementarity tolerance on {@code s'λ/m}, relative to {@code 1 + ‖b‖∞}. */
     public static final double COMPLEMENTARITY_TOLERANCE = 1.0e-8;
+
+    /**
+     * Relative size below which {@code ‖A'w‖∞} counts as zero in the Farkas
+     * certificate {@code w ≥ 0, A'w = 0, c'w > 0} that proves {@code Ax ≥ c} has no
+     * solution.
+     */
+    public static final double CERTIFICATE_TOLERANCE = 1.0e-6;
+
+    /**
+     * Iterations between certificate tests. The multipliers need a few iterations to
+     * separate before they can certify anything, and an infeasible set is worth
+     * abandoning long before the diverging ratios wreck the condensed system.
+     */
+    public static final int CERTIFICATE_CHECK_INTERVAL = 10;
 
     /** Base SPD system: H in full-symmetric CSR plus the linear term b as its RHS. */
     public final NormalMatrix baseSystem;
@@ -74,11 +109,74 @@ public final class InteriorPointQp {
     /** True iff the last solve met all three KKT tolerances before the cap. */
     public boolean converged;
 
+    /**
+     * True iff the last solve ended with multipliers forming a Farkas certificate,
+     * which proves no {@code x} satisfies the constraint set.
+     */
+    public boolean infeasible;
+
+    /** {@code ‖A'w‖∞} of the normalized multipliers {@code w = λ/‖λ‖∞}. */
+    public double certificateResidual;
+
+    /** {@code c'w} of the normalized multipliers; positive completes the certificate. */
+    public double certificateValue;
+
+    /** Smallest {@code max(c − Ax)} over the iterates: the violation at {@link #bestSolution}. */
+    public double maxViolation;
+
+    /** Least-violating primal iterate seen, restored when the solve does not converge. */
+    public double[] bestSolution;
+
+    /** Scratch {@code A'w} of the certificate test. */
+    public double[] certificateCombination;
+
     /** Final slacks s of the last solve; kept for inspection. */
     public double[] slack;
 
     /** Final multipliers λ; kept for inspection. */
     public double[] multiplier;
+
+    /** Per-constraint ratio λ/s driving the condensed system, capped at {@link #RATIO_CAP}. */
+    public double[] ratio;
+
+    /** Primal residual {@code Ax − s − c} of the current iterate. */
+    public double[] primalResidual;
+
+    /** Dual residual {@code Hx − b − A'λ} of the current iterate. */
+    public double[] dualResidual;
+
+    /** {@code Hx − b}, the dual residual before the multiplier term. */
+    public double[] hxMinusB;
+
+    /**
+     * Per-constraint numerator {@code μ − Δs_aff·Δλ_aff} of the complementarity
+     * target; zero throughout the affine predictor.
+     */
+    public double[] centralTerm;
+
+    /** Right-hand side of the condensed Newton system. */
+    public double[] newtonRhs;
+
+    /** Primal step Δx of the direction last solved for. */
+    public double[] deltaX;
+
+    /** Slack step Δs of the combined direction. */
+    public double[] deltaSlack;
+
+    /** Multiplier step Δλ of the combined direction. */
+    public double[] deltaMultiplier;
+
+    /** Slack step of the affine predictor, the corrector's second-order term. */
+    public double[] affineDeltaSlack;
+
+    /** Multiplier step of the affine predictor. */
+    public double[] affineDeltaMultiplier;
+
+    /** Newton right-hand side in the factor's permuted index space. */
+    public double[] permutedRhs;
+
+    /** Factor solution in the permuted index space. */
+    public double[] permutedSolution;
 
     /** Sorted condensed upper keys: base pattern unioned with constraint pairs. */
     public long[] condensedUpperKeys;
@@ -97,6 +195,18 @@ public final class InteriorPointQp {
 
     /** Per-iteration condensed upper-value scratch. */
     public double[] condensedUpperValues;
+
+    /** The regularized diagonal the backend factors: {@link #condensedDiagonal} plus the shift. */
+    public double[] regularizedDiagonal;
+
+    /**
+     * Current regulariser fraction, zero until a backend reports a zero pivot. Left
+     * on for the rest of the solve once the ladder has raised it.
+     */
+    public double regularizationFraction;
+
+    /** Absolute floor the current fraction adds to every diagonal entry. */
+    public double diagonalRegularization;
 
     /** Fill-reducing permutation of the condensed system, {@code perm[new] = old}. */
     public int[] permutation;
@@ -139,10 +249,10 @@ public final class InteriorPointQp {
     }
 
     /**
-     * Run the primal-dual iteration from the warm start in {@code x}, leaving
-     * the primal solution there. Terminates on the KKT tolerances or
-     * {@link #MAX_ITERATIONS}; check {@link #converged}. Releases the backend
-     * factor before returning.
+     * Run the primal-dual iteration from the warm start in {@code x}, leaving the
+     * primal solution there. A solve that does not converge leaves the least-violating
+     * iterate instead and sets {@link #infeasible} when the multipliers prove the
+     * constraints have no solution.
      *
      * @param x warm-start primal point in, solution out; length must equal the
      *          base system's dimension
@@ -153,7 +263,8 @@ public final class InteriorPointQp {
         slack = new double[m];
         multiplier = new double[m];
         for (int i = 0; i < m; i++) {
-            slack[i] = Math.max(constraintDot(i, x) - constraintBound[i], SLACK_START_FLOOR);
+            slack[i] = Math.max(Math.abs(constraintDot(i, x) - constraintBound[i]),
+                    SLACK_START_FLOOR);
             multiplier[i] = MULTIPLIER_START;
         }
         double dualThreshold = DUAL_TOLERANCE * (1.0 + maxAbs(baseSystem.rightHandSide));
@@ -161,19 +272,27 @@ public final class InteriorPointQp {
         double complementarityThreshold = COMPLEMENTARITY_TOLERANCE
                 * (1.0 + maxAbs(baseSystem.rightHandSide));
 
-        double[] hxMinusB = new double[n];
-        double[] dualResidual = new double[n];
-        double[] newtonRhs = new double[n];
-        double[] deltaX = new double[n];
-        double[] permutedRhs = new double[n];
-        double[] permutedSolution = new double[n];
-        double[] primalResidual = new double[m];
-        double[] deltaSlack = new double[m];
-        double[] deltaMultiplier = new double[m];
+        ratio = new double[m];
+        primalResidual = new double[m];
+        centralTerm = new double[m];
+        deltaSlack = new double[m];
+        deltaMultiplier = new double[m];
+        affineDeltaSlack = new double[m];
+        affineDeltaMultiplier = new double[m];
+        hxMinusB = new double[n];
+        dualResidual = new double[n];
+        newtonRhs = new double[n];
+        deltaX = new double[n];
+        permutedRhs = new double[n];
+        permutedSolution = new double[n];
 
         iterationCount = 0;
         factorizationCount = 0;
         converged = false;
+        infeasible = false;
+        bestSolution = x.clone();
+        certificateCombination = new double[n];
+        maxViolation = Double.POSITIVE_INFINITY;
         for (int iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
             for (int row = 0; row < n; row++) {
                 hxMinusB[row] = baseSystem.rowDot(row, x) - baseSystem.rightHandSide[row];
@@ -187,9 +306,15 @@ public final class InteriorPointQp {
                     dualResidual[dofs[k]] -= multiplier[i] * coefs[k];
                 }
             }
+            double violation = 0.0;
             double complementarity = 0.0;
             for (int i = 0; i < m; i++) {
+                violation = Math.max(violation, -(primalResidual[i] + slack[i]));
                 complementarity += slack[i] * multiplier[i];
+            }
+            if (violation < maxViolation) {
+                maxViolation = violation;
+                System.arraycopy(x, 0, bestSolution, 0, n);
             }
             complementarity /= m;
             if (maxAbs(dualResidual) <= dualThreshold
@@ -198,7 +323,12 @@ public final class InteriorPointQp {
                 converged = true;
                 break;
             }
-            double mu = CENTERING_SIGMA * complementarity;
+            if (iteration > 0 && iteration % CERTIFICATE_CHECK_INTERVAL == 0) {
+                checkInfeasibilityCertificate();
+                if (infeasible) {
+                    break;
+                }
+            }
 
             if (condensedUpperKeys == null) {
                 buildCondensedPlan();
@@ -206,62 +336,44 @@ public final class InteriorPointQp {
             System.arraycopy(baseSystem.diagonal, 0, condensedDiagonal, 0, n);
             System.arraycopy(condensedBaseUpperValues, 0, condensedUpperValues, 0,
                     condensedUpperValues.length);
-            for (int row = 0; row < n; row++) {
-                newtonRhs[row] = -hxMinusB[row];
-            }
             for (int i = 0; i < m; i++) {
-                double ratio = Math.min(multiplier[i] / slack[i], RATIO_CAP);
-                double rhsCoefficient = mu / slack[i] - ratio * primalResidual[i];
+                ratio[i] = Math.min(multiplier[i] / slack[i], RATIO_CAP);
                 int[] dofs = constraintDofs[i];
                 double[] coefs = constraintCoefs[i];
                 int pairCursor = constraintPairStart[i];
                 for (int k = 0; k < dofs.length; k++) {
-                    condensedDiagonal[dofs[k]] += ratio * coefs[k] * coefs[k];
-                    newtonRhs[dofs[k]] += rhsCoefficient * coefs[k];
+                    condensedDiagonal[dofs[k]] += ratio[i] * coefs[k] * coefs[k];
                     for (int j = k + 1; j < dofs.length; j++) {
-                        condensedUpperValues[constraintPairSlot[pairCursor++]] += ratio * coefs[k] * coefs[j];
+                        condensedUpperValues[constraintPairSlot[pairCursor++]] += ratio[i]
+                                * coefs[k] * coefs[j];
                     }
                 }
             }
 
-            if (factor == null) {
-                factorizeCondensed(newtonRhs);
-            } else {
-                for (int position = 0; position < factorValues.length; position++) {
-                    int source = factorValueSource[position];
-                    factorValues[position] = source < 0
-                            ? condensedDiagonal[-source - 1]
-                            : condensedUpperValues[source];
-                }
-                factor.refactorize(factorValues);
-            }
+            regularizeDiagonal();
+            factorizeRegularized(newtonRhs);
             factorizationCount++;
 
-            for (int newIndex = 0; newIndex < n; newIndex++) {
-                permutedRhs[newIndex] = newtonRhs[permutation[newIndex]];
+            Arrays.fill(centralTerm, 0.0);
+            solveNewtonDirection(affineDeltaSlack, affineDeltaMultiplier);
+            double affinePrimal = stepToBoundary(slack, affineDeltaSlack, 1.0);
+            double affineDual = stepToBoundary(multiplier, affineDeltaMultiplier, 1.0);
+            double affineComplementarity = 0.0;
+            for (int i = 0; i < m; i++) {
+                affineComplementarity += (slack[i] + affinePrimal * affineDeltaSlack[i])
+                        * (multiplier[i] + affineDual * affineDeltaMultiplier[i]);
             }
-            factor.solve(permutedRhs, permutedSolution);
-            for (int newIndex = 0; newIndex < n; newIndex++) {
-                deltaX[permutation[newIndex]] = permutedSolution[newIndex];
-            }
+            affineComplementarity /= m;
+            double sigma = Math.min(1.0, Math.max(MIN_CENTERING_SIGMA,
+                    Math.pow(affineComplementarity / complementarity, CENTERING_EXPONENT)));
+            double mu = sigma * complementarity;
 
             for (int i = 0; i < m; i++) {
-                deltaSlack[i] = constraintDot(i, deltaX) + primalResidual[i];
-                deltaMultiplier[i] = (mu - slack[i] * multiplier[i]
-                        - multiplier[i] * deltaSlack[i]) / slack[i];
+                centralTerm[i] = mu - affineDeltaSlack[i] * affineDeltaMultiplier[i];
             }
-            double alphaPrimal = 1.0;
-            double alphaDual = 1.0;
-            for (int i = 0; i < m; i++) {
-                if (deltaSlack[i] < 0.0) {
-                    alphaPrimal = Math.min(alphaPrimal,
-                            FRACTION_TO_BOUNDARY * (-slack[i] / deltaSlack[i]));
-                }
-                if (deltaMultiplier[i] < 0.0) {
-                    alphaDual = Math.min(alphaDual,
-                            FRACTION_TO_BOUNDARY * (-multiplier[i] / deltaMultiplier[i]));
-                }
-            }
+            solveNewtonDirection(deltaSlack, deltaMultiplier);
+            double alphaPrimal = stepToBoundary(slack, deltaSlack, FRACTION_TO_BOUNDARY);
+            double alphaDual = stepToBoundary(multiplier, deltaMultiplier, FRACTION_TO_BOUNDARY);
             for (int row = 0; row < n; row++) {
                 x[row] += alphaPrimal * deltaX[row];
             }
@@ -274,6 +386,154 @@ public final class InteriorPointQp {
         if (factor != null) {
             factor.release();
             factor = null;
+        }
+        if (!converged) {
+            System.arraycopy(bestSolution, 0, x, 0, n);
+            checkInfeasibilityCertificate();
+        }
+    }
+
+    /**
+     * Test the multipliers, normalized to {@code w = λ/‖λ‖∞}, as a Farkas
+     * certificate: {@code A'w = 0} with {@code c'w > 0} means no {@code x} satisfies
+     * {@code Ax ≥ c}. A point that already satisfies every constraint disproves any
+     * such certificate, so a feasible best iterate skips the test outright.
+     */
+    private void checkInfeasibilityCertificate() {
+        int m = constraintBound.length;
+        double maxMultiplier = maxAbs(multiplier);
+        if (maxMultiplier <= 0.0
+                || maxViolation <= PRIMAL_TOLERANCE * (1.0 + maxAbs(constraintBound))) {
+            return;
+        }
+        Arrays.fill(certificateCombination, 0.0);
+        double maxCoefficient = 0.0;
+        certificateValue = 0.0;
+        for (int i = 0; i < m; i++) {
+            double weight = multiplier[i] / maxMultiplier;
+            certificateValue += weight * constraintBound[i];
+            int[] dofs = constraintDofs[i];
+            double[] coefs = constraintCoefs[i];
+            for (int k = 0; k < dofs.length; k++) {
+                certificateCombination[dofs[k]] += weight * coefs[k];
+                maxCoefficient = Math.max(maxCoefficient, Math.abs(coefs[k]));
+            }
+        }
+        certificateResidual = maxAbs(certificateCombination);
+        infeasible = certificateResidual <= CERTIFICATE_TOLERANCE * maxCoefficient
+                && certificateValue > CERTIFICATE_TOLERANCE * maxAbs(constraintBound);
+    }
+
+    /**
+     * Solve the factored condensed system for the direction whose complementarity
+     * numerator is {@link #centralTerm}, leaving Δx in {@link #deltaX}. Uses
+     * {@link #ratio} in place of λ/s throughout, so the recovered Δλ satisfies the
+     * same system Δx was computed from even where the cap bites.
+     *
+     * @param deltaSlackOut      receives the slack step Δs
+     * @param deltaMultiplierOut receives the multiplier step Δλ
+     */
+    private void solveNewtonDirection(double[] deltaSlackOut, double[] deltaMultiplierOut) {
+        int n = baseSystem.size();
+        int m = constraintBound.length;
+        for (int row = 0; row < n; row++) {
+            newtonRhs[row] = -hxMinusB[row];
+        }
+        for (int i = 0; i < m; i++) {
+            double rhsCoefficient = centralTerm[i] / slack[i] - ratio[i] * primalResidual[i];
+            int[] dofs = constraintDofs[i];
+            double[] coefs = constraintCoefs[i];
+            for (int k = 0; k < dofs.length; k++) {
+                newtonRhs[dofs[k]] += rhsCoefficient * coefs[k];
+            }
+        }
+        for (int newIndex = 0; newIndex < n; newIndex++) {
+            permutedRhs[newIndex] = newtonRhs[permutation[newIndex]];
+        }
+        factor.solve(permutedRhs, permutedSolution);
+        for (int newIndex = 0; newIndex < n; newIndex++) {
+            deltaX[permutation[newIndex]] = permutedSolution[newIndex];
+        }
+        for (int i = 0; i < m; i++) {
+            deltaSlackOut[i] = constraintDot(i, deltaX) + primalResidual[i];
+            deltaMultiplierOut[i] = centralTerm[i] / slack[i] - multiplier[i]
+                    - ratio[i] * deltaSlackOut[i];
+        }
+    }
+
+    /**
+     * Largest step in {@code [0, 1]} keeping every entry of {@code value} positive,
+     * scaled by the fraction-to-boundary factor.
+     *
+     * @param value strictly positive iterates, slacks or multipliers
+     * @param step  the proposed step for {@code value}
+     * @param tau   fraction of the distance to the boundary that may be taken
+     * @return the step length
+     */
+    private static double stepToBoundary(double[] value, double[] step, double tau) {
+        double alpha = 1.0;
+        for (int i = 0; i < value.length; i++) {
+            if (step[i] < 0.0) {
+                alpha = Math.min(alpha, tau * (-value[i] / step[i]));
+            }
+        }
+        return alpha;
+    }
+
+    /**
+     * Refresh {@link #regularizedDiagonal}: each condensed entry scaled by
+     * {@code 1 + regularizationFraction}, plus an absolute floor that keeps a DOF no
+     * face and no constraint touches positive. The relative part outweighs the
+     * cancellation a λ/s ratio near {@link #RATIO_CAP} inflicts on a row.
+     */
+    private void regularizeDiagonal() {
+        diagonalRegularization = regularizationFraction
+                * Math.max(maxAbs(baseSystem.diagonal), 1.0);
+        for (int row = 0; row < condensedDiagonal.length; row++) {
+            regularizedDiagonal[row] = condensedDiagonal[row] * (1.0 + regularizationFraction)
+                    + diagonalRegularization;
+        }
+    }
+
+    /**
+     * Factor the regularized condensed system, cold on the first iteration and
+     * values-only afterwards. A zero pivot raises the regulariser by
+     * {@link #REGULARIZATION_ESCALATION} and retries from a fresh factorization.
+     *
+     * @param newtonRhs current Newton right-hand side, passed to a cold factorization
+     * @throws SingularSystemException when the system is still singular after
+     *                                 {@link #MAX_REGULARIZATION_ESCALATIONS} escalations
+     */
+    private void factorizeRegularized(double[] newtonRhs) {
+        for (int attempt = 0;; attempt++) {
+            try {
+                if (factor == null) {
+                    factorizeCondensed(newtonRhs);
+                } else {
+                    for (int position = 0; position < factorValues.length; position++) {
+                        int source = factorValueSource[position];
+                        factorValues[position] = source < 0
+                                ? regularizedDiagonal[-source - 1]
+                                : condensedUpperValues[source];
+                    }
+                    factor.refactorize(factorValues);
+                }
+                return;
+            } catch (SingularSystemException singular) {
+                if (attempt == MAX_REGULARIZATION_ESCALATIONS) {
+                    throw singular;
+                }
+                if (factor != null) {
+                    factor.release();
+                    factor = null;
+                }
+                regularizationFraction = Math.max(regularizationFraction * REGULARIZATION_ESCALATION,
+                        DIAGONAL_REGULARIZATION_FRACTION);
+                regularizeDiagonal();
+                Platforms.log("[interior-point] singular condensed system (%s);"
+                        + " regularisation fraction raised to %.3e%n", singular.getMessage(),
+                        regularizationFraction);
+            }
         }
     }
 
@@ -361,6 +621,7 @@ public final class InteriorPointQp {
             }
         }
         condensedDiagonal = new double[n];
+        regularizedDiagonal = new double[n];
         condensedUpperValues = new double[mergedCount];
     }
 
@@ -374,7 +635,7 @@ public final class InteriorPointQp {
      */
     private void factorizeCondensed(double[] newtonRhs) {
         int n = baseSystem.size();
-        NormalMatrix condensed = new NormalMatrix(condensedDiagonal, condensedUpperKeys,
+        NormalMatrix condensed = new NormalMatrix(regularizedDiagonal, condensedUpperKeys,
                 condensedUpperValues, newtonRhs);
         boolean[] noneFixed = new boolean[n];
         int[] identityIndices = new int[n];

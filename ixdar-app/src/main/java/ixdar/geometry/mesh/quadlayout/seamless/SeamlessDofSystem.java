@@ -25,22 +25,23 @@ import ixdar.platform.Platforms;
  */
 public final class SeamlessDofSystem {
 
-    /** Corners per triangular face. */
-    private static final int CORNERS_PER_FACE = 3;
-    /** Components per chart vertex (0 = u, 1 = v). */
-    private static final int COMPONENTS_PER_CHART_VERTEX = 2;
     /** Sentinel for "this edge is not an alignment edge". */
-    private static final int NOT_ALIGNMENT = -1;
+    public static final int NOT_ALIGNMENT = -1;
     /**
      * {@link #alignmentEdgeIsoAxis} value when u_T is along the edge and v is the
      * iso-coordinate to pin.
      */
-    private static final int ALIGN_AXIS_V = 1;
+    public static final int ALIGN_AXIS_V = 1;
     /**
      * {@link #alignmentEdgeIsoAxis} value when v_T is along the edge and u is the
      * iso-coordinate to pin.
      */
-    private static final int ALIGN_AXIS_U = 0;
+    public static final int ALIGN_AXIS_U = 0;
+
+    /** Corners per triangular face. */
+    private static final int CORNERS_PER_FACE = 3;
+    /** Components per chart vertex (0 = u, 1 = v). */
+    private static final int COMPONENTS_PER_CHART_VERTEX = 2;
 
     /** Pre-leftover-elimination DOF count. */
     public final int rawDofCount;
@@ -387,6 +388,9 @@ public final class SeamlessDofSystem {
         Vector3f startPos = new Vector3f();
         Vector3f endPos = new Vector3f();
         Vector3f edgeDir = new Vector3f();
+        double[] inFaceA = new double[COMPONENTS_PER_CHART_VERTEX];
+        double[] inFaceB = new double[COMPONENTS_PER_CHART_VERTEX];
+        int disagreeing = 0;
         for (int activeEdge = 0; activeEdge < seamless.uv.edgeCount; activeEdge++) {
             int edgeId = mesh.edgeIdAt(activeEdge);
             if (!crossField.alignmentEdges.get(activeEdge)) {
@@ -407,17 +411,57 @@ public final class SeamlessDofSystem {
             mesh.vertexPosition(startVertex, startPos);
             mesh.vertexPosition(endVertex, endPos);
             edgeDir.set(endPos).sub(startPos);
-            double edgeX = edgeDir.dot(crossField.faceX[faceA]);
-            double edgeY = edgeDir.dot(crossField.faceY[faceA]);
+            double alongX = edgeDir.dot(crossField.faceX[faceA]);
+            double alongY = edgeDir.dot(crossField.faceY[faceA]);
             double angle = crossField.theta[faceA]
                     + cutGraph.faceBranch[faceA] * (Math.PI / 2.0);
-            double uTx = Math.cos(angle);
-            double uTy = Math.sin(angle);
-            axis[activeEdge] = Math.abs(edgeX * uTx + edgeY * uTy) >= Math.abs(edgeX * -uTy + edgeY * uTx)
-                    ? ALIGN_AXIS_V
-                    : ALIGN_AXIS_U;
+            double cos = Math.cos(angle);
+            double sin = Math.sin(angle);
+            inFaceA[0] = alongX * cos + alongY * sin;
+            inFaceA[1] = -alongX * sin + alongY * cos;
+            if (faceB >= 0) {
+                double alongX1 = edgeDir.dot(crossField.faceX[faceB]);
+                double alongY1 = edgeDir.dot(crossField.faceY[faceB]);
+                double angle1 = crossField.theta[faceB]
+                        + cutGraph.faceBranch[faceB] * (Math.PI / 2.0);
+                double cos1 = Math.cos(angle1);
+                double sin1 = Math.sin(angle1);
+                inFaceB[0] = alongX1 * cos1 + alongY1 * sin1;
+                inFaceB[1] = -alongX1 * sin1 + alongY1 * cos1;
+            }
+            axis[activeEdge] = alignmentIsoAxis(inFaceA, faceB < 0 ? null : inFaceB);
+            disagreeing += axis[activeEdge] == NOT_ALIGNMENT ? 1 : 0;
+        }
+        if (disagreeing > 0) {
+            Platforms.log("[seamless] alignment guard: %d feature edge(s) dropped, the two"
+                    + " incident faces' targets disagree on how the edge runs%n", disagreeing);
         }
         return axis;
+    }
+
+    /**
+     * The iso coordinate a feature edge may be pinned to, {@link #NOT_ALIGNMENT}
+     * when the two faces disagree on which coordinate runs along the edge or on
+     * which way it runs; pinning a disagreement is infeasible.
+     *
+     * <p>
+     * See also: BZK09 Section 5.2, BCE13 Section 3.1
+     *
+     * @param inFaceA the edge direction in face A's branch-rotated target frame
+     * @param inFaceB the same direction in face B's, or null on a boundary edge
+     * @return {@link #ALIGN_AXIS_U}, {@link #ALIGN_AXIS_V} or {@link #NOT_ALIGNMENT}
+     */
+    public static int alignmentIsoAxis(double[] inFaceA, double[] inFaceB) {
+        int axisInA = Math.abs(inFaceA[0]) >= Math.abs(inFaceA[1]) ? ALIGN_AXIS_V : ALIGN_AXIS_U;
+        if (inFaceB == null) {
+            return axisInA;
+        }
+        int axisInB = Math.abs(inFaceB[0]) >= Math.abs(inFaceB[1]) ? ALIGN_AXIS_V : ALIGN_AXIS_U;
+        int freeComponent = axisInA == ALIGN_AXIS_V ? 0 : 1;
+        if (axisInA != axisInB || inFaceA[freeComponent] * inFaceB[freeComponent] <= 0.0) {
+            return NOT_ALIGNMENT;
+        }
+        return axisInA;
     }
 
     /**

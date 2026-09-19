@@ -1,6 +1,7 @@
 package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,6 +30,13 @@ public final class InteriorPointQpTest {
     private static final long RANDOM_SEED = 987654321L;
     private static final int RANDOM_DIMENSION = 5;
     private static final int RANDOM_CONSTRAINT_COUNT = 3;
+    private static final int CHAIN_DIMENSION = 4;
+    private static final String NOT_CONVERGED = "solver did not converge";
+    private static final double WEDGE_BOUND = 10.0;
+    private static final double WEDGE_SLOPE = 1.5;
+    private static final double WEDGE_OPTIMUM_X = 50.0;
+    private static final double WEDGE_OPTIMUM_Y = 40.0;
+    private static final int STALL_ITERATION_BUDGET = 20;
 
     /**
      * Identity-Hessian QP {@code min ½‖x‖² − 1'x} with one constraint
@@ -46,7 +54,7 @@ public final class InteriorPointQpTest {
         solver.forcePureJavaBackend = forcePureJava;
         double[] x = new double[2];
         solver.solve(x);
-        assertTrue(solver.converged, "solver did not converge");
+        assertTrue(solver.converged, NOT_CONVERGED);
         assertEquals(1.5, x[0], SOLUTION_TOLERANCE);
         assertEquals(1.5, x[1], SOLUTION_TOLERANCE);
         assertEquals(0.5, solver.multiplier[0], SOLUTION_TOLERANCE);
@@ -67,7 +75,7 @@ public final class InteriorPointQpTest {
         solver.forcePureJavaBackend = forcePureJava;
         double[] x = new double[2];
         solver.solve(x);
-        assertTrue(solver.converged, "solver did not converge");
+        assertTrue(solver.converged, NOT_CONVERGED);
         assertEquals(1.0, x[0], SOLUTION_TOLERANCE);
         assertEquals(1.0, x[1], SOLUTION_TOLERANCE);
         assertEquals(0.0, solver.multiplier[0], SOLUTION_TOLERANCE);
@@ -113,7 +121,7 @@ public final class InteriorPointQpTest {
         solver.forcePureJavaBackend = forcePureJava;
         double[] x = new double[n];
         solver.solve(x);
-        assertTrue(solver.converged, "solver did not converge");
+        assertTrue(solver.converged, NOT_CONVERGED);
         for (int constraint = 0; constraint < m; constraint++) {
             double value = 0.0;
             for (int column = 0; column < n; column++) {
@@ -143,34 +151,252 @@ public final class InteriorPointQpTest {
         }
     }
 
+    /**
+     * The shape the seamless injectivity QP has: a path-Laplacian Hessian, singular
+     * along the constant vector, with constraint rows whose coefficients sum to zero
+     * so the constraint block shares that null direction. The condensed system is
+     * then rank-deficient at every iteration and only the diagonal regulariser keeps
+     * a backend factoring it.
+     *
+     * @param forcePureJava        whether to force the EJML backend
+     * @param regularizationStart  initial regulariser fraction; zero exercises the
+     *                             escalation ladder from an unregularized system
+     */
+    private static void rankDeficientHessianStaysSolvable(boolean forcePureJava,
+            double regularizationStart) {
+        int n = CHAIN_DIMENSION;
+        double[][] denseHessian = pathLaplacian(n);
+        double[] linear = new double[] { -1.0, 0.0, 0.0, 1.0 };
+        double[][] rows = { differenceRow(n, 0, 1), differenceRow(n, 2, 3) };
+        int[][] rowDofs = { { 0, 1 }, { 2, 3 } };
+        double[][] rowCoefs = { { -1.0, 1.0 }, { -1.0, 1.0 } };
+        double[] bounds = { 3.0, 1.0 };
+
+        InteriorPointQp solver = new InteriorPointQp(denseToNormalMatrix(denseHessian, linear),
+                rowDofs, rowCoefs, bounds);
+        solver.forcePureJavaBackend = forcePureJava;
+        solver.regularizationFraction = regularizationStart;
+        double[] x = new double[n];
+        solver.solve(x);
+
+        assertTrue(solver.converged, NOT_CONVERGED + " on the rank-deficient Hessian");
+        for (int constraint = 0; constraint < rows.length; constraint++) {
+            double value = 0.0;
+            for (int column = 0; column < n; column++) {
+                value += rows[constraint][column] * x[column];
+            }
+            assertTrue(value >= bounds[constraint] - FEASIBILITY_TOLERANCE,
+                    "constraint " + constraint + " violated by " + (bounds[constraint] - value));
+        }
+        for (int row = 0; row < n; row++) {
+            double stationarity = -linear[row];
+            for (int column = 0; column < n; column++) {
+                stationarity += denseHessian[row][column] * x[column];
+            }
+            for (int constraint = 0; constraint < rows.length; constraint++) {
+                stationarity -= solver.multiplier[constraint] * rows[constraint][row];
+            }
+            assertEquals(0.0, stationarity, SOLUTION_TOLERANCE,
+                    "KKT stationarity residual at row " + row);
+        }
+    }
+
+    /**
+     * Duplicated constraint rows make {@code A'(Λ/S)A} rank-deficient on their own;
+     * with a positive-definite Hessian the solve must still reach the same optimum
+     * the single row gives.
+     *
+     * @param forcePureJava whether to force the EJML backend
+     */
+    private static void duplicateConstraintRowsSolve(boolean forcePureJava) {
+        NormalMatrix hessian = identityHessian(2, new double[] { 1.0, 1.0 });
+        InteriorPointQp solver = new InteriorPointQp(hessian,
+                new int[][] { { 0, 1 }, { 0, 1 }, { 0, 1 } },
+                new double[][] { { 1.0, 1.0 }, { 1.0, 1.0 }, { 1.0, 1.0 } },
+                new double[] { 3.0, 3.0, 3.0 });
+        solver.forcePureJavaBackend = forcePureJava;
+        double[] x = new double[2];
+        solver.solve(x);
+        assertTrue(solver.converged, NOT_CONVERGED + " with duplicated rows");
+        assertEquals(1.5, x[0], SOLUTION_TOLERANCE);
+        assertEquals(1.5, x[1], SOLUTION_TOLERANCE);
+    }
+
+    /**
+     * The stall bolt's injectivity QP hit: a thin wedge whose optimum has both
+     * constraints active, started where both are violated by a thousand times the
+     * old starting slack, so the fraction-to-boundary step collapsed and the slacks
+     * pinned to the boundary long before the primal residual cleared.
+     *
+     * @param forcePureJava whether to force the EJML backend
+     */
+    private static void thinWedgeConverges(boolean forcePureJava) {
+        InteriorPointQp solver = new InteriorPointQp(identityHessian(2, new double[2]),
+                new int[][] { { 0, 1 }, { 0, 1 } },
+                new double[][] { { 1.0, -1.0 }, { -1.0, WEDGE_SLOPE } },
+                new double[] { WEDGE_BOUND, WEDGE_BOUND });
+        solver.forcePureJavaBackend = forcePureJava;
+        double[] x = new double[2];
+        solver.solve(x);
+        assertTrue(solver.converged, NOT_CONVERGED + " on the thin wedge");
+        assertTrue(solver.iterationCount <= STALL_ITERATION_BUDGET,
+                "thin wedge took " + solver.iterationCount + " iterations");
+        assertFalse(solver.infeasible, "a feasible wedge was certified infeasible");
+        assertEquals(WEDGE_OPTIMUM_X, x[0], SOLUTION_TOLERANCE);
+        assertEquals(WEDGE_OPTIMUM_Y, x[1], SOLUTION_TOLERANCE);
+    }
+
+    /**
+     * Opposed constraints {@code x ≥ 1} and {@code −x ≥ 1} have no solution, so the
+     * multipliers must come back as a Farkas certificate rather than the solver
+     * silently spinning to the iteration cap.
+     *
+     * @param forcePureJava whether to force the EJML backend
+     */
+    private static void opposedConstraintsCertifyInfeasibility(boolean forcePureJava) {
+        InteriorPointQp solver = new InteriorPointQp(identityHessian(2, new double[2]),
+                new int[][] { { 0 }, { 0 } },
+                new double[][] { { 1.0 }, { -1.0 } },
+                new double[] { 1.0, 1.0 });
+        solver.forcePureJavaBackend = forcePureJava;
+        double[] x = new double[2];
+        solver.solve(x);
+        assertFalse(solver.converged, "an infeasible QP reported convergence");
+        assertTrue(solver.infeasible, "infeasibility was not certified");
+        assertTrue(solver.certificateResidual <= InteriorPointQp.CERTIFICATE_TOLERANCE,
+                "certificate residual " + solver.certificateResidual + " is not zero");
+        assertTrue(solver.certificateValue > 0.0,
+                "certificate value " + solver.certificateValue + " is not positive");
+    }
+
+    /**
+     * The graph Laplacian of a path, positive semidefinite with the constant vector
+     * as its only null direction.
+     *
+     * @param n dimension, at least two
+     * @return the dense Laplacian
+     */
+    private static double[][] pathLaplacian(int n) {
+        double[][] matrix = new double[n][n];
+        for (int row = 0; row + 1 < n; row++) {
+            matrix[row][row] += 1.0;
+            matrix[row + 1][row + 1] += 1.0;
+            matrix[row][row + 1] = -1.0;
+            matrix[row + 1][row] = -1.0;
+        }
+        return matrix;
+    }
+
+    /**
+     * A dense constraint row {@code x[to] − x[from]}, blind to the Laplacian's
+     * constant null direction because its coefficients sum to zero.
+     *
+     * @param n    dimension
+     * @param from subtracted variable
+     * @param to   added variable
+     * @return the dense row
+     */
+    private static double[] differenceRow(int n, int from, int to) {
+        double[] row = new double[n];
+        row[from] = -1.0;
+        row[to] = 1.0;
+        return row;
+    }
+
+    /** One active constraint projects the unconstrained optimum, on the default backend. */
     @Test
     public void activeConstraintProjectsDefaultBackend() {
         activeConstraintProjects(false);
     }
 
+    /** One active constraint projects the unconstrained optimum, on the EJML backend. */
     @Test
     public void activeConstraintProjectsPureJavaBackend() {
         activeConstraintProjects(true);
     }
 
+    /** A slack constraint leaves the unconstrained optimum alone, on the default backend. */
     @Test
     public void inactiveConstraintDefaultBackend() {
         inactiveConstraintKeepsUnconstrainedOptimum(false);
     }
 
+    /** A slack constraint leaves the unconstrained optimum alone, on the EJML backend. */
     @Test
     public void inactiveConstraintPureJavaBackend() {
         inactiveConstraintKeepsUnconstrainedOptimum(true);
     }
 
+    /** A random convex QP matches active-set enumeration, on the default backend. */
     @Test
     public void randomQpDefaultBackend() {
         randomQpMatchesEnumeration(false);
     }
 
+    /** A random convex QP matches active-set enumeration, on the EJML backend. */
     @Test
     public void randomQpPureJavaBackend() {
         randomQpMatchesEnumeration(true);
+    }
+
+    /** A Hessian singular along the constant vector still solves, on the default backend. */
+    @Test
+    public void rankDeficientHessianDefaultBackend() {
+        rankDeficientHessianStaysSolvable(false, InteriorPointQp.DIAGONAL_REGULARIZATION_FRACTION);
+    }
+
+    /** A Hessian singular along the constant vector still solves, on the EJML backend. */
+    @Test
+    public void rankDeficientHessianPureJavaBackend() {
+        rankDeficientHessianStaysSolvable(true, InteriorPointQp.DIAGONAL_REGULARIZATION_FRACTION);
+    }
+
+    /** Started unregularized, the escalation ladder recovers the default backend's factor. */
+    @Test
+    public void unregularizedRankDeficientHessianDefaultBackend() {
+        rankDeficientHessianStaysSolvable(false, 0.0);
+    }
+
+    /** Started unregularized, the escalation ladder recovers the EJML factor. */
+    @Test
+    public void unregularizedRankDeficientHessianPureJavaBackend() {
+        rankDeficientHessianStaysSolvable(true, 0.0);
+    }
+
+    /** A thin wedge far from the start converges, on the default backend. */
+    @Test
+    public void thinWedgeDefaultBackend() {
+        thinWedgeConverges(false);
+    }
+
+    /** A thin wedge far from the start converges, on the EJML backend. */
+    @Test
+    public void thinWedgePureJavaBackend() {
+        thinWedgeConverges(true);
+    }
+
+    /** Opposed constraints are certified infeasible, on the default backend. */
+    @Test
+    public void opposedConstraintsDefaultBackend() {
+        opposedConstraintsCertifyInfeasibility(false);
+    }
+
+    /** Opposed constraints are certified infeasible, on the EJML backend. */
+    @Test
+    public void opposedConstraintsPureJavaBackend() {
+        opposedConstraintsCertifyInfeasibility(true);
+    }
+
+    /** Three copies of one constraint row still reach its optimum, on the default backend. */
+    @Test
+    public void duplicateConstraintRowsDefaultBackend() {
+        duplicateConstraintRowsSolve(false);
+    }
+
+    /** Three copies of one constraint row still reach its optimum, on the EJML backend. */
+    @Test
+    public void duplicateConstraintRowsPureJavaBackend() {
+        duplicateConstraintRowsSolve(true);
     }
 
     /**

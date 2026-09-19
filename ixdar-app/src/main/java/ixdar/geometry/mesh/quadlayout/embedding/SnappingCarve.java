@@ -119,6 +119,12 @@ public final class SnappingCarve {
     public int lanesMintedCount;
 
     /**
+     * Crossings dropped because they sat on an edge one of the arc's own nodes
+     * sits on, so the arc would have run into the node along that edge.
+     */
+    public int trimmedEndCrossingCount;
+
+    /**
      * Corners handed back because the arc had already taken them at an earlier
      * crossing.
      */
@@ -222,6 +228,9 @@ public final class SnappingCarve {
                 sliceArc(trace, step);
             }
         }
+        for (int arcId = 0; arcId < stripByArc.size(); arcId++) {
+            trimEndCrossings(stripByArc.get(arcId), arcId);
+        }
         passageCountBySourceFace = new int[topology.sourceMesh.faceCount()];
         for (FaceStripPath strip : stripByArc) {
             for (int sourceFace : strip.passageSourceFaces) {
@@ -233,6 +242,28 @@ public final class SnappingCarve {
             mostPassagesOnAFace = Math.max(mostPassagesOnAFace, count);
         }
         return this;
+    }
+
+    /**
+     * Drops the crossings at either end of a route that sit on an edge its own node
+     * sits on: the arc runs into the node along that edge, so a lane there would
+     * put its last hop on an edge another arc holds.
+     *
+     * @param strip the route to trim
+     * @param arcId arc the route belongs to, for its endpoint vertices
+     */
+    public void trimEndCrossings(FaceStripPath strip, int arcId) {
+        int startVertex = vertexIdByNode[startNodeByArc[arcId]];
+        int endVertex = vertexIdByNode[endNodeByArc[arcId]];
+        while (!strip.crossedEdges.isEmpty()
+                && strip.crossingTouches(strip.crossedEdges.size() - 1, endVertex)) {
+            strip.removeLastCrossing();
+            trimmedEndCrossingCount++;
+        }
+        while (!strip.crossedEdges.isEmpty() && strip.crossingTouches(0, startVertex)) {
+            strip.removeFirstCrossing();
+            trimmedEndCrossingCount++;
+        }
     }
 
     /**
@@ -821,6 +852,38 @@ public final class SnappingCarve {
     }
 
     /**
+     * Names one arc's endpoint nodes, chosen vertices, path and crossings, so a
+     * conflict between two arcs shows at once whether they share an end.
+     *
+     * @param arcId arc to describe, or {@link EmbeddedMeshTopology#UNCLAIMED}
+     * @return the description, or an empty string when there is no such arc
+     */
+    public String describeArc(int arcId) {
+        if (arcId == EmbeddedMeshTopology.UNCLAIMED) {
+            return "";
+        }
+        int startNode = startNodeByArc[arcId];
+        int endNode = endNodeByArc[arcId];
+        FaceStripPath strip = stripByArc.get(arcId);
+        StringBuilder detail = new StringBuilder("\n  arc ").append(arcId)
+                .append(" runs from node ").append(startNode).append(" (vertex ")
+                .append(vertexIdByNode[startNode]).append(") to node ").append(endNode)
+                .append(" (vertex ").append(vertexIdByNode[endNode])
+                .append("), chosen ").append(chosenVertexByArc.get(arcId))
+                .append("\n    path ").append(pathByArc == null || pathByArc[arcId] == null
+                        ? "none" : pathByArc[arcId].copyVertexPath);
+        for (int crossing = 0; crossing < strip.crossedEdges.size(); crossing++) {
+            int[] edge = strip.crossedEdges.get(crossing);
+            detail.append("\n    crossing ").append(crossing).append(" in source face ")
+                    .append(strip.passageSourceFaces.get(crossing)).append(edge == null
+                            ? " through vertex " + strip.crossedVertices.get(crossing)
+                            : " on edge " + edge[0] + ".." + edge[1] + " at "
+                                    + strip.crossingParameters.get(crossing));
+        }
+        return detail.toString();
+    }
+
+    /**
      * Reports what the carve minted and what it only rearranged, which is the first
      * check that the copy mesh is being refined no further than the layout needs.
      */
@@ -841,8 +904,9 @@ public final class SnappingCarve {
             longestArc = Math.max(longestArc, strip.passageFaces.size());
         }
         Platforms.log("[snap] arcs=%d passages=%d longestArc=%d | contestedFaces=%d of %d"
-                + " mostPassagesOnAFace=%d%n", stripByArc.size(), passages, longestArc,
-                contestedFaceCount, passageCountBySourceFace.length, mostPassagesOnAFace);
+                + " mostPassagesOnAFace=%d trimmedEndCrossings=%d%n", stripByArc.size(), passages,
+                longestArc, contestedFaceCount, passageCountBySourceFace.length,
+                mostPassagesOnAFace, trimmedEndCrossingCount);
         if (pathByArc == null) {
             return;
         }

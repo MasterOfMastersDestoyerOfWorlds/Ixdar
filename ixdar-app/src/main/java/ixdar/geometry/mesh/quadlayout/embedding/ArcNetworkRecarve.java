@@ -74,12 +74,6 @@ public final class ArcNetworkRecarve {
     public int replayedStepCount;
 
     /**
-     * End crossings dropped for sitting on an edge the route's own node already
-     * sits on.
-     */
-    public int trimmedEndCrossingCount;
-
-    /**
      * Interior path vertices a live node other than the arc's own endpoints holds.
      * Every one is a contracted arc touching a foreign node, which LCBK19 Section
      * 6.1 forbids.
@@ -279,7 +273,7 @@ public final class ArcNetworkRecarve {
                     auditForeignNode(arc, path.get(step));
                 }
             }
-            trimEndCrossings(strip, denseArcId);
+            snapping.trimEndCrossings(strip, denseArcId);
             for (int sourceFace : strip.passageSourceFaces) {
                 snapping.passageCountBySourceFace[sourceFace]++;
             }
@@ -287,28 +281,6 @@ public final class ArcNetworkRecarve {
         for (int count : snapping.passageCountBySourceFace) {
             snapping.contestedFaceCount += count > 1 ? 1 : 0;
             snapping.mostPassagesOnAFace = Math.max(snapping.mostPassagesOnAFace, count);
-        }
-    }
-
-    /**
-     * Drops the crossings at either end of a route that sit on an edge its own node
-     * sits on: the arc runs along that edge into the node, so a lane there would
-     * collide.
-     *
-     * @param strip      the route to trim
-     * @param denseArcId arc the route belongs to, for its endpoint vertices
-     */
-    private void trimEndCrossings(FaceStripPath strip, int denseArcId) {
-        int startVertex = snapping.vertexIdByNode[snapping.startNodeByArc[denseArcId]];
-        int endVertex = snapping.vertexIdByNode[snapping.endNodeByArc[denseArcId]];
-        while (!strip.crossedEdges.isEmpty()
-                && strip.crossingTouches(strip.crossedEdges.size() - 1, endVertex)) {
-            strip.removeLastCrossing();
-            trimmedEndCrossingCount++;
-        }
-        while (!strip.crossedEdges.isEmpty() && strip.crossingTouches(0, startVertex)) {
-            strip.removeFirstCrossing();
-            trimmedEndCrossingCount++;
         }
     }
 
@@ -451,41 +423,9 @@ public final class ArcNetworkRecarve {
             throw new IllegalStateException(fresh.claimConflictCount + " re-carved copy elements"
                     + " are claimed by two T-mesh elements at once, so two arcs were laid over"
                     + " one another; first: " + fresh.firstClaimConflict
-                    + describeArcEnds(fresh.firstClaimConflictHolder)
-                    + describeArcEnds(fresh.firstClaimConflictClaimant));
+                    + snapping.describeArc(fresh.firstClaimConflictHolder)
+                    + snapping.describeArc(fresh.firstClaimConflictClaimant));
         }
-    }
-
-    /**
-     * Names an arc's endpoint nodes and the vertices they sit on, so a conflict
-     * between two arcs shows at once whether they share an end.
-     *
-     * @param denseArcId re-carved arc id, or {@link EmbeddedMeshTopology#UNCLAIMED}
-     * @return the description, or an empty string when there is no such arc
-     */
-    private String describeArcEnds(int denseArcId) {
-        if (denseArcId == EmbeddedMeshTopology.UNCLAIMED) {
-            return "";
-        }
-        int startNode = snapping.startNodeByArc[denseArcId];
-        int endNode = snapping.endNodeByArc[denseArcId];
-        FaceStripPath strip = snapping.stripByArc.get(denseArcId);
-        StringBuilder detail = new StringBuilder("\n  arc ").append(denseArcId)
-                .append(" runs from node ").append(startNode).append(" (vertex ")
-                .append(snapping.vertexIdByNode[startNode]).append(") to node ").append(endNode)
-                .append(" (vertex ").append(snapping.vertexIdByNode[endNode])
-                .append("), chosen ").append(snapping.chosenVertexByArc.get(denseArcId))
-                .append("\n    path ").append(snapping.pathByArc[denseArcId] == null ? "none"
-                        : snapping.pathByArc[denseArcId].copyVertexPath);
-        for (int crossing = 0; crossing < strip.crossedEdges.size(); crossing++) {
-            int[] edge = strip.crossedEdges.get(crossing);
-            detail.append("\n    crossing ").append(crossing).append(" in source face ")
-                    .append(strip.passageSourceFaces.get(crossing)).append(edge == null
-                            ? " through vertex " + strip.crossedVertices.get(crossing)
-                            : " on edge " + edge[0] + ".." + edge[1] + " at "
-                                    + strip.crossingParameters.get(crossing));
-        }
-        return detail.toString();
     }
 
     /**
@@ -503,7 +443,7 @@ public final class ArcNetworkRecarve {
                     + unmatched.size() + " faces " + unmatched + " bounded by arcs " + boundaryArcs
                     + " that matches no live patch");
             for (int denseArcId : boundaryArcs) {
-                detail.append(describeArcEnds(denseArcId));
+                detail.append(snapping.describeArc(denseArcId));
             }
             throw new IllegalStateException(detail.toString());
         }
