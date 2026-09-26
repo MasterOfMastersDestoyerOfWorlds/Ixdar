@@ -723,7 +723,7 @@ Install a global ixdar-cli wrapper into ~/.local/bin.
 
 ### `launch`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/launch_entry.py#L220)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/launch_entry.py#L232)
 
 Run a .vscode/launch.json entry headless, then report its first log lines and a screenshot.
 
@@ -732,7 +732,7 @@ Run a .vscode/launch.json entry headless, then report its first log lines and a 
 - `--screenshot` — Capture a screenshot to this path once the scene is ready.
 - `--timeout` — Seconds to wait for the scene to become ready.
 - `--log-lines` — How many opening log lines to return.
-- `--log` — Path for the entry's stdout/stderr (default: /tmp/ixdar-launch-<entry>.log).
+- `--log` — Log path (default: next free tmp/logs/<scene>-<entry>-<n>.log; latest-<scene>.log links the newest).
 - `--skip-build` — Do not compile first; run whatever classes are on disk.
 - `--keep-alive` — Leave the scene running instead of shutting it down.
 
@@ -864,7 +864,7 @@ Build, launch, wait for, optionally profile and screenshot, then shut down a sce
 - `--timeout` — Seconds to wait for the scene to become ready.
 - `--screenshot` — Capture a screenshot to this path once ready.
 - `--multiview` — Capture an 8-angle multiview composite to this path once ready.
-- `--log` — Path for the scene's stdout/stderr (default: /tmp/ixdar-scene-<scene>.log).
+- `--log` — Log path (default: next free tmp/logs/<scene>-<mesh>-<n>.log; latest-<scene>.log links the newest).
 - `--skip-build` — Do not compile first; copy any resources newer than target/classes and run
 - `--keep-alive` — Leave the scene running, returning only once it reports ready.
 - `--top` — How many profile-report hot methods or partly-covered classes to report.

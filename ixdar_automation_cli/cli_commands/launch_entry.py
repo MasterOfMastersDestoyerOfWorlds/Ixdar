@@ -25,6 +25,7 @@ from typing import Annotated
 
 from ..automation_client import AutomationClient, checkout_root
 from ..cli_registry import CliCommandResult, CliOption, cli_command
+from ..run_logs import next_log_path, point_latest
 from .run_scene import (
     ANNOTATIONS_CLASSES,
     AUTOMATION_PORT_PROPERTY,
@@ -204,6 +205,17 @@ def launch_command(configuration: dict, root: str, port: int) -> list[str]:
     return command
 
 
+def entry_scene(configuration: dict) -> str:
+    """Name the scene a launch entry opens, so its log sits beside run-scene's for the same scene.
+
+    :param configuration: The launch configuration.
+    :return: The entry's first argument (the scene id IxdarWindow takes), or the entry name when
+        it has no arguments.
+    """
+    arguments = _tokens(configuration.get("args"))
+    return arguments[0] if arguments else configuration.get("name", "")
+
+
 def working_directory(configuration: dict, root: str) -> str:
     """Resolve a launch entry's ``cwd``, defaulting to the app module as the entries all do.
 
@@ -239,7 +251,7 @@ def launch(
     :param screenshot: Capture a screenshot to this path once the scene is ready.
     :param timeout: Seconds to wait for the scene to become ready.
     :param log_lines: How many opening log lines to return.
-    :param log: Path for the entry's stdout/stderr (default: /tmp/ixdar-launch-<entry>.log).
+    :param log: Log path (default: next free tmp/logs/<scene>-<entry>-<n>.log; latest-<scene>.log links the newest).
     :param skip_build: Do not compile first; run whatever classes are on disk.
     :param keep_alive: Leave the scene running instead of shutting it down.
     """
@@ -254,10 +266,12 @@ def launch(
 
     configuration = find_configuration(configurations, entry)
     name = configuration.get("name", entry)
-    log_path = log or os.path.join(
-        "/tmp", "ixdar-launch-" + re.sub(r"[^A-Za-z0-9]+", "-", name).strip("-").lower() + ".log")
+    scene = entry_scene(configuration)
+    log_path = os.path.abspath(log) if log else next_log_path(scene, name, root)
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    point_latest(scene, log_path, root)
+    print(f"log: {log_path}", file=sys.stderr)
 
-    os.makedirs(os.path.dirname(os.path.abspath(log_path)), exist_ok=True)
     _ensure_build(skip_build)
     port = free_port()
     base_url = f"http://{LOOPBACK_HOST}:{port}"
@@ -265,7 +279,6 @@ def launch(
     command = launch_command(configuration, root, port)
     cwd = working_directory(configuration, root)
     print(f"Launching entry {name!r} in {cwd}", file=sys.stderr)
-    print(f"  log: {log_path}", file=sys.stderr)
     print(f"  automation: {base_url}", file=sys.stderr)
 
     with open(log_path, "w", encoding="utf-8") as log_handle:

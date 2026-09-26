@@ -17,6 +17,7 @@ from ixdar_automation_cli.cli_commands import gen_docs
 from ixdar_automation_cli.cli_commands import launch_entry
 from ixdar_automation_cli import png_image
 from ixdar_automation_cli import quilt_mesh_fingerprint
+from ixdar_automation_cli import run_logs
 from ixdar_automation_cli.cli_commands import image_commands
 from ixdar_automation_cli.cli_commands import new_scene
 from ixdar_automation_cli.cli_commands import run_scene
@@ -235,6 +236,7 @@ class SceneLifecycleTest(unittest.TestCase):
                 patch.object(run_scene, "_ensure_build", return_value=[]), \
                 patch.object(run_scene, "_java_command", return_value=["java", "-version"]), \
                 patch.object(run_scene, "free_port", return_value=47905), \
+                patch.object(run_scene, "point_latest"), \
                 patch.object(run_scene, "_terminate"), \
                 patch.object(subprocess, "Popen", return_value=FakeProcess()), \
                 patch.object(run_scene, "_await_scene", return_value={
@@ -259,6 +261,7 @@ class SceneLifecycleTest(unittest.TestCase):
                 patch.object(run_scene, "_ensure_build", return_value=[]), \
                 patch.object(run_scene, "_java_command", side_effect=capture), \
                 patch.object(run_scene, "free_port", return_value=47906), \
+                patch.object(run_scene, "point_latest"), \
                 patch.object(run_scene, "_terminate"), \
                 patch.object(subprocess, "Popen", return_value=FakeProcess()), \
                 patch.object(run_scene, "_await_scene", return_value={
@@ -400,6 +403,127 @@ class LaunchEntryTest(unittest.TestCase):
     def test_launch_takes_its_entry_as_a_positional_argument(self):
         parsed = ixdar_cli._build_parser().parse_args(["launch", "Mesh Node Viewer"])
         self.assertEqual("Mesh Node Viewer", parsed.entry)
+
+
+def make_checkout(directory: str) -> str:
+    """Lay out the two markers checkout_root looks for, so a temp directory counts as a checkout.
+
+    :param directory: Directory to turn into a checkout.
+    :return: The directory's real path.
+    """
+    root = os.path.realpath(directory)
+    os.makedirs(os.path.join(root, "ixdar-app"), exist_ok=True)
+    with open(os.path.join(root, "pom.xml"), "w", encoding="utf-8") as handle:
+        handle.write("<project/>")
+    return root
+
+
+class RunLogsTest(unittest.TestCase):
+    def setUp(self):
+        self.previous_directory = os.getcwd()
+
+    def tearDown(self):
+        os.chdir(self.previous_directory)
+
+    def test_numbering_takes_the_next_free_number_per_scene_and_mesh(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = make_checkout(directory)
+            logs = os.path.join(root, "tmp", "logs")
+            first = run_logs.next_log_path("quad-layout", "fertility", root)
+            second = run_logs.next_log_path("quad-layout", "fertility", root)
+            self.assertEqual(os.path.join(logs, "quad-layout-fertility-1.log"), first)
+            self.assertEqual(os.path.join(logs, "quad-layout-fertility-2.log"), second)
+            # A gap is not refilled: the next number follows the highest one on disk.
+            open(os.path.join(logs, "quad-layout-fertility-7.log"), "w").close()
+            self.assertEqual(os.path.join(logs, "quad-layout-fertility-8.log"),
+                             run_logs.next_log_path("quad-layout", "fertility", root))
+            # Another mesh, or no mesh at all, counts on its own.
+            self.assertEqual(os.path.join(logs, "quad-layout-rockerarm-1.log"),
+                             run_logs.next_log_path("quad-layout", "rockerarm", root))
+            self.assertEqual(os.path.join(logs, "quad-layout-1.log"),
+                             run_logs.next_log_path("quad-layout", "", root))
+            self.assertEqual(os.path.join(logs, "quad-layout-2.log"),
+                             run_logs.next_log_path("quad-layout", "Quad Layout", root))
+
+    def test_latest_link_follows_the_newest_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = make_checkout(directory)
+            first = run_logs.next_log_path("mesh-viewer", "", root)
+            link = run_logs.point_latest("mesh-viewer", first, root)
+            self.assertEqual(os.path.join(root, "tmp", "logs", "latest-mesh-viewer.log"), link)
+            self.assertEqual(first, os.path.realpath(link))
+            second = run_logs.next_log_path("mesh-viewer", "", root)
+            run_logs.point_latest("mesh-viewer", second, root)
+            self.assertEqual(second, os.path.realpath(link))
+            # Relative, so the link survives the checkout moving.
+            self.assertEqual("mesh-viewer-2.log", os.readlink(link))
+            self.assertEqual(["latest-mesh-viewer.log", "mesh-viewer-1.log", "mesh-viewer-2.log"],
+                             sorted(os.listdir(os.path.dirname(link))))
+
+    def test_two_checkouts_write_different_files(self):
+        with tempfile.TemporaryDirectory() as first_directory, \
+                tempfile.TemporaryDirectory() as second_directory:
+            first_root = make_checkout(first_directory)
+            second_root = make_checkout(second_directory)
+            os.chdir(first_root)
+            first = run_logs.next_log_path("quad-layout")
+            os.chdir(os.path.join(second_root, "ixdar-app"))
+            second = run_logs.next_log_path("quad-layout")
+            self.assertNotEqual(first, second)
+            self.assertTrue(first.startswith(os.path.join(first_root, "tmp", "logs") + os.sep))
+            self.assertTrue(second.startswith(os.path.join(second_root, "tmp", "logs") + os.sep))
+
+    def test_mesh_label_prefers_the_mesh_option_then_the_model_property(self):
+        self.assertEqual("fertility", run_logs.mesh_label(
+            "fertility", ["ixdar.model=rockerarm"], mesh_catalog.MODEL_PROPERTY))
+        self.assertEqual("fertility-in-tri", run_logs.mesh_label(
+            "", ["quadLayout.debug=true", "ixdar.model=meshes/fertility_in_tri.off"],
+            mesh_catalog.MODEL_PROPERTY))
+        self.assertEqual("graph-skull", run_logs.mesh_label(
+            "", ["ixdar.model=graph:Skull"], mesh_catalog.MODEL_PROPERTY))
+        self.assertEqual("", run_logs.mesh_label("", ["quadLayout.debug=true"],
+                                                 mesh_catalog.MODEL_PROPERTY))
+
+    def test_run_scene_defaults_its_log_under_the_checkout_and_reports_it(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(run_scene, "_ensure_build", return_value=[]), \
+                patch.object(run_scene, "_java_command", return_value=["java", "-version"]), \
+                patch.object(run_scene, "free_port", return_value=47914), \
+                patch.object(run_scene, "_terminate"), \
+                patch.object(subprocess, "Popen", return_value=FakeProcess()), \
+                patch.object(run_scene, "_await_scene", return_value={
+                    "ready": False, "exited": True, "matched": [], "crash": [], "waited": 1.0}), \
+                patch("sys.stderr", new_callable=io.StringIO) as stderr:
+            root = make_checkout(directory)
+            os.chdir(root)
+            result = run_scene.run(scene="cross-field-exam", mesh="fertility")
+            expected = os.path.join(root, "tmp", "logs", "cross-field-exam-fertility-1.log")
+            self.assertEqual(expected, result["log"])
+            self.assertIn(f"log={expected}", result["summary"])
+            self.assertEqual(f"log: {expected}", stderr.getvalue().splitlines()[0])
+            self.assertEqual(expected, os.path.realpath(
+                os.path.join(root, "tmp", "logs", "latest-cross-field-exam.log")))
+            explicit = os.path.join(root, "chosen.log")
+            self.assertEqual(explicit, run_scene.run(scene="cross-field-exam", log=explicit)["log"])
+
+    def test_launch_defaults_its_log_under_the_checkout(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(launch_entry, "_ensure_build", return_value=[]), \
+                patch.object(launch_entry, "launch_command", return_value=["java", "-version"]), \
+                patch.object(launch_entry, "free_port", return_value=47915), \
+                patch.object(launch_entry, "_terminate"), \
+                patch.object(subprocess, "Popen", return_value=FakeProcess()), \
+                patch.object(launch_entry, "_await_scene", return_value={
+                    "ready": False, "exited": True, "matched": [], "crash": [], "waited": 1.0}), \
+                patch("sys.stderr", new_callable=io.StringIO):
+            root = make_checkout(directory)
+            LaunchEntryTest()._checkout(root)
+            os.chdir(root)
+            payload = launch_entry.launch(entry="Mesh Node Viewer").payload
+            expected = os.path.join(root, "tmp", "logs", "mesh-viewer-mesh-node-viewer-1.log")
+            self.assertEqual(expected, payload["log"])
+            self.assertEqual(expected, os.path.realpath(
+                os.path.join(root, "tmp", "logs", "latest-mesh-viewer.log")))
 
 
 class CliTest(unittest.TestCase):

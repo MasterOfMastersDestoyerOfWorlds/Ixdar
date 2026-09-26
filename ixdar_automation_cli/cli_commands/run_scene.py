@@ -27,6 +27,7 @@ from ..automation_client import AutomationClient, read_port_file
 from ..cli_registry import CliCommandResult, cli_command
 from ..jacoco_coverage import DEFAULT_PACKAGE_FILTER, agent_argument, build_report, format_coverage
 from ..mesh_catalog import MODEL_PROPERTY, mesh_size, resolve_mesh, resolve_scene_properties
+from ..run_logs import mesh_label, next_log_path, point_latest
 from .profile_report import profile_report
 
 REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -447,7 +448,7 @@ def summary_line(result: dict) -> str:
     """Render the one-line digest of a run, so a caller reads a line instead of grepping JSON.
 
     :param result: The run result being summarized.
-    :return: A single line naming the outcome, scene, mesh, port and screenshot.
+    :return: A single line naming the outcome, scene, mesh, port, screenshot and log.
     """
     parts = ["ok" if result.get("ok") else "FAILED", f"scene={result['scene']}"]
     mesh = result.get("mesh")
@@ -459,6 +460,8 @@ def summary_line(result: dict) -> str:
     screenshot = (result.get("screenshot") or {}).get("path", "")
     if screenshot:
         parts.append(f"screenshot={screenshot}")
+    if result.get("log"):
+        parts.append(f"log={result['log']}")
     if result.get("error"):
         parts.append(f"error={result['error']}")
     return " ".join(parts)
@@ -528,8 +531,11 @@ def run(
     resolved_profile = (profile_path or DEFAULT_PROFILE_PATH) if (profile or profile_path) else ""
     resolved_coverage = ((coverage_path or DEFAULT_COVERAGE_PATH)
                          if (coverage or coverage_path) else "")
-    log_path = log or os.path.join("/tmp", f"ixdar-scene-{scene}.log")
+    log_path = os.path.abspath(log) if log else next_log_path(
+        scene, mesh_label(mesh, list(property or []), MODEL_PROPERTY))
     _ensure_log_directory(log_path)
+    point_latest(scene, log_path)
+    print(f"log: {log_path}", file=sys.stderr)
 
     synced = _ensure_build(skip_build)
 
@@ -540,7 +546,6 @@ def run(
     command = _java_command(scene, properties, resolved_profile, profile_event,
                             resolved_coverage)
     print(f"Launching: {' '.join(command[:4])} … {scene}", file=sys.stderr)
-    print(f"  log: {log_path}", file=sys.stderr)
     print(f"  automation: {base_url}", file=sys.stderr)
 
     with open(log_path, "w", encoding="utf-8") as log_handle:
@@ -667,7 +672,7 @@ def run_scene(
     :param timeout: Seconds to wait for the scene to become ready.
     :param screenshot: Capture a screenshot to this path once ready.
     :param multiview: Capture an 8-angle multiview composite to this path once ready.
-    :param log: Path for the scene's stdout/stderr (default: /tmp/ixdar-scene-<scene>.log).
+    :param log: Log path (default: next free tmp/logs/<scene>-<mesh>-<n>.log; latest-<scene>.log links the newest).
     :param skip_build: Do not compile first; copy any resources newer than target/classes and run
         whatever classes are on disk.
     :param keep_alive: Leave the scene running, returning only once it reports ready.
