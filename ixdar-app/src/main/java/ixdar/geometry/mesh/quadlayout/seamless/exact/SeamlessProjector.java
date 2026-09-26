@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.quadlayout.seamless.exact;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +11,7 @@ import java.util.Set;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.CutGraph;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessDofSystem;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.platform.Platforms;
@@ -56,6 +58,16 @@ public final class SeamlessProjector {
     public final HalfEdgeMesh mesh;
 
     /**
+     * Per active edge, the chart component a feature-alignment constraint pins on
+     * it ({@link #U_COMPONENT} or {@link #V_COMPONENT}), or {@code -1} where the
+     * edge carries no alignment row.
+     */
+    public int[] alignComponent;
+
+    /** Per active vertex, how many incident edges carry an alignment row. */
+    public int[] alignDegree;
+
+    /**
      * Bind this projector to a built {@link SeamlessParameterization}. The
      * projector mutates {@code seamless.uv.uCorner}, {@code seamless.uv.vCorner},
      * {@code seamless.uv.cutTranslationS}, and {@code seamless.uv.cutTranslationT} when
@@ -98,6 +110,13 @@ public final class SeamlessProjector {
         double[] chartUInitial = chartU.clone();
         double[] chartVInitial = chartV.clone();
 
+        // Phase 0: MC19 §5.1 Eq. (5) alignment rows. Every one is x_p|k − x_q|k = 0
+        // over two chart vertices of one face, so their transitive closure is an
+        // equivalence on (chart vertex, component) slots.
+        computeAlignmentEdges();
+        boolean[] alignedSlot = new boolean[COMPONENTS_PER_CHART_VERTEX * chartVertexCount];
+        int[] alignClassParent = buildAlignmentClasses(alignedSlot);
+
         // Phase 1: walk every branch, collecting (edges, plus-chartVertex sequence,
         // minus-chartVertex sequence, rotation, start/end nodes).
         Set<Integer> singularityVertexIds = crossField.singularVertexIds();
@@ -132,10 +151,22 @@ public final class SeamlessProjector {
         int reducedVariableCount = COMPONENTS_PER_CHART_VERTEX * nodeChartVertexCount;
         int reducedRowCount = COMPONENTS_PER_CHART_VERTEX * branchCount;
 
+        // Phase 2b: MC19 §5.3's 1_k alignment block. Its rows carry unit
+        // coefficients on exactly two node-sector variables, so eliminating them is
+        // an identification of those two columns rather than a matrix operation,
+        // and the alignment equation then holds by construction instead of to
+        // within the evaluator's exactness.
+        int[] columnOfNodeSlot = mergeAlignedColumns(chartVertexToColumn, alignClassParent,
+                reducedVariableCount);
+        int reducedColumnCount = 0;
+        for (int column : columnOfNodeSlot) {
+            reducedColumnCount = Math.max(reducedColumnCount, column + 1);
+        }
+
         // Phase 3: build the reduced constraint matrix C̄.
-        BigInteger[][] reducedMatrix = new BigInteger[reducedRowCount][reducedVariableCount];
+        BigInteger[][] reducedMatrix = new BigInteger[reducedRowCount][reducedColumnCount];
         for (int r = 0; r < reducedRowCount; r++) {
-            for (int c = 0; c < reducedVariableCount; c++) {
+            for (int c = 0; c < reducedColumnCount; c++) {
                 reducedMatrix[r][c] = BigInteger.ZERO;
             }
         }
@@ -149,17 +180,26 @@ public final class SeamlessProjector {
             int endPos = plus.length - 1;
             int rotation = branchRotation.get(b);
             fillBranchReducedRows(reducedMatrix, b * COMPONENTS_PER_CHART_VERTEX,
-                    chartVertexToColumn, plus[0], plus[endPos], minus[0], minus[endPos], rotation);
+                    chartVertexToColumn, columnOfNodeSlot,
+                    plus[0], plus[endPos], minus[0], minus[endPos], rotation);
         }
 
         // Phase 4: run §4 on C̄ to get exact node values.
         IrrefResult result = ExactArithmetic.reduceToIrref(reducedMatrix, reducedRhs);
-        double[] nodeXBar = new double[reducedVariableCount];
+        double[] nodeXBar = new double[reducedColumnCount];
+        int[] mergedSlotCount = new int[reducedColumnCount];
         for (Map.Entry<Integer, Integer> entry : chartVertexToColumn.entrySet()) {
             int chartVertex = entry.getKey();
-            int columnBase = COMPONENTS_PER_CHART_VERTEX * entry.getValue();
-            nodeXBar[columnBase + U_COMPONENT] = chartUInitial[chartVertex];
-            nodeXBar[columnBase + V_COMPONENT] = chartVInitial[chartVertex];
+            int slotBase = COMPONENTS_PER_CHART_VERTEX * entry.getValue();
+            int columnU = columnOfNodeSlot[slotBase + U_COMPONENT];
+            int columnV = columnOfNodeSlot[slotBase + V_COMPONENT];
+            nodeXBar[columnU] += chartUInitial[chartVertex];
+            nodeXBar[columnV] += chartVInitial[chartVertex];
+            mergedSlotCount[columnU]++;
+            mergedSlotCount[columnV]++;
+        }
+        for (int column = 0; column < reducedColumnCount; column++) {
+            nodeXBar[column] /= mergedSlotCount[column];
         }
         double scale = ExactArithmetic.chooseFdScale(chartUInitial);
         double scaleV = ExactArithmetic.chooseFdScale(chartVInitial);
@@ -167,13 +207,16 @@ public final class SeamlessProjector {
             scale = scaleV;
         }
         double[] nodeXExact = ExactArithmetic.evaluate(result, nodeXBar, scale);
+        Platforms.log("[seamless] MC19 reduced system: %d cut branches, %d alignment rows,"
+                + " %d node sectors over %d columns%n", branchCount, alignmentRowCount(),
+                nodeChartVertexCount, reducedColumnCount);
 
         // Phase 5: scatter exact node values into chartU/V.
         for (Map.Entry<Integer, Integer> entry : chartVertexToColumn.entrySet()) {
             int chartVertex = entry.getKey();
-            int columnBase = COMPONENTS_PER_CHART_VERTEX * entry.getValue();
-            chartU[chartVertex] = nodeXExact[columnBase + U_COMPONENT];
-            chartV[chartVertex] = nodeXExact[columnBase + V_COMPONENT];
+            int slotBase = COMPONENTS_PER_CHART_VERTEX * entry.getValue();
+            chartU[chartVertex] = nodeXExact[columnOfNodeSlot[slotBase + U_COMPONENT]];
+            chartV[chartVertex] = nodeXExact[columnOfNodeSlot[slotBase + V_COMPONENT]];
         }
 
         // Phase 6: walk each branch forward, filling non-node sector chart vertices.
@@ -184,6 +227,12 @@ public final class SeamlessProjector {
             backSubstituteBranch(plus, minus, rotation, chartU, chartV,
                     chartUInitial, chartVInitial, scale);
         }
+
+        // Phase 6b: every remaining slot of an alignment class takes its class's one
+        // value, so each alignment row holds bit-exactly and an aligned crease has
+        // the same iso level in both flanking faces.
+        assignAlignedIsoLevels(alignClassParent, alignedSlot, chartVertexToColumn,
+                chartU, chartV, chartUInitial, chartVInitial, scale);
 
         // Phase 7: MC19 §5.4 injectivity repair. §5.3's exact-equality projection
         // makes no inequality guarantee — small adjustments can introduce local
@@ -203,6 +252,206 @@ public final class SeamlessProjector {
             seamless.uv.vCorner[cornerIdx] = chartV[chartVertex];
         }
         recomputeCutTranslations();
+    }
+
+    /**
+     * Read the feature-alignment rows {@link SeamlessDofSystem} wrote into
+     * {@link #alignComponent} and {@link #alignDegree}. Edges the dof system's
+     * guard dropped carry no row and are left out here too.
+     */
+    private void computeAlignmentEdges() {
+        alignComponent = new int[seamless.uv.edgeCount];
+        alignDegree = new int[cutGraph.cutDegree.length];
+        int[] isoAxis = seamless.dofSystem == null ? null : seamless.dofSystem.alignmentEdgeIsoAxis;
+        for (int activeEdge = 0; activeEdge < alignComponent.length; activeEdge++) {
+            if (isoAxis == null || isoAxis[activeEdge] == SeamlessDofSystem.NOT_ALIGNMENT
+                    || seamless.uv.edgeFaceA[activeEdge] < 0) {
+                alignComponent[activeEdge] = -1;
+                continue;
+            }
+            alignComponent[activeEdge] = isoAxis[activeEdge] == SeamlessDofSystem.ALIGN_AXIS_V
+                    ? V_COMPONENT : U_COMPONENT;
+            int[] endpoints = edgeEndpointsActive(activeEdge);
+            alignDegree[endpoints[0]]++;
+            alignDegree[endpoints[1]]++;
+        }
+    }
+
+    /**
+     * Union the two {@code (chart vertex, component)} slots of every alignment row,
+     * so each class is one align branch's cumulative equation in MC19 §5.3 terms.
+     *
+     * <p>
+     * See also: MC19 Section 5.3
+     *
+     * @param alignedSlot per slot, set for both slots of every alignment row
+     * @return a union-find parent array over the slots
+     */
+    private int[] buildAlignmentClasses(boolean[] alignedSlot) {
+        int[] parent = new int[alignedSlot.length];
+        for (int slot = 0; slot < parent.length; slot++) {
+            parent[slot] = slot;
+        }
+        for (int activeEdge = 0; activeEdge < alignComponent.length; activeEdge++) {
+            int component = alignComponent[activeEdge];
+            if (component < 0) {
+                continue;
+            }
+            int activeFace = seamless.uv.edgeFaceA[activeEdge];
+            int[] endpoints = edgeEndpointsActive(activeEdge);
+            int startSlot = COMPONENTS_PER_CHART_VERTEX
+                    * chartVertexOfFaceAtActiveVertex(activeFace, endpoints[0]) + component;
+            int endSlot = COMPONENTS_PER_CHART_VERTEX
+                    * chartVertexOfFaceAtActiveVertex(activeFace, endpoints[1]) + component;
+            alignedSlot[startSlot] = true;
+            alignedSlot[endSlot] = true;
+            int startRoot = findInParents(parent, startSlot);
+            int endRoot = findInParents(parent, endSlot);
+            if (startRoot != endRoot) {
+                parent[startRoot] = endRoot;
+            }
+        }
+        return parent;
+    }
+
+    /**
+     * Map every node-sector slot of the reduced system to a column, giving all
+     * slots of one alignment class the same column. Merging is the exact
+     * elimination of MC19's 1_k block, whose entries are unit.
+     *
+     * @param chartVertexToColumn  chart vertex → node index
+     * @param alignClassParent     union-find over alignment slots
+     * @param reducedVariableCount number of {@code (node, component)} slots
+     * @return per slot, its column index in the reduced matrix
+     */
+    private static int[] mergeAlignedColumns(Map<Integer, Integer> chartVertexToColumn,
+            int[] alignClassParent, int reducedVariableCount) {
+        int[] columnParent = new int[reducedVariableCount];
+        for (int slot = 0; slot < reducedVariableCount; slot++) {
+            columnParent[slot] = slot;
+        }
+        Map<Integer, Integer> firstSlotOfAlignClass = new HashMap<>();
+        for (Map.Entry<Integer, Integer> entry : chartVertexToColumn.entrySet()) {
+            int chartVertex = entry.getKey();
+            for (int component = 0; component < COMPONENTS_PER_CHART_VERTEX; component++) {
+                int classRoot = findInParents(alignClassParent,
+                        COMPONENTS_PER_CHART_VERTEX * chartVertex + component);
+                int slot = COMPONENTS_PER_CHART_VERTEX * entry.getValue() + component;
+                Integer priorSlot = firstSlotOfAlignClass.putIfAbsent(classRoot, slot);
+                if (priorSlot == null) {
+                    continue;
+                }
+                int priorRoot = findInParents(columnParent, priorSlot);
+                int slotRoot = findInParents(columnParent, slot);
+                if (priorRoot != slotRoot) {
+                    columnParent[slotRoot] = priorRoot;
+                }
+            }
+        }
+        int[] columnOfRoot = new int[reducedVariableCount];
+        Arrays.fill(columnOfRoot, -1);
+        int nextColumn = 0;
+        for (int slot = 0; slot < reducedVariableCount; slot++) {
+            int root = findInParents(columnParent, slot);
+            if (columnOfRoot[root] < 0) {
+                columnOfRoot[root] = nextColumn++;
+            }
+        }
+        int[] columnOfSlot = new int[reducedVariableCount];
+        for (int slot = 0; slot < reducedVariableCount; slot++) {
+            columnOfSlot[slot] = columnOfRoot[findInParents(columnParent, slot)];
+        }
+        return columnOfSlot;
+    }
+
+    /**
+     * Give every slot of each alignment class the class's single value: the exact
+     * one the reduced solve produced when the class reaches a node sector, and
+     * otherwise the class mean snapped to F_d, since such a class is free.
+     *
+     * <p>
+     * See also: MC19 Section 5.3.1 steps 2 and 3
+     *
+     * @param alignClassParent    union-find over alignment slots
+     * @param alignedSlot         per slot, whether an alignment row touches it
+     * @param chartVertexToColumn chart vertex → node index, for spotting node
+     *                            sectors whose value is already exact
+     * @param chartU              mutable per-chart-vertex u
+     * @param chartV              mutable per-chart-vertex v
+     * @param chartUInitial       pre-projection u, averaged for free classes
+     * @param chartVInitial       pre-projection v
+     * @param scale               the F_d scale {@code d}
+     */
+    private static void assignAlignedIsoLevels(int[] alignClassParent, boolean[] alignedSlot,
+            Map<Integer, Integer> chartVertexToColumn, double[] chartU, double[] chartV,
+            double[] chartUInitial, double[] chartVInitial, double scale) {
+        double[] classSum = new double[alignedSlot.length];
+        int[] classCount = new int[alignedSlot.length];
+        double[] classNodeValue = new double[alignedSlot.length];
+        boolean[] classReachesNode = new boolean[alignedSlot.length];
+        for (int slot = 0; slot < alignedSlot.length; slot++) {
+            if (!alignedSlot[slot]) {
+                continue;
+            }
+            int chartVertex = slot / COMPONENTS_PER_CHART_VERTEX;
+            boolean holdsU = slot % COMPONENTS_PER_CHART_VERTEX == U_COMPONENT;
+            int root = findInParents(alignClassParent, slot);
+            if (chartVertexToColumn.containsKey(chartVertex)) {
+                classNodeValue[root] = holdsU ? chartU[chartVertex] : chartV[chartVertex];
+                classReachesNode[root] = true;
+            } else {
+                classSum[root] += holdsU ? chartUInitial[chartVertex] : chartVInitial[chartVertex];
+                classCount[root]++;
+            }
+        }
+        for (int slot = 0; slot < alignedSlot.length; slot++) {
+            if (!alignedSlot[slot]) {
+                continue;
+            }
+            int chartVertex = slot / COMPONENTS_PER_CHART_VERTEX;
+            if (chartVertexToColumn.containsKey(chartVertex)) {
+                continue;
+            }
+            int root = findInParents(alignClassParent, slot);
+            double value = classReachesNode[root] ? classNodeValue[root]
+                    : ExactArithmetic.truncateToFd(classSum[root] / classCount[root], scale);
+            if (slot % COMPONENTS_PER_CHART_VERTEX == U_COMPONENT) {
+                chartU[chartVertex] = value;
+            } else {
+                chartV[chartVertex] = value;
+            }
+        }
+    }
+
+    /**
+     * Union-find {@code find} with path halving, shared by the alignment class and
+     * reduced-column merges.
+     *
+     * @param parent the parent array, compressed in place
+     * @param item   the item to find the root of
+     * @return the root of {@code item}'s set
+     */
+    private static int findInParents(int[] parent, int item) {
+        int current = item;
+        while (parent[current] != current) {
+            parent[current] = parent[parent[current]];
+            current = parent[current];
+        }
+        return current;
+    }
+
+    /**
+     * Number of edges carrying a feature-alignment row, for the reduced-system log
+     * line.
+     *
+     * @return the count of alignment edges
+     */
+    private int alignmentRowCount() {
+        int count = 0;
+        for (int component : alignComponent) {
+            count += component < 0 ? 0 : 1;
+        }
+        return count;
     }
 
     /**
@@ -325,6 +574,8 @@ public final class SeamlessProjector {
      * @param reducedMatrix       the {@code C̄} matrix being filled
      * @param rowU                index of this branch's u-component row
      * @param chartVertexToColumn chart-vertex → column-index-of-node map
+     * @param columnOfNodeSlot    per {@code (node, component)} slot, its matrix
+     *                            column after the alignment merge
      * @param plusStart           chart vertex of the {@code +} sector at the start
      *                            node
      * @param plusEnd             chart vertex of the {@code +} sector at the end
@@ -336,20 +587,20 @@ public final class SeamlessProjector {
      * @param rotation            the branch's integer rotation r ∈ {0..3}
      */
     private static void fillBranchReducedRows(BigInteger[][] reducedMatrix, int rowU,
-            Map<Integer, Integer> chartVertexToColumn,
+            Map<Integer, Integer> chartVertexToColumn, int[] columnOfNodeSlot,
             int plusStart, int plusEnd, int minusStart, int minusEnd, int rotation) {
         BigInteger cos = BigInteger.valueOf(ExactArithmetic.integerCosine(rotation));
         BigInteger sin = BigInteger.valueOf(ExactArithmetic.integerSine(rotation));
         BigInteger negCos = cos.negate();
         BigInteger negSin = sin.negate();
-        int colPlusStartU = nodeColumn(chartVertexToColumn, plusStart, U_COMPONENT);
-        int colPlusEndU = nodeColumn(chartVertexToColumn, plusEnd, U_COMPONENT);
-        int colPlusStartV = nodeColumn(chartVertexToColumn, plusStart, V_COMPONENT);
-        int colPlusEndV = nodeColumn(chartVertexToColumn, plusEnd, V_COMPONENT);
-        int colMinusStartU = nodeColumn(chartVertexToColumn, minusStart, U_COMPONENT);
-        int colMinusEndU = nodeColumn(chartVertexToColumn, minusEnd, U_COMPONENT);
-        int colMinusStartV = nodeColumn(chartVertexToColumn, minusStart, V_COMPONENT);
-        int colMinusEndV = nodeColumn(chartVertexToColumn, minusEnd, V_COMPONENT);
+        int colPlusStartU = nodeColumn(chartVertexToColumn, columnOfNodeSlot, plusStart, U_COMPONENT);
+        int colPlusEndU = nodeColumn(chartVertexToColumn, columnOfNodeSlot, plusEnd, U_COMPONENT);
+        int colPlusStartV = nodeColumn(chartVertexToColumn, columnOfNodeSlot, plusStart, V_COMPONENT);
+        int colPlusEndV = nodeColumn(chartVertexToColumn, columnOfNodeSlot, plusEnd, V_COMPONENT);
+        int colMinusStartU = nodeColumn(chartVertexToColumn, columnOfNodeSlot, minusStart, U_COMPONENT);
+        int colMinusEndU = nodeColumn(chartVertexToColumn, columnOfNodeSlot, minusEnd, U_COMPONENT);
+        int colMinusStartV = nodeColumn(chartVertexToColumn, columnOfNodeSlot, minusStart, V_COMPONENT);
+        int colMinusEndV = nodeColumn(chartVertexToColumn, columnOfNodeSlot, minusEnd, V_COMPONENT);
 
         // U-component: cos·(u^+_0 − u^+_m) − sin·(v^+_0 − v^+_m) − (u^-_0 − u^-_m) = 0
         reducedMatrix[rowU][colPlusStartU] = reducedMatrix[rowU][colPlusStartU].add(cos);
@@ -480,15 +731,16 @@ public final class SeamlessProjector {
     }
 
     /**
-     * Test whether an active vertex is a node in the MC19 §5.3 sense (cut-degree
-     * not equal to 2, or a singularity).
+     * Test whether an active vertex is a node in the MC19 §5.3 sense: cut-degree
+     * not equal to 2, a singularity, or carrying both a cut and an align edge, so
+     * that no aligned sector lies in a cut branch's interior.
      *
      * @param activeVertex         dense vertex index
      * @param singularityVertexIds set of mesh vertex ids that are singularities
      * @return {@code true} iff the vertex is a node
      */
     private boolean isNode(int activeVertex, Set<Integer> singularityVertexIds) {
-        if (cutGraph.cutDegree[activeVertex] != 2) {
+        if (cutGraph.cutDegree[activeVertex] != 2 || alignDegree[activeVertex] > 0) {
             return true;
         }
         int vertexId = mesh.vertexIdAt(activeVertex);
@@ -606,13 +858,15 @@ public final class SeamlessProjector {
      * reduced system.
      *
      * @param chartVertexToColumn the chart-vertex → column-of-node map
+     * @param columnOfNodeSlot    per slot, its column after the alignment merge
      * @param chartVertex         the chart vertex
      * @param component           {@link #U_COMPONENT} or {@link #V_COMPONENT}
      * @return the flat column index in {@code C̄}
      */
     private static int nodeColumn(Map<Integer, Integer> chartVertexToColumn,
-            int chartVertex, int component) {
-        return COMPONENTS_PER_CHART_VERTEX * chartVertexToColumn.get(chartVertex) + component;
+            int[] columnOfNodeSlot, int chartVertex, int component) {
+        return columnOfNodeSlot[
+                COMPONENTS_PER_CHART_VERTEX * chartVertexToColumn.get(chartVertex) + component];
     }
 
     /**
@@ -737,6 +991,8 @@ public final class SeamlessProjector {
                 int activeVertex = cutGraph.activeVertexIndex(vertexId);
                 if (cutGraph.cutDegree[activeVertex] > 0) {
                     skipReason = "cutDegree=" + cutGraph.cutDegree[activeVertex];
+                } else if (alignDegree[activeVertex] > 0) {
+                    skipReason = "alignDegree=" + alignDegree[activeVertex];
                 }
             }
             if (skipReason != null) {
