@@ -12,6 +12,8 @@ Debugging scaffolding does not land. `wt done` refuses a diff that adds a `Platf
 
 Never `cat` or `tail` the harness's `tasks/` directory, which the sleep-poll hook refuses. Run a long command in the foreground with its output redirected to a file under the worktree's `tmp/` and read that file; the TaskOutput tool, where a session has it, also reads a backgrounded command's output, but subagents do not have it.
 
+Every script or command that loads a model has a timeout: wrap each `ixdar-cli model` or scene run in `timeout`, give one model at most 10 seconds, and when it runs over, kill the scene's JVM, record the model as timed out and go on with the next. A model that hangs (a quantization loop that never converges, say) otherwise blocks the whole sweep. Leave sphere_random out of model sweeps: the pipeline cannot handle it yet.
+
 # Conventions
 
 ## Naming
