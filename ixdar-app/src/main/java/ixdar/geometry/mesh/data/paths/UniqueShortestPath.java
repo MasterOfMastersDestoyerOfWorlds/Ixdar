@@ -5,8 +5,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import org.joml.Vector3f;
-
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
@@ -82,11 +80,11 @@ public final class UniqueShortestPath {
             }
             for (int spoke = 0; spoke < mesh.vertexEdgeCount(vertex); spoke++) {
                 int edgeId = mesh.vertexEdgeAt(vertex, spoke);
-                int other = otherEndpoint(mesh, edgeId, vertex);
+                int other = mesh.edgeOtherVertex(edgeId, vertex);
                 if (distance[vertex] >= distance[other]) {
                     continue;
                 }
-                if (distance[vertex] + edgeLength(mesh, edgeId)
+                if (distance[vertex] + mesh.edgeLength(edgeId)
                         <= distance[other] + tolerance) {
                     pathCount[other] = Math.min(2, pathCount[other] + pathCount[vertex]);
                     predecessor[other] = vertex;
@@ -128,36 +126,8 @@ public final class UniqueShortestPath {
         double[] lengths = new double[bound];
         for (int index = 0; index < mesh.edgeCount(); index++) {
             int edgeId = mesh.edgeIdAt(index);
-            lengths[edgeId] = edgeLength(mesh, edgeId);
+            lengths[edgeId] = mesh.edgeLength(edgeId);
         }
         return lengths;
-    }
-
-    /**
-     * The endpoint of an edge that is not the given vertex.
-     *
-     * @param mesh     mesh holding the edge
-     * @param edgeId   edge to read
-     * @param vertexId one endpoint
-     * @return the other endpoint's id
-     */
-    private static int otherEndpoint(HalfEdgeMesh mesh, int edgeId, int vertexId) {
-        int halfEdge = mesh.edgeHalfEdge(edgeId);
-        int start = mesh.halfEdgeVertex(halfEdge);
-        return start == vertexId ? mesh.halfEdgeEndVertex(halfEdge) : start;
-    }
-
-    /**
-     * The geometric length of an edge, from its endpoint positions.
-     *
-     * @param mesh   mesh holding the edge
-     * @param edgeId edge to measure
-     * @return the Euclidean endpoint distance
-     */
-    private static float edgeLength(HalfEdgeMesh mesh, int edgeId) {
-        int halfEdge = mesh.edgeHalfEdge(edgeId);
-        Vector3f start = mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), new Vector3f());
-        Vector3f end = mesh.vertexPosition(mesh.halfEdgeEndVertex(halfEdge), new Vector3f());
-        return start.distance(end);
     }
 }

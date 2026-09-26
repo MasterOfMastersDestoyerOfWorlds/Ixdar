@@ -491,6 +491,29 @@ public class HalfEdgeMesh implements MeshTopology {
         return halfEdgeFace[firstHalfEdge] == NONE || halfEdgeFace[secondHalfEdge] == NONE;
     }
 
+    /** {@inheritDoc}. */
+    @Override
+    public float edgeLength(int edgeId) {
+        int halfEdge = edgeHalfEdge[edgeId];
+        int tail = vertexOffset(halfEdgeVertex(halfEdge));
+        int head = vertexOffset(halfEdgeEndVertex(halfEdge));
+        float dx = vertexPositions[head] - vertexPositions[tail];
+        float dy = vertexPositions[head + 1] - vertexPositions[tail + 1];
+        float dz = vertexPositions[head + 2] - vertexPositions[tail + 2];
+        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public Vector3f edgeMidpoint(int edgeId, Vector3f dest) {
+        int halfEdge = edgeHalfEdge[edgeId];
+        int tail = vertexOffset(halfEdgeVertex(halfEdge));
+        int head = vertexOffset(halfEdgeEndVertex(halfEdge));
+        return dest.set(vertexPositions[tail] + vertexPositions[head],
+                vertexPositions[tail + 1] + vertexPositions[head + 1],
+                vertexPositions[tail + 2] + vertexPositions[head + 2]).mul(0.5f);
+    }
+
     /**
      * The face on the far side of one of {@code faceId}'s edges.
      *

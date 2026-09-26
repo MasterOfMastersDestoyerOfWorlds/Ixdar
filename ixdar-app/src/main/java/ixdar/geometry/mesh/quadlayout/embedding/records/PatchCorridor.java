@@ -90,9 +90,7 @@ public final class PatchCorridor {
                     continue;
                 }
                 for (int edgeId : boundaryArc.path.copyEdgePath) {
-                    int halfEdge = copy.edgeHalfEdge(edgeId);
-                    if (flooded(copy.halfEdgeFace(halfEdge))
-                            && flooded(copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge)))) {
+                    if (flooded(copy.edgeFace(edgeId, 0)) && flooded(copy.edgeFace(edgeId, 1))) {
                         return boundaryArcId;
                     }
                 }
@@ -194,10 +192,7 @@ public final class PatchCorridor {
                 if (tmesh.topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
-                int halfEdge = copy.edgeHalfEdge(edgeId);
-                int neighbour = copy.halfEdgeFace(halfEdge) == faceId
-                        ? copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge))
-                        : copy.halfEdgeFace(halfEdge);
+                int neighbour = copy.faceAcrossEdge(faceId, edgeId);
                 if (neighbour != EmbeddedMeshTopology.UNCLAIMED
                         && visitStampByCopyFace[neighbour] != visitStamp) {
                     visitStampByCopyFace[neighbour] = visitStamp;
@@ -223,7 +218,7 @@ public final class PatchCorridor {
         List<Integer> path = boundaryArc.path.copyVertexPath;
         int from = takeLeft ? path.get(0) : path.get(1);
         int to = takeLeft ? path.get(1) : path.get(0);
-        int halfEdge = copy.edgeHalfEdge(tmesh.topology.edgeBetween(from, to));
+        int halfEdge = copy.edgeHalfEdge(copy.edgeBetween(from, to));
         if (copy.halfEdgeVertex(halfEdge) != from) {
             halfEdge = copy.halfEdgeTwin(halfEdge);
         }

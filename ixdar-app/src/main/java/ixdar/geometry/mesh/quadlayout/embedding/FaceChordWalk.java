@@ -38,9 +38,6 @@ public final class FaceChordWalk {
     /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
 
-    /** Split position for corridor checkpoints. */
-    private static final double HALFWAY = 0.5;
-
     public final EmbeddedMeshTopology topology;
 
     /**
@@ -268,10 +265,7 @@ public final class FaceChordWalk {
                 if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
-                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-                int neighborFace = topology.copy.halfEdgeFace(halfEdge) == faceId
-                        ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
-                        : topology.copy.halfEdgeFace(halfEdge);
+                int neighborFace = topology.copy.faceAcrossEdge(faceId, edgeId);
                 if (neighborFace < 0 || parentByFace.containsKey(neighborFace)
                         || topology.sourceFaceByCopyFace[neighborFace] != sourceFace) {
                     continue;
@@ -312,7 +306,7 @@ public final class FaceChordWalk {
         }
         int current = head;
         for (int position = crossedEdges.size() - 1; position >= 0; position--) {
-            int minted = topology.splitEdgeAtParameter(crossedEdges.get(position), HALFWAY);
+            int minted = topology.splitEdgeAtMidpoint(crossedEdges.get(position));
             hop(arcId, pathVertices, current, minted);
             current = minted;
         }
@@ -507,8 +501,8 @@ public final class FaceChordWalk {
             return false;
         }
         int halfEdge = topology.copy.edgeHalfEdge(exitEdge);
-        int nearFace = topology.copy.halfEdgeFace(halfEdge);
-        int farFace = topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge));
+        int nearFace = topology.copy.edgeFace(exitEdge, 0);
+        int farFace = topology.copy.edgeFace(exitEdge, 1);
         if (nearFace < 0 || farFace < 0
                 || topology.sourceFaceByCopyFace[nearFace] != sourceFace
                 || topology.sourceFaceByCopyFace[farFace] != sourceFace) {
@@ -615,7 +609,7 @@ public final class FaceChordWalk {
         if (from == to) {
             return;
         }
-        int edgeId = topology.edgeBetween(from, to);
+        int edgeId = topology.copy.edgeBetween(from, to);
         if (edgeId == EmbeddedMeshTopology.UNCLAIMED) {
             throw new IllegalStateException("arc " + arcId + " walk stepped from " + "copy vertex "
                     + from + " to " + to + " with no edge between them");
@@ -834,7 +828,7 @@ public final class FaceChordWalk {
      * @return true when the hop is available
      */
     private boolean hopIsFree(int from, int to) {
-        int edgeId = topology.edgeBetween(from, to);
+        int edgeId = topology.copy.edgeBetween(from, to);
         return edgeId != EmbeddedMeshTopology.UNCLAIMED
                 && topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED;
     }

@@ -50,9 +50,7 @@ public final class Dijkstra {
             int spokes = mesh.vertexEdgeCount(vertex);
             for (int spoke = 0; spoke < spokes; spoke++) {
                 int edgeId = mesh.vertexEdgeAt(vertex, spoke);
-                int halfEdge = mesh.edgeHalfEdge(edgeId);
-                int start = mesh.halfEdgeVertex(halfEdge);
-                int other = start == vertex ? mesh.halfEdgeEndVertex(halfEdge) : start;
+                int other = mesh.edgeOtherVertex(edgeId, vertex);
                 if (other < 0) {
                     continue;
                 }

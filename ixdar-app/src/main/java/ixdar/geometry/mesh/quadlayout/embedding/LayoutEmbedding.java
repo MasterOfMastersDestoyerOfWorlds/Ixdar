@@ -180,7 +180,7 @@ public final class LayoutEmbedding implements MeshNode {
                         + " does not run between its endpoint nodes' vertices");
             }
             for (int index = 1; index < path.copyVertexPath.size(); index++) {
-                if (topology.edgeBetween(path.copyVertexPath.get(index - 1),
+                if (topology.copy.edgeBetween(path.copyVertexPath.get(index - 1),
                         path.copyVertexPath.get(index)) == EmbeddedMeshTopology.UNCLAIMED) {
                     throw new IllegalStateException("arc " + arc.arcId
                             + " has a hop with no copy edge behind it");

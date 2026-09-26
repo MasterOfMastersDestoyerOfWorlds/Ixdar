@@ -17,12 +17,8 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
 
 /**
- * The contraction restricts each drag's re-route to the two patches flanking the dragged arc,
- * reading the patch a copy face belongs to from the cover labels it maintains. That is only the
- * region LCBK19 §6.1 allows if the labels keep saying what a fresh flood of the patch would say.
- *
- * <p>A drag with no route inside those two patches has nowhere else to go, so the count of
- * blocked drags is an assertion here rather than a statistic.
+ * The contraction keeps a cover label per copy face, and the pipeline reads them as if they
+ * were a fresh flood of each patch. These pin that the operators leave them saying so.
  *
  * <p>See also: LCBK19 Section 6.1
  */
@@ -31,10 +27,24 @@ class PatchCoverDriftTest {
     /** Refinement of the scaled fixture: fine enough that a drag sweeps many faces. */
     private static final int DENSE_SCALE = 4;
 
+    /** The authored torus fixture, one zero row on a quantized grid of patches. */
+    private static final String TORUS_DSL = "dsl/fixtures/torus_layout.dsl";
+
+    /** Fixture output naming the authored arc network. */
+    private static final String NETWORK_OUTPUT = "net";
+
+    /** Failure text of a drag that found no edge path at all. */
+    private static final String BLOCKED_DRAGS = "drags found no edge path inside the region their"
+            + " arc separates";
+
+    /** Failure text of a label that no longer says what a flood of its patch would. */
+    private static final String DRIFTED_LABELS = "the contracted layout's cover labels disagree"
+            + " with the patches they name";
+
     @Test
     void collapsingOneZeroArcKeepsEveryCoverLabelTrue() {
-        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
-        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource(TORUS_DSL, Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput(NETWORK_OUTPUT);
         fixtureNet.labelPatchCovers();
         NetworkContraction contraction = new NetworkContraction(fixtureNet);
 
@@ -49,42 +59,54 @@ class PatchCoverDriftTest {
 
     @Test
     void contractingTheTorusKeepsEveryCoverLabelTrue() {
-        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
-        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource(TORUS_DSL, Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput(NETWORK_OUTPUT);
         NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
 
-        assertEquals(0, contraction.collapseArc.blockedDragCount,
-                "drags found no route inside the patches their arc separates");
-        assertEquals("", coverDrift(fixtureNet),
-                "the contracted layout's cover labels disagree with the patches they name");
+        assertEquals(0, contraction.collapseArc.blockedDragCount, BLOCKED_DRAGS);
+        assertEquals("", coverDrift(fixtureNet), DRIFTED_LABELS);
+    }
+
+    /**
+     * The same contraction one operator at a time, so a drifting label names the operator that
+     * left it rather than the round it was noticed in.
+     */
+    @Test
+    void steppingTheTorusContractionKeepsEveryCoverLabelTrue() {
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource(TORUS_DSL, Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput(NETWORK_OUTPUT);
+        fixtureNet.labelPatchCovers();
+        NetworkContraction contraction = new NetworkContraction(fixtureNet);
+
+        String applied = contraction.contractStep();
+        while (applied != null) {
+            assertEquals("", coverDrift(fixtureNet), "after " + applied);
+            applied = contraction.contractStep();
+        }
     }
 
     @Test
     void contractingTheStackedZeroRowTorusKeepsEveryCoverLabelTrue() {
         NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/stacked_zero_row_torus.dsl", Map.of());
-        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput(NETWORK_OUTPUT);
         NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
 
-        assertEquals(0, contraction.collapseArc.blockedDragCount,
-                "drags found no route inside the patches their arc separates");
-        assertEquals("", coverDrift(fixtureNet),
-                "the contracted layout's cover labels disagree with the patches they name");
+        assertEquals(0, contraction.collapseArc.blockedDragCount, BLOCKED_DRAGS);
+        assertEquals("", coverDrift(fixtureNet), DRIFTED_LABELS);
     }
 
     @Test
     void contractingADenseTorusKeepsEveryCoverLabelTrue() {
         NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/scaled_torus.dsl", Map.of(
                 "carrier.major_segments", 12 * DENSE_SCALE, "carrier.minor_segments", 8 * DENSE_SCALE));
-        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput(NETWORK_OUTPUT);
         NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
 
-        assertEquals(0, contraction.collapseArc.blockedDragCount,
-                "drags found no route inside the patches their arc separates");
-        assertEquals("", coverDrift(fixtureNet),
-                "the contracted layout's cover labels disagree with the patches they name");
+        assertEquals(0, contraction.collapseArc.blockedDragCount, BLOCKED_DRAGS);
+        assertEquals("", coverDrift(fixtureNet), DRIFTED_LABELS);
     }
 
     /**

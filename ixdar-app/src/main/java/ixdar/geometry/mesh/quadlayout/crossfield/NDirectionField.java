@@ -1182,10 +1182,8 @@ public class NDirectionField implements MeshNode {
                 if (mesh.isBoundaryEdge(eId)) {
                     continue;
                 }
-                int halfEdge = mesh.edgeHalfEdge(eId);
-                int canonicalFaceId = mesh.halfEdgeFace(halfEdge);
-                int twinFaceId = mesh.halfEdgeFace(mesh.halfEdgeTwin(halfEdge));
-                int otherFaceId = canonicalFaceId == fId ? twinFaceId : canonicalFaceId;
+                int canonicalFaceId = mesh.edgeFace(eId, 0);
+                int otherFaceId = mesh.faceAcrossEdge(fId, eId);
                 if (otherFaceId < 0) {
                     continue;
                 }

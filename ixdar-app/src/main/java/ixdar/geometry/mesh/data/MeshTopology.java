@@ -212,6 +212,69 @@ public interface MeshTopology {
     boolean isBoundaryEdge(int edgeId);
 
     /**
+     * Endpoint of {@code edgeId} opposite {@code vertexId}.
+     *
+     * @param edgeId   edge to read
+     * @param vertexId one endpoint of the edge
+     * @return the other endpoint
+     */
+    default int edgeOtherVertex(int edgeId, int vertexId) {
+        int halfEdge = edgeHalfEdge(edgeId);
+        int tail = halfEdgeVertex(halfEdge);
+        return tail == vertexId ? halfEdgeEndVertex(halfEdge) : tail;
+    }
+
+    /**
+     * Edge joining two vertices, found among the first vertex's incident edges.
+     *
+     * @param vertexA first endpoint
+     * @param vertexB second endpoint
+     * @return the joining edge id, or {@link #NONE} when they share no edge
+     */
+    default int edgeBetween(int vertexA, int vertexB) {
+        for (int index = 0; index < vertexEdgeCount(vertexA); index++) {
+            int edgeId = vertexEdgeAt(vertexA, index);
+            if (edgeOtherVertex(edgeId, vertexA) == vertexB) {
+                return edgeId;
+            }
+        }
+        return NONE;
+    }
+
+    /**
+     * Face on one side of {@code edgeId}: side 0 is the face of
+     * {@link #edgeHalfEdge}, side 1 the face of its twin.
+     *
+     * @param edgeId edge to read
+     * @param side   0 or 1
+     * @return the face on that side, or {@link #NONE} across a boundary
+     */
+    default int edgeFace(int edgeId, int side) {
+        int halfEdge = edgeHalfEdge(edgeId);
+        if (side != 0) {
+            halfEdge = halfEdgeTwin(halfEdge);
+        }
+        return halfEdge == NONE ? NONE : halfEdgeFace(halfEdge);
+    }
+
+    /**
+     * Euclidean distance between the endpoints of {@code edgeId}.
+     *
+     * @param edgeId edge to measure
+     * @return the edge's length
+     */
+    float edgeLength(int edgeId);
+
+    /**
+     * Read the midpoint of {@code edgeId} into {@code dest}.
+     *
+     * @param edgeId edge to read
+     * @param dest   scratch vector to fill
+     * @return {@code dest} for chaining
+     */
+    Vector3f edgeMidpoint(int edgeId, Vector3f dest);
+
+    /**
      * Pick a representative bounding half-edge of {@code faceId}.
      *
      * @param faceId face to query

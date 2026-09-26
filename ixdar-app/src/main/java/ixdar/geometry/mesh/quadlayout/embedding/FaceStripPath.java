@@ -468,7 +468,7 @@ public final class FaceStripPath {
         double areaAtLow = ExactBarycentricOrient.area(from, to, topology.barycentricOf(sourceFace, low));
         double areaAtHigh = ExactBarycentricOrient.area(from, to, topology.barycentricOf(sourceFace, high));
         double reach = Math.abs(areaAtLow) + Math.abs(areaAtHigh);
-        double crossingPosition =  reach == 0.0 ? 0.5f : Math.abs(areaAtLow) / reach;
+        double crossingPosition =  reach == 0.0 ? MIDPOINT : Math.abs(areaAtLow) / reach;
         crossingParameters.add(crossingPosition);
     }
 
@@ -483,12 +483,8 @@ public final class FaceStripPath {
      * @return the constraint face on the far side
      */
     private int across(int face, int first, int second, int sourceFace) {
-        int edgeId = topology.edgeBetween(first, second);
-        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-        int nearSide = topology.copy.halfEdgeFace(halfEdge);
-        int farSide = nearSide == face
-                ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
-                : nearSide;
+        int edgeId = topology.copy.edgeBetween(first, second);
+        int farSide = topology.copy.faceAcrossEdge(face, edgeId);
         if (farSide == EmbeddedMeshTopology.UNCLAIMED
                 || topology.sourceFaceByCopyFace[farSide] != sourceFace) {
             throw new IllegalStateException("arc " + arcId + " leaves source face " + sourceFace

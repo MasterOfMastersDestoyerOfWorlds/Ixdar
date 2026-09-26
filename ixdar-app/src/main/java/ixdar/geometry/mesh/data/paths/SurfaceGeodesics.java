@@ -251,7 +251,7 @@ public final class SurfaceGeodesics {
             double bestStep = 0.0;
             int spokes = mesh.vertexEdgeCount(current);
             for (int spoke = 0; spoke < spokes; spoke++) {
-                int other = neighbourAcross(current, mesh.vertexEdgeAt(current, spoke));
+                int other = mesh.edgeOtherVertex(mesh.vertexEdgeAt(current, spoke), current);
                 if (other < 0) {
                     continue;
                 }
@@ -275,19 +275,6 @@ public final class SurfaceGeodesics {
             covered += bestStep;
         }
         return current;
-    }
-
-    /**
-     * The other end of an edge from one of its vertices.
-     *
-     * @param vertexId vertex the edge is walked from
-     * @param edgeId   edge to cross
-     * @return the vertex at the far end, or -1 when the edge is dangling
-     */
-    public int neighbourAcross(int vertexId, int edgeId) {
-        int halfEdge = mesh.edgeHalfEdge(edgeId);
-        int start = mesh.halfEdgeVertex(halfEdge);
-        return start == vertexId ? mesh.halfEdgeEndVertex(halfEdge) : start;
     }
 
     private int edgeEnd(int edgeId, int end) {
@@ -347,7 +334,7 @@ public final class SurfaceGeodesics {
             mesh.vertexPosition(vertexId, scratchPosition);
             int spokes = mesh.vertexEdgeCount(vertexId);
             for (int spoke = 0; spoke < spokes; spoke++) {
-                int other = neighbourAcross(vertexId, mesh.vertexEdgeAt(vertexId, spoke));
+                int other = mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, spoke), vertexId);
                 if (other < 0) {
                     continue;
                 }

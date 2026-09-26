@@ -196,7 +196,7 @@ public final class ArcNetworkRecarve {
     private void tagSourceEdges() {
         for (int activeEdge = 0; activeEdge < originalMesh.edgeCount(); activeEdge++) {
             int halfEdge = originalMesh.edgeHalfEdge(originalMesh.edgeIdAt(activeEdge));
-            int copyEdge = fresh.edgeBetween(
+            int copyEdge = fresh.copy.edgeBetween(
                     fresh.copyVertexForSourceVertexId(originalMesh.halfEdgeVertex(halfEdge)),
                     fresh.copyVertexForSourceVertexId(originalMesh.halfEdgeEndVertex(halfEdge)));
             if (copyEdge != EmbeddedMeshTopology.UNCLAIMED) {

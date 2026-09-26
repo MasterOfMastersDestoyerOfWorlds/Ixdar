@@ -112,8 +112,6 @@ public class AssignBezierHandlesNode implements MeshNode {
         float[] hEnd = new float[slotLen];
 
         Vector3f meshCenter = meshCenter(mesh);
-        Vector3f va = new Vector3f();
-        Vector3f vb = new Vector3f();
         Vector3f outDir = new Vector3f();
 
         for (int i = 0; i < mesh.edgeCount(); i++) {
@@ -121,9 +119,7 @@ public class AssignBezierHandlesNode implements MeshNode {
             int he = mesh.edgeHalfEdge(eid);
             int v0 = mesh.halfEdgeVertex(he);
             int v1 = mesh.halfEdgeEndVertex(he);
-            mesh.vertexPosition(v0, va);
-            mesh.vertexPosition(v1, vb);
-            float edgeLen = va.distance(vb);
+            float edgeLen = mesh.edgeLength(eid);
             float handleMag = edgeLen * QUARTER_CIRCLE_RATIO * weight;
             if (edgeLen < NUM_1e_20 || handleMag < NUM_1e_20) {
                 continue;
@@ -194,7 +190,7 @@ public class AssignBezierHandlesNode implements MeshNode {
             if (ej == eid) {
                 continue;
             }
-            int otherVid = otherVertex(mesh, ej, vert);
+            int otherVid = mesh.edgeOtherVertex(ej, vert);
             mesh.vertexPosition(otherVid, other);
             dir.set(other).sub(vertPos);
             float len = dir.length();
@@ -215,7 +211,7 @@ public class AssignBezierHandlesNode implements MeshNode {
             }
         }
 
-        int otherVid = otherVertex(mesh, eid, vert);
+        int otherVid = mesh.edgeOtherVertex(eid, vert);
         mesh.vertexPosition(otherVid, other);
         dir.set(other).sub(vertPos);
         float el = dir.length();
@@ -246,12 +242,5 @@ public class AssignBezierHandlesNode implements MeshNode {
             return;
         }
         dest.set(NUM_0, NUM_0, handleMag);
-    }
-
-    private static int otherVertex(MeshTopology mesh, int eid, int vert) {
-        int he = mesh.edgeHalfEdge(eid);
-        int a = mesh.halfEdgeVertex(he);
-        int b = mesh.halfEdgeEndVertex(he);
-        return vert == a ? b : a;
     }
 }

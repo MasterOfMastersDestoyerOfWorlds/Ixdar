@@ -22,18 +22,10 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 
 /**
- * Pins LCBK19 §6.1's stated goal for the carve: <em>"a one-to-one mapping between T-mesh and
- * triangle mesh elements"</em>. Every node owns a distinct copy vertex, every arc owns a distinct
- * edge path, and no copy vertex or copy edge is ever claimed by two T-mesh elements at once.
+ * The carve maps T-mesh elements one-to-one onto mesh elements: distinct copy vertices per node,
+ * distinct edge paths per arc, and no element claimed twice.
  *
- * <p>This is the invariant that the move from always-splitting to snapping must not break. The
- * paper reaches the same one-to-one mapping by <em>"snap[ping] all nodes and arcs onto nearby
- * vertices and edges"</em> and splitting <em>"only if there are not enough vertices or edges"</em>;
- * we currently reach it by splitting at every single carve point, which is the [Myles et al. 2014]
- * approach LCBK19 explicitly rejects for <em>"the increase in mesh complexity and the potentially
- * bad triangle shapes"</em>. The assertions below are indifferent to which route is taken, so they
- * hold before and after — while the {@code [carve-density]} line reports the complexity increase
- * that snapping is meant to remove.
+ * <p>See also: LCBK19 Section 6.1
  */
 class CarveOneToOneTest {
 
@@ -101,7 +93,7 @@ class CarveOneToOneTest {
                     "arc " + arc.arcId + " revisits a copy vertex");
 
             for (int index = 1; index < vertices.size(); index++) {
-                int edgeId = topology.edgeBetween(vertices.get(index - 1), vertices.get(index));
+                int edgeId = topology.copy.edgeBetween(vertices.get(index - 1), vertices.get(index));
                 assertNotEquals(EmbeddedMeshTopology.UNCLAIMED, edgeId,
                         "arc " + arc.arcId + " hop " + index + " has no copy edge");
                 assertEquals(arc.arcId, topology.ownerArcByCopyEdge[edgeId],

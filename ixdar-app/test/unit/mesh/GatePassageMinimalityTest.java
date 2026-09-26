@@ -15,22 +15,10 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * Gate refinement must not split speculatively: every midpoint it mints has to
- * be one the route then stands on.
+ * Gate refinement must not split speculatively: across a channel of gates, the split count
+ * equals the minted vertices the resulting route stands on.
  *
- * <p>
- * Two claimed rows form a channel whose every rung is a gate — an unclaimed
- * edge with both endpoints claimed. Threading the channel needs one minted
- * midpoint per rung crossed, so the splits are stepping stones rather than
- * waste, and their count must equal the number of minted vertices on the
- * resulting path.
- *
- * <p>
- * Refinement that split a passage the route then ignored would grow the working
- * mesh permanently for nothing, and the working mesh never shrinks again.
- *
- * <p>
- * See also: LCBK19 Section 6.1
+ * <p>See also: LCBK19 Section 6.1
  */
 class GatePassageMinimalityTest {
 
@@ -51,10 +39,10 @@ class GatePassageMinimalityTest {
             topology.ownerArcByCopyVertex[vertex(topology, column, UPPER_ROW)] = UPPER_ARC;
         }
         for (int column = 0; column < COLUMNS - 1; column++) {
-            topology.ownerArcByCopyEdge[topology.edgeBetween(
+            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(
                     vertex(topology, column, LOWER_ROW),
                     vertex(topology, column + 1, LOWER_ROW))] = LOWER_ARC;
-            topology.ownerArcByCopyEdge[topology.edgeBetween(
+            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(
                     vertex(topology, column, UPPER_ROW),
                     vertex(topology, column + 1, UPPER_ROW))] = UPPER_ARC;
         }

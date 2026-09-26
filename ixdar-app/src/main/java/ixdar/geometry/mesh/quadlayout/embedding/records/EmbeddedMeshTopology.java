@@ -34,6 +34,9 @@ public final class EmbeddedMeshTopology {
     /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
 
+    /** Split parameter of {@link #splitEdgeAtMidpoint}. */
+    private static final double EDGE_MIDPOINT = 0.5;
+
     public final HalfEdgeMesh sourceMesh;
     public final HalfEdgeMesh copy;
 
@@ -90,12 +93,6 @@ public final class EmbeddedMeshTopology {
      * invalidated when an edge id is minted or reused.
      */
     public float[] lengthByCopyEdge;
-
-    /** Endpoint scratch for {@link #edgeLength}. */
-    public final Vector3f edgeLengthScratchA = new Vector3f();
-
-    /** Endpoint scratch for {@link #edgeLength}. */
-    public final Vector3f edgeLengthScratchB = new Vector3f();
 
     /**
      * Copy face ids descending from each source active face, in insertion order,
@@ -292,8 +289,8 @@ public final class EmbeddedMeshTopology {
         int halfEdge = copy.edgeHalfEdge(copyEdgeId);
         int vertexA = copy.halfEdgeVertex(halfEdge);
         int vertexB = copy.halfEdgeEndVertex(halfEdge);
-        int faceA = copy.halfEdgeFace(halfEdge);
-        int faceB = copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge));
+        int faceA = copy.edgeFace(copyEdgeId, 0);
+        int faceB = copy.edgeFace(copyEdgeId, 1);
         int sourceA = faceA >= 0 ? sourceFaceByCopyFace[faceA] : UNCLAIMED;
         int sourceB = faceB >= 0 ? sourceFaceByCopyFace[faceB] : UNCLAIMED;
         double[] barycentricA = interpolateBarycentric(sourceA, vertexA, vertexB, parameter);
@@ -315,6 +312,17 @@ public final class EmbeddedMeshTopology {
             registerBarycentric(sourceB, newVertex, barycentricB);
         }
         return newVertex;
+    }
+
+    /**
+     * Split a copy edge at its middle, the refinement split every re-route and
+     * lane opening uses.
+     *
+     * @param copyEdgeId copy edge to split
+     * @return the minted vertex id
+     */
+    public int splitEdgeAtMidpoint(int copyEdgeId) {
+        return splitEdgeAtParameter(copyEdgeId, EDGE_MIDPOINT);
     }
 
     /**
@@ -455,10 +463,9 @@ public final class EmbeddedMeshTopology {
      * @return new vertex id
      */
     public int splitEdgeAtPoint(int copyEdgeId, Vector3f position) {
-        int halfEdge = copy.edgeHalfEdge(copyEdgeId);
-        int vertexB = copy.halfEdgeEndVertex(halfEdge);
-        int faceA = copy.halfEdgeFace(halfEdge);
-        int faceB = copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge));
+        int vertexB = copy.halfEdgeEndVertex(copy.edgeHalfEdge(copyEdgeId));
+        int faceA = copy.edgeFace(copyEdgeId, 0);
+        int faceB = copy.edgeFace(copyEdgeId, 1);
         int edgeOwner = ownerArcByCopyEdge[copyEdgeId];
         int sourceEdge = sourceEdgeByCopyEdge[copyEdgeId];
         boolean vacatedWall = onVacatedWall(copyEdgeId);
@@ -467,10 +474,9 @@ public final class EmbeddedMeshTopology {
         int patchA = faceA >= 0 ? patchLabelOf(faceA) : UNCLAIMED;
         int patchB = faceB >= 0 ? patchLabelOf(faceB) : UNCLAIMED;
         int newVertex = copy.splitEdge(copyEdgeId, position);
-        int tailEdge = edgeBetween(newVertex, vertexB);
-        int tailForward = copy.edgeHalfEdge(tailEdge);
-        int childFaceA = copy.halfEdgeFace(tailForward);
-        int childFaceB = copy.halfEdgeFace(copy.halfEdgeTwin(tailForward));
+        int tailEdge = copy.edgeBetween(newVertex, vertexB);
+        int childFaceA = copy.edgeFace(tailEdge, 0);
+        int childFaceB = copy.edgeFace(tailEdge, 1);
         if (childFaceA != UNCLAIMED) {
             adoptFace(childFaceA, sourceA, patchA);
         }
@@ -504,8 +510,8 @@ public final class EmbeddedMeshTopology {
         int halfEdge = copy.edgeHalfEdge(copyEdgeId);
         int vertexA = copy.halfEdgeVertex(halfEdge);
         int vertexB = copy.halfEdgeEndVertex(halfEdge);
-        int faceA = copy.halfEdgeFace(halfEdge);
-        int faceB = copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge));
+        int faceA = copy.edgeFace(copyEdgeId, 0);
+        int faceB = copy.edgeFace(copyEdgeId, 1);
         int vertexC = copy.faceOppositeCorner(faceA, vertexA, vertexB);
         int vertexD = copy.faceOppositeCorner(faceB, vertexA, vertexB);
         int sourceFace = sourceFaceByCopyFace[faceA];
@@ -516,7 +522,7 @@ public final class EmbeddedMeshTopology {
         adoptFace(copy.addFace(vertexD, vertexB, vertexC), sourceFace, patchId);
         ensureEdgeCapacity();
         edgeFlipCount++;
-        return edgeBetween(vertexC, vertexD);
+        return copy.edgeBetween(vertexC, vertexD);
     }
 
     /**
@@ -586,7 +592,7 @@ public final class EmbeddedMeshTopology {
             List<Integer> crossedFaces, List<Integer> leftChain, List<Integer> rightChain) {
         double[] from = requireBarycentric(sourceFace, fromVertex);
         double[] to = requireBarycentric(sourceFace, toVertex);
-        if (edgeBetween(fromVertex, toVertex) != UNCLAIMED) {
+        if (copy.edgeBetween(fromVertex, toVertex) != UNCLAIMED) {
             return toVertex;
         }
         int face = enteredFace(sourceFace, fromVertex, from, to);
@@ -681,7 +687,7 @@ public final class EmbeddedMeshTopology {
      * @return the child face on the far side
      */
     private int acrossFreeEdge(int face, int left, int right, int sourceFace) {
-        int edgeId = edgeBetween(left, right);
+        int edgeId = copy.edgeBetween(left, right);
         if (sourceEdgeByCopyEdge[edgeId] != UNCLAIMED) {
             throw new IllegalStateException("a chord in source face " + sourceFace + " would"
                     + " cross copy edge " + edgeId + ", which lies on source edge "
@@ -692,11 +698,7 @@ public final class EmbeddedMeshTopology {
                     + " cross copy edge " + edgeId + ", already held by arc "
                     + ownerArcByCopyEdge[edgeId]);
         }
-        int halfEdge = copy.edgeHalfEdge(edgeId);
-        int nearSide = copy.halfEdgeFace(halfEdge);
-        int farSide = nearSide == face
-                ? copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge))
-                : nearSide;
+        int farSide = copy.faceAcrossEdge(face, edgeId);
         if (farSide == UNCLAIMED || sourceFaceByCopyFace[farSide] != sourceFace) {
             throw new IllegalStateException("a chord in source face " + sourceFace + " would"
                     + " leave it across copy edge " + edgeId);
@@ -796,7 +798,7 @@ public final class EmbeddedMeshTopology {
      * @param arcId   claiming arc
      */
     public void claimEdgeBetween(int vertexA, int vertexB, int arcId) {
-        int edgeId = edgeBetween(vertexA, vertexB);
+        int edgeId = copy.edgeBetween(vertexA, vertexB);
         if (edgeId == UNCLAIMED) {
             return;
         }
@@ -828,24 +830,6 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
-     * Edge id between two copy vertices, found by walking the edges incident to one
-     * of them.
-     *
-     * @param vertexA first endpoint
-     * @param vertexB second endpoint
-     * @return edge id, or {@link #UNCLAIMED} when not connected
-     */
-    public int edgeBetween(int vertexA, int vertexB) {
-        for (int index = 0; index < copy.vertexEdgeCount(vertexA); index++) {
-            int edgeId = copy.vertexEdgeAt(vertexA, index);
-            if (otherEndpoint(edgeId, vertexA) == vertexB) {
-                return edgeId;
-            }
-        }
-        return UNCLAIMED;
-    }
-
-    /**
      * The source face holding the edge between two copy vertices, read from the faces on
      * either side of it, so the segment between them really is a chord of that face.
      *
@@ -855,13 +839,12 @@ public final class EmbeddedMeshTopology {
      *         registers a barycentric for both
      */
     public int sharedSourceFace(int fromVertex, int toVertex) {
-        int copyEdge = edgeBetween(fromVertex, toVertex);
+        int copyEdge = copy.edgeBetween(fromVertex, toVertex);
         if (copyEdge == UNCLAIMED) {
             return UNCLAIMED;
         }
-        int halfEdge = copy.edgeHalfEdge(copyEdge);
         for (int side = 0; side < 2; side++) {
-            int copyFace = copy.halfEdgeFace(side == 0 ? halfEdge : copy.halfEdgeTwin(halfEdge));
+            int copyFace = copy.edgeFace(copyEdge, side);
             if (copyFace == UNCLAIMED) {
                 continue;
             }
@@ -874,18 +857,6 @@ public final class EmbeddedMeshTopology {
         return UNCLAIMED;
     }
 
-    /**
-     * The other endpoint of a copy edge.
-     *
-     * @param copyEdgeId edge id
-     * @param vertexId   one endpoint
-     * @return the opposite endpoint
-     */
-    public int otherEndpoint(int copyEdgeId, int vertexId) {
-        int halfEdge = copy.edgeHalfEdge(copyEdgeId);
-        int start = copy.halfEdgeVertex(halfEdge);
-        return start == vertexId ? copy.halfEdgeEndVertex(halfEdge) : start;
-    }
 
     /**
      * Grow the per-edge claim array to cover all allocated edge ids.
@@ -1070,10 +1041,7 @@ public final class EmbeddedMeshTopology {
     public float edgeLength(int copyEdgeId) {
         float length = lengthByCopyEdge[copyEdgeId];
         if (Float.isNaN(length)) {
-            int halfEdge = copy.edgeHalfEdge(copyEdgeId);
-            copy.vertexPosition(copy.halfEdgeVertex(halfEdge), edgeLengthScratchA);
-            copy.vertexPosition(copy.halfEdgeEndVertex(halfEdge), edgeLengthScratchB);
-            length = edgeLengthScratchA.distance(edgeLengthScratchB);
+            length = copy.edgeLength(copyEdgeId);
             lengthByCopyEdge[copyEdgeId] = length;
         }
         return length;

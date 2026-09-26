@@ -145,9 +145,7 @@ public final class ConformingLoopSnap {
             int spokes = mesh.vertexEdgeCount(vertexId);
             for (int spoke = 0; spoke < spokes; spoke++) {
                 int edgeId = mesh.vertexEdgeAt(vertexId, spoke);
-                int halfEdge = mesh.edgeHalfEdge(edgeId);
-                int start = mesh.halfEdgeVertex(halfEdge);
-                int other = start == vertexId ? mesh.halfEdgeEndVertex(halfEdge) : start;
+                int other = mesh.edgeOtherVertex(edgeId, vertexId);
                 if (other < 0) {
                     continue;
                 }
@@ -167,24 +165,9 @@ public final class ConformingLoopSnap {
         int walk = toVertex;
         while (walk != fromVertex) {
             int parent = visitParent[walk];
-            markEdgeBetween(mesh, walk, parent, marks);
+            marks[mesh.edgeBetween(walk, parent)] = true;
             walk = parent;
         }
         return true;
-    }
-
-    private void markEdgeBetween(MeshTopology mesh, int firstVertex, int secondVertex,
-            boolean[] marks) {
-        int spokes = mesh.vertexEdgeCount(firstVertex);
-        for (int spoke = 0; spoke < spokes; spoke++) {
-            int edgeId = mesh.vertexEdgeAt(firstVertex, spoke);
-            int halfEdge = mesh.edgeHalfEdge(edgeId);
-            int start = mesh.halfEdgeVertex(halfEdge);
-            int other = start == firstVertex ? mesh.halfEdgeEndVertex(halfEdge) : start;
-            if (other == secondVertex) {
-                marks[edgeId] = true;
-                return;
-            }
-        }
     }
 }

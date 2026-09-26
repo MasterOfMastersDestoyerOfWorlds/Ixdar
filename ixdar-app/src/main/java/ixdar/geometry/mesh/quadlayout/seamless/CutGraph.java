@@ -7,8 +7,6 @@ import java.util.HashMap;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-import org.joml.Vector3f;
-
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
@@ -336,8 +334,6 @@ public class CutGraph {
             PriorityQueue<double[]> frontier = new PriorityQueue<>((a, b) -> Double.compare(a[0], b[0]));
             frontier.add(new double[] { 0.0, startActiveVertex });
 
-            Vector3f posHere = new Vector3f();
-            Vector3f posOther = new Vector3f();
 
             int reachedActiveVertex = -1;
             while (!frontier.isEmpty()) {
@@ -352,7 +348,6 @@ public class CutGraph {
                     reachedActiveVertex = activeVertex;
                     break;
                 }
-                mesh.vertexPosition(activeVertexId, posHere);
                 int incidentEdgeCount = mesh.vertexEdgeCount(activeVertexId);
                 for (int i = 0; i < incidentEdgeCount; i++) {
                     int edgeId = mesh.vertexEdgeAt(activeVertexId, i);
@@ -360,13 +355,9 @@ public class CutGraph {
                     if (activeVertex == startActiveVertex) {
                         continue;
                     }
-                    int halfEdge = mesh.edgeHalfEdge(edgeId);
-                    int otherVertexId = (mesh.halfEdgeVertex(halfEdge) == activeVertexId)
-                            ? mesh.halfEdgeEndVertex(halfEdge)
-                            : mesh.halfEdgeVertex(halfEdge);
+                    int otherVertexId = mesh.edgeOtherVertex(edgeId, activeVertexId);
                     int otherActiveVertex = activeVertexIndex(otherVertexId);
-                    mesh.vertexPosition(otherVertexId, posOther);
-                    double edgeLength = posHere.distance(posOther);
+                    double edgeLength = mesh.edgeLength(edgeId);
                     double edgeCost = crossField.alignmentEdges.get(activeEdge)
                             ? edgeLength * ALIGNMENT_PATH_PENALTY
                             : edgeLength;

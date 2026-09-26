@@ -11,29 +11,15 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * A dragged arc re-embeds by the paper's method: LCBK19 §6.1 routes the pulled
- * arc with Dijkstra's shortest path between its two vertices, restricted to not
- * cross or touch other arcs.
- *
- * <p>
- * An earlier "keep the old excursion" reading was disproven against the real
- * target: on fertility shortest-path yields ~8000x fewer folded triangles than
- * keeping the long lane, and leaves the regions untorn. So the short
- * continuation is correct, not a tear.
- *
- * <p>
- * This pins that the drag produces a valid embedding. The arc below runs the
- * long way around three sides of a grid; its node is dragged one step. The
- * re-embedded arc must be re-anchored from its far node to the survivor, be
- * simple, lie on claimed copy edges, and be shorter than the old detour — the
- * reroute straightens it.
+ * A dragged arc re-embeds by LCBK19 §6.1's method: Dijkstra's shortest path
+ * between its two vertices, crossing and touching no other arc. The arc below
+ * runs the long way round a grid, so the drag straightens it.
  */
 class ArcRerouteShortestPathTest {
 
@@ -62,12 +48,9 @@ class ArcRerouteShortestPathTest {
 
         int pivotVertex = vertex(topology, PIVOT_COLUMN, 0);
         int survivorVertex = vertex(topology, SURVIVOR_COLUMN, 0);
-        List<Integer> channel = List.copyOf(tmesh.arcs.get(collapsingArc).path.copyVertexPath);
-
         tmesh.setPath(collapsingArc, List.of(survivorVertex));
         ZeroArcCollapseOperator collapseOperator = new NetworkContraction(tmesh).collapseArc;
-        collapseOperator.dragArcEndOntoVertex(detourArc, pivotVertex, survivorVertex,
-                new ArcRerouter(topology), channel, true, false);
+        collapseOperator.dragArcEndOntoVertex(detourArc, pivotVertex, survivorVertex);
 
         List<Integer> routed = tmesh.arcs.get(detourArc).path.copyVertexPath;
         assertEquals(vertex(topology, 0, 0), routed.get(0), "the arc still starts at its far node");
@@ -77,7 +60,7 @@ class ArcRerouteShortestPathTest {
                 "shortest-path reroute straightens the arc, so it is shorter than the old detour");
         assertEquals(routed.size(), new HashSet<>(routed).size(), "the routed path is simple");
         for (int index = 1; index < routed.size(); index++) {
-            assertTrue(topology.edgeBetween(routed.get(index - 1), routed.get(index)) != EmbeddedMeshTopology.UNCLAIMED,
+            assertTrue(topology.copy.edgeBetween(routed.get(index - 1), routed.get(index)) != EmbeddedMeshTopology.UNCLAIMED,
                     "consecutive routed vertices must share a copy edge");
         }
     }

@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
@@ -16,23 +15,20 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 
 /**
- * Operator (1), the zero-arc collapse: one endpoint node is embedded onto the
- * other, dragging its incident arcs with it.
+ * Operator (1), the zero-arc collapse: one node moves onto the other, each arc
+ * it carries is re-embedded by {@link ArcRerouter}'s Dijkstra, and the zero arc
+ * becomes that point.
  *
  * <p>
- * An endpoint may move when non-critical and either a non-border node or on a
- * border arc; with neither movable this throws. A loop is exempt.
- *
- * <p>
- * See also: LCBK19 Def 6.2
+ * See also: LCBK19 Section 6.1, "Operator Implementation", and Def 6.2
  */
 public final class ZeroArcCollapseOperator {
 
     /** Starting capacity of the zero-arc candidate list; grows by doubling. */
     private static final int CANDIDATE_INITIAL_CAPACITY = 256;
 
-    /** Diagnostic group name of the collapsing arc's vacated path. */
-    private static final String GROUP_CHANNEL = "channel";
+    /** Diagnostic group name of the collapsing arc's path. */
+    private static final String GROUP_CHANNEL = "collapsing arc";
 
     /** Diagnostic group name of the moving node's vertex marker. */
     private static final String GROUP_MOVED_VERTEX = "moved vertex";
@@ -49,20 +45,10 @@ public final class ZeroArcCollapseOperator {
     public int collapsedCount;
 
     /**
-     * Drags with no route inside the patches their arc separates; a non-zero count
-     * means the covers or the fan order no longer describe the surface, and the
-     * collapse throws.
+     * Drags that found no edge path even after refinement, each of which threw an
+     * {@link ArrangementDiagnosticException}.
      */
     public int blockedDragCount;
-
-    /**
-     * Arrival wedges banned before the last drag's search because their bounding lanes' flanks
-     * contradict the dragged arc's; reset per drag.
-     */
-    public int bannedArrivalWedgeCount;
-
-    /** Departure wedges the last drag banned as flank-inconsistent at its fixed vertex. */
-    public int bannedDepartureWedgeCount;
 
     /** Faces the last {@link #floodFreeSpace} reached, in flood order. */
     public final IntIdList freeRegionFaces = new IntIdList(0);
@@ -74,8 +60,9 @@ public final class ZeroArcCollapseOperator {
     public int freeRegionStamp;
 
     /**
-     * Patches the running collapse touches: the flanks of the arc it collapses and
-     * of every arc it drags. They are what a mid-collapse route may be admitted to.
+     * Patches this collapse moves the boundary of: the flanks of the arc it
+     * collapses and of every arc it drags, whose covers {@link #finishCollapse}
+     * re-reads.
      */
     public int[] touchedPatches = new int[0];
 
@@ -83,18 +70,8 @@ public final class ZeroArcCollapseOperator {
     public int touchedPatchCount;
 
     /**
-     * Of {@link #touchedPatches}, the flanks of arcs a route actually moved — the
-     * only covers whose faces changed, so the only ones {@link #finishCollapse}
-     * re-reads. Alias-only merges keep their faces and resolve through the covers.
-     */
-    public int[] dirtyPatches = new int[0];
-
-    /** Live entry count of {@link #dirtyPatches}. */
-    public int dirtyPatchCount;
-
-    /**
-     * Arc the in-flight collapse is collapsing, or {@link ArcNetwork#NONE} when
-     * no collapse is between {@link #beginCollapse} and {@link #finishCollapse}.
+     * Arc the in-flight collapse is collapsing, or {@link ArcNetwork#NONE} when no
+     * collapse is between {@link #beginCollapse} and {@link #finishCollapse}.
      */
     public int collapsingArcId = ArcNetwork.NONE;
 
@@ -110,37 +87,42 @@ public final class ZeroArcCollapseOperator {
     /** Copy vertex the in-flight collapse merges the moving node onto. */
     public int targetVertex;
 
-    /** The collapsing arc's path, snapshotted before any drag. */
+    /** The collapsing arc's path, snapshotted before it is embedded onto the point. */
     public final List<Integer> channel = new ArrayList<>();
 
-    /** The moving node's incident arcs in cyclic fan order. */
+    /**
+     * Spoke at the surviving vertex the next drag from the fan's front arrives just
+     * after: first the arc before the collapsing arc there, then the last arc
+     * dragged from the front. {@link ArcNetwork#NONE} when no arc bounds it.
+     */
+    public int frontArrivalSpoke = ArcNetwork.NONE;
+
+    /**
+     * Spoke the next drag from the fan's back arrives just before: first the arc
+     * after the collapsing arc there, then the last arc dragged from the back.
+     */
+    public int backArrivalSpoke = ArcNetwork.NONE;
+
+    /**
+     * The moving node's other incident arcs, one entry per path end on it, in
+     * cyclic order around it from the collapsing arc.
+     */
     public final List<Integer> fan = new ArrayList<>();
+
+    /** Whether each {@link #fan} entry is its arc's path start rather than its end. */
+    public boolean[] fanMovesPathStart = new boolean[0];
 
     /** Fan entries already consumed, indexing the oscillating drag order. */
     public int fanCursor;
 
-    /** Fan arcs whose pre-ban left no allowed wedge, awaiting a sibling's lane. */
-    public final List<Integer> deferredArcIds = new ArrayList<>();
-
-    /** Deferred attempts since the last landed drag, bounding the retry rounds. */
-    public int deferredAttemptsSinceProgress;
-
     /**
-     * Arc the last {@link #dragNextArc} dragged, or {@link ArcNetwork#NONE}
-     * before the first drag.
+     * Arc the last {@link #dragNextArc} dragged, or {@link ArcNetwork#NONE} before
+     * the first drag.
      */
     public int lastDraggedArcId = ArcNetwork.NONE;
 
     /** The last dragged arc's path before its drag, for the step view. */
     public final List<Integer> lastDraggedPreviousPath = new ArrayList<>();
-
-    /**
-     * First arc id the collapsible scan starts at. Only ever advanced past dead or
-     * non-zero arcs, which can never become collapsible ({@code alive} is set only
-     * in the constructor and {@code quantizedLength} never changes), so the scan
-     * skips the growing retired prefix without missing a candidate.
-     */
-    public int collapsibleScanStart;
 
     /** Live zero arcs still worth testing, compacted as arcs die. */
     public int[] zeroArcCandidates = new int[0];
@@ -172,8 +154,7 @@ public final class ZeroArcCollapseOperator {
      * Only zero arcs qualify and {@code alive} never returns, so candidates are
      * appended once per new arc and compacted as arcs die.
      *
-     * @return the chosen zero arc id, or {@link ArcNetwork#NONE} when none
-     *         remains
+     * @return the chosen zero arc id, or {@link ArcNetwork#NONE} when none remains
      */
     public int mostContendedArc() {
         for (int arcId = scannedArcBound; arcId < tmesh.arcs.size(); arcId++) {
@@ -198,11 +179,11 @@ public final class ZeroArcCollapseOperator {
                 continue;
             }
             zeroArcCandidates[keep++] = arcId;
-            int movedNodeId = movingEndpoint(arc);
-            if (movedNodeId == ArcNetwork.NONE) {
+            int movableNodeId = movingEndpoint(arc);
+            if (movableNodeId == ArcNetwork.NONE) {
                 continue;
             }
-            int valence = tmesh.arcEndsByNode.get(movedNodeId).size();
+            int valence = tmesh.arcEndsByNode.get(movableNodeId).size();
             if (found == ArcNetwork.NONE || valence > bestValence) {
                 found = arcId;
                 bestValence = valence;
@@ -231,7 +212,7 @@ public final class ZeroArcCollapseOperator {
 
     /**
      * Starts a collapse: resolves the moving and surviving nodes, snapshots the
-     * channel, orders the fan, and records the touched patches. Drags run through
+     * collapsing arc's path and orders the fan. Drags run through
      * {@link #dragNextArc} and the merge lands in {@link #finishCollapse}.
      *
      * @param arcId zero arc to collapse
@@ -241,8 +222,7 @@ public final class ZeroArcCollapseOperator {
         EmbeddedArc arc = tmesh.arcs.get(arcId);
         if (!arc.alive || arc.quantizedLength != 0) {
             throw new IllegalStateException(ArcNetwork.NONE == arcId ? "no arc"
-                    : "arc " + arcId
-                            + " is not a live zero arc");
+                    : "arc " + arcId + " is not a live zero arc");
         }
         movedNodeId = movingEndpoint(arc);
         if (movedNodeId == ArcNetwork.NONE) {
@@ -259,32 +239,36 @@ public final class ZeroArcCollapseOperator {
                 : channel.get(channel.size() - 1) == movedVertex
                         ? channel.get(channel.size() - 2)
                         : channel.get(1);
-        fan.clear();
-        fan.addAll(incidentArcsInFanOrder(movedVertex, channelNeighbor, arcId, movedNodeId));
+        orderFan(movedVertex, channelNeighbor, arcId, movedNodeId);
+        frontArrivalSpoke = ArcNetwork.NONE;
+        backArrivalSpoke = ArcNetwork.NONE;
+        if (channel.size() > 1) {
+            int arcSpoke = outgoingHalfEdge(targetVertex,
+                    channel.get(0) == targetVertex ? channel.get(1) : channel.get(channel.size() - 2));
+            frontArrivalSpoke = nextClaimedSpoke(arcSpoke, false);
+            backArrivalSpoke = nextClaimedSpoke(arcSpoke, true);
+        }
         fanCursor = 0;
-        deferredArcIds.clear();
-        deferredAttemptsSinceProgress = 0;
         lastDraggedArcId = ArcNetwork.NONE;
         lastDraggedPreviousPath.clear();
         touchedPatchCount = 0;
-        dirtyPatchCount = 0;
         rememberTouchedPatch(arc.leftPatchId);
         rememberTouchedPatch(arc.rightPatchId);
         for (int incidentArcId : fan) {
             EmbeddedArc incidentArc = tmesh.arcs.get(incidentArcId);
-            if (incidentArc.alive) {
-                rememberTouchedPatch(incidentArc.leftPatchId);
-                rememberTouchedPatch(incidentArc.rightPatchId);
-            }
+            rememberTouchedPatch(incidentArc.leftPatchId);
+            rememberTouchedPatch(incidentArc.rightPatchId);
         }
         collapsingArcId = arcId;
     }
 
     /**
-     * Drags one fan arc onto the surviving node in oscillating order — ends inward; only
-     * the last drag may transit the moved vertex. A pre-ban-blocked drag defers until a
-     * sibling's lane supplies its flank witness. A collapsing loop contracts in place.
+     * Drags one fan arc onto the surviving node, taking the fan's two ends before
+     * its middle. Contracting the zero arc splices the moving node's rotation into
+     * the surviving node's in its place, so each arc arrives beside the last one
+     * dragged from its end of the fan.
      *
+     * @throws ArrangementDiagnosticException when the arc has no edge path
      * @return true when an arc was dragged, false when the fan is exhausted
      */
     public boolean dragNextArc() {
@@ -294,7 +278,7 @@ public final class ZeroArcCollapseOperator {
         int size = fan.size();
         while (fanCursor < size) {
             int index = fanCursor++;
-            int oscillatingIndex = index % 2 == 0 ? index / 2 : size - (index / 2) - 1;
+            int oscillatingIndex = oscillatingFanIndex(index);
             int incidentArcId = fan.get(oscillatingIndex);
             EmbeddedArc incidentArc = tmesh.arcs.get(incidentArcId);
             if (!incidentArc.alive) {
@@ -303,56 +287,37 @@ public final class ZeroArcCollapseOperator {
             lastDraggedArcId = incidentArcId;
             lastDraggedPreviousPath.clear();
             lastDraggedPreviousPath.addAll(incidentArc.path.copyVertexPath);
-            boolean lastLiveArc = deferredArcIds.isEmpty();
-            for (int probe = fanCursor; probe < size && lastLiveArc; probe++) {
-                int probeOscillating = probe % 2 == 0 ? probe / 2 : size - (probe / 2) - 1;
-                lastLiveArc = !tmesh.arcs.get(fan.get(probeOscillating)).alive;
+            boolean lastLiveArc = true;
+            for (int later = fanCursor; later < size && lastLiveArc; later++) {
+                lastLiveArc = !tmesh.arcs.get(fan.get(oscillatingFanIndex(later))).alive;
             }
-            boolean isLoop = incidentArc.isLoop() && incidentArc.startNodeId == movedNodeId;
-            if (!dragArcEndOntoVertex(incidentArcId, movedVertex, targetVertex, rerouter,
-                    channel, lastLiveArc, !lastLiveArc)) {
-                deferredArcIds.add(incidentArcId);
-                continue;
+            // The zero arc keeps the arrivals from the fan's two ends apart until the last
+            // drag, which may then use the edges it frees.
+            if (lastLiveArc) {
+                tmesh.setPath(collapsingArcId, List.of(targetVertex));
             }
-            if (isLoop) {
-                dragArcEndOntoVertex(incidentArcId, movedVertex, targetVertex, rerouter,
-                        channel, lastLiveArc, false);
-            }
-            return true;
-        }
-        while (!deferredArcIds.isEmpty()) {
-            boolean allowDefer = deferredAttemptsSinceProgress < deferredArcIds.size();
-            int deferredArcId = deferredArcIds.remove(0);
-            EmbeddedArc deferredArc = tmesh.arcs.get(deferredArcId);
-            if (!deferredArc.alive) {
-                continue;
-            }
-            lastDraggedArcId = deferredArcId;
-            lastDraggedPreviousPath.clear();
-            lastDraggedPreviousPath.addAll(deferredArc.path.copyVertexPath);
-            boolean lastLiveArc = deferredArcIds.isEmpty();
-            boolean isLoop = deferredArc.isLoop() && deferredArc.startNodeId == movedNodeId;
-            if (!dragArcEndOntoVertex(deferredArcId, movedVertex, targetVertex, rerouter,
-                    channel, lastLiveArc, allowDefer)) {
-                deferredArcIds.add(deferredArcId);
-                deferredAttemptsSinceProgress++;
-                continue;
-            }
-            if (isLoop) {
-                dragArcEndOntoVertex(deferredArcId, movedVertex, targetVertex, rerouter,
-                        channel, lastLiveArc, false);
-            }
-            deferredAttemptsSinceProgress = 0;
+            dragPathEnd(incidentArcId, fanMovesPathStart[oscillatingIndex], index % 2 == 0,
+                    movedVertex, targetVertex);
             return true;
         }
         return false;
     }
 
     /**
-     * Finishes the collapse once the fan is drained: embeds the arc onto the
-     * surviving vertex, merges the nodes, retires the arc and any point-embedded
-     * fan arc, and re-reads the touched covers. The T-mesh's
-     * {@code arcCollapseCount} is the caller's to bump.
+     * The fan entry the drag order takes at one step: the fan's two ends first,
+     * alternating, then inward.
+     *
+     * @param step position in the drag order
+     * @return index into {@link #fan}
+     */
+    private int oscillatingFanIndex(int step) {
+        return step % 2 == 0 ? step / 2 : fan.size() - (step / 2) - 1;
+    }
+
+    /**
+     * Finishes the collapse once the fan is drained: embeds the collapsing arc onto
+     * the surviving vertex, merges the nodes, retires the arc and any fan arc left
+     * on a point, and re-reads the covers this collapse moved.
      */
     public void finishCollapse() {
         tmesh.setPath(collapsingArcId, List.of(targetVertex));
@@ -368,17 +333,17 @@ public final class ZeroArcCollapseOperator {
             }
         }
         // The drags never relabel — mid-collapse cells are transient merges no label fits —
-        // so every cover a route moved is re-read here, once the arrangement is whole again.
-        for (int index = 0; index < dirtyPatchCount; index++) {
-            tmesh.relabelPatchCover(dirtyPatches[index]);
+        // so every cover this collapse moved is re-read here, once the arrangement is whole.
+        for (int index = 0; index < touchedPatchCount; index++) {
+            tmesh.relabelPatchCover(touchedPatches[index]);
         }
         collapsedCount++;
         collapsingArcId = ArcNetwork.NONE;
     }
 
     /**
-     * The in-flight collapse as geometry groups: the channel, the last drag's
-     * previous and new paths, and the moving and target vertices.
+     * The in-flight collapse as geometry groups: the collapsing arc, the last
+     * drag's previous and new paths, and the moving and target vertices.
      *
      * @return groups for the renderer; meaningful only between
      *         {@link #beginCollapse} and {@link #finishCollapse}
@@ -398,17 +363,314 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * Admits one flanking patch to the router's restriction, resolved through the
-     * cover aliases and skipped when retired.
+     * Re-embeds the end of one arc that sits on the moving node's vertex onto the
+     * node's new vertex; the path's end there is the one moved.
      *
-     * @param patchId flanking patch of the released arc, or
-     *                {@link ArcNetwork#NONE}
+     * @param arcId            arc whose end is being dragged
+     * @param movedCopyVertex  the moving node's old copy vertex, an endpoint of the
+     *                         arc's path
+     * @param targetCopyVertex the moving node's new copy vertex
+     * @throws IllegalStateException          when the arc's path does not end at the
+     *                                        moved vertex
+     * @throws ArrangementDiagnosticException when refinement still finds no edge
+     *                                        path
      */
-    private void admitAlivePatch(int patchId) {
-        int resolved = tmesh.topology.resolvePatch(patchId);
-        if (resolved != ArcNetwork.NONE && tmesh.patches.get(resolved).alive) {
-            rerouter.admitPatch(resolved);
+    public void dragArcEndOntoVertex(int arcId, int movedCopyVertex, int targetCopyVertex) {
+        List<Integer> path = tmesh.arcs.get(arcId).path.copyVertexPath;
+        dragPathEnd(arcId, path.get(path.size() - 1) != movedCopyVertex, true, movedCopyVertex,
+                targetCopyVertex);
+    }
+
+    /**
+     * Re-embeds one arc by Dijkstra from its fixed vertex, leaving through the
+     * corner it held there, to the node's new vertex beside the arc dragged before
+     * it. An arc closing into a loop routes from its middle vertex.
+     *
+     * <p>
+     * See also: LCBK19 Section 6.1, "Operator Implementation"
+     *
+     * @param arcId            arc whose end is being dragged
+     * @param movesPathStart   whether the dragged end is the path's start
+     * @param fromFront        whether the arc is dragged from the fan's front, so
+     *                         it arrives after {@link #frontArrivalSpoke} rather than
+     *                         before {@link #backArrivalSpoke}
+     * @param movedCopyVertex  the moving node's old copy vertex
+     * @param targetCopyVertex the moving node's new copy vertex
+     * @throws IllegalStateException          when that path end is not on the moved
+     *                                        vertex
+     * @throws ArrangementDiagnosticException when refinement still finds no edge
+     *                                        path
+     */
+    private void dragPathEnd(int arcId, boolean movesPathStart, boolean fromFront,
+            int movedCopyVertex, int targetCopyVertex) {
+        EmbeddedArc arc = tmesh.arcs.get(arcId);
+        List<Integer> oldPath = new ArrayList<>(arc.path.copyVertexPath);
+        if (oldPath.size() == 1) {
+            if (oldPath.get(0) != movedCopyVertex && oldPath.get(0) != targetCopyVertex) {
+                throw new IllegalStateException("arc " + arcId + " is embedded as the point "
+                        + oldPath.get(0) + ", which is neither the moving node's vertex "
+                        + movedCopyVertex + " nor its target " + targetCopyVertex
+                        + "; a point-embedded arc must sit on the node it belongs to");
+            }
+            tmesh.setPath(arcId, List.of(targetCopyVertex));
+            return;
         }
+        if (movesPathStart) {
+            Collections.reverse(oldPath);
+        }
+        if (oldPath.get(oldPath.size() - 1) != movedCopyVertex) {
+            throw new IllegalStateException("arc " + arcId + " path does not end at the moved"
+                    + " node's vertex " + movedCopyVertex);
+        }
+        // Both ends land on the surviving vertex, so the merge closes the arc into a loop
+        // (LCBK19 Appendix A.3); it may shrink to that point only when it then separates nothing.
+        int farVertex = oldPath.get(0);
+        if (farVertex == targetCopyVertex && pointEmbedsCleanly(arc)) {
+            tmesh.setPath(arcId, List.of(targetCopyVertex));
+            // Its spoke may have bounded the arrivals; the next held spoke outward takes over.
+            if (frontArrivalSpoke != ArcNetwork.NONE && !spokeHeld(frontArrivalSpoke)) {
+                frontArrivalSpoke = nextClaimedSpoke(frontArrivalSpoke, false);
+            }
+            if (backArrivalSpoke != ArcNetwork.NONE && !spokeHeld(backArrivalSpoke)) {
+                backArrivalSpoke = nextClaimedSpoke(backArrivalSpoke, true);
+            }
+            return;
+        }
+        tmesh.releaseClaims(arc.path);
+        boolean closesIntoLoop = farVertex == targetCopyVertex || farVertex == movedCopyVertex;
+        if (closesIntoLoop && oldPath.size() == 2) {
+            oldPath.add(1, tmesh.topology.splitEdgeAtMidpoint(
+                    tmesh.topology.copy.edgeBetween(farVertex, movedCopyVertex)));
+        }
+        int anchorIndex = closesIntoLoop ? oldPath.size() / 2 : 0;
+        int anchorVertex = oldPath.get(anchorIndex);
+        List<Integer> routedVertices = new ArrayList<>(oldPath.subList(0, anchorIndex + 1));
+        List<Integer> routedEdges = new ArrayList<>();
+        rerouter.rebuildLegEdges(routedVertices, routedEdges);
+        ArcEdgePath keptHalf = new ArcEdgePath(arcId, new ArrayList<>(routedVertices),
+                new ArrayList<>(routedEdges));
+        tmesh.topology.claimPath(arcId, keptHalf);
+        rerouter.openCorners();
+        int departureSpoke = outgoingHalfEdge(anchorVertex, oldPath.get(anchorIndex + 1));
+        admitFacesBetween(anchorVertex, nextClaimedSpoke(departureSpoke, false),
+                nextClaimedSpoke(departureSpoke, true), false);
+        if (collapsingArcId != ArcNetwork.NONE) {
+            int besideSpoke = fromFront ? frontArrivalSpoke : backArrivalSpoke;
+            int farSpoke = nextClaimedSpoke(besideSpoke, fromFront);
+            admitFacesBetween(targetCopyVertex, fromFront ? besideSpoke : farSpoke,
+                    fromFront ? farSpoke : besideSpoke, true);
+        }
+        // Once the zero arc lies on the point this is the last arc on the moving node, whose
+        // vertex is then an ordinary one the route may cross.
+        boolean movedVertexVacated = collapsingArcId == ArcNetwork.NONE
+                || tmesh.arcs.get(collapsingArcId).path.copyVertexPath.size() == 1;
+        boolean routed;
+        try {
+            routed = rerouter.tryRoute(arcId, routedVertices, anchorVertex, targetCopyVertex,
+                    rerouter.freshCorridor(), movedVertexVacated ? movedCopyVertex
+                            : EmbeddedMeshTopology.UNCLAIMED);
+        } finally {
+            rerouter.closeCorners();
+        }
+        if (!routed) {
+            tmesh.releaseClaims(keptHalf);
+            blockedDragCount++;
+            throw blockedDrag(arc, oldPath, anchorVertex, movedCopyVertex, targetCopyVertex);
+        }
+        rerouter.rebuildLegEdges(routedVertices, routedEdges);
+        int arrivedSpoke = outgoingHalfEdge(targetCopyVertex,
+                routedVertices.get(routedVertices.size() - 2));
+        if (fromFront) {
+            frontArrivalSpoke = arrivedSpoke;
+        } else {
+            backArrivalSpoke = arrivedSpoke;
+        }
+        if (movesPathStart) {
+            Collections.reverse(routedVertices);
+            Collections.reverse(routedEdges);
+        }
+        arc.path = new ArcEdgePath(arcId, routedVertices, routedEdges);
+        tmesh.topology.claimPath(arcId, arc.path);
+        rememberTouchedPatch(arc.leftPatchId);
+        rememberTouchedPatch(arc.rightPatchId);
+    }
+
+    /**
+     * Whether an arc holds a spoke.
+     *
+     * @param spokeHalfEdge half-edge of the spoke
+     * @return true when its edge is claimed
+     */
+    private boolean spokeHeld(int spokeHalfEdge) {
+        return tmesh.topology.ownerArcByCopyEdge[tmesh.topology.copy.halfEdgeEdge(spokeHalfEdge)]
+                != EmbeddedMeshTopology.UNCLAIMED;
+    }
+
+    /**
+     * The nearest spoke an arc holds, rotating around a vertex from one of its
+     * spokes; the start spoke itself when it is the only one held.
+     *
+     * @param spokeHalfEdge half-edge leaving the vertex to rotate from
+     * @param forward       whether to rotate the way the half-edge's own face lies
+     * @return the held spoke, or {@link ArcNetwork#NONE} when no arc holds one
+     */
+    private int nextClaimedSpoke(int spokeHalfEdge, boolean forward) {
+        if (spokeHalfEdge < 0) {
+            return ArcNetwork.NONE;
+        }
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        int spokeCount = copy.vertexEdgeCount(copy.halfEdgeVertex(spokeHalfEdge));
+        int halfEdge = spokeHalfEdge;
+        for (int walked = 0; walked < spokeCount; walked++) {
+            halfEdge = rotateSpoke(halfEdge, forward);
+            if (halfEdge < 0) {
+                return ArcNetwork.NONE;
+            }
+            if (tmesh.topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)]
+                    != EmbeddedMeshTopology.UNCLAIMED) {
+                return halfEdge;
+            }
+        }
+        return ArcNetwork.NONE;
+    }
+
+    /**
+     * Admits to one end of the next route the faces around a vertex from one spoke
+     * rotating forward to another, or every face around it when no spoke bounds
+     * them.
+     *
+     * @param vertex        vertex the route leaves or reaches
+     * @param firstHalfEdge spoke leaving the vertex that opens the corner, or
+     *                      {@link ArcNetwork#NONE}
+     * @param lastHalfEdge  spoke that closes it; the same spoke closes a full turn
+     * @param arrival       whether this is the route's target rather than its start
+     */
+    private void admitFacesBetween(int vertex, int firstHalfEdge, int lastHalfEdge,
+            boolean arrival) {
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        if (firstHalfEdge == ArcNetwork.NONE) {
+            for (int index = 0; index < copy.vertexFaceCount(vertex); index++) {
+                rerouter.admitCornerFace(copy.vertexFaceAt(vertex, index), arrival);
+            }
+            return;
+        }
+        int halfEdge = firstHalfEdge;
+        for (int walked = 0; walked < copy.vertexEdgeCount(vertex); walked++) {
+            if (copy.halfEdgeFace(halfEdge) >= 0) {
+                rerouter.admitCornerFace(copy.halfEdgeFace(halfEdge), arrival);
+            }
+            halfEdge = rotateSpoke(halfEdge, true);
+            if (halfEdge < 0 || halfEdge == lastHalfEdge) {
+                return;
+            }
+        }
+    }
+
+    /**
+     * The next spoke around the vertex a spoke leaves.
+     *
+     * @param spokeHalfEdge half-edge leaving the vertex
+     * @param forward       whether to rotate the way the half-edge's own face lies
+     * @return the neighbouring spoke's half-edge, or -1 at the mesh boundary
+     */
+    private int rotateSpoke(int spokeHalfEdge, boolean forward) {
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        int through = forward ? copy.halfEdgePrev(spokeHalfEdge) : spokeHalfEdge;
+        int twin = through < 0 ? -1 : copy.halfEdgeTwin(through);
+        if (twin < 0 || forward) {
+            return twin;
+        }
+        return copy.halfEdgeFace(twin) < 0 ? -1 : copy.halfEdgeNext(twin);
+    }
+
+    /**
+     * The half-edge of the copy running from one vertex to an adjacent one.
+     *
+     * @param fromVertex vertex the half-edge leaves
+     * @param toVertex   adjacent vertex it reaches
+     * @return the oriented half-edge
+     */
+    private int outgoingHalfEdge(int fromVertex, int toVertex) {
+        HalfEdgeMesh copy = tmesh.topology.copy;
+        int halfEdge = copy.edgeHalfEdge(copy.edgeBetween(fromVertex, toVertex));
+        return copy.halfEdgeVertex(halfEdge) == fromVertex ? halfEdge : copy.halfEdgeTwin(halfEdge);
+    }
+
+    /**
+     * The failure LCBK19 leaves open: no edge path between the two vertices even
+     * after refinement, reported with the region the search could reach and the two
+     * patches the arc separates.
+     *
+     * @param arc              arc that could not be re-embedded
+     * @param oldPath          its path before the drag, ending at the moved vertex
+     * @param anchorVertex     vertex the failed route left
+     * @param movedCopyVertex  the moving node's old copy vertex
+     * @param targetCopyVertex the moving node's new copy vertex
+     * @return the throwable failure, carrying the region as geometry groups
+     */
+    private ArrangementDiagnosticException blockedDrag(EmbeddedArc arc, List<Integer> oldPath,
+            int anchorVertex, int movedCopyVertex, int targetCopyVertex) {
+        Set<Integer> boundaryArcs = new HashSet<>();
+        boolean reachedTarget = floodFreeSpace(anchorVertex, targetCopyVertex, boundaryArcs);
+        int[] freeFaces = freeRegionFaces.toArray();
+        IntIdList arrivalFaces = new IntIdList(0);
+        int arrivalFacesReached = 0;
+        for (int faceId = 0; faceId < rerouter.arrivalStampByFace.length; faceId++) {
+            if (rerouter.arrivalStampByFace[faceId] == rerouter.cornerStamp) {
+                arrivalFaces.add(faceId);
+                arrivalFacesReached += freeRegionStampByCopyFace.length > faceId
+                        && freeRegionStampByCopyFace[faceId] == freeRegionStamp ? 1 : 0;
+            }
+        }
+        int leftPatchId = tmesh.topology.resolvePatch(arc.leftPatchId);
+        int rightPatchId = tmesh.topology.resolvePatch(arc.rightPatchId);
+        ArrangementDiagnostic diagnostic = new ArrangementDiagnostic();
+        diagnostic.addFaceGroup("free region", freeFaces);
+        diagnostic.addFaceGroup("arrival corner", arrivalFaces.toArray());
+        diagnostic.addFaceGroup("left cover", coverFaces(leftPatchId));
+        diagnostic.addFaceGroup("right cover", coverFaces(rightPatchId));
+        diagnostic.addPathGroup(GROUP_CHANNEL, List.copyOf(channel));
+        diagnostic.addPathGroup("released arc path", List.copyOf(oldPath));
+        diagnostic.addMarkerGroup(GROUP_MOVED_VERTEX, new int[] { movedCopyVertex });
+        diagnostic.addMarkerGroup(GROUP_TARGET_VERTEX, new int[] { targetCopyVertex });
+        return new ArrangementDiagnosticException("arc " + arc.arcId
+                + " could not be re-embedded from vertex " + anchorVertex + " onto vertex "
+                + targetCopyVertex + " inside patches " + leftPatchId + " and " + rightPatchId
+                + ", which it separates: no edge path between them survives refinement; moved"
+                + " vertex " + movedCopyVertex + " path " + oldPath + " collapsing arc "
+                + collapsingArcId + " " + channel + "\n free region from " + anchorVertex
+                + " reaches " + freeRegionFaces.size() + " faces, target reached " + reachedTarget
+                + ", bounded by arcs " + boundaryArcs + "; " + arrivalFacesReached + " of the "
+                + arrivalFaces.size() + " faces it may arrive through are in that region",
+                diagnostic);
+    }
+
+    /**
+     * Whether the merge may embed an arc on the surviving point: only when at most
+     * one of its flanks keeps boundary of its own, so the point separates nothing.
+     * {@link ArcNetwork#retirePointEmbeddedArc} asks the same question afterwards.
+     *
+     * @param arc arc being dragged, whose far node is already the surviving node
+     * @return true unless both of its flanks keep a side of their own
+     */
+    private boolean pointEmbedsCleanly(EmbeddedArc arc) {
+        int flanksKeepingExtent = 0;
+        for (int flankId : new int[] { arc.leftPatchId, arc.rightPatchId }) {
+            int patchId = tmesh.topology.resolvePatch(flankId);
+            if (patchId == ArcNetwork.NONE || !tmesh.patches.get(patchId).alive) {
+                continue;
+            }
+            boolean keepsExtent = false;
+            for (List<Integer> sideArcIds : tmesh.patches.get(patchId).sideArcIds) {
+                for (int sideArcId : sideArcIds) {
+                    EmbeddedArc sideArc = tmesh.arcs.get(sideArcId);
+                    keepsExtent |= sideArcId != arc.arcId && sideArcId != collapsingArcId
+                            && sideArc.alive && sideArc.path.copyVertexPath.size() > 1;
+                }
+            }
+            flanksKeepingExtent += keepsExtent ? 1 : 0;
+        }
+        return flanksKeepingExtent < 2;
     }
 
     /**
@@ -435,371 +697,19 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * Records a patch whose faces a routed drag moved, for the relabel that follows
-     * the collapse.
-     *
-     * @param patchId flanking patch of the rerouted arc, or {@link ArcNetwork#NONE}
-     */
-    private void rememberDirtyPatch(int patchId) {
-        if (patchId == ArcNetwork.NONE) {
-            return;
-        }
-        for (int index = 0; index < dirtyPatchCount; index++) {
-            if (dirtyPatches[index] == patchId) {
-                return;
-            }
-        }
-        if (dirtyPatchCount == dirtyPatches.length) {
-            dirtyPatches = Arrays.copyOf(dirtyPatches,
-                    Math.max(TOUCHED_PATCH_INITIAL_CAPACITY, dirtyPatchCount * 2));
-        }
-        dirtyPatches[dirtyPatchCount++] = patchId;
-    }
-
-    /**
-     * Re-routes an arc onto its moving node's new vertex, searching only the patches the
-     * in-flight collapse touches — its own two flanks when no collapse is in flight. That
-     * restriction is also what pins the arrival slot: an unadmitted sector crosses no claim.
-     *
-     * <p>
-     * See also: LCBK19 Section 6.1
-     *
-     * @param arcId                  arc whose end is being dragged
-     * @param movedVertex            the moving node's old copy vertex, an endpoint
-     *                               of the arc's path
-     * @param targetVertex           the moving node's new copy vertex
-     * @param rerouter               the claims-respecting router
-     * @param channel                the collapsing arc's path vertices, for
-     *                               diagnostics
-     * @param allowMovedVertexTransit whether the route may pass through the moved
-     *                               vertex; only the fan's last live drag may, or
-     *                               a re-claimed corner there pinches the
-     *                               transferred sliver off its patch
-     * @param deferBlocked           whether a pre-ban leaving no allowed wedge defers the
-     *                               drag — claims restored, false returned — instead of
-     *                               throwing; a later sibling's lane may supply the missing
-     *                               flank witness
-     * @return true when the arc reached its final state, false when the drag deferred
-     * @throws IllegalStateException          when the arc's path does not end at
-     *                                        the moved vertex
-     * @throws ArrangementDiagnosticException when no route exists inside the two
-     *                                        patches, or the route would fence in
-     *                                        the rest of the fan
-     */
-    public boolean dragArcEndOntoVertex(int arcId, int movedVertex, int targetVertex,
-            ArcRerouter rerouter, List<Integer> channel, boolean allowMovedVertexTransit,
-            boolean deferBlocked) {
-        EmbeddedArc arc = tmesh.arcs.get(arcId);
-        List<Integer> vertices = new ArrayList<>(arc.path.copyVertexPath);
-        if (vertices.size() == 1) {
-            if (vertices.get(0) == targetVertex) {
-                return true;
-            }
-            if (vertices.get(0) == movedVertex) {
-                tmesh.setPath(arcId, List.of(targetVertex));
-                return true;
-            }
-            throw new IllegalStateException("arc " + arcId + " is embedded as the point "
-                    + vertices.get(0) + ", which is neither the moving node's vertex "
-                    + movedVertex + " nor its target " + targetVertex
-                    + "; a point-embedded arc must sit on the node it belongs to");
-        }
-        boolean reversed = vertices.get(0) == movedVertex;
-        if (reversed) {
-            Collections.reverse(vertices);
-        }
-        if (vertices.get(vertices.size() - 1) != movedVertex) {
-            throw new IllegalStateException("arc " + arcId + " path does not end at the moved node's"
-                    + " vertex " + movedVertex);
-        }
-        // The far node is already the survivor: the collapse closes this arc into a loop
-        // embedded on a point — no search; finishCollapse retires it and merges its flanks.
-        if (vertices.get(0) == targetVertex) {
-            tmesh.setPath(arcId, List.of(targetVertex));
-            return true;
-        }
-        ArcEdgePath releasedPath = arc.path;
-        tmesh.releaseClaims(arc.path);
-        rerouter.beginPatchRestriction();
-        // Mid-collapse the labels are a pre-collapse snapshot — drags never relabel, because
-        // the transient merged cells fit no single label — so a drag must be admitted to the
-        // whole neighbourhood the collapse touches, not only its own two flanks.
-        if (collapsingArcId != ArcNetwork.NONE) {
-            for (int index = 0; index < touchedPatchCount; index++) {
-                admitAlivePatch(touchedPatches[index]);
-            }
-        } else {
-            admitAlivePatch(arc.leftPatchId);
-            admitAlivePatch(arc.rightPatchId);
-        }
-        bannedArrivalWedgeCount = 0;
-        bannedDepartureWedgeCount = 0;
-        int allowedArrivalWedges = banInconsistentWedges(arc, targetVertex, false);
-        int allowedDepartureWedges = banInconsistentWedges(arc, vertices.get(0), true);
-        if (deferBlocked && (allowedArrivalWedges == 0 || allowedDepartureWedges == 0)) {
-            rerouter.clearPatchRestriction();
-            tmesh.setPath(arcId, releasedPath.copyVertexPath);
-            return false;
-        }
-        // The pre-bans above read the channel lane as the exempt witness of the collapsing
-        // arc's flanks, so the channel is freed only now: the last drag searches the
-        // vacated corridor instead of splicing it.
-        if (allowMovedVertexTransit && collapsingArcId != ArcNetwork.NONE) {
-            tmesh.setPath(collapsingArcId, List.of(targetVertex));
-        }
-        boolean routed;
-        try {
-            routed = allowedArrivalWedges > 0 && allowedDepartureWedges > 0
-                    && routeDraggedTail(arcId, vertices, reversed, movedVertex, targetVertex,
-                            allowMovedVertexTransit);
-        } finally {
-            rerouter.clearPatchRestriction();
-        }
-        boolean departureConsistent = !routed
-                || departureWedgeConsistent(arcId, vertices.get(0));
-        if (routed && departureConsistent && fanStillReachesTarget(movedVertex, targetVertex)) {
-            rememberDirtyPatch(arc.leftPatchId);
-            rememberDirtyPatch(arc.rightPatchId);
-            return true;
-        }
-        List<Integer> discardedRoute = routed ? List.copyOf(arc.path.copyVertexPath) : List.of();
-        if (routed) {
-            tmesh.releaseClaims(arc.path);
-            arc.path = releasedPath;
-        }
-        blockedDragCount++;
-        Set<Integer> boundaryArcs = new HashSet<>();
-        boolean reachedTarget = floodFreeSpace(vertices.get(0), targetVertex, boundaryArcs);
-        int[] freeFaces = new int[freeRegionFaces.size()];
-        for (int index = 0; index < freeFaces.length; index++) {
-            freeFaces[index] = freeRegionFaces.get(index);
-        }
-        ArrangementDiagnostic diagnostic = new ArrangementDiagnostic();
-        diagnostic.addFaceGroup("free region", freeFaces);
-        diagnostic.addFaceGroup("left cover", coverFaces(arc.leftPatchId));
-        diagnostic.addFaceGroup("right cover", coverFaces(arc.rightPatchId));
-        diagnostic.addPathGroup(GROUP_CHANNEL, List.copyOf(channel));
-        diagnostic.addPathGroup("released arc path", releasedPath.copyVertexPath);
-        diagnostic.addMarkerGroup(GROUP_MOVED_VERTEX, new int[] { movedVertex });
-        diagnostic.addMarkerGroup(GROUP_TARGET_VERTEX, new int[] { targetVertex });
-        throw new ArrangementDiagnosticException("arc " + arcId
-                + " could not be re-routed onto vertex "
-                + targetVertex + " inside patches " + tmesh.topology.resolvePatch(arc.leftPatchId)
-                + " and " + tmesh.topology.resolvePatch(arc.rightPatchId) + ", which it separates,"
-                + " without fencing in the rest of the fan; moved vertex " + movedVertex + " path "
-                + vertices + " channel " + channel
-                + coverReport(vertices.get(0)) + coverReport(targetVertex)
-                + fanReport(vertices.get(0)) + fanReport(targetVertex)
-                + "\n free region from " + vertices.get(0) + " reaches " + freeRegionFaces.size()
-                + " faces, target reached " + reachedTarget
-                + ", bounded by arcs " + boundaryArcs
-                + "\n arrival wedges allowed " + allowedArrivalWedges + ", banned as"
-                + " flank-inconsistent " + bannedArrivalWedgeCount
-                + "; departure wedges allowed " + allowedDepartureWedges + ", banned "
-                + bannedDepartureWedgeCount
-                + (departureConsistent ? ""
-                        : "; the routed departure wedge contradicts the arc's flanks;"
-                                + " discarded route " + discardedRoute),
-                diagnostic);
-    }
-
-    /**
-     * Bans every ring wedge at one route endpoint whose bounding lanes' facing flanks
-     * contradict the dragged arc's, so a route cannot use a slot the arrangement cannot
-     * absorb. The collapsing arc's lane is exempt: later fan arrivals fill its side.
-     *
-     * @param arc           arc being dragged
-     * @param ringVertex    endpoint vertex whose ring is walked
-     * @param departureSide whether the wedges gate the route's departure rather than its
-     *                      arrival
-     * @return how many wedges stay allowed
-     */
-    private int banInconsistentWedges(EmbeddedArc arc, int ringVertex, boolean departureSide) {
-        HalfEdgeMesh copy = tmesh.topology.copy;
-        int spokeCount = copy.vertexEdgeCount(ringVertex);
-        int[] spokeHalfEdges = new int[spokeCount];
-        int[] spokeOwners = new int[spokeCount];
-        int[] gapFaces = new int[spokeCount];
-        int halfEdge = copy.edgeHalfEdge(copy.vertexEdgeAt(ringVertex, 0));
-        if (copy.halfEdgeVertex(halfEdge) != ringVertex) {
-            halfEdge = copy.halfEdgeTwin(halfEdge);
-        }
-        if (halfEdge < 0) {
-            return 1;
-        }
-        int start = halfEdge;
-        int walked = 0;
-        do {
-            spokeHalfEdges[walked] = halfEdge;
-            spokeOwners[walked] = tmesh.topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)];
-            gapFaces[walked] = copy.halfEdgeFace(halfEdge);
-            halfEdge = ringNextSpoke(halfEdge);
-            walked++;
-        } while (halfEdge != start && halfEdge >= 0 && walked < spokeCount);
-        if (halfEdge != start) {
-            return 1;
-        }
-        int claimedCount = 0;
-        for (int index = 0; index < walked; index++) {
-            claimedCount += spokeOwners[index] == EmbeddedMeshTopology.UNCLAIMED ? 0 : 1;
-        }
-        if (claimedCount == 0) {
-            return 1;
-        }
-        int arcLeft = tmesh.topology.resolvePatch(arc.leftPatchId);
-        int arcRight = tmesh.topology.resolvePatch(arc.rightPatchId);
-        int allowed = 0;
-        int wedgeStart = ArcNetwork.NONE;
-        for (int index = 0; index < walked; index++) {
-            if (spokeOwners[index] != EmbeddedMeshTopology.UNCLAIMED && wedgeStart == ArcNetwork.NONE) {
-                wedgeStart = index;
-            }
-        }
-        int boundA = wedgeStart;
-        for (int step = 0; step < walked; step++) {
-            int index = (wedgeStart + step + 1) % walked;
-            if (spokeOwners[index] == EmbeddedMeshTopology.UNCLAIMED) {
-                continue;
-            }
-            boolean exemptA = spokeOwners[boundA] == collapsingArcId;
-            boolean exemptB = spokeOwners[index] == collapsingArcId;
-            int facingA = facingFlank(spokeOwners[boundA], spokeHalfEdges[boundA], true);
-            int facingB = facingFlank(spokeOwners[index], spokeHalfEdges[index], false);
-            boolean consistent =
-                    (exemptA || facingA == arcLeft) && (exemptB || facingB == arcRight)
-                    || (exemptA || facingA == arcRight) && (exemptB || facingB == arcLeft);
-            if (consistent) {
-                allowed++;
-            } else {
-                if (departureSide) {
-                    bannedDepartureWedgeCount++;
-                } else {
-                    bannedArrivalWedgeCount++;
-                }
-                int gap = boundA;
-                do {
-                    if (departureSide) {
-                        rerouter.banDepartureFace(gapFaces[gap]);
-                    } else {
-                        rerouter.banApproachFace(gapFaces[gap]);
-                    }
-                    gap = (gap + 1) % walked;
-                } while (gap != index);
-            }
-            boundA = index;
-        }
-        return allowed;
-    }
-
-    /**
-     * The next outgoing spoke half-edge around a vertex, or negative at a surface border where
-     * the pinwheel does not close.
-     *
-     * @param outgoingHalfEdge spoke half-edge oriented out of the vertex
-     * @return the next outgoing spoke, or a negative id when the walk leaves the surface
-     */
-    private int ringNextSpoke(int outgoingHalfEdge) {
-        HalfEdgeMesh copy = tmesh.topology.copy;
-        int acrossCorner = copy.halfEdgeNext(outgoingHalfEdge);
-        if (acrossCorner < 0) {
-            return acrossCorner;
-        }
-        int intoVertex = copy.halfEdgeNext(acrossCorner);
-        if (intoVertex < 0) {
-            return intoVertex;
-        }
-        return copy.halfEdgeTwin(intoVertex);
-    }
-
-    /**
-     * The resolved patch a claimed ring lane shows to one side of its spoke.
-     *
-     * @param ownerArcId       arc claiming the spoke
-     * @param outgoingHalfEdge spoke half-edge oriented out of the ring vertex
-     * @param towardLeftFace   whether the asked side is the half-edge's left face
-     * @return the resolved facing patch
-     */
-    private int facingFlank(int ownerArcId, int outgoingHalfEdge, boolean towardLeftFace) {
-        EmbeddedArc lane = tmesh.arcs.get(ownerArcId);
-        List<Integer> path = lane.path.copyVertexPath;
-        int ringVertex = tmesh.topology.copy.halfEdgeVertex(outgoingHalfEdge);
-        int spokeFar = tmesh.topology.copy.halfEdgeEndVertex(outgoingHalfEdge);
-        boolean pathLeavesRing = path.get(0) == ringVertex && path.get(1) == spokeFar;
-        boolean askLeftOfPath = pathLeavesRing == towardLeftFace;
-        return tmesh.topology.resolvePatch(askLeftOfPath ? lane.leftPatchId : lane.rightPatchId);
-    }
-
-    /**
-     * Whether the routed arc's first hop sits between ring neighbors whose facing flanks agree
-     * with its own — the departure-side twin of the arrival pre-ban, checked after the fact.
-     *
-     * @param arcId       arc that was just routed and claimed
-     * @param fixedVertex the arc's unmoved endpoint vertex
-     * @return true when the departure wedge is flank-consistent or has no claimed neighbors
-     */
-    private boolean departureWedgeConsistent(int arcId, int fixedVertex) {
-        HalfEdgeMesh copy = tmesh.topology.copy;
-        int spokeCount = copy.vertexEdgeCount(fixedVertex);
-        int halfEdge = copy.edgeHalfEdge(copy.vertexEdgeAt(fixedVertex, 0));
-        if (copy.halfEdgeVertex(halfEdge) != fixedVertex) {
-            halfEdge = copy.halfEdgeTwin(halfEdge);
-        }
-        if (halfEdge < 0) {
-            return true;
-        }
-        int start = halfEdge;
-        int ownSpoke = EmbeddedMeshTopology.UNCLAIMED;
-        int walked = 0;
-        int[] spokeHalfEdges = new int[spokeCount];
-        int[] spokeOwners = new int[spokeCount];
-        do {
-            spokeHalfEdges[walked] = halfEdge;
-            spokeOwners[walked] = tmesh.topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)];
-            if (spokeOwners[walked] == arcId) {
-                ownSpoke = walked;
-            }
-            halfEdge = ringNextSpoke(halfEdge);
-            walked++;
-        } while (halfEdge != start && halfEdge >= 0 && walked < spokeCount);
-        if (halfEdge != start || ownSpoke == EmbeddedMeshTopology.UNCLAIMED) {
-            return true;
-        }
-        int after = ArcNetwork.NONE;
-        for (int step = 1; step < walked && after == ArcNetwork.NONE; step++) {
-            int index = (ownSpoke + step) % walked;
-            after = spokeOwners[index] == EmbeddedMeshTopology.UNCLAIMED ? ArcNetwork.NONE : index;
-        }
-        int before = ArcNetwork.NONE;
-        for (int step = 1; step < walked && before == ArcNetwork.NONE; step++) {
-            int index = (ownSpoke - step + walked) % walked;
-            before = spokeOwners[index] == EmbeddedMeshTopology.UNCLAIMED ? ArcNetwork.NONE : index;
-        }
-        boolean afterConsistent = after == ArcNetwork.NONE
-                || spokeOwners[after] == collapsingArcId
-                || facingFlank(spokeOwners[after], spokeHalfEdges[after], false)
-                        == facingFlank(arcId, spokeHalfEdges[ownSpoke], true);
-        boolean beforeConsistent = before == ArcNetwork.NONE
-                || spokeOwners[before] == collapsingArcId
-                || facingFlank(spokeOwners[before], spokeHalfEdges[before], true)
-                        == facingFlank(arcId, spokeHalfEdges[ownSpoke], false);
-        return afterConsistent && beforeConsistent;
-    }
-
-    /**
      * A flanking patch's cover flood as a plain face-id array for a diagnostic
      * group, or empty when the patch is retired or has nothing to flood from.
      *
-     * @param patchId flanking patch of the blocked arc, or
+     * @param patchId resolved flanking patch of the blocked arc, or
      *                {@link ArcNetwork#NONE}
      * @return the copy face ids its cover holds
      */
     private int[] coverFaces(int patchId) {
-        int resolved = tmesh.topology.resolvePatch(patchId);
-        if (resolved == ArcNetwork.NONE || !tmesh.patches.get(resolved).alive
-                || !tmesh.corridor.hasSeedableBoundary(resolved)) {
+        if (patchId == ArcNetwork.NONE || !tmesh.patches.get(patchId).alive
+                || !tmesh.corridor.hasSeedableBoundary(patchId)) {
             return new int[0];
         }
-        IntIdList faces = tmesh.corridor.patchFaces(resolved);
+        IntIdList faces = tmesh.corridor.patchFaces(patchId);
         int[] faceIds = new int[faces.size()];
         for (int index = 0; index < faceIds.length; index++) {
             faceIds[index] = faces.get(index);
@@ -808,138 +718,17 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * Whether the arcs still waiting on the moving node can follow it: each has to
-     * reach the surviving node through routable space. A node left carrying only
-     * the collapsing arc has no one to fence in.
-     *
-     * @param movedVertex  the moving node's copy vertex
-     * @param targetVertex the vertex it is being merged onto
-     * @return true when nothing is fenced in
-     */
-    private boolean fanStillReachesTarget(int movedVertex, int targetVertex) {
-        int movedNodeId = tmesh.topology.ownerNodeByCopyVertex[movedVertex];
-        if (movedVertex == targetVertex || movedNodeId == EmbeddedMeshTopology.UNCLAIMED
-                || tmesh.arcEndsByNode.get(movedNodeId).size() <= 1) {
-            return true;
-        }
-        return reachesThroughFreeSpace(movedVertex, targetVertex);
-    }
-
-    /**
-     * Re-routes the whole arc from its fixed node to the moving node's new vertex,
-     * claiming the route on success.
-     *
-     * @param arcId                  arc whose end is being dragged
-     * @param vertices               the arc's old path, normalized to end at the
-     *                               moved vertex
-     * @param reversed               whether the stored path was reversed for
-     *                               normalization
-     * @param movedVertex            the moving node's old copy vertex
-     * @param targetVertex           the moving node's new copy vertex
-     * @param allowMovedVertexTransit whether a second pass may route through the
-     *                               moved vertex, reserved for the fan's last drag
-     * @return whether the search routed and claimed the dragged path
-     */
-    private boolean routeDraggedTail(int arcId, List<Integer> vertices, boolean reversed,
-            int movedVertex, int targetVertex, boolean allowMovedVertexTransit) {
-        EmbeddedArc arc = tmesh.arcs.get(arcId);
-        int[] passThroughChoices = allowMovedVertexTransit
-                ? new int[] { EmbeddedMeshTopology.UNCLAIMED, movedVertex }
-                : new int[] { EmbeddedMeshTopology.UNCLAIMED };
-        for (int passThrough : passThroughChoices) {
-            rerouter.clearFailureMemory();
-            List<Integer> prefix = new ArrayList<>(vertices.subList(0, 1));
-            List<Integer> prefixEdges = new ArrayList<>();
-            if (!rerouter.tryLegEdges(prefix, prefixEdges)) {
-                continue;
-            }
-            ArcEdgePath prefixPath = new ArcEdgePath(arcId, prefix, prefixEdges);
-            tmesh.topology.claimPath(arcId, prefixPath);
-            List<Integer> attempt = new ArrayList<>(prefix);
-            ActiveIdSet corridor = rerouter.freshCorridor();
-            if (rerouter.tryRoute(arcId, attempt, vertices.get(0), targetVertex, corridor,
-                    passThrough)) {
-                List<Integer> edges = new ArrayList<>(prefixEdges);
-                rerouter.rebuildLegEdges(attempt, edges);
-                if (reversed) {
-                    Collections.reverse(attempt);
-                    Collections.reverse(edges);
-                }
-                arc.path = new ArcEdgePath(arcId, attempt, edges);
-                tmesh.topology.claimPath(arcId, arc.path);
-                return true;
-            }
-            tmesh.releaseClaims(prefixPath);
-        }
-        return false;
-    }
-
-    /**
-     * Neighborhood report of a blocked drag endpoint: every incident edge with the
-     * arc holding it and what stands at its far end, which is what decides whether
-     * a route can pass.
-     *
-     * @param vertexId blocked endpoint
-     * @return a multi-line diagnostic block
-     */
-    private String fanReport(int vertexId) {
-        EmbeddedMeshTopology topology = tmesh.topology;
-        StringBuilder detail = new StringBuilder("\n vertex ").append(vertexId)
-                .append(" ownerNode ").append(topology.ownerNodeByCopyVertex[vertexId])
-                .append(" ownerArc ").append(topology.ownerArcByCopyVertex[vertexId]);
-        for (int index = 0; index < topology.copy.vertexEdgeCount(vertexId); index++) {
-            int edgeId = topology.copy.vertexEdgeAt(vertexId, index);
-            int farVertex = topology.otherEndpoint(edgeId, vertexId);
-            detail.append("\n  edge ").append(edgeId)
-                    .append(" arc ").append(topology.ownerArcByCopyEdge[edgeId])
-                    .append(" -> vertex ").append(farVertex)
-                    .append(" (n").append(topology.ownerNodeByCopyVertex[farVertex])
-                    .append(",a").append(topology.ownerArcByCopyVertex[farVertex])
-                    .append(')');
-        }
-        return detail.toString();
-    }
-
-    /**
-     * The patches covering the faces around a blocked drag's endpoint, which is
-     * what the restriction reads to decide where the search may walk.
-     *
-     * @param vertexId endpoint to report
-     * @return a one-line diagnostic block
-     */
-    private String coverReport(int vertexId) {
-        EmbeddedMeshTopology topology = tmesh.topology;
-        Set<Integer> covers = new HashSet<>();
-        for (int index = 0; index < topology.copy.vertexFaceCount(vertexId); index++) {
-            covers.add(topology.resolvePatch(
-                    topology.patchLabelOf(topology.copy.vertexFaceAt(vertexId, index))));
-        }
-        return "\n cover around " + vertexId + ": patches " + covers;
-    }
-
-    /**
-     * Whether a route could still run between two vertices at all, ignoring how
-     * short or how split it would be.
-     *
-     * @param startVertex  vertex to leave from
-     * @param targetVertex vertex to reach
-     * @return true when routable space connects them
-     */
-    private boolean reachesThroughFreeSpace(int startVertex, int targetVertex) {
-        return floodFreeSpace(startVertex, targetVertex, null);
-    }
-
-    /**
      * Floods the faces a route could still reach into {@link #freeRegionFaces},
-     * crossing only edges no arc holds.
+     * crossing only edges no arc holds, which is the region the failed drag was
+     * confined to.
      *
-     * @param startVertex  vertex to flood from
-     * @param targetVertex vertex to look for
-     * @param boundaryArcs receives the arcs the flood stopped at, or null to stop at
-     *                     first target contact, leaving {@link #freeRegionFaces} partial
+     * @param startVertex      vertex to flood from
+     * @param targetCopyVertex vertex to look for
+     * @param boundaryArcs     receives the arcs the flood stopped at
      * @return whether the flood reached a face on the target
      */
-    private boolean floodFreeSpace(int startVertex, int targetVertex, Set<Integer> boundaryArcs) {
+    private boolean floodFreeSpace(int startVertex, int targetCopyVertex,
+            Set<Integer> boundaryArcs) {
         EmbeddedMeshTopology topology = tmesh.topology;
         HalfEdgeMesh copy = topology.copy;
         int faceIdBound = topology.sourceFaceByCopyFace.length;
@@ -949,15 +738,11 @@ public final class ZeroArcCollapseOperator {
         }
         freeRegionStamp++;
         freeRegionFaces.clear();
-        boolean stopAtTarget = boundaryArcs == null;
         for (int index = 0; index < copy.vertexFaceCount(startVertex); index++) {
             int faceId = copy.vertexFaceAt(startVertex, index);
             if (freeRegionStampByCopyFace[faceId] != freeRegionStamp) {
                 freeRegionStampByCopyFace[faceId] = freeRegionStamp;
                 freeRegionFaces.add(faceId);
-                if (stopAtTarget && faceTouchesVertex(faceId, targetVertex)) {
-                    return true;
-                }
             }
         }
         for (int cursor = 0; cursor < freeRegionFaces.size(); cursor++) {
@@ -965,28 +750,19 @@ public final class ZeroArcCollapseOperator {
             for (int corner = 0; corner < copy.faceHalfEdgeCount(faceId); corner++) {
                 int edgeId = copy.faceEdgeAt(faceId, corner);
                 if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
-                    if (boundaryArcs != null) {
-                        boundaryArcs.add(topology.ownerArcByCopyEdge[edgeId]);
-                    }
+                    boundaryArcs.add(topology.ownerArcByCopyEdge[edgeId]);
                     continue;
                 }
-                int halfEdge = copy.edgeHalfEdge(edgeId);
-                int neighbour = copy.halfEdgeFace(halfEdge) == faceId
-                        ? copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge))
-                        : copy.halfEdgeFace(halfEdge);
+                int neighbour = copy.faceAcrossEdge(faceId, edgeId);
                 if (neighbour >= 0 && freeRegionStampByCopyFace[neighbour] != freeRegionStamp) {
                     freeRegionStampByCopyFace[neighbour] = freeRegionStamp;
                     freeRegionFaces.add(neighbour);
-                    if (stopAtTarget && faceTouchesVertex(neighbour, targetVertex)) {
-                        return true;
-                    }
                 }
             }
         }
-        for (int index = 0; index < copy.vertexFaceCount(targetVertex); index++) {
-            int faceId = copy.vertexFaceAt(targetVertex, index);
-            if (faceId >= 0 && faceId < freeRegionStampByCopyFace.length
-                    && freeRegionStampByCopyFace[faceId] == freeRegionStamp) {
+        for (int index = 0; index < copy.vertexFaceCount(targetCopyVertex); index++) {
+            int faceId = copy.vertexFaceAt(targetCopyVertex, index);
+            if (faceId >= 0 && freeRegionStampByCopyFace[faceId] == freeRegionStamp) {
                 return true;
             }
         }
@@ -994,40 +770,19 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * Whether one face has a vertex, read off the copy's face adjacency.
-     *
-     * @param faceId   face to test
-     * @param vertexId vertex looked for
-     * @return true when the face touches the vertex
-     */
-    private boolean faceTouchesVertex(int faceId, int vertexId) {
-        HalfEdgeMesh copy = tmesh.topology.copy;
-        for (int index = 0; index < copy.faceVertexCount(faceId); index++) {
-            if (copy.faceVertexAt(faceId, index) == vertexId) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * The pivot's incident arcs in cyclic fan order, starting from the spoke
-     * adjacent to the collapsing arc's channel, so a dragged arc cannot fence in a
-     * later one.
-     *
-     * <p>
-     * Rotates the copy mesh's half-edges around the pivot rather than reading
-     * {@code arcEndsByNode}; arcs the rotation misses are appended.
+     * Fills {@link #fan} with the moving node's path ends in cyclic order, starting
+     * at the spoke beside the collapsing arc, read by rotating the copy's
+     * half-edges around the pivot; a loop there has two entries, and ends the
+     * rotation misses (arcs embedded on the point) are appended.
      *
      * @param pivotVertex     the collapsing node's copy vertex
-     * @param channelNeighbor the channel vertex adjacent to the pivot, whose spoke
-     *                        starts the fan
-     * @param collapsingArcId the arc being collapsed, excluded from the fan
-     * @param movedNodeId     the collapsing node id, for its full incident-arc set
-     * @return the incident arcs (excluding the collapsing arc) in fan order
+     * @param channelNeighbor the collapsing arc's vertex adjacent to the pivot,
+     *                        whose spoke starts the fan
+     * @param collapsingArc   the arc being collapsed, excluded from the fan
+     * @param movingNodeId    the collapsing node id, for its full incident-arc set
      */
-    private List<Integer> incidentArcsInFanOrder(int pivotVertex, int channelNeighbor,
-            int collapsingArcId, int movedNodeId) {
+    private void orderFan(int pivotVertex, int channelNeighbor, int collapsingArc,
+            int movingNodeId) {
         HalfEdgeMesh copy = tmesh.topology.copy;
         int rotationCap = copy.vertexEdgeCount(pivotVertex) + 2;
         int startHalfEdge = copy.vertexOutgoingHalfEdge(pivotVertex);
@@ -1039,27 +794,41 @@ public final class ZeroArcCollapseOperator {
             }
             probe = copy.halfEdgeTwin(copy.halfEdgePrev(probe));
         }
-        List<Integer> ordered = new ArrayList<>();
-        Set<Integer> seen = new HashSet<>();
+        fan.clear();
+        List<Boolean> movesStart = new ArrayList<>();
+        Set<Integer> seenEnds = new HashSet<>();
         int halfEdge = startHalfEdge;
         for (int step = 0; step < rotationCap && halfEdge >= 0; step++) {
             int owner = tmesh.topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)];
-            if (owner != EmbeddedMeshTopology.UNCLAIMED && owner != collapsingArcId
-                    && tmesh.arcs.get(owner).alive && seen.add(owner)) {
-                ordered.add(owner);
+            if (owner != EmbeddedMeshTopology.UNCLAIMED && owner != collapsingArc
+                    && tmesh.arcs.get(owner).alive) {
+                List<Integer> path = tmesh.arcs.get(owner).path.copyVertexPath;
+                boolean start = path.get(0) == pivotVertex
+                        && path.get(1) == copy.halfEdgeEndVertex(halfEdge);
+                if (seenEnds.add(2 * owner + (start ? 1 : 0))) {
+                    fan.add(owner);
+                    movesStart.add(start);
+                }
             }
             halfEdge = copy.halfEdgeTwin(copy.halfEdgePrev(halfEdge));
             if (halfEdge == startHalfEdge) {
                 break;
             }
         }
-        for (int incidentArcId : tmesh.arcEndsByNode.get(movedNodeId)) {
-            if (incidentArcId != collapsingArcId && tmesh.arcs.get(incidentArcId).alive
-                    && seen.add(incidentArcId)) {
-                ordered.add(incidentArcId);
+        for (int incidentArcId : tmesh.arcEndsByNode.get(movingNodeId)) {
+            EmbeddedArc incidentArc = tmesh.arcs.get(incidentArcId);
+            boolean start = incidentArc.path.copyVertexPath.get(0) == pivotVertex;
+            if (incidentArcId != collapsingArc && incidentArc.alive
+                    && !seenEnds.contains(2 * incidentArcId)
+                    && seenEnds.add(2 * incidentArcId + (start ? 1 : 0))) {
+                fan.add(incidentArcId);
+                movesStart.add(start);
             }
         }
-        return ordered;
+        fanMovesPathStart = new boolean[fan.size()];
+        for (int index = 0; index < fan.size(); index++) {
+            fanMovesPathStart[index] = movesStart.get(index);
+        }
     }
 
     /**

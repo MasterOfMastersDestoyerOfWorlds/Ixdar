@@ -13,24 +13,10 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * A re-route whose target shares a triangle with the source must still succeed
- * when the direct edge between them belongs to another arc and the third corner
- * is claimed too — the "boxed vertex" the blind fallback used to force through,
- * and the case that strands the fertility contraction once the fallback is
- * removed.
+ * A re-route between two corners of a shared triangle whose direct edge is foreign-owned and
+ * third corner claimed must succeed by splitting a free edge of that face.
  *
- * <p>
- * The source and target lie on the diagonal of one grid cell. That diagonal is
- * owned by a foreign arc, so the search may not walk it; both off-diagonal
- * corners are claimed, so the search may not stand on them. No free-vertex path
- * exists and no <em>both-endpoints-claimed</em> gate lies on the one shared
- * face, so the targeted gate refinement finds nothing to split. The re-router
- * must instead split one arc-free edge of that shared face — minting a midpoint
- * adjacent to both ends — to thread the hop. This is still a split on the
- * committed face, not a blind one.
- *
- * <p>
- * See also: LCBK19 Section 6.1
+ * <p>See also: LCBK19 Section 6.1
  */
 class BoxedVertexRerouteTest {
 
@@ -48,7 +34,7 @@ class BoxedVertexRerouteTest {
         int lowerRight = vertex(topology, 1, 0);
         int upperLeft = vertex(topology, 0, 1);
 
-        topology.ownerArcByCopyEdge[topology.edgeBetween(source, target)] = FOREIGN_ARC;
+        topology.ownerArcByCopyEdge[topology.copy.edgeBetween(source, target)] = FOREIGN_ARC;
         topology.ownerArcByCopyVertex[lowerRight] = FOREIGN_ARC;
         topology.ownerArcByCopyVertex[upperLeft] = FOREIGN_ARC;
 

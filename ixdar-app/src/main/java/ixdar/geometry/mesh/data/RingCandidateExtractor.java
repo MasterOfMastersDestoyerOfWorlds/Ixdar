@@ -706,9 +706,7 @@ public final class RingCandidateExtractor {
     }
 
     private int neighborVertex(int vertexId, int spoke) {
-        int halfEdge = mesh.edgeHalfEdge(mesh.vertexEdgeAt(vertexId, spoke));
-        int start = mesh.halfEdgeVertex(halfEdge);
-        int otherId = start == vertexId ? mesh.halfEdgeEndVertex(halfEdge) : start;
+        int otherId = mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, spoke), vertexId);
         return otherId < 0 ? -1 : vertexIndexByVertexId[otherId];
     }
 

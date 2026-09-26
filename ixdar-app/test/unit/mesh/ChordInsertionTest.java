@@ -42,6 +42,8 @@ class ChordInsertionTest {
     /** Slack allowed when child areas are summed back to the source face's. */
     private static final double AREA_TOLERANCE = 1.0e-12;
 
+    private static final String FACE_COUNT_CHANGED = "the chord changed the face count";
+
     /**
      * Two vertices an edge already joins need no work: the chord is that edge, and the
      * mesh is left exactly as it was.
@@ -49,7 +51,7 @@ class ChordInsertionTest {
     @Test
     void alreadyAdjacentVerticesAreLeftAlone() {
         EmbeddedMeshTopology topology = triangle();
-        int lane = topology.splitEdgeAtParameter(edgeBetweenCorners(topology, 0, 1), 0.5);
+        int lane = topology.splitEdgeAtMidpoint(edgeBetweenCorners(topology, 0, 1));
         int opposite = topology.copyVertexForSourceVertexId(
             topology.sourceMesh.faceVertexAt(topology.sourceMesh.faceIdAt(SOURCE_FACE), 2));
         int vertices = topology.copy.vertexCount();
@@ -74,15 +76,15 @@ class ChordInsertionTest {
         int to = crossLaneVertex(topology);
         int vertices = topology.copy.vertexCount();
         int faces = topology.copy.faceCount();
-        assertEquals(EmbeddedMeshTopology.UNCLAIMED, topology.edgeBetween(from, to),
+        assertEquals(EmbeddedMeshTopology.UNCLAIMED, topology.copy.edgeBetween(from, to),
             "the fixture already joins the endpoints, so no strip is crossed");
 
         topology.insertChord(SOURCE_FACE, from, to, ARC);
 
-        assertNotEquals(EmbeddedMeshTopology.UNCLAIMED, topology.edgeBetween(from, to),
+        assertNotEquals(EmbeddedMeshTopology.UNCLAIMED, topology.copy.edgeBetween(from, to),
             "the chord left no edge between its endpoints");
         assertEquals(vertices, topology.copy.vertexCount(), "the chord minted a vertex");
-        assertEquals(faces, topology.copy.faceCount(), "the chord changed the face count");
+        assertEquals(faces, topology.copy.faceCount(), FACE_COUNT_CHANGED);
     }
 
     /**
@@ -112,7 +114,7 @@ class ChordInsertionTest {
 
         topology.insertChord(SOURCE_FACE, corner, laneVertex(topology), ARC);
 
-        assertEquals(faces, topology.copy.faceCount(), "the chord changed the face count");
+        assertEquals(faces, topology.copy.faceCount(), FACE_COUNT_CHANGED);
         assertEquals(1.0, coveredArea(topology), AREA_TOLERANCE,
             "a triangle past the interior node is inverted or missing");
     }
@@ -164,15 +166,15 @@ class ChordInsertionTest {
         EmbeddedMeshTopology topology = triangle();
         int apex = topology.copyVertexForSourceVertexId(
             topology.sourceMesh.faceVertexAt(topology.sourceMesh.faceIdAt(SOURCE_FACE), 0));
-        int midpoint = topology.splitEdgeAtParameter(edgeBetweenCorners(topology, 1, 2), 0.5);
-        int between = topology.splitEdgeAtParameter(topology.edgeBetween(apex, midpoint), 0.5);
+        int midpoint = topology.splitEdgeAtMidpoint(edgeBetweenCorners(topology, 1, 2));
+        int between = topology.splitEdgeAtMidpoint(topology.copy.edgeBetween(apex, midpoint));
         int faces = topology.copy.faceCount();
 
         List<Integer> chain = topology.insertChord(SOURCE_FACE, apex, midpoint, ARC);
 
         assertEquals(List.of(apex, between, midpoint), chain,
             "the chord did not stop at the vertex it runs exactly through");
-        assertEquals(faces, topology.copy.faceCount(), "the chord changed the face count");
+        assertEquals(faces, topology.copy.faceCount(), FACE_COUNT_CHANGED);
     }
 
     /**
@@ -250,11 +252,11 @@ class ChordInsertionTest {
     private EmbeddedMeshTopology laneFixture() {
         EmbeddedMeshTopology topology = triangle();
         int near = topology.splitEdgeAtParameter(edgeBetweenCorners(topology, 0, 1), 1.0 / CORNERS);
-        int far = topology.splitEdgeAtParameter(topology.edgeBetween(near,
+        int far = topology.splitEdgeAtMidpoint(topology.copy.edgeBetween(near,
             topology.copyVertexForSourceVertexId(topology.sourceMesh.faceVertexAt(
-                topology.sourceMesh.faceIdAt(SOURCE_FACE), 1))), 0.5);
+                topology.sourceMesh.faceIdAt(SOURCE_FACE), 1))));
         assertNotEquals(EmbeddedMeshTopology.UNCLAIMED, far, "the second lane was not minted");
-        topology.splitEdgeAtParameter(edgeBetweenCorners(topology, 1, 2), 0.5);
+        topology.splitEdgeAtMidpoint(edgeBetweenCorners(topology, 1, 2));
         return topology;
     }
 
@@ -282,7 +284,7 @@ class ChordInsertionTest {
      */
     private int edgeBetweenCorners(EmbeddedMeshTopology topology, int first, int second) {
         int sourceFaceId = topology.sourceMesh.faceIdAt(SOURCE_FACE);
-        return topology.edgeBetween(
+        return topology.copy.edgeBetween(
             topology.copyVertexForSourceVertexId(
                 topology.sourceMesh.faceVertexAt(sourceFaceId, first)),
             topology.copyVertexForSourceVertexId(

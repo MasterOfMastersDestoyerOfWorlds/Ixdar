@@ -16,28 +16,10 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * A re-route whose only passage is a long run of gates must still be found.
- * This is the wall that stops the sphere and fertility contractions: two arcs
- * running adjacent leave a channel between them whose every rung is an
- * unclaimed edge with <em>both</em> endpoints claimed, so the vertex search can
- * stand on neither end and must be let through by refinement.
+ * A re-route whose only passage is a channel of gates longer than any fixed split allowance,
+ * each rung having both endpoints claimed, must still be found by refinement.
  *
- * <p>
- * LCBK19 §6.1 says such a blockage is <em>"easily resolved by refinement with a
- * few edge splits"</em>, and the number of splits it needs is not a matter of
- * judgement: the face flood that finds the passage also names every edge on it,
- * and the ones needing a split are exactly those with both endpoints claimed.
- * Splitting them in passage order is enough, because consecutive crossed edges
- * share a face and the retriangulation joins each new midpoint to the previous
- * one.
- *
- * <p>
- * The channel below is deliberately longer than any fixed split allowance. That
- * is the whole point: a re-route must succeed because the passage is open, not
- * because the passage happened to be short enough. A capped refinement gives up
- * here with the passage still visibly threadable, which is what the sphere's
- * {@code bothClaimed=189} and fertility's {@code bothClaimed=107} diagnostics
- * were reporting.
+ * <p>See also: LCBK19 Section 6.1
  */
 class ArcGateRunRefinementTest {
 
@@ -64,10 +46,10 @@ class ArcGateRunRefinementTest {
             topology.ownerArcByCopyVertex[vertex(topology, column, UPPER_ROW)] = UPPER_ARC;
         }
         for (int column = 0; column < COLUMNS - 1; column++) {
-            topology.ownerArcByCopyEdge[topology.edgeBetween(
+            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(
                     vertex(topology, column, LOWER_ROW),
                     vertex(topology, column + 1, LOWER_ROW))] = LOWER_ARC;
-            topology.ownerArcByCopyEdge[topology.edgeBetween(
+            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(
                     vertex(topology, column, UPPER_ROW),
                     vertex(topology, column + 1, UPPER_ROW))] = UPPER_ARC;
         }
@@ -90,7 +72,7 @@ class ArcGateRunRefinementTest {
         assertFalse(routed.isEmpty(), "a reached route has vertices");
         for (int index = 1; index < routed.size(); index++) {
             assertNotEquals(EmbeddedMeshTopology.UNCLAIMED,
-                    topology.edgeBetween(routed.get(index - 1), routed.get(index)),
+                    topology.copy.edgeBetween(routed.get(index - 1), routed.get(index)),
                     "consecutive routed vertices must share a copy edge");
         }
     }
@@ -112,7 +94,7 @@ class ArcGateRunRefinementTest {
                 if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
-                int other = topology.otherEndpoint(edgeId, lower);
+                int other = topology.copy.edgeOtherVertex(edgeId, lower);
                 if (topology.ownerArcByCopyVertex[other] == UPPER_ARC) {
                     gates++;
                 }

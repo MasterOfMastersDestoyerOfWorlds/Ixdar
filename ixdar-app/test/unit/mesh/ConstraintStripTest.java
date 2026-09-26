@@ -115,7 +115,7 @@ class ConstraintStripTest {
     void noConstraintFaceHoldsAVertexInside() {
         EmbeddedMeshTopology topology = triangle();
         topology.splitFaceAtBarycentric(SOURCE_FACE, centroid());
-        topology.splitEdgeAtParameter(topology.edgeBetween(0, 1), 0.5);
+        topology.splitEdgeAtMidpoint(topology.copy.edgeBetween(0, 1));
 
         for (int face : topology.copyFacesBySourceFace.get(SOURCE_FACE)) {
             for (int vertexId = 0; vertexId < topology.copy.vertexCount(); vertexId++) {

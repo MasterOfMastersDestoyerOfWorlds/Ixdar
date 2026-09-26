@@ -364,10 +364,7 @@ public final class NetworkContraction implements MeshNode {
                 lastContractProgressNanos = now;
                 Platforms.log(
                         "[contract] collapses=%d exactSigns=%d splits=%d worstRoute=%d"
-                                + " V=%d F=%d | routes=%d gates=%d gateExpand=%d(virtual=%d)"
-                                + " freeSettle=%d(failed=%d) refinedSettle=%d"
-                                + " freeRoutes=%d freeFails=%d blocked=%d"
-                                + " relabels=%d(faces=%d %.2fs)\n",
+                                + " V=%d F=%d | routes=%d blocked=%d relabels=%d(faces=%d %.2fs)\n",
                         arcCollapseCount,
                         ExactBarycentricOrient.exactSignCallCount,
                         collapseArc.rerouter.refinedEdgeSplitCount
@@ -378,20 +375,6 @@ public final class NetworkContraction implements MeshNode {
                         network.topology.copy.faceCount(),
                         collapseArc.rerouter.routeAttemptCount
                                 + splitPatch.rerouter.routeAttemptCount,
-                        collapseArc.rerouter.gatePassCount + splitPatch.rerouter.gatePassCount,
-                        collapseArc.rerouter.gateExpansionCount
-                                + splitPatch.rerouter.gateExpansionCount,
-                        collapseArc.rerouter.gateVirtualExpansionCount
-                                + splitPatch.rerouter.gateVirtualExpansionCount,
-                        collapseArc.rerouter.freeSettleCount + splitPatch.rerouter.freeSettleCount,
-                        collapseArc.rerouter.freeSettleOnFailureCount
-                                + splitPatch.rerouter.freeSettleOnFailureCount,
-                        collapseArc.rerouter.refinedSettleCount
-                                + splitPatch.rerouter.refinedSettleCount,
-                        collapseArc.rerouter.freePassRouteCount
-                                + splitPatch.rerouter.freePassRouteCount,
-                        collapseArc.rerouter.freePassFailureCount
-                                + splitPatch.rerouter.freePassFailureCount,
                         collapseArc.blockedDragCount,
                         network.relabelCallCount, network.relabelFacesFlooded,
                         network.relabelNanos / NANOS_PER_SECOND);

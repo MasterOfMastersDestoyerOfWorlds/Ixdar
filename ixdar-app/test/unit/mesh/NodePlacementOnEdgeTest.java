@@ -60,13 +60,13 @@ class NodePlacementOnEdgeTest {
         int placed = new FaceChordWalk(topology).placeVertex(SOURCE_FACE, midpoint);
 
         assertEquals(EmbeddedMeshTopology.UNCLAIMED,
-            topology.edgeBetween(firstSplit, secondSplit),
+            topology.copy.edgeBetween(firstSplit, secondSplit),
             "the edge survived the placement, so a later split of it mints the node again");
         assertNotEquals(EmbeddedMeshTopology.UNCLAIMED,
-            topology.edgeBetween(firstSplit, placed),
+            topology.copy.edgeBetween(firstSplit, placed),
             "the node is not joined to the edge's first end");
         assertNotEquals(EmbeddedMeshTopology.UNCLAIMED,
-            topology.edgeBetween(placed, secondSplit),
+            topology.copy.edgeBetween(placed, secondSplit),
             "the node is not joined to the edge's second end");
     }
 
@@ -85,9 +85,9 @@ class NodePlacementOnEdgeTest {
         int placed = new FaceChordWalk(topology).placeVertex(SOURCE_FACE,
             interpolatedMidpoint(topology, firstSplit, secondSplit));
 
-        int whole = topology.edgeBetween(firstSplit, secondSplit);
-        topology.splitEdgeAtParameter(whole == EmbeddedMeshTopology.UNCLAIMED
-            ? topology.edgeBetween(firstSplit, placed) : whole, 0.5);
+        int whole = topology.copy.edgeBetween(firstSplit, secondSplit);
+        topology.splitEdgeAtMidpoint(whole == EmbeddedMeshTopology.UNCLAIMED
+            ? topology.copy.edgeBetween(firstSplit, placed) : whole);
 
         for (int first = 0; first < topology.copy.vertexCount(); first++) {
             for (int second = first + 1; second < topology.copy.vertexCount(); second++) {

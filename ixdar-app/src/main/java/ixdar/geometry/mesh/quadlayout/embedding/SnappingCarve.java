@@ -368,7 +368,7 @@ public final class SnappingCarve {
                     topology.sourceMesh.halfEdgeVertex(halfEdge));
             int copyB = topology.copyVertexForSourceVertexId(
                     topology.sourceMesh.halfEdgeEndVertex(halfEdge));
-            int copyEdge = topology.edgeBetween(copyA, copyB);
+            int copyEdge = topology.copy.edgeBetween(copyA, copyB);
             if (copyEdge != EmbeddedMeshTopology.UNCLAIMED) {
                 topology.sourceEdgeByCopyEdge[copyEdge] = activeEdge;
             }
@@ -578,7 +578,7 @@ public final class SnappingCarve {
         List<Integer> lanes = new ArrayList<>(count);
         double placed = 0.0;
         for (int lane = 1; lane <= count; lane++) {
-            int fragment = topology.edgeBetween(head, toVertex);
+            int fragment = topology.copy.edgeBetween(head, toVertex);
             if (fragment == EmbeddedMeshTopology.UNCLAIMED) {
                 throw new IllegalStateException("the constraint edge from copy vertex "
                         + fromVertex + " to " + toVertex + " was already broken, so its lanes"
@@ -641,7 +641,7 @@ public final class SnappingCarve {
      * @param arcId      arc the passage belongs to
      */
     private void appendChord(List<Integer> path, int sourceFace, int from, int to, int arcId) {
-        if (topology.edgeBetween(from, to) == EmbeddedMeshTopology.UNCLAIMED) {
+        if (topology.copy.edgeBetween(from, to) == EmbeddedMeshTopology.UNCLAIMED) {
             chordsInsertedCount++;
         } else {
             chordsAlreadyPresentCount++;
@@ -663,7 +663,7 @@ public final class SnappingCarve {
     private ArcEdgePath recordPath(int arcId, List<Integer> vertices) {
         List<Integer> edges = new ArrayList<>(vertices.size() - 1);
         for (int step = 1; step < vertices.size(); step++) {
-            int edgeId = topology.edgeBetween(vertices.get(step - 1), vertices.get(step));
+            int edgeId = topology.copy.edgeBetween(vertices.get(step - 1), vertices.get(step));
             if (edgeId == EmbeddedMeshTopology.UNCLAIMED) {
                 throw new IllegalStateException("arc " + arcId + " hop " + step
                         + " has no copy edge behind it, so its chord was never laid");
@@ -782,7 +782,7 @@ public final class SnappingCarve {
     private int splitChildEdge(int childFace, int localEdge, double[][] corner, double[] at) {
         int from = topology.copy.faceVertexAt(childFace, localEdge);
         int to = topology.copy.faceVertexAt(childFace, (localEdge + 1) % CORNERS);
-        int copyEdge = topology.edgeBetween(from, to);
+        int copyEdge = topology.copy.edgeBetween(from, to);
         double span = 0.0;
         double along = 0.0;
         for (int index = 0; index < CORNERS; index++) {

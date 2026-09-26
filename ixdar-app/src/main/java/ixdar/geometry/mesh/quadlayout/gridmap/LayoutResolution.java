@@ -261,13 +261,12 @@ public final class LayoutResolution {
     private int sharedSourceFace(int fromVertex, int toVertex) {
         EmbeddedMeshTopology topology = tmesh.topology;
         HalfEdgeMesh copy = topology.copy;
-        int copyEdge = topology.edgeBetween(fromVertex, toVertex);
+        int copyEdge = copy.edgeBetween(fromVertex, toVertex);
         if (copyEdge == EmbeddedMeshTopology.UNCLAIMED) {
             return EmbeddedMeshTopology.UNCLAIMED;
         }
-        int halfEdge = copy.edgeHalfEdge(copyEdge);
         for (int side = 0; side < 2; side++) {
-            int copyFace = copy.halfEdgeFace(side == 0 ? halfEdge : copy.halfEdgeTwin(halfEdge));
+            int copyFace = copy.edgeFace(copyEdge, side);
             if (copyFace == EmbeddedMeshTopology.UNCLAIMED) {
                 continue;
             }

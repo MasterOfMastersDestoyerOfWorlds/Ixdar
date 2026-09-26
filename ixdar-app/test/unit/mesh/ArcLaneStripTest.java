@@ -48,7 +48,7 @@ class ArcLaneStripTest {
     void aLaneOnASharedEdgeIsReadableFromBothFaces() {
         EmbeddedMeshTopology topology = strip();
 
-        int lane = topology.splitEdgeAtParameter(sharedEdge(topology), 0.5);
+        int lane = topology.splitEdgeAtMidpoint(sharedEdge(topology));
 
         assertNotNull(topology.barycentricOf(NEAR_FACE, lane),
             "the lane has no barycentric in the face on one side of its edge");
@@ -65,7 +65,7 @@ class ArcLaneStripTest {
         EmbeddedMeshTopology topology = strip();
         int vertices = topology.copy.vertexCount();
 
-        int lane = topology.splitEdgeAtParameter(sharedEdge(topology), 0.5);
+        int lane = topology.splitEdgeAtMidpoint(sharedEdge(topology));
 
         assertEquals(vertices + 1, topology.copy.vertexCount(),
             "the shared edge minted more than the one vertex both faces need");
@@ -82,7 +82,7 @@ class ArcLaneStripTest {
     @Test
     void chordsFromEitherSideEndAtTheSameLane() {
         EmbeddedMeshTopology topology = strip();
-        int lane = topology.splitEdgeAtParameter(sharedEdge(topology), 0.5);
+        int lane = topology.splitEdgeAtMidpoint(sharedEdge(topology));
         int intoFace = topology.copyVertexForSourceVertexId(
             topology.sourceMesh.faceVertexAt(topology.sourceMesh.faceIdAt(NEAR_FACE), 0));
         int outOfFace = topology.copyVertexForSourceVertexId(
@@ -94,9 +94,9 @@ class ArcLaneStripTest {
         assertEquals(lane, arriving.get(arriving.size() - 1),
             "the passage into the face does not end at the lane");
         assertEquals(lane, leaving.get(0), "the passage out of the face does not start there");
-        assertNotEquals(EmbeddedMeshTopology.UNCLAIMED, topology.edgeBetween(intoFace, lane),
+        assertNotEquals(EmbeddedMeshTopology.UNCLAIMED, topology.copy.edgeBetween(intoFace, lane),
             "the arriving chord left no edge behind it");
-        assertNotEquals(EmbeddedMeshTopology.UNCLAIMED, topology.edgeBetween(lane, outOfFace),
+        assertNotEquals(EmbeddedMeshTopology.UNCLAIMED, topology.copy.edgeBetween(lane, outOfFace),
             "the leaving chord left no edge behind it");
     }
 
@@ -127,7 +127,7 @@ class ArcLaneStripTest {
      * @return that copy edge's id
      */
     private int sharedEdge(EmbeddedMeshTopology topology) {
-        return topology.edgeBetween(
+        return topology.copy.edgeBetween(
             topology.copyVertexForSourceVertexId(topology.sourceMesh.vertexIdAt(1)),
             topology.copyVertexForSourceVertexId(topology.sourceMesh.vertexIdAt(COLUMNS)));
     }

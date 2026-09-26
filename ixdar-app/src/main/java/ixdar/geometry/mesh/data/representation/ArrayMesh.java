@@ -545,6 +545,28 @@ public final class ArrayMesh implements MeshTopology {
 
     /** {@inheritDoc}. */
     @Override
+    public float edgeLength(int edgeId) {
+        int halfEdge = edgeHalfEdge[edgeId];
+        int tail = halfEdgeVertex(halfEdge) * FLOATS_PER_VERTEX;
+        int head = halfEdgeEndVertex(halfEdge) * FLOATS_PER_VERTEX;
+        float dx = positions[head] - positions[tail];
+        float dy = positions[head + 1] - positions[tail + 1];
+        float dz = positions[head + 2] - positions[tail + 2];
+        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public Vector3f edgeMidpoint(int edgeId, Vector3f dest) {
+        int halfEdge = edgeHalfEdge[edgeId];
+        int tail = halfEdgeVertex(halfEdge) * FLOATS_PER_VERTEX;
+        int head = halfEdgeEndVertex(halfEdge) * FLOATS_PER_VERTEX;
+        return dest.set(positions[tail] + positions[head], positions[tail + 1] + positions[head + 1],
+                positions[tail + 2] + positions[head + 2]).mul(0.5f);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
     public int faceHalfEdge(int faceId) {
         return faceId * vertsPerFace;
     }

@@ -48,9 +48,6 @@ public class ArcNetwork {
      */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
-    /** Split position for a midpoint edge split. */
-    private static final double EDGE_MIDPOINT = 0.5;
-
     /** First allocation of {@link #changedPatches}. */
     private static final int CHANGED_PATCH_INITIAL_CAPACITY = 16;
 
@@ -546,7 +543,7 @@ public class ArcNetwork {
                 boolean forward = arc.startNodeId == sideNodes.get(index);
                 int from = forward ? path.get(0) : path.get(path.size() - 1);
                 int to = forward ? path.get(1) : path.get(path.size() - 2);
-                int halfEdge = topology.copy.edgeHalfEdge(topology.edgeBetween(from, to));
+                int halfEdge = topology.copy.edgeHalfEdge(topology.copy.edgeBetween(from, to));
                 if (topology.copy.halfEdgeVertex(halfEdge) != from) {
                     halfEdge = topology.copy.halfEdgeTwin(halfEdge);
                 }
@@ -584,10 +581,7 @@ public class ArcNetwork {
                 if (owner != EmbeddedMeshTopology.UNCLAIMED && !ownArcs.contains(owner)) {
                     return false;
                 }
-                int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-                int neighbour = topology.copy.halfEdgeFace(halfEdge) == faceId
-                        ? topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge))
-                        : topology.copy.halfEdgeFace(halfEdge);
+                int neighbour = topology.copy.faceAcrossEdge(faceId, edgeId);
                 if (neighbour != EmbeddedMeshTopology.UNCLAIMED && visited.add(neighbour)) {
                     frontier.add(neighbour);
                 }
@@ -937,10 +931,9 @@ public class ArcNetwork {
             int pointVertex = arc.path.copyVertexPath.get(0);
             for (int spoke = 0; spoke < topology.copy.vertexEdgeCount(pointVertex)
                     && enclosingPatchId == NONE; spoke++) {
-                int halfEdge = topology.copy.edgeHalfEdge(
-                        topology.copy.vertexEdgeAt(pointVertex, spoke));
-                for (int faceId : new int[] { topology.copy.halfEdgeFace(halfEdge),
-                        topology.copy.halfEdgeFace(topology.copy.halfEdgeTwin(halfEdge)) }) {
+                int spokeEdge = topology.copy.vertexEdgeAt(pointVertex, spoke);
+                for (int faceId : new int[] { topology.copy.edgeFace(spokeEdge, 0),
+                        topology.copy.edgeFace(spokeEdge, 1) }) {
                     int labelId = faceId < 0 ? NONE
                             : topology.resolvePatch(topology.patchLabelOf(faceId));
                     if (labelId >= 0 && labelId < patches.size() && !owners.contains(labelId)
@@ -1222,11 +1215,10 @@ public class ArcNetwork {
                 int arcOffset = forward ? offsetIntoArc : arc.quantizedLength - offsetIntoArc;
                 List<Integer> path = arc.path.copyVertexPath;
                 if (path.size() == 2) {
-                    int minted = topology.splitEdgeAtParameter(arc.path.copyEdgePath.get(0),
-                            EDGE_MIDPOINT);
+                    int minted = topology.splitEdgeAtMidpoint(arc.path.copyEdgePath.get(0));
                     path.add(1, minted);
-                    arc.path.copyEdgePath.set(0, topology.edgeBetween(path.get(0), minted));
-                    arc.path.copyEdgePath.add(1, topology.edgeBetween(minted, path.get(2)));
+                    arc.path.copyEdgePath.set(0, topology.copy.edgeBetween(path.get(0), minted));
+                    arc.path.copyEdgePath.add(1, topology.copy.edgeBetween(minted, path.get(2)));
                 }
                 int pathVertexIndex = interiorPathVertexAtFraction(arc,
                         (double) arcOffset / arc.quantizedLength);
@@ -1431,7 +1423,7 @@ public class ArcNetwork {
                 if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
-                int neighbor = topology.otherEndpoint(edgeId, vertex);
+                int neighbor = topology.copy.edgeOtherVertex(edgeId, vertex);
                 if (topology.ownerArcByCopyVertex[neighbor] == EmbeddedMeshTopology.UNCLAIMED
                         && topology.ownerNodeByCopyVertex[neighbor] == EmbeddedMeshTopology.UNCLAIMED
                         && seen.add(neighbor)) {
@@ -1595,7 +1587,7 @@ public class ArcNetwork {
      * @return the edge between them
      */
     private int requireEdge(int arcId, int fromVertex, int toVertex) {
-        int edgeId = topology.edgeBetween(fromVertex, toVertex);
+        int edgeId = topology.copy.edgeBetween(fromVertex, toVertex);
         if (edgeId == EmbeddedMeshTopology.UNCLAIMED) {
             throw new IllegalStateException("arc " + arcId + " path steps from " + fromVertex
                     + " to " + toVertex + " with no edge between them");
@@ -1777,7 +1769,7 @@ public class ArcNetwork {
      * @return the half-edge from the hop's start vertex to its end vertex
      */
     private int orientedHopHalfEdge(EmbeddedArc arc, int hop) {
-        int halfEdge = topology.copy.edgeHalfEdge(topology.edgeBetween(
+        int halfEdge = topology.copy.edgeHalfEdge(topology.copy.edgeBetween(
                 arc.path.copyVertexPath.get(hop), arc.path.copyVertexPath.get(hop + 1)));
         if (topology.copy.halfEdgeVertex(halfEdge) != arc.path.copyVertexPath.get(hop)) {
             halfEdge = topology.copy.halfEdgeTwin(halfEdge);

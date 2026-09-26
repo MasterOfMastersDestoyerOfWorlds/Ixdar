@@ -9,36 +9,15 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * Minimal reproduction of the zero-arc-collapse pivot wall on a hand-built 5×3
- * grid — no cross field, no quantization, no carve. A vertical line of arcs
- * through the centre vertex n0 (up to the top edge, down to the bottom edge)
- * fully separates the grid's left half from its right half, because a
- * horizontal crossing would have to pass through one of the centre column's
- * three vertices, all of which are claimed as nodes.
- *
- * <pre>
- *   row 0   .    .    top   .    .
- *   row 1   .    m -- n0 -- n1   .
- *   row 2   .    .   bottom .    .
- *         col 0  1    2     3    4
- * </pre>
- *
- * <p>
- * The zero arc a = n0→n1 is collapsed: n0 is dragged onto n1, pulling incident
- * arc b = m→n0 with it, so b must re-embed from m to n1. m is in the left
- * region and n1 in the right, and the two regions touch only at the pivot n0.
- * The collapse first frees the channel (arc a's edges), then the re-route
- * follows the arc to its new home by transiting the pivot: b becomes m→n0→n1.
- * This is what "pulling its incident arcs with it" means — the arc follows the
- * collapsing node through where the zero arc was, rather than searching for a
- * way to n1 that never passes the pivot (which the wall makes impossible).
+ * The pivot wall on a hand-built 5×3 grid: arcs through the centre vertex n0
+ * leave b = m→n0 no way to n1 but the pivot itself, so b becomes m→n0→n1 —
+ * LCBK19's "pulling its incident arcs with it".
  */
 class PivotRerouteTest {
 
@@ -66,22 +45,19 @@ class PivotRerouteTest {
         tmesh.addArc(ArcNetwork.NONE, pivotNode, bottomNode, 1, false,
                 List.of(vertex(topology, 2, 1), vertex(topology, 2, 2)));
 
-        ArcRerouter rerouter = new ArcRerouter(topology);
         int pivotVertex = vertex(topology, 2, 1);
         int survivorVertex = vertex(topology, 3, 1);
-        List<Integer> channel = List.copyOf(tmesh.arcs.get(arcA).path.copyVertexPath);
 
         tmesh.setPath(arcA, List.of(survivorVertex));
         ZeroArcCollapseOperator collapseOperator = new NetworkContraction(tmesh).collapseArc;
-        collapseOperator.dragArcEndOntoVertex(arcB, pivotVertex, survivorVertex, rerouter,
-                channel, true, false);
+        collapseOperator.dragArcEndOntoVertex(arcB, pivotVertex, survivorVertex);
 
         List<Integer> path = tmesh.arcs.get(arcB).path.copyVertexPath;
         assertEquals(vertex(topology, 1, 1), path.get(0), "b still starts at m");
         assertEquals(survivorVertex, path.get(path.size() - 1), "b now ends at the survivor");
         for (int index = 1; index < path.size(); index++) {
             assertNotEquals(EmbeddedMeshTopology.UNCLAIMED,
-                    topology.edgeBetween(path.get(index - 1), path.get(index)),
+                    topology.copy.edgeBetween(path.get(index - 1), path.get(index)),
                     "consecutive path vertices must share a copy edge");
         }
     }

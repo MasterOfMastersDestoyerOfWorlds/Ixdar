@@ -3,8 +3,6 @@ package ixdar.geometry.mesh.data.paths;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.joml.Vector3f;
-
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
@@ -73,14 +71,9 @@ public final class GeodesicSeedPath {
             maxEdgeId = Math.max(maxEdgeId, mesh.edgeIdAt(index));
         }
         double[] cost = new double[maxEdgeId + 1];
-        Vector3f tailPosition = new Vector3f();
-        Vector3f headPosition = new Vector3f();
         for (int index = 0; index < mesh.edgeCount(); index++) {
             int edgeId = mesh.edgeIdAt(index);
-            int halfEdge = mesh.edgeHalfEdge(edgeId);
-            mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), tailPosition);
-            mesh.vertexPosition(mesh.halfEdgeEndVertex(halfEdge), headPosition);
-            cost[edgeId] = tailPosition.distance(headPosition);
+            cost[edgeId] = mesh.edgeLength(edgeId);
         }
         return cost;
     }

@@ -599,13 +599,12 @@ public final class QuadMeshExtraction {
      */
     private void edgePorts(int quadVertex) {
         int edgeId = anchorEntityId[quadVertex];
-        int halfEdge = copy.edgeHalfEdge(edgeId);
         double[] apex = new double[IntegerGridMap.GRID_COORDINATES];
         double[] transition = new double[TRANSITION_ENTRIES];
         double[] cornerU = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] cornerV = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         for (int side = 0; side < 2; side++) {
-            int faceId = copy.halfEdgeFace(side == 0 ? halfEdge : copy.halfEdgeTwin(halfEdge));
+            int faceId = copy.edgeFace(edgeId, side);
             if (faceId < 0) {
                 continue;
             }

@@ -103,7 +103,7 @@ class SnappingLaneOrderTest {
         List<Integer> lanes = new ArrayList<>();
         double placed = 0.0;
         for (int lane = 1; lane <= LANES; lane++) {
-            int fragment = topology.edgeBetween(head, tail);
+            int fragment = topology.copy.edgeBetween(head, tail);
             double target = lane / (LANES + 1.0);
             double local = (target - placed) / (1.0 - placed);
             int canonicalStart = topology.copy.halfEdgeVertex(

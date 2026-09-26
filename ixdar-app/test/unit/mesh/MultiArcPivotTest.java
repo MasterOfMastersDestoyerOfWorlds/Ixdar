@@ -8,35 +8,15 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
-import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * The real multi-arc pivot bottleneck, isolated on a hand-built 9×3 grid — the
- * case the sphere and fertility contractions stall on. Two arcs b1 and b2 are
- * incident to the collapsing node n0, and the channel from n0 to n1 runs
- * through an interior node mid, in a strip walled one triangle wide (nodes
- * above and below mid):
- *
- * <pre>
- *   row 0   .    .   wall  wall  wall  .    .    .    .
- *   row 1   .   m1 -- n0 -- mid -- n1   .    .    .    .
- *   row 2   .  m2(diag)  wall  wall  .    .    .    .    .
- *   col 0    1    2    3    4    5    6    7    8
- * </pre>
- *
- * <p>
- * Collapsing the zero arc a = n0→mid→n1 drags both b1 and b2 onto n1. The
- * first, b1, follows the pivot through the freed channel, taking n0→mid→n1 and
- * claiming mid. The second, b2, then finds n0's direct way into the channel —
- * the edge n0→mid — consumed and the strip one triangle wide, yet the two-phase
- * drag (pivot transit) plus the edge-split refinement still opens a lane, so b2
- * routes too. Even this one-wide-channel competition is handled; both arcs
- * reach the survivor. It is a regression guard that the pivot re-route survives
- * a consumed narrow channel.
+ * Two arcs dragged onto one survivor down a channel one triangle wide: the
+ * first takes the channel, and the second still routes, because the pivot
+ * transit and the edge splits open it a lane of its own.
  */
 class MultiArcPivotTest {
 
@@ -65,17 +45,13 @@ class MultiArcPivotTest {
         int arcA = tmesh.addArc(ArcNetwork.NONE, pivot, survivor, 0, false,
                 List.of(vertex(topology, 3, 1), vertex(topology, 4, 1), vertex(topology, 5, 1)));
 
-        ArcRerouter rerouter = new ArcRerouter(topology);
         int pivotVertex = vertex(topology, 3, 1);
         int survivorVertex = vertex(topology, 5, 1);
-        List<Integer> channel = List.copyOf(tmesh.arcs.get(arcA).path.copyVertexPath);
         tmesh.setPath(arcA, List.of(survivorVertex));
 
         ZeroArcCollapseOperator collapseOperator = new NetworkContraction(tmesh).collapseArc;
-        collapseOperator.dragArcEndOntoVertex(arcB1, pivotVertex, survivorVertex, rerouter,
-                channel, true, false);
-        collapseOperator.dragArcEndOntoVertex(arcB2, pivotVertex, survivorVertex, rerouter,
-                channel, true, false);
+        collapseOperator.dragArcEndOntoVertex(arcB1, pivotVertex, survivorVertex);
+        collapseOperator.dragArcEndOntoVertex(arcB2, pivotVertex, survivorVertex);
 
         assertEquals(survivorVertex, lastVertexOf(tmesh, arcB1), "b1 reaches the survivor");
         assertEquals(survivorVertex, lastVertexOf(tmesh, arcB2), "b2 also reaches the survivor");

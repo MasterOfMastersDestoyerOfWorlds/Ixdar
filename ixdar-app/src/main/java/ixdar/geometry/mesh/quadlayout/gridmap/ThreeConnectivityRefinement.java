@@ -16,9 +16,6 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
  */
 public final class ThreeConnectivityRefinement {
 
-    /** Split position of a subdivided chord; MPZ14 subdivides, and the midpoint is the neutral choice. */
-    private static final double EDGE_MIDPOINT = 0.5;
-
     public final ArcNetwork tmesh;
 
     /** Chords subdivided by {@link #refine}. */
@@ -51,7 +48,7 @@ public final class ThreeConnectivityRefinement {
                     || topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                 continue;
             }
-            topology.splitEdgeAtParameter(edgeId, EDGE_MIDPOINT);
+            topology.splitEdgeAtMidpoint(edgeId);
             subdividedChordCount++;
         }
         List<Integer> remaining = chordEdges();

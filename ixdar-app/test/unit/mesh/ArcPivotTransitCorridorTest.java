@@ -14,39 +14,10 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
- * Reproduces the sphere's arc-376 stall: the re-route refinement aims at a
- * corridor from the arc's body straight to the survivor, but no such corridor
- * exists — the passage runs <em>through</em> the collapsing node.
+ * A re-route whose passage runs through the collapsing node, a cut vertex on a sealing wall,
+ * must transit that pivot and refine the gated far leg.
  *
- * <p>
- * The collapsing node is a cut vertex. Claimed arc edges radiating from it
- * divide its fan into sectors that meet only at the vertex itself and never
- * across an edge, so a face walk cannot get from one sector to another. The
- * arc's body lies in one sector and the survivor in another. The sphere's
- * failure diagnostic shows exactly this shape, and it looks like a violation of
- * transitivity until the cut vertex is accounted for:
- *
- * <pre>
- *   body  -&gt; pivot  : faceCorridor=15,  bothClaimed=0     (already walkable)
- *   pivot -&gt; target : faceCorridor=150, bothClaimed=116   (needs refinement)
- *   body  -&gt; target : none                                (sealed)
- * </pre>
- *
- * <p>
- * A <em>vertex</em> path may still pass through the node, because the arc being
- * dragged is incident to it — that is what {@code passThrough} permits, and it
- * is LCBK19's <em>"pulling its incident arcs with it"</em>. So the passage is
- * two legs, body→pivot then pivot→target, and the blocking gates all live on
- * the second leg. Asking for a single body→target corridor finds nothing, so
- * the targeted refinement does nothing and the search falls back to splitting
- * arbitrary edges, which cannot open the gates.
- *
- * <p>
- * The fixture below builds that shape in the small: a sealing wall of claimed
- * edges that no face walk may cross, with the pivot sitting on it so its fan
- * spans both sides, and a second gated wall between the pivot and the target
- * whose crossings have both endpoints claimed and so need refinement. Routing
- * start→target while allowed to transit the pivot must succeed.
+ * <p>See also: LCBK19 Section 6.1
  */
 class ArcPivotTransitCorridorTest {
 
@@ -68,10 +39,10 @@ class ArcPivotTransitCorridorTest {
             topology.ownerArcByCopyVertex[vertex(topology, GATE_COLUMN, row)] = CLAIM_MARKER;
         }
         for (int row = 0; row < ROWS - 1; row++) {
-            topology.ownerArcByCopyEdge[topology.edgeBetween(vertex(topology, SEAL_COLUMN, row),
+            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(vertex(topology, SEAL_COLUMN, row),
                     vertex(topology, SEAL_COLUMN, row + 1))] = CLAIM_MARKER;
             if (row != GAP_ROW) {
-                topology.ownerArcByCopyEdge[topology.edgeBetween(vertex(topology, GATE_COLUMN, row),
+                topology.ownerArcByCopyEdge[topology.copy.edgeBetween(vertex(topology, GATE_COLUMN, row),
                         vertex(topology, GATE_COLUMN, row + 1))] = CLAIM_MARKER;
             }
         }
@@ -94,12 +65,8 @@ class ArcPivotTransitCorridorTest {
     }
 
     /**
-     * Both legs of a pivot transit must route. The search over unclaimed vertices
-     * is unconfined (the corridor gates only where refinement splits edges, per
-     * LCBK19 §6.1), so the near body-to-pivot leg — which needs no splits — must
-     * still be walked after the far pivot-to-target leg is refined. This reproduces
-     * the sphere's arc 429, where the near leg is fully free yet the drag must
-     * reach it.
+     * Both legs of a pivot transit route: the free near leg is still walked after the far
+     * leg is refined.
      */
     @Test
     void reRouteAdmitsThePassageItRefinedIntoTheCorridor() {
@@ -111,10 +78,10 @@ class ArcPivotTransitCorridorTest {
             topology.ownerArcByCopyVertex[vertex(topology, GATE_COLUMN, row)] = CLAIM_MARKER;
         }
         for (int row = 0; row < ROWS - 1; row++) {
-            topology.ownerArcByCopyEdge[topology.edgeBetween(vertex(topology, SEAL_COLUMN, row),
+            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(vertex(topology, SEAL_COLUMN, row),
                     vertex(topology, SEAL_COLUMN, row + 1))] = CLAIM_MARKER;
             if (row != GAP_ROW) {
-                topology.ownerArcByCopyEdge[topology.edgeBetween(vertex(topology, GATE_COLUMN, row),
+                topology.ownerArcByCopyEdge[topology.copy.edgeBetween(vertex(topology, GATE_COLUMN, row),
                         vertex(topology, GATE_COLUMN, row + 1))] = CLAIM_MARKER;
             }
         }
