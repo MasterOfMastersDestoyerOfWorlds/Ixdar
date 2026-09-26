@@ -10,8 +10,10 @@ from pathlib import Path
 import json
 
 try:
+    from .automation_client import DEFAULT_REQUEST_TIMEOUT
     from .cli_registry import CliCommandResult
 except ImportError:
+    from automation_client import DEFAULT_REQUEST_TIMEOUT
     from cli_registry import CliCommandResult
 
 
@@ -83,6 +85,10 @@ def _add_param_argument(parser, param: dict) -> None:
         help_text = f"{help_text} (e.g. {example})".strip()
     param_type = param.get("type", "string")
 
+    if param.get("positional", False):
+        parser.add_argument(dest, type=_PARAM_PY_TYPE.get(param_type, str), help=help_text)
+        return
+
     if param_type == "bool":
         default = str(param.get("default", "")).lower() == "true"
         parser.add_argument(
@@ -116,9 +122,13 @@ def dispatch_server_command(route: dict, args, client) -> CliCommandResult:
     :param route: the route dict resolved from the manifest
     :param args: parsed argparse namespace
     :param client: an ``AutomationClient``
-    :return: the server response wrapped in a ``CliCommandResult``
+    :return: the server response wrapped in a ``CliCommandResult``, exiting non-zero when the
+        response says ``"ok": false``
     """
+    timeout = DEFAULT_REQUEST_TIMEOUT + route.get("waitSeconds", 0)
     if route["method"] == "GET":
-        return CliCommandResult(payload=client.request_json(route["path"]))
-    body = {param["name"]: getattr(args, param["name"]) for param in route.get("params", [])}
-    return CliCommandResult(payload=client.request_json(route["path"], body))
+        payload = client.request_json(route["path"], timeout=timeout)
+    else:
+        body = {param["name"]: getattr(args, param["name"]) for param in route.get("params", [])}
+        payload = client.request_json(route["path"], body, timeout=timeout)
+    return CliCommandResult(payload=payload, exit_code=1 if payload.get("ok") is False else 0)

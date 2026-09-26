@@ -13,6 +13,7 @@ from ixdar_automation_cli import collection_manifest
 from ixdar_automation_cli import ixdar_cli
 from ixdar_automation_cli import mesh_catalog
 from ixdar_automation_cli import quilt_mesh_fingerprint
+from ixdar_automation_cli.cli_commands import gen_docs
 from ixdar_automation_cli.cli_commands import launch_entry
 from ixdar_automation_cli import png_image
 from ixdar_automation_cli import quilt_mesh_fingerprint
@@ -268,6 +269,20 @@ class SceneLifecycleTest(unittest.TestCase):
         self.assertEqual(1, len(model))
         self.assertTrue(model[0].endswith("fertility_in_tri.off"), model[0])
         self.assertIn("ixdar.automation.port=47906", captured[0])
+
+    def test_run_scene_keep_alive_names_the_model_switch_command(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(run_scene, "_ensure_build", return_value=[]), \
+                patch.object(run_scene, "_java_command", return_value=["java", "-version"]), \
+                patch.object(run_scene, "free_port", return_value=47907), \
+                patch.object(run_scene, "_mesh_summary", return_value={}), \
+                patch.object(subprocess, "Popen", return_value=FakeProcess()), \
+                patch.object(run_scene, "_await_scene", return_value={
+                    "ready": True, "exited": False, "matched": [], "crash": [], "waited": 1.0}):
+            result = run_scene.run(scene="quad-layout", keep_alive=True,
+                                   log=os.path.join(directory, "scene.log"))
+        self.assertTrue(result["ok"])
+        self.assertIn("ixdar-cli model <name>", result["next"])
 
     def test_relative_save_property_resolves_against_the_module_resources(self):
         resolved = mesh_catalog.resolve_scene_properties(["quadLayout.save=quadlayout/probe.qlay"])
@@ -851,6 +866,28 @@ class CliTest(unittest.TestCase):
         self.assertTrue(request.full_url.endswith("/input/terminal"))
         self.assertEqual({"line": "rings list", "settle": 2},
                          json.loads(request.data.decode("utf-8")))
+
+    @patch("urllib.request.urlopen")
+    def test_model_command_takes_the_name_positionally_and_waits_as_long_as_the_route(self, urlopen):
+        urlopen.return_value = FakeResponse(
+            {"ok": True, "outcome": "loaded", "model": "bolt", "seconds": 4.2})
+        self.assertEqual(0, ixdar_cli.main(["model", "bolt"]))
+        request = urlopen.call_args[0][0]
+        self.assertTrue(request.full_url.endswith("/scene/model"))
+        self.assertEqual({"name": "bolt"}, json.loads(request.data.decode("utf-8")))
+        # The route holds the request open for the whole recompute, so the client must outwait it.
+        route = ixdar_cli._server_commands()["model"]
+        self.assertGreater(urlopen.call_args.kwargs["timeout"], route["waitSeconds"])
+
+    @patch("urllib.request.urlopen")
+    def test_a_failed_server_command_exits_non_zero(self, urlopen):
+        urlopen.return_value = FakeResponse(
+            {"ok": False, "outcome": "failed", "error": "java.io.IOException: unreadable"})
+        self.assertEqual(1, ixdar_cli.main(["model", "does-not-exist"]))
+
+    def test_gen_docs_shows_a_positional_parameter_as_an_argument(self):
+        route = ixdar_cli._server_commands()["model"]
+        self.assertEqual(" <name>", gen_docs._flag_summary(route))
 
     @patch("urllib.request.urlopen")
     def test_click_and_hover_settle_by_default(self, urlopen):

@@ -3,15 +3,13 @@ package ixdar.gui.terminal.commands;
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
-import ixdar.scenes.model.ModelCatalog;
 import ixdar.scenes.model.ModelChoice;
 import ixdar.scenes.model.ModelScene;
 
 /**
  * Terminal command {@code model}/{@code ml}: switch the active {@link ModelScene} to the
- * model whose display name or path matches the argument, and recompute. Mirrors the
- * {@code ld} (load-ix) pattern, but drives an in-scene model swap instead of loading a file
- * into MainScene.
+ * model whose display name or path matches the argument, and recompute. Automation takes the
+ * same path through {@code ixdar-cli model}, which also waits for the outcome.
  */
 @CommandAnnotation(id = "ml")
 public class ModelCommand extends TerminalCommand {
@@ -88,12 +86,11 @@ public class ModelCommand extends TerminalCommand {
             return null;
         }
         String token = args[startIdx];
-        ModelChoice match = ModelCatalog.resolve(scene.availableModels(), token);
+        ModelChoice match = scene.requestModel(token);
         if (match == null) {
             terminal.error("no model matching: " + token);
             return null;
         }
-        scene.requestModelLoad(match.path);
         terminal.history.addLine("loading " + match.displayName, Color.COMMAND);
         return null;
     }

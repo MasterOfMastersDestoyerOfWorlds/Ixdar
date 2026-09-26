@@ -13,6 +13,9 @@ public final class RouteParameterDoc {
     public final String help;
     public final String example;
 
+    /** Whether the CLI takes this parameter as a bare argument rather than a flag. */
+    public final boolean positional;
+
     /**
      * Capture the documentation for a single request parameter.
      *
@@ -25,9 +28,11 @@ public final class RouteParameterDoc {
      * @param defaultValue rendered default when the key is omitted; empty string when {@code required}
      * @param help one-line human description of the parameter
      * @param example a representative value a caller might pass
+     * @param positional whether the CLI takes the value as a bare argument, {@code model bolt}
+     *        instead of {@code model --name bolt}
      */
     public RouteParameterDoc(String name, String cliName, RouteParamType type, boolean required,
-            String defaultValue, String help, String example) {
+            String defaultValue, String help, String example, boolean positional) {
         this.name = name;
         this.cliName = cliName;
         this.type = type;
@@ -35,5 +40,6 @@ public final class RouteParameterDoc {
         this.defaultValue = defaultValue;
         this.help = help;
         this.example = example;
+        this.positional = positional;
     }
 }

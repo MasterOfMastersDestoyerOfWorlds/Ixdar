@@ -113,6 +113,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli mesh-skeleton-compare-detailed --generated --reference [--resolution]` — Detailed skeleton comparison returning per-joint 3D position deltas.
 - `ixdar-cli mesh-skeleton-sensitivity --dsl --reference [--resolution] [--epsilon]` — Compute the Jacobian of skeleton joints w.r.t. DSL parameters.
 - `ixdar-cli mesh-topology [--path] [--duplicate-tolerance]` — Report mesh topology: element counts, shells with their Euler characteristic, boundary loops, non-manifold edges and duplicate-position vertices.
+- `ixdar-cli model <name>` — Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.
 - `ixdar-cli multiview [--out] [--inline]` — Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG.
 - `ixdar-cli orbit-get` — Report the active mesh viewer's current camera orbit and mesh radius.
 - `ixdar-cli orbit-set [--azimuth] [--elevation] [--distance] [--target]` — Set the active mesh viewer's camera orbit (azimuth, elevation, distance).

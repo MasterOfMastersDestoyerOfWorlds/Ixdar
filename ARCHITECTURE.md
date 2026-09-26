@@ -219,6 +219,7 @@ commas between test names, never `+`.
 - **ixdar.platform.automation.endpoints.mesh.skeleton**: Skeleton comparison against a reference mesh and sensitivity of the score to DSL parameter perturbation. Relative paths resolve against the working directory.
 - **ixdar.platform.automation.endpoints.record**: Recording routes: start/stop/status for capturing raw input events to a JSON file.
 - **ixdar.platform.automation.endpoints.replay**: Replay routes: play a recording back through the live handlers on a dedicated thread. Cancel takes effect at the next event boundary, not immediately.
+- **ixdar.platform.automation.endpoints.scene**: Scene-level control: `/scene/model` switches the active model scene's model and waits for the recompute to finish.
 - **ixdar.platform.automation.endpoints.ui**: View observation and posing: screenshots (single and multiview), orbit and projection get/set (paired classes sharing a path, differing by HTTP method), and the full UI state dump.
 - **ixdar.platform.concurrent**: The fan-out/join seam: `WorkerPool` with a threaded desktop implementation and an inline web one. `ThreadWorkerPool` is deliberately the only class in the codebase naming `java.util.concurrent` executors; a second reference elsewhere breaks the web build.
 - **ixdar.platform.file**: The `.ix` solution file format: `FileManagement` imports/exports point sets, TSP paths, distance matrices, and grids (comments preserved), delegating raw I/O to the `Platform`. Domain file- format code despite the package name. Asset repo resolves via `IXDAR_ASSET_REPO_ROOT`.

@@ -7,6 +7,7 @@ import urllib.request
 DEFAULT_BASE_URL = "http://127.0.0.1:47832"
 DEFAULT_RETRIES = 3
 DEFAULT_RETRY_DELAY = 1.0
+DEFAULT_REQUEST_TIMEOUT = 10.0
 
 PACKAGE_REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 PORT_FILE_RELATIVE = os.path.join("tmp", "automation.port")
@@ -149,7 +150,16 @@ class AutomationClient:
         self.retries = retries
         self.retry_delay = retry_delay
 
-    def request_json(self, path: str, body: dict | None = None) -> dict:
+    def request_json(self, path: str, body: dict | None = None,
+                     timeout: float = DEFAULT_REQUEST_TIMEOUT) -> dict:
+        """Send one request and decode its JSON answer, retrying on connection errors and timeouts.
+
+        :param path: Route path, e.g. ``/scene/model``.
+        :param body: JSON body; ``None`` sends a GET.
+        :param timeout: Seconds to wait for the answer; a route that holds the request open while
+            slow work finishes declares a longer one in the manifest.
+        :return: The decoded response.
+        """
         payload = None
         headers = {"Content-Type": "application/json"}
         if body is not None:
@@ -163,7 +173,7 @@ class AutomationClient:
                     headers=headers,
                     method="POST" if body is not None else "GET",
                 )
-                with urllib.request.urlopen(req, timeout=10) as response:
+                with urllib.request.urlopen(req, timeout=timeout) as response:
                     return json.loads(response.read().decode("utf-8"))
             except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
                 last_exc = exc

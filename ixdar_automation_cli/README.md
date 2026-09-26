@@ -42,6 +42,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`mesh-skeleton-compare-detailed`](#mesh-skeleton-compare-detailed) | Detailed skeleton comparison returning per-joint 3D position deltas. |
 | [`mesh-skeleton-sensitivity`](#mesh-skeleton-sensitivity) | Compute the Jacobian of skeleton joints w.r.t. DSL parameters. |
 | [`mesh-topology`](#mesh-topology) | Report mesh topology: element counts, shells with their Euler characteristic, boundary loops, non-manifold edges and duplicate-position vertices. |
+| [`model`](#model) | Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took. |
 | [`multiview`](#multiview) | Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG. |
 | [`orbit-get`](#orbit-get) | Report the active mesh viewer's current camera orbit and mesh radius. |
 | [`orbit-set`](#orbit-set) | Set the active mesh viewer's camera orbit (azimuth, elevation, distance). |
@@ -351,6 +352,18 @@ Report mesh topology: element counts, shells with their Euler characteristic, bo
   - `--duplicate-tolerance` (float, default `1.0E-6`) — Distance below which two vertices count as one position; 0 skips the scan., e.g. `1e-6`
 - **Response:** `{ok, source, vertex_count, edge_count, face_count, face_side_count, triangle_count, euler_characteristic, boundary_edge_count, non_manifold_edge_count, unoriented_edge_count, isolated_vertex_count, non_manifold_boundary_vertex_count, unwalked_boundary_edge_count, duplicate_position_vertex_count, distinct_position_count, shell_count, boundary_loop_count, shells:[{faces, vertices, edges, boundary_edges, boundary_loops, euler}, ...], text}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/topology -d '{"path": "/home/acw/crawfish/IMG_4109.glb", "duplicate_tolerance": 1e-6}'`
+
+### `model`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/scene/SwitchModel.java)
+
+Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.
+
+- **Route:** `POST /scene/model`
+- **Flags:**
+  - `<name>` (string, required) — Model display name, or part of the name or path of a listed model., e.g. `bolt`
+- **Response:** `{ok, outcome: loaded|failed, model, path, seconds, error}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/scene/model -d '{"name": "bolt"}'`
 
 ### `multiview`
 
@@ -675,7 +688,7 @@ Report duplicated code ranked by how much repetition factoring it out would remo
 
 ### `gen-docs`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/gen_docs.py#L265)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/gen_docs.py#L269)
 
 Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry.
 
@@ -832,7 +845,7 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L616)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L620)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 

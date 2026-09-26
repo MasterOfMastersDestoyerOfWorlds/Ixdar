@@ -437,22 +437,20 @@ public class MeshNodeViewerScene extends ModelScene {
         }
     }
 
+    /**
+     * Load a requested switch through the staging catalog entry whose path it names, which is how
+     * this viewer loads DSL graphs, mesh files and collections alike.
+     *
+     * @param path catalog path of the requested model
+     * @throws IOException when the catalog has no entry for {@code path}
+     */
     @Override
-    public void applyPendingModel() {
-        if (pendingModelPath == null) {
-            return;
+    public void loadModelOrGraph(String path) throws IOException {
+        int index = modelCatalog == null ? -1 : modelCatalog.indexOfPath(path);
+        if (index < 0) {
+            throw new IOException("no catalog entry for " + path);
         }
-        String path = pendingModelPath;
-        pendingModelPath = null;
-        if (modelCatalog == null) {
-            return;
-        }
-        int index = modelCatalog.indexOfPath(path);
-        if (index >= 0) {
-            loadModelEntry(modelCatalog.select(index));
-        } else {
-            Platforms.get().log("[mesh-viewer] no catalog entry for " + path);
-        }
+        loadModelEntry(modelCatalog.select(index));
     }
 
     /**
@@ -973,11 +971,6 @@ public class MeshNodeViewerScene extends ModelScene {
             return null;
         }
         return new ModelChoice(currentModelDisplayName, currentModelKey);
-    }
-
-    @Override
-    public void requestModelLoad(String path) {
-        pendingModelPath = path;
     }
 
     @Override

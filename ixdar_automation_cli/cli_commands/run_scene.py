@@ -422,6 +422,8 @@ CRASH_EXCEPTION_PREFIX = "Exception in thread \"main\" "
 
 MATCHED_LINES_REPORTED = 10
 
+KEEP_ALIVE_HINT = ("switch a model scene's mesh with `ixdar-cli model <name>`, then `ixdar-cli screenshot`; stop with `ixdar-cli shutdown`")
+
 
 def crash_headline(crash: list[str]) -> str:
     """Condense a stack trace into the one line a caller needs: what threw, and where.
@@ -587,6 +589,7 @@ def run(
             _terminate(process, client)
         else:
             result["pid"] = process.pid
+            result["next"] = KEEP_ALIVE_HINT
 
     if resolved_profile and not keep_alive:
         result["profile"] = resolved_profile

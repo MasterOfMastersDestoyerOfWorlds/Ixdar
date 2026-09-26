@@ -38,6 +38,8 @@ public final class AutomationRouteCatalog {
     public static final String DEFAULT = "default";
     public static final String HELP = "help";
     public static final String EXAMPLE = "example";
+    public static final String POSITIONAL = "positional";
+    public static final String WAIT_SECONDS = "waitSeconds";
     public static final String ROUTES = "routes";
     public static final String GENERATED_FROM = "generatedFrom";
 
@@ -83,6 +85,9 @@ public final class AutomationRouteCatalog {
             entry.put(SOURCE_PATH, "ixdar-app/src/main/java/" + fqcn.replace('.', '/') + ".java");
             entry.put(PARAMS, serializeParams(doc.parameters));
             entry.put(RESPONSE_HINT, doc.responseHint);
+            if (doc.waitSeconds > 0) {
+                entry.put(WAIT_SECONDS, doc.waitSeconds);
+            }
             routes.add(entry);
         }
         routes.sort(Comparator.comparing((Map<String, Object> entry) -> (String) entry.get(COMMAND_NAME)));
@@ -108,6 +113,9 @@ public final class AutomationRouteCatalog {
             m.put(DEFAULT, parameter.defaultValue);
             m.put(HELP, parameter.help);
             m.put(EXAMPLE, parameter.example);
+            if (parameter.positional) {
+                m.put(POSITIONAL, true);
+            }
             out.add(m);
         }
         return out;

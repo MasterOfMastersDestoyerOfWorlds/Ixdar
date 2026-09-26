@@ -12,6 +12,7 @@ public final class RouteDocBuilder {
     private String commandName = "";
     private String description = "";
     private String responseHint = "";
+    private long waitSeconds;
     private final List<RouteParameterDoc> parameters = new ArrayList<>();
 
     /**
@@ -49,7 +50,33 @@ public final class RouteDocBuilder {
      */
     public RouteDocBuilder param(String name, RouteParamType type, boolean required,
             String defaultValue, String help, String example) {
-        parameters.add(new RouteParameterDoc(name, name, type, required, defaultValue, help, example));
+        parameters.add(new RouteParameterDoc(name, name, type, required, defaultValue, help, example, false));
+        return this;
+    }
+
+    /**
+     * Append a required parameter the CLI takes as a bare argument, as in {@code model bolt}.
+     *
+     * @param name JSON body key the handler reads (also the argument's name in the CLI help)
+     * @param type value type of the parameter
+     * @param help one-line description of the parameter
+     * @param example a representative value a caller might pass
+     * @return this builder
+     */
+    public RouteDocBuilder positional(String name, RouteParamType type, String help, String example) {
+        parameters.add(new RouteParameterDoc(name, name, type, true, "", help, example, true));
+        return this;
+    }
+
+    /**
+     * Declare that the route holds the request open until slow work finishes, so the CLI waits
+     * that long instead of timing out and retrying.
+     *
+     * @param seconds longest the route blocks before answering
+     * @return this builder
+     */
+    public RouteDocBuilder waitSeconds(long seconds) {
+        this.waitSeconds = seconds;
         return this;
     }
 
@@ -67,7 +94,7 @@ public final class RouteDocBuilder {
      */
     public RouteDocBuilder paramAliased(String name, String cliName, RouteParamType type, boolean required,
             String defaultValue, String help, String example) {
-        parameters.add(new RouteParameterDoc(name, cliName, type, required, defaultValue, help, example));
+        parameters.add(new RouteParameterDoc(name, cliName, type, required, defaultValue, help, example, false));
         return this;
     }
 
@@ -85,9 +112,10 @@ public final class RouteDocBuilder {
     /**
      * Assemble the immutable {@link RouteDoc} from the accumulated state.
      *
-     * @return a doc capturing the command name, description, parameters, and response hint set so far
+     * @return a doc capturing the command name, description, parameters, response hint and wait
+     *         set so far
      */
     public RouteDoc build() {
-        return new RouteDoc(commandName, description, List.copyOf(parameters), responseHint);
+        return new RouteDoc(commandName, description, List.copyOf(parameters), responseHint, waitSeconds);
     }
 }

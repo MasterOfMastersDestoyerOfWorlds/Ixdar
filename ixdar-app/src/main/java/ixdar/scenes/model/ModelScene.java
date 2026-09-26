@@ -107,6 +107,9 @@ public abstract class ModelScene extends Scene {
      */
     public volatile String pendingModelPath;
 
+    /** Serial and outcome of every requested model switch, read by automation waiting on one. */
+    public final ModelLoadLedger modelLoads = new ModelLoadLedger();
+
     /** Center of the loaded mesh, used as the orbit target. */
     public final Vector3f meshCenter = new Vector3f();
 
@@ -416,21 +419,26 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Apply a model switch requested since the last frame, on the render thread,
-     * reporting a failure rather than propagating it off the render thread.
+     * Apply a model switch requested since the last frame, on the render thread, reporting a
+     * failure rather than propagating it, and record the outcome in {@link #modelLoads}.
      */
     public void applyPendingModel() {
         if (pendingModelPath == null) {
             return;
         }
         String path = pendingModelPath;
+        int serial = modelLoads.requestedSerial;
         pendingModelPath = null;
+        long started = System.nanoTime();
+        Exception failure = null;
         try {
             loadModelOrGraph(path);
             Platforms.get().log(" loaded " + path);
         } catch (Exception ex) {
+            failure = ex;
             reportFailedLoad(path, ex);
         }
+        modelLoads.finish(serial, failure, started);
     }
 
     /**
@@ -495,13 +503,29 @@ public abstract class ModelScene extends Scene {
 
     /**
      * Request that the scene load {@code path} and recompute, applied on the next
-     * frame.
+     * frame. Render thread only; the switch's serial is {@link ModelLoadLedger#requestedSerial}.
      *
      * @param path loader argument (see {@link ModelChoice#path}) of the model to
      *             load
      */
     public void requestModelLoad(String path) {
         pendingModelPath = path;
+        modelLoads.request();
+    }
+
+    /**
+     * Resolve {@code token} against {@link #availableModels()} (exact display name first, then a
+     * case-insensitive substring of display name or path) and request that model's load.
+     *
+     * @param token model display name, part of one, or a path
+     * @return the model whose load was requested, or {@code null} when nothing matches
+     */
+    public ModelChoice requestModel(String token) {
+        ModelChoice match = ModelCatalog.resolve(availableModels(), token);
+        if (match != null) {
+            requestModelLoad(match.path);
+        }
+        return match;
     }
 
     /**

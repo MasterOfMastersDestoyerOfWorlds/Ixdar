@@ -650,6 +650,28 @@
       "responseHint": "{ok, source, vertex_count, edge_count, face_count, face_side_count, triangle_count, euler_characteristic, boundary_edge_count, non_manifold_edge_count, unoriented_edge_count, isolated_vertex_count, non_manifold_boundary_vertex_count, unwalked_boundary_edge_count, duplicate_position_vertex_count, distinct_position_count, shell_count, boundary_loop_count, shells:[{faces, vertices, edges, boundary_edges, boundary_loops, euler}, ...], text}"
     },
     {
+      "commandName": "model",
+      "path": "/scene/model",
+      "method": "POST",
+      "description": "Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.",
+      "sourceClass": "ixdar.platform.automation.endpoints.scene.SwitchModel",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/scene/SwitchModel.java",
+      "params": [
+        {
+          "name": "name",
+          "cliName": "name",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Model display name, or part of the name or path of a listed model.",
+          "example": "bolt",
+          "positional": true
+        }
+      ],
+      "responseHint": "{ok, outcome: loaded|failed, model, path, seconds, error}",
+      "waitSeconds": 900
+    },
+    {
       "commandName": "multiview",
       "path": "/ui/multiview",
       "method": "POST",

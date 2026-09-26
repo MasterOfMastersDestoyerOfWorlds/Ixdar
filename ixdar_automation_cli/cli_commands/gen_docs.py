@@ -25,6 +25,8 @@ README_MD = REPO_ROOT / "ixdar_automation_cli" / "README.md"
 
 
 def _flag(param: dict) -> str:
+    if param.get("positional"):
+        return f"<{param['cliName']}>"
     return "--" + param["cliName"].replace("_", "-")
 
 
@@ -32,7 +34,9 @@ def _flag_summary(route: dict) -> str:
     parts = []
     for param in route.get("params", []):
         flag = _flag(param)
-        if param.get("type") == "bool" or not param.get("required"):
+        if param.get("positional"):
+            parts.append(flag)
+        elif param.get("type") == "bool" or not param.get("required"):
             parts.append(f"[{flag}]")
         else:
             parts.append(flag)
