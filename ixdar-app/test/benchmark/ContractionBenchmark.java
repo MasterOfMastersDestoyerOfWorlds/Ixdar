@@ -9,22 +9,22 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.platform.Platforms;
 
 /**
- * Wall-clock probe of the pipeline through contraction only, printing the
- * elapsed time and whether contraction completed; pick the mesh with
- * {@code -Dbenchmark.off}.
+ * Wall time and operator counts of the T-mesh contraction on one mesh ({@code -Dbenchmark.off}).
  */
-public final class ContractTimingProbe {
+public final class ContractionBenchmark {
 
     private static final String OFF_PROPERTY = "benchmark.off";
     private static final String DEFAULT_OFF = "test/resources/quadlayout/figure_8/botijo_in_tri.off";
     private static final double NANOS_PER_SECOND = 1.0e9;
 
     /**
-     * Runs the engine through {@code buildContractedTMesh} and prints the wall
-     * time, or the failure and the wall time when contraction throws.
+     * Contracts the mesh's T-mesh the way the pipeline does and prints the wall time with the
+     * operator counts at the fixed point, or the wall time and the diagnostic when it fails.
      *
      * @throws IOException when the mesh file cannot be read
      */
@@ -34,16 +34,20 @@ public final class ContractTimingProbe {
         ArrayMesh arrayMesh = MeshLoader.load(offPath);
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
-        QuadLayoutEngine engine = new QuadLayoutEngine(mesh,
-                QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
+        QuadLayoutEngine engine = new QuadLayoutEngine(mesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
+        ArcNetwork tmesh = engine.buildTMesh();
+        NetworkContraction contraction = new NetworkContraction(tmesh);
         long start = System.nanoTime();
         try {
-            engine.buildContractedTMesh();
-            Platforms.log("[timing] %s contraction COMPLETE in %.3fs%n", offPath,
-                    (System.nanoTime() - start) / NANOS_PER_SECOND);
+            contraction.contract();
         } catch (RuntimeException failure) {
-            Platforms.log("[timing] %s contraction FAILED in %.3fs: %s%n", offPath,
+            Platforms.log("[benchmark] %s contraction FAILED in %.3fs: %s%n", offPath,
                     (System.nanoTime() - start) / NANOS_PER_SECOND, failure.getMessage());
+            throw failure;
         }
+        Platforms.log("[benchmark] %s contraction reached its fixed point in %.3fs"
+                + " (collapses=%d patchCollapses=%d patchSplits=%d)%n", offPath,
+                (System.nanoTime() - start) / NANOS_PER_SECOND, contraction.arcCollapseCount,
+                contraction.patchCollapseCount, contraction.patchSplitCount);
     }
 }
