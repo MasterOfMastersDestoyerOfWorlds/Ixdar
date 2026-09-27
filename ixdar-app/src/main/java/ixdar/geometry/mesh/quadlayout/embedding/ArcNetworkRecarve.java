@@ -2,10 +2,13 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -99,6 +102,24 @@ public final class ArcNetworkRecarve {
     /** The first foreign-node touch found, described for the report. */
     public String firstForeignNodeOnPath;
 
+    /** Route length so far per contracted-mesh vertex, for a flank re-route. */
+    public double[] distanceByCopyVertex = new double[0];
+
+    /** Vertex a flank route reached each contracted-mesh vertex from. */
+    public int[] parentByCopyVertex = new int[0];
+
+    /** Stamp marking the contracted-mesh vertices the current re-route settled. */
+    public int[] settledStampByCopyVertex = new int[0];
+
+    /** Current stamp of {@link #settledStampByCopyVertex}. */
+    public int routeStamp;
+
+    /** Stamp marking the contracted-mesh faces of the arc being re-routed's flanks. */
+    public int[] flankStampByCopyFace = new int[0];
+
+    /** Current stamp of {@link #flankStampByCopyFace}. */
+    public int flankStamp;
+
     /**
      * Stores the contracted T-mesh and the original mesh to rebuild onto.
      *
@@ -127,13 +148,12 @@ public final class ArcNetworkRecarve {
         int oldFaces = source.topology.copy.faceCount();
         numberLiveElements();
 
-        fresh = new EmbeddedMeshTopology(originalMesh);
-        snapping = new SnappingCarve(fresh);
-        tagSourceEdges();
-        placeLiveNodes();
-        refineLiveArcs();
-        pullStripsTaut();
+        replayOntoFreshCopy();
+        if (rerouteFoldedArcs()) {
+            replayOntoFreshCopy();
+        }
         snapping.carve();
+        requireSimplePaths();
 
         fresh.copy.computeNormals();
         freshTmesh = new ArcNetwork(fresh);
@@ -160,6 +180,208 @@ public final class ArcNetworkRecarve {
                 endCrossingsTrimmedCount,
                 (System.nanoTime() - startNanos) / NANOS_PER_SECOND);
         return freshTmesh;
+    }
+
+    /**
+     * Replays the contracted arcs onto a new clean copy as taut strips, ready to
+     * carve; every count the replay keeps starts again from zero.
+     */
+    private void replayOntoFreshCopy() {
+        reusedNodeVertexCount = 0;
+        placedNodeVertexCount = 0;
+        replayedStepCount = 0;
+        foreignNodeOnPathCount = 0;
+        firstForeignNodeOnPath = null;
+        dipCrossingsRemovedCount = 0;
+        fanSlideCrossingsRemovedCount = 0;
+        endCrossingsTrimmedCount = 0;
+        fresh = new EmbeddedMeshTopology(originalMesh);
+        snapping = new SnappingCarve(fresh);
+        tagSourceEdges();
+        placeLiveNodes();
+        refineLiveArcs();
+        pullStripsTaut();
+    }
+
+    /**
+     * Re-routes, on the contracted mesh, every arc whose taut strip still crosses
+     * one face twice, a fold a drag left behind that the carve would pinch shut.
+     *
+     * @return true when any arc was re-routed, so the replay is stale
+     */
+    private boolean rerouteFoldedArcs() {
+        boolean rerouted = false;
+        for (int denseArcId = 0; denseArcId < oldArcIdByDenseId.length; denseArcId++) {
+            if (!stripFoldsBack(snapping.stripByArc.get(denseArcId))) {
+                continue;
+            }
+            EmbeddedArc arc = source.arcs.get(oldArcIdByDenseId[denseArcId]);
+            List<Integer> route = shortestRouteBetweenFlanks(arc);
+            if (route != null && !route.equals(arc.path.copyVertexPath)) {
+                source.setPath(arc.arcId, route);
+                rerouted = true;
+            }
+        }
+        return rerouted;
+    }
+
+    /**
+     * Whether a strip passes through one constraint face in two separate passages,
+     * which a taut route never does.
+     *
+     * @param strip the strip to read
+     * @return true when some face recurs after the strip has left it
+     */
+    private static boolean stripFoldsBack(FaceStripPath strip) {
+        Set<Integer> left = new HashSet<>();
+        for (int passage = 0; passage < strip.passageFaces.size(); passage++) {
+            int face = strip.passageFaces.get(passage);
+            if (left.contains(face)) {
+                return true;
+            }
+            if (passage > 0 && strip.passageFaces.get(passage - 1) != face) {
+                left.add(strip.passageFaces.get(passage - 1));
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The shortest contracted-mesh route between an arc's two nodes through the
+     * two patches it separates, never touching another arc or node. The flanks form
+     * one disk, so the route keeps the arrangement.
+     *
+     * @param arc live arc to re-route
+     * @return the route's copy vertices end to end, or null for a closed arc
+     */
+    private List<Integer> shortestRouteBetweenFlanks(EmbeddedArc arc) {
+        EmbeddedMeshTopology topology = source.topology;
+        HalfEdgeMesh copy = topology.copy;
+        List<Integer> path = arc.path.copyVertexPath;
+        int start = path.get(0);
+        int end = path.get(path.size() - 1);
+        if (start == end) {
+            return null;
+        }
+        floodFlanks(arc);
+        int vertexBound = topology.ownerNodeByCopyVertex.length;
+        if (distanceByCopyVertex.length < vertexBound) {
+            distanceByCopyVertex = new double[vertexBound];
+            parentByCopyVertex = new int[vertexBound];
+            settledStampByCopyVertex = new int[vertexBound];
+        }
+        routeStamp++;
+        Arrays.fill(distanceByCopyVertex, Double.POSITIVE_INFINITY);
+        PriorityQueue<double[]> frontier = new PriorityQueue<>(Comparator.comparingDouble(
+                (double[] entry) -> entry[0]));
+        distanceByCopyVertex[start] = 0.0;
+        parentByCopyVertex[start] = EmbeddedMeshTopology.UNCLAIMED;
+        frontier.add(new double[] { 0.0, start });
+        while (!frontier.isEmpty()) {
+            int vertex = (int) frontier.poll()[1];
+            if (settledStampByCopyVertex[vertex] == routeStamp) {
+                continue;
+            }
+            settledStampByCopyVertex[vertex] = routeStamp;
+            if (vertex == end) {
+                break;
+            }
+            for (int index = 0; index < copy.vertexOutgoingHalfEdgeCount(vertex); index++) {
+                int halfEdge = copy.vertexOutgoingHalfEdgeAt(vertex, index);
+                int next = copy.halfEdgeEndVertex(halfEdge);
+                int edge = copy.halfEdgeEdge(halfEdge);
+                if (settledStampByCopyVertex[next] == routeStamp
+                        || !routeMayStep(arc.arcId, halfEdge, next, end)) {
+                    continue;
+                }
+                double distance = distanceByCopyVertex[vertex] + topology.edgeLength(edge);
+                if (distance < distanceByCopyVertex[next]) {
+                    distanceByCopyVertex[next] = distance;
+                    parentByCopyVertex[next] = vertex;
+                    frontier.add(new double[] { distance, next });
+                }
+            }
+        }
+        if (settledStampByCopyVertex[end] != routeStamp) {
+            return null;
+        }
+        List<Integer> route = new ArrayList<>();
+        for (int vertex = end; vertex != EmbeddedMeshTopology.UNCLAIMED;
+                vertex = parentByCopyVertex[vertex]) {
+            route.add(vertex);
+        }
+        Collections.reverse(route);
+        return route;
+    }
+
+    /**
+     * Stamps every contracted-mesh face of the two patches an arc separates: the
+     * faces reachable from the arc's own edges without crossing another arc.
+     *
+     * @param arc arc whose flanks are flooded
+     */
+    private void floodFlanks(EmbeddedArc arc) {
+        EmbeddedMeshTopology topology = source.topology;
+        HalfEdgeMesh copy = topology.copy;
+        if (flankStampByCopyFace.length < topology.sourceFaceByCopyFace.length) {
+            flankStampByCopyFace = new int[topology.sourceFaceByCopyFace.length];
+        }
+        flankStamp++;
+        List<Integer> frontier = new ArrayList<>();
+        for (int edge : arc.path.copyEdgePath) {
+            int halfEdge = copy.edgeHalfEdge(edge);
+            stampFlankFace(copy.halfEdgeFace(halfEdge), frontier);
+            stampFlankFace(copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge)), frontier);
+        }
+        while (!frontier.isEmpty()) {
+            int face = frontier.remove(frontier.size() - 1);
+            for (int index = 0; index < copy.faceHalfEdgeCount(face); index++) {
+                int halfEdge = copy.faceHalfEdgeAt(face, index);
+                int owner = topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)];
+                if (owner == EmbeddedMeshTopology.UNCLAIMED || owner == arc.arcId) {
+                    stampFlankFace(copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge)), frontier);
+                }
+            }
+        }
+    }
+
+    /**
+     * Stamps one face into the flank flood and queues it, once.
+     *
+     * @param face     contracted-mesh face, or {@link EmbeddedMeshTopology#UNCLAIMED}
+     * @param frontier faces still to spread from
+     */
+    private void stampFlankFace(int face, List<Integer> frontier) {
+        if (face != EmbeddedMeshTopology.UNCLAIMED && flankStampByCopyFace[face] != flankStamp) {
+            flankStampByCopyFace[face] = flankStamp;
+            frontier.add(face);
+        }
+    }
+
+    /**
+     * Whether a flank route may take one step: along an edge of the flooded flanks
+     * that no other arc holds, onto a vertex no node or other arc holds.
+     *
+     * @param arcId    arc being re-routed
+     * @param halfEdge the step, as an outgoing half-edge
+     * @param next     vertex it steps onto
+     * @param end      the route's end vertex, the one node vertex allowed
+     * @return true when the step stays inside the flanks and touches nothing else
+     */
+    private boolean routeMayStep(int arcId, int halfEdge, int next, int end) {
+        EmbeddedMeshTopology topology = source.topology;
+        HalfEdgeMesh copy = topology.copy;
+        int edgeOwner = topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)];
+        int vertexOwner = topology.ownerArcByCopyVertex[next];
+        int left = copy.halfEdgeFace(halfEdge);
+        int right = copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge));
+        boolean inFlanks = left != EmbeddedMeshTopology.UNCLAIMED
+                && flankStampByCopyFace[left] == flankStamp
+                || right != EmbeddedMeshTopology.UNCLAIMED
+                        && flankStampByCopyFace[right] == flankStamp;
+        return inFlanks && (edgeOwner == EmbeddedMeshTopology.UNCLAIMED || edgeOwner == arcId)
+                && (next == end || topology.ownerNodeByCopyVertex[next] == EmbeddedMeshTopology.UNCLAIMED
+                        && (vertexOwner == EmbeddedMeshTopology.UNCLAIMED || vertexOwner == arcId));
     }
 
     /**
@@ -425,6 +647,34 @@ public final class ArcNetworkRecarve {
                     + " one another; first: " + fresh.firstClaimConflict
                     + snapping.describeArc(fresh.firstClaimConflictHolder)
                     + snapping.describeArc(fresh.firstClaimConflictClaimant));
+        }
+    }
+
+    /**
+     * Checks every re-carved arc path visits each copy vertex once: a revisit
+     * closes a loop of the arc on itself that pinches off a region no patch owns.
+     *
+     * @throws IllegalStateException when a laid path revisits a vertex
+     */
+    private void requireSimplePaths() {
+        Set<Integer> visited = new HashSet<>();
+        for (int denseArcId = 0; denseArcId < snapping.pathByArc.length; denseArcId++) {
+            ArcEdgePath path = snapping.pathByArc[denseArcId];
+            if (path == null) {
+                continue;
+            }
+            visited.clear();
+            List<Integer> vertices = path.copyVertexPath;
+            for (int index = 0; index < vertices.size(); index++) {
+                int vertex = vertices.get(index);
+                boolean closesOwnLoop = index == vertices.size() - 1 && index > 0
+                        && vertex == vertices.get(0);
+                if (!visited.add(vertex) && !closesOwnLoop) {
+                    throw new IllegalStateException("re-carved arc " + denseArcId + " visits copy"
+                            + " vertex " + vertex + " twice, closing a loop on itself"
+                            + snapping.describeArc(denseArcId));
+                }
+            }
         }
     }
 

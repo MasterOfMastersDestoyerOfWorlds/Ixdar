@@ -1,7 +1,7 @@
 {
   "java.configuration.updateBuildConfiguration": "automatic",
   "java.import.maven.enabled": true,
-  "java.debug.settings.onBuildFailureProceed": true,
+  "java.debug.settings.onBuildFailureProceed": false,
   "java.debug.settings.showToString": true,
   "java.debug.settings.showStaticVariables": true,
   "java.debug.settings.showHex": false,

@@ -232,12 +232,8 @@ public final class ExtractedPatchGrids {
                         continue;
                     }
                     int turns = directionTurns(toU - fromU, toV - fromV);
-                    int port = findPortInPatch(quadVertex, patchId, turns);
+                    int port = consistentPortInPatch(quadVertex, patchId, turns, arc, atStart);
                     if (port != ExtractedQuadMesh.NONE) {
-                        if (!chainArrivalConsistent(arc, atStart, port)) {
-                            rejectedMatchCount++;
-                            continue;
-                        }
                         quadVertexByNodeId[node.nodeId] = quadVertex;
                         assignPort(arcEnd, port);
                         directMatchCount++;
@@ -271,24 +267,38 @@ public final class ExtractedPatchGrids {
     }
 
     /**
-     * The port of a quad vertex whose face lies in one patch and holds one
-     * direction.
+     * The one port of a quad vertex whose face lies in a patch, holds a direction
+     * and whose chain agrees with the layout. A relaxed patch can wrap its corner
+     * past a full turn, so two ports share patch and direction; a chain that cannot
+     * tell them apart names neither.
      *
      * @param quadVertex quad vertex whose ports are scanned
      * @param patchId    required patch of the port's face
      * @param turns      required direction as quarter turns in that chart
-     * @return the port id, or {@link ExtractedQuadMesh#NONE}
+     * @param arc        arc whose chain arbitrates between candidates
+     * @param atStart    whether the arc leaves its start node at the vertex
+     * @return the port id, or {@link ExtractedQuadMesh#NONE} when none or several
+     *         qualify
      */
-    private int findPortInPatch(int quadVertex, int patchId, int turns) {
+    private int consistentPortInPatch(int quadVertex, int patchId, int turns, EmbeddedArc arc,
+            boolean atStart) {
+        int found = ExtractedQuadMesh.NONE;
         for (int port = quadMesh.portStart[quadVertex]; port < quadMesh.portStart[quadVertex + 1]; port++) {
             Integer facePatch = patchMaps.regions.patchIdByCopyFace
                     .get(quadMesh.portFace[port]);
-            if (facePatch != null && facePatch == patchId
-                    && quadMesh.portDirectionTurns[port] == turns) {
-                return port;
+            if (facePatch == null || facePatch != patchId
+                    || quadMesh.portDirectionTurns[port] != turns) {
+                continue;
+            }
+            if (!chainArrivalConsistent(arc, atStart, port)) {
+                rejectedMatchCount++;
+            } else if (found != ExtractedQuadMesh.NONE) {
+                return ExtractedQuadMesh.NONE;
+            } else {
+                found = port;
             }
         }
-        return ExtractedQuadMesh.NONE;
+        return found;
     }
 
     /**

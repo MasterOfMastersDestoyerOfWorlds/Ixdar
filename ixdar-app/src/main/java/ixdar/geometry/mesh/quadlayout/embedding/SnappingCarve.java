@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
@@ -392,30 +394,40 @@ public final class SnappingCarve {
     }
 
     /**
-     * Takes back a corner an arc chose at two crossings that are not consecutive,
-     * so its path cannot revisit that vertex and pinch a region off the layout. A
-     * crossing the route runs exactly through keeps its vertex: it is on no edge,
-     * so no lane can replace it.
+     * Takes back a corner an arc chose in two separate runs of crossings, so its
+     * path never revisits it. The run passing exactly through the vertex keeps it,
+     * else the first.
      */
     private void releaseRepeatedCorners() {
-        Map<Integer, Integer> lastCrossingByVertex = new HashMap<>();
+        Map<Integer, Integer> keptRunByVertex = new HashMap<>();
+        Set<Integer> passedVertices = new HashSet<>();
         for (int arcId = 0; arcId < chosenVertexByArc.size(); arcId++) {
             List<Integer> chosen = chosenVertexByArc.get(arcId);
             FaceStripPath strip = stripByArc.get(arcId);
-            lastCrossingByVertex.clear();
+            int[] runStartByCrossing = new int[chosen.size()];
+            keptRunByVertex.clear();
+            passedVertices.clear();
             for (int crossing = 0; crossing < chosen.size(); crossing++) {
                 int vertex = chosen.get(crossing);
+                runStartByCrossing[crossing] = crossing > 0 && chosen.get(crossing - 1) == vertex
+                        ? runStartByCrossing[crossing - 1]
+                        : crossing;
                 if (vertex == EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
-                Integer previous = lastCrossingByVertex.get(vertex);
-                if (previous != null && previous < crossing - 1
+                keptRunByVertex.putIfAbsent(vertex, runStartByCrossing[crossing]);
+                if (strip.crossedEdges.get(crossing) == null && passedVertices.add(vertex)) {
+                    keptRunByVertex.put(vertex, runStartByCrossing[crossing]);
+                }
+            }
+            for (int crossing = 0; crossing < chosen.size(); crossing++) {
+                int vertex = chosen.get(crossing);
+                if (vertex != EmbeddedMeshTopology.UNCLAIMED
+                        && keptRunByVertex.get(vertex) != runStartByCrossing[crossing]
                         && strip.crossedEdges.get(crossing) != null) {
                     chosen.set(crossing, EmbeddedMeshTopology.UNCLAIMED);
                     repeatedCornerReleaseCount++;
-                    continue;
                 }
-                lastCrossingByVertex.put(vertex, crossing);
             }
         }
     }
