@@ -324,7 +324,7 @@ public class EmbeddedTMeshScene extends ModelScene {
                 if (tmesh.topology.patchByCopyFace.length == 0) {
                     tmesh.labelPatchCovers();
                 }
-                int arcId = contraction.collapseArc.mostContendedArc();
+                int arcId = contraction.collapseArc.shortestZeroArc();
                 if (arcId == ArcNetwork.NONE) {
                     Platforms.get().log("[drag] no collapsible zero arc remains");
                     return;

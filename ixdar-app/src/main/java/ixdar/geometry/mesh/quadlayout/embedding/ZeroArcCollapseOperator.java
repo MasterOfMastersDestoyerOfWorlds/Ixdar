@@ -147,16 +147,13 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * The collapsible zero arc whose node has the most arcs on it, so crowded fans
-     * clear while the mesh is still coarse. Ties keep the lowest arc id.
-     *
-     * <p>
-     * Only zero arcs qualify and {@code alive} never returns, so candidates are
-     * appended once per new arc and compacted as arcs die.
+     * The collapsible zero arc with the fewest working-copy edges, since every fan
+     * arc threads beside its whole length. Lengths are re-read each call, as drags
+     * re-route zero arcs; ties keep the lowest arc id.
      *
      * @return the chosen zero arc id, or {@link ArcNetwork#NONE} when none remains
      */
-    public int mostContendedArc() {
+    public int shortestZeroArc() {
         for (int arcId = scannedArcBound; arcId < tmesh.arcs.size(); arcId++) {
             if (tmesh.arcs.get(arcId).quantizedLength != 0) {
                 continue;
@@ -170,7 +167,7 @@ public final class ZeroArcCollapseOperator {
         scannedArcBound = tmesh.arcs.size();
 
         int found = ArcNetwork.NONE;
-        int bestValence = 0;
+        int fewestEdges = Integer.MAX_VALUE;
         int keep = 0;
         for (int index = 0; index < zeroArcCandidateCount; index++) {
             int arcId = zeroArcCandidates[index];
@@ -179,14 +176,10 @@ public final class ZeroArcCollapseOperator {
                 continue;
             }
             zeroArcCandidates[keep++] = arcId;
-            int movableNodeId = movingEndpoint(arc);
-            if (movableNodeId == ArcNetwork.NONE) {
-                continue;
-            }
-            int valence = tmesh.arcEndsByNode.get(movableNodeId).size();
-            if (found == ArcNetwork.NONE || valence > bestValence) {
+            int edges = arc.path.copyEdgePath.size();
+            if (edges < fewestEdges && movingEndpoint(arc) != ArcNetwork.NONE) {
                 found = arcId;
-                bestValence = valence;
+                fewestEdges = edges;
             }
         }
         zeroArcCandidateCount = keep;

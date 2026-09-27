@@ -74,7 +74,7 @@ class FanCollapseFixtureTest {
         ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
         ZeroArcCollapseOperator collapseArc = new NetworkContraction(fixtureNet).collapseArc;
 
-        assertEquals(fixture.intOutput("zeroSpokeArcId"), collapseArc.mostContendedArc(),
+        assertEquals(fixture.intOutput("zeroSpokeArcId"), collapseArc.shortestZeroArc(),
                 "the zero spoke is the only collapse candidate");
         collapseArc.beginCollapse(fixture.intOutput("zeroSpokeArcId"));
         assertEquals(fixture.intOutput("centerNodeId"), collapseArc.movedNodeId,

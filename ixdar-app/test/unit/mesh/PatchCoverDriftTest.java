@@ -48,7 +48,7 @@ class PatchCoverDriftTest {
         fixtureNet.labelPatchCovers();
         NetworkContraction contraction = new NetworkContraction(fixtureNet);
 
-        int arcId = contraction.collapseArc.mostContendedArc();
+        int arcId = contraction.collapseArc.shortestZeroArc();
         assertNotEquals(ArcNetwork.NONE, arcId, "the zero row must offer a collapsible arc");
         contraction.collapseArc.collapse(arcId);
 

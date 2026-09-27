@@ -75,7 +75,7 @@ class DriftLocalizeScratchTest {
                     report(tmesh, "patchCollapse " + simple);
                     continue;
                 }
-                int arc = contraction.collapseArc.mostContendedArc();
+                int arc = contraction.collapseArc.shortestZeroArc();
                 if (arc != ArcNetwork.NONE) {
                     java.util.Map<Integer, String> before = new java.util.HashMap<>();
                     if (arc == WATCHED_ARC) {

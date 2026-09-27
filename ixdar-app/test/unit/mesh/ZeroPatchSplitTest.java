@@ -101,8 +101,8 @@ class ZeroPatchSplitTest {
         var collapser = new ixdar.geometry.mesh.quadlayout.embedding
                 .ZeroArcCollapseOperator(fixtureNet);
         int guard = 0;
-        for (int arcId = collapser.mostContendedArc(); arcId != ArcNetwork.NONE;
-                arcId = collapser.mostContendedArc()) {
+        for (int arcId = collapser.shortestZeroArc(); arcId != ArcNetwork.NONE;
+                arcId = collapser.shortestZeroArc()) {
             collapser.collapse(arcId);
             fixtureNet.validate();
             if (++guard > fixtureNet.arcs.size()) {

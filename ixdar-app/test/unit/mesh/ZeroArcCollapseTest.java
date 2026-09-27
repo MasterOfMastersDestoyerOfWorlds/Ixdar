@@ -32,7 +32,7 @@ class ZeroArcCollapseTest {
         ZeroArcCollapseOperator operator = new ZeroArcCollapseOperator(fixtureNet);
 
         int liveArcsBefore = countLive(fixtureNet);
-        int arcId = operator.mostContendedArc();
+        int arcId = operator.shortestZeroArc();
         assertNotEquals(ArcNetwork.NONE, arcId, "the zero row must offer a collapsible arc");
         assertEquals(0, fixtureNet.arcs.get(arcId).quantizedLength, "it must be a zero arc");
 
@@ -58,8 +58,8 @@ class ZeroArcCollapseTest {
         ZeroArcCollapseOperator operator = new ZeroArcCollapseOperator(fixtureNet);
 
         int guard = 0;
-        for (int arcId = operator.mostContendedArc(); arcId != ArcNetwork.NONE;
-                arcId = operator.mostContendedArc()) {
+        for (int arcId = operator.shortestZeroArc(); arcId != ArcNetwork.NONE;
+                arcId = operator.shortestZeroArc()) {
             operator.collapse(arcId);
             fixtureNet.validate();
             if (++guard > fixtureNet.arcs.size()) {

@@ -60,7 +60,7 @@ class ZeroPatchCollapseTest {
 
         int guard = 0;
         while (collapsePatch.nextSimpleZeroPatch() == ArcNetwork.NONE) {
-            int arc = collapseArc.mostContendedArc();
+            int arc = collapseArc.shortestZeroArc();
             if (arc != ArcNetwork.NONE) {
                 collapseArc.collapse(arc);
             } else {

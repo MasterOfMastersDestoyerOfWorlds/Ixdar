@@ -350,7 +350,7 @@ public final class NetworkContraction implements MeshNode {
             }
             return true;
         }
-        int arc = collapseArc.mostContendedArc();
+        int arc = collapseArc.shortestZeroArc();
         if (arc != ArcNetwork.NONE) {
             collapseArc.collapse(arc);
             arcCollapseCount++;

@@ -27,7 +27,7 @@ class ZeroArcCollapseSteppingTest {
         ArcNetwork steppedNet = (ArcNetwork) stepped.lastOutput("net");
         steppedNet.labelPatchCovers();
         ZeroArcCollapseOperator steppedCollapse = new NetworkContraction(steppedNet).collapseArc;
-        int steppedArcId = steppedCollapse.mostContendedArc();
+        int steppedArcId = steppedCollapse.shortestZeroArc();
         assertNotEquals(ArcNetwork.NONE, steppedArcId,
                 "the zero row must offer a collapsible arc");
         steppedCollapse.beginCollapse(steppedArcId);
@@ -41,7 +41,7 @@ class ZeroArcCollapseSteppingTest {
         ArcNetwork oneShotNet = (ArcNetwork) oneShot.lastOutput("net");
         oneShotNet.labelPatchCovers();
         ZeroArcCollapseOperator oneShotCollapse = new NetworkContraction(oneShotNet).collapseArc;
-        int oneShotArcId = oneShotCollapse.mostContendedArc();
+        int oneShotArcId = oneShotCollapse.shortestZeroArc();
         assertEquals(steppedArcId, oneShotArcId, "both runs must pick the same arc");
         oneShotCollapse.collapse(oneShotArcId);
         oneShotNet.validate();

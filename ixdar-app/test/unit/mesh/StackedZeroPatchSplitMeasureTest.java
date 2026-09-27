@@ -129,7 +129,7 @@ class StackedZeroPatchSplitMeasureTest {
      * @return true when one of the two operators applied
      */
     private boolean collapseOneArcOrPatch(NetworkContraction contraction) {
-        int arcId = contraction.collapseArc.mostContendedArc();
+        int arcId = contraction.collapseArc.shortestZeroArc();
         if (arcId != ArcNetwork.NONE) {
             contraction.collapseArc.collapse(arcId);
             return true;
