@@ -91,6 +91,21 @@ public final class GeometryBundle {
     }
 
     /**
+     * Return a copy without {@code key}, for an op whose output cannot carry that slot.
+     *
+     * @param key slot name to drop, which need not be present
+     * @return new bundle sharing this mesh
+     */
+    public GeometryBundle withoutSlot(String key) {
+        if (!slots.containsKey(key)) {
+            return this;
+        }
+        HashMap<String, Object> next = new HashMap<>(slots);
+        next.remove(key);
+        return new GeometryBundle(mesh, next);
+    }
+
+    /**
      * Return a copy that swaps in {@code newMesh} but keeps the existing slots.
      *
      * @param newMesh replacement topology

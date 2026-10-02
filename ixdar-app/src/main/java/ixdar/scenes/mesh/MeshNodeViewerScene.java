@@ -728,17 +728,16 @@ public class MeshNodeViewerScene extends ModelScene {
                     ? finalNode
                     : ast.get(ast.size() - 1).id;
 
+            Object result;
             try {
-                mesh = runtime.executeGraphToMesh(ast, resolvedNode, resolvedPort);
+                result = runtime.executeGraphResult(ast, resolvedNode, resolvedPort);
                 runtime.logTimings(TIMING_PREFIX);
             } catch (Exception e) {
                 Platforms.get().log("[mesh-viewer] DSL reload failed: " + e.getMessage());
                 throw new IllegalStateException("Failed to execute DSL: " + resolvedDslName, e);
             }
             logTiming(runtime);
-            createRuntime();
-            meshRuntime.upload(mesh);
-            meshRuntime.frameCamera(camera);
+            uploadGraphOutput(result);
 
             if (mesh != null) {
                 Platforms.get().log(
@@ -750,6 +749,28 @@ public class MeshNodeViewerScene extends ModelScene {
             applyEdgeMarkOverlay(runtime);
             frameMesh(mesh);
         });
+    }
+
+    /**
+     * Upload a graph's output as a whole bundle, the way a mesh file is, so a graph that ends in
+     * textures (a boolean of two scans, say) draws each region with the material it kept.
+     *
+     * @param result the value on the graph's final port; anything but a bundle leaves no mesh
+     */
+    private void uploadGraphOutput(Object result) {
+        meshBundle = result instanceof GeometryBundle bundle ? bundle : null;
+        mesh = meshBundle == null ? null : meshBundle.mesh();
+        createRuntime();
+        if (meshBundle == null) {
+            meshRuntime.upload(mesh);
+        } else {
+            meshRuntime.uploadBundle(meshBundle);
+            if (meshRuntime.hasTexturedDraw()) {
+                shaderMode = HalfEdgeMeshRuntime.ShaderMode.TEXTURED;
+            }
+            meshRuntime.setShaderMode(shaderMode);
+        }
+        meshRuntime.frameCamera(camera);
     }
 
     /**
@@ -1055,11 +1076,9 @@ public class MeshNodeViewerScene extends ModelScene {
             List<PythonParser.ParsedNode> ast = runtime.statements;
             lastGraphRuntime = runtime;
             String resolvedNode = ast.get(ast.size() - 1).id;
-            mesh = runtime.executeGraphToMesh(ast, resolvedNode, DEFAULT_DSL_FINAL_PORT);
+            Object result = runtime.executeGraphResult(ast, resolvedNode, DEFAULT_DSL_FINAL_PORT);
             runtime.logTimings(TIMING_PREFIX);
-            createRuntime();
-            meshRuntime.upload(mesh);
-            meshRuntime.frameCamera(camera);
+            uploadGraphOutput(result);
             if (mesh != null) {
                 Platforms.get().log("[mesh-viewer] dsl loaded: " + file + VERTS + mesh.vertexCount()
                         + FACES + mesh.faceCount());

@@ -41,18 +41,31 @@ public final class MeshBooleanResult {
     public final int[] faceSourceQuad;
 
     /**
-     * Store a boolean's output and its provenance.
+     * Per output face corner, the {@code u} the kernel interpolated from the operands' UVs, or null
+     * when neither operand carried any.
+     */
+    public final double[] cornerU;
+
+    /** Per output face corner, the interpolated {@code v}, matching {@link #cornerU}. */
+    public final double[] cornerV;
+
+    /**
+     * Store a boolean's output, its provenance and its interpolated UVs.
      *
      * @param mesh the triangle mesh the boolean produced
      * @param faceOrigin operand per untouched face, {@link #ORIGIN_NEW} per split face
      * @param faceSourceOperand operand whose surface each face lies on
      * @param faceSourceQuad source face id per face, {@code -1} where untraceable
+     * @param cornerU interpolated {@code u} per face corner, or null when the operands had no UVs
+     * @param cornerV interpolated {@code v} per face corner, or null alongside {@code cornerU}
      */
     public MeshBooleanResult(HalfEdgeMesh mesh, int[] faceOrigin, int[] faceSourceOperand,
-            int[] faceSourceQuad) {
+            int[] faceSourceQuad, double[] cornerU, double[] cornerV) {
         this.mesh = mesh;
         this.faceOrigin = faceOrigin;
         this.faceSourceOperand = faceSourceOperand;
         this.faceSourceQuad = faceSourceQuad;
+        this.cornerU = cornerU;
+        this.cornerV = cornerV;
     }
 }

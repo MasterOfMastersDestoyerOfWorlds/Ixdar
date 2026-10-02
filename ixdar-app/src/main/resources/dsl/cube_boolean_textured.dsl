@@ -1,0 +1,6 @@
+cube_a_base = cube(size=1.0)
+cube_a = checker_material(geometry=cube_a_base.mesh, tile_size=0.125, color=<1.0, 0.45, 0.2>)
+cube_b_base = cube(size=1.0)
+cube_b_moved = transform_geometry(geometry=cube_b_base.mesh, translation=<0.5, 0.5, 0.5>)
+cube_b = checker_material(geometry=cube_b_moved.geometry, tile_size=0.125, color=<0.3, 0.6, 1.0>)
+blended = mesh_boolean(mesh_a=cube_a.geometry, mesh_b=cube_b.geometry, operation=UNION)

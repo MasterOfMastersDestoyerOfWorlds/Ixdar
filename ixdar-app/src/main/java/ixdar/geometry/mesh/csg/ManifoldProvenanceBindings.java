@@ -12,8 +12,9 @@ import com.cadoodlecad.manifold.ManifoldBindings;
 
 /**
  * FFM downcalls into {@code libmanifoldc} that the vendored {@link ManifoldBindings} leave out:
- * stamping a solid as an original and reading a {@code MeshGL64} with its run and face tables.
- * Symbols resolve through the loader lookup, so the vendored binding must load the natives first.
+ * building a solid with extra vertex property channels, stamping it as an original, and reading a
+ * {@code MeshGL64} with its run and face tables. Symbols resolve through the loader lookup, so the
+ * vendored binding must load the natives first.
  */
 public final class ManifoldProvenanceBindings {
 
@@ -28,6 +29,18 @@ public final class ManifoldProvenanceBindings {
 
     /** Bytes one {@code ManifoldMeshGL64} occupies, for arena-owned exports. */
     public final long meshSize;
+
+    /** {@code manifold_meshgl64}: build a mesh from a vertex property table and a corner table. */
+    public final MethodHandle buildMesh;
+
+    /** {@code manifold_meshgl64_merge}: fill a mesh's merge vectors so duplicate vertices weld. */
+    public final MethodHandle mergeMesh;
+
+    /** {@code manifold_of_meshgl64}: turn a mesh into a solid the kernel can operate on. */
+    public final MethodHandle solidOfMesh;
+
+    /** {@code manifold_meshgl64_num_prop}: property channels per vertex, position included. */
+    public final MethodHandle numProp;
 
     /** {@code manifold_as_original}: copy a solid, stamping the copy with a fresh original id. */
     public final MethodHandle asOriginal;
@@ -74,6 +87,15 @@ public final class ManifoldProvenanceBindings {
     /** {@code manifold_meshgl64_face_id}: copy the face table out. */
     public final MethodHandle faceId;
 
+    /** {@code manifold_meshgl64_merge_length}: entries in each of the two merge vectors. */
+    public final MethodHandle mergeLength;
+
+    /** {@code manifold_meshgl64_merge_from_vert}: copy the split-off vertices out. */
+    public final MethodHandle mergeFromVertex;
+
+    /** {@code manifold_meshgl64_merge_to_vert}: copy the vertices they weld onto out. */
+    public final MethodHandle mergeToVertex;
+
     /**
      * Resolve the symbols against the natives the vendored binding loaded.
      *
@@ -90,6 +112,13 @@ public final class ManifoldProvenanceBindings {
         FunctionDescriptor longOfOne = FunctionDescriptor.of(ValueLayout.JAVA_LONG,
                 ValueLayout.ADDRESS);
         FunctionDescriptor voidOfOne = FunctionDescriptor.ofVoid(ValueLayout.ADDRESS);
+        buildMesh = bind(linker, lookup, "manifold_meshgl64", FunctionDescriptor.of(
+                ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+                ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS,
+                ValueLayout.JAVA_LONG));
+        mergeMesh = bind(linker, lookup, "manifold_meshgl64_merge", pointerOfTwo);
+        solidOfMesh = bind(linker, lookup, "manifold_of_meshgl64", pointerOfTwo);
+        numProp = bind(linker, lookup, "manifold_meshgl64_num_prop", longOfOne);
         asOriginal = bind(linker, lookup, "manifold_as_original", pointerOfTwo);
         originalId = bind(linker, lookup, "manifold_original_id",
                 FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
@@ -108,6 +137,9 @@ public final class ManifoldProvenanceBindings {
         runIndex = bind(linker, lookup, "manifold_meshgl64_run_index", pointerOfTwo);
         runOriginalId = bind(linker, lookup, "manifold_meshgl64_run_original_id", pointerOfTwo);
         faceId = bind(linker, lookup, "manifold_meshgl64_face_id", pointerOfTwo);
+        mergeLength = bind(linker, lookup, "manifold_meshgl64_merge_length", longOfOne);
+        mergeFromVertex = bind(linker, lookup, "manifold_meshgl64_merge_from_vert", pointerOfTwo);
+        mergeToVertex = bind(linker, lookup, "manifold_meshgl64_merge_to_vert", pointerOfTwo);
     }
 
     /**
@@ -124,6 +156,41 @@ public final class ManifoldProvenanceBindings {
         MemorySegment address = lookup.find(symbol).orElseThrow(
                 () -> new IllegalStateException("libmanifoldc lacks " + symbol));
         return linker.downcallHandle(address, descriptor);
+    }
+
+    /**
+     * Build a solid whose vertex channels past the position the kernel interpolates at every vertex
+     * a boolean creates. Merge vectors are filled in first, so two vertices sharing a position but
+     * differing in a later channel weld instead of reading as a crack.
+     *
+     * @param vertexProperties interleaved property table, {@code propertiesPerVertex} per vertex
+     * @param triangleCorners triangle corners as vertex indices, three per triangle
+     * @param propertiesPerVertex channels per vertex, the first three being the position
+     * @param arena arena that owns the solid; release it with {@link #destructSolid(MemorySegment)}
+     * @return the solid
+     * @throws Throwable if a native call fails
+     */
+    public MemorySegment importProperties(double[] vertexProperties, long[] triangleCorners,
+            int propertiesPerVertex, Arena arena) throws Throwable {
+        MemorySegment properties = arena.allocate((long) vertexProperties.length * EIGHT_BYTES);
+        MemorySegment.copy(vertexProperties, 0, properties, ValueLayout.JAVA_DOUBLE, 0,
+                vertexProperties.length);
+        MemorySegment corners = arena.allocate((long) triangleCorners.length * EIGHT_BYTES);
+        MemorySegment.copy(triangleCorners, 0, corners, ValueLayout.JAVA_LONG, 0,
+                triangleCorners.length);
+        MemorySegment mesh = (MemorySegment) buildMesh.invoke(arena.allocate(meshSize), properties,
+                (long) (vertexProperties.length / propertiesPerVertex), (long) propertiesPerVertex,
+                corners, (long) (triangleCorners.length / ManifoldMeshExport.THREE));
+        try {
+            MemorySegment merged = (MemorySegment) mergeMesh.invoke(arena.allocate(meshSize), mesh);
+            try {
+                return (MemorySegment) solidOfMesh.invoke(arena.allocate(solidSize), merged);
+            } finally {
+                destructMesh.invoke(merged);
+            }
+        } finally {
+            destructMesh.invoke(mesh);
+        }
     }
 
     /**
@@ -171,13 +238,17 @@ public final class ManifoldProvenanceBindings {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment mesh = (MemorySegment) getMesh.invoke(arena.allocate(meshSize), solid);
             try {
-                double[] positions = readDoubles(arena, mesh, vertexPropertiesLength,
+                double[] properties = readDoubles(arena, mesh, vertexPropertiesLength,
                         vertexProperties);
+                int channels = (int) (long) numProp.invoke(mesh);
                 long[] corners = readLongs(arena, mesh, triangleLength, triangleCorners);
                 long[] runs = readLongs(arena, mesh, runIndexLength, runIndex);
                 int[] originals = readInts(arena, mesh, runOriginalIdLength, runOriginalId);
                 long[] faces = readLongs(arena, mesh, faceIdLength, faceId);
-                return new ManifoldMeshExport(positions, corners, runs, originals, faces);
+                long[] mergeFrom = readLongs(arena, mesh, mergeLength, mergeFromVertex);
+                long[] mergeTo = readLongs(arena, mesh, mergeLength, mergeToVertex);
+                return new ManifoldMeshExport(properties, channels, corners, runs, originals,
+                        faces, mergeFrom, mergeTo);
             } finally {
                 destructMesh.invoke(mesh);
             }

@@ -719,6 +719,46 @@
       "description": "Stores a float value or FloatField as a named attribute slot on a geometry bundle for downstream retrieval."
     },
     {
+      "id": "checker_material",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Mesh to texture; quads are split into triangles, since per-corner UVs cover triangles.",
+          "defaultValue": null
+        },
+        {
+          "name": "tile_size",
+          "portType": "FLOAT",
+          "description": "World size of one checker square, so the pattern stays the same scale whatever the mesh\u0027s size.",
+          "defaultValue": 0.5
+        },
+        {
+          "name": "color",
+          "portType": "VECTOR3",
+          "description": "Colour of the light squares; the dark ones are the same colour dimmed.",
+          "defaultValue": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Mesh to texture; quads are split into triangles, since per-corner UVs cover triangles."
+        }
+      ],
+      "description": "Triangulates a mesh and gives it world-space box UVs plus a generated two-tone checker base-colour texture, for exercising the textured pipeline."
+    },
+    {
       "id": "circle_curve",
       "category": "Curve Operations",
       "scopes": [
@@ -2837,7 +2877,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Result as a geometry bundle, with per-face provenance in the _boolean_face_origin, _boolean_face_source_operand and _boolean_face_source_quad slots."
+          "description": "Result as a geometry bundle, with per-face provenance in the _boolean_face_origin, _boolean_face_source_operand and _boolean_face_source_quad slots, plus interpolated UVs and a material per face when the operands carried textures."
         }
       ],
       "description": "Exact CSG boolean (union, difference, or intersect) of two meshes, splitting faces at the intersection curve and recording where each output face came from."

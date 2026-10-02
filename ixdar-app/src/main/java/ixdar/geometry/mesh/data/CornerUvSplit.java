@@ -35,16 +35,19 @@ public final class CornerUvSplit {
 
     /**
      * Split every vertex whose corners disagree on a UV, keeping vertices whose corners agree, and
-     * write each split vertex's UV into {@code splitUv}.
+     * write each split vertex's UV into {@code splitUv}. Faces come out in {@code faceOrder}, so a
+     * draw can group them by the material they name.
      *
      * @param mesh welded triangle mesh
      * @param uv per-corner UVs over {@code mesh}
+     * @param faceOrder faces of {@code mesh} in the order to emit them, or null for mesh order
      * @param splitUv receives {@code (u, v)} per split vertex; at least
      *     {@link #maxSplitUvLength} long, of which the returned mesh's vertex count is written
-     * @return the split mesh, its positions and normals copied from the vertices they came from
+     * @return the split mesh, positions and normals copied from the vertices they came from
      * @throws IllegalArgumentException when {@code splitUv} is too short
      */
-    public static ArrayMesh split(ArrayMesh mesh, CornerUvField uv, float[] splitUv) {
+    public static ArrayMesh split(ArrayMesh mesh, CornerUvField uv, int[] faceOrder,
+            float[] splitUv) {
         if (splitUv == null || splitUv.length < maxSplitUvLength(mesh)) {
             throw new IllegalArgumentException("splitUv must be at least maxSplitUvLength long");
         }
@@ -62,9 +65,13 @@ public final class CornerUvSplit {
 
         int splitCount = 0;
         for (int corner = 0; corner < cornerCount; corner++) {
-            int welded = faceIndices[corner];
-            float cornerU = (float) uv.cornerU[corner];
-            float cornerV = (float) uv.cornerV[corner];
+            int source = faceOrder == null ? corner
+                    : faceOrder[corner / CornerUvField.CORNERS_PER_FACE]
+                            * CornerUvField.CORNERS_PER_FACE
+                            + corner % CornerUvField.CORNERS_PER_FACE;
+            int welded = faceIndices[source];
+            float cornerU = (float) uv.cornerU[source];
+            float cornerV = (float) uv.cornerV[source];
             int found = NO_COPY;
             for (int copy = firstCopy[welded]; copy != NO_COPY; copy = nextCopy[copy]) {
                 if (Float.floatToRawIntBits(splitUv[copy * COMPONENTS_PER_VERTEX])

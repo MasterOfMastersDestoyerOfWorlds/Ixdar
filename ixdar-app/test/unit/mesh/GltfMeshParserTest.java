@@ -121,7 +121,7 @@ class GltfMeshParserTest {
         CornerUvField uv = assertInstanceOf(CornerUvField.class,
                 model.bundle.slots().get(CornerUvField.SLOT));
         float[] splitUv = new float[CornerUvSplit.maxSplitUvLength(mesh)];
-        ArrayMesh split = CornerUvSplit.split(mesh, uv, splitUv);
+        ArrayMesh split = CornerUvSplit.split(mesh, uv, null, splitUv);
 
         assertEquals(SEAM_SOURCE_VERTICES, split.vertexCount(),
                 "splitting on disagreeing corner UVs gives the source vertices back");
@@ -148,7 +148,7 @@ class GltfMeshParserTest {
         CornerUvField uv = assertInstanceOf(CornerUvField.class,
                 model.bundle.slots().get(CornerUvField.SLOT));
 
-        ArrayMesh split = CornerUvSplit.split(mesh, uv,
+        ArrayMesh split = CornerUvSplit.split(mesh, uv, null,
                 new float[CornerUvSplit.maxSplitUvLength(mesh)]);
 
         assertEquals(SQUARE_VERTICES, model.weldedVertexCount, "nothing to weld");

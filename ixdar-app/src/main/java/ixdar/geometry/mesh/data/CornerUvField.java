@@ -40,6 +40,19 @@ public final class CornerUvField implements UvField {
     }
 
     /**
+     * The per-corner UV field a bundle carries.
+     *
+     * @param bundle bundle to read, may be null
+     * @return the field in {@link #SLOT}, or null when the bundle has none
+     */
+    public static CornerUvField of(GeometryBundle bundle) {
+        if (bundle == null) {
+            return null;
+        }
+        return bundle.slots().get(SLOT) instanceof CornerUvField field ? field : null;
+    }
+
+    /**
      * Faces this field covers.
      *
      * @return face count

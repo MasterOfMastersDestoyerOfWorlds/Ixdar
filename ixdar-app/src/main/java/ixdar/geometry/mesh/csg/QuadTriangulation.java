@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.CornerUvField;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
@@ -31,6 +32,15 @@ public final class QuadTriangulation {
 
     /** Face id in {@link #mesh} that each triangle was split from, one per triangle. */
     public int[] triangleSourceFace;
+
+    /**
+     * {@code u} per triangle corner, three per triangle, or null when the operand carried no UVs or
+     * they could not follow the split.
+     */
+    public double[] cornerU;
+
+    /** {@code v} per triangle corner, the same length and order as {@link #cornerU}. */
+    public double[] cornerV;
 
     /** Active-vertex index per vertex id, or {@code -1} for ids the mesh does not hold. */
     private int[] activeVertexByVertexId;
@@ -105,6 +115,25 @@ public final class QuadTriangulation {
                 triangleSourceFace[triangle++] = faceId;
             }
         }
+        return this;
+    }
+
+    /**
+     * Triangulate and carry a per-corner UV field onto the triangles. A corner field is indexed
+     * three per face, so one that does not cover exactly this mesh's triangles is left behind, the
+     * same rule the textured draw applies.
+     *
+     * @param uv per-corner UVs over {@link #mesh}, or null for an operand without textures
+     * @return this, with {@link #cornerU} null unless the field covered the mesh
+     */
+    public QuadTriangulation build(CornerUvField uv) {
+        build();
+        if (uv == null || uv.faceCount() != mesh.faceCount()
+                || triangleSourceFace.length != mesh.faceCount()) {
+            return this;
+        }
+        cornerU = uv.cornerU;
+        cornerV = uv.cornerV;
         return this;
     }
 

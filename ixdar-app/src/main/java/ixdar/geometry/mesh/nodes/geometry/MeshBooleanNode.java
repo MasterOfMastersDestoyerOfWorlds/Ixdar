@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.nodes.geometry;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -14,16 +15,19 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.csg.BooleanOperation;
 import ixdar.geometry.mesh.csg.MeshBooleanResult;
 import ixdar.geometry.mesh.csg.QuadTriangulation;
+import ixdar.geometry.mesh.data.CornerUvField;
+import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.MaterialData;
+import ixdar.geometry.mesh.data.MaterialSet;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.platform.Platforms;
 
 /**
  * Exact boolean (CSG) union, difference or intersect of two meshes.
  *
- * <p>Quads are split along their shorter diagonal before the solve; the output bundle carries
- * per-face provenance as {@link IntField} slots: untouched-copy operand or new, source operand,
- * and source face.
+ * <p>The output carries per-face provenance slots, and a textured operand's UVs ride through the
+ * kernel as interpolated vertex properties so each face keeps its source face's material.
  *
  * <p>See also: NHE*19 Section 3.1
  */
@@ -74,7 +78,8 @@ public class MeshBooleanNode implements MeshNode {
                 OPERATION.name, "CSG op: UNION (A ∪ B), DIFFERENCE (A − B), INTERSECT (A ∩ B).",
                 GEOMETRY.name, "Result as a geometry bundle, with per-face provenance in the"
                         + " _boolean_face_origin, _boolean_face_source_operand and"
-                        + " _boolean_face_source_quad slots."
+                        + " _boolean_face_source_quad slots, plus interpolated UVs and a material"
+                        + " per face when the operands carried textures."
         );
     }
 
@@ -101,13 +106,61 @@ public class MeshBooleanNode implements MeshNode {
         };
 
         MeshBooleanResult result = Platforms.get().meshBooleanBackend().compute(
-                new QuadTriangulation(bundleA.mesh()).build(),
-                new QuadTriangulation(bundleB.mesh()).build(),
+                new QuadTriangulation(bundleA.mesh()).build(CornerUvField.of(bundleA)),
+                new QuadTriangulation(bundleB.mesh()).build(CornerUvField.of(bundleB)),
                 operation);
 
-        ctx.setOutput(GEOMETRY.name, bundleA.withMesh(result.mesh)
+        // Operand A's per-corner, per-face and per-edge slots index a mesh the boolean replaced.
+        GeometryBundle output = bundleA.withMesh(result.mesh)
+                .withoutSlot(EdgeMarks.SLOT)
+                .withoutSlot(CornerUvField.SLOT)
+                .withoutSlot(MaterialData.SLOT)
+                .withoutSlot(MaterialSet.SLOT)
+                .withoutSlot(MaterialSet.FACE_MATERIAL_SLOT)
                 .withSlot(FACE_ORIGIN_SLOT, new IntField(result.faceOrigin))
                 .withSlot(FACE_SOURCE_OPERAND_SLOT, new IntField(result.faceSourceOperand))
-                .withSlot(FACE_SOURCE_QUAD_SLOT, new IntField(result.faceSourceQuad)));
+                .withSlot(FACE_SOURCE_QUAD_SLOT, new IntField(result.faceSourceQuad));
+        if (result.cornerU != null) {
+            output = output.withSlot(CornerUvField.SLOT,
+                    new CornerUvField(result.cornerU, result.cornerV));
+        }
+
+        // Every output face takes the material of the input face it was copied or cut from, so a
+        // seam between two differently textured operands keeps both materials. Indexed by
+        // MeshBooleanResult.ORIGIN_A and ORIGIN_B, which are 0 and 1.
+        MaterialSet[] operandSet = {MaterialSet.of(bundleA), MaterialSet.of(bundleB)};
+        IntField[] operandFaceMaterial =
+                {MaterialSet.faceMaterialOf(bundleA), MaterialSet.faceMaterialOf(bundleB)};
+        MaterialData[] operandMaterial = {MaterialData.of(bundleA), MaterialData.of(bundleB)};
+
+        List<MaterialData> materials = new ArrayList<>();
+        int[] faceMaterial = new int[result.faceSourceOperand.length];
+        for (int face = 0; face < faceMaterial.length; face++) {
+            int operand = result.faceSourceOperand[face];
+            if (operand < 0) {
+                faceMaterial[face] = MaterialSet.NO_MATERIAL;
+                continue;
+            }
+            IntField sourceIndex = operandFaceMaterial[operand];
+            int sourceFace = result.faceSourceQuad[face];
+            MaterialData material = operandMaterial[operand];
+            if (operandSet[operand] != null && sourceIndex != null && sourceFace >= 0
+                    && sourceFace < sourceIndex.length()) {
+                material = operandSet[operand].get(sourceIndex.get(sourceFace));
+            }
+            int index = materials.indexOf(material);
+            if (material != null && index < 0) {
+                index = materials.size();
+                materials.add(material);
+            }
+            faceMaterial[face] = material == null ? MaterialSet.NO_MATERIAL : index;
+        }
+        if (!materials.isEmpty()) {
+            output = output
+                    .withSlot(MaterialSet.SLOT,
+                            new MaterialSet(materials.toArray(new MaterialData[0])))
+                    .withSlot(MaterialSet.FACE_MATERIAL_SLOT, new IntField(faceMaterial));
+        }
+        ctx.setOutput(GEOMETRY.name, output);
     }
 }

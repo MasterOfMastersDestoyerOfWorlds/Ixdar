@@ -8,6 +8,7 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.csg.MeshBooleanResult;
+import ixdar.geometry.mesh.data.CornerUvField;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -24,10 +25,11 @@ import ixdar.scenes.model.ModelChoice;
 import ixdar.scenes.model.ModelScene;
 
 /**
- * Booleans two unit cubes placed with one cube's corner on the other's centre, tinting the result
- * by which cube each face is an untouched copy from and which faces the intersection curve cut.
+ * Booleans two checker-textured unit cubes; the checker running unbroken across cut faces shows
+ * the interpolated UVs. A result without UVs is tinted by face origin instead.
  *
- * <p>See also: NHE*19 Section 3.1
+ * <p>
+ * See also: NHE*19 Section 3.1
  */
 @SceneAnnotation(id = "mesh-boolean")
 public class MeshBooleanScene extends ModelScene {
@@ -35,8 +37,8 @@ public class MeshBooleanScene extends ModelScene {
     /** Resource folder holding the DSL graphs. */
     public static final String DSL_FOLDER = "dsl";
 
-    /** Graph this scene renders: two cubes and a boolean. */
-    public static final String DSL_NAME = "cube_boolean.dsl";
+    /** Graph this scene renders: two checker-textured cubes and a boolean. */
+    public static final String DSL_NAME = "cube_boolean_textured.dsl";
 
     /** Statement in {@link #DSL_NAME} whose output is displayed. */
     public static final String BOOLEAN_STATEMENT = "blended";
@@ -59,41 +61,53 @@ public class MeshBooleanScene extends ModelScene {
     /** Corners per triangle, and equally coordinates per display vertex. */
     public static final int CORNERS_PER_TRIANGLE = 3;
 
-    /** DSL source, held so an operation change can re-run the graph without re-reading it. */
+    /**
+     * DSL source, held so an operation change can re-run the graph without
+     * re-reading it.
+     */
     public String dslSource;
 
     /** Operation the graph runs, as the {@code mesh_boolean} node's mode token. */
     public String operation = MeshBooleanNode.UNION;
 
     /**
-     * Views the cubes across their shared diagonal rather than along it: at the default 45° the
-     * view direction nearly matches the (1, 1, 1) offset, so the second cube hides behind the
-     * first. The elevation is high enough to show the notch the boolean cuts.
+     * Views the cubes across their shared diagonal rather than along it: at the
+     * default 45° the view direction nearly matches the (1, 1, 1) offset, so the
+     * second cube hides behind the first. The elevation is high enough to show the
+     * notch the boolean cuts.
      */
     public MeshBooleanScene() {
         orbitAzimuth = (float) Math.toRadians(135.0);
         orbitElevation = (float) Math.toRadians(20.0);
     }
 
+    /**
+     * The wireframe starts off: the checker already shows where the faces were cut, and the
+     * overlay would hide it. W turns it on.
+     *
+     * @return the runtime the scene draws with
+     */
     @Override
     public HalfEdgeMeshRuntime createRuntime() {
-        HalfEdgeMeshRuntime created = new HalfEdgeMeshRuntime();
-        created.setWireframe(true);
-        return created;
+        return new HalfEdgeMeshRuntime();
     }
 
-    /** Creates the runtime, then loads and runs the graph once the DSL source arrives. */
+    /**
+     * Creates the runtime, then loads and runs the graph once the DSL source
+     * arrives.
+     */
     @Override
     public void initModel() {
         runtime = createRuntime();
-        Platforms.get().loadSourceAsync(DSL_FOLDER, DSL_NAME, Platforms.gl().getPlatformID(), source -> {
+        Platforms.get().loadSourceAsync(DSL_FOLDER, DSL_NAME,Platforms.gl().getPlatformID(), source -> {
             dslSource = source;
             rebuild();
         });
     }
 
     /**
-     * No file models: this scene renders one fixed graph, so the ESC menu offers nothing to load.
+     * No file models: this scene renders one fixed graph, so the ESC menu offers
+     * nothing to load.
      *
      * @return an empty list
      */
@@ -129,7 +143,10 @@ public class MeshBooleanScene extends ModelScene {
         rebuild();
     }
 
-    /** Toggle the wireframe overlay that shows how the intersection curve split the faces. */
+    /**
+     * Toggle the wireframe overlay that shows how the intersection curve split the
+     * faces.
+     */
     void toggleWireframe() {
         if (runtime != null) {
             runtime.setWireframe(!runtime.isWireframe());
@@ -137,10 +154,12 @@ public class MeshBooleanScene extends ModelScene {
     }
 
     /**
-     * Run the DSL graph for the current operation, upload the result, and tint its faces by origin.
+     * Run the DSL graph for the current operation, upload the result, and tint its
+     * faces by origin.
      *
-     * <p>The operation is a per-node literal override rather than an edit of the source, so the
-     * shipped graph stays the one {@code ixdar-cli mesh-dsl} loads.
+     * <p>
+     * The operation is a per-node literal override rather than an edit of the
+     * source, so the shipped graph stays the one {@code ixdar-cli mesh-dsl} loads.
      */
     void rebuild() {
         if (dslSource == null) {
@@ -168,18 +187,25 @@ public class MeshBooleanScene extends ModelScene {
             runtime = createRuntime();
         }
         frameMesh(mesh);
-        applyProvenanceTags(bundle, mesh);
+        if (CornerUvField.of(bundle) != null) {
+            runtime.clearTags();
+            runtime.uploadBundle(bundle);
+            runtime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.TEXTURED);
+        } else {
+            applyProvenanceTags(bundle, mesh);
+        }
 
         Platforms.get().log(LOG_PREFIX + operation + " V=" + mesh.vertexCount()
                 + " F=" + mesh.faceCount());
     }
 
     /**
-     * Upload the mesh tinted by provenance: untouched faces in their operand's colour, cut faces
-     * in a third. Tags are per vertex, so the display copy gives every face its own corners.
+     * Upload the mesh tinted by provenance: untouched faces in their operand's
+     * colour, cut faces in a third. Tags are per vertex, so the display copy gives
+     * every face its own corners.
      *
      * @param bundle boolean output carrying the provenance slots
-     * @param mesh the boolean's mesh
+     * @param mesh   the boolean's mesh
      */
     private void applyProvenanceTags(GeometryBundle bundle, MeshTopology mesh) {
         int faceCount = mesh.faceCount();

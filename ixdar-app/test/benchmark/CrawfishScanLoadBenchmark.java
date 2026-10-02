@@ -112,7 +112,7 @@ public final class CrawfishScanLoadBenchmark {
         ArrayMesh welded = assertInstanceOf(ArrayMesh.class, model.bundle.mesh());
         CornerUvField uv = assertInstanceOf(CornerUvField.class,
                 model.bundle.slots().get(CornerUvField.SLOT));
-        ArrayMesh unwelded = CornerUvSplit.split(welded, uv,
+        ArrayMesh unwelded = CornerUvSplit.split(welded, uv, null,
                 new float[CornerUvSplit.maxSplitUvLength(welded)]);
         Platforms.log("[benchmark] welded V=%d | split V=%d%n", welded.vertexCount(),
                 unwelded.vertexCount());

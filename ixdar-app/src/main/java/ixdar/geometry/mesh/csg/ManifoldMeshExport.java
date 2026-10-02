@@ -3,14 +3,20 @@ package ixdar.geometry.mesh.csg;
 /**
  * One Manifold solid read back as a {@code MeshGL64}: geometry plus the run and face tables
  * naming each triangle's input solid and coplanar input face.
+ *
+ * <p>A vertex holds {@link #propertiesPerVertex} doubles, the first three being its position and
+ * any further channels the interpolated per-vertex properties the boolean carried through.
  */
 public final class ManifoldMeshExport {
 
     /** Coordinates per vertex, and equally corners per triangle. */
     public static final int THREE = 3;
 
-    /** Vertex positions, three doubles per vertex. */
-    public final double[] vertexPositions;
+    /** Vertex property table, {@link #propertiesPerVertex} doubles per vertex. */
+    public final double[] vertexProperties;
+
+    /** Doubles per vertex in {@link #vertexProperties}, at least {@link #THREE}. */
+    public final int propertiesPerVertex;
 
     /** Triangle corners as vertex indices, three per triangle. */
     public final long[] triangleCorners;
@@ -28,21 +34,42 @@ public final class ManifoldMeshExport {
     public final long[] faceId;
 
     /**
+     * Property vertices that are the same point of the surface as {@link #mergeToVertex}'s entry
+     * at the same index: the copies a property seam split off. Empty when nothing is split.
+     */
+    public final long[] mergeFromVertex;
+
+    /** The vertex each {@link #mergeFromVertex} entry welds onto, parallel to it. */
+    public final long[] mergeToVertex;
+
+    /**
      * Store one solid's tables.
      *
-     * @param vertexPositions vertex positions, three per vertex
+     * @param vertexProperties vertex property table, {@code propertiesPerVertex} doubles per vertex
+     * @param propertiesPerVertex doubles per vertex, position first
      * @param triangleCorners triangle corners, three vertex indices per triangle
      * @param runIndex run start offsets in corners with a trailing end offset
      * @param runOriginalId original id per run
      * @param faceId coplanar source face id per triangle, or empty
+     * @param mergeFromVertex split-off property vertices, or empty
+     * @param mergeToVertex the vertex each split-off one welds onto, parallel to it
+     * @throws IllegalArgumentException when fewer than three channels per vertex are given
      */
-    public ManifoldMeshExport(double[] vertexPositions, long[] triangleCorners, long[] runIndex,
-            int[] runOriginalId, long[] faceId) {
-        this.vertexPositions = vertexPositions;
+    public ManifoldMeshExport(double[] vertexProperties, int propertiesPerVertex,
+            long[] triangleCorners, long[] runIndex, int[] runOriginalId, long[] faceId,
+            long[] mergeFromVertex, long[] mergeToVertex) {
+        if (propertiesPerVertex < THREE) {
+            throw new IllegalArgumentException(
+                    "a vertex holds at least its three coordinates, got " + propertiesPerVertex);
+        }
+        this.vertexProperties = vertexProperties;
+        this.propertiesPerVertex = propertiesPerVertex;
         this.triangleCorners = triangleCorners;
         this.runIndex = runIndex;
         this.runOriginalId = runOriginalId;
         this.faceId = faceId;
+        this.mergeFromVertex = mergeFromVertex;
+        this.mergeToVertex = mergeToVertex;
     }
 
     /**
@@ -51,7 +78,7 @@ public final class ManifoldMeshExport {
      * @return vertex count
      */
     public int vertexCount() {
-        return vertexPositions.length / THREE;
+        return vertexProperties.length / propertiesPerVertex;
     }
 
     /**
@@ -93,14 +120,16 @@ public final class ManifoldMeshExport {
     }
 
     /**
-     * Read one coordinate of one triangle corner.
+     * Read one property channel of one triangle corner, the first three channels being its
+     * position.
      *
      * @param triangle triangle index
      * @param corner corner of the triangle, 0 to 2
-     * @param axis coordinate axis, 0 to 2
-     * @return the coordinate
+     * @param channel property channel below {@link #propertiesPerVertex}
+     * @return the channel's value at that corner
      */
-    public double cornerCoordinate(int triangle, int corner, int axis) {
-        return vertexPositions[(int) triangleCorners[triangle * THREE + corner] * THREE + axis];
+    public double cornerCoordinate(int triangle, int corner, int channel) {
+        int vertex = (int) triangleCorners[triangle * THREE + corner];
+        return vertexProperties[vertex * propertiesPerVertex + channel];
     }
 }

@@ -18,9 +18,12 @@ import ixdar.geometry.mesh.data.CornerUvSplit;
 import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MaterialData;
+import ixdar.geometry.mesh.data.MaterialSet;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.nodes.api.IntField;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;
@@ -68,6 +71,9 @@ public class HalfEdgeMeshRuntime {
 
     /** Descriptive name the base-color {@link Texture} carries; nothing looks it up. */
     public static final String BASE_COLOR_TEXTURE_NAME = "mesh_base_color";
+
+    /** Mesh shader uniform choosing between the base-color texture and the solid colour. */
+    public static final String USE_TEXTURE_UNIFORM = "useTexture";
     public static final float NUM_0_0003 = 0.0003f;
     public static final float NUM_2_0_2 = 2.0f;
     public static final double NUM_0_6180339887498949 = 0.6180339887498949;
@@ -130,7 +136,9 @@ public class HalfEdgeMeshRuntime {
     private final Map<String, Vector4f> tagColorOverrides = new HashMap<>();
     private List<TagRange> tagRanges = List.of();
     private ShaderMode shaderMode = ShaderMode.LAMBERT;
-    private Texture baseColorTexture;
+    private Texture[] materialTextures = new Texture[0];
+    private int[] materialRangeStart = new int[0];
+    private int[] materialRangeCount = new int[0];
     private final VertexArrayObject texturedVao;
     private final VertexBufferObject texturedVbo;
     private int texturedEbo;
@@ -214,26 +222,82 @@ public class HalfEdgeMeshRuntime {
         scalarUploaded = false;
         uploadCompiledMesh(Platforms.gl().STATIC_DRAW());
         uploadEdgeData(bundle.mesh());
-        uploadBaseColorTexture(MaterialData.of(bundle));
+
+        // One base-color texture per material, plus a trailing null entry for the faces that name
+        // no material.
+        MaterialData[] materials = MaterialSet.materialsOf(bundle);
+        materialTextures = new Texture[materials.length + 1];
+        for (int index = 0; index < materials.length; index++) {
+            MaterialData material = materials[index];
+            if (!material.hasBaseColorTexture()) {
+                continue;
+            }
+            Texture texture = new Texture(BASE_COLOR_TEXTURE_NAME, new DecodedImage(
+                    material.baseColorRgba, material.baseColorWidth, material.baseColorHeight));
+            texture.initGL();
+            if (!texture.initialized) {
+                Platforms.log("[mesh] base-colour texture upload failed");
+                continue;
+            }
+            materialTextures[index] = texture;
+        }
         uploadTexturedGeometry(bundle);
     }
 
     /**
-     * Build the textured draw's own vertex buffers. UVs are per corner, so {@link CornerUvSplit}
-     * gives every distinct corner UV its own GPU vertex, uploaded beside the welded buffers the
-     * other modes keep drawing from.
+     * Build the textured draw's own vertex buffers, faces grouped into one index range per
+     * material. UVs are per corner, so {@link CornerUvSplit} gives every distinct corner UV its own
+     * GPU vertex, uploaded beside the welded buffers the other modes keep drawing from.
      *
-     * @param bundle source bundle, whose mesh must be a triangle {@link ArrayMesh} to be split
+     * @param bundle source bundle, whose mesh must be triangles for per-corner UVs to cover it
      */
     private void uploadTexturedGeometry(GeometryBundle bundle) {
-        if (!(bundle.mesh() instanceof ArrayMesh mesh)
-                || mesh.getVertsPerFace() != CornerUvField.CORNERS_PER_FACE
-                || !(bundle.slots().get(CornerUvField.SLOT) instanceof CornerUvField uv)
-                || uv.faceCount() != mesh.faceCount()) {
+        CornerUvField uv = CornerUvField.of(bundle);
+        if (uv == null) {
             return;
         }
+        // A boolean hands over a HalfEdgeMesh; the split needs dense arrays either way.
+        ArrayMesh mesh = bundle.mesh() instanceof ArrayMesh dense
+                && dense.getVertsPerFace() == CornerUvField.CORNERS_PER_FACE
+                ? dense : SemanticPatchDecomposer.toArrayMesh(bundle.mesh());
+        if (uv.faceCount() != mesh.faceCount()) {
+            return;
+        }
+        // Group the faces by the material they name, so each material's faces form one contiguous
+        // index range. Faces naming no material land in the trailing range, drawn in solid colour.
+        int faceCount = mesh.faceCount();
+        int rangeCount = Math.max(materialTextures.length, 1);
+        int noMaterial = rangeCount - 1;
+        IntField faceMaterial = MaterialSet.faceMaterialOf(bundle);
+        if (faceMaterial != null && faceMaterial.length() != faceCount) {
+            faceMaterial = null;
+        }
+        materialRangeStart = new int[rangeCount];
+        materialRangeCount = new int[rangeCount];
+        int[] rangeOf = new int[faceCount];
+        for (int face = 0; face < faceCount; face++) {
+            int material = faceMaterial == null ? 0 : faceMaterial.get(face);
+            rangeOf[face] = material < 0 || material >= noMaterial ? noMaterial : material;
+            materialRangeCount[rangeOf[face]]++;
+        }
+        int start = 0;
+        for (int range = 0; range < rangeCount; range++) {
+            materialRangeStart[range] = start;
+            start += materialRangeCount[range] * CornerUvField.CORNERS_PER_FACE;
+        }
+        int[] fill = new int[rangeCount];
+        int[] faceOrder = new int[faceCount];
+        for (int face = 0; face < faceCount; face++) {
+            int range = rangeOf[face];
+            faceOrder[materialRangeStart[range] / CornerUvField.CORNERS_PER_FACE
+                    + fill[range]++] = face;
+        }
+        for (int range = 0; range < rangeCount; range++) {
+            materialRangeCount[range] *= CornerUvField.CORNERS_PER_FACE;
+        }
+
         float[] splitUv = new float[CornerUvSplit.maxSplitUvLength(mesh)];
-        ArrayMesh split = CornerUvSplit.split(mesh, uv, splitUv);
+        ArrayMesh split = CornerUvSplit.split(mesh, uv, faceOrder, splitUv);
         float[] positions = split.copyPositions();
         float[] normals = split.copyNormals();
         int[] indices = split.copyFaceIndices();
@@ -269,31 +333,16 @@ public class HalfEdgeMeshRuntime {
         meshVao.bind();
     }
 
-    /**
-     * Upload the material's base-color image as the texture {@link ShaderMode#TEXTURED} samples.
-     *
-     * @param material bundle material, or {@code null} when the bundle carries none
-     */
-    private void uploadBaseColorTexture(MaterialData material) {
-        if (material == null || !material.hasBaseColorTexture()) {
-            return;
-        }
-        Texture texture = new Texture(BASE_COLOR_TEXTURE_NAME, new DecodedImage(
-                material.baseColorRgba, material.baseColorWidth, material.baseColorHeight));
-        texture.initGL();
-        if (!texture.initialized) {
-            Platforms.log("[mesh] base-colour texture upload failed");
-            return;
-        }
-        baseColorTexture = texture;
-    }
-
-    /** Release the base-color texture and the split geometry the textured draw uses. */
+    /** Release the base-color textures and the split geometry the textured draw uses. */
     public void clearTexturedDraw() {
-        if (baseColorTexture != null) {
-            baseColorTexture.delete();
-            baseColorTexture = null;
+        for (Texture texture : materialTextures) {
+            if (texture != null) {
+                texture.delete();
+            }
         }
+        materialTextures = new Texture[0];
+        materialRangeStart = new int[0];
+        materialRangeCount = new int[0];
         texturedIndexCount = 0;
     }
 
@@ -316,7 +365,15 @@ public class HalfEdgeMeshRuntime {
      * @return true once {@link #uploadBundle(GeometryBundle)} found a material and a UV field
      */
     public boolean hasTexturedDraw() {
-        return baseColorTexture != null && texturedIndexCount > 0;
+        if (texturedIndexCount == 0) {
+            return false;
+        }
+        for (Texture texture : materialTextures) {
+            if (texture != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -454,25 +511,32 @@ public class HalfEdgeMeshRuntime {
                 lightDir.set(dx / len, dy / len, dz / len);
             }
             active.setVec3("lightDir", lightDir);
-            active.setBool("useTexture", sampleTexture);
+            active.setBool(USE_TEXTURE_UNIFORM, sampleTexture);
             active.setVec3("emissiveColor", emissiveColor);
             active.setFloat("emissiveStrength", NUM_0_08);
             active.setFloat("rimStrength", NUM_0_16);
         }
         if (sampleTexture) {
-            active.setTexture("albedoTex", baseColorTexture, Platforms.gl().TEXTURE0(), 0);
-        }
-
-        if (sampleTexture) {
             // The textured draw has its own UV-split vertices, so it ignores the welded mesh's tag
-            // ranges: the texture is what colours the surface.
+            // ranges: the texture is what colours the surface. One draw per material, since each
+            // carries its own image; faces naming no material fall back to the solid colour.
             texturedVao.bind();
             Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), texturedEbo);
-            Platforms.gl().drawElements(
-                    Platforms.gl().TRIANGLES(),
-                    texturedIndexCount,
-                    Platforms.gl().UNSIGNED_INT(),
-                    0);
+            for (int range = 0; range < materialRangeCount.length; range++) {
+                if (materialRangeCount[range] == 0) {
+                    continue;
+                }
+                Texture texture = materialTextures[range];
+                active.setBool(USE_TEXTURE_UNIFORM, texture != null);
+                if (texture != null) {
+                    active.setTexture("albedoTex", texture, Platforms.gl().TEXTURE0(), 0);
+                }
+                Platforms.gl().drawElements(
+                        Platforms.gl().TRIANGLES(),
+                        materialRangeCount[range],
+                        Platforms.gl().UNSIGNED_INT(),
+                        materialRangeStart[range] * Integer.BYTES);
+            }
             if (wireframe) {
                 renderEdges(camera);
             }

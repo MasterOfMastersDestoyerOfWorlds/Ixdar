@@ -342,7 +342,16 @@ public interface MeshTopology {
      */
     Vector3f faceNormal(int faceId, Vector3f dest);
 
-
+    /**
+     * The axis a face's normal points along most strongly: the axis a planar projection of the
+     * face drops so the projection never collapses.
+     *
+     * @param faceId face to query
+     * @return 0 for x, 1 for y, 2 for z
+     */
+    default int faceDominantAxis(int faceId) {
+        return faceNormal(faceId, new Vector3f()).maxComponent();
+    }
 
     /**
      * Read the (cached) per-face normal into {@code dest}.
