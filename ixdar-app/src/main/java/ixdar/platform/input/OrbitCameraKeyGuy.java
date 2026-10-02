@@ -6,6 +6,8 @@ import java.util.List;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
+import ixdar.graphics.render.Clock;
+import ixdar.platform.Toggle;
 import ixdar.scenes.model.ControlHint;
 
 /**
@@ -72,6 +74,22 @@ public class OrbitCameraKeyGuy extends KeyGuy {
             }
         }
         super.keyCallback(window, key, scancode, action, mods);
+    }
+
+    /**
+     * Per-frame: apply the held zoom keys only. The free-fly WASD movement is skipped because
+     * {@link OrbitMouseTrap} alone owns the camera's position and target; moving them here would
+     * desync the light and clip planes from the drawn view.
+     *
+     * @param shiftMod speed multiplier (typically 1 or 2)
+     */
+    @Override
+    public void paintUpdate(float shiftMod) {
+        if (!active || Toggle.IsTerminalFocused.value || camera == null) {
+            return;
+        }
+        camera.setShiftMod(shiftMod);
+        applyZoom(camera, pressedKeys, Clock.deltaTime());
     }
 
     /**

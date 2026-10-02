@@ -59,7 +59,6 @@ public class HalfEdgeMeshRuntime {
     /** Far plane margin beyond the target, as a multiple of the model's extent. */
     public static final float FAR_PLANE_EXTENT_MUL = 3f;
     public static final float NUM_0 = 0f;
-    public static final float NUM_0_001 = 0.001f;
     public static final float NUM_0_08 = 0.08f;
     public static final float NUM_0_16 = 0.16f;
     public static final float NUM_255 = 255f;
@@ -499,15 +498,9 @@ public class HalfEdgeMeshRuntime {
         boolean sampleTexture = samplesTexture(shaderMode, hasTexturedDraw());
         if (shaderMode == ShaderMode.LAMBERT || shaderMode == ShaderMode.STAGES
                 || shaderMode == ShaderMode.TEXTURED) {
-            // Light follows camera so visible faces are always lit.
-            // lightDir convention: points INTO scene (shader uses -lightDir for surface→light)
-            float dx = camera.target.x - camera.position.x;
-            float dy = camera.target.y - camera.position.y;
-            float dz = camera.target.z - camera.position.z;
-            float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (len > NUM_0_001) {
-                lightDir.set(dx / len, dy / len, dz / len);
-            }
+            // The light points along the view direction (into the scene; the shader uses -lightDir),
+            // read from the view matrix so it always matches what is drawn.
+            camera.view.positiveZ(lightDir).negate();
             active.setVec3("lightDir", lightDir);
             active.setBool(USE_TEXTURE_UNIFORM, sampleTexture);
             active.setVec3("emissiveColor", emissiveColor);
@@ -1029,12 +1022,11 @@ public class HalfEdgeMeshRuntime {
         Platforms.gl().lineWidth(NUM_1_5);
         Platforms.gl().drawElements(Platforms.gl().LINES(), edgeCount, Platforms.gl().UNSIGNED_INT(), 0);
         Platforms.gl().enable(Platforms.gl().DEPTH_TEST());
-
+        meshUnlitShader.setFloat(DEPTHBIAS, NUM_0_0003);
         meshUnlitShader.setVec4(SOLIDCOLOR, edgeColor);
         Platforms.gl().lineWidth(NUM_2_0_2);
-        Platforms.gl().drawElements(Platforms.gl().LINES(), edgeCount , Platforms.gl().UNSIGNED_INT(), 0);
-        
-
+        Platforms.gl().drawElements(Platforms.gl().LINES(), edgeCount, Platforms.gl().UNSIGNED_INT(), 0);
+        meshUnlitShader.setFloat(DEPTHBIAS, NUM_0);
     }
 
     /**

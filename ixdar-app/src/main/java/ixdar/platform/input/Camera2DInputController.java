@@ -35,6 +35,18 @@ public class Camera2DInputController {
         if (KeyActions.MoveRight.keyPressed(pressedKeys)) {
             camera.move(Camera.Direction.RIGHT);
         }
+        applyZoom(camera, pressedKeys, zoomDeltaSeconds);
+    }
+
+    /**
+     * Apply only the held zoom keys to {@code camera}, leaving its position untouched; opposing
+     * zoom keys cancel each other. Orbit scenes use this in place of {@link #apply}.
+     *
+     * @param camera target camera
+     * @param pressedKeys live set of pressed key codes
+     * @param zoomDeltaSeconds frame delta in seconds, scaled by the camera's zoom rate
+     */
+    public static void applyZoom(Camera camera, Set<Integer> pressedKeys, double zoomDeltaSeconds) {
         if (KeyActions.ZoomIn.keyPressed(pressedKeys) && !KeyActions.ZoomOut.keyPressed(pressedKeys)) {
             camera.onScroll(true, zoomDeltaSeconds);
         }
