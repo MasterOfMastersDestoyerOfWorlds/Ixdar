@@ -25,7 +25,6 @@ import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.mesh.data.FeatureEdgeColors;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.Patch;
@@ -40,6 +39,7 @@ import ixdar.geometry.mesh.data.load.ObjMeshParser;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
@@ -70,7 +70,6 @@ public class MeshNodeViewerScene extends ModelScene {
     public static final float NUM_0_35 = 0.35f;
     public static final float NUM_2 = 2f;
     public static final float NUM_1e_6 = 1e-6f;
-    public static final int NUM_0x000000 = 0x000000;
     public static final int NUM_128 = 128;
     public static final int NUM_16 = 16;
     public static final int NUM_0xf = 0xff;
@@ -87,7 +86,8 @@ public class MeshNodeViewerScene extends ModelScene {
      * Overlay colours handed to edge-mark labels in sorted label order: warm amber for the first,
      * cool cyan for the second, magenta for a third.
      */
-    private static final int[] EDGE_MARK_COLORS = { 0xFFA000, 0x00C8FF, 0xFF00C8 };
+    private static final Color[] EDGE_MARK_COLORS = {
+        Color.EDGE_MARK_AMBER, Color.EDGE_MARK_CYAN, Color.EDGE_MARK_MAGENTA };
 
     /** Resource folder holding the DSL graphs, relative to the module directory. */
     private static final String DSL_RESOURCE_DIRECTORY = "src/main/resources/dsl";
@@ -1313,11 +1313,11 @@ public class MeshNodeViewerScene extends ModelScene {
                 // saddle-only not drawn here; saddle drawn as a last pass below for emphasis.
             }
             List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new ArrayList<>();
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.DIHEDRAL, dihOnly));
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.PRINCIPAL, prinOnly));
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.CREST, crestOnly));
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.MULTI_SOURCE, multi));
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.SADDLE, saddle));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.FEATURE_EDGE_DIHEDRAL, dihOnly));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.FEATURE_EDGE_PRINCIPAL, prinOnly));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.FEATURE_EDGE_CREST, crestOnly));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.WHITE, multi));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.FEATURE_EDGE_SADDLE, saddle));
             meshRuntime.setFeatureEdgeOverlay(cats);
         } else if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.CREST_VS_BOUNDARY) {
             Set<Long> crest = cachedDiagnostics.crestEdges();
@@ -1338,9 +1338,9 @@ public class MeshNodeViewerScene extends ModelScene {
                     crestIgnored.add(key);
             }
             List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new ArrayList<>();
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.BOUNDARY_ONLY, boundaryOnly));
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.CREST_IGNORED, crestIgnored));
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(FeatureEdgeColors.CREST_HONORED, aligned));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.BLACK, boundaryOnly));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.FEATURE_EDGE_CREST, crestIgnored));
+            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.FEATURE_EDGE_CREST_HONORED, aligned));
             meshRuntime.setFeatureEdgeOverlay(cats);
         } else if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.MSC) {
             MorseSmaleComplex.Result msc = cachedDiagnostics.morseSmale();
@@ -1361,7 +1361,7 @@ public class MeshNodeViewerScene extends ModelScene {
                     }
                 }
                 List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new ArrayList<>();
-                cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(NUM_0x000000, arcEdges));
+                cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.BLACK, arcEdges));
                 meshRuntime.setFeatureEdgeOverlay(cats);
             } else {
                 meshRuntime.clearFeatureEdgeOverlay();

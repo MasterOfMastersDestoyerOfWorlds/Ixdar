@@ -56,6 +56,14 @@ public interface Color {
     public static final Color GLSL_EQUALS = new ColorRGB(0.90f, 0.95f, 0.55f, "GLSL Equals");
     public static final Color GLSL_BOOLEAN = new ColorRGB(0.70f, 0.90f, 0.60f, "GLSL Boolean");
     public static final Color GLSL_SKIP = new ColorRGB(0.98f, 0.96f, 0.70f, "GLSL Skip");
+    public static final Color FEATURE_EDGE_DIHEDRAL = new ColorRGB(106, 200, 255, "Feature Edge Dihedral");
+    public static final Color FEATURE_EDGE_PRINCIPAL = new ColorRGB(255, 215, 0, "Feature Edge Principal");
+    public static final Color FEATURE_EDGE_CREST = new ColorRGB(255, 48, 64, "Feature Edge Crest");
+    public static final Color FEATURE_EDGE_SADDLE = new ColorRGB(123, 31, 162, "Feature Edge Saddle");
+    public static final Color FEATURE_EDGE_CREST_HONORED = new ColorRGB(0, 224, 80, "Feature Edge Crest Honored");
+    public static final Color EDGE_MARK_AMBER = new ColorRGB(255, 160, 0, "Edge Mark Amber");
+    public static final Color EDGE_MARK_CYAN = new ColorRGB(0, 200, 255, "Edge Mark Cyan");
+    public static final Color EDGE_MARK_MAGENTA = new ColorRGB(255, 0, 200, "Edge Mark Magenta");
 
     /**
      * RGB channels of this color as a {@code (r, g, b)} vector.

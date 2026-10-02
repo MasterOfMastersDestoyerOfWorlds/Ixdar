@@ -62,8 +62,6 @@ public class HalfEdgeMeshRuntime {
     public static final float NUM_0_001 = 0.001f;
     public static final float NUM_0_08 = 0.08f;
     public static final float NUM_0_16 = 0.16f;
-    public static final int NUM_16 = 16;
-    public static final int NUM_0xf = 0xff;
     public static final float NUM_255 = 255f;
     public static final int NUM_8 = 8;
     public static final int NUM_7 = 7;
@@ -664,11 +662,11 @@ public class HalfEdgeMeshRuntime {
 
     /**
      * Upload a feature-edge overlay to be drawn in STAGES or CREST_VS_BOUNDARY modes. Categories
-     * draw in the order given, so later ones overpaint earlier ones on shared edges. Colors are
-     * 0x00RRGGBB — see {@link ixdar.geometry.mesh.data.FeatureEdgeColors}.
+     * draw in the order given, so later ones overpaint earlier ones on shared edges. The palette is
+     * the {@code FEATURE_EDGE_*} constants of {@link Color}.
      *
-     * @param categories ordered list of overlay categories, each pairing an
-     *                   sRGB color with the edge keys to draw in that color;
+     * @param categories ordered list of overlay categories, each pairing a
+     *                   color with the edge keys to draw in that color;
      *                   {@code null} or empty clears the overlay
      */
     public void setFeatureEdgeOverlay(List<FeatureEdgeCategory> categories) {
@@ -697,13 +695,7 @@ public class HalfEdgeMeshRuntime {
             }
             int count = cursor - start;
             if (count > 0) {
-                int rgb = cat.colorRgb();
-                Vector4f color = new Vector4f(
-                        ((rgb >> NUM_16) & NUM_0xf) / NUM_255,
-                        ((rgb >> NUM_8) & NUM_0xf) / NUM_255,
-                        (rgb & NUM_0xf) / NUM_255,
-                        NUM_1);
-                ranges.add(new FeatureEdgeRange(color, start, count));
+                ranges.add(new FeatureEdgeRange(cat.color().toVector4f(), start, count));
             }
         }
         GL gl = Platforms.gl();
@@ -1435,7 +1427,7 @@ public class HalfEdgeMeshRuntime {
      * Categories are drawn in the order supplied, so later ones overpaint
      * earlier ones where they share edges.
      */
-    public record FeatureEdgeCategory(int colorRgb, Collection<Long> edgeKeys) {}
+    public record FeatureEdgeCategory(Color color, Collection<Long> edgeKeys) {}
 
     /**
      * Centre and reach of flat-xyz point clouds: fills {@code centroidDest} with the mean point and
