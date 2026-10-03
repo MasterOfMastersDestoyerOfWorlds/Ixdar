@@ -59,8 +59,8 @@ public class OrbitCameraKeyGuy extends KeyGuy {
     /**
      * Handle {@code Ctrl+R} as an orbit-centre reset while {@link #controlRResetsTarget}
      * holds; otherwise dispatch to
-     * {@link #handleSceneKeys(int, int)}. {@code Ctrl+R} never falls through to a
-     * scene's plain-{@code R} binding.
+     * {@link #handleSceneKeys(int, int)}. While the terminal owns the key nothing fires but
+     * the terminal toggle.
      *
      * @param window   platform window handle
      * @param key      key code
@@ -71,7 +71,8 @@ public class OrbitCameraKeyGuy extends KeyGuy {
     @Override
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
         if (active && action == ACTION_PRESS) {
-            if (controlRResetsTarget && key == Keys.R && (mods & MOD_CONTROL) != 0) {
+            if (controlRResetsTarget && key == Keys.R && (mods & MOD_CONTROL) != 0
+                    && !terminalOwnsKey(key)) {
                 orbitMouse.resetTarget();
                 markKeyConsumed();
             } else {
@@ -98,14 +99,15 @@ public class OrbitCameraKeyGuy extends KeyGuy {
     }
 
     /**
-     * Fire the first control whose {@link ControlHint#keyCode} matches {@code key}. Scenes bind
-     * keys by adding controls, not by overriding this.
+     * Fire the first control whose {@link ControlHint#keyCode} matches {@code key}, or none while
+     * the focused terminal owns the key. Scenes bind keys by adding controls, not by overriding
+     * this.
      *
      * @param key  pressed key code
      * @param mods modifier-key bitmask
      */
     public void handleSceneKeys(int key, int mods) {
-        if (controls == null) {
+        if (controls == null || terminalOwnsKey(key)) {
             return;
         }
         for (ControlHint hint : controls) {

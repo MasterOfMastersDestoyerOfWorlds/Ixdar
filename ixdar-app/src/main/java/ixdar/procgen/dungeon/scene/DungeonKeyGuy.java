@@ -4,6 +4,7 @@ import java.util.function.BooleanSupplier;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
+import ixdar.platform.Toggle;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
 
@@ -43,27 +44,28 @@ public class DungeonKeyGuy extends KeyGuy {
     }
 
     /**
-     * Per-frame key processing. Edge-detects F / V / Esc and suppresses the base WASD-camera
+     * Per-frame key processing. Edge-detects F / V / Esc, firing none while the terminal has focus, and suppresses the base WASD-camera
      * loop while in player mode.
      *
      * @param shiftMod movement-speed multiplier (forwarded to the base implementation in fly-cam)
      */
     @Override
     public void paintUpdate(float shiftMod) {
+        boolean sceneOwnsKeys = !Toggle.IsTerminalFocused.value;
         boolean fNow = pressedKeys.contains(Keys.F);
-        if (fNow && !lastFState) {
+        if (sceneOwnsKeys && fNow && !lastFState) {
             togglePlayerMode.run();
         }
         lastFState = fNow;
 
         boolean vNow = pressedKeys.contains(Keys.V);
-        if (vNow && !lastVState && inPlayerMode.getAsBoolean()) {
+        if (sceneOwnsKeys && vNow && !lastVState && inPlayerMode.getAsBoolean()) {
             toggleViewMode.run();
         }
         lastVState = vNow;
 
         boolean escNow = pressedKeys.contains(Keys.ESCAPE);
-        if (escNow && !lastEscState && inPlayerMode.getAsBoolean()) {
+        if (sceneOwnsKeys && escNow && !lastEscState && inPlayerMode.getAsBoolean()) {
             togglePlayerMode.run();
         }
         lastEscState = escNow;

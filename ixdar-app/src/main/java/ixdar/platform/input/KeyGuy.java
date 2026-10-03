@@ -115,6 +115,17 @@ public class KeyGuy extends Camera2DInputController {
         keysConsumed++;
     }
 
+    /**
+     * Whether a key belongs to the focused scene terminal and must not reach any scene binding.
+     * The terminal toggle key ({@code ~}) never does, so it can still close the terminal.
+     *
+     * @param key key code
+     * @return {@code true} while the terminal has focus and {@code key} is not the toggle key
+     */
+    public static boolean terminalOwnsKey(int key) {
+        return Toggle.IsTerminalFocused.value && key != Keys.GRAVE;
+    }
+
     private void keyPressed(int key, int mods, boolean repeated) {
         if (!active) {
             return;
@@ -129,7 +140,8 @@ public class KeyGuy extends Camera2DInputController {
         if (KeyActions.ShiftMask.keyPressed(pressedKeys)) {
             shiftMask = true;
         }
-        if (firstPress) {
+        boolean sceneOwnsKey = !terminalOwnsKey(key);
+        if (firstPress && sceneOwnsKey) {
             if (controlMask) {
                 if (KeyActions.Save.keyPressed(pressedKeys)) {
                     if (MainScene.file == null && MainScene.tempFile != null) {
@@ -190,14 +202,14 @@ public class KeyGuy extends Camera2DInputController {
             Terminal.current.keyPress(key, mods, controlMask);
             markKeyConsumed();
         }
-        if (KeyActions.Back.keyPressed(pressedKeys) && MainScene.active) {
+        if (sceneOwnsKey && KeyActions.Back.keyPressed(pressedKeys) && MainScene.active) {
             Terminal.runNoArgs(ExitCommand.class);
         }
     }
 
     /**
      * Handle a key-up: fire menu / camera shortcuts when a non-main scene is
-     * active, clear the control-mask flag on left-control release, then drop
+     * active and the terminal does not own the key, clear the control-mask flag on left-control release, then drop
      * {@code key} from {@link #pressedKeys}.
      *
      * @param key  key code that was released
@@ -210,7 +222,7 @@ public class KeyGuy extends Camera2DInputController {
         recordAbstractAction("key_release", KEY, key, "mask", mask);
         if (main != null && MainScene.active) {
 
-        } else if (canvas.active) {
+        } else if (canvas.active && !terminalOwnsKey(key)) {
             if (KeyActions.Back.keyPressed(pressedKeys) && canvas.menu != null) {
                 canvas.menu.back();
             }
