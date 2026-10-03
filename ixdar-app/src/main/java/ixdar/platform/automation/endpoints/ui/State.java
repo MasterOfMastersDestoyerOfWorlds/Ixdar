@@ -463,6 +463,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 JsonObject element = runtime.hyperStringElement("scene_menu_box", box.bounds.id,
                         box.text, box.scrollOffsetY);
                 element.addProperty("maximumScrollOffsetY", box.maximumScrollOffsetY());
+                element.addProperty("drawnScrollOffsetY", box.drawnScrollOffsetY());
                 element.addProperty(XPX, box.bounds.offsetX);
                 element.addProperty(YPX, box.bounds.offsetY);
                 element.addProperty("width", box.bounds.viewWidth);

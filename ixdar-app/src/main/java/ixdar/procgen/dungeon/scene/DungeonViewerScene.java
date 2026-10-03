@@ -4,7 +4,7 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import java.util.function.IntConsumer;
+import java.util.function.DoubleConsumer;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.GeometryBundle;
@@ -106,7 +106,7 @@ public class DungeonViewerScene extends Scene {
                 camera.mouseMove(lx, ly, x, y);
             }
         };
-        IntConsumer onScroll = ticks -> {
+        DoubleConsumer onScroll = ticks -> {
             if (playerMode && viewMode == ViewMode.THIRD_PERSON && thirdPersonCamera != null) {
                 thirdPersonCamera.applyZoom(ticks, playerCellSize);
             }

@@ -16,7 +16,6 @@ import ixdar.platform.Platforms;
  */
 public class Scene2DMousePanTrap extends MouseTrap {
     public static final float CLICK_DRAG_THRESHOLD_PX = 3f;
-    public static final int SCROLL_TICKS_PER_UNIT = 4;
     public static final int SCROLL_DECAY_MS = 60;
     public static final float SCROLL_SPEED_SCALE = 100f;
     private Vector2f leftMouseDownPos;
@@ -97,10 +96,10 @@ public class Scene2DMousePanTrap extends MouseTrap {
     }
 
     /**
-     * Queue scroll ticks (applied during {@link #paintUpdate}); ticks decay if no further scroll
-     * arrives within {@link #SCROLL_DECAY_MS} ms.
+     * Sum the raw scroll delta, untruncated, for {@link #paintUpdate}; it decays if no further
+     * scroll arrives within {@link #SCROLL_DECAY_MS} ms.
      *
-     * @param y vertical scroll delta
+     * @param y vertical scroll delta, fractional from a trackpad
      */
     @Override
     public void scrollCallback(double y) {
@@ -108,13 +107,14 @@ public class Scene2DMousePanTrap extends MouseTrap {
         if (!active) {
             return;
         }
-        queuedMouseWheelTicks += (int) (SCROLL_TICKS_PER_UNIT * y);
+        queuedScrollDelta += y;
         timeLastScroll = System.currentTimeMillis();
     }
 
     /**
-     * Per-frame: drain queued scroll ticks into a camera zoom call (sign of accumulated ticks
-     * picks zoom-in vs zoom-out).
+     * Per-frame: drain the queued delta into a camera zoom call, its sign picking zoom-in vs
+     * zoom-out and its size, capped at one notch a frame, scaling the step, so a trackpad zooms in
+     * proportion to the finger.
      *
      * @param shiftMod speed multiplier (currently unused; preserved for API parity)
      */
@@ -124,12 +124,13 @@ public class Scene2DMousePanTrap extends MouseTrap {
             return;
         }
         if (System.currentTimeMillis() - timeLastScroll > SCROLL_DECAY_MS) {
-            queuedMouseWheelTicks = 0;
+            queuedScrollDelta = 0;
         }
-        if (queuedMouseWheelTicks != 0) {
-            boolean zoomIn = queuedMouseWheelTicks < 0;
-            camera.onScroll(zoomIn, Clock.deltaTime() * SCROLL_SPEED_SCALE);
-            queuedMouseWheelTicks = 0;
+        if (queuedScrollDelta != 0) {
+            boolean zoomIn = queuedScrollDelta < 0;
+            double notches = Math.min(1, Math.abs(queuedScrollDelta));
+            camera.onScroll(zoomIn, notches * Clock.deltaTime() * SCROLL_SPEED_SCALE);
+            queuedScrollDelta = 0;
         }
     }
 }

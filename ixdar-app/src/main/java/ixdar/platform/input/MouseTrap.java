@@ -38,7 +38,11 @@ public class MouseTrap {
 
     private static final HashMap<Integer, List<ClickSubscription>> CLICK_SUBSCRIPTIONS_BY_PLATFORM = new HashMap<>();
 
-    public int queuedMouseWheelTicks = 0;
+    /**
+     * Raw platform scroll deltas summed since the last frame drained them, never rounded: a
+     * trackpad's many small deltas add up exactly as a wheel's whole notches do.
+     */
+    public double queuedScrollDelta = 0;
     public int lastX = Integer.MIN_VALUE;
     public int lastY = Integer.MIN_VALUE;
     public Camera camera;
@@ -266,14 +270,16 @@ public class MouseTrap {
     }
 
     /**
-     * Queue scroll ticks (4 per wheel-click) and stamp the time so {@link #paintUpdate} can
-     * decay them after {@link #SCROLL_DECAY_MS} ms of inactivity.
+     * Add the platform's scroll delta, untruncated, to {@link #queuedScrollDelta} and stamp the
+     * time so {@link #paintUpdate} can decay it after {@link #SCROLL_DECAY_MS} ms of inactivity.
      *
-     * @param y vertical scroll delta
+     * @param y vertical scroll delta, 1.0 per wheel notch, fractions from a trackpad
      */
     public void scrollCallback(double y) {
-        Platforms.init(canvas.platform.getPlatformID());
-        queuedMouseWheelTicks += (int) (SCROLL_TICKS_PER_UNIT * y);
+        if (canvas != null) {
+            Platforms.init(canvas.platform.getPlatformID());
+        }
+        queuedScrollDelta += y;
         timeLastScroll = System.currentTimeMillis();
         recordAbstractAction("mouse_scroll", "delta", y);
     }
@@ -324,36 +330,34 @@ public class MouseTrap {
     }
 
     /**
-     * Per-frame: drain queued scroll ticks. If the cursor is inside any subscribed scroll
-     * region, hand the ticks to that handler and short-circuit; otherwise refresh HyperString
-     * hover state. Ticks decay if {@link #SCROLL_DECAY_MS} ms passes with no further scroll.
+     * Per-frame: drain the queued scroll delta. A region under the cursor that
+     * {@link ScrollHandler#claimsWheel claims the wheel} gets the whole delta once; any other region
+     * gets a frame-time step in its sign each frame until it decays after {@link #SCROLL_DECAY_MS}
+     * ms; otherwise HyperString hover is refreshed.
      *
      * @param SHIFT_MOD speed multiplier (currently unused; kept for API parity)
      */
     public void paintUpdate(float SHIFT_MOD) {
         if (System.currentTimeMillis() - timeLastScroll > SCROLL_DECAY_MS) {
-            queuedMouseWheelTicks = 0;
+            queuedScrollDelta = 0;
         }
         PaneTypes view = MainScene.inView(lastX, lastY);
 
-        if (queuedMouseWheelTicks != 0) {
+        if (queuedScrollDelta != 0) {
             ScrollHandler region = scrollHandlerUnderCursor(handler -> true);
-            if (region != null) {
-                region.onScroll(queuedMouseWheelTicks < 0, Clock.deltaTime() * SCROLL_SPEED_SCALE);
+            if (region != null && region.claimsWheel()) {
+                region.onScrollDelta(queuedScrollDelta);
+                queuedScrollDelta = 0;
                 return;
             }
-        }
-        if (queuedMouseWheelTicks < 0) {
+            if (region != null) {
+                region.onScroll(queuedScrollDelta < 0, Clock.deltaTime() * SCROLL_SPEED_SCALE);
+                return;
+            }
             if (view != PaneTypes.None) {
                 updateHyperStrings();
             }
-            queuedMouseWheelTicks = 0;
-        }
-        if (queuedMouseWheelTicks > 0) {
-            if (view != PaneTypes.None) {
-                updateHyperStrings();
-            }
-            queuedMouseWheelTicks = 0;
+            queuedScrollDelta = 0;
         }
         MouseTrap.hyperStrings = new ArrayList<>();
     }
@@ -447,13 +451,33 @@ public class MouseTrap {
 
     public interface ScrollHandler {
         /**
-         * Called once per frame while accumulated scroll ticks land inside the registered
-         * region.
+         * Called once per frame while a queued scroll delta lands inside the registered region
+         * and the region does not {@link #claimsWheel claim the raw delta}.
          *
-         * @param scrollUp true when the wheel rolled "up" (negative tick count)
+         * @param scrollUp true when the wheel rolled "up" (negative delta)
          * @param deltaSeconds frame delta in seconds, scaled by {@link #SCROLL_SPEED_SCALE}
          */
         void onScroll(boolean scrollUp, double deltaSeconds);
+
+        /**
+         * Whether this region takes the raw scroll delta through {@link #onScrollDelta} right now,
+         * so the wheel over it scrolls it rather than zooming a 3D scene's orbit camera.
+         *
+         * @return false unless the region opts in
+         */
+        default boolean claimsWheel() {
+            return false;
+        }
+
+        /**
+         * Scroll by the raw platform delta summed since the last frame, each delta delivered once
+         * and never rounded; only called while {@link #claimsWheel} holds.
+         *
+         * @param delta summed scroll delta, 1.0 per wheel notch, negative when the wheel rolled
+         *              toward the user
+         */
+        default void onScrollDelta(double delta) {
+        }
     }
 
     @FunctionalInterface

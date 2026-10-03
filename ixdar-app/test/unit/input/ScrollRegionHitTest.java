@@ -1,9 +1,13 @@
 package unit.input;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.joml.Vector3f;
 import org.junit.jupiter.api.AfterEach;
@@ -53,13 +57,25 @@ class ScrollRegionHitTest {
 
     private static final float WINDOW_Y_ABOVE_BOTTOM_BOX = 515f;
 
+    private static final int TRACKPAD_EVENTS = 50;
+
+    private static final double TRACKPAD_DELTA = 0.05;
+
+    private static final double TRACKPAD_TOTAL = 2.5;
+
+    private static final double EXACT = 1e-12;
+
+    private static final double ZOOM_BASE = 0.97;
+
+    private static final double ZOOM_TOLERANCE = 1e-4;
+
     private Platform suitePlatform;
 
     private GL suiteGl;
 
-    private final MouseTrap.ScrollHandler stripHandler = new TakesWheel();
+    private final TakesWheel stripHandler = new TakesWheel();
 
-    private final MouseTrap.ScrollHandler bottomBoxHandler = new TakesWheel();
+    private final TakesWheel bottomBoxHandler = new TakesWheel();
 
     private OrbitMouseTrap orbit;
 
@@ -133,18 +149,82 @@ class ScrollRegionHitTest {
         assertSame(stripHandler, orbit.wheelClaimerUnderCursor());
     }
 
+    @Test
+    void trackpadSizedDeltasReachTheRegionUntruncatedOneFrameAtATime() {
+        orbit.mousePos(WINDOW_X_JUST_RIGHT_OF_STRIP_LEFT, WINDOW_Y_INSIDE_BOTTOM_BOX);
+        for (int event = 0; event < TRACKPAD_EVENTS; event++) {
+            orbit.scrollCallback(TRACKPAD_DELTA);
+            orbit.paintUpdate(1f);
+        }
+        assertEquals(TRACKPAD_EVENTS, bottomBoxHandler.deltas.size());
+        for (double delta : bottomBoxHandler.deltas) {
+            assertEquals(TRACKPAD_DELTA, delta, "each delta arrives as sent");
+        }
+        assertEquals(TRACKPAD_TOTAL, bottomBoxHandler.total(), EXACT);
+        assertEquals(0, orbit.queuedScrollDelta);
+        assertEquals(0, stripHandler.deltas.size());
+    }
+
+    @Test
+    void deltasQueuedBetweenFramesReachTheRegionOnceAsTheirExactSum() {
+        orbit.mousePos(WINDOW_X_JUST_RIGHT_OF_STRIP_LEFT, WINDOW_Y_INSIDE_BOTTOM_BOX);
+        for (int event = 0; event < TRACKPAD_EVENTS; event++) {
+            orbit.scrollCallback(-TRACKPAD_DELTA);
+        }
+        orbit.paintUpdate(1f);
+        orbit.paintUpdate(1f);
+        assertEquals(1, bottomBoxHandler.deltas.size());
+        assertEquals(-TRACKPAD_TOTAL, bottomBoxHandler.total(), EXACT);
+    }
+
+    @Test
+    void aSlowTrackpadZoomOffEveryRegionMovesTheCameraByTheWheelRatePerUnit() {
+        orbit.mousePos(WINDOW_X_JUST_LEFT_OF_STRIP_LEFT, WINDOW_Y_MIDDLE);
+        float start = orbit.getDistance();
+        orbit.scrollCallback(TRACKPAD_DELTA);
+        orbit.paintUpdate(1f);
+        assertTrue(orbit.getDistance() < start, "one 0.05 delta zooms in");
+        for (int event = 1; event < TRACKPAD_EVENTS; event++) {
+            orbit.scrollCallback(TRACKPAD_DELTA);
+            orbit.paintUpdate(1f);
+        }
+        double perUnit = Math.pow(ZOOM_BASE, MouseTrap.SCROLL_TICKS_PER_UNIT);
+        assertEquals(start * Math.pow(perUnit, TRACKPAD_TOTAL), orbit.getDistance(), ZOOM_TOLERANCE);
+        assertEquals(0, bottomBoxHandler.deltas.size() + stripHandler.deltas.size());
+    }
+
     /**
-     * A region that always takes the wheel and ignores the scroll itself.
+     * A region that always takes the wheel and records every delta it is handed.
      */
-    private static final class TakesWheel implements OrbitMouseTrap.WheelClaimer {
+    private static final class TakesWheel implements MouseTrap.ScrollHandler {
+
+        public final List<Double> deltas = new ArrayList<>();
 
         @Override
         public void onScroll(boolean scrollUp, double deltaSeconds) {
         }
 
         @Override
+        public void onScrollDelta(double delta) {
+            deltas.add(delta);
+        }
+
+        @Override
         public boolean claimsWheel() {
             return true;
+        }
+
+        /**
+         * Sum of the deltas handed over so far.
+         *
+         * @return their total
+         */
+        public double total() {
+            double sum = 0;
+            for (double delta : deltas) {
+                sum += delta;
+            }
+            return sum;
         }
     }
 }

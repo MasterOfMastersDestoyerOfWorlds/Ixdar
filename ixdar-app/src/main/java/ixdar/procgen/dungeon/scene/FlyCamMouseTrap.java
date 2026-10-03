@@ -5,7 +5,7 @@ import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import static ixdar.platform.input.Keys.MOUSE_BUTTON_LEFT;
 
 import java.util.function.BooleanSupplier;
-import java.util.function.IntConsumer;
+import java.util.function.DoubleConsumer;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
@@ -22,7 +22,7 @@ import ixdar.platform.input.MouseTrap;
 public class FlyCamMouseTrap extends MouseTrap {
 
     private final DeltaHandler onDelta;
-    private final IntConsumer onScroll;
+    private final DoubleConsumer onScroll;
     private final BooleanSupplier captureSupplier;
     private boolean leftDown = false;
 
@@ -35,13 +35,13 @@ public class FlyCamMouseTrap extends MouseTrap {
      *     (capture / player mode) and {@code false} when rotation requires LMB-drag (fly-cam)
      * @param onDelta         consumer for cursor deltas — caller decides whether to feed them to
      *     first-person camera look or third-person orbit
-     * @param onScroll        consumer for scroll-wheel ticks (e.g. third-person zoom); may be
-     *     {@code null} to ignore scroll
+     * @param onScroll        consumer for scroll-wheel ticks, fractional for a trackpad (e.g.
+     *     third-person zoom); may be {@code null} to ignore scroll
      */
     public FlyCamMouseTrap(Camera camera, Canvas3D canvas,
                            BooleanSupplier captureSupplier,
                            DeltaHandler onDelta,
-                           IntConsumer onScroll) {
+                           DoubleConsumer onScroll) {
         super(null, camera, canvas);
         this.captureSupplier = captureSupplier;
         this.onDelta = onDelta;
@@ -128,18 +128,17 @@ public class FlyCamMouseTrap extends MouseTrap {
     }
 
     /**
-     * Per-frame hook that drains queued scroll-wheel ticks into {@code onScroll}.
+     * Per-frame hook that drains the queued scroll delta into {@code onScroll} as
+     * {@link #SCROLL_TICKS_PER_UNIT} ticks per unit, fractions kept.
      *
      * @param shiftMod movement-speed multiplier (unused here; kept for base-class symmetry)
      */
     @Override
     public void paintUpdate(float shiftMod) {
-        if (queuedMouseWheelTicks != 0 && onScroll != null) {
-            int ticks = queuedMouseWheelTicks;
-            queuedMouseWheelTicks = 0;
-            onScroll.accept(ticks);
-        } else {
-            queuedMouseWheelTicks = 0;
+        double delta = queuedScrollDelta;
+        queuedScrollDelta = 0;
+        if (delta != 0 && onScroll != null) {
+            onScroll.accept(SCROLL_TICKS_PER_UNIT * delta);
         }
     }
 

@@ -7,7 +7,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
 import ixdar.platform.Platforms;
-import ixdar.platform.input.OrbitMouseTrap;
+import ixdar.platform.input.MouseTrap;
 import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelChoice;
 import ixdar.scenes.model.ModelScene;
@@ -17,7 +17,7 @@ import ixdar.scenes.model.ModelScene;
  * the collection or every model, Recompute, then a fixed CONTROLS title over a box of controls.
  * Each box scrolls on its own; the text is rebuilt each frame to re-register its clicks.
  */
-public final class SceneModelMenu implements OrbitMouseTrap.WheelClaimer {
+public final class SceneModelMenu implements MouseTrap.ScrollHandler {
 
     public static final String MODELS_HEADER = "MODELS";
 
@@ -87,7 +87,7 @@ public final class SceneModelMenu implements OrbitMouseTrap.WheelClaimer {
 
     /**
      * Place the controls box at the bottom of the right-side strip and the models box directly
-     * under the MODELS title, both whole lines tall so no line is cut at a box's top.
+     * under the MODELS title, both whole lines tall so an unscrolled box shows no cut row.
      */
     public void layout() {
         float rowHeight = Drawing.FONT_HEIGHT_PIXELS;

@@ -480,9 +480,9 @@ public class HyperString {
     }
 
     /**
-     * Lay out a single line top-down: assign per-word screen bounds at the width drawn at
-     * {@code rowHeight}, wrap when a word would exit the viewport or exceed {@link #charWrap},
-     * and mark off-screen words as culled.
+     * Lay out a single line top-down: per-word screen bounds, wrapping at the view width or
+     * {@link #charWrap}; only rows wholly outside the view are culled, a cut row is left to the
+     * viewport clip.
      *
      * @param camera 2D camera providing viewport size and screen offset
      * @param row top row index for this line
@@ -526,11 +526,7 @@ public class HyperString {
                     charLength = 0;
                 }
                 float wordY = camera.getHeight() - ((row + 1) * rowHeight) + scrollOffsetY;
-                if (wordY < 0 || wordY > camera.getHeight()) {
-                    subWord.culled = true;
-                } else {
-                    subWord.culled = false;
-                }
+                subWord.culled = wordY + rowHeight <= 0 || wordY >= camera.getHeight();
                 subWord.setBounds(wordX, wordY, camera.getScreenOffsetX() + offset, camera.getScreenOffsetY() + wordY,
                         wordWidth, rowHeight, camera.viewBounds);
                 offset += wordWidth;

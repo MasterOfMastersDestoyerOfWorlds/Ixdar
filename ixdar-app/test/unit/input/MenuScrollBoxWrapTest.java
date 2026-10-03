@@ -31,6 +31,18 @@ class MenuScrollBoxWrapTest {
 
     private static final float ROW = Drawing.FONT_HEIGHT_PIXELS;
 
+    private static final float PER_UNIT = MenuScrollBox.PIXELS_PER_SCROLL_UNIT;
+
+    private static final int TRACKPAD_EVENTS = 50;
+
+    private static final double TRACKPAD_DELTA = 0.05;
+
+    private static final float TRACKPAD_TOTAL = 2.5f;
+
+    private static final double WHEEL_NOTCH = 1.0;
+
+    private static final float PIXEL_TOLERANCE = 1e-3f;
+
     private static final String LONG_ROW =
             "a model row whose name is far too long for the strip and has to wrap";
 
@@ -166,18 +178,94 @@ class MenuScrollBoxWrapTest {
     }
 
     @Test
-    void rowsAreDrawnAtWholeRowOffsetsSoNoneIsCutUnderTheTitle() {
+    void everyTrackpadDeltaMovesTheDrawnRowsInProportionAtOnce() {
+        MenuScrollBox box = rowsBox(4, 60);
+        float expected = 0;
+        for (int event = 0; event < TRACKPAD_EVENTS; event++) {
+            box.onScrollDelta(-TRACKPAD_DELTA);
+            expected += TRACKPAD_DELTA * PER_UNIT;
+            assertEquals(expected, box.drawnScrollOffsetY(), PIXEL_TOLERANCE, "after event " + event);
+        }
+        assertEquals(TRACKPAD_TOTAL * PER_UNIT, box.drawnScrollOffsetY(), PIXEL_TOLERANCE);
+        box.onScrollDelta(WHEEL_NOTCH);
+        assertEquals((TRACKPAD_TOTAL - WHEEL_NOTCH) * PER_UNIT, box.drawnScrollOffsetY(),
+                PIXEL_TOLERANCE, "a wheel notch toward the screen goes back three rows");
+        assertEquals(3 * ROW, WHEEL_NOTCH * PER_UNIT, "a notch is three rows of the default font");
+    }
+
+    @Test
+    void theOffsetIsClampedToTheRowsAndAHiddenBoxIgnoresTheWheel() {
+        MenuScrollBox box = rowsBox(4, 20);
+        box.onScrollDelta(-100);
+        assertEquals(box.maximumScrollOffsetY(), box.drawnScrollOffsetY());
+        box.onScrollDelta(100);
+        assertEquals(0, box.drawnScrollOffsetY());
+        box.onScrollDelta(TRACKPAD_DELTA);
+        assertEquals(0, box.drawnScrollOffsetY(), "past the top stays at the top");
+
+        boolean[] shown = {false};
+        MenuScrollBox hidden = new MenuScrollBox("HIDDEN_BOX", () -> shown[0]);
+        hidden.bounds.update(0, 0, BOX_WIDTH, 4 * ROW);
+        hidden.clearRows();
+        for (int row = 0; row < 20; row++) {
+            hidden.addRow("row " + row, Color.COMMAND, null);
+        }
+        hidden.layout(camera);
+        assertTrue(!hidden.claimsWheel());
+        hidden.onScrollDelta(-1);
+        assertEquals(0, hidden.drawnScrollOffsetY());
+    }
+
+    @Test
+    void theOffsetRestsAtAnyPixelThroughLayout() {
+        MenuScrollBox box = rowsBox(4, 20);
+        double smallDelta = -0.0123;
+        box.onScrollDelta(smallDelta);
+        box.layout(camera);
+        assertEquals((float) (-smallDelta * PER_UNIT), box.drawnScrollOffsetY(), PIXEL_TOLERANCE);
+        assertTrue(box.drawnScrollOffsetY() % ROW != 0, "between rows");
+    }
+
+    @Test
+    void theBoxRestsBetweenRowsAndAClickOnTheVisiblePartOfACutRowPicksIt() {
+        int[] clicks = new int[10];
         MenuScrollBox box = box(4);
-        for (int row = 0; row < 10; row++) {
+        for (int row = 0; row < clicks.length; row++) {
+            int clicked = row;
+            box.addRow("row " + row, Color.COMMAND, () -> clicks[clicked]++);
+        }
+        box.layout(camera);
+        box.onScrollDelta(-1.5f * ROW / PER_UNIT);
+        assertEquals(1.5f * ROW, box.drawnScrollOffsetY(), PIXEL_TOLERANCE);
+        box.text.setLineOffsetFromTopRow(camera, 0, box.drawnScrollOffsetY(), ROW);
+
+        assertTrue(wordsOf(box, 0).get(0).culled, "row 0 is wholly above the box");
+        assertTrue(!wordsOf(box, 1).get(0).culled && !wordsOf(box, 5).get(0).culled,
+                "both cut rows are drawn");
+        HyperWord topCut = wordsOf(box, 1).get(0);
+        float x = topCut.xScreenOffset + 1;
+        box.text.click(x, box.bounds.viewHeight - ROW / 4);
+        assertEquals(1, clicks[1], "visible half of the top cut row");
+        box.text.click(x, box.bounds.viewHeight + ROW / 4);
+        assertEquals(1, clicks[1], "the half above the box is not clickable");
+        box.text.click(x, ROW / 4);
+        assertEquals(1, clicks[5], "visible half of the bottom cut row");
+        box.text.click(x, -ROW / 4);
+        assertEquals(1, clicks[5], "the half below the box is not clickable");
+        int total = 0;
+        for (int count : clicks) {
+            total += count;
+        }
+        assertEquals(2, total);
+    }
+
+    private MenuScrollBox rowsBox(int rowsTall, int rowCount) {
+        MenuScrollBox box = box(rowsTall);
+        for (int row = 0; row < rowCount; row++) {
             box.addRow("row " + row, Color.COMMAND, null);
         }
         box.layout(camera);
-        box.scrollOffsetY = 1.4f * ROW;
-        assertEquals(ROW, box.drawnScrollOffsetY());
-        box.scrollOffsetY = 1.6f * ROW;
-        assertEquals(2 * ROW, box.drawnScrollOffsetY());
-        box.scrollOffsetY = box.maximumScrollOffsetY();
-        assertEquals(6 * ROW, box.drawnScrollOffsetY());
+        return box;
     }
 
     private static MenuScrollBox box(int rowsTall) {

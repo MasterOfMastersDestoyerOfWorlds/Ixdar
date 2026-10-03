@@ -72,10 +72,10 @@ public final class ThirdPersonCamera {
      * Multiply the desired distance by {@code ZOOM_BASE^wheelTicks}, clamped to the configured
      * min/max distance (in cells, scaled by {@code cellSize}).
      *
-     * @param wheelTicks scroll-wheel delta (positive = zoom in)
+     * @param wheelTicks scroll-wheel delta, fractional from a trackpad (positive = zoom in)
      * @param cellSize   world-space size of a grid cell, used to scale the clamp range
      */
-    public void applyZoom(int wheelTicks, float cellSize) {
+    public void applyZoom(double wheelTicks, float cellSize) {
         if (wheelTicks == 0) return;
         desiredDistance *= (float) Math.pow(ZOOM_BASE, wheelTicks);
         desiredDistance = clamp(desiredDistance,

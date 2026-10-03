@@ -12,7 +12,6 @@ import org.joml.Vector3f;
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.cameras.Camera3D;
-import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.platform.Platforms;
 
@@ -24,7 +23,6 @@ import ixdar.platform.Platforms;
  */
 public class OrbitMouseTrap extends MouseTrap {
     public static final float CLICK_DRAG_THRESHOLD_PX = 3f;
-    public static final int SCROLL_DECAY_MS = 60;
     public static final float DEFAULT_MIN_DISTANCE = 0.75f;
     public static final float DEFAULT_MAX_DISTANCE = 40.0f;
     private static final float DRAG_RADIANS_PER_PIXEL = 0.01f;
@@ -72,28 +70,13 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * A scroll region that takes the wheel from the orbit while the cursor is over it. The orbit's
-     * wheel otherwise always zooms, so only regions that opt in here scroll in a 3D scene; a
-     * region such as the terminal strip keeps zooming.
-     */
-    public interface WheelClaimer extends ScrollHandler {
-
-        /**
-         * Whether the wheel over this region scrolls it instead of zooming, right now.
-         *
-         * @return true while the region is shown and wants the wheel
-         */
-        boolean claimsWheel();
-    }
-
-    /**
-     * The scroll region under the cursor that claims the wheel from the orbit right now.
+     * The scroll region under the cursor that claims the wheel from the orbit right now; the
+     * orbit's wheel otherwise zooms, so a region that does not opt in (the terminal strip) zooms.
      *
      * @return its handler, or {@code null} when the wheel should zoom
      */
     public ScrollHandler wheelClaimerUnderCursor() {
-        return scrollHandlerUnderCursor(
-                handler -> handler instanceof WheelClaimer claimer && claimer.claimsWheel());
+        return scrollHandlerUnderCursor(ScrollHandler::claimsWheel);
     }
 
     /**
@@ -333,8 +316,8 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * Forward to {@link MouseTrap#scrollCallback(double)} which queues ticks for
-     * {@link #paintUpdate} to consume as zoom changes.
+     * Forward to {@link MouseTrap#scrollCallback(double)}, which sums the raw delta for
+     * {@link #paintUpdate}.
      *
      * @param y vertical scroll delta
      */
@@ -347,30 +330,27 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * Per-frame: hand queued scroll ticks to a region under the cursor that takes the wheel from
-     * the orbit, else drain them into a multiplicative distance change ({@link #ZOOM_BASE}^ticks,
-     * then clamped) and reapply the camera pose.
+     * Per-frame: hand the whole queued delta, however old, to the region under the cursor that
+     * claims the wheel, else zoom by {@link #ZOOM_BASE} to the power of
+     * {@link #SCROLL_TICKS_PER_UNIT} times the delta; either way the queue empties, nothing rounded.
      *
      * @param shiftMod speed multiplier (currently unused)
      */
     @Override
     public void paintUpdate(float shiftMod) {
-        if (!active) {
+        if (!active || queuedScrollDelta == 0) {
             return;
         }
-        if (System.currentTimeMillis() - timeLastScroll > SCROLL_DECAY_MS) {
-            queuedMouseWheelTicks = 0;
+        double delta = queuedScrollDelta;
+        queuedScrollDelta = 0;
+        ScrollHandler region = wheelClaimerUnderCursor();
+        if (region != null) {
+            region.onScrollDelta(delta);
+            return;
         }
-        if (queuedMouseWheelTicks != 0) {
-            ScrollHandler region = wheelClaimerUnderCursor();
-            if (region != null) {
-                region.onScroll(queuedMouseWheelTicks < 0, Clock.deltaTime() * SCROLL_SPEED_SCALE);
-                return;
-            }
-            distance = clamp(distance * (float) Math.pow(ZOOM_BASE, queuedMouseWheelTicks), minDistance, maxDistance);
-            queuedMouseWheelTicks = 0;
-            applyOrbit();
-        }
+        distance = clamp(distance * (float) Math.pow(ZOOM_BASE, SCROLL_TICKS_PER_UNIT * delta),
+                minDistance, maxDistance);
+        applyOrbit();
     }
 
     private void applyOrbit() {

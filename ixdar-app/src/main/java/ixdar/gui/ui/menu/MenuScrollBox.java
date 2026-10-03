@@ -8,21 +8,24 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.actions.Action;
-import ixdar.platform.input.OrbitMouseTrap;
+import ixdar.platform.input.MouseTrap;
 
 /**
  * One independently scrolling box of a menu: a framebuffer rectangle that clips its rows and, while
  * its menu is shown, takes the wheel from the orbit camera to scroll them. The rows are one wrapping
  * {@link HyperString}, a line per row, which wraps, lays out, hit-tests and counts them.
  */
-public final class MenuScrollBox implements OrbitMouseTrap.WheelClaimer {
+public final class MenuScrollBox implements MouseTrap.ScrollHandler {
 
-    public static final float SCROLL_SPEED = 12f;
+    public static final float PIXELS_PER_SCROLL_UNIT = 90f;
 
     /** The box's rectangle in framebuffer pixels, y up; the owning menu lays it out. */
     public final Bounds bounds;
 
-    /** Pixels the rows are scrolled on by, between zero and {@link #maximumScrollOffsetY()}. */
+    /**
+     * Pixels the rows are scrolled on by, between zero and {@link #maximumScrollOffsetY()}; any
+     * value, not only whole rows.
+     */
     public float scrollOffsetY;
 
     /** This frame's rows, one line each; {@code null} before the first {@link #clearRows()}. */
@@ -94,8 +97,8 @@ public final class MenuScrollBox implements OrbitMouseTrap.WheelClaimer {
     }
 
     /**
-     * Lay the rows out and draw them top-down, clipped to the box. They are drawn at a whole-row
-     * offset, so the top row of the box is never cut by its top edge.
+     * Draw the rows top-down at {@link #drawnScrollOffsetY()} with the GL viewport on the box, so a
+     * part-scrolled row is cut at the box edge, as its hit area is.
      *
      * @param camera 2D camera whose view is set to the box and left there
      */
@@ -106,15 +109,13 @@ public final class MenuScrollBox implements OrbitMouseTrap.WheelClaimer {
     }
 
     /**
-     * The scroll the rows are drawn at: {@link #scrollOffsetY} rounded to whole rows.
+     * The scroll the rows are drawn, hit-tested and reported at: {@link #scrollOffsetY} itself, with
+     * no easing, so a scroll shows on the next frame.
      *
-     * @return the offset in pixels, a multiple of the row height
+     * @return the offset in pixels, between zero and {@link #maximumScrollOffsetY()}
      */
     public float drawnScrollOffsetY() {
-        float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
-        float wholeRows = Math.round(scrollOffsetY / rowHeight) * rowHeight;
-        float limit = (float) Math.ceil(maximumScrollOffsetY() / rowHeight) * rowHeight;
-        return Math.min(wholeRows, limit);
+        return scrollOffsetY;
     }
 
     /**
@@ -137,20 +138,29 @@ public final class MenuScrollBox implements OrbitMouseTrap.WheelClaimer {
     }
 
     /**
-     * Scroll by {@link #SCROLL_SPEED} times the wheel delta, clamped to the rows: a wheel rolled
-     * toward the user (negative ticks, reported as {@code scrollUp}) moves on to later rows.
+     * Scroll by {@link #PIXELS_PER_SCROLL_UNIT} times the delta at once, clamped to the rows, so the
+     * list follows a trackpad finger and can stop at any pixel: a delta below zero (wheel toward
+     * the user) moves on to later rows.
      *
-     * @param scrollUp true for negative wheel ticks
-     * @param deltaSeconds wheel delta scaled by the frame time
+     * @param delta raw scroll delta, 1.0 per wheel notch
      */
     @Override
-    public void onScroll(boolean scrollUp, double deltaSeconds) {
+    public void onScrollDelta(double delta) {
         if (!shown.getAsBoolean()) {
             return;
         }
-        float step = (float) (SCROLL_SPEED * deltaSeconds);
-        scrollOffsetY = Math.max(0,
-                Math.min(maximumScrollOffsetY(), scrollOffsetY + (scrollUp ? step : -step)));
+        scrollOffsetY = (float) Math.max(0, Math.min(maximumScrollOffsetY(),
+                scrollOffsetY - delta * PIXELS_PER_SCROLL_UNIT));
+    }
+
+    /**
+     * Unused: a box claims the wheel and scrolls through {@link #onScrollDelta}.
+     *
+     * @param scrollUp unused
+     * @param deltaSeconds unused
+     */
+    @Override
+    public void onScroll(boolean scrollUp, double deltaSeconds) {
     }
 
     /**

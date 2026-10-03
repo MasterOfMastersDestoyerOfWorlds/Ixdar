@@ -28,7 +28,6 @@ public class TradeMouseTrap extends MouseTrap {
     public static final int CITY_CLICK_THRESHOLD_PX = 5;
     public static final float MIN_WINDOW_DIMENSION = 1f;
     public static final int CLICK_DRAG_THRESHOLD_PX = 3;
-    public static final int SCROLL_TICKS_PER_UNIT = 4;
     public static final int SCROLL_DECAY_MS = 60;
     public static final float SCROLL_SPEED_SCALE = 100f;
 
@@ -262,22 +261,24 @@ public class TradeMouseTrap extends MouseTrap {
     }
 
     /**
-     * Queue scroll ticks for {@link #paintUpdate}; ticks decay after {@link #SCROLL_DECAY_MS} ms.
+     * Sum the raw scroll delta, untruncated, for {@link #paintUpdate}; it decays after
+     * {@link #SCROLL_DECAY_MS} ms.
      *
-     * @param y vertical scroll delta
+     * @param y vertical scroll delta, fractional from a trackpad
      */
     @Override
     public void scrollCallback(double y) {
         Platforms.init(Platforms.get().getPlatformID());
         if (!active)
             return;
-        queuedMouseWheelTicks += (int) (SCROLL_TICKS_PER_UNIT * y);
+        queuedScrollDelta += y;
         timeLastScroll = System.currentTimeMillis();
     }
 
     /**
-     * Per-frame: drain queued scroll ticks into camera zoom and re-pin hover when the
-     * automation lock is active.
+     * Per-frame: drain the queued delta into camera zoom, its sign picking the direction and its
+     * size, capped at one notch a frame, scaling the step; re-pin hover when the automation lock
+     * is active.
      *
      * @param SHIFT_MOD speed multiplier (currently unused)
      */
@@ -288,13 +289,14 @@ public class TradeMouseTrap extends MouseTrap {
 
         // Handle scroll for zooming
         if (System.currentTimeMillis() - timeLastScroll > SCROLL_DECAY_MS) {
-            queuedMouseWheelTicks = 0;
+            queuedScrollDelta = 0;
         }
 
-        if (queuedMouseWheelTicks != 0) {
-            boolean zoomIn = queuedMouseWheelTicks < 0;
-            camera.onScroll(zoomIn, Clock.deltaTime() * SCROLL_SPEED_SCALE);
-            queuedMouseWheelTicks = 0;
+        if (queuedScrollDelta != 0) {
+            boolean zoomIn = queuedScrollDelta < 0;
+            double notches = Math.min(1, Math.abs(queuedScrollDelta));
+            camera.onScroll(zoomIn, notches * Clock.deltaTime() * SCROLL_SPEED_SCALE);
+            queuedScrollDelta = 0;
         }
 
         if (automationHoverLocked) {
