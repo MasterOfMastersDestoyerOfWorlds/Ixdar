@@ -207,6 +207,30 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
 
     /** {@inheritDoc}. */
     @Override
+    public void depthFunc(int func) {
+        GL11.glDepthFunc(func);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public void polygonOffset(float factor, float units) {
+        GL11.glPolygonOffset(factor, units);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public int POLYGON_OFFSET_FILL() {
+        return GL11.GL_POLYGON_OFFSET_FILL;
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public int LEQUAL() {
+        return GL11.GL_LEQUAL;
+    }
+
+    /** {@inheritDoc}. */
+    @Override
     public void blendFunc(int sfactor, int dfactor) {
         GL11.glBlendFunc(sfactor, dfactor);
     }

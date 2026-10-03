@@ -19,13 +19,9 @@ out vec2 vUv;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
-// Same depth-bias plumbing as mesh.vs / mesh_scalar.vs; overlay passes can
-// nudge geometry forward to beat z-fight without changing world position.
-uniform float depthBias;
 
 void main() {
     gl_Position = projection * view * model * vec4(aPos, 1.0);
-    gl_Position.z -= depthBias * gl_Position.w;
     Normal = mat3(transpose(inverse(model))) * aNormal;
     TexCoords = aTexCoords;
     vUv = aUv;

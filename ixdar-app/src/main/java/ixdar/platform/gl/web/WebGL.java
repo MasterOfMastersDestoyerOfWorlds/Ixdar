@@ -598,6 +598,30 @@ public class WebGL implements GL {
         gl.depthMask(flag);
     }
 
+    /** {@inheritDoc}. */
+    @Override
+    public void depthFunc(int func) {
+        gl.depthFunc(func);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public void polygonOffset(float factor, float units) {
+        gl.polygonOffset(factor, units);
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public int POLYGON_OFFSET_FILL() {
+        return WebGLRenderingContext.POLYGON_OFFSET_FILL;
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public int LEQUAL() {
+        return WebGLRenderingContext.LEQUAL;
+    }
+
     @JSBody(params = { "v" }, script = "return (v|0);")
     private static native int toInt(Object v);
 

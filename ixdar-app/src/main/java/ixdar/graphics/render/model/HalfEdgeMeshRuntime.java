@@ -27,6 +27,7 @@ import ixdar.geometry.mesh.nodes.api.IntField;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.shaders.MeshLineShader;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.shaders.VertexArrayObject;
 import ixdar.graphics.render.shaders.VertexBufferObject;
@@ -39,19 +40,11 @@ public class HalfEdgeMeshRuntime {
     public static final String VIEW = "view";
     public static final String PROJECTION = "projection";
     public static final String SOLIDCOLOR = "solidColor";
-    public static final String DEPTHBIAS = "depthBias";
     public static final String PATCH = "patch_";
     public static final float FRAME_DISTANCE_FLOOR = 1.5f;
     public static final float FRAME_DISTANCE_MULTIPLIER = 2.5f;
     public static final float FEATURE_EDGE_LINE_WIDTH = 2.5f;
-    public static final float FAINT_EDGE_LINE_WIDTH = 1.5f;
     public static final float DEFAULT_FOV = 45f;
-
-    public static final float NEAR_PLANE_DISTANCE_FRACTION = 0.01f;
-
-    public static final float NEAR_PLANE_FLOOR = 1e-4f;
-
-    public static final float FAR_PLANE_EXTENT_MUL = 3f;
     public static final float EMISSIVE_STRENGTH = 0.08f;
     public static final float RIM_STRENGTH = 0.16f;
     public static final float CHANNEL_NORMALIZE = 255f;
@@ -59,11 +52,6 @@ public class HalfEdgeMeshRuntime {
     public static final int VERTEX_STRIDE = 8;
     public static final int UV_OFFSET = 6;
     public static final int SCALAR_ATTRIB_LOCATION = 3;
-
-    public static final String BASE_COLOR_TEXTURE_NAME = "mesh_base_color";
-
-    public static final String USE_TEXTURE_UNIFORM = "useTexture";
-    public static final float OVERLAY_DEPTH_BIAS = 0.0003f;
     public static final float EDGE_LINE_WIDTH = 2.0f;
     public static final double GOLDEN_RATIO_CONJUGATE = 0.6180339887498949;
     public static final int HASH_MASK = 0x7FFFFFFF;
@@ -71,6 +59,16 @@ public class HalfEdgeMeshRuntime {
     public static final float TAG_SATURATION = 0.65f;
     public static final float TAG_LIGHTNESS = 0.55f;
     public static final int HASH_PRIME = 31;
+
+    public static final float NEAR_PLANE_DISTANCE_FRACTION = 0.01f;
+
+    public static final float NEAR_PLANE_FLOOR = 1e-4f;
+
+    public static final float FAR_PLANE_EXTENT_MUL = 3f;
+
+    public static final String BASE_COLOR_TEXTURE_NAME = "mesh_base_color";
+
+    public static final String USE_TEXTURE_UNIFORM = "useTexture";
 
     public static final int COORDINATES_PER_VERTEX = 3;
 
@@ -80,6 +78,21 @@ public class HalfEdgeMeshRuntime {
 
     public static final int PICK_ID_MASK = 0xFFFFFF;
 
+    /** Draws every overlay line: discards fragments on surface facing away from the camera. */
+    public final MeshLineShader lineShader;
+
+    /** The mesh last uploaded, whose edges and faces the overlay lines are drawn on. */
+    public MeshTopology surfaceMesh;
+
+    /** Finds the faces under free-form lines on {@link #surfaceMesh}; built on first use. */
+    public SurfaceFaceLocator surfaceFaceLocator;
+
+    /** Every mesh edge as a surface line, for the wireframe. */
+    public final VertexBuffer edgeLines = new VertexBuffer();
+
+    /** The feature-edge categories' edges as surface lines, one vertex range per category. */
+    public final VertexBuffer featureEdgeLines = new VertexBuffer();
+
     private final ShaderProgram meshShader;
     private final ShaderProgram meshUnlitShader;
     private final ShaderProgram meshScalarShader;
@@ -87,7 +100,6 @@ public class HalfEdgeMeshRuntime {
     private final Matrix4f projectionMatrix = new Matrix4f();
     private final Vector4f solidColor = Color.BLUE_GRAY.toVector4f();
     private final Vector4f edgeColor = Color.RED.toVector4f();
-    private final Vector4f edgeFaintColor = Color.RED_FAINT.toVector4f();
     private final Vector3f lightDir = new Vector3f(0.4f, -1.0f, 0.25f);
     private final Vector3f emissiveColor = Color.BLUE_WHITE.toVector3f();
     private final Vector3f minBounds = new Vector3f();
@@ -99,9 +111,6 @@ public class HalfEdgeMeshRuntime {
     private final VertexArrayObject meshVao;
     private final VertexBufferObject meshVbo;
     private int ebo;
-    private int edgeEbo;
-    private int edgeCount;
-    private int featureEdgeEbo;
     private List<FeatureEdgeRange> featureEdgeRanges = List.of();
     private int scalarVbo;
     private boolean scalarUploaded = false;
@@ -130,23 +139,22 @@ public class HalfEdgeMeshRuntime {
     private final Vector4f projectedPoint = new Vector4f();
 
     /**
-     * Build the runtime: allocate the three mesh shader programs (lit,
-     * unlit, scalar), the shared VAO/VBO, and the EBO names for triangles,
-     * wireframe edges, feature-edge overlays, and the per-vertex scalar
-     * attribute. No mesh is uploaded yet — call {@link #upload(MeshTopology)}.
+     * Build the runtime: allocate the mesh shader programs (lit, unlit, scalar, line), the
+     * shared VAO/VBO, and the buffer names for triangles and the per-vertex scalar attribute. No
+     * mesh is uploaded yet — call {@link #upload(MeshTopology)}.
      */
     public HalfEdgeMeshRuntime() {
         this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
         this.meshUnlitShader = ShaderProgram.ShaderType.MeshUnlit.getShader();
         this.meshScalarShader = ShaderProgram.ShaderType.MeshScalar.getShader();
+        this.lineShader = (MeshLineShader) ShaderProgram.ShaderType.MeshLine.getShader();
         this.meshShader.init();
         this.meshUnlitShader.init();
         this.meshScalarShader.init();
+        this.lineShader.init();
         this.meshVao = new VertexArrayObject();
         this.meshVbo = new VertexBufferObject();
         this.ebo = Platforms.gl().genBuffers();
-        this.edgeEbo = Platforms.gl().genBuffers();
-        this.featureEdgeEbo = Platforms.gl().genBuffers();
         this.scalarVbo = Platforms.gl().genBuffers();
         this.texturedVao = new VertexArrayObject();
         this.texturedVbo = new VertexBufferObject();
@@ -169,7 +177,7 @@ public class HalfEdgeMeshRuntime {
         clearTexturedDraw();
         if (mesh == null) {
             compiledMesh = null;
-            edgeCount = 0;
+            uploadEdgeData(null);
             tagRanges = List.of();
             scalarUploaded = false;
             return;
@@ -363,7 +371,7 @@ public class HalfEdgeMeshRuntime {
         clearTexturedDraw();
         if (mesh == null) {
             compiledMesh = null;
-            edgeCount = 0;
+            uploadEdgeData(null);
             tagRanges = List.of();
             scalarUploaded = false;
             return;
@@ -410,8 +418,8 @@ public class HalfEdgeMeshRuntime {
     /**
      * Near plane for a camera, scaled to its distance from its target.
      *
-     * <p>A fixed near plane leaves the model's whole depth extent in a sliver of the range, small
-     * enough that the bias lifting overlay lines above the surface pushes far-side lines through.
+     * <p>A fixed near plane leaves the model's whole depth extent in a sliver of the depth range,
+     * starving it of precision when zoomed out.
      *
      * @param camera active camera
      * @return the near plane distance
@@ -471,9 +479,6 @@ public class HalfEdgeMeshRuntime {
         active.setMat4(VIEW, camera.view);
         active.setMat4(PROJECTION, projectionMatrix);
         active.setVec4(SOLIDCOLOR, solidColor);
-        // PATCH-17: faces always render at zero depth bias; only the
-        // overlay pass in renderFeatureEdgeOverlay sets a positive bias.
-        active.setFloat(DEPTHBIAS, 0f);
 
         boolean sampleTexture = samplesTexture(shaderMode, hasTexturedDraw());
         if (shaderMode == ShaderMode.LAMBERT || shaderMode == ShaderMode.STAGES
@@ -579,14 +584,8 @@ public class HalfEdgeMeshRuntime {
             Platforms.gl().deleteBuffers(ebo);
             ebo = 0;
         }
-        if (edgeEbo != 0) {
-            Platforms.gl().deleteBuffers(edgeEbo);
-            edgeEbo = 0;
-        }
-        if (featureEdgeEbo != 0) {
-            Platforms.gl().deleteBuffers(featureEdgeEbo);
-            featureEdgeEbo = 0;
-        }
+        edgeLines.delete();
+        featureEdgeLines.delete();
         if (scalarVbo != 0) {
             Platforms.gl().deleteBuffers(scalarVbo);
             scalarVbo = 0;
@@ -606,31 +605,36 @@ public class HalfEdgeMeshRuntime {
         meshVao.delete();
     }
 
+    /**
+     * Take {@code mesh} as the surface the overlay lines lie on, and upload its edges as surface
+     * lines for the wireframe; {@code null} drops both.
+     *
+     * @param mesh the mesh just uploaded, or {@code null}
+     */
     private void uploadEdgeData(MeshTopology mesh) {
+        surfaceMesh = mesh;
+        surfaceFaceLocator = null;
         if (mesh == null) {
-            edgeCount = 0;
+            edgeLines.delete();
             return;
         }
-        int[] edgeIndices = edgeIndices(mesh);
-        Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), edgeEbo);
-        
-        IntBuffer buffer = BufferUtils.createIntBuffer(edgeIndices.length);
-        buffer.put(edgeIndices).flip();
-        Platforms.gl().bufferData(Platforms.gl().ELEMENT_ARRAY_BUFFER(), buffer, Platforms.gl().STATIC_DRAW());
-        edgeCount = edgeIndices.length;
+        LineSet lines = new LineSet(mesh.edgeCount());
+        for (int edge = 0; edge < mesh.edgeCount(); edge++) {
+            lines.edge(mesh, mesh.edgeIdAt(edge));
+        }
+        edgeLines.upload(LineSet.LAYOUT, lines.vertices, null);
     }
 
-    private static int[] edgeIndices(MeshTopology mesh) {
-        if (mesh == null) {
-            return new int[0];
+    /**
+     * The locator for free-form lines on {@link #surfaceMesh}, built on first use after an upload.
+     *
+     * @return the locator, or {@code null} when no mesh is uploaded
+     */
+    public SurfaceFaceLocator surfaceFaceLocator() {
+        if (surfaceFaceLocator == null && surfaceMesh != null) {
+            surfaceFaceLocator = new SurfaceFaceLocator(surfaceMesh);
         }
-        if (mesh instanceof ArrayMesh am) {
-            return am.getEdgeIndices();
-        }
-        if (mesh instanceof HalfEdgeMesh hem) {
-            return hem.getEdgeIndices();
-        }
-        throw new IllegalArgumentException("Unsupported mesh for edge indices: " + mesh.getClass().getName());
+        return surfaceFaceLocator;
     }
 
     /**
@@ -643,39 +647,31 @@ public class HalfEdgeMeshRuntime {
      *                   {@code null} or empty clears the overlay
      */
     public void setFeatureEdgeOverlay(List<FeatureEdgeCategory> categories) {
-        if (categories == null || categories.isEmpty() || compiledMesh == null) {
+        if (categories == null || categories.isEmpty() || surfaceMesh == null) {
             featureEdgeRanges = List.of();
             return;
         }
-        int totalIndices = 0;
+        int totalEdges = 0;
         for (FeatureEdgeCategory cat : categories) {
-            totalIndices += cat.edgeKeys().size() * 2;
+            totalEdges += cat.edgeKeys().size();
         }
-        if (totalIndices == 0) {
+        if (totalEdges == 0) {
             featureEdgeRanges = List.of();
             return;
         }
-        int[] indices = new int[totalIndices];
+        LineSet lines = new LineSet(totalEdges);
         List<FeatureEdgeRange> ranges = new ArrayList<>(categories.size());
-        int cursor = 0;
         for (FeatureEdgeCategory cat : categories) {
-            int start = cursor;
+            int start = lines.vertexCount();
             for (long key : cat.edgeKeys()) {
-                int u = EdgeKey.minVertex(key);
-                int v = EdgeKey.maxVertex(key);
-                indices[cursor++] = u;
-                indices[cursor++] = v;
+                lines.vertexStep(surfaceMesh, EdgeKey.minVertex(key), EdgeKey.maxVertex(key));
             }
-            int count = cursor - start;
+            int count = lines.vertexCount() - start;
             if (count > 0) {
                 ranges.add(new FeatureEdgeRange(cat.color().toVector4f(), start, count));
             }
         }
-        GL gl = Platforms.gl();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), featureEdgeEbo);
-        IntBuffer buffer = BufferUtils.createIntBuffer(indices.length);
-        buffer.put(indices).flip();
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), buffer, gl.STATIC_DRAW());
+        featureEdgeLines.upload(LineSet.LAYOUT, lines.vertices, null);
         featureEdgeRanges = List.copyOf(ranges);
     }
 
@@ -955,58 +951,38 @@ public class HalfEdgeMeshRuntime {
     }
 
     private void renderFeatureEdgeOverlay(Camera3D camera) {
-        if (featureEdgeRanges.isEmpty() || meshUnlitShader.ID < 0) return;
-        meshUnlitShader.use();
-        meshUnlitShader.setMat4(MODEL, modelMatrix);
-        meshUnlitShader.setMat4(VIEW, camera.view);
-        meshUnlitShader.setMat4(PROJECTION, projectionMatrix);
-        // PATCH-17: leave depth test on so back-facing overlay edges get
-        // occluded by front-facing faces. A small clip-space bias shifts
-        // overlay vertices toward the camera just enough to beat z-fight
-        // against the coplanar face triangles they sit on.
-        meshUnlitShader.setFloat(DEPTHBIAS, OVERLAY_DEPTH_BIAS);
-        meshVao.bind();
+        if (featureEdgeRanges.isEmpty() || lineShader.ID < 0 || featureEdgeLines.vao == 0) {
+            return;
+        }
+        lineShader.use(camera.view, projectionMatrix, modelMatrix);
         GL gl = Platforms.gl();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), featureEdgeEbo);
+        gl.bindVertexArray(featureEdgeLines.vao);
         gl.lineWidth(FEATURE_EDGE_LINE_WIDTH);
         for (FeatureEdgeRange r : featureEdgeRanges) {
-            meshUnlitShader.setVec4(SOLIDCOLOR, r.color());
-            gl.drawElements(gl.LINES(), r.indexCount(), gl.UNSIGNED_INT(),
-                    r.indexStart() * Integer.BYTES);
+            lineShader.setVec4(SOLIDCOLOR, r.color());
+            gl.drawArrays(gl.LINES(), r.indexStart(), r.indexCount());
         }
-        // Reset so a subsequent face draw in the same frame doesn't
-        // inherit the overlay bias.
-        meshUnlitShader.setFloat(DEPTHBIAS, 0f);
+        meshVao.bind();
     }
 
     /**
-     * Wireframe overlay: draw all mesh edges twice — first as faint lines
-     * with depth test off (so back edges show through), then as bolder
-     * lines with depth test on. Called by {@link #render(Camera3D)} when
-     * {@link #isWireframe()} is set.
+     * Wireframe overlay: every mesh edge, dropped where both faces beside it turn away from the
+     * camera and otherwise hidden only by nearer surface. Called by {@link #render(Camera3D)}
+     * when {@link #isWireframe()} is set.
      *
      * @param camera 3D camera supplying the view matrix
      */
     public void renderEdges(Camera3D camera) {
-        if (meshUnlitShader.ID < 0 || edgeCount <= 0) {
+        if (lineShader.ID < 0 || edgeLines.vao == 0) {
             return;
         }
-        meshUnlitShader.use();
-        meshUnlitShader.setMat4(MODEL, modelMatrix);
-        meshUnlitShader.setMat4(VIEW, camera.view);
-        meshUnlitShader.setMat4(PROJECTION, projectionMatrix);
+        lineShader.use(camera.view, projectionMatrix, modelMatrix);
+        lineShader.setVec4(SOLIDCOLOR, edgeColor);
+        GL gl = Platforms.gl();
+        gl.bindVertexArray(edgeLines.vao);
+        gl.lineWidth(EDGE_LINE_WIDTH);
+        gl.drawArrays(gl.LINES(), 0, edgeLines.vertexCount);
         meshVao.bind();
-        meshUnlitShader.setVec4(SOLIDCOLOR, edgeFaintColor);
-        Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), edgeEbo);
-        Platforms.gl().disable(Platforms.gl().DEPTH_TEST());
-        Platforms.gl().lineWidth(FAINT_EDGE_LINE_WIDTH);
-        Platforms.gl().drawElements(Platforms.gl().LINES(), edgeCount, Platforms.gl().UNSIGNED_INT(), 0);
-        Platforms.gl().enable(Platforms.gl().DEPTH_TEST());
-        meshUnlitShader.setFloat(DEPTHBIAS, OVERLAY_DEPTH_BIAS);
-        meshUnlitShader.setVec4(SOLIDCOLOR, edgeColor);
-        Platforms.gl().lineWidth(EDGE_LINE_WIDTH);
-        Platforms.gl().drawElements(Platforms.gl().LINES(), edgeCount, Platforms.gl().UNSIGNED_INT(), 0);
-        meshUnlitShader.setFloat(DEPTHBIAS, 0f);
     }
 
     /**

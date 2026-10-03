@@ -18,12 +18,10 @@ out vec3 Normal;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
-uniform float depthBias;
 
 void main() {
     vec4 worldPos = model * vec4(aPos, 1.0);
     gl_Position = projection * view * worldPos;
-    gl_Position.z -= depthBias * gl_Position.w;
     vPos = worldPos.xyz;
     Normal = mat3(transpose(inverse(model))) * aNormal;
     vCentroid = (model * vec4(aCentroid, 1.0)).xyz;

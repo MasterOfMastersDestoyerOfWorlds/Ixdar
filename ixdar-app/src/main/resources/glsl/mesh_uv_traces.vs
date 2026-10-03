@@ -23,11 +23,9 @@ flat out float vPatchId;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
-uniform float depthBias;
 
 void main() {
     gl_Position = projection * view * model * vec4(aPos, 1.0);
-    gl_Position.z -= depthBias * gl_Position.w;
     Normal = mat3(transpose(inverse(model))) * aNormal;
     vUv = aUv;
     vFlipped = aFlipped;

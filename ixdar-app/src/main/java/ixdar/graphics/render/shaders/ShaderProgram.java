@@ -1379,6 +1379,8 @@ public abstract class ShaderProgram {
 
         MeshUnlit(MeshShader.class, MESH_VS, "mesh_unlit.fs"),
 
+        MeshLine(MeshLineShader.class, "mesh_line.vs", "mesh_line.fs"),
+
         MeshPick(MeshShader.class, "mesh_pick.vs", "mesh_pick.fs"),
 
         MeshScalar(MeshShader.class, "mesh_scalar.vs", "mesh_scalar.fs"),
@@ -1422,6 +1424,8 @@ public abstract class ShaderProgram {
                             Platforms.get().getFrameBufferHeight());
                 } else if (shaderClass.equals(ColorShader.class)) {
                     shader = new ColorShader(vertexShaderLocation, fragmentShaderLocation);
+                } else if (shaderClass.equals(MeshLineShader.class)) {
+                    shader = new MeshLineShader(vertexShaderLocation, fragmentShaderLocation);
                 } else if (shaderClass.equals(MeshShader.class)) {
                     shader = new MeshShader(vertexShaderLocation, fragmentShaderLocation);
                 } else {

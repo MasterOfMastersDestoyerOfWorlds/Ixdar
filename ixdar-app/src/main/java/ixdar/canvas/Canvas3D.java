@@ -234,6 +234,9 @@ public class Canvas3D extends SceneDrawable {
         mouse.setCanvas(this);
 
         gl.enable(gl.DEPTH_TEST());
+        gl.depthFunc(gl.LEQUAL());
+        gl.enable(gl.POLYGON_OFFSET_FILL());
+        gl.polygonOffset(0f, 1f);
 
         gl.clearColor(Color.DARK_RED);
         gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());

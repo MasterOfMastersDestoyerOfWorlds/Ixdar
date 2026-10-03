@@ -8,6 +8,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.TriangleGeometry;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.nodes.api.BoolField;
@@ -63,8 +64,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private static final float DEFAULT_LINE_HALF_WIDTH = 1.0f;
     private static final float SPHERE_RADIUS_FRACTION_OF_BBOX = 0.005f;
     private static final float ASPECT_FALLBACK = 1f;
-    private static final float LAYOUT_DEPTH_BIAS = 0.0003f;
-    private static final float HIGHLIGHT_DEPTH_BIAS = 0.0015f;
     private static final float LAYOUT_LINE_WIDTH = 2.5f;
     private static final float HIGHLIGHT_LINE_WIDTH = 5f;
     private static final float DEFAULT_GL_LINE_WIDTH = 1f;
@@ -437,9 +436,16 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             clearLineGroups();
             return;
         }
+        SurfaceFaceLocator locator = surfaceFaceLocator();
+        if (locator == null) {
+            clearLineGroups();
+            return;
+        }
         lineGroupSegmentStart = groupSegmentStart;
         lineGroupColorRgb = groupColorRgb == null ? new int[0] : groupColorRgb;
-        lineGroups.upload(POSITION_LAYOUT, segmentEndpoints, null);
+        LineSet lines = new LineSet(segmentEndpoints.length / (2 * TriangleGeometry.COMPONENTS));
+        locator.appendSegments(segmentEndpoints, lines);
+        lineGroups.upload(LineSet.LAYOUT, lines.vertices, null);
     }
 
     /** Drop the coloured line groups; nothing is drawn until {@link #setLineGroups} runs again. */
@@ -526,11 +532,20 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             }
         }
 
+        // Patch boundary edges first, then the interior grid edges.
         LineSet lines = new LineSet(mesh.edgeCount());
-        writeEdgeLines(lines, mesh, denseOf, gridVertices, true);
-        layoutBoundaryVertexCount = lines.vertexCount();
-        writeEdgeLines(lines, mesh, denseOf, gridVertices, false);
-        layoutLines.upload(POSITION_LAYOUT, lines.xyz, null);
+        for (boolean boundary : new boolean[] { true, false }) {
+            for (int edge = 0; edge < mesh.edgeCount(); edge++) {
+                int edgeId = mesh.edgeIdAt(edge);
+                if (mesh.isBoundaryEdge(edgeId) == boundary) {
+                    lines.edge(mesh, edgeId);
+                }
+            }
+            if (boundary) {
+                layoutBoundaryVertexCount = lines.vertexCount();
+            }
+        }
+        layoutLines.upload(LineSet.LAYOUT, lines.vertices, null);
 
         int faceCount = mesh.faceCount();
         int patchCount = 0;
@@ -575,21 +590,8 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         updateSphereRadius();
     }
 
-    private static void writeEdgeLines(LineSet lines, MeshTopology mesh, int[] denseOf,
-            float[] gridVertices, boolean boundary) {
-        for (int edge = 0; edge < mesh.edgeCount(); edge++) {
-            int edgeId = mesh.edgeIdAt(edge);
-            if (mesh.isBoundaryEdge(edgeId) != boundary) {
-                continue;
-            }
-            int halfEdge = mesh.edgeHalfEdge(edgeId);
-            lines.point(gridVertices, denseOf[mesh.halfEdgeVertex(halfEdge)]);
-            lines.point(gridVertices, denseOf[mesh.halfEdgeEndVertex(halfEdge)]);
-        }
-    }
-
     /**
-     * Upload every triangle of the working copy as outlines, so refinement density is visible.
+     * Upload every edge of the working copy as outlines, so refinement density is visible.
      *
      * @param copy refined working copy to outline; {@code null} drops the buffer
      */
@@ -599,20 +601,11 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             copyWireframe.delete();
             return;
         }
-        LineSet outlines = new LineSet(copy.faceCount() * CORNERS_PER_FACE);
-        Vector3f corner = new Vector3f();
-        Vector3f nextCorner = new Vector3f();
-        for (int activeFace = 0; activeFace < copy.faceCount(); activeFace++) {
-            int faceId = copy.faceIdAt(activeFace);
-            for (int index = 0; index < CORNERS_PER_FACE; index++) {
-                copy.vertexPosition(copy.faceVertexAt(faceId, index), corner);
-                copy.vertexPosition(
-                        copy.faceVertexAt(faceId, (index + 1) % CORNERS_PER_FACE), nextCorner);
-                outlines.point(corner);
-                outlines.point(nextCorner);
-            }
+        LineSet outlines = new LineSet(copy.edgeCount());
+        for (int edge = 0; edge < copy.edgeCount(); edge++) {
+            outlines.edge(copy, copy.edgeIdAt(edge));
         }
-        copyWireframe.upload(POSITION_LAYOUT, outlines.xyz, null);
+        copyWireframe.upload(LineSet.LAYOUT, outlines.vertices, null);
     }
 
     /**
@@ -652,16 +645,13 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             }
             LineSet target = arc.quantizedLength == 0 ? zero : positive;
             for (int index = 1; index < path.size(); index++) {
-                copy.vertexPosition(path.get(index - 1), segmentStart);
-                copy.vertexPosition(path.get(index), segmentEnd);
-                target.point(segmentStart);
-                target.point(segmentEnd);
-                totalHopLength += segmentStart.distance(segmentEnd);
+                target.vertexStep(copy, path.get(index - 1), path.get(index));
+                totalHopLength += target.start.distance(target.end);
                 hopCount++;
             }
         }
-        embeddedArcs.upload(POSITION_LAYOUT, positive.xyz, null);
-        embeddedZeroArcs.upload(POSITION_LAYOUT, zero.xyz, null);
+        embeddedArcs.upload(LineSet.LAYOUT, positive.vertices, null);
+        embeddedZeroArcs.upload(LineSet.LAYOUT, zero.vertices, null);
 
         embeddedNodes = new PointSet(tmesh.nodes.size(), 1f);
         Vector3f nodePosition = new Vector3f();
@@ -710,13 +700,24 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             diagnosticRegions.add(PointSet.cloud(centers, paletteColor(palette++),
                     HIGHLIGHT_REGION_SCALE, 0f));
         }
+        SurfaceFaceLocator locator = surfaceFaceLocator();
         for (float[] polyline : polylines) {
-            LineSet segments = LineSet.polyline(polyline);
+            int points = polyline.length / TriangleGeometry.COMPONENTS;
+            float[] endpoints = new float[Math.max(0, points - 1) * 2 * TriangleGeometry.COMPONENTS];
+            for (int point = 1; point < points; point++) {
+                System.arraycopy(polyline, (point - 1) * TriangleGeometry.COMPONENTS, endpoints,
+                        (point - 1) * 2 * TriangleGeometry.COMPONENTS,
+                        2 * TriangleGeometry.COMPONENTS);
+            }
+            LineSet segments = new LineSet(Math.max(0, points - 1));
+            if (locator != null) {
+                locator.appendSegments(endpoints, segments);
+            }
             VertexBuffer buffer = new VertexBuffer();
-            buffer.upload(POSITION_LAYOUT, segments.xyz, null);
+            buffer.upload(LineSet.LAYOUT, segments.vertices, null);
             diagnosticLines.add(buffer);
             diagnosticLineColors.add(paletteColor(palette++));
-            regionClouds.add(segments.xyz);
+            regionClouds.add(polyline);
         }
         for (float[] markerGroup : markerPositions) {
             diagnosticMarkers.add(PointSet.cloud(markerGroup, paletteColor(palette++),
@@ -844,9 +845,9 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             return;
         }
         setupOverlayProjection(camera);
-        if (drawCopyWireframe && beginUnlit(camera)) {
-            drawLines(copyWireframe, 0, copyWireframe.vertexCount, COLOR_COPY_WIREFRAME,
-                    DEFAULT_GL_LINE_WIDTH, LAYOUT_DEPTH_BIAS);
+        if (drawCopyWireframe) {
+            drawLines(camera, copyWireframe, 0, copyWireframe.vertexCount, COLOR_COPY_WIREFRAME,
+                    DEFAULT_GL_LINE_WIDTH);
         }
         if (drawSurface) {
             renderSurface(camera);
@@ -858,33 +859,35 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
                         layoutPatchIndexCount[patch]);
             }
         }
-        if (drawQuadGrid && beginUnlit(camera)) {
-            drawLines(layoutLines, layoutBoundaryVertexCount,
+        if (drawQuadGrid) {
+            drawLines(camera, layoutLines, layoutBoundaryVertexCount,
                     layoutLines.vertexCount - layoutBoundaryVertexCount, COLOR_QUAD_GRID,
-                    DEFAULT_GL_LINE_WIDTH, LAYOUT_DEPTH_BIAS);
+                    DEFAULT_GL_LINE_WIDTH);
         }
-        if (drawLayoutBoundaries && beginUnlit(camera)) {
-            drawLines(layoutLines, 0, layoutBoundaryVertexCount, COLOR_LAYOUT_BOUNDARY,
-                    LAYOUT_LINE_WIDTH, LAYOUT_DEPTH_BIAS);
-            drawSpheres(layoutCorners);
+        if (drawLayoutBoundaries) {
+            drawLines(camera, layoutLines, 0, layoutBoundaryVertexCount, COLOR_LAYOUT_BOUNDARY,
+                    LAYOUT_LINE_WIDTH);
+            if (beginUnlit(camera)) {
+                drawSpheres(layoutCorners);
+            }
         }
-        if (drawEmbeddedArcs && beginUnlit(camera)) {
-            drawLines(embeddedArcs, 0, embeddedArcs.vertexCount, COLOR_EMBEDDED_ARC,
-                    LAYOUT_LINE_WIDTH, LAYOUT_DEPTH_BIAS);
-            drawLines(embeddedZeroArcs, 0, embeddedZeroArcs.vertexCount, COLOR_EMBEDDED_ZERO_ARC,
-                    LAYOUT_LINE_WIDTH, LAYOUT_DEPTH_BIAS);
-            if (showEmbeddedNodes) {
+        if (drawEmbeddedArcs) {
+            drawLines(camera, embeddedArcs, 0, embeddedArcs.vertexCount, COLOR_EMBEDDED_ARC,
+                    LAYOUT_LINE_WIDTH);
+            drawLines(camera, embeddedZeroArcs, 0, embeddedZeroArcs.vertexCount,
+                    COLOR_EMBEDDED_ZERO_ARC, LAYOUT_LINE_WIDTH);
+            if (showEmbeddedNodes && beginUnlit(camera)) {
                 drawSpheres(embeddedNodes);
             }
         }
-        if (drawLineGroups && beginUnlit(camera)) {
+        if (drawLineGroups) {
             for (int group = 0; group + 1 < lineGroupSegmentStart.length; group++) {
                 int firstVertex = 2 * lineGroupSegmentStart[group];
                 int vertices =
                         2 * (lineGroupSegmentStart[group + 1] - lineGroupSegmentStart[group]);
-                drawLines(lineGroups, firstVertex, vertices,
+                drawLines(camera, lineGroups, firstVertex, vertices,
                         colorOf(group < lineGroupColorRgb.length ? lineGroupColorRgb[group] : 0),
-                        LAYOUT_LINE_WIDTH, HIGHLIGHT_DEPTH_BIAS);
+                        LAYOUT_LINE_WIDTH);
             }
         }
         if (drawMarkers && beginUnlit(camera)) {
@@ -943,9 +946,10 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         }
         for (int index = 0; index < diagnosticLines.size(); index++) {
             VertexBuffer lines = diagnosticLines.get(index);
-            drawLines(lines, 0, lines.vertexCount, diagnosticLineColors.get(index),
-                    HIGHLIGHT_LINE_WIDTH, HIGHLIGHT_DEPTH_BIAS);
+            drawLines(camera, lines, 0, lines.vertexCount, diagnosticLineColors.get(index),
+                    HIGHLIGHT_LINE_WIDTH);
         }
+        beginUnlit(camera);
         for (PointSet markerGroup : diagnosticMarkers) {
             drawSpheres(markerGroup);
         }
@@ -1281,7 +1285,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         unlitShader.setMat4(PROJECTION, localProjection);
         model.identity();
         unlitShader.setMat4(MODEL, model);
-        unlitShader.setFloat(DEPTHBIAS, 0f);
         return true;
     }
 
@@ -1294,7 +1297,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         crossFieldShader.setMat4(PROJECTION, localProjection);
         model.identity();
         crossFieldShader.setMat4(MODEL, model);
-        crossFieldShader.setFloat(DEPTHBIAS, 0f);
         crossFieldShader.setFloat(LINE_HALF_WIDTH, lineHalfWidth);
         return true;
     }
@@ -1310,7 +1312,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         shader.setMat4(PROJECTION, localProjection);
         model.identity();
         shader.setMat4(MODEL, model);
-        shader.setFloat(DEPTHBIAS, 0f);
         shader.setVec4(BASE_COLOR, baseColor);
         shader.setVec4(U_LINE_COLOR, uLineColor);
         shader.setVec4(V_LINE_COLOR, vLineColor);
@@ -1330,16 +1331,14 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         gl.drawElements(gl.TRIANGLES(), indexCount, gl.UNSIGNED_INT(), firstIndex * Integer.BYTES);
     }
 
-    private void drawLines(VertexBuffer buffer, int firstVertex, int vertexCount, Color color,
-            float width, float depthBias) {
-        if (buffer.vao == 0 || vertexCount <= 0) {
+    private void drawLines(Camera3D camera, VertexBuffer buffer, int firstVertex,
+            int vertexCount, Color color, float width) {
+        if (buffer.vao == 0 || vertexCount <= 0 || lineShader.ID < 0) {
             return;
         }
         GL gl = Platforms.gl();
-        unlitShader.setFloat(DEPTHBIAS, depthBias);
-        unlitShader.setVec4(SOLIDCOLOR, color);
-        model.identity();
-        unlitShader.setMat4(MODEL, model);
+        lineShader.use(camera.view, localProjection, model.identity());
+        lineShader.setVec4(SOLIDCOLOR, color);
         gl.lineWidth(width);
         gl.bindVertexArray(buffer.vao);
         gl.drawArrays(gl.LINES(), firstVertex, vertexCount);
@@ -1351,7 +1350,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             return;
         }
         GL gl = Platforms.gl();
-        unlitShader.setFloat(DEPTHBIAS, 0f);
         gl.bindVertexArray(sphere.vao);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), sphere.ebo);
         for (int index = 0; index < points.count; index++) {

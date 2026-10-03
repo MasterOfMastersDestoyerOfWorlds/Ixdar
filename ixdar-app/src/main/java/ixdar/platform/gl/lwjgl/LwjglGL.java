@@ -471,6 +471,26 @@ public class LwjglGL implements GL {
     }
 
     @Override
+    public void depthFunc(int func) {
+        org.lwjgl.opengl.GL11.glDepthFunc(func);
+    }
+
+    @Override
+    public void polygonOffset(float factor, float units) {
+        org.lwjgl.opengl.GL11.glPolygonOffset(factor, units);
+    }
+
+    @Override
+    public int POLYGON_OFFSET_FILL() {
+        return org.lwjgl.opengl.GL11.GL_POLYGON_OFFSET_FILL;
+    }
+
+    @Override
+    public int LEQUAL() {
+        return org.lwjgl.opengl.GL11.GL_LEQUAL;
+    }
+
+    @Override
     public void createCapabilities() {
         org.lwjgl.opengl.GL.createCapabilities();
     }

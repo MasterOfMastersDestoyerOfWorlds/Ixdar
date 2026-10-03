@@ -553,6 +553,36 @@ public interface GL {
     void depthMask(boolean flag);
 
     /**
+     * Choose the comparison a fragment's depth must pass against the stored depth.
+     *
+     * @param func comparison constant such as {@link #LEQUAL()}
+     */
+    void depthFunc(int func);
+
+    /**
+     * Set the window-space depth offset added to polygons while {@link #POLYGON_OFFSET_FILL()} is
+     * enabled: {@code factor} times the polygon's depth slope plus {@code units} resolvable steps.
+     *
+     * @param factor multiplier on the polygon's maximum depth slope per pixel
+     * @param units  multiplier on the smallest resolvable depth difference
+     */
+    void polygonOffset(float factor, float units);
+
+    /**
+     * Backend-specific value of {@code GL_POLYGON_OFFSET_FILL}.
+     *
+     * @return the capability that applies {@link #polygonOffset(float, float)} to filled polygons
+     */
+    int POLYGON_OFFSET_FILL();
+
+    /**
+     * Backend-specific value of {@code GL_LEQUAL}.
+     *
+     * @return the nearer-or-equal depth comparison
+     */
+    int LEQUAL();
+
+    /**
      * Bind GL function pointers (LWJGL {@code GL.createCapabilities}); a no-op on WebGL where
      * the context is the function table.
      */
