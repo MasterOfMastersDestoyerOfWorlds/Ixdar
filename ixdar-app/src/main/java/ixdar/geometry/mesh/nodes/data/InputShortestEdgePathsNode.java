@@ -23,12 +23,10 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "input_shortest_edge_paths")
 public class InputShortestEdgePathsNode implements MeshNode {
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1e_20 = 1e-20f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_1 = 1f;
-    public static final int NUM_4 = 4;
-    public static final int NUM_1024 = 1024;
+    public static final float MIN_EDGE_COST = 1e-20f;
+    public static final float DEFAULT_EDGE_COST = 1f;
+    public static final int MAX_ID_DENSITY_MULTIPLIER = 4;
+    public static final int MAX_ID_DENSITY_PADDING = 1024;
 
     public static final InputPort END = new InputPort("end", PortType.BOOLEAN, false);
     public static final InputPort EDGE_COST = new InputPort("edge_cost", PortType.FLOAT, 1.0f, 0.001f, 1000f);
@@ -65,13 +63,13 @@ public class InputShortestEdgePathsNode implements MeshNode {
         var fc = ctx.fieldContext();
         if (fc == null || !(fc instanceof MeshFieldContext mfc)) {
             ctx.setOutput(NEXT_VERTEX.name, 0);
-            ctx.setOutput(TOTAL_COST.name, NUM_0);
+            ctx.setOutput(TOTAL_COST.name, 0f);
             return;
         }
         MeshTopology mesh = mfc.mesh();
         if (mesh == null || mesh.vertexCount() == 0) {
             ctx.setOutput(NEXT_VERTEX.name, 0);
-            ctx.setOutput(TOTAL_COST.name, NUM_0);
+            ctx.setOutput(TOTAL_COST.name, 0f);
             return;
         }
 
@@ -93,7 +91,7 @@ public class InputShortestEdgePathsNode implements MeshNode {
         for (int i = 0; i < n; i++) {
             int vid = mesh.vertexIdAt(i);
             float dist = (float) forest.distance[vid];
-            tot[i] = Float.isFinite(dist) ? dist : NUM_0;
+            tot[i] = Float.isFinite(dist) ? dist : 0f;
             int parentId = forest.parent[vid];
             nextIdx[i] = parentId < 0 ? 0 : denseIndex(mesh, vertIdToIdx, parentId);
         }
@@ -164,12 +162,12 @@ public class InputShortestEdgePathsNode implements MeshNode {
         if (costObj instanceof FloatField ff) {
             float cu = ff.get(u);
             float cv = ff.get(v);
-            return Math.max(NUM_1e_20, (cu + cv) * NUM_0_5);
+            return Math.max(MIN_EDGE_COST, (cu + cv) * 0.5f);
         }
         if (costObj instanceof Number num) {
-            return Math.max(NUM_1e_20, num.floatValue());
+            return Math.max(MIN_EDGE_COST, num.floatValue());
         }
-        return NUM_1;
+        return DEFAULT_EDGE_COST;
     }
 
     private static int indexOfVertexId(MeshTopology mesh, int vertexId) {
@@ -187,7 +185,7 @@ public class InputShortestEdgePathsNode implements MeshNode {
         for (int i = 0; i < n; i++) {
             maxId = Math.max(maxId, mesh.vertexIdAt(i));
         }
-        if (maxId > n * NUM_4 + NUM_1024) {
+        if (maxId > n * MAX_ID_DENSITY_MULTIPLIER + MAX_ID_DENSITY_PADDING) {
             return null;
         }
         int[] idx = new int[maxId + 1];

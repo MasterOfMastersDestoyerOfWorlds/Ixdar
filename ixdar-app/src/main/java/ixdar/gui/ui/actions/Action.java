@@ -1,7 +1,7 @@
 package ixdar.gui.ui.actions;
 
 public interface Action {
-    String name = "None";
+    String DEFAULT_ACTION_NAME = "None";
 
     /**
      * Run this action's effect (e.g. switch screens, load a file, start a game).

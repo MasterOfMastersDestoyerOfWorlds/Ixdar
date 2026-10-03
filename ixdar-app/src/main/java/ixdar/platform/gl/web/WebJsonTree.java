@@ -11,28 +11,18 @@ import ixdar.platform.json.JsonValue;
  */
 public final class WebJsonTree {
 
-    /**
-     * Separator joining an object's keys into one string. A NUL keeps the crossing to a single
-     * string instead of a marshalled JS array, and no JSON key this codebase reads contains one.
-     */
     public static final String KEY_SEPARATOR = "\0";
 
-    /** {@link #kindOf} answer for {@code null} and {@code undefined}. */
     public static final int JS_NULL = 0;
 
-    /** {@link #kindOf} answer for a JS string. */
     public static final int JS_STRING = 1;
 
-    /** {@link #kindOf} answer for a JS number. */
     public static final int JS_NUMBER = 2;
 
-    /** {@link #kindOf} answer for a JS boolean. */
     public static final int JS_BOOLEAN = 3;
 
-    /** {@link #kindOf} answer for a JS array. */
     public static final int JS_ARRAY = 4;
 
-    /** {@link #kindOf} answer for any other JS object. */
     public static final int JS_OBJECT = 5;
 
     private WebJsonTree() {

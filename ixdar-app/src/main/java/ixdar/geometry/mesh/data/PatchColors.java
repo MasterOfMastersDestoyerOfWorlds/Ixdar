@@ -9,34 +9,24 @@ package ixdar.geometry.mesh.data;
  */
 public final class PatchColors {
 
-    /** Reciprocal golden ratio, the hue step giving maximum pairwise separation. */
     public static final double GOLDEN_RATIO_CONJUGATE = 0.6180339887498949;
 
-    /** Saturation every patch colour is generated at. */
     public static final float SATURATION = 0.65f;
 
-    /** Lightness every patch colour is generated at. */
     public static final float LIGHTNESS = 0.55f;
 
-    /** Mask isolating the three colour channels of a packed pixel. */
     public static final int RGB_MASK = 0xFFFFFF;
 
-    /** Largest value a colour channel can hold. */
     public static final int CHANNEL_MAX = 255;
 
-    /** Largest value a colour channel can hold, as a float scale factor. */
     public static final float CHANNEL_SCALE = 255f;
 
-    /** Sextants the hue circle is divided into when converting HSL to RGB. */
     public static final float HUE_SEXTANTS = 6f;
 
-    /** Bit offset of the red channel in a packed pixel. */
     public static final int RED_SHIFT = 16;
 
-    /** Bit offset of the green channel in a packed pixel. */
     public static final int GREEN_SHIFT = 8;
 
-    /** Format producing an uppercase six-digit hex triple. */
     public static final String HEX_FORMAT = "%06X";
 
     private PatchColors() {

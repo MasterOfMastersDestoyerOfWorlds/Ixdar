@@ -31,7 +31,6 @@ import ixdar.scenes.main.MainScene;
 import ixdar.scenes.trade.TradeScene;
 
 public class Canvas3D extends SceneDrawable {
-    public static final String STR = ".";
     public static final String IXDAR = "ixdar";
     public static final String AUDIO = "audio";
     public static final String GET = "get";
@@ -39,6 +38,7 @@ public class Canvas3D extends SceneDrawable {
     public static final String PLATFORM = "platform";
     public static final String AUTOMATION = "automation";
     public static final String ENDPOINTS = "endpoints";
+    public static final String PACKAGE_SEPARATOR = ".";
     public static final float PROJECTION_MATRIX_SCALE = 1f;
 
     public static Canvas3D instance;
@@ -105,7 +105,7 @@ public class Canvas3D extends SceneDrawable {
             audioChecked = true;
             try {
                 Class<?> cls = Class.forName(
-                        String.join(STR, IXDAR, AUDIO, "AudioSystem"));
+                        String.join(PACKAGE_SEPARATOR, IXDAR, AUDIO, "AudioSystem"));
                 audioSystem = cls.getMethod(GET).invoke(null);
             } catch (Throwable ignored) {
             }
@@ -123,7 +123,7 @@ public class Canvas3D extends SceneDrawable {
             return;
         try {
             String path = (String) Class.forName(
-                    String.join(STR, IXDAR, AUDIO, AUDIOASSETS))
+                    String.join(PACKAGE_SEPARATOR, IXDAR, AUDIO, AUDIOASSETS))
                     .getField("MENU_MUSIC").get(null);
             audio.getClass().getMethod("playMenuMusicLoop", String.class).invoke(audio, path);
         } catch (Throwable ignored) {
@@ -157,7 +157,7 @@ public class Canvas3D extends SceneDrawable {
             return;
         try {
             String path = (String) Class.forName(
-                    String.join(STR, IXDAR, AUDIO, AUDIOASSETS))
+                    String.join(PACKAGE_SEPARATOR, IXDAR, AUDIO, AUDIOASSETS))
                     .getField(fieldName).get(null);
             audio.getClass().getMethod("playSfxOnce", String.class).invoke(audio, path);
         } catch (Throwable ignored) {
@@ -183,7 +183,7 @@ public class Canvas3D extends SceneDrawable {
             automationChecked = true;
             try {
                 Class<?> cls = Class.forName(
-                        String.join(STR, IXDAR, PLATFORM, AUTOMATION, ENDPOINTS, "AutomationRuntime"));
+                        String.join(PACKAGE_SEPARATOR, IXDAR, PLATFORM, AUTOMATION, ENDPOINTS, "AutomationRuntime"));
                 automationRuntime = cls.getMethod(GET).invoke(null);
             } catch (Throwable ignored) {
             }
@@ -374,7 +374,7 @@ public class Canvas3D extends SceneDrawable {
     protected static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
         try {
             Class<?> binder = Class.forName(
-                    String.join(STR, IXDAR, PLATFORM, AUTOMATION, "AutomationInputBinder"));
+                    String.join(PACKAGE_SEPARATOR, IXDAR, PLATFORM, AUTOMATION, "AutomationInputBinder"));
             Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
             bind.invoke(null, platform, keys, mouse);
         } catch (Throwable ignored) {

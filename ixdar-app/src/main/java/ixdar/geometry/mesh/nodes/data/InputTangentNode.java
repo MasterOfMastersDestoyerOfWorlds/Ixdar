@@ -19,10 +19,7 @@ import org.joml.Vector3f;
 
 @MeshNodeAnnotation(id = "input_tangent")
 public class InputTangentNode implements MeshNode {
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0 = 0f;
-    public static final int NUM_3 = 3;
-    public static final float NUM_1e_20 = 1e-20f;
+    public static final float MIN_TANGENT_LENGTH_SQUARED = 1e-20f;
 
     public static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
 
@@ -52,16 +49,16 @@ public class InputTangentNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         var fc = ctx.fieldContext();
         if (fc == null || !(fc instanceof MeshFieldContext mfc)) {
-            ctx.setOutput(VECTOR.name,new Vector3Value(NUM_1, NUM_0, NUM_0));
+            ctx.setOutput(VECTOR.name,new Vector3Value(1f, 0f, 0f));
             return;
         }
         MeshTopology mesh = mfc.mesh();
         if (mesh == null || mesh.vertexCount() == 0) {
-            ctx.setOutput(VECTOR.name,new Vector3Value(NUM_1, NUM_0, NUM_0));
+            ctx.setOutput(VECTOR.name,new Vector3Value(1f, 0f, 0f));
             return;
         }
         int n = mesh.vertexCount();
-        float[] d = new float[n * NUM_3];
+        float[] d = new float[n * 3];
         Vector3f p0 = new Vector3f();
         Vector3f p1 = new Vector3f();
         Vector3f tan = new Vector3f();
@@ -73,14 +70,14 @@ public class InputTangentNode implements MeshNode {
             int ov = mesh.halfEdgeEndVertex(twin);
             mesh.vertexPosition(ov, p1);
             tan.set(p1).sub(p0);
-            if (tan.lengthSquared() < NUM_1e_20) {
-                tan.set(NUM_1, NUM_0, NUM_0);
+            if (tan.lengthSquared() < MIN_TANGENT_LENGTH_SQUARED) {
+                tan.set(1f, 0f, 0f);
             } else {
                 tan.normalize();
             }
-            d[NUM_3 * vi] = tan.x;
-            d[NUM_3 * vi + 1] = tan.y;
-            d[NUM_3 * vi + 2] = tan.z;
+            d[3 * vi] = tan.x;
+            d[3 * vi + 1] = tan.y;
+            d[3 * vi + 2] = tan.z;
         }
         ctx.setOutput(VECTOR.name,new Vector3Field(d));
     }

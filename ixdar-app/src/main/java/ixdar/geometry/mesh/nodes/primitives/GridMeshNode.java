@@ -15,22 +15,12 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "mesh_grid")
 public class GridMeshNode implements MeshNode {
-    public static final float NUM_1e_6 = 1e-6f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_0 = 0f;
+    public static final float MIN_TILE_SIZE = 1e-6f;
     public static final InputPort U_TILES = new InputPort("u_tiles", PortType.INT, 10, (float) 1, (float) 1000);
     public static final InputPort V_TILES = new InputPort("v_tiles", PortType.INT, 10, (float) 1, (float) 1000);
     public static final InputPort U_TILE_SIZE = new InputPort("u_tile_size", PortType.FLOAT, 1.0f, 0.001f, 100f);
     public static final InputPort V_TILE_SIZE = new InputPort("v_tile_size", PortType.FLOAT, 1.0f, 0.001f, 100f);
-    /**
-     * When positive, per-tile U size is {@code u_total_size / u_tiles} and
-     * overrides {@code u_tile_size}.
-     */
     public static final InputPort U_TOTAL_SIZE = new InputPort("u_total_size", PortType.FLOAT, 0.0f, 0f, 1000f);
-    /**
-     * When positive, per-tile V size is {@code v_total_size / v_tiles} and
-     * overrides {@code v_tile_size}.
-     */
     public static final InputPort V_TOTAL_SIZE = new InputPort("v_total_size", PortType.FLOAT, 0.0f, 0f, 1000f);
     public static final InputPort TRIANGULATE = new InputPort("triangulate", PortType.BOOLEAN, false);
     public static final OutputPort MESH = new OutputPort("mesh", PortType.GEOMETRY_BUNDLE);
@@ -95,20 +85,20 @@ public class GridMeshNode implements MeshNode {
         Number vTotalNum = ctx.getInput(V_TOTAL_SIZE.name, Number.class);
         float uTotal = uTotalNum != null ? uTotalNum.floatValue() : 0.0f;
         float vTotal = vTotalNum != null ? vTotalNum.floatValue() : 0.0f;
-        if (uTotal > NUM_1e_6) {
+        if (uTotal > MIN_TILE_SIZE) {
             uTileSize = uTotal / uTiles;
         }
-        if (vTotal > NUM_1e_6) {
+        if (vTotal > MIN_TILE_SIZE) {
             vTileSize = vTotal / vTiles;
         }
 
-        uTileSize = Math.max(NUM_1e_6, uTileSize);
-        vTileSize = Math.max(NUM_1e_6, vTileSize);
+        uTileSize = Math.max(MIN_TILE_SIZE, uTileSize);
+        vTileSize = Math.max(MIN_TILE_SIZE, vTileSize);
 
         float totalU = uTiles * uTileSize;
         float totalV = vTiles * vTileSize;
-        float x0 = -totalU * NUM_0_5;
-        float z0 = -totalV * NUM_0_5;
+        float x0 = -totalU * 0.5f;
+        float z0 = -totalV * 0.5f;
 
         int vertsU = uTiles + 1;
         int vertsV = vTiles + 1;
@@ -120,7 +110,7 @@ public class GridMeshNode implements MeshNode {
             for (int j = 0; j < vertsV; j++) {
                 float x = x0 + i * uTileSize;
                 float z = z0 + j * vTileSize;
-                vid[i][j] = mesh.addVertex(x, NUM_0, z);
+                vid[i][j] = mesh.addVertex(x, 0f, z);
             }
         }
 

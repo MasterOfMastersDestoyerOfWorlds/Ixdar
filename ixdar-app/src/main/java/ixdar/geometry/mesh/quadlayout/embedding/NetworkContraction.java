@@ -32,33 +32,14 @@ public final class NetworkContraction implements MeshNode {
     public static final InputPort RECARVE = new InputPort("recarve", PortType.BOOLEAN, Boolean.TRUE);
     public static final OutputPort TMESH_OUT = new OutputPort(TMESH.name, PortType.ARC_NETWORK);
 
-    /**
-     * Debug switch: when true, {@link #contract} runs the full validate sweep
-     * after every collapse and enables the operators' scan cross-checks. Flip by
-     * hand when localizing a contraction bug; the sweep is O(elements) per
-     * collapse and dominates contraction time.
-     */
     public static final boolean VALIDATE_EVERY_COLLAPSE = false;
 
-    /**
-     * Debug switch: when true, every collapse checks the arcs still cut the copy
-     * into exactly the live patches, so a torn arrangement names the collapse that
-     * tore it instead of surfacing in the re-carve.
-     */
     public static final boolean VALIDATE_PARTITION_EVERY_COLLAPSE = false;
 
-    /** Collapses between [contract] progress log lines. */
     private static final int CONTRACT_PROGRESS_INTERVAL = 500;
 
-    /**
-     * Longest quiet stretch between [contract] lines, so a grinding collapse stays
-     * visible.
-     */
     private static final long CONTRACT_PROGRESS_NANOS = 2_000_000_000L;
 
-    /**
-     * Divisor turning elapsed nanoseconds into the seconds the log lines report.
-     */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
     /** The network being contracted; null on the inert registry instance. */

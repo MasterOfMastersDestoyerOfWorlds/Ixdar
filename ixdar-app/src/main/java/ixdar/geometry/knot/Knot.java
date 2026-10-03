@@ -22,7 +22,7 @@ import ixdar.scenes.main.MainScene;
 
 public class Knot extends SDFCircle {
     public static final String KNOT = "Knot[ ";
-    public static final String STR = "]";
+    public static final String KNOT_CLOSE = "]";
     public static final String GROW_REQUIRES_A_SINGLETON = "grow requires a singleton";
     public static DisjointUnionSets unionSet = new DisjointUnionSets();
 
@@ -816,7 +816,7 @@ public class Knot extends SDFCircle {
             str += vp + " ";
         }
         str = Compat.stripTrailing(str);
-        str += STR;
+        str += KNOT_CLOSE;
         return str;
     }
 
@@ -838,7 +838,7 @@ public class Knot extends SDFCircle {
             str += vp + " ";
         }
         str = Compat.stripTrailing(str);
-        str += STR;
+        str += KNOT_CLOSE;
         return str;
     }
 
@@ -859,7 +859,7 @@ public class Knot extends SDFCircle {
             }
         }
         str = Compat.stripTrailing(str);
-        str += STR;
+        str += KNOT_CLOSE;
         return str;
     }
 
@@ -893,7 +893,7 @@ public class Knot extends SDFCircle {
             }
         }
 
-        h.addHoverKnot(STR, c, hoverKnot, clickAction);
+        h.addHoverKnot(KNOT_CLOSE, c, hoverKnot, clickAction);
         return h;
     }
 

@@ -15,10 +15,8 @@ import ixdar.geometry.mesh.quadlayout.solver.SingularSystemDiagnosis;
  */
 public final class SeamlessUv implements UvField {
 
-    /** Triangle corner count. */
     public static final int CORNERS_PER_FACE = 3;
 
-    /** Number of cross-field branches (a 4-RoSy field has 4). */
     public static final int BRANCH_COUNT = 4;
 
     private static final double HALF = 0.5;

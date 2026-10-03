@@ -28,23 +28,17 @@ import ixdar.parsing.python.PythonParser;
  */
 public final class RingDslWriter {
 
-    /** Prefix of every id and label the writer mints, completed by a two-digit ring number. */
     public static final String STATEMENT_ID_PREFIX = RingCandidates.MARK_LABEL_PREFIX;
 
-    /** Port a chained statement reads from when its upstream node has no geometry output. */
     public static final String DEFAULT_UPSTREAM_PORT = "geometry";
 
-    /** Line break every written statement is separated by, so one ring is always one string. */
     public static final String LINE_BREAK = "\n";
 
-    /** Opening of a statement's points argument, where a rewrite splices the new points in. */
     public static final String POINTS_ARGUMENT = "points=\"";
 
-    /** Refusal when the graph has nothing for a ring statement to chain onto. */
     public static final String NO_UPSTREAM =
             "the working graph has no statement for the ring to read its geometry from";
 
-    /** Longest run of digits a ring number is read from, short of overflowing an int. */
     private static final int RING_NUMBER_DIGIT_CEILING = 9;
 
     private RingDslWriter() {

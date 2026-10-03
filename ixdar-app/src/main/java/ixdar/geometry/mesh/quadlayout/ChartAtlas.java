@@ -12,10 +12,8 @@ import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
  */
 public final class ChartAtlas {
 
-    /** Absent chart, boundary side or transition. */
     public static final int NONE = -1;
 
-    /** Entries of a transition triple: quarter turns, u translation, v translation. */
     public static final int TRANSITION_ENTRIES = 3;
 
     /** The number of charts. */

@@ -31,9 +31,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 @MeshNodeAnnotation(id = "apply_bone")
 public class ApplyBoneNode implements MeshNode {
     public static final String BONE = "bone";
-    public static final float NUM_1e_7 = 1e-7f;
-    public static final float NUM_0 = 0f;
-    public static final int NUM_4 = 4;
+    public static final float ROTATION_EPSILON = 1e-7f;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort BONE_NAME = new InputPort("bone_name", PortType.STRING, BONE);
@@ -92,7 +90,7 @@ public class ApplyBoneNode implements MeshNode {
         }
 
         // Skip if rotation is effectively zero
-        if (Math.abs(rot.x) < NUM_1e_7 && Math.abs(rot.y) < NUM_1e_7 && Math.abs(rot.z) < NUM_1e_7) {
+        if (Math.abs(rot.x) < ROTATION_EPSILON && Math.abs(rot.y) < ROTATION_EPSILON && Math.abs(rot.z) < ROTATION_EPSILON) {
             ctx.setOutput(GEOMETRY.name, base);
             return;
         }
@@ -102,7 +100,7 @@ public class ApplyBoneNode implements MeshNode {
         boolean anyWeighted = false;
         for (int i = 0; i < n && !anyWeighted; i++) {
             int vid = mesh.vertexIdAt(i);
-            if (vid < weights.length && weights[vid] > NUM_0) anyWeighted = true;
+            if (vid < weights.length && weights[vid] > 0f) anyWeighted = true;
         }
         if (!anyWeighted) {
             ctx.setOutput(GEOMETRY.name, base);
@@ -119,15 +117,15 @@ public class ApplyBoneNode implements MeshNode {
         Vector3f transformed = new Vector3f();
 
         // Clone mesh with modified positions
-        HalfEdgeMesh out = new HalfEdgeMesh(n, 0, mesh.faceCount(), mesh.faceCount() * NUM_4 * 2);
+        HalfEdgeMesh out = new HalfEdgeMesh(n, 0, mesh.faceCount(), mesh.faceCount() * 4 * 2);
         HashMap<Integer, Integer> idMap = new HashMap<>(n * 2);
 
         for (int i = 0; i < n; i++) {
             int vid = mesh.vertexIdAt(i);
             mesh.vertexPosition(vid, pos);
 
-            float w = (vid < weights.length) ? weights[vid] : NUM_0;
-            if (w > NUM_0) {
+            float w = (vid < weights.length) ? weights[vid] : 0f;
+            if (w > 0f) {
                 boneMat.transformPosition(pos, transformed);
                 pos.lerp(transformed, w);
             }

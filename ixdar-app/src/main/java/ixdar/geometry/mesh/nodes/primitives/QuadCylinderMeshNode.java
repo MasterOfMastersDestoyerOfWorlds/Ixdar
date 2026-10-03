@@ -21,12 +21,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 @MeshNodeAnnotation(id = "quad_cylinder")
 public class QuadCylinderMeshNode implements MeshNode {
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_2_0 = 2.0f;
-    public static final int NUM_3 = 3;
-    public static final int NUM_8 = 8;
-    public static final double NUM_2_0_2 = 2.0;
-    public static final float NUM_0_05 = 0.05f;
+    public static final int MIN_SEGMENTS = 3;
+    public static final float MIN_CAP_RADIUS_FRACTION = 0.05f;
 
     public static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.5f, 0.001f, 100f);
     public static final InputPort HEIGHT = new InputPort("height", PortType.FLOAT, 2.0f, 0.001f, 100f);
@@ -65,13 +61,13 @@ public class QuadCylinderMeshNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         Number rIn = ctx.getInput(RADIUS.name, Number.class);
-        float radius = rIn == null ? NUM_0_5 : rIn.floatValue();
+        float radius = rIn == null ? 0.5f : rIn.floatValue();
 
         Number hIn = ctx.getInput(HEIGHT.name, Number.class);
-        float height = hIn == null ? NUM_2_0 : hIn.floatValue();
+        float height = hIn == null ? 2.0f : hIn.floatValue();
 
         Number sIn = ctx.getInput(SEGMENTS.name, Number.class);
-        int segments = Math.max(NUM_3, sIn == null ? NUM_8 : sIn.intValue());
+        int segments = Math.max(MIN_SEGMENTS, sIn == null ? 8 : sIn.intValue());
 
         Number ringsIn = ctx.getInput(RINGS.name, Number.class);
         int rings = Math.max(1, ringsIn == null ? 1 : ringsIn.intValue());
@@ -86,7 +82,7 @@ public class QuadCylinderMeshNode implements MeshNode {
 
     private static HalfEdgeMesh buildQuadCylinder(float radius, float height, int segments, int rings, int capRings) {
         HalfEdgeMesh mesh = new HalfEdgeMesh();
-        float halfH = height * NUM_0_5;
+        float halfH = height * 0.5f;
 
         // Build barrel vertex rings: (rings + 1) rings of (segments) vertices
         int barrelRows = rings + 1;
@@ -95,7 +91,7 @@ public class QuadCylinderMeshNode implements MeshNode {
         for (int row = 0; row < barrelRows; row++) {
             float y = -halfH + height * ((float) row / rings);
             for (int seg = 0; seg < segments; seg++) {
-                float angle = (float) (NUM_2_0_2 * Math.PI * seg / segments);
+                float angle = (float) (2.0 * Math.PI * seg / segments);
                 float x = radius * (float) Math.cos(angle);
                 float z = radius * (float) Math.sin(angle);
                 barrelVerts[row][seg] = mesh.addVertex(x, y, z);
@@ -144,12 +140,12 @@ public class QuadCylinderMeshNode implements MeshNode {
             float r = radius * (1.0f - t);
             // Tiny offset to avoid degenerate zero-radius ring at center
             if (ring == capRings) {
-                r = radius * NUM_0_05;
+                r = radius * MIN_CAP_RADIUS_FRACTION;
             }
 
             int[] currentRing = new int[segments];
             for (int seg = 0; seg < segments; seg++) {
-                float angle = (float) (NUM_2_0_2 * Math.PI * seg / segments);
+                float angle = (float) (2.0 * Math.PI * seg / segments);
                 float x = r * (float) Math.cos(angle);
                 float z = r * (float) Math.sin(angle);
                 currentRing[seg] = mesh.addVertex(x, y, z);

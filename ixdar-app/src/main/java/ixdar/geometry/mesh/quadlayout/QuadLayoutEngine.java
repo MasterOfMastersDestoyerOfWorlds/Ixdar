@@ -46,18 +46,10 @@ import ixdar.platform.Platforms;
 @MeshNodeAnnotation(id = "quad_layout", desktopOnly = true)
 public final class QuadLayoutEngine implements MeshNode {
 
-    /**
-     * Default maximum separatrix deviation α (Lyon Table 1 uses 15° on ROCKERARM).
-     */
     public static final float DEFAULT_ALPHA_RADIANS = (float) Math.toRadians(15.0);
 
-    /**
-     * Default parametric length one quad edge spans. The seamless parametrization
-     * is scaled so that one unit is one quad edge, so this is its own unit.
-     */
     public static final double DEFAULT_TARGET_EDGE_LENGTH = 1.0;
 
-    /** Nanoseconds per second, for the per-stage timing log. */
     public static final double NANOS_PER_SECOND = 1.0e9;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);

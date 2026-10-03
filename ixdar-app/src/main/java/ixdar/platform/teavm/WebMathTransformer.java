@@ -17,7 +17,6 @@ import org.teavm.model.emit.ProgramEmitter;
  */
 public class WebMathTransformer implements ClassHolderTransformer {
 
-    /** The classlib type the browser build resolves {@code Math} calls against. */
     public static final String MATH_CLASS = "java.lang.Math";
 
     private static final String FMA = "fma";

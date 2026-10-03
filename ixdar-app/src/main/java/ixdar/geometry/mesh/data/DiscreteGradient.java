@@ -21,7 +21,6 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
  * <p>See also: Robins-Wood-Sheppard 2011
  */
 public final class DiscreteGradient {
-    public static final int NUM_3 = 3;
 
     private DiscreteGradient() {}
 
@@ -35,25 +34,25 @@ public final class DiscreteGradient {
      */
     public static Result compute(ArrayMesh mesh, float[] scalar) {
         int[] faceIdx = mesh.copyFaceIndices();
-        int faceCount = faceIdx.length / NUM_3;
+        int faceCount = faceIdx.length / 3;
         int nv = mesh.vertexCount();
 
         // ----- Enumerate edges + build connectivity -----
         Map<Long, Integer> edgeIdByKey = new HashMap<>();
         List<int[]> edgeEndpointsList = new ArrayList<>();
         List<List<Integer>> trianglesByEdgeList = new ArrayList<>();
-        int[][] triangleEdges = new int[faceCount][NUM_3];
-        int[][] triangleVerts = new int[faceCount][NUM_3];
+        int[][] triangleEdges = new int[faceCount][3];
+        int[][] triangleVerts = new int[faceCount][3];
 
         for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f * NUM_3];
-            int b = faceIdx[f * NUM_3 + 1];
-            int c = faceIdx[f * NUM_3 + 2];
+            int a = faceIdx[f * 3];
+            int b = faceIdx[f * 3 + 1];
+            int c = faceIdx[f * 3 + 2];
             triangleVerts[f] = new int[]{a, b, c};
             int[] verts = {a, b, c};
-            for (int e = 0; e < NUM_3; e++) {
+            for (int e = 0; e < 3; e++) {
                 int u = verts[e];
-                int v = verts[(e + 1) % NUM_3];
+                int v = verts[(e + 1) % 3];
                 long key = EdgeKey.undirected(u, v);
                 Integer eid = edgeIdByKey.get(key);
                 if (eid == null) {
@@ -154,7 +153,7 @@ public final class DiscreteGradient {
         for (int tid : trianglesByVertex[v]) {
             int[] tv = triangleVerts[tid];
             int o1 = -1, o2 = -1;
-            for (int k = 0; k < NUM_3; k++) {
+            for (int k = 0; k < 3; k++) {
                 if (tv[k] != v) {
                     if (o1 < 0) o1 = tv[k];
                     else o2 = tv[k];

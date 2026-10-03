@@ -20,14 +20,12 @@ import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
 
 public abstract class ShaderDrawable {
-    public static final float NUM_4 = 4f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_00001 = 0.00001f;
-    public static final int NUM_9 = 9;
-    public static final int NUM_7 = 7;
+    public static final float CORNERS_PER_QUAD = 4f;
+    public static final float EPSILON = 0.00001f;
+    public static final int VERTEX_STRIDE_RGBA_UV = 9;
+    public static final int VERTEX_STRIDE_RGBA = 7;
 
-    private static final HashMap<Class<?>, Long> counters = new HashMap<>();
+    private static final HashMap<Class<?>, Long> INSTANCE_COUNTERS_BY_CLASS = new HashMap<>();
 
     public ShaderProgram shader;
     public float width;
@@ -83,8 +81,8 @@ public abstract class ShaderDrawable {
      * @return monotonically increasing id, starting at 0 per class
      */
     protected static long nextId(Class<?> clazz) {
-        long id = counters.computeIfAbsent(clazz, c -> 0L);
-        counters.put(clazz, id + 1);
+        long id = INSTANCE_COUNTERS_BY_CLASS.computeIfAbsent(clazz, c -> 0L);
+        INSTANCE_COUNTERS_BY_CLASS.put(clazz, id + 1);
         return id++;
     }
 
@@ -123,7 +121,7 @@ public abstract class ShaderDrawable {
                 .add(bottomRight)
                 .add(topRight)
                 .add(topLeft)
-                .div(NUM_4);
+                .div(CORNERS_PER_QUAD);
 
         shader.setFloat("widthToHeightRatio", widthToHeightRatio);
         setUniforms();
@@ -193,7 +191,7 @@ public abstract class ShaderDrawable {
                 Boolean b = (Boolean) value;
 
                 map.put(key, new GLSLParseText(b ? "tru" : "false", Color.GLSL_BOOLEAN,
-                        new Vector4f(b ? NUM_1 : NUM_0, NUM_0, NUM_0, NUM_0), 1, key));
+                        new Vector4f(b ? 1f : 0f, 0f, 0f, 0f), 1, key));
             } else if (value instanceof Vector2f) {
                 Vector2f vec2 = (Vector2f) value;
                 GLSLParseText.put(map, key, vec2.x, vec2.y);
@@ -364,7 +362,7 @@ public abstract class ShaderDrawable {
     }
 
     private static boolean sameQuad(Quad a, Quad b) {
-        float eps = NUM_0_00001;
+        float eps = EPSILON;
         return a.bottomLeft.distance(b.bottomLeft) <= eps && a.bottomRight.distance(b.bottomRight) <= eps
                 && a.topRight.distance(b.topRight) <= eps
                 && a.topLeft.distance(b.topLeft) <= eps;
@@ -374,7 +372,7 @@ public abstract class ShaderDrawable {
 
         int stride = shader.getStrideFloats();
         if (stride <= 0)
-            stride = NUM_9;
+            stride = VERTEX_STRIDE_RGBA_UV;
         int floatsNeeded = stride * Quad.VERTEX_COUNT;
         if (geometryBuf == null || geometryBuf.capacity() < floatsNeeded) {
             geometryBuf = platform.allocateFloats(floatsNeeded);
@@ -385,18 +383,18 @@ public abstract class ShaderDrawable {
         Vector4f color = c.toVector4f();
         shader.uniformMap.put("vertexColor", color);
         float r = color.x, g = color.y, b = color.z, a = color.w;
-        float z = camera != null ? camera.getZIndex() : NUM_0;
+        float z = camera != null ? camera.getZIndex() : 0f;
 
-        if (stride == NUM_9) {
+        if (stride == VERTEX_STRIDE_RGBA_UV) {
 
-            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(NUM_0).put(NUM_0);
-            buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a).put(NUM_0).put(NUM_1);
-            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(NUM_1).put(NUM_1);
+            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(0f);
+            buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(1f);
+            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(1f);
 
-            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(NUM_0).put(NUM_0);
-            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(NUM_1).put(NUM_1);
-            buf.put(bottomRight.x).put(bottomRight.y).put(z).put(r).put(g).put(b).put(a).put(NUM_1).put(NUM_0);
-        } else if (stride == NUM_7) {
+            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(0f);
+            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(1f);
+            buf.put(bottomRight.x).put(bottomRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(0f);
+        } else if (stride == VERTEX_STRIDE_RGBA) {
 
             buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a);
             buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a);

@@ -49,7 +49,7 @@ public final class RingCandidateExtractor {
     public static final int TRIANGLE_CORNERS = 3;
 
     /** Voxel-grid resolution handed to {@link MeshSkeletonExtractor}. */
-    public int resolution = MeshSkeletonExtractor.NUM_128;
+    public int resolution = MeshSkeletonExtractor.DEFAULT_RESOLUTION;
 
     /**
      * Branch-extraction rounds the skeleton may spend. Four times the extractor's own default,

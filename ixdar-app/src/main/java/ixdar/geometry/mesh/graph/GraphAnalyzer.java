@@ -21,7 +21,7 @@ import ixdar.parsing.python.PythonParser;
  * self-contained and extractable as a reusable skill.
  */
 public final class GraphAnalyzer {
-    public static final int NUM_3 = 3;
+    public static final int DEFAULT_MIN_SUBGRAPH_SIZE = 3;
 
     private GraphAnalyzer() {}
 
@@ -85,7 +85,7 @@ public final class GraphAnalyzer {
      */
     public static AnalysisResult analyze(List<PythonParser.ParsedNode> parsed,
             Map<String, Class<? extends MeshNode>> registry) {
-        return analyze(parsed, registry, NUM_3);
+        return analyze(parsed, registry, DEFAULT_MIN_SUBGRAPH_SIZE);
     }
 
     /**

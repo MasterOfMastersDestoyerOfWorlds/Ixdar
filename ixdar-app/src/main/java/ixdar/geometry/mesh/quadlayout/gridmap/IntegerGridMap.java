@@ -19,19 +19,14 @@ import ixdar.platform.Platforms;
  */
 public final class IntegerGridMap {
 
-    /** Rotations a grid automorphism may apply. */
     public static final int QUARTER_TURNS = 4;
 
-    /** Frame of a patch no walk reached, and of every retired patch. */
     public static final int NOT_PLACED = -1;
 
-    /** Coordinates of a grid position. */
     public static final int GRID_COORDINATES = 2;
 
-    /** Cosine of each quarter turn, so a rotation is one formula for both int and double. */
     private static final int[] QUARTER_TURN_COSINE = {1, 0, -1, 0};
 
-    /** Sine of each quarter turn, paired with {@link #QUARTER_TURN_COSINE}. */
     private static final int[] QUARTER_TURN_SINE = {0, 1, 0, -1};
 
     public final ArcNetwork tmesh;

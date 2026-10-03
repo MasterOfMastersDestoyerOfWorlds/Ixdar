@@ -31,9 +31,9 @@ public class AutomationApiServer {
     public static final String PATH_SEPARATOR = "/";
     /** The only interface the automation server is ever exposed on. */
     public static final String LOOPBACK_HOST = "127.0.0.1";
-    public static final int NUM_405 = 405;
-    public static final int NUM_500 = 500;
-    public static final int NUM_200 = 200;
+    public static final int HTTP_METHOD_NOT_ALLOWED = 405;
+    public static final int HTTP_INTERNAL_SERVER_ERROR = 500;
+    public static final int HTTP_OK = 200;
 
     private final AutomationRuntime runtime;
     private final int port;
@@ -149,7 +149,7 @@ public class AutomationApiServer {
             throws IOException {
         AutomationRoute route = byMethod.get(exchange.getRequestMethod().toUpperCase());
         if (route == null) {
-            writeError(exchange, NUM_405, "Method not allowed; expected one of " + byMethod.keySet());
+            writeError(exchange, HTTP_METHOD_NOT_ALLOWED, "Method not allowed; expected one of " + byMethod.keySet());
             return;
         }
         try {
@@ -158,14 +158,14 @@ public class AutomationApiServer {
             writeJson(exchange, result);
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            writeError(exchange, NUM_500, cause.getClass().getSimpleName() + ": " + cause.getMessage());
+            writeError(exchange, HTTP_INTERNAL_SERVER_ERROR, cause.getClass().getSimpleName() + ": " + cause.getMessage());
         }
     }
 
     private static void writeJson(HttpExchange exchange, JsonObject body) throws IOException {
         byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().add(CONTENT_TYPE, APPLICATION_JSON);
-        exchange.sendResponseHeaders(NUM_200, bytes.length);
+        exchange.sendResponseHeaders(HTTP_OK, bytes.length);
         exchange.getResponseBody().write(bytes);
         exchange.getResponseBody().close();
     }

@@ -24,19 +24,14 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
  */
 public final class ZeroArcCollapseOperator {
 
-    /** Starting capacity of the zero-arc candidate list; grows by doubling. */
     private static final int CANDIDATE_INITIAL_CAPACITY = 256;
 
-    /** Diagnostic group name of the collapsing arc's path. */
     private static final String GROUP_CHANNEL = "collapsing arc";
 
-    /** Diagnostic group name of the moving node's vertex marker. */
     private static final String GROUP_MOVED_VERTEX = "moved vertex";
 
-    /** Diagnostic group name of the surviving node's vertex marker. */
     private static final String GROUP_TARGET_VERTEX = "target vertex";
 
-    /** First allocation of {@link #touchedPatches}. */
     private static final int TOUCHED_PATCH_INITIAL_CAPACITY = 8;
 
     public final ArcNetwork tmesh;

@@ -12,10 +12,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
  */
 public final class RoomPlacer3D {
     public static final String X = "x";
-    public static final int NUM_4 = 4;
-    public static final float NUM_2 = 2f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final int NUM_3 = 3;
+    public static final int DEFAULT_START_ROOM_SIZE = 4;
 
     private RoomPlacer3D() {
     }
@@ -57,11 +54,11 @@ public final class RoomPlacer3D {
             throw new IllegalArgumentException("gridH must be at least 1");
         }
 
-        float[] centers = new float[roomCount * NUM_3];
-        float[] halfExtents = new float[roomCount * NUM_3];
+        float[] centers = new float[roomCount * 3];
+        float[] halfExtents = new float[roomCount * 3];
         int placed = 0;
 
-        int startSize = Math.max(minSize, Math.min(maxSize, NUM_4));
+        int startSize = Math.max(minSize, Math.min(maxSize, DEFAULT_START_ROOM_SIZE));
         if (startSize % 2 != 0) {
             startSize = Math.max(minSize, startSize - 1);
         }
@@ -71,12 +68,12 @@ public final class RoomPlacer3D {
         int startX = Math.max(0, gridW / 2 - startSize / 2);
         int startZ = Math.max(0, gridD / 2 - startSize / 2);
         int startFloor = gridH / 2;
-        centers[0] = startX + startSize / NUM_2;
-        centers[1] = startFloor + NUM_0_5;
-        centers[2] = startZ + startSize / NUM_2;
-        halfExtents[0] = startSize / NUM_2;
-        halfExtents[1] = NUM_0_5;
-        halfExtents[2] = startSize / NUM_2;
+        centers[0] = startX + startSize / 2f;
+        centers[1] = startFloor + 0.5f;
+        centers[2] = startZ + startSize / 2f;
+        halfExtents[0] = startSize / 2f;
+        halfExtents[1] = 0.5f;
+        halfExtents[2] = startSize / 2f;
         placed = 1;
 
         Random rng = new Random(seed);
@@ -88,23 +85,23 @@ public final class RoomPlacer3D {
             int x = rng.nextInt(gridW - w + 1);
             int floor = rng.nextInt(gridH);
             int z = rng.nextInt(gridD - d + 1);
-            float cx = x + w / NUM_2;
-            float cy = floor + NUM_0_5;
-            float cz = z + d / NUM_2;
-            float hx = w / NUM_2;
-            float hy = NUM_0_5;
-            float hz = d / NUM_2;
+            float cx = x + w / 2f;
+            float cy = floor + 0.5f;
+            float cz = z + d / 2f;
+            float hx = w / 2f;
+            float hy = 0.5f;
+            float hz = d / 2f;
             if (!collidesAny(centers, halfExtents, placed, cx, cy, cz, hx, hy, hz)) {
-                centers[placed * NUM_3] = cx;
-                centers[placed * NUM_3 + 1] = cy;
-                centers[placed * NUM_3 + 2] = cz;
-                halfExtents[placed * NUM_3] = hx;
-                halfExtents[placed * NUM_3 + 1] = hy;
-                halfExtents[placed * NUM_3 + 2] = hz;
+                centers[placed * 3] = cx;
+                centers[placed * 3 + 1] = cy;
+                centers[placed * 3 + 2] = cz;
+                halfExtents[placed * 3] = hx;
+                halfExtents[placed * 3 + 1] = hy;
+                halfExtents[placed * 3 + 2] = hz;
                 placed++;
             }
         }
-        int len = placed * NUM_3;
+        int len = placed * 3;
         float[] c = new float[len];
         float[] he = new float[len];
         System.arraycopy(centers, 0, c, 0, len);
@@ -115,14 +112,14 @@ public final class RoomPlacer3D {
     private static boolean collidesAny(float[] centers, float[] halfExtents, int placed,
                                        float cx, float cy, float cz,
                                        float hx, float hy, float hz) {
-        float buf = NUM_0_5;
+        float buf = 0.5f;
         for (int i = 0; i < placed; i++) {
-            float ox = centers[i * NUM_3];
-            float oy = centers[i * NUM_3 + 1];
-            float oz = centers[i * NUM_3 + 2];
-            float ohx = halfExtents[i * NUM_3];
-            float ohy = halfExtents[i * NUM_3 + 1];
-            float ohz = halfExtents[i * NUM_3 + 2];
+            float ox = centers[i * 3];
+            float oy = centers[i * 3 + 1];
+            float oz = centers[i * 3 + 2];
+            float ohx = halfExtents[i * 3];
+            float ohy = halfExtents[i * 3 + 1];
+            float ohz = halfExtents[i * 3 + 2];
             boolean collides = ox - ohx - buf < cx + hx + buf
                     && ox + ohx + buf > cx - hx - buf
                     && oy - ohy - buf < cy + hy + buf

@@ -14,10 +14,8 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
  */
 public final class FaceStripPath {
 
-    /** Corners (and edges) of a triangle. */
     public static final int CORNERS = 3;
 
-    /** Where a crossing sits when both endpoint areas round to zero, so neither end is nearer. */
     private static final double MIDPOINT = 0.5;
 
     public final EmbeddedMeshTopology topology;

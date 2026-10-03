@@ -7,9 +7,8 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 
 public class DiffuseShader extends ShaderProgram {
-    public static final int NUM_8 = 8;
-    public static final int NUM_3 = 3;
-    public static final int NUM_6 = 6;
+    public static final int VERTEX_STRIDE_FLOATS = 8;
+    public static final int UV_OFFSET_FLOATS = 6;
 
     /**
      * Build the diffuse-lit mesh shader (shader.vs/shader.fs) with a
@@ -22,7 +21,7 @@ public class DiffuseShader extends ShaderProgram {
      */
     public DiffuseShader(VertexArrayObject vao,
             VertexBufferObject vbo) throws UnsupportedEncodingException, IOException {
-        super("shader.vs", "shader.fs", vao, vbo, NUM_8, false);
+        super("shader.vs", "shader.fs", vao, vbo, VERTEX_STRIDE_FLOATS, false);
     }
 
     /**
@@ -36,11 +35,11 @@ public class DiffuseShader extends ShaderProgram {
         vao.bind();
         vbo.bind(gl.ARRAY_BUFFER());
 
-        gl.vertexAttribPointer(0, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, 0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT(), false, VERTEX_STRIDE_FLOATS * Float.BYTES, 0);
         gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(1, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, NUM_3 * Float.BYTES);
+        gl.vertexAttribPointer(1, 3, gl.FLOAT(), false, VERTEX_STRIDE_FLOATS * Float.BYTES, 3 * Float.BYTES);
         gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, NUM_8 * Float.BYTES, NUM_6 * Float.BYTES);
+        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, VERTEX_STRIDE_FLOATS * Float.BYTES, UV_OFFSET_FLOATS * Float.BYTES);
         gl.enableVertexAttribArray(2);
 
     }

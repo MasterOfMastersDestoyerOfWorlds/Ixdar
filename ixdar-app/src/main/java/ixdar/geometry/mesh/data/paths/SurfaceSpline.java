@@ -14,14 +14,8 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public final class SurfaceSpline {
 
-    /** Coordinates per point in every packed position here. */
     public static final int COORDINATES_PER_POINT = 3;
 
-    /**
-     * Mean edge lengths two polyline points must be apart before the turn between them counts.
-     * A geodesic that grazes a vertex leaves crossings a whisker apart, and the angle there is
-     * arithmetic noise, not a corner anyone can see.
-     */
     public static final double SMALLEST_MEASURED_SPAN_IN_EDGES = 0.25;
 
     /** Packed xyz of the anchors, in ring order. */

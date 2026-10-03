@@ -30,10 +30,7 @@ public class VectorMathNode implements MeshNode {
     public static final String NORMALIZE = "NORMALIZE";
     public static final String CROSS_PRODUCT = "CROSS_PRODUCT";
     public static final String CROSS = "CROSS";
-    public static final int NUM_3 = 3;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_1e_20 = 1e-20f;
-    public static final float NUM_0 = 0f;
+    public static final float NORMALIZE_MIN_LENGTH_SQUARED = 1e-20f;
 
     public static final Vector3Value ZERO = new Vector3Value(0f, 0f, 0f);
 
@@ -106,12 +103,12 @@ public class VectorMathNode implements MeshNode {
                 return;
             }
 
-            float[] out = new float[n * NUM_3];
+            float[] out = new float[n * 3];
             float[] lengths = new float[n];
             for (int i = 0; i < n; i++) {
                 FieldBroadcast.vec3At(av, i, (Vector3Value) A.defaultValue, a);
                 FieldBroadcast.vec3At(bv, i, (Vector3Value) B.defaultValue, b);
-                float s = FieldBroadcast.floatAt(sv, i, NUM_1);
+                float s = FieldBroadcast.floatAt(sv, i, 1f);
 
                 switch (op) {
                     case ADD -> outVec.set(a).add(b);
@@ -119,18 +116,18 @@ public class VectorMathNode implements MeshNode {
                     case MULTIPLY -> outVec.set(a.x * b.x, a.y * b.y, a.z * b.z);
                     case SCALE_3 -> outVec.set(a).mul(s);
                     case NORMALIZE -> {
-                        if (a.lengthSquared() > NUM_1e_20) {
+                        if (a.lengthSquared() > NORMALIZE_MIN_LENGTH_SQUARED) {
                             outVec.set(a).normalize();
                         } else {
-                            outVec.set(NUM_0, NUM_1, NUM_0);
+                            outVec.set(0f, 1f, 0f);
                         }
                     }
                     case CROSS_PRODUCT, CROSS -> outVec.set(a).cross(b);
                     default -> outVec.set(a).add(b);
                 }
-                out[NUM_3 * i] = outVec.x;
-                out[NUM_3 * i + 1] = outVec.y;
-                out[NUM_3 * i + 2] = outVec.z;
+                out[3 * i] = outVec.x;
+                out[3 * i + 1] = outVec.y;
+                out[3 * i + 2] = outVec.z;
                 lengths[i] = outVec.length();
             }
             ctx.setOutput(VECTOR.name, new Vector3Field(out));
@@ -140,7 +137,7 @@ public class VectorMathNode implements MeshNode {
 
         Vector3f a = toVec(FieldBroadcast.vector3ValueOrDefault(av, (Vector3Value) A.defaultValue));
         Vector3f b = toVec(FieldBroadcast.vector3ValueOrDefault(bv, (Vector3Value) B.defaultValue));
-        float s = FieldBroadcast.floatScalarOrDefault(sv, NUM_1);
+        float s = FieldBroadcast.floatScalarOrDefault(sv, 1f);
 
         Vector3f outVec = new Vector3f();
 
@@ -157,10 +154,10 @@ public class VectorMathNode implements MeshNode {
             case MULTIPLY -> outVec.set(a.x * b.x, a.y * b.y, a.z * b.z);
             case SCALE_3 -> outVec.set(a).mul(s);
             case NORMALIZE -> {
-                if (a.lengthSquared() > NUM_1e_20) {
+                if (a.lengthSquared() > NORMALIZE_MIN_LENGTH_SQUARED) {
                     outVec.set(a).normalize();
                 } else {
-                    outVec.set(NUM_0, NUM_1, NUM_0);
+                    outVec.set(0f, 1f, 0f);
                 }
             }
             case CROSS_PRODUCT, CROSS -> outVec.set(a).cross(b);

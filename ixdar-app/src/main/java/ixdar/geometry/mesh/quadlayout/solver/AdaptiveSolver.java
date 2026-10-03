@@ -22,7 +22,7 @@ import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
  * <p>See also: BZK09 Section 2.1
  */
 public final class AdaptiveSolver {
-    public static final double NUM_1e_30 = 1e-30;
+    public static final double MIN_DIAGONAL = 1e-30;
     public static final double SOR = 1.7;
 
     private AdaptiveSolver() {
@@ -127,7 +127,7 @@ public final class AdaptiveSolver {
             }
 
             double diag = matrix.diag(row);
-            if (Math.abs(diag) < NUM_1e_30) {
+            if (Math.abs(diag) < MIN_DIAGONAL) {
                 return new LocalResult(x, iterations, false, false, initialQueueSize,
                         maxQueueSize, 0.0, -1);
             }
@@ -216,7 +216,7 @@ public final class AdaptiveSolver {
                 continue;
             }
             double diag = matrix.diag(i);
-            z[i] = Math.abs(diag) > NUM_1e_30 ? r[i] / diag : r[i];
+            z[i] = Math.abs(diag) > MIN_DIAGONAL ? r[i] / diag : r[i];
             p[i] = z[i];
             rzOld += r[i] * z[i];
         }
@@ -242,7 +242,7 @@ public final class AdaptiveSolver {
                     pAp += p[i] * ap[i];
                 }
             }
-            if (Math.abs(pAp) < NUM_1e_30) {
+            if (Math.abs(pAp) < MIN_DIAGONAL) {
                 break;
             }
 
@@ -264,7 +264,7 @@ public final class AdaptiveSolver {
                     continue;
                 }
                 double diag = matrix.diag(i);
-                z[i] = Math.abs(diag) > NUM_1e_30 ? r[i] / diag : r[i];
+                z[i] = Math.abs(diag) > MIN_DIAGONAL ? r[i] / diag : r[i];
                 rzNew += r[i] * z[i];
             }
             double beta = rzNew / rzOld;
@@ -339,7 +339,7 @@ public final class AdaptiveSolver {
             for (int i = 0; i < n; i++) {
                 pAp += p[i] * ap[i];
             }
-            if (Math.abs(pAp) < NUM_1e_30) {
+            if (Math.abs(pAp) < MIN_DIAGONAL) {
                 return new PcgResult(iteration, false);
             }
             double alpha = rzOld / pAp;

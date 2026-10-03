@@ -31,11 +31,8 @@ import ixdar.parsing.python.PythonParser;
  * squares for the parameter adjustments that best match a reference skeleton.
  */
 public final class SkeletonSensitivityAnalyzer {
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_1e_12 = 1e-12f;
-    public static final float NUM_0 = 0f;
+    public static final int MAX_BACKOFF_ATTEMPTS = 4;
+    public static final float SINGULAR_PIVOT_EPSILON = 1e-12f;
 
     private static final float DEFAULT_EPSILON_RELATIVE = 0.02f; // 2% of parameter range
     private static final float MIN_EPSILON = 1e-3f;
@@ -125,7 +122,7 @@ public final class SkeletonSensitivityAnalyzer {
         // 6. Compute Jacobian: perturb each parameter.
         //    Match perturbed branches to baseline branches BY LABEL (not iteration order)
         //    to handle cases where greedy nearest-tip matching produces different orderings.
-        float[][][] jacobian3D = new float[M][N][NUM_3];
+        float[][][] jacobian3D = new float[M][N][3];
         List<String> unstableParams = new ArrayList<>();
 
         for (int pi = 0; pi < N; pi++) {
@@ -282,7 +279,7 @@ public final class SkeletonSensitivityAnalyzer {
             if (M == 0) break;
 
             // Compute Jacobian at current parameter values (label-matched)
-            float[][][] jacobian = new float[M][N][NUM_3];
+            float[][][] jacobian = new float[M][N][3];
             for (int pi = 0; pi < N; pi++) {
                 OptimizableParameter param = params.get(pi);
                 float currentVal = currentParams.get(param.overrideKey());
@@ -339,7 +336,7 @@ public final class SkeletonSensitivityAnalyzer {
             float stepSize = 1.0f;
             float candidateScore = 0;
 
-            for (int attempt = 0; attempt < NUM_4; attempt++) {
+            for (int attempt = 0; attempt < MAX_BACKOFF_ATTEMPTS; attempt++) {
                 for (var entry : deltas.entrySet()) {
                     String paramKey = entry.getKey();
                     float delta = entry.getValue() * stepSize;
@@ -354,7 +351,7 @@ public final class SkeletonSensitivityAnalyzer {
                 candidateScore = evaluateScore(runtime, parsed, lastNode.id, ports, candidateParams, refSkel, resolution);
 
                 if (candidateScore > currentScore) break;
-                stepSize *= NUM_0_5;
+                stepSize *= 0.5f;
                 candidateParams = new LinkedHashMap<>(currentParams);
             }
 
@@ -392,23 +389,23 @@ public final class SkeletonSensitivityAnalyzer {
 
         int M = errors.size();
         int N = params.size();
-        int rows = M * NUM_3;
+        int rows = M * 3;
 
         float[][] J = new float[rows][N];
         for (int ji = 0; ji < M; ji++) {
             for (int pi = 0; pi < N; pi++) {
-                J[ji * NUM_3][pi] = jacobian3D[ji][pi][0];
-                J[ji * NUM_3 + 1][pi] = jacobian3D[ji][pi][1];
-                J[ji * NUM_3 + 2][pi] = jacobian3D[ji][pi][2];
+                J[ji * 3][pi] = jacobian3D[ji][pi][0];
+                J[ji * 3 + 1][pi] = jacobian3D[ji][pi][1];
+                J[ji * 3 + 2][pi] = jacobian3D[ji][pi][2];
             }
         }
 
         float[] e = new float[rows];
         for (int ji = 0; ji < M; ji++) {
             JointDelta jd = errors.get(ji);
-            e[ji * NUM_3] = jd.delta()[0];
-            e[ji * NUM_3 + 1] = jd.delta()[1];
-            e[ji * NUM_3 + 2] = jd.delta()[2];
+            e[ji * 3] = jd.delta()[0];
+            e[ji * 3 + 1] = jd.delta()[1];
+            e[ji * 3 + 2] = jd.delta()[2];
         }
 
         float[] JTe = new float[N];
@@ -476,7 +473,7 @@ public final class SkeletonSensitivityAnalyzer {
             aug[maxRow] = tmp;
 
             float pivot = aug[col][col];
-            if (Math.abs(pivot) < NUM_1e_12) continue; // singular column
+            if (Math.abs(pivot) < SINGULAR_PIVOT_EPSILON) continue; // singular column
 
             for (int row = col + 1; row < n; row++) {
                 float factor = aug[row][col] / pivot;
@@ -494,7 +491,7 @@ public final class SkeletonSensitivityAnalyzer {
                 sum -= aug[i][j] * x[j];
             }
             float diag = aug[i][i];
-            x[i] = Math.abs(diag) > NUM_1e_12 ? sum / diag : 0;
+            x[i] = Math.abs(diag) > SINGULAR_PIVOT_EPSILON ? sum / diag : 0;
         }
         return x;
     }
@@ -537,7 +534,7 @@ public final class SkeletonSensitivityAnalyzer {
             Map<String, Float> projected = new LinkedHashMap<>();
             for (OptimizableParameter p : params) {
                 float base = p.defaultValue();
-                float delta = suggestedDeltas.getOrDefault(p.overrideKey(), NUM_0);
+                float delta = suggestedDeltas.getOrDefault(p.overrideKey(), 0f);
                 projected.put(p.overrideKey(), Math.max(p.minValue(), Math.min(p.maxValue(), base + delta)));
             }
             return evaluateScore(runtime, parsed, lastNodeId, ports, projected, refSkel, resolution);

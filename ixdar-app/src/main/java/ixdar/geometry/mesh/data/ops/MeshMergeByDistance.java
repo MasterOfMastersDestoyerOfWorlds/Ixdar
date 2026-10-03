@@ -21,17 +21,13 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  * elements, so per-vertex and per-face attributes can follow it.
  */
 public final class MeshMergeByDistance {
-    public static final int NUM_4 = 4;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1e_8 = 1e-8f;
-    public static final float NUM_1 = 1f;
-    public static final int NUM_3 = 3;
-    public static final int NUM_33 = 33;
-    public static final long NUM_0xff51afd7ed558ccd = 0xff51afd7ed558ccdL;
-    public static final long NUM_0xc4ceb9fe1a85ec53 = 0xc4ceb9fe1a85ec53L;
-    public static final int NUM_0x1ffff = 0x1fffff;
-    public static final int NUM_21 = 21;
-    public static final int NUM_42 = 42;
+    public static final float MIN_CELL_SIZE = 1e-8f;
+    public static final int MIX_SHIFT = 33;
+    public static final long MIX_CONST_1 = 0xff51afd7ed558ccdL;
+    public static final long MIX_CONST_2 = 0xc4ceb9fe1a85ec53L;
+    public static final int CELL_COORD_MASK = 0x1fffff;
+    public static final int CELL_COORD_BITS = 21;
+    public static final int Z_AXIS_SHIFT = 42;
 
     /**
      * Output vertex each input vertex ended up in, indexed by the input's dense vertex index.
@@ -101,8 +97,8 @@ public final class MeshMergeByDistance {
         if (mesh == null || mesh.vertexCount() == 0) {
             return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
         }
-        if (distance <= NUM_0) {
-            return MeshVertexOffset.apply(mesh, new Vector3Value(NUM_0, NUM_0, NUM_0));
+        if (distance <= 0f) {
+            return MeshVertexOffset.apply(mesh, new Vector3Value(0f, 0f, 0f));
         }
         if (mesh instanceof ArrayMesh am) {
             return mergeToArrayMesh(am, distance, record);
@@ -115,7 +111,7 @@ public final class MeshMergeByDistance {
             pos[i] = mesh.vertexPosition(vid, new Vector3f());
         }
 
-        float cell = Math.max(distance, NUM_1e_8);
+        float cell = Math.max(distance, MIN_CELL_SIZE);
         HashMap<Long, List<Integer>> grid = new HashMap<>();
         for (int i = 0; i < n; i++) {
             long key = key(pos[i], cell);
@@ -167,7 +163,7 @@ public final class MeshMergeByDistance {
         Vector3f tmp = new Vector3f();
         for (int r : sumByRoot.keySet()) {
             int cnt = countByRoot.get(r);
-            tmp.set(sumByRoot.get(r)).mul(NUM_1 / cnt);
+            tmp.set(sumByRoot.get(r)).mul(1f / cnt);
             int oid = out.addVertex(tmp);
             outVidByRoot.put(r, oid);
         }
@@ -269,7 +265,7 @@ public final class MeshMergeByDistance {
             sparseToDense[vid] = i;
         }
 
-        float cell = Math.max(distance, NUM_1e_8);
+        float cell = Math.max(distance, MIN_CELL_SIZE);
 
         // Spatial grid: sort vertex indices by cell-key via counting sort on 32-bit packed cell coords.
         // Then for each vertex, iterate the 27 neighbor cells; bucket membership is an int[] range.
@@ -371,17 +367,17 @@ public final class MeshMergeByDistance {
             }
         }
 
-        float[] positions = new float[outV * NUM_3];
+        float[] positions = new float[outV * 3];
         for (int o = 0; o < outV; o++) {
-            float inv = NUM_1 / count[o];
-            positions[o * NUM_3] = sumX[o] * inv;
-            positions[o * NUM_3 + 1] = sumY[o] * inv;
-            positions[o * NUM_3 + 2] = sumZ[o] * inv;
+            float inv = 1f / count[o];
+            positions[o * 3] = sumX[o] * inv;
+            positions[o * 3 + 1] = sumY[o] * inv;
+            positions[o * 3 + 2] = sumZ[o] * inv;
         }
 
         int nf = mesh.faceCount();
         if (nf == 0) {
-            return new ArrayMesh(positions, null, new int[0], NUM_4);
+            return new ArrayMesh(positions, null, new int[0], 4);
         }
         int vpf = mesh.faceVertexCount(mesh.faceIdAt(0));
         for (int fi = 0; fi < nf; fi++) {
@@ -433,11 +429,11 @@ public final class MeshMergeByDistance {
      */
     public static long mixKey(long key) {
         long x = key;
-        x ^= (x >>> NUM_33);
-        x *= NUM_0xff51afd7ed558ccd;
-        x ^= (x >>> NUM_33);
-        x *= NUM_0xc4ceb9fe1a85ec53;
-        x ^= (x >>> NUM_33);
+        x ^= (x >>> MIX_SHIFT);
+        x *= MIX_CONST_1;
+        x ^= (x >>> MIX_SHIFT);
+        x *= MIX_CONST_2;
+        x ^= (x >>> MIX_SHIFT);
         return x;
     }
 
@@ -450,9 +446,9 @@ public final class MeshMergeByDistance {
      * @return the three coordinates packed into one long
      */
     public static long packCell(int gridX, int gridY, int gridZ) {
-        return ((long) gridX & NUM_0x1ffff)
-                | (((long) gridY & NUM_0x1ffff) << NUM_21)
-                | (((long) gridZ & NUM_0x1ffff) << NUM_42);
+        return ((long) gridX & CELL_COORD_MASK)
+                | (((long) gridY & CELL_COORD_MASK) << CELL_COORD_BITS)
+                | (((long) gridZ & CELL_COORD_MASK) << Z_AXIS_SHIFT);
     }
 
     private static long key(Vector3f p, float cell) {

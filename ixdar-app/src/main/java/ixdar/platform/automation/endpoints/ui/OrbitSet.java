@@ -23,20 +23,19 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
     public static final String TARGET = "target";
     public static final String OK = "ok";
     public static final String ERROR = "error";
-    public static final float NUM_0 = 0f;
-    public static final float NUM_3_5 = 3.5f;
-    public static final int NUM_3 = 3;
+    public static final float DEFAULT_DISTANCE = 3.5f;
+    public static final int TARGET_FIELD_COUNT = 3;
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         float azimuth = body.has(AZIMUTH)
                 ? body.get(AZIMUTH).getAsFloat()
-                : NUM_0;
+                : 0f;
         float elevation = body.has(ELEVATION)
                 ? body.get(ELEVATION).getAsFloat()
-                : NUM_0;
+                : 0f;
         float distance = body.has(DISTANCE)
                 ? body.get(DISTANCE).getAsFloat()
-                : NUM_3_5;
+                : DEFAULT_DISTANCE;
         String target = body.has(TARGET) && !body.get(TARGET).isJsonNull()
                 ? body.get(TARGET).getAsString()
                 : "";
@@ -53,7 +52,7 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
                 }
                 OrbitMouseTrap orbit = modelScene.orbitMouse;
                 String[] fields = target.trim().split("\\s*,\\s*");
-                if (fields.length == NUM_3) {
+                if (fields.length == TARGET_FIELD_COUNT) {
                     orbit.setTarget(new Vector3f(
                             Float.parseFloat(fields[0]),
                             Float.parseFloat(fields[1]),
@@ -88,11 +87,11 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
         return RouteDoc.builder()
                 .commandName("orbit-set")
                 .description("Set the active mesh viewer's camera orbit (azimuth, elevation, distance).")
-                .param(AZIMUTH, RouteParamType.FLOAT, false, String.valueOf(NUM_0),
+                .param(AZIMUTH, RouteParamType.FLOAT, false, String.valueOf(0f),
                         "Orbit azimuth angle in radians.", "1.5708")
-                .param(ELEVATION, RouteParamType.FLOAT, false, String.valueOf(NUM_0),
+                .param(ELEVATION, RouteParamType.FLOAT, false, String.valueOf(0f),
                         "Orbit elevation angle in radians.", "0.6")
-                .param(DISTANCE, RouteParamType.FLOAT, false, String.valueOf(NUM_3_5),
+                .param(DISTANCE, RouteParamType.FLOAT, false, String.valueOf(DEFAULT_DISTANCE),
                         "Camera distance from the orbit target.", "5.0")
                 .param(TARGET, RouteParamType.STRING, false, "",
                         "Point the orbit pivots around, as x,y,z; empty leaves the pivot where it is.",

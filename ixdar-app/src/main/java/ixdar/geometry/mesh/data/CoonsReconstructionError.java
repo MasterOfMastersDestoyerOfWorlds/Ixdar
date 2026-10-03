@@ -12,10 +12,7 @@ import org.joml.Vector3f;
  * the Coons surface, so it is only as fine as the sampling resolution requested.
  */
 public final class CoonsReconstructionError {
-    public static final int NUM_4 = 4;
-    public static final float NUM_0 = 0f;
-    public static final int NUM_3 = 3;
-    public static final double NUM_0_95 = 0.95;
+    public static final double PERCENTILE_95 = 0.95;
 
     private CoonsReconstructionError() {}
 
@@ -41,8 +38,8 @@ public final class CoonsReconstructionError {
         float[] errors = new float[vertexCount];
         PatchBoundaryWalker.BoundarySides bs = PatchBoundaryWalker.extract(
                 faces, facePatch, patchId, faceIdx, adj, positions);
-        if (bs == null || bs.sides().size() != NUM_4) {
-            return new PatchError(false, errors, NUM_0, NUM_0);
+        if (bs == null || bs.sides().size() != 4) {
+            return new PatchError(false, errors, 0f, 0f);
         }
 
         // Build Beziers. Order matters for the Coons corner convention:
@@ -59,7 +56,7 @@ public final class CoonsReconstructionError {
         int[] s0 = bs.sides().get(0);
         int[] s1 = bs.sides().get(1);
         int[] s2 = bs.sides().get(2);
-        int[] s3 = bs.sides().get(NUM_3);
+        int[] s3 = bs.sides().get(3);
         Vector3f[] bezU0 = BezierFit.fitCubic(s0, positions);
         Vector3f[] bezV1 = BezierFit.fitCubic(s1, positions);
         Vector3f[] bezU1 = BezierFit.fitCubic(reversed(s2), positions);
@@ -69,18 +66,18 @@ public final class CoonsReconstructionError {
 
         // Walk the patch's vertices, compute distance-to-grid for each.
         BitSet touched = new BitSet(vertexCount);
-        float p95 = NUM_0;
-        float max = NUM_0;
+        float p95 = 0f;
+        float max = 0f;
         int count = 0;
-        float[] perPatchErrors = new float[faces.size() * NUM_3];
+        float[] perPatchErrors = new float[faces.size() * 3];
         for (int f : faces) {
-            for (int k = 0; k < NUM_3; k++) {
-                int v = faceIdx[f * NUM_3 + k];
+            for (int k = 0; k < 3; k++) {
+                int v = faceIdx[f * 3 + k];
                 if (touched.get(v)) continue;
                 touched.set(v);
                 float dsq = CoonsEvaluator.nearestDistanceSquared(
                         grid,
-                        positions[v * NUM_3], positions[v * NUM_3 + 1], positions[v * NUM_3 + 2]);
+                        positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2]);
                 float d = (float) Math.sqrt(dsq);
                 errors[v] = d;
                 if (d > max) max = d;
@@ -90,7 +87,7 @@ public final class CoonsReconstructionError {
         if (count > 0) {
             float[] sorted = Arrays.copyOf(perPatchErrors, count);
             Arrays.sort(sorted);
-            int idx = Math.min(count - 1, (int) Math.floor(count * NUM_0_95));
+            int idx = Math.min(count - 1, (int) Math.floor(count * PERCENTILE_95));
             p95 = sorted[idx];
         }
         return new PatchError(true, errors, p95, max);

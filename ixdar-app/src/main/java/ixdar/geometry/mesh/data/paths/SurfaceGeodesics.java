@@ -16,10 +16,8 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public final class SurfaceGeodesics {
 
-    /** Coordinates per point in every packed position here. */
     public static final int COORDINATES_PER_POINT = 3;
 
-    /** Vertices one seed search may settle before it gives up. */
     public static final int DEFAULT_SEARCH_BUDGET = 200000;
 
     /** Surface every path here runs on. */

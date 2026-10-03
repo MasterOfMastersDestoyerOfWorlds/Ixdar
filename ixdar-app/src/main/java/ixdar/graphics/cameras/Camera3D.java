@@ -20,13 +20,10 @@ import ixdar.platform.Platforms;
 public class Camera3D implements Camera {
     public static final String UNIMPLEMENTED_METHOD_SCREENTRANSFORMX = "Unimplemented method 'screenTransformX'";
     public static final String UNIMPLEMENTED_METHOD_SCREENTRANSFORMY = "Unimplemented method 'screenTransformY'";
-    public static final float NUM_45 = 45f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_100 = 100f;
-    public static final float NUM_45_0 = 45.0f;
-    public static final float NUM_89 = 89f;
-    public static final float NUM_0_1 = 0.1f;
-    public static final float NUM_89_0 = 89.0f;
+    public static final float DEFAULT_FOV = 45f;
+    public static final float WHEEL_NOTCH_SCALE = 100f;
+    public static final float MAX_PITCH = 89f;
+    public static final float MOUSE_SENSITIVITY = 0.1f;
 
     private static final float DEFAULT_MOVEMENT_SPEED = 2.5f;
     private static final float ZOOM_SPEED = 1f;
@@ -72,7 +69,7 @@ public class Camera3D implements Camera {
         updateCameraVectors();
         view = new Matrix4f().lookAt(position, target, up);
 
-        fov = NUM_45;
+        fov = DEFAULT_FOV;
         this.canvas = canvas;
     }
 
@@ -113,7 +110,7 @@ public class Camera3D implements Camera {
                 (float) Math.sin(Math.toRadians(pitch)),
                 (float) (Math.sin(Math.toRadians(yaw)) * Math.cos(Math.toRadians(pitch))));
         float len = (float) Math.sqrt(front.x * front.x + front.y * front.y + front.z * front.z);
-        if (len > NUM_0) {
+        if (len > 0f) {
             front.x /= len;
             front.y /= len;
             front.z /= len;
@@ -125,7 +122,7 @@ public class Camera3D implements Camera {
         right.y = front.z * worldUp.x - front.x * worldUp.z;
         right.z = front.x * worldUp.y - front.y * worldUp.x;
         float rlen = (float) Math.sqrt(right.x * right.x + right.y * right.y + right.z * right.z);
-        if (rlen > NUM_0) {
+        if (rlen > 0f) {
             right.div(rlen);
         }
         // up = normalize(cross(right, front))
@@ -133,7 +130,7 @@ public class Camera3D implements Camera {
         up.y = right.z * front.x - right.x * front.z;
         up.z = right.x * front.y - right.y * front.x;
         float ulen = (float) Math.sqrt(up.x * up.x + up.y * up.y + up.z * up.z);
-        if (ulen > NUM_0) {
+        if (ulen > 0f) {
             up.div(ulen);
         }
         target.set(position).add(front);
@@ -189,19 +186,19 @@ public class Camera3D implements Camera {
     @Override
     public void onScroll(boolean b, double delta) {
 
-        float deltaRee= (float)delta/NUM_100;
+        float deltaRee= (float)delta/WHEEL_NOTCH_SCALE;
         if (b) {
             fov += (float) ZOOM_SPEED * SHIFT_MOD * deltaRee * fov;
             if (fov < 1.0f)
                 fov = 1.0f;
-            if (fov > NUM_45_0)
-                fov = NUM_45_0;
+            if (fov > DEFAULT_FOV)
+                fov = DEFAULT_FOV;
         } else {
             fov -= (float) ZOOM_SPEED * SHIFT_MOD * deltaRee * fov;
             if (fov < 1.0f)
                 fov = 1.0f;
-            if (fov > NUM_45_0)
-                fov = NUM_45_0;
+            if (fov > DEFAULT_FOV)
+                fov = DEFAULT_FOV;
         }
     }
 
@@ -227,7 +224,7 @@ public class Camera3D implements Camera {
      */
     public void setOrientation(float yawDegrees, float pitchDegrees) {
         this.yaw = yawDegrees;
-        this.pitch = Math.max(-NUM_89, Math.min(NUM_89, pitchDegrees));
+        this.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, pitchDegrees));
         updateCameraVectors();
     }
 
@@ -259,17 +256,17 @@ public class Camera3D implements Camera {
         lastX = x;
         lastY = y;
 
-        float sensitivity = NUM_0_1;
+        float sensitivity = MOUSE_SENSITIVITY;
         xoffset *= sensitivity;
         yoffset *= sensitivity;
 
         yaw += xoffset;
         pitch += yoffset;
 
-        if (pitch > NUM_89_0)
-            pitch = NUM_89_0;
-        if (pitch < -NUM_89_0)
-            pitch = -NUM_89_0;
+        if (pitch > MAX_PITCH)
+            pitch = MAX_PITCH;
+        if (pitch < -MAX_PITCH)
+            pitch = -MAX_PITCH;
 
         updateCameraVectors();
     }

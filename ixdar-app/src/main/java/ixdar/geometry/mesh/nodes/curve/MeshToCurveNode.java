@@ -20,10 +20,8 @@ import ixdar.geometry.mesh.data.MeshTopology;
 @MeshNodeAnnotation(id = "mesh_to_curve")
 public class MeshToCurveNode implements MeshNode {
     public static final String ALL_EDGES = "ALL_EDGES";
-    public static final int NUM_6 = 6;
-    public static final int NUM_8 = 8;
-    public static final int NUM_16 = 16;
-    public static final int NUM_3 = 3;
+    public static final int BOUNDARY_WALK_GUARD_MULTIPLIER = 8;
+    public static final int BOUNDARY_WALK_GUARD_PADDING = 16;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort SOURCE = new InputPort("source", PortType.STRING, ALL_EDGES);
@@ -79,7 +77,7 @@ public class MeshToCurveNode implements MeshNode {
         }
 
         int nSeg = mesh.edgeCount();
-        ArrayList<Float> pts = new ArrayList<>(nSeg * NUM_6);
+        ArrayList<Float> pts = new ArrayList<>(nSeg * 6);
         Vector3f a = new Vector3f();
         Vector3f b = new Vector3f();
         for (int ei = 0; ei < nSeg; ei++) {
@@ -141,7 +139,7 @@ public class MeshToCurveNode implements MeshNode {
         int prev = MeshTopology.NONE;
         int cur = start;
         int guard = 0;
-        int maxGuard = mesh.vertexCount() * NUM_8 + NUM_16;
+        int maxGuard = mesh.vertexCount() * BOUNDARY_WALK_GUARD_MULTIPLIER + BOUNDARY_WALK_GUARD_PADDING;
         while (true) {
             order.add(cur);
             ArrayList<Integer> nbs = adj.get(cur);
@@ -172,11 +170,11 @@ public class MeshToCurveNode implements MeshNode {
         if (order.size() < 2) {
             return null;
         }
-        float[] pos = new float[order.size() * NUM_3];
+        float[] pos = new float[order.size() * 3];
         Vector3f p = new Vector3f();
         for (int i = 0; i < order.size(); i++) {
             mesh.vertexPosition(order.get(i), p);
-            int b = NUM_3 * i;
+            int b = 3 * i;
             pos[b] = p.x;
             pos[b + 1] = p.y;
             pos[b + 2] = p.z;

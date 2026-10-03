@@ -13,22 +13,23 @@ import ixdar.scenes.trade.TradeScene;
  * Action to start a new trade game with randomized cities.
  */
 public class StartNewGameAction implements Action {
-    public static final float NUM_200 = 200f;
-    public static final int NUM_8 = 8;
-    public static final int NUM_5 = 5;
-    public static final float NUM_800 = 800f;
-    public static final float NUM_600 = 600f;
-    public static final float NUM_100 = 100f;
-    public static final int NUM_1000 = 1000;
-    public static final int NUM_9000 = 9000;
-    public static final int NUM_10 = 10;
-    public static final int NUM_3 = 3;
-    public static final int NUM_7 = 7;
+    public static final float ROAD_PROXIMITY_THRESHOLD = 200f;
+    public static final int MIN_CITY_COUNT = 8;
+    public static final int MAX_EXTRA_CITIES = 5;
+    public static final float MAP_WIDTH = 800f;
+    public static final float MAP_HEIGHT = 600f;
+    public static final float MAP_MARGIN = 100f;
+    public static final int MIN_POPULATION = 1000;
+    public static final int POPULATION_RANGE = 9000;
+    public static final int PRODUCTION_RANGE = 10;
+    public static final int MIN_PRODUCTION = 5;
+    public static final int MIN_CONSUMPTION = 3;
+    public static final int CONSUMPTION_RANGE = 7;
     @Override
     public void perform() {
         ArrayList<City> cities = generateRandomCities();
         CityNetwork network = new CityNetwork(cities, new CartesianGrid());
-        network.generateRoadsFromProximity(NUM_200);
+        network.generateRoadsFromProximity(ROAD_PROXIMITY_THRESHOLD);
         TradeScene.startNewGame(network, Canvas3D.instance);
     }
 
@@ -41,7 +42,7 @@ public class StartNewGameAction implements Action {
         Random random = new Random();
 
         // Generate 8-12 random cities
-        int numCities = NUM_8 + random.nextInt(NUM_5);
+        int numCities = MIN_CITY_COUNT + random.nextInt(MAX_EXTRA_CITIES);
 
         String[] cityNames = new String[] {
                 "Port Royal", "Kingston", "Nassau", "Havana", "Tortuga",
@@ -60,14 +61,14 @@ public class StartNewGameAction implements Action {
         };
 
         // Spread cities across a reasonable map area
-        float mapWidth = NUM_800;
-        float mapHeight = NUM_600;
-        float margin = NUM_100;
+        float mapWidth = MAP_WIDTH;
+        float mapHeight = MAP_HEIGHT;
+        float margin = MAP_MARGIN;
 
         for (int i = 0; i < numCities && i < cityNames.length; i++) {
             float x = margin + random.nextFloat() * (mapWidth - 2 * margin);
             float y = margin + random.nextFloat() * (mapHeight - 2 * margin);
-            int population = NUM_1000 + random.nextInt(NUM_9000);
+            int population = MIN_POPULATION + random.nextInt(POPULATION_RANGE);
 
             City city = new City(
                     cityNames[i].toLowerCase().replace(" ", "_"),
@@ -78,8 +79,8 @@ public class StartNewGameAction implements Action {
 
             // Add some resources
             String[] resources = resourcePairs[i % resourcePairs.length];
-            city.addProduction(resources[0], NUM_5 + random.nextInt(NUM_10));
-            city.addConsumption(resources[1], NUM_3 + random.nextInt(NUM_7));
+            city.addProduction(resources[0], MIN_PRODUCTION + random.nextInt(PRODUCTION_RANGE));
+            city.addConsumption(resources[1], MIN_CONSUMPTION + random.nextInt(CONSUMPTION_RANGE));
 
             cities.add(city);
         }

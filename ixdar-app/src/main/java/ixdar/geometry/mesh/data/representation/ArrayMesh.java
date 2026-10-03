@@ -14,15 +14,8 @@ import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
  */
 public final class ArrayMesh implements MeshTopology {
     public static final String IS_NOT_VALID = " is not valid";
-    public static final int NUM_4 = 4;
-    public static final int NUM_8 = 8;
-    public static final int NUM_5 = 5;
-    public static final int NUM_6 = 6;
-    public static final float NUM_0 = 0f;
-    public static final int NUM_7 = 7;
-    public static final float NUM_1e_20 = 1e-20f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0_5 = 0.5f;
+    public static final int FLOATS_PER_GPU_VERTEX = 8;
+    public static final float NORMAL_LENGTH_EPSILON = 1e-20f;
 
     private static final int FLOATS_PER_VERTEX = 3;
 
@@ -89,7 +82,7 @@ public final class ArrayMesh implements MeshTopology {
      * @return mesh with {@code vertsPerFace = 4} and zeroed normals
      */
     public static ArrayMesh fromQuads(float[] positions, int[] quadIndices) {
-        return new ArrayMesh(positions, null, quadIndices, NUM_4);
+        return new ArrayMesh(positions, null, quadIndices, 4);
     }
 
     /**
@@ -223,18 +216,18 @@ public final class ArrayMesh implements MeshTopology {
     public HalfEdgeCompiledMeshData compileSurfaceData() {
         int vCount = vertexCount();
         int fCount = faceCount();
-        float[] vertices = new float[vCount * NUM_8];
+        float[] vertices = new float[vCount * FLOATS_PER_GPU_VERTEX];
         for (int i = 0; i < vCount; i++) {
             int o = i * FLOATS_PER_VERTEX;
-            int t = i * NUM_8;
+            int t = i * FLOATS_PER_GPU_VERTEX;
             vertices[t] = positions[o];
             vertices[t + 1] = positions[o + 1];
             vertices[t + 2] = positions[o + 2];
             vertices[t + FLOATS_PER_VERTEX] = normals[o];
-            vertices[t + NUM_4] = normals[o + 1];
-            vertices[t + NUM_5] = normals[o + 2];
-            vertices[t + NUM_6] = NUM_0;
-            vertices[t + NUM_7] = NUM_0;
+            vertices[t + 4] = normals[o + 1];
+            vertices[t + 5] = normals[o + 2];
+            vertices[t + 6] = 0f;
+            vertices[t + 7] = 0f;
         }
         int triangleCount = 0;
         for (int fi = 0; fi < fCount; fi++) {
@@ -309,8 +302,8 @@ public final class ArrayMesh implements MeshTopology {
     public void computeNormals() {
         int v = vertexCount();
         int f = faceCount();
-        Arrays.fill(normals, NUM_0);
-        Arrays.fill(faceNormals, NUM_0);
+        Arrays.fill(normals, 0f);
+        Arrays.fill(faceNormals, 0f);
         Vector3f p0 = new Vector3f();
         Vector3f p1 = new Vector3f();
         Vector3f p2 = new Vector3f();
@@ -325,10 +318,10 @@ public final class ArrayMesh implements MeshTopology {
             e2.set(p2).sub(p0);
             e1.cross(e2, fn);
             float len = fn.length();
-            if (len > NUM_1e_20) {
+            if (len > NORMAL_LENGTH_EPSILON) {
                 fn.mul(1.0f / len);
             } else {
-                fn.set(NUM_0, NUM_1, NUM_0);
+                fn.set(0f, 1f, 0f);
             }
             int fo = fi * FLOATS_PER_VERTEX;
             faceNormals[fo] = fn.x;
@@ -348,7 +341,7 @@ public final class ArrayMesh implements MeshTopology {
             float nx = normals[o];
             float ny = normals[o + 1];
             float nz = normals[o + 2];
-            float il = 1.0f / Math.max(NUM_1e_20, (float) Math.sqrt(nx * nx + ny * ny + nz * nz));
+            float il = 1.0f / Math.max(NORMAL_LENGTH_EPSILON, (float) Math.sqrt(nx * nx + ny * ny + nz * nz));
             normals[o] = nx * il;
             normals[o + 1] = ny * il;
             normals[o + 2] = nz * il;
@@ -726,10 +719,10 @@ public final class ArrayMesh implements MeshTopology {
         }
         int v = vertexCount();
         if (v == 0) {
-            radiusCached = NUM_0;
-            return NUM_0;
+            radiusCached = 0f;
+            return 0f;
         }
-        float maxD = NUM_0;
+        float maxD = 0f;
         Vector3f p = new Vector3f();
         for (int i = 0; i < v; i++) {
             vertexPosition(i, p);
@@ -774,7 +767,7 @@ public final class ArrayMesh implements MeshTopology {
         }
         boundsMin.set(minX, minY, minZ);
         boundsMax.set(maxX, maxY, maxZ);
-        centerVec.set((minX + maxX) * NUM_0_5, (minY + maxY) * NUM_0_5, (minZ + maxZ) * NUM_0_5);
+        centerVec.set((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, (minZ + maxZ) * 0.5f);
         boundsDirty = false;
     }
 }

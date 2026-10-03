@@ -11,14 +11,6 @@ import ixdar.procgen.dungeon.values.CellType;
  * <p>Winding is INWARD, cell height is {@code cellSize}, and the mesh is origin-centered.
  */
 public final class GridToMesh2D {
-    public static final int NUM_4 = 4;
-    public static final int NUM_3 = 3;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_0 = 0f;
-    public static final int NUM_8 = 8;
-    public static final int NUM_5 = 5;
-    public static final int NUM_6 = 6;
-    public static final int NUM_7 = 7;
 
     private GridToMesh2D() {
     }
@@ -41,10 +33,10 @@ public final class GridToMesh2D {
         // backface-cull state. countFaces returns the count of boundary FACES; we multiply by 2
         // for the two windings.
         int faces = countFaces(width, height, cells) * 2;
-        float[] positions = new float[faces * NUM_4 * NUM_3];
-        int[] quads = new int[faces * NUM_4];
-        float offsetX = -width * cellSize * NUM_0_5;
-        float offsetZ = -height * cellSize * NUM_0_5;
+        float[] positions = new float[faces * 4 * 3];
+        int[] quads = new int[faces * 4];
+        float offsetX = -width * cellSize * 0.5f;
+        float offsetZ = -height * cellSize * 0.5f;
 
         int vIdx = 0; // index of the next vertex to write (in vertex slots, not float slots)
         int qIdx = 0; // index of the next quad index to write
@@ -58,41 +50,41 @@ public final class GridToMesh2D {
                 float maxX = minX + cellSize;
                 float minZ = offsetZ + y * cellSize;
                 float maxZ = minZ + cellSize;
-                float minY = NUM_0;
+                float minY = 0f;
                 float maxY = cellSize;
 
                 // Floor (-Y face, inward normal +Y)
                 writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                         minX, minY, maxZ,  maxX, minY, maxZ,  maxX, minY, minZ,  minX, minY, minZ);
-                vIdx += NUM_8; qIdx += NUM_8;
+                vIdx += 8; qIdx += 8;
                 // Ceiling (+Y face, inward normal -Y)
                 writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                         maxX, maxY, minZ,  maxX, maxY, maxZ,  minX, maxY, maxZ,  minX, maxY, minZ);
-                vIdx += NUM_8; qIdx += NUM_8;
+                vIdx += 8; qIdx += 8;
 
                 // -X wall (inward normal +X)
                 if (x == 0 || cells[y * width + x - 1] == CellType.EMPTY) {
                     writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                             minX, maxY, minZ,  minX, maxY, maxZ,  minX, minY, maxZ,  minX, minY, minZ);
-                    vIdx += NUM_8; qIdx += NUM_8;
+                    vIdx += 8; qIdx += 8;
                 }
                 // +X wall (inward normal -X)
                 if (x == width - 1 || cells[y * width + x + 1] == CellType.EMPTY) {
                     writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                             maxX, minY, maxZ,  maxX, maxY, maxZ,  maxX, maxY, minZ,  maxX, minY, minZ);
-                    vIdx += NUM_8; qIdx += NUM_8;
+                    vIdx += 8; qIdx += 8;
                 }
                 // -Z wall (inward normal +Z)
                 if (y == 0 || cells[(y - 1) * width + x] == CellType.EMPTY) {
                     writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                             maxX, minY, minZ,  maxX, maxY, minZ,  minX, maxY, minZ,  minX, minY, minZ);
-                    vIdx += NUM_8; qIdx += NUM_8;
+                    vIdx += 8; qIdx += 8;
                 }
                 // +Z wall (inward normal -Z)
                 if (y == height - 1 || cells[(y + 1) * width + x] == CellType.EMPTY) {
                     writeFloats = writeQuad(positions, writeFloats, quads, qIdx, vIdx,
                             minX, maxY, maxZ,  maxX, maxY, maxZ,  maxX, minY, maxZ,  minX, minY, maxZ);
-                    vIdx += NUM_8; qIdx += NUM_8;
+                    vIdx += 8; qIdx += 8;
                 }
             }
         }
@@ -132,16 +124,16 @@ public final class GridToMesh2D {
         quads[q]     = vBase;
         quads[q + 1] = vBase + 1;
         quads[q + 2] = vBase + 2;
-        quads[q + NUM_3] = vBase + NUM_3;
+        quads[q + 3] = vBase + 3;
         // Outward face (reversed: a, d, c, b).
         positions[p++] = ax; positions[p++] = ay; positions[p++] = az;
         positions[p++] = dx; positions[p++] = dy; positions[p++] = dz;
         positions[p++] = cx; positions[p++] = cy; positions[p++] = cz;
         positions[p++] = bx; positions[p++] = by; positions[p++] = bz;
-        quads[q + NUM_4] = vBase + NUM_4;
-        quads[q + NUM_5] = vBase + NUM_5;
-        quads[q + NUM_6] = vBase + NUM_6;
-        quads[q + NUM_7] = vBase + NUM_7;
+        quads[q + 4] = vBase + 4;
+        quads[q + 5] = vBase + 5;
+        quads[q + 6] = vBase + 6;
+        quads[q + 7] = vBase + 7;
         return p;
     }
 }

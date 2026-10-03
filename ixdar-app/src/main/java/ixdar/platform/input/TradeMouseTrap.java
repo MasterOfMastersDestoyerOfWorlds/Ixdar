@@ -24,14 +24,13 @@ public class TradeMouseTrap extends MouseTrap {
     public static final String YPX = "yPx";
     public static final String TOOL = "tool";
     public static final String CITY = "city";
-    public static final String STR = ",";
-    public static final float NUM_2 = 2f;
-    public static final int NUM_5 = 5;
-    public static final float NUM_1 = 1f;
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final int NUM_60 = 60;
-    public static final float NUM_100 = 100f;
+    public static final float HOVER_LOCK_TOLERANCE_PX = 2f;
+    public static final int CITY_CLICK_THRESHOLD_PX = 5;
+    public static final float MIN_WINDOW_DIMENSION = 1f;
+    public static final int CLICK_DRAG_THRESHOLD_PX = 3;
+    public static final int SCROLL_TICKS_PER_UNIT = 4;
+    public static final int SCROLL_DECAY_MS = 60;
+    public static final float SCROLL_SPEED_SCALE = 100f;
 
     private TradeScene tradeScene;
     private Vector2f leftMouseDownPos;
@@ -69,8 +68,8 @@ public class TradeMouseTrap extends MouseTrap {
 
     /**
      * Pin hover at {@code (x, y)} from automation; survives subsequent paint frames until
-     * either {@link #clearAutomationHoverLock()} or the user moves more than {@link #NUM_2}
-     * pixels away.
+     * either {@link #clearAutomationHoverLock()} or the user moves more than
+     * {@link #HOVER_LOCK_TOLERANCE_PX} pixels away.
      *
      * @param x window x to lock hover at
      * @param y window y to lock hover at
@@ -101,13 +100,13 @@ public class TradeMouseTrap extends MouseTrap {
         if (!automationHoverLocked || automationInputInProgress) {
             return;
         }
-        if (Math.abs(x - automationHoverX) > NUM_2 || Math.abs(y - automationHoverY) > NUM_2) {
+        if (Math.abs(x - automationHoverX) > HOVER_LOCK_TOLERANCE_PX || Math.abs(y - automationHoverY) > HOVER_LOCK_TOLERANCE_PX) {
             automationHoverLocked = false;
         }
     }
 
     /**
-     * Track press position; on release within {@link #NUM_5} pixels, treat it as a city click
+     * Track press position; on release within {@link #CITY_CLICK_THRESHOLD_PX} pixels, treat it as a city click
      * via {@code handleCityClick}.
      *
      * @param button button index
@@ -129,7 +128,7 @@ public class TradeMouseTrap extends MouseTrap {
         } else if (action == ACTION_RELEASE) {
             if (leftMouseDownPos != null) {
                 Vector2f mouseReleasePos = new Vector2f(x, y);
-                if (mouseReleasePos.distance(leftMouseDownPos) < NUM_5) {
+                if (mouseReleasePos.distance(leftMouseDownPos) < CITY_CLICK_THRESHOLD_PX) {
                     handleCityClick(x, y, button);
                 }
             }
@@ -163,7 +162,7 @@ public class TradeMouseTrap extends MouseTrap {
         float worldY = TradeScene.camera.screenTransformY(normalizedPosY);
 
         System.out
-                .println("[TradeMouseTrap] Click at screen(" + x + STR + y + ") world(" + worldX + STR + worldY + ")");
+                .println("[TradeMouseTrap] Click at screen(" + x + "," + y + ") world(" + worldX + "," + worldY + ")");
 
         City clickedCity = tradeScene.getCityAt(worldX, worldY);
         System.out.println("[TradeMouseTrap] clickedCity: " + (clickedCity != null ? clickedCity.name : "null"));
@@ -174,8 +173,8 @@ public class TradeMouseTrap extends MouseTrap {
                 YPX, y,
                 "xCoord", normalizedPosX,
                 "yCoord", normalizedPosY,
-                "xNorm", x / Math.max(NUM_1, Platforms.get().getWindowWidth()),
-                "yNorm", y / Math.max(NUM_1, Platforms.get().getWindowHeight()),
+                "xNorm", x / Math.max(MIN_WINDOW_DIMENSION, Platforms.get().getWindowWidth()),
+                "yNorm", y / Math.max(MIN_WINDOW_DIMENSION, Platforms.get().getWindowHeight()),
                 TOOL, tradeScene.activeTool.displayName(),
                 CITY, clickedCity == null ? "" : clickedCity.name);
 
@@ -185,7 +184,7 @@ public class TradeMouseTrap extends MouseTrap {
     }
 
     /**
-     * Trade-specific move/drag: pans the camera while left-dragged past {@link #NUM_3} pixels,
+     * Trade-specific move/drag: pans the camera while left-dragged past {@link #CLICK_DRAG_THRESHOLD_PX} pixels,
      * otherwise updates city hover. Real cursor motion past the deadzone clears any active
      * automation hover lock.
      *
@@ -209,7 +208,7 @@ public class TradeMouseTrap extends MouseTrap {
         boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
         Vector2f currentPos = new Vector2f(x, y);
 
-        if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > NUM_3) {
+        if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > CLICK_DRAG_THRESHOLD_PX) {
             // Dragging - pan camera
             mouseDragged(x, y);
         } else {
@@ -263,7 +262,7 @@ public class TradeMouseTrap extends MouseTrap {
     }
 
     /**
-     * Queue scroll ticks for {@link #paintUpdate}; ticks decay after {@link #NUM_60} ms.
+     * Queue scroll ticks for {@link #paintUpdate}; ticks decay after {@link #SCROLL_DECAY_MS} ms.
      *
      * @param y vertical scroll delta
      */
@@ -272,7 +271,7 @@ public class TradeMouseTrap extends MouseTrap {
         Platforms.init(Platforms.get().getPlatformID());
         if (!active)
             return;
-        queuedMouseWheelTicks += (int) (NUM_4 * y);
+        queuedMouseWheelTicks += (int) (SCROLL_TICKS_PER_UNIT * y);
         timeLastScroll = System.currentTimeMillis();
     }
 
@@ -288,13 +287,13 @@ public class TradeMouseTrap extends MouseTrap {
             return;
 
         // Handle scroll for zooming
-        if (System.currentTimeMillis() - timeLastScroll > NUM_60) {
+        if (System.currentTimeMillis() - timeLastScroll > SCROLL_DECAY_MS) {
             queuedMouseWheelTicks = 0;
         }
 
         if (queuedMouseWheelTicks != 0) {
             boolean zoomIn = queuedMouseWheelTicks < 0;
-            camera.onScroll(zoomIn, Clock.deltaTime() * NUM_100);
+            camera.onScroll(zoomIn, Clock.deltaTime() * SCROLL_SPEED_SCALE);
             queuedMouseWheelTicks = 0;
         }
 

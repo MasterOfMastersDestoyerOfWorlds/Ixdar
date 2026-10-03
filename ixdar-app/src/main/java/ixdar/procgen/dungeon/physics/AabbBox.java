@@ -7,9 +7,6 @@ package ixdar.procgen.dungeon.physics;
  */
 public record AabbBox(float minX, float minY, float minZ,
                       float maxX, float maxY, float maxZ) {
-    public static final String STR = ",";
-    public static final float NUM_0_5 = 0.5f;
-
     /**
      * Validates that {@code max} is greater-than-or-equal-to {@code min} on every axis.
      *
@@ -20,8 +17,8 @@ public record AabbBox(float minX, float minY, float minZ,
         if (maxX < minX || maxY < minY || maxZ < minZ) {
             throw new IllegalArgumentException(
                     "AabbBox max must be >= min on every axis, got min=("
-                            + minX + STR + minY + STR + minZ + ") max=("
-                            + maxX + STR + maxY + STR + maxZ + ")");
+                            + minX + "," + minY + "," + minZ + ") max=("
+                            + maxX + "," + maxY + "," + maxZ + ")");
         }
     }
 
@@ -30,17 +27,17 @@ public record AabbBox(float minX, float minY, float minZ,
      *
      * @return {@code (minX + maxX) / 2}
      */
-    public float centerX() { return (minX + maxX) * NUM_0_5; }
+    public float centerX() { return (minX + maxX) * 0.5f; }
     /**
      * Midpoint of the Y extent.
      *
      * @return {@code (minY + maxY) / 2}
      */
-    public float centerY() { return (minY + maxY) * NUM_0_5; }
+    public float centerY() { return (minY + maxY) * 0.5f; }
     /**
      * Midpoint of the Z extent.
      *
      * @return {@code (minZ + maxZ) / 2}
      */
-    public float centerZ() { return (minZ + maxZ) * NUM_0_5; }
+    public float centerZ() { return (minZ + maxZ) * 0.5f; }
 }

@@ -51,7 +51,7 @@ public interface Menu {
             menuItems = new ArrayList<>();
             menuItems.add(new MenuItem("Continue", new LoadIxAction(cachedFileString)));
             menuItems.add(new MenuItem("Load",
-                    new ChangeScreenAction(new LoadMenu(FileManagement.solutionsFolder, this))));
+                    new ChangeScreenAction(new LoadMenu(FileManagement.SOLUTIONS_FOLDER, this))));
             menuItems.add(new MenuItem("Settings", null));
             menuItems.add(new MenuItem("Map Editor", new LoadMapEditor()));
         }

@@ -10,13 +10,10 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 public final class MeshBooleanResult {
 
-    /** Origin value for the first operand. */
     public static final int ORIGIN_A = 0;
 
-    /** Origin value for the second operand. */
     public static final int ORIGIN_B = 1;
 
-    /** {@link #faceOrigin} value for a face the intersection curve cut out of an input face. */
     public static final int ORIGIN_NEW = -1;
 
     /** The boolean's output, all triangles. */

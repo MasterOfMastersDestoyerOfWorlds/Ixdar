@@ -22,19 +22,14 @@ import ixdar.scenes.QuadLayoutScene;
 @AutomationRouteAnnotation(path = "/mesh/seamless/diagnosis", method = APIMethod.POST)
 public class SeamlessDiagnosis extends AutomationEndpoint implements AutomationRoute {
 
-    /** Request flag asking for the offending vertices to be marked in the scene. */
     public static final String HIGHLIGHT = "highlight";
 
-    /** Response key: whether the request itself succeeded. */
     public static final String OK = "ok";
 
-    /** Response key: why the request failed. */
     public static final String ERROR = "error";
 
-    /** Response key: whether the last seamless solve hit a singular system at all. */
     public static final String SINGULAR = "singular";
 
-    /** Coordinates per vertex position. */
     private static final int POSITION_COMPONENTS = 3;
 
     @Override

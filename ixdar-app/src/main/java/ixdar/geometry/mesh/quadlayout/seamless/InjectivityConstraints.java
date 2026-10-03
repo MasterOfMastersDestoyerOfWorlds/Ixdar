@@ -18,32 +18,18 @@ import ixdar.platform.Platforms;
  */
 public final class InjectivityConstraints implements LazyConstraints.ConstraintSet {
 
-    /** Constraint margin as a fraction of the smallest reference edge (BCE13 §3.1). */
     public static final double EPSILON_EDGE_FRACTION = 0.01;
 
-    /**
-     * Reference angle above which a triangle is virtually split at its altitude —
-     * the Fermat construction needs no angle over 120°, and BCE13 §3.1 splits past
-     * 100° because larger angles put the Fermat point near a vertex.
-     */
     public static final double VIRTUAL_SPLIT_ANGLE_DEGREES = 100.0;
 
-    /**
-     * Normalized constraint value below which a constraint is activated even
-     * before it is violated (BCE13 §3.4 "Lazy Constraints").
-     */
     public static final double ACTIVATION_THRESHOLD = 0.5;
 
-    /** Corners of a triangle. */
     public static final int CORNERS = 3;
 
-    /** Inequalities per (sub)triangle: two sector bounds per corner. */
     public static final int CONSTRAINTS_PER_TRIANGLE = 6;
 
-    /** Coefficient slots per constraint: u then v of each face corner. */
     public static final int COEFFICIENTS_PER_CONSTRAINT = 6;
 
-    /** Height factor of an equilateral triangle over its base, {@code √3/2}. */
     private static final double EQUILATERAL_HEIGHT = Math.sqrt(3.0) / 2.0;
 
     public final SeamlessParameterization seamless;

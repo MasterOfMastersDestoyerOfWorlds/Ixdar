@@ -32,15 +32,11 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 @MeshNodeAnnotation(id = "attach_to_surface")
 public class AttachToSurfaceNode implements MeshNode {
     public static final String ATTACH = "attach";
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1_5707963 = 1.5707963f;
-    public static final float NUM_0_01 = 0.01f;
-    public static final float NUM_0_12 = 0.12f;
-    public static final float NUM_0_99 = 0.99f;
-    public static final float NUM_1e_12 = 1e-12f;
-    public static final int NUM_3 = 3;
-    public static final float NUM_1e_8 = 1e-8f;
-    public static final float NUM_1e_6 = 1e-6f;
+    public static final float MIN_INSET = 0.01f;
+    public static final float MAX_INSET = 0.99f;
+    public static final float DIRECTION_EPSILON_SQUARED = 1e-12f;
+    public static final float LENGTH_EPSILON = 1e-8f;
+    public static final float TWIST_EPSILON = 1e-6f;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort THETA = new InputPort("theta", PortType.FLOAT, 0.0f, -6.2832f, 6.2832f);
@@ -95,11 +91,11 @@ public class AttachToSurfaceNode implements MeshNode {
             return;
         }
 
-        float theta = floatIn(ctx, THETA.name, NUM_0);
-        float phi = floatIn(ctx, PHI.name, NUM_1_5707963);
-        float radius = floatIn(ctx, RADIUS.name, NUM_0);
-        float inset = Math.max(NUM_0_01, Math.min(floatIn(ctx, INSET.name, NUM_0_12), NUM_0_99));
-        float twist = floatIn(ctx, TWIST.name, NUM_0);
+        float theta = floatIn(ctx, THETA.name, 0f);
+        float phi = floatIn(ctx, PHI.name, 1.5707963f);
+        float radius = floatIn(ctx, RADIUS.name, 0f);
+        float inset = Math.max(MIN_INSET, Math.min(floatIn(ctx, INSET.name, 0.12f), MAX_INSET));
+        float twist = floatIn(ctx, TWIST.name, 0f);
         String tag = stringIn(ctx, TAG.name, ATTACH);
 
         int vertCount = mesh.vertexCount();
@@ -120,11 +116,11 @@ public class AttachToSurfaceNode implements MeshNode {
                 (float) Math.cos(phi),
                 (float) (Math.sin(phi) * Math.sin(theta))
         );
-        if (dir.lengthSquared() < NUM_1e_12) dir.set(0, 1, 0);
+        if (dir.lengthSquared() < DIRECTION_EPSILON_SQUARED) dir.set(0, 1, 0);
         dir.normalize();
 
         // Compute face centroids
-        float[][] fc = new float[faceCount][NUM_3];
+        float[][] fc = new float[faceCount][3];
         for (int fi = 0; fi < faceCount; fi++) {
             int fid = mesh.faceIdAt(fi);
             int nv = mesh.faceVertexCount(fid);
@@ -148,7 +144,7 @@ public class AttachToSurfaceNode implements MeshNode {
             float dy = fc[fi][1] - centroid.y;
             float dz = fc[fi][2] - centroid.z;
             float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (len < NUM_1e_8) continue;
+            if (len < LENGTH_EPSILON) continue;
             float dot = (dx * dir.x + dy * dir.y + dz * dir.z) / len;
             if (dot > bestDot) {
                 bestDot = dot;
@@ -160,7 +156,7 @@ public class AttachToSurfaceNode implements MeshNode {
 
         // Select faces within radius (or just the hit face)
         boolean[] selected = new boolean[faceCount];
-        if (radius <= NUM_0) {
+        if (radius <= 0f) {
             selected[hitFace] = true;
         } else {
             for (int fi = 0; fi < faceCount; fi++) {
@@ -258,12 +254,12 @@ public class AttachToSurfaceNode implements MeshNode {
         Vector3f n = new Vector3f();
         e1.cross(e2, n);
         float len = n.length();
-        return len > NUM_1e_8 ? n.div(len) : new Vector3f(0, 1, 0);
+        return len > LENGTH_EPSILON ? n.div(len) : new Vector3f(0, 1, 0);
     }
 
     private static Vector3f alignRotation(Vector3f normal, float twist) {
         Quaternionf q = new Quaternionf().rotationTo(0, 1, 0, normal.x, normal.y, normal.z);
-        if (Math.abs(twist) > NUM_1e_6) {
+        if (Math.abs(twist) > TWIST_EPSILON) {
             Quaternionf tw = new Quaternionf().fromAxisAngleRad(normal.x, normal.y, normal.z, twist);
             tw.mul(q, q);
         }

@@ -14,10 +14,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "uv_sphere")
 public class UVSphereMeshNode implements MeshNode {
-    public static final int NUM_32 = 32;
-    public static final int NUM_16 = 16;
-    public static final int NUM_3 = 3;
-    public static final float NUM_2_0 = 2.0f;
+    public static final int MIN_SEGMENTS = 3;
     public static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f, 0.001f, 100f);
     public static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 32, (float) 3, (float) 128);
     public static final InputPort RINGS = new InputPort("rings", PortType.INT, 16, (float) 1, (float) 64);
@@ -51,11 +48,11 @@ public class UVSphereMeshNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         float radius = ctx.getInput(RADIUS.name, Number.class) != null ? ctx.getInput(RADIUS.name, Number.class).floatValue() : 1.0f;
-        int segments = ctx.getInput(SEGMENTS.name, Number.class) != null ? ctx.getInput(SEGMENTS.name, Number.class).intValue() : NUM_32;
-        int rings = ctx.getInput(RINGS.name, Number.class) != null ? ctx.getInput(RINGS.name, Number.class).intValue() : NUM_16;
+        int segments = ctx.getInput(SEGMENTS.name, Number.class) != null ? ctx.getInput(SEGMENTS.name, Number.class).intValue() : 32;
+        int rings = ctx.getInput(RINGS.name, Number.class) != null ? ctx.getInput(RINGS.name, Number.class).intValue() : 16;
 
         // Ensure minimum viable geometry
-        segments = Math.max(NUM_3, segments);
+        segments = Math.max(MIN_SEGMENTS, segments);
         rings = Math.max(2, rings);
 
         HalfEdgeMesh mesh = new HalfEdgeMesh();
@@ -74,7 +71,7 @@ public class UVSphereMeshNode implements MeshNode {
             float cosTheta = (float) Math.cos(theta);
 
             for (int j = 0; j < segments; j++) {
-                float phi = NUM_2_0 * (float) Math.PI * j / segments;
+                float phi = 2.0f * (float) Math.PI * j / segments;
                 float sinPhi = (float) Math.sin(phi);
                 float cosPhi = (float) Math.cos(phi);
 

@@ -20,19 +20,14 @@ import ixdar.platform.json.JsonValue;
  */
 public final class ModelCollection {
 
-    /** File name of the manifest written for every collection. */
     public static final String MANIFEST_NAME = "collection.dsl";
 
-    /** Staging subdirectory holding manifests for scan directories that cannot be written to. */
     public static final String MANIFEST_FALLBACK_DIR = "collections";
 
-    /** Members held parsed at once, whatever the collection's size; a scan is tens of megabytes. */
     public static final int MAX_CACHED_MEMBERS = 4;
 
-    /** Count value meaning a member has not been loaded yet, so its size is unknown. */
     public static final int UNCOUNTED = -1;
 
-    /** Rendering of an {@link #UNCOUNTED} count in {@link #countSummary}. */
     public static final String UNKNOWN_COUNT = "?";
 
     /** Collection name: the scanned directory's own name. */

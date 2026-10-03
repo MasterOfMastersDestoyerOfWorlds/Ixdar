@@ -19,8 +19,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "spherize")
 public class SpherizeMeshNode implements MeshNode {
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_00001 = 0.00001f;
+    public static final float MIN_CENTER_DISTANCE = 0.00001f;
     public static final InputPort MESH_IN = new InputPort("mesh", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort FACTOR = new InputPort("factor", PortType.FLOAT, 1.0f, 0f, 1f);
     public static final OutputPort MESH_OUT = new OutputPort(MESH_IN.name, PortType.GEOMETRY_BUNDLE);
@@ -64,7 +63,7 @@ public class SpherizeMeshNode implements MeshNode {
 
         // 1. Calculate Center and Target Radius (Average Distance)
         Vector3f center = inputMesh.center(new Vector3f());
-        float totalDistance = NUM_0;
+        float totalDistance = 0f;
 
         for (int i = 0; i < inputMesh.vertexCount(); i++) {
             int vId = inputMesh.vertexIdAt(i);
@@ -84,13 +83,13 @@ public class SpherizeMeshNode implements MeshNode {
 
             Vector3f newPos = new Vector3f(originalPos);
 
-            if (factor > NUM_0) {
+            if (factor > 0f) {
                 // Get direction from center to vertex
                 Vector3f dir = new Vector3f(originalPos).sub(center);
                 float dist = dir.length();
 
                 // Prevent division by zero if a vertex is exactly at the center
-                if (dist > NUM_0_00001) {
+                if (dist > MIN_CENTER_DISTANCE) {
                     dir.normalize();
                     // Calculate where this vertex would sit on a perfect sphere
                     Vector3f sphericalPos = new Vector3f(center).add(dir.mul(targetRadius));

@@ -15,11 +15,9 @@ import ixdar.common.exceptions.TerminalParseException;
 @GeometryAnnotation(id = "circ")
 public class Circle implements Geometry, PointCollection {
     public static final String CIRCLE = "circle";
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final double NUM_180_0 = 180.0;
-    public static final int NUM_5 = 5;
-    public static final int NUM_10 = 10;
+    public static final int ARG_COUNT = 5;
+    public static final int DEFAULT_RADIUS = 10;
+    public static final int DEFAULT_NUM_POINTS = 10;
     public static String cmd = "circ";
     public static OptionList opts = new OptionList("c", cmd, CIRCLE);
 
@@ -31,14 +29,15 @@ public class Circle implements Geometry, PointCollection {
     ArrayList<PointND> points;
 
     /**
-     * Default circle: centered at the origin, radius and vertex count both
-     * {@value #NUM_10}, zero rotation. Realizes its points eagerly.
+     * Default circle: centered at the origin, radius {@value #DEFAULT_RADIUS}
+     * and vertex count {@value #DEFAULT_NUM_POINTS}, zero rotation. Realizes
+     * its points eagerly.
      */
     public Circle() {
         xCenter = 0.0;
         yCenter = 0.0;
-        radius = NUM_10;
-        numPoints = NUM_10;
+        radius = DEFAULT_RADIUS;
+        numPoints = DEFAULT_NUM_POINTS;
         rotation = 0;
         points = realizePoints();
     }
@@ -91,8 +90,8 @@ public class Circle implements Geometry, PointCollection {
         double xCenter = Double.parseDouble(args[startIdx]);
         double yCenter = Double.parseDouble(args[startIdx + 1]);
         double radius = Double.parseDouble(args[startIdx + 2]);
-        int numPoints = Integer.parseInt(args[startIdx + NUM_3]);
-        double rotation = Math.PI * Double.parseDouble(args[startIdx + NUM_4]) / NUM_180_0;
+        int numPoints = Integer.parseInt(args[startIdx + 3]);
+        double rotation = Math.PI * Double.parseDouble(args[startIdx + 4]) / 180.0;
         return new Circle(xCenter, yCenter, radius, numPoints, rotation);
     }
 
@@ -151,13 +150,13 @@ public class Circle implements Geometry, PointCollection {
     }
 
     /**
-     * Required positional arg count for parsing: {@value #NUM_5}.
+     * Required positional arg count for parsing: {@value #ARG_COUNT}.
      *
      * @return number of arguments {@link #parseCircle} consumes
      */
     @Override
     public int argLength() {
-        return NUM_5;
+        return ARG_COUNT;
     }
 
     /**

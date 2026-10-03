@@ -17,16 +17,12 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
  * critical point.
  */
 public final class MorseSmaleComplex {
-    public static final int NUM_50 = 50;
-    public static final int NUM_30 = 30;
-    public static final float NUM_0_05 = 0.05f;
-    public static final float NUM_0_95 = 0.95f;
-    public static final float NUM_1e_6 = 1e-6f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_10 = 0.10f;
-    public static final int NUM_3 = 3;
-    public static final float NUM_0_5 = 0.5f;
-    public static final int NUM_6 = 6;
+    public static final int SCALAR_SMOOTH_ITERATIONS = 50;
+    public static final int GAUSS_SMOOTH_ITERATIONS = 30;
+    public static final float P5_FRACTION = 0.05f;
+    public static final float P95_FRACTION = 0.95f;
+    public static final float EPSILON = 1e-6f;
+    public static final float P10_FRACTION = 0.10f;
 
     private static final int MAX_TRACE_STEPS = 512;
 
@@ -75,8 +71,8 @@ public final class MorseSmaleComplex {
         // 25 iterations empirically balances "removes triangulation
         // noise" vs "doesn't destroy anatomical features on a ~25k-vert
         // skull" — real features persist because they're broad-support.
-        float[] scalar = smoothScalar(scalarIn, ring, NUM_50);
-        float[] gaussK = smoothScalar(gaussKIn, ring, NUM_30);
+        float[] scalar = smoothScalar(scalarIn, ring, SCALAR_SMOOTH_ITERATIONS);
+        float[] gaussK = smoothScalar(gaussKIn, ring, GAUSS_SMOOTH_ITERATIONS);
 
         if (useB1Classifier) {
             int[][] orderedRing = buildOrderedOneRing(mesh, ed, nv);
@@ -86,10 +82,10 @@ public final class MorseSmaleComplex {
         // Scalar stats for the prominence filter.
         float[] sortedScalar = scalar.clone();
         Arrays.sort(sortedScalar);
-        float p5 = sortedScalar[(int) (nv * NUM_0_05)];
-        float p95 = sortedScalar[(int) (nv * NUM_0_95)];
-        float span = Math.max(p95 - p5, NUM_1e_6);
-        float meanVal = NUM_0;
+        float p5 = sortedScalar[(int) (nv * P5_FRACTION)];
+        float p95 = sortedScalar[(int) (nv * P95_FRACTION)];
+        float span = Math.max(p95 - p5, EPSILON);
+        float meanVal = 0f;
         for (float v : scalar) meanVal += v;
         meanVal /= nv;
         float maxThreshold = meanVal + prominenceFrac * span;
@@ -101,13 +97,13 @@ public final class MorseSmaleComplex {
         // up (toward p25) if too many.
         float[] sortedK = gaussK.clone();
         Arrays.sort(sortedK);
-        float saddleGaussT = sortedK[Math.max(0, (int) (nv * NUM_0_10))];
+        float saddleGaussT = sortedK[Math.max(0, (int) (nv * P10_FRACTION))];
 
         // Pass 1: raw classification via 1-ring comparison + Gaussian.
         CriticalType[] label = new CriticalType[nv];
         for (int v = 0; v < nv; v++) {
             int[] nbs = ring[v];
-            if (nbs == null || nbs.length < NUM_3) continue;
+            if (nbs == null || nbs.length < 3) continue;
             int higher = 0;
             int lower = 0;
             for (int u : nbs) {
@@ -378,15 +374,15 @@ public final class MorseSmaleComplex {
         // structural classifier to drop flat-plateau false positives.
         float[] sortedScalar = scalar.clone();
         Arrays.sort(sortedScalar);
-        float p5 = sortedScalar[(int) (nv * NUM_0_05)];
-        float p95 = sortedScalar[(int) (nv * NUM_0_95)];
-        float span = Math.max(p95 - p5, NUM_1e_6);
+        float p5 = sortedScalar[(int) (nv * P5_FRACTION)];
+        float p95 = sortedScalar[(int) (nv * P95_FRACTION)];
+        float span = Math.max(p95 - p5, EPSILON);
 
         CriticalType[] label = new CriticalType[nv];
         int[] saddleMultiplicity = new int[nv];
         for (int v = 0; v < nv; v++) {
             int[] ord = orderedRing[v];
-            if (ord == null || ord.length < NUM_3) continue;  // boundary or degenerate
+            if (ord == null || ord.length < 3) continue;  // boundary or degenerate
             int lowerComponents = countLinkComponents(v, ord, scalar, /*lower=*/true);
             int upperComponents = countLinkComponents(v, ord, scalar, /*lower=*/false);
             if (lowerComponents == 0 && upperComponents > 0) {
@@ -425,13 +421,13 @@ public final class MorseSmaleComplex {
             if (label[v] == CriticalType.MAX) isMax[v] = true;
             if (label[v] == CriticalType.MIN) isMin[v] = true;
         }
-        float persistThresh = prominenceFrac * span * NUM_0_5;  // half of prominence-equivalent
+        float persistThresh = prominenceFrac * span * 0.5f;  // half of prominence-equivalent
         for (int v = 0; v < nv; v++) {
             if (label[v] != CriticalType.SADDLE) continue;
             int reachedMax = walkToExtremum(v, scalar, ring, isMax, true);
             int reachedMin = walkToExtremum(v, scalar, ring, isMin, false);
-            float persUp = reachedMax >= 0 ? Math.abs(scalar[reachedMax] - scalar[v]) : NUM_0;
-            float persDn = reachedMin >= 0 ? Math.abs(scalar[v] - scalar[reachedMin]) : NUM_0;
+            float persUp = reachedMax >= 0 ? Math.abs(scalar[reachedMax] - scalar[v]) : 0f;
+            float persDn = reachedMin >= 0 ? Math.abs(scalar[v] - scalar[reachedMin]) : 0f;
             if (persUp < persistThresh && persDn < persistThresh) {
                 label[v] = null;  // saddle has no significant persistence pair
             }
@@ -611,14 +607,14 @@ public final class MorseSmaleComplex {
      */
     private static int[][] buildOrderedOneRing(ArrayMesh mesh, EdgeDihedrals ed, int nv) {
         int[] faceIdx = mesh.copyFaceIndices();
-        int faceCount = faceIdx.length / NUM_3;
+        int faceCount = faceIdx.length / 3;
 
         // Vertex → list of (faceId, vPositionInFace) inverse index.
         List<int[]>[] vertFaces = new List[nv];
-        for (int i = 0; i < nv; i++) vertFaces[i] = new ArrayList<>(NUM_6);
+        for (int i = 0; i < nv; i++) vertFaces[i] = new ArrayList<>(6);
         for (int f = 0; f < faceCount; f++) {
-            for (int p = 0; p < NUM_3; p++) {
-                int v = faceIdx[f * NUM_3 + p];
+            for (int p = 0; p < 3; p++) {
+                int v = faceIdx[f * 3 + p];
                 if (v >= 0 && v < nv) vertFaces[v].add(new int[]{f, p});
             }
         }
@@ -641,8 +637,8 @@ public final class MorseSmaleComplex {
             while (safety++ < incident.size() + 2) {
                 if (visitedFaces.contains(curFace)) break;
                 visitedFaces.add(curFace);
-                int leftV  = faceIdx[curFace * NUM_3 + (curPos + 2) % NUM_3];
-                int rightV = faceIdx[curFace * NUM_3 + (curPos + 1) % NUM_3];
+                int leftV  = faceIdx[curFace * 3 + (curPos + 2) % 3];
+                int rightV = faceIdx[curFace * 3 + (curPos + 1) % 3];
                 if (firstNeighbour < 0) {
                     ringList.add(leftV);
                     firstNeighbour = leftV;
@@ -667,14 +663,14 @@ public final class MorseSmaleComplex {
                 }
                 // Find v's position in next face.
                 int nextPos = -1;
-                for (int p = 0; p < NUM_3; p++) {
-                    if (faceIdx[nextFace * NUM_3 + p] == v) { nextPos = p; break; }
+                for (int p = 0; p < 3; p++) {
+                    if (faceIdx[nextFace * 3 + p] == v) { nextPos = p; break; }
                 }
                 if (nextPos < 0) { out[v] = null; break; }
                 curFace = nextFace;
                 curPos = nextPos;
             }
-            if (out[v] == null && ringList.size() >= NUM_3) {
+            if (out[v] == null && ringList.size() >= 3) {
                 // Open fan or non-manifold; emit unclosed ring as best-effort.
                 int[] arr = new int[ringList.size()];
                 for (int i = 0; i < ringList.size(); i++) arr[i] = ringList.get(i);
@@ -686,7 +682,7 @@ public final class MorseSmaleComplex {
 
     private static int[][] buildOneRing(EdgeDihedrals ed, int nv) {
         List<List<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(NUM_6));
+        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(6));
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             long key = e.getKey();
             int u = EdgeKey.minVertex(key);

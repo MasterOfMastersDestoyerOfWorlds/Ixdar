@@ -15,11 +15,10 @@ import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
  */
 public final class LimbAxis {
 
-    /** Coordinates per point in every packed position here. */
     public static final int COORDINATES_PER_POINT = 3;
 
     /** Voxel-grid resolution handed to {@link MeshSkeletonExtractor}. */
-    public int resolution = MeshSkeletonExtractor.NUM_128;
+    public int resolution = MeshSkeletonExtractor.DEFAULT_RESOLUTION;
 
     /** Branch-extraction rounds the skeleton may spend, as the ring producers set. */
     public int skeletonBranchBudget = 4 * MeshSkeletonExtractor.DEFAULT_BRANCH_BUDGET;

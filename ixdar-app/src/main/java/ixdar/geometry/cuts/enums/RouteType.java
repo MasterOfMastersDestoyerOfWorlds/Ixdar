@@ -6,8 +6,7 @@ public enum RouteType {
     nextDC(false, true, false, 2, 2, 1),
     nextC(true, true, false, 3, 2, 1),
     None(false, false, false, -1, -1, -1);
-    public static final int NUM_4 = 4;
-    public static final int NUM_3 = 3;
+    public static final int ROUTE_ENCODING_BASE = 4;
 
     static {
         nextC.oppositeRoute = prevC;
@@ -51,7 +50,7 @@ public enum RouteType {
         if (this.equals(RouteType.None)) {
             return -1;
         }
-        return (id * NUM_4) + this.ordinal();
+        return (id * ROUTE_ENCODING_BASE) + this.ordinal();
     }
 
     /**
@@ -65,7 +64,7 @@ public enum RouteType {
         if (id < 0) {
             return RouteType.None;
         }
-        int base = id % NUM_4;
+        int base = id % ROUTE_ENCODING_BASE;
         switch (base) {
         case 0:
             return RouteType.prevC;
@@ -73,7 +72,7 @@ public enum RouteType {
             return RouteType.nextC;
         case 2:
             return RouteType.prevDC;
-        case NUM_3:
+        case 3:
             return RouteType.nextDC;
         default:
             return RouteType.None;

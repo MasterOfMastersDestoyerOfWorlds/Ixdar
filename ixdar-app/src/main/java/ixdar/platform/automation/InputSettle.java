@@ -8,10 +8,8 @@ import ixdar.graphics.render.Clock;
  */
 public final class InputSettle {
 
-    /** Frames waited for when a request does not ask for a different number. */
     public static final int DEFAULT_FRAMES = 2;
 
-    /** Longest a settle waits before giving up on a scene that has stopped drawing. */
     public static final long TIMEOUT_MILLIS = 5000L;
 
     private static final long POLL_MILLIS = 1L;

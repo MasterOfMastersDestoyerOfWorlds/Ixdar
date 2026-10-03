@@ -58,7 +58,7 @@ public final class OffMeshParser {
             String line = new String(content, lineStart, lineEnd - lineStart,
                     StandardCharsets.UTF_8).trim();
             lineStart = lineEnd + 1;
-            if (!line.isEmpty() && !line.startsWith(MeshLoader.STR)) {
+            if (!line.isEmpty() && !line.startsWith(MeshLoader.COMMENT_PREFIX)) {
                 header = line;
                 bodyStart = Math.min(lineStart, content.length);
                 break;
@@ -129,7 +129,7 @@ public final class OffMeshParser {
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
-                if (line.isEmpty() || line.startsWith(MeshLoader.STR)) {
+                if (line.isEmpty() || line.startsWith(MeshLoader.COMMENT_PREFIX)) {
                     continue;
                 }
                 String[] parts = line.split(MeshLoader.S);
@@ -329,7 +329,7 @@ public final class OffMeshParser {
                         .sub(posArray[p0o], posArray[p0o + 1], posArray[p0o + 2]);
                 e1.cross(e2, fn);
                 float len = fn.length();
-                if (len > MeshLoader.NUM_1e_20) {
+                if (len > MeshLoader.NORMAL_LENGTH_EPSILON) {
                     fn.mul(1.0f / len);
                 }
                 for (int v : new int[] { v0, v1, v2 }) {
@@ -345,7 +345,7 @@ public final class OffMeshParser {
             float ny = normArray[i + 1];
             float nz = normArray[i + 2];
             float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (len > MeshLoader.NUM_1e_20) {
+            if (len > MeshLoader.NORMAL_LENGTH_EPSILON) {
                 normArray[i] = nx / len;
                 normArray[i + 1] = ny / len;
                 normArray[i + 2] = nz / len;
@@ -356,14 +356,14 @@ public final class OffMeshParser {
         int vertsPerFace = MeshLoader.FLOATS_PER_VERTEX;
         boolean uniformQuads = !faces.isEmpty();
         for (int[] face : faces) {
-            if (face.length != MeshLoader.NUM_4) {
+            if (face.length != 4) {
                 uniformQuads = false;
                 break;
             }
         }
         if (uniformQuads) {
-            vertsPerFace = MeshLoader.NUM_4;
-            int[] faceIndices = new int[faces.size() * MeshLoader.NUM_4];
+            vertsPerFace = 4;
+            int[] faceIndices = new int[faces.size() * 4];
             int fi = 0;
             for (int[] face : faces) {
                 faceIndices[fi++] = face[0];

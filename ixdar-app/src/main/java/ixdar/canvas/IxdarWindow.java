@@ -58,21 +58,17 @@ import ixdar.platform.gl.lwjgl.LwjglPlatform;
 
 public class IxdarWindow {
     public static final String CANVAS3D_NOT_FOUND_FOR = "Canvas3D not found for ";
-    public static final int NUM_3 = 3;
-    public static final int NUM_750 = 750;
-    public static final int NUM_4 = 4;
-    public static final int NUM_20 = 20;
+    public static final int GL_CONTEXT_VERSION = 3;
+    public static final int DEFAULT_WINDOW_SIZE = 750;
+    public static final int ICON_CHANNEL_COUNT = 4;
+    public static final int POLL_INTERVAL_MS = 20;
 
-    /** System property that runs a scene with no visible window, for screenshot capture. */
     public static final String HEADLESS_PROPERTY = "ixdar.headless";
 
-    /** System property overriding the headless framebuffer's square side, in pixels. */
     public static final String HEADLESS_SIZE_PROPERTY = "ixdar.headless.size";
 
-    /** Default headless framebuffer side when {@link #HEADLESS_SIZE_PROPERTY} is unset. */
     public static final int HEADLESS_DEFAULT_SIZE = 1024;
 
-    /** Automation platform id, matching the value the headless render entrypoints use. */
     public static final int HEADLESS_PLATFORM_ID = 1;
 
     public static float startTime;
@@ -148,7 +144,7 @@ public class IxdarWindow {
         try {
             while (true) {
                 canvas.paintGL();
-                Thread.sleep(NUM_20);
+                Thread.sleep(POLL_INTERVAL_MS);
             }
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
@@ -185,12 +181,12 @@ public class IxdarWindow {
             throw new IllegalStateException("Unable to initialize GLFW");
         glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE); // the window will stay hidden after creation
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // the window will be resizable
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, NUM_3);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, NUM_3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, GL_CONTEXT_VERSION);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, GL_CONTEXT_VERSION);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
         System.out.println("glfw init Time: " + (Clock.time() - startTime));
-        window = glfwCreateWindow(NUM_750, NUM_750, "Ixdar", 0, 0);
+        window = glfwCreateWindow(DEFAULT_WINDOW_SIZE, DEFAULT_WINDOW_SIZE, "Ixdar", 0, 0);
         if (window == 0)
             throw new RuntimeException("Failed to create the GLFW window");
 
@@ -213,7 +209,7 @@ public class IxdarWindow {
         IntBuffer channels = BufferUtils.createIntBuffer(1);
         File file = new File("src/main/resources/res/decalSmall.png");
         String filePath = file.getAbsolutePath();
-        ByteBuffer icon = STBImage.stbi_load(filePath, w, h, channels, NUM_4);
+        ByteBuffer icon = STBImage.stbi_load(filePath, w, h, channels, ICON_CHANNEL_COUNT);
         GLFWImage.Buffer gb = null;
         if (icon != null && w.get(0) > 0 && h.get(0) > 0) {
             gb = GLFWImage.create(1);
@@ -280,7 +276,7 @@ public class IxdarWindow {
         renderThread.start();
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
-            Thread.sleep(NUM_20);
+            Thread.sleep(POLL_INTERVAL_MS);
         }
         renderThread.join();
     }

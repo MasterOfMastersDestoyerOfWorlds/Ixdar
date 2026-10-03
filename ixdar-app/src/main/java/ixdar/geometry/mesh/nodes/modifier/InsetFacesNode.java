@@ -35,15 +35,6 @@ import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
  */
 @MeshNodeAnnotation(id = "inset_faces")
 public class InsetFacesNode implements MeshNode {
-    public static final float NUM_0_1 = 0.1f;
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_25 = 0.25f;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xFFFFFFFF = 0xFFFFFFFFL;
-    public static final float NUM_1 = 1f;
-
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort INSET = new InputPort("inset", PortType.FLOAT, 0.1f, 0f, 1f);
     public static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
@@ -86,7 +77,7 @@ public class InsetFacesNode implements MeshNode {
         }
 
         Object insetObj = FieldBroadcast.getInputOrDefault(ctx, INSET.name, INSET.defaultValue);
-        float inset = FieldBroadcast.floatScalarOrDefault(insetObj, NUM_0_1);
+        float inset = FieldBroadcast.floatScalarOrDefault(insetObj, 0.1f);
 
         Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION.name, SELECTION.defaultValue);
 
@@ -140,7 +131,7 @@ public class InsetFacesNode implements MeshNode {
             int he = inMesh.edgeHalfEdge(eid);
             int va = inMesh.halfEdgeVertex(he);
             int vb = inMesh.halfEdgeEndVertex(he);
-            int o = eid * NUM_3;
+            int o = eid * 3;
             inEdgeToStart.put(CoonsHandleBuilder.dirPack(va, vb),
                     new float[]{inHS[o], inHS[o + 1], inHS[o + 2]});
             inEdgeToEnd.put(CoonsHandleBuilder.dirPack(va, vb),
@@ -208,8 +199,8 @@ public class InsetFacesNode implements MeshNode {
         Map<Integer, List<int[]>> facesAtVertex = new HashMap<>();
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
-            int fb = fi * NUM_4;
-            for (int k = 0; k < NUM_4; k++) {
+            int fb = fi * 4;
+            for (int k = 0; k < 4; k++) {
                 int vid = srcFaces[fb + k];
                 facesAtVertex.computeIfAbsent(vid, x -> new ArrayList<>()).add(new int[]{fi, k});
             }
@@ -217,7 +208,7 @@ public class InsetFacesNode implements MeshNode {
 
         Set<Integer> succeeded3PlusVids = new HashSet<>();
         for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
-            if (entry.getValue().size() == NUM_3
+            if (entry.getValue().size() == 3
                     && fanCompletes(topology, entry.getKey(), entry.getValue(), sharedEdgeIds)) {
                 succeeded3PlusVids.add(entry.getKey());
             }
@@ -236,7 +227,7 @@ public class InsetFacesNode implements MeshNode {
 
         int[][] innerVerts = new int[faceCount][];
         for (int fi = 0; fi < faceCount; fi++) {
-            if (selected[fi]) innerVerts[fi] = new int[NUM_4];
+            if (selected[fi]) innerVerts[fi] = new int[4];
         }
 
         int[][][] cyanAt3Plus = new int[faceCount][][];
@@ -245,20 +236,20 @@ public class InsetFacesNode implements MeshNode {
         ArrayList<Float> extraPos = new ArrayList<>();
         int[] nextVidBox = {vertCount};
         Set<Long> mergedEndpoint = new HashSet<>();
-        float[] centroids = new float[faceCount * NUM_3];
+        float[] centroids = new float[faceCount * 3];
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
-            int fb = fi * NUM_4;
-            float cx = NUM_0, cy = NUM_0, cz = NUM_0;
-            for (int k = 0; k < NUM_4; k++) {
+            int fb = fi * 4;
+            float cx = 0f, cy = 0f, cz = 0f;
+            for (int k = 0; k < 4; k++) {
                 int vid = srcFaces[fb + k];
-                cx += srcPos[vid * NUM_3];
-                cy += srcPos[vid * NUM_3 + 1];
-                cz += srcPos[vid * NUM_3 + 2];
+                cx += srcPos[vid * 3];
+                cy += srcPos[vid * 3 + 1];
+                cz += srcPos[vid * 3 + 2];
             }
-            centroids[fi * NUM_3] = cx * NUM_0_25;
-            centroids[fi * NUM_3 + 1] = cy * NUM_0_25;
-            centroids[fi * NUM_3 + 2] = cz * NUM_0_25;
+            centroids[fi * 3] = cx * 0.25f;
+            centroids[fi * 3 + 1] = cy * 0.25f;
+            centroids[fi * 3 + 2] = cz * 0.25f;
         }
 
         for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
@@ -266,7 +257,7 @@ public class InsetFacesNode implements MeshNode {
             List<int[]> atV = entry.getValue();
             int n = atV.size();
 
-            if (n == NUM_3) {
+            if (n == 3) {
                 boolean ok = allocate3PlusCornerFlat(topology, denseVid, atV,
                         sharedEdgeIds, srcPos, t, extraPos,
                         cyanAt3Plus, centralFillPerVertex, mergedEndpoint, nextVidBox);
@@ -283,9 +274,9 @@ public class InsetFacesNode implements MeshNode {
                 int fidA = topology.faceIdAt(fiA);
                 int fidB = topology.faceIdAt(fiB);
                 int eAfwd = topology.faceEdgeAt(fidA, kA);
-                int eAback = topology.faceEdgeAt(fidA, (kA + NUM_3) % NUM_4);
+                int eAback = topology.faceEdgeAt(fidA, (kA + 3) % 4);
                 int eBfwd = topology.faceEdgeAt(fidB, kB);
-                int eBback = topology.faceEdgeAt(fidB, (kB + NUM_3) % NUM_4);
+                int eBback = topology.faceEdgeAt(fidB, (kB + 3) % 4);
 
                 int sharedEid = -1;
                 for (int pass = 0; pass < 2 && sharedEid < 0; pass++) {
@@ -301,12 +292,12 @@ public class InsetFacesNode implements MeshNode {
                     int va = topology.halfEdgeVertex(heS);
                     int vb = topology.halfEdgeEndVertex(heS);
                     int otherVid = (va == denseVid) ? vb : va;
-                    float px = srcPos[denseVid * NUM_3]
-                            + (srcPos[otherVid * NUM_3] - srcPos[denseVid * NUM_3]) * t;
-                    float py = srcPos[denseVid * NUM_3 + 1]
-                            + (srcPos[otherVid * NUM_3 + 1] - srcPos[denseVid * NUM_3 + 1]) * t;
-                    float pz = srcPos[denseVid * NUM_3 + 2]
-                            + (srcPos[otherVid * NUM_3 + 2] - srcPos[denseVid * NUM_3 + 2]) * t;
+                    float px = srcPos[denseVid * 3]
+                            + (srcPos[otherVid * 3] - srcPos[denseVid * 3]) * t;
+                    float py = srcPos[denseVid * 3 + 1]
+                            + (srcPos[otherVid * 3 + 1] - srcPos[denseVid * 3 + 1]) * t;
+                    float pz = srcPos[denseVid * 3 + 2]
+                            + (srcPos[otherVid * 3 + 2] - srcPos[denseVid * 3 + 2]) * t;
                     int newVid = nextVidBox[0]++;
                     extraPos.add(px); extraPos.add(py); extraPos.add(pz);
                     innerVerts[fiA][kA] = newVid;
@@ -319,12 +310,12 @@ public class InsetFacesNode implements MeshNode {
             if (!merged) {
                 for (int[] pair : atV) {
                     int fi = pair[0], k = pair[1];
-                    float ox = srcPos[denseVid * NUM_3];
-                    float oy = srcPos[denseVid * NUM_3 + 1];
-                    float oz = srcPos[denseVid * NUM_3 + 2];
-                    float cx = centroids[fi * NUM_3];
-                    float cy = centroids[fi * NUM_3 + 1];
-                    float cz = centroids[fi * NUM_3 + 2];
+                    float ox = srcPos[denseVid * 3];
+                    float oy = srcPos[denseVid * 3 + 1];
+                    float oz = srcPos[denseVid * 3 + 2];
+                    float cx = centroids[fi * 3];
+                    float cy = centroids[fi * 3 + 1];
+                    float cz = centroids[fi * 3 + 2];
                     int newVid = nextVidBox[0]++;
                     extraPos.add(ox + (cx - ox) * t);
                     extraPos.add(oy + (cy - oy) * t);
@@ -345,11 +336,11 @@ public class InsetFacesNode implements MeshNode {
             }
         }
 
-        int outV = vertCount + extraPos.size() / NUM_3;
-        float[] outPos = new float[outV * NUM_3];
-        System.arraycopy(srcPos, 0, outPos, 0, vertCount * NUM_3);
+        int outV = vertCount + extraPos.size() / 3;
+        float[] outPos = new float[outV * 3];
+        System.arraycopy(srcPos, 0, outPos, 0, vertCount * 3);
         for (int i = 0; i < extraPos.size(); i++) {
-            outPos[vertCount * NUM_3 + i] = extraPos.get(i);
+            outPos[vertCount * 3 + i] = extraPos.get(i);
         }
 
         ArrayList<Integer> faceIdxList = new ArrayList<>();
@@ -360,7 +351,7 @@ public class InsetFacesNode implements MeshNode {
                 int[] iv = innerVerts[fi];
                 int[][] cyanPerCorner = cyanAt3Plus[fi];
                 int innerStart = faceIdxList.size();
-                for (int k = 0; k < NUM_4; k++) {
+                for (int k = 0; k < 4; k++) {
                     if (cyanPerCorner != null && cyanPerCorner[k] != null) {
                         faceIdxList.add(cyanPerCorner[k][0]);
                         faceIdxList.add(cyanPerCorner[k][1]);
@@ -370,12 +361,12 @@ public class InsetFacesNode implements MeshNode {
                 }
                 faceVpfList.add(faceIdxList.size() - innerStart);
             } else {
-                int fb = fi * NUM_4;
+                int fb = fi * 4;
                 faceIdxList.add(srcFaces[fb]);
                 faceIdxList.add(srcFaces[fb + 1]);
                 faceIdxList.add(srcFaces[fb + 2]);
-                faceIdxList.add(srcFaces[fb + NUM_3]);
-                faceVpfList.add(NUM_4);
+                faceIdxList.add(srcFaces[fb + 3]);
+                faceVpfList.add(4);
             }
         }
         for (int fi = 0; fi < faceCount; fi++) {
@@ -383,11 +374,11 @@ public class InsetFacesNode implements MeshNode {
             int fid = topology.faceIdAt(fi);
             int[] iv = innerVerts[fi];
             int[][] cyanPerCorner = cyanAt3Plus[fi];
-            int fb = fi * NUM_4;
-            for (int k = 0; k < NUM_4; k++) {
+            int fb = fi * 4;
+            for (int k = 0; k < 4; k++) {
                 int eid = topology.faceEdgeAt(fid, k);
                 if (droppedSharedEdges.contains(eid)) continue;
-                int kNext = (k + 1) & NUM_3;
+                int kNext = (k + 1) & 3;
                 int leftInner = (cyanPerCorner != null && cyanPerCorner[k] != null)
                         ? cyanPerCorner[k][1] 
                         : iv[k];
@@ -398,7 +389,7 @@ public class InsetFacesNode implements MeshNode {
                 faceIdxList.add(srcFaces[fb + kNext]);
                 faceIdxList.add(rightInner);
                 faceIdxList.add(leftInner);
-                faceVpfList.add(NUM_4);
+                faceVpfList.add(4);
             }
         }
 
@@ -413,9 +404,9 @@ public class InsetFacesNode implements MeshNode {
         int[] faceVpfArr = new int[faceVpfList.size()];
         for (int i = 0; i < faceVpfList.size(); i++) faceVpfArr[i] = faceVpfList.get(i);
         boolean allQuads = true;
-        for (int v : faceVpfArr) { if (v != NUM_4) { allQuads = false; break; } }
+        for (int v : faceVpfArr) { if (v != 4) { allQuads = false; break; } }
         if (allQuads) {
-            ArrayMesh out = new ArrayMesh(outPos, null, faceIdxFlat, NUM_4);
+            ArrayMesh out = new ArrayMesh(outPos, null, faceIdxFlat, 4);
             out.computeNormals();
             return out;
         }
@@ -536,9 +527,9 @@ public class InsetFacesNode implements MeshNode {
             int va = topology.halfEdgeVertex(he);
             int vb = topology.halfEdgeEndVertex(he);
             int otherVid = (va == denseVid) ? vb : va;
-            float px = srcPos[denseVid * NUM_3] + (srcPos[otherVid * NUM_3] - srcPos[denseVid * NUM_3]) * t;
-            float py = srcPos[denseVid * NUM_3 + 1] + (srcPos[otherVid * NUM_3 + 1] - srcPos[denseVid * NUM_3 + 1]) * t;
-            float pz = srcPos[denseVid * NUM_3 + 2] + (srcPos[otherVid * NUM_3 + 2] - srcPos[denseVid * NUM_3 + 2]) * t;
+            float px = srcPos[denseVid * 3] + (srcPos[otherVid * 3] - srcPos[denseVid * 3]) * t;
+            float py = srcPos[denseVid * 3 + 1] + (srcPos[otherVid * 3 + 1] - srcPos[denseVid * 3 + 1]) * t;
+            float pz = srcPos[denseVid * 3 + 2] + (srcPos[otherVid * 3 + 2] - srcPos[denseVid * 3 + 2]) * t;
             int newVid = nextVidBox[0]++;
             extraPos.add(px); extraPos.add(py); extraPos.add(pz);
             cyanVids[i] = newVid;
@@ -548,12 +539,12 @@ public class InsetFacesNode implements MeshNode {
             int k = kOrder[i];
             int fwdCyan = cyanVids[i];
             int backCyan = cyanVids[(i - 1 + n) % n];
-            if (cyanAt3Plus[fi] == null) cyanAt3Plus[fi] = new int[NUM_4][];
+            if (cyanAt3Plus[fi] == null) cyanAt3Plus[fi] = new int[4][];
             cyanAt3Plus[fi][k] = new int[]{backCyan, fwdCyan};
 
             int fid = topology.faceIdAt(fi);
             int fwdEid = topology.faceEdgeAt(fid, k);
-            int backEid = topology.faceEdgeAt(fid, (k + NUM_3) % NUM_4);
+            int backEid = topology.faceEdgeAt(fid, (k + 3) % 4);
             mergedEndpoint.add(packEdgeVertex(fwdEid, denseVid));
             mergedEndpoint.add(packEdgeVertex(backEid, denseVid));
         }
@@ -574,7 +565,7 @@ public class InsetFacesNode implements MeshNode {
 
     /** Pack a (cage edge id, dense vertex id) pair into a long for hashset keys. */
     private static long packEdgeVertex(int eid, int denseVid) {
-        return ((long) eid << NUM_32) | (denseVid & NUM_0xFFFFFFFF);
+        return ((long) eid << 32) | (denseVid & 0xFFFFFFFFL);
     }
 
     private static MeshTopology insetFaces(MeshTopology topology, ArrayMesh mesh, float inset, Object selection) {
@@ -592,13 +583,13 @@ public class InsetFacesNode implements MeshNode {
             if (sel) selectedCount++;
         }
 
-        if (selectedCount == 0 || inset <= NUM_0) {
+        if (selectedCount == 0 || inset <= 0f) {
             return new ArrayMesh(srcPos, null, srcFaces, vpf);
         }
 
-        if (vpf == NUM_4) {
+        if (vpf == 4) {
             return insetFacesQuadWithSharedEdgeMerge(topology, srcPos, srcFaces,
-                    vertCount, faceCount, selected, Math.min(inset, NUM_1));
+                    vertCount, faceCount, selected, Math.min(inset, 1f));
         }
 
         int newVertCount = selectedCount * vpf;
@@ -612,7 +603,7 @@ public class InsetFacesNode implements MeshNode {
         );
 
         for (int vi = 0; vi < vertCount; vi++) {
-            out.addVertex(srcPos[vi * NUM_3], srcPos[vi * NUM_3 + 1], srcPos[vi * NUM_3 + 2]);
+            out.addVertex(srcPos[vi * 3], srcPos[vi * 3 + 1], srcPos[vi * 3 + 2]);
         }
 
         Vector3f center = new Vector3f();
@@ -621,19 +612,19 @@ public class InsetFacesNode implements MeshNode {
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
 
-            center.set(NUM_0, NUM_0, NUM_0);
+            center.set(0f, 0f, 0f);
             for (int k = 0; k < vpf; k++) {
                 int vid = srcFaces[fi * vpf + k];
-                center.add(srcPos[vid * NUM_3], srcPos[vid * NUM_3 + 1], srcPos[vid * NUM_3 + 2]);
+                center.add(srcPos[vid * 3], srcPos[vid * 3 + 1], srcPos[vid * 3 + 2]);
             }
             center.div(vpf);
 
             int[] innerVerts = new int[vpf];
             for (int k = 0; k < vpf; k++) {
                 int vid = srcFaces[fi * vpf + k];
-                float ox = srcPos[vid * NUM_3];
-                float oy = srcPos[vid * NUM_3 + 1];
-                float oz = srcPos[vid * NUM_3 + 2];
+                float ox = srcPos[vid * 3];
+                float oy = srcPos[vid * 3 + 1];
+                float oz = srcPos[vid * 3 + 2];
                 float t = Math.min(inset, 1.0f);
                 float nx = ox + (center.x - ox) * t;
                 float ny = oy + (center.y - oy) * t;

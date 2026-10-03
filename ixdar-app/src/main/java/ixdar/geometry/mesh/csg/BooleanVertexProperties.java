@@ -9,19 +9,12 @@ import java.util.Arrays;
  */
 public final class BooleanVertexProperties {
 
-    /** Position channels per vertex, and equally corners per triangle. */
     public static final int THREE = QuadTriangulation.THREE;
 
-    /** Channels a textured operand needs: the three positions plus {@code u} and {@code v}. */
     public static final int POSITION_AND_UV_CHANNELS = 5;
 
-    /** Empty chain terminator in the per-position-vertex copy lists. */
     public static final int NO_COPY = -1;
 
-    /**
-     * What a corner without texture coordinates (NaN, as repair_mesh leaves on the triangles it
-     * fills a hole with) hands the kernel, which rejects a non-finite property outright.
-     */
     public static final double MISSING_UV_STAND_IN = 0.0;
 
     /** Operand whose triangles are being handed to the kernel. */

@@ -13,8 +13,8 @@ import ixdar.platform.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "shutdown", method = APIMethod.POST)
 public class Shutdown extends AutomationEndpoint implements AutomationRoute {
-    public static final int NUM_150 = 150;
-    public static final int NUM_1200 = 1200;
+    public static final int PRE_SHUTDOWN_DELAY_MS = 150;
+    public static final int EXIT_DELAY_MS = 1200;
     /**
      * {@code POST /shutdown}: acknowledge immediately, then asynchronously close the
      * canvas (or stop the runtime), request window close, and finally call
@@ -31,7 +31,7 @@ public class Shutdown extends AutomationEndpoint implements AutomationRoute {
         Thread shutdownThread = new Thread(
                 () -> {
                     try {
-                        Thread.sleep(NUM_150);
+                        Thread.sleep(PRE_SHUTDOWN_DELAY_MS);
                         runtime.runOnMainThread(() -> {
                             if (runtime.canvas != null) {
                                 runtime.canvas.shutdown();
@@ -41,7 +41,7 @@ public class Shutdown extends AutomationEndpoint implements AutomationRoute {
                             IxdarWindow.requestClose();
                             return new JsonObject();
                         });
-                        Thread.sleep(NUM_1200);
+                        Thread.sleep(EXIT_DELAY_MS);
                         System.exit(0);
                     } catch (Exception ignored) {
                         // Shutdown is best-effort.

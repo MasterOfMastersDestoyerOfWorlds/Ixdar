@@ -20,12 +20,9 @@ import ixdar.parsing.python.PythonParser;
  * {@code ---}-delimited YAML-style metadata header.
  */
 public final class SkillLibrary {
-    public static final String STR = ": ";
     public static final String N = "\n";
-    public static final String STR_2 = "---";
-    public static final String STR_0 = "0";
-    public static final int NUM_3 = 3;
-    public static final float NUM_0 = 0f;
+    public static final String FRONTMATTER_DELIMITER = "---";
+    public static final String DEFAULT_NUMERIC_METADATA = "0";
 
     private final List<Skill> skills = new ArrayList<>();
 
@@ -47,7 +44,7 @@ public final class SkillLibrary {
                         skills.add(skill);
                     }
                 } catch (Exception e) {
-                    System.err.println("[SkillLibrary] Failed to load " + file.getFileName() + STR + e.getMessage());
+                    System.err.println("[SkillLibrary] Failed to load " + file.getFileName() + ": " + e.getMessage());
                 }
             }
         }
@@ -67,13 +64,13 @@ public final class SkillLibrary {
         Map<String, String> metadata = new LinkedHashMap<>();
         String dslCode;
 
-        if (content.startsWith(STR_2)) {
-            int endIdx = content.indexOf(STR_2, NUM_3);
+        if (content.startsWith(FRONTMATTER_DELIMITER)) {
+            int endIdx = content.indexOf(FRONTMATTER_DELIMITER, 3);
             if (endIdx < 0) {
                 throw new IOException("Unterminated metadata header in " + file);
             }
-            String header = content.substring(NUM_3, endIdx).trim();
-            dslCode = content.substring(endIdx + NUM_3).trim();
+            String header = content.substring(3, endIdx).trim();
+            dslCode = content.substring(endIdx + 3).trim();
 
             for (String line : header.split(N)) {
                 line = line.trim();
@@ -105,13 +102,13 @@ public final class SkillLibrary {
         String name = metadata.getOrDefault("name", funcDef.name);
         String description = metadata.getOrDefault("description", "");
         String technique = metadata.getOrDefault("technique", "");
-        float fitness = NUM_0;
+        float fitness = 0f;
         try {
-            fitness = Float.parseFloat(metadata.getOrDefault("fitness", STR_0));
+            fitness = Float.parseFloat(metadata.getOrDefault("fitness", DEFAULT_NUMERIC_METADATA));
         } catch (NumberFormatException ignored) {}
         int generation = 0;
         try {
-            generation = Integer.parseInt(metadata.getOrDefault("generation", STR_0));
+            generation = Integer.parseInt(metadata.getOrDefault("generation", DEFAULT_NUMERIC_METADATA));
         } catch (NumberFormatException ignored) {}
         String originRun = metadata.getOrDefault("origin_run", "");
 
@@ -225,7 +222,7 @@ public final class SkillLibrary {
             for (int i = 0; i < functionDef.params.size(); i++) {
                 if (i > 0) sb.append(", ");
                 PythonParser.FunctionParam p = functionDef.params.get(i);
-                sb.append(p.name).append(STR).append(p.type);
+                sb.append(p.name).append(": ").append(p.type);
             }
             sb.append(") -> ").append(functionDef.returnType).append(N);
             sb.append("  ").append(description);

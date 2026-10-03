@@ -20,15 +20,13 @@ import ixdar.platform.file.FileManagement;
 import ixdar.platform.input.MouseTrap;
 
 public class DropDown implements MouseTrap.ScrollHandler {
-    public static final float NUM_0_95 = 0.95f;
-    public static final float NUM_0_02 = 0.02f;
-    public static final int NUM_5 = 5;
-    public static final float NUM_0_9 = 0.9f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_91 = 0.91f;
-    public static final float NUM_1_5 = 1.5f;
-    public static final float NUM_0_075 = 0.075f;
-    public static final float NUM_2 = 2f;
+    public static final float MENU_ALPHA = 0.95f;
+    public static final float INNER_OFFSET_Y = 0.02f;
+    public static final int PIN_STRIPE_COUNT = 5;
+    public static final float LOGO_BORDER_DIST = 0.9f;
+    public static final float ITEM_WIDTH_SCALE = 0.91f;
+    public static final float ITEM_SPACING_FACTOR = 1.5f;
+    public static final float LABEL_Y_OFFSET_FACTOR = 0.075f;
     public static ArrayList<MenuItem> menuItems;
     public static Menu activeMenu;
     public static float scrollOffsetY;
@@ -59,14 +57,14 @@ public class DropDown implements MouseTrap.ScrollHandler {
      * subscribe to scroll input so the user can scroll long menus.
      */
     public DropDown() {
-        alpha = NUM_0_95;
+        alpha = MENU_ALPHA;
 
         innerColor = new ColorRGB(Color.NAVY, alpha);
         outerColor = new ColorRGB(Color.BLUE_WHITE, alpha);
         outerFlash = new ColorLerp(Color.BLUE_WHITE, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 });
-        menuOuterBorder = new SDFUnion("menu_inner.png", Color.NAVY, NUM_0_95, 0, -NUM_0_02, "menu_outer.png",
-                Color.BLUE_WHITE, alpha, NUM_5, 2);
-        logo = new SDFTexture("decal_sdf.png", Color.DARK_IXDAR, NUM_0_9, NUM_0, true);
+        menuOuterBorder = new SDFUnion("menu_inner.png", Color.NAVY, MENU_ALPHA, 0, -INNER_OFFSET_Y, "menu_outer.png",
+                Color.BLUE_WHITE, alpha, PIN_STRIPE_COUNT, 2);
+        logo = new SDFTexture("decal_sdf.png", Color.DARK_IXDAR, LOGO_BORDER_DIST, 0f, true);
         boundingBox = new ColorBox();
         String cachedFileName = FileManagement.getTestFileCache();
         debugMenu = new Menu.MainMenu(cachedFileName);
@@ -104,7 +102,7 @@ public class DropDown implements MouseTrap.ScrollHandler {
             return;
         }
         itemHeight = menuOuterBorder.outerTexture.height * scale / 2;
-        itemWidth = menuOuterBorder.outerTexture.width * scale * NUM_0_91;
+        itemWidth = menuOuterBorder.outerTexture.width * scale * ITEM_WIDTH_SCALE;
 
         // Track menu extents to update scroll bounds each frame
         float minLeft = Float.MAX_VALUE;
@@ -112,7 +110,7 @@ public class DropDown implements MouseTrap.ScrollHandler {
         float minDown = Float.MAX_VALUE;
         float maxUp = Float.MIN_VALUE;
         for (int i = 0; i < menuItems.size(); i++) {
-            float itemCenterY = centerY - itemHeight - (itemHeight * i * NUM_1_5) - scrollOffsetY;
+            float itemCenterY = centerY - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR) - scrollOffsetY;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = itemCenterY + itemHeight / 2;
@@ -132,7 +130,7 @@ public class DropDown implements MouseTrap.ScrollHandler {
                 menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, outerColor, camera);
 
             }
-            Drawing.getDrawing().font.drawHyperString(menuItems.get(i).itemString(), centerX, itemCenterY + itemHeight * NUM_0_075,
+            Drawing.getDrawing().font.drawHyperString(menuItems.get(i).itemString(), centerX, itemCenterY + itemHeight * LABEL_Y_OFFSET_FACTOR,
                     itemHeight / 2, (Camera2D) camera);
         }
         if (menuItems.size() > 0) {
@@ -170,7 +168,7 @@ public class DropDown implements MouseTrap.ScrollHandler {
         MenuItem clickedItem = null;
         for (int i = 0; i < menuItems.size(); i++) {
             float centerX = Platforms.get().getFrameBufferWidth() / 2;
-            float centerY = Platforms.get().getFrameBufferHeight() / 2 - itemHeight - (itemHeight * i * NUM_1_5) - scrollOffsetY;
+            float centerY = Platforms.get().getFrameBufferHeight() / 2 - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR) - scrollOffsetY;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = centerY + itemHeight / 2;
@@ -216,7 +214,7 @@ public class DropDown implements MouseTrap.ScrollHandler {
      * @param deltaSeconds time since the last frame, used to scale scroll speed
      */
     public void onScroll(boolean scrollUp, double deltaSeconds) {
-        float menuBottom = Platforms.get().getFrameBufferHeight() / 2 - (itemHeight * menuItems.size() * NUM_1_5);
+        float menuBottom = Platforms.get().getFrameBufferHeight() / 2 - (itemHeight * menuItems.size() * ITEM_SPACING_FACTOR);
 
         if (menuBottom > 0) {
             scrollOffsetY = 0;
@@ -269,14 +267,14 @@ public class DropDown implements MouseTrap.ScrollHandler {
         if (menuItems == null || menuItems.isEmpty() || itemWidth <= 0 || itemHeight <= 0) {
             return bounds;
         }
-        float centerX = Platforms.get().getFrameBufferWidth() / NUM_2;
-        float centerY = Platforms.get().getFrameBufferHeight() / NUM_2;
+        float centerX = Platforms.get().getFrameBufferWidth() / 2f;
+        float centerY = Platforms.get().getFrameBufferHeight() / 2f;
         for (int i = 0; i < menuItems.size(); i++) {
-            float itemCenterY = centerY - itemHeight - (itemHeight * i * NUM_1_5) - scrollOffsetY;
+            float itemCenterY = centerY - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR) - scrollOffsetY;
             MenuItemBounds item = new MenuItemBounds();
             item.label = menuItems.get(i).getHeading();
-            item.left = centerX - itemWidth / NUM_2;
-            item.bottom = itemCenterY - itemHeight / NUM_2;
+            item.left = centerX - itemWidth / 2f;
+            item.bottom = itemCenterY - itemHeight / 2f;
             item.width = itemWidth;
             item.height = itemHeight;
             item.centerX = centerX;

@@ -8,34 +8,18 @@ package ixdar.geometry.mesh.quadlayout.solver;
  */
 public final class SingularSystemDiagnosis {
 
-    /** Classification when the support matches none of the known causes. */
     public static final int CLASSIFICATION_UNKNOWN = 0;
 
-    /**
-     * Classification for a chart the cut graph left untied: the null vector is one chart's DOFs
-     * moving together, a free per-chart translation.
-     */
     public static final int CLASSIFICATION_CHART_GAUGE = 1;
 
-    /**
-     * Classification for degenerate cotangent or area weights: the null vector sits on DOFs whose
-     * mesh vertices are surrounded by (near) zero-area faces.
-     */
     public static final int CLASSIFICATION_SLIVER_CLUSTER = 2;
 
-    /**
-     * Classification for a redundant constraint: the null vector plays two DOFs against each
-     * other with opposite signs, as a duplicated or zero row after leftover elimination leaves.
-     */
     public static final int CLASSIFICATION_DUPLICATE_ROW = 3;
 
-    /** Largest number of support entries recorded in the parallel arrays. */
     public static final int MAX_RECORDED_SUPPORT = 4096;
 
-    /** Support entries the log line prints. */
     public static final int LOGGED_VERTEX_COUNT = 20;
 
-    /** Coordinates per recorded vertex position. */
     public static final int POSITION_COMPONENTS = 3;
 
     /** Row the backend stopped on, or {@link SingularSystemException#UNKNOWN_PIVOT}. */

@@ -17,37 +17,26 @@ import ixdar.platform.Platforms;
  */
 public final class NewtonRelaxation {
 
-    /** Relative energy drop below which an iteration counts as stalled. */
     public static final double CONVERGENCE = 1.0e-4;
 
-    /** Consecutive stalled iterations before the relaxation stops. */
     public static final int STALL_LIMIT = 3;
 
-    /** Line-search backtracking factor. */
     public static final double BACKTRACK = 0.5;
 
-    /** Line-search backtracks before the step is abandoned. */
     public static final int MAX_BACKTRACKS = 5;
 
-    /** Factor the line search grows an accepted step by while the energy still falls. */
     public static final double EXPANSION = 2.0;
 
-    /** Growths the line search tries before settling on the best step it found. */
     public static final int MAX_EXPANSIONS = 12;
 
-    /** Armijo sufficient-decrease slope. */
     public static final double ARMIJO_SLOPE = 1.0e-4;
 
-    /** Fraction of the maximal non-inverting step the search starts from. */
     public static final double MAX_STEP_MARGIN = 0.8;
 
-    /** Smallest ridge added to the Hessian diagonal. */
     public static final double RIDGE_FLOOR = 1.0e-12;
 
-    /** Ridge relative to the largest Hessian diagonal entry. */
     public static final double RIDGE_RELATIVE = 1.0e-10;
 
-    /** Iterations between progress lines when {@link #verboseIterations} is off. */
     public static final int ITERATION_LOG_STRIDE = 1;
 
     public final DofSystem dofs;

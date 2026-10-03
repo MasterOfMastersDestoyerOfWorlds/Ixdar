@@ -24,19 +24,14 @@ import ixdar.geometry.mesh.nodes.api.Vector3Value;
 @MeshNodeAnnotation(id = "checker_material")
 public class CheckerMaterialNode implements MeshNode {
 
-    /** Side of the generated base-colour image in pixels. */
     public static final int TEXTURE_SIZE = 64;
 
-    /** Bytes per pixel in the RGBA8 image {@link MaterialData} carries. */
     public static final int RGBA_BYTES = 4;
 
-    /** Largest value a colour channel byte can hold. */
     public static final int CHANNEL_MAX = 255;
 
-    /** How much the checker's dark squares dim the chosen colour. */
     public static final float DARK_SQUARE_SCALE = 0.3f;
 
-    /** World size of one checker square at the default tile size. */
     public static final float DEFAULT_TILE_SIZE = 0.5f;
 
     public static final InputPort GEOMETRY =

@@ -37,9 +37,6 @@ package ixdar.geometry.point;
  * @since 1.2
  */
 public abstract class Point2D implements Cloneable {
-    public static final String STR = ", ";
-    public static final String STR_2 = "]";
-
     /**
      * This is an abstract class that cannot be instantiated directly. Type-specific
      * implementation subclasses are available for instantiation and provide a
@@ -330,7 +327,7 @@ public abstract class Point2D implements Cloneable {
          * @since 1.2
          */
         public String toString() {
-            return "Point2D.Float[" + x + STR + y + STR_2;
+            return "Point2D.Float[" + x + ", " + y + "]";
         }
 
     }
@@ -417,7 +414,7 @@ public abstract class Point2D implements Cloneable {
          * @since 1.2
          */
         public String toString() {
-            return "Point2D.Double[" + x + STR + y + STR_2;
+            return "Point2D.Double[" + x + ", " + y + "]";
         }
 
     }

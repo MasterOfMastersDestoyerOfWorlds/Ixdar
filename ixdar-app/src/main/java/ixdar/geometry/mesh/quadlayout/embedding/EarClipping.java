@@ -12,10 +12,8 @@ import java.util.List;
  */
 public final class EarClipping {
 
-    /** Corners of a triangle. */
     public static final int CORNERS = 3;
 
-    /** Local vertex index meaning "no vertex". */
     public static final int NONE = -1;
 
     /** Barycentric of each local vertex in the source face, indexed by local index. */

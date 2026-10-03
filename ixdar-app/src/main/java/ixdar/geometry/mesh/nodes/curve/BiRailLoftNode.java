@@ -28,18 +28,14 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "bi_rail_loft")
 public class BiRailLoftNode implements MeshNode {
-    public static final int NUM_32 = 32;
-    public static final int NUM_16 = 16;
-    public static final int NUM_512 = 512;
-    public static final int NUM_3 = 3;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_001 = 0.001f;
-    public static final float NUM_1e_10 = 1e-10f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_1e_20 = 1e-20f;
-    public static final float NUM_1e_5 = 1e-5f;
-    public static final float NUM_1e_8 = 1e-8f;
+    public static final int DEFAULT_X_RESOLUTION = 32;
+    public static final int DEFAULT_Y_RESOLUTION = 16;
+    public static final int MAX_RESOLUTION = 512;
+    public static final float DEFAULT_THICKNESS = 0.001f;
+    public static final float MIN_LENGTH = 1e-10f;
+    public static final float MIN_TANGENT_LENGTH_SQUARED = 1e-20f;
+    public static final float FALLBACK_RAIL_SPACING = 1e-5f;
+    public static final float PARALLEL_LENGTH_SQUARED_THRESHOLD = 1e-8f;
 
     public static final InputPort RAIL_A = new InputPort("rail_a", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort RAIL_B = new InputPort("rail_b", PortType.GEOMETRY_BUNDLE, null);
@@ -116,11 +112,11 @@ public class BiRailLoftNode implements MeshNode {
         CurveGeometry profileBCg = (profileBGb != null) ? extractCurve(profileBGb) : null;
 
         int xRes = FieldBroadcast.intAt(
-                FieldBroadcast.getInputOrDefault(ctx, X_RESOLUTION.name, X_RESOLUTION.defaultValue), 0, NUM_32);
+                FieldBroadcast.getInputOrDefault(ctx, X_RESOLUTION.name, X_RESOLUTION.defaultValue), 0, DEFAULT_X_RESOLUTION);
         int yRes = FieldBroadcast.intAt(
-                FieldBroadcast.getInputOrDefault(ctx, Y_RESOLUTION.name, Y_RESOLUTION.defaultValue), 0, NUM_16);
-        xRes = Math.max(2, Math.min(NUM_512, xRes));
-        yRes = Math.max(2, Math.min(NUM_512, yRes));
+                FieldBroadcast.getInputOrDefault(ctx, Y_RESOLUTION.name, Y_RESOLUTION.defaultValue), 0, DEFAULT_Y_RESOLUTION);
+        xRes = Math.max(2, Math.min(MAX_RESOLUTION, xRes));
+        yRes = Math.max(2, Math.min(MAX_RESOLUTION, yRes));
 
         // Resample rails to xRes uniform points
         float[] railA = resampleToUniform(railACg, xRes);
@@ -128,7 +124,7 @@ public class BiRailLoftNode implements MeshNode {
 
         // Extract and normalize profile A
         float[] profileA = extractProfilePoints(profileCg);
-        int profileAN = profileA.length / NUM_3;
+        int profileAN = profileA.length / 3;
         if (profileAN != yRes) {
             profileA = resampleArray(profileA, profileAN, yRes);
         }
@@ -141,7 +137,7 @@ public class BiRailLoftNode implements MeshNode {
         float[] profileBV;
         if (profileBCg != null) {
             float[] profileB = extractProfilePoints(profileBCg);
-            int profileBN = profileB.length / NUM_3;
+            int profileBN = profileB.length / 3;
             if (profileBN != yRes) {
                 profileB = resampleArray(profileB, profileBN, yRes);
             }
@@ -157,22 +153,22 @@ public class BiRailLoftNode implements MeshNode {
         FloatCurveKernel blendKernel = ctx.getInput(BLEND_CLOSURE.name, FloatCurveKernel.class);
 
         float depthScale = FieldBroadcast.floatAt(
-                FieldBroadcast.getInputOrDefault(ctx, DEPTH_SCALE.name, DEPTH_SCALE.defaultValue), 0, NUM_1);
+                FieldBroadcast.getInputOrDefault(ctx, DEPTH_SCALE.name, DEPTH_SCALE.defaultValue), 0, 1f);
 
         float isoCurveT = FieldBroadcast.floatAt(
-                FieldBroadcast.getInputOrDefault(ctx, ISO_CURVE_T.name, ISO_CURVE_T.defaultValue), 0, -NUM_1);
+                FieldBroadcast.getInputOrDefault(ctx, ISO_CURVE_T.name, ISO_CURVE_T.defaultValue), 0, -1f);
 
         // Build loft mesh with two-profile blending
         // If iso_curve_t >= 0, also extract the iso-parameter curve at that profile fraction
-        float[] isoCurvePositions = (isoCurveT >= NUM_0 && isoCurveT <= NUM_1) ? new float[xRes * NUM_3] : null;
+        float[] isoCurvePositions = (isoCurveT >= 0f && isoCurveT <= 1f) ? new float[xRes * 3] : null;
         int isoRow = (isoCurvePositions != null) ? Math.round(isoCurveT * (yRes - 1)) : -1;
 
         // Always extract boundary curves (yi=0 → boundary_a, yi=yRes-1 → boundary_b)
-        float[] boundaryAPositions = new float[xRes * NUM_3];
-        float[] boundaryBPositions = new float[xRes * NUM_3];
+        float[] boundaryAPositions = new float[xRes * 3];
+        float[] boundaryBPositions = new float[xRes * 3];
 
         float thickness = FieldBroadcast.floatAt(
-                FieldBroadcast.getInputOrDefault(ctx, THICKNESS.name, THICKNESS.defaultValue), 0, NUM_0_001);
+                FieldBroadcast.getInputOrDefault(ctx, THICKNESS.name, THICKNESS.defaultValue), 0, DEFAULT_THICKNESS);
 
         HalfEdgeMesh mesh = buildLoftMesh(railA, railB, xRes,
                 profileAU, profileAV, profileBU, profileBV, yRes, blendKernel, depthScale,
@@ -181,7 +177,7 @@ public class BiRailLoftNode implements MeshNode {
 
         // Solidify the open loft surface to make it watertight
         MeshTopology finalMesh;
-        if (thickness > NUM_0) {
+        if (thickness > 0f) {
             finalMesh = ArrayMeshEngine.solidifyUniformMeshTopology(mesh, thickness);
         } else {
             finalMesh = mesh;
@@ -204,9 +200,9 @@ public class BiRailLoftNode implements MeshNode {
 
     /** Close a polyline loop and wrap in a GeometryBundle with _curve slot. */
     private static GeometryBundle makeClosedCurveBundle(float[] positions) {
-        float[] closed = new float[positions.length + NUM_3];
+        float[] closed = new float[positions.length + 3];
         System.arraycopy(positions, 0, closed, 0, positions.length);
-        closed[closed.length - NUM_3] = positions[0];
+        closed[closed.length - 3] = positions[0];
         closed[closed.length - 2] = positions[1];
         closed[closed.length - 1] = positions[2];
         CurveGeometry curve = CurveGeometry.singlePolyline(closed);
@@ -234,8 +230,8 @@ public class BiRailLoftNode implements MeshNode {
         float[] arcLen = new float[nPts];
         arcLen[0] = 0;
         for (int i = 1; i < nPts; i++) {
-            int b0 = NUM_3 * (off0 + i - 1);
-            int b1 = NUM_3 * (off0 + i);
+            int b0 = 3 * (off0 + i - 1);
+            int b1 = 3 * (off0 + i);
             float dx = pos[b1] - pos[b0];
             float dy = pos[b1 + 1] - pos[b0 + 1];
             float dz = pos[b1 + 2] - pos[b0 + 2];
@@ -243,20 +239,20 @@ public class BiRailLoftNode implements MeshNode {
         }
         float totalLen = arcLen[nPts - 1];
 
-        float[] result = new float[n * NUM_3];
+        float[] result = new float[n * 3];
         int seg = 0;
         for (int i = 0; i < n; i++) {
             float targetLen = (n == 1) ? 0 : totalLen * i / (n - 1);
             while (seg < nPts - 2 && arcLen[seg + 1] < targetLen) seg++;
 
             float segLen = arcLen[seg + 1] - arcLen[seg];
-            float t = segLen < NUM_1e_10 ? NUM_0 : (targetLen - arcLen[seg]) / segLen;
+            float t = segLen < MIN_LENGTH ? 0f : (targetLen - arcLen[seg]) / segLen;
 
-            int b0 = NUM_3 * (off0 + seg);
-            int b1 = NUM_3 * (off0 + seg + 1);
-            result[i * NUM_3] = pos[b0] + t * (pos[b1] - pos[b0]);
-            result[i * NUM_3 + 1] = pos[b0 + 1] + t * (pos[b1 + 1] - pos[b0 + 1]);
-            result[i * NUM_3 + 2] = pos[b0 + 2] + t * (pos[b1 + 2] - pos[b0 + 2]);
+            int b0 = 3 * (off0 + seg);
+            int b1 = 3 * (off0 + seg + 1);
+            result[i * 3] = pos[b0] + t * (pos[b1] - pos[b0]);
+            result[i * 3 + 1] = pos[b0 + 1] + t * (pos[b1 + 1] - pos[b0 + 1]);
+            result[i * 3 + 2] = pos[b0 + 2] + t * (pos[b1 + 2] - pos[b0 + 2]);
         }
         return result;
     }
@@ -266,8 +262,8 @@ public class BiRailLoftNode implements MeshNode {
         int off0 = cg.curveOffsets()[0];
         int off1 = cg.curveOffsets()[1];
         int nPts = off1 - off0;
-        float[] out = new float[nPts * NUM_3];
-        System.arraycopy(pos, off0 * NUM_3, out, 0, nPts * NUM_3);
+        float[] out = new float[nPts * 3];
+        System.arraycopy(pos, off0 * 3, out, 0, nPts * 3);
         return out;
     }
 
@@ -278,25 +274,25 @@ public class BiRailLoftNode implements MeshNode {
         float[] arcLen = new float[srcN];
         arcLen[0] = 0;
         for (int i = 1; i < srcN; i++) {
-            float dx = src[i * NUM_3] - src[(i - 1) * NUM_3];
-            float dy = src[i * NUM_3 + 1] - src[(i - 1) * NUM_3 + 1];
-            float dz = src[i * NUM_3 + 2] - src[(i - 1) * NUM_3 + 2];
+            float dx = src[i * 3] - src[(i - 1) * 3];
+            float dy = src[i * 3 + 1] - src[(i - 1) * 3 + 1];
+            float dz = src[i * 3 + 2] - src[(i - 1) * 3 + 2];
             arcLen[i] = arcLen[i - 1] + (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
         }
         float total = arcLen[srcN - 1];
 
-        float[] result = new float[dstN * NUM_3];
+        float[] result = new float[dstN * 3];
         int seg = 0;
         for (int i = 0; i < dstN; i++) {
             float target = (dstN == 1) ? 0 : total * i / (dstN - 1);
             while (seg < srcN - 2 && arcLen[seg + 1] < target) seg++;
 
             float segLen = arcLen[seg + 1] - arcLen[seg];
-            float t = segLen < NUM_1e_10 ? NUM_0 : (target - arcLen[seg]) / segLen;
+            float t = segLen < MIN_LENGTH ? 0f : (target - arcLen[seg]) / segLen;
 
-            result[i * NUM_3] = src[seg * NUM_3] + t * (src[(seg + 1) * NUM_3] - src[seg * NUM_3]);
-            result[i * NUM_3 + 1] = src[seg * NUM_3 + 1] + t * (src[(seg + 1) * NUM_3 + 1] - src[seg * NUM_3 + 1]);
-            result[i * NUM_3 + 2] = src[seg * NUM_3 + 2] + t * (src[(seg + 1) * NUM_3 + 2] - src[seg * NUM_3 + 2]);
+            result[i * 3] = src[seg * 3] + t * (src[(seg + 1) * 3] - src[seg * 3]);
+            result[i * 3 + 1] = src[seg * 3 + 1] + t * (src[(seg + 1) * 3 + 1] - src[seg * 3 + 1]);
+            result[i * 3 + 2] = src[seg * 3 + 2] + t * (src[(seg + 1) * 3 + 2] - src[seg * 3 + 2]);
         }
         return result;
     }
@@ -309,8 +305,8 @@ public class BiRailLoftNode implements MeshNode {
     private static void normalizeProfile(float[] profile, int n, float[] outU, float[] outV) {
         float cx = 0, cy = 0;
         for (int i = 0; i < n; i++) {
-            cx += profile[i * NUM_3];
-            cy += profile[i * NUM_3 + 1];
+            cx += profile[i * 3];
+            cy += profile[i * 3 + 1];
         }
         cx /= n;
         cy /= n;
@@ -318,13 +314,13 @@ public class BiRailLoftNode implements MeshNode {
         // Scale based on U (across) extent only, so cross-section fills the rail gap
         float maxU = 0;
         for (int i = 0; i < n; i++) {
-            maxU = Math.max(maxU, Math.abs(profile[i * NUM_3] - cx));
+            maxU = Math.max(maxU, Math.abs(profile[i * 3] - cx));
         }
-        float scale = maxU > NUM_1e_10 ? NUM_0_5 / maxU : NUM_1;
+        float scale = maxU > MIN_LENGTH ? 0.5f / maxU : 1f;
 
         for (int i = 0; i < n; i++) {
-            outU[i] = (profile[i * NUM_3] - cx) * scale;
-            outV[i] = (profile[i * NUM_3 + 1] - cy) * scale;
+            outU[i] = (profile[i * 3] - cx) * scale;
+            outV[i] = (profile[i * 3 + 1] - cy) * scale;
         }
     }
 
@@ -351,41 +347,41 @@ public class BiRailLoftNode implements MeshNode {
 
         for (int xi = 0; xi < xRes; xi++) {
             // Rail positions at this station
-            pA.set(railA[xi * NUM_3], railA[xi * NUM_3 + 1], railA[xi * NUM_3 + 2]);
-            pB.set(railB[xi * NUM_3], railB[xi * NUM_3 + 1], railB[xi * NUM_3 + 2]);
+            pA.set(railA[xi * 3], railA[xi * 3 + 1], railA[xi * 3 + 2]);
+            pB.set(railB[xi * 3], railB[xi * 3 + 1], railB[xi * 3 + 2]);
 
             // Tangent: forward direction along rails
             if (xi < xRes - 1) {
                 tangent.set(
-                        (railA[(xi + 1) * NUM_3] + railB[(xi + 1) * NUM_3]) * NUM_0_5 -
-                                (railA[xi * NUM_3] + railB[xi * NUM_3]) * NUM_0_5,
-                        (railA[(xi + 1) * NUM_3 + 1] + railB[(xi + 1) * NUM_3 + 1]) * NUM_0_5 -
-                                (railA[xi * NUM_3 + 1] + railB[xi * NUM_3 + 1]) * NUM_0_5,
-                        (railA[(xi + 1) * NUM_3 + 2] + railB[(xi + 1) * NUM_3 + 2]) * NUM_0_5 -
-                                (railA[xi * NUM_3 + 2] + railB[xi * NUM_3 + 2]) * NUM_0_5
+                        (railA[(xi + 1) * 3] + railB[(xi + 1) * 3]) * 0.5f -
+                                (railA[xi * 3] + railB[xi * 3]) * 0.5f,
+                        (railA[(xi + 1) * 3 + 1] + railB[(xi + 1) * 3 + 1]) * 0.5f -
+                                (railA[xi * 3 + 1] + railB[xi * 3 + 1]) * 0.5f,
+                        (railA[(xi + 1) * 3 + 2] + railB[(xi + 1) * 3 + 2]) * 0.5f -
+                                (railA[xi * 3 + 2] + railB[xi * 3 + 2]) * 0.5f
                 );
             } else {
                 tangent.set(
-                        (railA[xi * NUM_3] + railB[xi * NUM_3]) * NUM_0_5 -
-                                (railA[(xi - 1) * NUM_3] + railB[(xi - 1) * NUM_3]) * NUM_0_5,
-                        (railA[xi * NUM_3 + 1] + railB[xi * NUM_3 + 1]) * NUM_0_5 -
-                                (railA[(xi - 1) * NUM_3 + 1] + railB[(xi - 1) * NUM_3 + 1]) * NUM_0_5,
-                        (railA[xi * NUM_3 + 2] + railB[xi * NUM_3 + 2]) * NUM_0_5 -
-                                (railA[(xi - 1) * NUM_3 + 2] + railB[(xi - 1) * NUM_3 + 2]) * NUM_0_5
+                        (railA[xi * 3] + railB[xi * 3]) * 0.5f -
+                                (railA[(xi - 1) * 3] + railB[(xi - 1) * 3]) * 0.5f,
+                        (railA[xi * 3 + 1] + railB[xi * 3 + 1]) * 0.5f -
+                                (railA[(xi - 1) * 3 + 1] + railB[(xi - 1) * 3 + 1]) * 0.5f,
+                        (railA[xi * 3 + 2] + railB[xi * 3 + 2]) * 0.5f -
+                                (railA[(xi - 1) * 3 + 2] + railB[(xi - 1) * 3 + 2]) * 0.5f
                 );
             }
-            if (tangent.lengthSquared() < NUM_1e_20) tangent.set(0, 0, 1);
+            if (tangent.lengthSquared() < MIN_TANGENT_LENGTH_SQUARED) tangent.set(0, 0, 1);
             tangent.normalize();
 
             // Across: direction from rail A to rail B
             across.set(pB).sub(pA);
             float railSpacing = across.length();
-            if (railSpacing < NUM_1e_10) railSpacing = NUM_1e_5;
+            if (railSpacing < MIN_LENGTH) railSpacing = FALLBACK_RAIL_SPACING;
             across.normalize();
 
             // Up: perpendicular to tangent and across
             up.set(tangent).cross(across);
-            if (up.lengthSquared() < NUM_1e_8) {
+            if (up.lengthSquared() < PARALLEL_LENGTH_SQUARED_THRESHOLD) {
                 // Tangent nearly parallel to across — use world-up fallback
                 // Pick the axis least aligned with across as the reference direction
                 float ax = Math.abs(across.x), ay = Math.abs(across.y), az = Math.abs(across.z);
@@ -405,23 +401,23 @@ public class BiRailLoftNode implements MeshNode {
             up.normalize();
 
             // Center point between rails
-            float cx = (pA.x + pB.x) * NUM_0_5;
-            float cy = (pA.y + pB.y) * NUM_0_5;
-            float cz = (pA.z + pB.z) * NUM_0_5;
+            float cx = (pA.x + pB.x) * 0.5f;
+            float cy = (pA.y + pB.y) * 0.5f;
+            float cz = (pA.z + pB.z) * 0.5f;
 
             // Place profile at this station, blending between profile A and B.
             // When blendKernel is provided, blend varies per-station (along rail, xi direction).
             // When null, blend varies per-point (across cross-section, yi direction).
             float stationBlend = (blendKernel != null)
-                    ? blendKernel.evaluate((xRes > 1) ? (float) xi / (xRes - 1) : NUM_0_5)
+                    ? blendKernel.evaluate((xRes > 1) ? (float) xi / (xRes - 1) : 0.5f)
                     : Float.NaN; // sentinel: use per-yi blend
 
             for (int yi = 0; yi < yRes; yi++) {
                 float blend = Float.isNaN(stationBlend)
-                        ? ((yRes > 1) ? (float) yi / (yRes - 1) : NUM_0_5)
+                        ? ((yRes > 1) ? (float) yi / (yRes - 1) : 0.5f)
                         : stationBlend;
-                float u = (profileAU[yi] * (NUM_1 - blend) + profileBU[yi] * blend) * railSpacing;
-                float v = (profileAV[yi] * (NUM_1 - blend) + profileBV[yi] * blend) * railSpacing * depthScale;
+                float u = (profileAU[yi] * (1f - blend) + profileBU[yi] * blend) * railSpacing;
+                float v = (profileAV[yi] * (1f - blend) + profileBV[yi] * blend) * railSpacing * depthScale;
 
                 float px = cx + across.x * u + up.x * v;
                 float py = cy + across.y * u + up.y * v;
@@ -430,20 +426,20 @@ public class BiRailLoftNode implements MeshNode {
 
                 // Record iso-curve point if this is the target row
                 if (isoCurveOut != null && yi == isoRow) {
-                    isoCurveOut[xi * NUM_3] = px;
-                    isoCurveOut[xi * NUM_3 + 1] = py;
-                    isoCurveOut[xi * NUM_3 + 2] = pz;
+                    isoCurveOut[xi * 3] = px;
+                    isoCurveOut[xi * 3 + 1] = py;
+                    isoCurveOut[xi * 3 + 2] = pz;
                 }
                 // Record boundary curves (first and last profile rows)
                 if (yi == 0 && boundaryAOut != null) {
-                    boundaryAOut[xi * NUM_3] = px;
-                    boundaryAOut[xi * NUM_3 + 1] = py;
-                    boundaryAOut[xi * NUM_3 + 2] = pz;
+                    boundaryAOut[xi * 3] = px;
+                    boundaryAOut[xi * 3 + 1] = py;
+                    boundaryAOut[xi * 3 + 2] = pz;
                 }
                 if (yi == yRes - 1 && boundaryBOut != null) {
-                    boundaryBOut[xi * NUM_3] = px;
-                    boundaryBOut[xi * NUM_3 + 1] = py;
-                    boundaryBOut[xi * NUM_3 + 2] = pz;
+                    boundaryBOut[xi * 3] = px;
+                    boundaryBOut[xi * 3 + 1] = py;
+                    boundaryBOut[xi * 3 + 2] = pz;
                 }
             }
         }

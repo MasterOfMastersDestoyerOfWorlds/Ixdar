@@ -18,19 +18,14 @@ public class CollectionCommand extends TerminalCommand {
     /** Short alias for the command: {@code "cn"}. */
     public static String cmd = "cn";
 
-    /** Subcommand printing every member with its keep flag. */
     public static final String LIST = "list";
 
-    /** Subcommand stepping the cursor forward one member. */
     public static final String NEXT = "next";
 
-    /** Subcommand stepping the cursor back one member. */
     public static final String PREV = "prev";
 
-    /** Subcommand keeping the current member. */
     public static final String KEEP = "keep";
 
-    /** Subcommand rejecting the current member. */
     public static final String REJECT = "reject";
 
     /**

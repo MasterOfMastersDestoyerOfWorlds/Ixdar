@@ -16,10 +16,10 @@ import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.text.SpecialGlyphs;
 
 public class GLSLExpressionParser {
-    public static final String STR = "//";
-    public static final String STR_2 = ";";
+    public static final String COMMENT_MARKER = "//";
+    public static final String STATEMENT_TERMINATOR = ";";
     public static final String IF = "if";
-    public static final String STR_3 = "==";
+    public static final String EQ_OP = "==";
     public static final String IN = "in ";
     public static final String OUT = "out ";
     public static final String UNIFORM = "uniform ";
@@ -27,33 +27,35 @@ public class GLSLExpressionParser {
     public static final String VOID = "void ";
     public static final String TRUE = "true";
     public static final String FALSE = "false";
-    public static final String STR_4 = " = ";
-    public static final String STR_5 = "{";
+    public static final String ASSIGN_DISPLAY_SEPARATOR = " = ";
+    public static final String OPEN_BRACE = "{";
     public static final String ELSE = "else";
     public static final String SKIP = "SKIP";
     public static final String ELSE_2 = "else{";
     public static final String ELSE_3 = "else {";
-    public static final String STR_6 = "}";
-    public static final String STR_7 = "!=";
-    public static final String STR_8 = ">=";
-    public static final String STR_9 = "<=";
-    public static final String STR_10 = ".";
+    public static final String CLOSE_BRACE = "}";
+    public static final String NEQ_OP = "!=";
+    public static final String GTE_OP = ">=";
+    public static final String LTE_OP = "<=";
     public static final String QUARTERPI = "quarterPI";
     public static final String PI = "pi";
     public static final String HALFPI = "halfpi";
     public static final String TAU = "TAU";
     public static final String E = "e";
     public static final String FRAGCOLOR = "FragColor";
-    public static final int NUM_4 = 4;
-    public static final double NUM_1e_6 = 1e-6;
-    public static final float NUM_4_2 = 4f;
-    public static final float NUM_2 = 2f;
-    public static final float NUM_2_0 = 2.0f;
-    public static final double NUM_0_5 = 0.5;
-    public static final float NUM_0 = 0f;
-    public static final double NUM_3_0 = 3.0;
-    public static final double NUM_2_0_2 = 2.0;
-    public static final int NUM_3 = 3;
+    public static final int VEC4_COMPONENTS = 4;
+    public static final int ELSE_LENGTH = 4;
+    public static final int INVALID_COMPONENT_INDEX = 4;
+    public static final double CONDITION_EPSILON = 1e-6;
+    public static final float QUARTER_PI_DIVISOR = 4f;
+    public static final float HALF_PI_DIVISOR = 2f;
+    public static final float TAU_MULTIPLIER = 2.0f;
+    public static final double ROUNDING_THRESHOLD = 0.5;
+    public static final double SMOOTHSTEP_C3 = 3.0;
+    public static final double SMOOTHSTEP_C2 = 2.0;
+    public static final int VEC3_COMPONENTS = 3;
+    public static final int MIN_UNIFORM_DECL_TOKENS = 3;
+    public static final int COMPONENT_W_INDEX = 3;
 
     public static final GLSLParseText MISSING = new GLSLParseText("?Missing?", Color.PINK, -1);
 
@@ -80,12 +82,12 @@ public class GLSLExpressionParser {
     public static GLSLParseText evaluateAndAssign(String line, Map<String, GLSLParseText> env) {
 
         String s = line;
-        int cidx = s.indexOf(STR);
+        int cidx = s.indexOf(COMMENT_MARKER);
         if (cidx >= 0) {
             s = s.substring(0, cidx);
         }
         s = s.trim();
-        if (s.endsWith(STR_2)) {
+        if (s.endsWith(STATEMENT_TERMINATOR)) {
             s = s.substring(0, s.length() - 1);
         }
         if (s.isEmpty()) {
@@ -102,7 +104,7 @@ public class GLSLExpressionParser {
         }
 
         String sl = s.toLowerCase();
-        if (s.contains(STR_3) || s.contains("?") || s.contains(":") || s.startsWith("#")
+        if (s.contains(EQ_OP) || s.contains("?") || s.contains(":") || s.startsWith("#")
                 || sl.startsWith(IN) || sl.startsWith(OUT) || sl.startsWith(UNIFORM)
                 || sl.startsWith("layout") || sl.startsWith(PRECISION) || sl.startsWith(VOID)
                 || sl.startsWith("struct ") || sl.startsWith("attribute ") || sl.startsWith("varying ")) {
@@ -203,7 +205,7 @@ public class GLSLExpressionParser {
             GLSLParseText out = GLSLParseText.BLANK;
 
             String s = original;
-            int cidx = s.indexOf(STR);
+            int cidx = s.indexOf(COMMENT_MARKER);
             if (cidx >= 0)
                 s = s.substring(0, cidx);
             String decl = s.trim();
@@ -244,7 +246,7 @@ public class GLSLExpressionParser {
 
                 boolean doExecThen = parentExec && thenExec;
                 GLSLParseText boolVal = new GLSLParseText(doExecThen ? TRUE : FALSE, Color.GLSL_BOOLEAN);
-                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(STR_4)).join(boolVal));
+                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(boolVal));
                 continue;
             }
 
@@ -265,7 +267,7 @@ public class GLSLExpressionParser {
                     awaitingElseExec = false;
                 }
                 GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, Color.GLSL_BOOLEAN);
-                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(STR_4)).join(boolVal));
+                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(boolVal));
                 continue;
             }
 
@@ -279,14 +281,14 @@ public class GLSLExpressionParser {
                 awaitingElseExec = false;
 
                 GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, Color.GLSL_BOOLEAN);
-                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(STR_4)).join(boolVal));
+                cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(boolVal));
                 continue;
             }
 
-            if (startsWithElse(decl) && !decl.endsWith(STR_5)) {
+            if (startsWithElse(decl) && !decl.endsWith(OPEN_BRACE)) {
                 boolean parentExec = execStack.get(execStack.size() - 1);
                 boolean doExec = awaitingElseExec && parentExec && (braceDepth == awaitingElseDepth);
-                String afterElse = decl.substring(decl.toLowerCase().indexOf(ELSE) + NUM_4).trim();
+                String afterElse = decl.substring(decl.toLowerCase().indexOf(ELSE) + ELSE_LENGTH).trim();
                 if (!afterElse.isEmpty() && afterElse.startsWith(IF)) {
                     IfHeaderPos posHdr = parseIfHeaderWithPos(afterElse);
                     boolean condVal = false;
@@ -296,10 +298,10 @@ public class GLSLExpressionParser {
                     boolean runThen = doExec && condVal;
                     if (runThen && posHdr != null) {
                         String thenStmt = afterElse.substring(posHdr.closeIndex + 1).trim();
-                        if (!thenStmt.isEmpty() && !thenStmt.startsWith(STR_5)) {
+                        if (!thenStmt.isEmpty() && !thenStmt.startsWith(OPEN_BRACE)) {
                             GLSLParseText res = evaluateAndAssign(thenStmt, env);
                             if (res != null) {
-                                out = commentStart(res).join(new GLSLParseText(STR_4)).join(res);
+                                out = commentStart(res).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(res);
                             }
                         } else {
                             out = GLSLParseText.BLANK;
@@ -313,20 +315,20 @@ public class GLSLExpressionParser {
                     GLSLParseText boolVal = new GLSLParseText(runThen ? TRUE : FALSE, Color.GLSL_BOOLEAN);
                     if (!runThen) {
                         GLSLParseText skip = new GLSLParseText(SKIP, Color.GLSL_SKIP);
-                        cachedSuffixes.set(i, commentStart(skip).join(new GLSLParseText(STR_4)).join(skip));
+                        cachedSuffixes.set(i, commentStart(skip).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(skip));
                     } else {
-                        cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(STR_4)).join(boolVal));
+                        cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(boolVal));
                     }
                     continue;
                 } else {
                     if (doExec && !afterElse.isEmpty()) {
                         GLSLParseText res = evaluateAndAssign(afterElse, env);
                         if (res != null) {
-                            out = commentStart(res).join(new GLSLParseText(STR_4)).join(res);
+                            out = commentStart(res).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(res);
                         }
                     } else if (!afterElse.isEmpty()) {
                         GLSLParseText skip = new GLSLParseText(SKIP, Color.GLSL_SKIP);
-                        out = commentStart(skip).join(new GLSLParseText(STR_4)).join(skip);
+                        out = commentStart(skip).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(skip);
                     } else {
                         out = GLSLParseText.BLANK;
                     }
@@ -343,18 +345,18 @@ public class GLSLExpressionParser {
                     if (name != null) {
                         GLSLParseText v = env.get(name);
                         if (v != null) {
-                            out = commentStart(v).join(new GLSLParseText(STR_4)).join(v);
+                            out = commentStart(v).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(v);
                         }
                     }
                 } else {
                     GLSLParseText res = evaluateAndAssign(decl, env);
                     if (res != null) {
-                        out = commentStart(res).join(new GLSLParseText(STR_4)).join(res);
+                        out = commentStart(res).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(res);
                     }
                 }
             } else if (!executing && !skipControlOnlyLine(decl)) {
                 GLSLParseText skip = new GLSLParseText(SKIP, Color.GLSL_SKIP);
-                out = commentStart(skip).join(new GLSLParseText(STR_4)).join(skip);
+                out = commentStart(skip).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(skip);
             } else {
                 out = GLSLParseText.BLANK;
             }
@@ -425,7 +427,7 @@ public class GLSLExpressionParser {
         if (s == null) {
             return "";
         }
-        int cidx = s.indexOf(STR);
+        int cidx = s.indexOf(COMMENT_MARKER);
         if (cidx >= 0) {
             s = s.substring(0, cidx);
         }
@@ -536,7 +538,7 @@ public class GLSLExpressionParser {
         String t = decl.trim();
         if (t.isEmpty())
             return true;
-        if (t.equals(STR_5) || t.equals(STR_6))
+        if (t.equals(OPEN_BRACE) || t.equals(CLOSE_BRACE))
             return true;
         if (t.equalsIgnoreCase(ELSE) || t.equalsIgnoreCase(ELSE_2) || t.equalsIgnoreCase(ELSE_3))
             return true;
@@ -548,11 +550,11 @@ public class GLSLExpressionParser {
     }
 
     private static GLSLParseText commentStart(GLSLParseText res) {
-        if (res.vectorLength == NUM_4) {
+        if (res.vectorLength == VEC4_COMPONENTS) {
             return new GLSLParseText(SpecialGlyphs.COLOR_TRACKER.getChar() + "",
                     new ColorRGB(res.data.x, res.data.y, res.data.z, res.data.w));
         } else {
-            return new GLSLParseText(STR);
+            return new GLSLParseText(COMMENT_MARKER);
         }
     }
 
@@ -590,7 +592,7 @@ public class GLSLExpressionParser {
         String elsePart = null;
         if (elseIdx >= 0) {
             thenPart = s.substring(thenStart, elseIdx).trim();
-            elsePart = s.substring(elseIdx + NUM_4).trim();
+            elsePart = s.substring(elseIdx + ELSE_LENGTH).trim();
         } else {
             thenPart = s.substring(thenStart).trim();
         }
@@ -634,13 +636,13 @@ public class GLSLExpressionParser {
                 double l = lv.data.x;
                 double r = rv.data.x;
                 switch (op) {
-                    case STR_3:
+                    case EQ_OP:
                         return l == r;
-                    case STR_7:
+                    case NEQ_OP:
                         return l != r;
-                    case STR_8:
+                    case GTE_OP:
                         return l >= r;
-                    case STR_9:
+                    case LTE_OP:
                         return l <= r;
                     case ">":
                         return l > r;
@@ -652,7 +654,7 @@ public class GLSLExpressionParser {
             } else {
 
                 GLSLParseText v = new GLSLExpressionParser(cond, env).parse();
-                return Math.abs(v.data.x) > NUM_1e_6;
+                return Math.abs(v.data.x) > CONDITION_EPSILON;
             }
         } catch (Exception ex) {
             return false;
@@ -691,7 +693,7 @@ public class GLSLExpressionParser {
                 continue;
             if (i + 1 < s.length()) {
                 String two = s.substring(i, i + 2);
-                if (two.equals(STR_3) || two.equals(STR_7) || two.equals(STR_8) || two.equals(STR_9)) {
+                if (two.equals(EQ_OP) || two.equals(NEQ_OP) || two.equals(GTE_OP) || two.equals(LTE_OP)) {
                     return new int[] { i, 2 };
                 }
             }
@@ -705,7 +707,7 @@ public class GLSLExpressionParser {
     private static int findTopLevelElse(String s, int start) {
         int depthParen = 0;
         int depthBrace = 0;
-        for (int i = start; i <= s.length() - NUM_4; i++) {
+        for (int i = start; i <= s.length() - ELSE_LENGTH; i++) {
             char c = s.charAt(i);
             if (c == '(')
                 depthParen++;
@@ -717,10 +719,10 @@ public class GLSLExpressionParser {
                 depthBrace--;
             if (depthParen == 0 && depthBrace == 0) {
 
-                if ((s.charAt(i) == 'e' || s.charAt(i) == 'E') && s.regionMatches(true, i, ELSE, 0, NUM_4)) {
+                if ((s.charAt(i) == 'e' || s.charAt(i) == 'E') && s.regionMatches(true, i, ELSE, 0, ELSE_LENGTH)) {
 
                     boolean beforeOk = (i == 0) || !Character.isLetterOrDigit(s.charAt(i - 1));
-                    int j = i + NUM_4;
+                    int j = i + ELSE_LENGTH;
                     boolean afterOk = (j >= s.length()) || !Character.isLetterOrDigit(s.charAt(j));
                     if (beforeOk && afterOk) {
                         return i;
@@ -735,10 +737,10 @@ public class GLSLExpressionParser {
         if (part == null)
             return null;
         String t = part.trim();
-        if (t.startsWith(STR_5) && t.endsWith(STR_6)) {
+        if (t.startsWith(OPEN_BRACE) && t.endsWith(CLOSE_BRACE)) {
             t = t.substring(1, t.length() - 1).trim();
         }
-        if (t.endsWith(STR_2)) {
+        if (t.endsWith(STATEMENT_TERMINATOR)) {
             t = t.substring(0, t.length() - 1).trim();
         }
         return t;
@@ -768,7 +770,7 @@ public class GLSLExpressionParser {
             return null;
         }
         String s = line;
-        int cidx = s.indexOf(STR);
+        int cidx = s.indexOf(COMMENT_MARKER);
         if (cidx >= 0) {
             s = s.substring(0, cidx);
         }
@@ -869,7 +871,7 @@ public class GLSLExpressionParser {
                     }
                     String sw = sb.toString();
                     if (sw.length() >= 1) {
-                        String name = ident + STR_10 + sw;
+                        String name = ident + "." + sw;
                         return resolveVar(name);
                     }
                 }
@@ -914,13 +916,13 @@ public class GLSLExpressionParser {
 
     private GLSLParseText resolveVar(String name) {
         if (QUARTERPI.equalsIgnoreCase(name))
-            return new GLSLParseText(QUARTERPI, (float) Math.PI / NUM_4_2);
+            return new GLSLParseText(QUARTERPI, (float) Math.PI / QUARTER_PI_DIVISOR);
         if (PI.equalsIgnoreCase(name))
             return new GLSLParseText(PI, (float) Math.PI);
         if (HALFPI.equalsIgnoreCase(name))
-            return new GLSLParseText(HALFPI, (float) Math.PI / NUM_2);
+            return new GLSLParseText(HALFPI, (float) Math.PI / HALF_PI_DIVISOR);
         if (TAU.equalsIgnoreCase(name))
-            return new GLSLParseText(TAU, (float) (Math.PI * NUM_2_0));
+            return new GLSLParseText(TAU, (float) (Math.PI * TAU_MULTIPLIER));
         if (E.equalsIgnoreCase(name))
             return new GLSLParseText(E, (float) Math.E);
 
@@ -929,7 +931,7 @@ public class GLSLExpressionParser {
             String base = name.substring(0, dotIdx);
             String sw = name.substring(dotIdx + 1);
             int vectorLength = sw.length();
-            float[] xyzw = new float[NUM_4];
+            float[] xyzw = new float[VEC4_COMPONENTS];
             if (isValidSwizzle(sw)) {
                 Vector4f org = env.get(base).getData();
                 for (int i = 0; i < vectorLength; i++) {
@@ -975,7 +977,7 @@ public class GLSLExpressionParser {
                     return 0.0;
                 }, a);
             case "round":
-                return applyOneArgFunc((x) -> x - (x.intValue()) < NUM_0_5 ? Math.floor(x) : Math.ceil(x), a);
+                return applyOneArgFunc((x) -> x - (x.intValue()) < ROUNDING_THRESHOLD ? Math.floor(x) : Math.ceil(x), a);
             case "min":
                 return applyTwoArgFunc(Math::min, a);
             case "mod":
@@ -993,7 +995,7 @@ public class GLSLExpressionParser {
 
                 GLSLParseText arg = a.get(0);
                 Vector4f v = arg.data;
-                Vector4f res = new Vector4f(v.x, NUM_0, NUM_0, NUM_0);
+                Vector4f res = new Vector4f(v.x, 0f, 0f, 0f);
                 return new GLSLParseText(s, res, 1, "");
             }
             case "smoothstep": {
@@ -1005,7 +1007,7 @@ public class GLSLExpressionParser {
                         t = 0.0;
                     if (t > 1.0)
                         t = 1.0;
-                    return t * t * (NUM_3_0 - NUM_2_0_2 * t);
+                    return t * t * (SMOOTHSTEP_C3 - SMOOTHSTEP_C2 * t);
                 }, a);
 
             }
@@ -1015,16 +1017,16 @@ public class GLSLExpressionParser {
             case "vec2":
                 return constructVecN(2, a);
             case "vec3":
-                return constructVecN(NUM_3, a);
+                return constructVecN(VEC3_COMPONENTS, a);
             case "vec4":
-                return constructVecN(NUM_4, a);
+                return constructVecN(VEC4_COMPONENTS, a);
             default:
                 return GLSLParseText.BLANK;
         }
     }
 
     private GLSLParseText constructVecN(int n, List<GLSLParseText> args) {
-        float[] out = new float[NUM_4];
+        float[] out = new float[VEC4_COMPONENTS];
         int filled = 0;
         for (int i = 0; i < args.size() && filled < n; i++) {
             GLSLParseText a = args.get(i);
@@ -1034,7 +1036,7 @@ public class GLSLExpressionParser {
             }
         }
         while (filled < n)
-            out[filled++] = NUM_0;
+            out[filled++] = 0f;
         Vector4f result = new Vector4f(out);
         return new GLSLParseText(s, result, n, "");
     }
@@ -1042,7 +1044,7 @@ public class GLSLExpressionParser {
     private GLSLParseText applyOneArgFunc(Function<Double, Double> func, List<GLSLParseText> a) {
         GLSLParseText arg = a.get(0);
         Vector4f data = arg.data;
-        float[] result = new float[NUM_4];
+        float[] result = new float[VEC4_COMPONENTS];
         for (int i = 0; i < arg.vectorLength; i++) {
             result[i] = func.apply((double) data.get(i)).floatValue();
         }
@@ -1058,7 +1060,7 @@ public class GLSLExpressionParser {
         int len = Math.max(lhs.vectorLength, rhs.vectorLength);
         if (len < 1)
             len = 1;
-        float[] result = new float[NUM_4];
+        float[] result = new float[VEC4_COMPONENTS];
         for (int i = 0; i < len; i++) {
             int li = Math.min(i, Math.max(0, lhs.vectorLength - 1));
             int ri = Math.min(i, Math.max(0, rhs.vectorLength - 1));
@@ -1074,13 +1076,13 @@ public class GLSLExpressionParser {
         Vector4f l = lhs.data;
         Vector4f r = rhs.data;
         int len = Math.max(lhs.vectorLength, rhs.vectorLength);
-        float sum = NUM_0;
+        float sum = 0f;
         for (int i = 0; i < len; i++) {
             int li = Math.min(i, Math.max(0, lhs.vectorLength - 1));
             int ri = Math.min(i, Math.max(0, rhs.vectorLength - 1));
             sum += func.apply((double) l.get(li), (double) r.get(ri)).floatValue();
         }
-        float[] result = new float[NUM_4];
+        float[] result = new float[VEC4_COMPONENTS];
         result[0] = sum;
         Vector4f resultVec = new Vector4f(result);
         return new GLSLParseText(s, resultVec, 1, "");
@@ -1093,7 +1095,7 @@ public class GLSLExpressionParser {
         Vector4f data2 = arg2.data;
         GLSLParseText arg3 = a.get(2);
         Vector4f data3 = arg3.data;
-        float[] result = new float[NUM_4];
+        float[] result = new float[VEC4_COMPONENTS];
         for (int i = 0; i < arg.vectorLength; i++) {
             result[i] = func.apply((double) data.get(i), (double) data2.get(i), (double) data3.get(i)).floatValue();
         }
@@ -1111,7 +1113,7 @@ public class GLSLExpressionParser {
         int len = Math.max(x.vectorLength, y.vectorLength);
         if (len < 1)
             len = 1;
-        float[] result = new float[NUM_4];
+        float[] result = new float[VEC4_COMPONENTS];
         for (int i = 0; i < len; i++) {
             int xi = Math.min(i, Math.max(0, x.vectorLength - 1));
             int yi = Math.min(i, Math.max(0, y.vectorLength - 1));
@@ -1134,7 +1136,7 @@ public class GLSLExpressionParser {
             result += Math.pow(data.get(i) - data2.get(i), 2);
         }
 
-        Vector4f resultVec = new Vector4f((float) Math.sqrt(result), NUM_0, NUM_0, NUM_0);
+        Vector4f resultVec = new Vector4f((float) Math.sqrt(result), 0f, 0f, 0f);
         return new GLSLParseText(s, resultVec, 1, "");
     }
 
@@ -1174,7 +1176,7 @@ public class GLSLExpressionParser {
             int semi = decl.indexOf(';');
             String s = semi >= 0 ? decl.substring(0, semi) : decl;
             String[] parts = s.split("\\s+");
-            if (parts.length >= NUM_3) {
+            if (parts.length >= MIN_UNIFORM_DECL_TOKENS) {
                 String cand = parts[2];
 
                 cand = cand.replaceAll("[;,]", "");
@@ -1200,7 +1202,7 @@ public class GLSLExpressionParser {
                 String base = t.substring(0, dot).trim();
                 String sw = t.substring(dot + 1).trim();
                 for (int i = 0; i < sw.length(); i++) {
-                    expanded.add(base + STR_10 + sw.charAt(i));
+                    expanded.add(base + "." + sw.charAt(i));
                 }
             } else {
                 expanded.add(t);
@@ -1266,7 +1268,7 @@ public class GLSLExpressionParser {
     }
 
     private static boolean isValidSwizzle(String sw) {
-        if (sw == null || sw.isEmpty() || sw.length() > NUM_4)
+        if (sw == null || sw.isEmpty() || sw.length() > VEC4_COMPONENTS)
             return false;
         for (int i = 0; i < sw.length(); i++) {
             char c = sw.charAt(i);
@@ -1305,9 +1307,9 @@ public class GLSLExpressionParser {
                 return 2;
             case 'w':
             case 'a':
-                return NUM_3;
+                return COMPONENT_W_INDEX;
             default:
-                return NUM_4;
+                return INVALID_COMPONENT_INDEX;
         }
     }
 
@@ -1350,7 +1352,7 @@ public class GLSLExpressionParser {
         String s = line.trim();
         if (s.isEmpty())
             return false;
-        if (s.startsWith(STR))
+        if (s.startsWith(COMMENT_MARKER))
             return false;
         if (s.startsWith(UNIFORM))
             return false;
@@ -1370,7 +1372,7 @@ public class GLSLExpressionParser {
             return false;
         if (eq + 1 < s.length() && s.charAt(eq + 1) == '=')
             return false;
-        if (!s.endsWith(STR_2))
+        if (!s.endsWith(STATEMENT_TERMINATOR))
             return false;
         return true;
     }

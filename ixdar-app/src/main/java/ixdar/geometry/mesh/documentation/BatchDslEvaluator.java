@@ -57,15 +57,12 @@ public final class BatchDslEvaluator {
     public static final String AVGERROR = "avgError";
     public static final String JOINTS = "joints";
     public static final String IMPROVEMENT = "improvement";
-    public static final int NUM_3 = 3;
-    public static final int NUM_128 = 128;
-    public static final int NUM_10 = 10;
-    public static final int NUM_95 = 95;
-    public static final int NUM_4 = 4;
-    public static final double NUM_10_0 = 10.0;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_1e_8 = 1e-8f;
+    public static final int MIN_ARGS = 3;
+    public static final int DEFAULT_RESOLUTION = 128;
+    public static final int DEFAULT_MAX_ITERS = 10;
+    public static final int DEFAULT_TARGET_SCORE = 95;
+    public static final double ROUND_TO_ONE_DECIMAL = 10.0;
+    public static final float DIAGONAL_EPSILON = 1e-8f;
 
     /** Function definitions from the parsed DSL (set during main). */
     private static Map<String, PythonParser.FunctionDef> batchFuncDefs = Map.of();
@@ -103,32 +100,32 @@ public final class BatchDslEvaluator {
         switch (args[1]) {
             case "--discover" -> discover(parsed, registry);
             case "--skeleton-sensitivity" -> {
-                if (args.length < NUM_3) {
+                if (args.length < MIN_ARGS) {
                     System.err.println("skeleton-sensitivity requires: <dsl-path> --skeleton-sensitivity <ref-obj> [--resolution N] [--epsilon F]");
                     System.exit(2);
                 }
                 String refObj = args[2];
-                int resolution = intFlag(args, RESOLUTION, NUM_128);
+                int resolution = intFlag(args, RESOLUTION, DEFAULT_RESOLUTION);
                 float epsilon = floatFlag(args, "--epsilon", 0);
                 skeletonSensitivity(parsed, refObj, resolution, epsilon);
             }
             case "--skeleton-optimize" -> {
-                if (args.length < NUM_3) {
+                if (args.length < MIN_ARGS) {
                     System.err.println("skeleton-optimize requires: <dsl-path> --skeleton-optimize <ref-obj> [--resolution N] [--max-iters N] [--target-score F]");
                     System.exit(2);
                 }
                 String refObj = args[2];
-                int resolution = intFlag(args, RESOLUTION, NUM_128);
-                int maxIters = intFlag(args, "--max-iters", NUM_10);
-                float targetScore = floatFlag(args, "--target-score", NUM_95);
+                int resolution = intFlag(args, RESOLUTION, DEFAULT_RESOLUTION);
+                int maxIters = intFlag(args, "--max-iters", DEFAULT_MAX_ITERS);
+                float targetScore = floatFlag(args, "--target-score", DEFAULT_TARGET_SCORE);
                 skeletonOptimize(parsed, refObj, resolution, maxIters, targetScore);
             }
             default -> {
-                if (args.length < NUM_3) {
+                if (args.length < MIN_ARGS) {
                     System.err.println("Batch mode requires: <dsl-path> <output-dir> <params-json> [ref-obj]");
                     System.exit(2);
                 }
-                String refObjPath = (args.length >= NUM_4 && !"unused".equals(args[NUM_3])) ? args[NUM_3] : null;
+                String refObjPath = (args.length >= 4 && !"unused".equals(args[3])) ? args[3] : null;
                 batch(parsed, registry, Path.of(args[1]), Path.of(args[2]), refObjPath);
             }
         }
@@ -253,7 +250,7 @@ public final class BatchDslEvaluator {
                         normalizeArrayMesh(genArrayMesh);
                         MeshDistance.MeshMetrics metrics = MeshDistance.computeAllMetrics(
                                 genArrayMesh, normalizedRefMesh, 1.0f);
-                        row.put("similarity", Math.round(metrics.similarityScore * NUM_10_0) / NUM_10_0);
+                        row.put("similarity", Math.round(metrics.similarityScore * ROUND_TO_ONE_DECIMAL) / ROUND_TO_ONE_DECIMAL);
                         row.put("hausdorff", metrics.hausdorffDistance);
                         row.put("chamfer", metrics.chamferDistance);
                     } else {
@@ -304,7 +301,7 @@ public final class BatchDslEvaluator {
             pm.put(NAME, p.displayName());
             pm.put(DEFAULT, p.defaultValue());
             pm.put("literal", p.isLiteral());
-            pm.put("suggestedDelta", result.suggestedDeltas().getOrDefault(p.overrideKey(), NUM_0));
+            pm.put("suggestedDelta", result.suggestedDeltas().getOrDefault(p.overrideKey(), 0f));
             float totalSens = 0;
             for (int ji = 0; ji < result.jointIndices().size(); ji++) {
                 float[] j = result.jacobian3D()[ji][pi];
@@ -319,7 +316,7 @@ public final class BatchDslEvaluator {
         Map<String, Object> suggestedValues = new LinkedHashMap<>();
         for (OptimizableParameter p : result.parameters()) {
             float base = p.defaultValue();
-            float delta = result.suggestedDeltas().getOrDefault(p.overrideKey(), NUM_0);
+            float delta = result.suggestedDeltas().getOrDefault(p.overrideKey(), 0f);
             suggestedValues.put(p.overrideKey(), base + delta);
         }
         output.put("suggestedValues", suggestedValues);
@@ -426,20 +423,20 @@ public final class BatchDslEvaluator {
         float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
         float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
         for (int i = 0; i < n; i++) {
-            int o = i * NUM_3;
+            int o = i * 3;
             if (pos[o] < minX) minX = pos[o];     if (pos[o] > maxX) maxX = pos[o];
             if (pos[o+1] < minY) minY = pos[o+1]; if (pos[o+1] > maxY) maxY = pos[o+1];
             if (pos[o+2] < minZ) minZ = pos[o+2]; if (pos[o+2] > maxZ) maxZ = pos[o+2];
         }
-        float cx = (minX + maxX) * NUM_0_5, cy = (minY + maxY) * NUM_0_5, cz = (minZ + maxZ) * NUM_0_5;
+        float cx = (minX + maxX) * 0.5f, cy = (minY + maxY) * 0.5f, cz = (minZ + maxZ) * 0.5f;
         float dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
         float diagonal = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        float invDiag = diagonal > NUM_1e_8 ? 1.0f / diagonal : 1.0f;
+        float invDiag = diagonal > DIAGONAL_EPSILON ? 1.0f / diagonal : 1.0f;
         for (int i = 0; i < n; i++) {
             mesh.setVertexPosition(i,
-                    (pos[i * NUM_3] - cx) * invDiag,
-                    (pos[i * NUM_3 + 1] - cy) * invDiag,
-                    (pos[i * NUM_3 + 2] - cz) * invDiag);
+                    (pos[i * 3] - cx) * invDiag,
+                    (pos[i * 3 + 1] - cy) * invDiag,
+                    (pos[i * 3 + 2] - cz) * invDiag);
         }
     }
 

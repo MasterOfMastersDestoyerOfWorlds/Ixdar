@@ -18,7 +18,6 @@ import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
  */
 public final class EjmlCholeskyFactor implements FactorizedSystem {
 
-    /** Backend name carried by the singular-system failures this factor raises. */
     public static final String BACKEND_NAME = "EJML";
 
     public final LinearSolverSparse<DMatrixSparseCSC, DMatrixRMaj> solver;

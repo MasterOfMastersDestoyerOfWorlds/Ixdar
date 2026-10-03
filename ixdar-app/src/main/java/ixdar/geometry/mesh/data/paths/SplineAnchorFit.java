@@ -10,16 +10,12 @@ package ixdar.geometry.mesh.data.paths;
  */
 public final class SplineAnchorFit {
 
-    /** Coordinates per point in every packed position here. */
     public static final int COORDINATES_PER_POINT = 3;
 
-    /** Anchors the fit starts from, spread evenly by arc length. */
     public static final int STARTING_ANCHORS = 4;
 
-    /** Anchors the fit will not go past, however far the spline still sits from the loop. */
     public static final int DEFAULT_MAXIMUM_ANCHORS = 24;
 
-    /** Fraction of the loop's mean radius the tolerance takes when the mesh is fine. */
     public static final double DEFAULT_RADIUS_FRACTION = 0.05;
 
     /** Tracer the fit drives; its anchors are the fit's output. */

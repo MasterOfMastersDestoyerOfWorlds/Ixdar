@@ -22,8 +22,9 @@ public class Screenshot extends AutomationEndpoint implements AutomationRoute {
     public static final String INLINE = "inline";
     public static final String CROP = "crop";
     public static final String SCALE = "scale";
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
+    public static final int CROP_HEIGHT_INDEX = 3;
+    public static final int CROP_FIELD_COUNT = 4;
+    public static final int RGBA_BYTES_PER_PIXEL = 4;
 
     @Override
     public JsonObject endpointHandler(JsonObject body)
@@ -44,7 +45,7 @@ public class Screenshot extends AutomationEndpoint implements AutomationRoute {
                     height,
                     Platforms.gl().RGBA(),
                     Platforms.gl().UNSIGNED_BYTE(),
-                    width * height * NUM_4);
+                    width * height * RGBA_BYTES_PER_PIXEL);
             PixelImage image = new PixelImage(width, height);
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
@@ -101,13 +102,13 @@ public class Screenshot extends AutomationEndpoint implements AutomationRoute {
     private PixelImage cropAndScale(PixelImage image, String crop, int scale) {
         PixelImage region = image;
         String[] fields = crop == null ? new String[0] : crop.trim().split("\\s*,\\s*");
-        if (fields.length == NUM_4) {
+        if (fields.length == CROP_FIELD_COUNT) {
             try {
                 region = image.region(
                         Integer.parseInt(fields[0]),
                         Integer.parseInt(fields[1]),
                         Integer.parseInt(fields[2]),
-                        Integer.parseInt(fields[NUM_3]));
+                        Integer.parseInt(fields[CROP_HEIGHT_INDEX]));
             } catch (NumberFormatException notNumbers) {
                 region = image;
             }

@@ -9,10 +9,10 @@ import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 
 public class SDFCircle extends ShaderDrawable {
     public static final String POINTA = "pointA";
-    public static final float NUM_0_15 = 0.15f;
-    public static final int NUM_20 = 20;
-    public static final float NUM_0_35 = 0.35f;
-    public static final int NUM_8 = 8;
+    public static final float DEFAULT_BORDER_THICKNESS = 0.15f;
+    public static final int BORDER_SPIN_RATE = 20;
+    public static final float DEFAULT_EDGE_DIST = 0.35f;
+    public static final int EDGE_SHARPNESS_SCALE = 8;
 
     private float borderThickness;
     private Vector2f pA;
@@ -23,7 +23,7 @@ public class SDFCircle extends ShaderDrawable {
      */
     public SDFCircle() {
         shader = ShaderType.CircleSDF.getShader();
-        this.borderThickness = NUM_0_15;
+        this.borderThickness = DEFAULT_BORDER_THICKNESS;
     }
 
     /**
@@ -59,10 +59,10 @@ public class SDFCircle extends ShaderDrawable {
         shader.setFloat("borderThickness", borderThickness);
         shader.setVec4("borderColor", c.toVector4f());
         shader.setVec2(POINTA, pA);
-        shader.setFloat("phase", Clock.spin(NUM_20));
-        float edgeDist = NUM_0_35;
+        shader.setFloat("phase", Clock.spin(BORDER_SPIN_RATE));
+        float edgeDist = DEFAULT_EDGE_DIST;
         shader.setFloat("edgeDist", edgeDist);
-        shader.setFloat("edgeSharpness", edgeDist / (NUM_8 * edgeDist * camera.getScaleFactor()));
+        shader.setFloat("edgeSharpness", edgeDist / (EDGE_SHARPNESS_SCALE * edgeDist * camera.getScaleFactor()));
 
         shader.setVec2(POINTA, pA);
         shader.setFloat("width", width);

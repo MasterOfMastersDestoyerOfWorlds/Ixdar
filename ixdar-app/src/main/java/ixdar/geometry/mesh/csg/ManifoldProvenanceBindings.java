@@ -18,10 +18,8 @@ import com.cadoodlecad.manifold.ManifoldBindings;
  */
 public final class ManifoldProvenanceBindings {
 
-    /** Bytes in a {@code uint64_t} or {@code double} table entry. */
     public static final long EIGHT_BYTES = 8;
 
-    /** Bytes in a {@code uint32_t} table entry. */
     public static final long FOUR_BYTES = 4;
 
     /** Bytes one {@code ManifoldManifold} occupies, for arena-owned solids. */

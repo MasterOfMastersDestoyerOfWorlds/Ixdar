@@ -12,9 +12,6 @@ import ixdar.geometry.mesh.nodes.api.Vector3Field;
  * dimensions.
  */
 public final class PlayerSpawner {
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_0 = 0f;
-
     private PlayerSpawner() {
     }
 
@@ -44,9 +41,9 @@ public final class PlayerSpawner {
         }
         Vector3f start = rooms.vertexPosition(rooms.vertexIdAt(0), new Vector3f());
         // World offsets — must mirror GridToMesh3D's centering.
-        float offsetX = -gridW * cellSize * NUM_0_5;
-        float offsetY = -gridH * cellSize * NUM_0_5;
-        float offsetZ = -gridD * cellSize * NUM_0_5;
+        float offsetX = -gridW * cellSize * 0.5f;
+        float offsetY = -gridH * cellSize * 0.5f;
+        float offsetZ = -gridD * cellSize * 0.5f;
         // Room center in grid units -> world.
         float wx = offsetX + start.x * cellSize;
         float wz = offsetZ + start.z * cellSize;
@@ -54,7 +51,7 @@ public final class PlayerSpawner {
         float wy = floorY + (halfHeight + radius);
 
         // Yaw toward room[1] if there is one, otherwise face +X (yaw = 0).
-        float yawDeg = NUM_0;
+        float yawDeg = 0f;
         if (rooms.vertexCount() >= 2) {
             Vector3f target = rooms.vertexPosition(rooms.vertexIdAt(1), new Vector3f());
             float tx = offsetX + target.x * cellSize;
@@ -64,6 +61,6 @@ public final class PlayerSpawner {
             // Camera3D yaw convention: forward = (cos yaw, _, sin yaw). atan2(dz, dx) gives yaw in radians.
             yawDeg = (float) Math.toDegrees(Math.atan2(dz, dx));
         }
-        return new SpawnPoint(new Vector3f(wx, wy, wz), yawDeg, NUM_0);
+        return new SpawnPoint(new Vector3f(wx, wy, wz), yawDeg, 0f);
     }
 }

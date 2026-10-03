@@ -31,7 +31,6 @@ import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 public class BridgeEdgeLoopsNode implements MeshNode {
     public static final String BRIDGE_EDGE_LOOPS_TAG = "bridge_edge_loops: tag '";
     public static final String NOT_FOUND = "' not found";
-    public static final String STR = "=";
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort LOOP_A_TAG = new InputPort("loop_a_tag", PortType.STRING, "");
@@ -112,7 +111,7 @@ public class BridgeEdgeLoopsNode implements MeshNode {
 
         if (loopA.size() != loopB.size()) {
             throw new IllegalArgumentException("bridge_edge_loops: loops must have same vertex count. "
-                    + tagA + STR + loopA.size() + ", " + tagB + STR + loopB.size());
+                    + tagA + "=" + loopA.size() + ", " + tagB + "=" + loopB.size());
         }
 
         // Apply twist to loop B alignment

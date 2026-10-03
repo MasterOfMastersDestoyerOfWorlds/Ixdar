@@ -23,42 +23,21 @@ import ixdar.geometry.mesh.quadlayout.solver.matrix.CompressedSparseRowArrays;
  */
 public final class PardisoCholesky implements FactorizedSystem {
 
-    /** PARDISO mtype for a real symmetric positive definite matrix. */
     public static final int MTYPE_REAL_SPD = 2;
-    /** PARDISO phase releasing all internal memory for a handle. */
     public static final int PHASE_RELEASE_ALL = -1;
-    /** PARDISO phase running analysis + numerical factorization together. */
     public static final int PHASE_ANALYZE_AND_FACTOR = 12;
-    /** PARDISO phase recomputing the numeric factor with the existing analysis. */
     public static final int PHASE_FACTOR_ONLY = 22;
-    /** PARDISO phase solving with the existing factor. */
     public static final int PHASE_SOLVE = 33;
-    /** Slot count of the opaque PARDISO handle ({@code void *pt[64]}). */
     public static final int HANDLE_SLOT_COUNT = 64;
-    /** Length of the PARDISO iparm parameter array. */
     public static final int IPARM_LENGTH = 64;
-    /** iparm index (0-based) of the user-permutation switch. */
     public static final int IPARM_INDEX_USER_PERMUTATION = 4;
-    /** iparm index (0-based) of the zero-based-indexing switch. */
     public static final int IPARM_INDEX_ZERO_BASED_INDEXING = 34;
-    /**
-     * iparm index (0-based) of the maximum iterative-refinement step count. Set to
-     * zero here: the systems this backend serves are clean SPD with no pivot
-     * perturbation, so MKL's default refinement steps are pure overhead.
-     */
     public static final int IPARM_INDEX_MAX_REFINEMENT_STEPS = 7;
 
-    /**
-     * iparm index (0-based) of the equation where PARDISO detected a zero or negative pivot,
-     * documented as {@code iparm(30)}. MKL calls it an equation number in the factored ordering,
-     * not an array index, so the reported value is passed through unadjusted.
-     */
     public static final int IPARM_INDEX_ZERO_PIVOT_EQUATION = 29;
 
-    /** PARDISO error code for a zero pivot: the matrix is singular, not merely ill-conditioned. */
     public static final int ERROR_ZERO_PIVOT = -4;
 
-    /** Backend name carried by the singular-system failures this factor raises. */
     public static final String BACKEND_NAME = "PARDISO";
 
     private static final Cleaner CLEANER = Cleaner.create();

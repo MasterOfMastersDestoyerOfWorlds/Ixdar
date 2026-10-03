@@ -19,7 +19,7 @@ import ixdar.graphics.render.sdf.SDFLine;
  * player.
  */
 public class CityNetwork {
-    public static final float NUM_50 = 50f;
+    public static final float BOUNDS_MARGIN = 50f;
 
     public ArrayList<City> cities;
     public ArrayList<Road> roads;
@@ -295,7 +295,7 @@ public class CityNetwork {
                 maxX = Math.max(maxX, city.getX());
                 maxY = Math.max(maxY, city.getY());
             }
-            float margin = NUM_50;
+            float margin = BOUNDS_MARGIN;
             shell.add(new PointND.Float(minX - margin, minY - margin));
             shell.add(new PointND.Float(maxX + margin, maxY + margin));
         }

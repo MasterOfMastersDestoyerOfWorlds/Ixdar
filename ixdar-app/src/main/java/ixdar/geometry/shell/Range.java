@@ -4,7 +4,7 @@ import ixdar.common.exceptions.TerminalParseException;
 import ixdar.geometry.point.PointND;
 
 public class Range {
-    public static final String STR = "-";
+    public static final String RANGE_SEPARATOR = "-";
     public static final String FIRST_HALF_OF_RANGE_IS_NOT_AN_INTEGER = "first half of range is not an integer";
     public int startIdx;
     public int endIdx;
@@ -39,8 +39,8 @@ public class Range {
      * @return the parsed range
      */
     public static Range parse(String arg) throws TerminalParseException {
-        if (arg.contains(STR)) {
-            String[] parts = arg.split(STR);
+        if (arg.contains(RANGE_SEPARATOR)) {
+            String[] parts = arg.split(RANGE_SEPARATOR);
             if (parts.length != 2) {
                 throw new TerminalParseException("more than one dash in range");
             }
@@ -77,7 +77,7 @@ public class Range {
     @Override
     public String toString() {
         if (startIdx != endIdx) {
-            return startIdx + STR + endIdx;
+            return startIdx + RANGE_SEPARATOR + endIdx;
         }
         return startIdx + "";
     }

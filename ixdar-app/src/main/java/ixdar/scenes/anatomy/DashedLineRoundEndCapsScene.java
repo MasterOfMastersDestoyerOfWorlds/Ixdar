@@ -10,10 +10,10 @@ import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "dashed-line-round-end-caps-canvas")
 public class DashedLineRoundEndCapsScene extends Scene {
-    public static final double NUM_0_8 = 0.8;
-    public static final float NUM_7_5 = 7.5f;
-    public static final float NUM_0_2 = 0.2f;
-    public static final float NUM_10 = 10f;
+    public static final double ENDPOINT_OFFSET = 0.8;
+    public static final float STROKE_WIDTH_SCALE = 7.5f;
+    public static final float DASH_LENGTH = 0.2f;
+    public static final float END_CAP_SIZE = 10f;
     public PointND point2;
     public PointND point1;
 
@@ -34,8 +34,8 @@ public class DashedLineRoundEndCapsScene extends Scene {
     @Override
     public void initPoints() {
         super.initPoints();
-        point1 = new PointND.Double(-NUM_0_8, -NUM_0_8);
-        point2 = new PointND.Double(NUM_0_8, NUM_0_8);
+        point1 = new PointND.Double(-ENDPOINT_OFFSET, -ENDPOINT_OFFSET);
+        point2 = new PointND.Double(ENDPOINT_OFFSET, ENDPOINT_OFFSET);
         shell.add(point1);
         shell.add(point2);
     }
@@ -50,7 +50,7 @@ public class DashedLineRoundEndCapsScene extends Scene {
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        lineSegment.setStroke(NUM_7_5 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, NUM_0_2, NUM_10, false, true, false, camera2D);
+        lineSegment.setStroke(STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, DASH_LENGTH, END_CAP_SIZE, false, true, false, camera2D);
 
     }
 
@@ -61,7 +61,7 @@ public class DashedLineRoundEndCapsScene extends Scene {
     @Override
     public void drawScene() {
         super.drawScene();
-        lineSegment.setStroke(NUM_7_5 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, NUM_0_2, NUM_10, false, true, false, camera2D);
+        lineSegment.setStroke(STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, DASH_LENGTH, END_CAP_SIZE, false, true, false, camera2D);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);

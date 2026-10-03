@@ -9,14 +9,8 @@ import org.joml.Vector3f;
  * points P₁ and P₂ minimise Σ‖Pᵢ − B(tᵢ)‖² over the chord-length parameterisation.
  */
 public final class BezierFit {
-    public static final int NUM_3 = 3;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1e_20 = 1e-20f;
-    public static final float NUM_1 = 1f;
-    public static final double NUM_3_0 = 3.0;
-    public static final double NUM_1e_20_2 = 1e-20;
-    public static final float NUM_3_2 = 3f;
-    public static final float NUM_2 = 2f;
+    public static final float EPSILON = 1e-20f;
+    public static final double DET_EPSILON = 1e-20;
 
     private BezierFit() {}
 
@@ -37,7 +31,7 @@ public final class BezierFit {
         Vector3f p0 = point(indices[0], positions);
         Vector3f p3 = point(indices[n - 1], positions);
         out[0] = new Vector3f(p0);
-        out[NUM_3] = new Vector3f(p3);
+        out[3] = new Vector3f(p3);
 
         if (n == 1) {
             out[1].set(p0);
@@ -47,21 +41,21 @@ public final class BezierFit {
 
         // Chord-length parameterisation.
         float[] t = new float[n];
-        float total = NUM_0;
+        float total = 0f;
         for (int i = 1; i < n; i++) {
             Vector3f a = point(indices[i - 1], positions);
             Vector3f b = point(indices[i], positions);
             total += a.distance(b);
             t[i] = total;
         }
-        if (total < NUM_1e_20) {
+        if (total < EPSILON) {
             // All points coincide — straight-line Bezier is the only sensible answer.
             out[1].set(p0);
             out[2].set(p3);
             return out;
         }
         for (int i = 1; i < n; i++) t[i] /= total;
-        t[n - 1] = NUM_1;
+        t[n - 1] = 1f;
 
         // Build 2×2 normal-equation system per axis. Bernstein basis:
         //   A₀(t) = (1-t)³    A₁(t) = 3(1-t)²t
@@ -76,8 +70,8 @@ public final class BezierFit {
             double ti = t[i];
             double omt = 1.0 - ti;
             double a0 = omt * omt * omt;
-            double a1 = NUM_3_0 * omt * omt * ti;
-            double a2 = NUM_3_0 * omt * ti * ti;
+            double a1 = 3.0 * omt * omt * ti;
+            double a2 = 3.0 * omt * ti * ti;
             double a3 = ti * ti * ti;
             m00 += a1 * a1;
             m01 += a1 * a2;
@@ -91,11 +85,11 @@ public final class BezierFit {
             bz0 += a1 * rz; bz1 += a2 * rz;
         }
         double det = m00 * m11 - m01 * m01;
-        if (Math.abs(det) < NUM_1e_20_2) {
+        if (Math.abs(det) < DET_EPSILON) {
             // Fallback: interpolate control points along the chord — happens
             // when the polyline is too short (≤3 points) so the system rank-deficits.
-            out[1].set(p0).lerp(p3, NUM_1 / NUM_3_2);
-            out[2].set(p0).lerp(p3, NUM_2 / NUM_3_2);
+            out[1].set(p0).lerp(p3, 1f / 3f);
+            out[2].set(p0).lerp(p3, 2f / 3f);
             return out;
         }
         double invDet = 1.0 / det;
@@ -117,19 +111,19 @@ public final class BezierFit {
      * @return {@code out} for chaining
      */
     public static Vector3f eval(Vector3f[] ctl, float t, Vector3f out) {
-        float omt = NUM_1 - t;
+        float omt = 1f - t;
         float a0 = omt * omt * omt;
-        float a1 = NUM_3_2 * omt * omt * t;
-        float a2 = NUM_3_2 * omt * t * t;
+        float a1 = 3f * omt * omt * t;
+        float a2 = 3f * omt * t * t;
         float a3 = t * t * t;
         out.set(
-                a0 * ctl[0].x + a1 * ctl[1].x + a2 * ctl[2].x + a3 * ctl[NUM_3].x,
-                a0 * ctl[0].y + a1 * ctl[1].y + a2 * ctl[2].y + a3 * ctl[NUM_3].y,
-                a0 * ctl[0].z + a1 * ctl[1].z + a2 * ctl[2].z + a3 * ctl[NUM_3].z);
+                a0 * ctl[0].x + a1 * ctl[1].x + a2 * ctl[2].x + a3 * ctl[3].x,
+                a0 * ctl[0].y + a1 * ctl[1].y + a2 * ctl[2].y + a3 * ctl[3].y,
+                a0 * ctl[0].z + a1 * ctl[1].z + a2 * ctl[2].z + a3 * ctl[3].z);
         return out;
     }
 
     private static Vector3f point(int idx, float[] positions) {
-        return new Vector3f(positions[idx * NUM_3], positions[idx * NUM_3 + 1], positions[idx * NUM_3 + 2]);
+        return new Vector3f(positions[idx * 3], positions[idx * 3 + 1], positions[idx * 3 + 2]);
     }
 }

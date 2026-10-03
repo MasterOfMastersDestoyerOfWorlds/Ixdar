@@ -7,8 +7,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 
 public class LightShader extends ShaderProgram {
-    public static final int NUM_8 = 8;
-    public static final int NUM_3 = 3;
+    public static final int VERTEX_STRIDE_FLOATS = 8;
 
 
     /**
@@ -22,7 +21,7 @@ public class LightShader extends ShaderProgram {
      */
     public LightShader(VertexArrayObject vao,
             VertexBufferObject vbo) throws UnsupportedEncodingException, IOException {
-        super("light_shader.vs", "light_shader.fs", vao, vbo, NUM_8, false);
+        super("light_shader.vs", "light_shader.fs", vao, vbo, VERTEX_STRIDE_FLOATS, false);
     }
 
     /**
@@ -35,7 +34,7 @@ public class LightShader extends ShaderProgram {
         super.init();
         vao.bind();
         vbo.bind(gl.ARRAY_BUFFER());
-        gl.vertexAttribPointer(0, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, 0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT(), false, VERTEX_STRIDE_FLOATS * Float.BYTES, 0);
         gl.enableVertexAttribArray(0);
     }
 

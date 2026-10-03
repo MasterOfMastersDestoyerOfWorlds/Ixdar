@@ -11,7 +11,6 @@ import java.util.Arrays;
  */
 public final class SparseConstraintRows {
 
-    /** Initial entry capacity, grown by doubling. */
     private static final int INITIAL_ENTRY_CAPACITY = 16;
 
     /** Number of finished rows. */

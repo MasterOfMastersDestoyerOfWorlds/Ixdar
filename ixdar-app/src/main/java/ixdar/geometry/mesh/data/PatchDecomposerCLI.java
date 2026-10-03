@@ -32,20 +32,10 @@ public final class PatchDecomposerCLI {
     public static final String VERTEX_COUNT = "vertex_count";
     public static final String P = "p";
     public static final String N = "\n";
-    public static final int NUM_128 = 128;
-    public static final int NUM_3 = 3;
-    public static final int NUM_6 = 6;
-    public static final int NUM_10 = 10;
-    public static final int NUM_25 = 25;
-    public static final int NUM_50 = 50;
-    public static final int NUM_75 = 75;
-    public static final int NUM_90 = 90;
-    public static final int NUM_95 = 95;
-    public static final int NUM_99 = 99;
-    public static final double NUM_100_0 = 100.0;
-    public static final float NUM_1e_20 = 1e-20f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1 = 1f;
+    public static final int DEFAULT_RESOLUTION = 128;
+    public static final int DEFAULT_CLUSTER_COUNT = 6;
+    public static final double PERCENT_SCALE = 100.0;
+    public static final float EPSILON = 1e-20f;
 
     private PatchDecomposerCLI() {}
 
@@ -84,17 +74,17 @@ public final class PatchDecomposerCLI {
     private static void decompose(String[] args) throws Exception {
         if (args.length < 2) throw new IllegalArgumentException("decompose requires <obj_path>");
         String path = args[1];
-        int resolution = args.length > 2 ? Integer.parseInt(args[2]) : NUM_128;
+        int resolution = args.length > 2 ? Integer.parseInt(args[2]) : DEFAULT_RESOLUTION;
         ArrayMesh mesh = MeshLoader.load(path);
         PatchDecomposition d = SemanticPatchDecomposer.decompose(mesh, resolution);
         System.out.println(decompositionToJson(d));
     }
 
     private static void segment(String[] args) throws Exception {
-        if (args.length < NUM_3) throw new IllegalArgumentException("segment requires <method> <obj_path>");
+        if (args.length < 3) throw new IllegalArgumentException("segment requires <method> <obj_path>");
         String method = args[1];
         String path = args[2];
-        int nClusters = args.length > NUM_3 ? Integer.parseInt(args[NUM_3]) : NUM_6;
+        int nClusters = args.length > 3 ? Integer.parseInt(args[3]) : DEFAULT_CLUSTER_COUNT;
         ArrayMesh mesh = MeshLoader.load(path);
         Map<String, int[]> tags = switch (method) {
             case "components" -> MeshSegmenter.segmentComponents(mesh);
@@ -158,10 +148,10 @@ public final class PatchDecomposerCLI {
         res.addProperty("edge_count", n);
         res.addProperty("dihedral_min_rad", ds[0]);
         res.addProperty("dihedral_max_rad", ds[n - 1]);
-        int[] pcts = {NUM_10, NUM_25, NUM_50, NUM_75, NUM_90, NUM_95, NUM_99};
+        int[] pcts = {10, 25, 50, 75, 90, 95, 99};
         JsonObject pct = new JsonObject();
         for (int p : pcts) {
-            pct.addProperty(P + p, ds[Math.min(n - 1, (int) (n * (p / NUM_100_0)))]);
+            pct.addProperty(P + p, ds[Math.min(n - 1, (int) (n * (p / PERCENT_SCALE)))]);
         }
         res.add("dihedral_percentiles_rad", pct);
         // Angle-defect: approximate per-vertex Gaussian curvature.
@@ -169,11 +159,11 @@ public final class PatchDecomposerCLI {
         Arrays.fill(defect, (float) (2 * Math.PI));
         int[] faceIdx = mesh.copyFaceIndices();
         float[] positions = mesh.copyPositions();
-        int faceCount = faceIdx.length / NUM_3;
+        int faceCount = faceIdx.length / 3;
         for (int f = 0; f < faceCount; f++) {
-            int v0 = faceIdx[f * NUM_3];
-            int v1 = faceIdx[f * NUM_3 + 1];
-            int v2 = faceIdx[f * NUM_3 + 2];
+            int v0 = faceIdx[f * 3];
+            int v1 = faceIdx[f * 3 + 1];
+            int v2 = faceIdx[f * 3 + 2];
             defect[v0] -= triAngle(positions, v0, v1, v2);
             defect[v1] -= triAngle(positions, v1, v2, v0);
             defect[v2] -= triAngle(positions, v2, v0, v1);
@@ -182,7 +172,7 @@ public final class PatchDecomposerCLI {
         Arrays.sort(dd);
         JsonObject defectPct = new JsonObject();
         for (int p : pcts) {
-            defectPct.addProperty(P + p, dd[Math.min(dd.length - 1, (int) (dd.length * (p / NUM_100_0)))]);
+            defectPct.addProperty(P + p, dd[Math.min(dd.length - 1, (int) (dd.length * (p / PERCENT_SCALE)))]);
         }
         res.addProperty("angle_defect_min", dd[0]);
         res.addProperty("angle_defect_max", dd[dd.length - 1]);
@@ -191,17 +181,17 @@ public final class PatchDecomposerCLI {
     }
 
     private static float triAngle(float[] p, int at, int b, int c) {
-        float ax = p[b * NUM_3] - p[at * NUM_3];
-        float ay = p[b * NUM_3 + 1] - p[at * NUM_3 + 1];
-        float az = p[b * NUM_3 + 2] - p[at * NUM_3 + 2];
-        float bx = p[c * NUM_3] - p[at * NUM_3];
-        float by = p[c * NUM_3 + 1] - p[at * NUM_3 + 1];
-        float bz = p[c * NUM_3 + 2] - p[at * NUM_3 + 2];
+        float ax = p[b * 3] - p[at * 3];
+        float ay = p[b * 3 + 1] - p[at * 3 + 1];
+        float az = p[b * 3 + 2] - p[at * 3 + 2];
+        float bx = p[c * 3] - p[at * 3];
+        float by = p[c * 3 + 1] - p[at * 3 + 1];
+        float bz = p[c * 3 + 2] - p[at * 3 + 2];
         float la = (float) Math.sqrt(ax * ax + ay * ay + az * az);
         float lb = (float) Math.sqrt(bx * bx + by * by + bz * bz);
-        if (la < NUM_1e_20 || lb < NUM_1e_20) return NUM_0;
+        if (la < EPSILON || lb < EPSILON) return 0f;
         float dot = (ax * bx + ay * by + az * bz) / (la * lb);
-        dot = Math.max(-NUM_1, Math.min(NUM_1, dot));
+        dot = Math.max(-1f, Math.min(1f, dot));
         return (float) Math.acos(dot);
     }
 
@@ -211,7 +201,7 @@ public final class PatchDecomposerCLI {
      * and sanity-check ridge / valley coverage.
      */
     private static void crestLines(String[] args) throws Exception {
-        if (args.length < NUM_3) throw new IllegalArgumentException("crest-lines requires <obj_path> <out_obj>");
+        if (args.length < 3) throw new IllegalArgumentException("crest-lines requires <obj_path> <out_obj>");
         String path = args[1];
         String outPath = args[2];
         ArrayMesh mesh = MeshLoader.load(path);
@@ -230,7 +220,7 @@ public final class PatchDecomposerCLI {
             w.write("# object 'ridges' then 'valleys'\n");
             // Vertex positions from the source mesh (indices preserved).
             float[] positions = mesh.copyPositions();
-            for (int i = 0; i < positions.length; i += NUM_3) {
+            for (int i = 0; i < positions.length; i += 3) {
                 w.write("v " + positions[i] + " " + positions[i + 1] + " " + positions[i + 2] + N);
             }
             w.write("o ridges\n");

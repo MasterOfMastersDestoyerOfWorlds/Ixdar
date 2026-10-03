@@ -23,12 +23,6 @@ import ixdar.scenes.model.ModelScene;
  */
 @SceneAnnotation(id = "param-exam")
 public class ParametrizationExaminationScene extends ModelScene {
-    /**
-     * Optional system property naming an .ndf reference cross field. When set,
-     * {@link #loadModel} still runs {@link CrossField#build()} for the per-face
-     * frames and active-index maps, then overwrites {@code theta},
-     * {@code periodJump} and {@code singularityIndex4} from the NDF.
-     */
     public static final String CROSS_FIELD_PROPERTY = "parametrization.scene.cf";
     public String cfPath = System.getProperty(CROSS_FIELD_PROPERTY);
     public MeshOverlayRuntime quadRuntime;

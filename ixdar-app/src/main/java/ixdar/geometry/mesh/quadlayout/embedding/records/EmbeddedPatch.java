@@ -15,7 +15,6 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
  */
 public final class EmbeddedPatch {
 
-    /** Sides of a patch. */
     public static final int SIDES = 4;
 
     /** Index of this patch in {@link ArcNetwork#patches}; stable for the object's life. */

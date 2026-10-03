@@ -6,7 +6,6 @@ package ixdar.platform.gl;
  */
 public final class DecodedImage {
 
-    /** Bytes per RGBA8 pixel. */
     public static final int BYTES_PER_PIXEL = 4;
 
     public final byte[] rgba;

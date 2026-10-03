@@ -25,7 +25,6 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 @MeshNodeAnnotation(id = "loop_through_points")
 public class LoopThroughPointsNode implements MeshNode {
 
-    /** Edge-marks label the snapped edge cycle is written under unless {@code label} says else. */
     public static final String DEFAULT_MARK_LABEL = "ring";
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,

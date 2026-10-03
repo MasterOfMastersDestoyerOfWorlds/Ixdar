@@ -25,8 +25,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "nearest_vertex")
 public class NearestVertexNode implements MeshNode {
-    public static final float NUM_0 = 0f;
-
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort POINT = new InputPort("point", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
     public static final OutputPort SELECTION = new OutputPort("selection", PortType.BOOLEAN);
@@ -64,7 +62,7 @@ public class NearestVertexNode implements MeshNode {
         GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         Vector3Value pt = FieldBroadcast.vector3ValueOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, POINT.name, POINT.defaultValue),
-                new Vector3Value(NUM_0, NUM_0, NUM_0));
+                new Vector3Value(0f, 0f, 0f));
         MeshTopology mesh = base.mesh();
         if (mesh == null) {
             throw new IllegalStateException("nearest vertex to (" + pt.x() + ", " + pt.y()

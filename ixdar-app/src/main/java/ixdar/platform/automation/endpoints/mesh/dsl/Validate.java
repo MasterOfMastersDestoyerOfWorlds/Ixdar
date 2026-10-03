@@ -21,7 +21,6 @@ import ixdar.platform.automation.AutomationPortFile;
 public class Validate extends AutomationEndpoint implements AutomationRoute {
     public static final String DSL = "dsl";
     public static final String EXPORT = "export";
-    /** Longest {@code dsl} value still worth testing as a filename. */
     public static final int MAX_PATH_LENGTH = 4096;
 
     @Override

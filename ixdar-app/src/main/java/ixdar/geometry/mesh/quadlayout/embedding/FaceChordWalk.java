@@ -21,21 +21,10 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
  */
 public final class FaceChordWalk {
 
-    /**
-     * Closest a new carve point may be placed to an existing one. A split this near
-     * an existing vertex buys nothing, so the carve snaps to that vertex instead
-     * (LCBK19 §6.1). A placement convenience, not a claim about precision.
-     */
     public static final double MINIMUM_SEPARATION = 1.0e-9;
 
-    /**
-     * Barycentric gap below which two points interpolate to one chart position in
-     * double, so nothing downstream can tell them apart. Far tighter than
-     * {@link #MINIMUM_SEPARATION}: this one is about representability.
-     */
     public static final double COINCIDENT_SEPARATION = 1.0e-13;
 
-    /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
 
     public final EmbeddedMeshTopology topology;

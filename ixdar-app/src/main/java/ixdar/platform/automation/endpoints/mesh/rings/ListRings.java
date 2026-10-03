@@ -27,22 +27,16 @@ import ixdar.platform.automation.AutomationEndpoint;
 @AutomationRouteAnnotation(path = "/mesh/rings/list", method = APIMethod.POST)
 public class ListRings extends AutomationEndpoint implements AutomationRoute {
 
-    /** Body key naming the mesh file to propose rings on. */
     public static final String PATH = "path";
 
-    /** Body key of the skeleton's voxel resolution. */
     public static final String RESOLUTION = "resolution";
 
-    /** Body key of the neckness threshold. */
     public static final String MIN_NECKNESS = "min_neckness";
 
-    /** Response key carrying the success flag. */
     public static final String OK = "ok";
 
-    /** Decimals every number in a row is rounded to, so two runs return the same bytes. */
     public static final int ROW_DECIMALS = 6;
 
-    /** Coordinates per point in a packed position array. */
     public static final int COORDINATES_PER_POINT = 3;
 
     @Override
@@ -133,7 +127,7 @@ public class ListRings extends AutomationEndpoint implements AutomationRoute {
                         "Path to the mesh file to propose rings on.",
                         "ixdar-app/test/resources/quadlayout/figure_8/fertility_in_tri.off")
                 .param(RESOLUTION, RouteParamType.INT, false,
-                        String.valueOf(MeshSkeletonExtractor.NUM_128),
+                        String.valueOf(MeshSkeletonExtractor.DEFAULT_RESOLUTION),
                         "Voxel resolution for the skeleton.", "128")
                 .param(MIN_NECKNESS, RouteParamType.FLOAT, false,
                         String.valueOf(RingCandidateExtractor.DEFAULT_MINIMUM_NECKNESS),

@@ -6,7 +6,6 @@ package ixdar.geometry.mesh.quadlayout.solver;
  */
 public final class SingularSystemException extends IllegalStateException {
 
-    /** Pivot index of a backend that reports none. */
     public static final int UNKNOWN_PIVOT = -1;
 
     /**

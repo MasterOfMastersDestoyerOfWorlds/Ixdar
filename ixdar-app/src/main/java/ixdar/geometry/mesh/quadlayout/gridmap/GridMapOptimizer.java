@@ -25,30 +25,14 @@ import ixdar.platform.concurrent.WorkerPool;
  */
 public final class GridMapOptimizer {
 
-    /** Coordinates each slot contributes to the system. */
     public static final int SLOT_COORDINATES = 2;
 
-    /**
-     * Entries of a triangle's gradient operator: two Jacobian rows over three
-     * corners.
-     */
     public static final int OPERATOR_SIZE = 6;
 
-    /**
-     * Smallest Jacobian determinant the barrier can be evaluated at: below this,
-     * symmetric Dirichlet's {@code 1/det²} overflows double. A bound of the
-     * arithmetic, not a tolerance on the geometry.
-     */
     public static final double MINIMUM_INVERTIBLE_JACOBIAN = 1.0e-150;
 
-    /**
-     * Fraction of its own source face's chart area a copy triangle must cover to
-     * carry a shape worth fitting. The gradient operator divides by the reference,
-     * so a smaller one contributes only an arbitrarily large Hessian row.
-     */
     public static final double REFERENCE_AREA_FLOOR_FRACTION = 1.0e-12;
 
-    /** Cap on the worker threads assembling the Newton system. */
     public static final int MAX_WORKER_THREADS = 8;
 
     private static final int KEY_ROW_SHIFT = 32;

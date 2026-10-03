@@ -24,16 +24,12 @@ import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonResult;
  */
 public final class RingCandidates {
 
-    /** Bundle slot the ring nodes read and write these candidates through. */
     public static final String SLOT = "_rings";
 
-    /** Prefix of the per-ring edge-marks label, completed by the two-digit ring number. */
     public static final String MARK_LABEL_PREFIX = "ring_";
 
-    /** Coordinates per point, and the stride of every packed position array here. */
     public static final int COORDINATES_PER_POINT = 3;
 
-    /** Marked edges a vertex of a simple closed cycle carries: one arriving and one leaving. */
     public static final int CYCLE_VERTEX_DEGREE = 2;
 
     /** Number of rings; every array below holds this many entries (or a multiple of it). */

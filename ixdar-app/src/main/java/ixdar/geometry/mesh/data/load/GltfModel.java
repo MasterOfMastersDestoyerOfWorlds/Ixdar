@@ -11,13 +11,10 @@ import ixdar.geometry.mesh.data.GeometryBundle;
  */
 public final class GltfModel {
 
-    /** Index value meaning a material leaves that texture channel unset. */
     public static final int NO_TEXTURE = -1;
 
-    /** Components of each material's base colour factor: red, green, blue, alpha. */
     public static final int COLOR_COMPONENTS = 4;
 
-    /** Components of each material's emissive factor: red, green, blue. */
     public static final int EMISSIVE_COMPONENTS = 3;
 
     /** Welded triangle mesh, with {@link CornerUvField#SLOT} when the file carried UVs. */

@@ -11,13 +11,10 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
  */
 public final class CornerUvSplit {
 
-    /** Empty chain terminator in the per-welded-vertex copy lists. */
     public static final int NO_COPY = -1;
 
-    /** Components written per split vertex into the caller's UV array. */
     public static final int COMPONENTS_PER_VERTEX = 2;
 
-    /** Floats per position and per normal. */
     public static final int FLOATS_PER_VERTEX = 3;
 
     private CornerUvSplit() {

@@ -9,13 +9,10 @@ import ixdar.geometry.mesh.nodes.api.IntField;
  */
 public final class MaterialSet {
 
-    /** Bundle slot the material list rides. */
     public static final String SLOT = "_materials";
 
-    /** Bundle slot of the per-face index into {@link #materials}, as an int field. */
     public static final String FACE_MATERIAL_SLOT = "_face_material";
 
-    /** {@link #FACE_MATERIAL_SLOT} value for a face whose source had no material. */
     public static final int NO_MATERIAL = -1;
 
     /** The materials, in the order faces index them. */

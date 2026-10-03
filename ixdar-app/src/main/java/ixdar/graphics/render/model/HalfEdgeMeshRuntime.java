@@ -41,14 +41,11 @@ public class HalfEdgeMeshRuntime {
     public static final String SOLIDCOLOR = "solidColor";
     public static final String DEPTHBIAS = "depthBias";
     public static final String PATCH = "patch_";
-    public static final float NUM_1_5 = 1.5f;
-    public static final float NUM_2_5 = 2.5f;
-    public static final float NUM_45 = 45f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_1000 = 1000f;
-    public static final float NUM_20 = 20f;
-    public static final double NUM_2_0 = 2.0;
-    public static final float NUM_0_01 = 0.01f;
+    public static final float FRAME_DISTANCE_FLOOR = 1.5f;
+    public static final float FRAME_DISTANCE_MULTIPLIER = 2.5f;
+    public static final float FEATURE_EDGE_LINE_WIDTH = 2.5f;
+    public static final float FAINT_EDGE_LINE_WIDTH = 1.5f;
+    public static final float DEFAULT_FOV = 45f;
 
     /** Near plane as a fraction of the camera's distance to its target. */
     public static final float NEAR_PLANE_DISTANCE_FRACTION = 0.01f;
@@ -58,35 +55,27 @@ public class HalfEdgeMeshRuntime {
 
     /** Far plane margin beyond the target, as a multiple of the model's extent. */
     public static final float FAR_PLANE_EXTENT_MUL = 3f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_08 = 0.08f;
-    public static final float NUM_0_16 = 0.16f;
-    public static final float NUM_255 = 255f;
-    public static final int NUM_8 = 8;
-    public static final int NUM_7 = 7;
-    public static final int NUM_3 = 3;
+    public static final float EMISSIVE_STRENGTH = 0.08f;
+    public static final float RIM_STRENGTH = 0.16f;
+    public static final float CHANNEL_NORMALIZE = 255f;
+    public static final int VEC3_SIZE = 3;
+    public static final int VERTEX_STRIDE = 8;
+    public static final int UV_OFFSET = 6;
+    public static final int SCALAR_ATTRIB_LOCATION = 3;
 
     /** Descriptive name the base-color {@link Texture} carries; nothing looks it up. */
     public static final String BASE_COLOR_TEXTURE_NAME = "mesh_base_color";
 
     /** Mesh shader uniform choosing between the base-color texture and the solid colour. */
     public static final String USE_TEXTURE_UNIFORM = "useTexture";
-    public static final float NUM_0_0003 = 0.0003f;
-    public static final float NUM_2_0_2 = 2.0f;
-    public static final double NUM_0_6180339887498949 = 0.6180339887498949;
-    public static final int NUM_0x7FFFFFF = 0x7FFFFFFF;
-    public static final int NUM_10000 = 10000;
-    public static final float NUM_10000_2 = 10000f;
-    public static final float NUM_0_65 = 0.65f;
-    public static final float NUM_0_55 = 0.55f;
-    public static final int NUM_31 = 31;
-    public static final float NUM_2 = 2f;
-    public static final float NUM_6 = 6f;
-    public static final float NUM_3_2 = 3f;
-    public static final float NUM_4 = 4f;
-    public static final float NUM_5 = 5f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final int NUM_6_2 = 6;
+    public static final float OVERLAY_DEPTH_BIAS = 0.0003f;
+    public static final float EDGE_LINE_WIDTH = 2.0f;
+    public static final double GOLDEN_RATIO_CONJUGATE = 0.6180339887498949;
+    public static final int HASH_MASK = 0x7FFFFFFF;
+    public static final int HUE_QUANTIZATION = 10000;
+    public static final float TAG_SATURATION = 0.65f;
+    public static final float TAG_LIGHTNESS = 0.55f;
+    public static final int HASH_PRIME = 31;
 
     /** Coordinates per vertex in the face pick buffer. */
     public static final int COORDINATES_PER_VERTEX = 3;
@@ -298,29 +287,29 @@ public class HalfEdgeMeshRuntime {
         float[] positions = split.copyPositions();
         float[] normals = split.copyNormals();
         int[] indices = split.copyFaceIndices();
-        float[] interleaved = new float[split.vertexCount() * NUM_8];
+        float[] interleaved = new float[split.vertexCount() * VERTEX_STRIDE];
         for (int vertex = 0; vertex < split.vertexCount(); vertex++) {
-            int target = vertex * NUM_8;
-            int source = vertex * NUM_3;
+            int target = vertex * VERTEX_STRIDE;
+            int source = vertex * VEC3_SIZE;
             interleaved[target] = positions[source];
             interleaved[target + 1] = positions[source + 1];
             interleaved[target + 2] = positions[source + 2];
-            interleaved[target + NUM_3] = normals[source];
-            interleaved[target + NUM_3 + 1] = normals[source + 1];
-            interleaved[target + NUM_3 + 2] = normals[source + 2];
-            interleaved[target + NUM_6_2] = splitUv[vertex * CornerUvSplit.COMPONENTS_PER_VERTEX];
-            interleaved[target + NUM_7] = splitUv[vertex * CornerUvSplit.COMPONENTS_PER_VERTEX + 1];
+            interleaved[target + VEC3_SIZE] = normals[source];
+            interleaved[target + VEC3_SIZE + 1] = normals[source + 1];
+            interleaved[target + VEC3_SIZE + 2] = normals[source + 2];
+            interleaved[target + UV_OFFSET] = splitUv[vertex * CornerUvSplit.COMPONENTS_PER_VERTEX];
+            interleaved[target + 7] = splitUv[vertex * CornerUvSplit.COMPONENTS_PER_VERTEX + 1];
         }
 
         GL gl = Platforms.gl();
         texturedVao.bind();
         texturedVbo.bind(gl.ARRAY_BUFFER());
         texturedVbo.uploadData(gl.ARRAY_BUFFER(), interleaved, gl.STATIC_DRAW());
-        gl.vertexAttribPointer(0, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, 0);
+        gl.vertexAttribPointer(0, VEC3_SIZE, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, 0);
         gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(1, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, NUM_3 * Float.BYTES);
+        gl.vertexAttribPointer(1, VEC3_SIZE, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, VEC3_SIZE * Float.BYTES);
         gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, NUM_8 * Float.BYTES, NUM_6_2 * Float.BYTES);
+        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, UV_OFFSET * Float.BYTES);
         gl.enableVertexAttribArray(2);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), texturedEbo);
         IntBuffer uploadBuffer = BufferUtils.createIntBuffer(indices.length);
@@ -420,10 +409,10 @@ public class HalfEdgeMeshRuntime {
         if (compiledMesh == null) {
             return;
         }
-        float distance = Math.max(NUM_1_5, compiledMesh.radius * NUM_2_5);
+        float distance = Math.max(FRAME_DISTANCE_FLOOR, compiledMesh.radius * FRAME_DISTANCE_MULTIPLIER);
         camera.position.set(compiledMesh.center.x, compiledMesh.center.y, compiledMesh.center.z + distance);
         camera.target.set(compiledMesh.center);
-        camera.fov = NUM_45;
+        camera.fov = DEFAULT_FOV;
         camera.updateViewFirstPerson();
     }
 
@@ -493,7 +482,7 @@ public class HalfEdgeMeshRuntime {
         active.setVec4(SOLIDCOLOR, solidColor);
         // PATCH-17: faces always render at zero depth bias; only the
         // overlay pass in renderFeatureEdgeOverlay sets a positive bias.
-        active.setFloat(DEPTHBIAS, NUM_0);
+        active.setFloat(DEPTHBIAS, 0f);
 
         boolean sampleTexture = samplesTexture(shaderMode, hasTexturedDraw());
         if (shaderMode == ShaderMode.LAMBERT || shaderMode == ShaderMode.STAGES
@@ -504,8 +493,8 @@ public class HalfEdgeMeshRuntime {
             active.setVec3("lightDir", lightDir);
             active.setBool(USE_TEXTURE_UNIFORM, sampleTexture);
             active.setVec3("emissiveColor", emissiveColor);
-            active.setFloat("emissiveStrength", NUM_0_08);
-            active.setFloat("rimStrength", NUM_0_16);
+            active.setFloat("emissiveStrength", EMISSIVE_STRENGTH);
+            active.setFloat("rimStrength", RIM_STRENGTH);
         }
         if (sampleTexture) {
             // The textured draw has its own UV-split vertices, so it ignores the welded mesh's tag
@@ -575,12 +564,12 @@ public class HalfEdgeMeshRuntime {
     private void updateProjection(Camera3D camera) {
         int width = Platforms.get().getFrameBufferWidth();
         int height = Platforms.get().getFrameBufferHeight();
-        float aspect = width <= 0 || height <= 0 ? NUM_1 : ((float) width / (float) height);
+        float aspect = width <= 0 || height <= 0 ? 1f : ((float) width / (float) height);
         float near = nearPlaneFor(camera);
-        float far = farPlaneFor(camera, compiledMesh == null ? NUM_1 : compiledMesh.radius * 2f);
+        float far = farPlaneFor(camera, compiledMesh == null ? 1f : compiledMesh.radius * 2f);
         if (orthographic) {
             float dist = camera.position.distance(camera.target);
-            float halfH = dist * (float) Math.tan(Math.toRadians(camera.fov / NUM_2_0));
+            float halfH = dist * (float) Math.tan(Math.toRadians(camera.fov / 2.0));
             float halfW = halfH * aspect;
             projectionMatrix.identity().ortho(-halfW, halfW, -halfH, halfH, near, far);
         } else {
@@ -747,8 +736,8 @@ public class HalfEdgeMeshRuntime {
             System.arraycopy(values, 0, copy, 0, compiledMesh.vertexCount);
         }
         gl.bufferData(gl.ARRAY_BUFFER(), copy, gl.STATIC_DRAW());
-        gl.vertexAttribPointer(NUM_3, 1, gl.FLOAT(), false, Float.BYTES, 0);
-        gl.enableVertexAttribArray(NUM_3);
+        gl.vertexAttribPointer(SCALAR_ATTRIB_LOCATION, 1, gl.FLOAT(), false, Float.BYTES, 0);
+        gl.enableVertexAttribArray(SCALAR_ATTRIB_LOCATION);
         scalarUploaded = true;
     }
 
@@ -801,19 +790,19 @@ public class HalfEdgeMeshRuntime {
         for (int index = 0; index < mesh.faceCount(); index++) {
             triangles += Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(index)) - 2);
         }
-        float[] positions = new float[COORDINATES_PER_VERTEX * NUM_3 * triangles];
-        float[] ids = new float[COORDINATES_PER_VERTEX * NUM_3 * triangles];
+        float[] positions = new float[COORDINATES_PER_VERTEX * 3 * triangles];
+        float[] ids = new float[COORDINATES_PER_VERTEX * 3 * triangles];
         pickFaceCount = mesh.faceCount();
         Vector3f corner = new Vector3f();
         int vertex = 0;
         for (int index = 0; index < mesh.faceCount(); index++) {
             int faceId = mesh.faceIdAt(index);
             int code = index + 1;
-            float red = ((code >> (2 * PICK_CHANNEL_BITS)) & PICK_CHANNEL_MAX) / NUM_255;
-            float green = ((code >> PICK_CHANNEL_BITS) & PICK_CHANNEL_MAX) / NUM_255;
-            float blue = (code & PICK_CHANNEL_MAX) / NUM_255;
+            float red = ((code >> (2 * PICK_CHANNEL_BITS)) & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
+            float green = ((code >> PICK_CHANNEL_BITS) & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
+            float blue = (code & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
             for (int fan = 2; fan < mesh.faceVertexCount(faceId); fan++) {
-                for (int step = 0; step < NUM_3; step++) {
+                for (int step = 0; step < 3; step++) {
                     int slot = step == 0 ? 0 : fan - 2 + step;
                     mesh.vertexPosition(mesh.faceVertexAt(faceId, slot), corner);
                     positions[COORDINATES_PER_VERTEX * vertex] = corner.x;
@@ -876,13 +865,13 @@ public class HalfEdgeMeshRuntime {
         // scaled and shifted so the cursor's direction fills it, which keeps the pass off the
         // fragment cost of a full-screen draw of a scan-scale mesh.
         int bottomY = height - 1 - framebufferY;
-        float cursorNdcX = 2f * (framebufferX + NUM_0_5) / width - NUM_1;
-        float cursorNdcY = 2f * (bottomY + NUM_0_5) / height - NUM_1;
+        float cursorNdcX = 2f * (framebufferX + 0.5f) / width - 1f;
+        float cursorNdcY = 2f * (bottomY + 0.5f) / height - 1f;
         Matrix4f pickProjection = new Matrix4f()
-                .scaling(width, height, NUM_1)
-                .translate(-cursorNdcX, -cursorNdcY, NUM_0)
+                .scaling(width, height, 1f)
+                .translate(-cursorNdcX, -cursorNdcY, 0f)
                 .mul(projectionMatrix);
-        gl.clearColor(NUM_0, NUM_0, NUM_0, NUM_1);
+        gl.clearColor(0f, 0f, 0f, 1f);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         gl.viewport(framebufferX, bottomY, 1, 1);
         meshPickShader.use();
@@ -926,11 +915,11 @@ public class HalfEdgeMeshRuntime {
         updateProjection(camera);
         Matrix4f inverse = new Matrix4f(projectionMatrix).mul(camera.view).mul(modelMatrix)
                 .invert();
-        float normalisedX = 2f * (framebufferX + NUM_0_5) / width - NUM_1;
-        float normalisedY = NUM_1 - 2f * (framebufferY + NUM_0_5) / height;
-        Vector4f near = inverse.transform(new Vector4f(normalisedX, normalisedY, -NUM_1, NUM_1));
-        Vector4f far = inverse.transform(new Vector4f(normalisedX, normalisedY, NUM_1, NUM_1));
-        if (near.w == NUM_0 || far.w == NUM_0) {
+        float normalisedX = 2f * (framebufferX + 0.5f) / width - 1f;
+        float normalisedY = 1f - 2f * (framebufferY + 0.5f) / height;
+        Vector4f near = inverse.transform(new Vector4f(normalisedX, normalisedY, -1f, 1f));
+        Vector4f far = inverse.transform(new Vector4f(normalisedX, normalisedY, 1f, 1f));
+        if (near.w == 0f || far.w == 0f) {
             return false;
         }
         origin[0] = near.x / near.w;
@@ -961,16 +950,16 @@ public class HalfEdgeMeshRuntime {
             return false;
         }
         updateProjection(camera);
-        projectedPoint.set(x, y, z, NUM_1);
+        projectedPoint.set(x, y, z, 1f);
         modelMatrix.transform(projectedPoint);
         camera.view.transform(projectedPoint);
         projectionMatrix.transform(projectedPoint);
-        if (projectedPoint.w <= NUM_0) {
+        if (projectedPoint.w <= 0f) {
             return false;
         }
-        pixelDest[0] = (projectedPoint.x / projectedPoint.w * NUM_0_5 + NUM_0_5) * width;
-        pixelDest[1] = (NUM_0_5 - projectedPoint.y / projectedPoint.w * NUM_0_5) * height;
-        pixelDest[2] = projectedPoint.z / projectedPoint.w * NUM_0_5 + NUM_0_5;
+        pixelDest[0] = (projectedPoint.x / projectedPoint.w * 0.5f + 0.5f) * width;
+        pixelDest[1] = (0.5f - projectedPoint.y / projectedPoint.w * 0.5f) * height;
+        pixelDest[2] = projectedPoint.z / projectedPoint.w * 0.5f + 0.5f;
         return true;
     }
 
@@ -984,11 +973,11 @@ public class HalfEdgeMeshRuntime {
         // occluded by front-facing faces. A small clip-space bias shifts
         // overlay vertices toward the camera just enough to beat z-fight
         // against the coplanar face triangles they sit on.
-        meshUnlitShader.setFloat(DEPTHBIAS, NUM_0_0003);
+        meshUnlitShader.setFloat(DEPTHBIAS, OVERLAY_DEPTH_BIAS);
         meshVao.bind();
         GL gl = Platforms.gl();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), featureEdgeEbo);
-        gl.lineWidth(NUM_2_5);
+        gl.lineWidth(FEATURE_EDGE_LINE_WIDTH);
         for (FeatureEdgeRange r : featureEdgeRanges) {
             meshUnlitShader.setVec4(SOLIDCOLOR, r.color());
             gl.drawElements(gl.LINES(), r.indexCount(), gl.UNSIGNED_INT(),
@@ -996,7 +985,7 @@ public class HalfEdgeMeshRuntime {
         }
         // Reset so a subsequent face draw in the same frame doesn't
         // inherit the overlay bias.
-        meshUnlitShader.setFloat(DEPTHBIAS, NUM_0);
+        meshUnlitShader.setFloat(DEPTHBIAS, 0f);
     }
 
     /**
@@ -1019,14 +1008,14 @@ public class HalfEdgeMeshRuntime {
         meshUnlitShader.setVec4(SOLIDCOLOR, edgeFaintColor);
         Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), edgeEbo);
         Platforms.gl().disable(Platforms.gl().DEPTH_TEST());
-        Platforms.gl().lineWidth(NUM_1_5);
+        Platforms.gl().lineWidth(FAINT_EDGE_LINE_WIDTH);
         Platforms.gl().drawElements(Platforms.gl().LINES(), edgeCount, Platforms.gl().UNSIGNED_INT(), 0);
         Platforms.gl().enable(Platforms.gl().DEPTH_TEST());
-        meshUnlitShader.setFloat(DEPTHBIAS, NUM_0_0003);
+        meshUnlitShader.setFloat(DEPTHBIAS, OVERLAY_DEPTH_BIAS);
         meshUnlitShader.setVec4(SOLIDCOLOR, edgeColor);
-        Platforms.gl().lineWidth(NUM_2_0_2);
+        Platforms.gl().lineWidth(EDGE_LINE_WIDTH);
         Platforms.gl().drawElements(Platforms.gl().LINES(), edgeCount, Platforms.gl().UNSIGNED_INT(), 0);
-        meshUnlitShader.setFloat(DEPTHBIAS, NUM_0);
+        meshUnlitShader.setFloat(DEPTHBIAS, 0f);
     }
 
     /**
@@ -1124,7 +1113,7 @@ public class HalfEdgeMeshRuntime {
             return;
         }
         int[] originalIndices = compiledMesh.indices;
-        int triCount = originalIndices.length / NUM_3;
+        int triCount = originalIndices.length / 3;
         int vertexCount = compiledMesh.vertexCount;
         // Validate masks and sort tag names for deterministic priority.
         List<String> tagNames = new ArrayList<>(tags.keySet());
@@ -1144,9 +1133,9 @@ public class HalfEdgeMeshRuntime {
         // where all three vertices are members). Untagged triangles sort last.
         String[] triTag = new String[triCount];
         for (int t = 0; t < triCount; t++) {
-            int v0 = originalIndices[t * NUM_3];
-            int v1 = originalIndices[t * NUM_3 + 1];
-            int v2 = originalIndices[t * NUM_3 + 2];
+            int v0 = originalIndices[t * 3];
+            int v1 = originalIndices[t * 3 + 1];
+            int v2 = originalIndices[t * 3 + 2];
             for (String name : tagNames) {
                 boolean[] mask = maskByTag.get(name);
                 if (mask == null) continue;
@@ -1176,9 +1165,9 @@ public class HalfEdgeMeshRuntime {
             if (tris == null || tris.isEmpty()) continue;
             int start = cursor;
             for (int t : tris) {
-                newIndices[cursor++] = originalIndices[t * NUM_3];
-                newIndices[cursor++] = originalIndices[t * NUM_3 + 1];
-                newIndices[cursor++] = originalIndices[t * NUM_3 + 2];
+                newIndices[cursor++] = originalIndices[t * 3];
+                newIndices[cursor++] = originalIndices[t * 3 + 1];
+                newIndices[cursor++] = originalIndices[t * 3 + 2];
             }
             int count = cursor - start;
             ranges.add(new TagRange(name, resolveColor(name), start, count));
@@ -1188,9 +1177,9 @@ public class HalfEdgeMeshRuntime {
         if (!untagged.isEmpty()) {
             int start = cursor;
             for (int t : untagged) {
-                newIndices[cursor++] = originalIndices[t * NUM_3];
-                newIndices[cursor++] = originalIndices[t * NUM_3 + 1];
-                newIndices[cursor++] = originalIndices[t * NUM_3 + 2];
+                newIndices[cursor++] = originalIndices[t * 3];
+                newIndices[cursor++] = originalIndices[t * 3 + 1];
+                newIndices[cursor++] = originalIndices[t * 3 + 2];
             }
             int count = cursor - start;
             Vector4f untaggedColor = new Vector4f(solidColor);
@@ -1270,35 +1259,35 @@ public class HalfEdgeMeshRuntime {
         }
         float h;
         if (pid >= 0) {
-            h = (float) ((pid * NUM_0_6180339887498949) % 1.0);
+            h = (float) ((pid * GOLDEN_RATIO_CONJUGATE) % 1.0);
         } else {
             int hash = stableHash(tagName == null ? "" : tagName);
-            h = ((hash & NUM_0x7FFFFFF) % NUM_10000) / NUM_10000_2;
+            h = ((hash & HASH_MASK) % HUE_QUANTIZATION) / 10000f;
         }
-        float[] rgb = hslToRgb(h, NUM_0_65, NUM_0_55);
-        return new Vector4f(rgb[0], rgb[1], rgb[2], NUM_1);
+        float[] rgb = hslToRgb(h, TAG_SATURATION, TAG_LIGHTNESS);
+        return new Vector4f(rgb[0], rgb[1], rgb[2], 1f);
     }
 
     private static int stableHash(String s) {
         int h = 0;
         for (int i = 0; i < s.length(); i++) {
-            h = NUM_31 * h + s.charAt(i);
+            h = HASH_PRIME * h + s.charAt(i);
         }
         return h;
     }
 
     private static float[] hslToRgb(float h, float s, float l) {
-        float c = (NUM_1 - Math.abs(NUM_2 * l - NUM_1)) * s;
-        float hp = h * NUM_6;
-        float x = c * (NUM_1 - Math.abs(hp % NUM_2 - NUM_1));
-        float r1 = NUM_0, g1 = NUM_0, b1 = NUM_0;
-        if (hp < NUM_1)      { r1 = c; g1 = x; }
-        else if (hp < NUM_2) { r1 = x; g1 = c; }
-        else if (hp < NUM_3_2) { g1 = c; b1 = x; }
-        else if (hp < NUM_4) { g1 = x; b1 = c; }
-        else if (hp < NUM_5) { r1 = x; b1 = c; }
+        float c = (1f - Math.abs(2f * l - 1f)) * s;
+        float hp = h * 6f;
+        float x = c * (1f - Math.abs(hp % 2f - 1f));
+        float r1 = 0f, g1 = 0f, b1 = 0f;
+        if (hp < 1f)      { r1 = c; g1 = x; }
+        else if (hp < 2f) { r1 = x; g1 = c; }
+        else if (hp < 3f) { g1 = c; b1 = x; }
+        else if (hp < 4f) { g1 = x; b1 = c; }
+        else if (hp < 5f) { r1 = x; b1 = c; }
         else              { r1 = c; b1 = x; }
-        float m = l - c * NUM_0_5;
+        float m = l - c * 0.5f;
         return new float[]{
                 Math.max(0, Math.min(1, r1 + m)),
                 Math.max(0, Math.min(1, g1 + m)),
@@ -1365,11 +1354,11 @@ public class HalfEdgeMeshRuntime {
         meshVao.bind();
         meshVbo.bind(gl.ARRAY_BUFFER());
         meshVbo.uploadData(gl.ARRAY_BUFFER(), compiledMesh.vertices, usage);
-        gl.vertexAttribPointer(0, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, 0);
+        gl.vertexAttribPointer(0, VEC3_SIZE, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, 0);
         gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(1, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, NUM_3 * Float.BYTES);
+        gl.vertexAttribPointer(1, VEC3_SIZE, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, VEC3_SIZE * Float.BYTES);
         gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, NUM_8 * Float.BYTES, NUM_6_2 * Float.BYTES);
+        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, UV_OFFSET * Float.BYTES);
         gl.enableVertexAttribArray(2);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), ebo);

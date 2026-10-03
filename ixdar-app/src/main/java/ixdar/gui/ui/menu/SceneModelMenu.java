@@ -17,22 +17,16 @@ import ixdar.scenes.model.ModelScene;
  */
 public final class SceneModelMenu {
 
-    /** Header above the model list. */
     public static final String MODELS_HEADER = "MODELS";
 
-    /** Header above the controls list. */
     public static final String CONTROLS_HEADER = "CONTROLS";
 
-    /** Label of the recompute action row. */
     public static final String RECOMPUTE_LABEL = "Recompute";
 
-    /** Marker prefixed to the currently loaded model. */
     public static final String CURRENT_MARKER = "> ";
 
-    /** Marker prefixed to non-current models, keeping columns aligned. */
     public static final String OTHER_MARKER = "  ";
 
-    /** Separator between a control's key and its description. */
     public static final String KEY_SEP = "  ";
 
     private final ModelScene scene;

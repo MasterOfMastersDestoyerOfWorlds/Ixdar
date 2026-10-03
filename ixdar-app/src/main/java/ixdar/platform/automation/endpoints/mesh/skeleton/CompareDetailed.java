@@ -31,13 +31,13 @@ public class CompareDetailed extends AutomationEndpoint implements AutomationRou
     public static final String OK = "ok";
     public static final String ERROR = "error";
     public static final String USER_DIR = "user.dir";
-    public static final int NUM_128 = 128;
+    public static final int DEFAULT_VOXEL_RESOLUTION = 128;
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
             String generatedPath = body.has(GENERATED) ? body.get(GENERATED).getAsString() : "";
             String referencePath = body.has(REFERENCE) ? body.get(REFERENCE).getAsString() : "";
-            int resolution = body.has(RESOLUTION) ? body.get(RESOLUTION).getAsInt() : NUM_128;
+            int resolution = body.has(RESOLUTION) ? body.get(RESOLUTION).getAsInt() : DEFAULT_VOXEL_RESOLUTION;
             if (generatedPath.isEmpty() || referencePath.isEmpty()) {
                 JsonObject err = new JsonObject();
                 err.addProperty(OK, false);
@@ -107,7 +107,7 @@ public class CompareDetailed extends AutomationEndpoint implements AutomationRou
                         "Path to the generated mesh OBJ.", "out/generated.obj")
                 .param(REFERENCE, RouteParamType.STRING, true, "",
                         "Path to the reference mesh OBJ.", "meshes/target.obj")
-                .param(RESOLUTION, RouteParamType.INT, false, String.valueOf(NUM_128),
+                .param(RESOLUTION, RouteParamType.INT, false, String.valueOf(DEFAULT_VOXEL_RESOLUTION),
                         "Voxel grid resolution for skeleton extraction.", "256")
                 .responseHint("{ok, generated_path, reference_path, resolution, ...jointDeltas}")
                 .build();

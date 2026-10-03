@@ -7,10 +7,8 @@ package ixdar.geometry.mesh.graph;
  */
 public final class HeapSampler {
 
-    /** Milliseconds between heap readings; short enough to catch a node that allocates in bursts. */
     public static final long SAMPLE_INTERVAL_MILLIS = 5;
 
-    /** Bytes in a mebibyte, the unit every heap number is reported in. */
     public static final double BYTES_PER_MIB = 1024.0 * 1024.0;
 
     /** Highest used-heap reading since {@link #resetPeak()}, in bytes. */

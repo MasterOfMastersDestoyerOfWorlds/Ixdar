@@ -17,7 +17,6 @@ import ixdar.scenes.model.ControlHint;
  */
 public class OrbitCameraKeyGuy extends KeyGuy {
 
-    /** GLFW control modifier bit. */
     public static final int MOD_CONTROL = 0x0002;
 
     public final OrbitMouseTrap orbitMouse;

@@ -22,7 +22,6 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 @MeshNodeAnnotation(id = "network_patch", desktopOnly = true)
 public final class NetworkPatch implements MeshNode {
 
-    /** Count value meaning a side's arc count is unconstrained. */
     public static final int UNCONSTRAINED = -1;
 
     public static final InputPort NET = new InputPort("net", PortType.ARC_NETWORK, null);

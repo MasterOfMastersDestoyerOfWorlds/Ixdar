@@ -22,25 +22,12 @@ import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
  */
 public final class GlobalGridMap implements UvField {
 
-    /** Coordinates of a grid position. */
     public static final int GRID_COORDINATES = 2;
 
-    /**
-     * A layout node this far from an integer is off the grid, breaking EBCK13
-     * Constraint 2.
-     */
     public static final double INTEGER_TOLERANCE = 1.0e-6;
 
-    /**
-     * Depth of the non-seam patch neighbourhood searched for sites the relaxation
-     * moved away.
-     */
     public static final int NEIGHBOUR_DEPTH = 2;
 
-    /**
-     * Off-grid nodes named individually in the audit log before the counter takes
-     * over.
-     */
     public static final int OFF_GRID_SAMPLES_LISTED = 4;
 
     public final ArcNetwork tmesh;

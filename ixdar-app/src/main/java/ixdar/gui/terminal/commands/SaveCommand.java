@@ -45,7 +45,7 @@ public class SaveCommand extends TerminalCommand {
             newFileName = newFileName.split(IX)[0];
         }
         String firstPart = newFileName.split("_")[0];
-        String dir = FileManagement.solutionsFolder + firstPart + "\\";
+        String dir = FileManagement.SOLUTIONS_FOLDER + firstPart + "\\";
         String fullPath = dir + newFileName + IX;
         File dirFile = new File(dir);
         if (!dirFile.exists()) {

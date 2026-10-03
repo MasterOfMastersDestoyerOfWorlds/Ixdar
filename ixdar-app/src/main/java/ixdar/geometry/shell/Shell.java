@@ -30,10 +30,8 @@ import ixdar.graphics.render.text.HyperString;
  */
 
 public class Shell extends LinkedList<PointND> {
-    public static final String STR = ", ";
-    public static final String STR_2 = "]";
-    public static final int NUM_30 = 30;
-    public static final double NUM_0_0000001 = 0.0000001;
+    public static final int MAX_KNOT_LAYERS = 30;
+    public static final double IMPROVEMENT_EPSILON = 0.0000001;
     public static int failed = 0;
     public HashMap<Integer, Knot> pointMap = new HashMap<Integer, Knot>();
     public DistanceMatrix distanceMatrix;
@@ -135,7 +133,7 @@ public class Shell extends LinkedList<PointND> {
         pointMap = new HashMap<>();
         initPoints(distanceMatrix);
         int idx = 0;
-        ArrayList<Knot> knots = knotEngine.createKnots(NUM_30, this.sortedSegments);
+        ArrayList<Knot> knots = knotEngine.createKnots(MAX_KNOT_LAYERS, this.sortedSegments);
         if (knots.size() > 1) {
             System.out.println("Recursion Limit REACHED");
             float zero = 1 / 0;
@@ -613,11 +611,11 @@ public class Shell extends LinkedList<PointND> {
                 str += p.toString();
             }
             if (i < this.size() - 1) {
-                str += STR;
+                str += ", ";
             }
         }
 
-        return str + STR_2;
+        return str + "]";
     }
 
     /**
@@ -631,15 +629,15 @@ public class Shell extends LinkedList<PointND> {
     public static String compareTo(Shell A, Shell B) {
         String str = "Shell A[";
         for (int i = 0; i < A.size() - 1; i++) {
-            str += (i) + STR;
+            str += (i) + ", ";
         }
-        str += A.size() - 1 + STR_2;
+        str += A.size() - 1 + "]";
 
         str += "\nShell B[";
         for (int i = 0; i < B.size() - 1; i++) {
-            str += (A.indexOf(B.get(i))) + STR;
+            str += (A.indexOf(B.get(i))) + ", ";
         }
-        str += (A.indexOf(B.get(B.size() - 1))) + STR_2;
+        str += (A.indexOf(B.get(B.size() - 1))) + "]";
 
         return str;
 
@@ -1002,7 +1000,7 @@ public class Shell extends LinkedList<PointND> {
                     PointND currD = this.get(j);
                     PointND nextD = this.get(nextJ);
                     double delta2 = delta - currD.distance(nextD) + currD.distance(curr) + nextD.distance(curr);
-                    if (delta2 < 0 && delta2 < -NUM_0_0000001) {
+                    if (delta2 < 0 && delta2 < -IMPROVEMENT_EPSILON) {
                         return new Pair<PointND, Pair<PointND, PointND>>(curr,
                                 new Pair<PointND, PointND>(currD, nextD));
                     }

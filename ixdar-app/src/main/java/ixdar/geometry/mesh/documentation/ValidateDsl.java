@@ -46,9 +46,7 @@ public final class ValidateDsl {
     public static final String ERROR = "error";
     public static final String FACECOUNT = "faceCount";
     public static final String VERTEXCOUNT = "vertexCount";
-    public static final int NUM_1000 = 1000;
-    public static final int NUM_1_000_000 = 1_000_000;
-    public static final float NUM_1e_10 = 1e-10f;
+    public static final float MIN_VALID_EXTENT = 1e-10f;
 
     /**
      * Validate DSL source text and optionally export to OBJ.
@@ -309,7 +307,7 @@ public final class ValidateDsl {
         probe.put("executionMs", executionMs);
 
         // Performance gate: reject DSLs that take too long to evaluate
-        final long MAX_EXECUTION_MS = NUM_1000;
+        final long MAX_EXECUTION_MS = 1000;
         if (executionMs > MAX_EXECUTION_MS) {
             probe.put(OK, false);
             probe.put(FACECOUNT, mesh.faceCount());
@@ -326,7 +324,7 @@ public final class ValidateDsl {
         }
 
         // Reject meshes over 1M faces
-        final int MAX_FACE_COUNT = NUM_1_000_000;
+        final int MAX_FACE_COUNT = 1_000_000;
         if (mesh.faceCount() > MAX_FACE_COUNT) {
             probe.put(OK, false);
             probe.put(FACECOUNT, mesh.faceCount());
@@ -378,8 +376,8 @@ public final class ValidateDsl {
         probe.put("radius", floatJson(rad));
 
         boolean positionsOk = Vector3finite(mn) && Vector3finite(mx);
-        boolean extentOk = Float.isFinite(extent) && extent > NUM_1e_10;
-        boolean radiusOk = Float.isFinite(rad) && rad > NUM_1e_10;
+        boolean extentOk = Float.isFinite(extent) && extent > MIN_VALID_EXTENT;
+        boolean radiusOk = Float.isFinite(rad) && rad > MIN_VALID_EXTENT;
 
         boolean ok = positionsOk && extentOk && radiusOk;
         probe.put(OK, ok);

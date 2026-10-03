@@ -24,16 +24,12 @@ import ixdar.scenes.ring.RingScene;
 @AutomationRouteAnnotation(path = "/mesh/rings/add", method = APIMethod.POST)
 public class Add extends AutomationEndpoint implements AutomationRoute {
 
-    /** Body key holding the ring's surface points. */
     public static final String POINTS = "points";
 
-    /** Body key choosing whether the closed walk is tightened. */
     public static final String TIGHTEN = "tighten";
 
-    /** Response key reporting success. */
     public static final String OK = "ok";
 
-    /** Response key carrying the failure text when {@link #OK} is false. */
     public static final String ERROR = "error";
 
     @Override

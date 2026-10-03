@@ -17,7 +17,6 @@ import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
  */
 public final class PowerIteration {
 
-    /** Floor under the mass norm, guarding the normalization against zero. */
     public static final double EPS = 1.0e-12;
 
     public final DofSystem dofs;

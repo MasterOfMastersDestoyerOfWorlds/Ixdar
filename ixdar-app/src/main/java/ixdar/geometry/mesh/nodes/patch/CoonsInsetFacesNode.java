@@ -34,18 +34,8 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 @MeshNodeAnnotation(id = "coons_inset_faces")
 public class CoonsInsetFacesNode implements MeshNode {
     public static final String CORNER_K = "corner k=";
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_0_2 = 0.2f;
-    public static final int NUM_4 = 4;
-    public static final int NUM_3 = 3;
-    public static final int NUM_8 = 8;
-    public static final float NUM_1 = 1f;
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xFFFFFFFF = 0xFFFFFFFFL;
-    public static final float NUM_1e_3 = 1e-3f;
-    public static final float NUM_3_2 = 3f;
-    public static final float NUM_1e_8 = 1e-8f;
+    public static final float FINITE_DIFF_EPS = 1e-3f;
+    public static final float MIN_TANGENT_LENGTH = 1e-8f;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort INSET = new InputPort("inset", PortType.FLOAT, 0.2f, 0f, 0.5f);
@@ -98,7 +88,7 @@ public class CoonsInsetFacesNode implements MeshNode {
         }
 
         Object insObj = FieldBroadcast.getInputOrDefault(ctx, INSET.name, INSET.defaultValue);
-        float t = Math.max(NUM_0, Math.min(NUM_0_5, FieldBroadcast.floatScalarOrDefault(insObj, NUM_0_2)));
+        float t = Math.max(0f, Math.min(0.5f, FieldBroadcast.floatScalarOrDefault(insObj, 0.2f)));
         Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION.name, SELECTION.defaultValue);
 
         float[] hStart = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, in);
@@ -129,27 +119,27 @@ public class CoonsInsetFacesNode implements MeshNode {
         for (int fi = 0; fi < origFaceCount; fi++) {
             boolean sel = FieldBroadcast.boolAt(selection, fi, true);
             int fid = in.faceIdAt(fi);
-            if (sel && in.faceVertexCount(fid) == NUM_4) {
+            if (sel && in.faceVertexCount(fid) == 4) {
                 selected[fi] = true;
                 selectedCount++;
             }
         }
 
-        if (selectedCount == 0 || t <= NUM_0) {
+        if (selectedCount == 0 || t <= 0f) {
             HalfEdgeMesh passThrough = copyMesh(in);
             outHandles = copyHandles(in, passThrough, hStart, hEnd);
             outGenerated = new boolean[passThrough.faceCount()];
             return passThrough;
         }
 
-        float[] origPos = new float[origVertCount * NUM_3];
+        float[] origPos = new float[origVertCount * 3];
         Vector3f tmp = new Vector3f();
         for (int i = 0; i < origVertCount; i++) {
             int vid = in.vertexIdAt(i);
             in.vertexPosition(vid, tmp);
-            origPos[i * NUM_3] = tmp.x;
-            origPos[i * NUM_3 + 1] = tmp.y;
-            origPos[i * NUM_3 + 2] = tmp.z;
+            origPos[i * 3] = tmp.x;
+            origPos[i * 3 + 1] = tmp.y;
+            origPos[i * 3 + 2] = tmp.z;
         }
         Map<Integer, Integer> oldToDense = new HashMap<>();
         for (int i = 0; i < origVertCount; i++) {
@@ -178,7 +168,7 @@ public class CoonsInsetFacesNode implements MeshNode {
         for (int fi = 0; fi < origFaceCount; fi++) {
             if (!selected[fi]) continue;
             int fid = in.faceIdAt(fi);
-            for (int k = 0; k < NUM_4; k++) {
+            for (int k = 0; k < 4; k++) {
                 int vid = in.faceVertexAt(fid, k);
                 int dense = oldToDense.get(vid);
                 facesAtVertex.computeIfAbsent(dense, x -> new ArrayList<>()).add(new int[]{fi, k});
@@ -193,7 +183,7 @@ public class CoonsInsetFacesNode implements MeshNode {
         // selection).
         Set<Integer> succeeded3PlusVids = new HashSet<>();
         for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
-            if (entry.getValue().size() == NUM_3
+            if (entry.getValue().size() == 3
                     && fanCompletes(in, entry.getKey(), entry.getValue(), sharedEdgeIds, oldToDense)) {
                 succeeded3PlusVids.add(entry.getKey());
             }
@@ -213,13 +203,13 @@ public class CoonsInsetFacesNode implements MeshNode {
             if (aOk && bOk) fullyMergeableEdges.add(eid);
         }
 
-        ArrayList<Float> extraPos = new ArrayList<>(selectedCount * NUM_4 * NUM_3);
+        ArrayList<Float> extraPos = new ArrayList<>(selectedCount * 4 * 3);
         int[][] innerVids = new int[origFaceCount][];
         float[][] innerUV = new float[origFaceCount][];  // per face: [u0,v0, u1,v1, u2,v2, u3,v3]
         for (int fi = 0; fi < origFaceCount; fi++) {
             if (selected[fi]) {
-                innerVids[fi] = new int[NUM_4];
-                innerUV[fi] = new float[NUM_8];
+                innerVids[fi] = new int[4];
+                innerUV[fi] = new float[8];
             }
         }
 
@@ -255,7 +245,7 @@ public class CoonsInsetFacesNode implements MeshNode {
             int n = atV.size();
             boolean merged = false;
 
-            if (n == NUM_3) {
+            if (n == 3) {
                 // MESH-47: cube-style 3-corner cyan dot + central triangle fill.
                 // N=4+ (interior of subdivided cube faces) produces non-manifold
                 // topology in the current fan walk; those corners fall through
@@ -274,9 +264,9 @@ public class CoonsInsetFacesNode implements MeshNode {
                 int fidA = in.faceIdAt(fiA);
                 int fidB = in.faceIdAt(fiB);
                 int eAfwd = in.faceEdgeAt(fidA, kA);
-                int eAback = in.faceEdgeAt(fidA, (kA + NUM_3) % NUM_4);
+                int eAback = in.faceEdgeAt(fidA, (kA + 3) % 4);
                 int eBfwd = in.faceEdgeAt(fidB, kB);
-                int eBback = in.faceEdgeAt(fidB, (kB + NUM_3) % NUM_4);
+                int eBback = in.faceEdgeAt(fidB, (kB + 3) % 4);
 
                 int sharedEid = -1;
                 boolean fwdFromA = false;
@@ -333,7 +323,7 @@ public class CoonsInsetFacesNode implements MeshNode {
             int cb = in.halfEdgeEndVertex(he);
             int dca = oldToDense.get(ca);
             int dcb = oldToDense.get(cb);
-            int o = eid * NUM_3;
+            int o = eid * 3;
             dh.put(CoonsHandleBuilder.dirPack(dca, dcb),
                     new float[]{hStart[o], hStart[o + 1], hStart[o + 2]});
             dh.put(CoonsHandleBuilder.dirPack(dcb, dca),
@@ -349,22 +339,22 @@ public class CoonsInsetFacesNode implements MeshNode {
             int fid = in.faceIdAt(fi);
             int fv0 = in.faceVertexAt(fid, 0);
             int fv1 = in.faceVertexAt(fid, 1);
-            int fv3 = in.faceVertexAt(fid, NUM_3);
+            int fv3 = in.faceVertexAt(fid, 3);
             int fe0 = in.faceEdgeAt(fid, 0);
             int fe1 = in.faceEdgeAt(fid, 1);
             int fe2 = in.faceEdgeAt(fid, 2);
-            int fe3 = in.faceEdgeAt(fid, NUM_3);
+            int fe3 = in.faceEdgeAt(fid, 3);
             int[] dOrig = {
                     oldToDense.get(in.faceVertexAt(fid, 0)),
                     oldToDense.get(in.faceVertexAt(fid, 1)),
                     oldToDense.get(in.faceVertexAt(fid, 2)),
-                    oldToDense.get(in.faceVertexAt(fid, NUM_3)),
+                    oldToDense.get(in.faceVertexAt(fid, 3)),
             };
             int[] ni = innerVids[fi];
             float[] uv = innerUV[fi];
 
-            for (int k = 0; k < NUM_4; k++) {
-                int kNext = (k + 1) % NUM_4;
+            for (int k = 0; k < 4; k++) {
+                int kNext = (k + 1) % 4;
                 float uA = uv[2 * k];
                 float vA = uv[2 * k + 1];
                 float uB = uv[2 * kNext];
@@ -377,8 +367,8 @@ public class CoonsInsetFacesNode implements MeshNode {
                         uA, vA, uB, vB, pA, pB, ni[k], ni[kNext], dh);
             }
 
-            float[] cornerUV = {NUM_0, NUM_0, NUM_1, NUM_0, NUM_1, NUM_1, NUM_0, NUM_1};
-            for (int k = 0; k < NUM_4; k++) {
+            float[] cornerUV = {0f, 0f, 1f, 0f, 1f, 1f, 0f, 1f};
+            for (int k = 0; k < 4; k++) {
                 addRadialHandles(in, hStart, hEnd, fv0, fv1, fv3, fe0, fe1, fe2, fe3,
                         cornerUV[2 * k], cornerUV[2 * k + 1],
                         uv[2 * k], uv[2 * k + 1],
@@ -387,11 +377,11 @@ public class CoonsInsetFacesNode implements MeshNode {
         }
 
         // Pass 2: assemble output mesh topology.
-        int totalVerts = origVertCount + extraPos.size() / NUM_3;
-        float[] positions = new float[totalVerts * NUM_3];
+        int totalVerts = origVertCount + extraPos.size() / 3;
+        float[] positions = new float[totalVerts * 3];
         System.arraycopy(origPos, 0, positions, 0, origPos.length);
         for (int i = 0; i < extraPos.size(); i++) {
-            positions[origVertCount * NUM_3 + i] = extraPos.get(i);
+            positions[origVertCount * 3 + i] = extraPos.get(i);
         }
 
         // Determine which shared cage edges get both endpoints merged (either
@@ -434,7 +424,7 @@ public class CoonsInsetFacesNode implements MeshNode {
                     oldToDense.get(in.faceVertexAt(fid, 0)),
                     oldToDense.get(in.faceVertexAt(fid, 1)),
                     oldToDense.get(in.faceVertexAt(fid, 2)),
-                    oldToDense.get(in.faceVertexAt(fid, NUM_3)),
+                    oldToDense.get(in.faceVertexAt(fid, 3)),
             };
             int[] ni = innerVids[fi];
             int[][] cyanPerCorner = cyanAt3Plus[fi];
@@ -444,7 +434,7 @@ public class CoonsInsetFacesNode implements MeshNode {
             // REPLACING the single ni[k]. Result is quad (no 3+ corners),
             // pentagon (one 3+), hexagon (two), ..., octagon (all four).
             int innerStartIdx = faceIdxList.size();
-            for (int k = 0; k < NUM_4; k++) {
+            for (int k = 0; k < 4; k++) {
                 if (cyanPerCorner != null && cyanPerCorner[k] != null) {
                     faceIdxList.add(cyanPerCorner[k][0]);  // back
                     faceIdxList.add(cyanPerCorner[k][1]);  // fwd
@@ -459,10 +449,10 @@ public class CoonsInsetFacesNode implements MeshNode {
             // Side quads. For each cage edge k of this face:
             //   left-end inner (at v_k): fwd-cyan if corner k is 3+, else ni[k]
             //   right-end inner (at v_{k+1}): back-cyan if corner k+1 is 3+, else ni[k+1]
-            for (int k = 0; k < NUM_4; k++) {
+            for (int k = 0; k < 4; k++) {
                 int eid = in.faceEdgeAt(fid, k);
                 if (droppedSharedEdges.contains(eid)) continue;
-                int kNext = (k + 1) % NUM_4;
+                int kNext = (k + 1) % 4;
                 int leftInner = (cyanPerCorner != null && cyanPerCorner[k] != null)
                         ? cyanPerCorner[k][1]  // fwd-cyan at corner k
                         : ni[k];
@@ -473,7 +463,7 @@ public class CoonsInsetFacesNode implements MeshNode {
                 faceIdxList.add(dOrig[kNext]);
                 faceIdxList.add(rightInner);
                 faceIdxList.add(leftInner);
-                faceVpfList.add(NUM_4);
+                faceVpfList.add(4);
                 generatedList.add(false);
             }
         }
@@ -491,9 +481,9 @@ public class CoonsInsetFacesNode implements MeshNode {
         int[] faceVpfArr = new int[faceVpfList.size()];
         for (int i = 0; i < faceVpfList.size(); i++) faceVpfArr[i] = faceVpfList.get(i);
         boolean allQuads = true;
-        for (int v : faceVpfArr) { if (v != NUM_4) { allQuads = false; break; } }
+        for (int v : faceVpfArr) { if (v != 4) { allQuads = false; break; } }
         HalfEdgeMesh outMesh = allQuads
-                ? HalfEdgeMesh.bulkAllocate(positions, faceIdxFlat, NUM_4)
+                ? HalfEdgeMesh.bulkAllocate(positions, faceIdxFlat, 4)
                 : HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceVpfArr, faceIdxFlat);
         outMesh.computeNormals();
 
@@ -651,14 +641,14 @@ public class CoonsInsetFacesNode implements MeshNode {
             int k = kOrder[i];
             int fwdCyan = cyanVids[i];
             int backCyan = cyanVids[(i - 1 + n) % n];
-            if (cyanAt3Plus[fi] == null) cyanAt3Plus[fi] = new int[NUM_4][];
+            if (cyanAt3Plus[fi] == null) cyanAt3Plus[fi] = new int[4][];
             cyanAt3Plus[fi][k] = new int[]{backCyan, fwdCyan};
 
             // Record mergedEndpoint for both this face's v-incident edges so
             // the side-quad drop logic sees them as merged at this end.
             int fid = in.faceIdAt(fi);
             int fwdEid = in.faceEdgeAt(fid, k);
-            int backEid = in.faceEdgeAt(fid, (k + NUM_3) % NUM_4);
+            int backEid = in.faceEdgeAt(fid, (k + 3) % 4);
             mergedEndpoint.add(packEdgeVertex(fwdEid, denseVid));
             mergedEndpoint.add(packEdgeVertex(backEid, denseVid));
         }
@@ -675,7 +665,7 @@ public class CoonsInsetFacesNode implements MeshNode {
 
     /** Pack a (cage edge id, dense vertex id) pair into a long for hashset keys. */
     private static long packEdgeVertex(int eid, int denseVid) {
-        return ((long) eid << NUM_32) | (denseVid & NUM_0xFFFFFFFF);
+        return ((long) eid << 32) | (denseVid & 0xFFFFFFFFL);
     }
 
     /**
@@ -687,9 +677,9 @@ public class CoonsInsetFacesNode implements MeshNode {
     private static float[] faceLocalUV(int k, float t) {
         switch (k) {
             case 0: return new float[]{t, t};
-            case 1: return new float[]{NUM_1 - t, t};
-            case 2: return new float[]{NUM_1 - t, NUM_1 - t};
-            case NUM_3: return new float[]{t, NUM_1 - t};
+            case 1: return new float[]{1f - t, t};
+            case 2: return new float[]{1f - t, 1f - t};
+            case 3: return new float[]{t, 1f - t};
             default: throw new IllegalArgumentException(CORNER_K + k);
         }
     }
@@ -703,18 +693,18 @@ public class CoonsInsetFacesNode implements MeshNode {
     private static float[] edgePointUV(int k, float t, boolean fwdEdge) {
         if (fwdEdge) {
             switch (k) {
-                case 0: return new float[]{t, NUM_0};
-                case 1: return new float[]{NUM_1, t};
-                case 2: return new float[]{NUM_1 - t, NUM_1};
-                case NUM_3: return new float[]{NUM_0, NUM_1 - t};
+                case 0: return new float[]{t, 0f};
+                case 1: return new float[]{1f, t};
+                case 2: return new float[]{1f - t, 1f};
+                case 3: return new float[]{0f, 1f - t};
                 default: throw new IllegalArgumentException(CORNER_K + k);
             }
         }
         switch (k) {
-            case 0: return new float[]{NUM_0, t};
-            case 1: return new float[]{NUM_1 - t, NUM_0};
-            case 2: return new float[]{NUM_1, NUM_1 - t};
-            case NUM_3: return new float[]{t, NUM_1};
+            case 0: return new float[]{0f, t};
+            case 1: return new float[]{1f - t, 0f};
+            case 2: return new float[]{1f, 1f - t};
+            case 3: return new float[]{t, 1f};
             default: throw new IllegalArgumentException(CORNER_K + k);
         }
     }
@@ -724,11 +714,11 @@ public class CoonsInsetFacesNode implements MeshNode {
                                           int fid, float u, float v) {
         int v0 = in.faceVertexAt(fid, 0);
         int v1 = in.faceVertexAt(fid, 1);
-        int v3 = in.faceVertexAt(fid, NUM_3);
+        int v3 = in.faceVertexAt(fid, 3);
         int e0 = in.faceEdgeAt(fid, 0);
         int e1 = in.faceEdgeAt(fid, 1);
         int e2 = in.faceEdgeAt(fid, 2);
-        int e3 = in.faceEdgeAt(fid, NUM_3);
+        int e3 = in.faceEdgeAt(fid, 3);
         return CoonsHandleBuilder.evalCoonsSurface(in, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, u, v);
     }
 
@@ -746,7 +736,7 @@ public class CoonsInsetFacesNode implements MeshNode {
             Vector3f pStart, Vector3f pEnd,
             int denseStart, int denseEnd,
             Map<Long, float[]> dh) {
-        float eps = NUM_1e_3;
+        float eps = FINITE_DIFF_EPS;
         // Tangent at start: finite-difference toward the end parameter.
         float duStart = (uEnd - uStart) * eps;
         float dvStart = (vEnd - vStart) * eps;
@@ -764,14 +754,14 @@ public class CoonsInsetFacesNode implements MeshNode {
         // Cubic bezier with control points 1/3 and 2/3 of chord length along
         // the end-tangent directions (standard approximation).
         float chord = pEnd.distance(pStart);
-        float mag = chord / NUM_3_2;
+        float mag = chord / 3f;
 
         float tl = tanStart.length();
-        if (tl > NUM_1e_8) tanStart.mul(mag / tl);
+        if (tl > MIN_TANGENT_LENGTH) tanStart.mul(mag / tl);
         else tanStart.zero();
 
         float tle = tanEnd.length();
-        if (tle > NUM_1e_8) tanEnd.mul(mag / tle);
+        if (tle > MIN_TANGENT_LENGTH) tanEnd.mul(mag / tle);
         else tanEnd.zero();
 
         dh.put(CoonsHandleBuilder.dirPack(denseStart, denseEnd),
@@ -792,7 +782,7 @@ public class CoonsInsetFacesNode implements MeshNode {
             float uStart, float vStart, float uEnd, float vEnd,
             int denseStart, int denseEnd,
             Map<Long, float[]> dh) {
-        float eps = NUM_1e_3;
+        float eps = FINITE_DIFF_EPS;
         float du = uEnd - uStart;
         float dv = vEnd - vStart;
         float duEps = du * eps;
@@ -813,14 +803,14 @@ public class CoonsInsetFacesNode implements MeshNode {
         Vector3f tanEnd = new Vector3f(pEndBehind).sub(pEnd);
 
         float chord = pEnd.distance(pStart);
-        float mag = chord / NUM_3_2;
+        float mag = chord / 3f;
 
         float tl = tanStart.length();
-        if (tl > NUM_1e_8) tanStart.mul(mag / tl);
+        if (tl > MIN_TANGENT_LENGTH) tanStart.mul(mag / tl);
         else tanStart.zero();
 
         float tle = tanEnd.length();
-        if (tle > NUM_1e_8) tanEnd.mul(mag / tle);
+        if (tle > MIN_TANGENT_LENGTH) tanEnd.mul(mag / tle);
         else tanEnd.zero();
 
         dh.put(CoonsHandleBuilder.dirPack(denseStart, denseEnd),
@@ -834,17 +824,17 @@ public class CoonsInsetFacesNode implements MeshNode {
      */
     private static HalfEdgeMesh copyMesh(MeshTopology in) {
         int vn = in.vertexCount();
-        float[] positions = new float[vn * NUM_3];
+        float[] positions = new float[vn * 3];
         Vector3f tmp = new Vector3f();
         for (int i = 0; i < vn; i++) {
             in.vertexPosition(in.vertexIdAt(i), tmp);
-            positions[i * NUM_3] = tmp.x;
-            positions[i * NUM_3 + 1] = tmp.y;
-            positions[i * NUM_3 + 2] = tmp.z;
+            positions[i * 3] = tmp.x;
+            positions[i * 3 + 1] = tmp.y;
+            positions[i * 3 + 2] = tmp.z;
         }
         int fn = in.faceCount();
         // Assume uniform quads for cage work; fall back to first face's vpf.
-        int vpf = fn == 0 ? NUM_4 : in.faceVertexCount(in.faceIdAt(0));
+        int vpf = fn == 0 ? 4 : in.faceVertexCount(in.faceIdAt(0));
         int[] faceIdx = new int[fn * vpf];
         int w = 0;
         for (int fi = 0; fi < fn; fi++) {
@@ -878,7 +868,7 @@ public class CoonsInsetFacesNode implements MeshNode {
             int he = in.edgeHalfEdge(eid);
             int dca = oldToDense.get(in.halfEdgeVertex(he));
             int dcb = oldToDense.get(in.halfEdgeEndVertex(he));
-            int o = eid * NUM_3;
+            int o = eid * 3;
             dh.put(CoonsHandleBuilder.dirPack(dca, dcb),
                     new float[]{inHS[o], inHS[o + 1], inHS[o + 2]});
             dh.put(CoonsHandleBuilder.dirPack(dcb, dca),

@@ -22,8 +22,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "join_curves")
 public class JoinCurvesNode implements MeshNode {
-    public static final int NUM_3 = 3;
-    public static final float NUM_1e_10 = 1e-10f;
+    public static final float DEDUP_DISTANCE_SQUARED = 1e-10f;
 
     public static final InputPort CURVE_A = new InputPort("curve_a", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort CURVE_B = new InputPort("curve_b", PortType.GEOMETRY_BUNDLE, null);
@@ -94,26 +93,26 @@ public class JoinCurvesNode implements MeshNode {
         // Check if endpoint of A matches startpoint of B
         int skipB = 0;
         if (dedup && nA > 0 && nB > 0) {
-            int lastA = NUM_3 * (offA0 + nA - 1);
-            int firstB = NUM_3 * offB0;
+            int lastA = 3 * (offA0 + nA - 1);
+            int firstB = 3 * offB0;
             float dx = posA[lastA] - posB[firstB];
             float dy = posA[lastA + 1] - posB[firstB + 1];
             float dz = posA[lastA + 2] - posB[firstB + 2];
-            if (dx * dx + dy * dy + dz * dz < NUM_1e_10) {
+            if (dx * dx + dy * dy + dz * dz < DEDUP_DISTANCE_SQUARED) {
                 skipB = 1;
             }
         }
 
         int totalPoints = nA + nB - skipB;
-        float[] combined = new float[totalPoints * NUM_3];
+        float[] combined = new float[totalPoints * 3];
 
         // Copy A points
-        System.arraycopy(posA, offA0 * NUM_3, combined, 0, nA * NUM_3);
+        System.arraycopy(posA, offA0 * 3, combined, 0, nA * 3);
 
         // Copy B points (skipping first if dedup matched)
-        int srcOffset = (offB0 + skipB) * NUM_3;
-        int dstOffset = nA * NUM_3;
-        int copyCount = (nB - skipB) * NUM_3;
+        int srcOffset = (offB0 + skipB) * 3;
+        int dstOffset = nA * 3;
+        int copyCount = (nB - skipB) * 3;
         System.arraycopy(posB, srcOffset, combined, dstOffset, copyCount);
 
         CurveGeometry joined = CurveGeometry.singlePolyline(combined);

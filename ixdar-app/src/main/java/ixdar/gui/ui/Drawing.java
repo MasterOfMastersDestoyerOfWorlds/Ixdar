@@ -37,13 +37,9 @@ import ixdar.scenes.main.MainScene;
  * camera-relative thickness/font sizes from the current shell extent.
  */
 public class Drawing {
-    public static final float NUM_2_0 = 2.0f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0 = 0f;
-    public static final int NUM_20 = 20;
-    public static final int NUM_3 = 3;
-    public static final float NUM_60 = 60f;
-    public static final int NUM_4 = 4;
+    public static final int DASH_LENGTH_SEGMENT_PX = 20;
+    public static final int DEFAULT_PATH_SCALE = 3;
+    public static final float DASH_LENGTH_PATH_PX = 60f;
 
     public static final float MIN_THICKNESS_START = 2;
     public static final float FONT_HEIGHT_PIXELS_START = 30;
@@ -166,8 +162,8 @@ public class Drawing {
 
         lastCoords[0] = camera.pointTransformX((float) last.getX());
         lastCoords[1] = camera.pointTransformY((float) last.getY());
-        midCoords[0] = (firstCoords[0] + lastCoords[0]) / NUM_2_0;
-        midCoords[1] = (firstCoords[1] + lastCoords[1]) / NUM_2_0;
+        midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0f;
+        midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0f;
         sbe.initDraw();
         d.font.drawHyperString(sbe.x1, midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, camera);
         // Draw x 2
@@ -179,8 +175,8 @@ public class Drawing {
 
         lastCoords[0] = camera.pointTransformX((float) last.getX());
         lastCoords[1] = camera.pointTransformY((float) last.getY());
-        midCoords[0] = (firstCoords[0] + lastCoords[0]) / NUM_2_0;
-        midCoords[1] = (firstCoords[1] + lastCoords[1]) / NUM_2_0;
+        midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0f;
+        midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0f;
 
         d.font.drawHyperString(sbe.x2, midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, camera);
         // Draw external segment 1
@@ -193,7 +189,7 @@ public class Drawing {
 
         pND.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN, camera);
 
-        ex1.setStroke(lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
+        ex1.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
         drawSegment(ex1, Color.GREEN, camera);
 
         // Draw external segment 2
@@ -207,7 +203,7 @@ public class Drawing {
 
         pND2.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN,
                 camera);
-        ex2.setStroke(lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
+        ex2.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
         drawSegment(ex2, Color.GREEN, camera);
 
         // Draw Cuts and Matches
@@ -216,7 +212,7 @@ public class Drawing {
 
                 if (cutMatch.c != null) {
                     for (Segment s : cutMatch.matchSegments) {
-                        s.setStroke(lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
+                        s.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
                         if (s.id == cutMatch.c.lowerMatchSegment.id || s.id == cutMatch.c.upperMatchSegment.id) {
                             drawSegment(s, Color.GREEN, camera);
                         } else {
@@ -226,7 +222,7 @@ public class Drawing {
 
                     // Draw Cuts
                     for (Segment s : cutMatch.cutSegments) {
-                        s.setStroke(2 * lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
+                        s.setStroke(2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
                         if (s.id == cutMatch.c.lowerCutSegment.id || s.id == cutMatch.c.upperCutSegment.id) {
                             drawSegment(s, Color.MAGENTA, camera);
                         } else {
@@ -255,7 +251,7 @@ public class Drawing {
      * @param camera    the active scene camera
      */
     public static void drawSegment(Segment segment, Color c, float thickness, Camera2D camera) {
-        segment.setStroke(thickness, false, NUM_1, NUM_0, true, false, false, camera);
+        segment.setStroke(thickness, false, 1f, 0f, true, false, false, camera);
         drawSegment(segment, c, camera);
     }
 
@@ -269,7 +265,7 @@ public class Drawing {
      * @param camera    the active scene camera
      */
     public static void drawScaledSegment(Segment segment, Color c, float thickness, Camera2D camera) {
-        segment.setStroke(thickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
+        segment.setStroke(thickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
         drawSegment(segment, c, camera);
     }
 
@@ -286,7 +282,7 @@ public class Drawing {
      * @param camera    the active scene camera
      */
     public static void drawScaledSegment(Segment s, Vector2f a, Vector2f b, Color c, float thickness, Camera2D camera) {
-        s.setStroke(thickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
+        s.setStroke(thickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
         s.draw(a, b, c, camera);
     }
 
@@ -333,7 +329,7 @@ public class Drawing {
 
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
-        ex1.setStroke(Drawing.MIN_THICKNESS * camera.ScaleFactor, true, NUM_20 * camera.ScaleFactor, NUM_1, true,
+        ex1.setStroke(Drawing.MIN_THICKNESS * camera.ScaleFactor, true, DASH_LENGTH_SEGMENT_PX * camera.ScaleFactor, 1f, true,
                 false, false, camera);
         ex1.draw(firstVec, lastVec, c, camera);
     }
@@ -448,13 +444,13 @@ public class Drawing {
         Drawing d = getDrawing();
         float scale = camera.ScaleFactor;
         if (!Toggle.ScalePath.value) {
-            scale = NUM_3;
+            scale = DEFAULT_PATH_SCALE;
         }
         if (shell.size() == 0) {
             return;
         }
         if (dashed) {
-            d.sdfLine.setStroke(lineThickness * scale, true, NUM_60, NUM_1, true, true, false);
+            d.sdfLine.setStroke(lineThickness * scale, true, DASH_LENGTH_PATH_PX, 1f, true, true, false);
         } else {
             d.sdfLine.setStroke(lineThickness * scale, false);
         }
@@ -469,7 +465,7 @@ public class Drawing {
                 float x = camera.pointTransformX(p.getScreenX());
                 float y = camera.pointTransformY(p.getScreenY());
                 next = shell.getNext(count);
-                float numberPixelDistance = scale * FONT_HEIGHT_LABELS_PIXELS / NUM_4;
+                float numberPixelDistance = scale * FONT_HEIGHT_LABELS_PIXELS / 4;
                 Vector2f point = new Vector2f(x, y);
                 Vector2f lastVector = new Vector2f(camera.pointTransformX(last.getScreenX()),
                         camera.pointTransformY(last.getScreenY())).sub(point);
@@ -518,7 +514,7 @@ public class Drawing {
             ArrayList<Color> colors, Camera2D camera, float minLineThickness) {
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
-            s.setStroke(minLineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
+            s.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
             if (lookUpPairs != null) {
                 Pair<Long, Long> lookUpPair = lookUpPairs.get(i);
 
@@ -555,7 +551,7 @@ public class Drawing {
 
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
-            s.setStroke(minLineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
+            s.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
             if (lookupPairs != null) {
                 Pair<Long, Long> lookUpPair = lookupPairs.get(i);
 
@@ -589,10 +585,10 @@ public class Drawing {
             Segment cutSegment, float lineThickness,
             PointSet ps, Camera2D camera) {
 
-        matchSegment.setStroke(lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
+        matchSegment.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
         Drawing.drawSegment(matchSegment, Color.CYAN, camera);
 
-        cutSegment.setStroke(2 * lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
+        cutSegment.setStroke(2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
         Drawing.drawSegment(cutSegment, Color.ORANGE, camera);
     }
 
@@ -659,7 +655,7 @@ public class Drawing {
     public static void drawKnot(Knot k, Color c, float lineThickness, Camera2D camera) {
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
-            s.setStroke(lineThickness * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera);
+            s.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
             Drawing.drawSegment(s, c, camera);
         }
     }
@@ -672,7 +668,7 @@ public class Drawing {
      */
     public static void setScaledStroke(Camera2D camera) {
         Drawing d = getDrawing();
-        d.sdfLine.setStroke(MIN_THICKNESS * camera.ScaleFactor, false, NUM_1, NUM_0, true, false, false);
+        d.sdfLine.setStroke(MIN_THICKNESS * camera.ScaleFactor, false, 1f, 0f, true, false, false);
     }
 
 }

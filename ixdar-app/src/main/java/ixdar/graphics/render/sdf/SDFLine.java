@@ -13,12 +13,11 @@ import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 import ixdar.gui.ui.Drawing;
 
 public class SDFLine extends ShaderDrawable {
-    public static final float NUM_0_1 = 0.1f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_02 = 0.02f;
-    public static final float NUM_0_35 = 0.35f;
-    public static final float NUM_3 = 3f;
-    public static final double NUM_0_1_2 = 0.1;
+    public static final float FEATHER = 0.1f;
+    public static final float OUTER_FEATHER = 0.02f;
+    public static final float DEFAULT_EDGE_DIST = 0.35f;
+    public static final float MIN_THICKNESS_DIVISOR = 3f;
+    public static final double MAX_EDGE_SHARPNESS = 0.1;
 
     private ShaderProgram lineShader;
     private ShaderProgram dashedLineShader;
@@ -78,9 +77,9 @@ public class SDFLine extends ShaderDrawable {
             float borderDist, float borderOffset) {
         lineShader = sdfShader;
         this.borderColor = borderColor;
-        this.borderInner = borderDist - NUM_0_1;
+        this.borderInner = borderDist - FEATHER;
         this.borderOuter = borderDist;
-        this.borderOffsetInner = borderOffset - NUM_0_1;
+        this.borderOffsetInner = borderOffset - FEATHER;
         this.borderOffsetOuter = borderOffset;
         setShader();
     }
@@ -144,7 +143,7 @@ public class SDFLine extends ShaderDrawable {
      * @param borderDist outer border radius
      */
     public void setBorderDist(float borderDist) {
-        this.borderInner = borderDist - NUM_0_1;
+        this.borderInner = borderDist - FEATHER;
         this.borderOuter = borderDist;
     }
 
@@ -163,7 +162,7 @@ public class SDFLine extends ShaderDrawable {
      * @param borderOffset offset of the border start from the line edge
      */
     public void setBorderOffset(float borderOffset) {
-        this.borderOffsetInner = borderOffset - NUM_0_1;
+        this.borderOffsetInner = borderOffset - FEATHER;
         this.borderOffsetOuter = borderOffset;
     }
 
@@ -183,8 +182,8 @@ public class SDFLine extends ShaderDrawable {
      * @param borderWidth thickness of the border band in distance-field units
      */
     public void setBorderBand(float borderWidth) {
-        float clampedWidth = Math.max(NUM_0, borderWidth);
-        float feather = NUM_0_02;
+        float clampedWidth = Math.max(0f, borderWidth);
+        float feather = OUTER_FEATHER;
         this.borderInner = edgeDist;
         this.borderOuter = edgeDist + clampedWidth;
         this.borderOffsetInner = this.borderOuter;
@@ -198,7 +197,7 @@ public class SDFLine extends ShaderDrawable {
      */
     public void setStroke(boolean dashed) {
         this.dashed = dashed;
-        edgeDist = NUM_0_35;
+        edgeDist = DEFAULT_EDGE_DIST;
         setShader();
     }
 
@@ -209,9 +208,9 @@ public class SDFLine extends ShaderDrawable {
      * @param dashed {@code true} to use the dashed-line shader on next draw
      */
     public void setStroke(float lineWidth, boolean dashed) {
-        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS / NUM_3);
+        this.lineWidth = Math.max(lineWidth, Drawing.MIN_THICKNESS / MIN_THICKNESS_DIVISOR);
         this.dashed = dashed;
-        edgeDist = NUM_0_35;
+        edgeDist = DEFAULT_EDGE_DIST;
         setShader();
     }
 
@@ -235,7 +234,7 @@ public class SDFLine extends ShaderDrawable {
         this.roundCaps = roundCaps;
         this.endCaps = endCaps;
         this.arrow = arrow;
-        edgeDist = NUM_0_35;
+        edgeDist = DEFAULT_EDGE_DIST;
         setShader();
     }
 
@@ -262,7 +261,7 @@ public class SDFLine extends ShaderDrawable {
         this.roundCaps = roundCaps;
         this.endCaps = endCaps;
         this.arrow = arrow;
-        edgeDist = NUM_0_35;
+        edgeDist = DEFAULT_EDGE_DIST;
         setShader();
     }
 
@@ -376,7 +375,7 @@ public class SDFLine extends ShaderDrawable {
      */
     @Override
     protected void setUniforms() {
-        shader.setFloat("edgeSharpness", (float) Math.min(1 / (lineWidth * 2), NUM_0_1_2));
+        shader.setFloat("edgeSharpness", (float) Math.min(1 / (lineWidth * 2), MAX_EDGE_SHARPNESS));
         shader.setFloat("dashPhase", Clock.spin(dashRate));
         float inverseLineLengthSq = 1 / lengthSq(pATex, pBTex);
         shader.setFloat("lineLengthSq", lengthSq(pATex, pBTex));

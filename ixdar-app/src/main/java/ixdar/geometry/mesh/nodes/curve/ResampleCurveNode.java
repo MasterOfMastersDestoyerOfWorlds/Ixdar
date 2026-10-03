@@ -19,9 +19,8 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "resample_curve")
 public class ResampleCurveNode implements MeshNode {
-    public static final float NUM_0_1 = 0.1f;
-    public static final float NUM_1e_20 = 1e-20f;
-    public static final int NUM_3 = 3;
+    public static final float DEFAULT_SEGMENT_LENGTH = 0.1f;
+    public static final float MIN_LENGTH = 1e-20f;
 
     public static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort LENGTH = new InputPort("length", PortType.FLOAT, 0.1f, 0.001f, 100f);
@@ -60,8 +59,8 @@ public class ResampleCurveNode implements MeshNode {
         }
         float segLen = FieldBroadcast.floatScalarOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, LENGTH.name, LENGTH.defaultValue),
-                NUM_0_1);
-        if (segLen <= NUM_1e_20) {
+                DEFAULT_SEGMENT_LENGTH);
+        if (segLen <= MIN_LENGTH) {
             ctx.setOutput(GEOMETRY_OUT.name,gb);
             return;
         }
@@ -84,19 +83,19 @@ public class ResampleCurveNode implements MeshNode {
             int s = off[c];
             int e = off[c + 1];
             if (e - s < 2) {
-                newOff.add(out.size() / NUM_3);
+                newOff.add(out.size() / 3);
                 continue;
             }
             boolean first = true;
             for (int pi = s; pi < e - 1; pi++) {
-                int i0 = NUM_3 * pi;
-                int i1 = NUM_3 * (pi + 1);
+                int i0 = 3 * pi;
+                int i1 = 3 * (pi + 1);
                 p0.set(pos[i0], pos[i0 + 1], pos[i0 + 2]);
                 p1.set(pos[i1], pos[i1 + 1], pos[i1 + 2]);
                 appendResampled(p0, p1, segLen, out, first);
                 first = false;
             }
-            newOff.add(out.size() / NUM_3);
+            newOff.add(out.size() / 3);
         }
 
         if (out.isEmpty()) {
@@ -117,7 +116,7 @@ public class ResampleCurveNode implements MeshNode {
 
     private static void appendResampled(Vector3f a, Vector3f b, float segLen, ArrayList<Float> out, boolean firstOfCurve) {
         float len = a.distance(b);
-        if (len < NUM_1e_20) {
+        if (len < MIN_LENGTH) {
             if (firstOfCurve) {
                 out.add(a.x);
                 out.add(a.y);

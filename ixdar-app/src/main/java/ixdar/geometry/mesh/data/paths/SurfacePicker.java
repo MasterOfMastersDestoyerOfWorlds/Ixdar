@@ -14,16 +14,12 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public final class SurfacePicker {
 
-    /** Coordinates per point in a ray or a hit position. */
     public static final int COORDINATES_PER_POINT = 3;
 
-    /** Corners a triangle the picker tests must have. */
     public static final int TRIANGLE_CORNERS = 3;
 
-    /** Ray parameters below this count as behind the eye. */
     public static final float MINIMUM_DISTANCE = 1e-6f;
 
-    /** Determinants below this mean the ray runs along the triangle's plane. */
     public static final float PARALLEL_EPSILON = 1e-12f;
 
     /** Face the last hit landed on, or {@code -1} when nothing was hit. */

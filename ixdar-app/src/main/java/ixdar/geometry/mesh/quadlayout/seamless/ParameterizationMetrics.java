@@ -9,12 +9,7 @@ public class ParameterizationMetrics {
 
     public static final float HALF = 0.5f;
     public static final float SVD_DET_FACTOR = 4.0f;
-    /**
-     * Indices into the 4-element {@code [u_p, v_p, u_q, v_q]} array returned by
-     * {@link SeamlessUv#lookupCorners}.
-     */
     public static final int IDX_UQ = 2;
-    /** {@link #IDX_UQ} sibling. */
     public static final int IDX_VQ = 3;
 
     public final SeamlessParameterization seamless;

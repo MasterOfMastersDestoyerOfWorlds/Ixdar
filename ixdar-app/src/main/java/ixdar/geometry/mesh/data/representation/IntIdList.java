@@ -3,7 +3,7 @@ package ixdar.geometry.mesh.data.representation;
 import java.util.Arrays;
 
 public final class IntIdList {
-    public static final int NUM_4 = 4;
+    public static final int DEFAULT_CAPACITY = 4;
 
     /**
      * Backing storage, reallocated on growth: a hot loop may read it directly, but
@@ -15,7 +15,7 @@ public final class IntIdList {
     public int size;
 
     IntIdList() {
-        this(NUM_4);
+        this(DEFAULT_CAPACITY);
     }
 
     /**

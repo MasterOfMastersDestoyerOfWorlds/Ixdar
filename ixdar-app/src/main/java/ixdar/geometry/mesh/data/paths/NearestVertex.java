@@ -15,7 +15,6 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public final class NearestVertex {
 
-    /** Relative distance gap below which the two nearest vertices count as tied. */
     public static final double RELATIVE_EPSILON = 1e-6;
 
     private NearestVertex() {

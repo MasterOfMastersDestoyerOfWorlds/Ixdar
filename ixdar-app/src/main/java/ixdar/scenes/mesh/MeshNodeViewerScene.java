@@ -58,24 +58,18 @@ public class MeshNodeViewerScene extends ModelScene {
     public static final String ON = "ON";
     public static final String OFF = "OFF";
     public static final String DSL = ".dsl";
-    public static final String STR = ": ";
     public static final String FAILED_TO_CREATE_MESH_GL_RUNTIME = "Failed to create mesh GL runtime";
     public static final String VERTS = " verts=";
     public static final String FACES = " faces=";
-    public static final String STR_2 = ")";
-    public static final float NUM_0 = 0f;
-    public static final int NUM_3 = 3;
-    public static final float NUM_0_6 = 0.6f;
-    public static final float NUM_0_2 = 0.2f;
-    public static final float NUM_0_35 = 0.35f;
-    public static final float NUM_2 = 2f;
-    public static final float NUM_1e_6 = 1e-6f;
-    public static final int NUM_128 = 128;
-    public static final int NUM_16 = 16;
-    public static final int NUM_0xf = 0xff;
-    public static final float NUM_255 = 255f;
-    public static final int NUM_8 = 8;
-    public static final float NUM_1 = 1f;
+    public static final int MIN_FACE_VERTICES = 3;
+    public static final float ERROR_RAMP_SCALE = 2f;
+    public static final float MIN_RAMP_VALUE = 1e-6f;
+    public static final int DECOMPOSE_SAMPLE_COUNT = 128;
+    public static final int RED_SHIFT = 16;
+    public static final int HEX_RADIX = 16;
+    public static final int BYTE_MASK = 0xff;
+    public static final float COLOR_CHANNEL_MAX = 255f;
+    public static final int GREEN_SHIFT = 8;
 
     private static final String DSL_FOLDER = "dsl";
     private static final String DEFAULT_DSL_RESOURCE = "skull.dsl";
@@ -338,7 +332,7 @@ public class MeshNodeViewerScene extends ModelScene {
                     graphRuntime.logTimings(TIMING_PREFIX);
                 } catch (Exception e) {
                     for (Throwable t = e; t != null; t = t.getCause()) {
-                        Platforms.get().log("[mesh-viewer] " + t.getClass().getName() + STR + t.getMessage());
+                        Platforms.get().log("[mesh-viewer] " + t.getClass().getName() + ": " + t.getMessage());
                     }
                     throw new IllegalStateException(
                             "Failed to execute graph: dsl=" + dslResource + " finalNode=" + dslFinalNode
@@ -603,7 +597,7 @@ public class MeshNodeViewerScene extends ModelScene {
         Vector3f cross = new Vector3f();
         for (int i = 0; i < mesh.faceCount(); i++) {
             int faceId = mesh.faceIdAt(i);
-            if (mesh.faceVertexCount(faceId) < NUM_3) {
+            if (mesh.faceVertexCount(faceId) < MIN_FACE_VERTICES) {
                 degenerateFaceCount++;
                 continue;
             }
@@ -613,7 +607,7 @@ public class MeshNodeViewerScene extends ModelScene {
             edgeA.set(p1).sub(p0);
             edgeB.set(p2).sub(p0);
             edgeA.cross(edgeB, cross);
-            if (cross.lengthSquared() == NUM_0) {
+            if (cross.lengthSquared() == 0f) {
                 degenerateFaceCount++;
             }
         }
@@ -626,7 +620,7 @@ public class MeshNodeViewerScene extends ModelScene {
      * @return radius, or 0 if no mesh is loaded
      */
     public float getMeshRadius() {
-        return mesh == null ? NUM_0 : mesh.radius();
+        return mesh == null ? 0f : mesh.radius();
     }
 
     /**
@@ -1039,7 +1033,7 @@ public class MeshNodeViewerScene extends ModelScene {
             return;
         if (entry.kind == ModelChoice.Kind.COLLECTION) {
             openCollection(Path.of(entry.path));
-            Platforms.get().log("[mesh-viewer] collection " + modelCollection.name + STR
+            Platforms.get().log("[mesh-viewer] collection " + modelCollection.name + ": "
                     + modelCollection.memberCount() + " members, " + modelCollection.keptCount()
                     + " kept, manifest " + modelCollection.manifestPath);
             loadModelEntry(modelCatalog.select(0));
@@ -1086,7 +1080,7 @@ public class MeshNodeViewerScene extends ModelScene {
             applyEdgeMarkOverlay(runtime);
             frameMesh(mesh);
         } catch (Exception e) {
-            Platforms.get().log("[mesh-viewer] DSL load failed for " + file + STR + e.getMessage());
+            Platforms.get().log("[mesh-viewer] DSL load failed for " + file + ": " + e.getMessage());
         }
     }
 
@@ -1145,7 +1139,7 @@ public class MeshNodeViewerScene extends ModelScene {
                     + (cached ? " (cached)" : ""));
             frameMesh(mesh);
         } catch (Exception e) {
-            Platforms.get().log("[mesh-viewer] mesh load failed for " + absolutePath + STR + e.getMessage());
+            Platforms.get().log("[mesh-viewer] mesh load failed for " + absolutePath + ": " + e.getMessage());
         }
     }
 
@@ -1209,7 +1203,7 @@ public class MeshNodeViewerScene extends ModelScene {
         applyFeatureEdgeOverlay();
         applyScalarOverlay();
         Platforms.get().log("[mesh-viewer] patches: ON (" + cachedDiagnostics.decomposition().patches().size()
-                + " patches, mode=" + shaderMode + STR_2);
+                + " patches, mode=" + shaderMode + ")");
         logState();
     }
 
@@ -1270,8 +1264,8 @@ public class MeshNodeViewerScene extends ModelScene {
             meshRuntime.clearPerVertexScalar();
             return;
         }
-        float rampMax = Math.max(NUM_2 * cachedDiagnostics.coonsErrorThreshold(), NUM_1e_6);
-        meshRuntime.setPerVertexScalar(errors, NUM_0, rampMax);
+        float rampMax = Math.max(ERROR_RAMP_SCALE * cachedDiagnostics.coonsErrorThreshold(), MIN_RAMP_VALUE);
+        meshRuntime.setPerVertexScalar(errors, 0f, rampMax);
     }
 
     /**
@@ -1398,15 +1392,15 @@ public class MeshNodeViewerScene extends ModelScene {
                 + " (" + am.vertexCount() + " verts)...");
         long start = System.currentTimeMillis();
         cachedDiagnostics = (activeDecomposer == DecomposerKind.MORSE_SMALE)
-                ? MorseSmaleDecomposer.decomposeWithDiagnostics(am, NUM_128)
-                : SemanticPatchDecomposer.decomposeWithDiagnostics(am, NUM_128);
+                ? MorseSmaleDecomposer.decomposeWithDiagnostics(am, DECOMPOSE_SAMPLE_COUNT)
+                : SemanticPatchDecomposer.decomposeWithDiagnostics(am, DECOMPOSE_SAMPLE_COUNT);
         cachedDiagnosticsKey = key;
         long elapsed = System.currentTimeMillis() - start;
         Platforms.get().log("[mesh-viewer] decomposed in " + elapsed + "ms: "
                 + cachedDiagnostics.decomposition().patches().size() + " patches"
                 + " (crest=" + cachedDiagnostics.crestEdges().size()
                 + " saddle=" + cachedDiagnostics.saddleSeparatorEdges().size()
-                + " boundary=" + cachedDiagnostics.patchBoundaryEdges().size() + STR_2);
+                + " boundary=" + cachedDiagnostics.patchBoundaryEdges().size() + ")");
     }
 
     private void applyCurrentOverlay() {
@@ -1427,17 +1421,17 @@ public class MeshNodeViewerScene extends ModelScene {
             if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.FLAT) {
                 int rgb = PatchColors.uniquePatchColor(p.id());
                 color = new Vector4f(
-                        ((rgb >> NUM_16) & NUM_0xf) / NUM_255,
-                        ((rgb >> NUM_8) & NUM_0xf) / NUM_255,
-                        (rgb & NUM_0xf) / NUM_255,
-                        NUM_1);
+                        ((rgb >> RED_SHIFT) & BYTE_MASK) / COLOR_CHANNEL_MAX,
+                        ((rgb >> GREEN_SHIFT) & BYTE_MASK) / COLOR_CHANNEL_MAX,
+                        (rgb & BYTE_MASK) / COLOR_CHANNEL_MAX,
+                        1f);
             } else {
-                int rgb = Integer.parseInt(p.color(), NUM_16);
+                int rgb = Integer.parseInt(p.color(), HEX_RADIX);
                 color = new Vector4f(
-                        ((rgb >> NUM_16) & NUM_0xf) / NUM_255,
-                        ((rgb >> NUM_8) & NUM_0xf) / NUM_255,
-                        (rgb & NUM_0xf) / NUM_255,
-                        NUM_1);
+                        ((rgb >> RED_SHIFT) & BYTE_MASK) / COLOR_CHANNEL_MAX,
+                        ((rgb >> GREEN_SHIFT) & BYTE_MASK) / COLOR_CHANNEL_MAX,
+                        (rgb & BYTE_MASK) / COLOR_CHANNEL_MAX,
+                        1f);
             }
             meshRuntime.setTagColor(name, color);
         }

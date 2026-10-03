@@ -17,24 +17,15 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
  * Supports vertex positions and optional normals; glTF also carries texture coordinates.
  */
 public final class MeshLoader {
-    public static final String STR = "#";
+    public static final String COMMENT_PREFIX = "#";
     public static final String S = "\\s+";
     public static final String END_HEADER = "end_header";
     public static final String ELEMENT_VERTEX = "element vertex";
     public static final String OFF_HEADER = "OFF";
-    public static final int NUM_4 = 4;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1e_20 = 1e-20f;
-    public static final int NUM_6 = 6;
-    public static final int NUM_5 = 5;
+    public static final float NORMAL_LENGTH_EPSILON = 1e-20f;
 
     public static final int FLOATS_PER_VERTEX = 3;
 
-    /**
-     * Module directory a relative path is retried against. Scene resource constants are written
-     * relative to it because every {@code launch.json} entry runs with it as the working directory,
-     * so a launcher that starts at the repository root instead would otherwise miss every default.
-     */
     public static final String MODULE_DIRECTORY = "ixdar-app";
 
     public static final String OBJ_EXTENSION = ".obj";
@@ -43,7 +34,6 @@ public final class MeshLoader {
     public static final String GLB_EXTENSION = ".glb";
     public static final String GLTF_EXTENSION = ".gltf";
 
-    /** Every extension {@link #load} accepts, lower case and dot-prefixed. */
     public static final List<String> MESH_EXTENSIONS = List.of(
             OBJ_EXTENSION, PLY_EXTENSION, OFF_EXTENSION, GLB_EXTENSION, GLTF_EXTENSION);
 

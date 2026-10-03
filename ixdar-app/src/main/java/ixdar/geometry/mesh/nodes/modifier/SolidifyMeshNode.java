@@ -19,8 +19,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "solidify_mesh")
 public class SolidifyMeshNode implements MeshNode {
-    public static final float NUM_0_01 = 0.01f;
-
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort THICKNESS = new InputPort("thickness", PortType.FLOAT, 0.01f, 0.001f, 10f);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
@@ -57,7 +55,7 @@ public class SolidifyMeshNode implements MeshNode {
             return;
         }
         Object to = FieldBroadcast.getInputOrDefault(ctx, THICKNESS.name, THICKNESS.defaultValue);
-        float t = FieldBroadcast.floatScalarOrDefault(to, NUM_0_01);
+        float t = FieldBroadcast.floatScalarOrDefault(to, 0.01f);
         ArrayMesh am = in instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(in);
         if (!ArrayMeshEngine.isUniformQuads(am)) {
             throw new IllegalStateException("solidify_mesh requires uniform quad meshes");

@@ -28,13 +28,10 @@ import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
  */
 public final class EmbeddedMeshTopology {
 
-    /** Owner value for unclaimed elements. */
     public static final int UNCLAIMED = -1;
 
-    /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
 
-    /** Split parameter of {@link #splitEdgeAtMidpoint}. */
     private static final double EDGE_MIDPOINT = 0.5;
 
     public final HalfEdgeMesh sourceMesh;

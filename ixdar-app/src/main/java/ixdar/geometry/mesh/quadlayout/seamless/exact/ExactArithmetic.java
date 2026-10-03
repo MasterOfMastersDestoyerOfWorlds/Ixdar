@@ -12,11 +12,8 @@ import java.math.BigInteger;
  */
 public final class ExactArithmetic {
 
-    /** Rotation value not expressible as a {@code switch} literal. */
     public static final int ROTATION_THREE_QUARTERS = 3;
-    /** Error message prefix for invalid rotations passed to {@link #integerCosine(int)}/{@link #integerSine(int)}. */
     public static final String INVALID_ROTATION_MESSAGE = "rotation must be in {0,1,2,3}, got ";
-    /** Mantissa precision of an IEEE 754 double-precision float. */
     public static final int DOUBLE_MANTISSA_BITS = 52;
 
     private ExactArithmetic() {

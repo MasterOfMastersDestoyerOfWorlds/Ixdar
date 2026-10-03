@@ -8,10 +8,8 @@ import java.util.Arrays;
  */
 public final class PixelImage {
 
-    /** Fully opaque alpha, ready to be OR-ed onto a packed RGB triple. */
     public static final int OPAQUE = 0xFF000000;
 
-    /** Mask isolating the colour channels of a packed pixel. */
     public static final int RGB_MASK = 0x00FFFFFF;
 
     public final int[] argb;

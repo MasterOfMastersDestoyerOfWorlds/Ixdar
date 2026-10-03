@@ -60,10 +60,9 @@ public class AutomationRuntime {
     public static final String Y = "y";
     public static final String XNORM = "xNorm";
     public static final String YNORM = "yNorm";
-    public static final int NUM_47832 = 47832;
-    public static final int NUM_3 = 3;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_1e_8 = 1e-8f;
+    public static final int DEFAULT_AUTOMATION_PORT = 47832;
+    public static final int VERTEX_STRIDE_FLOATS = 3;
+    public static final float MIN_DIAGONAL_EPSILON = 1e-8f;
 
     public static final long MAIN_THREAD_WAIT_MS = 60000L;
     public static final AutomationRuntime INSTANCE = new AutomationRuntime();
@@ -101,7 +100,7 @@ public class AutomationRuntime {
             return;
         }
         this.canvas = canvas3D;
-        int requestedPort = Integer.getInteger("ixdar.automation.port", NUM_47832);
+        int requestedPort = Integer.getInteger("ixdar.automation.port", DEFAULT_AUTOMATION_PORT);
         try {
             server = new AutomationApiServer(this, requestedPort);
             server.start();
@@ -295,7 +294,7 @@ public class AutomationRuntime {
                 maxZ = -Float.MAX_VALUE;
 
         for (int i = 0; i < n; i++) {
-            int o = i * NUM_3;
+            int o = i * VERTEX_STRIDE_FLOATS;
             minX = Math.min(minX, pos[o]);
             maxX = Math.max(maxX, pos[o]);
             minY = Math.min(minY, pos[o + 1]);
@@ -304,22 +303,22 @@ public class AutomationRuntime {
             maxZ = Math.max(maxZ, pos[o + 2]);
         }
 
-        float cx = (minX + maxX) * NUM_0_5;
-        float cy = (minY + maxY) * NUM_0_5;
-        float cz = (minZ + maxZ) * NUM_0_5;
+        float cx = (minX + maxX) * 0.5f;
+        float cy = (minY + maxY) * 0.5f;
+        float cz = (minZ + maxZ) * 0.5f;
 
         float dx = maxX - minX,
                 dy = maxY - minY,
                 dz = maxZ - minZ;
         float diagonal = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        float invDiag = diagonal > NUM_1e_8 ? 1.0f / diagonal : 1.0f;
+        float invDiag = diagonal > MIN_DIAGONAL_EPSILON ? 1.0f / diagonal : 1.0f;
 
         for (int i = 0; i < n; i++) {
             mesh.setVertexPosition(
                     i,
-                    (pos[i * NUM_3] - cx) * invDiag,
-                    (pos[i * NUM_3 + 1] - cy) * invDiag,
-                    (pos[i * NUM_3 + 2] - cz) * invDiag);
+                    (pos[i * VERTEX_STRIDE_FLOATS] - cx) * invDiag,
+                    (pos[i * VERTEX_STRIDE_FLOATS + 1] - cy) * invDiag,
+                    (pos[i * VERTEX_STRIDE_FLOATS + 2] - cz) * invDiag);
         }
     }
 

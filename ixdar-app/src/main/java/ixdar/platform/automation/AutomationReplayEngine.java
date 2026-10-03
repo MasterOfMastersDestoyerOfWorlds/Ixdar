@@ -17,7 +17,7 @@ public class AutomationReplayEngine {
     public static final String RUNNING = "running";
     public static final String TIMESTAMPMS = "timestampMs";
     public static final String CANCELLED = "cancelled";
-    public static final int NUM_50 = 50;
+    public static final int PAUSE_POLL_INTERVAL_MS = 50;
 
     private static final Gson GSON = new Gson();
 
@@ -123,7 +123,7 @@ public class AutomationReplayEngine {
                     return;
                 }
                 while (paused && !cancelRequested) {
-                    Thread.sleep(NUM_50);
+                    Thread.sleep(PAUSE_POLL_INTERVAL_MS);
                 }
                 if (cancelRequested) {
                     lastReplayStatus = CANCELLED;

@@ -35,10 +35,6 @@ public class MirrorGeometryNode implements MeshNode {
     public static final String X = "X";
     public static final String Y = "Y";
     public static final String Z = "Z";
-    public static final float NUM_0_0001 = 0.0001f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0 = 0f;
-    public static final int NUM_3 = 3;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort AXIS = new InputPort("axis", PortType.STRING, X);
@@ -75,7 +71,7 @@ public class MirrorGeometryNode implements MeshNode {
         String axis = ctx.getInput(AXIS.name, String.class);
         if (axis == null) axis = X;
         Number mdNum = ctx.getInput(MERGE_DISTANCE.name, Number.class);
-        float md = mdNum == null ? NUM_0_0001 : mdNum.floatValue();
+        float md = mdNum == null ? 0.0001f : mdNum.floatValue();
 
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.vertexCount() == 0) {
@@ -100,7 +96,7 @@ public class MirrorGeometryNode implements MeshNode {
         for (int i = 0; i < n; i++) {
             int vid = mesh.vertexIdAt(i);
             mesh.vertexPosition(vid, p);
-            ph.set(p.x, p.y, p.z, NUM_1);
+            ph.set(p.x, p.y, p.z, 1f);
             mirror.transform(ph);
             int nid = mirrored.addVertex(ph.x, ph.y, ph.z);
             idMap.put(vid, nid);
@@ -126,7 +122,7 @@ public class MirrorGeometryNode implements MeshNode {
         // Weld seam vertices, recording how the faces moved so the corner UVs can follow.
         MeshMergeByDistance welder = new MeshMergeByDistance();
         MeshTopology result;
-        if (md > NUM_0) {
+        if (md > 0f) {
             result = welder.weld(combined, md);
         } else {
             result = combined;
@@ -151,7 +147,7 @@ public class MirrorGeometryNode implements MeshNode {
         }
 
         GeometryBundle doubled = SlotCarry.mirror(base, new GeometryBundle(combined, Map.copyOf(nextSlots)));
-        GeometryBundle out = md > NUM_0
+        GeometryBundle out = md > 0f
                 ? SlotCarry.weldCornerUv(doubled, doubled.withMesh(result), welder.sourceFace)
                 : doubled;
         ctx.setOutput(GEOMETRY.name, out);
@@ -195,7 +191,7 @@ public class MirrorGeometryNode implements MeshNode {
             int he = origMesh.edgeHalfEdge(eid);
             int va = origMesh.halfEdgeVertex(he);
             int vb = origMesh.halfEdgeEndVertex(he);
-            int o = eid * NUM_3;
+            int o = eid * 3;
 
             int origVaCombined = origToMirroredVid.get(va);
             int origVbCombined = origToMirroredVid.get(vb);

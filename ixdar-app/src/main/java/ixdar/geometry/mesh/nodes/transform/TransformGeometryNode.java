@@ -30,9 +30,7 @@ import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
  */
 @MeshNodeAnnotation(id = "transform_geometry")
 public class TransformGeometryNode implements MeshNode {
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1 = 1f;
-    public static final int NUM_3 = 3;
+    public static final int VECTOR_STRIDE = 3;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort TRANSLATION = new InputPort("translation", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
@@ -70,17 +68,17 @@ public class TransformGeometryNode implements MeshNode {
         GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         Vector3Value trans = FieldBroadcast.vector3ValueOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, TRANSLATION.name, TRANSLATION.defaultValue),
-                new Vector3Value(NUM_0, NUM_0, NUM_0));
+                new Vector3Value(0f, 0f, 0f));
         Vector3Value rot = FieldBroadcast.vector3ValueOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, ROTATION.name, ROTATION.defaultValue),
-                new Vector3Value(NUM_0, NUM_0, NUM_0));
+                new Vector3Value(0f, 0f, 0f));
         Vector3Value sc = FieldBroadcast.vector3ValueOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, SCALE.name, SCALE.defaultValue),
-                new Vector3Value(NUM_1, NUM_1, NUM_1));
+                new Vector3Value(1f, 1f, 1f));
 
-        boolean hasTranslation = trans.x() != NUM_0 || trans.y() != NUM_0 || trans.z() != NUM_0;
-        boolean hasRotation = rot.x() != NUM_0 || rot.y() != NUM_0 || rot.z() != NUM_0;
-        boolean hasScale = sc.x() != NUM_1 || sc.y() != NUM_1 || sc.z() != NUM_1;
+        boolean hasTranslation = trans.x() != 0f || trans.y() != 0f || trans.z() != 0f;
+        boolean hasRotation = rot.x() != 0f || rot.y() != 0f || rot.z() != 0f;
+        boolean hasScale = sc.x() != 1f || sc.y() != 1f || sc.z() != 1f;
 
         if (!hasTranslation && !hasRotation && !hasScale) {
             ctx.setOutput(GEOMETRY.name, base);
@@ -130,15 +128,15 @@ public class TransformGeometryNode implements MeshNode {
 
             if (uniform && vpf > 0 && fc > 0) {
                 // Fast path: output ArrayMesh with primitive arrays, no HashMap/boxing
-                float[] newPositions = new float[n * NUM_3];
+                float[] newPositions = new float[n * VECTOR_STRIDE];
                 int[] sparseToDense = new int[maxSparseId + 1];
                 for (int i = 0; i < n; i++) {
                     int vid = mesh.vertexIdAt(i);
                     mesh.vertexPosition(vid, tmp);
                     mat.transformPosition(tmp);
-                    newPositions[i * NUM_3] = tmp.x;
-                    newPositions[i * NUM_3 + 1] = tmp.y;
-                    newPositions[i * NUM_3 + 2] = tmp.z;
+                    newPositions[i * VECTOR_STRIDE] = tmp.x;
+                    newPositions[i * VECTOR_STRIDE + 1] = tmp.y;
+                    newPositions[i * VECTOR_STRIDE + 2] = tmp.z;
                     sparseToDense[vid] = i;
                 }
                 int[] faceIndices = new int[fc * vpf];
@@ -194,12 +192,12 @@ public class TransformGeometryNode implements MeshNode {
         if (curveObj instanceof CurveGeometry cg) {
             float[] srcPos = cg.positions();
             float[] dstPos = new float[srcPos.length];
-            for (int ci = 0; ci < srcPos.length / NUM_3; ci++) {
-                tmp.set(srcPos[ci * NUM_3], srcPos[ci * NUM_3 + 1], srcPos[ci * NUM_3 + 2]);
+            for (int ci = 0; ci < srcPos.length / VECTOR_STRIDE; ci++) {
+                tmp.set(srcPos[ci * VECTOR_STRIDE], srcPos[ci * VECTOR_STRIDE + 1], srcPos[ci * VECTOR_STRIDE + 2]);
                 mat.transformPosition(tmp);
-                dstPos[ci * NUM_3] = tmp.x;
-                dstPos[ci * NUM_3 + 1] = tmp.y;
-                dstPos[ci * NUM_3 + 2] = tmp.z;
+                dstPos[ci * VECTOR_STRIDE] = tmp.x;
+                dstPos[ci * VECTOR_STRIDE + 1] = tmp.y;
+                dstPos[ci * VECTOR_STRIDE + 2] = tmp.z;
             }
             result = result.withSlot(CurveGeometry.SLOT, new CurveGeometry(dstPos, cg.curveOffsets()));
         }
@@ -220,9 +218,9 @@ public class TransformGeometryNode implements MeshNode {
             return bundle;
         }
         float[] dst = new float[src.length];
-        int n = src.length / NUM_3;
+        int n = src.length / VECTOR_STRIDE;
         for (int i = 0; i < n; i++) {
-            int b = i * NUM_3;
+            int b = i * VECTOR_STRIDE;
             tmp.set(src[b], src[b + 1], src[b + 2]);
             mat.transformDirection(tmp);
             dst[b] = tmp.x;

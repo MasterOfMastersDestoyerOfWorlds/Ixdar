@@ -11,7 +11,6 @@ import ixdar.parsing.python.PythonLexer.TokenType;
 
 public class PythonParser {
     public static final String LINE = "Line ";
-    public static final String STR = "'";
     public static final String TRUE = "true";
     public static final String FALSE = "false";
     public static final String EXPECTED_PORT_NAME_AFTER = "Expected port name after '.'";
@@ -41,7 +40,7 @@ public class PythonParser {
             advance();
             return t;
         }
-        throw new RuntimeException(LINE + current.line + ": " + errorMessage + ". Found '" + current.value + STR);
+        throw new RuntimeException(LINE + current.line + ": " + errorMessage + ". Found '" + current.value + "'");
     }
 
     // Graph -> (FunctionDef | Statement)* EOF
@@ -188,7 +187,7 @@ public class PythonParser {
             }
             return id;
         }
-        throw new RuntimeException(LINE + current.line + ": Expected Number, Vector, or Node Reference, found '" + current.value + STR);
+        throw new RuntimeException(LINE + current.line + ": Expected Number, Vector, or Node Reference, found '" + current.value + "'");
     }
 
     // InlineCall -> Identifier "(" Arguments ")" ("." Identifier)?

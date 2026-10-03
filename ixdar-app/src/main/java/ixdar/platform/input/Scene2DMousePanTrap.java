@@ -15,10 +15,10 @@ import ixdar.platform.Platforms;
  * scenes that need {@link MouseTrap}'s plumbing without {@code MainScene}-specific click logic.
  */
 public class Scene2DMousePanTrap extends MouseTrap {
-    public static final float NUM_3 = 3f;
-    public static final int NUM_4 = 4;
-    public static final int NUM_60 = 60;
-    public static final float NUM_100 = 100f;
+    public static final float CLICK_DRAG_THRESHOLD_PX = 3f;
+    public static final int SCROLL_TICKS_PER_UNIT = 4;
+    public static final int SCROLL_DECAY_MS = 60;
+    public static final float SCROLL_SPEED_SCALE = 100f;
     private Vector2f leftMouseDownPos;
 
     /**
@@ -56,7 +56,7 @@ public class Scene2DMousePanTrap extends MouseTrap {
 
     /**
      * Dispatch to {@link #mouseDragged} when the left button is held and the cursor has moved
-     * more than {@link #NUM_3} pixels from the press point, otherwise treat as a plain move.
+     * more than {@link #CLICK_DRAG_THRESHOLD_PX} pixels from the press point, otherwise treat as a plain move.
      *
      * @param window platform window handle
      * @param x cursor x in window coordinates
@@ -74,7 +74,7 @@ public class Scene2DMousePanTrap extends MouseTrap {
         lastY = (int) y;
         boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
         Vector2f currentPos = new Vector2f(x, y);
-        if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > NUM_3) {
+        if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > CLICK_DRAG_THRESHOLD_PX) {
             mouseDragged(x, y);
         } else {
             mousePos(x, y);
@@ -98,7 +98,7 @@ public class Scene2DMousePanTrap extends MouseTrap {
 
     /**
      * Queue scroll ticks (applied during {@link #paintUpdate}); ticks decay if no further scroll
-     * arrives within {@link #NUM_60} ms.
+     * arrives within {@link #SCROLL_DECAY_MS} ms.
      *
      * @param y vertical scroll delta
      */
@@ -108,7 +108,7 @@ public class Scene2DMousePanTrap extends MouseTrap {
         if (!active) {
             return;
         }
-        queuedMouseWheelTicks += (int) (NUM_4 * y);
+        queuedMouseWheelTicks += (int) (SCROLL_TICKS_PER_UNIT * y);
         timeLastScroll = System.currentTimeMillis();
     }
 
@@ -123,12 +123,12 @@ public class Scene2DMousePanTrap extends MouseTrap {
         if (!active) {
             return;
         }
-        if (System.currentTimeMillis() - timeLastScroll > NUM_60) {
+        if (System.currentTimeMillis() - timeLastScroll > SCROLL_DECAY_MS) {
             queuedMouseWheelTicks = 0;
         }
         if (queuedMouseWheelTicks != 0) {
             boolean zoomIn = queuedMouseWheelTicks < 0;
-            camera.onScroll(zoomIn, Clock.deltaTime() * NUM_100);
+            camera.onScroll(zoomIn, Clock.deltaTime() * SCROLL_SPEED_SCALE);
             queuedMouseWheelTicks = 0;
         }
     }

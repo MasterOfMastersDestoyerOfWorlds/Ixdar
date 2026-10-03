@@ -16,16 +16,12 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public final class IntrinsicTriangulation {
 
-    /** Angular slack, in radians, within which a wedge counts as straight. */
     public static final double ANGLE_EPSILON = 1e-5;
 
-    /** Relative signed-area floor a flip's two new triangles must clear. */
     public static final double TRIANGLE_TEST_EPSILON = 1e-6;
 
-    /** Sides of every face the intrinsic triangulation accepts. */
     public static final int TRIANGLE_SIDES = 3;
 
-    /** Half-edges of the two triangles one flip rewrites, the journal's stride. */
     public static final int HALF_EDGES_PER_FLIP = 6;
 
     /** Mesh the triangulation was built over; its geometry fixes the initial edge lengths. */

@@ -17,9 +17,7 @@ import ixdar.geometry.mesh.data.EdgeKey;
  * so the in-sphere determinant sign reads consistently.
  */
 public final class DelaunayTriangulation3D {
-    public static final int NUM_4 = 4;
-    public static final int NUM_20 = 20;
-    public static final int NUM_3 = 3;
+    public static final int SUPER_TET_MARGIN_SCALE = 20;
 
     private static final int FACE_INDEX_BITS = 21;
     private static final int FACE_INDEX_LIMIT = 1 << FACE_INDEX_BITS;
@@ -47,9 +45,9 @@ public final class DelaunayTriangulation3D {
 
         // Pack point coordinates into parallel arrays. Indices [n .. n+3] reserved for the
         // super-tetrahedron's vertices.
-        double[] xs = new double[n + NUM_4];
-        double[] ys = new double[n + NUM_4];
-        double[] zs = new double[n + NUM_4];
+        double[] xs = new double[n + 4];
+        double[] ys = new double[n + 4];
+        double[] zs = new double[n + 4];
         System.arraycopy(us, 0, xs, 0, n);
         System.arraycopy(vs, 0, ys, 0, n);
         System.arraycopy(ws, 0, zs, 0, n);
@@ -66,16 +64,16 @@ public final class DelaunayTriangulation3D {
         double midY = (minY + maxY) / 2;
         double midZ = (minZ + maxZ) / 2;
         // Corner-style super-tetrahedron well outside the bounding sphere.
-        double bigR = NUM_20 * dmax;
+        double bigR = SUPER_TET_MARGIN_SCALE * dmax;
         xs[n]   = midX - bigR; ys[n]   = midY - bigR; zs[n]   = midZ - bigR;
-        xs[n+1] = midX + NUM_3*bigR; ys[n+1] = midY - bigR; zs[n+1] = midZ - bigR;
-        xs[n+2] = midX - bigR; ys[n+2] = midY + NUM_3*bigR; zs[n+2] = midZ - bigR;
-        xs[n+NUM_3] = midX - bigR; ys[n+NUM_3] = midY - bigR; zs[n+NUM_3] = midZ + NUM_3*bigR;
+        xs[n+1] = midX + 3*bigR; ys[n+1] = midY - bigR; zs[n+1] = midZ - bigR;
+        xs[n+2] = midX - bigR; ys[n+2] = midY + 3*bigR; zs[n+2] = midZ - bigR;
+        xs[n+3] = midX - bigR; ys[n+3] = midY - bigR; zs[n+3] = midZ + 3*bigR;
 
         // Tetrahedra are int[4] rows of site indices with positive signed volume; boundary
         // faces are ascending-sorted index triples packed 3 x 21 bits into a long map key.
         List<int[]> tets = new ArrayList<>();
-        tets.add(orient(n, n + 1, n + 2, n + NUM_3, xs, ys, zs));
+        tets.add(orient(n, n + 1, n + 2, n + 3, xs, ys, zs));
 
         for (int p = 0; p < n; p++) {
             List<int[]> bad = new ArrayList<>();
@@ -84,7 +82,7 @@ public final class DelaunayTriangulation3D {
                         xs[t[0]], ys[t[0]], zs[t[0]],
                         xs[t[1]], ys[t[1]], zs[t[1]],
                         xs[t[2]], ys[t[2]], zs[t[2]],
-                        xs[t[NUM_3]], ys[t[NUM_3]], zs[t[NUM_3]],
+                        xs[t[3]], ys[t[3]], zs[t[3]],
                         xs[p],   ys[p],   zs[p])) {
                     bad.add(t);
                 }
@@ -93,9 +91,9 @@ public final class DelaunayTriangulation3D {
             Map<Long, Integer> faceCount = new LinkedHashMap<>();
             for (int[] t : bad) {
                 faceCount.merge(faceKey(t[0], t[1], t[2]), 1, Integer::sum);
-                faceCount.merge(faceKey(t[0], t[1], t[NUM_3]), 1, Integer::sum);
-                faceCount.merge(faceKey(t[0], t[2], t[NUM_3]), 1, Integer::sum);
-                faceCount.merge(faceKey(t[1], t[2], t[NUM_3]), 1, Integer::sum);
+                faceCount.merge(faceKey(t[0], t[1], t[3]), 1, Integer::sum);
+                faceCount.merge(faceKey(t[0], t[2], t[3]), 1, Integer::sum);
+                faceCount.merge(faceKey(t[1], t[2], t[3]), 1, Integer::sum);
             }
             tets.removeAll(bad);
             for (Map.Entry<Long, Integer> e : faceCount.entrySet()) {
@@ -109,13 +107,13 @@ public final class DelaunayTriangulation3D {
         // Strip tets touching the super-tetrahedron, then collect unique edges.
         Set<Long> edges = new LinkedHashSet<>();
         for (int[] t : tets) {
-            if (t[0] >= n || t[1] >= n || t[2] >= n || t[NUM_3] >= n) continue;
+            if (t[0] >= n || t[1] >= n || t[2] >= n || t[3] >= n) continue;
             edges.add(EdgeKey.undirected(t[0], t[1]));
             edges.add(EdgeKey.undirected(t[0], t[2]));
-            edges.add(EdgeKey.undirected(t[0], t[NUM_3]));
+            edges.add(EdgeKey.undirected(t[0], t[3]));
             edges.add(EdgeKey.undirected(t[1], t[2]));
-            edges.add(EdgeKey.undirected(t[1], t[NUM_3]));
-            edges.add(EdgeKey.undirected(t[2], t[NUM_3]));
+            edges.add(EdgeKey.undirected(t[1], t[3]));
+            edges.add(EdgeKey.undirected(t[2], t[3]));
         }
         return DelaunayTriangulation2D.sortedPairs(edges);
     }

@@ -20,40 +20,14 @@ public class CurvatureConstraints {
     public static final float TRANSPORT_DUPLICATE_THRESHOLD = (float) (Math.PI / 16.0);
     public static final float TRANSPORT_CONFLICT_THRESHOLD = (float) (Math.PI / 8.0);
 
-    /**
-     * Geometric ratio between consecutive radii in the radius series.
-     */
     public static final float RADIUS_RATIO = (float) Math.sqrt(2.0);
 
-    /**
-     * Scale used to reject nearly flat regions before adding curvature-based
-     * cross-field constraints. The actual threshold is this value divided by the
-     * mesh bounding-sphere radius, so it scales with model size.
-     */
     public static final float CURVATURE_SCALE_K = 0.1f;
 
-    /**
-     * Minimum 0-to-1 bending contrast before the strongest bend direction is
-     * trusted as a cross-field constraint. A value near 0 means the surface bends
-     * similarly in every direction; a value near 1 means one direction dominates.
-     */
     public static final float MINIMUM_CURVATURE_CONTRAST = 0.8f;
 
-    /**
-     * Minimum {@code faceNormal · vertexNormal} required before a curvature
-     * constraint at the vertex pins the face. Below this the tangent planes diverge
-     * enough that the projected direction is inconsistent between adjacent pinned
-     * faces. cos(15°) ≈ 0.966.
-     */
     public static final float FACE_VERTEX_NORMAL_ALIGNMENT_FLOOR = 0.966f;
 
-    /**
-     * Maximum angle (radians) between a candidate's curvature direction and a
-     * nearby pinned source's direction, measured modulo the cross-field's π/2
-     * symmetry, before they're considered to conflict. π/8 ≈ 22.5° — half a
-     * quarter-turn, so any axis pair within this tolerance is "the same"
-     * cross-field axis up to one quarter-turn.
-     */
     public static final float CONFLICT_ANGLE_THRESHOLD = (float) (Math.PI / 8.0);
 
     public int lastCandidateCount;

@@ -15,13 +15,10 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public final class PlaneSurfaceLoop {
 
-    /** Coordinates per point in {@link #polyline} and in a plane's point and normal. */
     public static final int COORDINATES_PER_POINT = 3;
 
-    /** Steps a walk may take before it is abandoned as not closing. */
     public static final int MAXIMUM_STEPS = 200000;
 
-    /** Crossings the buffers start out holding, doubled as a walk outgrows them. */
     public static final int INITIAL_CROSSINGS = 256;
 
     /**

@@ -51,15 +51,13 @@ import ixdar.platform.input.SceneInputFrameUpdater;
 
 public class MainScene {
     public static final String KNOT_FINDING_TIME = "Knot-finding time: ";
-    public static final String STR = ".";
-    public static final String STR_2 = ":";
-    public static final float NUM_0_9 = 0.9f;
-    public static final float NUM_0_6 = 0.6f;
-    public static final float NUM_0 = 0f;
-    public static final int NUM_40 = 40;
-    public static final double NUM_1000_0 = 1000.0;
-    public static final float NUM_4 = 4f;
-    public static final float NUM_2 = 2f;
+    public static final String PACKAGE_SEPARATOR = ".";
+    public static final float CAMERA_ZOOM_DEFAULT = 0.9f;
+    public static final float LOGO_SCALE = 0.6f;
+    public static final int MAX_SOLVE_ATTEMPTS = 40;
+    public static final double MILLIS_PER_SECOND = 1000.0;
+    public static final float HOVER_SEGMENT_LERP_SPEED = 4f;
+    public static final float HOVER_KNOT_LERP_SPEED = 2f;
 
     public static TextFile file;
     public static TextFile tempFile;
@@ -166,7 +164,7 @@ public class MainScene {
 
         int wWidth = (int) Platforms.get().getWindowWidth();
         int wHeight = (int) Platforms.get().getWindowHeight();
-        camera = new Camera2D(wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, NUM_0_9, 0, BOTTOM_PANEL_SIZE,
+        camera = new Camera2D(wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, CAMERA_ZOOM_DEFAULT, 0, BOTTOM_PANEL_SIZE,
                 retTup.ps);
 
         Toggle.setPanelFocus(PaneTypes.KnotView);
@@ -175,7 +173,7 @@ public class MainScene {
         mouse = new MouseTrap(this, camera, canvas);
         activate(true);
         tool = new FreeTool();
-        logo = new SDFTexture("decal_sdf_small.png", Color.DARK_IXDAR, NUM_0_6, NUM_0, true);
+        logo = new SDFTexture("decal_sdf_small.png", Color.DARK_IXDAR, LOGO_SCALE, 0f, true);
     }
 
     /**
@@ -271,7 +269,7 @@ public class MainScene {
         long startTimeKnotFinding = System.currentTimeMillis();
         if (Toggle.CalculateKnot.value) {
             try {
-                resultKnots = new ArrayList<>(shell.slowSolve(shell, d, NUM_40));
+                resultKnots = new ArrayList<>(shell.slowSolve(shell, d, MAX_SOLVE_ATTEMPTS));
             } catch (MultipleCyclesFoundException e) {
                 e.printStackTrace();
             }
@@ -280,7 +278,7 @@ public class MainScene {
         }
 
         long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
-        double knotFindingSeconds = ((double) endTimeKnotFinding) / NUM_1000_0;
+        double knotFindingSeconds = ((double) endTimeKnotFinding) / MILLIS_PER_SECOND;
 
         Collection<Knot> flatKnots = resultKnots;
         if (flatKnots.size() > 0) {
@@ -426,7 +424,7 @@ public class MainScene {
 
         } catch (Exception e) {
             for (StackTraceElement ste : e.getStackTrace()) {
-                Platforms.get().log(ste.getFileName() + STR + ste.getMethodName() + STR_2 + ste.getLineNumber());
+                Platforms.get().log(ste.getFileName() + PACKAGE_SEPARATOR + ste.getMethodName() + ":" + ste.getLineNumber());
             }
         }
     }
@@ -637,7 +635,7 @@ public class MainScene {
                 break;
             }
             System.out.println(
-                    "ErrorSource: " + ste.getMethodName() + " " + ste.getFileName() + STR_2 + ste.getLineNumber());
+                    "ErrorSource: " + ste.getMethodName() + " " + ste.getFileName() + ":" + ste.getLineNumber());
         }
         System.out.println();
         resultShell = result;
@@ -728,7 +726,7 @@ public class MainScene {
     public static void setHoverSegment(Segment segment, Color c) {
         hoverSegment = segment;
         showHoverSegment = true;
-        hoverSegmentColor = new ColorLerp(c, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, NUM_4);
+        hoverSegmentColor = new ColorLerp(c, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, HOVER_SEGMENT_LERP_SPEED);
 
     }
 
@@ -749,7 +747,7 @@ public class MainScene {
     public static void setHoverKnot(Knot k) {
         hoverKnot = k;
         showHoverKnot = true;
-        hoverKnotColor = new ColorLerp(getKnotColor(hoverKnot), Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, NUM_2);
+        hoverKnotColor = new ColorLerp(getKnotColor(hoverKnot), Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, HOVER_KNOT_LERP_SPEED);
     }
 
     /**
@@ -835,7 +833,7 @@ public class MainScene {
     private static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
         try {
             Class<?> binder = Class.forName(
-                    String.join(STR, "ixdar", "platform", "automation", "AutomationInputBinder"));
+                    String.join(PACKAGE_SEPARATOR, "ixdar", "platform", "automation", "AutomationInputBinder"));
             Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
             bind.invoke(null, platform, keys, mouse);
         } catch (Throwable ignored) {

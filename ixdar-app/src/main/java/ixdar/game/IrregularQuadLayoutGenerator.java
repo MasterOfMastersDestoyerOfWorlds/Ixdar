@@ -11,20 +11,14 @@ import java.util.Set;
 import org.joml.Vector2f;
 
 public class IrregularQuadLayoutGenerator {
-    public static final String STR = ":";
-    public static final int NUM_4 = 4;
-    public static final int NUM_3 = 3;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0_01 = 0.01f;
-    public static final float NUM_1_55 = 1.55f;
-    public static final int NUM_6 = 6;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1e_6 = 1e-6f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_0_8660254 = 0.8660254f;
-    public static final float NUM_3_2 = 3f;
-    public static final float NUM_0_35 = 0.35f;
-    public static final float NUM_0_65 = 0.65f;
+    public static final int MIN_TARGET_CITIES = 4;
+    public static final int MIN_RADIUS = 3;
+    public static final float MIN_TRIANGLE_SIZE = 0.01f;
+    public static final float HEX_RADIUS_SCALE = 1.55f;
+    public static final float EPSILON = 1e-6f;
+    public static final float SQRT_3_OVER_2 = 0.8660254f;
+    public static final float ORIGINAL_POSITION_WEIGHT = 0.35f;
+    public static final float NEIGHBOR_AVERAGE_WEIGHT = 0.65f;
 
     /**
      * Build a Townscaper-style irregular quad layout sized so it roughly contains
@@ -42,9 +36,9 @@ public class IrregularQuadLayoutGenerator {
     public static Layout generate(int targetCities, float width, float height, float margin, long seed,
             int relaxIterations,
             float jitterRatio) {
-        int safeTarget = Math.max(NUM_4, targetCities);
-        int radius = Math.max(NUM_3, (int) Math.ceil(Math.sqrt(safeTarget)) + 1);
-        float triSize = NUM_1 / radius;
+        int safeTarget = Math.max(MIN_TARGET_CITIES, targetCities);
+        int radius = Math.max(MIN_RADIUS, (int) Math.ceil(Math.sqrt(safeTarget)) + 1);
+        float triSize = 1f / radius;
         Layout layout = generateTownscaperHex(radius, triSize, seed, relaxIterations);
         fitLayoutToBounds(layout, width, height, margin);
         return layout;
@@ -64,10 +58,10 @@ public class IrregularQuadLayoutGenerator {
      */
     public static Layout generateTownscaperHex(int hexRadius, float triangleSize, long seed, int relaxIterations) {
         int radius = Math.max(2, hexRadius);
-        float size = Math.max(NUM_0_01, triangleSize);
+        float size = Math.max(MIN_TRIANGLE_SIZE, triangleSize);
         Random random = new Random(seed);
-        float hexWorldRadius = radius * size * NUM_1_55;
-        int extent = radius * NUM_3 + NUM_6;
+        float hexWorldRadius = radius * size * HEX_RADIUS_SCALE;
+        int extent = radius * 3 + 6;
 
         ArrayList<Vector2f> baseVertices = new ArrayList<>();
         Map<String, Integer> vertexLookup = new HashMap<>();
@@ -135,7 +129,7 @@ public class IrregularQuadLayoutGenerator {
         out.horizontalEdgeMean = stats[0];
         out.verticalEdgeMean = stats[1];
         out.horizontalEdgeStdDev = stats[2];
-        out.verticalEdgeStdDev = stats[NUM_3];
+        out.verticalEdgeStdDev = stats[3];
         return out;
     }
 
@@ -163,9 +157,9 @@ public class IrregularQuadLayoutGenerator {
 
     private static float mean(ArrayList<Float> values) {
         if (values.isEmpty()) {
-            return NUM_0;
+            return 0f;
         }
-        float sum = NUM_0;
+        float sum = 0f;
         for (float value : values) {
             sum += value;
         }
@@ -174,9 +168,9 @@ public class IrregularQuadLayoutGenerator {
 
     private static float stdDev(ArrayList<Float> values, float mean) {
         if (values.isEmpty()) {
-            return NUM_0;
+            return 0f;
         }
-        float accum = NUM_0;
+        float accum = 0f;
         for (float value : values) {
             float delta = value - mean;
             accum += delta * delta;
@@ -198,17 +192,17 @@ public class IrregularQuadLayoutGenerator {
             maxX = Math.max(maxX, p.x);
             maxY = Math.max(maxY, p.y);
         }
-        float srcW = Math.max(NUM_1e_6, maxX - minX);
-        float srcH = Math.max(NUM_1e_6, maxY - minY);
+        float srcW = Math.max(EPSILON, maxX - minX);
+        float srcH = Math.max(EPSILON, maxY - minY);
         float dstMinX = margin;
         float dstMinY = margin;
-        float dstMaxX = Math.max(dstMinX + NUM_1, width - margin);
-        float dstMaxY = Math.max(dstMinY + NUM_1, height - margin);
+        float dstMaxX = Math.max(dstMinX + 1f, width - margin);
+        float dstMaxY = Math.max(dstMinY + 1f, height - margin);
         float dstW = dstMaxX - dstMinX;
         float dstH = dstMaxY - dstMinY;
         float scale = Math.min(dstW / srcW, dstH / srcH);
-        float padX = (dstW - (srcW * scale)) * NUM_0_5;
-        float padY = (dstH - (srcH * scale)) * NUM_0_5;
+        float padX = (dstW - (srcW * scale)) * 0.5f;
+        float padY = (dstH - (srcH * scale)) * 0.5f;
         transformPoints(layout.points, minX, minY, dstMinX + padX, dstMinY + padY, scale);
         if (layout.dualPoints != null) {
             transformPoints(layout.dualPoints, minX, minY, dstMinX + padX, dstMinY + padY, scale);
@@ -227,7 +221,7 @@ public class IrregularQuadLayoutGenerator {
     private static int latticeVertexId(int i, int j, float triangleSize, float hexWorldRadius,
             ArrayList<Vector2f> points,
             Map<String, Integer> lookup) {
-        String key = i + STR + j;
+        String key = i + ":" + j;
         Integer existing = lookup.get(key);
         if (existing != null) {
             return existing;
@@ -243,41 +237,41 @@ public class IrregularQuadLayoutGenerator {
     }
 
     private static Vector2f latticePoint(int i, int j, float triangleSize) {
-        float x = triangleSize * (i + (NUM_0_5 * j));
-        float y = triangleSize * (NUM_0_8660254 * j);
+        float x = triangleSize * (i + (0.5f * j));
+        float y = triangleSize * (SQRT_3_OVER_2 * j);
         return new Vector2f(x, y);
     }
 
     private static boolean triangleInsideHex(Vector2f a, Vector2f b, Vector2f c, float hexRadius) {
-        Vector2f centroid = new Vector2f(a).add(b).add(c).mul(NUM_1 / NUM_3_2);
+        Vector2f centroid = new Vector2f(a).add(b).add(c).mul(1f / 3f);
         return insideHex(centroid, hexRadius);
     }
 
     private static boolean insideHex(Vector2f p, float r) {
-        float h = NUM_0_8660254 * r;
+        float h = SQRT_3_OVER_2 * r;
         Vector2f[] hex = new Vector2f[] {
-                new Vector2f(r, NUM_0),
-                new Vector2f(r * NUM_0_5, h),
-                new Vector2f(-r * NUM_0_5, h),
-                new Vector2f(-r, NUM_0),
-                new Vector2f(-r * NUM_0_5, -h),
-                new Vector2f(r * NUM_0_5, -h)
+                new Vector2f(r, 0f),
+                new Vector2f(r * 0.5f, h),
+                new Vector2f(-r * 0.5f, h),
+                new Vector2f(-r, 0f),
+                new Vector2f(-r * 0.5f, -h),
+                new Vector2f(r * 0.5f, -h)
         };
         return insideConvexPolygon(p, hex);
     }
 
     private static boolean insideConvexPolygon(Vector2f p, Vector2f[] poly) {
-        float sign = NUM_0;
+        float sign = 0f;
         for (int i = 0; i < poly.length; i++) {
             Vector2f a = poly[i];
             Vector2f b = poly[(i + 1) % poly.length];
             float cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
-            if (Math.abs(cross) < NUM_1e_6) {
+            if (Math.abs(cross) < EPSILON) {
                 continue;
             }
-            if (sign == NUM_0) {
-                sign = cross > NUM_0 ? NUM_1 : -NUM_1;
-            } else if ((cross > NUM_0 ? NUM_1 : -NUM_1) != sign) {
+            if (sign == 0f) {
+                sign = cross > 0f ? 1f : -1f;
+            } else if ((cross > 0f ? 1f : -1f) != sign) {
                 return false;
             }
         }
@@ -339,7 +333,7 @@ public class IrregularQuadLayoutGenerator {
         for (int idx : faceVertices) {
             centroid.add(points.get(idx));
         }
-        centroid.mul(NUM_1 / faceVertices.length);
+        centroid.mul(1f / faceVertices.length);
         ArrayList<Integer> indices = new ArrayList<>();
         for (int v : faceVertices) {
             indices.add(v);
@@ -366,7 +360,7 @@ public class IrregularQuadLayoutGenerator {
             for (int v : face) {
                 center.add(points.get(v));
             }
-            center.mul(NUM_1 / face.length);
+            center.mul(1f / face.length);
             int centerIdx = points.size();
             points.add(center);
 
@@ -377,7 +371,7 @@ public class IrregularQuadLayoutGenerator {
                 String key = edgeKey(a, b);
                 Integer midIdx = midpointByEdge.get(key);
                 if (midIdx == null) {
-                    Vector2f mid = new Vector2f(points.get(a)).add(points.get(b)).mul(NUM_0_5);
+                    Vector2f mid = new Vector2f(points.get(a)).add(points.get(b)).mul(0.5f);
                     midIdx = points.size();
                     points.add(mid);
                     midpointByEdge.put(key, midIdx);
@@ -434,8 +428,8 @@ public class IrregularQuadLayoutGenerator {
                 for (int n : neighbors.get(i)) {
                     avg.add(points.get(n));
                 }
-                avg.mul(NUM_1 / neighbors.get(i).size());
-                next.add(new Vector2f(current).mul(NUM_0_35).add(avg.mul(NUM_0_65)));
+                avg.mul(1f / neighbors.get(i).size());
+                next.add(new Vector2f(current).mul(ORIGINAL_POSITION_WEIGHT).add(avg.mul(NEIGHBOR_AVERAGE_WEIGHT)));
             }
             points.clear();
             points.addAll(next);
@@ -465,7 +459,7 @@ public class IrregularQuadLayoutGenerator {
             for (int v : face) {
                 center.add(points.get(v));
             }
-            center.mul(NUM_1 / face.length);
+            center.mul(1f / face.length);
             centroids.add(center);
         }
         return centroids;
@@ -474,7 +468,7 @@ public class IrregularQuadLayoutGenerator {
     private static String edgeKey(int a, int b) {
         int min = Math.min(a, b);
         int max = Math.max(a, b);
-        return min + STR + max;
+        return min + ":" + max;
     }
 
     private static int[] parseEdgeKey(String key) {

@@ -23,19 +23,19 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class MouseTrap {
-    public static final float NUM_1 = 1f;
-    public static final int NUM_4 = 4;
-    public static final int NUM_60 = 60;
-    public static final float NUM_100 = 100f;
-    public static final int NUM_3 = 3;
+    public static final float MIN_WINDOW_DIMENSION = 1f;
+    public static final int SCROLL_TICKS_PER_UNIT = 4;
+    public static final int SCROLL_DECAY_MS = 60;
+    public static final float SCROLL_SPEED_SCALE = 100f;
+    public static final int CLICK_DRAG_THRESHOLD_PX = 3;
     public static ArrayList<HyperString> hyperStrings = new ArrayList<>();
 
     private static Object automationRuntime;
     private static boolean automationChecked;
 
-    private static final HashMap<Integer, List<ScrollSubscription>> scrollSubscriptionsByPlatform = new HashMap<>();
+    private static final HashMap<Integer, List<ScrollSubscription>> SCROLL_SUBSCRIPTIONS_BY_PLATFORM = new HashMap<>();
 
-    private static final HashMap<Integer, List<ClickSubscription>> clickSubscriptionsByPlatform = new HashMap<>();
+    private static final HashMap<Integer, List<ClickSubscription>> CLICK_SUBSCRIPTIONS_BY_PLATFORM = new HashMap<>();
 
     public int queuedMouseWheelTicks = 0;
     public int lastX = Integer.MIN_VALUE;
@@ -94,7 +94,7 @@ public class MouseTrap {
 
     private static List<ScrollSubscription> getSubscriptionsForCurrentPlatform() {
         int id = Platforms.gl().getPlatformID();
-        return scrollSubscriptionsByPlatform.computeIfAbsent(id, k -> new ArrayList<>());
+        return SCROLL_SUBSCRIPTIONS_BY_PLATFORM.computeIfAbsent(id, k -> new ArrayList<>());
     }
 
     /**
@@ -120,7 +120,7 @@ public class MouseTrap {
 
     private static List<ClickSubscription> getClickSubscriptionsForCurrentPlatform() {
         int id = Platforms.gl().getPlatformID();
-        return clickSubscriptionsByPlatform.computeIfAbsent(id, k -> new ArrayList<>());
+        return CLICK_SUBSCRIPTIONS_BY_PLATFORM.computeIfAbsent(id, k -> new ArrayList<>());
     }
 
     /**
@@ -168,8 +168,8 @@ public class MouseTrap {
                 "yPx", yPos,
                 "xCoord", normalizedPosX,
                 "yCoord", normalizedPosY,
-                "xNorm", xPos / Math.max(NUM_1, Platforms.get().getWindowWidth()),
-                "yNorm", yPos / Math.max(NUM_1, Platforms.get().getWindowHeight()));
+                "xNorm", xPos / Math.max(MIN_WINDOW_DIMENSION, Platforms.get().getWindowWidth()),
+                "yNorm", yPos / Math.max(MIN_WINDOW_DIMENSION, Platforms.get().getWindowHeight()));
         Toggle.setPanelFocus(inMainView);
         if (MainScene.manifoldKnot != null && MainScene.active) {
             if (inMainView == PaneTypes.KnotView) {
@@ -266,13 +266,13 @@ public class MouseTrap {
 
     /**
      * Queue scroll ticks (4 per wheel-click) and stamp the time so {@link #paintUpdate} can
-     * decay them after {@link #NUM_60} ms of inactivity.
+     * decay them after {@link #SCROLL_DECAY_MS} ms of inactivity.
      *
      * @param y vertical scroll delta
      */
     public void scrollCallback(double y) {
         Platforms.init(canvas.platform.getPlatformID());
-        queuedMouseWheelTicks += (int) (NUM_4 * y);
+        queuedMouseWheelTicks += (int) (SCROLL_TICKS_PER_UNIT * y);
         timeLastScroll = System.currentTimeMillis();
         recordAbstractAction("mouse_scroll", "delta", y);
     }
@@ -325,12 +325,12 @@ public class MouseTrap {
     /**
      * Per-frame: drain queued scroll ticks. If the cursor is inside any subscribed scroll
      * region, hand the ticks to that handler and short-circuit; otherwise refresh HyperString
-     * hover state. Ticks decay if {@link #NUM_60} ms passes with no further scroll.
+     * hover state. Ticks decay if {@link #SCROLL_DECAY_MS} ms passes with no further scroll.
      *
      * @param SHIFT_MOD speed multiplier (currently unused; kept for API parity)
      */
     public void paintUpdate(float SHIFT_MOD) {
-        if (System.currentTimeMillis() - timeLastScroll > NUM_60) {
+        if (System.currentTimeMillis() - timeLastScroll > SCROLL_DECAY_MS) {
             queuedMouseWheelTicks = 0;
         }
         PaneTypes view = MainScene.inView(lastX, lastY);
@@ -350,7 +350,7 @@ public class MouseTrap {
                             && yFromBottom <= sub.bounds.offsetY + sub.bounds.viewHeight;
                     if (inside) {
                         boolean up = queuedMouseWheelTicks < 0;
-                        sub.handler.onScroll(up, Clock.deltaTime() * NUM_100);
+                        sub.handler.onScroll(up, Clock.deltaTime() * SCROLL_SPEED_SCALE);
                         return;
                     }
                 }
@@ -383,7 +383,7 @@ public class MouseTrap {
     /**
      * Platform mouse-button entry point. On press, records the press position and time; on
      * release, dispatches to {@link #mouseClicked} when the cursor stayed within
-     * {@link #NUM_3} pixels, or to {@link #mouseReleased} otherwise.
+     * {@link #CLICK_DRAG_THRESHOLD_PX} pixels, or to {@link #mouseReleased} otherwise.
      *
      * @param button button index
      * @param action {@code ACTION_PRESS} or {@code ACTION_RELEASE}
@@ -400,7 +400,7 @@ public class MouseTrap {
         } else if (action == ACTION_RELEASE) {
             if (leftMouseDownPos != null) {
                 Vector2f mouseReleasePos = new Vector2f(x, y);
-                if (mouseReleasePos.distance(leftMouseDownPos) < NUM_3) {
+                if (mouseReleasePos.distance(leftMouseDownPos) < CLICK_DRAG_THRESHOLD_PX) {
                     mouseClicked(x, y, button);
                 } else {
                     mouseReleased();
@@ -411,7 +411,7 @@ public class MouseTrap {
 
     /**
      * Mouse-motion entry point: routes to {@link #mouseDragged} while the left button is held
-     * and the cursor has moved past the {@link #NUM_3}-pixel deadzone, otherwise to
+     * and the cursor has moved past the {@link #CLICK_DRAG_THRESHOLD_PX}-pixel deadzone, otherwise to
      * {@link #mousePos}.
      *
      * @param window platform window handle (for GL mouse-state polling)
@@ -422,7 +422,7 @@ public class MouseTrap {
         Platforms.init(canvas.platform.getPlatformID());
         boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
         Vector2f mouseReleasePos = new Vector2f((float) x, (float) y);
-        if (leftDown && leftMouseDownPos != null && mouseReleasePos.distance(leftMouseDownPos) > NUM_3) {
+        if (leftDown && leftMouseDownPos != null && mouseReleasePos.distance(leftMouseDownPos) > CLICK_DRAG_THRESHOLD_PX) {
             mouseDragged(x, y);
         } else {
             mousePos(x, y);
@@ -435,7 +435,7 @@ public class MouseTrap {
          * region.
          *
          * @param scrollUp true when the wheel rolled "up" (negative tick count)
-         * @param deltaSeconds frame delta in seconds, scaled by {@link #NUM_100}
+         * @param deltaSeconds frame delta in seconds, scaled by {@link #SCROLL_SPEED_SCALE}
          */
         void onScroll(boolean scrollUp, double deltaSeconds);
     }

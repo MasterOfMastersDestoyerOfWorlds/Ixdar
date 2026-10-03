@@ -16,10 +16,8 @@ import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
  */
 public class HalfEdgeMesh implements MeshTopology {
     public static final String IS_NOT_ACTIVE = " is not active";
-    public static final int NUM_4 = 4;
-    public static final int NUM_8 = 8;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_0 = 0f;
+    public static final int MIN_CAPACITY = 4;
+    public static final int DEFAULT_ADJACENCY_CAPACITY = 8;
     public static final int FLOATS_PER_VERTEX = 3;
     public static final int TRIANGLE_CORNERS = 3;
 
@@ -64,7 +62,7 @@ public class HalfEdgeMesh implements MeshTopology {
      * construction.
      */
     public HalfEdgeMesh() {
-        this(NUM_4, NUM_4, NUM_4, NUM_8);
+        this(MIN_CAPACITY, MIN_CAPACITY, MIN_CAPACITY, DEFAULT_ADJACENCY_CAPACITY);
     }
 
     /**
@@ -77,10 +75,10 @@ public class HalfEdgeMesh implements MeshTopology {
      * @param halfEdgeCapacity expected number of half-edges
      */
     public HalfEdgeMesh(int vertexCapacity, int edgeCapacity, int faceCapacity, int halfEdgeCapacity) {
-        int vc = Math.max(NUM_4, vertexCapacity);
-        int ec = Math.max(NUM_4, edgeCapacity);
-        int fc = Math.max(NUM_4, faceCapacity);
-        int hc = Math.max(NUM_8, halfEdgeCapacity);
+        int vc = Math.max(MIN_CAPACITY, vertexCapacity);
+        int ec = Math.max(MIN_CAPACITY, edgeCapacity);
+        int fc = Math.max(MIN_CAPACITY, faceCapacity);
+        int hc = Math.max(DEFAULT_ADJACENCY_CAPACITY, halfEdgeCapacity);
 
         this.activeVertexIds = new ActiveIdSet(vc);
         this.activeEdgeIds = new ActiveIdSet(ec);
@@ -90,17 +88,17 @@ public class HalfEdgeMesh implements MeshTopology {
         this.vertexEdges = new ArrayList<>(vc);
         this.vertexFaces = new ArrayList<>(vc);
         for (int i = 0; i < vc; i++) {
-            this.vertexOutgoingHalfEdges.add(new IntIdList(NUM_8));
-            this.vertexEdges.add(new IntIdList(NUM_8));
-            this.vertexFaces.add(new IntIdList(NUM_8));
+            this.vertexOutgoingHalfEdges.add(new IntIdList(DEFAULT_ADJACENCY_CAPACITY));
+            this.vertexEdges.add(new IntIdList(DEFAULT_ADJACENCY_CAPACITY));
+            this.vertexFaces.add(new IntIdList(DEFAULT_ADJACENCY_CAPACITY));
         }
         this.faceHalfEdges = new ArrayList<>(fc);
         this.faceVertices = new ArrayList<>(fc);
         this.faceEdges = new ArrayList<>(fc);
         for (int i = 0; i < fc; i++) {
-            this.faceHalfEdges.add(new IntIdList(NUM_4));
-            this.faceVertices.add(new IntIdList(NUM_4));
-            this.faceEdges.add(new IntIdList(NUM_4));
+            this.faceHalfEdges.add(new IntIdList(MIN_CAPACITY));
+            this.faceVertices.add(new IntIdList(MIN_CAPACITY));
+            this.faceEdges.add(new IntIdList(MIN_CAPACITY));
         }
         this.vertexPositions = new float[vc * FLOATS_PER_VERTEX];
         this.vertexNormals = new float[vc * FLOATS_PER_VERTEX];
@@ -702,7 +700,7 @@ public class HalfEdgeMesh implements MeshTopology {
     public Vector3f center(Vector3f dest) {
         Vector3f min = boundsMin(new Vector3f());
         Vector3f max = boundsMax(new Vector3f());
-        return dest.set(min).add(max).mul(NUM_0_5);
+        return dest.set(min).add(max).mul(0.5f);
     }
 
     /**
@@ -712,10 +710,10 @@ public class HalfEdgeMesh implements MeshTopology {
     @Override
     public float radius() {
         if (activeVertexIds.isEmpty()) {
-            return NUM_0;
+            return 0f;
         }
         Vector3f center = center(new Vector3f());
-        float maxDistanceSquared = NUM_0;
+        float maxDistanceSquared = 0f;
         for (int i = 0; i < activeVertexIds.size(); i++) {
             int vertexId = activeVertexIds.get(i);
             int offset = vertexOffset(vertexId);
@@ -746,7 +744,7 @@ public class HalfEdgeMesh implements MeshTopology {
         activeVertexIds.add(vertexId);
         vertexOutgoing[vertexId] = NONE;
         setVector(vertexPositions, vertexId, x, y, z);
-        setVector(vertexNormals, vertexId, NUM_0, NUM_0, NUM_0);
+        setVector(vertexNormals, vertexId, 0f, 0f, 0f);
         ensureVertexAdjacencySlot(vertexOutgoingHalfEdges, vertexId).clear();
         ensureVertexAdjacencySlot(vertexEdges, vertexId).clear();
         ensureVertexAdjacencySlot(vertexFaces, vertexId).clear();
@@ -779,7 +777,7 @@ public class HalfEdgeMesh implements MeshTopology {
         faceActive[faceId] = true;
         activeFaceIds.add(faceId);
         faceHalfEdge[faceId] = NONE;
-        setVector(faceNormals, faceId, NUM_0, NUM_0, NUM_0);
+        setVector(faceNormals, faceId, 0f, 0f, 0f);
         ensureFaceAdjacencySlot(faceHalfEdges, faceId).clear();
         ensureFaceAdjacencySlot(faceVertices, faceId).clear();
         ensureFaceAdjacencySlot(faceEdges, faceId).clear();
@@ -816,7 +814,7 @@ public class HalfEdgeMesh implements MeshTopology {
         faceActive[faceId] = false;
         activeFaceIds.remove(faceId);
         faceHalfEdge[faceId] = NONE;
-        setVector(faceNormals, faceId, NUM_0, NUM_0, NUM_0);
+        setVector(faceNormals, faceId, 0f, 0f, 0f);
         faceHalfEdges.get(faceId).clear();
         faceVertices.get(faceId).clear();
         faceEdges.get(faceId).clear();
@@ -859,8 +857,8 @@ public class HalfEdgeMesh implements MeshTopology {
         vertexActive[vertexId] = false;
         activeVertexIds.remove(vertexId);
         vertexOutgoing[vertexId] = NONE;
-        setVector(vertexPositions, vertexId, NUM_0, NUM_0, NUM_0);
-        setVector(vertexNormals, vertexId, NUM_0, NUM_0, NUM_0);
+        setVector(vertexPositions, vertexId, 0f, 0f, 0f);
+        setVector(vertexNormals, vertexId, 0f, 0f, 0f);
         vertexOutgoingHalfEdges.get(vertexId).clear();
         vertexEdges.get(vertexId).clear();
         vertexFaces.get(vertexId).clear();
@@ -1058,7 +1056,7 @@ public class HalfEdgeMesh implements MeshTopology {
      * @return new capacity to allocate
      */
     public static int nextCapacity(int currentCapacity, int requiredCapacity) {
-        return Math.max(requiredCapacity, Math.max(NUM_4, currentCapacity * 2));
+        return Math.max(requiredCapacity, Math.max(MIN_CAPACITY, currentCapacity * 2));
     }
 
     /**
@@ -1142,7 +1140,7 @@ public class HalfEdgeMesh implements MeshTopology {
         float dx = maxX - minX;
         float dy = maxY - minY;
         float dz = maxZ - minZ;
-        return NUM_0_5 * (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        return 0.5f * (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     /**

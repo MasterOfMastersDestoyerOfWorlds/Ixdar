@@ -19,8 +19,6 @@ import org.joml.Vector3f;
 
 @MeshNodeAnnotation(id = "switch_vector")
 public class SwitchVectorNode implements MeshNode {
-    public static final int NUM_3 = 3;
-
     public static final Vector3Value ZERO = new Vector3Value(0f, 0f, 0f);
 
     public static final InputPort SWITCH = new InputPort("switch", PortType.BOOLEAN, false);
@@ -70,7 +68,7 @@ public class SwitchVectorNode implements MeshNode {
             if (tr instanceof Vector3Field vt) {
                 n = Math.max(n, vt.length());
             }
-            float[] out = new float[n * NUM_3];
+            float[] out = new float[n * 3];
             Vector3f a = new Vector3f();
             Vector3f b = new Vector3f();
             for (int i = 0; i < n; i++) {
@@ -78,9 +76,9 @@ public class SwitchVectorNode implements MeshNode {
                 FieldBroadcast.vec3At(fa, i, ZERO, a);
                 FieldBroadcast.vec3At(tr, i, ZERO, b);
                 Vector3f pick = on ? b : a;
-                out[NUM_3 * i] = pick.x;
-                out[NUM_3 * i + 1] = pick.y;
-                out[NUM_3 * i + 2] = pick.z;
+                out[3 * i] = pick.x;
+                out[3 * i + 1] = pick.y;
+                out[3 * i + 2] = pick.z;
             }
             ctx.setOutput(VECTOR.name,new Vector3Field(out));
             return;

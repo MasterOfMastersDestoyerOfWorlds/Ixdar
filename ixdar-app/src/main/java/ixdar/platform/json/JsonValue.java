@@ -12,22 +12,16 @@ import java.util.Map;
  */
 public final class JsonValue {
 
-    /** {@link #kind} of JSON {@code null}, and of anything a platform could not represent. */
     public static final int KIND_NULL = 0;
 
-    /** {@link #kind} of a string; the text is in {@link #stringValue}. */
     public static final int KIND_STRING = 1;
 
-    /** {@link #kind} of a number; the value is in {@link #numberValue}. */
     public static final int KIND_NUMBER = 2;
 
-    /** {@link #kind} of a boolean; the value is in {@link #booleanValue}. */
     public static final int KIND_BOOLEAN = 3;
 
-    /** {@link #kind} of an array; the elements are in {@link #items}. */
     public static final int KIND_ARRAY = 4;
 
-    /** {@link #kind} of an object; the members are in {@link #members}. */
     public static final int KIND_OBJECT = 5;
 
     /** Which of the value fields carries this node's content: one of the {@code KIND_} constants. */

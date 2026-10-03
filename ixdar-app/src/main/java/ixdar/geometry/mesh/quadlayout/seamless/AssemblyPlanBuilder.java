@@ -15,16 +15,10 @@ import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
  */
 public final class AssemblyPlanBuilder {
 
-    /**
-     * Diagonal regularization added to DOF 0 in soft-seam mode to break the 1D
-     * translation nullspace so cold sparse Cholesky succeeds.
-     */
     static final double NULLSPACE_ANCHOR_WEIGHT = 1.0;
 
-    /** Corners per triangular face. */
     private static final int CORNERS_PER_FACE = 3;
 
-    /** Halve factor for the upper-triangle double-count correction. */
     private static final double UPPER_HALVE_FACTOR = 0.5;
 
     /** Sorted unique packed (row, col) upper-triangle keys; set by finish. */

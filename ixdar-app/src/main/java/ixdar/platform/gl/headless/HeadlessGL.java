@@ -48,13 +48,16 @@ import ixdar.platform.input.MouseButtons;
  * Works on macOS and Linux (with display server like Xvfb in CI).
  */
 public class HeadlessGL implements ixdar.platform.gl.GL {
-    public static final int NUM_512 = 512;
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final int NUM_0xF = 0xFF;
-    public static final int NUM_24 = 24;
-    public static final int NUM_16 = 16;
-    public static final int NUM_8 = 8;
+    public static final int DEFAULT_FRAMEBUFFER_SIZE = 512;
+    public static final int GL_VERSION_MAJOR = 3;
+    public static final int GL_VERSION_MINOR = 3;
+    public static final int RGBA_BYTES_PER_PIXEL = 4;
+    public static final int BYTE_MASK = 0xFF;
+    public static final int ALPHA_SHIFT = 24;
+    public static final int RED_SHIFT = 16;
+    public static final int MAT4_FLOATS = 16;
+    public static final int GREEN_SHIFT = 8;
+    public static final int ALPHA_BYTE_OFFSET = 3;
 
     private int platformId;
     private long window;
@@ -68,7 +71,7 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
      * Construct a HeadlessGL.
      */
     public HeadlessGL() {
-        this(NUM_512, NUM_512);
+        this(DEFAULT_FRAMEBUFFER_SIZE, DEFAULT_FRAMEBUFFER_SIZE);
     }
 
     /**
@@ -97,8 +100,8 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
 
             glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
             glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, NUM_3);
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, NUM_3);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, GL_VERSION_MAJOR);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, GL_VERSION_MINOR);
             glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
             glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 
@@ -217,17 +220,17 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
     /** {@inheritDoc}. */
     @Override
     public int[] readPixels(int x, int y, int width, int height, int format, int type, int fb) {
-        ByteBuffer frameBuffer = BufferUtils.createByteBuffer(width * height * NUM_4);
+        ByteBuffer frameBuffer = BufferUtils.createByteBuffer(width * height * RGBA_BYTES_PER_PIXEL);
         GL11.glReadPixels(x, y, width, height, format, type, frameBuffer);
 
         int[] pixels = new int[width * height];
         for (int k = 0; k < pixels.length; k++) {
-            int bindex = k * NUM_4;
-            int r = frameBuffer.get(bindex) & NUM_0xF;
-            int g = frameBuffer.get(bindex + 1) & NUM_0xF;
-            int b = frameBuffer.get(bindex + 2) & NUM_0xF;
-            int a = frameBuffer.get(bindex + NUM_3) & NUM_0xF;
-            pixels[k] = (a << NUM_24) | (r << NUM_16) | (g << NUM_8) | b;
+            int bindex = k * RGBA_BYTES_PER_PIXEL;
+            int r = frameBuffer.get(bindex) & BYTE_MASK;
+            int g = frameBuffer.get(bindex + 1) & BYTE_MASK;
+            int b = frameBuffer.get(bindex + 2) & BYTE_MASK;
+            int a = frameBuffer.get(bindex + ALPHA_BYTE_OFFSET) & BYTE_MASK;
+            pixels[k] = (a << ALPHA_SHIFT) | (r << RED_SHIFT) | (g << GREEN_SHIFT) | b;
         }
         return pixels;
     }
@@ -791,7 +794,7 @@ public class HeadlessGL implements ixdar.platform.gl.GL {
     public void coldStartStack() {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             @SuppressWarnings("unused")
-            FloatBuffer buffer = new Matrix4f().get(stack.mallocFloat(NUM_16));
+            FloatBuffer buffer = new Matrix4f().get(stack.mallocFloat(MAT4_FLOATS));
         }
     }
 

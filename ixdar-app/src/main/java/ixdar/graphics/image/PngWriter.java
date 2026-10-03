@@ -17,39 +17,28 @@ import java.util.zip.Deflater;
  */
 public final class PngWriter {
 
-    /** The eight-byte PNG file signature. */
     public static final byte[] SIGNATURE = {
         (byte) 0x89, 'P', 'N', 'G', '\r', '\n', (byte) 0x1A, '\n'
     };
 
-    /** Bits per colour channel in the chunks this writer emits. */
     public static final int BIT_DEPTH = 8;
 
-    /** PNG colour type 2: three channels, red, green and blue, no palette and no alpha. */
     public static final int COLOR_TYPE_RGB = 2;
 
-    /** Bytes each pixel occupies in a raw scanline. */
     public static final int BYTES_PER_PIXEL = 3;
 
-    /** Length in bytes of the IHDR chunk payload. */
     public static final int IHDR_LENGTH = 13;
 
-    /** Filter type 0, meaning the scanline is stored as-is. */
     public static final int FILTER_NONE = 0;
 
-    /** Byte mask for one octet. */
     public static final int BYTE_MASK = 0xFF;
 
-    /** Bit offset of the red channel in a packed pixel. */
     public static final int RED_SHIFT = 16;
 
-    /** Bit offset of the green channel in a packed pixel. */
     public static final int GREEN_SHIFT = 8;
 
-    /** Shift separating the four octets of a big-endian 32-bit field. */
     public static final int OCTET_BITS = 8;
 
-    /** Octets in a 32-bit length or CRC field. */
     public static final int FIELD_BYTES = 4;
 
     private PngWriter() {

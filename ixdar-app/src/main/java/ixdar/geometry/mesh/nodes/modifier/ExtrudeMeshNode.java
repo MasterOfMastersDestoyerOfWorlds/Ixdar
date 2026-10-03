@@ -42,11 +42,7 @@ import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
  */
 @MeshNodeAnnotation(id = "extrude_mesh")
 public class ExtrudeMeshNode implements MeshNode {
-    public static final float NUM_0_1 = 0.1f;
-    public static final int NUM_3 = 3;
-    public static final float NUM_0 = 0f;
-    public static final int NUM_4 = 4;
-    public static final float NUM_1e_8 = 1e-8f;
+    public static final float NORMAL_LENGTH_EPSILON = 1e-8f;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort OFFSET = new InputPort("offset", PortType.FLOAT, 0.1f, -10f, 10f);
@@ -95,7 +91,7 @@ public class ExtrudeMeshNode implements MeshNode {
         }
 
         Object offObj = FieldBroadcast.getInputOrDefault(ctx, OFFSET.name, OFFSET.defaultValue);
-        float offset = FieldBroadcast.floatScalarOrDefault(offObj, NUM_0_1);
+        float offset = FieldBroadcast.floatScalarOrDefault(offObj, 0.1f);
 
         Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION.name, SELECTION.defaultValue);
         Object regObj = FieldBroadcast.getInputOrDefault(ctx, REGION.name, REGION.defaultValue);
@@ -145,7 +141,7 @@ public class ExtrudeMeshNode implements MeshNode {
             int he = inMesh.edgeHalfEdge(eid);
             int va = inMesh.halfEdgeVertex(he);
             int vb = inMesh.halfEdgeEndVertex(he);
-            int o = eid * NUM_3;
+            int o = eid * 3;
             inEdgeToStart.put(CoonsHandleBuilder.dirPack(va, vb),
                     new float[]{inHS[o], inHS[o + 1], inHS[o + 2]});
             inEdgeToEnd.put(CoonsHandleBuilder.dirPack(va, vb),
@@ -211,7 +207,7 @@ public class ExtrudeMeshNode implements MeshNode {
         }
         extrudedFaces = selected;
 
-        if (selectedCount == 0 || offset == NUM_0) {
+        if (selectedCount == 0 || offset == 0f) {
             extrudedFromVertex = new int[0];
             return new ArrayMesh(srcPos, null, srcFaces, vpf);
         }
@@ -222,13 +218,13 @@ public class ExtrudeMeshNode implements MeshNode {
         int[] newToOrig = new int[newVertCount];
         extrudedFromVertex = newToOrig;
 
-        if (vpf == NUM_4) {
+        if (vpf == 4) {
             int outV = vertCount + newVertCount;
             int outF = faceCount + sideFaceCount;
-            float[] outPos = new float[outV * NUM_3];
-            int[] outFaces = new int[outF * NUM_4];
+            float[] outPos = new float[outV * 3];
+            int[] outFaces = new int[outF * 4];
 
-            System.arraycopy(srcPos, 0, outPos, 0, vertCount * NUM_3);
+            System.arraycopy(srcPos, 0, outPos, 0, vertCount * 3);
 
             Vector3f faceNormal = new Vector3f();
             int[][] faceNewVerts = new int[faceCount][];
@@ -238,13 +234,13 @@ public class ExtrudeMeshNode implements MeshNode {
                     continue;
                 }
                 mesh.faceNormal(fi, faceNormal);
-                int[] newVerts = new int[NUM_4];
-                int fb = fi * NUM_4;
-                for (int k = 0; k < NUM_4; k++) {
+                int[] newVerts = new int[4];
+                int fb = fi * 4;
+                for (int k = 0; k < 4; k++) {
                     int origVid = srcFaces[fb + k];
-                    outPos[nextVert * NUM_3] = srcPos[origVid * NUM_3] - faceNormal.x * offset;
-                    outPos[nextVert * NUM_3 + 1] = srcPos[origVid * NUM_3 + 1] - faceNormal.y * offset;
-                    outPos[nextVert * NUM_3 + 2] = srcPos[origVid * NUM_3 + 2] - faceNormal.z * offset;
+                    outPos[nextVert * 3] = srcPos[origVid * 3] - faceNormal.x * offset;
+                    outPos[nextVert * 3 + 1] = srcPos[origVid * 3 + 1] - faceNormal.y * offset;
+                    outPos[nextVert * 3 + 2] = srcPos[origVid * 3 + 2] - faceNormal.z * offset;
                     newToOrig[nextVert - vertCount] = origVid;
                     newVerts[k] = nextVert++;
                 }
@@ -253,19 +249,19 @@ public class ExtrudeMeshNode implements MeshNode {
 
             int fWrite = 0;
             for (int fi = 0; fi < faceCount; fi++) {
-                int fo = fWrite * NUM_4;
+                int fo = fWrite * 4;
                 if (selected[fi]) {
                     int[] nv = faceNewVerts[fi];
                     outFaces[fo] = nv[0];
                     outFaces[fo + 1] = nv[1];
                     outFaces[fo + 2] = nv[2];
-                    outFaces[fo + NUM_3] = nv[NUM_3];
+                    outFaces[fo + 3] = nv[3];
                 } else {
-                    int fb = fi * NUM_4;
+                    int fb = fi * 4;
                     outFaces[fo] = srcFaces[fb];
                     outFaces[fo + 1] = srcFaces[fb + 1];
                     outFaces[fo + 2] = srcFaces[fb + 2];
-                    outFaces[fo + NUM_3] = srcFaces[fb + NUM_3];
+                    outFaces[fo + 3] = srcFaces[fb + 3];
                 }
                 fWrite++;
             }
@@ -275,19 +271,19 @@ public class ExtrudeMeshNode implements MeshNode {
                     continue;
                 }
                 int[] nv = faceNewVerts[fi];
-                int fb = fi * NUM_4;
-                for (int k = 0; k < NUM_4; k++) {
-                    int next = (k + 1) & NUM_3;
-                    int fo = fWrite * NUM_4;
+                int fb = fi * 4;
+                for (int k = 0; k < 4; k++) {
+                    int next = (k + 1) & 3;
+                    int fo = fWrite * 4;
                     outFaces[fo] = srcFaces[fb + k];
                     outFaces[fo + 1] = srcFaces[fb + next];
                     outFaces[fo + 2] = nv[next];
-                    outFaces[fo + NUM_3] = nv[k];
+                    outFaces[fo + 3] = nv[k];
                     fWrite++;
                 }
             }
 
-            ArrayMesh out = new ArrayMesh(outPos, null, outFaces, NUM_4);
+            ArrayMesh out = new ArrayMesh(outPos, null, outFaces, 4);
             out.computeNormals();
             return out;
         }
@@ -298,7 +294,7 @@ public class ExtrudeMeshNode implements MeshNode {
                 (faceCount + sideFaceCount) * vpf * 2);
 
         for (int vi = 0; vi < vertCount; vi++) {
-            out.addVertex(srcPos[vi * NUM_3], srcPos[vi * NUM_3 + 1], srcPos[vi * NUM_3 + 2]);
+            out.addVertex(srcPos[vi * 3], srcPos[vi * 3 + 1], srcPos[vi * 3 + 2]);
         }
 
         Vector3f faceNormal = new Vector3f();
@@ -310,9 +306,9 @@ public class ExtrudeMeshNode implements MeshNode {
             int[] newVerts = new int[vpf];
             for (int k = 0; k < vpf; k++) {
                 int origVid = srcFaces[fi * vpf + k];
-                float nx = srcPos[origVid * NUM_3] - faceNormal.x * offset;
-                float ny = srcPos[origVid * NUM_3 + 1] - faceNormal.y * offset;
-                float nz = srcPos[origVid * NUM_3 + 2] - faceNormal.z * offset;
+                float nx = srcPos[origVid * 3] - faceNormal.x * offset;
+                float ny = srcPos[origVid * 3 + 1] - faceNormal.y * offset;
+                float nz = srcPos[origVid * 3 + 2] - faceNormal.z * offset;
                 int newVid = out.addVertex(nx, ny, nz);
                 newVerts[k] = newVid;
                 if (newVid - vertCount < newToOrig.length) {
@@ -367,7 +363,7 @@ public class ExtrudeMeshNode implements MeshNode {
         }
         extrudedFaces = selected;
 
-        if (selectedCount == 0 || offset == NUM_0) {
+        if (selectedCount == 0 || offset == 0f) {
             extrudedFromVertex = new int[0];
             return new ArrayMesh(srcPos, null, srcFaces, vpf);
         }
@@ -381,7 +377,7 @@ public class ExtrudeMeshNode implements MeshNode {
         }
 
         Vector3f faceNormal = new Vector3f();
-        float[] vertNormals = new float[vertCount * NUM_3]; // accumulated
+        float[] vertNormals = new float[vertCount * 3]; // accumulated
         int[] vertNormalCount = new int[vertCount];
 
         for (int fi = 0; fi < faceCount; fi++) {
@@ -389,23 +385,23 @@ public class ExtrudeMeshNode implements MeshNode {
             mesh.faceNormal(fi, faceNormal);
             for (int k = 0; k < vpf; k++) {
                 int vi = srcFaces[fi * vpf + k];
-                vertNormals[vi * NUM_3] += faceNormal.x;
-                vertNormals[vi * NUM_3 + 1] += faceNormal.y;
-                vertNormals[vi * NUM_3 + 2] += faceNormal.z;
+                vertNormals[vi * 3] += faceNormal.x;
+                vertNormals[vi * 3 + 1] += faceNormal.y;
+                vertNormals[vi * 3 + 2] += faceNormal.z;
                 vertNormalCount[vi]++;
             }
         }
 
         for (int vi = 0; vi < vertCount; vi++) {
             if (vertNormalCount[vi] == 0) continue;
-            float nx = vertNormals[vi * NUM_3];
-            float ny = vertNormals[vi * NUM_3 + 1];
-            float nz = vertNormals[vi * NUM_3 + 2];
+            float nx = vertNormals[vi * 3];
+            float ny = vertNormals[vi * 3 + 1];
+            float nz = vertNormals[vi * 3 + 2];
             float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (len > NUM_1e_8) {
-                vertNormals[vi * NUM_3] = nx / len;
-                vertNormals[vi * NUM_3 + 1] = ny / len;
-                vertNormals[vi * NUM_3 + 2] = nz / len;
+            if (len > NORMAL_LENGTH_EPSILON) {
+                vertNormals[vi * 3] = nx / len;
+                vertNormals[vi * 3 + 1] = ny / len;
+                vertNormals[vi * 3 + 2] = nz / len;
             }
         }
 
@@ -467,13 +463,13 @@ public class ExtrudeMeshNode implements MeshNode {
                 vertCount + newVertTotal, 0,
                 totalFaces, totalFaces * vpf * 2);
         for (int vi = 0; vi < vertCount; vi++) {
-            out.addVertex(srcPos[vi * NUM_3], srcPos[vi * NUM_3 + 1], srcPos[vi * NUM_3 + 2]);
+            out.addVertex(srcPos[vi * 3], srcPos[vi * 3 + 1], srcPos[vi * 3 + 2]);
         }
         for (int vi = 0; vi < vertCount; vi++) {
             if (!vertUsedBySelected[vi]) continue;
-            float nx = srcPos[vi * NUM_3] - vertNormals[vi * NUM_3] * offset;
-            float ny = srcPos[vi * NUM_3 + 1] - vertNormals[vi * NUM_3 + 1] * offset;
-            float nz = srcPos[vi * NUM_3 + 2] - vertNormals[vi * NUM_3 + 2] * offset;
+            float nx = srcPos[vi * 3] - vertNormals[vi * 3] * offset;
+            float ny = srcPos[vi * 3 + 1] - vertNormals[vi * 3 + 1] * offset;
+            float nz = srcPos[vi * 3 + 2] - vertNormals[vi * 3 + 2] * offset;
             out.addVertex(nx, ny, nz);
         }
 

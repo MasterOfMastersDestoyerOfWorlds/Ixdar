@@ -23,8 +23,7 @@ public class CompareNode implements MeshNode {
     public static final String EQUAL = "EQUAL";
     public static final String LESS = "LESS";
     public static final String GREATER = "GREATER";
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1e_6 = 1e-6f;
+    public static final float DEFAULT_EPSILON = 1e-6f;
 
     public static final ModeConstraint MODE_CONSTRAINT = new ModeConstraint(
             EQUAL,
@@ -88,18 +87,18 @@ public class CompareNode implements MeshNode {
             }
             boolean[] out = new boolean[n];
             for (int i = 0; i < n; i++) {
-                float a = FieldBroadcast.floatAt(ao, i, NUM_0);
-                float b = FieldBroadcast.floatAt(bo, i, NUM_0);
-                float epsilon = Math.abs(FieldBroadcast.floatAt(eo, i, NUM_1e_6));
+                float a = FieldBroadcast.floatAt(ao, i, 0f);
+                float b = FieldBroadcast.floatAt(bo, i, 0f);
+                float epsilon = Math.abs(FieldBroadcast.floatAt(eo, i, DEFAULT_EPSILON));
                 out[i] = evalMode(mode, a, b, epsilon);
             }
             ctx.setOutput(VALUE.name,new BoolField(out));
             return;
         }
 
-        float a = FieldBroadcast.floatScalarOrDefault(ao, NUM_0);
-        float b = FieldBroadcast.floatScalarOrDefault(bo, NUM_0);
-        float epsilon = Math.abs(FieldBroadcast.floatScalarOrDefault(eo, NUM_1e_6));
+        float a = FieldBroadcast.floatScalarOrDefault(ao, 0f);
+        float b = FieldBroadcast.floatScalarOrDefault(bo, 0f);
+        float epsilon = Math.abs(FieldBroadcast.floatScalarOrDefault(eo, DEFAULT_EPSILON));
         ctx.setOutput(VALUE.name,evalMode(mode, a, b, epsilon));
     }
 

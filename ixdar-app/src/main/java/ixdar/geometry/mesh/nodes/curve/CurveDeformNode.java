@@ -26,10 +26,7 @@ public class CurveDeformNode implements MeshNode {
     public static final String Y = "Y";
     public static final String X = "X";
     public static final String Z = "Z";
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_1e_10 = 1e-10f;
-    public static final int NUM_3 = 3;
+    public static final float MIN_RANGE = 1e-10f;
 
     public static final InputPort CURVE = new InputPort("curve", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort CLOSURE = new InputPort("closure", PortType.CLOSURE, null);
@@ -91,24 +88,24 @@ public class CurveDeformNode implements MeshNode {
         int tgtIdx = axisIndex(FieldBroadcast.getInputOrDefault(ctx, TARGET_AXIS.name, TARGET_AXIS.defaultValue));
 
         float fromMin = FieldBroadcast.floatAt(
-                FieldBroadcast.getInputOrDefault(ctx, FROM_MIN.name, FROM_MIN.defaultValue), 0, NUM_0);
+                FieldBroadcast.getInputOrDefault(ctx, FROM_MIN.name, FROM_MIN.defaultValue), 0, 0f);
         float fromMax = FieldBroadcast.floatAt(
-                FieldBroadcast.getInputOrDefault(ctx, FROM_MAX.name, FROM_MAX.defaultValue), 0, NUM_1);
+                FieldBroadcast.getInputOrDefault(ctx, FROM_MAX.name, FROM_MAX.defaultValue), 0, 1f);
         float amplitude = FieldBroadcast.floatAt(
-                FieldBroadcast.getInputOrDefault(ctx, AMPLITUDE.name, AMPLITUDE.defaultValue), 0, NUM_1);
+                FieldBroadcast.getInputOrDefault(ctx, AMPLITUDE.name, AMPLITUDE.defaultValue), 0, 1f);
 
         float range = fromMax - fromMin;
-        if (Math.abs(range) < NUM_1e_10) range = NUM_1;
+        if (Math.abs(range) < MIN_RANGE) range = 1f;
 
         float[] srcPos = cg.positions();
         float[] dstPos = srcPos.clone();
-        int nPts = srcPos.length / NUM_3;
+        int nPts = srcPos.length / 3;
 
         for (int i = 0; i < nPts; i++) {
-            int base3 = i * NUM_3;
+            int base3 = i * 3;
             float src = dstPos[base3 + srcIdx];
             float t = (src - fromMin) / range;
-            t = Math.max(NUM_0, Math.min(NUM_1, t));
+            t = Math.max(0f, Math.min(1f, t));
             float offset = kernel.evaluate(t) * amplitude;
             dstPos[base3 + tgtIdx] += offset;
         }

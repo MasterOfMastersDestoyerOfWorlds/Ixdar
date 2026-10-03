@@ -33,24 +33,8 @@ public final class SeamlessProjector {
     private static final int U_COMPONENT = 0;
     private static final int V_COMPONENT = 1;
     private static final int ROSY_ROTATION_COUNT = 4;
-    /**
-     * MC19 §5.4: post-projection injectivity repair caps. {@code MAX_UNFLIP_PASSES}
-     * bounds the outer fixed-point loop; each pass scans the flipped face list once
-     * and attempts a single vertex move per face.
-     */
     private static final int MAX_UNFLIP_PASSES = 20;
-    /**
-     * Padding factor on the bounding rectangle used to seed the Sutherland-Hodgman
-     * kernel-polygon clip — fraction of bbox extent added on each side so the seed
-     * contains all link vertices with margin.
-     */
     private static final double KERNEL_BBOX_PAD_FRACTION = 0.1;
-    /**
-     * Strict-positivity margin (relative to local edge magnitude) used when
-     * accepting a kernel point; ensures the moved vertex lands strictly inside
-     * every half-plane rather than on a boundary line, avoiding zero-area follow-up
-     * triangles.
-     */
     private static final double KERNEL_INTERIOR_MARGIN = 1.0e-9;
     public final SeamlessParameterization seamless;
     public final CutGraph cutGraph;

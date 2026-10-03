@@ -15,9 +15,9 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
  * expressed as a triangle for symmetry with the ascending one.
  */
 public final class DiscreteGradientCells {
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
-    public static final int NUM_16 = 16;
+    public static final int PACK_SHIFT = 32;
+    public static final long INT_MASK = 0xffffffffL;
+    public static final int SAFETY_MARGIN = 16;
 
     private DiscreteGradientCells() {}
 
@@ -75,7 +75,7 @@ public final class DiscreteGradientCells {
         for (int f = 0; f < faceCount; f++) {
             int a = ascMaxLabel[f], d = descMinLabel[f];
             if (a < 0 || d < 0) { facePatchId[f] = -1; orphanCount++; continue; }
-            long key = ((long) a << NUM_32) | (d & NUM_0xffffffff);
+            long key = ((long) a << PACK_SHIFT) | (d & INT_MASK);
             facePatchId[f] = pairToCell.computeIfAbsent(key, k -> pairToCell.size());
         }
         int[] maxByLabel = maxList.stream().mapToInt(Integer::intValue).toArray();
@@ -91,7 +91,7 @@ public final class DiscreteGradientCells {
     private static int traceVPath(int startFace, DiscreteGradient.Result g,
                                     Map<Integer, Integer> criticalLabel) {
         int currentTri = startFace;
-        int safety = g.nt() * 2 + NUM_16;  // V-paths in 2D are O(N) at most
+        int safety = g.nt() * 2 + SAFETY_MARGIN;  // V-paths in 2D are O(N) at most
         for (int step = 0; step < safety; step++) {
             int triCellId = g.cellId(2, currentTri);
             if (g.isCritical(triCellId)) {

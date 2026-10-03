@@ -19,12 +19,11 @@ import ixdar.platform.Platforms;
 public class Font {
     public static final String RES = "res";
     public static final String FONT_ATLAS_INIT_FAILED = "Font atlas init failed";
-    public static final float NUM_0 = 0f;
-    public static final float NUM_32 = 32f;
-    public static final float NUM_20 = 20f;
-    public static final int NUM_64 = 64;
-    public static final float NUM_0_25 = 0.25f;
-    public static final double NUM_0_0001 = 0.0001;
+    public static final float DEFAULT_ATLAS_SIZE_PX = 32f;
+    public static final float SDF_BORDER_DISTANCE_PX = 20f;
+    public static final int DEFAULT_MAX_TEXT_WIDTH = 64;
+    public static final float BASELINE_OFFSET_RATIO = 0.25f;
+    public static final double FLOOR_EPSILON = 0.0001;
 
     private static final String ATLAS_JSON_PATH = "opensans.json";
     public Map<Character, Glyph> glyphs;
@@ -71,7 +70,7 @@ public class Font {
             atlas.height = root.atlas.height;
             atlas.sizePx = (float) root.atlas.size;
             float lineHeightEm = (float) root.metrics.lineHeight;
-            atlas.derivedLineHeight = (atlas.sizePx > NUM_0 ? atlas.sizePx * lineHeightEm : NUM_32 * lineHeightEm);
+            atlas.derivedLineHeight = (atlas.sizePx > 0f ? atlas.sizePx * lineHeightEm : DEFAULT_ATLAS_SIZE_PX * lineHeightEm);
             this.glyphs = buildGlyphs(root);
             this.pxPerEm = atlas.sizePx;
             this.ascenderPx = (float) (atlas.sizePx * root.metrics.ascender);
@@ -85,10 +84,10 @@ public class Font {
                 this.shader = ShaderType.TextureSDF.getShader();
                 this.sdfTexture = new SDFTexture(this.texture);
                 this.sdfTexture.setSharpCorners(true);
-                this.sdfTexture.setBorderDist(NUM_20);
+                this.sdfTexture.setBorderDist(SDF_BORDER_DISTANCE_PX);
                 this.sdfTexture.setPxRange(distanceRange);
             });
-            this.maxTextWidth = NUM_64;
+            this.maxTextWidth = DEFAULT_MAX_TEXT_WIDTH;
         } catch (Throwable e) {
             Platforms.get().log(FONT_ATLAS_INIT_FAILED);
         }
@@ -103,10 +102,10 @@ public class Font {
      */
     public float getWidth(CharSequence text) {
         if (glyphs == null) {
-            return NUM_0;
+            return 0f;
         }
-        float maxWidthPx = NUM_0;
-        float lineAdvanceEm = NUM_0;
+        float maxWidthPx = 0f;
+        float lineAdvanceEm = 0f;
         int prevCodePoint = -1;
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
@@ -114,7 +113,7 @@ public class Font {
                 float lineWidthPx = lineAdvanceEm * pxPerEm;
                 if (lineWidthPx > maxWidthPx)
                     maxWidthPx = lineWidthPx;
-                lineAdvanceEm = NUM_0;
+                lineAdvanceEm = 0f;
                 prevCodePoint = -1;
                 continue;
             }
@@ -175,15 +174,15 @@ public class Font {
         }
         float scale = glyphHeight / fontHeight;
         float drawX = x;
-        float baselineY = y + (ascenderPx * scale) * NUM_0_25;
-        float penEm = NUM_0;
+        float baselineY = y + (ascenderPx * scale) * BASELINE_OFFSET_RATIO;
+        float penEm = 0f;
         int prevCodePoint = -1;
 
         for (int i = 0; i < text.size(); i++) {
             char ch = text.get(i).c;
             if (ch == '\n') {
                 baselineY -= fontHeight * scale;
-                penEm = NUM_0;
+                penEm = 0f;
                 prevCodePoint = -1;
                 continue;
             }
@@ -347,17 +346,17 @@ public class Font {
         for (FontAtlasDTO.GlyphEntry ge : root.glyphs) {
             if (ge.atlasBounds == null)
                 continue;
-            int x = (int) Math.floor(ge.atlasBounds.left + NUM_0_0001);
-            int y = (int) Math.floor(ge.atlasBounds.bottom + NUM_0_0001);
+            int x = (int) Math.floor(ge.atlasBounds.left + FLOOR_EPSILON);
+            int y = (int) Math.floor(ge.atlasBounds.bottom + FLOOR_EPSILON);
             int width = (int) Math.round(ge.atlasBounds.right - ge.atlasBounds.left);
             int height = (int) Math.round(ge.atlasBounds.top - ge.atlasBounds.bottom);
             if (width <= 0 || height <= 0)
                 continue;
             char ch = (char) ge.unicode;
-            float pl = ge.planeBounds != null ? (float) ge.planeBounds.left : NUM_0;
-            float pb = ge.planeBounds != null ? (float) ge.planeBounds.bottom : NUM_0;
-            float pr = ge.planeBounds != null ? (float) ge.planeBounds.right : NUM_0;
-            float pt = ge.planeBounds != null ? (float) ge.planeBounds.top : NUM_0;
+            float pl = ge.planeBounds != null ? (float) ge.planeBounds.left : 0f;
+            float pb = ge.planeBounds != null ? (float) ge.planeBounds.bottom : 0f;
+            float pr = ge.planeBounds != null ? (float) ge.planeBounds.right : 0f;
+            float pt = ge.planeBounds != null ? (float) ge.planeBounds.top : 0f;
             map.put(ch, new Glyph(width, height, x, y, (float) ge.advance, pl, pb, pr, pt));
         }
         for (SpecialGlyphs specialGlyph : SpecialGlyphs.values()) {
@@ -381,12 +380,12 @@ public class Font {
 
     private float getKerningEm(int prevCodePoint, int codePoint) {
         if (kerningEm == null)
-            return NUM_0;
+            return 0f;
         Map<Integer, Float> m = kerningEm.get(prevCodePoint);
         if (m == null)
-            return NUM_0;
+            return 0f;
         Float v = m.get(codePoint);
-        return v != null ? v.floatValue() : NUM_0;
+        return v != null ? v.floatValue() : 0f;
     }
 
     private static class FontAtlasData {

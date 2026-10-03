@@ -32,7 +32,6 @@ import ixdar.scenes.model.ModelScene;
 @SceneAnnotation(id = "embedded-tmesh")
 public class EmbeddedTMeshScene extends ModelScene {
 
-    /** Refinement of the scaled torus fixture offered in the model menu. */
     private static final int DENSE_FIXTURE_SCALE = 4;
 
     /** Whether a full contraction (all three operators to a fixed point) was requested by keypress. */

@@ -14,13 +14,10 @@ import ixdar.geometry.mesh.data.UnionFind;
  */
 public final class MeshTopologyAnalysis {
 
-    /** Sort-key shift putting the size in the high bits and the discovery index in the low bits. */
     private static final int KEY_SHIFT = 32;
 
-    /** Mask recovering the discovery index from a sort key. */
     private static final long KEY_MASK = 0xffffffffL;
 
-    /** Smallest grid cell the duplicate-position scan uses, however small the tolerance is. */
     private static final float SMALLEST_CELL = 1e-8f;
 
     /** Distance below which two vertices count as sharing a position; not positive skips the scan. */

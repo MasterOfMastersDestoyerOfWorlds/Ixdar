@@ -15,7 +15,7 @@ import ixdar.platform.input.MouseTrap;
 import ixdar.scenes.main.MainScene;
 
 public class HyperString {
-    public static final int NUM_30 = 30;
+    public static final int TOOLTIP_CHAR_WRAP = 30;
 
     public ArrayList<HyperWord> words;
     public HashMap<Integer, String> strMap;
@@ -232,7 +232,7 @@ public class HyperString {
         HyperString knotText = new HyperString();
         children.add(knotText);
         knotText.addWord(hoverKnot.toString() + " FlatID: " + hoverKnot.id, c);
-        knotText.setWrap(true, NUM_30);
+        knotText.setWrap(true, TOOLTIP_CHAR_WRAP);
         words.add(new HyperWord(word, c, () -> {
             MainScene.setHoverKnot(hoverKnot);
             MainScene.setTooltipText(knotText);

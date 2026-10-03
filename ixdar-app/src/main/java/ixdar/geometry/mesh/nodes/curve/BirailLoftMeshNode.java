@@ -25,14 +25,12 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "birail_loft")
 public class BirailLoftMeshNode implements MeshNode {
-    public static final int NUM_16 = 16;
-    public static final int NUM_8 = 8;
-    public static final int NUM_3 = 3;
-    public static final float NUM_1e_5 = 1e-5f;
-    public static final float NUM_1e_4 = 1e-4f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1e_20 = 1e-20f;
-    public static final float NUM_1e_8 = 1e-8f;
+    public static final int DEFAULT_U_SEGMENTS = 16;
+    public static final int DEFAULT_V_SEGMENTS = 8;
+    public static final float MIN_CLOSED_EPSILON = 1e-5f;
+    public static final float CLOSED_EPSILON_PER_LENGTH = 1e-4f;
+    public static final float MIN_ARC_LENGTH = 1e-20f;
+    public static final float ARC_LENGTH_EPSILON = 1e-8f;
 
     public static final InputPort RAIL_A = new InputPort("rail_a", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort RAIL_B = new InputPort("rail_b", PortType.GEOMETRY_BUNDLE, null);
@@ -81,8 +79,8 @@ public class BirailLoftMeshNode implements MeshNode {
             return;
         }
 
-        int uSeg = readInt(ctx, U_SEGMENTS.name, NUM_16);
-        int vSeg = readInt(ctx, V_SEGMENTS.name, NUM_8);
+        int uSeg = readInt(ctx, U_SEGMENTS.name, DEFAULT_U_SEGMENTS);
+        int vSeg = readInt(ctx, V_SEGMENTS.name, DEFAULT_V_SEGMENTS);
         uSeg = Math.max(2, uSeg);
         vSeg = Math.max(2, vSeg);
 
@@ -157,7 +155,7 @@ public class BirailLoftMeshNode implements MeshNode {
         float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
         float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
         for (int i = 0; i < n; i++) {
-            int b = NUM_3 * (off0 + i);
+            int b = 3 * (off0 + i);
             float x = pos[b];
             float y = pos[b + 1];
             float z = pos[b + 2];
@@ -173,7 +171,7 @@ public class BirailLoftMeshNode implements MeshNode {
             maxZ = Math.max(maxZ, z);
         }
         float diag = new Vector3f(maxX - minX, maxY - minY, maxZ - minZ).length();
-        float eps = Math.max(NUM_1e_5, diag * NUM_1e_4);
+        float eps = Math.max(MIN_CLOSED_EPSILON, diag * CLOSED_EPSILON_PER_LENGTH);
         boolean closed = pts[0].distance(pts[n - 1]) < eps;
         return new Polyline(pts, closed);
     }
@@ -184,7 +182,7 @@ public class BirailLoftMeshNode implements MeshNode {
         }
         int segCount = closed ? src.length : src.length - 1;
         float[] lens = new float[segCount];
-        float total = NUM_0;
+        float total = 0f;
         int n = src.length;
         for (int i = 0; i < segCount; i++) {
             int j = closed ? (i + 1) % n : i + 1;
@@ -192,7 +190,7 @@ public class BirailLoftMeshNode implements MeshNode {
             lens[i] = L;
             total += L;
         }
-        if (total < NUM_1e_20) {
+        if (total < MIN_ARC_LENGTH) {
             return null;
         }
 
@@ -212,23 +210,23 @@ public class BirailLoftMeshNode implements MeshNode {
             boolean closed,
             int n,
             int segCount) {
-        if (dist <= NUM_0) {
+        if (dist <= 0f) {
             return new Vector3f(src[0]);
         }
-        if (!closed && dist >= total - NUM_1e_8) {
+        if (!closed && dist >= total - ARC_LENGTH_EPSILON) {
             return new Vector3f(src[n - 1]);
         }
         if (closed) {
             dist = dist % total;
-            if (dist < NUM_1e_8) {
+            if (dist < ARC_LENGTH_EPSILON) {
                 return new Vector3f(src[0]);
             }
         }
-        float acc = NUM_0;
+        float acc = 0f;
         for (int i = 0; i < segCount; i++) {
             float L = lens[i];
-            if (acc + L >= dist - NUM_1e_8) {
-                float t = L > NUM_1e_20 ? (dist - acc) / L : NUM_0;
+            if (acc + L >= dist - ARC_LENGTH_EPSILON) {
+                float t = L > MIN_ARC_LENGTH ? (dist - acc) / L : 0f;
                 int i1 = closed ? (i + 1) % n : i + 1;
                 return new Vector3f(src[i1]).sub(src[i]).mul(t).add(src[i]);
             }

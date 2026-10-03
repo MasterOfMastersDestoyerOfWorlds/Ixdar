@@ -17,7 +17,6 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
  */
 public final class PatchSurfaceGeometry {
 
-    /** Slot name for the per-face {@link IntField} of layout patch ids. */
     public static final String PATCH_ID = "patch_id";
 
     private PatchSurfaceGeometry() {

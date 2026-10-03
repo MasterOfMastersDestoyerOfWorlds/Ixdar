@@ -37,21 +37,20 @@ public abstract class ShaderProgram {
     public static final String GLSL = "glsl";
     public static final String ERROR_SHADER = "ERROR::SHADER::";
     public static final String N = "\n";
-    public static final String STR_0 = "\0";
+    public static final String NUL_TERMINATOR = "\0";
     public static final String SHADERPROGRAM_PLATFORM_MISMATCH = "ShaderProgram: Platform mismatch";
     public static final String POSITION = "position";
     public static final String COLOR = "color";
     public static final String TEXCOORD = "texCoord";
     public static final String VERTEXCOLOR = "vertexColor";
-    public static final int NUM_16 = 16;
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0 = 0f;
-    public static final int NUM_9 = 9;
-    public static final int NUM_6 = 6;
-    public static final int NUM_7 = 7;
-    public static final int NUM_8 = 8;
+    public static final int MAT4_FLOATS = 16;
+    public static final int STAGING_BUFFER_CAPACITY_EXPONENT = 16;
+    public static final int VEC3_FLOATS = 3;
+    public static final int VEC4_FLOATS = 4;
+    public static final int INT_BYTES = 4;
+    public static final int SDF_VERTEX_STRIDE_FLOATS = 9;
+    public static final int VERTICES_PER_QUAD = 6;
+    public static final int COLOR_VERTEX_STRIDE_FLOATS = 7;
 
     public final static float ORTHO_FAR = 1000f;
     public final static float ORTHO_NEAR = -ORTHO_FAR;
@@ -243,7 +242,7 @@ public abstract class ShaderProgram {
     public void setMat4(String name, Matrix4f mat) {
 
         if (mat4Buf == null)
-            mat4Buf = platform.allocateFloats(NUM_16);
+            mat4Buf = platform.allocateFloats(MAT4_FLOATS);
         mat4Buf.clear();
 
         mat4Buf.put(mat.m00()).put(mat.m01()).put(mat.m02()).put(mat.m03());
@@ -294,7 +293,7 @@ public abstract class ShaderProgram {
     public void setVec3(String name, float f, float g, float h) {
 
         if (vec3Buf == null)
-            vec3Buf = platform.allocateFloats(NUM_3);
+            vec3Buf = platform.allocateFloats(VEC3_FLOATS);
         vec3Buf.clear();
         vec3Buf.put(f).put(g).put(h).flip();
         gl.uniform3fv(uniformLocation(name), vec3Buf);
@@ -309,7 +308,7 @@ public abstract class ShaderProgram {
      */
     public void setVec3(String name, Vector3f vec3) {
         if (vec3Buf == null)
-            vec3Buf = platform.allocateFloats(NUM_3);
+            vec3Buf = platform.allocateFloats(VEC3_FLOATS);
         vec3Buf.clear();
         vec3Buf.put(vec3.x).put(vec3.y).put(vec3.z).flip();
         gl.uniform3fv(uniformLocation(name), vec3Buf);
@@ -325,7 +324,7 @@ public abstract class ShaderProgram {
     public void setVec4(String name, Vector4f vec4) {
 
         if (vec4Buf == null)
-            vec4Buf = platform.allocateFloats(NUM_4);
+            vec4Buf = platform.allocateFloats(VEC4_FLOATS);
         vec4Buf.clear();
         vec4Buf.put(vec4.x).put(vec4.y).put(vec4.z).put(vec4.w).flip();
         gl.uniform4fv(uniformLocation(name), vec4Buf);
@@ -345,7 +344,7 @@ public abstract class ShaderProgram {
     private void checkCompileErrors(int shader, ShaderOperationType type, String location,
             CharSequence[] shaderSource) {
 
-        IntBuffer success = ByteBuffer.allocateDirect(NUM_4).order(ByteOrder.nativeOrder()).asIntBuffer();
+        IntBuffer success = ByteBuffer.allocateDirect(INT_BYTES).order(ByteOrder.nativeOrder()).asIntBuffer();
 
         if (type != ShaderOperationType.Program) {
             gl.getShaderiv(shader, gl.COMPILE_STATUS(), success);
@@ -378,7 +377,7 @@ public abstract class ShaderProgram {
         while ((line = br.readLine()) != null) {
             lines.add(line + N);
         }
-        String zero = lines.get(lines.size() - 1).replace(N, STR_0);
+        String zero = lines.get(lines.size() - 1).replace(N, NUL_TERMINATOR);
         lines.remove(lines.size() - 1);
         lines.add(zero);
         CharSequence[] vertexShaderSource = new CharSequence[lines.size()];
@@ -439,7 +438,7 @@ public abstract class ShaderProgram {
         }
         int prevID = ID;
         recompileShaders(vertexShaderLocation, fragmentShaderLocation);
-        IntBuffer success = ByteBuffer.allocateDirect(NUM_4).order(ByteOrder.nativeOrder()).asIntBuffer();
+        IntBuffer success = ByteBuffer.allocateDirect(INT_BYTES).order(ByteOrder.nativeOrder()).asIntBuffer();
         gl.getProgramiv(ID, gl.LINK_STATUS(), success);
         if (success.get(0) != 0) {
             gl.useProgram(ID);
@@ -453,7 +452,7 @@ public abstract class ShaderProgram {
             resetPersistentAllocations();
             reapplyUniforms();
             updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(),
-                    NUM_1);
+                    1f);
             return true;
         } else {
             gl.deleteProgram(ID);
@@ -520,7 +519,7 @@ public abstract class ShaderProgram {
             }
         } catch (Exception ignore) {
         }
-        return new CharSequence[] { body + STR_0 };
+        return new CharSequence[] { body + NUL_TERMINATOR };
     }
 
     private CharSequence[] normalizeSharedGlslForBackend(CharSequence[] raw) {
@@ -743,7 +742,7 @@ public abstract class ShaderProgram {
             if (cs != null)
                 sb.append(cs);
         }
-        int nul = sb.indexOf(STR_0);
+        int nul = sb.indexOf(NUL_TERMINATOR);
         if (nul >= 0)
             sb.delete(nul, sb.length());
         return sb.toString();
@@ -764,7 +763,7 @@ public abstract class ShaderProgram {
             if (cs != null)
                 sb.append(cs);
         }
-        int nul = sb.indexOf(STR_0);
+        int nul = sb.indexOf(NUL_TERMINATOR);
         if (nul >= 0)
             sb.delete(nul, sb.length());
         return sb.toString();
@@ -788,10 +787,10 @@ public abstract class ShaderProgram {
         float y2 = y1 + texture.getHeight();
 
         /* Texture coordinates */
-        float s1 = NUM_0;
-        float t1 = NUM_0;
-        float s2 = NUM_1;
-        float t2 = NUM_1;
+        float s1 = 0f;
+        float t1 = 0f;
+        float s2 = 1f;
+        float t2 = 1f;
 
         drawTextureRegion(x1, y1, x2, y2, zIndex, s1, t1, s2, t2, c);
     }
@@ -947,7 +946,7 @@ public abstract class ShaderProgram {
     public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
             float t2,
             Color c) {
-        if (verteciesBuff.remaining() < NUM_9 * NUM_6) {
+        if (verteciesBuff.remaining() < SDF_VERTEX_STRIDE_FLOATS * VERTICES_PER_QUAD) {
             /* We need more space in the buffer, so flush it */
             flush();
         }
@@ -966,7 +965,7 @@ public abstract class ShaderProgram {
         verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t2);
         verteciesBuff.put(x2).put(y1).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
 
-        numVertices += NUM_6;
+        numVertices += VERTICES_PER_QUAD;
     }
 
     /**
@@ -981,7 +980,7 @@ public abstract class ShaderProgram {
      * @param c      fill color
      */
     public void drawColorRegion(float x1, float y1, float x2, float y2, float zIndex, Color c) {
-        if (verteciesBuff.remaining() < NUM_7 * NUM_6) {
+        if (verteciesBuff.remaining() < COLOR_VERTEX_STRIDE_FLOATS * VERTICES_PER_QUAD) {
             /* We need more space in the buffer, so flush it */
             flush();
         }
@@ -1001,7 +1000,7 @@ public abstract class ShaderProgram {
         verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a);
         verteciesBuff.put(x2).put(y1).put(zIndex).put(r).put(g).put(b).put(a);
 
-        numVertices += NUM_6;
+        numVertices += VERTICES_PER_QUAD;
     }
 
     /**
@@ -1025,7 +1024,7 @@ public abstract class ShaderProgram {
      */
     public void drawSDFRegion(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
             float zIndex, float s1, float t1, float s2, float t2, Color c) {
-        if (verteciesBuff.remaining() < NUM_9 * NUM_6) {
+        if (verteciesBuff.remaining() < SDF_VERTEX_STRIDE_FLOATS * VERTICES_PER_QUAD) {
             /* We need more space in the buffer, so flush it */
             flush();
         }
@@ -1045,7 +1044,7 @@ public abstract class ShaderProgram {
         verteciesBuff.put(x4).put(y4).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t2);
         verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
 
-        numVertices += NUM_6;
+        numVertices += VERTICES_PER_QUAD;
     }
 
     /**
@@ -1071,7 +1070,7 @@ public abstract class ShaderProgram {
      */
     public void drawSDFLinearGradient(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
             float zIndex, float s1, float t1, float s2, float t2, Color c, Color c2) {
-        if (verteciesBuff.remaining() < NUM_9 * NUM_6) {
+        if (verteciesBuff.remaining() < SDF_VERTEX_STRIDE_FLOATS * VERTICES_PER_QUAD) {
             /* We need more space in the buffer, so flush it */
             flush();
         }
@@ -1096,7 +1095,7 @@ public abstract class ShaderProgram {
         verteciesBuff.put(x4).put(y4).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t2);
         verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
 
-        numVertices += NUM_6;
+        numVertices += VERTICES_PER_QUAD;
     }
 
     /**
@@ -1120,7 +1119,7 @@ public abstract class ShaderProgram {
 
             vbo.bind(gl.ARRAY_BUFFER());
 
-            verteciesBuff = platform.allocateFloats((int) Math.pow(2, NUM_16));
+            verteciesBuff = platform.allocateFloats((int) Math.pow(2, STAGING_BUFFER_CAPACITY_EXPONENT));
 
             long size = (long) verteciesBuff.capacity() * (long) Float.BYTES;
             vbo.uploadData(gl.ARRAY_BUFFER(), size, gl.DYNAMIC_DRAW());
@@ -1299,9 +1298,9 @@ public abstract class ShaderProgram {
         int v = x - 1;
         v |= v >> 1;
         v |= v >> 2;
-        v |= v >> NUM_4;
-        v |= v >> NUM_8;
-        v |= v >> NUM_16;
+        v |= v >> 4;
+        v |= v >> 8;
+        v |= v >> 16;
         return (v < 0) ? 1 : v + 1;
     }
 
@@ -1317,9 +1316,9 @@ public abstract class ShaderProgram {
             return;
         }
 
-        IntBuffer sizeBuffer = ByteBuffer.allocateDirect(NUM_4).order(ByteOrder.nativeOrder())
+        IntBuffer sizeBuffer = ByteBuffer.allocateDirect(INT_BYTES).order(ByteOrder.nativeOrder())
                 .asIntBuffer();
-        IntBuffer typeBuffer = ByteBuffer.allocateDirect(NUM_4).order(ByteOrder.nativeOrder())
+        IntBuffer typeBuffer = ByteBuffer.allocateDirect(INT_BYTES).order(ByteOrder.nativeOrder())
                 .asIntBuffer();
 
         for (int i = 0; i < numUniforms; i++) {
@@ -1338,10 +1337,10 @@ public abstract class ShaderProgram {
                 gl.getUniformfv(ID, location, val);
                 Platforms.log("  '%s' (vec2): (%f, %f)%n", name, val.get(0), val.get(1));
             } else if (type == gl.FLOAT_VEC4()) {
-                IxBuffer val = platform.allocateFloats(NUM_4);
+                IxBuffer val = platform.allocateFloats(VEC4_FLOATS);
                 gl.getUniformfv(ID, location, val);
                 Platforms.log("  '%s' (vec4): (%f, %f, %f, %f)%n", name, val.get(0), val.get(1), val.get(2),
-                        val.get(NUM_3));
+                        val.get(3));
             } else if (type == gl.SAMPLER_2D()) {
                 Platforms.log("  '%s' (sampler2D): [Texture Sampler]%n", name);
             } else {

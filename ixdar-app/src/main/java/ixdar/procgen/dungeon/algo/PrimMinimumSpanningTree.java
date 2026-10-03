@@ -16,7 +16,7 @@ import ixdar.geometry.mesh.data.MeshTopology;
  * per-edge selection in dense edge order; the extra-edge pass draws from its own RNG stream.
  */
 public final class PrimMinimumSpanningTree {
-    public static final long NUM_0x9E3779B97F4A7C15 = 0x9E3779B97F4A7C15L;
+    public static final long EXTRA_EDGE_SEED_MIX = 0x9E3779B97F4A7C15L;
 
     /** Default probability per non-MST edge of being kept as an extra loop (vazgriz). */
     public static final double DEFAULT_EXTRA_EDGE_PROB = 0.125;
@@ -101,7 +101,7 @@ public final class PrimMinimumSpanningTree {
         }
 
         // Extra-edge pass on its own RNG stream.
-        Random extraRng = new Random(seed ^ NUM_0x9E3779B97F4A7C15);
+        Random extraRng = new Random(seed ^ EXTRA_EDGE_SEED_MIX);
         boolean[] selection = new boolean[e];
         for (int i : mstEdgeIndices) {
             selection[i] = true;

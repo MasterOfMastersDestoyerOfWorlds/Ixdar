@@ -21,16 +21,12 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
  */
 public final class ArcRerouter {
 
-    /** Corners (and edges) of a triangle. */
     private static final int CORNERS = 3;
 
-    /** Starting capacity of the frontier heap; grows by doubling. */
     private static final int FRONTIER_INITIAL_CAPACITY = 1024;
 
-    /** Bit offset of the split count in a packed frontier key. */
     private static final int SPLIT_BITS_SHIFT = 32;
 
-    /** Mask of the length half of a packed frontier key. */
     private static final long LENGTH_BITS_MASK = 0xFFFFFFFFL;
 
     public final EmbeddedMeshTopology topology;

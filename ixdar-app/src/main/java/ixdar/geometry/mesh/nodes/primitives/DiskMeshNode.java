@@ -20,24 +20,14 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 @MeshNodeAnnotation(id = "mesh_disk")
 public class DiskMeshNode implements MeshNode {
 
-    /** Port name: concentric vertex rings around the center. */
-    /** Port name: vertices per ring, and the center vertex's valence. */
-    /** Port name: radius of the outermost ring. */
-    /** Port name: whether to split each annulus quad into two triangles. */
-    /** Port name: the generated mesh. */
-    /** Default concentric rings. */
     public static final int DEFAULT_RINGS = 4;
 
-    /** Default vertices per ring. */
     public static final int DEFAULT_ANGULAR_SEGMENTS = 24;
 
-    /** Default outer radius. */
     public static final float DEFAULT_RADIUS = 1.0f;
 
-    /** Fewest angular divisions that still close a ring without degenerate faces. */
     public static final int MINIMUM_SEGMENTS = 3;
 
-    /** A full turn, for stepping the angle. */
     public static final double FULL_TURN = 2.0 * Math.PI;
 
     public static final InputPort RINGS =

@@ -17,17 +17,13 @@ import ixdar.procgen.dungeon.values.CellType;
  * <p>Camera orientation is read-only here; mouse-look belongs to the active mouse handler.
  */
 public class PlayerController {
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1e_6 = 1e-6f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_1e_4 = 1e-4f;
-    public static final float NUM_360 = 360f;
-    public static final float NUM_180 = 180f;
+    public static final float MOVE_EPSILON = 1e-6f;
+    public static final float GROUNDED_THRESHOLD = 1e-4f;
+    public static final float DEGREES_PER_TURN = 360f;
+    public static final float HALF_TURN_DEGREES = 180f;
 
-    /** Default gravity in world-units / sec². Suitable for unit-scale dungeons. */
     public static final float DEFAULT_GRAVITY = 9.8f;
 
-    /** Maximum angular speed when rotating to face the movement direction (Dark Souls feel). */
     private static final float TURN_RATE_DEG_PER_SEC = 720f;
 
     private final CellType[] cells;
@@ -79,7 +75,7 @@ public class PlayerController {
         this.position = spawnCenter;
         this.velocity = new Vector3f(0f, 0f, 0f);
         this.grounded = false;
-        this.facingYawDegrees = NUM_0;
+        this.facingYawDegrees = 0f;
     }
 
     /**
@@ -130,15 +126,15 @@ public class PlayerController {
         float rightX = (float) -Math.sin(yawRad);
         float rightZ = (float) Math.cos(yawRad);
 
-        float horizX = NUM_0, horizZ = NUM_0;
+        float horizX = 0f, horizZ = 0f;
         if (pressedKeys.contains(Keys.W)) { horizX += fwdX;   horizZ += fwdZ; }
         if (pressedKeys.contains(Keys.S)) { horizX -= fwdX;   horizZ -= fwdZ; }
         if (pressedKeys.contains(Keys.D)) { horizX += rightX; horizZ += rightZ; }
         if (pressedKeys.contains(Keys.A)) { horizX -= rightX; horizZ -= rightZ; }
         // Normalize so diagonal movement isn't faster.
         float horizLen = (float) Math.sqrt(horizX * horizX + horizZ * horizZ);
-        if (horizLen > NUM_1e_6) {
-            float invLen = NUM_1 / horizLen;
+        if (horizLen > MOVE_EPSILON) {
+            float invLen = 1f / horizLen;
             float dirX = horizX * invLen;
             float dirZ = horizZ * invLen;
             horizX = dirX * moveSpeed;
@@ -168,12 +164,12 @@ public class PlayerController {
         // Grounded detection: we wanted to fall (delta.y < 0) but actually moved up relative to
         // the requested motion -> the floor pushed us. Threshold accounts for sub-step rounding.
         Vector3f actualMotion = newPos.sub(position);
-        boolean wasFalling = delta.y() < NUM_0;
-        boolean blockedDownward = actualMotion.y() > delta.y() + NUM_1e_4;
+        boolean wasFalling = delta.y() < 0f;
+        boolean blockedDownward = actualMotion.y() > delta.y() + GROUNDED_THRESHOLD;
         boolean newlyGrounded = wasFalling && blockedDownward;
         if (newlyGrounded) {
             // Zero downward velocity so gravity doesn't accumulate while standing still.
-            velocity = new Vector3f(velocity.x(), NUM_0, velocity.z());
+            velocity = new Vector3f(velocity.x(), 0f, velocity.z());
         }
         grounded = newlyGrounded;
         position = newPos;
@@ -212,9 +208,9 @@ public class PlayerController {
     public float facingYawDegrees() { return facingYawDegrees; }
 
     private static float wrapAngle180(float deg) {
-        float a = deg % NUM_360;
-        if (a > NUM_180) a -= NUM_360;
-        if (a < -NUM_180) a += NUM_360;
+        float a = deg % DEGREES_PER_TURN;
+        if (a > HALF_TURN_DEGREES) a -= DEGREES_PER_TURN;
+        if (a < -HALF_TURN_DEGREES) a += DEGREES_PER_TURN;
         return a;
     }
 }

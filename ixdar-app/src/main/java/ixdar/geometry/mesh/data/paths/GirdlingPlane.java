@@ -13,19 +13,14 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public final class GirdlingPlane {
 
-    /** Coordinates per point in every packed position here. */
     public static final int COORDINATES_PER_POINT = 3;
 
-    /** Directions the half-circle of candidate normals is sampled at. */
     public static final int DEFAULT_SCAN_DIRECTIONS = 12;
 
-    /** Bisection rounds that narrow the scan around its best direction. */
     public static final int DEFAULT_REFINE_LEVELS = 3;
 
-    /** Model radii a cut may reach before it is abandoned as running along the limb. */
     public static final double DEFAULT_LONGEST_GIRDLE_IN_RADII = 2.0;
 
-    /** One half, as the bisection step and the tangent-basis axis choice. */
     public static final float HALF = 0.5f;
 
     /** Directions the scan samples across the half-circle of candidate normals. */

@@ -31,7 +31,7 @@ public final class ObjMeshParser {
             String line;
             while ((line = stringReader.readLine()) != null) {
                 line = line.trim();
-                if (line.isEmpty() || line.startsWith(MeshLoader.STR)) {
+                if (line.isEmpty() || line.startsWith(MeshLoader.COMMENT_PREFIX)) {
                     continue;
                 }
 
@@ -42,17 +42,17 @@ public final class ObjMeshParser {
 
                 String type = parts[0];
 
-                if ("v".equals(type) && parts.length >= MeshLoader.NUM_4) {
+                if ("v".equals(type) && parts.length >= 4) {
                     float x = Float.parseFloat(parts[1]);
                     float y = Float.parseFloat(parts[2]);
                     float z = Float.parseFloat(parts[MeshLoader.FLOATS_PER_VERTEX]);
                     positions.add(x);
                     positions.add(y);
                     positions.add(z);
-                    normals.add(MeshLoader.NUM_0);
-                    normals.add(MeshLoader.NUM_0);
-                    normals.add(MeshLoader.NUM_0);
-                } else if ("vn".equals(type) && parts.length >= MeshLoader.NUM_4) {
+                    normals.add(0f);
+                    normals.add(0f);
+                    normals.add(0f);
+                } else if ("vn".equals(type) && parts.length >= 4) {
                     float x = Float.parseFloat(parts[1]);
                     float y = Float.parseFloat(parts[2]);
                     float z = Float.parseFloat(parts[MeshLoader.FLOATS_PER_VERTEX]);
@@ -62,7 +62,7 @@ public final class ObjMeshParser {
                         normals.add(y);
                         normals.add(z);
                     }
-                } else if ("f".equals(type) && parts.length >= MeshLoader.NUM_4) {
+                } else if ("f".equals(type) && parts.length >= 4) {
                     int[] face = new int[parts.length - 1];
                     for (int i = 1; i < parts.length; i++) {
                         String[] vertexParts = parts[i].split("/");
@@ -98,7 +98,7 @@ public final class ObjMeshParser {
         // Generate face normals if vertex normals are zero
         boolean hasVertexNormals = false;
         for (int i = 0; i < normals.size(); i++) {
-            if (normals.get(i) != MeshLoader.NUM_0) {
+            if (normals.get(i) != 0f) {
                 hasVertexNormals = true;
                 break;
             }
@@ -106,7 +106,7 @@ public final class ObjMeshParser {
 
         if (!hasVertexNormals) {
             // Compute face normals and assign to vertices
-            int vpf = faces.size() > 0 ? faces.get(0).length : MeshLoader.NUM_4;
+            int vpf = faces.size() > 0 ? faces.get(0).length : 4;
             Vector3f e1 = new Vector3f();
             Vector3f e2 = new Vector3f();
             Vector3f fn = new Vector3f();
@@ -129,7 +129,7 @@ public final class ObjMeshParser {
                             .sub(posArray[p0o], posArray[p0o + 1], posArray[p0o + 2]);
                     e1.cross(e2, fn);
                     float len = fn.length();
-                    if (len > MeshLoader.NUM_1e_20) {
+                    if (len > MeshLoader.NORMAL_LENGTH_EPSILON) {
                         fn.mul(1.0f / len);
                     }
                     // Assign to all three vertices
@@ -148,7 +148,7 @@ public final class ObjMeshParser {
                 float ny = normArray[i + 1];
                 float nz = normArray[i + 2];
                 float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-                if (len > MeshLoader.NUM_1e_20) {
+                if (len > MeshLoader.NORMAL_LENGTH_EPSILON) {
                     normArray[i] = nx / len;
                     normArray[i + 1] = ny / len;
                     normArray[i + 2] = nz / len;

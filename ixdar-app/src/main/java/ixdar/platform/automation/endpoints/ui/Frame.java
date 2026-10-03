@@ -29,10 +29,10 @@ public class Frame extends AutomationEndpoint implements AutomationRoute {
     public static final float MINIMUM_RADIUS = 1e-4f;
     public static final float DISTANCE_FLOOR_FRACTION = 0.01f;
     public static final float DISTANCE_CEILING_MULTIPLE = 8f;
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final int NUM_5 = 5;
-    public static final int NUM_6 = 6;
+    public static final int MAX_X_INDEX = 3;
+    public static final int MAX_Y_INDEX = 4;
+    public static final int MAX_Z_INDEX = 5;
+    public static final int EXPLICIT_BOUNDS_FIELD_COUNT = 6;
 
     /**
      * {@code POST /ui/frame}: point the orbit camera at a bounding box and pull back far enough
@@ -65,14 +65,14 @@ public class Frame extends AutomationEndpoint implements AutomationRoute {
             String resolvedSelection;
             if (!explicitBounds.isBlank()) {
                 String[] fields = explicitBounds.trim().split("\\s*,\\s*");
-                if (fields.length != NUM_6) {
+                if (fields.length != EXPLICIT_BOUNDS_FIELD_COUNT) {
                     framed.addProperty(OK, false);
                     framed.addProperty(ERROR, "bounds needs six numbers: minX,minY,minZ,maxX,maxY,maxZ");
                     return framed;
                 }
                 minimum.set(Float.parseFloat(fields[0]), Float.parseFloat(fields[1]), Float.parseFloat(fields[2]));
-                maximum.set(Float.parseFloat(fields[NUM_3]), Float.parseFloat(fields[NUM_4]),
-                        Float.parseFloat(fields[NUM_5]));
+                maximum.set(Float.parseFloat(fields[MAX_X_INDEX]), Float.parseFloat(fields[MAX_Y_INDEX]),
+                        Float.parseFloat(fields[MAX_Z_INDEX]));
                 resolvedSelection = BOUNDS;
                 framed.addProperty(MATCHED_VERTICES, 0);
             } else {

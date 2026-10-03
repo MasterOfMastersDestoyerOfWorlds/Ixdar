@@ -24,7 +24,6 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 @MeshNodeAnnotation(id = "spline_ring")
 public class SplineRingNode implements MeshNode {
 
-    /** Edge-marks label the snapped edge cycle is written under unless {@code label} says else. */
     public static final String DEFAULT_MARK_LABEL = "spline_ring";
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,

@@ -34,7 +34,6 @@ public final class LayoutEmbedding implements MeshNode {
     public static final InputPort UV = new InputPort("uv", PortType.UV_FIELD, null);
     public static final OutputPort TMESH = new OutputPort("tmesh", PortType.ARC_NETWORK);
 
-    /** Nanoseconds per second, for the timing log. */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
     /** The arrangement being embedded. */

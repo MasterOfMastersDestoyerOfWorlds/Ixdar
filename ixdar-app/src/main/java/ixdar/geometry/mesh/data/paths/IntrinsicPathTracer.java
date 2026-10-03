@@ -15,7 +15,6 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public final class IntrinsicPathTracer {
 
-    /** Relative slack on the traced distance before a walk is declared finished. */
     public static final double LENGTH_EPSILON = 1e-9;
 
     /** Source mesh the trace lands on. */

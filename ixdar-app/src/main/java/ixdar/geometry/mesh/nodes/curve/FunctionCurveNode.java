@@ -28,10 +28,8 @@ import ixdar.geometry.mesh.curve.MathExpressionEvaluator;
 @MeshNodeAnnotation(id = "function_curve")
 public class FunctionCurveNode implements MeshNode {
     public static final String SIN_X_PI = "sin(x * pi)";
-    public static final int NUM_32 = 32;
-    public static final int NUM_256 = 256;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1 = 1f;
+    public static final int DEFAULT_RESOLUTION = 32;
+    public static final int MAX_RESOLUTION = 256;
 
     public static final InputPort EXPRESSION =
             new InputPort("expression", PortType.STRING, SIN_X_PI);
@@ -58,8 +56,8 @@ public class FunctionCurveNode implements MeshNode {
         }
 
         Number resNum = ctx.getInput(RESOLUTION.name, Number.class);
-        int resolution = resNum != null ? resNum.intValue() : NUM_32;
-        resolution = Math.max(2, Math.min(NUM_256, resolution));
+        int resolution = resNum != null ? resNum.intValue() : DEFAULT_RESOLUTION;
+        resolution = Math.max(2, Math.min(MAX_RESOLUTION, resolution));
 
         float[] xs = new float[resolution];
         float[] ys = new float[resolution];
@@ -81,8 +79,8 @@ public class FunctionCurveNode implements MeshNode {
             }
         } catch (IllegalArgumentException e) {
             // Malformed expression — fall back to identity curve
-            xs = new float[]{NUM_0, NUM_1};
-            ys = new float[]{NUM_0, NUM_1};
+            xs = new float[]{0f, 1f};
+            ys = new float[]{0f, 1f};
         }
 
         ctx.setOutput(CLOSURE.name, new FloatCurveKernel(xs, ys));

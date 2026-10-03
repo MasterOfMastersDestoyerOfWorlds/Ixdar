@@ -39,15 +39,14 @@ public class DungeonViewerScene extends Scene {
     public static final String DSL = ".dsl";
     public static final String PLAYER = "player";
     public static final String FLY_CAM = "fly-cam";
-    public static final String STR = ",";
-    public static final float NUM_0_1 = 0.1f;
-    public static final float NUM_0_6 = 0.6f;
-    public static final float NUM_0_8 = 0.8f;
-    public static final float NUM_0_05 = 0.05f;
-    public static final float NUM_0_15 = 0.15f;
-    public static final float NUM_90 = 90f;
-    public static final float NUM_25 = 25f;
-    public static final double NUM_0_1_2 = 0.1;
+    public static final float MIN_CAMERA_RADIUS = 0.1f;
+    public static final float CAMERA_HEIGHT_FRAC = 0.6f;
+    public static final float CAMERA_BACK_FRAC = 0.8f;
+    public static final float MIN_MOVEMENT_SPEED = 0.05f;
+    public static final float MOVEMENT_SPEED_FRAC = 0.15f;
+    public static final float DEFAULT_OVERVIEW_YAW = 90f;
+    public static final float DEFAULT_OVERVIEW_PITCH = 25f;
+    public static final double MAX_FRAME_DT = 0.1;
 
     private static final String DSL_FOLDER = "dsl";
     private static final String DEFAULT_DSL_RESOURCE = "dungeon_2d.dsl";
@@ -226,10 +225,10 @@ public class DungeonViewerScene extends Scene {
     private void positionCameraAboveDungeon() {
         if (mesh == null || mesh.vertexCount() == 0) return;
         Vector3f center = mesh.center(new Vector3f());
-        float radius = Math.max(NUM_0_1, mesh.radius());
-        camera.position.set(center.x, center.y + radius * NUM_0_6, center.z + radius * NUM_0_8);
-        camera.setMovementSpeed(Math.max(NUM_0_05, radius * NUM_0_15));
-        camera.setOrientation(-NUM_90, -NUM_25);
+        float radius = Math.max(MIN_CAMERA_RADIUS, mesh.radius());
+        camera.position.set(center.x, center.y + radius * CAMERA_HEIGHT_FRAC, center.z + radius * CAMERA_BACK_FRAC);
+        camera.setMovementSpeed(Math.max(MIN_MOVEMENT_SPEED, radius * MOVEMENT_SPEED_FRAC));
+        camera.setOrientation(-DEFAULT_OVERVIEW_YAW, -DEFAULT_OVERVIEW_PITCH);
         camera.updateViewFirstPerson();
     }
 
@@ -251,7 +250,7 @@ public class DungeonViewerScene extends Scene {
         camera.setOrientation(sp.yawDegrees(), sp.pitchDegrees());
         camera.updateViewFirstPerson();
         Platforms.get().log("[dungeon-viewer] player spawned at room[0] world=("
-                + sp.position().x() + STR + sp.position().y() + STR + sp.position().z()
+                + sp.position().x() + "," + sp.position().y() + "," + sp.position().z()
                 + ") yaw=" + sp.yawDegrees());
     }
 
@@ -302,7 +301,7 @@ public class DungeonViewerScene extends Scene {
         if (meshRuntime == null) return;
         // Run the player physics (in player mode) before refreshing the view matrix.
         if (playerMode && player != null) {
-            float dt = (float) Math.min(NUM_0_1_2, Clock.deltaTime()); // clamp to avoid huge dt on stalls
+            float dt = (float) Math.min(MAX_FRAME_DT, Clock.deltaTime()); // clamp to avoid huge dt on stalls
             if (viewMode == ViewMode.THIRD_PERSON && thirdPersonCamera != null) {
                 // Update camera FIRST so player.update sees the new yaw and WASD direction
                 // remains screen-relative.

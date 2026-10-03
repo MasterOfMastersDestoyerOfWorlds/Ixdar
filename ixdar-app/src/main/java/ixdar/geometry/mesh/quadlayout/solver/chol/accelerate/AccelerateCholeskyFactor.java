@@ -21,10 +21,8 @@ import ixdar.geometry.mesh.quadlayout.solver.matrix.CompressedSparseRowArrays;
  */
 public final class AccelerateCholeskyFactor implements FactorizedSystem {
 
-    /** Byte alignment for Accelerate workspace and value buffers. */
     public static final long NATIVE_ALIGNMENT = 16;
 
-    /** Backend name carried by the singular-system failures this factor raises. */
     public static final String BACKEND_NAME = "Accelerate";
 
     private static final Cleaner CLEANER = Cleaner.create();

@@ -20,11 +20,8 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "align_rotation_to_vector")
 public class AlignRotationToVectorNode implements MeshNode {
-    public static final int NUM_4 = 4;
-    public static final float NUM_1e_20 = 1e-20f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1 = 1f;
-    public static final int NUM_3 = 3;
+    public static final int QUATERNION_SIZE = 4;
+    public static final float EPSILON = 1e-20f;
 
     public static final Vector3f UP = new Vector3f(0f, 1f, 0f);
 
@@ -59,29 +56,29 @@ public class AlignRotationToVectorNode implements MeshNode {
         Object vo = FieldBroadcast.getInputOrDefault(ctx, VECTOR.name, VECTOR.defaultValue);
         if (vo instanceof Vector3Field vf) {
             int n = vf.length();
-            float[] d = new float[n * NUM_4];
+            float[] d = new float[n * QUATERNION_SIZE];
             Vector3f dir = new Vector3f();
             Quaternionf q = new Quaternionf();
             for (int i = 0; i < n; i++) {
                 dir.set(vf.getX(i), vf.getY(i), vf.getZ(i));
-                if (dir.lengthSquared() < NUM_1e_20) {
-                    dir.set(NUM_0, NUM_1, NUM_0);
+                if (dir.lengthSquared() < EPSILON) {
+                    dir.set(0f, 1f, 0f);
                 } else {
                     dir.normalize();
                 }
                 q.rotationTo(UP, dir);
-                d[NUM_4 * i] = q.x;
-                d[NUM_4 * i + 1] = q.y;
-                d[NUM_4 * i + 2] = q.z;
-                d[NUM_4 * i + NUM_3] = q.w;
+                d[QUATERNION_SIZE * i] = q.x;
+                d[QUATERNION_SIZE * i + 1] = q.y;
+                d[QUATERNION_SIZE * i + 2] = q.z;
+                d[QUATERNION_SIZE * i + 3] = q.w;
             }
             ctx.setOutput(ROTATION.name, new RotationField(d));
             return;
         }
-        Vector3Value vv = FieldBroadcast.vector3ValueOrDefault(vo, new Vector3Value(NUM_0, NUM_1, NUM_0));
+        Vector3Value vv = FieldBroadcast.vector3ValueOrDefault(vo, new Vector3Value(0f, 1f, 0f));
         Vector3f dir = new Vector3f(vv.x(), vv.y(), vv.z());
-        if (dir.lengthSquared() < NUM_1e_20) {
-            dir.set(NUM_0, NUM_1, NUM_0);
+        if (dir.lengthSquared() < EPSILON) {
+            dir.set(0f, 1f, 0f);
         } else {
             dir.normalize();
         }

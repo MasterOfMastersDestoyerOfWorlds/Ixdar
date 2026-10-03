@@ -25,19 +25,14 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 @MeshNodeAnnotation(id = "ring_candidates")
 public class RingCandidatesNode implements MeshNode {
 
-    /** Largest voxel resolution the port accepts, above which the grid stops fitting in memory. */
     public static final float MAXIMUM_RESOLUTION = 512f;
 
-    /**
-     * Largest neckness threshold the port accepts: a ring scoring this much girdles a limb eight
-     * times thinner than the trunk the skeleton measures it against.
-     */
     public static final float MAXIMUM_NECKNESS = 8f;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,
             null);
     public static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT,
-            MeshSkeletonExtractor.NUM_128, 16f, MAXIMUM_RESOLUTION);
+            MeshSkeletonExtractor.DEFAULT_RESOLUTION, 16f, MAXIMUM_RESOLUTION);
     public static final InputPort MIN_NECKNESS = new InputPort("min_neckness", PortType.FLOAT,
             RingCandidateExtractor.DEFAULT_MINIMUM_NECKNESS, 0f, MAXIMUM_NECKNESS);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name,

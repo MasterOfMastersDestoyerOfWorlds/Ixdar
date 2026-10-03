@@ -5,7 +5,7 @@ package ixdar.platform.gl;
  * macOS and typical GL core profiles compile desktop GLSL ({@code #version 330 core}), not ES.
  */
 public final class GlslSource {
-    public static final int NUM_16 = 16;
+    public static final int STRING_BUILDER_SLACK = 16;
 
     private GlslSource() {}
 
@@ -25,7 +25,7 @@ public final class GlslSource {
                 ? source.substring(0, source.length() - 1)
                 : source;
         String[] lines = normalized.split("\\r\\n|\\n|\\r", -1);
-        StringBuilder out = new StringBuilder(normalized.length() + NUM_16);
+        StringBuilder out = new StringBuilder(normalized.length() + STRING_BUILDER_SLACK);
         boolean replacedVersion = false;
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];

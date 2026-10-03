@@ -10,10 +10,8 @@ import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "line-canvas")
 public class LineScene extends Scene {
-    public static final double NUM_0_8 = 0.8;
-    public static final int NUM_20 = 20;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0 = 0f;
+    public static final double ENDPOINT_OFFSET = 0.8;
+    public static final int STROKE_WIDTH_SCALE = 20;
     public PointND point2;
     public PointND point1;
 
@@ -34,8 +32,8 @@ public class LineScene extends Scene {
     @Override
     public void initPoints() {
         super.initPoints();
-        point1 = new PointND.Double(-NUM_0_8, 0.0);
-        point2 = new PointND.Double(NUM_0_8, 0.0);
+        point1 = new PointND.Double(-ENDPOINT_OFFSET, 0.0);
+        point2 = new PointND.Double(ENDPOINT_OFFSET, 0.0);
         shell.add(point1);
         shell.add(point2);
     }
@@ -50,7 +48,7 @@ public class LineScene extends Scene {
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        lineSegment.setStroke(NUM_20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera2D);
+        lineSegment.setStroke(STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false, false, camera2D);
         initCodePane("Line SDF", lineSegment.getShader(), lineSegment);
     }
 
@@ -61,7 +59,7 @@ public class LineScene extends Scene {
     @Override
     public void drawScene() {
         super.drawScene();
-        lineSegment.setStroke(NUM_20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, NUM_1, NUM_0, true, false, false, camera2D);
+        lineSegment.setStroke(STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 0f, true, false, false, camera2D);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);

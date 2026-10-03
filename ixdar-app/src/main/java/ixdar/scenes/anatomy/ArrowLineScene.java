@@ -11,10 +11,9 @@ import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "arrow-line-canvas")
 public class ArrowLineScene extends Scene {
-    public static final double NUM_0_8 = 0.8;
-    public static final int NUM_20 = 20;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0_0875 = 0.0875f;
+    public static final double ENDPOINT_OFFSET = 0.8;
+    public static final int STROKE_WIDTH_SCALE = 20;
+    public static final float BORDER_BAND_WIDTH = 0.0875f;
     public PointND point2;
     public PointND point1;
 
@@ -34,8 +33,8 @@ public class ArrowLineScene extends Scene {
     @Override
     public void initPoints() {
         super.initPoints();
-        point1 = new PointND.Double(-NUM_0_8, 0.0);
-        point2 = new PointND.Double(NUM_0_8, 0.0);
+        point1 = new PointND.Double(-ENDPOINT_OFFSET, 0.0);
+        point2 = new PointND.Double(ENDPOINT_OFFSET, 0.0);
         shell.add(point1);
         shell.add(point2);
     }
@@ -52,11 +51,11 @@ public class ArrowLineScene extends Scene {
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        lineSegment.setStroke(NUM_20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, NUM_1, NUM_1, true, false, true,
+        lineSegment.setStroke(STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 1f, true, false, true,
                 camera2D);
         lineSegment.setBackgroundColor(Color.NAVY);
         lineSegment.setBorderColor(Color.BLUE_WHITE);
-        lineSegment.setBorderBand(NUM_0_0875);
+        lineSegment.setBorderBand(BORDER_BAND_WIDTH);
         initCodePane("Arrow Line SDF", lineSegment.getShader(), lineSegment);
     }
 
@@ -67,11 +66,11 @@ public class ArrowLineScene extends Scene {
     @Override
     public void drawScene() {
         super.drawScene();
-        lineSegment.setStroke(NUM_20 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, NUM_1, NUM_1, true, false, true,
+        lineSegment.setStroke(STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 1f, true, false, true,
                 camera2D);
         lineSegment.setBackgroundColor(Color.NAVY);
         lineSegment.setBorderColor(Color.BLUE_WHITE);
-        lineSegment.setBorderBand(NUM_0_0875);
+        lineSegment.setBorderBand(BORDER_BAND_WIDTH);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);

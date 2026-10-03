@@ -10,25 +10,18 @@ import java.util.Arrays;
  */
 public final class TriangleBvh {
 
-    /** Corners of a triangle. */
     public static final int TRIANGLE_CORNERS = 3;
 
-    /** Triangles at or below which a node stops splitting. */
     private static final int LEAF_TRIANGLES = 64;
 
-    /** Growth factor of the node arrays. */
     private static final int GROWTH = 2;
 
-    /** Children a split node gets. */
     private static final int CHILDREN = 2;
 
-    /** Nodes the arrays start with. */
     private static final int INITIAL_NODES = 64;
 
-    /** Floats one box occupies: the lower corner then the upper one. */
     private static final int BOX_FLOATS = 6;
 
-    /** Half, for box midpoints. */
     private static final float HALF = 0.5f;
 
     /** Vertex positions as xyz triples. */

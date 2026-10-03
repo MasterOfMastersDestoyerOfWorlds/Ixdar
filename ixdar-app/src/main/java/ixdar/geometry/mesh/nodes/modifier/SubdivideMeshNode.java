@@ -28,12 +28,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 @MeshNodeAnnotation(id = "subdivide_mesh")
 public class SubdivideMeshNode implements MeshNode {
-    public static final int NUM_4 = 4;
-    public static final int NUM_600_000 = 600_000;
-    public static final int NUM_3 = 3;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1 = 1f;
+    public static final int MAX_FACE_COUNT = 600_000;
 
     public static final InputPort MESH_IN = new InputPort("mesh", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort LEVELS = new InputPort("levels", PortType.INT, 1, 0f, 6f);
@@ -92,14 +87,14 @@ public class SubdivideMeshNode implements MeshNode {
             long estimated = inputFaces;
             int safe = 0;
             for (int i = 0; i < levels; i++) {
-                estimated *= NUM_4;
-                if (estimated > NUM_600_000) break;
+                estimated *= 4;
+                if (estimated > MAX_FACE_COUNT) break;
                 safe++;
             }
             if (safe < levels) {
                 System.err.println("[subdivide_mesh] Capped levels from " + levels + " to " + safe
                         + " (" + inputFaces + " input faces × 4^" + levels + " = "
-                        + (inputFaces * (long) Math.pow(NUM_4, levels)) + " would exceed 600k limit)");
+                        + (inputFaces * (long) Math.pow(4, levels)) + " would exceed 600k limit)");
                 levels = safe;
             }
         }
@@ -131,15 +126,15 @@ public class SubdivideMeshNode implements MeshNode {
         int srcE = src.edgeCount();
         int srcF = src.faceCount();
         int outV = srcV + srcE + srcF;
-        int outF = srcF * NUM_4;
-        int outE = srcE * 2 + srcF * NUM_4;
+        int outF = srcF * 4;
+        int outE = srcE * 2 + srcF * 4;
         int outHE = outE * 2;
 
         HalfEdgeMesh out = new HalfEdgeMesh(outV, outE, outF, outHE);
         Vector3f p = new Vector3f();
         Vector3f q = new Vector3f();
 
-        HashMap<Integer, Integer> vertMap = new HashMap<>(srcV * NUM_4 / NUM_3 + 1);
+        HashMap<Integer, Integer> vertMap = new HashMap<>(srcV * 4 / 3 + 1);
         for (int vi = 0; vi < src.vertexCount(); vi++) {
             int vid = src.vertexIdAt(vi);
             src.vertexPosition(vid, p);
@@ -147,7 +142,7 @@ public class SubdivideMeshNode implements MeshNode {
             vertMap.put(vid, nid);
         }
 
-        HashMap<Long, Integer> edgeMidMap = new HashMap<>(srcE * NUM_4 / NUM_3 + 1);
+        HashMap<Long, Integer> edgeMidMap = new HashMap<>(srcE * 4 / 3 + 1);
         for (int ei = 0; ei < src.edgeCount(); ei++) {
             int eid = src.edgeIdAt(ei);
             int he = src.edgeHalfEdge(eid);
@@ -155,7 +150,7 @@ public class SubdivideMeshNode implements MeshNode {
             int vb = src.halfEdgeEndVertex(he);
             src.vertexPosition(va, p);
             src.vertexPosition(vb, q);
-            p.add(q).mul(NUM_0_5);
+            p.add(q).mul(0.5f);
             int mid = out.addVertex(p);
             long key = EdgeKey.undirected(va, vb);
             edgeMidMap.put(key, mid);
@@ -164,14 +159,14 @@ public class SubdivideMeshNode implements MeshNode {
         for (int fi = 0; fi < src.faceCount(); fi++) {
             int fid = src.faceIdAt(fi);
             int fc = src.faceVertexCount(fid);
-            p.set(NUM_0, NUM_0, NUM_0);
+            p.set(0f, 0f, 0f);
             int[] faceVerts = new int[fc];
             for (int k = 0; k < fc; k++) {
                 faceVerts[k] = src.faceVertexAt(fid, k);
                 src.vertexPosition(faceVerts[k], q);
                 p.add(q);
             }
-            p.mul(NUM_1 / fc);
+            p.mul(1f / fc);
             int centroid = out.addVertex(p);
 
             for (int k = 0; k < fc; k++) {

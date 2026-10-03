@@ -48,9 +48,8 @@ import ixdar.platform.json.JsonValue;
  */
 public class HeadlessPlatform implements Platform {
     public static final String SRC = "src/";
-    public static final int NUM_512 = 512;
-    public static final int NUM_4 = 4;
-    public static final double NUM_1e9 = 1e9;
+    public static final int DEFAULT_SIZE = 512;
+    public static final double NANOS_PER_SECOND = 1e9;
 
     private final DesktopCholeskyBackend choleskyBackend = new DesktopCholeskyBackend();
     private final ManifoldMeshBooleanBackend manifoldBooleanBackend = new ManifoldMeshBooleanBackend();
@@ -66,7 +65,7 @@ public class HeadlessPlatform implements Platform {
      * 512x512 default headless platform.
      */
     public HeadlessPlatform() {
-        this(NUM_512, NUM_512);
+        this(DEFAULT_SIZE, DEFAULT_SIZE);
     }
 
     /**
@@ -77,7 +76,7 @@ public class HeadlessPlatform implements Platform {
      * @param height window/framebuffer height in pixels
      */
     public HeadlessPlatform(int width, int height) {
-        this.startTime = (float) (System.nanoTime() / NUM_1e9);
+        this.startTime = (float) (System.nanoTime() / NANOS_PER_SECOND);
         this.windowWidth = width;
         this.windowHeight = height;
         this.frameBufferWidth = width;
@@ -118,7 +117,7 @@ public class HeadlessPlatform implements Platform {
     /** {@inheritDoc}. */
     @Override
     public float timeSeconds() {
-        return (float) (System.nanoTime() / NUM_1e9);
+        return (float) (System.nanoTime() / NANOS_PER_SECOND);
     }
 
     /** No-op: headless does not deliver keyboard events. */

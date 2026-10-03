@@ -12,15 +12,11 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
  * Supports Hausdorff distance (worst-case) and Chamfer distance (average).
  */
 public final class MeshDistance {
-    public static final float NUM_0 = 0f;
-    public static final double NUM_2_0 = 2.0;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_100 = 100f;
-    public static final float NUM_1e_10 = 1e-10f;
-    public static final float NUM_2 = 2f;
-    public static final float NUM_0_2 = 0.2f;
-    public static final float NUM_1e_6 = 1e-6f;
-    public static final float NUM_0_05 = 0.05f;
+    public static final float MAX_SCORE = 100f;
+    public static final float MIN_SIMILARITY_SCALE = 1e-10f;
+    public static final float SIMILARITY_SCALE_RATIO = 0.2f;
+    public static final float MIN_CHAMFER_SCALE = 1e-6f;
+    public static final float COVERAGE_THRESHOLD_RATIO = 0.05f;
 
     private static final int FLOATS_PER_VERTEX = 3;
 
@@ -48,7 +44,7 @@ public final class MeshDistance {
         int vB = meshB.vertexCount();
 
         // Compute directed Hausdorff: max over A of min distance to B
-        float maxMinDistAtoB = NUM_0;
+        float maxMinDistAtoB = 0f;
         for (int i = 0; i < vA; i++) {
             int oA = i * FLOATS_PER_VERTEX;
             float xA = posA[oA];
@@ -71,7 +67,7 @@ public final class MeshDistance {
         }
 
         // Compute directed Hausdorff: max over B of min distance to A
-        float maxMinDistBtoA = NUM_0;
+        float maxMinDistBtoA = 0f;
         for (int j = 0; j < vB; j++) {
             int oB = j * FLOATS_PER_VERTEX;
             float xB = posB[oB];
@@ -163,7 +159,7 @@ public final class MeshDistance {
         double meanDistBtoA = sumMinDistBtoA / vB;
 
         // Symmetric Chamfer distance
-        return (float) ((meanDistAtoB + meanDistBtoA) / NUM_2_0);
+        return (float) ((meanDistAtoB + meanDistBtoA) / 2.0);
     }
 
     /**
@@ -182,10 +178,10 @@ public final class MeshDistance {
      */
     public static float similarityScore(ArrayMesh meshA, ArrayMesh meshB, DistanceType distanceType, float scale) {
         if (meshA == null || meshA.vertexCount() == 0 || meshB == null || meshB.vertexCount() == 0) {
-            return NUM_0;
+            return 0f;
         }
-        if (scale <= NUM_0) {
-            scale = NUM_1;
+        if (scale <= 0f) {
+            scale = 1f;
         }
 
         float distance;
@@ -196,17 +192,17 @@ public final class MeshDistance {
         }
 
         if (distance == Float.MAX_VALUE) {
-            return NUM_0;
+            return 0f;
         }
 
         // Exponential decay: score = 100 * exp(-distance / scale)
         // At distance = 0, score = 100
         // At distance = scale, score = 100 * exp(-1) ≈ 36.8
         // At distance = 3*scale, score = 100 * exp(-3) ≈ 5.0
-        float score = NUM_100 * (float) Math.exp(-distance / scale);
+        float score = MAX_SCORE * (float) Math.exp(-distance / scale);
 
         // Clamp to [0, 100]
-        return Math.max(NUM_0, Math.min(NUM_100, score));
+        return Math.max(0f, Math.min(MAX_SCORE, score));
     }
 
     /**
@@ -242,21 +238,21 @@ public final class MeshDistance {
      */
     public static MeshMetrics computeAllMetrics(ArrayMesh meshA, ArrayMesh meshB, float scale) {
         if (meshA == null || meshB == null) {
-            return new MeshMetrics(Float.MAX_VALUE, Float.MAX_VALUE, NUM_0);
+            return new MeshMetrics(Float.MAX_VALUE, Float.MAX_VALUE, 0f);
         }
 
-        float hausdorff = NUM_0;
-        float chamfer = NUM_0;
+        float hausdorff = 0f;
+        float chamfer = 0f;
 
         if (meshA.vertexCount() > 0 && meshB.vertexCount() > 0) {
             hausdorff = hausdorffDistance(meshA, meshB);
             chamfer = chamferDistance(meshA, meshB);
         }
 
-        float score = NUM_0;
+        float score = 0f;
         if (hausdorff != Float.MAX_VALUE) {
-            score = NUM_100 * (float) Math.exp(-hausdorff / Math.max(scale, NUM_1e_10));
-            score = Math.max(NUM_0, Math.min(NUM_100, score));
+            score = MAX_SCORE * (float) Math.exp(-hausdorff / Math.max(scale, MIN_SIMILARITY_SCALE));
+            score = Math.max(0f, Math.min(MAX_SCORE, score));
         }
 
         return new MeshMetrics(hausdorff, chamfer, score);
@@ -392,18 +388,18 @@ public final class MeshDistance {
         }
 
         // Chamfer distance (symmetric mean of min-distances)
-        float chamfer = (mean(dGenToRef) + mean(dRefToGen)) / NUM_2;
+        float chamfer = (mean(dGenToRef) + mean(dRefToGen)) / 2f;
 
         // Hausdorff distance (symmetric max of min-distances)
         float hausdorff = Math.max(max(dGenToRef), max(dRefToGen));
 
         // Similarity score: exponential decay, scale = 20% of reference extent
-        float scale = ref.extent * NUM_0_2;
-        float similarity = NUM_100 * (float) Math.exp(-chamfer / Math.max(scale, NUM_1e_6));
-        similarity = Math.max(NUM_0, Math.min(NUM_100, similarity));
+        float scale = ref.extent * SIMILARITY_SCALE_RATIO;
+        float similarity = MAX_SCORE * (float) Math.exp(-chamfer / Math.max(scale, MIN_CHAMFER_SCALE));
+        similarity = Math.max(0f, Math.min(MAX_SCORE, similarity));
 
         // Coverage: fraction of reference points within 5% of extent from generated
-        float threshold = ref.extent * NUM_0_05;
+        float threshold = ref.extent * COVERAGE_THRESHOLD_RATIO;
         float coverage = fractionBelow(dRefToGen, threshold);
 
         // Proximity: fraction of generated points within 5% of extent from reference
@@ -556,7 +552,6 @@ public final class MeshDistance {
      * Thread-safe for queries after construction.
      */
     public static final class PreparedReference {
-        public static final int NUM_3 = 3;
         public final float[] centeredPos;
         public final int vertexCount;
         public final KDTree3D tree;
@@ -574,9 +569,9 @@ public final class MeshDistance {
         public PreparedReference(float[] positions, int vertexCount) {
             this.vertexCount = vertexCount;
             this.centroid = computeCentroid(positions, vertexCount);
-            centeredPos = new float[vertexCount * NUM_3];
+            centeredPos = new float[vertexCount * 3];
             for (int i = 0; i < vertexCount; i++) {
-                int o = i * NUM_3;
+                int o = i * 3;
                 centeredPos[o] = positions[o] - centroid[0];
                 centeredPos[o + 1] = positions[o + 1] - centroid[1];
                 centeredPos[o + 2] = positions[o + 2] - centroid[2];
@@ -587,8 +582,8 @@ public final class MeshDistance {
             float[] min = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
             float[] max = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
             for (int i = 0; i < vertexCount; i++) {
-                int o = i * NUM_3;
-                for (int a = 0; a < NUM_3; a++) {
+                int o = i * 3;
+                for (int a = 0; a < 3; a++) {
                     float v = positions[o + a];
                     if (v < min[a]) min[a] = v;
                     if (v > max[a]) max[a] = v;
@@ -608,7 +603,6 @@ public final class MeshDistance {
      * Uses array-of-struct layout for cache efficiency.
      */
     static final class KDTree3D {
-        public static final int NUM_3 = 3;
         private final float[] pos;          // original flat XYZ positions (shared ref)
         private final int[] nodeVertIdx;    // vertex index stored at tree node i
         private final byte[] nodeAxis;      // split axis at tree node i (0/1/2)
@@ -632,7 +626,7 @@ public final class MeshDistance {
 
         private int build(int[] idx, int lo, int hi, int depth) {
             if (lo >= hi) return -1;
-            int ax = depth % NUM_3;
+            int ax = depth % 3;
             int mid = (lo + hi) / 2;
             nthElement(idx, lo, hi, mid, ax);
 
@@ -661,7 +655,7 @@ public final class MeshDistance {
             if (node < 0) return bestSq;
 
             int vi = nodeVertIdx[node];
-            int o = vi * NUM_3;
+            int o = vi * 3;
             float dx = qx - pos[o];
             float dy = qy - pos[o + 1];
             float dz = qz - pos[o + 2];
@@ -697,11 +691,11 @@ public final class MeshDistance {
         private void nthElement(int[] idx, int lo, int hi, int k, int ax) {
             while (lo < hi - 1) {
                 int pivotPos = lo + (hi - lo) / 2;
-                float pivotVal = pos[idx[pivotPos] * NUM_3 + ax];
+                float pivotVal = pos[idx[pivotPos] * 3 + ax];
                 swap(idx, pivotPos, hi - 1);
                 int store = lo;
                 for (int i = lo; i < hi - 1; i++) {
-                    if (pos[idx[i] * NUM_3 + ax] < pivotVal) {
+                    if (pos[idx[i] * 3 + ax] < pivotVal) {
                         swap(idx, i, store++);
                     }
                 }

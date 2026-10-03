@@ -4,14 +4,11 @@ package ixdar.geometry.mesh.nodes.api;
  * Per-element quaternions (packed xyzw per element).
  */
 public record RotationField(float[] data) {
-    private static final int NUM_4 = 4;
-    private static final int NUM_3 = 3;
-
     /**
      * Validate that the backing array packs whole xyzw quadruples.
      */
     public RotationField {
-        if (data == null || data.length % NUM_4 != 0) {
+        if (data == null || data.length % 4 != 0) {
             throw new IllegalArgumentException("data length must be divisible by 4");
         }
     }
@@ -22,7 +19,7 @@ public record RotationField(float[] data) {
      * @return element count
      */
     public int length() {
-        return data.length / NUM_4;
+        return data.length / 4;
     }
 
     /**
@@ -32,7 +29,7 @@ public record RotationField(float[] data) {
      * @return new value with x, y, z, w copied from the i-th packed quadruple
      */
     public RotationValue rotationAt(int i) {
-        int o = NUM_4 * i;
-        return new RotationValue(data[o], data[o + 1], data[o + 2], data[o + NUM_3]);
+        int o = 4 * i;
+        return new RotationValue(data[o], data[o + 1], data[o + 2], data[o + 3]);
     }
 }

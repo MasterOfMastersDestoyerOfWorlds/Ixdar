@@ -36,14 +36,13 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
     public static final String ERROR = "error";
     public static final String DSL_2 = ".dsl";
     public static final String USER_DIR = "user.dir";
-    public static final int NUM_128 = 128;
-    public static final float NUM_0 = 0f;
+    public static final int DEFAULT_VOXEL_RESOLUTION = 128;
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
             String dslName = body.has(DSL) ? body.get(DSL).getAsString() : "";
             String referencePath = body.has(REFERENCE) ? body.get(REFERENCE).getAsString() : "";
-            int resolution = body.has(RESOLUTION) ? body.get(RESOLUTION).getAsInt() : NUM_128;
+            int resolution = body.has(RESOLUTION) ? body.get(RESOLUTION).getAsInt() : DEFAULT_VOXEL_RESOLUTION;
             float epsilon = body.has(EPSILON) ? body.get(EPSILON).getAsFloat() : 0;
             if (dslName.isEmpty() || referencePath.isEmpty()) {
                 JsonObject err = new JsonObject();
@@ -135,7 +134,7 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
                     float base = param.defaultValue();
                     float delta = sensResult
                             .suggestedDeltas()
-                            .getOrDefault(param.overrideKey(), NUM_0);
+                            .getOrDefault(param.overrideKey(), 0f);
                     suggestedValues.addProperty(param.overrideKey(), base + delta);
                 }
                 result.add("suggestedValues", suggestedValues);
@@ -170,9 +169,9 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
                         "DSL file name, with or without extension.", "octopus")
                 .param(REFERENCE, RouteParamType.STRING, true, "",
                         "Path to the reference mesh OBJ.", "meshes/target.obj")
-                .param(RESOLUTION, RouteParamType.INT, false, String.valueOf(NUM_128),
+                .param(RESOLUTION, RouteParamType.INT, false, String.valueOf(DEFAULT_VOXEL_RESOLUTION),
                         "Voxel grid resolution for skeleton extraction.", "256")
-                .param(EPSILON, RouteParamType.FLOAT, false, String.valueOf(NUM_0),
+                .param(EPSILON, RouteParamType.FLOAT, false, String.valueOf(0f),
                         "Finite-difference step; 0 lets the analyzer pick per parameter.", "0.01")
                 .responseHint("{ok, dsl, reference, resolution, baselineScore, projectedScore, "
                         + "parameterCount, jointCount, suggestedDeltas, suggestedValues, unstableParams?}")

@@ -20,7 +20,7 @@ import ixdar.procgen.dungeon.algo.DungeonGrids;
 
 @MeshNodeAnnotation(id = "delaunay_graph", scopes = { "dungeon" })
 public class DelaunayGraphNode implements MeshNode {
-    public static final float NUM_1e_6 = 1e-6f;
+    public static final float COORDINATE_TOLERANCE = 1e-6f;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
@@ -87,7 +87,7 @@ public class DelaunayGraphNode implements MeshNode {
 
     private static boolean isConstant(double[] values) {
         for (int i = 1; i < values.length; i++) {
-            if (Math.abs(values[i] - values[0]) > NUM_1e_6) {
+            if (Math.abs(values[i] - values[0]) > COORDINATE_TOLERANCE) {
                 return false;
             }
         }

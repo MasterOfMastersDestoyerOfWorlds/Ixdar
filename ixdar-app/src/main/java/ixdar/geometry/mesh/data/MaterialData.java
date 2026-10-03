@@ -7,13 +7,8 @@ package ixdar.geometry.mesh.data;
  */
 public final class MaterialData {
 
-    /**
-     * Bundle slot the material rides. The only place this string is written; every reader and
-     * writer goes through this constant.
-     */
     public static final String SLOT = "_material";
 
-    /** Components in {@link #baseColorFactor}: r, g, b, a. */
     public static final int FACTOR_COMPONENTS = 4;
 
     /**

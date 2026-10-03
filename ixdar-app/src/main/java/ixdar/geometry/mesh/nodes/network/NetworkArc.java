@@ -27,7 +27,6 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 @MeshNodeAnnotation(id = "network_arc", desktopOnly = true)
 public final class NetworkArc implements MeshNode {
 
-    /** Maximum via waypoints an authored arc can carry. */
     public static final int VIA_COUNT = 8;
 
     public static final InputPort NET = new InputPort("net", PortType.ARC_NETWORK, null);

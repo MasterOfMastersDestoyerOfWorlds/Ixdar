@@ -29,9 +29,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "select_by_distance")
 public class SelectByDistanceNode implements MeshNode {
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_1 = 0.1f;
-    public static final float NUM_1 = 1f;
+    public static final float DEFAULT_RADIUS = 0.1f;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort POINT = new InputPort("point", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
@@ -68,9 +66,9 @@ public class SelectByDistanceNode implements MeshNode {
         GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         Vector3Value pt = FieldBroadcast.vector3ValueOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, POINT.name, POINT.defaultValue),
-                new Vector3Value(NUM_0, NUM_0, NUM_0));
+                new Vector3Value(0f, 0f, 0f));
         float radius = FieldBroadcast.floatScalarOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, RADIUS.name, RADIUS.defaultValue), NUM_0_1);
+                FieldBroadcast.getInputOrDefault(ctx, RADIUS.name, RADIUS.defaultValue), DEFAULT_RADIUS);
 
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.faceCount() == 0) {
@@ -87,12 +85,12 @@ public class SelectByDistanceNode implements MeshNode {
             int fid = mesh.faceIdAt(fi);
             int n = mesh.faceVertexCount(fid);
             if (n == 0) continue;
-            centroid.set(NUM_0, NUM_0, NUM_0);
+            centroid.set(0f, 0f, 0f);
             for (int k = 0; k < n; k++) {
                 mesh.vertexPosition(mesh.faceVertexAt(fid, k), vp);
                 centroid.add(vp);
             }
-            centroid.mul(NUM_1 / n);
+            centroid.mul(1f / n);
             float dx = centroid.x - pt.x();
             float dy = centroid.y - pt.y();
             float dz = centroid.z - pt.z();

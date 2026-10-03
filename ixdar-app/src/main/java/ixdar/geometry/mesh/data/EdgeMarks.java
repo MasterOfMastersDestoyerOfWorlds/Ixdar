@@ -15,10 +15,8 @@ import org.joml.Vector3f;
  */
 public final class EdgeMarks {
 
-    /** Bundle slot holding {@code Map<String, boolean[] | int[] | float[]>} keyed by label. */
     public static final String SLOT = "_edge_marks";
 
-    /** Coordinate rounding a fingerprint keys marked edges by, matching the mesh fingerprint. */
     public static final double FINGERPRINT_ROUND_SCALE = 1.0e5;
 
     private static final long FINGERPRINT_OFFSET_BASIS = 0xcbf29ce484222325L;

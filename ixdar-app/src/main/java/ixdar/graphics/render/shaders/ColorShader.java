@@ -9,12 +9,9 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 
 public class ColorShader extends ShaderProgram {
-    public static final int NUM_7 = 7;
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_2 = 2f;
+    public static final int VERTEX_STRIDE = 7;
+    public static final int POSITION_SIZE = 3;
+    public static final int COLOR_SIZE = 4;
 
     /**
      * Build a flat-color shader program with a 7-float vertex layout
@@ -28,7 +25,7 @@ public class ColorShader extends ShaderProgram {
     public ColorShader(String vertexShaderLocation, String fragmentShaderLocation)
             throws UnsupportedEncodingException, IOException {
         super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
-                NUM_7, true);
+                VERTEX_STRIDE, true);
     }
 
     /**
@@ -42,12 +39,12 @@ public class ColorShader extends ShaderProgram {
         /* Specify Vertex Pointer */
         int posAttrib = getAttributeLocation("position");
         gl.enableVertexAttribArray(posAttrib);
-        gl.vertexAttribPointer(posAttrib, NUM_3, gl.FLOAT(), false, NUM_7 * Float.BYTES, 0);
+        gl.vertexAttribPointer(posAttrib, POSITION_SIZE, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, 0);
 
         /* Specify Color Pointer */
         int colAttrib = getAttributeLocation("color");
         gl.enableVertexAttribArray(colAttrib);
-        gl.vertexAttribPointer(colAttrib, NUM_4, gl.FLOAT(), false, NUM_7 * Float.BYTES, NUM_3 * Float.BYTES);
+        gl.vertexAttribPointer(colAttrib, COLOR_SIZE, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, POSITION_SIZE * Float.BYTES);
 
         use();
         bindFragmentDataLocation(0, "fragColor");
@@ -60,7 +57,7 @@ public class ColorShader extends ShaderProgram {
         Matrix4f view = new Matrix4f();
         setMat4("view", view);
 
-        updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), NUM_1);
+        updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1f);
     }
 
     /**
@@ -75,12 +72,12 @@ public class ColorShader extends ShaderProgram {
     public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float scale) {
         use();
         Matrix4f projection = new Matrix4f();
-        float left = NUM_0, right = framebufferWidth, bottom = NUM_0, top = framebufferHeight;
+        float left = 0f, right = framebufferWidth, bottom = 0f, top = framebufferHeight;
         float near = ORTHO_NEAR, far = ORTHO_FAR;
-        projection.m00(NUM_2 / (right - left));
-        projection.m11(NUM_2 / (top - bottom));
-        projection.m22(-NUM_2 / (far - near));
-        projection.m33(NUM_1);
+        projection.m00(2f / (right - left));
+        projection.m11(2f / (top - bottom));
+        projection.m22(-2f / (far - near));
+        projection.m33(1f);
         projection.m30(-(right + left) / (right - left));
         projection.m31(-(top + bottom) / (top - bottom));
         projection.m32(-(far + near) / (far - near));

@@ -50,28 +50,21 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     public static final String LABEL = "label";
     public static final String NAME = "name";
 
-    /** Response key naming the geometry-keyed digest of a marked edge set. */
     public static final String FINGERPRINT = "fingerprint";
 
-    /** Response key saying whether a mesh, or a ring being authored on it, is closed. */
     public static final String CLOSED = "closed";
     public static final String VERTEXCOUNT = "vertexCount";
     public static final String KEY = "key";
     public static final String REGION_BOTTOM = "BOTTOM";
 
-    /** Response key naming a ring's waypoint count. */
     public static final String WAYPOINTCOUNT = "waypointCount";
 
-    /** Response key naming a ring's length. */
     public static final String LENGTH = "length";
 
-    /** Response key naming a ring's untightened seed length. */
     public static final String SEEDLENGTH = "seedLength";
 
-    /** Response key naming a ring's length-weighted centroid. */
     public static final String CENTROID = "centroid";
 
-    /** Response key naming the surface point a ring is held on. */
     public static final String PIN = "pin";
     /**
      * Serialise a packed coordinate triple as a JSON array.

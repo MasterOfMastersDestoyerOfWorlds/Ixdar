@@ -16,10 +16,7 @@ import ixdar.gui.ui.actions.Action;
 import ixdar.scenes.main.MainScene;
 
 public class Segment extends SDFLine implements Comparable<Segment> {
-    public static final String STR = ":";
-    public static final String STR_2 = "]";
-    public static final String STR_3 = "[";
-    public static final double NUM_0_2 = 0.2;
+    public static final double HIT_TEST_WIDTH_RATIO = 0.2;
     public Knot first;
     public Knot last;
     public double distance;
@@ -446,7 +443,7 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         Vector2D firstVec = new Vector2D(x1, y1);
         Vector2D lastVec = new Vector2D(x2, y2);
         Vector2D normalUnitVector = new Vector2D(normalX, normalY);
-        normalUnitVector = normalUnitVector.normalize().scalarMultiply(distance).scalarMultiply(NUM_0_2);
+        normalUnitVector = normalUnitVector.normalize().scalarMultiply(distance).scalarMultiply(HIT_TEST_WIDTH_RATIO);
         Vector2D tL = normalUnitVector.add(firstVec);
         Vector2D bL = firstVec.subtract(normalUnitVector);
         Vector2D tR = normalUnitVector.add(lastVec);
@@ -497,7 +494,7 @@ public class Segment extends SDFLine implements Comparable<Segment> {
      */
     @Override
     public String toString() {
-        return "Segment[" + first.id + STR + last.id + STR_2;
+        return "Segment[" + first.id + ":" + last.id + "]";
     }
 
     /**
@@ -507,7 +504,7 @@ public class Segment extends SDFLine implements Comparable<Segment> {
      * @return shorter debug string
      */
     public String toStringNoLabel() {
-        return STR_3 + first.id + STR + last.id + STR_2;
+        return "[" + first.id + ":" + last.id + "]";
     }
 
     /**
@@ -542,7 +539,7 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         if (labelAsSegment) {
             str += "Segment";
         }
-        str += STR_3 + first.id + STR + last.id + STR_2;
+        str += "[" + first.id + ":" + last.id + "]";
         if (labelDistance) {
             str += ", " + String.format("%.2f", this.distance);
         }

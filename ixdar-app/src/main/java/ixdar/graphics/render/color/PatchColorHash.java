@@ -9,10 +9,8 @@ package ixdar.graphics.render.color;
  */
 public final class PatchColorHash {
 
-    /** HSV saturation used by the shader palette. */
     public static final float SATURATION = 0.55f;
 
-    /** HSV value used by the shader palette. */
     public static final float VALUE = 0.85f;
 
     private static final int HASH_XOR = 0x27d4eb2d;
@@ -21,10 +19,6 @@ public final class PatchColorHash {
     private static final double UNSIGNED_RANGE = 4294967296.0;
     private static final float HUE_SECTORS = 6.0f;
 
-    /**
-     * Per hue sector, which of {zero, x, chroma} (encoded 0, 1, 2) feeds the
-     * red, green, and blue channels — the standard HSV-to-RGB sector table.
-     */
     private static final int[][] SECTOR_CHANNEL_SOURCES = {
             { 2, 1, 0 }, { 1, 2, 0 }, { 0, 2, 1 }, { 0, 1, 2 }, { 1, 0, 2 }, { 2, 0, 1 } };
 

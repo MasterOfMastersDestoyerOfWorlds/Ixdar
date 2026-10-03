@@ -27,12 +27,8 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 public class CurvePrimitiveBezierNode implements MeshNode {
     public static final String CUBIC = "CUBIC";
     public static final String QUADRATIC = "QUADRATIC";
-    public static final int NUM_16 = 16;
-    public static final int NUM_1000 = 1000;
-    public static final int NUM_3 = 3;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_2 = 2f;
-    public static final float NUM_3_2 = 3f;
+    public static final int DEFAULT_RESOLUTION = 16;
+    public static final int MAX_RESOLUTION = 1000;
 
     public static final Vector3Value ZERO = new Vector3Value(0f, 0f, 0f);
     public static final Vector3Value DEFAULT_END = new Vector3Value(1f, 0f, 0f);
@@ -79,8 +75,8 @@ public class CurvePrimitiveBezierNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         int resolution = FieldBroadcast.intAt(
-                FieldBroadcast.getInputOrDefault(ctx, RESOLUTION.name, RESOLUTION.defaultValue), 0, NUM_16);
-        resolution = Math.max(1, Math.min(NUM_1000, resolution));
+                FieldBroadcast.getInputOrDefault(ctx, RESOLUTION.name, RESOLUTION.defaultValue), 0, DEFAULT_RESOLUTION);
+        resolution = Math.max(1, Math.min(MAX_RESOLUTION, resolution));
 
         Vector3Value p0 = FieldBroadcast.vector3ValueOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, START.name, START.defaultValue), ZERO);
@@ -96,7 +92,7 @@ public class CurvePrimitiveBezierNode implements MeshNode {
         boolean quadratic = QUADRATIC.equalsIgnoreCase(mode);
 
         int numPoints = resolution + 1;
-        float[] positions = new float[numPoints * NUM_3];
+        float[] positions = new float[numPoints * 3];
 
         for (int i = 0; i <= resolution; i++) {
             float t = (float) i / resolution;
@@ -104,26 +100,26 @@ public class CurvePrimitiveBezierNode implements MeshNode {
 
             if (quadratic) {
                 // Quadratic Bézier: P = (1-t)²·P0 + 2(1-t)t·P1 + t²·P3
-                float u = NUM_1 - t;
+                float u = 1f - t;
                 float uu = u * u;
                 float tt = t * t;
-                float ut2 = NUM_2 * u * t;
+                float ut2 = 2f * u * t;
                 x = uu * p0.x() + ut2 * p1.x() + tt * p3.x();
                 y = uu * p0.y() + ut2 * p1.y() + tt * p3.y();
                 z = uu * p0.z() + ut2 * p1.z() + tt * p3.z();
             } else {
                 // Cubic Bézier: P = (1-t)³·P0 + 3(1-t)²t·P1 + 3(1-t)t²·P2 + t³·P3
-                float u = NUM_1 - t;
+                float u = 1f - t;
                 float uu = u * u;
                 float uuu = uu * u;
                 float tt = t * t;
                 float ttt = tt * t;
-                x = uuu * p0.x() + NUM_3_2 * uu * t * p1.x() + NUM_3_2 * u * tt * p2.x() + ttt * p3.x();
-                y = uuu * p0.y() + NUM_3_2 * uu * t * p1.y() + NUM_3_2 * u * tt * p2.y() + ttt * p3.y();
-                z = uuu * p0.z() + NUM_3_2 * uu * t * p1.z() + NUM_3_2 * u * tt * p2.z() + ttt * p3.z();
+                x = uuu * p0.x() + 3f * uu * t * p1.x() + 3f * u * tt * p2.x() + ttt * p3.x();
+                y = uuu * p0.y() + 3f * uu * t * p1.y() + 3f * u * tt * p2.y() + ttt * p3.y();
+                z = uuu * p0.z() + 3f * uu * t * p1.z() + 3f * u * tt * p2.z() + ttt * p3.z();
             }
 
-            int b = i * NUM_3;
+            int b = i * 3;
             positions[b] = x;
             positions[b + 1] = y;
             positions[b + 2] = z;

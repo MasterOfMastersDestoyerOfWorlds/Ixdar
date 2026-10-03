@@ -24,13 +24,10 @@ public class Holes extends AutomationEndpoint implements AutomationRoute {
     public static final String ERROR = "error";
     public static final String PATH = "path";
 
-    /** Loop-entry key holding the loop's edge count. */
     public static final String EDGES = "edges";
 
-    /** Loop-entry key holding the loop's summed edge length. */
     public static final String PERIMETER = "perimeter";
 
-    /** Response key holding how many boundary loops the last {@code repair_mesh} found. */
     public static final String REPAIR_HOLE_COUNT = "repair_hole_count";
 
     /**

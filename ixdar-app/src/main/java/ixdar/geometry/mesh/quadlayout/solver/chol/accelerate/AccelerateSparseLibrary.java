@@ -24,85 +24,58 @@ import ixdar.platform.Platforms;
  */
 final class AccelerateSparseLibrary {
 
-    /** dlopen path of the Accelerate umbrella framework. */
     static final String FRAMEWORK_PATH = "/System/Library/Frameworks/Accelerate.framework/Accelerate";
 
-    /** SparseAttributes_t bits: triangle = SparseLowerTriangle (bit 1), kind = SparseSymmetric (bits 2-3). */
     static final int ATTRIBUTES_SYMMETRIC_LOWER = (1 << 1) | (3 << 2);
 
-    /** SparseFactorization_t value selecting the Cholesky (LL^T) factorization. */
     static final byte FACTORIZATION_CHOLESKY = 0;
 
-    /** SparseStatus_t value reporting success. */
     static final int SPARSE_STATUS_OK = 0;
 
-    /** Default pivot tolerance from {@code _SparseDefaultNumericFactorOptions_Double}. */
     static final double DEFAULT_PIVOT_TOLERANCE = 0.01;
 
-    /** Default zero tolerance from {@code _SparseDefaultNumericFactorOptions_Double}. */
     static final double DEFAULT_ZERO_TOLERANCE = 1.0e-4 * Math.ulp(1.0);
 
-    /** Struct field name shared by the sparse, symbolic, and dense layouts. */
     static final String FIELD_ROW_COUNT = "rowCount";
 
-    /** Struct field name shared by the sparse, symbolic, and dense layouts. */
     static final String FIELD_COLUMN_COUNT = "columnCount";
 
-    /** SparseMatrixStructure field holding the column start offsets. */
     static final String FIELD_COLUMN_STARTS = "columnStarts";
 
-    /** SparseMatrixStructure field holding the row indices. */
     static final String FIELD_ROW_INDICES = "rowIndices";
 
-    /** SparseAttributes_t field name shared by every matrix and factor layout. */
     static final String FIELD_ATTRIBUTES = "attributes";
 
-    /** Block size field of the sparse structure and symbolic factor layouts. */
     static final String FIELD_BLOCK_SIZE = "blockSize";
 
-    /** Value-pointer field of the sparse and dense matrix layouts. */
     static final String FIELD_DATA = "data";
 
-    /** SparseStatus_t field of the symbolic and numeric factor layouts. */
     static final String FIELD_STATUS = "status";
 
-    /** SparseMatrix_Double field embedding the SparseMatrixStructure. */
     static final String FIELD_STRUCTURE = "structure";
 
-    /** Factorization field embedding the SparseOpaqueSymbolicFactorization. */
     static final String FIELD_SYMBOLIC_FACTORIZATION = "symbolicFactorization";
 
-    /** Symbolic-factor field sizing the double-precision refactor workspace. */
     static final String FIELD_WORKSPACE_SIZE_DOUBLE = "workspaceSizeDouble";
 
-    /** Factorization field sizing the per-call solve workspace. */
     static final String FIELD_SOLVE_WORKSPACE_STATIC = "solveWorkspaceRequiredStatic";
 
-    /** Factorization field sizing the per-right-hand-side solve workspace. */
     static final String FIELD_SOLVE_WORKSPACE_PER_RHS = "solveWorkspaceRequiredPerRHS";
 
-    /** Allocator field of the symbolic options; also the libc symbol name. */
     static final String FIELD_MALLOC = "malloc";
 
-    /** Deallocator field of the symbolic options; also the libc symbol name. */
     static final String FIELD_FREE = "free";
 
-    /** Error-reporting callback field of the symbolic options. */
     static final String FIELD_REPORT_ERROR = "reportError";
 
-    /** Pivot tolerance field of the numeric options. */
     static final String FIELD_PIVOT_TOLERANCE = "pivotTolerance";
 
-    /** Zero tolerance field of the numeric options. */
     static final String FIELD_ZERO_TOLERANCE = "zeroTolerance";
 
-    /** Control-flags field shared by the symbolic and numeric options. */
     static final String FIELD_CONTROL = "control";
 
-    /** Column stride field of the dense matrix layout. */
     static final String FIELD_COLUMN_STRIDE = "columnStride";
 
-    /** Layout of SparseMatrixStructure. */
     static final GroupLayout MATRIX_STRUCTURE_LAYOUT = MemoryLayout.structLayout(
             ValueLayout.JAVA_INT.withName(FIELD_ROW_COUNT),
             ValueLayout.JAVA_INT.withName(FIELD_COLUMN_COUNT),
@@ -112,12 +85,10 @@ final class AccelerateSparseLibrary {
             ValueLayout.JAVA_BYTE.withName(FIELD_BLOCK_SIZE),
             MemoryLayout.paddingLayout(3));
 
-    /** Layout of SparseMatrix_Double. */
     static final GroupLayout SPARSE_MATRIX_LAYOUT = MemoryLayout.structLayout(
             MATRIX_STRUCTURE_LAYOUT.withName(FIELD_STRUCTURE),
             ValueLayout.ADDRESS.withName(FIELD_DATA));
 
-    /** Layout of SparseOpaqueSymbolicFactorization. */
     static final GroupLayout SYMBOLIC_FACTORIZATION_LAYOUT = MemoryLayout.structLayout(
             ValueLayout.JAVA_INT.withName(FIELD_STATUS),
             ValueLayout.JAVA_INT.withName(FIELD_ROW_COUNT),
@@ -132,7 +103,6 @@ final class AccelerateSparseLibrary {
             ValueLayout.JAVA_LONG.withName("factorSizeFloat"),
             ValueLayout.JAVA_LONG.withName("factorSizeDouble"));
 
-    /** Layout of SparseOpaqueFactorization_Double. */
     static final GroupLayout FACTORIZATION_LAYOUT = MemoryLayout.structLayout(
             ValueLayout.JAVA_INT.withName(FIELD_STATUS),
             ValueLayout.JAVA_INT.withName(FIELD_ATTRIBUTES),
@@ -143,7 +113,6 @@ final class AccelerateSparseLibrary {
             ValueLayout.JAVA_LONG.withName(FIELD_SOLVE_WORKSPACE_STATIC),
             ValueLayout.JAVA_LONG.withName(FIELD_SOLVE_WORKSPACE_PER_RHS));
 
-    /** Layout of SparseSymbolicFactorOptions. */
     static final GroupLayout SYMBOLIC_OPTIONS_LAYOUT = MemoryLayout.structLayout(
             ValueLayout.JAVA_INT.withName(FIELD_CONTROL),
             ValueLayout.JAVA_BYTE.withName("orderMethod"),
@@ -154,7 +123,6 @@ final class AccelerateSparseLibrary {
             ValueLayout.ADDRESS.withName(FIELD_FREE),
             ValueLayout.ADDRESS.withName(FIELD_REPORT_ERROR));
 
-    /** Layout of SparseNumericFactorOptions. */
     static final GroupLayout NUMERIC_OPTIONS_LAYOUT = MemoryLayout.structLayout(
             ValueLayout.JAVA_INT.withName(FIELD_CONTROL),
             ValueLayout.JAVA_BYTE.withName("scalingMethod"),
@@ -163,7 +131,6 @@ final class AccelerateSparseLibrary {
             ValueLayout.JAVA_DOUBLE.withName(FIELD_PIVOT_TOLERANCE),
             ValueLayout.JAVA_DOUBLE.withName(FIELD_ZERO_TOLERANCE));
 
-    /** Layout of DenseMatrix_Double. */
     static final GroupLayout DENSE_MATRIX_LAYOUT = MemoryLayout.structLayout(
             ValueLayout.JAVA_INT.withName(FIELD_ROW_COUNT),
             ValueLayout.JAVA_INT.withName(FIELD_COLUMN_COUNT),
@@ -171,40 +138,29 @@ final class AccelerateSparseLibrary {
             ValueLayout.JAVA_INT.withName(FIELD_ATTRIBUTES),
             ValueLayout.ADDRESS.withName(FIELD_DATA));
 
-    /** Byte offset of {@code status} inside SparseOpaqueFactorization_Double. */
     static final long FACTORIZATION_STATUS_OFFSET = offsetOf(FACTORIZATION_LAYOUT, FIELD_STATUS);
 
-    /** Byte offset of the symbolic factorization's double workspace size. */
     static final long SYMBOLIC_WORKSPACE_DOUBLE_OFFSET = offsetOf(FACTORIZATION_LAYOUT,
             FIELD_SYMBOLIC_FACTORIZATION, FIELD_WORKSPACE_SIZE_DOUBLE);
 
-    /** Byte offset of {@code solveWorkspaceRequiredStatic}. */
     static final long SOLVE_WORKSPACE_STATIC_OFFSET = offsetOf(FACTORIZATION_LAYOUT,
             FIELD_SOLVE_WORKSPACE_STATIC);
 
-    /** Byte offset of {@code solveWorkspaceRequiredPerRHS}. */
     static final long SOLVE_WORKSPACE_PER_RHS_OFFSET = offsetOf(FACTORIZATION_LAYOUT,
             FIELD_SOLVE_WORKSPACE_PER_RHS);
 
-    /** {@code _SparseFactorSymmetric_Double}: symbolic analysis + numeric factor in one call. */
     static final MethodHandle FACTOR_SYMMETRIC;
 
-    /** {@code _SparseSolveOpaque_Double}: dense solve through a stored factor. */
     static final MethodHandle SOLVE_OPAQUE;
 
-    /** {@code _SparseRefactorSymmetric_Double}: numeric refactor reusing the symbolic analysis. */
     static final MethodHandle REFACTOR_SYMMETRIC;
 
-    /** {@code _SparseDestroyOpaqueNumeric_Double}: releases a factorization's native memory. */
     static final MethodHandle DESTROY_OPAQUE_NUMERIC;
 
-    /** libc {@code malloc}, handed to Accelerate through the symbolic options. */
     static final MemorySegment MALLOC;
 
-    /** libc {@code free}, handed to Accelerate through the symbolic options. */
     static final MemorySegment FREE;
 
-    /** Upcall stub logging parameter errors instead of Accelerate's default trap. */
     static final MemorySegment REPORT_ERROR_STUB;
 
     static {

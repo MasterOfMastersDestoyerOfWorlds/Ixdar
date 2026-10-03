@@ -10,7 +10,6 @@ package org.ejml.sparse.csc.decomposition.chol;
  */
 public class CholeskyUpdate_DSCC extends CholeskyUpLooking_DSCC {
 
-    /** Epsilon under which a working-vector entry is treated as zero. */
     public static final double WORKING_VECTOR_EPS = 1.0e-15;
 
     /**

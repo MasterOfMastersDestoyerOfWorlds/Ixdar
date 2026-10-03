@@ -35,10 +35,10 @@ import ixdar.platform.input.TradeMouseTrap;
  * and player interactions.
  */
 public class TradeScene {
-    public static final String STR = ".";
-    public static final float NUM_0_9 = 0.9f;
-    public static final float NUM_2 = 2f;
-    public static final float NUM_200 = 200f;
+    public static final float CAMERA_ZOOM_DEFAULT = 0.9f;
+    public static final String PACKAGE_SEPARATOR = ".";
+    public static final float DRAW_LINE_WIDTH = 2f;
+    public static final float ROAD_PROXIMITY_THRESHOLD = 200f;
 
     public static TradeScene instance;
     public static Camera2D camera;
@@ -90,7 +90,7 @@ public class TradeScene {
         int wWidth = (int) Platforms.get().getWindowWidth();
         int wHeight = (int) Platforms.get().getWindowHeight();
 
-        camera = new Camera2D(wWidth, wHeight - TOP_BAR_HEIGHT, NUM_0_9, 0, 0, pointSet);
+        camera = new Camera2D(wWidth, wHeight - TOP_BAR_HEIGHT, CAMERA_ZOOM_DEFAULT, 0, 0, pointSet);
 
         // Create tools
         hqPickerTool = new HeadquartersPickerTool(this, network);
@@ -183,7 +183,7 @@ public class TradeScene {
 
             // Draw active tool overlay
             if (activeTool != null) {
-                activeTool.draw(camera, NUM_2);
+                activeTool.draw(camera, DRAW_LINE_WIDTH);
             }
 
             drawTopBar(wWidth, wHeight);
@@ -201,7 +201,7 @@ public class TradeScene {
 
         } catch (Exception e) {
             for (StackTraceElement ste : e.getStackTrace()) {
-                Platforms.get().log(ste.getFileName() + STR + ste.getMethodName() + ":" + ste.getLineNumber());
+                Platforms.get().log(ste.getFileName() + PACKAGE_SEPARATOR + ste.getMethodName() + ":" + ste.getLineNumber());
             }
         }
     }
@@ -405,14 +405,14 @@ public class TradeScene {
     public static TradeScene startNewGame(ArrayList<City> cities, Canvas3D canvas) {
         CityNetwork network = new CityNetwork(cities, new CartesianGrid());
         // Generate roads based on proximity - cities within 200 units get connected
-        network.generateRoadsFromProximity(NUM_200);
+        network.generateRoadsFromProximity(ROAD_PROXIMITY_THRESHOLD);
         return startNewGame(network, canvas);
     }
 
     private static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
         try {
             Class<?> binder = Class.forName(
-                    String.join(STR, "ixdar", "platform", "automation", "AutomationInputBinder"));
+                    String.join(PACKAGE_SEPARATOR, "ixdar", "platform", "automation", "AutomationInputBinder"));
             Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
             bind.invoke(null, platform, keys, mouse);
         } catch (Throwable ignored) {

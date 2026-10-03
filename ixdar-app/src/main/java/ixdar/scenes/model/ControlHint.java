@@ -10,7 +10,6 @@ import ixdar.gui.ui.actions.Action;
  */
 public final class ControlHint {
 
-    /** {@link #keyCode} value for a row with no keyboard trigger (display-only). */
     public static final int NO_KEY = -1;
 
     /** Key code that fires {@link #action}, or {@link #NO_KEY} for a display-only row. */

@@ -43,8 +43,8 @@ public class WebPlatform implements Platform {
     private static KeyCallback sKeyCallback;
     private static CharCallback sCharCallback;
 
-    private static final Map<String, String> shaderCache = new HashMap<>();
-    private static final Map<String, List<Consumer<String>>> pendingCallbacks = new HashMap<>();
+    private static final Map<String, String> SHADER_SOURCE_CACHE = new HashMap<>();
+    private static final Map<String, List<Consumer<String>>> PENDING_SHADER_LOAD_CALLBACKS = new HashMap<>();
 
     private HTMLCanvasElement canvas;
     private String currentCanvasId;

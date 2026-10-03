@@ -25,11 +25,6 @@ import ixdar.geometry.mesh.quadlayout.gridmap.PatchRectangleMap;
 public final class PatchGridExtraction {
 
 
-    /**
-     * Barycentric slack when testing whether a lattice point lies in a triangle. A
-     * point on a shared edge is claimed by whichever triangle the scan reaches
-     * first, so the tolerance only has to admit it somewhere, not exactly once.
-     */
     public static final double BARYCENTRIC_TOLERANCE = 1.0e-9;
 
     public final LayoutPatchMaps patchMaps;

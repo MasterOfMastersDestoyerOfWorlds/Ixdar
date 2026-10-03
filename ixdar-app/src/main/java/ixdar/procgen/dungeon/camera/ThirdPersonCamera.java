@@ -15,10 +15,9 @@ import ixdar.procgen.dungeon.values.CellType;
  * {@code PlayerController.update} expects.
  */
 public final class ThirdPersonCamera {
-    public static final double NUM_90_0 = 90.0;
-    public static final double NUM_15_0 = 15.0;
+    public static final double DEFAULT_AZIMUTH_DEGREES = 90.0;
+    public static final double DEFAULT_ELEVATION_DEGREES = 15.0;
 
-    /** Mouse sensitivity in radians per pixel. Matches Camera3D.mouseMove (0.1°/px) for parity. */
     private static final float SENSITIVITY = (float) Math.toRadians(0.1);
     private static final float MIN_ELEVATION = (float) Math.toRadians(-80.0);
     private static final float MAX_ELEVATION = (float) Math.toRadians(80.0);
@@ -39,8 +38,8 @@ public final class ThirdPersonCamera {
      * to align with the existing camera state.
      */
     public ThirdPersonCamera() {
-        this.azimuth = (float) Math.toRadians(-NUM_90_0);
-        this.elevation = (float) Math.toRadians(NUM_15_0);
+        this.azimuth = (float) Math.toRadians(-DEFAULT_AZIMUTH_DEGREES);
+        this.elevation = (float) Math.toRadians(DEFAULT_ELEVATION_DEGREES);
         this.desiredDistance = 1.0f;
     }
 

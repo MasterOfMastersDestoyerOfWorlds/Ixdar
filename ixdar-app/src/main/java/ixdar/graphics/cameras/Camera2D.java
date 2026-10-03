@@ -23,12 +23,10 @@ import ixdar.scenes.main.MainScene;
  * ortho z-index counter used by ordered 2D draw calls within one frame.
  */
 public class Camera2D implements Camera {
-    public static final int NUM__10 = -10;
-    public static final int NUM_10 = 10;
-    public static final double NUM_0_1 = 0.1;
-    public static final float NUM_2 = 2f;
-    public static final float NUM_100 = 100f;
-    public static final float NUM_1 = 1f;
+    public static final int DEFAULT_BOUND_MIN = -10;
+    public static final int DEFAULT_BOUND_MAX = 10;
+    public static final double MIN_SCALE = 0.1;
+    public static final float WHEEL_NOTCH_SCALE = 100f;
 
     public float ZOOM_SPEED = 1f;
     public float PAN_SPEED = 300f;
@@ -141,10 +139,10 @@ public class Camera2D implements Camera {
         maxX = 0;
         maxY = 0;
         if (ps.size() == 0) {
-            minX = NUM__10;
-            minY = NUM__10;
-            maxX = NUM_10;
-            maxY = NUM_10;
+            minX = DEFAULT_BOUND_MIN;
+            minY = DEFAULT_BOUND_MIN;
+            maxX = DEFAULT_BOUND_MAX;
+            maxY = DEFAULT_BOUND_MAX;
         }
         for (PointND pn : ps) {
             if (!pn.isDummyNode()) {
@@ -190,10 +188,10 @@ public class Camera2D implements Camera {
         maxY = 0;
         boolean empty = ps.size() == 0;
         if (empty) {
-            minX = NUM__10;
-            minY = NUM__10;
-            maxX = NUM_10;
-            maxY = NUM_10;
+            minX = DEFAULT_BOUND_MIN;
+            minY = DEFAULT_BOUND_MIN;
+            maxX = DEFAULT_BOUND_MAX;
+            maxY = DEFAULT_BOUND_MAX;
         }
 
         for (PointND pn : ps) {
@@ -529,16 +527,16 @@ public class Camera2D implements Camera {
      */
     public void scale(float delta) {
 
-        if (ScaleFactor + delta < NUM_0_1) {
+        if (ScaleFactor + delta < MIN_SCALE) {
             return;
         }
         float newScaleY = ScaleFactor + delta;
-        float midXPointSpace = screenTransformX(((float) ScreenWidth) / NUM_2);
-        float midYPointSpace = screenTransformY(((float) ScreenHeight) / NUM_2);
+        float midXPointSpace = screenTransformX(((float) ScreenWidth) / 2);
+        float midYPointSpace = screenTransformY(((float) ScreenHeight) / 2);
         float midXNewScale = pointTransformX(midXPointSpace, newScaleY);
         float midYNewScale = pointTransformY(midYPointSpace, newScaleY);
-        PanX += (((float) ScreenWidth) / NUM_2) - midXNewScale;
-        PanY += (((float) ScreenHeight) / NUM_2) - midYNewScale;
+        PanX += (((float) ScreenWidth) / 2) - midXNewScale;
+        PanY += (((float) ScreenHeight) / 2) - midYNewScale;
         ScaleFactor += delta;
     }
 
@@ -588,7 +586,7 @@ public class Camera2D implements Camera {
      */
     @Override
     public void onScroll(boolean b, double delta) {
-        float deltaRee = (float) delta / NUM_100;
+        float deltaRee = (float) delta / WHEEL_NOTCH_SCALE;
         if (b) {
             scale(ZOOM_SPEED * SHIFT_MOD * deltaRee * ScaleFactor);
         } else {
@@ -788,7 +786,7 @@ public class Camera2D implements Camera {
             if (s.ID < 0) {
                 continue;
             }
-            s.updateProjectionMatrix(width, height, NUM_1);
+            s.updateProjectionMatrix(width, height, 1f);
         }
     }
 

@@ -32,23 +32,22 @@ public class RoutePlanningTool extends Tool {
     public static final String MODE = " mode=";
     public static final String SELECTED_ROUTE_CITY = "Selected route city: ";
     public static final String SELECTED = "Selected: ";
-    public static final String STR = " <-> ";
     public static final String TO = " to ";
     public static final String SEGMENTS = " segments";
-    public static final float NUM_3 = 3f;
-    public static final float NUM_25 = 25f;
-    public static final float NUM_2 = 2f;
-    public static final float NUM_4 = 4f;
-    public static final int NUM_3_2 = 3;
-    public static final int NUM_4_2 = 4;
-    public static final int NUM_80 = 80;
-    public static final int NUM_71 = 71;
-    public static final int NUM_67 = 67;
-    public static final int NUM_257 = 257;
-    public static final int NUM_256 = 256;
-    public static final int NUM_90 = 90;
-    public static final int NUM_89 = 89;
-    public static final int NUM_259 = 259;
+    public static final float ROUTE_LINE_WIDTH = 3f;
+    public static final float CITY_HIGHLIGHT_RADIUS = 25f;
+    public static final float PREVIEW_LINE_WIDTH = 2f;
+    public static final float EDGE_HIGHLIGHT_LINE_WIDTH = 4f;
+    public static final int UNDO_BUTTON_INDEX = 3;
+    public static final int CONFIRM_BUTTON_INDEX = 4;
+    public static final int KEY_P = 80;
+    public static final int KEY_G = 71;
+    public static final int KEY_C = 67;
+    public static final int KEY_ENTER = 257;
+    public static final int KEY_ESCAPE = 256;
+    public static final int KEY_Z = 90;
+    public static final int KEY_Y = 89;
+    public static final int KEY_BACKSPACE = 259;
 
     
     private static final Color ROUTE_COLOR = Color.MAGENTA;
@@ -163,7 +162,7 @@ public class RoutePlanningTool extends Tool {
             return;
         }
 
-        routeLine.setStroke(NUM_3, false);
+        routeLine.setStroke(ROUTE_LINE_WIDTH, false);
 
         for (Segment seg : knot.manifoldSegments) {
             if (seg.first.p != null && seg.last.p != null) {
@@ -182,14 +181,14 @@ public class RoutePlanningTool extends Tool {
         }
         float x = camera.pointTransformX(city.getX());
         float y = camera.pointTransformY(city.getY());
-        highlightCircle.draw(new Vector2f(x, y), NUM_25, color, camera);
+        highlightCircle.draw(new Vector2f(x, y), CITY_HIGHLIGHT_RADIUS, color, camera);
     }
 
     private void drawPreviewLine(Camera2D camera, City from, City to) {
         if (from == null || to == null) {
             return;
         }
-        routeLine.setStroke(NUM_2, true);
+        routeLine.setStroke(PREVIEW_LINE_WIDTH, true);
         float x1 = camera.pointTransformX(from.getX());
         float y1 = camera.pointTransformY(from.getY());
         float x2 = camera.pointTransformX(to.getX());
@@ -219,9 +218,9 @@ public class RoutePlanningTool extends Tool {
             return;
         }
 
-        routeLine.setStroke(NUM_3, false);
+        routeLine.setStroke(ROUTE_LINE_WIDTH, false);
 
-        
+
         float x1 = camera.pointTransformX(selectedCityA.getX());
         float y1 = camera.pointTransformY(selectedCityA.getY());
         float x2 = camera.pointTransformX(selectedCityB.getX());
@@ -243,9 +242,9 @@ public class RoutePlanningTool extends Tool {
             return;
         }
 
-        routeLine.setStroke(NUM_3, false);
+        routeLine.setStroke(ROUTE_LINE_WIDTH, false);
 
-        
+
         drawEdgeHighlight(camera, selectedEdgeA, EDGE_REMOVE_COLOR, true);
 
         
@@ -274,7 +273,7 @@ public class RoutePlanningTool extends Tool {
             return;
         }
 
-        routeLine.setStroke(NUM_4, dashed);
+        routeLine.setStroke(EDGE_HIGHLIGHT_LINE_WIDTH, dashed);
         float x1 = camera.pointTransformX((float) edge.first.p.getScreenX());
         float y1 = camera.pointTransformY((float) edge.first.p.getScreenY());
         float x2 = camera.pointTransformX((float) edge.last.p.getScreenX());
@@ -287,9 +286,9 @@ public class RoutePlanningTool extends Tool {
 
         
         float toolbarY = TOOLBAR_HEIGHT / 2;
-        float startX = wWidth / 2 - (NUM_3_2 * BUTTON_SIZE + 2 * BUTTON_PADDING) / 2;
+        float startX = wWidth / 2 - (UNDO_BUTTON_INDEX * BUTTON_SIZE + 2 * BUTTON_PADDING) / 2;
 
-        
+
         drawToolbarButton(camera, startX, toolbarY, 0, P, currentMode == Mode.PIPE);
 
         
@@ -301,12 +300,12 @@ public class RoutePlanningTool extends Tool {
 
         
         if (operationStack.canUndo()) {
-            drawToolbarButton(camera, BUTTON_PADDING + BUTTON_SIZE / 2, toolbarY, NUM_3_2, "Z", false);
+            drawToolbarButton(camera, BUTTON_PADDING + BUTTON_SIZE / 2, toolbarY, UNDO_BUTTON_INDEX, "Z", false);
         }
 
-        
+
         if (state == OperationState.PREVIEW) {
-            drawToolbarButton(camera, wWidth - BUTTON_PADDING - BUTTON_SIZE / 2, toolbarY, NUM_4_2, "OK", false);
+            drawToolbarButton(camera, wWidth - BUTTON_PADDING - BUTTON_SIZE / 2, toolbarY, CONFIRM_BUTTON_INDEX, "OK", false);
         }
     }
 
@@ -436,7 +435,7 @@ public class RoutePlanningTool extends Tool {
             
             computeDefaultPipeEdges();
             state = OperationState.PREVIEW;
-            System.out.println("Pipe preview: " + selectedCityA.name + STR + city.name);
+            System.out.println("Pipe preview: " + selectedCityA.name + " <-> " + city.name);
             break;
 
         case GROW:
@@ -497,25 +496,25 @@ public class RoutePlanningTool extends Tool {
         System.out.println("[RoutePlanningTool] onKeyPress: " + key + STATE + state + MODE + currentMode);
 
         
-        if (key == NUM_80) { 
+        if (key == KEY_P) {
             System.out.println("[RoutePlanningTool] Setting PIPE mode");
             setMode(Mode.PIPE);
             return true;
         }
         
-        if (key == NUM_71) { 
+        if (key == KEY_G) {
             System.out.println("[RoutePlanningTool] Setting GROW mode");
             setMode(Mode.GROW);
             return true;
         }
         
-        if (key == NUM_67) { 
+        if (key == KEY_C) {
             System.out.println("[RoutePlanningTool] Setting COLLAPSE mode");
             setMode(Mode.COLLAPSE);
             return true;
         }
         
-        if (key == NUM_257) { 
+        if (key == KEY_ENTER) {
             System.out.println("[RoutePlanningTool] Enter pressed, state=" + state);
             if (state == OperationState.PREVIEW) {
                 System.out.println("[RoutePlanningTool] Executing operation");
@@ -524,25 +523,25 @@ public class RoutePlanningTool extends Tool {
             }
         }
         
-        if (key == NUM_256) { 
+        if (key == KEY_ESCAPE) {
             System.out.println("[RoutePlanningTool] Escape - cancelling");
             resetOperation();
             return true;
         }
         
-        if (key == NUM_90) { 
+        if (key == KEY_Z) {
             System.out.println("[RoutePlanningTool] Undo");
             undo();
             return true;
         }
         
-        if (key == NUM_89) { 
+        if (key == KEY_Y) {
             System.out.println("[RoutePlanningTool] Redo");
             redo();
             return true;
         }
         
-        if (key == NUM_259) { 
+        if (key == KEY_BACKSPACE) {
             if (navigateUp()) {
                 return true;
             }
@@ -614,7 +613,7 @@ public class RoutePlanningTool extends Tool {
 
         if (currentRoute == null) {
             
-            System.out.println("Creating initial route: " + selectedCityA.name + STR + selectedCityB.name);
+            System.out.println("Creating initial route: " + selectedCityA.name + " <-> " + selectedCityB.name);
 
             PipeRecord record = Knot.pipeSimple(knotA, knotB);
             currentRoute = record.resultKnot;
@@ -951,10 +950,10 @@ public class RoutePlanningTool extends Tool {
         float wHeight = Platforms.get().getWindowHeight();
         
         float toolbarY = TOOLBAR_HEIGHT / 2; 
-        float startX = wWidth / 2 - (NUM_3_2 * BUTTON_SIZE + 2 * BUTTON_PADDING) / 2;
+        float startX = wWidth / 2 - (UNDO_BUTTON_INDEX * BUTTON_SIZE + 2 * BUTTON_PADDING) / 2;
 
-        
-        
+
+
         float mouseYOpenGL = wHeight - mouseY;
 
         hoveredButton = -1;
@@ -970,10 +969,10 @@ public class RoutePlanningTool extends Tool {
                 hoveredButton = 2; 
             } else if (isInButton(mouseX, mouseYOpenGL, BUTTON_PADDING + BUTTON_SIZE / 2, toolbarY)
                     && operationStack.canUndo()) {
-                hoveredButton = NUM_3_2; 
+                hoveredButton = UNDO_BUTTON_INDEX;
             } else if (isInButton(mouseX, mouseYOpenGL, wWidth - BUTTON_PADDING - BUTTON_SIZE / 2, toolbarY)
                     && state == OperationState.PREVIEW) {
-                hoveredButton = NUM_4_2; 
+                hoveredButton = CONFIRM_BUTTON_INDEX;
             }
         }
     }
@@ -1005,12 +1004,12 @@ public class RoutePlanningTool extends Tool {
             h.wrap();
             h.addWord("Compress a linked chain while preserving one loop", Color.LIGHT_GRAY);
             break;
-        case NUM_3_2:
+        case UNDO_BUTTON_INDEX:
             h.addWord("Undo (Ctrl+Z)", Color.WHITE);
             h.wrap();
             h.addWord("Revert the last route operation", Color.LIGHT_GRAY);
             break;
-        case NUM_4_2:
+        case CONFIRM_BUTTON_INDEX:
             h.addWord("Confirm (Enter)", Color.WHITE);
             h.wrap();
             h.addWord("Apply the current preview operation", Color.LIGHT_GRAY);
@@ -1045,10 +1044,10 @@ public class RoutePlanningTool extends Tool {
         case 2:
             setMode(Mode.COLLAPSE);
             return true;
-        case NUM_3_2:
+        case UNDO_BUTTON_INDEX:
             undo();
             return true;
-        case NUM_4_2:
+        case CONFIRM_BUTTON_INDEX:
             executeOperation();
             return true;
         default:

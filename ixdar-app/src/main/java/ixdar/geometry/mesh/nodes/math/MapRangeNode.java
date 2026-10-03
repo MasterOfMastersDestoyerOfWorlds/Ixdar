@@ -26,12 +26,6 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 public class MapRangeNode implements MeshNode {
     public static final String LINEAR = "LINEAR";
     public static final String SMOOTH_STEP = "SMOOTH_STEP";
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_3 = 3f;
-    public static final float NUM_2 = 2f;
-
     public static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.5f, -1000f, 1000f);
     public static final InputPort FROM_MIN = new InputPort("from_min", PortType.FLOAT, 0.0f, -1000f, 1000f);
     public static final InputPort FROM_MAX = new InputPort("from_max", PortType.FLOAT, 1.0f, -1000f, 1000f);
@@ -93,7 +87,7 @@ public class MapRangeNode implements MeshNode {
 
         if (len <= 1) {
             // Scalar path
-            float value = FieldBroadcast.floatScalarOrDefault(valObj, NUM_0_5);
+            float value = FieldBroadcast.floatScalarOrDefault(valObj, 0.5f);
             float fromMin = FieldBroadcast.floatScalarOrDefault(fMinObj, 0.0f);
             float fromMax = FieldBroadcast.floatScalarOrDefault(fMaxObj, 1.0f);
             float toMin = FieldBroadcast.floatScalarOrDefault(tMinObj, 0.0f);
@@ -103,7 +97,7 @@ public class MapRangeNode implements MeshNode {
             // Field path
             float[] data = new float[len];
             for (int i = 0; i < len; i++) {
-                float value = FieldBroadcast.floatAt(valObj, i, NUM_0_5);
+                float value = FieldBroadcast.floatAt(valObj, i, 0.5f);
                 float fromMin = FieldBroadcast.floatAt(fMinObj, i, 0.0f);
                 float fromMax = FieldBroadcast.floatAt(fMaxObj, i, 1.0f);
                 float toMin = FieldBroadcast.floatAt(tMinObj, i, 0.0f);
@@ -117,11 +111,11 @@ public class MapRangeNode implements MeshNode {
     private static float mapRange(float value, float fromMin, float fromMax,
                                    float toMin, float toMax, boolean clamp, boolean smooth) {
         float range = fromMax - fromMin;
-        float t = (range == NUM_0) ? NUM_0 : (value - fromMin) / range;
+        float t = (range == 0f) ? 0f : (value - fromMin) / range;
 
         if (smooth) {
-            t = Math.max(NUM_0, Math.min(NUM_1, t));
-            t = t * t * (NUM_3 - NUM_2 * t); // smoothstep
+            t = Math.max(0f, Math.min(1f, t));
+            t = t * t * (3f - 2f * t); // smoothstep
         }
 
         float result = toMin + t * (toMax - toMin);

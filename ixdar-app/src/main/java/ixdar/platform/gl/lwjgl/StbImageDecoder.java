@@ -14,7 +14,6 @@ import ixdar.platform.gl.DecodedImage;
  */
 public final class StbImageDecoder {
 
-    /** Channel count requested from stb, forcing RGBA8 output whatever the source has. */
     public static final int RGBA_CHANNELS = 4;
 
     private StbImageDecoder() {

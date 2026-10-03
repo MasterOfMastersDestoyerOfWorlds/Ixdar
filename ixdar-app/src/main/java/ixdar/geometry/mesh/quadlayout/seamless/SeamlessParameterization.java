@@ -54,14 +54,8 @@ public final class SeamlessParameterization implements MeshNode {
     private static final double HALF_D = 0.5;
     private static final double DEGENERATE_AREA_EPSILON = 1.0e-30;
 
-    /** Coordinates per vertex position in the flat arrays handed to the diagnoser. */
     private static final int VECTOR_COMPONENTS = 3;
 
-    /**
-     * A parametric triangle below this fraction of its expected area
-     * ({@code faceArea / targetQuadEdgeLength²}) counts as a local-injectivity
-     * violation alongside flips, because collapsed triangles merge singularities.
-     */
     private static final double DEGENERATE_UV_AREA_FRACTION = 1.0e-6;
 
     /** The parametrization being built; every durable product lands here. */

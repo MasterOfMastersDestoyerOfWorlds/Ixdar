@@ -33,11 +33,11 @@ import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.input.MouseButtons;
 
 public class WebGL implements GL {
-    public static final int NUM_0x1405 = 0x1405;
-    public static final int NUM_4 = 4;
-    public static final int NUM_0xF = 0xFF;
-    public static final int NUM_16 = 16;
-    public static final int NUM_8 = 8;
+    public static final int GL_UNSIGNED_INT = 0x1405;
+    public static final int BYTES_PER_PIXEL = 4;
+    public static final int BYTE_MASK = 0xFF;
+    public static final int RED_SHIFT = 16;
+    public static final int GREEN_SHIFT = 8;
     private static int staticId = 0;
 
     // Cache a single WebGL context per canvas to support multiple canvases reliably
@@ -495,7 +495,7 @@ public class WebGL implements GL {
     /** {@inheritDoc}. */
     @Override
     public int UNSIGNED_INT() {
-        return NUM_0x1405;
+        return GL_UNSIGNED_INT;
     }
 
     /** {@inheritDoc}. */
@@ -798,16 +798,16 @@ public class WebGL implements GL {
     /** {@inheritDoc}. */
     @Override
     public int[] readPixels(int i, int j, int width, int height, int rgba, int unsigned_BYTE, int size) {
-        Uint8Array fb = Uint8Array.create(width * height * NUM_4);
+        Uint8Array fb = Uint8Array.create(width * height * BYTES_PER_PIXEL);
         gl.readPixels(i, j, width, height, rgba, unsigned_BYTE, fb);
         // Convert Uint8Array to byte[]
         int[] pixels = new int[width * height];
         for (int k = 0; k < pixels.length; k++) {
-            int bindex = k * NUM_4;
-            int r = fb.get(bindex) & NUM_0xF;
-            int g = fb.get(bindex + 1) & NUM_0xF;
-            int b = fb.get(bindex + 2) & NUM_0xF;
-            pixels[k] = (r << NUM_16) | (g << NUM_8) | b;
+            int bindex = k * BYTES_PER_PIXEL;
+            int r = fb.get(bindex) & BYTE_MASK;
+            int g = fb.get(bindex + 1) & BYTE_MASK;
+            int b = fb.get(bindex + 2) & BYTE_MASK;
+            pixels[k] = (r << RED_SHIFT) | (g << GREEN_SHIFT) | b;
         }
 
         return pixels;

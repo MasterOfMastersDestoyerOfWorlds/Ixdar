@@ -34,16 +34,13 @@ import ixdar.platform.Platforms;
 public class NodeGraphRuntime {
     public static final String MESH = "mesh";
     public static final String ID = "id";
-    public static final String STR = ".";
     public static final String WAS_REFERENCED_BEFORE_IT_WAS_EVALUATED = "' was referenced before it was evaluated!";
-    public static final String STR_2 = " (";
-    public static final String STR_3 = ")";
     public static final String NO_MESH_NODE_SUPPLIER_FOR_TYPE = "No mesh node supplier for type: ";
     public static final String GEOMETRY = "geometry";
     public static final String RESULT = "result";
     public static final String FUNCTION = "Function '";
     public static final String IN_FUNCTION = "In function '";
-    public static final int NUM_1_000_000 = 1_000_000;
+    public static final long NANOS_PER_MILLI = 1_000_000;
 
     /** Per-node wall time at or above which {@link #logTimings} names the node. */
     public static final long SLOW_NODE_MS = 100;
@@ -422,7 +419,7 @@ public class NodeGraphRuntime {
                     Object rawValue = arg.getValue();
 
                     // Check for dot-notation literal override (e.g. "thumb_attach.theta")
-                    String literalKey = parsedData.id + STR + portName;
+                    String literalKey = parsedData.id + "." + portName;
                     if (overrides.containsKey(literalKey)) {
                         resolvedArgs.put(portName, overrides.get(literalKey));
                     } else if (rawValue instanceof PythonParser.NodeReference ref) {
@@ -440,7 +437,7 @@ public class NodeGraphRuntime {
                 for (Map.Entry<String, Object> arg : parsedData.arguments.entrySet()) {
                     String portName = arg.getKey();
                     if (!(arg.getValue() instanceof Vector3Value v3)) continue;
-                    String base = parsedData.id + STR + portName;
+                    String base = parsedData.id + "." + portName;
                     Object oxObj = overrides.get(base + ".x");
                     Object oyObj = overrides.get(base + ".y");
                     Object ozObj = overrides.get(base + ".z");
@@ -458,8 +455,8 @@ public class NodeGraphRuntime {
                     long nodeStart = System.nanoTime();
                     heapSampler.resetPeak();
                     GraphNodeContext resultCtx = executeFunctionCall(funcDef, resolvedArgs, currentFieldContext, overrides);
-                    long nodeMs = (System.nanoTime() - nodeStart) / NUM_1_000_000;
-                    String timingKey = parsedData.id + STR_2 + parsedData.type + STR_3;
+                    long nodeMs = (System.nanoTime() - nodeStart) / NANOS_PER_MILLI;
+                    String timingKey = parsedData.id + " (" + parsedData.type + ")";
                     lastTimingMs.put(timingKey, nodeMs);
                     lastPeakHeapBytes.put(timingKey, heapSampler.peakBytes());
 
@@ -495,8 +492,8 @@ public class NodeGraphRuntime {
                     heapSampler.resetPeak();
                     activeNode.evaluate(context);
                     AutoTagHook.applyIfApplicable(activeNode, context, parsedData.id);
-                    long nodeMs = (System.nanoTime() - nodeStart) / NUM_1_000_000;
-                    String timingKey = parsedData.id + STR_2 + parsedData.type + STR_3;
+                    long nodeMs = (System.nanoTime() - nodeStart) / NANOS_PER_MILLI;
+                    String timingKey = parsedData.id + " (" + parsedData.type + ")";
                     lastTimingMs.put(timingKey, nodeMs);
                     lastPeakHeapBytes.put(timingKey, heapSampler.peakBytes());
 
@@ -511,7 +508,7 @@ public class NodeGraphRuntime {
             heapSampler.stop();
         }
 
-        lastTotalMs = (System.nanoTime() - graphStart) / NUM_1_000_000;
+        lastTotalMs = (System.nanoTime() - graphStart) / NANOS_PER_MILLI;
 
         GraphNodeContext finalContext = evaluatedNodes.get(finalOutputId);
         if (finalContext != null) {

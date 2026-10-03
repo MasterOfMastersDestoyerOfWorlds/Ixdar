@@ -17,10 +17,10 @@ import ixdar.scenes.main.MainScene;
 public class AskCommand extends TerminalCommand {
     public static final String POINT_WITH_ID = "Point with id: ";
     public static final String DOES_NOT_EXIST = " does not exist.";
-    public static final String STR = " || ";
+    public static final String SEGMENT_SEPARATOR = " || ";
     public static final String THERE_ARE_NOT = "There are not ";
     public static final String POINTS = " Points";
-    public static final int NUM_5 = 5;
+    public static final int DEFAULT_CLOSEST_COUNT = 5;
 
     public static String cmd = "ask";
 
@@ -74,7 +74,7 @@ public class AskCommand extends TerminalCommand {
             }
         } else if (questionName.equals("closest")) {
             int id1 = Integer.parseInt(args[startIdx + 1]);
-            int numPrint = NUM_5;
+            int numPrint = DEFAULT_CLOSEST_COUNT;
             if (args.length - startIdx > 2) {
                 numPrint = Integer.parseInt(args[startIdx + 2]);
             }
@@ -86,7 +86,7 @@ public class AskCommand extends TerminalCommand {
             } else {
                 for (int i = 0; i < numPrint; i++) {
                     HyperString seg = vp.sortedSegments.get(i).toHyperString(Color.BLUE_WHITE, false, true);
-                    seg.addWord(STR);
+                    seg.addWord(SEGMENT_SEPARATOR);
                     terminal.history.addHyperString(seg);
                 }
                 terminal.history.newLine();
@@ -168,7 +168,7 @@ public class AskCommand extends TerminalCommand {
                     } else {
                         str = segment.toHyperString(Color.BLUE_WHITE, false, true);
                     }
-                    str.addWord(STR);
+                    str.addWord(SEGMENT_SEPARATOR);
                     terminal.history.addHyperString(str);
                 }
                 terminal.history.newLine();

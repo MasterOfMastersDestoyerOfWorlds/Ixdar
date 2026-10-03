@@ -14,14 +14,11 @@ import ixdar.common.exceptions.TerminalParseException;
  */
 @GeometryAnnotation(id = "arc")
 public class Arc implements Geometry, PointCollection {
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final int NUM_180 = 180;
-    public static final int NUM_5 = 5;
-    public static final int NUM_10 = 10;
-    public static final int NUM_45 = 45;
-    public static final int NUM_315 = 315;
-    public static final int NUM_6 = 6;
+    public static final int DEFAULT_RADIUS = 10;
+    public static final int DEFAULT_NUM_POINTS = 10;
+    public static final int DEFAULT_START_ANGLE = 45;
+    public static final int DEFAULT_END_ANGLE = 315;
+    public static final int ARG_COUNT = 6;
     public static String cmd = "arc";
     public static OptionList opts = new OptionList("a", cmd);
 
@@ -34,18 +31,19 @@ public class Arc implements Geometry, PointCollection {
     ArrayList<PointND> points;
 
     /**
-     * Default arc: centered at the origin, radius and vertex count both
-     * {@value #NUM_10}, sweeping from {@value #NUM_45} to {@value #NUM_315}
+     * Default arc: centered at the origin, radius {@value #DEFAULT_RADIUS} and
+     * vertex count {@value #DEFAULT_NUM_POINTS}, sweeping from
+     * {@value #DEFAULT_START_ANGLE} to {@value #DEFAULT_END_ANGLE}
      * (interpreted as raw values, not converted from degrees). Realizes its
      * points eagerly.
      */
     public Arc() {
         xCenter = 0.0;
         yCenter = 0.0;
-        radius = NUM_10;
-        numPoints = NUM_10;
-        startAngle = NUM_45;
-        endAngle = NUM_315;
+        radius = DEFAULT_RADIUS;
+        numPoints = DEFAULT_NUM_POINTS;
+        startAngle = DEFAULT_START_ANGLE;
+        endAngle = DEFAULT_END_ANGLE;
         points = realizePoints();
 
     }
@@ -101,9 +99,9 @@ public class Arc implements Geometry, PointCollection {
         double xCenter = Double.parseDouble(args[startIdx]);
         double yCenter = Double.parseDouble(args[startIdx + 1]);
         double radius = Double.parseDouble(args[startIdx + 2]);
-        int numPoints = Integer.parseInt(args[startIdx + NUM_3]);
-        double startAngle = Double.parseDouble(args[startIdx + NUM_4]) * (Math.PI / NUM_180);
-        double endAngle = Double.parseDouble(args[startIdx + NUM_5]) * (Math.PI / NUM_180);
+        int numPoints = Integer.parseInt(args[startIdx + 3]);
+        double startAngle = Double.parseDouble(args[startIdx + 4]) * (Math.PI / 180);
+        double endAngle = Double.parseDouble(args[startIdx + 5]) * (Math.PI / 180);
         return new Arc(xCenter, yCenter, radius, numPoints, startAngle, endAngle);
     }
 
@@ -161,13 +159,13 @@ public class Arc implements Geometry, PointCollection {
     }
 
     /**
-     * Required positional arg count for parsing: {@value #NUM_6}.
+     * Required positional arg count for parsing: {@value #ARG_COUNT}.
      *
      * @return number of arguments {@link #parseArc} consumes
      */
     @Override
     public int argLength() {
-        return NUM_6;
+        return ARG_COUNT;
     }
 
     /**

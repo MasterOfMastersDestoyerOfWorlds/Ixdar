@@ -25,12 +25,16 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
     public static final String INLINE = "inline";
     public static final String ERROR = "error";
     public static final String OK = "ok";
-    public static final float NUM_1_45 = 1.45f;
-    public static final int NUM_4 = 4;
-    public static final float NUM_0_4 = 0.4f;
-    public static final int NUM_3 = 3;
-    public static final float NUM_2_5 = 2.5f;
-    public static final int NUM_8 = 8;
+    public static final float TOP_BOTTOM_ELEVATION_RAD = 1.45f;
+    public static final float THREE_QUARTER_ELEVATION_RAD = 0.4f;
+    public static final float VIEW_DISTANCE_RADIUS_MULTIPLIER = 2.5f;
+    public static final int VIEW_COUNT = 8;
+    public static final int QUARTER_TURN_DIVISOR = 4;
+    public static final int THREE_QUARTER_TURN_NUMERATOR = 3;
+    public static final int GRID_COLUMNS = 4;
+    public static final int RGBA_BYTES_PER_PIXEL = 4;
+    public static final int SAVED_ORBIT_FIELDS = 4;
+    public static final int VIEW_DIST_INDEX = 3;
 
     /**
      * Capture 8 viewpoints into a 4x2 grid PNG, filled in the order {@code viewOrder} names.
@@ -48,10 +52,10 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                     { 0, 0 }, // Right
                     { (float) (-Math.PI / 2), 0 }, // Back
                     { (float) Math.PI, 0 }, // Left
-                    { (float) (Math.PI / 2), NUM_1_45 }, // Top
-                    { (float) (Math.PI / 2), -NUM_1_45 }, // Bottom
-                    { (float) (Math.PI / NUM_4), NUM_0_4 }, // 3/4 Front-R
-                    { (float) ((NUM_3 * Math.PI) / NUM_4), NUM_0_4 }, // 3/4 Front-L
+                    { (float) (Math.PI / 2), TOP_BOTTOM_ELEVATION_RAD }, // Top
+                    { (float) (Math.PI / 2), -TOP_BOTTOM_ELEVATION_RAD }, // Bottom
+                    { (float) (Math.PI / QUARTER_TURN_DIVISOR), THREE_QUARTER_ELEVATION_RAD }, // 3/4 Front-R
+                    { (float) ((THREE_QUARTER_TURN_NUMERATOR * Math.PI) / QUARTER_TURN_DIVISOR), THREE_QUARTER_ELEVATION_RAD }, // 3/4 Front-L
             };
             String[] labels = {
                     "Front",
@@ -65,7 +69,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             };
 
             // Save original orbit and compute view distance on the render thread
-            float[] saved = new float[NUM_4]; // az, el, dist, viewDist
+            float[] saved = new float[SAVED_ORBIT_FIELDS]; // az, el, dist, viewDist
             runtime.runOnMainThread(() -> {
                 if (!(runtime.canvas instanceof MeshNodeViewerScene mvs)) {
                     JsonObject err = new JsonObject();
@@ -76,15 +80,15 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 saved[0] = orbit.getAzimuth();
                 saved[1] = orbit.getElevation();
                 saved[2] = orbit.getDistance();
-                saved[NUM_3] = Math.max(mvs.getMeshRadius() * NUM_2_5, 1.0f);
+                saved[VIEW_DIST_INDEX] = Math.max(mvs.getMeshRadius() * VIEW_DISTANCE_RADIUS_MULTIPLIER, 1.0f);
                 return new JsonObject();
             });
 
-            PixelImage[] captures = new PixelImage[NUM_8];
+            PixelImage[] captures = new PixelImage[VIEW_COUNT];
             int[] dims = new int[2];
-            float viewDist = saved[NUM_3];
+            float viewDist = saved[VIEW_DIST_INDEX];
 
-            for (int i = 0; i < NUM_8; i++) {
+            for (int i = 0; i < VIEW_COUNT; i++) {
                 final float az = views[i][0];
                 final float el = views[i][1];
                 final float dist = viewDist;
@@ -113,7 +117,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                             h,
                             Platforms.gl().RGBA(),
                             Platforms.gl().UNSIGNED_BYTE(),
-                            w * h * NUM_4);
+                            w * h * RGBA_BYTES_PER_PIXEL);
                     PixelImage img = new PixelImage(w, h);
                     for (int y = 0; y < h; y++) {
                         for (int x = 0; x < w; x++) {
@@ -141,14 +145,14 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 err.addProperty(ERROR, "Framebuffer dimensions are 0");
                 return err;
             }
-            PixelImage composite = new PixelImage(NUM_4 * cellW, 2 * cellH);
+            PixelImage composite = new PixelImage(GRID_COLUMNS * cellW, 2 * cellH);
             int blankViews = 0;
-            for (int i = 0; i < NUM_8; i++) {
+            for (int i = 0; i < VIEW_COUNT; i++) {
                 if (captures[i] == null) {
                     blankViews++;
                     continue;
                 }
-                composite.blit(captures[i], (i % NUM_4) * cellW, (i / NUM_4) * cellH);
+                composite.blit(captures[i], (i % GRID_COLUMNS) * cellW, (i / GRID_COLUMNS) * cellH);
                 if (captures[i].isUniform()) {
                     blankViews++;
                 }
@@ -174,11 +178,11 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
 
             byte[] pngBytes = imageBytes(composite);
             JsonObject result = new JsonObject();
-            result.addProperty(OK, blankViews < NUM_8);
+            result.addProperty(OK, blankViews < VIEW_COUNT);
             result.addProperty(PATH, out.getAbsolutePath());
-            result.addProperty("width", NUM_4 * cellW);
+            result.addProperty("width", GRID_COLUMNS * cellW);
             result.addProperty("height", 2 * cellH);
-            result.addProperty("views", NUM_8);
+            result.addProperty("views", VIEW_COUNT);
             result.addProperty("blankViews", blankViews);
             result.addProperty("cellWidth", cellW);
             result.addProperty("cellHeight", cellH);
@@ -188,7 +192,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             }
             result.add("viewOrder", viewOrder);
             result.addProperty("sha256", sha256(pngBytes));
-            if (blankViews == NUM_8) {
+            if (blankViews == VIEW_COUNT) {
                 result.addProperty(ERROR, "every view rendered blank; the scene drew nothing");
             }
             if (inline) {

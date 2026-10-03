@@ -30,14 +30,14 @@ public class Decompose extends AutomationEndpoint implements AutomationRoute {
     public static final String PATH = "path";
     public static final String RESOLUTION = "resolution";
     public static final String OK = "ok";
-    public static final int NUM_128 = 128;
+    public static final int DEFAULT_VOXEL_RESOLUTION = 128;
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         String path = body.has(PATH) ? body.get(PATH).getAsString() : "";
         int resolution = body.has(RESOLUTION)
                 ? body.get(RESOLUTION).getAsInt()
-                : NUM_128;
+                : DEFAULT_VOXEL_RESOLUTION;
         File f = resolvePath(path);
         if (f == null) {
             JsonObject err = new JsonObject();
@@ -85,7 +85,7 @@ public class Decompose extends AutomationEndpoint implements AutomationRoute {
                 .description("Hybrid skeleton and curvature patch decomposition of a reference mesh.")
                 .param(PATH, RouteParamType.STRING, true, "",
                         "Path to an OBJ mesh file.", "~/Blends/Hand/Hand.obj")
-                .param(RESOLUTION, RouteParamType.INT, false, String.valueOf(NUM_128),
+                .param(RESOLUTION, RouteParamType.INT, false, String.valueOf(DEFAULT_VOXEL_RESOLUTION),
                         "Voxel resolution for skeletonization.", "128")
                 .responseHint(
                         "{ok, vertex_count, patches:[{id, branch_id, color, flat_color, centroid, ...}]}")

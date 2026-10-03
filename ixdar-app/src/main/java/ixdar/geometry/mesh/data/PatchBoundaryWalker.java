@@ -16,11 +16,8 @@ import java.util.Set;
  * step that best continues the ring.
  */
 public final class PatchBoundaryWalker {
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1e_20 = 1e-20f;
+    public static final int CORNER_COUNT = 4;
+    public static final float EPSILON = 1e-20f;
 
     // Must match SemanticPatchDecomposer.T_CORNER_RAD. Duplicated here
     // because that constant is private; keep the two in lockstep.
@@ -45,11 +42,11 @@ public final class PatchBoundaryWalker {
                                         int[] faceIdx, int[][] adj, float[] positions) {
         Map<Integer, List<Integer>> neighbours = new HashMap<>();
         for (int f : faces) {
-            for (int e = 0; e < NUM_3; e++) {
+            for (int e = 0; e < 3; e++) {
                 int nb = adj[f][e];
                 if (nb >= 0 && facePatch[nb] == patchId) continue;  // interior edge
-                int u = faceIdx[f * NUM_3 + e];
-                int v = faceIdx[f * NUM_3 + (e + 1) % NUM_3];
+                int u = faceIdx[f * 3 + e];
+                int v = faceIdx[f * 3 + (e + 1) % 3];
                 addNeighbour(neighbours, u, v);
                 addNeighbour(neighbours, v, u);
             }
@@ -69,7 +66,7 @@ public final class PatchBoundaryWalker {
             if (ring == null) continue;
             if (bestRing == null || ring.length > bestRing.length) bestRing = ring;
         }
-        if (bestRing == null || bestRing.length < NUM_4) return null;
+        if (bestRing == null || bestRing.length < CORNER_COUNT) return null;
         int total = bestRing.length;
 
         // Corner detection: turn angle at each ring vertex. Same
@@ -86,35 +83,35 @@ public final class PatchBoundaryWalker {
             float[] da = unitDir(positions, at, before);
             float[] db = unitDir(positions, at, after);
             float dot = da[0] * db[0] + da[1] * db[1] + da[2] * db[2];
-            dot = Math.max(-NUM_1, Math.min(NUM_1, dot));
+            dot = Math.max(-1f, Math.min(1f, dot));
             float deviation = Math.abs((float) Math.acos(dot) - (float) Math.PI);
             deviationStrength[i] = deviation;
             if (deviation > T_CORNER_RAD) allCorners.add(i);
         }
 
         List<Integer> corners;
-        if (allCorners.size() >= NUM_4) {
+        if (allCorners.size() >= CORNER_COUNT) {
             Integer[] sorted = allCorners.toArray(new Integer[0]);
             Arrays.sort(sorted, (a, b) ->
                     Float.compare(deviationStrength[b], deviationStrength[a]));
             corners = new ArrayList<>();
-            for (int i = 0; i < NUM_4; i++) corners.add(sorted[i]);
+            for (int i = 0; i < CORNER_COUNT; i++) corners.add(sorted[i]);
         } else {
             Integer[] all = new Integer[total];
             for (int i = 0; i < total; i++) all[i] = i;
             Arrays.sort(all, (a, b) ->
                     Float.compare(deviationStrength[b], deviationStrength[a]));
             corners = new ArrayList<>();
-            for (int i = 0; i < NUM_4; i++) corners.add(all[i]);
+            for (int i = 0; i < CORNER_COUNT; i++) corners.add(all[i]);
         }
         Collections.sort(corners);
 
-        int[] cornerVerts = new int[NUM_4];
-        for (int i = 0; i < NUM_4; i++) cornerVerts[i] = bestRing[corners.get(i)];
-        List<int[]> sides = new ArrayList<>(NUM_4);
-        for (int c = 0; c < NUM_4; c++) {
+        int[] cornerVerts = new int[CORNER_COUNT];
+        for (int i = 0; i < CORNER_COUNT; i++) cornerVerts[i] = bestRing[corners.get(i)];
+        List<int[]> sides = new ArrayList<>(CORNER_COUNT);
+        for (int c = 0; c < CORNER_COUNT; c++) {
             int from = corners.get(c);
-            int to = corners.get((c + 1) % NUM_4);
+            int to = corners.get((c + 1) % CORNER_COUNT);
             int len = (to - from + total) % total + 1;  // include both endpoints
             int[] side = new int[len];
             for (int k = 0; k < len; k++) side[k] = bestRing[(from + k) % total];
@@ -192,7 +189,7 @@ public final class PatchBoundaryWalker {
             if (ringVisited.contains(n)) continue;
             float score;
             if (incoming == null) {
-                score = NUM_0;
+                score = 0f;
             } else {
                 float[] outgoing = unitDir(positions, cur, n);
                 float dot = incoming[0] * outgoing[0] + incoming[1] * outgoing[1]
@@ -219,11 +216,11 @@ public final class PatchBoundaryWalker {
     }
 
     private static float[] unitDir(float[] positions, int from, int to) {
-        float dx = positions[to * NUM_3]     - positions[from * NUM_3];
-        float dy = positions[to * NUM_3 + 1] - positions[from * NUM_3 + 1];
-        float dz = positions[to * NUM_3 + 2] - positions[from * NUM_3 + 2];
+        float dx = positions[to * 3]     - positions[from * 3];
+        float dy = positions[to * 3 + 1] - positions[from * 3 + 1];
+        float dz = positions[to * 3 + 2] - positions[from * 3 + 2];
         float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (len < NUM_1e_20) return new float[]{NUM_0, NUM_0, NUM_0};
+        if (len < EPSILON) return new float[]{0f, 0f, 0f};
         return new float[]{dx / len, dy / len, dz / len};
     }
 

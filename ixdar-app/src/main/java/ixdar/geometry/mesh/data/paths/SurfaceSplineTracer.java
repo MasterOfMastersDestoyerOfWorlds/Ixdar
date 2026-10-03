@@ -16,37 +16,24 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public final class SurfaceSplineTracer {
 
-    /** Coordinates per point in every packed position here. */
     public static final int COORDINATES_PER_POINT = 3;
 
-    /** Anchors a closed spline needs before it encloses anything. */
     public static final int MINIMUM_ANCHORS = 3;
 
-    /** Control points of one cubic segment. */
     public static final int CONTROL_POINTS = 4;
 
-    /** Manifold averages one De Casteljau bisection of a cubic takes: three, two, then one. */
     public static final int MIDPOINTS_PER_BISECTION = 6;
 
-    /** Bisections a segment may reach, the ceiling on one trace's cost. */
     public static final int DEFAULT_MAXIMUM_DEPTH = 3;
 
-    /**
-     * Mean edge lengths a leaf must keep. Bisecting past this puts control points closer together
-     * than the mesh can place them, so the mesh, not a fixed count, sets the depth.
-     */
     public static final double DEFAULT_SHORTEST_LEAF_EDGE_LENGTHS = 2.0;
 
-    /** Handle length a straight segment takes, as a fraction of its chord. */
     public static final double STRAIGHT_HANDLE_FRACTION = 1.0 / 3.0;
 
-    /** Numerator of the {@code 4/3 tan(alpha/2)} handle that turns a cubic into a circular arc. */
     public static final double CIRCLE_HANDLE_SCALE = 4.0 / 3.0;
 
-    /** Half-angles below this take the straight-segment handle instead of the circular one. */
     public static final double SMALL_TURN_RADIANS = 1e-4;
 
-    /** Largest half-angle the circular handle formula is trusted at, in radians. */
     public static final double LARGEST_TURN_RADIANS = 1.4;
 
     /** Geodesic engine every average and every leaf is computed with. */

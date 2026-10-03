@@ -5,7 +5,7 @@ import org.joml.Vector3f;
 import ixdar.graphics.render.shaders.ShaderProgram;
 
 public class DirectionalLight {
-    public static final double NUM_0_01 = 0.01;
+    public static final double AMBIENT_INTENSITY = 0.01;
     private Vector3f direction;
     private Vector3f diffuse;
     private Vector3f ambient;
@@ -22,7 +22,7 @@ public class DirectionalLight {
     public DirectionalLight(Vector3f direction, Vector3f color) {
         this.direction = direction;
         this.diffuse = new Vector3f(color);
-        this.ambient = new Vector3f(color).mul((float) NUM_0_01);
+        this.ambient = new Vector3f(color).mul((float) AMBIENT_INTENSITY);
         this.specular = new Vector3f(color);
     }
 

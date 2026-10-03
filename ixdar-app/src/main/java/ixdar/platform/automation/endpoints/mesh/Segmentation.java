@@ -25,7 +25,7 @@ public class Segmentation extends AutomationEndpoint implements AutomationRoute 
     public static final String N_CLUSTERS = "n_clusters";
     public static final String OK = "ok";
     public static final String ERROR = "error";
-    public static final int NUM_6 = 6;
+    public static final int DEFAULT_CLUSTER_COUNT = 6;
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
@@ -35,7 +35,7 @@ public class Segmentation extends AutomationEndpoint implements AutomationRoute 
                 : SPATIAL;
         int nClusters = body.has(N_CLUSTERS)
                 ? body.get(N_CLUSTERS).getAsInt()
-                : NUM_6;
+                : DEFAULT_CLUSTER_COUNT;
         File f = resolvePath(path);
         if (f == null) {
             JsonObject err = new JsonObject();
@@ -87,7 +87,7 @@ public class Segmentation extends AutomationEndpoint implements AutomationRoute 
                         "Path to the OBJ mesh file to segment.", "~/Blends/Hand/Hand.obj")
                 .param(METHOD, RouteParamType.STRING, false, SPATIAL,
                         "Segmentation strategy: components, curvature, or spatial.", SPATIAL)
-                .param(N_CLUSTERS, RouteParamType.INT, false, String.valueOf(NUM_6),
+                .param(N_CLUSTERS, RouteParamType.INT, false, String.valueOf(DEFAULT_CLUSTER_COUNT),
                         "Cluster count for the curvature and spatial strategies.", "8")
                 .responseHint("{ok, vertex_count, method, tags:{label:[vertexIndex, ...]}}")
                 .build();

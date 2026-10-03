@@ -20,69 +20,34 @@ import ixdar.platform.Platforms;
  */
 public final class InteriorPointQp {
 
-    /** Iteration cap; a round that hits it reports {@code converged == false}. */
     public static final int MAX_ITERATIONS = 50;
 
-    /** Fraction-to-boundary factor τ keeping slacks and multipliers positive. */
     public static final double FRACTION_TO_BOUNDARY = 0.995;
 
-    /**
-     * Exponent of Mehrotra's centering heuristic {@code σ = (μ_aff/μ)³}: a blocked
-     * affine step leaves σ near one, which pushes the iterate back onto the central
-     * path instead of pinning its slacks to the boundary.
-     */
     public static final double CENTERING_EXPONENT = 3.0;
 
-    /** Floor on σ, so a long affine step still keeps a trace of centering. */
     public static final double MIN_CENTERING_SIGMA = 1.0e-8;
 
-    /**
-     * Lower bound on the starting slacks {@code s = max(|Ax₀ − c|, floor)}. Matching
-     * a violated constraint's slack to its violation keeps the first
-     * fraction-to-boundary step from collapsing to {@code s/|r_p|}.
-     */
     public static final double SLACK_START_FLOOR = 1.0e-2;
 
-    /** Starting value of every multiplier λ. */
     public static final double MULTIPLIER_START = 1.0;
 
-    /** Cap on the condensed diagonal ratios λ/s, guarding late-iteration blowup. */
     public static final double RATIO_CAP = 1.0e12;
 
-    /**
-     * First rung of the Tikhonov ladder on the condensed diagonal, as a fraction of
-     * the largest base-Hessian diagonal entry. It perturbs every Newton step, so it
-     * stays off until a backend actually reports a zero pivot.
-     */
     public static final double DIAGONAL_REGULARIZATION_FRACTION = 1.0e-10;
 
-    /** Factor the regulariser is raised by when a factorization still reports a zero pivot. */
     public static final double REGULARIZATION_ESCALATION = 1.0e2;
 
-    /** Escalations allowed before the singular system is reported to the caller. */
     public static final int MAX_REGULARIZATION_ESCALATIONS = 6;
 
-    /** Dual-residual tolerance, relative to {@code 1 + ‖b‖∞}. */
     public static final double DUAL_TOLERANCE = 1.0e-8;
 
-    /** Primal-residual tolerance, relative to {@code 1 + ‖c‖∞}. */
     public static final double PRIMAL_TOLERANCE = 1.0e-8;
 
-    /** Complementarity tolerance on {@code s'λ/m}, relative to {@code 1 + ‖b‖∞}. */
     public static final double COMPLEMENTARITY_TOLERANCE = 1.0e-8;
 
-    /**
-     * Relative size below which {@code ‖A'w‖∞} counts as zero in the Farkas
-     * certificate {@code w ≥ 0, A'w = 0, c'w > 0} that proves {@code Ax ≥ c} has no
-     * solution.
-     */
     public static final double CERTIFICATE_TOLERANCE = 1.0e-6;
 
-    /**
-     * Iterations between certificate tests. The multipliers need a few iterations to
-     * separate before they can certify anything, and an infeasible set is worth
-     * abandoning long before the diverging ratios wreck the condensed system.
-     */
     public static final int CERTIFICATE_CHECK_INTERVAL = 10;
 
     /** Base SPD system: H in full-symmetric CSR plus the linear term b as its RHS. */

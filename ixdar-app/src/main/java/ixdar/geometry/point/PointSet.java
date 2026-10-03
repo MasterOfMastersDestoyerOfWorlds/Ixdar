@@ -14,7 +14,6 @@ import ixdar.geometry.shell.Shell;
  */
 public class PointSet extends ArrayList<PointND> {
     public static final String POINTSET = "PointSet[";
-    public static final String STR = "]";
     @SuppressWarnings("unused")
     private int getLargestDim() {
         int maxDim = 0;
@@ -125,7 +124,7 @@ public class PointSet extends ArrayList<PointND> {
             }
         }
 
-        str += STR;
+        str += "]";
 
         return str;
     }
@@ -146,7 +145,7 @@ public class PointSet extends ArrayList<PointND> {
             }
         }
 
-        str += STR;
+        str += "]";
 
         return str;
     }

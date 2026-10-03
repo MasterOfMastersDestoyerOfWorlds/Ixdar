@@ -14,7 +14,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 public final class ArrangementDiagnostic {
 
-    /** Components of a packed position. */
     private static final int COMPONENTS = 3;
 
     /** Name per face group, parallel to {@link #faceGroups}. */

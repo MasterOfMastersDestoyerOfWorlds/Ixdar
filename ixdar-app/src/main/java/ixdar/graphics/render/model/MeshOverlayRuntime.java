@@ -38,16 +38,13 @@ import ixdar.platform.gl.GL;
  */
 public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
 
-    /** Colour names of the group palette in assignment order, for log lines. */
     public static final String GROUP_PALETTE_ORDER =
             "yellow, green, magenta, cyan, purple, white, red, azure";
 
     private static final VertexLayout POSITION_LAYOUT =
             new VertexLayout(new int[] { 0 }, new int[] { 3 });
-    /** pos, normal, uv, flip, trace0..3, patch id: the mesh_uv / mesh_uv_traces attributes. */
     private static final VertexLayout ISO_CORNER_LAYOUT = new VertexLayout(
             new int[] { 0, 1, 3, 4, 5, 6, 7, 8, 9 }, new int[] { 3, 3, 2, 1, 4, 4, 4, 4, 1 });
-    /** pos, normal, centroid, dirU, dirV, arm length: the mesh_cross_field attributes. */
     private static final VertexLayout CROSS_GLYPH_LAYOUT = new VertexLayout(
             new int[] { 0, 1, 3, 4, 5, 6 }, new int[] { 3, 3, 3, 3, 3, 1 });
     private static final int CORNERS_PER_FACE = 3;
@@ -62,10 +59,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private static final int ARM_LENGTH_OFFSET = 15;
     private static final int INDICES_PER_GRID_CELL = 6;
     private static final float ONE_THIRD = 1.0f / 3.0f;
-    /**
-     * Fraction of a face's arm length by which the constraint glyph is floated along the face
-     * normal, so it wins the depth test against the coincident cross-field glyph.
-     */
     private static final float CONSTRAINT_NORMAL_LIFT = 0.25f;
     private static final float DEFAULT_LINE_HALF_WIDTH = 1.0f;
     private static final float SPHERE_RADIUS_FRACTION_OF_BBOX = 0.005f;
@@ -81,15 +74,10 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private static final float HIGHLIGHT_MARKER_SCALE = 2.2f;
     private static final float PATCH_CLOUD_SCALE = 1f;
     private static final float MARKER_SPHERE_SCALE = 1.4f;
-    /** Cap on the shared sphere radius inside a diagnostic spotlight, in region radii. */
     private static final float TEAR_SPHERE_REGION_FRACTION = 0.02f;
 
     private static final float LABEL_ROW_HEIGHT_PIXELS = 26f;
     private static final float LABEL_OFFSET_PIXELS = 10f;
-    /**
-     * Depth slack a label keeps against the surface, absorbing the precision noise of a point
-     * sitting exactly on the faces it is drawn over.
-     */
     private static final float LABEL_DEPTH_SLACK = 0.0005f;
     private static final int COLOR_CHANNEL_BITS = 8;
     private static final int COLOR_CHANNEL_MAX = 0xFF;
@@ -108,7 +96,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private static final Color COLOR_INTERSECTION_NODE = Color.WHITE;
     private static final Color COLOR_BOUNDARY_NODE = Color.YELLOW;
     private static final Color COLOR_TRUNCATED_NODE = Color.ORANGE;
-    /** Cyan for {@code index4 > 0}, red for {@code index4 < 0}, per BZK09 fig. 4. */
     private static final Color COLOR_POSITIVE_INDEX = new ColorRGB(Color.CYAN, 0.5f);
     private static final Color COLOR_NEGATIVE_INDEX = new ColorRGB(Color.RED, 0.5f);
     private static final Color COLOR_CONSTRAINT_BOUNDARY = Color.GREEN;
@@ -123,23 +110,19 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private static final Color COLOR_LAYOUT_CORNER = Color.SOFT_RED;
     private static final Color COLOR_QUAD_GRID = Color.DARK_GRAY;
     private static final Color COLOR_EMBEDDED_ARC = Color.BRIGHT_ORANGE;
-    /** Zero-quantized arcs are red like LCBK19 Figure 9, so collapse targets stand out. */
     private static final Color COLOR_EMBEDDED_ZERO_ARC = Color.RED;
     private static final Color COLOR_COPY_WIREFRAME = new ColorRGB(Color.WHITE, 0.25f);
     private static final Color COLOR_EMBEDDED_NODE = Color.SKY_BLUE;
     private static final Color COLOR_EMBEDDED_NODE_CRITICAL = Color.GOLD;
-    /** Colours assigned to dot clouds and diagnostic groups, cycled in order. */
     private static final Color[] GROUP_PALETTE = { Color.YELLOW, Color.BRIGHT_GREEN,
             Color.MAGENTA, Color.CYAN, Color.LIGHT_PURPLE, Color.WHITE, Color.RED, Color.AZURE };
 
     private static final float PHI = (1f + (float) Math.sqrt(5f)) * 0.5f;
-    /** The 12 golden-ratio icosahedron vertices, flat xyz, unnormalized. */
     private static final float[] ICO_VERTICES = {
             -1, PHI, 0, 1, PHI, 0, -1, -PHI, 0, 1, -PHI, 0,
             0, -1, PHI, 0, 1, PHI, 0, -1, -PHI, 0, 1, -PHI,
             PHI, 0, -1, PHI, 0, 1, -PHI, 0, -1, -PHI, 0, 1
     };
-    /** The 20 icosahedron triangles over {@link #ICO_VERTICES}, counter-clockwise. */
     private static final int[] ICO_TRIANGLES = {
             0, 11, 5, 0, 5, 1, 0, 1, 7, 0, 7, 10, 0, 10, 11,
             1, 5, 9, 5, 11, 4, 11, 10, 2, 10, 7, 6, 7, 1, 8,
@@ -1279,7 +1262,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         float far = farPlaneFor(camera, diag);
         if (isOrthographic()) {
             float halfHeight = camera.position.distance(camera.target)
-                    * (float) Math.tan(Math.toRadians(camera.fov / NUM_2_0));
+                    * (float) Math.tan(Math.toRadians(camera.fov / 2.0));
             float halfWidth = halfHeight * aspect;
             localProjection.identity()
                     .ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, near, far);

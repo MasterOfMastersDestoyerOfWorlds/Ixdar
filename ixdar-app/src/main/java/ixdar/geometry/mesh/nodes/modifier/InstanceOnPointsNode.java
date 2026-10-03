@@ -27,10 +27,6 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 @MeshNodeAnnotation(id = "instance_on_points")
 public class InstanceOnPointsNode implements MeshNode {
     public static final String INSTANCE_MESH = "_instance_mesh";
-    public static final int NUM_3 = 3;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1 = 1f;
-
     public static final InputPort POINTS = new InputPort("points", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort INSTANCE = new InputPort("instance", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort ROTATION = new InputPort("rotation", PortType.ROTATION, new RotationValue(0f, 0f, 0f, 1f));
@@ -72,19 +68,19 @@ public class InstanceOnPointsNode implements MeshNode {
         }
 
         float[] positions = positionsFromBundle(pts);
-        if (positions.length < NUM_3) {
+        if (positions.length < 3) {
             ctx.setOutput(GEOMETRY.name, pts.withSlot(INSTANCE_MESH, inst));
             return;
         }
 
-        int n = positions.length / NUM_3;
+        int n = positions.length / 3;
         HalfEdgeMesh out = new HalfEdgeMesh();
         Matrix4f mat = new Matrix4f();
         Quaternionf q = new Quaternionf();
         for (int i = 0; i < n; i++) {
-            float x = positions[NUM_3 * i];
-            float y = positions[NUM_3 * i + 1];
-            float z = positions[NUM_3 * i + 2];
+            float x = positions[3 * i];
+            float y = positions[3 * i + 1];
+            float z = positions[3 * i + 2];
             RotationValue rv = rotationAt(rotObj, i);
             q.set(rv.x(), rv.y(), rv.z(), rv.w());
             mat.identity();
@@ -105,13 +101,13 @@ public class InstanceOnPointsNode implements MeshNode {
         if (m == null || m.vertexCount() == 0) {
             return new float[0];
         }
-        float[] p = new float[m.vertexCount() * NUM_3];
+        float[] p = new float[m.vertexCount() * 3];
         Vector3f tmp = new Vector3f();
         for (int i = 0; i < m.vertexCount(); i++) {
             m.vertexPosition(m.vertexIdAt(i), tmp);
-            p[NUM_3 * i] = tmp.x;
-            p[NUM_3 * i + 1] = tmp.y;
-            p[NUM_3 * i + 2] = tmp.z;
+            p[3 * i] = tmp.x;
+            p[3 * i + 1] = tmp.y;
+            p[3 * i + 2] = tmp.z;
         }
         return p;
     }
@@ -121,11 +117,11 @@ public class InstanceOnPointsNode implements MeshNode {
             if (i < rf.length()) {
                 return rf.rotationAt(i);
             }
-            return new RotationValue(NUM_0, NUM_0, NUM_0, NUM_1);
+            return new RotationValue(0f, 0f, 0f, 1f);
         }
         if (rot instanceof RotationValue rv) {
             return rv;
         }
-        return new RotationValue(NUM_0, NUM_0, NUM_0, NUM_1);
+        return new RotationValue(0f, 0f, 0f, 1f);
     }
 }

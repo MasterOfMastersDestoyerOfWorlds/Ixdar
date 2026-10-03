@@ -45,10 +45,8 @@ public class QuantizedMeshGrid implements MeshNode {
             PortType.BOOLEAN);
     public static final OutputPort VARIABLES = new OutputPort("variables", PortType.INT);
 
-    /** Cap on solve→collapse→cut rounds of the CBK15-style separation loop. */
     private static final int MAX_SEPARATION_ROUNDS = 50;
 
-    /** Cap on packed cut paths generated per separation round. */
     private static final int MAX_CUTS_PER_ROUND = 500;
 
     public final ArcNetwork network;

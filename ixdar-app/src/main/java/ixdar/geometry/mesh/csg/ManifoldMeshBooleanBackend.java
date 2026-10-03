@@ -19,13 +19,10 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 public final class ManifoldMeshBooleanBackend implements MeshBooleanBackend {
 
-    /** Position properties per vertex, and equally vertices per triangle. */
     public static final int THREE = 3;
 
-    /** Shared binding; constructing it loads the Manifold natives out of the jar. */
     public static final ManifoldBindings BINDINGS;
 
-    /** Downcalls the vendored binding lacks: original stamping and the run and face tables. */
     public static final ManifoldProvenanceBindings PROVENANCE;
 
     static {

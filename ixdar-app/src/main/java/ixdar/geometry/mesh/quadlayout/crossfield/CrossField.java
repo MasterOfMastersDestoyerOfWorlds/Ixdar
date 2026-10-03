@@ -20,9 +20,6 @@ import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
  * close up to a turn other than a full one.
  */
 public class CrossField {
-    /**
-     * A small value used to avoid division by zero and other numerical issues.
-     */
     public static final float EPSILON = 1e-12f;
     public static final float BASIS_AXIS_PICK_THRESHOLD = 0.9f;
     public static final float HALF_PI = (float) (Math.PI / 2.0);

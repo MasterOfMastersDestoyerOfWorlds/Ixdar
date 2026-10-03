@@ -16,9 +16,6 @@ import ixdar.geometry.mesh.nodes.api.Vector3Value;
 
 @MeshNodeAnnotation(id = "combine_xyz")
 public class CombineXyzNode implements MeshNode {
-    public static final int NUM_3 = 3;
-    public static final float NUM_0 = 0f;
-
     public static final InputPort X = new InputPort("x", PortType.FLOAT, 0.0f, -1000f, 1000f);
     public static final InputPort Y = new InputPort("y", PortType.FLOAT, 0.0f, -1000f, 1000f);
     public static final InputPort Z = new InputPort("z", PortType.FLOAT, 0.0f, -1000f, 1000f);
@@ -57,19 +54,19 @@ public class CombineXyzNode implements MeshNode {
 
         if (xo instanceof FloatField || yo instanceof FloatField || zo instanceof FloatField) {
             int n = FieldBroadcast.floatFieldLength3(xo, yo, zo);
-            float[] d = new float[n * NUM_3];
+            float[] d = new float[n * 3];
             for (int i = 0; i < n; i++) {
-                d[NUM_3 * i] = FieldBroadcast.floatAt(xo, i, NUM_0);
-                d[NUM_3 * i + 1] = FieldBroadcast.floatAt(yo, i, NUM_0);
-                d[NUM_3 * i + 2] = FieldBroadcast.floatAt(zo, i, NUM_0);
+                d[3 * i] = FieldBroadcast.floatAt(xo, i, 0f);
+                d[3 * i + 1] = FieldBroadcast.floatAt(yo, i, 0f);
+                d[3 * i + 2] = FieldBroadcast.floatAt(zo, i, 0f);
             }
             ctx.setOutput(VECTOR.name, new Vector3Field(d));
             return;
         }
 
-        float x = FieldBroadcast.floatScalarOrDefault(xo, NUM_0);
-        float y = FieldBroadcast.floatScalarOrDefault(yo, NUM_0);
-        float z = FieldBroadcast.floatScalarOrDefault(zo, NUM_0);
+        float x = FieldBroadcast.floatScalarOrDefault(xo, 0f);
+        float y = FieldBroadcast.floatScalarOrDefault(yo, 0f);
+        float z = FieldBroadcast.floatScalarOrDefault(zo, 0f);
         ctx.setOutput(VECTOR.name, new Vector3Value(x, y, z));
     }
 }

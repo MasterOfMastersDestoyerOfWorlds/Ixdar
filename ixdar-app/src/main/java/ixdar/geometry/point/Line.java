@@ -15,11 +15,9 @@ import ixdar.common.exceptions.TerminalParseException;
 @GeometryAnnotation(id = "ln")
 public class Line implements Geometry, PointCollection {
     public static final String LINE = "line";
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final int NUM_5 = 5;
-    public static final double NUM_5_0 = 5.0;
-    public static final int NUM_10 = 10;
+    public static final int ARG_COUNT = 5;
+    public static final double DEFAULT_HALF_LENGTH = 5.0;
+    public static final int DEFAULT_NUM_POINTS = 10;
     public static String cmd = "ln";
     public static OptionList opts = new OptionList("l", cmd, LINE);
 
@@ -32,14 +30,14 @@ public class Line implements Geometry, PointCollection {
 
     /**
      * Default line: from {@code (-5, 0)} to {@code (5, 0)} sampled at
-     * {@value #NUM_10} points. Vertices are not realized eagerly.
+     * {@value #DEFAULT_NUM_POINTS} points. Vertices are not realized eagerly.
      */
     public Line() {
-        xStart = -NUM_5_0;
+        xStart = -DEFAULT_HALF_LENGTH;
         yStart = 0.0;
-        xEnd = NUM_5_0;
+        xEnd = DEFAULT_HALF_LENGTH;
         yEnd = 0.0;
-        numPoints = NUM_10;
+        numPoints = DEFAULT_NUM_POINTS;
     }
 
     /**
@@ -89,8 +87,8 @@ public class Line implements Geometry, PointCollection {
         double xStart = Double.parseDouble(args[startIdx]);
         double yStart = Double.parseDouble(args[startIdx + 1]);
         double xEnd = Double.parseDouble(args[startIdx + 2]);
-        double yEnd = Double.parseDouble(args[startIdx + NUM_3]);
-        int numPoints = Integer.parseInt(args[startIdx + NUM_4]);
+        double yEnd = Double.parseDouble(args[startIdx + 3]);
+        int numPoints = Integer.parseInt(args[startIdx + 4]);
         Line l = new Line(xStart, yStart, numPoints, xEnd, yEnd);
         return l;
     }
@@ -169,13 +167,13 @@ public class Line implements Geometry, PointCollection {
     }
 
     /**
-     * Required positional arg count for parsing: {@value #NUM_5}.
+     * Required positional arg count for parsing: {@value #ARG_COUNT}.
      *
      * @return number of arguments {@link #parseLine} consumes
      */
     @Override
     public int argLength() {
-        return NUM_5;
+        return ARG_COUNT;
     }
 
     /**

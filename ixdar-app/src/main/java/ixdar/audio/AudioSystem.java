@@ -29,11 +29,9 @@ public class AudioSystem {
     public static final String RES_AUDIO_SFX = "res/audio/sfx/";
     public static final String IXDARASSETS = "IxdarAssets";
     public static final String AUDIO = "[Audio] ";
-    public static final int NUM_16 = 16;
-    public static final int NUM_4096 = 4096;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1 = 1f;
-    public static final int NUM_200 = 200;
+    public static final int BITS_PER_SAMPLE = 16;
+    public static final int READ_BUFFER_SIZE = 4096;
+    public static final int MAX_EVENT_LOG_SIZE = 200;
     private static final AudioSystem INSTANCE = new AudioSystem();
 
     private long device;
@@ -393,14 +391,14 @@ public class AudioSystem {
             AudioFormat decoded = new AudioFormat(
                     AudioFormat.Encoding.PCM_SIGNED,
                     base.getSampleRate(),
-                    NUM_16,
+                    BITS_PER_SAMPLE,
                     base.getChannels(),
                     base.getChannels() * 2,
                     base.getSampleRate(),
                     false);
             try (AudioInputStream pcmStream = javax.sound.sampled.AudioSystem.getAudioInputStream(decoded, inputStream)) {
                 ByteArrayOutputStream output = new ByteArrayOutputStream();
-                byte[] tmp = new byte[NUM_4096];
+                byte[] tmp = new byte[READ_BUFFER_SIZE];
                 int read = 0;
                 while ((read = pcmStream.read(tmp)) != -1) {
                     output.write(tmp, 0, read);
@@ -431,11 +429,11 @@ public class AudioSystem {
     }
 
     private float clamp(float value) {
-        if (value < NUM_0) {
-            return NUM_0;
+        if (value < 0f) {
+            return 0f;
         }
-        if (value > NUM_1) {
-            return NUM_1;
+        if (value > 1f) {
+            return 1f;
         }
         return value;
     }
@@ -462,7 +460,7 @@ public class AudioSystem {
     private void addAudioEvent(String event) {
         eventCounter++;
         eventLog.add(String.format("%d|%s|%s", eventCounter, Long.toString(System.currentTimeMillis()), event));
-        if (eventLog.size() > NUM_200) {
+        if (eventLog.size() > MAX_EVENT_LOG_SIZE) {
             eventLog.remove(0);
         }
     }

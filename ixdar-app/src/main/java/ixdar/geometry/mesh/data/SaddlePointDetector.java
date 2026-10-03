@@ -19,9 +19,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
  * crest-edge sets, blocking region growing and small-patch merging alike.
  */
 public final class SaddlePointDetector {
-    public static final int NUM_3 = 3;
-    public static final float NUM_1e_12 = 1e-12f;
-    public static final float NUM_0 = 0f;
+    public static final float EPSILON = 1e-12f;
 
     // Only fire at saddles whose magnitudes exceed these adaptive percentiles
     // of the per-vertex κ distributions. Keeps incidental skull saddles
@@ -91,7 +89,7 @@ public final class SaddlePointDetector {
         }
 
         Set<Long> out = new HashSet<>();
-        float[] dir = new float[NUM_3];
+        float[] dir = new float[3];
         for (int seed : seeds) {
             pdf.dirMax(seed, dir);
             walk(seed, dir, +1, STEPS_PER_SIDE, ring, positions, out);
@@ -120,11 +118,11 @@ public final class SaddlePointDetector {
             int best = -1;
             float bestDot = MIN_DOT;
             for (int u : ring[v]) {
-                float ex = positions[u * NUM_3]     - positions[v * NUM_3];
-                float ey = positions[u * NUM_3 + 1] - positions[v * NUM_3 + 1];
-                float ez = positions[u * NUM_3 + 2] - positions[v * NUM_3 + 2];
+                float ex = positions[u * 3]     - positions[v * 3];
+                float ey = positions[u * 3 + 1] - positions[v * 3 + 1];
+                float ez = positions[u * 3 + 2] - positions[v * 3 + 2];
                 float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
-                if (elen < NUM_1e_12) continue;
+                if (elen < EPSILON) continue;
                 float dot = (ex * dx + ey * dy + ez * dz) / elen;
                 if (dot > bestDot) {
                     bestDot = dot;
@@ -133,11 +131,11 @@ public final class SaddlePointDetector {
             }
             if (best < 0) break;
             out.add(( EdgeKey.undirected(v, best)));
-            float ex = positions[best * NUM_3]     - positions[v * NUM_3];
-            float ey = positions[best * NUM_3 + 1] - positions[v * NUM_3 + 1];
-            float ez = positions[best * NUM_3 + 2] - positions[v * NUM_3 + 2];
+            float ex = positions[best * 3]     - positions[v * 3];
+            float ey = positions[best * 3 + 1] - positions[v * 3 + 1];
+            float ez = positions[best * 3 + 2] - positions[v * 3 + 2];
             float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
-            if (elen < NUM_1e_12) break;
+            if (elen < EPSILON) break;
             dx = ex / elen;
             dy = ey / elen;
             dz = ez / elen;
@@ -149,7 +147,7 @@ public final class SaddlePointDetector {
         int nv = pdf.vertexCount();
         float[] samples = new float[nv];
         for (int v = 0; v < nv; v++) {
-            samples[v] = max ? Math.max(pdf.kappaMax(v), NUM_0) : Math.max(-pdf.kappaMin(v), NUM_0);
+            samples[v] = max ? Math.max(pdf.kappaMax(v), 0f) : Math.max(-pdf.kappaMin(v), 0f);
         }
         Arrays.sort(samples);
         int idx = Math.min(nv - 1, Math.max(0, Math.round((nv - 1) * pct)));

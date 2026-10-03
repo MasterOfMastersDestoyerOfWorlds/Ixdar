@@ -16,9 +16,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  * {@link HalfEdgeMesh}).
  */
 public final class MeshVertexOffset {
-    public static final float NUM_0 = 0f;
-    public static final int NUM_3 = 3;
-
     private MeshVertexOffset() {
     }
 
@@ -47,13 +44,13 @@ public final class MeshVertexOffset {
         } else if (offsetObj instanceof Vector3Value vv) {
             uniform = vv;
         } else {
-            uniform = new Vector3Value(NUM_0, NUM_0, NUM_0);
+            uniform = new Vector3Value(0f, 0f, 0f);
         }
 
         if (mesh instanceof ArrayMesh am) {
             float[] pos = am.copyPositions();
             for (int i = 0; i < n; i++) {
-                int o = i * NUM_3;
+                int o = i * 3;
                 if (field != null) {
                     pos[o] += field.getX(i);
                     pos[o + 1] += field.getY(i);

@@ -20,8 +20,6 @@ import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
 
 @MeshNodeAnnotation(id = "merge_by_distance")
 public class MergeByDistanceNode implements MeshNode {
-    public static final float NUM_0_001 = 0.001f;
-
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort DISTANCE = new InputPort("distance", PortType.FLOAT, 0.001f, 1e-6f, 1f);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
@@ -53,7 +51,7 @@ public class MergeByDistanceNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         Object d = FieldBroadcast.getInputOrDefault(ctx, DISTANCE.name, DISTANCE.defaultValue);
-        float dist = FieldBroadcast.floatScalarOrDefault(d, NUM_0_001);
+        float dist = FieldBroadcast.floatScalarOrDefault(d, 0.001f);
         MeshTopology inMesh = base.mesh();
         MeshMergeByDistance welder = new MeshMergeByDistance();
         var outMesh = welder.weld(inMesh, dist);

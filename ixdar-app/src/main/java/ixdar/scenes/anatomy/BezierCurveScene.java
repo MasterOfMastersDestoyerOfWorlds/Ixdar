@@ -10,12 +10,10 @@ import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "bezier-curve-canvas")
 public class BezierCurveScene extends Scene {
-    public static final double NUM_0_7 = 0.7;
-    public static final double NUM_0_2 = 0.2;
-    public static final double NUM_0_35 = 0.35;
-    public static final double NUM_0_5 = 0.5;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_0 = 0f;
+    public static final double ENDPOINT_X = 0.7;
+    public static final double ENDPOINT_Y = 0.2;
+    public static final double CONTROL_X = 0.35;
+    public static final double CONTROL_Y = 0.5;
     public PointND point2;
     public PointND point1;
     public PointND control;
@@ -36,9 +34,9 @@ public class BezierCurveScene extends Scene {
     @Override
     public void initPoints() {
         super.initPoints();
-        point1 = new PointND.Double(-NUM_0_7, NUM_0_2);
-        point2 = new PointND.Double(NUM_0_7, -NUM_0_2);
-        control = new PointND.Double(-NUM_0_35, -NUM_0_5);
+        point1 = new PointND.Double(-ENDPOINT_X, ENDPOINT_Y);
+        point2 = new PointND.Double(ENDPOINT_X, -ENDPOINT_Y);
+        control = new PointND.Double(-CONTROL_X, -CONTROL_Y);
         shell.add(point1);
         shell.add(point2);
         shell.add(control);
@@ -69,9 +67,9 @@ public class BezierCurveScene extends Scene {
         bezier.pA = screenSpaceVectors[0];
         bezier.pControl = screenSpaceVectors[1];
         bezier.pB = screenSpaceVectors[2];
-        bezier.lineWidth = NUM_1;
+        bezier.lineWidth = 1f;
         bezier.c2 = Color.GREEN;
-        bezier.draw(NUM_0, NUM_0, cx, cy, Color.RED, camera2D);
+        bezier.draw(0f, 0f, cx, cy, Color.RED, camera2D);
     }
 
 }

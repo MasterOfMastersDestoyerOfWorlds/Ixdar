@@ -23,13 +23,9 @@ import ixdar.parsing.python.PythonParser;
  */
 public final class GraphValidator {
     public static final String LINE = "Line ";
-    public static final String STR = "'";
-    public static final String STR_2 = "': ";
     public static final String NODE = ": Node '";
-    public static final String STR_3 = ", ";
-    public static final String STR_4 = ".";
-    public static final String STR_5 = " (";
-    public static final int NUM_4 = 4;
+    public static final String PORT_LIST_SEPARATOR = ", ";
+    public static final int SUGGESTION_EDIT_DISTANCE_LIMIT = 4;
 
     private GraphValidator() {
     }
@@ -75,7 +71,7 @@ public final class GraphValidator {
             }
             Class<? extends MeshNode> clazz = registry.get(n.type);
             if (clazz == null) {
-                String msg = LINE + n.line + ": Unknown node type '" + n.type + "' for node '" + n.id + STR;
+                String msg = LINE + n.line + ": Unknown node type '" + n.type + "' for node '" + n.id + "'";
                 String suggestion = findClosestType(n.type, registry.keySet());
                 if (suggestion != null) {
                     msg += ". Did you mean '" + suggestion + "'?";
@@ -87,7 +83,7 @@ public final class GraphValidator {
             try {
                 instance = clazz.getDeclaredConstructor().newInstance();
             } catch (ReflectiveOperationException e) {
-                errors.add(LINE + n.line + ": Cannot instantiate node type '" + n.type + STR_2 + e.getMessage());
+                errors.add(LINE + n.line + ": Cannot instantiate node type '" + n.type + "': " + e.getMessage());
                 continue;
             }
             MeshNodeSchema schema = instance.schema();
@@ -98,7 +94,7 @@ public final class GraphValidator {
                 if (ip == null) {
                     List<String> validInputs = schema.inputs().stream().map(p -> p.name).toList();
                     errors.add(LINE + n.line + NODE + n.id + "' has unknown input port '" + portName
-                            + "'. Valid inputs: " + String.join(STR_3, validInputs));
+                            + "'. Valid inputs: " + String.join(PORT_LIST_SEPARATOR, validInputs));
                     continue;
                 }
                 if (val instanceof PythonParser.NodeReference ref) {
@@ -135,7 +131,7 @@ public final class GraphValidator {
                 if (val instanceof PythonParser.NodeReference ref) {
                     PythonParser.ParsedNode src = byId.get(ref.nodeId);
                     if (src != null && "random_value".equals(src.type)) {
-                        warnings.add("Link " + ref.nodeId + STR_4 + ref.portName + " -> " + n.id + STR_4
+                        warnings.add("Link " + ref.nodeId + "." + ref.portName + " -> " + n.id + "."
                                 + arg.getKey()
                                 + ": random_value fills only one of float_out/int_out/vector_out depending on mode; "
                                 + "other outputs are null at runtime.");
@@ -151,31 +147,31 @@ public final class GraphValidator {
             PythonParser.NodeReference ref, InputPort targetInput) {
         PythonParser.ParsedNode sourceNode = byId.get(ref.nodeId);
         if (sourceNode == null) {
-            errors.add(LINE + consumerLine + ": Edge to '" + consumerId + "': unknown source node '" + ref.nodeId + STR);
+            errors.add(LINE + consumerLine + ": Edge to '" + consumerId + "': unknown source node '" + ref.nodeId + "'");
             return;
         }
         Class<? extends MeshNode> sourceClass = registry.get(sourceNode.type);
         if (sourceClass == null) {
-            errors.add(LINE + consumerLine + ": Edge from '" + ref.nodeId + "': unknown source node type '" + sourceNode.type + STR);
+            errors.add(LINE + consumerLine + ": Edge from '" + ref.nodeId + "': unknown source node type '" + sourceNode.type + "'");
             return;
         }
         MeshNode sourceInstance;
         try {
             sourceInstance = sourceClass.getDeclaredConstructor().newInstance();
         } catch (ReflectiveOperationException e) {
-            errors.add(LINE + consumerLine + ": Cannot instantiate source '" + sourceNode.type + STR_2 + e.getMessage());
+            errors.add(LINE + consumerLine + ": Cannot instantiate source '" + sourceNode.type + "': " + e.getMessage());
             return;
         }
         OutputPort out = findOutput(sourceInstance.schema(), ref.portName);
         if (out == null) {
             List<String> validOutputs = sourceInstance.schema().outputs().stream().map(p -> p.name).toList();
             errors.add(LINE + consumerLine + NODE + ref.nodeId + "' has no output port '" + ref.portName + "' (used from '"
-                    + consumerId + "'). Valid outputs: " + String.join(STR_3, validOutputs));
+                    + consumerId + "'). Valid outputs: " + String.join(PORT_LIST_SEPARATOR, validOutputs));
             return;
         }
         if (!portTypesCompatible(out.type, targetInput.type)) {
-            errors.add(LINE + consumerLine + ": Type mismatch " + ref.nodeId + STR_4 + ref.portName + STR_5 + out.type + ") -> "
-                    + consumerId + STR_4 + targetInput.name + STR_5 + targetInput.type + ")");
+            errors.add(LINE + consumerLine + ": Type mismatch " + ref.nodeId + "." + ref.portName + " (" + out.type + ") -> "
+                    + consumerId + "." + targetInput.name + " (" + targetInput.type + ")");
         }
     }
 
@@ -211,7 +207,7 @@ public final class GraphValidator {
     /** Returns the closest matching type name, or null if none within edit distance 3. */
     static String findClosestType(String unknown, Collection<String> knownTypes) {
         String best = null;
-        int bestDist = NUM_4; // threshold: only suggest if distance ≤ 3
+        int bestDist = SUGGESTION_EDIT_DISTANCE_LIMIT; // threshold: only suggest if distance ≤ 3
         for (String known : knownTypes) {
             int d = editDistance(unknown, known);
             if (d < bestDist) {

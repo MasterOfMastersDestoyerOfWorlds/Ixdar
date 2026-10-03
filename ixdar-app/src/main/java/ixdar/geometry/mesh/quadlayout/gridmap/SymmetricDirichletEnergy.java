@@ -16,13 +16,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 public final class SymmetricDirichletEnergy {
 
-    /** Variables per triangle: three corners in two coordinates. */
     public static final int VARIABLES = 6;
 
-    /**
-     * Fraction of {@code ‖α‖+‖β‖} smoothing a curvature weight's {@code 0/0}
-     * cone point toward its analytic limit {@code h_ΣΣ+h_σσ}.
-     */
     public static final double DEGENERATE_NORM_FRACTION = 1.0e-8;
 
     /**

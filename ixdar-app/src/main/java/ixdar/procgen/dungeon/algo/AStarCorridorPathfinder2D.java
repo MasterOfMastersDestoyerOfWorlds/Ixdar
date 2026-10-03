@@ -16,7 +16,6 @@ import ixdar.procgen.dungeon.values.CellType;
  * working grid in input order, so callers must supply edges deterministically.
  */
 public final class AStarCorridorPathfinder2D {
-    public static final int NUM_4 = 4;
 
     /** Default per-cell entry costs: reusing a hallway is cheap, empty space moderate, a room interior steep. */
     public static final double DEFAULT_HALLWAY_REUSE_COST = 1.0;
@@ -130,7 +129,7 @@ public final class AStarCorridorPathfinder2D {
             if (cur == targetIdx) break;
             int cx = cur % gridW;
             int cy = cur / gridW;
-            for (int d = 0; d < NUM_4; d++) {
+            for (int d = 0; d < 4; d++) {
                 int nx = cx + DX[d];
                 int ny = cy + DY[d];
                 if (nx < 0 || nx >= gridW || ny < 0 || ny >= gridH) continue;

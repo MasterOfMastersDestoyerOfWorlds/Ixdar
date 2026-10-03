@@ -37,13 +37,10 @@ public final class MeshHoleFiller {
     /** Relative residual the fairing solve stops at. */
     private static final double FAIRING_TOLERANCE = 1e-12;
 
-    /** Edge-flip passes per refinement round. */
     private static final int RELAX_PASSES = 8;
 
-    /** Growth factor for the local vertex and triangle buffers. */
     private static final int GROWTH = 2;
 
-    /** Half, for triangle areas. */
     private static final double HALF = 0.5;
 
     /** Loop vertex positions in traversal order, x. */

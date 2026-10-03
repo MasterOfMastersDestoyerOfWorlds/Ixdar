@@ -24,7 +24,6 @@ import ixdar.geometry.mesh.nodes.api.Vector3Value;
 @MeshNodeAnnotation(id = "select_ring")
 public class SelectRingNode implements MeshNode {
 
-    /** Edge-marks label the picked ring is republished under. */
     public static final String SELECTED_LABEL = "selected_ring";
 
     public static final InputPort RINGS = new InputPort("rings", PortType.GEOMETRY_BUNDLE, null);

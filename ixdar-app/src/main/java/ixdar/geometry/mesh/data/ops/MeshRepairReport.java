@@ -7,10 +7,8 @@ package ixdar.geometry.mesh.data.ops;
  */
 public final class MeshRepairReport {
 
-    /** Bundle slot the {@code repair_mesh} node parks this report on. */
     public static final String SLOT = "_repair_report";
 
-    /** Edge-marks label carrying the boundary edges the repair left open. */
     public static final String OPEN_BOUNDARY_LABEL = "open_boundary";
 
     /** Vertices in the mesh handed to the repair. */

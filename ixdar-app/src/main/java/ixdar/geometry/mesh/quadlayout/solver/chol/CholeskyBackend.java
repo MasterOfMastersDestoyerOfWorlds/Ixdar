@@ -12,7 +12,6 @@ import ixdar.platform.Platforms;
  */
 public final class CholeskyBackend {
 
-    /** Fraction of the largest free diagonal entry used as the shift on a singular retry. */
     public static final double SINGULAR_DIAGONAL_SHIFT_FRACTION = 1.0e-10;
 
     /**

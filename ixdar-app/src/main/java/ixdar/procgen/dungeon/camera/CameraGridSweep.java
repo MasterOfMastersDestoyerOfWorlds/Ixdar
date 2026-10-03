@@ -14,12 +14,9 @@ import ixdar.procgen.dungeon.values.CellType;
  * pivot-to-desired line.
  */
 public final class CameraGridSweep {
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1e_6 = 1e-6f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_1e_4 = 1e-4f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_32 = 32f;
+    public static final float MIN_SWEEP_DISTANCE = 1e-6f;
+    public static final float MIN_STEP_SIZE = 1e-4f;
+    public static final float SWEEP_STEP_DIVISOR = 32f;
 
     private CameraGridSweep() {
     }
@@ -44,22 +41,22 @@ public final class CameraGridSweep {
     public static Vector3f sweep(Vector3f pivot, Vector3f desired, float cameraRadius,
                               CellType[] cells, int gridW, int gridH, int gridD,
                               float cellSize, float padding) {
-        if (cellSize <= NUM_0) {
+        if (cellSize <= 0f) {
             throw new IllegalArgumentException("cellSize must be > 0, got " + cellSize);
         }
         Vector3f delta = desired.sub(pivot);
         float dist = delta.length();
-        if (dist < NUM_1e_6) return desired;
-        Vector3f dir = delta.mul(NUM_1 / dist);
+        if (dist < MIN_SWEEP_DISTANCE) return desired;
+        Vector3f dir = delta.mul(1f / dist);
 
-        float step = Math.max(NUM_1e_4, Math.min(cameraRadius * NUM_0_5, dist / NUM_32));
-        float lastClear = NUM_0;
+        float step = Math.max(MIN_STEP_SIZE, Math.min(cameraRadius * 0.5f, dist / SWEEP_STEP_DIVISOR));
+        float lastClear = 0f;
         for (float t = step; t <= dist; t += step) {
             Vector3f p = new Vector3f(pivot.x() + dir.x() * t,
                                 pivot.y() + dir.y() * t,
                                 pivot.z() + dir.z() * t);
             if (overlapsObstacle(p, cameraRadius, cells, gridW, gridH, gridD, cellSize)) {
-                float clipped = Math.max(NUM_0, lastClear - padding);
+                float clipped = Math.max(0f, lastClear - padding);
                 return new Vector3f(pivot.x() + dir.x() * clipped,
                                  pivot.y() + dir.y() * clipped,
                                  pivot.z() + dir.z() * clipped);
@@ -68,7 +65,7 @@ public final class CameraGridSweep {
         }
         // Final endpoint check (loop may stop just short of dist due to step granularity).
         if (overlapsObstacle(desired, cameraRadius, cells, gridW, gridH, gridD, cellSize)) {
-            float clipped = Math.max(NUM_0, lastClear - padding);
+            float clipped = Math.max(0f, lastClear - padding);
             return new Vector3f(pivot.x() + dir.x() * clipped,
                              pivot.y() + dir.y() * clipped,
                              pivot.z() + dir.z() * clipped);
@@ -79,10 +76,10 @@ public final class CameraGridSweep {
     private static boolean overlapsObstacle(Vector3f center, float radius,
                                             CellType[] cells, int gridW, int gridH, int gridD,
                                             float cellSize) {
-        float offsetX = -gridW * cellSize * NUM_0_5;
-        float offsetY = -gridH * cellSize * NUM_0_5;
-        float offsetZ = -gridD * cellSize * NUM_0_5;
-        CapsuleShape sphere = new CapsuleShape(center.x(), center.y(), center.z(), NUM_0, radius);
+        float offsetX = -gridW * cellSize * 0.5f;
+        float offsetY = -gridH * cellSize * 0.5f;
+        float offsetZ = -gridD * cellSize * 0.5f;
+        CapsuleShape sphere = new CapsuleShape(center.x(), center.y(), center.z(), 0f, radius);
         int xLo = (int) Math.floor((center.x() - radius - offsetX) / cellSize);
         int xHi = (int) Math.floor((center.x() + radius - offsetX) / cellSize);
         int yLo = (int) Math.floor((center.y() - radius - offsetY) / cellSize);

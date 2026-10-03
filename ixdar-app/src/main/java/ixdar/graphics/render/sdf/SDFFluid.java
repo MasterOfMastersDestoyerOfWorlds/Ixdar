@@ -9,15 +9,13 @@ import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 
 public class SDFFluid extends ShaderDrawable {
     public static final String TEXTURE_PIXEL_SIZE = "TEXTURE_PIXEL_SIZE";
-    public static final float NUM_1 = 1f;
-    public static final int NUM_3 = 3;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_33 = 0.33f;
-    public static final float NUM_0_27 = 0.27f;
-    public static final float NUM_0_12 = 0.12f;
-    public static final float NUM_2 = 2f;
-    public static final float NUM_0_1 = 0.1f;
-    public static final float NUM_40000 = 40000f;
+    public static final int SPIN_SPEED = 3;
+    public static final float COLOR_MIX_1 = 0.33f;
+    public static final float COLOR_MIX_2 = 0.27f;
+    public static final float COLOR_MIX_3 = 0.12f;
+    public static final float CONTRAST = 2f;
+    public static final float SPIN_AMOUNT = 0.1f;
+    public static final float PIXEL_FILTER = 40000f;
 
     /**
      * Bind the fluid (animated swirl) SDF shader.
@@ -32,9 +30,9 @@ public class SDFFluid extends ShaderDrawable {
      */
     protected void setUniforms() {
         shader.setBool("polar_coordinates", false); // cool polar coordinates effect
-        shader.setVec2("polar_center", new Vector2f(NUM_1));
-        shader.setFloat("polar_zoom", NUM_1);
-        shader.setFloat("polar_repeat", NUM_1);
+        shader.setVec2("polar_center", new Vector2f(1f));
+        shader.setFloat("polar_zoom", 1f);
+        shader.setFloat("polar_repeat", 1f);
         if (width > height) {
             shader.setVec2(TEXTURE_PIXEL_SIZE, new Vector2f(1, height / width));
         } else {
@@ -42,13 +40,13 @@ public class SDFFluid extends ShaderDrawable {
         }
         shader.setFloat("TIME", Clock.time());
         shader.setFloat("spin_rotation", 1);
-        shader.setFloat("spin_speed", NUM_3);
-        shader.setVec2("offset", new Vector2f(NUM_0, NUM_0));
-        shader.setVec4("colour_1", new ColorLerp(Color.PURPLE, Color.NAVY, NUM_0_33).toVector4f());
-        shader.setVec4("colour_2", new ColorLerp(Color.IXDAR, Color.LIGHT_NAVY, NUM_0_27).toVector4f());
-        shader.setVec4("colour_3", new ColorLerp(Color.DARK_IXDAR, Color.DARK_PURPLE, NUM_0_12).toVector4f());
-        shader.setFloat("contrast", NUM_2);
-        shader.setFloat("spin_amount", NUM_0_1);
-        shader.setFloat("pixel_filter", NUM_40000);
+        shader.setFloat("spin_speed", SPIN_SPEED);
+        shader.setVec2("offset", new Vector2f(0f, 0f));
+        shader.setVec4("colour_1", new ColorLerp(Color.PURPLE, Color.NAVY, COLOR_MIX_1).toVector4f());
+        shader.setVec4("colour_2", new ColorLerp(Color.IXDAR, Color.LIGHT_NAVY, COLOR_MIX_2).toVector4f());
+        shader.setVec4("colour_3", new ColorLerp(Color.DARK_IXDAR, Color.DARK_PURPLE, COLOR_MIX_3).toVector4f());
+        shader.setFloat("contrast", CONTRAST);
+        shader.setFloat("spin_amount", SPIN_AMOUNT);
+        shader.setFloat("pixel_filter", PIXEL_FILTER);
     }
 }

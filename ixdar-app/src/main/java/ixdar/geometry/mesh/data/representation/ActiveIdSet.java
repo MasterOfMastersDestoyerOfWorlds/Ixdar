@@ -11,10 +11,8 @@ import java.util.Arrays;
  */
 public final class ActiveIdSet {
 
-    /** Smallest backing array this will allocate. */
     private static final int MINIMUM_CAPACITY = 4;
 
-    /** Marks an id that is not in the set. */
     private static final int ABSENT = -1;
 
     /** Live ids, dense over {@code [0, size)}. */

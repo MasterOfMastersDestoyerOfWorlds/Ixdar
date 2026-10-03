@@ -13,15 +13,9 @@ import java.util.Arrays;
  */
 public final class LeftoverConstraintEliminator {
 
-    /**
-     * A pivot candidate must have magnitude at least this fraction of its
-     * row's maximum. With exact ±1 initial coefficients this accepts every
-     * unit entry while refusing entries that elimination has shrunk.
-     */
     private static final double PIVOT_MAGNITUDE_GUARD = 0.5;
 
 
-    /** Tolerance for the leftover-row Gauss-Jordan pivot magnitude. */
     private static final double LEFTOVER_REDUCE_TOLERANCE = 1.0e-10;
 
     /** Per raw DOF: the non-pivot DOFs its substitution expands into; null for non-pivots. */

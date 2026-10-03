@@ -15,10 +15,8 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public final class QuadTriangulation {
 
-    /** Coordinates per vertex, and equally vertices per triangle. */
     public static final int THREE = 3;
 
-    /** Vertices in a quad. */
     public static final int QUAD_VERTEX_COUNT = 4;
 
     /** Source mesh being triangulated. */

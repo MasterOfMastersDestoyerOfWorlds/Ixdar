@@ -20,10 +20,8 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
  * <p>See also: Yoshizawa 2005
  */
 public final class CrestLineDetector {
-    public static final int NUM_3 = 3;
-    public static final float NUM_1e_12 = 1e-12f;
-    public static final float NUM_0_1 = 0.1f;
-    public static final int NUM_6 = 6;
+    public static final float EPSILON = 1e-12f;
+    public static final float MIN_FORWARD_PROGRESS = 0.1f;
 
     // Adaptive threshold: a vertex is a ridge candidate when its
     // |kappaMax| is at least this multiple of the mesh median.
@@ -74,7 +72,7 @@ public final class CrestLineDetector {
         // --- Non-maximum suppression along the eigenvector ---
         boolean[] isRidgePoint = new boolean[nv];
         boolean[] isValleyPoint = new boolean[nv];
-        float[] dir = new float[NUM_3];
+        float[] dir = new float[3];
         for (int v = 0; v < nv; v++) {
             if (isRidgeCandidate[v]) {
                 pdf.dirMax(v, dir);
@@ -125,11 +123,11 @@ public final class CrestLineDetector {
         int posBest = -1, negBest = -1;
         float posBestDot = 0, negBestDot = 0;
         for (int u : ring) {
-            float ex = positions[u * NUM_3]     - positions[v * NUM_3];
-            float ey = positions[u * NUM_3 + 1] - positions[v * NUM_3 + 1];
-            float ez = positions[u * NUM_3 + 2] - positions[v * NUM_3 + 2];
+            float ex = positions[u * 3]     - positions[v * 3];
+            float ey = positions[u * 3 + 1] - positions[v * 3 + 1];
+            float ez = positions[u * 3 + 2] - positions[v * 3 + 2];
             float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
-            if (elen < NUM_1e_12) continue;
+            if (elen < EPSILON) continue;
             float dot = (ex * dir[0] + ey * dir[1] + ez * dir[2]) / elen;
             if (dot > posBestDot) { posBestDot = dot; posBest = u; }
             if (dot < negBestDot) { negBestDot = dot; negBest = u; }
@@ -152,7 +150,7 @@ public final class CrestLineDetector {
         int nv = isPoint.length;
         boolean[] visited = new boolean[nv];
         List<int[]> out = new ArrayList<>();
-        float[] dir = new float[NUM_3];
+        float[] dir = new float[3];
         for (int seed = 0; seed < nv; seed++) {
             if (!isPoint[seed] || visited[seed]) continue;
             // Trace in both directions from seed.
@@ -197,16 +195,16 @@ public final class CrestLineDetector {
             // Find the best 1-ring neighbour: a ridge/valley point whose edge
             // direction is most aligned with `dir`.
             int bestU = -1;
-            float bestDot = NUM_0_1;  // require some forward progress
+            float bestDot = MIN_FORWARD_PROGRESS;  // require some forward progress
             float bestEx = 0, bestEy = 0, bestEz = 0;
             for (int u : ring[v]) {
                 if (!isPoint[u]) continue;
                 if (visited[u]) continue;
-                float ex = positions[u * NUM_3]     - positions[v * NUM_3];
-                float ey = positions[u * NUM_3 + 1] - positions[v * NUM_3 + 1];
-                float ez = positions[u * NUM_3 + 2] - positions[v * NUM_3 + 2];
+                float ex = positions[u * 3]     - positions[v * 3];
+                float ey = positions[u * 3 + 1] - positions[v * 3 + 1];
+                float ez = positions[u * 3 + 2] - positions[v * 3 + 2];
                 float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
-                if (elen < NUM_1e_12) continue;
+                if (elen < EPSILON) continue;
                 float dot = (ex * dir[0] + ey * dir[1] + ez * dir[2]) / elen;
                 if (dot > bestDot) {
                     bestDot = dot;
@@ -239,7 +237,7 @@ public final class CrestLineDetector {
 
     private static int[][] buildOneRing(EdgeDihedrals ed, int nv) {
         List<List<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(NUM_6));
+        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(6));
         for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
             long key = e.getKey();
             int u = EdgeKey.minVertex(key);

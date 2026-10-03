@@ -29,11 +29,9 @@ import ixdar.platform.input.MouseTrap;
  * Owns its HyperString buffer and a scroll subscription bound.
  */
 public class ShaderCodePane implements MouseTrap.ScrollHandler {
-    public static final float NUM_2 = 2f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_8 = 8f;
-    public static final float NUM_20 = 20f;
-    public static final float NUM_1 = 1f;
+    public static final float CROSSHAIR_LINE_WIDTH = 2f;
+    public static final float FLASH_RADS_PER_SECOND = 8f;
+    public static final float CROSSHAIR_SIZE_PX = 20f;
 
     // private ExpressionParser expressionParser;
 
@@ -104,7 +102,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                 b -> b.update(
                         Platforms.get().getFrameBufferWidth() / 2,
                         0,
-                        showCode ? Platforms.get().getFrameBufferWidth() / NUM_2 : NUM_0,
+                        showCode ? Platforms.get().getFrameBufferWidth() / 2f : 0f,
                         Platforms.get().getFrameBufferHeight()),
                 DEFAULT_VIEW_RIGHT);
 
@@ -116,10 +114,10 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         }, Color.CYAN, () -> {
             showCode = !showCode;
             if (showCode) {
-                paneBounds.viewWidth = Platforms.get().getFrameBufferWidth() / NUM_2;
-                parentBounds.viewWidth = Platforms.get().getFrameBufferWidth() / NUM_2;
+                paneBounds.viewWidth = Platforms.get().getFrameBufferWidth() / 2f;
+                parentBounds.viewWidth = Platforms.get().getFrameBufferWidth() / 2f;
             } else {
-                paneBounds.viewWidth = NUM_0;
+                paneBounds.viewWidth = 0f;
                 parentBounds.viewWidth = Platforms.get().getFrameBufferWidth();
             }
             camera.updateView(paneBounds.id);
@@ -157,7 +155,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
                             if (isClicked) {
                                 dyn.addWord(w, Color.YELLOW);
                             } else if (isHoverPulse) {
-                                dyn.addWord(w, ColorLerp.flashColor(Color.YELLOW, NUM_8));
+                                dyn.addWord(w, ColorLerp.flashColor(Color.YELLOW, FLASH_RADS_PER_SECOND));
                             } else {
                                 dyn.addWord(w, t.color.get(Math.min(k, t.color.size() - 1)));
                             }
@@ -226,8 +224,8 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     }
 
     private GLSLParseText updateCacheIfMouseMoved() {
-        float mx = NUM_0;
-        float my = NUM_0;
+        float mx = 0f;
+        float my = 0f;
         if (crosshairLocked) {
             mx = lockedX;
             my = lockedY;
@@ -239,7 +237,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             return GLSLParseText.BLANK;
         }
         Map<String, GLSLParseText> env = uniformProvider.getUniformMap();
-        GLSLParseText.put(env, "pos", mx, my, NUM_0);
+        GLSLParseText.put(env, "pos", mx, my, 0f);
         Quad q = uniformProvider.getQuad();
         if (q != null) {
             Vector2f m = new Vector2f(mx, my);
@@ -276,7 +274,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
     }
 
     private GLSLParseText mouseText() {
-        float mx = NUM_0, my = NUM_0;
+        float mx = 0f, my = 0f;
         if (canvas.mouse != null) {
             mx = canvas.mouse.normalizedPosX;
             my = canvas.mouse.normalizedPosY;
@@ -303,11 +301,11 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
         d.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera);
 
         if (crosshairLocked && crosshairScreenPos != null) {
-            float crosshairSize = NUM_20;
+            float crosshairSize = CROSSHAIR_SIZE_PX;
             float cx = crosshairScreenPos.x;
             float cy = crosshairScreenPos.y;
 
-            d.sdfLine.setStroke(NUM_2, false, NUM_1, NUM_0, false, false, false, camera);
+            d.sdfLine.setStroke(CROSSHAIR_LINE_WIDTH, false, 1f, 0f, false, false, false, camera);
             d.sdfLine.draw(new Vector2f(cx - crosshairSize, cy), new Vector2f(cx + crosshairSize, cy), Color.CYAN,
                     camera);
             d.sdfLine.draw(new Vector2f(cx, cy - crosshairSize), new Vector2f(cx, cy + crosshairSize), Color.CYAN,

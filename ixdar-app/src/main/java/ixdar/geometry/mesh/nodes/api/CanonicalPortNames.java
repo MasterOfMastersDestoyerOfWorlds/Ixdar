@@ -10,11 +10,6 @@ import java.util.Set;
  */
 public final class CanonicalPortNames {
 
-    /**
-     * Canonical (required) name of an operation-selector input: a
-     * mode-constrained string choosing the operation to perform (e.g.
-     * {@code ADD}, {@code AND}).
-     */
     public static final String OPERATION_SELECTOR = "operation";
 
     private static final Map<PortType, String> CANONICAL = new EnumMap<>(PortType.class);

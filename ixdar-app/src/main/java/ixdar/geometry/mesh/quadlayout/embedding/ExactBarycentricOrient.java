@@ -14,21 +14,10 @@ public final class ExactBarycentricOrient {
     /** Exact evaluations taken since startup, a filter-miss diagnostic. */
     public static long exactSignCallCount;
 
-    /** Machine epsilon for IEEE 754 double precision, {@code 2^-53}. */
     private static final double EPSILON = Math.ulp(1.0) / 2.0;
 
-    /**
-     * Conservative forward error bound for the floating-point determinant, relative to
-     * the sum of the magnitudes of its six products. Deliberately loose: certifying a
-     * sign too rarely only costs an exact evaluation, whereas certifying one too often
-     * is a wrong answer.
-     */
     private static final double ERROR_BOUND = 16.0 * EPSILON;
 
-    /**
-     * Expansion component bound: six triple products of four components each, with
-     * headroom — grow-expansion never lengthens past one component per addend.
-     */
     private static final int EXPANSION_CAPACITY = 26;
 
     private ExactBarycentricOrient() {

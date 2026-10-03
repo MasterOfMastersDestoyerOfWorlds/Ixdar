@@ -19,12 +19,7 @@ import ixdar.geometry.mesh.nodes.patch.CharrotGregoryPatch;
  * <p>See also: Charrot-Gregory 1984
  */
 public final class CharrotGregoryPatchSampler {
-    public static final int NUM_3 = 3;
-    public static final float NUM_0 = 0f;
-    public static final double NUM_0_5 = 0.5;
-    public static final double NUM_2_0 = 2.0;
-    public static final double NUM_0_95 = 0.95;
-    public static final int NUM_4 = 4;
+    public static final double PERCENTILE_95 = 0.95;
 
     private CharrotGregoryPatchSampler() {}
 
@@ -52,8 +47,8 @@ public final class CharrotGregoryPatchSampler {
                                        int[] faceIdx, float[] positions,
                                        int vertexCount) {
         int n = sideBeziers.length;
-        if (n < NUM_3) {
-            return new SampledPatch(false, new float[0], new int[0], new float[vertexCount], NUM_0, NUM_0);
+        if (n < 3) {
+            return new SampledPatch(false, new float[0], new int[0], new float[vertexCount], 0f, 0f);
         }
         if (ringsPerSpoke < 1) ringsPerSpoke = 1;
 
@@ -62,7 +57,7 @@ public final class CharrotGregoryPatchSampler {
         float[] cornerU = new float[n];
         float[] cornerV = new float[n];
         for (int i = 0; i < n; i++) {
-            double theta = (i + NUM_0_5) * (NUM_2_0 * Math.PI / n) + Math.PI;
+            double theta = (i + 0.5) * (2.0 * Math.PI / n) + Math.PI;
             cornerU[i] = (float) Math.cos(theta);
             cornerV[i] = (float) Math.sin(theta);
         }
@@ -82,11 +77,11 @@ public final class CharrotGregoryPatchSampler {
         int innerVerts = 1 + n * ringsPerSpoke;
         int extraBoundaryPerEdge = Math.max(0, edgeSamples - 2);  // exclude both corner endpoints
         int totalVerts = innerVerts + n * extraBoundaryPerEdge;
-        float[] outPositions = new float[totalVerts * NUM_3];
+        float[] outPositions = new float[totalVerts * 3];
 
         Vector3f tmp = new Vector3f();
         // Center.
-        CharrotGregoryPatch.evaluate(sideBeziers, NUM_0, NUM_0, tmp);
+        CharrotGregoryPatch.evaluate(sideBeziers, 0f, 0f, tmp);
         outPositions[0] = tmp.x; outPositions[1] = tmp.y; outPositions[2] = tmp.z;
         // Inner rings.
         for (int k = 1; k <= ringsPerSpoke; k++) {
@@ -96,9 +91,9 @@ public final class CharrotGregoryPatchSampler {
                 float v = t * cornerV[j];
                 int idx = 1 + (k - 1) * n + j;
                 CharrotGregoryPatch.evaluate(sideBeziers, u, v, tmp);
-                outPositions[idx * NUM_3]     = tmp.x;
-                outPositions[idx * NUM_3 + 1] = tmp.y;
-                outPositions[idx * NUM_3 + 2] = tmp.z;
+                outPositions[idx * 3]     = tmp.x;
+                outPositions[idx * 3 + 1] = tmp.y;
+                outPositions[idx * 3 + 2] = tmp.z;
             }
         }
         // Extra boundary samples per edge (excluding corners).
@@ -114,9 +109,9 @@ public final class CharrotGregoryPatchSampler {
                 float v = v0 + t * (v1 - v0);
                 int idx = innerVerts + i * extraBoundaryPerEdge + (m - 1);
                 CharrotGregoryPatch.evaluate(sideBeziers, u, v, tmp);
-                outPositions[idx * NUM_3]     = tmp.x;
-                outPositions[idx * NUM_3 + 1] = tmp.y;
-                outPositions[idx * NUM_3 + 2] = tmp.z;
+                outPositions[idx * 3]     = tmp.x;
+                outPositions[idx * 3 + 1] = tmp.y;
+                outPositions[idx * 3 + 2] = tmp.z;
             }
         }
 
@@ -170,36 +165,36 @@ public final class CharrotGregoryPatchSampler {
         // vertex to the sampled-position set.
         float[] errors = new float[vertexCount];
         BitSet touched = new BitSet(vertexCount);
-        float[] perPatchErrors = new float[faces.size() * NUM_3];
+        float[] perPatchErrors = new float[faces.size() * 3];
         int errCount = 0;
-        float maxE = NUM_0;
+        float maxE = 0f;
         for (int f : faces) {
-            for (int k = 0; k < NUM_3; k++) {
-                int v = faceIdx[f * NUM_3 + k];
+            for (int k = 0; k < 3; k++) {
+                int v = faceIdx[f * 3 + k];
                 if (touched.get(v)) continue;
                 touched.set(v);
                 float dsq = nearestDistanceSquared(outPositions,
-                        positions[v * NUM_3], positions[v * NUM_3 + 1], positions[v * NUM_3 + 2]);
+                        positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2]);
                 float d = (float) Math.sqrt(dsq);
                 errors[v] = d;
                 if (d > maxE) maxE = d;
                 if (errCount < perPatchErrors.length) perPatchErrors[errCount++] = d;
             }
         }
-        float p95 = NUM_0;
+        float p95 = 0f;
         if (errCount > 0) {
             float[] sorted = Arrays.copyOf(perPatchErrors, errCount);
             Arrays.sort(sorted);
-            int idx = Math.min(errCount - 1, (int) Math.floor(errCount * NUM_0_95));
+            int idx = Math.min(errCount - 1, (int) Math.floor(errCount * PERCENTILE_95));
             p95 = sorted[idx];
         }
 
-        return new SampledPatch(/*fourSided=*/n == NUM_4, outPositions, faceArr, errors, p95, maxE);
+        return new SampledPatch(/*fourSided=*/n == 4, outPositions, faceArr, errors, p95, maxE);
     }
 
     private static float nearestDistanceSquared(float[] grid, float px, float py, float pz) {
         float best = Float.POSITIVE_INFINITY;
-        for (int i = 0; i < grid.length; i += NUM_3) {
+        for (int i = 0; i < grid.length; i += 3) {
             float dx = grid[i]     - px;
             float dy = grid[i + 1] - py;
             float dz = grid[i + 2] - pz;

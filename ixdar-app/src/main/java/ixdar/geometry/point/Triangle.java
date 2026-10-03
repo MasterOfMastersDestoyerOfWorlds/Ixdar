@@ -15,9 +15,8 @@ import ixdar.common.exceptions.TerminalParseException;
 @GeometryAnnotation(id = "tri")
 public class Triangle implements Geometry, PointCollection {
     public static final String TRIANGLE = "triangle";
-    public static final int NUM_3 = 3;
-    public static final double NUM_180_0 = 180.0;
-    public static final int NUM_10 = 10;
+    public static final int ARG_COUNT = 3;
+    public static final int DEFAULT_RADIUS = 10;
     public static String cmd = "tri";
     public static OptionList opts = new OptionList("t", cmd, TRIANGLE);
 
@@ -44,13 +43,13 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * Default triangle: centered at the origin, radius {@value #NUM_10}, zero
+     * Default triangle: centered at the origin, radius {@value #DEFAULT_RADIUS}, zero
      * rotation. Note: vertices are not eagerly realized in this overload.
      */
     public Triangle() {
         xCenter = 0.0;
         yCenter = 0.0;
-        radius = NUM_10;
+        radius = DEFAULT_RADIUS;
         rotation = 0;
     }
 
@@ -85,7 +84,7 @@ public class Triangle implements Geometry, PointCollection {
         double xCenter = Double.parseDouble(args[startIdx]);
         double yCenter = Double.parseDouble(args[startIdx + 1]);
         double radius = Double.parseDouble(args[startIdx + 2]);
-        double rotation = Math.PI * Double.parseDouble(args[startIdx + NUM_3]) / NUM_180_0;
+        double rotation = Math.PI * Double.parseDouble(args[startIdx + 3]) / 180.0;
         Triangle t = new Triangle(xCenter, yCenter, radius, rotation);
         return t;
     }
@@ -125,13 +124,13 @@ public class Triangle implements Geometry, PointCollection {
     }
 
     /**
-     * Required positional arg count for parsing: {@value #NUM_3}.
+     * Required positional arg count for parsing: {@value #ARG_COUNT}.
      *
      * @return number of arguments {@link #parseTriangle} consumes
      */
     @Override
     public int argLength() {
-        return NUM_3;
+        return ARG_COUNT;
     }
 
     /**
@@ -164,7 +163,7 @@ public class Triangle implements Geometry, PointCollection {
     @Override
     public ArrayList<PointND> realizePoints() {
         ArrayList<PointND> points = new ArrayList<>();
-        int numPoints = NUM_3;
+        int numPoints = 3;
         double radians = 2 * Math.PI / ((double) numPoints);
         for (int i = 0; i < numPoints; i++) {
             double xCoord = radius * Math.cos(i * radians + rotation) + xCenter;

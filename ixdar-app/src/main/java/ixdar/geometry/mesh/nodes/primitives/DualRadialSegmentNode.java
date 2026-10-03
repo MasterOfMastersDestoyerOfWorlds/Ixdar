@@ -25,16 +25,10 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "dual_radial_segment")
 public class DualRadialSegmentNode implements MeshNode {
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_0_4 = 0.4f;
-    public static final int NUM_8 = 8;
-    public static final int NUM_3 = 3;
-    public static final int NUM_12 = 12;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_001 = 0.001f;
-    public static final float NUM_2_0 = 2.0f;
-    public static final float NUM_0_0001 = 0.0001f;
-    public static final int NUM__2 = -2;
+    public static final int MIN_SEGMENTS = 3;
+    public static final float MIN_RADIUS = 0.001f;
+    public static final float Y_TOLERANCE = 0.001f;
+    public static final float MIN_ELLIPSE_DENOM = 0.0001f;
 
     // Geometry input (optional — for chaining geometry between segments)
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
@@ -102,25 +96,25 @@ public class DualRadialSegmentNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         // Read Hermite boundary conditions
-        float srx = floatInput(ctx, START_RX.name, NUM_0_5);
+        float srx = floatInput(ctx, START_RX.name, 0.5f);
         float stx = floatInput(ctx, START_TX.name, 0.0f);
-        float erx = floatInput(ctx, END_RX.name, NUM_0_4);
+        float erx = floatInput(ctx, END_RX.name, 0.4f);
         float etx = floatInput(ctx, END_TX.name, 0.0f);
 
-        float sry = floatInput(ctx, START_RY.name, NUM_0_5);
+        float sry = floatInput(ctx, START_RY.name, 0.5f);
         float sty = floatInput(ctx, START_TY.name, 0.0f);
-        float ery = floatInput(ctx, END_RY.name, NUM_0_4);
+        float ery = floatInput(ctx, END_RY.name, 0.4f);
         float ety = floatInput(ctx, END_TY.name, 0.0f);
 
         float length = floatInput(ctx, LENGTH.name, 1.0f);
-        int rings = Math.max(2, intInput(ctx, RINGS.name, NUM_8));
-        int segments = Math.max(NUM_3, intInput(ctx, SEGMENTS.name, NUM_12));
+        int rings = Math.max(2, intInput(ctx, RINGS.name, 8));
+        int segments = Math.max(MIN_SEGMENTS, intInput(ctx, SEGMENTS.name, 12));
 
         // Determine chaining context from input geometry
         Object geoIn = ctx.getInput(GEOMETRY.name, Object.class);
         GeometryBundle base = null;
         HalfEdgeMesh mesh = null;
-        float yOffset = NUM_0;
+        float yOffset = 0f;
         int[] topRing = null;
 
         if (geoIn instanceof GeometryBundle gb && gb.mesh() != null && gb.mesh().vertexCount() > 0
@@ -184,8 +178,8 @@ public class DualRadialSegmentNode implements MeshNode {
             float t = (float) r / (rings - 1);
             float y = yOffset + t * length;
 
-            float rx = Math.max(NUM_0_001, hermite(t, srx, stx, erx, etx));
-            float ry = Math.max(NUM_0_001, hermite(t, sry, sty, ery, ety));
+            float rx = Math.max(MIN_RADIUS, hermite(t, srx, stx, erx, etx));
+            float ry = Math.max(MIN_RADIUS, hermite(t, sry, sty, ery, ety));
 
             for (int s = 0; s < segments; s++) {
                 // Ring 0 with chaining: reuse existing top ring vertices
@@ -194,12 +188,12 @@ public class DualRadialSegmentNode implements MeshNode {
                     continue;
                 }
 
-                float theta = NUM_2_0 * (float) Math.PI * s / segments;
+                float theta = 2.0f * (float) Math.PI * s / segments;
                 float cosT = (float) Math.cos(theta);
                 float sinT = (float) Math.sin(theta);
 
                 float denom = (float) Math.sqrt(ry * ry * cosT * cosT + rx * rx * sinT * sinT);
-                float radius = (denom > NUM_0_0001) ? (rx * ry) / denom : (rx + ry) * NUM_0_5;
+                float radius = (denom > MIN_ELLIPSE_DENOM) ? (rx * ry) / denom : (rx + ry) * 0.5f;
 
                 verts[r][s] = mesh.addVertex(radius * cosT, y, radius * sinT);
             }
@@ -233,7 +227,7 @@ public class DualRadialSegmentNode implements MeshNode {
      */
     private static int[] findTopRing(HalfEdgeMesh mesh, float maxY, int expectedCount) {
         Vector3f pos = new Vector3f();
-        float tolerance = NUM_0_001;
+        float tolerance = Y_TOLERANCE;
 
         // Collect candidates at max Y
         int[] candidates = new int[expectedCount * 2]; // oversize buffer
@@ -249,7 +243,7 @@ public class DualRadialSegmentNode implements MeshNode {
             }
         }
 
-        if (found < NUM_3) return null;
+        if (found < MIN_SEGMENTS) return null;
 
         // Sort by angle (insertion sort — small N)
         for (int i = 1; i < found; i++) {
@@ -293,9 +287,9 @@ public class DualRadialSegmentNode implements MeshNode {
     private static float hermite(float t, float p0, float m0, float p1, float m1) {
         float t2 = t * t;
         float t3 = t2 * t;
-        return (2 * t3 - NUM_3 * t2 + 1) * p0
+        return (2 * t3 - 3 * t2 + 1) * p0
                 + (t3 - 2 * t2 + t) * m0
-                + (NUM__2 * t3 + NUM_3 * t2) * p1
+                + (-2 * t3 + 3 * t2) * p1
                 + (t3 - t2) * m1;
     }
 

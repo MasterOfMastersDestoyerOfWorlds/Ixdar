@@ -7,9 +7,8 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 
 public class MeshShader extends ShaderProgram {
-    public static final int NUM_8 = 8;
-    public static final int NUM_3 = 3;
-    public static final int NUM_6 = 6;
+    public static final int VERTEX_STRIDE_FLOATS = 8;
+    public static final int UV_OFFSET_FLOATS = 6;
 
     /**
      * Build a textured mesh shader with a position+normal+uv (8-float)
@@ -23,7 +22,7 @@ public class MeshShader extends ShaderProgram {
     public MeshShader(String vertexShaderLocation, String fragmentShaderLocation)
             throws UnsupportedEncodingException, IOException {
         super(vertexShaderLocation, fragmentShaderLocation, new VertexArrayObject(), new VertexBufferObject(),
-                NUM_8, true);
+                VERTEX_STRIDE_FLOATS, true);
     }
 
     /**
@@ -37,11 +36,11 @@ public class MeshShader extends ShaderProgram {
         vao.bind();
         vbo.bind(gl.ARRAY_BUFFER());
 
-        gl.vertexAttribPointer(0, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, 0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT(), false, VERTEX_STRIDE_FLOATS * Float.BYTES, 0);
         gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(1, NUM_3, gl.FLOAT(), false, NUM_8 * Float.BYTES, NUM_3 * Float.BYTES);
+        gl.vertexAttribPointer(1, 3, gl.FLOAT(), false, VERTEX_STRIDE_FLOATS * Float.BYTES, 3 * Float.BYTES);
         gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, NUM_8 * Float.BYTES, NUM_6 * Float.BYTES);
+        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, VERTEX_STRIDE_FLOATS * Float.BYTES, UV_OFFSET_FLOATS * Float.BYTES);
         gl.enableVertexAttribArray(2);
 
         use();

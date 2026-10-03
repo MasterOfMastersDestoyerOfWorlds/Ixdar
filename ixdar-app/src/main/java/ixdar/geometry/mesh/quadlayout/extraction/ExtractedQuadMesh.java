@@ -15,22 +15,16 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
  */
 public final class ExtractedQuadMesh {
 
-    /** Vertex kind: the preimage coincides with a copy mesh vertex. */
     public static final int KIND_MESH_VERTEX = 0;
 
-    /** Vertex kind: the preimage lies strictly inside a copy mesh edge. */
     public static final int KIND_EDGE_INTERIOR = 1;
 
-    /** Vertex kind: the preimage lies strictly inside a copy mesh face. */
     public static final int KIND_FACE_INTERIOR = 2;
 
-    /** Sentinel for an absent port connection or id. */
     public static final int NONE = -1;
 
-    /** Floats per 3D position. */
     public static final int POSITION_FLOATS = 3;
 
-    /** Corners of one quad. */
     public static final int QUAD_CORNERS = 4;
 
     /** Quad mesh vertices. */

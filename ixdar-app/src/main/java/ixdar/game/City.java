@@ -20,10 +20,8 @@ import ixdar.gui.ui.Drawing;
  * routes.
  */
 public class City {
-    public static final String STR = ", ";
-    public static final String STR_2 = " (";
-    public static final String STR_3 = ")";
-    public static final int NUM_20 = 20;
+    public static final int LABEL_Y_OFFSET = 20;
+    public static final String LIST_ITEM_SEPARATOR = ", ";
     public static final float CITY_RADIUS = 20f;
     public static final float CLICK_RADIUS = 20f;
 
@@ -218,7 +216,7 @@ public class City {
 
         cityCircle.draw(screenPos, CITY_RADIUS, cityColor, camera);
 
-        float labelScreenY = screenY - CITY_RADIUS - NUM_20;
+        float labelScreenY = screenY - CITY_RADIUS - LABEL_Y_OFFSET;
         Drawing.getDrawing().font.drawHyperString(getNameLabel(), screenX, labelScreenY, Drawing.FONT_HEIGHT_PIXELS,
                 camera);
     }
@@ -244,7 +242,7 @@ public class City {
                 String resource = resources.get(i);
                 tip.addWord(resource, Color.CYAN);
                 if (i < resources.size() - 1) {
-                    tip.addWord(STR, Color.LIGHT_GRAY);
+                    tip.addWord(LIST_ITEM_SEPARATOR, Color.LIGHT_GRAY);
                 }
             }
             tip.newLine();
@@ -255,9 +253,9 @@ public class City {
             boolean first = true;
             for (Map.Entry<String, Integer> entry : produces.entrySet()) {
                 if (!first) {
-                    tip.addWord(STR, Color.LIGHT_GRAY);
+                    tip.addWord(LIST_ITEM_SEPARATOR, Color.LIGHT_GRAY);
                 }
-                tip.addWord(entry.getKey() + STR_2 + entry.getValue() + STR_3, Color.GREEN);
+                tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", Color.GREEN);
                 first = false;
             }
             tip.newLine();
@@ -268,9 +266,9 @@ public class City {
             boolean first = true;
             for (Map.Entry<String, Integer> entry : consumes.entrySet()) {
                 if (!first) {
-                    tip.addWord(STR, Color.LIGHT_GRAY);
+                    tip.addWord(LIST_ITEM_SEPARATOR, Color.LIGHT_GRAY);
                 }
-                tip.addWord(entry.getKey() + STR_2 + entry.getValue() + STR_3, Color.ORANGE);
+                tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", Color.ORANGE);
                 first = false;
             }
             tip.newLine();
@@ -286,6 +284,6 @@ public class City {
 
     @Override
     public String toString() {
-        return name + STR_2 + id + ") at (" + getX() + STR + getY() + STR_3;
+        return name + " (" + id + ") at (" + getX() + LIST_ITEM_SEPARATOR + getY() + ")";
     }
 }

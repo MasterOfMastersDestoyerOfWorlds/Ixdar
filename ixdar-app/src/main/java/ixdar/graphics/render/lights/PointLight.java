@@ -6,8 +6,7 @@ import ixdar.graphics.render.shaders.ShaderProgram;
 
 public class PointLight {
     public static final String POINTLIGHTS = "pointLights[";
-    public static final int NUM_4 = 4;
-    public static final int NUM_3 = 3;
+    public static final int ATTENUATION_ROW_SIZE = 4;
 
     public static float[] attenuationLookupTable = { 3250, 1.0f, 0.0014f, 0.000007f,
 
@@ -67,12 +66,13 @@ public class PointLight {
      * @param distance falloff range in world units.
      */
     public void setAttenuation(float distance) {
-        int rows = attenuationLookupTable.length / NUM_4;
+        int rows = attenuationLookupTable.length / ATTENUATION_ROW_SIZE;
         for (int i = rows - 1; i >= 1; i--) {
-            if (distance >= attenuationLookupTable[NUM_4 * i] && distance < attenuationLookupTable[NUM_4 * (i - 1)]) {
-                this.constant = attenuationLookupTable[NUM_4 * i + 1];
-                this.linear = attenuationLookupTable[NUM_4 * i + 2];
-                this.quadratic = attenuationLookupTable[NUM_4 * i + NUM_3];
+            if (distance >= attenuationLookupTable[ATTENUATION_ROW_SIZE * i]
+                    && distance < attenuationLookupTable[ATTENUATION_ROW_SIZE * (i - 1)]) {
+                this.constant = attenuationLookupTable[ATTENUATION_ROW_SIZE * i + 1];
+                this.linear = attenuationLookupTable[ATTENUATION_ROW_SIZE * i + 2];
+                this.quadratic = attenuationLookupTable[ATTENUATION_ROW_SIZE * i + 3];
             }
         }
     }

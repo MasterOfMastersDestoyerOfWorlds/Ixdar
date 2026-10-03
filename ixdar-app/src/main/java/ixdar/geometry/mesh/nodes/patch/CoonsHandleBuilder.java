@@ -18,19 +18,9 @@ import ixdar.geometry.mesh.data.MeshTopology;
  * indexed by the output mesh's edge IDs.
  */
 public final class CoonsHandleBuilder {
-    public static final int NUM_32 = 32;
-    public static final long NUM_0xffffffff = 0xffffffffL;
-    public static final int NUM_3 = 3;
-    public static final float NUM_1e_6 = 1e-6f;
-    public static final float NUM_2 = 2f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_3_2 = 3f;
-    public static final float NUM_6 = 6f;
-    public static final float NUM_15 = 15f;
-    public static final float NUM_10 = 10f;
-    public static final float NUM_1e_3 = 1e-3f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_1e_8 = 1e-8f;
+    public static final float MIN_WELD_TOLERANCE = 1e-6f;
+    public static final float FINITE_DIFF_EPS = 1e-3f;
+    public static final float MIN_NORMAL_LENGTH = 1e-8f;
 
     private CoonsHandleBuilder() {
     }
@@ -60,7 +50,7 @@ public final class CoonsHandleBuilder {
     public static float[] readHandleSlot(GeometryBundle base, String slotName, MeshTopology mesh) {
         Object o = base.slots().get(slotName);
         int maxEid = maxEdgeId(mesh);
-        int need = (maxEid + 1) * NUM_3;
+        int need = (maxEid + 1) * 3;
         if (!(o instanceof float[] arr)) {
             return new float[need];
         }
@@ -118,7 +108,7 @@ public final class CoonsHandleBuilder {
         int he = mesh.edgeHalfEdge(eid);
         int ca = mesh.halfEdgeVertex(he);
         int cb = mesh.halfEdgeEndVertex(he);
-        int o = eid * NUM_3;
+        int o = eid * 3;
         Vector3f posCa = mesh.vertexPosition(ca, new Vector3f());
         Vector3f posCb = mesh.vertexPosition(cb, new Vector3f());
         Vector3f offS = new Vector3f(hStart[o], hStart[o + 1], hStart[o + 2]);
@@ -183,18 +173,18 @@ public final class CoonsHandleBuilder {
             return null;
         }
         int outVc = outMesh.vertexCount();
-        float[] outPos = new float[outVc * NUM_3];
+        float[] outPos = new float[outVc * 3];
         int[] outVids = new int[outVc];
         Vector3f tmp = new Vector3f();
         for (int i = 0; i < outVc; i++) {
             int vid = outMesh.vertexIdAt(i);
             outVids[i] = vid;
             outMesh.vertexPosition(vid, tmp);
-            outPos[i * NUM_3] = tmp.x;
-            outPos[i * NUM_3 + 1] = tmp.y;
-            outPos[i * NUM_3 + 2] = tmp.z;
+            outPos[i * 3] = tmp.x;
+            outPos[i * 3 + 1] = tmp.y;
+            outPos[i * 3 + 2] = tmp.z;
         }
-        float tol = Math.max(weldDist, NUM_1e_6) * NUM_2;
+        float tol = Math.max(weldDist, MIN_WELD_TOLERANCE) * 2f;
         float tol2 = tol * tol;
         Map<Integer, Integer> inToOut = new HashMap<>();
         int inVc = inMesh.vertexCount();
@@ -204,9 +194,9 @@ public final class CoonsHandleBuilder {
             int best = -1;
             float bestD = Float.POSITIVE_INFINITY;
             for (int k = 0; k < outVc; k++) {
-                float dx = tmp.x - outPos[k * NUM_3];
-                float dy = tmp.y - outPos[k * NUM_3 + 1];
-                float dz = tmp.z - outPos[k * NUM_3 + 2];
+                float dx = tmp.x - outPos[k * 3];
+                float dy = tmp.y - outPos[k * 3 + 1];
+                float dz = tmp.z - outPos[k * 3 + 2];
                 float d2 = dx * dx + dy * dy + dz * dz;
                 if (d2 < bestD) {
                     bestD = d2;
@@ -228,7 +218,7 @@ public final class CoonsHandleBuilder {
             if (oa == null || ob == null || oa.intValue() == ob.intValue()) {
                 continue;
             }
-            int o = eid * NUM_3;
+            int o = eid * 3;
             dh.putIfAbsent(dirPack(oa, ob),
                     new float[]{inHStart[o], inHStart[o + 1], inHStart[o + 2]});
             dh.putIfAbsent(dirPack(ob, oa),
@@ -255,14 +245,14 @@ public final class CoonsHandleBuilder {
      */
     public static float[][] flushDirectedHandles(MeshTopology outMesh, Map<Long, float[]> dh) {
         int outMaxEid = maxEdgeId(outMesh);
-        float[] hs = new float[(outMaxEid + 1) * NUM_3];
-        float[] he = new float[(outMaxEid + 1) * NUM_3];
+        float[] hs = new float[(outMaxEid + 1) * 3];
+        float[] he = new float[(outMaxEid + 1) * 3];
         for (int i = 0; i < outMesh.edgeCount(); i++) {
             int eid = outMesh.edgeIdAt(i);
             int ohe = outMesh.edgeHalfEdge(eid);
             int ca = outMesh.halfEdgeVertex(ohe);
             int cb = outMesh.halfEdgeEndVertex(ohe);
-            int o = eid * NUM_3;
+            int o = eid * 3;
             float[] s = dh.get(dirPack(ca, cb));
             if (s != null) {
                 hs[o] = s[0]; hs[o + 1] = s[1]; hs[o + 2] = s[2];
@@ -310,12 +300,12 @@ public final class CoonsHandleBuilder {
      */
     public static void cubicBezier(
             Vector3f p0, Vector3f p1, Vector3f p2, Vector3f p3, float t, Vector3f dest) {
-        float u = NUM_1 - t;
+        float u = 1f - t;
         float uu = u * u;
         float tt = t * t;
         float c0 = uu * u;
-        float c1 = NUM_3_2 * uu * t;
-        float c2 = NUM_3_2 * u * tt;
+        float c1 = 3f * uu * t;
+        float c2 = 3f * u * tt;
         float c3 = t * tt;
         dest.x = c0 * p0.x + c1 * p1.x + c2 * p2.x + c3 * p3.x;
         dest.y = c0 * p0.y + c1 * p1.y + c2 * p2.y + c3 * p3.y;
@@ -342,12 +332,12 @@ public final class CoonsHandleBuilder {
         int he = mesh.edgeHalfEdge(eid);
         int ca = mesh.halfEdgeVertex(he);
         int cb = mesh.halfEdgeEndVertex(he);
-        int o = eid * NUM_3;
+        int o = eid * 3;
         Vector3f posCa = mesh.vertexPosition(ca, new Vector3f());
         Vector3f posCb = mesh.vertexPosition(cb, new Vector3f());
         Vector3f p1 = new Vector3f(posCa).add(hStart[o], hStart[o + 1], hStart[o + 2]);
         Vector3f p2 = new Vector3f(posCb).add(hEnd[o], hEnd[o + 1], hEnd[o + 2]);
-        float evalT = (expectedStartVid == cb) ? NUM_1 - t : t;
+        float evalT = (expectedStartVid == cb) ? 1f - t : t;
         return cubicBezier(posCa, p1, p2, posCb, evalT);
     }
 
@@ -359,7 +349,7 @@ public final class CoonsHandleBuilder {
      * @return eased value
      */
     public static float smootherStep(float t) {
-        return t * t * t * (t * (t * NUM_6 - NUM_15) + NUM_10);
+        return t * t * t * (t * (t * 6f - 15f) + 10f);
     }
 
     /**
@@ -387,11 +377,11 @@ public final class CoonsHandleBuilder {
             int v0, int v1, int v3,
             int e0, int e1, int e2, int e3,
             float u, float v) {
-        float eps = NUM_1e_3;
-        float uPlus = Math.min(NUM_1, u + eps);
-        float uMinus = Math.max(NUM_0, u - eps);
-        float vPlus = Math.min(NUM_1, v + eps);
-        float vMinus = Math.max(NUM_0, v - eps);
+        float eps = FINITE_DIFF_EPS;
+        float uPlus = Math.min(1f, u + eps);
+        float uMinus = Math.max(0f, u - eps);
+        float vPlus = Math.min(1f, v + eps);
+        float vMinus = Math.max(0f, v - eps);
 
         Vector3f sUPlus = evalCoonsSurface(mesh, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, uPlus, v);
         Vector3f sUMinus = evalCoonsSurface(mesh, hStart, hEnd, v0, v1, v3, e0, e1, e2, e3, uMinus, v);
@@ -410,10 +400,10 @@ public final class CoonsHandleBuilder {
         Vector3f p1 = mesh.vertexPosition(v1, new Vector3f());
         Vector3f p3 = mesh.vertexPosition(v3, new Vector3f());
         Vector3f flatN = new Vector3f(p1).sub(p0).cross(new Vector3f(p3).sub(p0));
-        if (n.dot(flatN) < NUM_0) n.negate();
+        if (n.dot(flatN) < 0f) n.negate();
 
         float len = n.length();
-        if (len > NUM_1e_8) n.mul(NUM_1 / len);
+        if (len > MIN_NORMAL_LENGTH) n.mul(1f / len);
         return n;
     }
 
@@ -445,10 +435,10 @@ public final class CoonsHandleBuilder {
         float uS = smootherStep(u);
         float vS = smootherStep(v);
 
-        Vector3f p00 = evalFaceEdgeAt(mesh, hStart, hEnd, e0, v0, NUM_0);
-        Vector3f p10 = evalFaceEdgeAt(mesh, hStart, hEnd, e0, v0, NUM_1);
-        Vector3f p01 = evalFaceEdgeAt(mesh, hStart, hEnd, e2, v3, NUM_0);
-        Vector3f p11 = evalFaceEdgeAt(mesh, hStart, hEnd, e2, v3, NUM_1);
+        Vector3f p00 = evalFaceEdgeAt(mesh, hStart, hEnd, e0, v0, 0f);
+        Vector3f p10 = evalFaceEdgeAt(mesh, hStart, hEnd, e0, v0, 1f);
+        Vector3f p01 = evalFaceEdgeAt(mesh, hStart, hEnd, e2, v3, 0f);
+        Vector3f p11 = evalFaceEdgeAt(mesh, hStart, hEnd, e2, v3, 1f);
 
         Vector3f bottom = evalFaceEdgeAt(mesh, hStart, hEnd, e0, v0, u);
         Vector3f top = evalFaceEdgeAt(mesh, hStart, hEnd, e2, v3, u);

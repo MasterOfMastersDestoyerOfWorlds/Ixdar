@@ -18,14 +18,9 @@ import ixdar.procgen.dungeon.values.CellType;
  */
 public final class DungeonGrids {
 
-    /** Slot name for the per-vertex {@link Vector3Field} of room half extents. */
     public static final String HALF_EXTENT = "half_extent";
 
-    /** Slot name for the per-cell {@link IntField} of {@link CellType} ordinals. */
     public static final String CELL_TYPE = "cell_type";
-
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_1e_6 = 1e-6f;
 
     private DungeonGrids() {
     }
@@ -182,7 +177,7 @@ public final class DungeonGrids {
             for (int z = 0; z < depth; z++) {
                 for (int x = 0; x < width; x++) {
                     int i = x + width * (z + depth * y);
-                    mesh.addVertex(x + NUM_0_5, y + NUM_0_5, z + NUM_0_5);
+                    mesh.addVertex(x + 0.5f, y + 0.5f, z + 0.5f);
                     ordinals[i] = cells[i].ordinal();
                 }
             }

@@ -13,10 +13,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "sphere")
 public class QuadSphereMeshNode implements MeshNode {
-    public static final float NUM_0_5 = 0.5f;
-    public static final int NUM_16 = 16;
-    public static final int NUM_4 = 4;
-    public static final float NUM_2_0 = 2.0f;
     public static final InputPort SIZE = new InputPort("size", PortType.FLOAT, 1.0f, 0.001f, 100f);
     // Defines how many quads make up the circumference of the sphere
     public static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, 16, (float) 3, (float) 128);
@@ -49,14 +45,14 @@ public class QuadSphereMeshNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         Number sizeInput = ctx.getInput(SIZE.name, Number.class);
-        float radius = (sizeInput == null ? 1.0f : sizeInput.floatValue()) * NUM_0_5;
+        float radius = (sizeInput == null ? 1.0f : sizeInput.floatValue()) * 0.5f;
 
         Number resInput = ctx.getInput(RESOLUTION.name, Number.class);
-        int resolution = resInput == null ? NUM_16 : resInput.intValue();
+        int resolution = resInput == null ? 16 : resInput.intValue();
 
         // Since 4 cube faces wrap around the sphere's great circle,
         // we divide the resolution by 4 to get the subdivisions per face.
-        int divisions = Math.max(1, resolution / NUM_4);
+        int divisions = Math.max(1, resolution / 4);
 
         // Define the 6 faces of a cube by their normal, right, and up vectors
         float[][][] faces = {
@@ -77,10 +73,10 @@ public class QuadSphereMeshNode implements MeshNode {
 
             for (int i = 0; i < divisions; i++) {
                 for (int j = 0; j < divisions; j++) {
-                    float u0 = (i / (float) divisions) * NUM_2_0 - 1.0f;
-                    float u1 = ((i + 1) / (float) divisions) * NUM_2_0 - 1.0f;
-                    float v0 = (j / (float) divisions) * NUM_2_0 - 1.0f;
-                    float v1 = ((j + 1) / (float) divisions) * NUM_2_0 - 1.0f;
+                    float u0 = (i / (float) divisions) * 2.0f - 1.0f;
+                    float u1 = ((i + 1) / (float) divisions) * 2.0f - 1.0f;
+                    float v0 = (j / (float) divisions) * 2.0f - 1.0f;
+                    float v1 = ((j + 1) / (float) divisions) * 2.0f - 1.0f;
 
                     int v00 = addVertex(n, r, u, u0, v0, radius, mesh);
                     int v10 = addVertex(n, r, u, u1, v0, radius, mesh);

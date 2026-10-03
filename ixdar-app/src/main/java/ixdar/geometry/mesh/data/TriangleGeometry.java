@@ -6,13 +6,10 @@ package ixdar.geometry.mesh.data;
  */
 public final class TriangleGeometry {
 
-    /** Components of one position. */
     public static final int COMPONENTS = 3;
 
-    /** Half, for triangle areas. */
     private static final double HALF = 0.5;
 
-    /** Barycentric tolerance below which a ray counts as parallel to the triangle. */
     private static final double RAY_EPSILON = 1e-12;
 
     private TriangleGeometry() {

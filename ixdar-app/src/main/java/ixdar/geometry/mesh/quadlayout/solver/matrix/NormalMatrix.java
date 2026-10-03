@@ -11,9 +11,7 @@ import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
 
 public final class NormalMatrix {
     public static final double HALF = 0.5;
-    /** Bit shift used to pack (row, col) keys into a {@code long}. */
     public static final int KEY_ROW_SHIFT = 32;
-    /** Low-32-bit mask used to extract the column from a packed (row, col) key. */
     public static final long KEY_COL_MASK = 0xFFFFFFFFL;
     public final int variableCount;
     public final double[] rightHandSide;

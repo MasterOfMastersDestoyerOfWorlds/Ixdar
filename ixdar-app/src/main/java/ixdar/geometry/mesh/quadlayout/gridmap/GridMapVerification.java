@@ -26,10 +26,6 @@ import ixdar.platform.Platforms;
  */
 public final class GridMapVerification {
 
-    /**
-     * Residual within which a recovered transition is accepted before exact
-     * rounding.
-     */
     public static final double TRANSITION_TOLERANCE = 1.0e-6;
 
     public final GlobalGridMap gridMap;

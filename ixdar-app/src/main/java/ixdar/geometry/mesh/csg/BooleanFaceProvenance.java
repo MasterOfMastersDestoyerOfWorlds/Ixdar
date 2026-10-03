@@ -10,7 +10,6 @@ import java.util.Arrays;
  */
 public final class BooleanFaceProvenance {
 
-    /** Coordinates per vertex, and equally corners per triangle. */
     public static final int THREE = QuadTriangulation.THREE;
 
     /** First operand as handed to the kernel. */

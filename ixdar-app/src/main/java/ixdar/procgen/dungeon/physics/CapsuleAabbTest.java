@@ -10,12 +10,7 @@ import org.joml.Vector3f;
  * degenerate, and the MTV instead points out along the nearest face normal.
  */
 public final class CapsuleAabbTest {
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final int NUM_5 = 5;
-    public static final float NUM_1e_12 = 1e-12f;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_5 = 0.5f;
+    public static final float DEGENERATE_THRESHOLD = 1e-12f;
 
     private CapsuleAabbTest() {
     }
@@ -30,9 +25,9 @@ public final class CapsuleAabbTest {
      */
     public static boolean intersects(CapsuleShape c, AabbBox a) {
         float[] pq = closestPair(c, a);
-        float dx = pq[0] - pq[NUM_3];
-        float dy = pq[1] - pq[NUM_4];
-        float dz = pq[2] - pq[NUM_5];
+        float dx = pq[0] - pq[3];
+        float dy = pq[1] - pq[4];
+        float dz = pq[2] - pq[5];
         float distSq = dx * dx + dy * dy + dz * dz;
         return distSq < c.radius() * c.radius();
     }
@@ -49,14 +44,14 @@ public final class CapsuleAabbTest {
     public static Vector3f penetration(CapsuleShape c, AabbBox a) {
         float[] pq = closestPair(c, a);
         float px = pq[0], py = pq[1], pz = pq[2];
-        float qx = pq[NUM_3], qy = pq[NUM_4], qz = pq[NUM_5];
+        float qx = pq[3], qy = pq[4], qz = pq[5];
         float dx = px - qx, dy = py - qy, dz = pz - qz;
         float distSq = dx * dx + dy * dy + dz * dz;
         float r = c.radius();
         if (distSq >= r * r) return new Vector3f(0f, 0f, 0f);
 
         // P outside AABB (Q on its surface): standard sphere-vs-AABB push along (P - Q).
-        if (distSq > NUM_1e_12) {
+        if (distSq > DEGENERATE_THRESHOLD) {
             float dist = (float) Math.sqrt(distSq);
             float scale = (r - dist) / dist;
             return new Vector3f(dx * scale, dy * scale, dz * scale);
@@ -74,17 +69,17 @@ public final class CapsuleAabbTest {
         int face = 0; // 0:-X, 1:+X, 2:-Y, 3:+Y, 4:-Z, 5:+Z
         if (dxMax < min) { min = dxMax; face = 1; }
         if (dyMin < min) { min = dyMin; face = 2; }
-        if (dyMax < min) { min = dyMax; face = NUM_3; }
-        if (dzMin < min) { min = dzMin; face = NUM_4; }
-        if (dzMax < min) { min = dzMax; face = NUM_5; }
+        if (dyMax < min) { min = dyMax; face = 3; }
+        if (dzMin < min) { min = dzMin; face = 4; }
+        if (dzMax < min) { min = dzMax; face = 5; }
         float push = min + r;
         return switch (face) {
-            case 0 -> new Vector3f(-push, NUM_0, NUM_0);
-            case 1 -> new Vector3f(push, NUM_0, NUM_0);
-            case 2 -> new Vector3f(NUM_0, -push, NUM_0);
-            case NUM_3 -> new Vector3f(NUM_0, push, NUM_0);
-            case NUM_4 -> new Vector3f(NUM_0, NUM_0, -push);
-            default -> new Vector3f(NUM_0, NUM_0, push);
+            case 0 -> new Vector3f(-push, 0f, 0f);
+            case 1 -> new Vector3f(push, 0f, 0f);
+            case 2 -> new Vector3f(0f, -push, 0f);
+            case 3 -> new Vector3f(0f, push, 0f);
+            case 4 -> new Vector3f(0f, 0f, -push);
+            default -> new Vector3f(0f, 0f, push);
         };
     }
 
@@ -97,7 +92,7 @@ public final class CapsuleAabbTest {
      */
     private static float[] closestPair(CapsuleShape c, AabbBox a) {
         // P on capsule's vertical axis: X and Z fixed, Y chosen to minimize distance to AABB Y range.
-        float aabbMidY = (a.minY() + a.maxY()) * NUM_0_5;
+        float aabbMidY = (a.minY() + a.maxY()) * 0.5f;
         float py = clamp(aabbMidY, c.segmentMinY(), c.segmentMaxY());
         float px = c.centerX();
         float pz = c.centerZ();

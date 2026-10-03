@@ -11,12 +11,8 @@ import ixdar.procgen.dungeon.values.CellType;
  * {@code GridToMesh3D}'s origin-centered convention.
  */
 public final class CapsuleMover {
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_1e_10 = 1e-10f;
+    public static final float CONVERGENCE_THRESHOLD = 1e-10f;
 
-    /** Maximum collision-resolution iterations per sub-step. */
     public static final int MAX_RESOLVE_ITERATIONS = 4;
 
     private CapsuleMover() {
@@ -41,15 +37,15 @@ public final class CapsuleMover {
                                      CellType[] cells,
                                      int gridW, int gridH, int gridD,
                                      float cellSize) {
-        if (cellSize <= NUM_0) {
+        if (cellSize <= 0f) {
             throw new IllegalArgumentException("cellSize must be > 0, got " + cellSize);
         }
         // Sub-stepping based on the smaller of the capsule's body height and radius keeps the
         // capsule from tunneling through thin walls within one frame at high speed.
         float deltaLen = delta.length();
-        float maxStep = capsuleAtStart.radius() * NUM_0_5;
+        float maxStep = capsuleAtStart.radius() * 0.5f;
         int substeps = Math.max(1, (int) Math.ceil(deltaLen / maxStep));
-        Vector3f stepDelta = delta.mul(NUM_1 / substeps);
+        Vector3f stepDelta = delta.mul(1f / substeps);
 
         Vector3f pos = new Vector3f(capsuleAtStart.centerX(), capsuleAtStart.centerY(), capsuleAtStart.centerZ());
         for (int s = 0; s < substeps; s++) {
@@ -73,9 +69,9 @@ public final class CapsuleMover {
      */
     private static Vector3f resolve(CapsuleShape proto, Vector3f pos,
                                     CellType[] cells, int gridW, int gridH, int gridD, float cellSize) {
-        float offsetX = -gridW * cellSize * NUM_0_5;
-        float offsetY = -gridH * cellSize * NUM_0_5;
-        float offsetZ = -gridD * cellSize * NUM_0_5;
+        float offsetX = -gridW * cellSize * 0.5f;
+        float offsetY = -gridH * cellSize * 0.5f;
+        float offsetZ = -gridD * cellSize * 0.5f;
 
         for (int iter = 0; iter < MAX_RESOLVE_ITERATIONS; iter++) {
             CapsuleShape c = new CapsuleShape(pos.x(), pos.y(), pos.z(), proto.halfHeight(), proto.radius());
@@ -87,7 +83,7 @@ public final class CapsuleMover {
             int yHi = (int) Math.floor((c.segmentMaxY() + bound - offsetY) / cellSize);
             int zLo = (int) Math.floor((pos.z() - bound - offsetZ) / cellSize);
             int zHi = (int) Math.floor((pos.z() + bound - offsetZ) / cellSize);
-            float totalPushSq = NUM_0;
+            float totalPushSq = 0f;
 
             for (int gy = yLo; gy <= yHi; gy++) {
                 for (int gz = zLo; gz <= zHi; gz++) {
@@ -101,14 +97,14 @@ public final class CapsuleMover {
                                 offsetY + (gy + 1) * cellSize,
                                 offsetZ + (gz + 1) * cellSize);
                         Vector3f mtv = CapsuleAabbTest.penetration(c, cell);
-                        if (mtv.lengthSquared() == NUM_0) continue;
+                        if (mtv.lengthSquared() == 0f) continue;
                         pos = pos.add(mtv);
                         c = proto.atCenter(pos);
                         totalPushSq += mtv.lengthSquared();
                     }
                 }
             }
-            if (totalPushSq < NUM_1e_10) break;
+            if (totalPushSq < CONVERGENCE_THRESHOLD) break;
         }
         return pos;
     }

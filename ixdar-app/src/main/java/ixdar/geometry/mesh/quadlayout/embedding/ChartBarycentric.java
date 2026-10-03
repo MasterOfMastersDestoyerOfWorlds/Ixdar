@@ -7,7 +7,6 @@ package ixdar.geometry.mesh.quadlayout.embedding;
  */
 public final class ChartBarycentric {
 
-    /** Corners of a triangle. */
     public static final int CORNERS = 3;
 
     /** Pure static utility; never instantiated. */

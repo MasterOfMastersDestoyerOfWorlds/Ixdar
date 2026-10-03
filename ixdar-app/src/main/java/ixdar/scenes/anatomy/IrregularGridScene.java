@@ -21,10 +21,10 @@ import ixdar.platform.input.Scene2DMousePanTrap;
 
 @SceneAnnotation(id = "irregular-grid-canvas")
 public class IrregularGridScene extends Canvas3D {
-    public static final float NUM_2 = 2f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_3 = 3f;
-    public static final float NUM_10 = 10f;
+    public static final float LINE_WIDTH_SCALE = 2f;
+    public static final float ANCHOR_DOT_RADIUS = 2f;
+    public static final float DUAL_DOT_RADIUS = 3f;
+    public static final float TEXT_Y_OFFSET = 10f;
 
     public static final String VIEW_MAIN = "MAIN";
     private static final long SEED = 123L;
@@ -71,7 +71,7 @@ public class IrregularGridScene extends Canvas3D {
         camera2D.setZIndex(camera);
         camera2D.calculateCameraTransform(camera2D.ps);
         Drawing.getDrawing().sdfLine.setCulling(false);
-        Drawing.getDrawing().sdfLine.setStroke(NUM_2 * camera2D.ScaleFactor, false, NUM_1, JITTER, true, false, false);
+        Drawing.getDrawing().sdfLine.setStroke(LINE_WIDTH_SCALE * camera2D.ScaleFactor, false, 1f, JITTER, true, false, false);
         for (int i = 0; i < grid.edgeIndices().size(); i++) {
             int[] edge = grid.edgeIndices().get(i);
             Vector2f from = grid.anchorPoints().get(edge[0]);
@@ -82,15 +82,15 @@ public class IrregularGridScene extends Canvas3D {
         }
         for (Vector2f pt : grid.anchorPoints()) {
             tmpScreen.set(camera2D.pointTransformX(pt.x), camera2D.pointTransformY(pt.y));
-            Drawing.drawCircle(tmpScreen, Color.CYAN, camera2D, NUM_2);
+            Drawing.drawCircle(tmpScreen, Color.CYAN, camera2D, ANCHOR_DOT_RADIUS);
         }
         for (Vector2f pt : grid.dualPoints()) {
             tmpScreen.set(camera2D.pointTransformX(pt.x), camera2D.pointTransformY(pt.y));
-            Drawing.drawCircle(tmpScreen, Color.ORANGE, camera2D, NUM_3);
+            Drawing.drawCircle(tmpScreen, Color.ORANGE, camera2D, DUAL_DOT_RADIUS);
         }
         fpsText = new HyperString();
         fpsText.addWord("FPS: " + Clock.fps(), Color.CYAN);
-        Drawing.getDrawing().font.drawHyperStringRows(fpsText, 0, NUM_10, Drawing.FONT_HEIGHT_PIXELS, camera2D);
+        Drawing.getDrawing().font.drawHyperStringRows(fpsText, 0, TEXT_Y_OFFSET, Drawing.FONT_HEIGHT_PIXELS, camera2D);
         Drawing.getDrawing().sdfLine.setCulling(true);
     }
 

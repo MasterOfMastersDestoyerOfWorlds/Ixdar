@@ -6,7 +6,6 @@ import ixdar.graphics.render.shaders.VertexBufferObject;
 import org.joml.Vector3f;
 
 public class ModelHandle {
-    public static final int NUM_3 = 3;
     public final VertexArrayObject vao;
     public final VertexBufferObject vbo;
     public final int ebo;
@@ -49,7 +48,7 @@ public class ModelHandle {
         this.ebo = ebo;
         this.indexCount = indexCount;
         this.vertexCount = vertexCount;
-        this.triangleCount = indexCount / NUM_3;
+        this.triangleCount = indexCount / 3;
         this.hasTexCoords = hasTexCoords;
         this.texture = texture;
         this.center = new Vector3f(center);

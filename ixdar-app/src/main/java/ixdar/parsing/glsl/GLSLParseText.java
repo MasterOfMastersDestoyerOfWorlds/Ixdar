@@ -9,12 +9,11 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.ColorText;
 
 public class GLSLParseText extends ColorText<Vector4f> {
-    public static final int NUM_4 = 4;
-    public static final float NUM_0 = 0f;
-    public static final int NUM_10 = 10;
+    public static final int VEC4_COMPONENTS = 4;
+    public static final int DECIMAL_BASE = 10;
     public static final GLSLParseText BLANK = new GLSLParseText("", Color.BLUE_WHITE, new Vector4f(), -1, "BLANK");
 
-    static final Color[] vecColors = new Color[] { Color.GLSL_VECTOR_FLOAT_X, Color.GLSL_VECTOR_FLOAT_Y,
+    static final Color[] VECTOR_COMPONENT_COLORS = new Color[] { Color.GLSL_VECTOR_FLOAT_X, Color.GLSL_VECTOR_FLOAT_Y,
             Color.GLSL_VECTOR_FLOAT_Z, Color.GLSL_VECTOR_FLOAT_W };
     String key;
     int vectorLength;
@@ -104,7 +103,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
      * @param val scalar value stored at component x
      */
     public GLSLParseText(String text, Float val) {
-        this(text, Color.BLUE_WHITE, new Vector4f(val, NUM_0, NUM_0, NUM_0), 1, "");
+        this(text, Color.BLUE_WHITE, new Vector4f(val, 0f, 0f, 0f), 1, "");
     }
 
     /**
@@ -113,7 +112,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
      * @param val scalar value stored at component x
      */
     public GLSLParseText(Float val) {
-        this("", Color.BLUE_WHITE, new Vector4f(val, NUM_0, NUM_0, NUM_0), 1, "");
+        this("", Color.BLUE_WHITE, new Vector4f(val, 0f, 0f, 0f), 1, "");
     }
 
     /**
@@ -157,7 +156,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
     }
 
     private void transformVecText(Vector4f data, int vectorLength) {
-        if (vectorLength < 1 || vectorLength > NUM_4) {
+        if (vectorLength < 1 || vectorLength > VEC4_COMPONENTS) {
             return;
         }
         super.resetText();
@@ -167,7 +166,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
             super.addWord(String.format("vec%s", vectorLength), Color.GLSL_VECTOR);
             super.addWord("(", Color.GLSL_PARENTHESIS);
             for (int i = 0; i < vectorLength; i++) {
-                super.addWord(formatFixed(data.get(i)), vecColors[i]);
+                super.addWord(formatFixed(data.get(i)), VECTOR_COMPONENT_COLORS[i]);
                 if (i != vectorLength - 1) {
                     super.addWord(",", Color.GLSL_COMMA);
                 } else {
@@ -205,7 +204,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
      */
     public static String formatFixed(Float val) {
         int digits = 2;
-        Float pow = (float) Math.pow(NUM_10, digits);
+        Float pow = (float) Math.pow(DECIMAL_BASE, digits);
         Float rounded = Math.round(val * pow) / pow;
         String s = Float.toString(rounded);
         int dot = s.indexOf('.');
@@ -243,10 +242,10 @@ public class GLSLParseText extends ColorText<Vector4f> {
         }
         if (dv.length == 1) {
             Float value = dv[0];
-            env.put(var, new GLSLParseText("", vecColors[0], new Vector4f(value, NUM_0, NUM_0, NUM_0), 1, var));
+            env.put(var, new GLSLParseText("", VECTOR_COMPONENT_COLORS[0], new Vector4f(value, 0f, 0f, 0f), 1, var));
             return;
         }
-        float[] xyzw = new float[NUM_4];
+        float[] xyzw = new float[VEC4_COMPONENTS];
         for (int i = 0; i < dv.length; i++) {
             xyzw[i] = dv[i];
         }
@@ -266,7 +265,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
      * @param dv ordered list of scalar/vector tokens whose components are packed
      */
     public static void putVec(Map<String, GLSLParseText> env, String var, ArrayList<GLSLParseText> dv) {
-        Float[] data = new Float[NUM_4];
+        Float[] data = new Float[VEC4_COMPONENTS];
         int vectorLength = 0;
         for (int i = 0; i < dv.size(); i++) {
             GLSLParseText pt = dv.get(i);
@@ -276,7 +275,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
             }
             vectorLength += pt.vectorLength;
 
-            if(pt.vectorLength < 1 || vectorLength > NUM_4){
+            if(pt.vectorLength < 1 || vectorLength > VEC4_COMPONENTS){
                 return;
             }
         }

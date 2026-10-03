@@ -26,7 +26,6 @@ import ixdar.geometry.mesh.nodes.api.Vector3Value;
 @MeshNodeAnnotation(id = "ring_at_branch")
 public class RingAtBranchNode implements MeshNode {
 
-    /** Largest voxel resolution the port accepts, above which the grid stops fitting in memory. */
     public static final float MAXIMUM_RESOLUTION = 512f;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,
@@ -35,7 +34,7 @@ public class RingAtBranchNode implements MeshNode {
             new Vector3Value(0f, 0f, 0f));
     public static final InputPort PARAMETER = new InputPort("t", PortType.FLOAT, 0.5f, 0f, 1f);
     public static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT,
-            MeshSkeletonExtractor.NUM_128, 16f, MAXIMUM_RESOLUTION);
+            MeshSkeletonExtractor.DEFAULT_RESOLUTION, 16f, MAXIMUM_RESOLUTION);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name,
             PortType.GEOMETRY_BUNDLE);
     public static final OutputPort SELECTION = new OutputPort("selection", PortType.BOOLEAN);

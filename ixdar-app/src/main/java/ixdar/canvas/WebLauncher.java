@@ -21,13 +21,9 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 public final class WebLauncher {
     public static final String PRECISION_MEDIUMP_FLOAT_N = "precision mediump float;\n";
     public static final String VOID_MAIN_N = "void main(){\n";
-    public static final String STR = "}";
-    public static final int NUM_800 = 800;
-    public static final int NUM_400 = 400;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final int NUM_4 = 4;
-    public static final int NUM_3 = 3;
+    public static final int DEFAULT_CANVAS_WIDTH = 800;
+    public static final int DEFAULT_CANVAS_HEIGHT = 400;
+    public static final int FLOAT_SIZE_BYTES = 4;
 
     public static float startTime;
     public static boolean broken = false;
@@ -79,10 +75,10 @@ public final class WebLauncher {
             int w = canvas.getClientWidth();
             int h = canvas.getClientHeight();
             if (w < 1) {
-                w = NUM_800;
+                w = DEFAULT_CANVAS_WIDTH;
             }
             if (h < 1) {
-                h = NUM_400;
+                h = DEFAULT_CANVAS_HEIGHT;
             }
             canvas.setWidth(w);
             canvas.setHeight(h);
@@ -143,10 +139,10 @@ public final class WebLauncher {
             int w = canvas.getClientWidth();
             int h = canvas.getClientHeight();
             if (w < 1) {
-                w = NUM_800;
+                w = DEFAULT_CANVAS_WIDTH;
             }
             if (h < 1) {
-                h = NUM_400;
+                h = DEFAULT_CANVAS_HEIGHT;
             }
             canvas.setWidth(w);
             canvas.setHeight(h);
@@ -176,11 +172,11 @@ public final class WebLauncher {
                 + "attribute vec2 a_pos;\n"
                 + VOID_MAIN_N
                 + "  gl_Position=vec4(a_pos,0.0,1.0);\n"
-                + STR;
+                + "}";
         String fs = PRECISION_MEDIUMP_FLOAT_N
                 + VOID_MAIN_N
                 + "  gl_FragColor=vec4(1.0,0." + 2 * i + ",0.2,1.0);\n"
-                + STR;
+                + "}";
 
         int vsh = gl.createShader(gl.VERTEX_SHADER());
         gl.shaderSource(vsh, vs);
@@ -196,11 +192,11 @@ public final class WebLauncher {
 
         int buf = gl.genBuffer();
         gl.bindArrayBuffer(buf);
-        float[] verts = new float[] { NUM_0, NUM_0_5, -NUM_0_5, -NUM_0_5, NUM_0_5, -NUM_0_5 };
+        float[] verts = new float[] { 0f, 0.5f, -0.5f, -0.5f, 0.5f, -0.5f };
         gl.bufferDataArray(verts, gl.STATIC_DRAW());
         int loc = gl.getAttribLocation(prog, "a_pos");
         gl.enableVertexAttribArray(loc);
-        gl.vertexAttribPointer(loc, 2, gl.FLOAT(), false, 2 * NUM_4, 0);
-        gl.drawArrays(gl.TRIANGLES(), 0, NUM_3);
+        gl.vertexAttribPointer(loc, 2, gl.FLOAT(), false, 2 * FLOAT_SIZE_BYTES, 0);
+        gl.drawArrays(gl.TRIANGLES(), 0, 3);
     }
 }

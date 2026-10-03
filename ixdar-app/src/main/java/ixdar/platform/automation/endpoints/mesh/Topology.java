@@ -24,7 +24,6 @@ public class Topology extends AutomationEndpoint implements AutomationRoute {
     public static final String PATH = "path";
     public static final String DUPLICATE_TOLERANCE = "duplicate_tolerance";
 
-    /** Default distance below which two vertices count as sharing a position. */
     public static final double DEFAULT_DUPLICATE_TOLERANCE = 1e-6;
 
     /**

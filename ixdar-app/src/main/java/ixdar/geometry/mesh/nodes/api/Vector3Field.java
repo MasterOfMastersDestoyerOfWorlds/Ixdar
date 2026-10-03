@@ -4,13 +4,11 @@ package ixdar.geometry.mesh.nodes.api;
  * Per-element 3D vectors (packed xyz per element: {@code data.length == 3 * elementCount}).
  */
 public record Vector3Field(float[] data) {
-    private static final int NUM_3 = 3;
-
     /**
      * Validate that the backing array packs whole xyz triples.
      */
     public Vector3Field {
-        if (data == null || data.length % NUM_3 != 0) {
+        if (data == null || data.length % 3 != 0) {
             throw new IllegalArgumentException("data length must be non-null and divisible by 3");
         }
     }
@@ -21,7 +19,7 @@ public record Vector3Field(float[] data) {
      * @return element count
      */
     public int length() {
-        return data.length / NUM_3;
+        return data.length / 3;
     }
 
     /**
@@ -31,7 +29,7 @@ public record Vector3Field(float[] data) {
      * @return packed value at offset {@code 3*i}
      */
     public float getX(int i) {
-        return data[NUM_3 * i];
+        return data[3 * i];
     }
 
     /**
@@ -41,7 +39,7 @@ public record Vector3Field(float[] data) {
      * @return packed value at offset {@code 3*i + 1}
      */
     public float getY(int i) {
-        return data[NUM_3 * i + 1];
+        return data[3 * i + 1];
     }
 
     /**
@@ -51,7 +49,7 @@ public record Vector3Field(float[] data) {
      * @return packed value at offset {@code 3*i + 2}
      */
     public float getZ(int i) {
-        return data[NUM_3 * i + 2];
+        return data[3 * i + 2];
     }
 
     /**
@@ -72,11 +70,11 @@ public record Vector3Field(float[] data) {
      * @return new field of length {@code len}
      */
     public static Vector3Field constant(Vector3Value v, int len) {
-        float[] d = new float[len * NUM_3];
+        float[] d = new float[len * 3];
         for (int i = 0; i < len; i++) {
-            d[NUM_3 * i] = v.x();
-            d[NUM_3 * i + 1] = v.y();
-            d[NUM_3 * i + 2] = v.z();
+            d[3 * i] = v.x();
+            d[3 * i + 1] = v.y();
+            d[3 * i + 2] = v.z();
         }
         return new Vector3Field(d);
     }

@@ -12,28 +12,20 @@ import ixdar.scenes.model.ModelScene;
  */
 public final class SceneCollectionMenu {
 
-    /** Header above the collection's members. */
     public static final String COLLECTION_HEADER = "COLLECTION";
 
-    /** Marker prefixed to a kept member. */
     public static final String KEPT_MARKER = "[x] ";
 
-    /** Marker prefixed to a rejected member. */
     public static final String REJECTED_MARKER = "[ ] ";
 
-    /** Marker prefixed to the member under the cursor. */
     public static final String CURRENT_MARKER = "> ";
 
-    /** Marker prefixed to members not under the cursor, keeping columns aligned. */
     public static final String OTHER_MARKER = "  ";
 
-    /** Label of the previous-member action. */
     public static final String PREV_LABEL = "[  previous member";
 
-    /** Label of the next-member action. */
     public static final String NEXT_LABEL = "]  next member";
 
-    /** Label of the keep/reject action. */
     public static final String KEEP_LABEL = "K  keep / reject this member";
 
     private final ModelScene scene;

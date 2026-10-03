@@ -23,35 +23,26 @@ import ixdar.scenes.model.ModelScene;
 @AutomationRouteAnnotation(path = "/scene/model", method = APIMethod.POST)
 public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
 
-    /** Request key: the model display name, or part of a listed model's name or path. */
     public static final String NAME = "name";
 
-    /** Response key: whether the model loaded. */
     public static final String OK = "ok";
 
-    /** Response key: {@link #LOADED} or {@link #FAILED}. */
     public static final String OUTCOME = "outcome";
 
     public static final String LOADED = "loaded";
 
     public static final String FAILED = "failed";
 
-    /** Response key: why the switch failed. */
     public static final String ERROR = "error";
 
-    /** Response key, and the CLI command name: the display name of the matched model. */
     public static final String MODEL = "model";
 
-    /** Response key: the loader path of the matched model. */
     public static final String PATH = "path";
 
-    /** Response key: wall time of the load and recompute. */
     public static final String SECONDS = "seconds";
 
-    /** Response key: the models a name can match, returned when it matched none. */
     public static final String AVAILABLE = "available";
 
-    /** Longest a request waits for the load and recompute before answering failed. */
     public static final long WAIT_SECONDS = 900L;
 
     private static final long MILLIS_PER_SECOND = 1000L;

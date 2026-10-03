@@ -10,10 +10,10 @@ import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "dashed-line-round-canvas")
 public class DashedLineRoundScene extends Scene {
-    public static final double NUM_0_8 = 0.8;
-    public static final int NUM_10 = 10;
-    public static final float NUM_0_2 = 0.2f;
-    public static final float NUM_0_4 = 0.4f;
+    public static final double ENDPOINT_OFFSET = 0.8;
+    public static final int STROKE_WIDTH_SCALE = 10;
+    public static final float INITIAL_DASH_LENGTH = 0.2f;
+    public static final float DASH_LENGTH = 0.4f;
     public PointND point2;
     public PointND point1;
 
@@ -34,8 +34,8 @@ public class DashedLineRoundScene extends Scene {
     @Override
     public void initPoints() {
         super.initPoints();
-        point1 = new PointND.Double(-NUM_0_8, -NUM_0_8);
-        point2 = new PointND.Double(NUM_0_8, NUM_0_8);
+        point1 = new PointND.Double(-ENDPOINT_OFFSET, -ENDPOINT_OFFSET);
+        point2 = new PointND.Double(ENDPOINT_OFFSET, ENDPOINT_OFFSET);
         shell.add(point1);
         shell.add(point2);
     }
@@ -51,7 +51,7 @@ public class DashedLineRoundScene extends Scene {
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        lineSegment.setStroke(NUM_10 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, NUM_0_2, 0.0f, true, false, false, camera2D);
+        lineSegment.setStroke(STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, INITIAL_DASH_LENGTH, 0.0f, true, false, false, camera2D);
         initCodePane("Dashed Line Round SDF", lineSegment.getShader(), lineSegment);
     }
 
@@ -62,7 +62,7 @@ public class DashedLineRoundScene extends Scene {
     @Override
     public void drawScene() {
         super.drawScene();
-        lineSegment.setStroke(NUM_10 * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, NUM_0_4, 0.0f, true, false, false, camera2D);
+        lineSegment.setStroke(STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, DASH_LENGTH, 0.0f, true, false, false, camera2D);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
         Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);

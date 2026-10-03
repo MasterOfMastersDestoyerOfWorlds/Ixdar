@@ -28,18 +28,8 @@ public final class FaceSegmentIndex {
      */
     public static long foreignOriginSkipCount;
 
-    /**
-     * How close to a chord end a rejected crossing must land, as a fraction of that
-     * chord's extent, to count as a rounding near-miss rather than a real miss.
-     */
     private static final double SPAN_NEAR_MISS_FRACTION = 1.0e-9;
 
-    /**
-     * Visit-ordinal window within which two same-trace segments count as adjacent
-     * and so cannot transversally cross. The skip is limited to this window rather
-     * than the whole trace so that a trace wrapping back over its earlier path
-     * still gets noded.
-     */
     private static final int SELF_CROSS_ADJACENT_VISITS = 1;
 
     private final List<List<TraceSegment>> segmentsByFace;

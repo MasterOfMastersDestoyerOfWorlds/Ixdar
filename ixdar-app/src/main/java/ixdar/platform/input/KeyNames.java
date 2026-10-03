@@ -15,52 +15,36 @@ import java.util.Map;
  */
 public final class KeyNames {
 
-    /** GLFW modifier bit for shift. */
     public static final int MOD_SHIFT = 0x0001;
 
-    /** GLFW modifier bit for control. */
     public static final int MOD_CONTROL = 0x0002;
 
-    /** GLFW modifier bit for alt. */
     public static final int MOD_ALT = 0x0004;
 
-    /** GLFW modifier bit for the super / command key. */
     public static final int MOD_SUPER = 0x0008;
 
-    /** Action word for a press immediately followed by a release; the default. */
     public static final String ACTION_TAP = "tap";
 
-    /** Action word for a key-down with no matching key-up. */
     public static final String ACTION_PRESS = "press";
 
-    /** Action word for a key-up. */
     public static final String ACTION_RELEASE = "release";
 
-    /** Action word for an auto-repeat key-down. */
     public static final String ACTION_REPEAT = "repeat";
 
-    /** Modifier word for shift. */
     public static final String SHIFT = "SHIFT";
 
-    /** Short modifier word for control. */
     public static final String CTRL = "CTRL";
 
-    /** Long modifier word for control. */
     public static final String CONTROL = "CONTROL";
 
-    /** Modifier word for alt. */
     public static final String ALT = "ALT";
 
-    /** Modifier word for the super / command key. */
     public static final String SUPER = "SUPER";
 
-    /** Modifier word to bit, in the order they are listed back to a caller. */
     public static final Map<String, Integer> MODIFIER_BITS = modifierBits();
 
-    /** Modifier word to the physical key it holds down, so handlers reading pressed keys agree. */
     public static final Map<String, Integer> MODIFIER_KEYS = modifierKeys();
 
-    /** Key name to code, reflected off {@link Keys} so the two can never drift apart. */
     public static final Map<String, Integer> KEY_CODES = keyCodes();
 
     private static final String ACTION_PREFIX = "ACTION_";

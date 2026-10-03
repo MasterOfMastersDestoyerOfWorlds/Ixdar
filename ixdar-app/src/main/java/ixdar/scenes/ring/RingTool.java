@@ -38,58 +38,38 @@ import ixdar.platform.Platforms;
  */
 public final class RingTool {
 
-    /** Status line the scene shows while the tool is active. */
     public static final String STATUS_LINE =
             "ring tool: hover to preview, click to confirm, click a ring to add an anchor, "
                     + "scroll to tilt, Ctrl+S to save, Esc to finish";
 
-    /** Prefix of every line the tool logs. */
     public static final String LOG_PREFIX = "[ring-tool] ";
 
-    /**
-     * Colour the loop a click acts on draws in, distinct from every ring colour: the un-confirmed
-     * preview, or the confirmed ring under the cursor.
-     */
     public static final int PREVIEW_COLOR = 0xFF2D95;
 
-    /** Colours rings take in turn, so neighbouring rings never share one. */
     public static final int[] RING_COLORS = {
         0x2ADF4F, 0x2E9BFF, 0xFFD60A, 0xFF9F0A, 0x9D7BFF, 0x00E5D0, 0xFF6B6B, 0xB6FF3B };
 
-    /** Opening of every numbered ring label and statement id, before its optional underscore. */
     public static final String RING_LABEL_PREFIX = "ring";
 
-    /** Ring labels the graph's nodes leave when a statement names none; these carry no number. */
     public static final String[] UNNUMBERED_RING_LABELS = {
         LoopThroughPointsNode.DEFAULT_MARK_LABEL, SplineRingNode.DEFAULT_MARK_LABEL,
         SelectRingNode.SELECTED_LABEL };
 
-    /** Digits a ring number may run to, past which the label is not a ring number at all. */
     public static final int MAXIMUM_RING_DIGITS = 9;
 
-    /**
-     * Bisections a hovered ring is traced to. One below the confirmed depth, because the fit
-     * traces once per anchor it inserts and the hover has a frame to do it in.
-     */
     public static final int HOVER_DEPTH = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH - 1;
 
-    /** Colour every anchor dot draws in, so a dot reads against whatever colour its ring took. */
     public static final int ANCHOR_COLOR = 0xFFFFFF;
 
-    /** How near a confirmed ring's polyline a click counts as landing on that ring, in pixels. */
     public static final float RING_HIT_PIXELS = 8f;
 
-    /** Plane tilt one scroll tick applies, in radians. */
     public static final float TILT_RADIANS_PER_TICK = (float) Math.toRadians(4.0);
 
-    /** Coordinates per point in every packed position here. */
     public static final int COORDINATES_PER_POINT = 3;
 
-    /** Floats one drawn segment costs: its two packed xyz endpoints. */
     public static final int SEGMENT_FLOATS = 2 * COORDINATES_PER_POINT;
 
 
-    /** One half: the field of view's half angle, and which end of an edge a crossing snaps to. */
     public static final float HALF = 0.5f;
 
     /** Scene the tool runs on, which owns the surface, the camera and the working graph. */

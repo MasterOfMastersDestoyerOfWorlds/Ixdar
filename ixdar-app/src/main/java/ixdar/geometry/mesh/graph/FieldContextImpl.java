@@ -9,8 +9,6 @@ import ixdar.geometry.mesh.data.MeshTopology;
  * Vertex-domain field context built from a {@link MeshTopology}.
  */
 public final class FieldContextImpl implements MeshFieldContext {
-    public static final int NUM_3 = 3;
-
     private final MeshTopology mesh;
     private Vector3Field positions;
     private Vector3Field normals;
@@ -63,14 +61,14 @@ public final class FieldContextImpl implements MeshFieldContext {
         if (n == 0) {
             return new Vector3Field(new float[0]);
         }
-        float[] d = new float[n * NUM_3];
+        float[] d = new float[n * 3];
         Vector3f tmp = new Vector3f();
         for (int i = 0; i < n; i++) {
             int vid = mesh.vertexIdAt(i);
             mesh.vertexPosition(vid, tmp);
-            d[NUM_3 * i] = tmp.x;
-            d[NUM_3 * i + 1] = tmp.y;
-            d[NUM_3 * i + 2] = tmp.z;
+            d[3 * i] = tmp.x;
+            d[3 * i + 1] = tmp.y;
+            d[3 * i + 2] = tmp.z;
         }
         return new Vector3Field(d);
     }
@@ -80,14 +78,14 @@ public final class FieldContextImpl implements MeshFieldContext {
         if (n == 0) {
             return new Vector3Field(new float[0]);
         }
-        float[] d = new float[n * NUM_3];
+        float[] d = new float[n * 3];
         Vector3f tmp = new Vector3f();
         for (int i = 0; i < n; i++) {
             int vid = mesh.vertexIdAt(i);
             mesh.vertexNormal(vid, tmp);
-            d[NUM_3 * i] = tmp.x;
-            d[NUM_3 * i + 1] = tmp.y;
-            d[NUM_3 * i + 2] = tmp.z;
+            d[3 * i] = tmp.x;
+            d[3 * i + 1] = tmp.y;
+            d[3 * i + 2] = tmp.z;
         }
         return new Vector3Field(d);
     }

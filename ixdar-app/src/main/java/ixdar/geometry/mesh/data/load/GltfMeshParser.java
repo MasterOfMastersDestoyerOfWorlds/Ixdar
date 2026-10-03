@@ -31,136 +31,92 @@ import ixdar.platform.json.JsonValue;
  */
 public final class GltfMeshParser {
 
-    /** Floats per position, normal and UV element in the flattened arrays. */
     public static final int FLOATS_PER_VERTEX = 3;
 
-    /** Indices per face; this parser accepts triangles only. */
     public static final int VERTICES_PER_TRIANGLE = 3;
 
-    /** {@code glTF} as a little-endian magic word, the first four bytes of a {@code .glb}. */
     public static final int GLB_MAGIC = 0x46546C67;
 
-    /** Bytes of a GLB header: magic, version, total length. */
     public static final int GLB_HEADER_BYTES = 12;
 
-    /** Bytes of a GLB chunk header: chunk length, chunk type. */
     public static final int GLB_CHUNK_HEADER_BYTES = 8;
 
-    /** GLB chunk type of the JSON document. */
     public static final int GLB_CHUNK_JSON = 0x4E4F534A;
 
-    /** GLB chunk type of the binary buffer. */
     public static final int GLB_CHUNK_BIN = 0x004E4942;
 
-    /** Accessor {@code componentType} of an unsigned byte. */
     public static final int COMPONENT_UNSIGNED_BYTE = 5121;
 
-    /** Accessor {@code componentType} of an unsigned short. */
     public static final int COMPONENT_UNSIGNED_SHORT = 5123;
 
-    /** Accessor {@code componentType} of an unsigned int. */
     public static final int COMPONENT_UNSIGNED_INT = 5125;
 
-    /** Accessor {@code componentType} of a 32-bit float. */
     public static final int COMPONENT_FLOAT = 5126;
 
-    /** Primitive {@code mode} of triangles, and the default when the file omits it. */
     public static final int MODE_TRIANGLES = 4;
 
-    /** Bytes in a 32-bit float or int. */
     public static final int BYTES_PER_WORD = 4;
 
-    /** Components of a UV pair. */
     public static final int UV_COMPONENTS = 2;
 
-    /** Components stored per source vertex and per corner: u then v. */
     public static final int COMPONENTS_PER_CORNER = 2;
 
-    /** Floats in a node's column-major {@code matrix}. */
     public static final int MATRIX_COMPONENTS = 16;
 
-    /** Position of the {@code w} component in a glTF rotation quaternion, which is {@code xyzw}. */
     public static final int QUATERNION_W = 3;
 
-    /** Mask taking the unsigned value of a byte. */
     public static final int UNSIGNED_BYTE_MASK = 0xFF;
 
-    /** Mask taking the unsigned value of a short. */
     public static final int UNSIGNED_SHORT_MASK = 0xFFFF;
 
-    /** Largest unsigned value an unsigned byte accessor can hold, for normalized UVs. */
     public static final float UNSIGNED_BYTE_MAX = 255f;
 
-    /** Largest unsigned value an unsigned short accessor can hold, for normalized UVs. */
     public static final float UNSIGNED_SHORT_MAX = 65535f;
 
-    /** Document member naming a node's or accessor's byte offset into its view. */
     public static final String BYTE_OFFSET = "byteOffset";
 
-    /** Document member naming an accessor's buffer view. */
     public static final String BUFFER_VIEW = "bufferView";
 
-    /** Document member naming an element count. */
     public static final String COUNT = "count";
 
-    /** Document member naming a node's or material's name. */
     public static final String NAME = "name";
 
-    /** Document member naming a buffer's or image's URI. */
     public static final String URI = "uri";
 
-    /** Document member naming a texture reference's index. */
     public static final String INDEX = "index";
 
-    /** Prefix of a URI that carries its payload inline. */
     public static final String DATA_URI_PREFIX = "data:";
 
-    /** Marker inside a {@code data:} URI saying the payload is base64. */
     public static final String BASE64_MARKER = ";base64,";
 
-    /** Document member naming the node array, and a scene's or node's child node list. */
     public static final String NODES = "nodes";
 
-    /** Document member naming a node's mesh, and the top-level mesh array's singular member. */
     public static final String MESH = "mesh";
 
-    /** Document member naming a mesh's primitive list. */
     public static final String PRIMITIVES = "primitives";
 
-    /** Document member naming a primitive's attribute map. */
     public static final String ATTRIBUTES = "attributes";
 
-    /** Attribute naming a primitive's vertex positions. */
     public static final String POSITION = "POSITION";
 
-    /** Attribute naming a primitive's vertex normals. */
     public static final String NORMAL = "NORMAL";
 
-    /** Attribute naming a primitive's first texture coordinate set. */
     public static final String TEXCOORD = "TEXCOORD_0";
 
-    /** Document member naming a node's children. */
     public static final String CHILDREN = "children";
 
-    /** Document member naming a primitive's index accessor. */
     public static final String INDICES = "indices";
 
-    /** Document member naming an accessor's component type. */
     public static final String COMPONENT_TYPE = "componentType";
 
-    /** Document member naming the buffer a view reads from. */
     public static final String BUFFER = "buffer";
 
-    /** Slots per source vertex in the weld's open-addressed table, keeping it half empty. */
     public static final int WELD_LOAD_DIVISOR = 4;
 
-    /** Odd multiplier mixing position bits into a weld hash. */
     public static final int HASH_MULTIPLIER = 31;
 
-    /** Right shift folding the high bits of a weld hash into the low ones. */
     public static final int HASH_SHIFT = 16;
 
-    /** Component difference above which a welded group counts as a normal conflict. */
     public static final float NORMAL_CONFLICT_EPSILON = 1e-3f;
 
     /**

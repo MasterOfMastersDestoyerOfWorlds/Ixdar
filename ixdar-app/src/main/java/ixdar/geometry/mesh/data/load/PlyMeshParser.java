@@ -32,7 +32,7 @@ public final class PlyMeshParser {
 
             while ((line = stringReader.readLine()) != null) {
                 line = line.trim();
-                if (line.isEmpty() || line.startsWith(MeshLoader.STR)) {
+                if (line.isEmpty() || line.startsWith(MeshLoader.COMMENT_PREFIX)) {
                     continue;
                 }
 
@@ -49,7 +49,7 @@ public final class PlyMeshParser {
                             vertexCount = Integer.parseInt(parts[1]);
                             // Pre-allocate normals
                             for (int i = 0; i < vertexCount * MeshLoader.FLOATS_PER_VERTEX; i++) {
-                                normals.add(MeshLoader.NUM_0);
+                                normals.add(0f);
                             }
                         }
                     } else if (line.startsWith("element face")) {
@@ -90,7 +90,7 @@ public final class PlyMeshParser {
 
             while ((line = stringReader.readLine()) != null) {
                 line = line.trim();
-                if (line.isEmpty() || line.startsWith(MeshLoader.STR)) {
+                if (line.isEmpty() || line.startsWith(MeshLoader.COMMENT_PREFIX)) {
                     continue;
                 }
 
@@ -112,7 +112,7 @@ public final class PlyMeshParser {
                         positions.add(z);
 
                         // Check for normals
-                        if (parts.length >= MeshLoader.NUM_6) {
+                        if (parts.length >= 6) {
                             normals.set(
                                     (positions.size() / MeshLoader.FLOATS_PER_VERTEX - 1)
                                             * MeshLoader.FLOATS_PER_VERTEX,
@@ -120,11 +120,11 @@ public final class PlyMeshParser {
                             normals.set(
                                     (positions.size() / MeshLoader.FLOATS_PER_VERTEX - 1) * MeshLoader.FLOATS_PER_VERTEX
                                             + 1,
-                                    Float.parseFloat(parts[MeshLoader.NUM_4]));
+                                    Float.parseFloat(parts[4]));
                             normals.set(
                                     (positions.size() / MeshLoader.FLOATS_PER_VERTEX - 1) * MeshLoader.FLOATS_PER_VERTEX
                                             + 2,
-                                    Float.parseFloat(parts[MeshLoader.NUM_5]));
+                                    Float.parseFloat(parts[5]));
                         }
                     }
                 } else {

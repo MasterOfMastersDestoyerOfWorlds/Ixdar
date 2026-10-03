@@ -10,8 +10,6 @@ import ixdar.graphics.render.Clock;
 import ixdar.common.utils.Compat;
 
 public class ColorLerp implements Color {
-    public static final int NUM_3 = 3;
-
     static HashMap<Color, ColorLerp> flashColors = new HashMap<>();
 
     public Color startColor;
@@ -132,7 +130,7 @@ public class ColorLerp implements Color {
         lerp.x = Compat.fmaf(other.x() - lerp.x, occ * channelLerp[0], lerp.x);
         lerp.y = Compat.fmaf(other.y() - lerp.y, occ * channelLerp[1], lerp.y);
         lerp.z = Compat.fmaf(other.z() - lerp.z, occ * channelLerp[2], lerp.z);
-        lerp.w = Compat.fmaf(other.w() - lerp.w, occ * channelLerp[NUM_3], lerp.w);
+        lerp.w = Compat.fmaf(other.w() - lerp.w, occ * channelLerp[3], lerp.w);
 
         return lerp;
     }

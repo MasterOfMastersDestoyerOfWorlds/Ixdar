@@ -16,10 +16,8 @@ import org.teavm.model.emit.ProgramEmitter;
  */
 public class JomlUnsafeTransformer implements ClassHolderTransformer {
 
-    /** JOML's buffer accessor, whose factory picks between an Unsafe and an NIO implementation. */
     public static final String MEM_UTIL_CLASS = "org.joml.MemUtil";
 
-    /** The NIO accessor, JOML's own fallback when Unsafe is unavailable. */
     public static final String MEM_UTIL_NIO_CLASS = "org.joml.MemUtil$MemUtilNIO";
 
     private static final String CREATE_INSTANCE = "createInstance";

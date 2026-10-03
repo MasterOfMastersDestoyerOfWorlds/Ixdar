@@ -23,20 +23,14 @@ import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
  */
 public final class BranchCrossSectionRing {
 
-    /** Coordinates per point in every packed position array here. */
     public static final int COORDINATES_PER_POINT = 3;
 
-    /** Waypoints the tightening is seeded through, spread around the planar cut. */
     public static final int WAYPOINTS = 3;
 
-    /**
-     * Share of the planar cut's length the tightened loop must keep. A constriction shortens the
-     * cut a little; a taper lets it slide off the end and shrink to nothing.
-     */
     public static final float MINIMUM_TIGHTENED_FRACTION = 0.3f;
 
     /** Voxel-grid resolution handed to {@link MeshSkeletonExtractor}. */
-    public int resolution = MeshSkeletonExtractor.NUM_128;
+    public int resolution = MeshSkeletonExtractor.DEFAULT_RESOLUTION;
 
     /** Branch-extraction rounds the skeleton may spend, as {@link RingCandidateExtractor} sets. */
     public int skeletonBranchBudget = 4 * MeshSkeletonExtractor.DEFAULT_BRANCH_BUDGET;

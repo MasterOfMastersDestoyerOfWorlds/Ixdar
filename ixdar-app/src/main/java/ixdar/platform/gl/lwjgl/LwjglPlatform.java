@@ -64,15 +64,13 @@ import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.gl.Platform;
 
 public class LwjglPlatform implements Platform {
-    public static final String STR = "/";
     public static final String SRC = "src/";
 
     /** Working-directory-relative folder the desktop platform reads texture files from. */
     public static final String RESOURCE_DIRECTORY = "src/main/resources/res/";
 
-    public static final double NUM_1e9 = 1e9;
-    public static final int NUM_4 = 4;
-    private static final ConcurrentLinkedQueue<Runnable> inputQueue = new ConcurrentLinkedQueue<>();
+    public static final double NANOS_PER_SECOND = 1e9;
+    private static final ConcurrentLinkedQueue<Runnable> INPUT_QUEUE = new ConcurrentLinkedQueue<>();
 
     private final long window;
     private final DesktopCholeskyBackend choleskyBackend = new DesktopCholeskyBackend();
@@ -133,39 +131,39 @@ public class LwjglPlatform implements Platform {
     /** {@inheritDoc}. */
     @Override
     public float timeSeconds() {
-        return (float) (System.nanoTime() / NUM_1e9);
+        return (float) (System.nanoTime() / NANOS_PER_SECOND);
     }
 
     /** {@inheritDoc}. */
     @Override
     public void setKeyCallback(KeyCallback callback) {
         glfwSetKeyCallback(window,
-                (w, key, scancode, action, mods) -> inputQueue.add(() -> callback.onKey(key, scancode, action, mods)));
+                (w, key, scancode, action, mods) -> INPUT_QUEUE.add(() -> callback.onKey(key, scancode, action, mods)));
     }
 
     /** {@inheritDoc}. */
     @Override
     public void setCharCallback(CharCallback callback) {
-        glfwSetCharCallback(window, (w, codepoint) -> inputQueue.add(() -> callback.onChar(codepoint)));
+        glfwSetCharCallback(window, (w, codepoint) -> INPUT_QUEUE.add(() -> callback.onChar(codepoint)));
     }
 
     /** {@inheritDoc}. */
     @Override
     public void setCursorPosCallback(CursorPosCallback callback) {
-        glfwSetCursorPosCallback(window, (w, x, y) -> inputQueue.add(() -> callback.onMousePos(window, x, y)));
+        glfwSetCursorPosCallback(window, (w, x, y) -> INPUT_QUEUE.add(() -> callback.onMousePos(window, x, y)));
     }
 
     /** {@inheritDoc}. */
     @Override
     public void setMouseButtonCallback(MouseButtonCallback callback) {
         glfwSetMouseButtonCallback(window,
-                (w, button, action, mods) -> inputQueue.add(() -> callback.onMouseButton(button, action, mods)));
+                (w, button, action, mods) -> INPUT_QUEUE.add(() -> callback.onMouseButton(button, action, mods)));
     }
 
     /** {@inheritDoc}. */
     @Override
     public void setScrollCallback(ScrollCallback callback) {
-        glfwSetScrollCallback(window, (w, x, y) -> inputQueue.add(() -> callback.onScroll(x, y)));
+        glfwSetScrollCallback(window, (w, x, y) -> INPUT_QUEUE.add(() -> callback.onScroll(x, y)));
     }
 
     /** {@inheritDoc}. */
@@ -243,7 +241,7 @@ public class LwjglPlatform implements Platform {
 
     /** {@inheritDoc}. */
     public String loadSource(String folder, String filename) throws IOException {
-        String path = folder + STR + filename;
+        String path = folder + "/" + filename;
         try (InputStream in = LwjglPlatform.class.getClassLoader().getResourceAsStream(path)) {
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
@@ -302,7 +300,7 @@ public class LwjglPlatform implements Platform {
             String source = loadSource(resourceFolder, filename);
             callback.accept(source);
         } catch (IOException e) {
-            System.err.println("Failed to load source: " + resourceFolder + STR + filename);
+            System.err.println("Failed to load source: " + resourceFolder + "/" + filename);
             e.printStackTrace();
             callback.accept("");
         }
@@ -419,7 +417,7 @@ public class LwjglPlatform implements Platform {
     /** {@inheritDoc}. */
     public void processInputQueue() {
         Runnable runnable;
-        while ((runnable = inputQueue.poll()) != null) {
+        while ((runnable = INPUT_QUEUE.poll()) != null) {
             runnable.run();
         }
     }

@@ -5,9 +5,7 @@ import org.joml.Vector3f;
 import ixdar.graphics.render.shaders.ShaderProgram;
 
 public class SpotLight {
-    public static final float NUM_0 = 0f;
-    public static final int NUM_4 = 4;
-    public static final int NUM_3 = 3;
+    public static final int ATTENUATION_ROW_SIZE = 4;
     public Vector3f position;
     public Vector3f diffuse;
     Vector3f ambient;
@@ -39,7 +37,7 @@ public class SpotLight {
         this.position = position;
         this.direction = direction;
         this.diffuse = new Vector3f(color);
-        this.ambient = new Vector3f(NUM_0);
+        this.ambient = new Vector3f(0f);
         this.specular = new Vector3f(color);
         this.cutOff = cutOff;
         this.outerCutOff = outerCutOff;
@@ -54,13 +52,13 @@ public class SpotLight {
      * @param distance falloff range in world units
      */
     public void setAttenuation(float distance) {
-        int rows = PointLight.attenuationLookupTable.length / NUM_4;
+        int rows = PointLight.attenuationLookupTable.length / ATTENUATION_ROW_SIZE;
         for (int i = rows - 1; i >= 1; i--) {
-            if (distance >= PointLight.attenuationLookupTable[NUM_4 * i]
-                    && distance < PointLight.attenuationLookupTable[NUM_4 * (i - 1)]) {
-                this.constant = PointLight.attenuationLookupTable[NUM_4 * i + 1];
-                this.linear = PointLight.attenuationLookupTable[NUM_4 * i + 2];
-                this.quadratic = PointLight.attenuationLookupTable[NUM_4 * i + NUM_3];
+            if (distance >= PointLight.attenuationLookupTable[ATTENUATION_ROW_SIZE * i]
+                    && distance < PointLight.attenuationLookupTable[ATTENUATION_ROW_SIZE * (i - 1)]) {
+                this.constant = PointLight.attenuationLookupTable[ATTENUATION_ROW_SIZE * i + 1];
+                this.linear = PointLight.attenuationLookupTable[ATTENUATION_ROW_SIZE * i + 2];
+                this.quadratic = PointLight.attenuationLookupTable[ATTENUATION_ROW_SIZE * i + 3];
             }
         }
     }

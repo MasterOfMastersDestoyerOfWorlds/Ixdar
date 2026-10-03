@@ -16,7 +16,6 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;
  */
 public final class ChartWalker {
 
-    /** Doubles per face corner UV buffer {@code [u0,v0,u1,v1,u2,v2]}. */
     public static final int CORNER_UV_FLOATS = 6;
     public static final int CORNERS = HalfEdgeMesh.TRIANGLE_CORNERS;
 

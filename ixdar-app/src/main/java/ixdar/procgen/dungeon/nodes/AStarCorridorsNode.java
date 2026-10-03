@@ -18,7 +18,7 @@ import ixdar.procgen.dungeon.values.CellType;
 
 @MeshNodeAnnotation(id = "astar_corridors", scopes = { "dungeon" })
 public class AStarCorridorsNode implements MeshNode {
-    public static final int NUM_30 = 30;
+    public static final int DEFAULT_GRID_SIZE = 30;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, null);
@@ -75,8 +75,8 @@ public class AStarCorridorsNode implements MeshNode {
         Number rc = ctx.getInput(REUSE_COST.name, Number.class);
         Number ec = ctx.getInput(EMPTY_COST.name, Number.class);
         Number roomC = ctx.getInput(ROOM_COST.name, Number.class);
-        int gridW = gw == null ? NUM_30 : gw.intValue();
-        int gridH = gh == null ? NUM_30 : gh.intValue();
+        int gridW = gw == null ? DEFAULT_GRID_SIZE : gw.intValue();
+        int gridH = gh == null ? DEFAULT_GRID_SIZE : gh.intValue();
         double reuseCost = rc == null ? AStarCorridorPathfinder2D.DEFAULT_HALLWAY_REUSE_COST : rc.doubleValue();
         double emptyCost = ec == null ? AStarCorridorPathfinder2D.DEFAULT_EMPTY_CELL_COST : ec.doubleValue();
         double roomCost = roomC == null ? AStarCorridorPathfinder2D.DEFAULT_THROUGH_ROOM_COST : roomC.doubleValue();

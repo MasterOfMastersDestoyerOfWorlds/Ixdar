@@ -18,9 +18,8 @@ import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
  * sort triangles — stable across vertex ordering.
  */
 public final class MeshCanonicalFingerprint {
-    public static final int NUM_3 = 3;
-    public static final int NUM_8 = 8;
-    public static final int NUM_4 = 4;
+    public static final int VERTEX_STRIDE = 8;
+    public static final int BYTES_PER_FLOAT = 4;
 
     public static final String ALGORITHM_ID = "ixdar-mesh-fingerprint-v1";
 
@@ -40,7 +39,7 @@ public final class MeshCanonicalFingerprint {
     };
 
     private static final Comparator<float[][]> TRIANGLE_ORDER = (a, b) -> {
-        for (int i = 0; i < NUM_3; i++) {
+        for (int i = 0; i < 3; i++) {
             int c = CORNER_ORDER.compare(a[i], b[i]);
             if (c != 0) {
                 return c;
@@ -63,7 +62,7 @@ public final class MeshCanonicalFingerprint {
             return 0;
         }
         HalfEdgeCompiledMeshData data = ((HalfEdgeMesh) mesh).compileSurfaceData();
-        return data.indices.length / NUM_3;
+        return data.indices.length / 3;
     }
 
     /**
@@ -83,12 +82,12 @@ public final class MeshCanonicalFingerprint {
     static String sha256HexFromCompiled(HalfEdgeCompiledMeshData data) {
         float[] verts = data.vertices;
         int[] ind = data.indices;
-        int triCount = ind.length / NUM_3;
+        int triCount = ind.length / 3;
         List<float[][]> triangles = new ArrayList<>(triCount);
         for (int t = 0; t < triCount; t++) {
-            int i0 = ind[t * NUM_3];
-            int i1 = ind[t * NUM_3 + 1];
-            int i2 = ind[t * NUM_3 + 2];
+            int i0 = ind[t * 3];
+            int i1 = ind[t * 3 + 1];
+            int i2 = ind[t * 3 + 2];
             float[] c0 = corner(verts, i0);
             float[] c1 = corner(verts, i1);
             float[] c2 = corner(verts, i2);
@@ -101,7 +100,7 @@ public final class MeshCanonicalFingerprint {
     }
 
     private static float[] corner(float[] verts, int vertexIndex) {
-        int o = vertexIndex * NUM_8;
+        int o = vertexIndex * VERTEX_STRIDE;
         return new float[] {
                 roundCoord(verts[o]),
                 roundCoord(verts[o + 1]),
@@ -121,7 +120,7 @@ public final class MeshCanonicalFingerprint {
 
     static byte[] encodeTriangles(List<float[][]> sortedTriangles) {
         int n = sortedTriangles.size();
-        ByteBuffer buf = ByteBuffer.allocate(n * NUM_3 * NUM_3 * NUM_4);
+        ByteBuffer buf = ByteBuffer.allocate(n * 3 * 3 * BYTES_PER_FLOAT);
         buf.order(ByteOrder.BIG_ENDIAN);
         for (float[][] tri : sortedTriangles) {
             for (float[] corner : tri) {

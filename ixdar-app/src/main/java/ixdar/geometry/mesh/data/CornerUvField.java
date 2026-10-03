@@ -9,10 +9,8 @@ import ixdar.geometry.mesh.nodes.api.UvField;
  */
 public final class CornerUvField implements UvField {
 
-    /** Bundle slot a mesh's UV field rides on. */
     public static final String SLOT = "_uv";
 
-    /** Corners per face; this field covers triangle meshes. */
     public static final int CORNERS_PER_FACE = 3;
 
     /** {@code u} per corner, {@code faceCount * 3} long. */

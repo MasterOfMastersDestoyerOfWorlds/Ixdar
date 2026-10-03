@@ -22,14 +22,12 @@ import ixdar.platform.Platforms;
  * {@link #MAX_DISTANCE}. Used for mesh-node inspection and 3D debug views.
  */
 public class OrbitMouseTrap extends MouseTrap {
-    public static final float NUM_3 = 3f;
-    public static final int NUM_60 = 60;
+    public static final float CLICK_DRAG_THRESHOLD_PX = 3f;
+    public static final int SCROLL_DECAY_MS = 60;
     public static final float DEFAULT_MIN_DISTANCE = 0.75f;
     public static final float DEFAULT_MAX_DISTANCE = 40.0f;
     private static final float DRAG_RADIANS_PER_PIXEL = 0.01f;
-    /** GLFW shift modifier bit; shift + left-drag pans the orbit centre. */
     private static final int MOD_SHIFT = 0x0001;
-    /** Orbit-centre pan distance per drag pixel, as a fraction of orbit distance. */
     private static final float PAN_DISTANCE_FRACTION_PER_PIXEL = 0.0015f;
     private static final float MIN_ELEVATION = (float) Math.toRadians(-85.0);
     private static final float MAX_ELEVATION = (float) Math.toRadians(85.0);
@@ -176,7 +174,7 @@ public class OrbitMouseTrap extends MouseTrap {
             panningDrag = (mods & MOD_SHIFT) != 0;
             mousePressed(x, y);
         } else if (action == ACTION_RELEASE && button == MOUSE_BUTTON_LEFT) {
-            boolean wasClick = leftMouseDownPos != null && leftMouseDownPos.distance(x, y) <= NUM_3;
+            boolean wasClick = leftMouseDownPos != null && leftMouseDownPos.distance(x, y) <= CLICK_DRAG_THRESHOLD_PX;
             leftMouseDownPos = null;
             panningDrag = false;
             if (wasClick && toolClick != null) {
@@ -196,7 +194,7 @@ public class OrbitMouseTrap extends MouseTrap {
 
     /**
      * Route mouse motion to {@link #mouseDragged} while the left button is held past the
-     * {@link #NUM_3}-pixel deadzone, otherwise to {@link #mousePos}.
+     * {@link #CLICK_DRAG_THRESHOLD_PX}-pixel deadzone, otherwise to {@link #mousePos}.
      *
      * @param window platform window handle
      * @param x cursor x in window coordinates
@@ -210,7 +208,7 @@ public class OrbitMouseTrap extends MouseTrap {
         }
         boolean leftDown = Platforms.gl().getMouseButton(window, MouseButtons.MOUSE_BUTTON_LEFT);
         Vector2f currentPos = new Vector2f(x, y);
-        if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > NUM_3) {
+        if (leftDown && leftMouseDownPos != null && currentPos.distance(leftMouseDownPos) > CLICK_DRAG_THRESHOLD_PX) {
             mouseDragged(x, y);
         } else {
             mousePos(x, y);
@@ -316,7 +314,7 @@ public class OrbitMouseTrap extends MouseTrap {
         if (!active) {
             return;
         }
-        if (System.currentTimeMillis() - timeLastScroll > NUM_60) {
+        if (System.currentTimeMillis() - timeLastScroll > SCROLL_DECAY_MS) {
             queuedMouseWheelTicks = 0;
         }
         if (queuedMouseWheelTicks != 0) {

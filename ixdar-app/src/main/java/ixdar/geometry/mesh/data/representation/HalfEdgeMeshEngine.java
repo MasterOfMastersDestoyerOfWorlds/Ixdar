@@ -20,15 +20,7 @@ public class HalfEdgeMeshEngine {
     public static final String EDGE = "Edge ";
     public static final String POSITION_DATA_MUST_BE_XYZ_TRIPLES = "Position data must be XYZ triples";
     public static final String AND = " and ";
-    public static final float NUM_0 = 0f;
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_0_25 = 0.25f;
-    public static final int NUM_8 = 8;
-    public static final int NUM_5 = 5;
-    public static final int NUM_6 = 6;
-    public static final int NUM_7 = 7;
+    public static final int FLOATS_PER_GPU_VERTEX = 8;
 
     /**
      * Allocates a new vertex slot at the given world-space position.
@@ -135,8 +127,8 @@ public class HalfEdgeMeshEngine {
         int vertexB = mesh.halfEdgeVertex[twin];
         int faceA = mesh.halfEdgeFace[halfEdge];
         int faceB = mesh.halfEdgeFace[twin];
-        if (faceA != MeshTopology.NONE && mesh.faceVertexCount(faceA) != NUM_3
-                || faceB != MeshTopology.NONE && mesh.faceVertexCount(faceB) != NUM_3) {
+        if (faceA != MeshTopology.NONE && mesh.faceVertexCount(faceA) != 3
+                || faceB != MeshTopology.NONE && mesh.faceVertexCount(faceB) != 3) {
             throw new InvalidMeshTopologyException(EDGE + edgeId
                     + " cannot be split in place: an incident face is not a triangle");
         }
@@ -344,13 +336,13 @@ public class HalfEdgeMeshEngine {
 
         for (int i = 0; i < mesh.vertexCount(); i++) {
             int vertexId = mesh.vertexIdAt(i);
-            setVector(mesh.vertexNormals, vertexId, NUM_0, NUM_0, NUM_0);
+            setVector(mesh.vertexNormals, vertexId, 0f, 0f, 0f);
         }
 
         for (int i = 0; i < mesh.faceCount(); i++) {
             int faceId = mesh.faceIdAt(i);
-            setVector(mesh.faceNormals, faceId, NUM_0, NUM_0, NUM_0);
-            if (mesh.faceVertexCount(faceId) < NUM_3) {
+            setVector(mesh.faceNormals, faceId, 0f, 0f, 0f);
+            if (mesh.faceVertexCount(faceId) < 3) {
                 continue;
             }
 
@@ -360,7 +352,7 @@ public class HalfEdgeMeshEngine {
             edgeA.set(p1).sub(p0);
             edgeB.set(p2).sub(p0);
             edgeA.cross(edgeB, areaNormal);
-            if (areaNormal.lengthSquared() == NUM_0) {
+            if (areaNormal.lengthSquared() == 0f) {
                 continue;
             }
 
@@ -376,7 +368,7 @@ public class HalfEdgeMeshEngine {
             int vertexId = mesh.vertexIdAt(i);
             int offset = mesh.vertexOffset(vertexId);
             p0.set(mesh.vertexNormals[offset], mesh.vertexNormals[offset + 1], mesh.vertexNormals[offset + 2]);
-            if (p0.lengthSquared() > NUM_0) {
+            if (p0.lengthSquared() > 0f) {
                 p0.normalize();
                 setVector(mesh.vertexNormals, vertexId, p0.x, p0.y, p0.z);
             }
@@ -416,19 +408,19 @@ public class HalfEdgeMeshEngine {
         if (positions.length % HalfEdgeMesh.FLOATS_PER_VERTEX != 0) {
             throw new IllegalArgumentException(POSITION_DATA_MUST_BE_XYZ_TRIPLES);
         }
-        if (faceIndices.length % NUM_3 != 0) {
+        if (faceIndices.length % 3 != 0) {
             throw new IllegalArgumentException("Face indices must be triangles");
         }
 
         int vertexCapacity = positions.length / HalfEdgeMesh.FLOATS_PER_VERTEX;
-        int faceCapacity = faceIndices.length / NUM_3;
+        int faceCapacity = faceIndices.length / 3;
         HalfEdgeMesh mesh = new HalfEdgeMesh(vertexCapacity, faceIndices.length / 2,
                 faceCapacity, faceIndices.length);
         for (int i = 0; i < positions.length; i += HalfEdgeMesh.FLOATS_PER_VERTEX) {
             addVertex(mesh, positions[i], positions[i + 1], positions[i + 2]);
         }
-        int[] face = new int[NUM_3];
-        for (int i = 0; i < faceIndices.length; i += NUM_3) {
+        int[] face = new int[3];
+        for (int i = 0; i < faceIndices.length; i += 3) {
             face[0] = faceIndices[i];
             face[1] = faceIndices[i + 1];
             face[2] = faceIndices[i + 2];
@@ -495,7 +487,7 @@ public class HalfEdgeMeshEngine {
         }
         int totalFaceVerts = 0;
         for (int c : faceVertexCounts) {
-            if (c < NUM_3) {
+            if (c < 3) {
                 throw new IllegalArgumentException("Face vertex count must be >= 3, got " + c);
             }
             totalFaceVerts += c;
@@ -538,7 +530,7 @@ public class HalfEdgeMeshEngine {
         if (src == null || src.vertexCount() == 0) {
             return new HalfEdgeMesh();
         }
-        if (src.faceVertexCount(src.faceIdAt(0)) != NUM_4) {
+        if (src.faceVertexCount(src.faceIdAt(0)) != 4) {
             throw new IllegalArgumentException("subdivideQuadsOnce requires all faces to be quads");
         }
 
@@ -546,9 +538,9 @@ public class HalfEdgeMeshEngine {
         int srcE = src.edgeCount();
         int srcF = src.faceCount();
         int outV = srcV + srcE + srcF;
-        int outF = srcF * NUM_4;
+        int outF = srcF * 4;
 
-        HalfEdgeMesh out = new HalfEdgeMesh(outV, srcE * NUM_4, outF, srcE * NUM_4);
+        HalfEdgeMesh out = new HalfEdgeMesh(outV, srcE * 4, outF, srcE * 4);
 
         // Copy original vertex positions
         for (int i = 0; i < srcV; i++) {
@@ -558,7 +550,7 @@ public class HalfEdgeMeshEngine {
         }
 
         // Create edge midpoints
-        HashMap<Long, Integer> edgeMidMap = new HashMap<>(srcE * NUM_4 / NUM_3 + 1);
+        HashMap<Long, Integer> edgeMidMap = new HashMap<>(srcE * 4 / 3 + 1);
         for (int ei = 0; ei < srcE; ei++) {
             int eid = src.edgeIdAt(ei);
             int he = src.edgeHalfEdge(eid);
@@ -566,7 +558,7 @@ public class HalfEdgeMeshEngine {
             int vb = src.halfEdgeEndVertex(he);
             Vector3f p0 = src.vertexPosition(va, new Vector3f());
             Vector3f p1 = src.vertexPosition(vb, new Vector3f());
-            Vector3f mid = new Vector3f().add(p0).add(p1).mul(NUM_0_5);
+            Vector3f mid = new Vector3f().add(p0).add(p1).mul(0.5f);
             int midIdx = srcV + ei;
             out.createVertexSlot(mid.x, mid.y, mid.z);
             edgeMidMap.put(EdgeKey.undirected(va, vb), midIdx);
@@ -576,27 +568,27 @@ public class HalfEdgeMeshEngine {
         Vector3f p = new Vector3f();
         for (int fi = 0; fi < srcF; fi++) {
             int fid = src.faceIdAt(fi);
-            p.set(NUM_0, NUM_0, NUM_0);
-            for (int k = 0; k < NUM_4; k++) {
+            p.set(0f, 0f, 0f);
+            for (int k = 0; k < 4; k++) {
                 int vidx = src.faceVertexAt(fid, k);
                 Vector3f vp = src.vertexPosition(vidx, new Vector3f());
                 p.add(vp);
             }
-            p.mul(NUM_0_25);
+            p.mul(0.25f);
             out.createVertexSlot(p.x, p.y, p.z);
         }
 
         for (int fi = 0; fi < srcF; fi++) {
             int fid = src.faceIdAt(fi);
-            int[] faceVerts = new int[NUM_4];
-            for (int k = 0; k < NUM_4; k++) {
+            int[] faceVerts = new int[4];
+            for (int k = 0; k < 4; k++) {
                 faceVerts[k] = src.faceVertexAt(fid, k);
             }
             int centroid = srcV + srcE + fi;
-            for (int k = 0; k < NUM_4; k++) {
+            for (int k = 0; k < 4; k++) {
                 int va = faceVerts[k];
-                int vb = faceVerts[(k + 1) % NUM_4];
-                int vc = faceVerts[(k + NUM_3) % NUM_4];
+                int vb = faceVerts[(k + 1) % 4];
+                int vc = faceVerts[(k + 3) % 4];
                 int nva = va;
                 Integer midAB = edgeMidMap.get(EdgeKey.undirected(va, vb));
                 Integer midCA = edgeMidMap.get(EdgeKey.undirected(vc, va));
@@ -624,21 +616,21 @@ public class HalfEdgeMeshEngine {
     public static HalfEdgeCompiledMeshData compileSurfaceData(HalfEdgeMesh mesh) {
         int[] vertexRemap = new int[mesh.vertexActive.length];
         Arrays.fill(vertexRemap, MeshTopology.NONE);
-        float[] vertices = new float[mesh.vertexCount() * NUM_8];
+        float[] vertices = new float[mesh.vertexCount() * FLOATS_PER_GPU_VERTEX];
 
         for (int i = 0; i < mesh.vertexCount(); i++) {
             int vertexId = mesh.vertexIdAt(i);
             vertexRemap[vertexId] = i;
             int sourceOffset = mesh.vertexOffset(vertexId);
-            int targetOffset = i * NUM_8;
+            int targetOffset = i * FLOATS_PER_GPU_VERTEX;
             vertices[targetOffset] = mesh.vertexPositions[sourceOffset];
             vertices[targetOffset + 1] = mesh.vertexPositions[sourceOffset + 1];
             vertices[targetOffset + 2] = mesh.vertexPositions[sourceOffset + 2];
-            vertices[targetOffset + NUM_3] = mesh.vertexNormals[sourceOffset];
-            vertices[targetOffset + NUM_4] = mesh.vertexNormals[sourceOffset + 1];
-            vertices[targetOffset + NUM_5] = mesh.vertexNormals[sourceOffset + 2];
-            vertices[targetOffset + NUM_6] = NUM_0;
-            vertices[targetOffset + NUM_7] = NUM_0;
+            vertices[targetOffset + 3] = mesh.vertexNormals[sourceOffset];
+            vertices[targetOffset + 4] = mesh.vertexNormals[sourceOffset + 1];
+            vertices[targetOffset + 5] = mesh.vertexNormals[sourceOffset + 2];
+            vertices[targetOffset + 6] = 0f;
+            vertices[targetOffset + 7] = 0f;
         }
 
         int triangleCount = 0;
@@ -647,12 +639,12 @@ public class HalfEdgeMeshEngine {
             triangleCount += Math.max(0, mesh.faceVertexCount(faceId) - 2);
         }
 
-        int[] indices = new int[triangleCount * NUM_3];
+        int[] indices = new int[triangleCount * 3];
         int indexCursor = 0;
         for (int i = 0; i < mesh.faceCount(); i++) {
             int faceId = mesh.faceIdAt(i);
             int faceVertexCount = mesh.faceVertexCount(faceId);
-            if (faceVertexCount < NUM_3) {
+            if (faceVertexCount < 3) {
                 continue;
             }
             int anchor = vertexRemap[mesh.faceVertexAt(faceId, 0)];
@@ -679,7 +671,7 @@ public class HalfEdgeMeshEngine {
     }
 
     static int addFaceInternal(HalfEdgeMesh mesh, int[] vertexIds, boolean recomputeNormals) {
-        if (vertexIds.length < NUM_3) {
+        if (vertexIds.length < 3) {
             throw new InvalidMeshTopologyException("A face needs at least three vertices");
         }
 

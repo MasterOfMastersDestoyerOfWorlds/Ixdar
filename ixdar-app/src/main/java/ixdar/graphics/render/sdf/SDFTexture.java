@@ -7,9 +7,9 @@ import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 import ixdar.platform.Platforms;
 
 public class SDFTexture extends ShaderDrawable {
-    public static final float NUM_0_1 = 0.1f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_2 = 2f;
+    public static final float FEATHER = 0.1f;
+    public static final float MIN_EDGE_SHARPNESS = 0.1f;
+    public static final float MIN_SCALE_FACTOR = 0.5f;
 
     public Texture texture;
     boolean sharpCorners;
@@ -73,9 +73,9 @@ public class SDFTexture extends ShaderDrawable {
             this.shader = ShaderType.TextureSDF.getShader();
         });
         this.borderColor = borderColor;
-        this.borderInner = borderDist - NUM_0_1;
+        this.borderInner = borderDist - FEATHER;
         this.borderOuter = borderDist;
-        this.borderOffsetInner = borderOffset - NUM_0_1;
+        this.borderOffsetInner = borderOffset - FEATHER;
         this.borderOffsetOuter = borderOffset;
         this.sharpCorners = sharpCorners;
     }
@@ -168,7 +168,7 @@ public class SDFTexture extends ShaderDrawable {
         shader.setFloat("pxRange", pxRange);
         shader.setFloat("edgeDist", edgeDist);
         float scaleFactor = camera != null ? camera.getScaleFactor() : 1.0f;
-        float edgeSharpness = Math.max(baseEdgeSharpness / Math.max(scaleFactor, NUM_0_5), NUM_0_1);
+        float edgeSharpness = Math.max(baseEdgeSharpness / Math.max(scaleFactor, MIN_SCALE_FACTOR), MIN_EDGE_SHARPNESS);
         shader.setFloat("edgeSharpness", edgeSharpness);
     }
 
@@ -258,7 +258,7 @@ public class SDFTexture extends ShaderDrawable {
     public void drawCentered(float drawX, float drawY, float scale, Color c, Camera camera) {
         float width = (float) (texture.width * scale);
         float height = (float) (texture.height * scale);
-        draw(drawX - (width / NUM_2), drawY - (height / NUM_2), width, height, c, camera);
+        draw(drawX - (width / 2f), drawY - (height / 2f), width, height, c, camera);
     }
 
     /**
@@ -267,7 +267,7 @@ public class SDFTexture extends ShaderDrawable {
      * @param borderDist outer border radius in distance-field units
      */
     public void setBorderDist(float borderDist) {
-        this.borderInner = borderDist - NUM_0_1;
+        this.borderInner = borderDist - FEATHER;
         this.borderOuter = borderDist;
     }
 

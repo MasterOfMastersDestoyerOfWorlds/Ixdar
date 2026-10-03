@@ -19,8 +19,7 @@ import ixdar.geometry.mesh.data.EdgeKey;
  * O(N^2).
  */
 public final class DelaunayTriangulation2D {
-    public static final int NUM_3 = 3;
-    public static final int NUM_20 = 20;
+    public static final int SUPER_TRIANGLE_MARGIN_SCALE = 20;
 
     private DelaunayTriangulation2D() {
     }
@@ -42,8 +41,8 @@ public final class DelaunayTriangulation2D {
             return new int[] { 0, 1 };
         }
 
-        double[] xs = new double[n + NUM_3];
-        double[] ys = new double[n + NUM_3];
+        double[] xs = new double[n + 3];
+        double[] ys = new double[n + 3];
         System.arraycopy(us, 0, xs, 0, n);
         System.arraycopy(vs, 0, ys, 0, n);
 
@@ -61,9 +60,9 @@ public final class DelaunayTriangulation2D {
         double midX = (minX + maxX) / 2;
         double midY = (minY + maxY) / 2;
         // Super-triangle clearly encloses the bounding box with margin to spare.
-        xs[n] = midX - NUM_20 * dmax;     ys[n] = midY - dmax;
-        xs[n + 1] = midX + NUM_20 * dmax; ys[n + 1] = midY - dmax;
-        xs[n + 2] = midX;             ys[n + 2] = midY + NUM_20 * dmax;
+        xs[n] = midX - SUPER_TRIANGLE_MARGIN_SCALE * dmax;     ys[n] = midY - dmax;
+        xs[n + 1] = midX + SUPER_TRIANGLE_MARGIN_SCALE * dmax; ys[n + 1] = midY - dmax;
+        xs[n + 2] = midX;             ys[n + 2] = midY + SUPER_TRIANGLE_MARGIN_SCALE * dmax;
 
         // Triangles are int[3] rows of site indices in CCW order; edges are EdgeKey-packed
         // longs (smaller index in the high word), so sorting them as longs is lexicographic.

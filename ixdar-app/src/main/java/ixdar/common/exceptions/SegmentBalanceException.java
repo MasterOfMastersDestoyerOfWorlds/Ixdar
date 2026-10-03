@@ -17,7 +17,6 @@ import ixdar.graphics.render.text.HyperString;
  */
 public class SegmentBalanceException extends Exception {
     public static final String X = "X";
-    public static final String STR = "-";
     public static final String SEGMENTBALANCEEXCEPTION = "SegmentBalanceException: ";
     public CutMatchList cutMatchList;
     public Knot topKnot;
@@ -113,8 +112,8 @@ public class SegmentBalanceException extends Exception {
     public String toString() {
         Knot kp1 = c.lowerKnotPoint;
         Knot kp2 = c.upperKnotPoint;
-        cutName = shell.knotName + "_cut" + kp1 + STR + cut1.getOther(kp1) + "and" + kp2
-                + STR + cut2.getOther(kp2) + "\n" + cutMatchList;
+        cutName = shell.knotName + "_cut" + kp1 + "-" + cut1.getOther(kp1) + "and" + kp2
+                + "-" + cut2.getOther(kp2) + "\n" + cutMatchList;
         if (c != null) {
             return SEGMENTBALANCEEXCEPTION + "cutID: " + c.cutID + " " + topKnot + " cut1: " + cut1 + " ex1: " + ex1
                     + " cut2: " + cut2 + " ex2: " + ex2 + " cutName: " + cutName + "\n\n" + this.getStackTrace()[0];

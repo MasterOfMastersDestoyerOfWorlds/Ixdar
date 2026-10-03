@@ -24,16 +24,12 @@ import ixdar.scenes.model.ModelScene;
 @SceneAnnotation(id = "quad-layout")
 public class QuadLayoutScene extends ModelScene {
 
-    /** Grid-map paint off; the iso surface holds the seamless parametrization. */
     private static final int GRID_MAP_VIEW_OFF = 0;
 
-    /** Grid-map paint showing the pre-relaxation integer grid map. */
     private static final int GRID_MAP_VIEW_INITIAL = 1;
 
-    /** Grid-map paint showing the relaxed integer grid map. */
     private static final int GRID_MAP_VIEW_RELAXED = 2;
 
-    /** States the grid-map paint toggle cycles through. */
     private static final int GRID_MAP_VIEW_COUNT = 3;
 
     /** Render runtime of this scene; the diagnosis route highlights through it. */

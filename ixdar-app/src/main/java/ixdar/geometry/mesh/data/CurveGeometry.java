@@ -8,9 +8,7 @@ import java.util.Arrays;
  */
 public final class CurveGeometry {
 
-    /** Bundle slot every curve node reads and writes its {@link CurveGeometry} through. */
     public static final String SLOT = "_curve";
-    public static final int NUM_3 = 3;
 
     private final float[] positions;
     /** curveOffsets[k] is the first point index of curve k; last entry is total point count. */
@@ -24,7 +22,7 @@ public final class CurveGeometry {
      * @throws IllegalArgumentException if either array is null or has the wrong shape
      */
     public CurveGeometry(float[] positions, int[] curveOffsets) {
-        if (positions == null || positions.length % NUM_3 != 0) {
+        if (positions == null || positions.length % 3 != 0) {
             throw new IllegalArgumentException("positions");
         }
         if (curveOffsets == null || curveOffsets.length < 2) {
@@ -67,7 +65,7 @@ public final class CurveGeometry {
      * @return {@code positions.length / 3}
      */
     public int pointCount() {
-        return positions.length / NUM_3;
+        return positions.length / 3;
     }
 
     /**
@@ -77,7 +75,7 @@ public final class CurveGeometry {
      * @return geometry with one curve covering all points
      */
     public static CurveGeometry singlePolyline(float[] positions) {
-        int n = positions.length / NUM_3;
+        int n = positions.length / 3;
         return new CurveGeometry(Arrays.copyOf(positions, positions.length), new int[] { 0, n });
     }
 }

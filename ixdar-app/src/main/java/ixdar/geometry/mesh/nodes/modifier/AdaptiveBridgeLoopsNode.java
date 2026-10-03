@@ -32,9 +32,7 @@ import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 public class AdaptiveBridgeLoopsNode implements MeshNode {
     public static final String ADAPTIVE_BRIDGE_LOOPS_TAG = "adaptive_bridge_loops: tag '";
     public static final String NOT_FOUND = "' not found";
-    public static final String STR = "'";
-    public static final float NUM_1e_8 = 1e-8f;
-    public static final float NUM_0 = 0f;
+    public static final float ARC_LENGTH_EPSILON = 1e-8f;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort LOOP_A_TAG = new InputPort("loop_a_tag", PortType.STRING, "");
@@ -123,12 +121,12 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
             loopA = findTaggedLoop(allLoops, maskA);
             if (loopA == null) {
                 throw new IllegalArgumentException(
-                        "adaptive_bridge_loops: no boundary loop found for tag '" + tagA + STR);
+                        "adaptive_bridge_loops: no boundary loop found for tag '" + tagA + "'");
             }
             loopB = findNearestLoop(mesh, allLoops, loopA, maskA);
             if (loopB == null) {
                 throw new IllegalArgumentException(
-                        "adaptive_bridge_loops: no nearby untagged boundary loop found for tag '" + tagA + STR);
+                        "adaptive_bridge_loops: no nearby untagged boundary loop found for tag '" + tagA + "'");
             }
         }
 
@@ -549,7 +547,7 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
             cumLen[i + 1] = cumLen[i] + a.distance(b);
         }
         float totalLen = cumLen[n];
-        if (totalLen < NUM_1e_8) {
+        if (totalLen < ARC_LENGTH_EPSILON) {
             mesh.vertexPosition(loop.get(0), out);
             return;
         }
@@ -560,7 +558,7 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
         for (int i = 0; i < n; i++) {
             if (targetLen <= cumLen[i + 1] || i == n - 1) {
                 float edgeLen = cumLen[i + 1] - cumLen[i];
-                float localT = edgeLen > NUM_1e_8 ? (targetLen - cumLen[i]) / edgeLen : NUM_0;
+                float localT = edgeLen > ARC_LENGTH_EPSILON ? (targetLen - cumLen[i]) / edgeLen : 0f;
                 mesh.vertexPosition(loop.get(i), a);
                 mesh.vertexPosition(loop.get((i + 1) % n), b);
                 out.set(a).lerp(b, localT);

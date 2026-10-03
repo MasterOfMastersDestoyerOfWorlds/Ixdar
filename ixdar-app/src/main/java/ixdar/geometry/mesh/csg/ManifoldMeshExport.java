@@ -9,7 +9,6 @@ package ixdar.geometry.mesh.csg;
  */
 public final class ManifoldMeshExport {
 
-    /** Coordinates per vertex, and equally corners per triangle. */
     public static final int THREE = 3;
 
     /** Vertex property table, {@link #propertiesPerVertex} doubles per vertex. */

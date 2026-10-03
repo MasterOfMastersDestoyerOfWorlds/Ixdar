@@ -10,16 +10,12 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public final class SurfaceWaypoints {
 
-    /** Coordinates per waypoint in the authored string. */
     public static final int COORDINATES_PER_WAYPOINT = 3;
 
-    /** Waypoints a closed loop needs before its seed walk encloses anything. */
     public static final int CLOSED_LOOP_MINIMUM = 3;
 
-    /** Waypoints an open path needs: its two ends. */
     public static final int OPEN_PATH_MINIMUM = 2;
 
-    /** Fixed decimal places every written coordinate carries, so one ring is always one string. */
     public static final String COORDINATE_FORMAT = "%.6f";
 
     private SurfaceWaypoints() {

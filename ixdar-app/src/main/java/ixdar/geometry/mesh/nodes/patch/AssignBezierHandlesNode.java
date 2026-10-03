@@ -28,25 +28,13 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  */
 @MeshNodeAnnotation(id = "assign_bezier_handles")
 public class AssignBezierHandlesNode implements MeshNode {
-    public static final int NUM_3 = 3;
-    public static final float NUM_1e_20 = 1e-20f;
-    public static final float NUM_1 = 1f;
-    public static final float NUM_1e_8 = 1e-8f;
-    public static final float NUM_0 = 0f;
+    public static final float MIN_LENGTH = 1e-20f;
+    public static final float MIN_LENGTH_SQUARED = 1e-8f;
 
-    /**
-     * {@code 4 * (sqrt(2) - 1) / 3} — cubic bezier control length for a quarter
-     * circle.
-     */
     public static final float QUARTER_CIRCLE_RATIO = 0.5523f;
 
     public static final String SLOT_HANDLES_START = "_bezier_handles_start";
     public static final String SLOT_HANDLES_END = "_bezier_handles_end";
-    /**
-     * Stashes the {@code weight} passed to this node so downstream
-     * topology-modifying nodes (extrude, inset, etc.) can re-run the handle
-     * computation on their output mesh and get globally consistent handles.
-     */
     public static final String SLOT_WEIGHT = "_bezier_handle_weight";
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
@@ -107,7 +95,7 @@ public class AssignBezierHandlesNode implements MeshNode {
         for (int i = 0; i < mesh.edgeCount(); i++) {
             maxEdgeId = Math.max(maxEdgeId, mesh.edgeIdAt(i));
         }
-        int slotLen = (maxEdgeId + 1) * NUM_3;
+        int slotLen = (maxEdgeId + 1) * 3;
         float[] hStart = new float[slotLen];
         float[] hEnd = new float[slotLen];
 
@@ -121,12 +109,12 @@ public class AssignBezierHandlesNode implements MeshNode {
             int v1 = mesh.halfEdgeEndVertex(he);
             float edgeLen = mesh.edgeLength(eid);
             float handleMag = edgeLen * QUARTER_CIRCLE_RATIO * weight;
-            if (edgeLen < NUM_1e_20 || handleMag < NUM_1e_20) {
+            if (edgeLen < MIN_LENGTH || handleMag < MIN_LENGTH) {
                 continue;
             }
 
             handleOffsetAtVertex(mesh, eid, v0, meshCenter, handleMag, outDir);
-            int o = eid * NUM_3;
+            int o = eid * 3;
             hStart[o] = outDir.x;
             hStart[o + 1] = outDir.y;
             hStart[o + 2] = outDir.z;
@@ -154,7 +142,7 @@ public class AssignBezierHandlesNode implements MeshNode {
             mesh.vertexPosition(mesh.vertexIdAt(i), p);
             acc.add(p);
         }
-        acc.mul(NUM_1 / n);
+        acc.mul(1f / n);
         return acc;
     }
 
@@ -194,17 +182,17 @@ public class AssignBezierHandlesNode implements MeshNode {
             mesh.vertexPosition(otherVid, other);
             dir.set(other).sub(vertPos);
             float len = dir.length();
-            if (len < NUM_1e_20) {
+            if (len < MIN_LENGTH) {
                 continue;
             }
-            dir.mul(NUM_1 / len);
+            dir.mul(1f / len);
             avg.add(dir);
             count++;
         }
 
         if (count > 0) {
-            avg.mul(NUM_1 / count);
-            if (avg.lengthSquared() > NUM_1e_8) {
+            avg.mul(1f / count);
+            if (avg.lengthSquared() > MIN_LENGTH_SQUARED) {
                 avg.normalize().mul(-handleMag);
                 dest.set(avg);
                 return;
@@ -215,32 +203,32 @@ public class AssignBezierHandlesNode implements MeshNode {
         mesh.vertexPosition(otherVid, other);
         dir.set(other).sub(vertPos);
         float el = dir.length();
-        if (el < NUM_1e_20) {
-            dest.set(NUM_0, NUM_0, handleMag);
+        if (el < MIN_LENGTH) {
+            dest.set(0f, 0f, handleMag);
             return;
         }
-        Vector3f edgeDir = new Vector3f(dir).mul(NUM_1 / el);
+        Vector3f edgeDir = new Vector3f(dir).mul(1f / el);
 
         Vector3f outward = new Vector3f(vertPos).sub(meshCenter);
-        if (outward.lengthSquared() < NUM_1e_8) {
-            outward.set(NUM_0, NUM_0, NUM_1);
+        if (outward.lengthSquared() < MIN_LENGTH_SQUARED) {
+            outward.set(0f, 0f, 1f);
         } else {
             outward.normalize();
         }
         float along = outward.dot(edgeDir);
         Vector3f perp = new Vector3f(outward).sub(new Vector3f(edgeDir).mul(along));
-        if (perp.lengthSquared() > NUM_1e_8) {
+        if (perp.lengthSquared() > MIN_LENGTH_SQUARED) {
             perp.normalize().mul(handleMag);
             dest.set(perp);
             return;
         }
 
         mesh.vertexNormal(vert, perp);
-        if (perp.lengthSquared() > NUM_1e_8) {
+        if (perp.lengthSquared() > MIN_LENGTH_SQUARED) {
             perp.normalize().mul(handleMag);
             dest.set(perp);
             return;
         }
-        dest.set(NUM_0, NUM_0, handleMag);
+        dest.set(0f, 0f, handleMag);
     }
 }

@@ -23,15 +23,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "subdivision_surface")
 public class SubdivisionMeshNode implements MeshNode {
-    public static final int NUM_3 = 3;
-    public static final int NUM_4 = 4;
-    public static final float NUM_0 = 0f;
-    public static final float NUM_0_25 = 0.25f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final float NUM_2 = 2f;
-    public static final float NUM_6 = 6f;
-    public static final float NUM_0_125 = 0.125f;
-    public static final float NUM_1 = 1f;
 
     public static final InputPort MESH_IN = new InputPort("mesh", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort GEOMETRY_IN = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
@@ -127,7 +118,7 @@ public class SubdivisionMeshNode implements MeshNode {
 
     private static ArrayMesh extractDenseQuadMesh(MeshTopology mesh) {
         if (mesh instanceof ArrayMesh am) {
-            if (am.getVertsPerFace() != NUM_4) {
+            if (am.getVertsPerFace() != 4) {
                 throw new IllegalArgumentException("subdivision_surface: ArrayMesh must be all quads");
             }
             return am;
@@ -148,33 +139,33 @@ public class SubdivisionMeshNode implements MeshNode {
         Arrays.fill(oldToDense, MeshTopology.NONE);
 
         int nf = mesh.faceCount();
-        float[] pos = new float[nv * NUM_3];
+        float[] pos = new float[nv * 3];
         Vector3f p = new Vector3f();
         for (int i = 0; i < nv; i++) {
             int vid = mesh.vertexIdAt(i);
             oldToDense[vid] = i;
             mesh.vertexPosition(vid, p);
-            pos[i * NUM_3] = p.x; pos[i * NUM_3 + 1] = p.y; pos[i * NUM_3 + 2] = p.z;
+            pos[i * 3] = p.x; pos[i * 3 + 1] = p.y; pos[i * 3 + 2] = p.z;
         }
-        int[] quads = new int[nf * NUM_4];
+        int[] quads = new int[nf * 4];
         for (int fi = 0; fi < nf; fi++) {
             int f = mesh.faceIdAt(fi);
-            if (mesh.faceVertexCount(f) != NUM_4) {
+            if (mesh.faceVertexCount(f) != 4) {
                 throw new IllegalArgumentException(
                         "subdivision_surface: all faces must be quads, got " + mesh.faceVertexCount(f) + "-gon");
             }
-            for (int k = 0; k < NUM_4; k++) quads[fi * NUM_4 + k] = oldToDense[mesh.faceVertexAt(f, k)];
+            for (int k = 0; k < 4; k++) quads[fi * 4 + k] = oldToDense[mesh.faceVertexAt(f, k)];
         }
         return ArrayMesh.fromQuads(pos, quads);
     }
 
     private static int nextVertex(int[] quads, int he) {
-        return quads[(he & ~NUM_3) | ((he + 1) & NUM_3)];
+        return quads[(he & ~3) | ((he + 1) & 3)];
     }
 
     private static float creaseWeight(float[] creaseWeights, int edgeIndex) {
         if (creaseWeights == null || edgeIndex < 0 || edgeIndex >= creaseWeights.length) {
-            return NUM_0;
+            return 0f;
         }
         return creaseWeights[edgeIndex];
     }
@@ -184,62 +175,62 @@ public class SubdivisionMeshNode implements MeshNode {
         int[] quadIndices = quads.copyFaceIndices();
         int nv = quads.vertexCount();
         int nf = quads.faceCount();
-        QuadMeshTopologyHelper topo = QuadMeshTopologyHelper.build(quadIndices, NUM_4, nv, nf);
+        QuadMeshTopologyHelper topo = QuadMeshTopologyHelper.build(quadIndices, 4, nv, nf);
         int ne = topo.edgeCount;
 
         // --- Face centers (unchanged by creases) ---
-        final float[] faceCenter = new float[nf * NUM_3];
+        final float[] faceCenter = new float[nf * 3];
         parallelRange(nf, fi -> {
-            float sx = NUM_0, sy = NUM_0, sz = NUM_0;
-            for (int k = 0; k < NUM_4; k++) {
-                int v = quadIndices[fi * NUM_4 + k];
-                int o = v * NUM_3;
+            float sx = 0f, sy = 0f, sz = 0f;
+            for (int k = 0; k < 4; k++) {
+                int v = quadIndices[fi * 4 + k];
+                int o = v * 3;
                 sx += positions[o];
                 sy += positions[o + 1];
                 sz += positions[o + 2];
             }
-            int fo = fi * NUM_3;
-            faceCenter[fo] = sx * NUM_0_25;
-            faceCenter[fo + 1] = sy * NUM_0_25;
-            faceCenter[fo + 2] = sz * NUM_0_25;
+            int fo = fi * 3;
+            faceCenter[fo] = sx * 0.25f;
+            faceCenter[fo + 1] = sy * 0.25f;
+            faceCenter[fo + 2] = sz * 0.25f;
         });
 
         // --- Edge points (crease-aware) ---
-        final float[] edgePos = new float[ne * NUM_3];
+        final float[] edgePos = new float[ne * 3];
         final float[] cw = creaseWeights;
         parallelRange(ne, i -> {
             int he = topo.edgeHalfEdge[i];
             int tw = topo.halfEdgeTwin[he];
             int va = quadIndices[he];
             int vb = nextVertex(quadIndices, he);
-            int o1 = va * NUM_3, o2 = vb * NUM_3;
+            int o1 = va * 3, o2 = vb * 3;
 
             float x1 = positions[o1], y1 = positions[o1 + 1], z1 = positions[o1 + 2];
             float x2 = positions[o2], y2 = positions[o2 + 1], z2 = positions[o2 + 2];
 
-            int f1 = he / NUM_4;
-            int f2 = tw == MeshTopology.NONE ? MeshTopology.NONE : tw / NUM_4;
+            int f1 = he / 4;
+            int f2 = tw == MeshTopology.NONE ? MeshTopology.NONE : tw / 4;
 
             float w = creaseWeight(cw, i);
-            int eo = i * NUM_3;
+            int eo = i * 3;
 
             if (w >= 1.0f) {
                 // Creased edge: use simple midpoint
-                edgePos[eo] = (x1 + x2) * NUM_0_5;
-                edgePos[eo + 1] = (y1 + y2) * NUM_0_5;
-                edgePos[eo + 2] = (z1 + z2) * NUM_0_5;
+                edgePos[eo] = (x1 + x2) * 0.5f;
+                edgePos[eo + 1] = (y1 + y2) * 0.5f;
+                edgePos[eo + 2] = (z1 + z2) * 0.5f;
             } else if (f1 != MeshTopology.NONE && f2 != MeshTopology.NONE) {
                 // Interior smooth edge: 4-point average
-                int fc1 = f1 * NUM_3, fc2 = f2 * NUM_3;
-                float sx = (x1 + x2 + faceCenter[fc1] + faceCenter[fc2]) * NUM_0_25;
-                float sy = (y1 + y2 + faceCenter[fc1 + 1] + faceCenter[fc2 + 1]) * NUM_0_25;
-                float sz = (z1 + z2 + faceCenter[fc1 + 2] + faceCenter[fc2 + 2]) * NUM_0_25;
+                int fc1 = f1 * 3, fc2 = f2 * 3;
+                float sx = (x1 + x2 + faceCenter[fc1] + faceCenter[fc2]) * 0.25f;
+                float sy = (y1 + y2 + faceCenter[fc1 + 1] + faceCenter[fc2 + 1]) * 0.25f;
+                float sz = (z1 + z2 + faceCenter[fc1 + 2] + faceCenter[fc2 + 2]) * 0.25f;
 
-                if (w > NUM_0) {
+                if (w > 0f) {
                     // Semi-sharp: blend between smooth and crease
-                    float mx = (x1 + x2) * NUM_0_5;
-                    float my = (y1 + y2) * NUM_0_5;
-                    float mz = (z1 + z2) * NUM_0_5;
+                    float mx = (x1 + x2) * 0.5f;
+                    float my = (y1 + y2) * 0.5f;
+                    float mz = (z1 + z2) * 0.5f;
                     edgePos[eo] = sx + (mx - sx) * w;
                     edgePos[eo + 1] = sy + (my - sy) * w;
                     edgePos[eo + 2] = sz + (mz - sz) * w;
@@ -250,23 +241,23 @@ public class SubdivisionMeshNode implements MeshNode {
                 }
             } else {
                 // Boundary edge: midpoint
-                edgePos[eo] = (x1 + x2) * NUM_0_5;
-                edgePos[eo + 1] = (y1 + y2) * NUM_0_5;
-                edgePos[eo + 2] = (z1 + z2) * NUM_0_5;
+                edgePos[eo] = (x1 + x2) * 0.5f;
+                edgePos[eo + 1] = (y1 + y2) * 0.5f;
+                edgePos[eo + 2] = (z1 + z2) * 0.5f;
             }
         });
 
         // --- Vertex points (crease-aware) ---
-        final float[] vtxPos = new float[nv * NUM_3];
+        final float[] vtxPos = new float[nv * 3];
         final float[] oldPos = positions;
         parallelRange(nv, i -> {
-            int vo = i * NUM_3;
+            int vo = i * 3;
             float ox = oldPos[vo], oy = oldPos[vo + 1], oz = oldPos[vo + 2];
 
             // Count boundary edges and creased edges
             boolean boundary = false;
             int creasedEdgeCount = 0;
-            float maxCreaseW = NUM_0;
+            float maxCreaseW = 0f;
             for (int j = topo.vertexEdgeOffsets[i]; j < topo.vertexEdgeOffsets[i + 1]; j++) {
                 int e = topo.vertexEdges[j];
                 int he = topo.edgeHalfEdge[e];
@@ -275,7 +266,7 @@ public class SubdivisionMeshNode implements MeshNode {
                     break;
                 }
                 float ew = creaseWeight(cw, e);
-                if (ew > NUM_0) {
+                if (ew > 0f) {
                     creasedEdgeCount++;
                     maxCreaseW = Math.max(maxCreaseW, ew);
                 }
@@ -297,10 +288,10 @@ public class SubdivisionMeshNode implements MeshNode {
             }
 
             // Smooth CC vertex position
-            float fx = NUM_0, fy = NUM_0, fz = NUM_0;
+            float fx = 0f, fy = 0f, fz = 0f;
             for (int j = topo.vertexFaceOffsets[i]; j < topo.vertexFaceOffsets[i + 1]; j++) {
                 int faceId = topo.vertexFaces[j];
-                int fo = faceId * NUM_3;
+                int fo = faceId * 3;
                 fx += faceCenter[fo];
                 fy += faceCenter[fo + 1];
                 fz += faceCenter[fo + 2];
@@ -310,26 +301,26 @@ public class SubdivisionMeshNode implements MeshNode {
             fy *= invN;
             fz *= invN;
 
-            float rx = NUM_0, ry = NUM_0, rz = NUM_0;
+            float rx = 0f, ry = 0f, rz = 0f;
             for (int j = topo.vertexEdgeOffsets[i]; j < topo.vertexEdgeOffsets[i + 1]; j++) {
                 int edge = topo.vertexEdges[j];
                 int he = topo.edgeHalfEdge[edge];
                 int a = quadIndices[he];
                 int b = nextVertex(quadIndices, he);
-                int ao = a * NUM_3, bo = b * NUM_3;
-                rx += (oldPos[ao] + oldPos[bo]) * NUM_0_5;
-                ry += (oldPos[ao + 1] + oldPos[bo + 1]) * NUM_0_5;
-                rz += (oldPos[ao + 2] + oldPos[bo + 2]) * NUM_0_5;
+                int ao = a * 3, bo = b * 3;
+                rx += (oldPos[ao] + oldPos[bo]) * 0.5f;
+                ry += (oldPos[ao + 1] + oldPos[bo + 1]) * 0.5f;
+                rz += (oldPos[ao + 2] + oldPos[bo + 2]) * 0.5f;
             }
             rx *= invN;
             ry *= invN;
             rz *= invN;
 
-            float smoothX = (fx + NUM_2 * rx + (n - NUM_3) * ox) * invN;
-            float smoothY = (fy + NUM_2 * ry + (n - NUM_3) * oy) * invN;
-            float smoothZ = (fz + NUM_2 * rz + (n - NUM_3) * oz) * invN;
+            float smoothX = (fx + 2f * rx + (n - 3) * ox) * invN;
+            float smoothY = (fy + 2f * ry + (n - 3) * oy) * invN;
+            float smoothZ = (fz + 2f * rz + (n - 3) * oz) * invN;
 
-            if (creasedEdgeCount >= NUM_3) {
+            if (creasedEdgeCount >= 3) {
                 // Corner: keep original position (3+ creased edges)
                 vtxPos[vo] = ox;
                 vtxPos[vo + 1] = oy;
@@ -337,26 +328,26 @@ public class SubdivisionMeshNode implements MeshNode {
             } else if (creasedEdgeCount == 2) {
                 // Crease vertex rule: (e1 + 6*P + e2) / 8
                 // Find the two creased edge endpoints (the OTHER vertex of each creased edge)
-                float cx = NUM_0, cy = NUM_0, cz = NUM_0;
+                float cx = 0f, cy = 0f, cz = 0f;
                 int found = 0;
                 for (int j = topo.vertexEdgeOffsets[i]; j < topo.vertexEdgeOffsets[i + 1]; j++) {
                     int e = topo.vertexEdges[j];
                     float ew = creaseWeight(cw, e);
-                    if (ew > NUM_0 && found < 2) {
+                    if (ew > 0f && found < 2) {
                         int he = topo.edgeHalfEdge[e];
                         int a = quadIndices[he];
                         int b = nextVertex(quadIndices, he);
                         int other = (a == i) ? b : a;
-                        int oo = other * NUM_3;
+                        int oo = other * 3;
                         cx += oldPos[oo];
                         cy += oldPos[oo + 1];
                         cz += oldPos[oo + 2];
                         found++;
                     }
                 }
-                float creaseX = (cx + NUM_6 * ox) * NUM_0_125;
-                float creaseY = (cy + NUM_6 * oy) * NUM_0_125;
-                float creaseZ = (cz + NUM_6 * oz) * NUM_0_125;
+                float creaseX = (cx + 6f * ox) * 0.125f;
+                float creaseY = (cy + 6f * oy) * 0.125f;
+                float creaseZ = (cz + 6f * oz) * 0.125f;
 
                 // For semi-sharp: blend between smooth and crease by min weight
                 float blendW = Math.min(maxCreaseW, 1.0f);
@@ -372,35 +363,35 @@ public class SubdivisionMeshNode implements MeshNode {
         });
 
         // --- Build output topology ---
-        int totalNewFaces = nf * NUM_4;
-        float[] newPositions = new float[(nf + ne + nv) * NUM_3];
+        int totalNewFaces = nf * 4;
+        float[] newPositions = new float[(nf + ne + nv) * 3];
         int pi = 0;
         for (int i = 0; i < nf; i++) {
-            int fo = i * NUM_3;
+            int fo = i * 3;
             newPositions[pi++] = faceCenter[fo];
             newPositions[pi++] = faceCenter[fo + 1];
             newPositions[pi++] = faceCenter[fo + 2];
         }
         for (int i = 0; i < ne; i++) {
-            int eo = i * NUM_3;
+            int eo = i * 3;
             newPositions[pi++] = edgePos[eo];
             newPositions[pi++] = edgePos[eo + 1];
             newPositions[pi++] = edgePos[eo + 2];
         }
         for (int i = 0; i < nv; i++) {
-            int voo = i * NUM_3;
+            int voo = i * 3;
             newPositions[pi++] = vtxPos[voo];
             newPositions[pi++] = vtxPos[voo + 1];
             newPositions[pi++] = vtxPos[voo + 2];
         }
 
-        int[] newQuads = new int[totalNewFaces * NUM_4];
+        int[] newQuads = new int[totalNewFaces * 4];
         int qi = 0;
         for (int fi = 0; fi < nf; fi++) {
             int fp = fi;
-            for (int k = 0; k < NUM_4; k++) {
-                int he = fi * NUM_4 + k;
-                int prevHe = fi * NUM_4 + (k + NUM_3) % NUM_4;
+            for (int k = 0; k < 4; k++) {
+                int he = fi * 4 + k;
+                int prevHe = fi * 4 + (k + 3) % 4;
                 int vx = quadIndices[he];
                 int vp = nf + ne + vx;
                 int eOut = topo.halfEdgeEdge[he];
@@ -425,7 +416,7 @@ public class SubdivisionMeshNode implements MeshNode {
             // new edge count = nf * 4 (interior) + ne (from original edges split)
             // The new topology needs to be built to get accurate edge mapping.
             // Simpler approach: build new topology, map parent edges to child edges.
-            QuadMeshTopologyHelper newTopo = QuadMeshTopologyHelper.build(newQuads, NUM_4,
+            QuadMeshTopologyHelper newTopo = QuadMeshTopologyHelper.build(newQuads, 4,
                     nf + ne + nv, totalNewFaces);
             int newNe = newTopo.edgeCount;
             newCreaseWeights = new float[newNe];
@@ -437,7 +428,7 @@ public class SubdivisionMeshNode implements MeshNode {
             for (int ei = 0; ei < newNe; ei++) {
                 int he = newTopo.edgeHalfEdge[ei];
                 int va = newQuads[he];
-                int vb = newQuads[(he & ~NUM_3) | ((he + 1) & NUM_3)];
+                int vb = newQuads[(he & ~3) | ((he + 1) & 3)];
 
                 // Check if this edge connects an edge-point to a vertex-point
                 // Edge-points are in range [nf, nf+ne), vertex-points in [nf+ne, nf+ne+nv)
@@ -449,9 +440,9 @@ public class SubdivisionMeshNode implements MeshNode {
                 }
 
                 if (epIdx >= 0 && epIdx < (cw != null ? cw.length : 0)) {
-                    float pw = cw.length > epIdx ? cw[epIdx] : NUM_0;
-                    float nw = Math.max(NUM_0, pw - NUM_1);
-                    if (nw > NUM_0) {
+                    float pw = cw.length > epIdx ? cw[epIdx] : 0f;
+                    float nw = Math.max(0f, pw - 1f);
+                    if (nw > 0f) {
                         newCreaseWeights[ei] = nw;
                         hasCreases = true;
                     }
@@ -477,7 +468,7 @@ public class SubdivisionMeshNode implements MeshNode {
 
     private static boolean hasNonQuadFaces(HalfEdgeMesh mesh) {
         for (int fi = 0; fi < mesh.faceCount(); fi++) {
-            if (mesh.faceVertexCount(mesh.faceIdAt(fi)) != NUM_4) return true;
+            if (mesh.faceVertexCount(mesh.faceIdAt(fi)) != 4) return true;
         }
         return false;
     }
@@ -495,13 +486,13 @@ public class SubdivisionMeshNode implements MeshNode {
         int[] oldToDense = new int[maxVid + 1];
         Arrays.fill(oldToDense, MeshTopology.NONE);
 
-        float[] pos = new float[nv * NUM_3];
+        float[] pos = new float[nv * 3];
         Vector3f p = new Vector3f();
         for (int i = 0; i < nv; i++) {
             int vid = mesh.vertexIdAt(i);
             oldToDense[vid] = i;
             mesh.vertexPosition(vid, p);
-            pos[i * NUM_3] = p.x; pos[i * NUM_3 + 1] = p.y; pos[i * NUM_3 + 2] = p.z;
+            pos[i * 3] = p.x; pos[i * 3 + 1] = p.y; pos[i * 3 + 2] = p.z;
         }
 
         int[] faceOffsets = new int[nf + 1];
@@ -510,7 +501,7 @@ public class SubdivisionMeshNode implements MeshNode {
             faceOffsets[fi] = totalHE;
             int f = mesh.faceIdAt(fi);
             int vc = mesh.faceVertexCount(f);
-            if (vc < NUM_3) throw new IllegalArgumentException(
+            if (vc < 3) throw new IllegalArgumentException(
                     "subdivision_surface: degenerate face with " + vc + " vertices");
             totalHE += vc;
         }
@@ -635,31 +626,31 @@ public class SubdivisionMeshNode implements MeshNode {
         }
 
         // --- Face centers (average of face vertices, generalized for N-gons) ---
-        float[] faceCenter = new float[nf * NUM_3];
+        float[] faceCenter = new float[nf * 3];
         for (int fi = 0; fi < nf; fi++) {
             int s = faceOffsets[fi];
             int sz = faceOffsets[fi + 1] - s;
-            float sx = NUM_0, sy = NUM_0, szz = NUM_0;
+            float sx = 0f, sy = 0f, szz = 0f;
             for (int k = 0; k < sz; k++) {
                 int v = faceIndices[s + k];
-                sx += positions[v * NUM_3];
-                sy += positions[v * NUM_3 + 1];
-                szz += positions[v * NUM_3 + 2];
+                sx += positions[v * 3];
+                sy += positions[v * 3 + 1];
+                szz += positions[v * 3 + 2];
             }
             float inv = 1.0f / sz;
-            faceCenter[fi * NUM_3] = sx * inv;
-            faceCenter[fi * NUM_3 + 1] = sy * inv;
-            faceCenter[fi * NUM_3 + 2] = szz * inv;
+            faceCenter[fi * 3] = sx * inv;
+            faceCenter[fi * 3 + 1] = sy * inv;
+            faceCenter[fi * 3 + 2] = szz * inv;
         }
 
         // --- Edge points (crease-aware, same formula as quad CC) ---
-        float[] edgePos = new float[ne * NUM_3];
+        float[] edgePos = new float[ne * 3];
         for (int i = 0; i < ne; i++) {
             int he = eHalf[i];
             int tw = twin[he];
             int va = faceIndices[he];
             int vb = faceIndices[nextHE[he]];
-            int o1 = va * NUM_3, o2 = vb * NUM_3;
+            int o1 = va * 3, o2 = vb * 3;
 
             float x1 = positions[o1], y1 = positions[o1 + 1], z1 = positions[o1 + 2];
             float x2 = positions[o2], y2 = positions[o2 + 1], z2 = positions[o2 + 2];
@@ -668,21 +659,21 @@ public class SubdivisionMeshNode implements MeshNode {
             int f2 = tw == MeshTopology.NONE ? MeshTopology.NONE : heFace[tw];
 
             float w = creaseWeight(creaseWeights, i);
-            int eo = i * NUM_3;
+            int eo = i * 3;
 
             if (w >= 1.0f) {
-                edgePos[eo] = (x1 + x2) * NUM_0_5;
-                edgePos[eo + 1] = (y1 + y2) * NUM_0_5;
-                edgePos[eo + 2] = (z1 + z2) * NUM_0_5;
+                edgePos[eo] = (x1 + x2) * 0.5f;
+                edgePos[eo + 1] = (y1 + y2) * 0.5f;
+                edgePos[eo + 2] = (z1 + z2) * 0.5f;
             } else if (f1 != MeshTopology.NONE && f2 != MeshTopology.NONE) {
-                int fc1 = f1 * NUM_3, fc2 = f2 * NUM_3;
-                float sx = (x1 + x2 + faceCenter[fc1] + faceCenter[fc2]) * NUM_0_25;
-                float sy = (y1 + y2 + faceCenter[fc1 + 1] + faceCenter[fc2 + 1]) * NUM_0_25;
-                float sz = (z1 + z2 + faceCenter[fc1 + 2] + faceCenter[fc2 + 2]) * NUM_0_25;
-                if (w > NUM_0) {
-                    float mx = (x1 + x2) * NUM_0_5;
-                    float my = (y1 + y2) * NUM_0_5;
-                    float mz = (z1 + z2) * NUM_0_5;
+                int fc1 = f1 * 3, fc2 = f2 * 3;
+                float sx = (x1 + x2 + faceCenter[fc1] + faceCenter[fc2]) * 0.25f;
+                float sy = (y1 + y2 + faceCenter[fc1 + 1] + faceCenter[fc2 + 1]) * 0.25f;
+                float sz = (z1 + z2 + faceCenter[fc1 + 2] + faceCenter[fc2 + 2]) * 0.25f;
+                if (w > 0f) {
+                    float mx = (x1 + x2) * 0.5f;
+                    float my = (y1 + y2) * 0.5f;
+                    float mz = (z1 + z2) * 0.5f;
                     edgePos[eo] = sx + (mx - sx) * w;
                     edgePos[eo + 1] = sy + (my - sy) * w;
                     edgePos[eo + 2] = sz + (mz - sz) * w;
@@ -692,27 +683,27 @@ public class SubdivisionMeshNode implements MeshNode {
                     edgePos[eo + 2] = sz;
                 }
             } else {
-                edgePos[eo] = (x1 + x2) * NUM_0_5;
-                edgePos[eo + 1] = (y1 + y2) * NUM_0_5;
-                edgePos[eo + 2] = (z1 + z2) * NUM_0_5;
+                edgePos[eo] = (x1 + x2) * 0.5f;
+                edgePos[eo + 1] = (y1 + y2) * 0.5f;
+                edgePos[eo + 2] = (z1 + z2) * 0.5f;
             }
         }
 
         // --- Vertex points (crease-aware, same rules as quad CC) ---
-        float[] vtxPos = new float[nv * NUM_3];
+        float[] vtxPos = new float[nv * 3];
         for (int i = 0; i < nv; i++) {
-            int vo = i * NUM_3;
+            int vo = i * 3;
             float ox = positions[vo], oy = positions[vo + 1], oz = positions[vo + 2];
 
             boolean boundary = false;
             int creasedEdgeCount = 0;
-            float maxCreaseW = NUM_0;
+            float maxCreaseW = 0f;
             for (int j = veOff[i]; j < veOff[i + 1]; j++) {
                 int e = veData[j];
                 int he = eHalf[e];
                 if (twin[he] == MeshTopology.NONE) { boundary = true; break; }
                 float ew = creaseWeight(creaseWeights, e);
-                if (ew > NUM_0) { creasedEdgeCount++; maxCreaseW = Math.max(maxCreaseW, ew); }
+                if (ew > 0f) { creasedEdgeCount++; maxCreaseW = Math.max(maxCreaseW, ew); }
             }
 
             if (boundary) {
@@ -726,50 +717,50 @@ public class SubdivisionMeshNode implements MeshNode {
                 continue;
             }
 
-            float fx = NUM_0, fy = NUM_0, fz = NUM_0;
+            float fx = 0f, fy = 0f, fz = 0f;
             for (int j = vfOff[i]; j < vfOff[i + 1]; j++) {
-                int fo = vfData[j] * NUM_3;
+                int fo = vfData[j] * 3;
                 fx += faceCenter[fo]; fy += faceCenter[fo + 1]; fz += faceCenter[fo + 2];
             }
             float invN = 1.0f / n;
             fx *= invN; fy *= invN; fz *= invN;
 
-            float rx = NUM_0, ry = NUM_0, rz = NUM_0;
+            float rx = 0f, ry = 0f, rz = 0f;
             for (int j = veOff[i]; j < veOff[i + 1]; j++) {
                 int edge = veData[j];
                 int he = eHalf[edge];
                 int a = faceIndices[he];
                 int b = faceIndices[nextHE[he]];
-                rx += (positions[a * NUM_3] + positions[b * NUM_3]) * NUM_0_5;
-                ry += (positions[a * NUM_3 + 1] + positions[b * NUM_3 + 1]) * NUM_0_5;
-                rz += (positions[a * NUM_3 + 2] + positions[b * NUM_3 + 2]) * NUM_0_5;
+                rx += (positions[a * 3] + positions[b * 3]) * 0.5f;
+                ry += (positions[a * 3 + 1] + positions[b * 3 + 1]) * 0.5f;
+                rz += (positions[a * 3 + 2] + positions[b * 3 + 2]) * 0.5f;
             }
             rx *= invN; ry *= invN; rz *= invN;
 
-            float smoothX = (fx + NUM_2 * rx + (n - NUM_3) * ox) * invN;
-            float smoothY = (fy + NUM_2 * ry + (n - NUM_3) * oy) * invN;
-            float smoothZ = (fz + NUM_2 * rz + (n - NUM_3) * oz) * invN;
+            float smoothX = (fx + 2f * rx + (n - 3) * ox) * invN;
+            float smoothY = (fy + 2f * ry + (n - 3) * oy) * invN;
+            float smoothZ = (fz + 2f * rz + (n - 3) * oz) * invN;
 
-            if (creasedEdgeCount >= NUM_3) {
+            if (creasedEdgeCount >= 3) {
                 vtxPos[vo] = ox; vtxPos[vo + 1] = oy; vtxPos[vo + 2] = oz;
             } else if (creasedEdgeCount == 2) {
-                float cx = NUM_0, cy = NUM_0, cz = NUM_0;
+                float cx = 0f, cy = 0f, cz = 0f;
                 int found = 0;
                 for (int j = veOff[i]; j < veOff[i + 1]; j++) {
                     int e = veData[j];
                     float ew = creaseWeight(creaseWeights, e);
-                    if (ew > NUM_0 && found < 2) {
+                    if (ew > 0f && found < 2) {
                         int he = eHalf[e];
                         int a = faceIndices[he];
                         int b = faceIndices[nextHE[he]];
                         int other = (a == i) ? b : a;
-                        cx += positions[other * NUM_3]; cy += positions[other * NUM_3 + 1]; cz += positions[other * NUM_3 + 2];
+                        cx += positions[other * 3]; cy += positions[other * 3 + 1]; cz += positions[other * 3 + 2];
                         found++;
                     }
                 }
-                float creaseX = (cx + NUM_6 * ox) * NUM_0_125;
-                float creaseY = (cy + NUM_6 * oy) * NUM_0_125;
-                float creaseZ = (cz + NUM_6 * oz) * NUM_0_125;
+                float creaseX = (cx + 6f * ox) * 0.125f;
+                float creaseY = (cy + 6f * oy) * 0.125f;
+                float creaseZ = (cz + 6f * oz) * 0.125f;
                 float blendW = Math.min(maxCreaseW, 1.0f);
                 vtxPos[vo] = smoothX + (creaseX - smoothX) * blendW;
                 vtxPos[vo + 1] = smoothY + (creaseY - smoothY) * blendW;
@@ -781,25 +772,25 @@ public class SubdivisionMeshNode implements MeshNode {
 
         // --- Build output topology: each N-gon produces N quads (all output is quads) ---
         int totalNewFaces = HE; // one sub-quad per half-edge
-        float[] newPositions = new float[(nf + ne + nv) * NUM_3];
+        float[] newPositions = new float[(nf + ne + nv) * 3];
         int pi = 0;
         for (int i = 0; i < nf; i++) {
-            newPositions[pi++] = faceCenter[i * NUM_3];
-            newPositions[pi++] = faceCenter[i * NUM_3 + 1];
-            newPositions[pi++] = faceCenter[i * NUM_3 + 2];
+            newPositions[pi++] = faceCenter[i * 3];
+            newPositions[pi++] = faceCenter[i * 3 + 1];
+            newPositions[pi++] = faceCenter[i * 3 + 2];
         }
         for (int i = 0; i < ne; i++) {
-            newPositions[pi++] = edgePos[i * NUM_3];
-            newPositions[pi++] = edgePos[i * NUM_3 + 1];
-            newPositions[pi++] = edgePos[i * NUM_3 + 2];
+            newPositions[pi++] = edgePos[i * 3];
+            newPositions[pi++] = edgePos[i * 3 + 1];
+            newPositions[pi++] = edgePos[i * 3 + 2];
         }
         for (int i = 0; i < nv; i++) {
-            newPositions[pi++] = vtxPos[i * NUM_3];
-            newPositions[pi++] = vtxPos[i * NUM_3 + 1];
-            newPositions[pi++] = vtxPos[i * NUM_3 + 2];
+            newPositions[pi++] = vtxPos[i * 3];
+            newPositions[pi++] = vtxPos[i * 3 + 1];
+            newPositions[pi++] = vtxPos[i * 3 + 2];
         }
 
-        int[] newQuads = new int[totalNewFaces * NUM_4];
+        int[] newQuads = new int[totalNewFaces * 4];
         int qi = 0;
         for (int fi = 0; fi < nf; fi++) {
             int fStart = faceOffsets[fi];
@@ -823,7 +814,7 @@ public class SubdivisionMeshNode implements MeshNode {
         // --- Propagate crease weights (same logic as quad CC) ---
         float[] newCreaseWeights = null;
         if (creaseWeights != null) {
-            QuadMeshTopologyHelper newTopo = QuadMeshTopologyHelper.build(newQuads, NUM_4,
+            QuadMeshTopologyHelper newTopo = QuadMeshTopologyHelper.build(newQuads, 4,
                     nf + ne + nv, totalNewFaces);
             int newNe = newTopo.edgeCount;
             newCreaseWeights = new float[newNe];
@@ -832,7 +823,7 @@ public class SubdivisionMeshNode implements MeshNode {
             for (int ei = 0; ei < newNe; ei++) {
                 int he = newTopo.edgeHalfEdge[ei];
                 int va = newQuads[he];
-                int vb = newQuads[(he & ~NUM_3) | ((he + 1) & NUM_3)];
+                int vb = newQuads[(he & ~3) | ((he + 1) & 3)];
                 int epIdx = -1;
                 if (va >= nf && va < nf + ne && vb >= nf + ne) {
                     epIdx = va - nf;
@@ -840,8 +831,8 @@ public class SubdivisionMeshNode implements MeshNode {
                     epIdx = vb - nf;
                 }
                 if (epIdx >= 0 && epIdx < creaseWeights.length) {
-                    float nw = Math.max(NUM_0, creaseWeights[epIdx] - NUM_1);
-                    if (nw > NUM_0) { newCreaseWeights[ei] = nw; hasCreases = true; }
+                    float nw = Math.max(0f, creaseWeights[epIdx] - 1f);
+                    if (nw > 0f) { newCreaseWeights[ei] = nw; hasCreases = true; }
                 }
             }
             if (!hasCreases) newCreaseWeights = null;

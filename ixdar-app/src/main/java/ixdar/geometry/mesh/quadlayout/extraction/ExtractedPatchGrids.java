@@ -27,13 +27,8 @@ import ixdar.platform.Platforms;
  */
 public final class ExtractedPatchGrids {
 
-    /** Ports around a regular quad vertex. */
     private static final int REGULAR_VALENCE = 4;
 
-    /**
-     * Port list rotation per clockwise ring step. Constant because the extraction
-     * emits every vertex's ports in a fixed surface rotational order.
-     */
     private static final int RING_STEP_CLOCKWISE = -1;
 
     public final ExtractedQuadMesh quadMesh;

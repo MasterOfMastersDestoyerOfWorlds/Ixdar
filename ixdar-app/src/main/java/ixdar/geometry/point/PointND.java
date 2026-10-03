@@ -25,12 +25,10 @@ import ixdar.graphics.render.sdf.SDFCircle;
 public abstract class PointND extends SDFCircle implements Geometry, PointCollection, Cloneable {
     public static final String PT = "pt";
     public static final String POINT = "point";
-    public static final String STR = ", ";
-    public static final String STR_2 = "]";
-    public static final String STR_4F = "%.4f";
+    public static final String COORD_FORMAT = "%.4f";
     public static final String ADD_POINT_COORD_1_DOUBLE_COORD_N_DOUBLE = "add point [coord 1(double)] ... [coord n(double)]";
     public static final String A_POINT_IN_N_DIMENSIONAL_SPACE = "a point in N dimensional space";
-    public static final int NUM__1000000 = -1000000;
+    public static final int OFF_SCREEN_SENTINEL = -1000000;
     public static OptionList opts = new OptionList("p", PT, POINT);
 
     private static int maxID = 0;
@@ -286,7 +284,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
      */
     public Point2D toPoint2D() {
         if (this.isDummyNode) {
-            return new Point2D.Double(NUM__1000000, NUM__1000000);
+            return new Point2D.Double(OFF_SCREEN_SENTINEL, OFF_SCREEN_SENTINEL);
         }
         return new Point2D.Double(this.getScreenX(), this.getScreenY());
     }
@@ -374,7 +372,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
      */
     public double getScreenX() {
         if (this.isDummyNode) {
-            return NUM__1000000;
+            return OFF_SCREEN_SENTINEL;
         }
         return getCoord(0);
     }
@@ -395,7 +393,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
      */
     public double getScreenY() {
         if (this.isDummyNode) {
-            return NUM__1000000;
+            return OFF_SCREEN_SENTINEL;
         }
         return getCoord(1);
     }
@@ -577,10 +575,10 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
             StringBuilder sb = new StringBuilder("PointND.Float[");
             for (int i = 0; i < fs.length - 1; i++) {
                 sb.append(fs[i]);
-                sb.append(STR);
+                sb.append(", ");
             }
             sb.append(fs[fs.length - 1]);
-            sb.append(STR_2);
+            sb.append("]");
             return this.getID() + " ";
         }
 
@@ -594,7 +592,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         public String toFileString() {
             String res = this.ID + " ";
             for (int i = 0; i < fs.length; i++) {
-                res += String.format(STR_4F, fs[i]) + " ";
+                res += String.format(COORD_FORMAT, fs[i]) + " ";
             }
             return res;
         }
@@ -879,10 +877,10 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
             StringBuilder sb = new StringBuilder("PointND.Double[");
             for (int i = 0; i < ds.length - 1; i++) {
                 sb.append(ds[i]);
-                sb.append(STR);
+                sb.append(", ");
             }
             sb.append(ds[ds.length - 1]);
-            sb.append(STR_2);
+            sb.append("]");
             return this.getID() + "";
         }
 
@@ -896,7 +894,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         public String toFileString() {
             String res = this.ID + " ";
             for (int i = 0; i < ds.length; i++) {
-                res += String.format(STR_4F, ds[i]) + " ";
+                res += String.format(COORD_FORMAT, ds[i]) + " ";
             }
             return res;
         }
@@ -1019,11 +1017,8 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
      * point. Shortest-path form always has one zero coordinate.
      */
     public static class Hex extends PointND implements Serializable {
-        public static final int NUM_3 = 3;
-        public static final double NUM_3_0 = 3.0;
-        public static final double NUM_2_0 = 2.0;
-        public static final float NUM_1_5 = 1.5f;
-        public static final double NUM_1_5_2 = 1.5;
+        public static final int HEX_DIM = 3;
+        public static final double VERTICAL_SPACING = 1.5;
 
         public static OptionList opts = new OptionList("hex", "hx");
 
@@ -1032,9 +1027,9 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          */
         private static final long serialVersionUID = 6150783262733311327L;
 
-        private static final double root3over3 = 0.577350269;
-        private static final double root3over2 = 0.866025404;
-        private static final double root3 = 1.73205081;
+        private static final double PIXEL_TO_HEX_Q_SCALE = 0.577350269;
+        private static final double HEX_R_TO_X_SCALE = 0.866025404;
+        private static final double HEX_Q_TO_X_SCALE = 1.73205081;
         /**
          * The q coordinate of this {@code PointND.Hex}.
          *
@@ -1142,11 +1137,11 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         /**
          * Hex points always carry the {@code (q, r, s)} triple.
          *
-         * @return {@value #NUM_3}
+         * @return {@value #HEX_DIM}
          */
         @Override
         public int getDim() {
-            return NUM_3;
+            return HEX_DIM;
         }
 
         /**
@@ -1201,11 +1196,11 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
         public String toString() {
             StringBuilder sb = new StringBuilder("PointND.Hex[");
             sb.append(q);
-            sb.append(STR);
+            sb.append(", ");
             sb.append(r);
-            sb.append(STR);
+            sb.append(", ");
             sb.append(s);
-            sb.append(STR_2);
+            sb.append("]");
             return this.getID() + "";
         }
 
@@ -1252,11 +1247,11 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          * @return the newly constructed hex point
          */
         public static PointND parse(String[] args, int startIdx) throws TerminalParseException {
-            if (args.length - startIdx != NUM_3) {
+            if (args.length - startIdx != HEX_DIM) {
                 throw new TerminalParseException(
                         "expected 3 coordinates to parse Hex Knot got " + (args.length - startIdx));
             }
-            int[] coords = new int[NUM_3];
+            int[] coords = new int[HEX_DIM];
             for (int i = 0; i < coords.length; i++) {
                 coords[i] = Integer.parseInt(args[startIdx + i]);
             }
@@ -1376,8 +1371,8 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          * @return three-element array {@code [q, r, s]}
          */
         public static double[] pixelToHexCoords(double x, double y) {
-            double q = (root3over3 * x - 1.0 / NUM_3_0 * y);
-            double r = (NUM_2_0 / NUM_3_0 * y);
+            double q = (PIXEL_TO_HEX_Q_SCALE * x - 1.0 / 3.0 * y);
+            double r = (2.0 / 3.0 * y);
             double s = -q - r;
             return new double[] { q, r, s };
         }
@@ -1388,7 +1383,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          * @return the right-up basis vector
          */
         public static Vector2f getRightUpVector() {
-            return new Vector2f((float) (root3over2 * 1), NUM_1_5);
+            return new Vector2f((float) (HEX_R_TO_X_SCALE * 1), (float) VERTICAL_SPACING);
         }
 
         /**
@@ -1397,7 +1392,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          * @return the right-down basis vector
          */
         public static Vector2f getRightDownVector() {
-            return new Vector2f((float) (root3 * 1 + root3over2 * -1), -NUM_1_5);
+            return new Vector2f((float) (HEX_Q_TO_X_SCALE * 1 + HEX_R_TO_X_SCALE * -1), (float) -VERTICAL_SPACING);
         }
 
         /**
@@ -1407,7 +1402,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          * @return the horizontal basis vector
          */
         public static Vector2f getHorizontalVector() {
-            return new Vector2f((float) (root3 * 1), 0);
+            return new Vector2f((float) (HEX_Q_TO_X_SCALE * 1), 0);
         }
 
         /**
@@ -1417,7 +1412,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          */
         @Override
         public double getScreenY() {
-            return NUM_1_5_2 * r;
+            return VERTICAL_SPACING * r;
         }
 
         /**
@@ -1427,7 +1422,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          */
         @Override
         public double getScreenX() {
-            return root3 * q + root3over2 * r;
+            return HEX_Q_TO_X_SCALE * q + HEX_R_TO_X_SCALE * r;
         }
 
         /**
@@ -1439,7 +1434,7 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          * @return pixel-space {@code (x, y)}
          */
         public static Vector2f hexCoordsToPixel(float q, float r) {
-            return new Vector2f((float) (root3 * q + root3over2 * r), (float) (NUM_1_5_2 * r));
+            return new Vector2f((float) (HEX_Q_TO_X_SCALE * q + HEX_R_TO_X_SCALE * r), (float) (VERTICAL_SPACING * r));
         }
 
         /**
@@ -1450,8 +1445,8 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
          * @return pixel-space {@code (x, y)}
          */
         public static Vector2f hexCoordsToPixel(double[] hexCoords) {
-            return new Vector2f((float) (root3 * hexCoords[0] + root3over2 * hexCoords[1]),
-                    (float) (NUM_1_5_2 * hexCoords[1]));
+            return new Vector2f((float) (HEX_Q_TO_X_SCALE * hexCoords[0] + HEX_R_TO_X_SCALE * hexCoords[1]),
+                    (float) (VERTICAL_SPACING * hexCoords[1]));
         }
 
         /**

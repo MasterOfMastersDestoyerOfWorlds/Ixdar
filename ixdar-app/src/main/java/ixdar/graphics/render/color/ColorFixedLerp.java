@@ -7,9 +7,6 @@ import ixdar.common.utils.Compat;
 import org.joml.Vector4f;
 
 public class ColorFixedLerp implements Color {
-    public static final float NUM_0 = 0f;
-    public static final int NUM_3 = 3;
-
     static HashMap<Color, ColorLerp> flashColors = new HashMap<>();
 
     public Color startColor;
@@ -35,7 +32,7 @@ public class ColorFixedLerp implements Color {
         this.startColor = startColor;
         this.endColor = endColor;
         this.offset = offset;
-        this.radsPerSecond = NUM_0;
+        this.radsPerSecond = 0f;
         this.name = startColor.getName() + "-" + endColor.getName() + "-Lerp";
     }
 
@@ -67,7 +64,7 @@ public class ColorFixedLerp implements Color {
         lerp.x = Compat.fmaf(other.x() - lerp.x, offset * channelLerp[0], lerp.x);
         lerp.y = Compat.fmaf(other.y() - lerp.y, offset * channelLerp[1], lerp.y);
         lerp.z = Compat.fmaf(other.z() - lerp.z, offset * channelLerp[2], lerp.z);
-        lerp.w = Compat.fmaf(other.w() - lerp.w, offset * channelLerp[NUM_3], lerp.w);
+        lerp.w = Compat.fmaf(other.w() - lerp.w, offset * channelLerp[3], lerp.w);
 
         return lerp;
     }

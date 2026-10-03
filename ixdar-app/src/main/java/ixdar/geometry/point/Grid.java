@@ -15,7 +15,7 @@ import ixdar.scenes.main.MainScene;
 
 public abstract class Grid {
 
-    private static final Color gridColor = Color.LIGHT_GRAY;
+    private static final Color GRID_LINE_COLOR = Color.LIGHT_GRAY;
 
     public boolean showGrid = false;
 
@@ -85,8 +85,7 @@ public abstract class Grid {
     public abstract Vector2f coordinateToNearestGridPoint(float mouseX, float mouseY);
 
     public static class CartesianGrid extends Grid {
-        public static final int NUM_1000 = 1000;
-        public static final int NUM_10 = 10;
+        public static final int GRID_SCALE_FACTOR = 1000;
 
         ArrayList<Segment> segmentsY = new ArrayList<>();
         ArrayList<Segment> segmentsX = new ArrayList<>();
@@ -156,10 +155,10 @@ public abstract class Grid {
                     MainScene.camera.screenTransformY(0) };
 
             double unitsPerPixel = Math.abs(hexCoordsTopLeft[0] - hexCoordsBotRight[0]) / camera.getWidth();
-            int gridBucketsLogLevel = (int) (Math.log10(unitsPerPixel * NUM_1000)) - 1;
+            int gridBucketsLogLevel = (int) (Math.log10(unitsPerPixel * GRID_SCALE_FACTOR)) - 1;
             int mod = 1;
             if (gridBucketsLogLevel >= 0) {
-                mod = (int) Math.pow(NUM_10, gridBucketsLogLevel);
+                mod = (int) Math.pow(10, gridBucketsLogLevel);
             }
             int gridBucketsY = (int) Math.ceil(Math.abs(hexCoordsTopLeft[1] - hexCoordsBotRight[1])) / mod + 1;
             int gridBucketsX = (int) Math.ceil(Math.abs(hexCoordsTopLeft[0] - hexCoordsBotRight[0])) / mod + 1;
@@ -171,7 +170,7 @@ public abstract class Grid {
                         camera.getHeight());
                 Vector2f bot = new Vector2f(top.x, 0);
                 Segment s = getSegmentPool(segmentsY, gridShell, i, top, bot);
-                Drawing.drawScaledSegment(s, top, bot, gridColor, gridLineThickness, camera);
+                Drawing.drawScaledSegment(s, top, bot, GRID_LINE_COLOR, gridLineThickness, camera);
 
             }
 
@@ -182,7 +181,7 @@ public abstract class Grid {
                 Vector2f right = new Vector2f(0, left.y);
 
                 Segment s = getSegmentPool(segmentsY, gridShell, i, left, right);
-                Drawing.drawScaledSegment(s, left, right, gridColor, gridLineThickness, camera);
+                Drawing.drawScaledSegment(s, left, right, GRID_LINE_COLOR, gridLineThickness, camera);
 
             }
             Drawing.getDrawing().sdfLine.setCulling(true);;
@@ -297,7 +296,7 @@ public abstract class Grid {
 
                 // drawing rightup diagonal
                 Segment s = getSegmentPool(segmentsQ, gridShell, i, finalBotLeft, topRight);
-                Drawing.drawScaledSegment(s, finalBotLeft, topRight, gridColor, gridLineThickness, camera);
+                Drawing.drawScaledSegment(s, finalBotLeft, topRight, GRID_LINE_COLOR, gridLineThickness, camera);
             }
             for (int i = 0; i < gridBucketsS; i++) {
                 Vector2f topLeftPointSpace = PointND.Hex.hexCoordsToPixel((float) Math.floor(hexCoordsTopLeft[0]) + i,
@@ -316,7 +315,7 @@ public abstract class Grid {
 
                 // drawing leftup diagonal
                 Segment s = getSegmentPool(segmentsS, gridShell, i, finalTopLeft, botRight);
-                Drawing.drawScaledSegment(s, finalTopLeft, botRight, gridColor, gridLineThickness, camera);
+                Drawing.drawScaledSegment(s, finalTopLeft, botRight, GRID_LINE_COLOR, gridLineThickness, camera);
 
             }
 
@@ -328,7 +327,7 @@ public abstract class Grid {
 
                 // drawing horizontals
                 Segment s = getSegmentPool(segmentsR, gridShell, i, botRight, botLeft);
-                Drawing.drawScaledSegment(s, botRight, botLeft, gridColor, gridLineThickness, camera);
+                Drawing.drawScaledSegment(s, botRight, botLeft, GRID_LINE_COLOR, gridLineThickness, camera);
 
             }
             Drawing.getDrawing().sdfLine.setCulling(true);

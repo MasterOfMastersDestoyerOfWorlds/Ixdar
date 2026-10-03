@@ -20,10 +20,9 @@ import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
 public abstract class RegistryProcessor extends AbstractProcessor {
-    /** Simple-name suffix of the desktop-only registry class. */
     public static final String DESKTOP_SUFFIX = "Desktop";
 
-    private static final String STR = "_";
+    private static final String GENERATED_CLASS_NAME_SEPARATOR = "_";
 
     private boolean generated;
     private String fqcn;
@@ -153,7 +152,7 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                     mainEntries.put(id, fqClassName);
                 }
             }
-            String genClassName = this.getClass().getSimpleName() + STR + this.collectionName;
+            String genClassName = this.getClass().getSimpleName() + GENERATED_CLASS_NAME_SEPARATOR + this.collectionName;
             writeRegistryClass(genClassName, mainEntries,
                     partitionDesktopOnly ? desktopEntries.keySet() : null);
             if (partitionDesktopOnly) {

@@ -11,10 +11,6 @@ import ixdar.geometry.mesh.data.GeometryBundle;
  * fewer than {@code roomCount}.
  */
 public final class RoomPlacer {
-    public static final float NUM_2 = 2f;
-    public static final float NUM_0_5 = 0.5f;
-    public static final int NUM_3 = 3;
-
     private RoomPlacer() {
     }
 
@@ -44,8 +40,8 @@ public final class RoomPlacer {
         }
 
         Random rng = new Random(seed);
-        float[] centers = new float[roomCount * NUM_3];
-        float[] halfExtents = new float[roomCount * NUM_3];
+        float[] centers = new float[roomCount * 3];
+        float[] halfExtents = new float[roomCount * 3];
         int placed = 0;
         int attempts = 0;
         while (placed < roomCount && attempts < maxAttempts) {
@@ -54,19 +50,19 @@ public final class RoomPlacer {
             int h = minSize + rng.nextInt(maxSize - minSize + 1);
             int x = rng.nextInt(gridW - w + 1);
             int y = rng.nextInt(gridH - h + 1);
-            float cx = x + w / NUM_2;
-            float cy = y + h / NUM_2;
-            float hx = w / NUM_2;
-            float hy = h / NUM_2;
+            float cx = x + w / 2f;
+            float cy = y + h / 2f;
+            float hx = w / 2f;
+            float hy = h / 2f;
             if (!collidesAny(centers, halfExtents, placed, cx, cy, hx, hy)) {
-                centers[placed * NUM_3] = cx;
-                centers[placed * NUM_3 + 1] = cy;
-                halfExtents[placed * NUM_3] = hx;
-                halfExtents[placed * NUM_3 + 1] = hy;
+                centers[placed * 3] = cx;
+                centers[placed * 3 + 1] = cy;
+                halfExtents[placed * 3] = hx;
+                halfExtents[placed * 3 + 1] = hy;
                 placed++;
             }
         }
-        int len = placed * NUM_3;
+        int len = placed * 3;
         float[] c = new float[len];
         float[] he = new float[len];
         System.arraycopy(centers, 0, c, 0, len);
@@ -76,12 +72,12 @@ public final class RoomPlacer {
 
     private static boolean collidesAny(float[] centers, float[] halfExtents, int placed,
                                        float cx, float cy, float hx, float hy) {
-        float buf = NUM_0_5;
+        float buf = 0.5f;
         for (int i = 0; i < placed; i++) {
-            float ox = centers[i * NUM_3];
-            float oy = centers[i * NUM_3 + 1];
-            float ohx = halfExtents[i * NUM_3];
-            float ohy = halfExtents[i * NUM_3 + 1];
+            float ox = centers[i * 3];
+            float oy = centers[i * 3 + 1];
+            float ohx = halfExtents[i * 3];
+            float ohy = halfExtents[i * 3 + 1];
             boolean collides = ox - ohx - buf < cx + hx + buf
                     && ox + ohx + buf > cx - hx - buf
                     && oy - ohy - buf < cy + hy + buf

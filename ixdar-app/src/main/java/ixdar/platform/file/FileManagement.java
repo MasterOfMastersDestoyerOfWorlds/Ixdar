@@ -29,24 +29,22 @@ import ixdar.platform.Toggle;
 
 public class FileManagement {
     public static final String IX = ".ix";
-    public static final String STR = "/";
     public static final String EXPECTED_ALL_POINTS_TO_BE_IN = "Expected all points to be in: ";
     public static final String BUT_FOUND_POINT_OF_TYPE = " but found point of type: ";
     public static final String N = "\n";
     public static final String ANS = "ANS ";
-    public static final String STR_2 = "// ";
 
     public static final String ASSET_REPO_ENV_VAR = "IXDAR_ASSET_REPO_ROOT";
     public static final String ASSET_REPO_PROP = "ixdar.asset.repo.root";
     public static final String DEFAULT_TEST_MODEL_FILE = "Hand.obj";
 
-    public static final String solutionsFolder = "./src/main/resources/solutions/";
+    public static final String SOLUTIONS_FOLDER = "./src/main/resources/solutions/";
 
-    public static final String testFileCacheLocation = "./src/test/cache/cache";
+    public static final String TEST_FILE_CACHE_LOCATION = "./src/test/cache/cache";
 
-    public static final String cacheFolder = "./src/test/cache/";
+    public static final String CACHE_FOLDER = "./src/test/cache/";
 
-    public static final String subGraphUnitTestFolder = "./test/unit/subgraphs/";
+    public static final String SUBGRAPH_UNIT_TEST_FOLDER = "./test/unit/subgraphs/";
 
     /**
      * Locate the IxdarAssets checkout root, preferring the JVM property
@@ -101,14 +99,14 @@ public class FileManagement {
      * {@code "myShape_v1"} maps under {@code solutions/myShape/}; appends {@code .ix} when missing.
      *
      * @param fileName base name (with or without {@code .ix} extension)
-     * @return relative path under {@link #solutionsFolder}
+     * @return relative path under {@link #SOLUTIONS_FOLDER}
      */
     public static String getTestFile(String fileName) {
         String[] parts = fileName.split("_");
         if (fileName.contains(IX)) {
-            return solutionsFolder + parts[0].replace(IX, "") + STR + fileName;
+            return SOLUTIONS_FOLDER + parts[0].replace(IX, "") + "/" + fileName;
         }
-        return solutionsFolder + parts[0] + STR + fileName + IX;
+        return SOLUTIONS_FOLDER + parts[0] + "/" + fileName + IX;
     }
 
     /**
@@ -139,7 +137,7 @@ public class FileManagement {
      * @return cached path string, or {@code ""} if the cache is missing or unreadable
      */
     public static String getTestFileCache() {
-        File cache = new File(testFileCacheLocation);
+        File cache = new File(TEST_FILE_CACHE_LOCATION);
         try (BufferedReader br = new BufferedReader(new FileReader(cache))) {
             String line = br.readLine();
             br.close();
@@ -158,7 +156,7 @@ public class FileManagement {
      */
     public static void updateTestFileCache(String cachedLocation) {
         if (!Compat.isBlank(cachedLocation)) {
-            File cache = new File(testFileCacheLocation);
+            File cache = new File(TEST_FILE_CACHE_LOCATION);
             try (FileWriter fw = new FileWriter(cache)) {
                 BufferedWriter out = new BufferedWriter(fw);
                 out.write(cachedLocation);
@@ -496,7 +494,7 @@ public class FileManagement {
      */
     public static void appendComment(TextFile path, String comment) {
         try {
-            path.getLines().add(STR_2 + comment);
+            path.getLines().add("// " + comment);
             Platforms.get().writeTextFile(path, true);
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -513,7 +511,7 @@ public class FileManagement {
      */
     public static void appendLine(TextFile path, String appLine) {
         try {
-            path.getLines().add(STR_2 + appLine);
+            path.getLines().add("// " + appLine);
             Platforms.get().writeTextFile(path, true);
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -552,14 +550,14 @@ public class FileManagement {
     // removed duplicate rewriteSolutionFile method
 
     /**
-     * Write a generated unit-test source under {@link #subGraphUnitTestFolder}. {@code template}
+     * Write a generated unit-test source under {@link #SUBGRAPH_UNIT_TEST_FOLDER}. {@code template}
      * is split on {@code \n} and each line written with the platform line separator.
      *
      * @param fileName test file name (within the subgraph unit-test folder)
      * @param template full source body
      */
     public static void writeSubGraphTest(String fileName, String template) {
-        File unitTest = new File(subGraphUnitTestFolder + fileName);
+        File unitTest = new File(SUBGRAPH_UNIT_TEST_FOLDER + fileName);
         try {
             unitTest.createNewFile();
         } catch (IOException e) {

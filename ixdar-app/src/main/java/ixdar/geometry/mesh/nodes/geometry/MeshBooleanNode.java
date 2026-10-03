@@ -36,16 +36,10 @@ public class MeshBooleanNode implements MeshNode {
     public static final String DIFFERENCE = "DIFFERENCE";
     public static final String UNION = "UNION";
     public static final String INTERSECT = "INTERSECT";
-    /**
-     * Bundle slot, an {@link IntField} per face: the operand the face is an untouched copy of, or
-     * {@link MeshBooleanResult#ORIGIN_NEW} where the intersection curve split it.
-     */
     public static final String FACE_ORIGIN_SLOT = "_boolean_face_origin";
 
-    /** Bundle slot, an {@link IntField} per face: the operand whose surface the face lies on. */
     public static final String FACE_SOURCE_OPERAND_SLOT = "_boolean_face_source_operand";
 
-    /** Bundle slot, an {@link IntField} per face: source face id, {@code -1} where untraceable. */
     public static final String FACE_SOURCE_QUAD_SLOT = "_boolean_face_source_quad";
 
     public static final InputPort MESH_A = new InputPort("mesh_a", PortType.GEOMETRY_BUNDLE, null);

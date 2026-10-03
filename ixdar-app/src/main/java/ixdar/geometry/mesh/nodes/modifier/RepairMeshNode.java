@@ -28,17 +28,10 @@ import ixdar.platform.Platforms;
 @MeshNodeAnnotation(id = "repair_mesh")
 public class RepairMeshNode implements MeshNode {
 
-    /**
-     * Longest boundary loop the filler attempts by default. Every hole on a Trellis2 scan is a
-     * scanning artefact rather than a gap to preserve, so the default is a safety cap against a
-     * pathological loop, not a quality threshold.
-     */
     public static final int DEFAULT_MAX_HOLE_EDGES = 4096;
 
-    /** Face count below which a shell counts as debris by default. */
     public static final int DEFAULT_MIN_SHELL_FACES = 100;
 
-    /** Log prefix of the node's report line. */
     public static final String LOG_PREFIX = "[repair_mesh] ";
 
     public static final InputPort GEOMETRY =

@@ -17,7 +17,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.automation.endpoints.AutomationRuntime;
 
 public class AutomationEndpoint {
-    public static final int NUM_200 = 200;
+    public static final int HTTP_OK = 200;
     public static final Gson GSON = new Gson();
     
     protected AutomationRuntime runtime;
@@ -75,7 +75,7 @@ public class AutomationEndpoint {
      */
     public JsonObject writeJson(HttpExchange exchange, JsonObject payload)
         throws IOException {
-        return writeJson(exchange, NUM_200, payload);
+        return writeJson(exchange, HTTP_OK, payload);
     }
 
     /**

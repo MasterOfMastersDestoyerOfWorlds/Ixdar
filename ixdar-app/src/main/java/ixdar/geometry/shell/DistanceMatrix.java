@@ -23,7 +23,7 @@ import ixdar.geometry.point.PointSet;
  * A class that represents the distances between all points in the pointset.
  */
 public class DistanceMatrix {
-    public static final double NUM_0_0001 = 0.0001;
+    public static final double EPSILON = 0.0001;
 
     private double[][] matrix;
     private ArrayList<PointND> points;
@@ -368,7 +368,7 @@ public class DistanceMatrix {
                 if (!p.isCentroid() && !p.equals(p2)) {
                     double trueDist = this.getDistance(p, p2);
                     double converted = p.distance(p2);
-                    assert (Math.abs(converted - trueDist) < NUM_0_0001)
+                    assert (Math.abs(converted - trueDist) < EPSILON)
                             : "Expected: " + trueDist + " got: " + converted + "\n " + this;
                 }
             }
@@ -470,7 +470,7 @@ public class DistanceMatrix {
         this.nSphereRadius = this.nSphereCenter.distance(ps.get(0));
 
         for (PointND p : ps) {
-            assert Math.abs(p.distance(nSphereCenter) - nSphereRadius) < NUM_0_0001;
+            assert Math.abs(p.distance(nSphereCenter) - nSphereRadius) < EPSILON;
         }
 
         return this.nSphereCenter;

@@ -28,7 +28,6 @@ public class MarkEdgesNode implements MeshNode {
     public static final String TYPE_INT = "INT";
     public static final String TYPE_BOOL = "BOOL";
 
-    /** Label {@code subdivision_surface} reads its crease weights from. */
     public static final String CREASE_LABEL = "crease";
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);

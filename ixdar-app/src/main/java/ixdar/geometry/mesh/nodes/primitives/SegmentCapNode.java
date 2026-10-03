@@ -25,10 +25,9 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 @MeshNodeAnnotation(id = "segment_cap")
 public class SegmentCapNode implements MeshNode {
-    public static final int NUM_3 = 3;
-    public static final int NUM_12 = 12;
-    public static final float NUM_0_001 = 0.001f;
-    public static final float NUM_0_05 = 0.05f;
+    public static final int MIN_SEGMENTS = 3;
+    public static final float Y_TOLERANCE = 0.001f;
+    public static final float MIN_RING_SCALE = 0.05f;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 12, (float) 3, (float) 128);
@@ -68,7 +67,7 @@ public class SegmentCapNode implements MeshNode {
             return;
         }
 
-        int segments = Math.max(NUM_3, intInput(ctx, SEGMENTS.name, NUM_12));
+        int segments = Math.max(MIN_SEGMENTS, intInput(ctx, SEGMENTS.name, 12));
         int capRings = Math.max(1, intInput(ctx, CAP_RINGS.name, 2));
 
         int totalVerts = mesh.vertexCount();
@@ -88,7 +87,7 @@ public class SegmentCapNode implements MeshNode {
         int[] outerRing = new int[segments * 2]; // oversize buffer
         float[] ringAngles = new float[outerRing.length];
         int found = 0;
-        float tolerance = NUM_0_001;
+        float tolerance = Y_TOLERANCE;
 
         for (int v = 0; v < totalVerts && found < outerRing.length; v++) {
             mesh.vertexPosition(v, pos);
@@ -98,7 +97,7 @@ public class SegmentCapNode implements MeshNode {
             }
         }
 
-        if (found < NUM_3) {
+        if (found < MIN_SEGMENTS) {
             ctx.setOutput(GEOMETRY.name, base);
             return;
         }
@@ -135,7 +134,7 @@ public class SegmentCapNode implements MeshNode {
             // Smoothstep easing for nicer distribution
             float scale = 1.0f - t;
             if (ring == capRings) {
-                scale = NUM_0_05; // innermost ring: tiny but non-zero to avoid degeneracy
+                scale = MIN_RING_SCALE; // innermost ring: tiny but non-zero to avoid degeneracy
             }
 
             int[] currentRing = new int[found];

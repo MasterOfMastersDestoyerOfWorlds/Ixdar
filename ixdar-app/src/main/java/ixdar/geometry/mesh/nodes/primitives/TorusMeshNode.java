@@ -22,28 +22,16 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 @MeshNodeAnnotation(id = "torus")
 public class TorusMeshNode implements MeshNode {
 
-    /** Port name: distance from the origin to the centre of the tube. */
-    /** Port name: radius of the tube itself. */
-    /** Port name: face divisions the long way around. */
-    /** Port name: face divisions around the tube. */
-    /** Port name: whether to split each quad into two triangles. */
-    /** Port name: the generated mesh. */
-    /** Default distance from the origin to the tube's centre. */
     public static final float DEFAULT_MAJOR_RADIUS = 1.0f;
 
-    /** Default radius of the tube. */
     public static final float DEFAULT_MINOR_RADIUS = 0.35f;
 
-    /** Default face divisions the long way around. */
     public static final int DEFAULT_MAJOR_SEGMENTS = 24;
 
-    /** Default face divisions around the tube. */
     public static final int DEFAULT_MINOR_SEGMENTS = 12;
 
-    /** Fewest divisions that still close a ring without degenerate faces. */
     public static final int MINIMUM_SEGMENTS = 3;
 
-    /** A full turn, for stepping the two angles. */
     public static final double FULL_TURN = 2.0 * Math.PI;
 
     public static final InputPort MAJOR_RADIUS =

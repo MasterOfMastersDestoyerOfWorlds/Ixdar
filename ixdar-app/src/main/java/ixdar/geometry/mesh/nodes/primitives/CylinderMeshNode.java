@@ -14,9 +14,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 @MeshNodeAnnotation(id = "cylinder")
 public class CylinderMeshNode implements MeshNode {
-    public static final int NUM_16 = 16;
-    public static final int NUM_3 = 3;
-    public static final float NUM_2_0 = 2.0f;
+    public static final int MIN_SEGMENTS = 3;
     public static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f, 0.001f, 100f);
     public static final InputPort HEIGHT = new InputPort("height", PortType.FLOAT, 1.0f, 0.001f, 100f);
     public static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 16, (float) 3, (float) 128);
@@ -55,8 +53,8 @@ public class CylinderMeshNode implements MeshNode {
                 : 1.0f;
         int segments = ctx.getInput(SEGMENTS.name, Number.class) != null
                 ? ctx.getInput(SEGMENTS.name, Number.class).intValue()
-                : NUM_16;
-        segments = Math.max(NUM_3, segments);
+                : 16;
+        segments = Math.max(MIN_SEGMENTS, segments);
 
         HalfEdgeMesh mesh = new HalfEdgeMesh();
 
@@ -67,7 +65,7 @@ public class CylinderMeshNode implements MeshNode {
         int[] bottomRingVertices = new int[segments];
 
         for (int j = 0; j < segments; j++) {
-            float phi = NUM_2_0 * (float) Math.PI * j / segments;
+            float phi = 2.0f * (float) Math.PI * j / segments;
             float sinPhi = (float) Math.sin(phi);
             float cosPhi = (float) Math.cos(phi);
 

@@ -8,13 +8,10 @@ import java.util.Arrays;
  */
 public final class VertexPositionIndex {
 
-    /** Minimum table size, so tiny meshes still get a sparse table. */
     public static final int MINIMUM_CAPACITY = 16;
 
-    /** Multiplier from a 64-bit mix used to spread coordinate bits across the table. */
     public static final long MIX_MULTIPLIER = 0x9E3779B97F4A7C15L;
 
-    /** Shift applied when folding a mixed 64-bit hash down to a table slot. */
     public static final int MIX_SHIFT = 32;
 
     /** X coordinate bits per slot. */
