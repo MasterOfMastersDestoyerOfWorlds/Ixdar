@@ -243,6 +243,7 @@ public class IxdarWindow {
             }
         }
         glfwMakeContextCurrent(window);
+        Platforms.gl().createCapabilities();
         glfwSwapInterval(1);
 
         System.out.println("Window Time: " + (Clock.time() - startTime));

@@ -19,7 +19,7 @@ public class CanvasSceneMap {
         MAP.put("ixdar", () -> new Canvas3D());
         MAP.put("ixdar-canvas", () -> {
             try {
-                MainScene.main = new MainScene("djbouti", new Canvas3D());
+                MainScene.main(new String[] {"djbouti"});
             } catch (TerminalParseException | IOException e) {
                 throw new RuntimeException(e);
             }

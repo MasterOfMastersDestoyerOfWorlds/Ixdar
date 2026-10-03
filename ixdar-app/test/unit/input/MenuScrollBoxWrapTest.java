@@ -3,8 +3,6 @@ package unit.input;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.reflect.Proxy;
-import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
@@ -18,6 +16,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.HyperWord;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.menu.MenuScrollBox;
+import ixdar.gui.ui.menu.SceneModelMenu;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.Platform;
@@ -27,8 +26,6 @@ import ixdar.platform.gl.Platform;
  * rows HyperString reports. The real font atlas loads over a GL stand-in.
  */
 class MenuScrollBoxWrapTest {
-
-    private static final int STAND_IN_PLATFORM_ID = 9012;
 
     private static final float BOX_WIDTH = 200f;
 
@@ -50,32 +47,7 @@ class MenuScrollBoxWrapTest {
     void installGlStandIn() {
         suitePlatform = Platforms.get();
         suiteGl = Platforms.gl();
-        GL standIn = (GL) Proxy.newProxyInstance(GL.class.getClassLoader(),
-                new Class<?>[] {GL.class}, (proxy, method, arguments) -> {
-                    Class<?> type = method.getReturnType();
-                    for (Object argument : arguments == null ? new Object[0] : arguments) {
-                        if (argument instanceof IntBuffer status) {
-                            status.put(0, 1);
-                        }
-                    }
-                    if (method.getName().equals("getPlatformID")) {
-                        return STAND_IN_PLATFORM_ID;
-                    }
-                    if (type == int.class) {
-                        return 1;
-                    }
-                    if (type == boolean.class) {
-                        return false;
-                    }
-                    if (type == float.class) {
-                        return 0f;
-                    }
-                    if (type == String.class) {
-                        return "";
-                    }
-                    return type.isAssignableFrom(ArrayList.class) ? new ArrayList<>() : null;
-                });
-        Platforms.init(suitePlatform, standIn);
+        Platforms.init(suitePlatform, FontGlStandIn.create());
         camera = new Camera2D(1, 1, 1f, 0, 0, null);
     }
 
@@ -128,6 +100,27 @@ class MenuScrollBoxWrapTest {
         box.text.click(plain.xScreenOffset + 1, plain.yScreenOffset + ROW / 2);
         assertEquals(0, clicks[0]);
         assertEquals(wrappedClicks, clicks[1]);
+    }
+
+    @Test
+    void oneClickOnAModelRowRunsItsActionOnce() {
+        MenuScrollBox box = box(10);
+        int[] loads = new int[2];
+        box.addRow(SceneModelMenu.OTHER_MARKER + "botijo in tri", Color.COMMAND, () -> loads[0]++);
+        box.addRow(SceneModelMenu.CURRENT_MARKER + "kitten", Color.BRIGHT_GREEN, () -> loads[1]++);
+        box.layout(camera);
+
+        List<HyperWord> words = wordsOf(box, 0);
+        assertTrue(words.size() >= 3, "words: " + words);
+        for (HyperWord word : words) {
+            int before = loads[0];
+            box.text.click(word.xScreenOffset + word.drawnWidth / 2, word.yScreenOffset + ROW / 2);
+            assertEquals(before + 1, loads[0], "one click on " + word);
+        }
+        assertEquals(0, loads[1]);
+        HyperWord last = words.get(words.size() - 1);
+        box.text.click(last.xScreenOffset + last.drawnWidth + 1, last.yScreenOffset + ROW / 2);
+        assertEquals(words.size(), loads[0], "a click right of the text runs nothing");
     }
 
     @Test

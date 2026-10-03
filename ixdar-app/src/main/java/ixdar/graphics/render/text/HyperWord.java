@@ -22,7 +22,10 @@ public class HyperWord {
     public float yScreenOffset;
     public float xScreenOffset;
     public float rowHeight;
+    /** Advance width in font-atlas pixels; layout scales it to the drawn height. */
     public float width;
+    /** Width as drawn on screen in pixels, set by {@link #setBounds}; hit tests use it. */
+    public float drawnWidth;
     public Action clearHover;
     public float x;
     public float y;
@@ -116,21 +119,24 @@ public class HyperWord {
     }
 
     /**
-     * Cache the world and screen positions of this word along with the
-     * containing view rectangle (used for hit-testing and rendering).
+     * Cache the world and screen positions of this word, its drawn size and the containing view
+     * rectangle. The hit-test rectangle is exactly the drawn one.
      *
      * @param x world-space x of the bottom-left
      * @param y world-space y of the bottom-left
      * @param xScreen screen-space x of the bottom-left
      * @param yScreen screen-space y of the bottom-left
+     * @param drawnWidth width of the word as drawn, in pixels
      * @param height row height in pixels
      * @param viewBounds clipping rectangle for hit-testing
      */
-    public void setBounds(float x, float y, float xScreen, float yScreen, float height, Bounds viewBounds) {
+    public void setBounds(float x, float y, float xScreen, float yScreen, float drawnWidth, float height,
+            Bounds viewBounds) {
         this.x = x;
         this.y = y;
         this.xScreenOffset = xScreen;
         this.yScreenOffset = yScreen;
+        this.drawnWidth = drawnWidth;
         this.viewBounds.update(viewBounds);
         this.rowHeight = height;
     }
@@ -175,7 +181,7 @@ public class HyperWord {
             boolean insideAny = false;
             for (HyperWord child : subWords) {
                 if (!child.newLine &&
-                        (normalizedPosX > child.xScreenOffset && normalizedPosX < child.xScreenOffset + child.width) &&
+                        (normalizedPosX > child.xScreenOffset && normalizedPosX < child.xScreenOffset + child.drawnWidth) &&
                         (normalizedPosY > child.yScreenOffset && normalizedPosY < child.yScreenOffset + child.rowHeight)
                         &&
                         child.viewBounds.contains(normalizedPosX, normalizedPosY)) {
@@ -187,7 +193,7 @@ public class HyperWord {
                 clearHover.perform();
             }
         }
-        if (!newLine && !(normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
+        if (!newLine && !(normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + drawnWidth &&
                 normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight)) {
             clearHover.perform();
         }
@@ -206,7 +212,7 @@ public class HyperWord {
                 child.calculateHover(normalizedPosX, normalizedPosY);
             }
         }
-        if (!newLine && normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
+        if (!newLine && normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + drawnWidth &&
                 normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight
                 && viewBounds.contains(normalizedPosX, normalizedPosY)) {
             hoverAction.perform();
@@ -236,7 +242,7 @@ public class HyperWord {
                 child.click(normalizedPosX, normalizedPosY);
             }
         }
-        if (!newLine && normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + width &&
+        if (!newLine && normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + drawnWidth &&
                 normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight
                 && viewBounds.contains(normalizedPosX, normalizedPosY)) {
             clickAction.perform();

@@ -232,7 +232,7 @@ public class Font {
      * @param camera 2D camera providing transform and z-index
      */
     public void drawHyperString(HyperString hyperString, float x, float y, float height, Camera2D camera) {
-        hyperString.setLineOffsetCentered(camera, x, y, this, 0);
+        hyperString.setLineOffsetCentered(camera, x, y, this, height, 0);
         sdfTexture.setup(camera);
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             hyperString.draw();
@@ -270,7 +270,7 @@ public class Font {
         for (int j = 0; j < hyperStrings.size(); j++) {
             Vector2f loc = xLoc.get(j);
             HyperString hyperString = hyperStrings.get(j);
-            hyperString.setLineOffsetCentered(camera, loc.x, loc.y, this, 0);
+            hyperString.setLineOffsetCentered(camera, loc.x, loc.y, this, height, 0);
             hyperString.draw();
             for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
                 ArrayList<HyperWord> words = hyperString.getLine(lineNumber);

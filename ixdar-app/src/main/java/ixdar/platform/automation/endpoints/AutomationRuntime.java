@@ -451,7 +451,7 @@ public class AutomationRuntime {
                 word.addProperty("text", w.toString());
                 word.addProperty(X, w.xScreenOffset);
                 word.addProperty(Y, w.yScreenOffset);
-                word.addProperty("width", w.width);
+                word.addProperty("width", w.drawnWidth);
                 word.addProperty("height", w.rowHeight);
                 words.add(word);
             }

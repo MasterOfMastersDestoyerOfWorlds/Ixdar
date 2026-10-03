@@ -219,12 +219,12 @@ public class Canvas3D extends SceneDrawable {
     }
 
     /**
-     * Initialize GL state on the render thread: capabilities, viewport, depth/blend
-     * state, clear color, audio init/start, and {@link #initPoints()}.
+     * Initialize GL state: viewport, depth/blend state, clear color, audio init/start, and
+     * {@link #initPoints()}. The window binds the GL functions before the scene is built, so
+     * capabilities are already in place here.
      */
     public void initGL() {
         GL gl = Platforms.gl();
-        gl.createCapabilities();
         float start = Clock.time();
         gl.coldStartStack();
 

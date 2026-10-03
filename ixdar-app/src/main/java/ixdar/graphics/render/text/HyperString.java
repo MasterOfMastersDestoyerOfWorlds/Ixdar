@@ -442,7 +442,7 @@ public class HyperString {
      * @return total rows occupied (including wrap-induced extras)
      */
     public int setLineOffsetFromTopRow(Camera2D camera, int row, float scrollOffsetY, float rowHeight) {
-        float scale = Drawing.FONT_HEIGHT_PIXELS / font.fontHeight;
+        float scale = rowHeight / font.fontHeight;
         float widthPixels = camera.getWidth();
         for (int index = 0; wrap && index < words.size(); index++) {
             HyperWord word = words.get(index);
@@ -480,9 +480,9 @@ public class HyperString {
     }
 
     /**
-     * Lay out a single line top-down: assign per-word screen bounds, wrap
-     * when a word would exit the viewport or exceed {@link #charWrap}, and
-     * mark off-screen words as culled.
+     * Lay out a single line top-down: assign per-word screen bounds at the width drawn at
+     * {@code rowHeight}, wrap when a word would exit the viewport or exceed {@link #charWrap},
+     * and mark off-screen words as culled.
      *
      * @param camera 2D camera providing viewport size and screen offset
      * @param row top row index for this line
@@ -499,6 +499,7 @@ public class HyperString {
         if (lineNumber < lines - 1) {
             idxEnd = lineStartMap.get(lineNumber + 1);
         }
+        float scale = rowHeight / font.fontHeight;
         float offset = 0;
         float charLength = 0;
         wrappedLines = 0;
@@ -514,7 +515,7 @@ public class HyperString {
             for (HyperWord subWord : subWords) {
                 charLength += subWord.text.size();
                 float wordX = offset;
-                float wordWidth = Drawing.FONT_HEIGHT_PIXELS / font.fontHeight * subWord.width;
+                float wordWidth = scale * subWord.width;
 
                 if (wrap && offset > 0
                         && (wordX + wordWidth > camera.getWidth() || charLength > charWrap)) {
@@ -531,8 +532,7 @@ public class HyperString {
                     subWord.culled = false;
                 }
                 subWord.setBounds(wordX, wordY, camera.getScreenOffsetX() + offset, camera.getScreenOffsetY() + wordY,
-                        rowHeight,
-                        camera.viewBounds);
+                        wordWidth, rowHeight, camera.viewBounds);
                 offset += wordWidth;
             }
         }
@@ -540,19 +540,22 @@ public class HyperString {
     }
 
     /**
-     * Lay out a single line centered on {@code (x, y)} using the supplied
-     * font's measurements; assigns per-word screen bounds.
+     * Lay out a single line drawn {@code height} pixels tall, centered on {@code (x, y)}; each
+     * word's screen bounds are the rectangle it is drawn in.
      *
      * @param camera 2D camera providing screen offset
      * @param x desired center x in world coordinates
      * @param y desired center y in world coordinates
      * @param font font to measure with
+     * @param height glyph height the line is drawn at, in pixels
      * @param lineNumber index of the line to lay out
      */
-    public void setLineOffsetCentered(Camera2D camera, float x, float y, Font font, int lineNumber) {
+    public void setLineOffsetCentered(Camera2D camera, float x, float y, Font font, float height,
+            int lineNumber) {
         String lineText = strMap.get(lineNumber);
-        float centerX = Drawing.FONT_HEIGHT_PIXELS / font.fontHeight * font.getWidth(lineText) / 2;
-        float centerY = Drawing.FONT_HEIGHT_PIXELS / font.fontHeight * font.getHeight(lineText) / 2;
+        float scale = height / font.fontHeight;
+        float centerX = scale * font.getWidth(lineText) / 2;
+        float centerY = scale * font.getHeight(lineText) / 2;
         int idxStart = lineStartMap.get(lineNumber);
         int idxEnd = words.size();
         if (lineNumber < lines - 1) {
@@ -574,9 +577,10 @@ public class HyperString {
             for (HyperWord subWord : subWords) {
                 float wordX = x + offset - centerX;
                 float wordY = y - centerY;
+                float wordWidth = scale * subWord.width;
                 subWord.setBounds(wordX, wordY, camera.getScreenOffsetX() + wordX, camera.getScreenOffsetY() + wordY,
-                        font.getHeight(subWord.charSequence), camera.viewBounds);
-                offset += Drawing.FONT_HEIGHT_PIXELS / font.fontHeight * subWord.width;
+                        wordWidth, scale * font.getHeight(subWord.charSequence), camera.viewBounds);
+                offset += wordWidth;
             }
         }
     }
