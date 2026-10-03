@@ -66,6 +66,15 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     public static final String CENTROID = "centroid";
 
     public static final String PIN = "pin";
+
+    public static final String AUTHORED_ANCHORS = "authoredAnchors";
+
+    public static final String AUTHORED_ANCHOR_COUNT = "authoredAnchorCount";
+
+    public static final String BASE_NORMAL = "baseNormal";
+
+    public static final String MINIMUM_INTERIOR_ANGLE = "minimumInteriorAngleDegrees";
+
     /**
      * Serialise a packed coordinate triple as a JSON array.
      *
@@ -300,17 +309,56 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             toolJson.addProperty("deviation", tool.previewDeviation);
             toolJson.addProperty("anchorCapReached", tool.previewAnchorCapReached);
             toolJson.addProperty("geodesicsTraced", tool.previewGeodesicCount);
-            toolJson.addProperty("tiltAboutView", tool.tiltAboutView);
-            toolJson.addProperty("tiltAboutTangent", tool.tiltAboutTangent);
             toolJson.addProperty("axisFromSkeleton", tool.axisFromSkeleton);
             toolJson.addProperty("hoveredRing", tool.hoveredRing);
+            toolJson.addProperty("hoveredGraphRing",
+                    tool.hoveredGraphRing == null ? "" : tool.hoveredGraphRing);
             toolJson.addProperty("unsavedRingCount", tool.unsavedRingCount());
             toolJson.add("previewHitPoint", floatArray(tool.previewHitPoint));
-            toolJson.add("previewAnchors", floatArray(tool.previewAnchorXyz));
+            toolJson.add("previewAnchors", floatArray(tool.previewSpline == null ? new float[0]
+                    : tool.previewSpline.anchorXyz));
             toolJson.add("previewPlaneNormal", floatArray(tool.previewPlaneNormal));
             toolJson.add("previewLimbAxis", floatArray(tool.previewLimbAxis));
             toolJson.addProperty("error", tool.lastError);
+            toolJson.addProperty("lastRow", tool.lastRow);
             MeshTopology toolSurface = toolScene.halfEdgeSurface();
+            JsonObject draft = new JsonObject();
+            SurfaceSpline draftRing = tool.draft;
+            draft.addProperty("exists", draftRing != null);
+            if (draftRing != null) {
+                int authoredAnchors = draftRing.authoredCount();
+                float[] supporting = new float[3 * (draftRing.anchorCount - authoredAnchors)];
+                int cursor = 0;
+                for (int anchor = 0; anchor < draftRing.anchorCount; anchor++) {
+                    if (!draftRing.anchorAuthored[anchor]) {
+                        System.arraycopy(draftRing.anchorXyz, 3 * anchor, supporting,
+                                3 * cursor++, 3);
+                    }
+                }
+                draft.add(AUTHORED_ANCHORS,
+                        floatArray(tool.positionsOf(tool.draftAuthoredVertexId)));
+                draft.add("supportingAnchors", floatArray(supporting));
+                draft.addProperty(AUTHORED_ANCHOR_COUNT, authoredAnchors);
+                draft.addProperty("supportingAnchorCount",
+                        draftRing.anchorCount - authoredAnchors);
+                draft.addProperty("selectedAnchor", tool.selectedIndex());
+                draft.addProperty("hoveredAnchor", tool.hoveredAnchor);
+                draft.addProperty("dragging", tool.draggingAnchor);
+                draft.addProperty("undoAvailable", tool.undoAuthoredVertexId != null);
+                draft.addProperty("reopenedRing", tool.draftSourceRing);
+                draft.addProperty("convertedFrom",
+                        tool.draftSourceLabel == null ? "" : tool.draftSourceLabel);
+                draft.add(BASE_NORMAL, floatArray(tool.draftBaseNormal));
+                draft.addProperty(EDGECOUNT, draftRing.markedEdgeCount);
+                draft.addProperty(LENGTH, draftRing.length);
+                draft.addProperty("millis", tool.draftMillis);
+                draft.addProperty(MINIMUM_INTERIOR_ANGLE, draftRing.minimumInteriorAngleDegrees);
+                if (toolSurface != null) {
+                    draft.addProperty(FINGERPRINT,
+                            EdgeMarks.fingerprint(toolSurface, draftRing.markedByEdgeId));
+                }
+            }
+            toolJson.add("draft", draft);
             JsonArray confirmed = new JsonArray();
             for (int index = 0; index < tool.confirmedRings.size(); index++) {
                 SurfaceSpline ring = tool.confirmedRings.get(index);
@@ -326,7 +374,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 row.addProperty("anchorCount", ring.anchorCount);
                 row.addProperty("meanRadius", ring.meanRadius);
                 row.addProperty("traceDepth", ring.traceDepth);
-                row.addProperty("minimumInteriorAngleDegrees",
+                row.addProperty(MINIMUM_INTERIOR_ANGLE,
                         ring.minimumInteriorAngleDegrees);
                 row.addProperty("unresolvedGaps", ring.unresolvedGaps);
                 JsonArray centroid = new JsonArray();
@@ -335,6 +383,10 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 centroid.add(ring.centroidZ);
                 row.add(CENTROID, centroid);
                 row.add("anchors", floatArray(ring.anchorXyz));
+                row.addProperty(AUTHORED_ANCHOR_COUNT, ring.authoredCount());
+                row.add(AUTHORED_ANCHORS,
+                        floatArray(tool.positionsOf(tool.confirmedAuthoredVertexId.get(index))));
+                row.add(BASE_NORMAL, floatArray(tool.confirmedBaseNormal.get(index)));
                 row.add("sharpestCorner", floatArray(ring.sharpestCornerXyz));
                 if (toolSurface != null) {
                     row.addProperty(FINGERPRINT,

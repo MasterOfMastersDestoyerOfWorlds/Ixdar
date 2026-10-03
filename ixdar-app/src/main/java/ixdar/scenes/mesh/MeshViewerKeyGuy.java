@@ -31,8 +31,9 @@ public class MeshViewerKeyGuy extends OrbitCameraKeyGuy {
     }
 
     /**
-     * Handle the mesh-viewer shortcuts on key-down: Z wireframe, P patch overlay
-     * (Shift+P shader mode), [ / ] model, K keep/reject, D decomposer. Every other
+     * Handle the mesh-viewer shortcuts on key-down: Z wireframe (Ctrl+Z is left to the
+     * scene), P patch overlay (Shift+P shader mode), [ / ] model, K keep/reject, D decomposer.
+     * Every other
      * key falls through to the scene's own control bindings, which is what reaches
      * ESCAPE and GRAVE.
      *
@@ -43,7 +44,13 @@ public class MeshViewerKeyGuy extends OrbitCameraKeyGuy {
     public void handleSceneKeys(int key, int mods) {
         Platforms.init(canvas.platform.getPlatformID());
         switch (key) {
-            case Keys.Z -> meshScene.toggleMeshWireframe();
+            case Keys.Z -> {
+                if ((mods & MOD_CONTROL) != 0) {
+                    super.handleSceneKeys(key, mods);
+                    return;
+                }
+                meshScene.toggleMeshWireframe();
+            }
             case Keys.P -> {
                 if ((mods & MOD_SHIFT) != 0) {
                     meshScene.toggleShaderMode();

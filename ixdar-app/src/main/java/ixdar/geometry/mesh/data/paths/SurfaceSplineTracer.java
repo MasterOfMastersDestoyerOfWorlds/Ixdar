@@ -51,6 +51,12 @@ public final class SurfaceSplineTracer {
     /** Anchors held in the front of {@link #anchorVertexId}. */
     public int anchorCount;
 
+    /**
+     * Whether each anchor was placed by the user rather than by the fit, parallel to
+     * {@link #anchorVertexId}; only authored anchors are selectable and saved.
+     */
+    public boolean[] anchorAuthored = new boolean[0];
+
     /** Unit tangent of the spline at each anchor, packed xyz, the two handles lie along it. */
     public float[] anchorTangent = new float[0];
 
@@ -74,12 +80,6 @@ public final class SurfaceSplineTracer {
 
     /** Bisection depth each segment was traced at. */
     public int[] segmentDepth = new int[0];
-
-    /** Segment the last {@link #nearestTracedVertex} landed on, or -1. */
-    public int nearestSegment = -1;
-
-    /** Distance the last {@link #nearestTracedVertex} was from the point it was given. */
-    public double nearestDistance;
 
     private final Vector3f anchorPosition = new Vector3f();
     private final Vector3f previousPosition = new Vector3f();
@@ -109,18 +109,33 @@ public final class SurfaceSplineTracer {
     }
 
     /**
-     * Replaces the anchor cycle and traces every segment.
+     * Replaces the anchor cycle with anchors that are all authored and traces every segment.
      *
      * @param vertexIds mesh vertices the spline passes through, in ring order
      * @param count     anchors to take from the front of {@code vertexIds}
      * @return true when at least three anchors were accepted and traced
      */
     public boolean setAnchors(int[] vertexIds, int count) {
+        boolean[] authored = new boolean[Math.max(0, count)];
+        Arrays.fill(authored, true);
+        return setAnchors(vertexIds, authored, count);
+    }
+
+    /**
+     * Replaces the anchor cycle and traces every segment.
+     *
+     * @param vertexIds mesh vertices the spline passes through, in ring order
+     * @param authored  whether each anchor was placed by the user, in the same order
+     * @param count     anchors to take from the front of {@code vertexIds}
+     * @return true when at least three anchors were accepted and traced
+     */
+    public boolean setAnchors(int[] vertexIds, boolean[] authored, int count) {
         if (count < MINIMUM_ANCHORS) {
             anchorCount = 0;
             return false;
         }
         anchorVertexId = Arrays.copyOf(vertexIds, count);
+        anchorAuthored = Arrays.copyOf(authored, count);
         anchorCount = count;
         resizeSegments();
         retraceAll();
@@ -134,9 +149,10 @@ public final class SurfaceSplineTracer {
      * @param beforeAnchor index the new anchor takes, so it lands between {@code beforeAnchor - 1}
      *                     and the anchor that held that index
      * @param vertexId     mesh vertex the new anchor sits on
+     * @param authored     whether the user placed the anchor rather than the fit
      * @return true when the anchor was inserted
      */
-    public boolean insertAnchor(int beforeAnchor, int vertexId) {
+    public boolean insertAnchor(int beforeAnchor, int vertexId, boolean authored) {
         if (anchorCount < MINIMUM_ANCHORS || beforeAnchor < 0 || beforeAnchor > anchorCount) {
             return false;
         }
@@ -146,6 +162,12 @@ public final class SurfaceSplineTracer {
         System.arraycopy(anchorVertexId, beforeAnchor, grown, beforeAnchor + 1,
                 anchorCount - beforeAnchor);
         anchorVertexId = grown;
+        boolean[] grownAuthored = new boolean[anchorCount + 1];
+        System.arraycopy(anchorAuthored, 0, grownAuthored, 0, beforeAnchor);
+        grownAuthored[beforeAnchor] = authored;
+        System.arraycopy(anchorAuthored, beforeAnchor, grownAuthored, beforeAnchor + 1,
+                anchorCount - beforeAnchor);
+        anchorAuthored = grownAuthored;
         anchorCount++;
         int[] keptDepth = segmentDepth;
         double[][] keptXyz = segmentXyz;
@@ -234,51 +256,6 @@ public final class SurfaceSplineTracer {
             cursor += points;
         }
         return new TracedSurfacePath(positions, vertexId, edgeId, fraction, total, true);
-    }
-
-    /**
-     * The mesh vertex on the traced spline nearest a surface point, and the segment it lies on,
-     * which is where a click on an existing ring inserts its anchor.
-     *
-     * @param x point x
-     * @param y point y
-     * @param z point z
-     * @return the vertex id, or -1 when nothing is traced yet
-     */
-    public int nearestTracedVertex(float x, float y, float z) {
-        nearestSegment = -1;
-        nearestDistance = Double.POSITIVE_INFINITY;
-        int nearestPoint = -1;
-        for (int segment = 0; segment < anchorCount; segment++) {
-            double[] points = segmentXyz[segment];
-            for (int base = 0; base < points.length; base += COORDINATES_PER_POINT) {
-                double dx = points[base] - x;
-                double dy = points[base + 1] - y;
-                double dz = points[base + 2] - z;
-                double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                if (distance < nearestDistance) {
-                    nearestDistance = distance;
-                    nearestSegment = segment;
-                    nearestPoint = base / COORDINATES_PER_POINT;
-                }
-            }
-        }
-        if (nearestSegment < 0) {
-            return -1;
-        }
-        int vertexId = segmentVertexId[nearestSegment][nearestPoint];
-        if (vertexId >= 0) {
-            return vertexId;
-        }
-        int edgeId = segmentEdgeId[nearestSegment][nearestPoint];
-        return edgeId < 0 ? anchorVertexId[nearestSegment]
-                : nearerEnd(edgeId, segmentFraction[nearestSegment][nearestPoint]);
-    }
-
-    private int nearerEnd(int edgeId, double fraction) {
-        int halfEdge = geodesics.mesh.edgeHalfEdge(edgeId);
-        return fraction <= 0.5 ? geodesics.mesh.halfEdgeVertex(halfEdge)
-                : geodesics.mesh.halfEdgeEndVertex(halfEdge);
     }
 
     private void prepareRecursionStack() {

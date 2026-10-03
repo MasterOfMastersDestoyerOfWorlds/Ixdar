@@ -4405,7 +4405,13 @@
         {
           "name": "points",
           "portType": "STRING",
-          "description": "Anchor points as \"x,y,z; x,y,z; ...\", stored as positions and re-snapped on reload, so the same statement re-traces the same ring on another aligned scan. Three are the minimum; the ring tool writes the four or more its fit settled on.",
+          "description": "Authored anchor points as \"x,y,z; x,y,z; ...\", each snapped to its nearest vertex. The first leads the ring. The supporting anchors between them are re-fitted on every evaluation, so only the points the user placed are stored. One is enough with a normal, three without.",
+          "defaultValue": ""
+        },
+        {
+          "name": "normal",
+          "portType": "STRING",
+          "description": "Base normal \"x,y,z\" of the ring\u0027s plane: one anchor takes it as is, two take the plane through both nearest it, three or more lean toward it only where they leave the plane undecided. Empty lets three anchors decide.",
           "defaultValue": ""
         },
         {
@@ -4427,7 +4433,7 @@
           "description": "Per-edge BoolField, true on every edge of the conforming cycle nearest the traced spline."
         }
       ],
-      "description": "Rings a surface with a closed cubic spline through authored anchor points: each anchor snaps to its nearest vertex, consecutive anchors are joined by cubic segments traced with b/Surf\u0027s recursive De Casteljau bisection over geodesic midpoints (Mancinelli et al. 2021), and both tangent handles at an anchor lie on one line so the ring turns smoothly rather than cornering. Emits the polyline as curve geometry and the mesh edges nearest it as edge marks."
+      "description": "Rings a surface with a closed cubic spline through authored anchor points: each anchor snaps to its nearest vertex, a plane is fitted through them (leaning toward the base normal), and supporting anchors are fitted on the loop that plane cuts until the spline stays within tolerance of it. Segments are traced with b/Surf\u0027s recursive De Casteljau bisection over geodesic midpoints (Mancinelli et al. 2021), both tangent handles at an anchor on one line so the ring turns smoothly. Emits the polyline as curve geometry and the mesh edges nearest it as edge marks."
     },
     {
       "id": "subdivide_mesh",

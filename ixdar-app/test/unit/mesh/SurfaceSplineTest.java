@@ -2,14 +2,20 @@ package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
+import java.util.Random;
+
+import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.paths.PlaneSurfaceLoop;
 import ixdar.geometry.mesh.data.paths.SplineAnchorFit;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
@@ -28,44 +34,48 @@ import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
  */
 class SurfaceSplineTest {
 
-    /** Coordinates per point in every packed position here. */
     private static final int COORDINATES = 3;
 
-    /** Sphere radius, so the equator is {@code 2 * pi} long. */
+    // The equator is 2 pi long.
     private static final float SPHERE_RADIUS = 1f;
 
-    /** Meridians of the procedural sphere; a multiple of four puts a vertex at every anchor. */
+    // A multiple of four puts a vertex at every anchor.
     private static final int SPHERE_SIDES = 96;
 
-    /** Latitude lines of the procedural sphere, odd so one of them is the equator. */
+    // Odd, so one latitude line is the equator.
     private static final int SPHERE_RINGS = 49;
 
-    /** Relative slack the traced equator may take against the true great circle. */
     private static final double GREAT_CIRCLE_TOLERANCE = 0.005;
 
-    /** Interior angle no traced polyline point may fall below, in degrees. */
     private static final double SMOOTHEST_CORNER_DEGREES = 150.0;
 
-    /** How far off the equator the inserted anchor is pulled, in latitude bands. */
     private static final int OFF_CIRCLE_BANDS = 4;
 
-    /** Radius of the procedural straight tube. */
     private static final float TUBE_RADIUS = 0.4f;
 
-    /** Sides the procedural tubes are swept with. */
     private static final int TUBE_SIDES = 64;
 
-    /** Cross-sections along the procedural tubes. */
     private static final int TUBE_RINGS = 65;
 
-    /** Half the length of the procedural tubes, along x. */
     private static final float TUBE_HALF_LENGTH = 2f;
 
-    /** Radius the tapered tube grows to at its far end, as a multiple of {@link #TUBE_RADIUS}. */
+    // Multiple of TUBE_RADIUS the tapered tube grows to at its far end.
     private static final float TAPER_GROWTH = 3f;
 
-    /** Tilt of the tapered tube's cut plane away from the axis, in radians. */
+    // Radians.
     private static final double TAPER_CUT_TILT = 0.6;
+
+    private static final float[] AXIS = { 1f, 0f, 0f };
+
+    private static final int NEAR_SIDE_RING = 30;
+
+    private static final int FAR_SIDE_RING = 35;
+
+    private static final int RANDOM_INSERTIONS = 20;
+
+    private static final int RANDOM_RING_REACH = 2;
+
+    private static final long RANDOM_SEED = 30L;
 
     @Test
     void fourAnchorsOnASphereReproduceTheGreatCircle() {
@@ -270,27 +280,133 @@ class SurfaceSplineTest {
     @Test
     void theWrittenStatementReloadsTheSameRing() {
         MeshTopology tube = tube(TAPER_GROWTH);
-        float[] normal = {
-            (float) Math.cos(TAPER_CUT_TILT), (float) Math.sin(TAPER_CUT_TILT), 0f };
-        SplineAnchorFit fit = fitTo(tube, normal, new float[] { 0.5f, 0f, 0f });
-        SurfaceSpline live = SurfaceSpline.of(fit.tracer);
-        float[] written = SurfaceWaypoints.parse(
-                SurfaceWaypoints.format(live.anchorXyz, live.anchorCount));
+        float[] normal = SurfaceWaypoints.parse(SurfaceWaypoints.format(new float[] {
+            (float) Math.cos(TAPER_CUT_TILT), (float) Math.sin(TAPER_CUT_TILT), 0f }, 1));
+        int[] authored = tubeVertices(tube, NEAR_SIDE_RING, 0, FAR_SIDE_RING, TUBE_SIDES / 2);
+        AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(tube));
+        assertTrue(ring.trace(authored, authored.length, normal,
+                SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);
+        SurfaceSpline live = SurfaceSpline.of(ring.tracer);
+        int authoredAnchors = ring.authoredVertexId.length;
+        float[] authoredXyz = positionsOf(tube, ring.authoredVertexId, authoredAnchors);
 
         SplineRingNode node = new SplineRingNode();
         MapNodeContext ctx = new MapNodeContext(node);
         ctx.setInput(SplineRingNode.GEOMETRY.name, GeometryBundle.ofMesh(tube));
         ctx.setInput(SplineRingNode.POINTS.name,
-                SurfaceWaypoints.format(written, live.anchorCount));
+                SurfaceWaypoints.format(authoredXyz, authoredAnchors));
+        ctx.setInput(SplineRingNode.NORMAL.name, SurfaceWaypoints.format(normal, 1));
         node.evaluate(ctx);
         GeometryBundle reloaded =
                 ctx.getOutput(SplineRingNode.GEOMETRY.name, GeometryBundle.class);
 
+        assertTrue(live.anchorCount > live.authoredCount(),
+                "the fit added no supporting anchor, so the reload proves nothing about re-fitting");
         boolean[] marks = EdgeMarks.bools(reloaded, SplineRingNode.DEFAULT_MARK_LABEL);
         assertArrayEquals(live.markedByEdgeId, marks,
                 "the spline_ring statement reloaded a different edge cycle than the live ring; "
                         + "live " + EdgeMarks.fingerprint(tube, live.markedByEdgeId)
                         + " reloaded " + EdgeMarks.fingerprint(tube, marks));
+    }
+
+    @Test
+    void aDraftWithTwoAuthoredAnchorsPassesThroughBoth() {
+        MeshTopology tube = tube(TAPER_GROWTH);
+        int[] authored = tubeVertices(tube, NEAR_SIDE_RING, 0, FAR_SIDE_RING, TUBE_SIDES / 2);
+        AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(tube));
+        assertTrue(ring.trace(authored, authored.length, AXIS,
+                SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);
+        SurfaceSpline spline = SurfaceSpline.of(ring.tracer);
+
+        assertEquals(2, spline.authoredCount());
+        float[] anchorXyz = positionsOf(tube, authored, authored.length);
+        int points = spline.polyline.length / COORDINATES;
+        for (int anchor = 0; anchor < authored.length; anchor++) {
+            double miss = SurfaceSpline.distanceToPolyline(spline.polyline, points,
+                    anchorXyz[COORDINATES * anchor], anchorXyz[COORDINATES * anchor + 1],
+                    anchorXyz[COORDINATES * anchor + 2]);
+            assertTrue(miss <= ring.tracer.geodesics.meanEdgeLength, "authored anchor " + anchor
+                    + " is " + miss + " off the ring, over one mean edge "
+                    + ring.tracer.geodesics.meanEdgeLength);
+        }
+        assertTrue(spline.minimumInteriorAngleDegrees > SMOOTHEST_CORNER_DEGREES,
+                "sharpest corner " + spline.minimumInteriorAngleDegrees + " degrees");
+    }
+
+    @Test
+    void removingAnAuthoredAnchorRestoresTheOneAnchorRingExactly() {
+        MeshTopology tube = tube(TAPER_GROWTH);
+        int[] authored = tubeVertices(tube, NEAR_SIDE_RING, 0, FAR_SIDE_RING, TUBE_SIDES / 2);
+        AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(tube));
+        assertTrue(ring.trace(authored, 1, AXIS, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH));
+        SurfaceSpline before = SurfaceSpline.of(ring.tracer);
+        assertTrue(ring.trace(authored, 2, AXIS, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH));
+        SurfaceSpline bent = SurfaceSpline.of(ring.tracer);
+        assertTrue(ring.trace(authored, 1, AXIS, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH));
+        SurfaceSpline after = SurfaceSpline.of(ring.tracer);
+
+        assertEquals(1, before.authoredCount());
+        assertFalse(Arrays.equals(before.markedByEdgeId, bent.markedByEdgeId),
+                "the second anchor did not move the ring");
+        assertArrayEquals(before.anchorVertexId, after.anchorVertexId);
+        assertArrayEquals(before.polyline, after.polyline);
+        assertArrayEquals(before.markedByEdgeId, after.markedByEdgeId);
+    }
+
+    @Test
+    void theFitNeverMovesOrRemovesAnAuthoredAnchor() {
+        MeshTopology tube = tube(TAPER_GROWTH);
+        AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(tube));
+        Random random = new Random(RANDOM_SEED);
+        int[] authored = new int[RANDOM_INSERTIONS + 1];
+        authored[0] = tubeVertices(tube, NEAR_SIDE_RING, 0)[0];
+        int count = 1;
+        for (int insertion = 0; insertion < RANDOM_INSERTIONS; insertion++) {
+            int tubeRing = NEAR_SIDE_RING + random.nextInt(2 * RANDOM_RING_REACH + 1)
+                    - RANDOM_RING_REACH;
+            authored[count++] = tubeVertices(tube, tubeRing, random.nextInt(TUBE_SIDES))[0];
+            assertTrue(ring.trace(authored, count, AXIS, AuthoredSplineRing.SUPPORTING_FIT_DEPTH),
+                    "insertion " + insertion + ": " + ring.failure);
+            int distinct = (int) Arrays.stream(authored, 0, count).distinct().count();
+            assertEquals(distinct, ring.authoredVertexId.length, "insertion " + insertion);
+            assertEquals(authored[0], ring.tracer.anchorVertexId[0],
+                    "the first authored anchor no longer leads the ring");
+            for (int anchor = 0; anchor < count; anchor++) {
+                boolean held = false;
+                for (int traced = 0; traced < ring.tracer.anchorCount; traced++) {
+                    held |= ring.tracer.anchorVertexId[traced] == authored[anchor]
+                            && ring.tracer.anchorAuthored[traced];
+                }
+                assertTrue(held, "insertion " + insertion + " lost authored anchor " + anchor);
+            }
+        }
+    }
+
+    /** Vertex ids of tube vertices given as (cross-section, side) pairs. */
+    private static int[] tubeVertices(MeshTopology tube, int... ringAndSide) {
+        float[] xyz = new float[COORDINATES * ringAndSide.length / 2];
+        float step = 2f * TUBE_HALF_LENGTH / (TUBE_RINGS - 1);
+        for (int pair = 0; pair < ringAndSide.length / 2; pair++) {
+            float along = (float) ringAndSide[2 * pair] / (TUBE_RINGS - 1);
+            float radius = TUBE_RADIUS * (1f + (TAPER_GROWTH - 1f) * along);
+            double angle = 2.0 * Math.PI * ringAndSide[2 * pair + 1] / TUBE_SIDES;
+            xyz[COORDINATES * pair] = -TUBE_HALF_LENGTH + step * ringAndSide[2 * pair];
+            xyz[COORDINATES * pair + 1] = (float) (radius * Math.cos(angle));
+            xyz[COORDINATES * pair + 2] = (float) (radius * Math.sin(angle));
+        }
+        return SurfaceWaypoints.snap(tube, xyz, ringAndSide.length / 2);
+    }
+
+    private static float[] positionsOf(MeshTopology mesh, int[] vertexIds, int count) {
+        float[] xyz = new float[COORDINATES * count];
+        Vector3f position = new Vector3f();
+        for (int anchor = 0; anchor < count; anchor++) {
+            mesh.vertexPosition(vertexIds[anchor], position);
+            xyz[COORDINATES * anchor] = position.x;
+            xyz[COORDINATES * anchor + 1] = position.y;
+            xyz[COORDINATES * anchor + 2] = position.z;
+        }
+        return xyz;
     }
 
     @Test

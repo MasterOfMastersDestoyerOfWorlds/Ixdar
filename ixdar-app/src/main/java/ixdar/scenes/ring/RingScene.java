@@ -12,7 +12,6 @@ import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.platform.Platforms;
-import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.model.ControlHint;
@@ -28,6 +27,8 @@ public class RingScene extends MeshNodeViewerScene {
     public static final String RING_SEED_LABEL = "ring_seed";
 
     public static final String RING_TIGHTENED_LABEL = "ring_tightened";
+
+    public static final String REMOVE_SELECTED_ANCHOR_HINT = "remove anchor";
 
     /** The hover-to-preview ring tool this scene's {@code R} key starts. */
     public final RingTool ringTool = new RingTool(this);
@@ -203,34 +204,33 @@ public class RingScene extends MeshNodeViewerScene {
         showRing(null);
     }
 
-    /**
-     * Start the ring tool, or finish it when it is already running, taking the mouse wheel for
-     * the plane tilt while it runs.
-     */
+    /** Start the ring tool, or finish it when it is already running. */
     public void toggleRingTool() {
         ringTool.toggle();
         bindRingToolMouse();
     }
 
     /**
-     * Give the mouse to the ring tool while it runs and back to the orbit when it stops, so a
-     * click confirms instead of orbiting and the wheel tilts instead of zooming.
+     * Give clicks and anchor drags to the ring tool while it runs and back to the orbit when it
+     * stops; the wheel always zooms the camera.
      */
     public void bindRingToolMouse() {
         if (orbitMouse == null) {
             return;
         }
-        orbitMouse.toolClick = ringTool.active ? button -> ringTool.confirm() : null;
-        orbitMouse.toolScroll = ringTool.active
-                ? ticks -> ringTool.tilt(ticks, keys instanceof KeyGuy guy && guy.shiftMask)
-                : null;
+        orbitMouse.toolClick = ringTool.active ? button -> ringTool.requestClick() : null;
+        orbitMouse.toolGrab = ringTool.active ? ringTool::grabAnchor : null;
+        orbitMouse.toolRelease = ringTool.active ? ringTool::releaseAnchor : null;
     }
 
-    /** Escape finishes the ring tool when it is running, and toggles the model menu otherwise. */
+    /**
+     * Escape discards the ring tool's draft, or finishes the tool when there is none, and toggles
+     * the model menu when the tool is not running.
+     */
     @Override
     public void escapePressed() {
         if (ringTool.active) {
-            ringTool.finish();
+            ringTool.escape();
             bindRingToolMouse();
             return;
         }
@@ -251,8 +251,16 @@ public class RingScene extends MeshNodeViewerScene {
     @Override
     public void setControls() {
         controls.add(new ControlHint(Keys.R, "R", "ring tool", this::toggleRingTool));
-        controls.add(new ControlHint(Keys.ENTER, "enter", "confirm ring",
-                () -> ringTool.confirm()));
+        controls.add(new ControlHint("click", "draft ring / add or select anchor"));
+        controls.add(new ControlHint("drag anchor", "move it"));
+        controls.add(new ControlHint(Keys.DELETE, "del", REMOVE_SELECTED_ANCHOR_HINT,
+                () -> ringTool.deleteSelectedAnchor()));
+        controls.add(new ControlHint(Keys.BACKSPACE, "backspace", REMOVE_SELECTED_ANCHOR_HINT,
+                () -> ringTool.deleteSelectedAnchor()));
+        controls.add(new ControlHint(Keys.Z, true, "ctrl+Z", "undo anchor edit",
+                () -> ringTool.undo()));
+        controls.add(new ControlHint(Keys.ENTER, "enter", "confirm draft",
+                () -> ringTool.confirmDraft()));
         controls.add(new ControlHint(Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));
         super.setControls();
     }

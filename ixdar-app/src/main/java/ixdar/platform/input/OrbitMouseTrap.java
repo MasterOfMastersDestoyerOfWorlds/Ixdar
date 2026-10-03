@@ -4,7 +4,7 @@ import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import static ixdar.platform.input.Keys.MOUSE_BUTTON_LEFT;
 
-import java.util.function.DoubleConsumer;
+import java.util.function.BooleanSupplier;
 
 import org.joml.Vector2f;
 import org.joml.Vector3f;
@@ -33,7 +33,17 @@ public class OrbitMouseTrap extends MouseTrap {
     private static final float MAX_ELEVATION = (float) Math.toRadians(85.0);
     private static final float ZOOM_BASE = 0.97f;
     public ClickHandler toolClick;
-    public DoubleConsumer toolScroll;
+
+    /**
+     * Asked on every left press whether a tool takes the drag that may follow, so the drag moves
+     * the tool's handle instead of orbiting; {@code null} leaves every drag to the camera.
+     */
+    public BooleanSupplier toolGrab;
+
+    /** Told when a drag {@link #toolGrab} took ends, before any click the release makes. */
+    public Runnable toolRelease;
+
+    private boolean toolDragging;
 
     private final Camera3D orbitCamera;
     private final Vector3f orbitTarget = new Vector3f();
@@ -172,11 +182,18 @@ public class OrbitMouseTrap extends MouseTrap {
         if (action == ACTION_PRESS && button == MOUSE_BUTTON_LEFT) {
             leftMouseDownPos = new Vector2f(x, y);
             panningDrag = (mods & MOD_SHIFT) != 0;
+            toolDragging = !panningDrag && toolGrab != null && toolGrab.getAsBoolean();
             mousePressed(x, y);
         } else if (action == ACTION_RELEASE && button == MOUSE_BUTTON_LEFT) {
             boolean wasClick = leftMouseDownPos != null && leftMouseDownPos.distance(x, y) <= CLICK_DRAG_THRESHOLD_PX;
             leftMouseDownPos = null;
             panningDrag = false;
+            if (toolDragging) {
+                toolDragging = false;
+                if (toolRelease != null) {
+                    toolRelease.run();
+                }
+            }
             if (wasClick && toolClick != null) {
                 toolClick.onClick(button);
                 return;
@@ -252,6 +269,10 @@ public class OrbitMouseTrap extends MouseTrap {
         }
         float dx = x - lastX;
         float dy = y - lastY;
+        if (toolDragging) {
+            mousePos(x, y);
+            return;
+        }
         if (panningDrag) {
             panTarget(dx, dy);
         } else {
@@ -294,10 +315,6 @@ public class OrbitMouseTrap extends MouseTrap {
     @Override
     public void scrollCallback(double y) {
         if (!active) {
-            return;
-        }
-        if (toolScroll != null) {
-            toolScroll.accept(y);
             return;
         }
         super.scrollCallback(y);

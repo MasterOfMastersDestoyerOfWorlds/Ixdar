@@ -8,7 +8,10 @@ import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
+import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
+import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
@@ -29,6 +32,7 @@ public class SplineRingNode implements MeshNode {
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,
             null);
     public static final InputPort POINTS = new InputPort("points", PortType.STRING, "");
+    public static final InputPort NORMAL = new InputPort("normal", PortType.STRING, "");
     public static final InputPort LABEL = new InputPort("label", PortType.STRING,
             DEFAULT_MARK_LABEL);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name,
@@ -37,7 +41,7 @@ public class SplineRingNode implements MeshNode {
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(GEOMETRY, POINTS, LABEL);
+        return List.of(GEOMETRY, POINTS, NORMAL, LABEL);
     }
 
     @Override
@@ -48,11 +52,13 @@ public class SplineRingNode implements MeshNode {
     @Override
     public String description() {
         return "Rings a surface with a closed cubic spline through authored anchor points: each "
-                + "anchor snaps to its nearest vertex, consecutive anchors are joined by cubic "
-                + "segments traced with b/Surf's recursive De Casteljau bisection over geodesic "
-                + "midpoints (Mancinelli et al. 2021), and both tangent handles at an anchor lie "
-                + "on one line so the ring turns smoothly rather than cornering. Emits the "
-                + "polyline as curve geometry and the mesh edges nearest it as edge marks.";
+                + "anchor snaps to its nearest vertex, a plane is fitted through them (leaning "
+                + "toward the base normal), and supporting anchors are fitted on the loop that "
+                + "plane cuts until the spline stays within tolerance of it. Segments are traced "
+                + "with b/Surf's recursive De Casteljau bisection over geodesic midpoints "
+                + "(Mancinelli et al. 2021), both tangent handles at an anchor on one line so the "
+                + "ring turns smoothly. Emits the polyline as curve geometry and the mesh edges "
+                + "nearest it as edge marks.";
     }
 
     @Override
@@ -63,10 +69,14 @@ public class SplineRingNode implements MeshNode {
                         + "curve geometry and its snapped edge cycle in the edge-marks slot under "
                         + "`label`, ready for mark_edges consumers and delete_geometry cuts.",
                 POINTS.name,
-                "Anchor points as \"x,y,z; x,y,z; ...\", stored as positions and re-snapped on "
-                        + "reload, so the same statement re-traces the same ring on another "
-                        + "aligned scan. Three are the minimum; the ring tool writes the four or "
-                        + "more its fit settled on.",
+                "Authored anchor points as \"x,y,z; x,y,z; ...\", each snapped to its nearest "
+                        + "vertex. The first leads the ring. The supporting anchors between them "
+                        + "are re-fitted on every evaluation, so only the points the user placed "
+                        + "are stored. One is enough with a normal, three without.",
+                NORMAL.name,
+                "Base normal \"x,y,z\" of the ring's plane: one anchor takes it as is, two take "
+                        + "the plane through both nearest it, three or more lean toward it only "
+                        + "where they leave the plane undecided. Empty lets three anchors decide.",
                 LABEL.name,
                 "Name the snapped edge cycle is stored under in the edge-marks slot, so several "
                         + "spline rings can be kept on one bundle.",
@@ -93,7 +103,15 @@ public class SplineRingNode implements MeshNode {
         }
         float[] points = SurfaceWaypoints.parse(ctx.getInput(POINTS.name, String.class));
         int anchorCount = points.length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
-        SurfaceSpline spline = SurfaceSpline.through(mesh, points, anchorCount);
+        float[] normal = SurfaceWaypoints.parse(ctx.getInput(NORMAL.name, String.class));
+        AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(mesh));
+        boolean traced = ring.trace(SurfaceWaypoints.snap(mesh, points, anchorCount), anchorCount,
+                normal.length == SurfaceWaypoints.COORDINATES_PER_WAYPOINT ? normal : null,
+                SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH);
+        if (!traced) {
+            throw new IllegalArgumentException("spline_ring " + label + ": " + ring.failure);
+        }
+        SurfaceSpline spline = SurfaceSpline.of(ring.tracer);
 
         GeometryBundle out = bundle.withSlot(CurveGeometry.SLOT,
                 CurveGeometry.singlePolyline(spline.polyline));

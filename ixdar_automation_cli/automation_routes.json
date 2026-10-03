@@ -58,6 +58,71 @@
       "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}"
     },
     {
+      "commandName": "drag",
+      "path": "/input/drag",
+      "method": "POST",
+      "description": "Drag with the left button from one window point to another, a frame drawn after every step.",
+      "sourceClass": "ixdar.platform.automation.endpoints.input.InjectDrag",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectDrag.java",
+      "params": [
+        {
+          "name": "fromX",
+          "cliName": "fromX",
+          "type": "float",
+          "required": true,
+          "default": "",
+          "help": "Start X in window pixels.",
+          "example": "310"
+        },
+        {
+          "name": "fromY",
+          "cliName": "fromY",
+          "type": "float",
+          "required": true,
+          "default": "",
+          "help": "Start Y in window pixels.",
+          "example": "500"
+        },
+        {
+          "name": "toX",
+          "cliName": "toX",
+          "type": "float",
+          "required": true,
+          "default": "",
+          "help": "End X in window pixels.",
+          "example": "330"
+        },
+        {
+          "name": "toY",
+          "cliName": "toY",
+          "type": "float",
+          "required": true,
+          "default": "",
+          "help": "End Y in window pixels.",
+          "example": "470"
+        },
+        {
+          "name": "steps",
+          "cliName": "steps",
+          "type": "int",
+          "required": false,
+          "default": "8",
+          "help": "Equal moves the drag is split into.",
+          "example": "12"
+        },
+        {
+          "name": "settle",
+          "cliName": "settle",
+          "type": "int",
+          "required": false,
+          "default": "2",
+          "help": "Frames to wait for after the release.",
+          "example": "2"
+        }
+      ],
+      "responseHint": "{ok, steps, settled}"
+    },
+    {
       "commandName": "frame",
       "path": "/ui/frame",
       "method": "POST",

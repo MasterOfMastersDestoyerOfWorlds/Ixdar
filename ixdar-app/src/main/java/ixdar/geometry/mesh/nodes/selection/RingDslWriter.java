@@ -36,6 +36,8 @@ public final class RingDslWriter {
 
     public static final String POINTS_ARGUMENT = "points=\"";
 
+    public static final String NORMAL_ARGUMENT = "normal=\"";
+
     public static final String NO_UPSTREAM =
             "the working graph has no statement for the ring to read its geometry from";
 
@@ -95,11 +97,30 @@ public final class RingDslWriter {
      */
     public static String appendSpline(String dslSource, float[] packedXyz, int anchorCount,
             Collection<String> liveLabels) {
+        return appendSpline(dslSource, packedXyz, anchorCount, null, liveLabels);
+    }
+
+    /**
+     * The DSL source with one more spline ring appended through its authored anchors and the base
+     * normal its plane leans toward, its id clear of the running graph's ring labels.
+     *
+     * @param dslSource   working graph the ring is added to
+     * @param packedXyz   authored anchors as packed xyz
+     * @param anchorCount anchors to write from the front of the array
+     * @param baseNormal  the ring's base normal as packed xyz, or {@code null} to write none
+     * @param liveLabels  ring labels the running graph holds that the text may not name
+     * @throws IllegalArgumentException when the source holds no statement to chain onto, or when
+     *                                  the id the ring would take is already bound
+     * @return the source with the statement and a trailing newline appended
+     */
+    public static String appendSpline(String dslSource, float[] packedXyz, int anchorCount,
+            float[] baseNormal, Collection<String> liveLabels) {
         List<PythonParser.ParsedNode> statements = upstreamStatements(dslSource);
         PythonParser.ParsedNode upstream = statements.get(statements.size() - 1);
         String id = mintRingId(statements, dslSource, liveLabels);
         return appended(dslSource, splineStatement(id,
-                upstream.id + "." + geometryPort(upstream.type), packedXyz, anchorCount));
+                upstream.id + "." + geometryPort(upstream.type), packedXyz, anchorCount,
+                baseNormal));
     }
 
     /**
@@ -153,6 +174,24 @@ public final class RingDslWriter {
      */
     public static String replaceSpline(String dslSource, String id, float[] packedXyz,
             int anchorCount) {
+        return replaceSpline(dslSource, id, packedXyz, anchorCount, null);
+    }
+
+    /**
+     * The DSL source with one spline ring's authored anchors and base normal replaced in place,
+     * the {@code normal=} argument added after {@code points=} when the line has none.
+     *
+     * @param dslSource   working graph holding the statement
+     * @param id          statement id to rewrite
+     * @param packedXyz   the ring's authored anchors as packed xyz
+     * @param anchorCount anchors to write from the front of the array
+     * @param baseNormal  the ring's base normal as packed xyz, or {@code null} to leave it alone
+     * @throws IllegalArgumentException when no line, or more than one line, binds that id, or when
+     *                                  the line carries no points argument
+     * @return the source with those arguments rewritten
+     */
+    public static String replaceSpline(String dslSource, String id, float[] packedXyz,
+            int anchorCount, float[] baseNormal) {
         String[] lines = dslSource.split(LINE_BREAK, -1);
         int target = -1;
         for (int line = 0; line < lines.length; line++) {
@@ -179,6 +218,19 @@ public final class RingDslWriter {
         lines[target] = lines[target].substring(0, start)
                 + SurfaceWaypoints.format(packedXyz, anchorCount)
                 + lines[target].substring(closing);
+        if (baseNormal != null) {
+            String normal = SurfaceWaypoints.format(baseNormal, 1);
+            int normalOpening = lines[target].indexOf(NORMAL_ARGUMENT);
+            if (normalOpening < 0) {
+                int pointsEnd = lines[target].indexOf('"', start) + 1;
+                lines[target] = lines[target].substring(0, pointsEnd) + ", " + NORMAL_ARGUMENT
+                        + normal + "\"" + lines[target].substring(pointsEnd);
+            } else {
+                int normalStart = normalOpening + NORMAL_ARGUMENT.length();
+                lines[target] = lines[target].substring(0, normalStart) + normal
+                        + lines[target].substring(lines[target].indexOf('"', normalStart));
+            }
+        }
         return String.join(LINE_BREAK, lines);
     }
 
@@ -217,8 +269,26 @@ public final class RingDslWriter {
      */
     public static String splineStatement(String id, String geometryInput, float[] packedXyz,
             int anchorCount) {
+        return splineStatement(id, geometryInput, packedXyz, anchorCount, null);
+    }
+
+    /**
+     * One spline ring statement through authored anchors, with the base normal its plane leans
+     * toward when one is given, written with fixed-precision coordinates.
+     *
+     * @param id            statement id to bind the ring to
+     * @param geometryInput reference the ring reads its geometry from, as {@code node.port}
+     * @param packedXyz     authored anchors as packed xyz
+     * @param anchorCount   anchors to write from the front of the array
+     * @param baseNormal    the base normal as packed xyz, or {@code null} to write none
+     * @return the statement text, without a trailing newline
+     */
+    public static String splineStatement(String id, String geometryInput, float[] packedXyz,
+            int anchorCount, float[] baseNormal) {
         return id + " = spline_ring(geometry=" + geometryInput
                 + ", " + POINTS_ARGUMENT + SurfaceWaypoints.format(packedXyz, anchorCount)
+                + (baseNormal == null ? ""
+                        : "\", " + NORMAL_ARGUMENT + SurfaceWaypoints.format(baseNormal, 1))
                 + "\", label=\"" + id + "\")";
     }
 

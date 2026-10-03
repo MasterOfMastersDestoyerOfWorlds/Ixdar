@@ -73,6 +73,8 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private static final float HIGHLIGHT_MARKER_SCALE = 2.2f;
     private static final float PATCH_CLOUD_SCALE = 1f;
     private static final float MARKER_SPHERE_SCALE = 1.4f;
+    private static final float HANDLE_SPHERE_SCALE = 2.4f;
+    private static final int COORDINATES_PER_HANDLE = 3;
     private static final float TEAR_SPHERE_REGION_FRACTION = 0.02f;
 
     private static final float LABEL_ROW_HEIGHT_PIXELS = 26f;
@@ -204,6 +206,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private PointSet layoutCorners;
     private PointSet embeddedNodes;
     private PointSet markers;
+    private PointSet handleMarkers;
     private int layoutBoundaryVertexCount;
     private int[] constraintRangeStart;
     private int[] constraintRangeCount;
@@ -467,9 +470,29 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         updateSphereRadius();
     }
 
-    /** Drop the marker spheres. */
+    /**
+     * Show one larger sphere per point, each in its own colour, for the handles a tool lets the
+     * user select and drag, drawn over the plain markers.
+     *
+     * @param packedXyz packed world xyz of every handle, or {@code null} to drop them
+     * @param colorRgb  the {@code 0x00RRGGBB} colour of each handle, in the same order
+     */
+    public void setHandleMarkers(float[] packedXyz, int[] colorRgb) {
+        int count = packedXyz == null ? 0 : packedXyz.length / COORDINATES_PER_HANDLE;
+        handleMarkers = new PointSet(count, HANDLE_SPHERE_SCALE);
+        for (int handle = 0; handle < count; handle++) {
+            handleMarkers.add(packedXyz[COORDINATES_PER_HANDLE * handle],
+                    packedXyz[COORDINATES_PER_HANDLE * handle + 1],
+                    packedXyz[COORDINATES_PER_HANDLE * handle + 2], colorOf(colorRgb[handle]), 0f);
+        }
+        ensureSphere();
+        updateSphereRadius();
+    }
+
+    /** Drop the marker and handle spheres. */
     public void clearMarkers() {
         markers = null;
+        handleMarkers = null;
     }
 
     /**
@@ -838,7 +861,8 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
                 || embeddedZeroArcs.vertexCount > 0 || embeddedNodes != null);
         boolean drawCopyWireframe = showCopyWireframe && copyWireframe.vertexCount > 0;
         boolean drawLineGroups = lineGroups.vertexCount > 0 && lineGroupSegmentStart.length > 1;
-        boolean drawMarkers = markers != null && markers.count > 0;
+        boolean drawMarkers = markers != null && markers.count > 0
+                || handleMarkers != null && handleMarkers.count > 0;
         if (!drawSurface && !drawCross && !drawConstraints && !drawSingularities && !drawNodes
                 && !drawLayoutFill && !drawLayoutBoundaries && !drawQuadGrid && !drawEmbeddedArcs
                 && !drawCopyWireframe && !drawLineGroups && !drawMarkers) {
@@ -892,6 +916,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         }
         if (drawMarkers && beginUnlit(camera)) {
             drawSpheres(markers);
+            drawSpheres(handleMarkers);
         }
         if (drawCross && beginCrossField(camera)) {
             crossFieldShader.setVec4(U_LINE_COLOR, COLOR_U_ARM);

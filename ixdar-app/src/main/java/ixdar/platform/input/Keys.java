@@ -16,6 +16,7 @@ public final class Keys {
     public static final int ENTER = 257;
     public static final int TAB = 258;
     public static final int BACKSPACE = 259;
+    public static final int DELETE = 261;
     public static final int LEFT_SHIFT = 340;
     public static final int RIGHT_SHIFT = 344;
     public static final int LEFT_CONTROL = 341;

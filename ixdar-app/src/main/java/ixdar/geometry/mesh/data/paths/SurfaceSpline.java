@@ -1,5 +1,7 @@
 package ixdar.geometry.mesh.data.paths;
 
+import java.util.Arrays;
+
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -26,6 +28,10 @@ public final class SurfaceSpline {
 
     /** Anchors the spline passes through. */
     public int anchorCount;
+
+    /** Whether the user placed each anchor rather than the fit, in ring order. */
+    public boolean[] anchorAuthored = new boolean[0];
+
 
     /** Packed xyz of the traced spline; the first point is repeated at the end. */
     public float[] polyline = new float[0];
@@ -103,29 +109,10 @@ public final class SurfaceSpline {
      * @return the spline the tracer currently holds
      */
     public static SurfaceSpline of(SurfaceSplineTracer tracer) {
-        SurfaceSpline spline = new SurfaceSpline();
+        SurfaceSpline spline = unsnapped(tracer);
         MeshTopology mesh = tracer.geodesics.mesh;
-        spline.anchorCount = tracer.anchorCount;
-        spline.anchorVertexId = new int[tracer.anchorCount];
-        spline.anchorXyz = new float[COORDINATES_PER_POINT * tracer.anchorCount];
-        Vector3f position = new Vector3f();
-        for (int anchor = 0; anchor < tracer.anchorCount; anchor++) {
-            spline.anchorVertexId[anchor] = tracer.anchorVertexId[anchor];
-            mesh.vertexPosition(tracer.anchorVertexId[anchor], position);
-            spline.anchorXyz[COORDINATES_PER_POINT * anchor] = position.x;
-            spline.anchorXyz[COORDINATES_PER_POINT * anchor + 1] = position.y;
-            spline.anchorXyz[COORDINATES_PER_POINT * anchor + 2] = position.z;
-        }
-        for (int segment = 0; segment < tracer.anchorCount; segment++) {
-            spline.traceDepth = Math.max(spline.traceDepth, tracer.segmentDepth[segment]);
-        }
-        spline.geodesicCount = tracer.geodesics.geodesicCount;
-
-        TracedSurfacePath traced = tracer.tracedRing();
-        spline.polyline = closedPolyline(traced);
-        spline.length = traced.polylineLength();
         ConformingLoopSnap snap = new ConformingLoopSnap();
-        spline.markedByEdgeId = snap.snap(mesh, traced);
+        spline.markedByEdgeId = snap.snap(mesh, tracer.tracedRing());
         spline.unresolvedGaps = snap.unresolvedGaps;
         for (boolean marked : spline.markedByEdgeId) {
             if (marked) {
@@ -145,6 +132,52 @@ public final class SurfaceSpline {
         spline.setMeanRadius();
         spline.setMinimumInteriorAngle();
         return spline;
+    }
+
+    /**
+     * The drawn parts of a traced tracer only, its anchors in both classes, closed polyline and
+     * length, without the edge-cycle snap and measures a hover frame has no use for.
+     *
+     * @param tracer tracer whose segments are up to date
+     * @return the spline with no edge marks
+     */
+    public static SurfaceSpline unsnapped(SurfaceSplineTracer tracer) {
+        SurfaceSpline spline = new SurfaceSpline();
+        MeshTopology mesh = tracer.geodesics.mesh;
+        spline.anchorCount = tracer.anchorCount;
+        spline.anchorAuthored = Arrays.copyOf(tracer.anchorAuthored, tracer.anchorCount);
+        spline.anchorVertexId = new int[tracer.anchorCount];
+        spline.anchorXyz = new float[COORDINATES_PER_POINT * tracer.anchorCount];
+        Vector3f position = new Vector3f();
+        for (int anchor = 0; anchor < tracer.anchorCount; anchor++) {
+            spline.anchorVertexId[anchor] = tracer.anchorVertexId[anchor];
+            mesh.vertexPosition(tracer.anchorVertexId[anchor], position);
+            spline.anchorXyz[COORDINATES_PER_POINT * anchor] = position.x;
+            spline.anchorXyz[COORDINATES_PER_POINT * anchor + 1] = position.y;
+            spline.anchorXyz[COORDINATES_PER_POINT * anchor + 2] = position.z;
+        }
+        for (int segment = 0; segment < tracer.anchorCount; segment++) {
+            spline.traceDepth = Math.max(spline.traceDepth, tracer.segmentDepth[segment]);
+        }
+        spline.geodesicCount = tracer.geodesics.geodesicCount;
+
+        TracedSurfacePath traced = tracer.tracedRing();
+        spline.polyline = closedPolyline(traced);
+        spline.length = traced.polylineLength();
+        return spline;
+    }
+
+    /**
+     * How many of the anchors the user placed, the ones a save writes.
+     *
+     * @return the authored anchors among {@link #anchorAuthored}
+     */
+    public int authoredCount() {
+        int authored = 0;
+        for (int anchor = 0; anchor < anchorCount; anchor++) {
+            authored += anchorAuthored[anchor] ? 1 : 0;
+        }
+        return authored;
     }
 
     /**
@@ -183,28 +216,46 @@ public final class SurfaceSpline {
             float z) {
         double best = Double.POSITIVE_INFINITY;
         for (int point = 0; point < pointCount; point++) {
-            int here = COORDINATES_PER_POINT * point;
-            int there = COORDINATES_PER_POINT * ((point + 1) % pointCount);
-            double gapX = axisGap(x, packedXyz[here], packedXyz[there]);
-            double gapY = axisGap(y, packedXyz[here + 1], packedXyz[there + 1]);
-            double gapZ = axisGap(z, packedXyz[here + 2], packedXyz[there + 2]);
-            if (gapX * gapX + gapY * gapY + gapZ * gapZ > best) {
-                continue;
-            }
-            double spanX = packedXyz[there] - packedXyz[here];
-            double spanY = packedXyz[there + 1] - packedXyz[here + 1];
-            double spanZ = packedXyz[there + 2] - packedXyz[here + 2];
-            double squared = spanX * spanX + spanY * spanY + spanZ * spanZ;
-            double along = squared <= 0.0 ? 0.0
-                    : ((x - packedXyz[here]) * spanX + (y - packedXyz[here + 1]) * spanY
-                            + (z - packedXyz[here + 2]) * spanZ) / squared;
-            along = Math.max(0.0, Math.min(1.0, along));
-            double dx = x - (packedXyz[here] + along * spanX);
-            double dy = y - (packedXyz[here + 1] + along * spanY);
-            double dz = z - (packedXyz[here + 2] + along * spanZ);
-            best = Math.min(best, dx * dx + dy * dy + dz * dz);
+            best = Math.min(best, spanDistanceSquared(packedXyz, pointCount, point, x, y, z, best));
         }
         return Math.sqrt(best);
+    }
+
+    /**
+     * Squared distance from a point to one span of a closed polyline, the span from point
+     * {@code point} to the next, or infinity when an axis gap alone already exceeds {@code bound}.
+     *
+     * @param packedXyz  packed xyz of the polyline, treated as closed
+     * @param pointCount points in the polyline
+     * @param point      the span's first point
+     * @param x          query x
+     * @param y          query y
+     * @param z          query z
+     * @param bound      squared distance past which the span is not measured
+     * @return the squared distance, or positive infinity when the span was culled
+     */
+    public static double spanDistanceSquared(float[] packedXyz, int pointCount, int point,
+            float x, float y, float z, double bound) {
+        int here = COORDINATES_PER_POINT * point;
+        int there = COORDINATES_PER_POINT * ((point + 1) % pointCount);
+        double gapX = axisGap(x, packedXyz[here], packedXyz[there]);
+        double gapY = axisGap(y, packedXyz[here + 1], packedXyz[there + 1]);
+        double gapZ = axisGap(z, packedXyz[here + 2], packedXyz[there + 2]);
+        if (gapX * gapX + gapY * gapY + gapZ * gapZ > bound) {
+            return Double.POSITIVE_INFINITY;
+        }
+        double spanX = packedXyz[there] - packedXyz[here];
+        double spanY = packedXyz[there + 1] - packedXyz[here + 1];
+        double spanZ = packedXyz[there + 2] - packedXyz[here + 2];
+        double squared = spanX * spanX + spanY * spanY + spanZ * spanZ;
+        double along = squared <= 0.0 ? 0.0
+                : ((x - packedXyz[here]) * spanX + (y - packedXyz[here + 1]) * spanY
+                        + (z - packedXyz[here + 2]) * spanZ) / squared;
+        along = Math.max(0.0, Math.min(1.0, along));
+        double dx = x - (packedXyz[here] + along * spanX);
+        double dy = y - (packedXyz[here + 1] + along * spanY);
+        double dz = z - (packedXyz[here + 2] + along * spanZ);
+        return dx * dx + dy * dy + dz * dz;
     }
 
     /** How far a coordinate lies outside the range two endpoints span on one axis. */
