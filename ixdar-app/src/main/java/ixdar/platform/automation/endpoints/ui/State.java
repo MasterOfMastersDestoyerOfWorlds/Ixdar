@@ -372,6 +372,11 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 row.addProperty("statement", statementId == null ? "" : statementId);
                 row.addProperty("unsaved", index < tool.confirmedRingUnsaved.size()
                         && tool.confirmedRingUnsaved.get(index));
+                String sourceLabel = index < tool.confirmedSourceLabel.size()
+                        ? tool.confirmedSourceLabel.get(index) : null;
+                row.addProperty("source", sourceLabel == null ? "" : sourceLabel);
+                row.addProperty("deleted", index < tool.confirmedRingDeleted.size()
+                        && tool.confirmedRingDeleted.get(index));
                 row.addProperty(EDGECOUNT, ring.markedEdgeCount);
                 row.addProperty(LENGTH, ring.length);
                 row.addProperty("anchorCount", ring.anchorCount);

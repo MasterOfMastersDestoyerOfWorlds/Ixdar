@@ -30,6 +30,12 @@ public final class RingToolState {
     /** Whether each confirmed ring differed from the working .dsl when captured. */
     public final List<Boolean> confirmedRingUnsaved;
 
+    /** Graph ring label each confirmed ring stood for, or {@code null}. */
+    public final List<String> confirmedSourceLabel;
+
+    /** Whether each confirmed ring was deleted and awaiting a save. */
+    public final List<Boolean> confirmedRingDeleted;
+
     /** Graph ring labels hidden because a tool ring replaced them. */
     public final Set<String> convertedGraphLabels;
 
@@ -62,6 +68,8 @@ public final class RingToolState {
         confirmedBaseNormal = new ArrayList<>(tool.confirmedBaseNormal);
         confirmedStatementIds = new ArrayList<>(tool.confirmedStatementIds);
         confirmedRingUnsaved = new ArrayList<>(tool.confirmedRingUnsaved);
+        confirmedSourceLabel = new ArrayList<>(tool.confirmedSourceLabel);
+        confirmedRingDeleted = new ArrayList<>(tool.confirmedRingDeleted);
         convertedGraphLabels = new HashSet<>(tool.convertedGraphLabels);
         draft = tool.draft;
         draftAuthoredVertexId = tool.draftAuthoredVertexId;
@@ -83,6 +91,7 @@ public final class RingToolState {
                 && Arrays.equals(draftAuthoredVertexId, other.draftAuthoredVertexId)
                 && Arrays.equals(draftBaseNormal, other.draftBaseNormal)
                 && confirmedRings.equals(other.confirmedRings)
+                && confirmedRingDeleted.equals(other.confirmedRingDeleted)
                 && convertedGraphLabels.equals(other.convertedGraphLabels);
     }
 
@@ -102,14 +111,28 @@ public final class RingToolState {
         tool.confirmedBaseNormal.addAll(confirmedBaseNormal);
         tool.confirmedStatementIds.clear();
         tool.confirmedRingUnsaved.clear();
+        tool.confirmedSourceLabel.clear();
+        tool.confirmedRingDeleted.clear();
+        tool.confirmedRingDeleted.addAll(confirmedRingDeleted);
         for (int ring = 0; ring < confirmedRings.size(); ring++) {
             String statementId = confirmedStatementIds.get(ring);
+            String sourceLabel = confirmedSourceLabel.get(ring);
             if (statementId == null) {
                 statementId = tool.savedStatementByRing.get(confirmedRings.get(ring));
+                sourceLabel = statementId == null ? sourceLabel : statementId;
+            }
+            if (statementId != null && !tool.knownRingStatementIds.contains(statementId)) {
+                // A save since the capture removed the statement, so the ring is the file's no
+                // longer and the next save writes it afresh.
+                statementId = null;
+                sourceLabel = null;
             }
             boolean unsaved;
             if (statementId == null) {
-                unsaved = true;
+                // A proposed ring the graph still proposes is as saved as it was when captured.
+                unsaved = sourceLabel == null
+                        || !tool.scene.ringMarksByLabel.containsKey(sourceLabel)
+                        || confirmedRingUnsaved.get(ring);
             } else if (tool.savedAuthoredByStatement.containsKey(statementId)) {
                 unsaved = !Arrays.equals(confirmedAuthoredVertexId.get(ring),
                         tool.savedAuthoredByStatement.get(statementId))
@@ -120,6 +143,7 @@ public final class RingToolState {
             }
             tool.confirmedStatementIds.add(statementId);
             tool.confirmedRingUnsaved.add(unsaved);
+            tool.confirmedSourceLabel.add(sourceLabel);
         }
         tool.convertedGraphLabels.clear();
         tool.convertedGraphLabels.addAll(convertedGraphLabels);

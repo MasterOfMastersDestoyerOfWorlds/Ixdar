@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.FlipGeodesics;
 import ixdar.geometry.mesh.data.paths.SurfaceRing;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
@@ -105,6 +106,12 @@ public class LoopThroughPointsNode implements MeshNode {
             ctx.setOutput(GEOMETRY.name, bundle);
             ctx.setOutput(SELECTION.name, false);
             return;
+        }
+        // The half-edge form ring_candidates also passes on, so a ring reading a loaded file
+        // marks the same edges as one chained after the proposed rings.
+        mesh = HalfEdgeMeshEngine.fromMeshTopology(mesh);
+        if (mesh != bundle.mesh()) {
+            bundle = bundle.withMesh(mesh);
         }
         boolean closed = !Boolean.FALSE.equals(ctx.getInput(CLOSED.name, Boolean.class));
         boolean tighten = !Boolean.FALSE.equals(ctx.getInput(TIGHTEN.name, Boolean.class));

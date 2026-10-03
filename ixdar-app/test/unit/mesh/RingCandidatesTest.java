@@ -32,40 +32,29 @@ import ixdar.geometry.mesh.nodes.primitives.IcosphereMeshNode;
  */
 class RingCandidatesTest {
 
-    /** Radius of each leg of the Y, so a leg's girth is {@code 2 * pi * LEG_RADIUS}. */
     private static final float LEG_RADIUS = 0.12f;
 
-    /** Radius of the Y's central hub, wide enough to make each leg base a neck. */
+    // Wide enough to make each leg base a neck.
     private static final float HUB_RADIUS = 0.30f;
 
-    /** Length of each leg of the Y, measured from the hub centre. */
     private static final float LEG_LENGTH = 1.0f;
 
-    /** Radius of each of the dumbbell's two balls. */
     private static final float BALL_RADIUS = 0.35f;
 
-    /** Radius of the dumbbell's waist. */
     private static final float WAIST_RADIUS = 0.10f;
 
-    /** Distance of each dumbbell ball's centre from the origin, along x. */
     private static final float BALL_OFFSET = 0.6f;
 
-    /** Icosphere subdivision rounds the star-shaped fixtures are displaced from. */
     private static final int SUBDIVISIONS = 5;
 
-    /** Voxel resolution the fixtures' skeletons are extracted at. */
     private static final int RESOLUTION = 96;
 
-    /** Coordinates per point in a packed position array. */
     private static final int COORDINATES_PER_POINT = 3;
 
-    /**
-     * How far from 1 a plain tube's cross-section may score. The slack is the voxel grid's: the
-     * distance from boundary is quantized, so a thin tube's skeleton radius reads a little short.
-     */
+    // The slack is the voxel grid's: the distance from boundary is quantized, so a thin tube's
+    // skeleton radius reads a little short.
     private static final float PLAIN_TUBE_TOLERANCE = 0.4f;
 
-    /** Directions the Y's three legs point in, at 120 degrees in the xy plane. */
     private static final float[][] LEG_DIRECTIONS = {
         { 0f, 1f, 0f },
         { 0.8660254f, -0.5f, 0f },
@@ -315,7 +304,7 @@ class RingCandidatesTest {
     }
 
     /** Three legs of one radius around a fatter hub, so every leg base is a constriction. */
-    private static MeshTopology yJunction() {
+    static MeshTopology yJunction() {
         float[] segments = new float[LEG_DIRECTIONS.length * 2 * COORDINATES_PER_POINT
                 + 2 * COORDINATES_PER_POINT];
         float[] radii = new float[LEG_DIRECTIONS.length + 1];

@@ -13,6 +13,7 @@ import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
@@ -96,6 +97,12 @@ public class SplineRingNode implements MeshNode {
             ctx.setOutput(GEOMETRY.name, bundle);
             ctx.setOutput(SELECTION.name, false);
             return;
+        }
+        // The half-edge form ring_candidates also passes on, so a ring reading a loaded file
+        // marks the same edges as one chained after the proposed rings.
+        mesh = HalfEdgeMeshEngine.fromMeshTopology(mesh);
+        if (mesh != bundle.mesh()) {
+            bundle = bundle.withMesh(mesh);
         }
         String label = ctx.getInput(LABEL.name, String.class);
         if (label == null || label.isBlank()) {

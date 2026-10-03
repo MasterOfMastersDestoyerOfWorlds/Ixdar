@@ -264,6 +264,15 @@
         "-Dorg.lwjgl.util.DebugLoader=true"
       ],
       "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Ring Tool",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.mesh.dsl=fixtures/fertility_rings.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
     }
 
   ]

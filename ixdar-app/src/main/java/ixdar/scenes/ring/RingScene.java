@@ -28,7 +28,7 @@ public class RingScene extends MeshNodeViewerScene {
 
     public static final String RING_TIGHTENED_LABEL = "ring_tightened";
 
-    public static final String REMOVE_SELECTED_ANCHOR_HINT = "remove anchor";
+    public static final String REMOVE_SELECTED_ANCHOR_HINT = "remove anchor, or ring if none";
 
     public static final String REDO_HINT = "redo ring edit";
 
@@ -116,7 +116,14 @@ public class RingScene extends MeshNodeViewerScene {
     @Override
     public void showEdgeMarks(Map<String, boolean[]> marksByLabel) {
         HalfEdgeMeshRuntime runtime = surfaceRuntime();
-        if (runtime == null || halfEdgeSurface() == null || marksByLabel.isEmpty()) {
+        if (runtime == null || halfEdgeSurface() == null) {
+            return;
+        }
+        if (marksByLabel.isEmpty()) {
+            if (!ringMarksByLabel.isEmpty()) {
+                ringMarksByLabel = new LinkedHashMap<>();
+                ringTool.graphRingsChanged();
+            }
             return;
         }
         ringMarksByLabel = new LinkedHashMap<>();
@@ -128,7 +135,7 @@ public class RingScene extends MeshNodeViewerScene {
                 featureMarks.put(entry.getKey(), entry.getValue());
             }
         }
-        ringTool.invalidateRings();
+        ringTool.graphRingsChanged();
         Platforms.get().log(RingTool.LOG_PREFIX + "ring overlay: " + ringMarksByLabel.keySet());
         if (featureMarks.isEmpty()) {
             runtime.setFeatureEdgeOverlay(List.of());
@@ -150,7 +157,7 @@ public class RingScene extends MeshNodeViewerScene {
         }
         if (closedRing == null) {
             ringMarksByLabel = new LinkedHashMap<>();
-            ringTool.invalidateRings();
+            ringTool.graphRingsChanged();
             runtime.setFeatureEdgeOverlay(List.of());
             return;
         }
@@ -260,9 +267,9 @@ public class RingScene extends MeshNodeViewerScene {
         controls.add(new ControlHint("click", "draft ring / add or select anchor"));
         controls.add(new ControlHint("drag anchor", "move it"));
         controls.add(new ControlHint(Keys.DELETE, "del", REMOVE_SELECTED_ANCHOR_HINT,
-                () -> ringTool.deleteSelectedAnchor()));
+                () -> ringTool.deletePressed()));
         controls.add(new ControlHint(Keys.BACKSPACE, "backspace", REMOVE_SELECTED_ANCHOR_HINT,
-                () -> ringTool.deleteSelectedAnchor()));
+                () -> ringTool.deletePressed()));
         controls.add(new ControlHint(Keys.Z, true, true, "ctrl+shift+Z", REDO_HINT,
                 () -> ringTool.redo()));
         controls.add(new ControlHint(Keys.Z, true, "ctrl+Z", "undo ring edit",

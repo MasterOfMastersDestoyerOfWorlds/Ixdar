@@ -6,6 +6,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -37,6 +38,10 @@ public final class RingDslWriter {
     public static final String POINTS_ARGUMENT = "points=\"";
 
     public static final String NORMAL_ARGUMENT = "normal=\"";
+
+    public static final String LABEL_ARGUMENT = "label";
+
+    public static final String CANDIDATES_NODE = "ring_candidates";
 
     public static final String NO_UPSTREAM =
             "the working graph has no statement for the ring to read its geometry from";
@@ -193,21 +198,7 @@ public final class RingDslWriter {
     public static String replaceSpline(String dslSource, String id, float[] packedXyz,
             int anchorCount, float[] baseNormal) {
         String[] lines = dslSource.split(LINE_BREAK, -1);
-        int target = -1;
-        for (int line = 0; line < lines.length; line++) {
-            if (!binds(lines[line], id)) {
-                continue;
-            }
-            if (target >= 0) {
-                throw new IllegalArgumentException("the working graph binds " + id
-                        + " on more than one line, so the ring has no one statement to rewrite");
-            }
-            target = line;
-        }
-        if (target < 0) {
-            throw new IllegalArgumentException("the working graph holds no statement "
-                    + id + " to rewrite");
-        }
+        int target = bindingLine(lines, id);
         int opening = lines[target].indexOf(POINTS_ARGUMENT);
         int start = opening < 0 ? -1 : opening + POINTS_ARGUMENT.length();
         int closing = start < 0 ? -1 : lines[target].indexOf('"', start);
@@ -232,6 +223,194 @@ public final class RingDslWriter {
             }
         }
         return String.join(LINE_BREAK, lines);
+    }
+
+    /**
+     * The DSL source without one statement, its readers rewired to read their geometry from the
+     * statement it read from, so deleting a ring in the middle of a chain keeps the rest.
+     *
+     * @param dslSource working graph holding the statement
+     * @param id        statement id to remove
+     * @throws IllegalArgumentException when no line, or more than one line, binds that id, or when
+     *                                  another statement reads an output the removal cannot rewire
+     * @return the source with that line gone
+     */
+    public static String remove(String dslSource, String id) {
+        return replace(dslSource, id, List.of(), null);
+    }
+
+    /**
+     * The DSL source with one statement's line replaced by a chain of statements, the readers of
+     * its geometry rewired to read the chain's output instead.
+     *
+     * @param dslSource       working graph holding the statement
+     * @param id              statement id to replace
+     * @param replacement     statement lines to put in its place, in chain order; may be empty
+     * @param outputReference {@code node.port} the readers read afterwards, or {@code null} for the
+     *                        replaced statement's own geometry input
+     * @throws IllegalArgumentException when no line, or more than one line, binds that id, or when
+     *                                  another statement reads an output that nothing produces
+     *                                  afterwards
+     * @return the source with that line replaced
+     */
+    public static String replace(String dslSource, String id, List<String> replacement,
+            String outputReference) {
+        String[] lines = dslSource.split(LINE_BREAK, -1);
+        int target = bindingLine(lines, id);
+        PythonParser.ParsedNode replaced = null;
+        for (PythonParser.ParsedNode statement : NodeGraphRuntime.fromSource(dslSource).statements) {
+            replaced = statement.id.equals(id) ? statement : replaced;
+        }
+        String rewiredTo = outputReference != null ? outputReference : geometryInput(replaced);
+        String passedThrough = replaced == null ? null : id + "." + geometryPort(replaced.type);
+        boolean stillBound = false;
+        for (String statement : replacement) {
+            stillBound |= binds(statement, id);
+        }
+        List<String> kept = new ArrayList<>();
+        for (int line = 0; line < lines.length; line++) {
+            if (line == target) {
+                kept.addAll(replacement);
+                continue;
+            }
+            String text = rewired(lines[line], passedThrough, rewiredTo);
+            if (!stillBound && tokenIndex(text, id + ".", 0) >= 0) {
+                throw new IllegalArgumentException("line " + (line + 1) + " reads an output of "
+                        + id + " that nothing else produces, so " + id + " was not removed");
+            }
+            kept.add(text);
+        }
+        return String.join(LINE_BREAK, kept);
+    }
+
+    /**
+     * The DSL source with a chain of statements inserted after the statement a reference names,
+     * every later reader of that reference rewired to read the chain's output.
+     *
+     * @param dslSource         working graph to insert into
+     * @param upstreamReference {@code node.port} the chain reads, such as {@code carrier.geometry}
+     * @param statements        statement lines to insert, in chain order
+     * @param outputReference   {@code node.port} the chain's last statement produces
+     * @throws IllegalArgumentException when no line, or more than one line, binds the node
+     * @return the source with the chain inserted
+     */
+    public static String insertAfter(String dslSource, String upstreamReference,
+            List<String> statements, String outputReference) {
+        String[] lines = dslSource.split(LINE_BREAK, -1);
+        int target = bindingLine(lines, upstreamReference.substring(0,
+                upstreamReference.indexOf('.')));
+        List<String> out = new ArrayList<>();
+        for (int line = 0; line < lines.length; line++) {
+            out.add(line > target ? rewired(lines[line], upstreamReference, outputReference)
+                    : lines[line]);
+            if (line == target) {
+                out.addAll(statements);
+            }
+        }
+        return String.join(LINE_BREAK, out);
+    }
+
+    /**
+     * The DSL source with a block of statements swapped for another, the new block where the
+     * first old statement was and the readers of every old one reading its output; with none
+     * left, it goes after its upstream.
+     *
+     * @param dslSource         working graph holding the block
+     * @param blockIds          ids of the statements that make up the old block, in any order
+     * @param block             statement lines of the new block, in chain order; may be empty
+     * @param upstreamReference {@code node.port} the block reads its geometry from
+     * @param outputReference   {@code node.port} the new block produces, its upstream when empty
+     * @throws IllegalArgumentException when a statement outside the block reads an output that
+     *                                  nothing produces afterwards
+     * @return the source with the block swapped
+     */
+    public static String replaceBlock(String dslSource, Collection<String> blockIds,
+            List<String> block, String upstreamReference, String outputReference) {
+        String source = dslSource;
+        String anchor = null;
+        for (PythonParser.ParsedNode statement : NodeGraphRuntime.fromSource(dslSource).statements) {
+            if (!blockIds.contains(statement.id)) {
+                continue;
+            }
+            if (anchor == null) {
+                anchor = statement.id;
+            } else {
+                source = remove(source, statement.id);
+            }
+        }
+        if (anchor != null) {
+            return replace(source, anchor, block, outputReference);
+        }
+        return block.isEmpty() ? source
+                : insertAfter(source, upstreamReference, block, outputReference);
+    }
+
+    /**
+     * The text of the one line binding a statement id.
+     *
+     * @param dslSource working graph holding the statement
+     * @param id        statement id
+     * @throws IllegalArgumentException when no line, or more than one line, binds the id
+     * @return the line, without its line break
+     */
+    public static String statementLine(String dslSource, String id) {
+        String[] lines = dslSource.split(LINE_BREAK, -1);
+        return lines[bindingLine(lines, id)];
+    }
+
+    /**
+     * The {@code node.port} a statement reads its geometry from.
+     *
+     * @param statement parsed statement, or {@code null}
+     * @return the reference, or {@code null} when the statement has no node-valued geometry input
+     */
+    public static String geometryInput(PythonParser.ParsedNode statement) {
+        return statement != null
+                && statement.arguments.get(DEFAULT_UPSTREAM_PORT)
+                        instanceof PythonParser.NodeReference reference
+                ? reference.nodeId + "." + reference.portName
+                : null;
+    }
+
+    /**
+     * The statement that writes a ring mark label: the one whose {@code label} argument names it.
+     *
+     * @param statements a graph's parsed statements
+     * @param label      ring mark label
+     * @return the last statement labelling it, or {@code null} when none does
+     */
+    public static PythonParser.ParsedNode labelledStatement(
+            List<PythonParser.ParsedNode> statements, String label) {
+        PythonParser.ParsedNode labelled = null;
+        for (PythonParser.ParsedNode statement : statements) {
+            if (label.equals(statement.arguments.get(LABEL_ARGUMENT))) {
+                labelled = statement;
+            }
+        }
+        return labelled;
+    }
+
+    /**
+     * The graph's one {@code ring_candidates} statement, the owner of every proposed ring.
+     *
+     * @param statements a graph's parsed statements
+     * @throws IllegalArgumentException when the graph has more than one
+     * @return the statement, or {@code null} when the graph has none
+     */
+    public static PythonParser.ParsedNode candidatesStatement(
+            List<PythonParser.ParsedNode> statements) {
+        PythonParser.ParsedNode found = null;
+        for (PythonParser.ParsedNode statement : statements) {
+            if (!CANDIDATES_NODE.equals(statement.type)) {
+                continue;
+            }
+            if (found != null) {
+                throw new IllegalArgumentException("the working graph has more than one "
+                        + CANDIDATES_NODE + " statement, so a proposed ring has no one owner");
+            }
+            found = statement;
+        }
+        return found;
     }
 
     /**
@@ -310,6 +489,22 @@ public final class RingDslWriter {
                 + "\", tighten=" + tighten
                 + ", pin=" + pin
                 + ", label=\"" + id + "\")";
+    }
+
+    /**
+     * One ring statement that reproduces an edge loop element-exact: every loop vertex is a
+     * pinned waypoint, so each arc is the single mesh edge between neighbours and FlipOut has no
+     * free vertex to move.
+     *
+     * @param id            statement id, also the mark label
+     * @param geometryInput reference the ring reads its geometry from, as {@code node.port}
+     * @param loopXyz       the loop's vertex positions in walking order, packed xyz
+     * @param vertexCount   loop vertices to write from the front of the array
+     * @return the statement text, without a trailing newline
+     */
+    public static String exactLoopStatement(String id, String geometryInput, float[] loopXyz,
+            int vertexCount) {
+        return statement(id, geometryInput, loopXyz, vertexCount, true, true);
     }
 
     /**
@@ -407,6 +602,76 @@ public final class RingDslWriter {
             highest = Math.max(highest, Integer.parseInt(dslSource.substring(digit, end)));
         }
         return highest;
+    }
+
+    /**
+     * The one line binding a statement id.
+     *
+     * @param lines the graph's lines
+     * @param id    statement id
+     * @throws IllegalArgumentException when no line, or more than one line, binds the id
+     * @return the line's index
+     */
+    private static int bindingLine(String[] lines, String id) {
+        int target = -1;
+        for (int line = 0; line < lines.length; line++) {
+            if (!binds(lines[line], id)) {
+                continue;
+            }
+            if (target >= 0) {
+                throw new IllegalArgumentException("the working graph binds " + id
+                        + " on more than one line, so the ring has no one statement to rewrite");
+            }
+            target = line;
+        }
+        if (target < 0) {
+            throw new IllegalArgumentException("the working graph holds no statement "
+                    + id + " to rewrite");
+        }
+        return target;
+    }
+
+    /**
+     * One line with every whole-token occurrence of a reference swapped for another.
+     *
+     * @param text          line to rewrite
+     * @param reference     {@code node.port} to replace, or {@code null} to leave the line alone
+     * @param replacementTo {@code node.port} to put in its place, or {@code null} to leave it
+     * @return the rewritten line
+     */
+    private static String rewired(String text, String reference, String replacementTo) {
+        if (reference == null || replacementTo == null) {
+            return text;
+        }
+        String out = text;
+        for (int at = tokenIndex(out, reference, 0); at >= 0;
+                at = tokenIndex(out, reference, at + replacementTo.length())) {
+            out = out.substring(0, at) + replacementTo + out.substring(at + reference.length());
+        }
+        return out;
+    }
+
+    /**
+     * Where a reference such as {@code ring_05.geometry} appears as a whole token, not as the
+     * tail of a longer identifier.
+     *
+     * @param text  line to search
+     * @param token reference to find
+     * @param from  index to search from
+     * @return the token's index, or -1 when it does not appear
+     */
+    private static int tokenIndex(String text, String token, int from) {
+        boolean closedByIdentifier = isIdentifierPart(token.charAt(token.length() - 1));
+        for (int at = text.indexOf(token, from); at >= 0; at = text.indexOf(token, at + 1)) {
+            int end = at + token.length();
+            boolean openEdge = at == 0 || !isIdentifierPart(text.charAt(at - 1));
+            boolean closeEdge = !closedByIdentifier || end >= text.length()
+                    || !isIdentifierPart(text.charAt(end));
+            if (openEdge && closeEdge) {
+                return at;
+            }
+        }
+        return -1;
     }
 
     /**
