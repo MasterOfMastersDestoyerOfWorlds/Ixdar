@@ -6,6 +6,18 @@ package ixdar.geometry.mesh.csg;
  */
 public interface MeshBooleanBackend {
 
+    String ACCEPTED_SOLID = "NO_ERROR";
+
+    /**
+     * The kernel's verdict on one triangulated mesh as a boolean operand, without running a
+     * boolean.
+     *
+     * @param operand triangulated mesh to check
+     * @return {@link #ACCEPTED_SOLID} when the kernel takes it as a closed solid, else the
+     *         kernel's error name, such as {@code NOT_MANIFOLD}
+     */
+    String solidStatus(QuadTriangulation operand);
+
     /**
      * Boolean two triangulated solids, keeping each output triangle's provenance.
      *

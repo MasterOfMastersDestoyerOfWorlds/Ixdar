@@ -1,9 +1,12 @@
 package ixdar.geometry.mesh.data.paths;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
@@ -20,6 +23,8 @@ public final class SurfaceSpline {
 
     public static final double SMALLEST_MEASURED_SPAN_IN_EDGES = 0.25;
 
+    public static final String SLOT = "_surface_splines";
+
     /** Packed xyz of the anchors, in ring order. */
     public float[] anchorXyz = new float[0];
 
@@ -32,6 +37,9 @@ public final class SurfaceSpline {
     /** Whether the user placed each anchor rather than the fit, in ring order. */
     public boolean[] anchorAuthored = new boolean[0];
 
+
+    /** Surface {@link #pointVertexId} and {@link #pointEdgeId} index, or null before a trace. */
+    public MeshTopology mesh;
 
     /** Packed xyz of the traced spline; the first point is repeated at the end. */
     public float[] polyline = new float[0];
@@ -191,6 +199,7 @@ public final class SurfaceSpline {
      * @param traced closed path whose points each sit on a vertex or cross an edge
      */
     public void followPath(MeshTopology mesh, TracedSurfacePath traced) {
+        this.mesh = mesh;
         int pointCount = traced.pointCount == 0 ? 0 : traced.pointCount + 1;
         polyline = new float[COORDINATES_PER_POINT * pointCount];
         surfacePolyline = new float[COORDINATES_PER_POINT * pointCount];
@@ -221,6 +230,44 @@ public final class SurfaceSpline {
             surfacePolyline[base + 1] = point.y;
             surfacePolyline[base + 2] = point.z;
         }
+    }
+
+    /**
+     * A copy of a bundle carrying a spline under a label in {@link #SLOT}, beside the edge marks
+     * of the same label, so a consumer can cut along the spline rather than its snapped loop.
+     *
+     * @param bundle bundle to copy
+     * @param label  ring label, the spline's edge-marks label
+     * @param spline traced spline on the bundle's surface
+     * @return the bundle copy
+     */
+    public static GeometryBundle with(GeometryBundle bundle, String label, SurfaceSpline spline) {
+        Map<String, SurfaceSpline> all = new LinkedHashMap<>();
+        if (bundle.slots().get(SLOT) instanceof Map<?, ?> existing) {
+            for (Map.Entry<?, ?> entry : existing.entrySet()) {
+                if (entry.getValue() instanceof SurfaceSpline kept) {
+                    all.put(String.valueOf(entry.getKey()), kept);
+                }
+            }
+        }
+        all.put(label, spline);
+        return bundle.withSlot(SLOT, all);
+    }
+
+    /**
+     * The spline a bundle carries under a label, when it was traced on the bundle's own surface.
+     *
+     * @param bundle bundle to read
+     * @param label  ring label
+     * @return the spline, or null when absent or traced on another surface
+     */
+    public static SurfaceSpline inBundle(GeometryBundle bundle, String label) {
+        if (bundle.slots().get(SLOT) instanceof Map<?, ?> splines
+                && splines.get(label) instanceof SurfaceSpline spline
+                && spline.mesh == bundle.mesh()) {
+            return spline;
+        }
+        return null;
     }
 
     /**

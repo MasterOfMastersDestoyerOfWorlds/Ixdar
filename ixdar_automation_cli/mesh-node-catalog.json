@@ -1723,6 +1723,65 @@
       "description": "Evaluates a float curve closure at a scalar or per-vertex field value, returning the mapped result."
     },
     {
+      "id": "extract_ring_region",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: a surface carrying ring edge marks and, from spline_ring, the traced splines in the _surface_splines slot. Output: the extracted closed mesh alone, no slots carried, ready for mesh_boolean.",
+          "defaultValue": null
+        },
+        {
+          "name": "labels",
+          "portType": "STRING",
+          "description": "Comma-separated ring labels, as ring_regions takes them; empty takes every boolean edge-mark label.",
+          "defaultValue": ""
+        },
+        {
+          "name": "select",
+          "portType": "STRING",
+          "description": "Regions to extract, as ring_regions\u0027 select: `region N` and `point x,y,z` terms separated by \u0027;\u0027.",
+          "defaultValue": ""
+        },
+        {
+          "name": "cap",
+          "portType": "BOOLEAN",
+          "description": "When true the cut loops are capped; false outputs the open cut on both ports.",
+          "defaultValue": true
+        },
+        {
+          "name": "snap",
+          "portType": "FLOAT",
+          "description": "A spline crossing within this fraction of its edge from a vertex or another crossing merges into it instead of cutting a sliver.",
+          "defaultValue": 0.05
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: a surface carrying ring edge marks and, from spline_ring, the traced splines in the _surface_splines slot. Output: the extracted closed mesh alone, no slots carried, ready for mesh_boolean."
+        },
+        {
+          "name": "open",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "The selected pieces before capping, their boundary on the splines."
+        },
+        {
+          "name": "report",
+          "portType": "STRING",
+          "description": "The cut, the pieces kept, the boundary distances against the spline and the snapped loops, the cap with closed\u003dtrue|false and the Manifold kernel\u0027s verdict, then any problems."
+        }
+      ],
+      "description": "Takes the selected ring regions out of the surface as their own closed mesh. Regions are chosen by ring_regions\u0027 edge-set flood, but the cut follows each ring\u0027s smooth spline: a copy of the surface is split at the spline\u0027s edge crossings, re-flooded with the spline as wall, the selected pieces kept, and every loop the cut opened capped with repair_mesh\u0027s Liepa filler. The input surface is not modified. A ring with no traced spline is cut along its edges."
+    },
+    {
       "id": "extrude_mesh",
       "category": "Modifiers",
       "scopes": [
@@ -4461,7 +4520,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: the triangle mesh to ring. Output: the same bundle carrying the spline as curve geometry and its snapped edge cycle in the edge-marks slot under `label`, ready for mark_edges consumers and delete_geometry cuts.",
+          "description": "Input: the triangle mesh to ring. Output: the same bundle carrying the spline as curve geometry, its snapped edge cycle in the edge-marks slot under `label`, ready for mark_edges consumers and delete_geometry cuts, and the traced spline itself under `label` in the _surface_splines slot, which extract_ring_region cuts along.",
           "defaultValue": null
         },
         {
@@ -4487,7 +4546,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: the triangle mesh to ring. Output: the same bundle carrying the spline as curve geometry and its snapped edge cycle in the edge-marks slot under `label`, ready for mark_edges consumers and delete_geometry cuts."
+          "description": "Input: the triangle mesh to ring. Output: the same bundle carrying the spline as curve geometry, its snapped edge cycle in the edge-marks slot under `label`, ready for mark_edges consumers and delete_geometry cuts, and the traced spline itself under `label` in the _surface_splines slot, which extract_ring_region cuts along."
         },
         {
           "name": "selection",

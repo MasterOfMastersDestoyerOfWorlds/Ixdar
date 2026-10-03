@@ -153,6 +153,23 @@ public final class ManifoldMeshBooleanBackend implements MeshBooleanBackend {
                 provenance.faceSourceQuad, cornerU, cornerV);
     }
 
+    /** {@inheritDoc}. */
+    @Override
+    public String solidStatus(QuadTriangulation operand) {
+        try (Arena arena = Arena.ofConfined()) {
+            BooleanVertexProperties properties = new BooleanVertexProperties(operand, THREE).build();
+            MemorySegment imported = PROVENANCE.importProperties(properties.vertexProperties,
+                    properties.triangleCorners, THREE, arena);
+            try {
+                return BINDINGS.status(imported).name();
+            } finally {
+                PROVENANCE.destructSolid(imported);
+            }
+        } catch (Throwable failure) {
+            throw new IllegalStateException("Manifold could not import the mesh", failure);
+        }
+    }
+
     /**
      * Put NaN back on every output face whose source face had no texture coordinates, an
      * untextured operand's or a hole-fill triangle's: the kernel interpolated only the finite

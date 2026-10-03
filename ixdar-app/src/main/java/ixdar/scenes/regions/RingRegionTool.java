@@ -1,5 +1,9 @@
 package ixdar.scenes.regions;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -9,11 +13,16 @@ import java.util.Map;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
+import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.RingRegionExtraction;
 import ixdar.geometry.mesh.data.RingRegions;
+import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.platform.Platforms;
+import ixdar.platform.automation.AutomationPortFile;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.ring.EditTool;
@@ -21,8 +30,8 @@ import ixdar.scenes.ring.RingScene;
 
 /**
  * The region-select tool of the editing scene: colours the regions the ring tool's rings cut the
- * surface into, rebuilt whenever those rings change, and selects them by click and Shift+click.
- * The selection is kept as surface points, so it survives ring edits and tool switches.
+ * surface into, selects them by click and Shift+click, and extracts the selection as its own
+ * closed mesh, cut along the ring splines. The selection is kept as surface points.
  */
 public final class RingRegionTool implements EditTool {
 
@@ -37,6 +46,12 @@ public final class RingRegionTool implements EditTool {
     public static final String QUERY_JOIN = "; ";
 
     public static final int XYZ = SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
+
+    public static final String EXPORT_DIRECTORY = "extracted";
+
+    public static final String REGION_COLOUR_KEY = "patch_";
+
+    public static final String EXPORT_PREFIX = "region";
 
     /** Scene the tool runs on, whose ring tool holds the rings the regions are cut by. */
     public final RingScene scene;
@@ -62,7 +77,24 @@ public final class RingRegionTool implements EditTool {
     /** Whether the tool is the scene's active one. */
     public boolean active;
 
+    /** The shown extraction of the selection, or {@code null} while the surface is shown. */
+    public RingRegionExtraction extraction;
+
+    /** Draws {@link #extraction} in place of the surface, or {@code null} with it. */
+    public HalfEdgeMeshRuntime extractedRuntime;
+
+    /** Whether the scene shows the extracted mesh on its own instead of the surface. */
+    public boolean showingExtraction;
+
+    /** Whether the extracted mesh is shown as the open cut rather than capped. */
+    public boolean showingOpenCut;
+
+    /** Where the last extraction was exported, or empty. */
+    public String exportedPath = "";
+
     private int builtRingRevision = -1;
+
+    private boolean pendingExtract;
 
     private boolean pendingClick;
 
@@ -100,11 +132,13 @@ public final class RingRegionTool implements EditTool {
         applyOverlay();
     }
 
-    /** Hand the mouse back and restore the surface's shading, keeping the selection. */
+    /** Hand the mouse back, drop the extraction and restore the surface's shading. */
     @Override
     public void deactivate() {
         active = false;
         pendingClick = false;
+        pendingExtract = false;
+        releaseExtraction();
         if (scene.orbitMouse != null) {
             scene.orbitMouse.toolClick = null;
         }
@@ -123,6 +157,82 @@ public final class RingRegionTool implements EditTool {
         controls.add(new ControlHint("click", "select region"));
         controls.add(new ControlHint("shift+click", "add / drop region"));
         controls.add(new ControlHint(Keys.C, "C", "clear selection", this::clearSelection));
+        controls.add(new ControlHint(Keys.E, "E", "extract selection / back to surface",
+                this::extractPressed));
+        controls.add(new ControlHint(Keys.O, "O", "extracted: open cut / capped",
+                this::toggleOpenCut));
+    }
+
+    /** E: drop a shown extraction, else extract the selection on the next frame. */
+    public void extractPressed() {
+        if (showingExtraction) {
+            releaseExtraction();
+            Platforms.get().log(LOG_PREFIX + "back to the surface");
+            return;
+        }
+        pendingExtract = active;
+    }
+
+    /**
+     * Back to the surface: free the extracted mesh's GL buffers and drop the extraction, so no
+     * more than the shown one is ever held.
+     */
+    public void releaseExtraction() {
+        showingExtraction = false;
+        showingOpenCut = false;
+        if (extractedRuntime != null) {
+            extractedRuntime.dispose();
+            extractedRuntime = null;
+        }
+        extraction = null;
+    }
+
+    /** O: switch a shown extraction between the open cut and the capped mesh. */
+    public void toggleOpenCut() {
+        if (!showingExtraction || extraction == null) {
+            return;
+        }
+        showingOpenCut = !showingOpenCut;
+        uploadExtraction();
+    }
+
+    /**
+     * Hand {@link #extractedRuntime} the extraction as shown: the capped mesh, or the open cut
+     * with its boundary, which is the spline cut, drawn over it.
+     */
+    private void uploadExtraction() {
+        MeshTopology shown = showingOpenCut ? extraction.openMesh : extraction.closedMesh;
+        if (extractedRuntime != null) {
+            extractedRuntime.dispose();
+        }
+        extractedRuntime = new HalfEdgeMeshRuntime();
+        extractedRuntime.upload(shown);
+        int firstRegion = 0;
+        while (firstRegion + 1 < selectedRegions.length && !selectedRegions[firstRegion]) {
+            firstRegion++;
+        }
+        extractedRuntime.setSolidColor(
+                HalfEdgeMeshRuntime.stableTagColor(REGION_COLOUR_KEY + firstRegion));
+        if (!showingOpenCut) {
+            return;
+        }
+        Map<Integer, Integer> activeVertexById = new HashMap<>();
+        for (int activeVertex = 0; activeVertex < shown.vertexCount(); activeVertex++) {
+            activeVertexById.put(shown.vertexIdAt(activeVertex), activeVertex);
+        }
+        List<Long> boundaryKeys = new ArrayList<>();
+        for (int activeEdge = 0; activeEdge < shown.edgeCount(); activeEdge++) {
+            int edgeId = shown.edgeIdAt(activeEdge);
+            if (shown.isBoundaryEdge(edgeId)) {
+                int halfEdge = shown.edgeHalfEdge(edgeId);
+                boundaryKeys.add(EdgeKey.undirected(
+                        activeVertexById.get(shown.halfEdgeVertex(halfEdge)),
+                        activeVertexById.get(shown.halfEdgeEndVertex(halfEdge))));
+            }
+        }
+        extractedRuntime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.STAGES);
+        extractedRuntime.setFeatureEdgeOverlay(List.of(
+                new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.EDGE_MARK_AMBER, boundaryKeys)));
     }
 
     /**
@@ -151,6 +261,7 @@ public final class RingRegionTool implements EditTool {
                 || builtRingRevision != scene.ringTool.ringRevision) {
             long start = System.nanoTime();
             builtRingRevision = scene.ringTool.ringRevision;
+            releaseExtraction();
             Map<String, boolean[]> rings = scene.ringTool.liveRingMarks();
             regions = new RingRegions(surface, rings.keySet().toArray(new String[0]),
                     rings.values().toArray(new boolean[0][])).build();
@@ -160,6 +271,86 @@ public final class RingRegionTool implements EditTool {
             Platforms.get().log(String.format(Locale.ROOT, LOG_PREFIX + "regions built in %.0f ms",
                     (System.nanoTime() - start) / 1e6));
             reselect();
+        }
+        if (pendingExtract) {
+            pendingExtract = false;
+            if (selectedCount() == 0) {
+                lastError = "select a region to extract first";
+                Platforms.get().log(LOG_PREFIX + lastError);
+                return;
+            }
+            releaseExtraction();
+            long start = System.nanoTime();
+            Map<String, SurfaceSpline> splineByLabel = scene.ringTool.liveRingSplines();
+            SurfaceSpline[] splines = new SurfaceSpline[regions.ringLabels.length];
+            for (int ring = 0; ring < splines.length; ring++) {
+                splines[ring] = splineByLabel.get(regions.ringLabels[ring]);
+            }
+            extraction = new RingRegionExtraction(regions, splines, selectedRegions.clone());
+            try {
+                extraction.solidCheck = Platforms.get().meshBooleanBackend();
+            } catch (UnsupportedOperationException noKernel) {
+                extraction.solidCheck = null;
+            }
+            extraction.build();
+            for (String line : extraction.reportLines()) {
+                Platforms.get().log(LOG_PREFIX + line);
+            }
+            if (extraction.closedMesh == null) {
+                lastError = "nothing was extracted";
+                extraction = null;
+                return;
+            }
+            // The export is a frozen operand for load_mesh and mesh_boolean; the node line logged
+            // after it is the live form that follows ring edits.
+            List<Integer> picked = new ArrayList<>();
+            StringBuilder name = new StringBuilder(EXPORT_PREFIX);
+            for (int region = 0; region < selectedRegions.length; region++) {
+                if (selectedRegions[region]) {
+                    picked.add(region);
+                    name.append('_').append(region);
+                }
+            }
+            Path target = AutomationPortFile.checkoutRoot().resolve(AutomationPortFile.TMP_DIRECTORY)
+                    .resolve(EXPORT_DIRECTORY).resolve(name + ".obj");
+            StringBuilder obj = new StringBuilder();
+            Vector3f position = new Vector3f();
+            MeshTopology piece = extraction.closedMesh;
+            Map<Integer, Integer> objIndexByVertexId = new HashMap<>();
+            for (int activeVertex = 0; activeVertex < piece.vertexCount(); activeVertex++) {
+                int vertexId = piece.vertexIdAt(activeVertex);
+                piece.vertexPosition(vertexId, position);
+                objIndexByVertexId.put(vertexId, activeVertex + 1);
+                obj.append(String.format(Locale.ROOT, "v %.6f %.6f %.6f%n", position.x,
+                        position.y, position.z));
+            }
+            for (int activeFace = 0; activeFace < piece.faceCount(); activeFace++) {
+                int faceId = piece.faceIdAt(activeFace);
+                obj.append('f');
+                for (int corner = 0; corner < piece.faceVertexCount(faceId); corner++) {
+                    obj.append(' ').append(objIndexByVertexId.get(piece.faceVertexAt(faceId,
+                            corner)));
+                }
+                obj.append('\n');
+            }
+            try {
+                Files.createDirectories(target.getParent());
+                Files.write(target, obj.toString().getBytes(StandardCharsets.UTF_8));
+                exportedPath = target.toAbsolutePath().toString();
+            } catch (IOException failure) {
+                exportedPath = "";
+                lastError = "could not export " + target + ": " + failure.getMessage();
+                Platforms.get().log(LOG_PREFIX + lastError);
+            }
+            lastRow = String.format(Locale.ROOT, "extracted %d region(s) %s in %.0f ms: %d faces, "
+                    + "closed=%b, exported to %s", picked.size(), picked, (System.nanoTime() - start)
+                            / 1e6, piece.faceCount(), extraction.closed, exportedPath);
+            Platforms.get().log(LOG_PREFIX + lastRow);
+            Platforms.get().log(LOG_PREFIX + "as a graph statement: extract_ring_region("
+                    + "geometry=<rings>.geometry, select=\"" + selectQuery + "\")");
+            showingExtraction = true;
+            showingOpenCut = false;
+            uploadExtraction();
         }
         if (!runtime.facePickReady()) {
             runtime.uploadFacePickBuffer(surface);
@@ -248,7 +439,7 @@ public final class RingRegionTool implements EditTool {
         for (int region = 0; region < regions.regionCount; region++) {
             String tag = TAG_PREFIX + region;
             tags.put(tag, new boolean[mesh.vertexCount()]);
-            Vector4f colour = HalfEdgeMeshRuntime.stableTagColor("patch_" + region);
+            Vector4f colour = HalfEdgeMeshRuntime.stableTagColor(REGION_COLOUR_KEY + region);
             if (anySelected && !selectedRegions[region]) {
                 colour.set(UNSELECTED_GREY, UNSELECTED_GREY, UNSELECTED_GREY, 1f);
             }

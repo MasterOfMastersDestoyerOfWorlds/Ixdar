@@ -118,9 +118,17 @@ public class RingScene extends MeshNodeViewerScene {
         Platforms.get().log(LOG_PREFIX + "active tool: " + activeTool.toolName());
     }
 
-    /** Draw the surface, then the ring overlays and their markers over it. */
+    /**
+     * Draw the surface, then the ring overlays and their markers over it; while the region tool
+     * shows an extraction, draw that mesh on its own instead.
+     */
     @Override
     public void renderScene() {
+        if (regionTool.showingExtraction && regionTool.extractedRuntime != null) {
+            camera.resetView();
+            regionTool.extractedRuntime.render(camera);
+            return;
+        }
         super.renderScene();
         if (surfaceRuntime() instanceof MeshOverlayRuntime overlay) {
             overlay.renderOverlays(camera);

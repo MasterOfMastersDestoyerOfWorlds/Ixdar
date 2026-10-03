@@ -468,9 +468,25 @@ public final class RingTool implements EditTool {
      */
     public Map<String, boolean[]> liveRingMarks() {
         Map<String, boolean[]> marks = new LinkedHashMap<>();
+        for (Map.Entry<String, SurfaceSpline> ring : liveRingSplines().entrySet()) {
+            marks.put(ring.getKey(), ring.getValue() == null
+                    ? scene.ringMarksByLabel.get(ring.getKey())
+                    : ring.getValue().markedByEdgeId);
+        }
+        return marks;
+    }
+
+    /**
+     * The rings of {@link #liveRingMarks}, in its order and under its labels, as their traced
+     * splines, which a region extraction cuts along.
+     *
+     * @return splines by ring label, {@code null} for a graph ring with no confirmed spline
+     */
+    public Map<String, SurfaceSpline> liveRingSplines() {
+        Map<String, SurfaceSpline> splines = new LinkedHashMap<>();
         for (String label : unownedGraphRingLabels()) {
             if (!convertedGraphLabels.contains(label)) {
-                marks.put(label, scene.ringMarksByLabel.get(label));
+                splines.put(label, null);
             }
         }
         for (int ring = 0; ring < confirmedRings.size(); ring++) {
@@ -478,10 +494,10 @@ public final class RingTool implements EditTool {
                 continue;
             }
             String label = confirmedSourceLabel.get(ring);
-            marks.put(label != null ? label : UNSAVED_RING_PREFIX + drawnRingNumber(ring),
-                    confirmedRings.get(ring).markedByEdgeId);
+            splines.put(label != null ? label : UNSAVED_RING_PREFIX + drawnRingNumber(ring),
+                    confirmedRings.get(ring));
         }
-        return marks;
+        return splines;
     }
 
     /**

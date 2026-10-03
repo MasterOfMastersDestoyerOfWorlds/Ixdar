@@ -67,8 +67,10 @@ public class SplineRingNode implements MeshNode {
         return Map.of(
                 GEOMETRY.name,
                 "Input: the triangle mesh to ring. Output: the same bundle carrying the spline as "
-                        + "curve geometry and its snapped edge cycle in the edge-marks slot under "
-                        + "`label`, ready for mark_edges consumers and delete_geometry cuts.",
+                        + "curve geometry, its snapped edge cycle in the edge-marks slot under "
+                        + "`label`, ready for mark_edges consumers and delete_geometry cuts, and "
+                        + "the traced spline itself under `label` in the " + SurfaceSpline.SLOT
+                        + " slot, which extract_ring_region cuts along.",
                 POINTS.name,
                 "Authored anchor points as \"x,y,z; x,y,z; ...\", each snapped to its nearest "
                         + "vertex. The first leads the ring. The supporting anchors between them "
@@ -120,8 +122,8 @@ public class SplineRingNode implements MeshNode {
         }
         SurfaceSpline spline = SurfaceSpline.of(ring.tracer);
 
-        GeometryBundle out = bundle.withSlot(CurveGeometry.SLOT,
-                CurveGeometry.singlePolyline(spline.polyline));
+        GeometryBundle out = SurfaceSpline.with(bundle.withSlot(CurveGeometry.SLOT,
+                CurveGeometry.singlePolyline(spline.polyline)), label, spline);
         ctx.setOutput(GEOMETRY.name, EdgeMarks.with(out, label, spline.markedByEdgeId));
         boolean[] selection = new boolean[mesh.edgeCount()];
         for (int activeEdge = 0; activeEdge < selection.length; activeEdge++) {
