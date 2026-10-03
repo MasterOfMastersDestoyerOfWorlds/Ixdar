@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -26,6 +27,7 @@ import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.color.PatchColorHash;
+import ixdar.graphics.render.shaders.MeshLineShader;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
@@ -72,14 +74,15 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private static final float HIGHLIGHT_REGION_SCALE = 0.22f;
     private static final float HIGHLIGHT_MARKER_SCALE = 2.2f;
     private static final float PATCH_CLOUD_SCALE = 1f;
-    private static final float MARKER_SPHERE_SCALE = 1.4f;
-    private static final float HANDLE_SPHERE_SCALE = 2.4f;
-    private static final int COORDINATES_PER_HANDLE = 3;
+    private static final VertexLayout ANCHOR_DISC_LAYOUT = new VertexLayout(
+            new int[] { 0, 1, 2, 3, 4 }, new int[] { 3, 2, 3, 3, 1 });
+    private static final float[] DISC_CORNERS = { -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1 };
+    private static final int DISC_CORNER_COUNT = 6;
     private static final float TEAR_SPHERE_REGION_FRACTION = 0.02f;
 
     private static final float LABEL_ROW_HEIGHT_PIXELS = 26f;
     private static final float LABEL_OFFSET_PIXELS = 10f;
-    private static final float LABEL_DEPTH_SLACK = 0.0005f;
+    private static final float LABEL_LIFT_TIE = 0.25f;
     private static final int COLOR_CHANNEL_BITS = 8;
     private static final int COLOR_CHANNEL_MAX = 0xFF;
     private static final int LABEL_PIXEL_VALUES = 3;
@@ -136,6 +139,9 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     public final ShaderProgram crossFieldShader;
     public final ShaderProgram unlitShader;
 
+    /** Draws the anchor discs: a fixed pixel size, depth-tested like the overlay lines. */
+    public final MeshLineShader anchorShader;
+
     public float lineHalfWidth = DEFAULT_LINE_HALF_WIDTH;
     public Color baseColor = Color.BLUE_WHITE;
     public Color uLineColor = Color.CYAN;
@@ -176,7 +182,8 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
 
     /**
      * World distance each label's point is pulled toward the eye before its depth test, so a
-     * label sitting inside a shape is not hidden by the shell around it.
+     * label sitting inside a shape is not hidden by the shell around it; a quarter of it is the
+     * eye-distance tie the test allows the shell's own front.
      */
     public float[] labelDepthLift = new float[0];
 
@@ -205,8 +212,8 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private PointSet graphNodes;
     private PointSet layoutCorners;
     private PointSet embeddedNodes;
-    private PointSet markers;
-    private PointSet handleMarkers;
+    /** One screen-space disc per anchor and face around it, six corners each. */
+    private final VertexBuffer anchorDiscs = new VertexBuffer();
     private int layoutBoundaryVertexCount;
     private int[] constraintRangeStart;
     private int[] constraintRangeCount;
@@ -220,6 +227,9 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private final Matrix4f localProjection = new Matrix4f();
     private final float[] labelPixel = new float[LABEL_PIXEL_VALUES];
     private final Vector3f labelPoint = new Vector3f();
+    private final Vector4f labelView = new Vector4f();
+    private final Vector4f labelSurface = new Vector4f();
+    private final Matrix4f inverseProjection = new Matrix4f();
 
     /** Build the runtime and initialise its overlay shaders. */
     public MeshOverlayRuntime() {
@@ -231,6 +241,8 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         this.crossFieldShader = ShaderProgram.ShaderType.MeshCrossField.getShader();
         this.crossFieldShader.init();
         this.unlitShader = ShaderProgram.ShaderType.MeshUnlit.getShader();
+        this.anchorShader = (MeshLineShader) ShaderProgram.ShaderType.MeshAnchor.getShader();
+        this.anchorShader.init();
     }
 
     /**
@@ -459,40 +471,54 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Show one sphere per point, all in one colour, for the handles a tool lets a click land on.
+     * Show one flat disc per surface vertex, a fixed number of framebuffer pixels across at any
+     * zoom and hidden by nearer surface exactly as the overlay lines are. Later anchors win ties.
      *
-     * @param packedXyz packed world xyz of every point, or {@code null} to drop the markers
-     * @param colorRgb  the {@code 0x00RRGGBB} colour every sphere draws in
+     * @param vertexId       vertex of {@link #surfaceMesh} each disc sits on
+     * @param colorRgb       one {@code 0x00RRGGBB} colour per disc
+     * @param diameterPixels one diameter per disc, in framebuffer pixels
      */
-    public void setMarkers(float[] packedXyz, int colorRgb) {
-        markers = PointSet.cloud(packedXyz, colorOf(colorRgb), MARKER_SPHERE_SCALE, 0f);
-        ensureSphere();
-        updateSphereRadius();
-    }
-
-    /**
-     * Show one larger sphere per point, each in its own colour, for the handles a tool lets the
-     * user select and drag, drawn over the plain markers.
-     *
-     * @param packedXyz packed world xyz of every handle, or {@code null} to drop them
-     * @param colorRgb  the {@code 0x00RRGGBB} colour of each handle, in the same order
-     */
-    public void setHandleMarkers(float[] packedXyz, int[] colorRgb) {
-        int count = packedXyz == null ? 0 : packedXyz.length / COORDINATES_PER_HANDLE;
-        handleMarkers = new PointSet(count, HANDLE_SPHERE_SCALE);
-        for (int handle = 0; handle < count; handle++) {
-            handleMarkers.add(packedXyz[COORDINATES_PER_HANDLE * handle],
-                    packedXyz[COORDINATES_PER_HANDLE * handle + 1],
-                    packedXyz[COORDINATES_PER_HANDLE * handle + 2], colorOf(colorRgb[handle]), 0f);
+    public void setAnchorDiscs(int[] vertexId, int[] colorRgb, float[] diameterPixels) {
+        MeshTopology surface = surfaceMesh;
+        if (vertexId == null || vertexId.length == 0 || surface == null) {
+            clearMarkers();
+            return;
         }
-        ensureSphere();
-        updateSphereRadius();
+        int copies = 0;
+        for (int anchor : vertexId) {
+            copies += Math.max(1, surface.vertexFaceCount(anchor));
+        }
+        int floats = ANCHOR_DISC_LAYOUT.floatsPerVertex;
+        float[] vertices = new float[copies * DISC_CORNER_COUNT * floats];
+        Vector3f center = new Vector3f();
+        Vector3f normal = new Vector3f();
+        int cursor = 0;
+        for (int anchor = 0; anchor < vertexId.length; anchor++) {
+            surface.vertexPosition(vertexId[anchor], center);
+            Vector3f color = colorOf(colorRgb[anchor]).toVector3f();
+            int faces = surface.vertexFaceCount(vertexId[anchor]);
+            for (int face = 0; face < Math.max(1, faces); face++) {
+                if (faces == 0) {
+                    normal.zero();
+                } else {
+                    surface.faceNormal(surface.vertexFaceAt(vertexId[anchor], face), normal);
+                }
+                for (int corner = 0; corner < DISC_CORNER_COUNT; corner++) {
+                    float[] row = { center.x, center.y, center.z, DISC_CORNERS[2 * corner],
+                        DISC_CORNERS[2 * corner + 1], normal.x, normal.y, normal.z,
+                        color.x, color.y, color.z,
+                        diameterPixels[anchor] };
+                    System.arraycopy(row, 0, vertices, cursor, floats);
+                    cursor += floats;
+                }
+            }
+        }
+        anchorDiscs.upload(ANCHOR_DISC_LAYOUT, vertices, null);
     }
 
-    /** Drop the marker and handle spheres. */
+    /** Drop the anchor discs. */
     public void clearMarkers() {
-        markers = null;
-        handleMarkers = null;
+        anchorDiscs.delete();
     }
 
     /**
@@ -861,8 +887,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
                 || embeddedZeroArcs.vertexCount > 0 || embeddedNodes != null);
         boolean drawCopyWireframe = showCopyWireframe && copyWireframe.vertexCount > 0;
         boolean drawLineGroups = lineGroups.vertexCount > 0 && lineGroupSegmentStart.length > 1;
-        boolean drawMarkers = markers != null && markers.count > 0
-                || handleMarkers != null && handleMarkers.count > 0;
+        boolean drawMarkers = anchorDiscs.vertexCount > 0;
         if (!drawSurface && !drawCross && !drawConstraints && !drawSingularities && !drawNodes
                 && !drawLayoutFill && !drawLayoutBoundaries && !drawQuadGrid && !drawEmbeddedArcs
                 && !drawCopyWireframe && !drawLineGroups && !drawMarkers) {
@@ -905,6 +930,9 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             }
         }
         if (drawLineGroups) {
+            // The groups test against the surface but leave its depth alone, so the anchor discs
+            // drawn next are not lost to a ring line tying them at the vertex they share.
+            Platforms.gl().depthMask(false);
             for (int group = 0; group + 1 < lineGroupSegmentStart.length; group++) {
                 int firstVertex = 2 * lineGroupSegmentStart[group];
                 int vertices =
@@ -913,10 +941,17 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
                         colorOf(group < lineGroupColorRgb.length ? lineGroupColorRgb[group] : 0),
                         LAYOUT_LINE_WIDTH);
             }
+            Platforms.gl().depthMask(true);
         }
-        if (drawMarkers && beginUnlit(camera)) {
-            drawSpheres(markers);
-            drawSpheres(handleMarkers);
+        if (drawMarkers && anchorShader.ID >= 0) {
+            // The discs take their faces' depth themselves; the fill offset would only push the
+            // flat disc behind the surface it marks.
+            GL gl = Platforms.gl();
+            gl.disable(gl.POLYGON_OFFSET_FILL());
+            anchorShader.use(camera.view, localProjection, model.identity());
+            gl.bindVertexArray(anchorDiscs.vao);
+            gl.drawArrays(gl.TRIANGLES(), 0, anchorDiscs.vertexCount);
+            gl.enable(gl.POLYGON_OFFSET_FILL());
         }
         if (drawCross && beginCrossField(camera)) {
             crossFieldShader.setVec4(U_LINE_COLOR, COLOR_U_ARM);
@@ -1014,7 +1049,13 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
                     || pixelFromBottom >= height) {
                 continue;
             }
-            if (labelPixel[2] > gl.readDepth(pixelX, pixelFromBottom) + LABEL_DEPTH_SLACK) {
+            // Compare eye distances, not window depths: a fixed window-depth slack spans more of
+            // the model the further the camera backs off, letting labels through nearer limbs.
+            labelSurface.set(0f, 0f, 2f * gl.readDepth(pixelX, pixelFromBottom) - 1f, 1f);
+            inverseProjection.set(localProjection).invert().transform(labelSurface);
+            labelView.set(labelPoint, 1f);
+            camera.view.transform(labelView);
+            if (-labelView.z > -labelSurface.z / labelSurface.w + LABEL_LIFT_TIE * lift) {
                 continue;
             }
             HyperString drawn = new HyperString();
@@ -1040,6 +1081,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         embeddedArcs.delete();
         embeddedZeroArcs.delete();
         lineGroups.delete();
+        anchorDiscs.delete();
     }
 
     private void uploadSeamlessSurface() {

@@ -10,15 +10,22 @@ uniform mat4 projection;
 uniform vec2 viewportSize;
 uniform vec4 solidColor;
 
+// Steepest face, as eye-depth change per pixel of travel across the view, whose plane a fragment
+// follows exactly. On a grazing face the pixel ray meets the plane far from the line, which would
+// lift the fragment through nearer surface, so the plane is followed only this far toward the eye.
+const float STEEPEST_FOLLOWED_SLOPE = 4.0;
+
 // Window depth where the ray through this pixel's centre meets the plane of one face the line
 // lies on, or 1 (the far plane) when the face is turned away or the ray misses it.
-float surfaceDepth(vec3 normal, vec3 rayOrigin, vec3 rayDirection, vec3 toEye) {
+float surfaceDepth(vec3 normal, vec3 rayOrigin, vec3 rayDirection, vec3 toEye,
+        float nearestViewZ) {
     float facing = dot(normal, toEye);
     float approach = dot(normal, rayDirection);
     if (facing <= 0.0 || approach >= 0.0) {
         return 1.0;
     }
     vec3 hit = rayOrigin + rayDirection * (dot(normal, vViewPosition - rayOrigin) / approach);
+    hit.z = min(hit.z, nearestViewZ);
     vec4 clip = projection * vec4(hit, 1.0);
     return clip.z / clip.w * 0.5 + 0.5;
 }
@@ -47,8 +54,11 @@ void main() {
     vec4 farPoint = unproject * vec4(ndc, 1.0, 1.0);
     vec3 rayOrigin = nearPoint.xyz / nearPoint.w;
     vec3 rayDirection = farPoint.xyz / farPoint.w - rayOrigin;
+    float pixelWorld = 2.0 * (orthographic ? 1.0 : -vViewPosition.z)
+            / (projection[1][1] * viewportSize.y);
+    float nearestViewZ = vViewPosition.z + STEEPEST_FOLLOWED_SLOPE * pixelWorld;
     gl_FragDepth = min(gl_FragCoord.z, min(
-            surfaceDepth(vSurfaceNormalA, rayOrigin, rayDirection, toEye),
-            surfaceDepth(vSurfaceNormalB, rayOrigin, rayDirection, toEye)));
+            surfaceDepth(vSurfaceNormalA, rayOrigin, rayDirection, toEye, nearestViewZ),
+            surfaceDepth(vSurfaceNormalB, rayOrigin, rayDirection, toEye, nearestViewZ)));
     FragColor = solidColor;
 }

@@ -47,6 +47,9 @@ public class RingScene extends MeshNodeViewerScene {
     /** The ring-labelled masks the graph left, drawn thick and numbered rather than as edges. */
     public Map<String, boolean[]> ringMarksByLabel = new LinkedHashMap<>();
 
+    /** Whether each ring's number is drawn beside it; the {@code N} key flips it. */
+    public boolean showRingNumbers;
+
     @Override
     public String windowTitle() {
         return "Ixdar : Ring Tool";
@@ -93,12 +96,13 @@ public class RingScene extends MeshNodeViewerScene {
     }
 
     /**
-     * Draw each ring's number beside its centroid, in the overlay order the tool numbers rings in,
-     * leaving the depth test to hide the numbers of rings the surface covers.
+     * Draw each ring's number beside its centroid while {@link #showRingNumbers} is set, in the
+     * overlay order the tool numbers rings in, leaving the depth test to hide the numbers of
+     * rings the surface covers.
      */
     @Override
     public void drawSceneOverlayText() {
-        if (surfaceRuntime() instanceof MeshOverlayRuntime overlay) {
+        if (showRingNumbers && surfaceRuntime() instanceof MeshOverlayRuntime overlay) {
             overlay.drawLabels(camera, camera2D);
         }
     }
@@ -268,6 +272,8 @@ public class RingScene extends MeshNodeViewerScene {
         controls.add(new ControlHint(Keys.ENTER, "enter", "confirm draft",
                 () -> ringTool.confirmDraft()));
         controls.add(new ControlHint(Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));
+        controls.add(new ControlHint(Keys.N, "N", "show / hide ring numbers",
+                () -> showRingNumbers = !showRingNumbers));
         super.setControls();
     }
 }

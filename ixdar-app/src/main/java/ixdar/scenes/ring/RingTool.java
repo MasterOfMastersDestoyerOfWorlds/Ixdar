@@ -71,7 +71,13 @@ public final class RingTool {
 
     public static final float RING_HIT_PIXELS = 8f;
 
-    public static final float ANCHOR_HIT_PIXELS = 12f;
+    public static final float SUPPORTING_ANCHOR_PIXELS = 3f;
+
+    public static final float AUTHORED_ANCHOR_PIXELS = 5f;
+
+    public static final float SELECTED_ANCHOR_PIXELS = 7f;
+
+    public static final float ANCHOR_HIT_RADIUS_PIXELS = 8f;
 
     public static final int COORDINATES_PER_POINT = 3;
 
@@ -227,6 +233,7 @@ public final class RingTool {
     private final float[] limbDirection = new float[COORDINATES_PER_POINT];
     private final float[] previewedHit = new float[COORDINATES_PER_POINT];
     private final Vector3f scratchPosition = new Vector3f();
+    private final float[] anchorPixel = new float[COORDINATES_PER_POINT];
     private AuthoredSplineRing previewRing;
     private AuthoredSplineRing draftRing;
     private MeshTopology preparedSurface;
@@ -421,13 +428,30 @@ public final class RingTool {
             previewValid = false;
             previewSpline = null;
             if (hitValid) {
-                double anchorReach = ANCHOR_HIT_PIXELS * worldPerPixel();
+                double nearestPixels = Double.POSITIVE_INFINITY;
+                double eyeToHit =
+                        scene.camera.position.distance(hitPoint[0], hitPoint[1], hitPoint[2]);
                 for (int anchor = 0; anchor < draftAuthoredVertexId.length; anchor++) {
-                    surface.vertexPosition(draftAuthoredVertexId[anchor], scratchPosition);
-                    double distance =
-                            scratchPosition.distance(hitPoint[0], hitPoint[1], hitPoint[2]);
-                    if (distance < anchorReach) {
-                        anchorReach = distance;
+                    int vertexId = draftAuthoredVertexId[anchor];
+                    surface.vertexPosition(vertexId, scratchPosition);
+                    float diameter = anchorDiameterPixels(vertexId, true);
+                    boolean onAnchorFace = false;
+                    for (int corner = 0; corner < surface.faceVertexCount(faceId); corner++) {
+                        onAnchorFace |= surface.faceVertexAt(faceId, corner) == vertexId;
+                    }
+                    if (!onAnchorFace && scene.camera.position.distance(scratchPosition)
+                            > eyeToHit + diameter * worldPerPixel()) {
+                        continue;
+                    }
+                    if (!runtime.projectToPixels(scene.camera, scratchPosition.x,
+                            scratchPosition.y, scratchPosition.z, anchorPixel)) {
+                        continue;
+                    }
+                    double pixels = Math.hypot(Math.floor(anchorPixel[0]) - framebufferX,
+                            Math.floor(anchorPixel[1]) - framebufferY);
+                    if (pixels <= Math.max(diameter * HALF, ANCHOR_HIT_RADIUS_PIXELS)
+                            && pixels < nearestPixels) {
+                        nearestPixels = pixels;
                         hoveredAnchor = anchor;
                     }
                 }
@@ -1238,47 +1262,45 @@ public final class RingTool {
         }
         overlay.setLineGroups(segments, groupStart, groupColor);
         overlay.setLabels(ringLabelXyz, drawnRingLabel, drawnRingColorRgb, ringLabelLift);
-        // The anchors of every shown ring in two classes: supporting anchors as small white
-        // markers, authored anchors as larger cyan handles, the draft's selected one yellow.
-        List<SurfaceSpline> shown = new ArrayList<>();
-        for (int ring = 0; ring < confirmedRings.size(); ring++) {
-            if (ring != draftSourceRing || draft == null) {
-                shown.add(confirmedRings.get(ring));
-            }
-        }
-        if (editing != null) {
-            shown.add(editing);
-        }
-        int supporting = 0;
-        int authored = 0;
-        for (SurfaceSpline spline : shown) {
-            int splineAuthored = spline.authoredCount();
-            authored += splineAuthored;
-            supporting += spline.anchorCount - splineAuthored;
-        }
-        float[] supportingXyz = new float[COORDINATES_PER_POINT * supporting];
-        float[] authoredXyz = new float[COORDINATES_PER_POINT * authored];
-        int[] authoredColor = new int[authored];
-        int supportingCursor = 0;
-        int authoredCursor = 0;
-        for (SurfaceSpline spline : shown) {
-            for (int anchor = 0; anchor < spline.anchorCount; anchor++) {
-                if (spline.anchorAuthored[anchor]) {
-                    authoredColor[authoredCursor] = spline == draft
-                            && spline.anchorVertexId[anchor] == selectedAnchorVertexId
-                                    ? SELECTED_ANCHOR_COLOR : AUTHORED_ANCHOR_COLOR;
-                    System.arraycopy(spline.anchorXyz, COORDINATES_PER_POINT * anchor,
-                            authoredXyz, COORDINATES_PER_POINT * authoredCursor++,
-                            COORDINATES_PER_POINT);
-                } else {
-                    System.arraycopy(spline.anchorXyz, COORDINATES_PER_POINT * anchor,
-                            supportingXyz, COORDINATES_PER_POINT * supportingCursor++,
-                            COORDINATES_PER_POINT);
+        // Only the draft shows its anchors, as fixed-pixel discs: supporting smallest and white,
+        // authored larger and cyan, the selected one largest and yellow. Smaller classes go
+        // first so a larger disc wins where two overlap.
+        int anchors = draft == null ? 0 : draft.anchorCount;
+        int[] anchorVertexId = new int[anchors];
+        int[] anchorColor = new int[anchors];
+        float[] anchorDiameter = new float[anchors];
+        int cursor = 0;
+        for (float diameter : new float[] { SUPPORTING_ANCHOR_PIXELS, AUTHORED_ANCHOR_PIXELS,
+            SELECTED_ANCHOR_PIXELS }) {
+            for (int anchor = 0; anchor < anchors; anchor++) {
+                int vertexId = draft.anchorVertexId[anchor];
+                if (anchorDiameterPixels(vertexId, draft.anchorAuthored[anchor]) != diameter) {
+                    continue;
                 }
+                anchorVertexId[cursor] = vertexId;
+                anchorDiameter[cursor] = diameter;
+                anchorColor[cursor++] = diameter == SUPPORTING_ANCHOR_PIXELS
+                        ? SUPPORTING_ANCHOR_COLOR
+                        : diameter == AUTHORED_ANCHOR_PIXELS ? AUTHORED_ANCHOR_COLOR
+                                : SELECTED_ANCHOR_COLOR;
             }
         }
-        overlay.setMarkers(supportingXyz, SUPPORTING_ANCHOR_COLOR);
-        overlay.setHandleMarkers(authoredXyz, authoredColor);
+        overlay.setAnchorDiscs(anchorVertexId, anchorColor, anchorDiameter);
+    }
+
+    /**
+     * The drawn diameter of one of the draft's anchors, which is also its click radius doubled.
+     *
+     * @param vertexId mesh vertex the anchor sits on
+     * @param authored whether the user placed the anchor rather than the fit
+     * @return the disc's diameter in framebuffer pixels
+     */
+    public float anchorDiameterPixels(int vertexId, boolean authored) {
+        if (!authored) {
+            return SUPPORTING_ANCHOR_PIXELS;
+        }
+        return vertexId == selectedAnchorVertexId ? SELECTED_ANCHOR_PIXELS
+                : AUTHORED_ANCHOR_PIXELS;
     }
 
     /**

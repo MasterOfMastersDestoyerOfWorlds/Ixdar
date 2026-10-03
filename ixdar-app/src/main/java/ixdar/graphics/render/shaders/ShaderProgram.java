@@ -1381,6 +1381,8 @@ public abstract class ShaderProgram {
 
         MeshLine(MeshLineShader.class, "mesh_line.vs", "mesh_line.fs"),
 
+        MeshAnchor(MeshLineShader.class, "mesh_anchor.vs", "mesh_anchor.fs"),
+
         MeshPick(MeshShader.class, "mesh_pick.vs", "mesh_pick.fs"),
 
         MeshScalar(MeshShader.class, "mesh_scalar.vs", "mesh_scalar.fs"),

@@ -9,9 +9,9 @@ import org.joml.Vector2f;
 import ixdar.platform.Platforms;
 
 /**
- * The overlay line shader: discards line fragments on surface facing away from the camera and
- * writes each fragment the depth of the face it lies on, so it needs the framebuffer size to rebuild
- * the pixel ray.
+ * The overlay line and anchor-disc shader: discards fragments on surface facing away from the camera
+ * and writes each fragment the depth of the face it lies on, so it needs the framebuffer size to
+ * rebuild the pixel ray.
  */
 public class MeshLineShader extends MeshShader {
     public static final String VIEWPORT_SIZE = "viewportSize";
