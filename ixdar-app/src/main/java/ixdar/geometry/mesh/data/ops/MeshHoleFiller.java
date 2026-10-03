@@ -15,26 +15,16 @@ import ixdar.geometry.mesh.data.EdgeKey;
  */
 public final class MeshHoleFiller {
 
-    /** Corners of a triangle. */
     public static final int TRIANGLE_CORNERS = 3;
 
-    /**
-     * Loop length above which the triangulation is refused rather than run. The dynamic program
-     * is cubic in the loop length and quadratic in memory, so this is a guard against a pathological
-     * loop, not a policy: {@code repair_mesh}'s own cap is what normally decides.
-     */
     public static final int MAX_LOOP_LENGTH = 4096;
 
-    /** Liepa's density factor: a centroid is inserted when {@code sqrt(2)} times its distance wins. */
     private static final double REFINE_ALPHA = 1.4142135623730951;
 
-    /** Refinement rounds before the filler settles for what it has. */
     private static final int DEFAULT_REFINE_ROUNDS = 8;
 
-    /** Conjugate-gradient iterations the fairing solve runs when the caller does not say otherwise. */
     private static final int DEFAULT_FAIRING_ITERATIONS = 4000;
 
-    /** Relative residual the fairing solve stops at. */
     private static final double FAIRING_TOLERANCE = 1e-12;
 
     private static final int RELAX_PASSES = 8;

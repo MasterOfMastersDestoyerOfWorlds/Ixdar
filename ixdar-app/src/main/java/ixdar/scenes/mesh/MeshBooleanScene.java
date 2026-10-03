@@ -34,31 +34,22 @@ import ixdar.scenes.model.ModelScene;
 @SceneAnnotation(id = "mesh-boolean")
 public class MeshBooleanScene extends ModelScene {
 
-    /** Resource folder holding the DSL graphs. */
     public static final String DSL_FOLDER = "dsl";
 
-    /** Graph this scene renders: two checker-textured cubes and a boolean. */
     public static final String DSL_NAME = "cube_boolean_textured.dsl";
 
-    /** Statement in {@link #DSL_NAME} whose output is displayed. */
     public static final String BOOLEAN_STATEMENT = "blended";
 
-    /** Output port read from {@link #BOOLEAN_STATEMENT}. */
     public static final String GEOMETRY_PORT = "geometry";
 
-    /** Tag for faces carried over from the first cube. */
     public static final String TAG_FROM_A = "from_a";
 
-    /** Tag for faces carried over from the second cube. */
     public static final String TAG_FROM_B = "from_b";
 
-    /** Tag for faces the boolean created along the intersection curve. */
     public static final String TAG_INTERSECTION = "intersection";
 
-    /** Log prefix for this scene's messages. */
     public static final String LOG_PREFIX = "[mesh-boolean] ";
 
-    /** Corners per triangle, and equally coordinates per display vertex. */
     public static final int CORNERS_PER_TRIANGLE = 3;
 
     /**

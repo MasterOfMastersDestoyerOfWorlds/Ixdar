@@ -31,11 +31,6 @@ public final class MeshSkeletonExtractor {
     public static final int MAX_PARENT_DISTANCE_VOXELS = 5;
     public static final int DEFAULT_RESOLUTION = 128;
 
-    /**
-     * Branch-extraction rounds {@link #extract(ArrayMesh, int)} allows. Every rounded limb tip
-     * spends several rounds on dead ends the length filter then discards, so a mesh whose limbs
-     * end in caps needs a budget well above its true branch count.
-     */
     public static final int DEFAULT_BRANCH_BUDGET = 50;
 
     private static final int MIN_PATH_LENGTH = 3;

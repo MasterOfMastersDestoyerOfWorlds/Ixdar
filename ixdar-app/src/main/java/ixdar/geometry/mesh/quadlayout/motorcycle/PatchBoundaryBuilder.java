@@ -32,26 +32,15 @@ import ixdar.platform.Platforms;
  */
 public final class PatchBoundaryBuilder {
 
-    /** Full turn used to wrap negative within-wedge angles into [0, 2π). */
     public static final double TWO_PI = Math.PI * 2.0;
 
-    /** Tolerance for port directions lying exactly on a wedge's opening edge. */
     private static final double WEDGE_ANGLE_EPS = 1.0e-9;
     private static final int INVALID_CYCLE_SAMPLE_LIMIT = 4;
-    /**
-     * Temporary diagnostic focus: only sample-dump cycles with this corner count.
-     */
-    /** How many sampled cycles also get their full per-node port tables dumped. */
     private static final int PORT_TABLE_SAMPLE_LIMIT = 1;
     private static final int INVALID_CYCLE_HOP_DUMP_LIMIT = 24;
 
-    /** Sides of a rectangular patch. */
     private static final int SIDES = 4;
 
-    /**
-     * Relative gap between opposite parametric side lengths that still counts as a
-     * rectangle.
-     */
     private static final double RECTANGULARITY_TOLERANCE = 1.0e-6;
 
     public final MotorcycleGraph graph;

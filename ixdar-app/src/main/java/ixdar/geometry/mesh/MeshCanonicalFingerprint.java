@@ -23,7 +23,6 @@ public final class MeshCanonicalFingerprint {
 
     public static final String ALGORITHM_ID = "ixdar-mesh-fingerprint-v1";
 
-    /** Must match Python {@code quilt_mesh_fingerprint.py} (scale = 10^5). */
     public static final float POSITION_ROUND_SCALE = 1.0e5f;
 
     private static final Comparator<float[]> CORNER_ORDER = (p, q) -> {

@@ -28,13 +28,10 @@ import ixdar.platform.Platforms;
  */
 public final class SnappingCarve {
 
-    /** Corners (and edges) of a triangle. */
     public static final int CORNERS = 3;
 
-    /** Midpoint of an edge, which side of it an arc's last crossing prefers. */
     private static final double MIDPOINT = 0.5;
 
-    /** Slack allowed when a rebuilt barycentric triple is checked to sum to one. */
     private static final double BARYCENTRIC_TOLERANCE = 1.0e-9;
 
     /**

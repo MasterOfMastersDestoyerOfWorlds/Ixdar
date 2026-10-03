@@ -21,7 +21,6 @@ import ixdar.platform.Platforms;
  */
 public final class LayoutPatchMaps {
 
-    /** Largest patch regions named individually in the balance report. */
     public static final int LARGEST_REGIONS_LISTED = 5;
 
     public final ArcNetwork tmesh;

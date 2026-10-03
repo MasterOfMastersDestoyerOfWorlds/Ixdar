@@ -27,9 +27,7 @@ public class AutomationApiServer {
     public static final String CONTENT_TYPE = "Content-Type";
     public static final String APPLICATION_JSON = "application/json";
 
-    /** Leading separator required by {@code HttpServer.createContext} on every route path. */
     public static final String PATH_SEPARATOR = "/";
-    /** The only interface the automation server is ever exposed on. */
     public static final String LOOPBACK_HOST = "127.0.0.1";
     public static final int HTTP_METHOD_NOT_ALLOWED = 405;
     public static final int HTTP_INTERNAL_SERVER_ERROR = 500;

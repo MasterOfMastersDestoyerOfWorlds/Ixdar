@@ -17,7 +17,6 @@ import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
  */
 public final class SolverPermutation {
 
-    /** Placeholder off-diagonal value; the ordering reads only the pattern, not the values. */
     private static final double PATTERN_ENTRY = 1.0;
 
     private SolverPermutation() {

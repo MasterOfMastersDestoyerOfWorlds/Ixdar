@@ -19,25 +19,18 @@ import ixdar.platform.json.JsonValue;
  */
 public final class ModelCatalog {
 
-    /** Directory holding quad-layout inputs, relative to the app working directory. */
     public static final String QUADLAYOUT_DIR = "test/resources/quadlayout";
 
-    /** Suffix identifying a quad-layout input triangle mesh. */
     public static final String IN_TRI_SUFFIX = "_in_tri.off";
 
-    /** Staging subdirectory holding OBJ corpora. */
     public static final String OBJ_DIR = "obj";
 
-    /** Staging subdirectory of voyage OBJs, labelled apart from user blends. */
     public static final String VOYAGE_DIR = "voyage";
 
-    /** Extension of the OBJ corpora in the staging directory. */
     public static final String OBJ_EXTENSION = ".obj";
 
-    /** Staging subdirectory holding DSL graphs. */
     public static final String DSL_DIR = "dsl";
 
-    /** Display-name prefix of glTF scans found anywhere under the staging directory. */
     public static final String GLTF_PREFIX = "glTF";
 
     /** Directory the catalog was scanned from. */

@@ -39,7 +39,6 @@ public final class MeshSkeletonComparator {
 
     // ─── Finger identity ───
 
-    /** Known hand finger labels ordered by expected Z position (negative to positive). */
     private static final String[] FINGER_LABELS = {"pinky", "ring", "middle", "index"};
     private static final String[][] FINGER_PARAMS = {
         {"pinky_1", "pinky_2", "pinky_3", "pk_mcp_curl", "pk_pip_curl", "pk_dip_curl"},

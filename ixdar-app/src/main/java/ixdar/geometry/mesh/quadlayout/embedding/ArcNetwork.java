@@ -40,15 +40,10 @@ import ixdar.platform.Platforms;
  */
 public class ArcNetwork {
 
-    /** Absent id, for elements with no source and for unset patch references. */
     public static final int NONE = -1;
 
-    /**
-     * Divisor turning elapsed nanoseconds into the seconds the log lines report.
-     */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
-    /** First allocation of {@link #changedPatches}. */
     private static final int CHANGED_PATCH_INITIAL_CAPACITY = 16;
 
     public EmbeddedMeshTopology topology;

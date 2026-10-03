@@ -14,19 +14,14 @@ import java.util.PriorityQueue;
  */
 public final class FlipGeodesics {
 
-    /** Run until every wedge is straight rather than stopping after a fixed count. */
     public static final int UNBOUNDED_ITERATIONS = -1;
 
-    /** A wedge this close to {@code pi} counts as straight and is left alone. */
     public static final double STRAIGHT_ANGLE_EPSILON = 1e-9;
 
-    /** Wedge classification: the path already runs straight through the vertex. */
     public static final int TURN_STRAIGHT = 0;
 
-    /** Wedge classification: the shorter wedge lies on the path's left. */
     public static final int TURN_LEFT = 1;
 
-    /** Wedge classification: the shorter wedge lies on the path's right. */
     public static final int TURN_RIGHT = 2;
 
     /** Triangulation the current run mutates by flipping. */

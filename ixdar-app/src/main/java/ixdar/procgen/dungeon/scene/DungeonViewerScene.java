@@ -50,7 +50,6 @@ public class DungeonViewerScene extends Scene {
 
     private static final String DSL_FOLDER = "dsl";
     private static final String DEFAULT_DSL_RESOURCE = "dungeon_2d.dsl";
-    /** Eye height = halfHeight + radius * 0.5; cell-relative defaults below. */
     private static final float CAPSULE_HALF_HEIGHT_FRAC = 0.30f; // of cellSize
     private static final float CAPSULE_RADIUS_FRAC = 0.20f;
     private static final float JUMP_SPEED_PER_CELL = 4.0f;       // cells per second

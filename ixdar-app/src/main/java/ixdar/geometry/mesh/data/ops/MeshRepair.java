@@ -31,28 +31,20 @@ import ixdar.geometry.mesh.nodes.modifier.SetBoneWeightNode;
  */
 public final class MeshRepair {
 
-    /** Corners of a triangle. */
     public static final int TRIANGLE_CORNERS = 3;
 
-    /** Shift separating the two vertex indices of a packed undirected edge key. */
     private static final int KEY_SHIFT = 32;
 
-    /** Low-word mask of a packed undirected edge key. */
     private static final long KEY_MASK = 0xFFFFFFFFL;
 
-    /** Growth factor for the working vertex and face buffers. */
     private static final int GROWTH = 2;
 
-    /** Axis rays cast per shell, so a ray grazing an edge cannot decide containment alone. */
     private static final int CONTAINMENT_RAYS = 3;
 
-    /** Rounds of the last-resort face detachment before the split gives up. */
     private static final int DETACH_ROUNDS = 4;
 
-    /** Longest edge bucket {@link #buildEdges} sorts by hand rather than through a library sort. */
     private static final int SMALL_BUCKET = 16;
 
-    /** Corner slots a manifold edge is used by. */
     private static final int SLOTS_PER_EDGE = 2;
 
     /** Distance below which the weld fuses two vertices; not positive means no weld runs. */

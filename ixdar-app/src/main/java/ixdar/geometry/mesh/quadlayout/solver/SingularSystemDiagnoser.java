@@ -12,28 +12,20 @@ import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
  */
 public final class SingularSystemDiagnoser {
 
-    /** Inverse-iteration steps; the eigenvalue gap is ten orders, so a handful converges. */
     public static final int INVERSE_ITERATIONS = 24;
 
-    /** Fraction of the largest null-vector component an entry must reach to count as support. */
     public static final double SUPPORT_FRACTION = 1.0e-3;
 
-    /** Relative spread under which a null vector counts as constant over its support. */
     public static final double CONSTANT_TOLERANCE = 1.0e-6;
 
-    /** Mixing multiplier of the deterministic start vector, so no run picks a different one. */
     private static final long START_MIX_MULTIPLIER = 0x9E3779B97F4A7C15L;
 
-    /** Second mixing multiplier of the deterministic start vector. */
     private static final long START_MIX_SCRAMBLE = 0xFF51AFD7ED558CCDL;
 
-    /** Bits discarded when a mixed long becomes a double in {@code [0, 1)}. */
     private static final int START_MIX_SHIFT = 11;
 
-    /** Fold width of the start vector's mixing steps. */
     private static final int START_MIX_FOLD = 33;
 
-    /** Scale turning the kept mantissa bits into a double in {@code [0, 1)}. */
     private static final double MANTISSA_SCALE = 0x1.0p-53;
 
     private SingularSystemDiagnoser() {

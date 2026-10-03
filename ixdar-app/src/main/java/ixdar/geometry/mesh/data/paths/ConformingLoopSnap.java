@@ -18,7 +18,6 @@ import ixdar.geometry.mesh.data.MeshTopology;
  */
 public final class ConformingLoopSnap {
 
-    /** Vertices a gap-closing walk may settle before it gives up on that gap. */
     public static final int DEFAULT_SEARCH_BUDGET = 4096;
 
     /** Vertex ids the snapped path runs through, in travel order. */

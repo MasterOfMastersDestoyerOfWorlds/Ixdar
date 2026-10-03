@@ -47,13 +47,10 @@ public class HalfEdgeMeshRuntime {
     public static final float FAINT_EDGE_LINE_WIDTH = 1.5f;
     public static final float DEFAULT_FOV = 45f;
 
-    /** Near plane as a fraction of the camera's distance to its target. */
     public static final float NEAR_PLANE_DISTANCE_FRACTION = 0.01f;
 
-    /** Smallest near plane, for a camera sitting on its target. */
     public static final float NEAR_PLANE_FLOOR = 1e-4f;
 
-    /** Far plane margin beyond the target, as a multiple of the model's extent. */
     public static final float FAR_PLANE_EXTENT_MUL = 3f;
     public static final float EMISSIVE_STRENGTH = 0.08f;
     public static final float RIM_STRENGTH = 0.16f;
@@ -63,10 +60,8 @@ public class HalfEdgeMeshRuntime {
     public static final int UV_OFFSET = 6;
     public static final int SCALAR_ATTRIB_LOCATION = 3;
 
-    /** Descriptive name the base-color {@link Texture} carries; nothing looks it up. */
     public static final String BASE_COLOR_TEXTURE_NAME = "mesh_base_color";
 
-    /** Mesh shader uniform choosing between the base-color texture and the solid colour. */
     public static final String USE_TEXTURE_UNIFORM = "useTexture";
     public static final float OVERLAY_DEPTH_BIAS = 0.0003f;
     public static final float EDGE_LINE_WIDTH = 2.0f;
@@ -77,16 +72,12 @@ public class HalfEdgeMeshRuntime {
     public static final float TAG_LIGHTNESS = 0.55f;
     public static final int HASH_PRIME = 31;
 
-    /** Coordinates per vertex in the face pick buffer. */
     public static final int COORDINATES_PER_VERTEX = 3;
 
-    /** Highest value a face-id colour channel can carry. */
     public static final int PICK_CHANNEL_MAX = 255;
 
-    /** Bits a face-id colour channel is worth. */
     public static final int PICK_CHANNEL_BITS = 8;
 
-    /** Mask of the three colour channels a face id is split across. */
     public static final int PICK_ID_MASK = 0xFFFFFF;
 
     private final ShaderProgram meshShader;

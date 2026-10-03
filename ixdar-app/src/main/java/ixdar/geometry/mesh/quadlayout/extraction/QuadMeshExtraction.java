@@ -29,19 +29,14 @@ import ixdar.platform.Platforms;
  */
 public final class QuadMeshExtraction {
 
-    /** Iso-line directions leaving a regular grid point. */
     private static final int AXIS_DIRECTIONS = 4;
 
-    /** Grid u step of each direction, indexed by quarter turns from {@code +u}. */
     private static final int[] DIRECTION_U = { 1, 0, -1, 0 };
 
-    /** Grid v step of each direction, indexed by quarter turns from {@code +u}. */
     private static final int[] DIRECTION_V = { 0, 1, 0, -1 };
 
-    /** Chart corner to face vertex index when the face's UV image winds clockwise. */
     private static final int[] CLOCKWISE_CORNER_PERMUTATION = { 0, 2, 1 };
 
-    /** Entries of a transition triple: quarter turns, u translation, v translation. */
     private static final int TRANSITION_ENTRIES = 3;
 
     public final HalfEdgeMesh copy;

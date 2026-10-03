@@ -72,30 +72,14 @@ public final class MotorcycleGraph implements MeshNode {
             PortType.INT);
 
     public static final int MAX_TRACE_RECORDS_PER_FACE = 4;
-    /**
-     * Minimum cosine between consecutive alignment-edge directions for them to stay
-     * in one feature chain.
-     */
     static final double CHAIN_TURN_COS = Math.cos(Math.PI / 4.0);
-    /** Number of cross-field branches (a 4-RoSy field has 4). */
     private static final int BRANCH_COUNT = 4;
     private static final int DIE_SAMPLE_LIMIT = 12;
     private static final int PROGRESS_BAR_WIDTH = 30;
     private static final int PROGRESS_LOG_EVERY_EVENTS = 5000;
-    /** Hard cap on processed events so a stuck queue cannot run forever. */
-    /**
-     * Event backstop per source face. Every event either crosses a face edge or
-     * nodes a crossing, so the arrangement cannot need more than a small multiple
-     * of the face count; a flat cap starves a large mesh and truncates its traces
-     * mid-flight.
-     */
     private static final int MAX_EVENTS_PER_FACE = 8;
-    /**
-     * Wall-clock budget for the simulation loop.
-     */
     private static final long MAX_SIMULATION_NANOS = 300L * 1_000_000_000L;
 
-    /** Nanoseconds per second, for the backstop message. */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
     public final UvField uv;

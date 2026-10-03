@@ -25,10 +25,8 @@ import ixdar.scenes.model.ControlHint;
 @SceneAnnotation(id = "ring-tool")
 public class RingScene extends MeshNodeViewerScene {
 
-    /** Edge-mark label the ring overlay draws the untightened seed walk under. */
     public static final String RING_SEED_LABEL = "ring_seed";
 
-    /** Edge-mark label the ring overlay draws the tightened geodesic under. */
     public static final String RING_TIGHTENED_LABEL = "ring_tightened";
 
     /** The hover-to-preview ring tool this scene's {@code R} key starts. */

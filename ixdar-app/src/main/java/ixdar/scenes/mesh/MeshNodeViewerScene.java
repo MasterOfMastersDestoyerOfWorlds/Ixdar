@@ -76,20 +76,13 @@ public class MeshNodeViewerScene extends ModelScene {
     private static final String DEFAULT_DSL_FINAL_NODE = "";
     private static final String DEFAULT_DSL_FINAL_PORT = "geometry";
 
-    /**
-     * Overlay colours handed to edge-mark labels in sorted label order: warm amber for the first,
-     * cool cyan for the second, magenta for a third.
-     */
     private static final Color[] EDGE_MARK_COLORS = {
         Color.EDGE_MARK_AMBER, Color.EDGE_MARK_CYAN, Color.EDGE_MARK_MAGENTA };
 
-    /** Resource folder holding the DSL graphs, relative to the module directory. */
     private static final String DSL_RESOURCE_DIRECTORY = "src/main/resources/dsl";
 
-    /** Build output the resources are copied into; a graph loaded from here has a working copy. */
     private static final String DSL_BUILD_DIRECTORY = "target/classes/dsl";
 
-    /** Log prefix for this scene's timing lines. */
     private static final String TIMING_PREFIX = "[mesh-viewer]";
 
     private static final float HALF_EXTENT = 0.5f;

@@ -66,7 +66,6 @@ import ixdar.platform.gl.Platform;
 public class LwjglPlatform implements Platform {
     public static final String SRC = "src/";
 
-    /** Working-directory-relative folder the desktop platform reads texture files from. */
     public static final String RESOURCE_DIRECTORY = "src/main/resources/res/";
 
     public static final double NANOS_PER_SECOND = 1e9;

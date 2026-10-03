@@ -53,12 +53,9 @@ public class NDirectionField implements MeshNode {
             PortType.BOOLEAN);
     public static final OutputPort DOFS = new OutputPort("dofs", PortType.DOF_SYSTEM);
 
-    /**
-     * Diagonal regularizer A <- A + shift*M so the closed-surface system is SPD
-     * (paper Sec. 7).
-     */
+    // paper Sec. 7
     public static final double DEFAULT_SHIFT = 1e-8;
-    /** Fixed power-iteration count; the paper uses 20 for all examples (Sec. 7). */
+    // paper Sec. 7
     public static final int DEFAULT_POWER_ITERATIONS = 20;
 
     public static final double NANOS_PER_SECOND = 1.0e9;
@@ -66,7 +63,6 @@ public class NDirectionField implements MeshNode {
     public static final float HALF_PI = (float) (Math.PI / 2.0);
     public static final double EPS = 1e-12;
 
-    /** Shared suffix of the PCG diagnostics lines printed by the two solves. */
     public static final String PCG_CONVERGED_SUFFIX = " converged=";
 
     public HalfEdgeMesh mesh;

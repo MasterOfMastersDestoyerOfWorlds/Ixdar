@@ -24,28 +24,20 @@ import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
  */
 public final class RingCandidateExtractor {
 
-    /** Neckness a candidate must reach to be kept when the caller names no threshold. */
     public static final float DEFAULT_MINIMUM_NECKNESS = 0.6f;
 
-    /** Circularity above which a loop counts as collapsed rather than girdling. */
     public static final float DEFAULT_COLLAPSED_CIRCULARITY = 4.0f;
 
-    /** Share of a candidate's edges that may already belong to an accepted ring. */
     public static final float MERGE_OVERLAP_FRACTION = 0.5f;
 
-    /** Relative length agreement two loops need before they count as the same cut. */
     public static final float MERGE_LENGTH_TOLERANCE = 0.1f;
 
-    /** Edges a conforming cycle needs before the loop counts as girdling rather than collapsed. */
     public static final int MINIMUM_RING_EDGES = 8;
 
-    /** Vertices one rim component needs before it is worth seeding a loop from. */
     public static final int MINIMUM_COMPONENT_VERTICES = 6;
 
-    /** Coordinates per point in every packed position array here. */
     public static final int COORDINATES_PER_POINT = 3;
 
-    /** Corners of a triangle. */
     public static final int TRIANGLE_CORNERS = 3;
 
     /** Voxel-grid resolution handed to {@link MeshSkeletonExtractor}. */

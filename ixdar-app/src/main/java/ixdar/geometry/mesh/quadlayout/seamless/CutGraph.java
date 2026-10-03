@@ -20,11 +20,6 @@ import ixdar.platform.Platforms;
  */
 public class CutGraph {
 
-    /**
-     * Multiplier applied to alignment-edge weights in
-     * {@link #shortestMeshPathToCut} so singularity-to-cut routing avoids putting a
-     * feature edge on the seam unless no non-alignment path exists.
-     */
     public static final double ALIGNMENT_PATH_PENALTY = 1.0e6;
 
     /**

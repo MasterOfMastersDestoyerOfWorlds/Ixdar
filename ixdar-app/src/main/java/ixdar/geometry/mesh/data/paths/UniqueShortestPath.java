@@ -15,7 +15,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 public final class UniqueShortestPath {
 
-    /** Relative length gap below which two paths count as tied. */
     public static final double RELATIVE_EPSILON = 1e-6;
 
     private UniqueShortestPath() {

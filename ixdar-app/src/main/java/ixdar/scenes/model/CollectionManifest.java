@@ -25,25 +25,18 @@ import ixdar.platform.json.JsonValue;
  */
 public final class CollectionManifest {
 
-    /** Node type emitted for each member's mesh file. */
     public static final String LOAD_MESH = "load_mesh";
 
-    /** Node type emitted for each member's keep flag. */
     public static final String INPUT_BOOLEAN = "input_boolean";
 
-    /** Prefix distinguishing a keep flag's parameter name from anything else in the graph. */
     public static final String KEEP_PREFIX = "keep:";
 
-    /** Statement-id prefix of a keep flag, mirroring {@link #KEEP_PREFIX}. */
     public static final String KEEP_ID_PREFIX = "keep_";
 
-    /** Statement-id prefix used when a member's stem cannot start a DSL identifier. */
     public static final String MEMBER_ID_PREFIX = "member_";
 
-    /** Line separator written regardless of platform, so the bytes do not depend on the host. */
     public static final String NEWLINE = "\n";
 
-    /** Suffix of the Trellis settings sidecar beside a member's mesh file. */
     public static final String SETTINGS_SUFFIX = ".settings.json";
 
     private CollectionManifest() {

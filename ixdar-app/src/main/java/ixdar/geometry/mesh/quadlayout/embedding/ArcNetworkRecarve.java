@@ -30,7 +30,6 @@ import ixdar.platform.Platforms;
  */
 public final class ArcNetworkRecarve {
 
-    /** Nanoseconds per second, for the timing log. */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
     public final ArcNetwork source;

@@ -36,36 +36,20 @@ import ixdar.scenes.Scene;
  */
 public abstract class ModelScene extends Scene {
 
-    /**
-     * System property, common to every model scene, naming the initial model (a
-     * display-name token or a path). Takes precedence over a scene's own
-     * {@code -D<scene>.off} property.
-     */
     public static final String COMMON_MODEL_PROPERTY = "ixdar.model";
 
     public static final String DEFAULT_OFF = "test/resources/quadlayout/figure_8/botijo_in_tri.off";
 
-    /**
-     * Prefix marking a {@link ModelChoice#path} as a registered graph's display name rather
-     * than a mesh file path.
-     */
     public static final String GRAPH_PREFIX = "graph:";
 
-    /** Named view for the right-side ESC menu strip. */
     public static final String VIEW_SCENE_MENU = "SCENE_MENU";
 
-    /** Width in pixels of the right-side menu strip. */
     public static final int MENU_PANEL_WIDTH = 420;
 
-    /** Closest zoom: 1% of mesh radius. */
     public static final float ZOOM_MIN_RADIUS_FRACTION = 0.01f;
 
-    /** Farthest zoom: 5× mesh radius. */
     public static final float ZOOM_MAX_RADIUS_MUL = 5.0f;
 
-    /**
-     * Floor on the closest-zoom value so degenerate meshes never collapse to zero.
-     */
     public static final float ZOOM_MIN_FLOOR = 0.0001f;
 
     public static final float CAMERA_AZIMUTH = (float) Math.toRadians(45.0);
@@ -74,10 +58,8 @@ public abstract class ModelScene extends Scene {
     public static final float CAMERA_DISTANCE_RADIUS_MUL = 2.5f;
     public static final float CAMERA_DISTANCE_DEFAULT = 3.5f;
 
-    /** Orbit distance of {@link #focusOrbitOn}, in framed-region radii. */
     public static final float FOCUS_ORBIT_RADIUS_MUL = 3f;
 
-    /** Closest orbit approach of {@link #focusOrbitOn}, in framed-region radii. */
     public static final float FOCUS_ORBIT_MIN_MUL = 0.5f;
 
     /** ESC menu of this scene's models. */

@@ -21,16 +21,12 @@ import ixdar.platform.Platforms;
  */
 public final class LayoutResolution {
 
-    /** Corner {@code (u, v)} pairs one source face's chart is read into. */
     public static final int CORNER_UV_SIZE = 6;
 
-    /** Strip id of an arc not yet assigned to one. */
     public static final int UNASSIGNED = -1;
 
-    /** Worst-proportioned patches named individually in the sizing report. */
     public static final int WORST_PATCHES_LISTED = 5;
 
-    /** Guard against dividing by a strip whose arcs all measured zero. */
     private static final double MINIMUM_MEAN_LENGTH = 1.0e-9;
 
     public final ArcNetwork tmesh;

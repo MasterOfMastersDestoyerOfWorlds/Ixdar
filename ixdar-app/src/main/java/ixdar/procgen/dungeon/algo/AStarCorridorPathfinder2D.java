@@ -17,7 +17,6 @@ import ixdar.procgen.dungeon.values.CellType;
  */
 public final class AStarCorridorPathfinder2D {
 
-    /** Default per-cell entry costs: reusing a hallway is cheap, empty space moderate, a room interior steep. */
     public static final double DEFAULT_HALLWAY_REUSE_COST = 1.0;
     public static final double DEFAULT_EMPTY_CELL_COST = 5.0;
     public static final double DEFAULT_THROUGH_ROOM_COST = 50.0;

@@ -42,17 +42,10 @@ public class NodeGraphRuntime {
     public static final String IN_FUNCTION = "In function '";
     public static final long NANOS_PER_MILLI = 1_000_000;
 
-    /** Per-node wall time at or above which {@link #logTimings} names the node. */
     public static final long SLOW_NODE_MS = 100;
 
-    /**
-     * Id-to-class view of the generated node registry, built once at class load. Building it
-     * instantiates one probe per registered node, so it is cached rather than rebuilt per graph.
-     * Desktop-only nodes merge in through {@link #desktopRegistryMap()}'s reflective firewall.
-     */
     public static final Map<String, Class<? extends MeshNode>> REGISTRY_CLASSES;
 
-    /** Desktop-only suppliers, empty in builds where their registry class cannot load. */
     public static final Map<String, Supplier<? extends MeshNode>> DESKTOP_SUPPLIERS = desktopRegistryMap();
 
     static {

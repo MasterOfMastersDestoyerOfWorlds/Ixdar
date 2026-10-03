@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.data.MeshTopology;
 public final class PrimMinimumSpanningTree {
     public static final long EXTRA_EDGE_SEED_MIX = 0x9E3779B97F4A7C15L;
 
-    /** Default probability per non-MST edge of being kept as an extra loop (vazgriz). */
+    // vazgriz
     public static final double DEFAULT_EXTRA_EDGE_PROB = 0.125;
 
     private PrimMinimumSpanningTree() {

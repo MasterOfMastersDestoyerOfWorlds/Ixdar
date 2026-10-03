@@ -25,22 +25,11 @@ import ixdar.platform.Platforms;
  */
 public final class SeamlessDofSystem {
 
-    /** Sentinel for "this edge is not an alignment edge". */
     public static final int NOT_ALIGNMENT = -1;
-    /**
-     * {@link #alignmentEdgeIsoAxis} value when u_T is along the edge and v is the
-     * iso-coordinate to pin.
-     */
     public static final int ALIGN_AXIS_V = 1;
-    /**
-     * {@link #alignmentEdgeIsoAxis} value when v_T is along the edge and u is the
-     * iso-coordinate to pin.
-     */
     public static final int ALIGN_AXIS_U = 0;
 
-    /** Corners per triangular face. */
     private static final int CORNERS_PER_FACE = 3;
-    /** Components per chart vertex (0 = u, 1 = v). */
     private static final int COMPONENTS_PER_CHART_VERTEX = 2;
 
     /** Pre-leftover-elimination DOF count. */

@@ -22,10 +22,8 @@ import ixdar.scenes.model.ControlHint;
 
 public abstract class Scene extends Canvas3D {
 
-    /** Named view for the bottom terminal strip. */
     public static final String VIEW_SCENE_TERMINAL = "SCENE_TERMINAL";
 
-    /** Height in pixels of the bottom terminal strip. */
     public static final int TERMINAL_PANEL_HEIGHT = 300;
 
     public ShaderCodePane codePane;

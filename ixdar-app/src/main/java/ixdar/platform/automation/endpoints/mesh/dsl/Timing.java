@@ -18,7 +18,6 @@ public class Timing extends AutomationEndpoint implements AutomationRoute {
     public static final String OK = "ok";
     public static final String ERROR = "error";
 
-    /** Response key carrying a peak used-heap high-water mark in mebibytes. */
     public static final String PEAK_HEAP_MIB = "peak_heap_mib";
 
     /**

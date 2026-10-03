@@ -24,7 +24,6 @@ import ixdar.platform.Platforms;
  */
 public final class GridMapDofSystem {
 
-    /** Two patches sharing a free vertex must agree on its grid position to within this. */
     public static final double AGREEMENT_TOLERANCE = 1.0e-9;
 
     public final GlobalGridMap gridMap;
