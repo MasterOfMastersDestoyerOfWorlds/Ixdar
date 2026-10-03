@@ -61,11 +61,8 @@ public class SelectionBounds {
         if (EDGE_MARK.equals(kind)) {
             return edgeMark(scene, name);
         }
-        if (PATCH.equals(kind)) {
-            return patch(scene, name);
-        }
         String bare = kind;
-        if (tag(scene, bare) || edgeMark(scene, bare) || patch(scene, bare)) {
+        if (tag(scene, bare) || edgeMark(scene, bare)) {
             name = bare;
             return true;
         }
@@ -161,46 +158,6 @@ public class SelectionBounds {
             return false;
         }
         kind = EDGE_MARK;
-        return true;
-    }
-
-    /**
-     * Grow the bounds over the vertices of one decomposer patch, running the decomposition first
-     * when the patch overlay has not already computed it.
-     *
-     * @param scene the mesh viewer
-     * @param patchId the patch id, as decimal text
-     * @return true when a patch with that id exists
-     */
-    private boolean patch(MeshNodeViewerScene scene, String patchId) {
-        MeshTopology target = scene.getMesh();
-        if (target == null) {
-            error = NO_MESH;
-            return false;
-        }
-        int wanted;
-        try {
-            wanted = Integer.parseInt(patchId);
-        } catch (NumberFormatException notANumber) {
-            error = "patch id '" + patchId + "' is not a number";
-            return false;
-        }
-        List<Patch> patches = scene.decomposePatches();
-        Vector3f position = new Vector3f();
-        for (Patch candidate : patches) {
-            if (candidate.id() != wanted) {
-                continue;
-            }
-            for (int denseVertexIndex : candidate.vertexIndices()) {
-                target.vertexPosition(target.vertexIdAt(denseVertexIndex), position);
-                accumulate(position);
-            }
-        }
-        if (matchedVertices == 0) {
-            error = "no patch with id " + wanted + "; the decomposition holds " + patches.size() + " patches";
-            return false;
-        }
-        kind = PATCH;
         return true;
     }
 

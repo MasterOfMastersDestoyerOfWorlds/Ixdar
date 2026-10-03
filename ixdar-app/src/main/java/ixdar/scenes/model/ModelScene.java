@@ -101,6 +101,13 @@ public abstract class ModelScene extends Scene {
     /** Elevation the camera returns to when a model is framed. Scenes with a preferred view set it. */
     public float orbitElevation = CAMERA_ELEVATION;
 
+    /**
+     * Distance {@link #frameMesh} last framed the model at, the default until a model is framed;
+     * {@link #preserveOrbit} keeps the zoom as a multiple of it, so a model of another size is
+     * framed rather than viewed from the last model's distance.
+     */
+    public float framedDistance = CAMERA_DISTANCE_DEFAULT;
+
     private ModelChoice currentChoice;
 
     @Override
@@ -360,12 +367,14 @@ public abstract class ModelScene extends Scene {
         float orbitDist = target != null
                 ? Math.max(CAMERA_DISTANCE_MIN, meshRadius * CAMERA_DISTANCE_RADIUS_MUL)
                 : CAMERA_DISTANCE_DEFAULT;
+        framedDistance = orbitDist;
         orbitMouse.setOrbit(orbitAzimuth, orbitElevation, orbitDist);
     }
 
     /**
-     * Reload without yanking the camera. Saves the orbit orientation and zoom, runs {@code reload},
-     * and puts them back if it succeeded. The reload sets the target and bounds from the new mesh.
+     * Reload without yanking the camera. Saves the orbit orientation and the zoom relative to
+     * {@link #framedDistance}, runs {@code reload}, and puts them back if it succeeded, so an
+     * unzoomed view frames the new mesh whatever its size. The reload sets the target and bounds.
      *
      * @param reload work that replaces the displayed mesh, reporting whether it succeeded
      * @return whatever {@code reload} reported
@@ -376,10 +385,10 @@ public abstract class ModelScene extends Scene {
         }
         float savedAzimuth = orbitMouse.getAzimuth();
         float savedElevation = orbitMouse.getElevation();
-        float savedDistance = orbitMouse.getDistance();
+        float savedZoom = orbitMouse.getDistance() / framedDistance;
         boolean loaded = reload.getAsBoolean();
         if (loaded) {
-            orbitMouse.setOrbit(savedAzimuth, savedElevation, savedDistance);
+            orbitMouse.setOrbit(savedAzimuth, savedElevation, savedZoom * framedDistance);
         }
         return loaded;
     }
@@ -605,9 +614,26 @@ public abstract class ModelScene extends Scene {
         }
     }
 
-    /** Toggle the ESC model menu. Scenes whose escape does something first override this. */
+    /** Escape closes an open model menu, and otherwise does what the scene gives it to do. */
     public void escapePressed() {
-        sceneModelMenu.toggle();
+        if (sceneModelMenu.isVisible()) {
+            sceneModelMenu.toggle();
+        } else {
+            escapeWithMenuClosed();
+        }
+    }
+
+    /** What Escape does while the menu is closed: nothing, unless a scene gives it a job. */
+    public void escapeWithMenuClosed() {
+    }
+
+    /**
+     * The Escape row's text in the controls.
+     *
+     * @return the description
+     */
+    public String escapeDescription() {
+        return "close the menu";
     }
 
     /**
@@ -630,16 +656,15 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Populate {@link #controls}. Base adds the orbit/scroll rows; scenes call
-     * {@code super.setControls()} then add their keyed hints.
+     * Populate {@link #controls}. Base adds the orbit/scroll rows, Ctrl+I for the menu and Esc to
+     * close it; scenes call {@code super.setControls()} then add their keyed hints.
      */
     @Override
     public void setControls() {
         controls.add(new ControlHint("drag", "orbit the camera"));
         controls.add(new ControlHint("scroll", "zoom"));
-        controls.add(
-                new ControlHint(Keys.ESCAPE, "escape", "toggle the model scene menu",
-                        this::escapePressed));
+        controls.add(new ControlHint(Keys.I, true, "ctrl+I", "menu", () -> sceneModelMenu.toggle()));
+        controls.add(new ControlHint(Keys.ESCAPE, "esc", escapeDescription(), this::escapePressed));
         super.setControls();
     }
 

@@ -26,6 +26,9 @@ public class OrbitCameraKeyGuy extends KeyGuy {
     /** Scene controls dispatched on key press, or {@code null} when the scene binds none. */
     public final List<ControlHint> controls;
 
+    /** Whether Ctrl+R resets the orbit centre; a scene that binds Ctrl+R itself clears it. */
+    public boolean controlRResetsTarget = true;
+
     /**
      * Wire the key handler to the orbit controller it recentres, with no scene controls.
      *
@@ -54,7 +57,8 @@ public class OrbitCameraKeyGuy extends KeyGuy {
     }
 
     /**
-     * Handle {@code Ctrl+R} as an orbit-centre reset; otherwise dispatch to
+     * Handle {@code Ctrl+R} as an orbit-centre reset while {@link #controlRResetsTarget}
+     * holds; otherwise dispatch to
      * {@link #handleSceneKeys(int, int)}. {@code Ctrl+R} never falls through to a
      * scene's plain-{@code R} binding.
      *
@@ -67,7 +71,7 @@ public class OrbitCameraKeyGuy extends KeyGuy {
     @Override
     public void keyCallback(long window, int key, int scancode, int action, int mods) {
         if (active && action == ACTION_PRESS) {
-            if (key == Keys.R && (mods & MOD_CONTROL) != 0) {
+            if (controlRResetsTarget && key == Keys.R && (mods & MOD_CONTROL) != 0) {
                 orbitMouse.resetTarget();
                 markKeyConsumed();
             } else {

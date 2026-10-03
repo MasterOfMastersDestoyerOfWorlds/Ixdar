@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -28,29 +29,41 @@ import ixdar.geometry.mesh.data.paths.SurfacePicker;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.paths.TracedSurfacePath;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.selection.LoopThroughPointsNode;
 import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.geometry.mesh.nodes.selection.SelectRingNode;
 import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
+import ixdar.graphics.render.model.LineSet;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
+import ixdar.platform.input.Keys;
+import ixdar.scenes.model.ControlHint;
 
 /**
  * Hover to preview the ring girdling the limb under the cursor; click to turn it into a draft
  * whose authored anchors the user adds, selects, drags and deletes; Enter confirms the draft.
  * Confirming changes memory only: {@link #saveRings} alone writes the working .dsl.
  */
-public final class RingTool {
+public final class RingTool implements EditTool {
 
     public static final String STATUS_LINE =
             "ring tool: hover to preview, click to draft, click to add an anchor, drag or Delete "
                     + "one, Delete with none selected removes the ring, Ctrl+Z undo, Ctrl+Shift+Z "
-                    + "or Ctrl+Y redo, Enter confirm, Esc discard or finish, Ctrl+S save";
+                    + "or Ctrl+Y redo, Enter confirm, X discard, Ctrl+S save, Esc back to orbit";
 
     public static final String LOG_PREFIX = "[ring-tool] ";
+
+    public static final String TOOL_NAME = "ring tool";
+
+    public static final String UNSAVED_RING_PREFIX = "ring #";
+
+    public static final String REMOVE_SELECTED_ANCHOR_HINT = "remove anchor (or ring)";
+
+    public static final String REDO_HINT = "redo ring edit";
 
     public static final int PREVIEW_COLOR = 0xFF2D95;
 
@@ -220,10 +233,10 @@ public final class RingTool {
     /** Base normal the draft's plane leans toward, at the precision a save writes. */
     public final float[] draftBaseNormal = new float[COORDINATES_PER_POINT];
 
-    /** Confirmed ring the draft re-opened, which Enter replaces and Esc restores, or -1. */
+    /** Confirmed ring the draft re-opened, which Enter replaces and X restores, or -1. */
     public int draftSourceRing = -1;
 
-    /** Graph ring label the draft was converted from, shown again if Esc discards, or null. */
+    /** Graph ring label the draft was converted from, shown again if X discards, or null. */
     public String draftSourceLabel;
 
     /** Authored anchor Delete and a drag act on, as its mesh vertex, or -1 for none. */
@@ -268,6 +281,9 @@ public final class RingTool {
     /** Why the last action failed, or empty when it did not. */
     public String lastError = "";
 
+    /** Bumped whenever the rings change, so a tool built on them knows to rebuild. */
+    public int ringRevision;
+
     private final SurfacePicker picker = new SurfacePicker();
     private final GirdlingPlane girdle = new GirdlingPlane();
     private final float[] rayOrigin = new float[COORDINATES_PER_POINT];
@@ -287,7 +303,7 @@ public final class RingTool {
     private RingToolState dragBefore;
     private List<float[]> graphRingSegments = new ArrayList<>();
     private List<String> graphRingLabels = new ArrayList<>();
-    private float[] ringSegment = new float[0];
+    private LineSet ringLines = new LineSet(0);
     private int[] ringSegmentStart = { 0 };
     private float[] ringLabelXyz = new float[0];
     private float[] ringLabelLift = new float[0];
@@ -308,39 +324,67 @@ public final class RingTool {
         this.scene = ringScene;
     }
 
-    /** Start the tool, or finish it when it is already running. */
-    public void toggle() {
-        if (active) {
-            finish();
-            return;
-        }
+    @Override
+    public String toolName() {
+        return TOOL_NAME;
+    }
+
+    /** Take clicks and anchor drags from the orbit and start the hover preview. */
+    @Override
+    public void activate() {
         active = true;
         lastError = "";
+        if (scene.orbitMouse != null) {
+            scene.orbitMouse.toolClick = button -> requestClick();
+            scene.orbitMouse.toolGrab = this::grabAnchor;
+            scene.orbitMouse.toolRelease = this::releaseAnchor;
+        }
         Platforms.get().log(LOG_PREFIX + STATUS_LINE);
     }
 
     /**
-     * Leave the tool, keeping every confirmed ring, dropping an open draft and freeing the pick
-     * copy.
+     * Stop the hover preview and hand the mouse back, keeping every confirmed ring and an open
+     * draft, which the next activation edits on.
      */
-    public void finish() {
-        if (draft != null) {
-            discardDraft();
+    @Override
+    public void deactivate() {
+        if (draggingAnchor) {
+            releaseAnchor();
         }
         active = false;
+        pendingClick = false;
         previewValid = false;
         previewSpline = null;
         hoveredRing = -1;
         hoveredGraphRing = null;
+        hoveredAnchor = -1;
         previewAnchorCount = 0;
         overlayStale = true;
-        HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
-        if (runtime != null) {
-            runtime.uploadFacePickBuffer(null);
+        if (scene.orbitMouse != null) {
+            scene.orbitMouse.toolClick = null;
+            scene.orbitMouse.toolGrab = null;
+            scene.orbitMouse.toolRelease = null;
         }
-        preparedSurface = null;
-        Platforms.get().log(LOG_PREFIX + "finished with " + confirmedRings.size()
-                + " confirmed ring(s), " + unsavedRingCount() + " unsaved");
+        Platforms.get().log(LOG_PREFIX + "inactive with " + confirmedRings.size()
+                + " confirmed ring(s), " + unsavedRingCount() + " unsaved"
+                + (draft == null ? "" : ", the draft kept"));
+    }
+
+    @Override
+    public void addControls(List<ControlHint> controls) {
+        controls.add(new ControlHint("click", "draft ring / add or pick anchor"));
+        controls.add(new ControlHint("drag anchor", "move it"));
+        controls.add(new ControlHint(Keys.X, "X", "discard draft", () -> discardDraft()));
+        controls.add(new ControlHint(Keys.DELETE, "del", REMOVE_SELECTED_ANCHOR_HINT,
+                () -> deletePressed()));
+        controls.add(new ControlHint(Keys.BACKSPACE, "backspace", REMOVE_SELECTED_ANCHOR_HINT,
+                () -> deletePressed()));
+        controls.add(new ControlHint(Keys.Z, true, true, "ctrl+shift+Z", REDO_HINT,
+                () -> redo()));
+        controls.add(new ControlHint(Keys.Z, true, "ctrl+Z", "undo ring edit", () -> undo()));
+        controls.add(new ControlHint(Keys.Y, true, "ctrl+Y", REDO_HINT, () -> redo()));
+        controls.add(new ControlHint(Keys.ENTER, "enter", "confirm draft",
+                () -> confirmDraft()));
     }
 
     /**
@@ -412,6 +456,32 @@ public final class RingTool {
     public void invalidateRings() {
         ringsStale = true;
         overlayStale = true;
+        ringRevision++;
+    }
+
+    /**
+     * The rings as they stand, each as its edge mask: the graph's unconverted rings no confirmed
+     * ring stands for, then every confirmed ring not deleted, an open draft's original included.
+     *
+     * @return masks by ring label: the graph or statement label, or {@code ring #N} by drawn
+     *         number for a ring only this session holds
+     */
+    public Map<String, boolean[]> liveRingMarks() {
+        Map<String, boolean[]> marks = new LinkedHashMap<>();
+        for (String label : unownedGraphRingLabels()) {
+            if (!convertedGraphLabels.contains(label)) {
+                marks.put(label, scene.ringMarksByLabel.get(label));
+            }
+        }
+        for (int ring = 0; ring < confirmedRings.size(); ring++) {
+            if (confirmedRingDeleted.get(ring)) {
+                continue;
+            }
+            String label = confirmedSourceLabel.get(ring);
+            marks.put(label != null ? label : UNSAVED_RING_PREFIX + drawnRingNumber(ring),
+                    confirmedRings.get(ring).markedByEdgeId);
+        }
+        return marks;
     }
 
     /**
@@ -945,17 +1015,6 @@ public final class RingTool {
         recordEdit("draft dropped", stateBefore);
         lastRow = "draft discarded";
         invalidateRings();
-    }
-
-    /**
-     * Esc: discard the draft when there is one, otherwise leave the tool keeping every ring.
-     */
-    public void escape() {
-        if (draft != null) {
-            discardDraft();
-            return;
-        }
-        finish();
     }
 
     private void clearDraft() {
@@ -1587,7 +1646,17 @@ public final class RingTool {
             SurfaceSpline traced = SurfaceSpline.of(anchored.tracer);
             if (!spline) {
                 int[] loop = orderedLoop(surface, entry.getValue());
-                traced.polyline = positionsOf(loop);
+                int[] noEdge = new int[loop.length];
+                double[] noFraction = new double[loop.length];
+                Arrays.fill(noEdge, -1);
+                Arrays.fill(noFraction, -1.0);
+                float[] loopXyz = positionsOf(loop);
+                double[] loopPositions = new double[loopXyz.length];
+                for (int coordinate = 0; coordinate < loopXyz.length; coordinate++) {
+                    loopPositions[coordinate] = loopXyz[coordinate];
+                }
+                traced.followPath(surface, new TracedSurfacePath(loopPositions, loop, noEdge,
+                        noFraction, loop.length, true));
                 traced.markedByEdgeId = entry.getValue();
                 traced.markedEdgeCount = loop.length;
             }
@@ -1685,16 +1754,19 @@ public final class RingTool {
         int rings = drawnRingColorRgb.length;
         boolean drawingEditing = editing != null
                 && editing.polyline.length >= 2 * COORDINATES_PER_POINT;
-        float[] edited = drawingEditing ? closedPolylineSegments(editing.polyline) : new float[0];
-        float[] segments = new float[ringSegment.length + edited.length];
-        System.arraycopy(ringSegment, 0, segments, 0, ringSegment.length);
-        System.arraycopy(edited, 0, segments, ringSegment.length, edited.length);
+        LineSet edited = drawingEditing ? splineLines(scene.halfEdgeSurface(), editing)
+                : new LineSet(0);
+        LineSet lines = new LineSet(
+                (ringLines.vertexCount() + edited.vertexCount()) / 2);
+        System.arraycopy(ringLines.vertices, 0, lines.vertices, 0, ringLines.cursor);
+        System.arraycopy(edited.vertices, 0, lines.vertices, ringLines.cursor, edited.cursor);
+        lines.cursor = ringLines.cursor + edited.cursor;
         int[] groupStart = new int[rings + (drawingEditing ? 2 : 1)];
         System.arraycopy(ringSegmentStart, 0, groupStart, 0, rings + 1);
         int[] groupColor = new int[rings + (drawingEditing ? 1 : 0)];
         System.arraycopy(drawnRingColorRgb, 0, groupColor, 0, rings);
         if (drawingEditing) {
-            groupStart[rings + 1] = groupStart[rings] + edited.length / SEGMENT_FLOATS;
+            groupStart[rings + 1] = groupStart[rings] + edited.vertexCount() / 2;
             groupColor[rings] = PREVIEW_COLOR;
         }
         if (hoveredRing >= 0 && drawnRingNumber(hoveredRing) < rings) {
@@ -1707,7 +1779,7 @@ public final class RingTool {
             }
             graphIndex++;
         }
-        overlay.setLineGroups(segments, groupStart, groupColor);
+        overlay.setLineGroups(lines, groupStart, groupColor);
         overlay.setLabels(ringLabelXyz, drawnRingLabel, drawnRingColorRgb, ringLabelLift);
         // Only the draft shows its anchors, as fixed-pixel discs: supporting smallest and white,
         // authored larger and cyan, the selected one largest and yellow. Smaller classes go
@@ -1758,6 +1830,7 @@ public final class RingTool {
         ringsStale = false;
         MeshTopology surface = scene.halfEdgeSurface();
         List<float[]> perRing = new ArrayList<>();
+        List<LineSet> perRingLines = new ArrayList<>();
         Map<String, boolean[]> graphMarks = scene.ringMarksByLabel;
         graphRingSegments = new ArrayList<>();
         graphRingLabels = new ArrayList<>();
@@ -1771,6 +1844,15 @@ public final class RingTool {
                 float[] ringSegments = converted ? new float[0]
                         : markedEdgeSegments(surface, entry.getValue());
                 perRing.add(ringSegments);
+                LineSet edges = new LineSet(ringSegments.length / SEGMENT_FLOATS);
+                boolean[] marks = entry.getValue();
+                for (int index = 0; !converted && index < surface.edgeCount(); index++) {
+                    int edgeId = surface.edgeIdAt(index);
+                    if (edgeId < marks.length && marks[edgeId]) {
+                        edges.edge(surface, edgeId);
+                    }
+                }
+                perRingLines.add(edges);
                 if (!converted) {
                     graphRingSegments.add(ringSegments);
                     graphRingLabels.add(entry.getKey());
@@ -1778,27 +1860,30 @@ public final class RingTool {
             }
         }
         for (int ring = 0; ring < confirmedRings.size(); ring++) {
-            perRing.add(ring == draftSourceRing && draft != null || confirmedRingDeleted.get(ring)
-                    ? new float[0]
-                    : closedPolylineSegments(confirmedRings.get(ring).polyline));
+            boolean hidden = ring == draftSourceRing && draft != null
+                    || confirmedRingDeleted.get(ring);
+            SurfaceSpline spline = confirmedRings.get(ring);
+            perRing.add(hidden ? new float[0] : closedPolylineSegments(spline.surfacePolyline));
+            perRingLines.add(hidden ? new LineSet(0) : splineLines(surface, spline));
         }
         drawnRingLabel = ringNumberTexts(
                 surface == null ? List.of() : unownedLabels, confirmedRings.size());
         int total = 0;
-        for (float[] ringSegments : perRing) {
-            total += ringSegments.length;
+        for (LineSet lines : perRingLines) {
+            total += lines.vertexCount() / 2;
         }
-        ringSegment = new float[total];
+        ringLines = new LineSet(total);
         ringSegmentStart = new int[perRing.size() + 1];
         drawnRingColorRgb = new int[perRing.size()];
         ringLabelXyz = new float[COORDINATES_PER_POINT * perRing.size()];
         ringLabelLift = new float[perRing.size()];
-        int cursor = 0;
         for (int ring = 0; ring < perRing.size(); ring++) {
             float[] ringSegments = perRing.get(ring);
-            System.arraycopy(ringSegments, 0, ringSegment, cursor, ringSegments.length);
-            cursor += ringSegments.length;
-            ringSegmentStart[ring + 1] = cursor / SEGMENT_FLOATS;
+            LineSet lines = perRingLines.get(ring);
+            System.arraycopy(lines.vertices, 0, ringLines.vertices, ringLines.cursor,
+                    lines.cursor);
+            ringLines.cursor += lines.cursor;
+            ringSegmentStart[ring + 1] = ringLines.vertexCount() / 2;
             drawnRingColorRgb[ring] = RING_COLORS[ring % RING_COLORS.length];
             if (ringSegments.length == 0 && ring < drawnRingLabel.length) {
                 drawnRingLabel[ring] = "";
@@ -1868,6 +1953,27 @@ public final class RingTool {
                     target + COORDINATES_PER_POINT, COORDINATES_PER_POINT);
         }
         return segments;
+    }
+
+    /**
+     * A spline's loop as overlay lines on the surface: each span between consecutive points runs
+     * over the face both points bound and carries that face's normal, so the far side drops out.
+     *
+     * @param mesh   the surface the spline's vertex and edge ids index, or {@code null}
+     * @param spline the spline whose {@link SurfaceSpline#surfacePolyline} is drawn
+     * @return the closed loop's segments, empty without a surface
+     */
+    public static LineSet splineLines(MeshTopology mesh, SurfaceSpline spline) {
+        int points = spline.surfacePolyline.length / COORDINATES_PER_POINT;
+        if (mesh == null || points < 2) {
+            return new LineSet(0);
+        }
+        LineSet lines = new LineSet(points - 1);
+        for (int point = 0; point + 1 < points; point++) {
+            lines.pathStep(mesh, spline.surfacePolyline, spline.pointVertexId,
+                    spline.pointEdgeId, point, point + 1);
+        }
+        return lines;
     }
 
     /**

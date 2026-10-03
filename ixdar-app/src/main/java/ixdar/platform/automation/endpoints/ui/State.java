@@ -43,6 +43,7 @@ import ixdar.scenes.trade.TradeScene;
 public class State extends AutomationEndpoint implements AutomationRoute {
     public static final String TRADE = "trade";
     public static final String ACTIVE = "active";
+    public static final String ACTIVE_TOOL = "activeTool";
     public static final String XPX = "xPx";
     public static final String YPX = "yPx";
     public static final String EDGECOUNT = "edgeCount";
@@ -122,7 +123,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             trade.addProperty(ACTIVE, true);
             if (TradeScene.instance.activeTool != null) {
                 trade.addProperty(
-                        "activeTool",
+                        ACTIVE_TOOL,
                         TradeScene.instance.activeTool.displayName());
             }
             if (TradeScene.instance.activeTool instanceof RoutePlanningTool) {
@@ -300,6 +301,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             RingTool tool = toolScene.ringTool;
             JsonObject toolJson = new JsonObject();
             toolJson.addProperty(ACTIVE, tool.active);
+            toolJson.addProperty(ACTIVE_TOOL, toolScene.activeTool.toolName());
             toolJson.addProperty("previewValid", tool.previewValid);
             toolJson.addProperty("previewAnchorCount", tool.previewAnchorCount);
             toolJson.addProperty("previewGirdleEdgeCount", tool.previewGirdleEdgeCount);

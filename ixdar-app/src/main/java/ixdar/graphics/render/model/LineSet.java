@@ -91,6 +91,55 @@ public final class LineSet {
     }
 
     /**
+     * Append the step between two consecutive points of a path traced across the surface, each on
+     * a vertex or an edge, carrying the faces both points bound: two when the step runs along an
+     * edge, else the one face it crosses. Two vertices take {@link #vertexStep}.
+     *
+     * @param mesh       mesh the path walks
+     * @param packedXyz  packed xyz of the path's points, each on the surface
+     * @param vertexId   vertex id per point, or -1 where the point is on an edge
+     * @param edgeId     edge id per point, or -1 where the point is on a vertex
+     * @param fromPoint  index of the point the step leaves
+     * @param toPoint    index of the point the step reaches
+     */
+    public void pathStep(MeshTopology mesh, float[] packedXyz, int[] vertexId, int[] edgeId,
+            int fromPoint, int toPoint) {
+        int fromVertex = vertexId[fromPoint];
+        int toVertex = vertexId[toPoint];
+        if (fromVertex >= 0 && toVertex >= 0) {
+            vertexStep(mesh, fromVertex, toVertex);
+            return;
+        }
+        start.set(packedXyz[3 * fromPoint], packedXyz[3 * fromPoint + 1],
+                packedXyz[3 * fromPoint + 2]);
+        end.set(packedXyz[3 * toPoint], packedXyz[3 * toPoint + 1], packedXyz[3 * toPoint + 2]);
+        int fromFaces = fromVertex >= 0 ? mesh.vertexFaceCount(fromVertex) : 2;
+        int toFaces = toVertex >= 0 ? mesh.vertexFaceCount(toVertex) : 2;
+        int firstFace = MeshTopology.NONE;
+        int secondFace = MeshTopology.NONE;
+        for (int fromSlot = 0; fromSlot < fromFaces; fromSlot++) {
+            int faceId = fromVertex >= 0 ? mesh.vertexFaceAt(fromVertex, fromSlot)
+                    : mesh.edgeFace(edgeId[fromPoint], fromSlot);
+            for (int toSlot = 0; faceId != MeshTopology.NONE && toSlot < toFaces; toSlot++) {
+                int other = toVertex >= 0 ? mesh.vertexFaceAt(toVertex, toSlot)
+                        : mesh.edgeFace(edgeId[toPoint], toSlot);
+                if (other == faceId && faceId != firstFace) {
+                    secondFace = firstFace == MeshTopology.NONE ? secondFace : faceId;
+                    firstFace = firstFace == MeshTopology.NONE ? faceId : firstFace;
+                }
+            }
+        }
+        if (firstFace == MeshTopology.NONE) {
+            normalA.zero();
+            normalB.zero();
+        } else {
+            mesh.faceNormal(firstFace, normalA);
+            mesh.faceNormal(secondFace == MeshTopology.NONE ? firstFace : secondFace, normalB);
+        }
+        segment(start, end, normalA, normalB);
+    }
+
+    /**
      * Append one segment with the normals of the surface it lies on.
      *
      * @param segmentStart first endpoint

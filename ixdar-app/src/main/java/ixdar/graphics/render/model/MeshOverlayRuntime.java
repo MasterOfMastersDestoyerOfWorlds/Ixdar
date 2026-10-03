@@ -438,28 +438,19 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
      * Upload one line buffer whose groups each draw in their own colour, so a set of curves over
      * the surface is one upload and one draw per colour.
      *
-     * @param segmentEndpoints every group's segments end to end, six floats per segment as two
-     *                         packed xyz endpoints
+     * @param lines             every group's segments end to end, each already carrying the
+     *                          normals of the faces it lies on
      * @param groupSegmentStart first segment of each group plus a closing total, so it is one
      *                          longer than the group count
-     * @param groupColorRgb    one {@code 0x00RRGGBB} colour per group
+     * @param groupColorRgb     one {@code 0x00RRGGBB} colour per group
      */
-    public void setLineGroups(float[] segmentEndpoints, int[] groupSegmentStart,
-            int[] groupColorRgb) {
-        if (segmentEndpoints == null || groupSegmentStart == null
-                || groupSegmentStart.length < 2) {
-            clearLineGroups();
-            return;
-        }
-        SurfaceFaceLocator locator = surfaceFaceLocator();
-        if (locator == null) {
+    public void setLineGroups(LineSet lines, int[] groupSegmentStart, int[] groupColorRgb) {
+        if (lines == null || groupSegmentStart == null || groupSegmentStart.length < 2) {
             clearLineGroups();
             return;
         }
         lineGroupSegmentStart = groupSegmentStart;
         lineGroupColorRgb = groupColorRgb == null ? new int[0] : groupColorRgb;
-        LineSet lines = new LineSet(segmentEndpoints.length / (2 * TriangleGeometry.COMPONENTS));
-        locator.appendSegments(segmentEndpoints, lines);
         lineGroups.upload(LineSet.LAYOUT, lines.vertices, null);
     }
 

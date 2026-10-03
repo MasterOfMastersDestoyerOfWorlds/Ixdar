@@ -1,41 +1,27 @@
 package ixdar.scenes.mesh;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-
-import java.util.ArrayList;
-
-import java.nio.file.Path;
-
-import java.util.HashSet;
-
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import org.joml.Vector3f;
 
-import java.util.Set;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
-import org.joml.Vector4f;
-
+import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.ops.MeshRepairReport;
-import ixdar.geometry.mesh.data.Patch;
-
-import ixdar.geometry.mesh.data.MorseSmaleDecomposer;
-
-import ixdar.geometry.mesh.data.MorseSmaleComplex;
-import ixdar.geometry.mesh.data.PatchColors;
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.load.ObjMeshParser;
+import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
@@ -46,6 +32,8 @@ import ixdar.gui.ui.menu.MenuBox;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
+import ixdar.platform.input.Keys;
+import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelCatalog;
@@ -118,7 +106,6 @@ public class MeshNodeViewerScene extends ModelScene {
     private String currentModelDisplayName = "(initial)";
 
     private SemanticPatchDecomposer.DecompositionDiagnostics cachedDiagnostics;
-    private String cachedDiagnosticsKey;
     private boolean patchOverlayEnabled = false;
     private HalfEdgeMeshRuntime.ShaderMode shaderMode = HalfEdgeMeshRuntime.ShaderMode.LAMBERT;
     private DecomposerKind activeDecomposer = DecomposerKind.SEMANTIC;
@@ -269,7 +256,8 @@ public class MeshNodeViewerScene extends ModelScene {
     public void initInput() {
         MenuBox.menuVisible = false;
         orbitMouse = new OrbitMouseTrap(camera, this);
-        keys = new MeshViewerKeyGuy(this, orbitMouse, camera, this);
+        keyGuy = new OrbitCameraKeyGuy(orbitMouse, camera, this, controls);
+        keys = keyGuy;
         orbitMouse.setTarget(meshCenter);
         orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE_DEFAULT);
         mouse = orbitMouse;
@@ -868,20 +856,6 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Patches of the current mesh, decomposing it first when nothing has yet asked for one. The
-     * decomposition can take seconds and replaces a half-edge mesh with its array form.
-     *
-     * @return the decomposed patches, empty when no mesh is loaded
-     */
-    public List<Patch> decomposePatches() {
-        ensureDecomposition();
-        if (cachedDiagnostics == null) {
-            return List.of();
-        }
-        return cachedDiagnostics.decomposition().patches();
-    }
-
-    /**
      * The surface an edge-indexed overlay walks: the graph's own mesh, or a cached half-edge copy
      * when a mesh file loaded as an {@link ArrayMesh} with no edge adjacency.
      *
@@ -983,14 +957,9 @@ public class MeshNodeViewerScene extends ModelScene {
 
     @Override
     public void setControls() {
-        controls.add(new ControlHint("[", "previous model", this::prevModel));
-        controls.add(new ControlHint("]", "next model", this::nextModel));
-        controls.add(new ControlHint("K", "keep / reject collection member",
-                this::toggleKeepCurrentMember));
-        controls.add(new ControlHint("Z", "toggle wireframe", this::toggleMeshWireframe));
-        controls.add(new ControlHint("P", "toggle patch overlay", this::togglePatchOverlay));
-        controls.add(new ControlHint("Shift+P", "cycle shader mode", this::toggleShaderMode));
-        controls.add(new ControlHint("D", "next patch decomposer", this::toggleDecomposer));
+        controls.add(new ControlHint(Keys.LEFT_BRACKET, "[", "previous model", this::prevModel));
+        controls.add(new ControlHint(Keys.RIGHT_BRACKET, "]", "next model", this::nextModel));
+        controls.add(new ControlHint(Keys.Z, "Z", "toggle wireframe", this::toggleMeshWireframe));
         super.setControls();
     }
 
@@ -1034,7 +1003,6 @@ public class MeshNodeViewerScene extends ModelScene {
         }
         // Invalidate any cached decomposition — the mesh is changing.
         cachedDiagnostics = null;
-        cachedDiagnosticsKey = null;
         patchOverlayEnabled = false;
         currentModelKey = entry.path;
         currentModelDisplayName = entry.displayName;
@@ -1166,271 +1134,6 @@ public class MeshNodeViewerScene extends ModelScene {
         return meshRuntime != null && meshRuntime.hasTexturedDraw();
     }
 
-    /**
-     * Toggle the patch overlay. When turning on, lazily compute or reuse the cached
-     * decomposition, install patch tags / feature edges / scalar fields. When
-     * turning off, clear all overlay GL state.
-     */
-    public void togglePatchOverlay() {
-        if (meshRuntime == null || mesh == null) {
-            Platforms.get().log("[mesh-viewer] patch overlay: no mesh loaded");
-            return;
-        }
-        patchOverlayEnabled = !patchOverlayEnabled;
-        if (!patchOverlayEnabled) {
-            meshRuntime.clearTags();
-            meshRuntime.clearFeatureEdgeOverlay();
-            meshRuntime.clearPerVertexScalar();
-            Platforms.get().log("[mesh-viewer] patches: OFF");
-            logState();
-            return;
-        }
-        ensureDecomposition();
-        if (cachedDiagnostics == null) {
-            Platforms.get().log("[mesh-viewer] patch overlay: decomposition unavailable");
-            patchOverlayEnabled = false;
-            logState();
-            return;
-        }
-        applyCurrentOverlay();
-        applyFeatureEdgeOverlay();
-        applyScalarOverlay();
-        Platforms.get().log("[mesh-viewer] patches: ON (" + cachedDiagnostics.decomposition().patches().size()
-                + " patches, mode=" + shaderMode + ")");
-        logState();
-    }
-
-    /**
-     * PATCH-26: cycle the active decomposer. Invalidates the cache so the next
-     * overlay-on triggers a recompute via the new decomposer; if patches are
-     * already on, recompute eagerly so the user sees the swap immediately.
-     */
-    public void toggleDecomposer() {
-        DecomposerKind[] cycle = DecomposerKind.values();
-        activeDecomposer = cycle[(activeDecomposer.ordinal() + 1) % cycle.length];
-        cachedDiagnostics = null;
-        cachedDiagnosticsKey = null;
-        Platforms.get().log("[mesh-viewer] decomposer: " + activeDecomposer);
-        if (patchOverlayEnabled && meshRuntime != null && mesh != null) {
-            ensureDecomposition();
-            applyCurrentOverlay();
-            applyFeatureEdgeOverlay();
-            applyScalarOverlay();
-        }
-        logState();
-    }
-
-    /**
-     * Cycle through {@link HalfEdgeMeshRuntime.ShaderMode}, push the new mode to
-     * the runtime, and re-derive any overlay state that depends on the active mode.
-     */
-    public void toggleShaderMode() {
-        HalfEdgeMeshRuntime.ShaderMode[] cycle = HalfEdgeMeshRuntime.ShaderMode.values();
-        shaderMode = cycle[(shaderMode.ordinal() + 1) % cycle.length];
-        if (meshRuntime != null) {
-            meshRuntime.setShaderMode(shaderMode);
-        }
-        if (patchOverlayEnabled && cachedDiagnostics != null) {
-            applyCurrentOverlay(); // rebuild tag colours for new mode
-            applyFeatureEdgeOverlay(); // (re)install overlay edges if needed
-            applyScalarOverlay(); // upload coonsError when entering SCALAR mode
-        }
-        Platforms.get().log("[mesh-viewer] shader mode: " + shaderMode);
-        logState();
-    }
-
-    /**
-     * Feed the per-vertex Coons reconstruction error (PATCH-16) into the SCALAR
-     * shader pipeline (PATCH-15) when the user cycles into SCALAR mode. Ramp is
-     * scaled so the pass/fail threshold reads as the middle of the thermal gradient
-     * — dark ≤ threshold (Coons-fit OK), bright > threshold (Coons-fit failing).
-     */
-    private void applyScalarOverlay() {
-        if (meshRuntime == null || cachedDiagnostics == null)
-            return;
-        if (shaderMode != HalfEdgeMeshRuntime.ShaderMode.SCALAR) {
-            meshRuntime.clearPerVertexScalar();
-            return;
-        }
-        float[] errors = cachedDiagnostics.coonsError();
-        if (errors == null || errors.length == 0) {
-            meshRuntime.clearPerVertexScalar();
-            return;
-        }
-        float rampMax = Math.max(ERROR_RAMP_SCALE * cachedDiagnostics.coonsErrorThreshold(), MIN_RAMP_VALUE);
-        meshRuntime.setPerVertexScalar(errors, 0f, rampMax);
-    }
-
-    /**
-     * Compute the feature-edge categories appropriate for the current shader mode
-     * and push them to the runtime.
-     */
-    private void applyFeatureEdgeOverlay() {
-        if (meshRuntime == null || cachedDiagnostics == null)
-            return;
-        if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.STAGES) {
-            Set<Long> dih = cachedDiagnostics.dihedralFeatureEdges();
-            Set<Long> prin = cachedDiagnostics.principalFeatureEdges();
-            Set<Long> crest = cachedDiagnostics.crestEdges();
-            Set<Long> saddle = cachedDiagnostics.saddleSeparatorEdges();
-
-            Set<Long> all = new HashSet<>(dih);
-            all.addAll(prin);
-            all.addAll(crest);
-            all.addAll(saddle);
-
-            List<Long> dihOnly = new ArrayList<>();
-            List<Long> prinOnly = new ArrayList<>();
-            List<Long> crestOnly = new ArrayList<>();
-            List<Long> multi = new ArrayList<>();
-            for (long key : all) {
-                boolean d = dih.contains(key);
-                boolean p = prin.contains(key);
-                boolean c = crest.contains(key);
-                boolean s = saddle.contains(key);
-                int sourceCount = (d ? 1 : 0) + (p ? 1 : 0) + (c ? 1 : 0) + (s ? 1 : 0);
-                if (sourceCount >= 2)
-                    multi.add(key);
-                else if (d)
-                    dihOnly.add(key);
-                else if (p)
-                    prinOnly.add(key);
-                else if (c)
-                    crestOnly.add(key);
-                // saddle-only not drawn here; saddle drawn as a last pass below for emphasis.
-            }
-            List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new ArrayList<>();
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.FEATURE_EDGE_DIHEDRAL, dihOnly));
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.FEATURE_EDGE_PRINCIPAL, prinOnly));
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.FEATURE_EDGE_CREST, crestOnly));
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.WHITE, multi));
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.FEATURE_EDGE_SADDLE, saddle));
-            meshRuntime.setFeatureEdgeOverlay(cats);
-        } else if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.CREST_VS_BOUNDARY) {
-            Set<Long> crest = cachedDiagnostics.crestEdges();
-            Set<Long> boundary = cachedDiagnostics.patchBoundaryEdges();
-            List<Long> boundaryOnly = new ArrayList<>();
-            List<Long> crestIgnored = new ArrayList<>();
-            List<Long> aligned = new ArrayList<>();
-            Set<Long> union = new HashSet<>(crest);
-            union.addAll(boundary);
-            for (long key : union) {
-                boolean c = crest.contains(key);
-                boolean b = boundary.contains(key);
-                if (c && b)
-                    aligned.add(key);
-                else if (b)
-                    boundaryOnly.add(key);
-                else if (c)
-                    crestIgnored.add(key);
-            }
-            List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new ArrayList<>();
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.BLACK, boundaryOnly));
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.FEATURE_EDGE_CREST, crestIgnored));
-            cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.FEATURE_EDGE_CREST_HONORED, aligned));
-            meshRuntime.setFeatureEdgeOverlay(cats);
-        } else if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.MSC) {
-            MorseSmaleComplex.Result msc = cachedDiagnostics.morseSmale();
-            if (msc != null) {
-                // Convert each MSC arc polyline into mesh edges; push as
-                // a single black-colored category. Critical-point dots
-                // are CPU-only for now (live-viewer point sprites are
-                // future work — the arcs alone already give the topology
-                // structure on screen).
-                List<Long> arcEdges = new ArrayList<>();
-                for (var arc : msc.arcs()) {
-                    int[] verts = arc.vertices();
-                    for (int i = 0; i + 1 < verts.length; i++) {
-                        int u = verts[i];
-                        int v = verts[i + 1];
-                        long key = EdgeKey.undirected(u, v);
-                        arcEdges.add(key);
-                    }
-                }
-                List<HalfEdgeMeshRuntime.FeatureEdgeCategory> cats = new ArrayList<>();
-                cats.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.BLACK, arcEdges));
-                meshRuntime.setFeatureEdgeOverlay(cats);
-            } else {
-                meshRuntime.clearFeatureEdgeOverlay();
-            }
-        } else {
-            meshRuntime.clearFeatureEdgeOverlay();
-        }
-    }
-
-    private void ensureDecomposition() {
-        if (mesh == null)
-            return;
-        String key = currentModelKey != null ? currentModelKey : DSL_FOLDER;
-        if (cachedDiagnostics != null && key.equals(cachedDiagnosticsKey))
-            return;
-        // TEMPORARY (MESH-49): until the node ecosystem canonicalizes output
-        // to ArrayMesh, convert on the fly here so patch overlay works on
-        // DSL-produced HalfEdgeMesh too. Once MESH-49 lands we can drop this
-        // conversion and require the upstream mesh to already be ArrayMesh.
-        ArrayMesh am = (mesh instanceof ArrayMesh existing)
-                ? existing
-                : SemanticPatchDecomposer.toArrayMesh(mesh);
-        if (!(mesh instanceof ArrayMesh)) {
-            // Re-upload the converted ArrayMesh so the runtime's EBO index
-            // space matches the Patch.vertexIndices we're about to install as
-            // tags. Without this, a HalfEdgeMesh's own compileSurfaceData
-            // uses a different vertex ordering and the tag masks would colour
-            // the wrong triangles.
-            mesh = am;
-            meshRuntime.upload(am);
-            Platforms.get().log("[mesh-viewer] converted HalfEdgeMesh\u2192ArrayMesh for patch overlay (MESH-49)");
-        }
-        Platforms.get().log("[mesh-viewer] decomposing " + key
-                + " (" + am.vertexCount() + " verts)...");
-        long start = System.currentTimeMillis();
-        cachedDiagnostics = (activeDecomposer == DecomposerKind.MORSE_SMALE)
-                ? MorseSmaleDecomposer.decomposeWithDiagnostics(am, DECOMPOSE_SAMPLE_COUNT)
-                : SemanticPatchDecomposer.decomposeWithDiagnostics(am, DECOMPOSE_SAMPLE_COUNT);
-        cachedDiagnosticsKey = key;
-        long elapsed = System.currentTimeMillis() - start;
-        Platforms.get().log("[mesh-viewer] decomposed in " + elapsed + "ms: "
-                + cachedDiagnostics.decomposition().patches().size() + " patches"
-                + " (crest=" + cachedDiagnostics.crestEdges().size()
-                + " saddle=" + cachedDiagnostics.saddleSeparatorEdges().size()
-                + " boundary=" + cachedDiagnostics.patchBoundaryEdges().size() + ")");
-    }
-
-    private void applyCurrentOverlay() {
-        if (meshRuntime == null || cachedDiagnostics == null)
-            return;
-        int vertexCount = mesh.vertexCount();
-        Map<String, boolean[]> tags = new HashMap<>();
-        meshRuntime.clearTagColors();
-        for (Patch p : cachedDiagnostics.decomposition().patches()) {
-            String name = "patch_" + p.id();
-            boolean[] mask = new boolean[vertexCount];
-            for (int v : p.vertexIndices()) {
-                if (v >= 0 && v < vertexCount)
-                    mask[v] = true;
-            }
-            tags.put(name, mask);
-            Vector4f color;
-            if (shaderMode == HalfEdgeMeshRuntime.ShaderMode.FLAT) {
-                int rgb = PatchColors.uniquePatchColor(p.id());
-                color = new Vector4f(
-                        ((rgb >> RED_SHIFT) & BYTE_MASK) / COLOR_CHANNEL_MAX,
-                        ((rgb >> GREEN_SHIFT) & BYTE_MASK) / COLOR_CHANNEL_MAX,
-                        (rgb & BYTE_MASK) / COLOR_CHANNEL_MAX,
-                        1f);
-            } else {
-                int rgb = Integer.parseInt(p.color(), HEX_RADIX);
-                color = new Vector4f(
-                        ((rgb >> RED_SHIFT) & BYTE_MASK) / COLOR_CHANNEL_MAX,
-                        ((rgb >> GREEN_SHIFT) & BYTE_MASK) / COLOR_CHANNEL_MAX,
-                        (rgb & BYTE_MASK) / COLOR_CHANNEL_MAX,
-                        1f);
-            }
-            meshRuntime.setTagColor(name, color);
-        }
-        meshRuntime.setShaderMode(shaderMode);
-        meshRuntime.setTags(tags);
-    }
 
     /**
      * Toggle wireframe rendering on the mesh runtime.

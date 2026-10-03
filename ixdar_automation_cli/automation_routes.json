@@ -893,6 +893,16 @@
       "responseHint": "{recording, rawEventCount, abstractActionCount, startedAtIso, lastSavedFile, saved, file}"
     },
     {
+      "commandName": "regions",
+      "path": "/mesh/regions",
+      "method": "GET",
+      "description": "Report the ring regions the editing scene\u0027s region-select tool shows: each region\u0027s faces, area and bounding rings, the problem rings, and the selection.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Regions",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Regions.java",
+      "params": [],
+      "responseHint": "{ok, activeTool, regionCount, regions:[{region, faces, area, boundedBy, selected}], problems, ringCount, selectedCount, select, lastRow, error}"
+    },
+    {
       "commandName": "replay-cancel",
       "path": "/replay/cancel",
       "method": "POST",

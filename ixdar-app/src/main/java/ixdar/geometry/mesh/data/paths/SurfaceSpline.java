@@ -36,6 +36,22 @@ public final class SurfaceSpline {
     /** Packed xyz of the traced spline; the first point is repeated at the end. */
     public float[] polyline = new float[0];
 
+    /** Mesh vertex each {@link #polyline} point sits on, or -1 where it crosses an edge. */
+    public int[] pointVertexId = new int[0];
+
+    /** Mesh edge each {@link #polyline} point crosses, or -1 where it sits on a vertex. */
+    public int[] pointEdgeId = new int[0];
+
+    /** The trace's crossing parameter along {@link #pointEdgeId}, or -1 at a vertex point. */
+    public double[] pointFraction = new double[0];
+
+    /**
+     * Packed xyz of the surface point each {@link #polyline} point stands for: its vertex, or where
+     * the trace's geodesic crosses its edge. Consecutive points share a face, so each span lies on
+     * one; the polyline itself is the Euclidean cubic, off the surface between anchors.
+     */
+    public float[] surfacePolyline = new float[0];
+
     /** Edge-id-indexed mask, true on every mesh edge of the cycle nearest the spline. */
     public boolean[] markedByEdgeId = new boolean[0];
 
@@ -162,9 +178,49 @@ public final class SurfaceSpline {
         spline.geodesicCount = tracer.geodesics.geodesicCount;
 
         TracedSurfacePath traced = tracer.tracedRing();
-        spline.polyline = closedPolyline(traced);
+        spline.followPath(mesh, traced);
         spline.length = traced.polylineLength();
         return spline;
+    }
+
+    /**
+     * Take a closed traced path as this spline's points: {@link #polyline} and the per-point
+     * vertex or edge it lies on, the first point repeated at the end, and their surface positions.
+     *
+     * @param mesh   surface the path's vertex and edge ids index
+     * @param traced closed path whose points each sit on a vertex or cross an edge
+     */
+    public void followPath(MeshTopology mesh, TracedSurfacePath traced) {
+        int pointCount = traced.pointCount == 0 ? 0 : traced.pointCount + 1;
+        polyline = new float[COORDINATES_PER_POINT * pointCount];
+        surfacePolyline = new float[COORDINATES_PER_POINT * pointCount];
+        pointVertexId = new int[pointCount];
+        pointEdgeId = new int[pointCount];
+        pointFraction = new double[pointCount];
+        Vector3f point = new Vector3f();
+        Vector3f head = new Vector3f();
+        for (int target = 0; target < pointCount; target++) {
+            int source = target % traced.pointCount;
+            int base = COORDINATES_PER_POINT * target;
+            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+                polyline[base + axis] =
+                        (float) traced.positions[COORDINATES_PER_POINT * source + axis];
+            }
+            pointVertexId[target] = traced.vertexId[source];
+            pointEdgeId[target] = traced.edgeId[source];
+            pointFraction[target] = traced.fraction[source];
+            if (traced.vertexId[source] >= 0) {
+                mesh.vertexPosition(traced.vertexId[source], point);
+            } else {
+                int halfEdge = mesh.edgeHalfEdge(traced.edgeId[source]);
+                mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), point);
+                mesh.vertexPosition(mesh.halfEdgeEndVertex(halfEdge), head);
+                point.lerp(head, (float) traced.fraction[source]);
+            }
+            surfacePolyline[base] = point.x;
+            surfacePolyline[base + 1] = point.y;
+            surfacePolyline[base + 2] = point.z;
+        }
     }
 
     /**
@@ -266,19 +322,6 @@ public final class SurfaceSpline {
             return low - at;
         }
         return at > high ? at - high : 0.0;
-    }
-
-    private static float[] closedPolyline(TracedSurfacePath traced) {
-        int pointCount = traced.pointCount == 0 ? 0 : traced.pointCount + 1;
-        float[] packed = new float[COORDINATES_PER_POINT * pointCount];
-        for (int point = 0; point < pointCount; point++) {
-            int source = COORDINATES_PER_POINT * (point % traced.pointCount);
-            int target = COORDINATES_PER_POINT * point;
-            packed[target] = (float) traced.positions[source];
-            packed[target + 1] = (float) traced.positions[source + 1];
-            packed[target + 2] = (float) traced.positions[source + 2];
-        }
-        return packed;
     }
 
     private void setCentroid() {

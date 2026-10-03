@@ -3950,6 +3950,68 @@
       "description": "Proposes neck loops automatically: every vertex joins its nearest TEASAR skeleton branch, each boundary between two branch regions seeds a loop, FlipOut tightens it, and loops that grew, collapsed or merged are dropped. Survivors are ranked by neckness, the local circumference over the loop\u0027s length."
     },
     {
+      "id": "ring_regions",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: a surface carrying ring edge marks (spline_ring, loop_through_points, ring_candidates). Output: the same bundle with the regions in the _ring_regions slot and, when `tag` is set, the selection as a vertex tag.",
+          "defaultValue": null
+        },
+        {
+          "name": "labels",
+          "portType": "STRING",
+          "description": "Comma-separated edge-mark labels to use as rings. Empty takes every boolean edge-mark label on the bundle, which after the ring nodes is every ring.",
+          "defaultValue": ""
+        },
+        {
+          "name": "select",
+          "portType": "STRING",
+          "description": "Regions to select, terms separated by \u0027;\u0027: `region N` and `point x,y,z` (the region holding the face nearest the point, stable when rings are added).",
+          "defaultValue": ""
+        },
+        {
+          "name": "tag",
+          "portType": "STRING",
+          "description": "When set, the vertices of the selected faces are tagged with this name in the _tags slot, merged with existing tags, so tag consumers see the selection as a part label.",
+          "defaultValue": ""
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: a surface carrying ring edge marks (spline_ring, loop_through_points, ring_candidates). Output: the same bundle with the regions in the _ring_regions slot and, when `tag` is set, the selection as a vertex tag."
+        },
+        {
+          "name": "region",
+          "portType": "INT",
+          "description": "Per-face INT field: the region of each face."
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-face BOOLEAN mask, true on every face of a selected region; feed it to separate_geometry or delete_geometry with domain FACE."
+        },
+        {
+          "name": "region_count",
+          "portType": "INT",
+          "description": "Number of regions."
+        },
+        {
+          "name": "report",
+          "portType": "STRING",
+          "description": "The region count, one line per region with its face count, area share and bounding rings, then one line per problem ring."
+        }
+      ],
+      "description": "Splits the surface into the regions its ring mark loops enclose: faces flood across every edge no closed ring marks, and each region records its bounding rings and which side of each it lies on (distal is a ring\u0027s smaller side). An open ring is reported by name and walls nothing; crossing and non-separating rings are reported too."
+    },
+    {
       "id": "seamless_uv",
       "category": "Other",
       "scopes": [

@@ -13,13 +13,15 @@ import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
+import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.model.ControlHint;
+import ixdar.scenes.regions.RingRegionTool;
 
 /**
- * The mesh viewer plus ring authoring: the hover-to-preview {@link RingTool}, the {@code ring}
- * terminal command's waypoints, and the graph's ring-labelled edge masks drawn as thick numbered
- * loops instead of feature edges.
+ * The mesh editing scene: the mesh viewer, without its patch and collection keys, hosting the
+ * orbit, ring and region-select {@link EditTool}s over the ring tool's rings. Ctrl+R and Ctrl+T
+ * pick the ring and region tools, Esc returns to the orbit tool and Ctrl+I toggles the menu.
  */
 @SceneAnnotation(id = "ring-tool")
 public class RingScene extends MeshNodeViewerScene {
@@ -28,12 +30,22 @@ public class RingScene extends MeshNodeViewerScene {
 
     public static final String RING_TIGHTENED_LABEL = "ring_tightened";
 
-    public static final String REMOVE_SELECTED_ANCHOR_HINT = "remove anchor, or ring if none";
+    public static final String LOG_PREFIX = "[mesh-edit] ";
 
-    public static final String REDO_HINT = "redo ring edit";
+    /** The tool the scene opens with, which only moves the camera. */
+    public final OrbitTool orbitTool = new OrbitTool(this);
 
-    /** The hover-to-preview ring tool this scene's {@code R} key starts. */
+    /** The hover-to-preview ring tool, which holds the rings every tool works over. */
     public final RingTool ringTool = new RingTool(this);
+
+    /** The region-select tool over the regions the ring tool's rings enclose. */
+    public final RingRegionTool regionTool = new RingRegionTool(this);
+
+    /** Every tool the scene hosts, each run once per frame whether active or not. */
+    public final List<EditTool> tools = List.of(orbitTool, ringTool, regionTool);
+
+    /** The tool that owns clicks, drags and tool keys now. */
+    public EditTool activeTool = orbitTool;
 
     /** Surface points the {@code ring} command has collected, packed xyz. */
     public float[] ringWaypointsXyz = new float[0];
@@ -52,7 +64,7 @@ public class RingScene extends MeshNodeViewerScene {
 
     @Override
     public String windowTitle() {
-        return "Ixdar : Ring Tool";
+        return "Ixdar : Mesh Edit";
     }
 
     /**
@@ -67,10 +79,43 @@ public class RingScene extends MeshNodeViewerScene {
         return meshRuntime;
     }
 
-    /** Run one tool frame, after any pending model switch and before the mesh is drawn. */
+    /**
+     * Wire the viewer's input, leaving Ctrl+R to the ring tool rather than the orbit-centre reset,
+     * then hand the mouse to the starting tool.
+     */
+    @Override
+    public void initInput() {
+        super.initInput();
+        if (keys instanceof OrbitCameraKeyGuy orbitKeys) {
+            orbitKeys.controlRResetsTarget = false;
+        }
+        activeTool.activate();
+    }
+
+    /** Run one frame of every tool, after any pending model switch and before the mesh is drawn. */
     @Override
     public void updateScene() {
-        ringTool.perFrame();
+        for (EditTool tool : tools) {
+            tool.perFrame();
+        }
+    }
+
+    /**
+     * Make {@code tool} active: the current one hands back the mouse keeping its state, and the
+     * control hints become the new tool's. Switching to the active tool does nothing.
+     *
+     * @param tool the tool to switch to
+     */
+    public void switchTool(EditTool tool) {
+        if (tool == activeTool) {
+            return;
+        }
+        activeTool.deactivate();
+        activeTool = tool;
+        activeTool.activate();
+        controls.clear();
+        setControls();
+        Platforms.get().log(LOG_PREFIX + "active tool: " + activeTool.toolName());
     }
 
     /** Draw the surface, then the ring overlays and their markers over it. */
@@ -217,39 +262,6 @@ public class RingScene extends MeshNodeViewerScene {
         showRing(null);
     }
 
-    /** Start the ring tool, or finish it when it is already running. */
-    public void toggleRingTool() {
-        ringTool.toggle();
-        bindRingToolMouse();
-    }
-
-    /**
-     * Give clicks and anchor drags to the ring tool while it runs and back to the orbit when it
-     * stops; the wheel always zooms the camera.
-     */
-    public void bindRingToolMouse() {
-        if (orbitMouse == null) {
-            return;
-        }
-        orbitMouse.toolClick = ringTool.active ? button -> ringTool.requestClick() : null;
-        orbitMouse.toolGrab = ringTool.active ? ringTool::grabAnchor : null;
-        orbitMouse.toolRelease = ringTool.active ? ringTool::releaseAnchor : null;
-    }
-
-    /**
-     * Escape discards the ring tool's draft, or finishes the tool when there is none, and toggles
-     * the model menu when the tool is not running.
-     */
-    @Override
-    public void escapePressed() {
-        if (ringTool.active) {
-            ringTool.escape();
-            bindRingToolMouse();
-            return;
-        }
-        super.escapePressed();
-    }
-
     /**
      * Write the rings the tool holds. Ctrl+S or a click on the menu row reaches here; a bare S
      * does not, and nothing else in the tool touches the working .dsl.
@@ -261,26 +273,58 @@ public class RingScene extends MeshNodeViewerScene {
         ringTool.saveRings();
     }
 
+    /**
+     * The tool keys, the active tool's own hints, then the hints every tool shares. Ctrl+I and
+     * Esc come from the model scene, so no tool may bind either; Esc with the menu closed returns
+     * to the orbit tool.
+     */
     @Override
     public void setControls() {
-        controls.add(new ControlHint(Keys.R, "R", "ring tool", this::toggleRingTool));
-        controls.add(new ControlHint("click", "draft ring / add or select anchor"));
-        controls.add(new ControlHint("drag anchor", "move it"));
-        controls.add(new ControlHint(Keys.DELETE, "del", REMOVE_SELECTED_ANCHOR_HINT,
-                () -> ringTool.deletePressed()));
-        controls.add(new ControlHint(Keys.BACKSPACE, "backspace", REMOVE_SELECTED_ANCHOR_HINT,
-                () -> ringTool.deletePressed()));
-        controls.add(new ControlHint(Keys.Z, true, true, "ctrl+shift+Z", REDO_HINT,
-                () -> ringTool.redo()));
-        controls.add(new ControlHint(Keys.Z, true, "ctrl+Z", "undo ring edit",
-                () -> ringTool.undo()));
-        controls.add(new ControlHint(Keys.Y, true, "ctrl+Y", REDO_HINT,
-                () -> ringTool.redo()));
-        controls.add(new ControlHint(Keys.ENTER, "enter", "confirm draft",
-                () -> ringTool.confirmDraft()));
+        controls.add(toolHint(Keys.R, true, "ctrl+R", ringTool));
+        controls.add(toolHint(Keys.T, true, "ctrl+T", regionTool));
+        activeTool.addControls(controls);
         controls.add(new ControlHint(Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));
-        controls.add(new ControlHint(Keys.N, "N", "show / hide ring numbers",
+        controls.add(new ControlHint(Keys.N, "N", "ring numbers",
                 () -> showRingNumbers = !showRingNumbers));
         super.setControls();
+    }
+
+    /** Escape with the menu closed returns to the orbit tool. */
+    @Override
+    public void escapeWithMenuClosed() {
+        switchTool(orbitTool);
+    }
+
+    /**
+     * Escape closes the menu, else returns to the orbit tool.
+     *
+     * @return the description
+     */
+    @Override
+    public String escapeDescription() {
+        return "close menu, else " + toolLabel(orbitTool);
+    }
+
+    /**
+     * A tool-switch hint, marked when its tool is the active one.
+     *
+     * @param keyCode     key that switches to the tool
+     * @param controlHeld whether the key needs Control held
+     * @param key         key label shown to the viewer
+     * @param tool        tool the key switches to
+     * @return the hint
+     */
+    private ControlHint toolHint(int keyCode, boolean controlHeld, String key, EditTool tool) {
+        return new ControlHint(keyCode, controlHeld, key, toolLabel(tool), () -> switchTool(tool));
+    }
+
+    /**
+     * A tool's name as its hint shows it, marked when it is the active tool.
+     *
+     * @param tool the tool
+     * @return the label
+     */
+    public String toolLabel(EditTool tool) {
+        return tool.toolName() + (tool == activeTool ? " (active)" : "");
     }
 }
