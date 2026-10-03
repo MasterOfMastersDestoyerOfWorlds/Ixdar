@@ -7,7 +7,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -43,7 +45,8 @@ public final class RingTool {
 
     public static final String STATUS_LINE =
             "ring tool: hover to preview, click to draft, click to add an anchor, drag or Delete "
-                    + "one, Ctrl+Z undo, Enter confirm, Esc discard or finish, Ctrl+S save";
+                    + "one, Ctrl+Z undo, Ctrl+Shift+Z or Ctrl+Y redo, Enter confirm, Esc discard "
+                    + "or finish, Ctrl+S save";
 
     public static final String LOG_PREFIX = "[ring-tool] ";
 
@@ -183,11 +186,26 @@ public final class RingTool {
     /** Whether a press on an authored anchor is dragging it along the surface. */
     public boolean draggingAnchor;
 
-    /** Authored anchors before the last edit, which Ctrl+Z restores, or null when none. */
-    public int[] undoAuthoredVertexId;
+    /**
+     * Every anchor and ring edit since the model loaded, which Ctrl+Z and Ctrl+Shift+Z step
+     * through; a save leaves it alone.
+     */
+    public final EditHistory<RingToolState> history = new EditHistory<>();
+
+    /** Statement id each ring spline was saved under, which a redo past the save gets back. */
+    public final Map<SurfaceSpline, String> savedStatementByRing = new IdentityHashMap<>();
+
+    /** Authored anchors the working .dsl holds under each statement id this session saved. */
+    public final Map<String, int[]> savedAuthoredByStatement = new HashMap<>();
+
+    /** Base normal the working .dsl holds under each statement id this session saved. */
+    public final Map<String, float[]> savedNormalByStatement = new HashMap<>();
 
     /** Wall time the last draft re-trace spent, in milliseconds. */
     public double draftMillis;
+
+    /** Depth the draft was last traced at, shallower while a drag is moving an anchor. */
+    public int draftDepth;
 
     /** Number drawn beside each ring, in drawing order: the graph's rings then the confirmed. */
     public String[] drawnRingLabel = new String[0];
@@ -216,8 +234,7 @@ public final class RingTool {
     private int hitVertexId = -1;
     private int previewedFace = -1;
     private boolean pendingClick;
-    private int[] dragUndo;
-    private int draftDepth;
+    private RingToolState dragBefore;
     private List<float[]> graphRingSegments = new ArrayList<>();
     private List<String> graphRingLabels = new ArrayList<>();
     private float[] ringSegment = new float[0];
@@ -420,17 +437,13 @@ public final class RingTool {
                 }
                 int selected = selectedIndex();
                 if (draggingAnchor && vertexFree && selected >= 0) {
-                    // A drag re-traces at the fit's depth, the rate a frame allows; the first
-                    // move of a drag is what Ctrl+Z undoes.
+                    // A drag re-traces at the fit's depth, the rate a frame allows; the whole
+                    // drag is one edit, recorded on release.
                     int[] before = draftAuthoredVertexId;
                     int[] moved = Arrays.copyOf(before, before.length);
                     moved[selected] = hitVertexId;
                     if (retraceDraft(moved, AuthoredSplineRing.SUPPORTING_FIT_DEPTH)) {
                         selectedAnchorVertexId = hitVertexId;
-                        if (dragUndo != null) {
-                            undoAuthoredVertexId = dragUndo;
-                            dragUndo = null;
-                        }
                     } else {
                         retraceDraft(before, AuthoredSplineRing.SUPPORTING_FIT_DEPTH);
                     }
@@ -483,6 +496,7 @@ public final class RingTool {
             // converts a graph ring, or turns the preview into a draft.
             pendingClick = false;
             lastError = "";
+            RingToolState stateBefore = new RingToolState(this);
             if (!hitValid) {
                 lastError = "the click missed the surface";
             } else if (draft != null && hoveredAnchor >= 0) {
@@ -499,8 +513,8 @@ public final class RingTool {
                         SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
                     draftSourceRing = hoveredRing;
                     draftSourceLabel = null;
-                    undoAuthoredVertexId = null;
                     selectedAnchorVertexId = -1;
+                    recordEdit("ring re-opened", stateBefore);
                     invalidateRings();
                     reportDraft("re-opened ring " + drawnRingNumber(hoveredRing) + " as the draft");
                 } else {
@@ -537,8 +551,8 @@ public final class RingTool {
                     convertedGraphLabels.add(label);
                     draftSourceRing = -1;
                     draftSourceLabel = label;
-                    undoAuthoredVertexId = null;
                     selectedAnchorVertexId = -1;
+                    recordEdit("graph ring converted", stateBefore);
                     invalidateRings();
                     reportDraft("converted graph ring " + label + " into the draft");
                 }
@@ -551,8 +565,8 @@ public final class RingTool {
                         COORDINATES_PER_POINT);
                 if (retraceDraft(new int[] { previewAuthoredVertexId },
                         SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
-                    undoAuthoredVertexId = null;
                     selectedAnchorVertexId = -1;
+                    recordEdit("draft opened", stateBefore);
                     reportDraft("drafted");
                 }
             }
@@ -594,6 +608,7 @@ public final class RingTool {
                 return false;
             }
         }
+        RingToolState stateBefore = new RingToolState(this);
         int[] before = draftAuthoredVertexId;
         int[] grown = Arrays.copyOf(before, before.length + 1);
         grown[before.length] = vertexId;
@@ -601,7 +616,7 @@ public final class RingTool {
             retraceDraft(before, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH);
             return false;
         }
-        undoAuthoredVertexId = before;
+        recordEdit("anchor added", stateBefore);
         reportDraft("authored anchor added");
         return true;
     }
@@ -625,6 +640,7 @@ public final class RingTool {
             lastRow = "removed the last authored anchor: draft discarded";
             return true;
         }
+        RingToolState stateBefore = new RingToolState(this);
         int[] kept = new int[before.length - 1];
         System.arraycopy(before, 0, kept, 0, selected);
         System.arraycopy(before, selected + 1, kept, selected, kept.length - selected);
@@ -632,33 +648,71 @@ public final class RingTool {
             retraceDraft(before, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH);
             return false;
         }
-        undoAuthoredVertexId = before;
+        recordEdit("anchor deleted", stateBefore);
         selectedAnchorVertexId = -1;
         reportDraft("authored anchor removed");
         return true;
     }
 
     /**
-     * Restore the draft's authored anchors as they were before the last edit, once.
+     * Step back over the last edit, restoring the rings and the draft exactly as they were.
      *
      * @return true when an edit was undone
      */
     public boolean undo() {
+        return stepHistory(true);
+    }
+
+    /**
+     * Re-apply the edit the last undo stepped back over.
+     *
+     * @return true when an edit was redone
+     */
+    public boolean redo() {
+        return stepHistory(false);
+    }
+
+    /**
+     * One undo or redo: restore the snapshot the history hands back and say which edit moved.
+     * Refused while a drag is still moving an anchor, since the drag is not recorded yet.
+     */
+    private boolean stepHistory(boolean backward) {
         lastError = "";
-        if (draft == null || undoAuthoredVertexId == null) {
-            lastError = "nothing to undo on the draft";
+        if (!active) {
+            lastError = "the ring tool is not running";
             return false;
         }
-        int[] restored = undoAuthoredVertexId;
-        undoAuthoredVertexId = null;
-        if (!retraceDraft(restored, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
+        if (draggingAnchor) {
+            lastError = "finish the drag first";
             return false;
         }
-        if (selectedIndex() < 0) {
-            selectedAnchorVertexId = -1;
+        String what = backward ? history.nextUndoName() : history.nextRedoName();
+        RingToolState restored = backward ? history.undo() : history.redo();
+        if (restored == null) {
+            lastError = backward ? "nothing to undo" : "nothing to redo";
+            return false;
         }
-        reportDraft("undone");
+        restored.restore(this);
+        lastRow = String.format(Locale.ROOT, "%s %s: %d to undo, %d to redo, %d ring(s), %s",
+                backward ? "undid" : "redid", what, history.undoDepth, history.redoDepth(),
+                confirmedRings.size(), draft == null ? "no draft"
+                        : "draft with " + draftAuthoredVertexId.length + " authored anchor(s)");
+        Platforms.get().log(LOG_PREFIX + lastRow + (draft == null ? "" : ", draft fingerprint "
+                + EdgeMarks.fingerprint(scene.halfEdgeSurface(), draft.markedByEdgeId)));
         return true;
+    }
+
+    /**
+     * Push an edit onto the history when it changed the rings or the draft.
+     *
+     * @param what   the edit's name, as undo reports it
+     * @param before the tool's state when the edit began
+     */
+    private void recordEdit(String what, RingToolState before) {
+        RingToolState after = new RingToolState(this);
+        if (!before.sameEdit(after)) {
+            history.push(what, before, after);
+        }
     }
 
     /**
@@ -672,22 +726,26 @@ public final class RingTool {
             return false;
         }
         selectedAnchorVertexId = draftAuthoredVertexId[hoveredAnchor];
-        dragUndo = draftAuthoredVertexId;
+        dragBefore = new RingToolState(this);
         draggingAnchor = true;
         return true;
     }
 
-    /** The drag ended: trace the moved ring at the confirmed depth. */
+    /** The drag ended: trace the moved ring at the confirmed depth and record the whole drag. */
     public void releaseAnchor() {
         if (!draggingAnchor) {
             return;
         }
         draggingAnchor = false;
-        dragUndo = null;
         if (draft != null && draftDepth != SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH
                 && retraceDraft(draftAuthoredVertexId, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
             reportDraft("authored anchor moved");
         }
+        if (dragBefore != null && draft != null
+                && !Arrays.equals(dragBefore.draftAuthoredVertexId, draftAuthoredVertexId)) {
+            recordEdit("anchor dragged", dragBefore);
+        }
+        dragBefore = null;
     }
 
     /**
@@ -703,6 +761,7 @@ public final class RingTool {
             return false;
         }
         long start = System.nanoTime();
+        RingToolState stateBefore = new RingToolState(this);
         draggingAnchor = false;
         if (draftDepth != SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH
                 && !retraceDraft(draftAuthoredVertexId, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
@@ -728,6 +787,7 @@ public final class RingTool {
         }
         SurfaceSpline spline = draft;
         clearDraft();
+        recordEdit("draft confirmed", stateBefore);
         lastRow = String.format(Locale.ROOT,
                 "ring %d: %d authored + %d supporting anchors, %d edges, length %.5f, "
                         + "centroid %.5f,%.5f,%.5f, sharpest corner %.1f deg, %.0f ms, %s",
@@ -747,10 +807,12 @@ public final class RingTool {
         if (draft == null) {
             return;
         }
+        RingToolState stateBefore = new RingToolState(this);
         if (draftSourceLabel != null) {
             convertedGraphLabels.remove(draftSourceLabel);
         }
         clearDraft();
+        recordEdit("draft dropped", stateBefore);
         lastRow = "draft discarded";
         invalidateRings();
     }
@@ -774,8 +836,7 @@ public final class RingTool {
         selectedAnchorVertexId = -1;
         hoveredAnchor = -1;
         draggingAnchor = false;
-        dragUndo = null;
-        undoAuthoredVertexId = null;
+        dragBefore = null;
     }
 
     /**
@@ -1074,6 +1135,9 @@ public final class RingTool {
         for (int ring = 0; ring < confirmedRings.size(); ring++) {
             confirmedStatementIds.set(ring, savedId[ring]);
             confirmedRingUnsaved.set(ring, false);
+            savedStatementByRing.put(confirmedRings.get(ring), savedId[ring]);
+            savedAuthoredByStatement.put(savedId[ring], confirmedAuthoredVertexId.get(ring));
+            savedNormalByStatement.put(savedId[ring], confirmedBaseNormal.get(ring));
         }
         lastRow = String.format(Locale.ROOT,
                 "saved %d ring(s) to %s: %d appended, %d rewritten in place",
@@ -1091,6 +1155,10 @@ public final class RingTool {
     public void discardConfirmedRings(String reason) {
         clearDraft();
         convertedGraphLabels.clear();
+        history.clear();
+        savedStatementByRing.clear();
+        savedAuthoredByStatement.clear();
+        savedNormalByStatement.clear();
         if (confirmedRings.isEmpty()) {
             return;
         }

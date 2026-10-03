@@ -314,6 +314,10 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             toolJson.addProperty("hoveredGraphRing",
                     tool.hoveredGraphRing == null ? "" : tool.hoveredGraphRing);
             toolJson.addProperty("unsavedRingCount", tool.unsavedRingCount());
+            toolJson.addProperty("undoDepth", tool.history.undoDepth);
+            toolJson.addProperty("redoDepth", tool.history.redoDepth());
+            toolJson.addProperty("nextUndo", tool.history.nextUndoName());
+            toolJson.addProperty("nextRedo", tool.history.nextRedoName());
             toolJson.add("previewHitPoint", floatArray(tool.previewHitPoint));
             toolJson.add("previewAnchors", floatArray(tool.previewSpline == null ? new float[0]
                     : tool.previewSpline.anchorXyz));
@@ -344,7 +348,6 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 draft.addProperty("selectedAnchor", tool.selectedIndex());
                 draft.addProperty("hoveredAnchor", tool.hoveredAnchor);
                 draft.addProperty("dragging", tool.draggingAnchor);
-                draft.addProperty("undoAvailable", tool.undoAuthoredVertexId != null);
                 draft.addProperty("reopenedRing", tool.draftSourceRing);
                 draft.addProperty("convertedFrom",
                         tool.draftSourceLabel == null ? "" : tool.draftSourceLabel);

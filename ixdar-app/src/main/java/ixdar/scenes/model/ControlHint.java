@@ -30,6 +30,12 @@ public final class ControlHint {
     public final boolean controlHeld;
 
     /**
+     * Whether the key fires only with Shift held; a hint without it also fires with Shift held,
+     * so a Shift variant is listed before its plain one.
+     */
+    public final boolean shiftHeld;
+
+    /**
      * Build a key-bound, clickable control hint.
      *
      * @param keyCode key code that fires {@code action} (see {@link ixdar.platform.input.Keys})
@@ -52,8 +58,24 @@ public final class ControlHint {
      */
     public ControlHint(int keyCode, boolean controlHeld, String key, String description,
             Action action) {
+        this(keyCode, controlHeld, false, key, description, action);
+    }
+
+    /**
+     * Build a clickable control hint whose key needs Control and Shift held, such as Ctrl+Shift+Z.
+     *
+     * @param keyCode     key code that fires {@code action} with the modifiers held
+     * @param controlHeld whether the key fires only with Control held
+     * @param shiftHeld   whether the key fires only with Shift held
+     * @param key         key label shown to the viewer
+     * @param description short description of the effect
+     * @param action      effect invoked on click or key press
+     */
+    public ControlHint(int keyCode, boolean controlHeld, boolean shiftHeld, String key,
+            String description, Action action) {
         this.keyCode = keyCode;
         this.controlHeld = controlHeld;
+        this.shiftHeld = shiftHeld;
         this.key = key;
         this.description = description;
         this.action = action;

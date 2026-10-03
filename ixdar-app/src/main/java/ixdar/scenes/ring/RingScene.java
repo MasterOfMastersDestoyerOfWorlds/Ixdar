@@ -30,6 +30,8 @@ public class RingScene extends MeshNodeViewerScene {
 
     public static final String REMOVE_SELECTED_ANCHOR_HINT = "remove anchor";
 
+    public static final String REDO_HINT = "redo ring edit";
+
     /** The hover-to-preview ring tool this scene's {@code R} key starts. */
     public final RingTool ringTool = new RingTool(this);
 
@@ -257,8 +259,12 @@ public class RingScene extends MeshNodeViewerScene {
                 () -> ringTool.deleteSelectedAnchor()));
         controls.add(new ControlHint(Keys.BACKSPACE, "backspace", REMOVE_SELECTED_ANCHOR_HINT,
                 () -> ringTool.deleteSelectedAnchor()));
-        controls.add(new ControlHint(Keys.Z, true, "ctrl+Z", "undo anchor edit",
+        controls.add(new ControlHint(Keys.Z, true, true, "ctrl+shift+Z", REDO_HINT,
+                () -> ringTool.redo()));
+        controls.add(new ControlHint(Keys.Z, true, "ctrl+Z", "undo ring edit",
                 () -> ringTool.undo()));
+        controls.add(new ControlHint(Keys.Y, true, "ctrl+Y", REDO_HINT,
+                () -> ringTool.redo()));
         controls.add(new ControlHint(Keys.ENTER, "enter", "confirm draft",
                 () -> ringTool.confirmDraft()));
         controls.add(new ControlHint(Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));

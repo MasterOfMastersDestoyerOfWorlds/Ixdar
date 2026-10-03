@@ -17,6 +17,8 @@ import ixdar.scenes.model.ControlHint;
  */
 public class OrbitCameraKeyGuy extends KeyGuy {
 
+    public static final int MOD_SHIFT = 0x0001;
+
     public static final int MOD_CONTROL = 0x0002;
 
     public final OrbitMouseTrap orbitMouse;
@@ -103,7 +105,8 @@ public class OrbitCameraKeyGuy extends KeyGuy {
             return;
         }
         for (ControlHint hint : controls) {
-            boolean modifierHeld = !hint.controlHeld || (mods & MOD_CONTROL) != 0;
+            boolean modifierHeld = (!hint.controlHeld || (mods & MOD_CONTROL) != 0)
+                    && (!hint.shiftHeld || (mods & MOD_SHIFT) != 0);
             if (hint.keyCode == key && hint.keyCode != ControlHint.NO_KEY && hint.action != null
                     && modifierHeld) {
                 hint.action.perform();
