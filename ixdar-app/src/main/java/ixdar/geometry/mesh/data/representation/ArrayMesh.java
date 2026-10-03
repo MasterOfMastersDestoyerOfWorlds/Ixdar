@@ -1,16 +1,19 @@
 package ixdar.geometry.mesh.data.representation;
 
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.QuadMeshTopologyHelper;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
 /**
  * Dense, uniform-face mesh backed by flat arrays. Implements
  * {@link MeshTopology} without HashMap-based construction; half-edge
- * connectivity is derived from face indices with lazy twin/edge CSR data.
+ * connectivity is derived from face indices into twin/edge CSR data on the
+ * first topology query and shared with every {@link #withPositions} copy.
  */
 public final class ArrayMesh implements MeshTopology {
     public static final String IS_NOT_VALID = " is not valid";
@@ -25,20 +28,7 @@ public final class ArrayMesh implements MeshTopology {
     private final int[] faceIndices;
     private final int vertsPerFace;
 
-    private boolean topologyReady;
-    private int[] halfEdgeTwin;
-    private int[] halfEdgeEdge;
-    private int[] edgeHalfEdge;
-    private int edgeCount;
-
-    private int[] vertexFaceOffsets;
-    private int[] vertexFaces;
-    private int[] vertexEdgeOffsets;
-    private int[] vertexEdges;
-    private int[] vertexOutgoingOffsets;
-    private int[] vertexOutgoingHalfEdges;
-
-    private int[] cachedEdgeIndices;
+    private final AtomicReference<Topology> topology;
 
     private float radiusCached = Float.NaN;
     private final Vector3f boundsMin = new Vector3f();
@@ -60,6 +50,11 @@ public final class ArrayMesh implements MeshTopology {
      *                                  multiple of {@code vertsPerFace}
      */
     public ArrayMesh(float[] positions, float[] normals, int[] faceIndices, int vertsPerFace) {
+        this(positions, normals, faceIndices, vertsPerFace, new AtomicReference<>());
+    }
+
+    private ArrayMesh(float[] positions, float[] normals, int[] faceIndices, int vertsPerFace,
+            AtomicReference<Topology> topology) {
         if (positions.length % FLOATS_PER_VERTEX != 0) {
             throw new IllegalArgumentException("positions must be XYZ triples");
         }
@@ -71,6 +66,25 @@ public final class ArrayMesh implements MeshTopology {
         this.faceNormals = new float[(faceIndices.length / vertsPerFace) * FLOATS_PER_VERTEX];
         this.faceIndices = faceIndices;
         this.vertsPerFace = vertsPerFace;
+        this.topology = topology;
+    }
+
+    /**
+     * A mesh over this mesh's face buffer with new positions. It shares this mesh's topology holder,
+     * built or not, so the first edge query on either mesh builds it once for both.
+     *
+     * @param newPositions packed xyz triples, one per vertex of this mesh
+     * @param newNormals   matching xyz normals, or {@code null} to allocate zeros
+     * @return mesh with the same faces, vertex ids, edge ids and half-edge ids
+     * @throws IllegalArgumentException if {@code newPositions} has a different
+     *                                  vertex count
+     */
+    public ArrayMesh withPositions(float[] newPositions, float[] newNormals) {
+        if (newPositions.length != positions.length) {
+            throw new IllegalArgumentException("withPositions needs " + vertexCount() + " vertices, got "
+                    + newPositions.length / FLOATS_PER_VERTEX);
+        }
+        return new ArrayMesh(newPositions, newNormals, faceIndices, vertsPerFace, topology);
     }
 
     /**
@@ -255,29 +269,6 @@ public final class ArrayMesh implements MeshTopology {
     }
 
     /**
-     * Lazy, cached flat (v0,v1) edge index buffer with one pair per unique edge.
-     *
-     * @return array of length {@code 2 * edgeCount()} holding endpoint vertex ids
-     */
-    public int[] getEdgeIndices() {
-        if (cachedEdgeIndices != null) {
-            return cachedEdgeIndices;
-        }
-
-        int e = edgeCount;
-        int[] out = new int[e * 2];
-        for (int ei = 0; ei < e; ei++) {
-            int he = edgeHalfEdge[ei];
-            int v0 = halfEdgeVertex(he);
-            int v1 = halfEdgeEndVertex(he);
-            out[ei * 2] = v0;
-            out[ei * 2 + 1] = v1;
-        }
-        cachedEdgeIndices = out;
-        return out;
-    }
-
-    /**
      * Materializes this dense mesh as a fully connected {@link HalfEdgeMesh},
      * copying positions, faces, and vertex normals.
      *
@@ -357,7 +348,7 @@ public final class ArrayMesh implements MeshTopology {
     /** {@inheritDoc}. */
     @Override
     public int edgeCount() {
-        return edgeCount;
+        return topology().edgeCount;
     }
 
     /** {@inheritDoc}. */
@@ -405,8 +396,7 @@ public final class ArrayMesh implements MeshTopology {
     /** {@inheritDoc}. */
     @Override
     public boolean hasEdge(int edgeId) {
-
-        return edgeId >= 0 && edgeId < edgeCount;
+        return edgeId >= 0 && edgeId < topology().edgeCount;
     }
 
     /** {@inheritDoc}. */
@@ -438,75 +428,74 @@ public final class ArrayMesh implements MeshTopology {
     /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdge(int vertexId) {
-
-        int s = vertexOutgoingOffsets[vertexId];
-        if (s >= vertexOutgoingOffsets[vertexId + 1]) {
+        Topology built = topology();
+        int s = built.vertexOutgoingOffsets[vertexId];
+        if (s >= built.vertexOutgoingOffsets[vertexId + 1]) {
             return MeshTopology.NONE;
         }
-        return vertexOutgoingHalfEdges[s];
+        return built.vertexOutgoingHalfEdges[s];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdgeCount(int vertexId) {
-
-        return vertexOutgoingOffsets[vertexId + 1] - vertexOutgoingOffsets[vertexId];
+        int[] offsets = topology().vertexOutgoingOffsets;
+        return offsets[vertexId + 1] - offsets[vertexId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdgeAt(int vertexId, int adjacencyIndex) {
-
-        int base = vertexOutgoingOffsets[vertexId];
-        int n = vertexOutgoingOffsets[vertexId + 1] - base;
+        Topology built = topology();
+        int base = built.vertexOutgoingOffsets[vertexId];
+        int n = built.vertexOutgoingOffsets[vertexId + 1] - base;
         if (adjacencyIndex < 0 || adjacencyIndex >= n) {
             throw new IndexOutOfBoundsException();
         }
-        return vertexOutgoingHalfEdges[base + adjacencyIndex];
+        return built.vertexOutgoingHalfEdges[base + adjacencyIndex];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexEdgeCount(int vertexId) {
-
-        return vertexEdgeOffsets[vertexId + 1] - vertexEdgeOffsets[vertexId];
+        int[] offsets = topology().vertexEdgeOffsets;
+        return offsets[vertexId + 1] - offsets[vertexId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexEdgeAt(int vertexId, int adjacencyIndex) {
-
-        int base = vertexEdgeOffsets[vertexId];
-        int n = vertexEdgeOffsets[vertexId + 1] - base;
+        Topology built = topology();
+        int base = built.vertexEdgeOffsets[vertexId];
+        int n = built.vertexEdgeOffsets[vertexId + 1] - base;
         if (adjacencyIndex < 0 || adjacencyIndex >= n) {
             throw new IndexOutOfBoundsException();
         }
-        return vertexEdges[base + adjacencyIndex];
+        return built.vertexEdges[base + adjacencyIndex];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexFaceCount(int vertexId) {
-
-        return vertexFaceOffsets[vertexId + 1] - vertexFaceOffsets[vertexId];
+        int[] offsets = topology().vertexFaceOffsets;
+        return offsets[vertexId + 1] - offsets[vertexId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexFaceAt(int vertexId, int adjacencyIndex) {
-
-        int base = vertexFaceOffsets[vertexId];
-        int n = vertexFaceOffsets[vertexId + 1] - base;
+        Topology built = topology();
+        int base = built.vertexFaceOffsets[vertexId];
+        int n = built.vertexFaceOffsets[vertexId + 1] - base;
         if (adjacencyIndex < 0 || adjacencyIndex >= n) {
             throw new IndexOutOfBoundsException();
         }
-        return vertexFaces[base + adjacencyIndex];
+        return built.vertexFaces[base + adjacencyIndex];
     }
 
     /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryVertex(int vertexId) {
-
         for (int i = 0; i < vertexEdgeCount(vertexId); i++) {
             if (isBoundaryEdge(vertexEdgeAt(vertexId, i))) {
                 return true;
@@ -518,28 +507,26 @@ public final class ArrayMesh implements MeshTopology {
     /** {@inheritDoc}. */
     @Override
     public int edgeHalfEdge(int edgeId) {
-
-        return edgeHalfEdge[edgeId];
+        return topology().edgeHalfEdge[edgeId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public int edgeHalfEdgeAtActiveIndex(int activeIndex) {
-        return edgeHalfEdge[edgeIdAt(activeIndex)];
+        return topology().edgeHalfEdge[edgeIdAt(activeIndex)];
     }
 
     /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryEdge(int edgeId) {
-
-        int he = edgeHalfEdge[edgeId];
-        return halfEdgeTwin[he] == MeshTopology.NONE;
+        Topology built = topology();
+        return built.halfEdgeTwin[built.edgeHalfEdge[edgeId]] == MeshTopology.NONE;
     }
 
     /** {@inheritDoc}. */
     @Override
     public float edgeLength(int edgeId) {
-        int halfEdge = edgeHalfEdge[edgeId];
+        int halfEdge = topology().edgeHalfEdge[edgeId];
         int tail = halfEdgeVertex(halfEdge) * FLOATS_PER_VERTEX;
         int head = halfEdgeEndVertex(halfEdge) * FLOATS_PER_VERTEX;
         float dx = positions[head] - positions[tail];
@@ -551,7 +538,7 @@ public final class ArrayMesh implements MeshTopology {
     /** {@inheritDoc}. */
     @Override
     public Vector3f edgeMidpoint(int edgeId, Vector3f dest) {
-        int halfEdge = edgeHalfEdge[edgeId];
+        int halfEdge = topology().edgeHalfEdge[edgeId];
         int tail = halfEdgeVertex(halfEdge) * FLOATS_PER_VERTEX;
         int head = halfEdgeEndVertex(halfEdge) * FLOATS_PER_VERTEX;
         return dest.set(positions[tail] + positions[head], positions[tail + 1] + positions[head + 1],
@@ -600,9 +587,7 @@ public final class ArrayMesh implements MeshTopology {
     /** {@inheritDoc}. */
     @Override
     public int faceEdgeAt(int faceId, int adjacencyIndex) {
-
-        int he = faceHalfEdgeAt(faceId, adjacencyIndex);
-        return halfEdgeEdge[he];
+        return topology().halfEdgeEdge[faceHalfEdgeAt(faceId, adjacencyIndex)];
     }
 
     /**
@@ -641,8 +626,7 @@ public final class ArrayMesh implements MeshTopology {
     /** {@inheritDoc}. */
     @Override
     public int halfEdgeTwin(int halfEdgeId) {
-
-        return halfEdgeTwin[halfEdgeId];
+        return topology().halfEdgeTwin[halfEdgeId];
     }
 
     /**
@@ -675,15 +659,13 @@ public final class ArrayMesh implements MeshTopology {
     /** {@inheritDoc}. */
     @Override
     public int halfEdgeEdge(int halfEdgeId) {
-
-        return halfEdgeEdge[halfEdgeId];
+        return topology().halfEdgeEdge[halfEdgeId];
     }
 
     /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryHalfEdge(int halfEdgeId) {
-
-        return halfEdgeTwin[halfEdgeId] == MeshTopology.NONE;
+        return topology().halfEdgeTwin[halfEdgeId] == MeshTopology.NONE;
     }
 
     /** {@inheritDoc} Bounds are recomputed lazily after vertex edits. */
@@ -769,5 +751,65 @@ public final class ArrayMesh implements MeshTopology {
         boundsMax.set(maxX, maxY, maxZ);
         centerVec.set((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, (minZ + maxZ) * 0.5f);
         boundsDirty = false;
+    }
+
+    /**
+     * The twin, edge and adjacency arrays, built on the first call and stored in the holder this mesh
+     * shares with its {@link #withPositions} relatives. Racing first calls both build; one result wins.
+     *
+     * @return the built topology of this mesh's face buffer
+     */
+    private Topology topology() {
+        Topology built = topology.get();
+        if (built != null) {
+            return built;
+        }
+        Topology candidate = new Topology(faceIndices, vertsPerFace, vertexCount());
+        Topology winner = topology.compareAndExchange(null, candidate);
+        return winner != null ? winner : candidate;
+    }
+
+    /**
+     * Immutable half-edge connectivity of one face buffer: twins, edge ids and the per-vertex face,
+     * edge and outgoing half-edge CSR lists.
+     */
+    private static final class Topology {
+        public final int[] halfEdgeTwin;
+        public final int[] halfEdgeEdge;
+        public final int[] edgeHalfEdge;
+        public final int edgeCount;
+        public final int[] vertexFaceOffsets;
+        public final int[] vertexFaces;
+        public final int[] vertexEdgeOffsets;
+        public final int[] vertexEdges;
+        public final int[] vertexOutgoingOffsets;
+        public final int[] vertexOutgoingHalfEdges;
+
+        private Topology(int[] faceIndices, int vertsPerFace, int vertexCount) {
+            QuadMeshTopologyHelper helper = QuadMeshTopologyHelper.build(faceIndices, vertsPerFace, vertexCount,
+                    faceIndices.length / vertsPerFace);
+            halfEdgeTwin = helper.halfEdgeTwin;
+            halfEdgeEdge = helper.halfEdgeEdge;
+            edgeHalfEdge = helper.edgeHalfEdge;
+            edgeCount = helper.edgeCount;
+            vertexFaceOffsets = helper.vertexFaceOffsets;
+            vertexFaces = helper.vertexFaces;
+            vertexEdgeOffsets = helper.vertexEdgeOffsets;
+            vertexEdges = helper.vertexEdges;
+            int halfEdgeCount = helper.halfEdgeCount;
+            int[] outgoingCount = new int[vertexCount];
+            for (int halfEdgeId = 0; halfEdgeId < halfEdgeCount; halfEdgeId++) {
+                outgoingCount[faceIndices[halfEdgeId]]++;
+            }
+            vertexOutgoingOffsets = new int[vertexCount + 1];
+            for (int vertexId = 0; vertexId < vertexCount; vertexId++) {
+                vertexOutgoingOffsets[vertexId + 1] = vertexOutgoingOffsets[vertexId] + outgoingCount[vertexId];
+            }
+            vertexOutgoingHalfEdges = new int[vertexOutgoingOffsets[vertexCount]];
+            int[] outgoingCursor = Arrays.copyOf(vertexOutgoingOffsets, vertexCount);
+            for (int halfEdgeId = 0; halfEdgeId < halfEdgeCount; halfEdgeId++) {
+                vertexOutgoingHalfEdges[outgoingCursor[faceIndices[halfEdgeId]]++] = halfEdgeId;
+            }
+        }
     }
 }

@@ -209,7 +209,7 @@ public class ExtrudeMeshNode implements MeshNode {
 
         if (selectedCount == 0 || offset == 0f) {
             extrudedFromVertex = new int[0];
-            return new ArrayMesh(srcPos, null, srcFaces, vpf);
+            return mesh.withPositions(srcPos, null);
         }
 
         int newVertCount = selectedCount * vpf;
@@ -365,7 +365,7 @@ public class ExtrudeMeshNode implements MeshNode {
 
         if (selectedCount == 0 || offset == 0f) {
             extrudedFromVertex = new int[0];
-            return new ArrayMesh(srcPos, null, srcFaces, vpf);
+            return mesh.withPositions(srcPos, null);
         }
 
         boolean[] vertUsedBySelected = new boolean[vertCount];

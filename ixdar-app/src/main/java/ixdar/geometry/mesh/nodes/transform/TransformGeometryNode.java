@@ -139,15 +139,21 @@ public class TransformGeometryNode implements MeshNode {
                     newPositions[i * VECTOR_STRIDE + 2] = tmp.z;
                     sparseToDense[vid] = i;
                 }
-                int[] faceIndices = new int[fc * vpf];
-                for (int fi = 0; fi < fc; fi++) {
-                    int fid = mesh.faceIdAt(fi);
-                    int base2 = fi * vpf;
-                    for (int k = 0; k < vpf; k++) {
-                        faceIndices[base2 + k] = sparseToDense[mesh.faceVertexAt(fid, k)];
+                ArrayMesh out;
+                if (mesh instanceof ArrayMesh dense) {
+                    // Dense ids map to themselves, so the faces are unchanged and the topology is shared.
+                    out = dense.withPositions(newPositions, null);
+                } else {
+                    int[] faceIndices = new int[fc * vpf];
+                    for (int fi = 0; fi < fc; fi++) {
+                        int fid = mesh.faceIdAt(fi);
+                        int base2 = fi * vpf;
+                        for (int k = 0; k < vpf; k++) {
+                            faceIndices[base2 + k] = sparseToDense[mesh.faceVertexAt(fid, k)];
+                        }
                     }
+                    out = new ArrayMesh(newPositions, null, faceIndices, vpf);
                 }
-                ArrayMesh out = new ArrayMesh(newPositions, null, faceIndices, vpf);
                 out.computeNormals();
                 result = result.withMesh(out);
             } else {

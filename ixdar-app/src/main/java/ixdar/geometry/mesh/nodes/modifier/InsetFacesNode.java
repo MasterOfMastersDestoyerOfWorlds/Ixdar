@@ -584,7 +584,7 @@ public class InsetFacesNode implements MeshNode {
         }
 
         if (selectedCount == 0 || inset <= 0f) {
-            return new ArrayMesh(srcPos, null, srcFaces, vpf);
+            return mesh.withPositions(srcPos, null);
         }
 
         if (vpf == 4) {

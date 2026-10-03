@@ -61,7 +61,7 @@ public final class MeshVertexOffset {
                     pos[o + 2] += uniform.z();
                 }
             }
-            ArrayMesh out = new ArrayMesh(pos, null, am.copyFaceIndices(), am.getVertsPerFace());
+            ArrayMesh out = am.withPositions(pos, null);
             out.computeNormals();
             return out;
         }

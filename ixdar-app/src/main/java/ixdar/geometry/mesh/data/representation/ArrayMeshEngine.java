@@ -219,7 +219,7 @@ public final class ArrayMeshEngine {
         }
         float t = Math.abs(thickness);
         if (t == 0f) {
-            return new ArrayMesh(mesh.copyPositions(), mesh.copyNormals(), mesh.copyFaceIndices(), mesh.getVertsPerFace());
+            return mesh.withPositions(mesh.copyPositions(), mesh.copyNormals());
         }
         if (!isUniformQuads(mesh)) {
             throw new IllegalArgumentException("solidifyUniformQuads requires uniform quads");
@@ -325,8 +325,7 @@ public final class ArrayMeshEngine {
             }
         }
         if (!any) {
-            return new ArrayMesh(mesh.copyPositions(), mesh.copyNormals(), mesh.copyFaceIndices(),
-                    mesh.getVertsPerFace());
+            return mesh.withPositions(mesh.copyPositions(), mesh.copyNormals());
         }
         int[] oldToNew = new int[n];
         Arrays.fill(oldToNew, -1);
@@ -397,8 +396,7 @@ public final class ArrayMeshEngine {
         }
         int ne = mesh.edgeCount();
         if (delEdge == null) {
-            return new ArrayMesh(mesh.copyPositions(), mesh.copyNormals(), mesh.copyFaceIndices(),
-                    mesh.getVertsPerFace());
+            return mesh.withPositions(mesh.copyPositions(), mesh.copyNormals());
         }
         boolean any = false;
         int len = Math.min(delEdge.length, ne);
@@ -409,8 +407,7 @@ public final class ArrayMeshEngine {
             }
         }
         if (!any) {
-            return new ArrayMesh(mesh.copyPositions(), mesh.copyNormals(), mesh.copyFaceIndices(),
-                    mesh.getVertsPerFace());
+            return mesh.withPositions(mesh.copyPositions(), mesh.copyNormals());
         }
         HashSet<Integer> deadEdgeIds = new HashSet<>();
         for (int i = 0; i < len; i++) {
@@ -495,8 +492,7 @@ public final class ArrayMeshEngine {
             return emptyQuads();
         }
         if (distance <= 0f) {
-            return new ArrayMesh(mesh.copyPositions(), mesh.copyNormals(), mesh.copyFaceIndices(),
-                    mesh.getVertsPerFace());
+            return mesh.withPositions(mesh.copyPositions(), mesh.copyNormals());
         }
         return MeshMergeByDistance.mergeToArrayMesh(mesh, distance);
     }
@@ -514,10 +510,10 @@ public final class ArrayMeshEngine {
     public static ArrayMesh join(ArrayMesh a, ArrayMesh b) {
         if (a == null || a.vertexCount() == 0) {
             return b == null ? emptyQuads()
-                    : new ArrayMesh(b.copyPositions(), b.copyNormals(), b.copyFaceIndices(), b.getVertsPerFace());
+                    : b.withPositions(b.copyPositions(), b.copyNormals());
         }
         if (b == null || b.vertexCount() == 0) {
-            return new ArrayMesh(a.copyPositions(), a.copyNormals(), a.copyFaceIndices(), a.getVertsPerFace());
+            return a.withPositions(a.copyPositions(), a.copyNormals());
         }
         int vpf = a.getVertsPerFace();
         if (b.getVertsPerFace() != vpf) {
@@ -556,7 +552,7 @@ public final class ArrayMeshEngine {
     public static ArrayMesh loopCutAxis(ArrayMesh src, int cuts, int axisIndex) {
         if (src == null || src.vertexCount() == 0) return emptyQuads();
         if (cuts <= 0) {
-            return new ArrayMesh(src.copyPositions(), src.copyNormals(), src.copyFaceIndices(), src.getVertsPerFace());
+            return src.withPositions(src.copyPositions(), src.copyNormals());
         }
         if (!isUniformQuads(src)) {
             throw new IllegalArgumentException("loop_cut requires uniform quads");
@@ -603,7 +599,7 @@ public final class ArrayMeshEngine {
         }
 
         if (splitMap.isEmpty()) {
-            return new ArrayMesh(src.copyPositions(), src.copyNormals(), src.copyFaceIndices(), src.getVertsPerFace());
+            return src.withPositions(src.copyPositions(), src.copyNormals());
         }
 
         // Build output positions: original + midpoints
