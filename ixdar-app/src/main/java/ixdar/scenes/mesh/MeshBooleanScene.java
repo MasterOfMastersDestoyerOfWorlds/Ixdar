@@ -97,7 +97,7 @@ public class MeshBooleanScene extends ModelScene {
     }
 
     /**
-     * No file models: this scene renders one fixed graph, so the ESC menu offers
+     * No file models: this scene renders one fixed graph, so the model menu offers
      * nothing to load.
      *
      * @return an empty list

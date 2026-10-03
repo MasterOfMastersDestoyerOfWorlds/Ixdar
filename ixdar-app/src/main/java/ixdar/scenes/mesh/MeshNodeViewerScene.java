@@ -1,8 +1,6 @@
 package ixdar.scenes.mesh;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -67,10 +65,6 @@ public class MeshNodeViewerScene extends ModelScene {
     private static final Color[] EDGE_MARK_COLORS = {
         Color.EDGE_MARK_AMBER, Color.EDGE_MARK_CYAN, Color.EDGE_MARK_MAGENTA };
 
-    private static final String DSL_RESOURCE_DIRECTORY = "src/main/resources/dsl";
-
-    private static final String DSL_BUILD_DIRECTORY = "target/classes/dsl";
-
     private static final String TIMING_PREFIX = "[mesh-viewer]";
 
     private static final float HALF_EXTENT = 0.5f;
@@ -102,7 +96,7 @@ public class MeshNodeViewerScene extends ModelScene {
     private String loadedDslFile;
 
     // VIEW-7: catalog + per-mesh decomposition cache + overlay state
-    private String currentModelKey; // absolutePath for staging-dir entries, or "" for initial load
+    private String currentModelKey;
     private String currentModelDisplayName = "(initial)";
 
     private SemanticPatchDecomposer.DecompositionDiagnostics cachedDiagnostics;
@@ -234,15 +228,24 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Scan the staging directory for selectable models and log the catalog state.
+     * List the repo's DSL graphs, then the staging directory's entries, put the cursor on the
+     * graph this scene was launched with, and log the catalog state. The web build has no folder
+     * to walk, so its list stays empty.
      */
     @Override
     public void createCatalog() {
-        modelCatalog = ModelCatalog.staging(ModelCatalog.stagingRoot());
+        modelCatalog = ModelCatalog.repoGraphsAndStaging(ModelCatalog.repoDslRoot(),
+                ModelCatalog.stagingRoot());
+        ModelChoice launched = dslResource == null ? null : modelCatalog.select(
+                modelCatalog.indexOfFile(ModelCatalog.packagedGraph(dslResource).path));
+        if (launched != null) {
+            currentModelKey = launched.path;
+            currentModelDisplayName = launched.displayName;
+        }
         int catalogSize = modelCatalog.choices.size();
         Platforms.get().log(
-                "[mesh-viewer] model catalog: " + catalogSize + " entries in " + modelCatalog.root
-                        + " (populate via 'uv run sync-models')");
+                "[mesh-viewer] model catalog: " + catalogSize + " entries from " + modelCatalog.root
+                        + " and " + ModelCatalog.stagingRoot());
         if (catalogSize > 0) {
             Platforms.get().log("[mesh-viewer] cycle models with [ and ]; P = patch overlay; "
                     + "Shift+P cycles shader mode "
@@ -294,13 +297,13 @@ public class MeshNodeViewerScene extends ModelScene {
             initObjViewer();
             return;
         }
-        ModelChoice requested = requestedModel();
-        if (requested != null) {
-            loadModelEntry(requested);
+        String requested = System.getProperty(COMMON_MODEL_PROPERTY);
+        if (requested != null && !requested.isBlank()) {
+            loadModelEntry(ModelCatalog.launchChoice(requested, modelCatalog));
             return;
         }
         try {
-            loadDslSource(dslResource, dslCode -> {
+            loadDslSource(ModelCatalog.packagedGraph(dslResource), dslCode -> {
                 NodeGraphRuntime graphRuntime = NodeGraphRuntime.fromSource(dslCode);
                 List<PythonParser.ParsedNode> ast = graphRuntime.statements;
                 lastGraphRuntime = graphRuntime;
@@ -338,38 +341,6 @@ public class MeshNodeViewerScene extends ModelScene {
         } catch (Exception e) {
             throw new IllegalStateException("Failed to initialize mesh viewer runtime", e);
         }
-    }
-
-    /**
-     * The model named by {@code -Dixdar.model}: a directory opens as a collection, a catalog token
-     * resolves through the catalog, a {@code .dsl} path is executed as a graph, and anything else
-     * is taken as a mesh file path (the crawfish scans live outside any catalog).
-     *
-     * @return the choice to load instead of the DSL graph, or {@code null} when the property is unset
-     */
-    private ModelChoice requestedModel() {
-        String common = System.getProperty(COMMON_MODEL_PROPERTY);
-        if (common == null || common.isBlank()) {
-            return null;
-        }
-        Path directory = Path.of(common);
-        if (Files.isDirectory(directory)) {
-            Path absolute = directory.toAbsolutePath();
-            return new ModelChoice(absolute.getFileName().toString(), absolute.toString(),
-                    ModelChoice.Kind.COLLECTION);
-        }
-        ModelChoice match = modelCatalog == null ? null : modelCatalog.resolve(common);
-        if (match != null) {
-            return match;
-        }
-        Path file = Path.of(common);
-        if (!Files.exists(file) && Files.exists(Path.of(MeshLoader.MODULE_DIRECTORY, common))) {
-            file = Path.of(MeshLoader.MODULE_DIRECTORY, common);
-        }
-        ModelChoice.Kind kind = common.endsWith(DSL) ? ModelChoice.Kind.DSL
-                : ModelChoice.Kind.MESH_FILE;
-        return new ModelChoice(file.getFileName().toString(), file.toAbsolutePath().toString(),
-                kind);
     }
 
     private void initObjViewer() {
@@ -413,7 +384,7 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Load a requested switch through the staging catalog entry whose path it names, which is how
+     * Load a requested switch through the catalog entry whose path it names, which is how
      * this viewer loads DSL graphs, mesh files and collections alike.
      *
      * @param path catalog path of the requested model
@@ -694,7 +665,7 @@ public class MeshNodeViewerScene extends ModelScene {
 
         String resolvedPort = finalPort;
         String resolvedDslName = dslName;
-        loadDslSource(resolvedDslName, dslCode -> {
+        loadDslSource(ModelCatalog.packagedGraph(resolvedDslName), dslCode -> {
             NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(dslCode);
             List<PythonParser.ParsedNode> ast = runtime.statements;
             lastGraphRuntime = runtime;
@@ -899,7 +870,7 @@ public class MeshNodeViewerScene extends ModelScene {
         if (loadedDslFile != null) {
             return loadedDslFile;
         }
-        return dslResource == null ? null : dslResourceFile(dslResource);
+        return dslResource == null ? null : ModelCatalog.packagedGraph(dslResource).workingFile();
     }
 
     /**
@@ -907,14 +878,14 @@ public class MeshNodeViewerScene extends ModelScene {
      * on disk so a reload shows the statements written into it, and from the packaged resource
      * otherwise, which is the only copy the web build has.
      *
-     * @param resourceName graph's path below the {@code dsl} resource folder
-     * @param onLoaded     receives the graph text
+     * @param graph    the packaged graph to read
+     * @param onLoaded receives the graph text
      */
-    private void loadDslSource(String resourceName, Consumer<String> onLoaded) {
-        String working = dslResourceFile(resourceName);
+    private void loadDslSource(ModelChoice graph, Consumer<String> onLoaded) {
+        String working = graph.workingFile();
         if (working != null) {
             try {
-                String source = Files.readString(Path.of(working));
+                String source = graph.readSource();
                 loadedDslFile = working;
                 onLoaded.accept(source);
                 return;
@@ -924,24 +895,7 @@ public class MeshNodeViewerScene extends ModelScene {
             }
         }
         loadedDslFile = null;
-        Platforms.get().loadSourceAsync(DSL_FOLDER, resourceName, Platforms.gl().getPlatformID(),
-                onLoaded);
-    }
-
-    /**
-     * The tracked file a DSL resource name lives in, preferred over the build output because that
-     * is the copy a written statement persists into.
-     *
-     * @param resourceName graph's path below the {@code dsl} resource folder
-     * @return the resolved path, or {@code null} when neither copy exists
-     */
-    private static String dslResourceFile(String resourceName) {
-        Path inWorkingDirectory = Path.of(DSL_RESOURCE_DIRECTORY, resourceName);
-        if (Files.exists(inWorkingDirectory)) {
-            return inWorkingDirectory.toString();
-        }
-        Path inModule = Path.of(MeshLoader.MODULE_DIRECTORY, DSL_RESOURCE_DIRECTORY, resourceName);
-        return Files.exists(inModule) ? inModule.toString() : null;
+        graph.loadPackagedSource(onLoaded);
     }
 
     // ==================== VIEW-7 model switching + patch overlay
@@ -994,7 +948,7 @@ public class MeshNodeViewerScene extends ModelScene {
         if (entry == null)
             return;
         if (entry.kind == ModelChoice.Kind.COLLECTION) {
-            openCollection(Path.of(entry.path));
+            openCollection(entry);
             Platforms.get().log("[mesh-viewer] collection " + modelCollection.name + ": "
                     + modelCollection.memberCount() + " members, " + modelCollection.keptCount()
                     + " kept, manifest " + modelCollection.manifestPath);
@@ -1020,10 +974,11 @@ public class MeshNodeViewerScene extends ModelScene {
 
     private void loadDslFromAbsolutePath(String absolutePath) {
         // loadDsl() expects a resource-relative name, but the staging dir
-        // contains symlinks — read the file directly and execute the graph.
-        String file = workingCopyOf(absolutePath);
+        // contains symlinks — read the choice's file directly and execute the graph.
+        ModelChoice graph = new ModelChoice(absolutePath, absolutePath, ModelChoice.Kind.DSL);
+        String file = graph.workingFile();
         try {
-            String dslCode = new String(Files.readAllBytes(Path.of(file)));
+            String dslCode = graph.readSource();
             loadedDslFile = file;
             disposeMeshRuntime();
             meshBundle = null;
@@ -1043,31 +998,6 @@ public class MeshNodeViewerScene extends ModelScene {
         } catch (Exception e) {
             Platforms.get().log("[mesh-viewer] DSL load failed for " + file + ": " + e.getMessage());
         }
-    }
-
-    /**
-     * The tracked source a DSL path corresponds to: a graph named under {@code target/classes} is
-     * loaded from its {@code src/main/resources} copy, so a reload reads what a statement was
-     * written
-     * into.
-     *
-     * @param path path the caller asked for
-     * @return the working copy when one exists, otherwise the path unchanged
-     */
-    private static String workingCopyOf(String path) {
-        String normalized = path.replace('\\', '/');
-        int build = normalized.indexOf(DSL_BUILD_DIRECTORY);
-        int name = build + DSL_BUILD_DIRECTORY.length() + 1;
-        if (build < 0 || name >= normalized.length()) {
-            return path;
-        }
-        String resourceName = normalized.substring(name);
-        String working = dslResourceFile(resourceName);
-        if (working == null) {
-            return path;
-        }
-        Path beside = Path.of(normalized.substring(0, build), DSL_RESOURCE_DIRECTORY, resourceName);
-        return Files.exists(beside) ? beside.toString() : working;
     }
 
     /**

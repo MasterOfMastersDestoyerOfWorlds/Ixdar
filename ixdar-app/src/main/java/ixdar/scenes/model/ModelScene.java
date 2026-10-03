@@ -23,6 +23,7 @@ import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.menu.SceneModelMenu;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
+import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.Scene;
@@ -62,7 +63,7 @@ public abstract class ModelScene extends Scene {
 
     public static final float FOCUS_ORBIT_MIN_MUL = 0.5f;
 
-    /** ESC menu of this scene's models. */
+    /** Model menu of this scene's models. */
     public SceneModelMenu sceneModelMenu;
 
     /** Authored graphs registered for the model menu, in registration order. */
@@ -84,7 +85,7 @@ public abstract class ModelScene extends Scene {
     public OrbitCameraKeyGuy keyGuy;
 
     /**
-     * Model path requested by the ESC menu or {@code model} command, applied on the
+     * Model path requested by the model menu or {@code model} command, applied on the
      * render thread.
      */
     public volatile String pendingModelPath;
@@ -142,7 +143,7 @@ public abstract class ModelScene extends Scene {
 
     /**
      * Create the runtime and load the initial model, reporting a load failure instead of
-     * propagating it: an unreadable initial model leaves an empty view the ESC menu can load
+     * propagating it: an unreadable initial model leaves an empty view the model menu can load
      * another model into. Scenes with async or multi-runtime loading override this.
      */
     public void initModel() {
@@ -165,6 +166,10 @@ public abstract class ModelScene extends Scene {
                 bounds -> bounds.update(Platforms.get().getFrameBufferWidth() - MENU_PANEL_WIDTH, 0,
                         MENU_PANEL_WIDTH, Platforms.get().getFrameBufferHeight()),
                 VIEW_SCENE_MENU));
+        MouseTrap.subscribeScrollRegion(sceneModelMenu.modelsBox.bounds, sceneModelMenu.modelsBox);
+        MouseTrap.subscribeScrollRegion(sceneModelMenu.controlsBox.bounds,
+                sceneModelMenu.controlsBox);
+        MouseTrap.subscribeScrollRegion(webViews.get(VIEW_SCENE_MENU), sceneModelMenu);
     }
 
     /**
@@ -523,10 +528,10 @@ public abstract class ModelScene extends Scene {
      * Open a directory of scans as the scene's collection: its members replace the model catalog
      * and its manifest is (re)written, so membership is recorded before anything is merged.
      *
-     * @param directory directory of scans
+     * @param directory choice naming the directory of scans
      */
-    public void openCollection(Path directory) {
-        modelCollection = ModelCatalog.collection(directory);
+    public void openCollection(ModelChoice directory) {
+        modelCollection = directory.openCollection();
         modelCatalog = ModelCatalog.ofCollection(modelCollection);
         writeCollectionManifest();
     }

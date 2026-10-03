@@ -15,6 +15,7 @@ import ixdar.scenes.main.PaneTypes;
 import java.util.List;
 
 import java.util.Map;
+import java.util.function.Predicate;
 
 import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
@@ -336,24 +337,10 @@ public class MouseTrap {
         PaneTypes view = MainScene.inView(lastX, lastY);
 
         if (queuedMouseWheelTicks != 0) {
-            List<ScrollSubscription> subs = getSubscriptionsForCurrentPlatform();
-            for (ScrollSubscription sub : subs) {
-
-                if (sub.bounds != null) {
-                    sub.bounds.recalc();
-                }
-                if (sub.bounds != null) {
-                    float windowHeight = (float) Platforms.get().getWindowHeight();
-                    float yFromBottom = windowHeight - lastY;
-                    boolean inside = lastX >= sub.bounds.offsetX && lastX <= sub.bounds.offsetX + sub.bounds.viewWidth
-                            && yFromBottom >= sub.bounds.offsetY
-                            && yFromBottom <= sub.bounds.offsetY + sub.bounds.viewHeight;
-                    if (inside) {
-                        boolean up = queuedMouseWheelTicks < 0;
-                        sub.handler.onScroll(up, Clock.deltaTime() * SCROLL_SPEED_SCALE);
-                        return;
-                    }
-                }
+            ScrollHandler region = scrollHandlerUnderCursor(handler -> true);
+            if (region != null) {
+                region.onScroll(queuedMouseWheelTicks < 0, Clock.deltaTime() * SCROLL_SPEED_SCALE);
+                return;
             }
         }
         if (queuedMouseWheelTicks < 0) {
@@ -369,6 +356,35 @@ public class MouseTrap {
             queuedMouseWheelTicks = 0;
         }
         MouseTrap.hyperStrings = new ArrayList<>();
+    }
+
+    /**
+     * The first subscribed scroll region holding the cursor, in subscription order, with every
+     * region's bounds recalculated first so a resized pane is tested at its current size. Regions
+     * are viewports, so the test uses the cursor in framebuffer pixels, y up, the way clicks do.
+     *
+     * @param eligible which handlers may take the wheel; a subclass with its own default wheel
+     *                 action narrows this to the regions it yields to
+     * @return that region's handler, or {@code null} when the cursor is in none
+     */
+    public ScrollHandler scrollHandlerUnderCursor(Predicate<ScrollHandler> eligible) {
+        if (lastX == Integer.MIN_VALUE) {
+            return null;
+        }
+        for (ScrollSubscription sub : getSubscriptionsForCurrentPlatform()) {
+            if (sub.bounds == null || !eligible.test(sub.handler)) {
+                continue;
+            }
+            sub.bounds.recalc();
+            boolean inside = normalizedPosX >= sub.bounds.offsetX
+                    && normalizedPosX <= sub.bounds.offsetX + sub.bounds.viewWidth
+                    && normalizedPosY >= sub.bounds.offsetY
+                    && normalizedPosY <= sub.bounds.offsetY + sub.bounds.viewHeight;
+            if (inside) {
+                return sub.handler;
+            }
+        }
+        return null;
     }
 
     private void updateHyperStrings() {

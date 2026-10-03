@@ -5,8 +5,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import ixdar.geometry.mesh.data.load.MeshLoader;
@@ -32,6 +34,16 @@ public final class ModelCatalog {
     public static final String DSL_DIR = "dsl";
 
     public static final String GLTF_PREFIX = "glTF";
+
+    public static final String DSL_EXTENSION = ".dsl";
+
+    public static final String REPO_PREFIX = "repo";
+
+    public static final String STAGED_PREFIX = "staged ";
+
+    public static final String DSL_RESOURCE_DIRECTORY = "src/main/resources/dsl";
+
+    public static final String DSL_BUILD_DIRECTORY = "target/classes/dsl";
 
     /** Directory the catalog was scanned from. */
     public final Path root;
@@ -92,7 +104,7 @@ public final class ModelCatalog {
             return directory(root);
         }
         List<ModelChoice> found = new ArrayList<>();
-        collect(root.resolve(DSL_DIR), ".dsl", ModelChoice.Kind.DSL, "DSL", found);
+        collect(root.resolve(DSL_DIR), DSL_EXTENSION, ModelChoice.Kind.DSL, "DSL", found);
         collect(root.resolve(OBJ_DIR).resolve(VOYAGE_DIR), OBJ_EXTENSION, ModelChoice.Kind.MESH_FILE,
                 "OBJ voyage", found);
         collect(root.resolve(OBJ_DIR).resolve("blends"), OBJ_EXTENSION, ModelChoice.Kind.MESH_FILE,
@@ -100,6 +112,33 @@ public final class ModelCatalog {
         collect(root, MeshLoader.GLB_EXTENSION, ModelChoice.Kind.MESH_FILE, GLTF_PREFIX, found);
         collect(root, MeshLoader.GLTF_EXTENSION, ModelChoice.Kind.MESH_FILE, GLTF_PREFIX, found);
         return new ModelCatalog(root, sorted(found));
+    }
+
+    /**
+     * The mesh-node scenes' model list: every repo graph below {@code repoDslRoot}, named
+     * {@code repo: <relative path>}, then the staging directory's entries prefixed {@code staged},
+     * minus any staged file that resolves to a repo graph. Each group is sorted, so the order is
+     * stable.
+     *
+     * @param repoDslRoot the repo's DSL resource folder; its graphs load and save as tracked files
+     * @param stagingRoot staging directory, contributing nothing when absent
+     * @return the catalog rooted at {@code repoDslRoot}, empty when neither folder is readable
+     */
+    public static ModelCatalog repoGraphsAndStaging(Path repoDslRoot, Path stagingRoot) {
+        List<ModelChoice> found = new ArrayList<>();
+        collect(repoDslRoot, DSL_EXTENSION, ModelChoice.Kind.DSL, REPO_PREFIX, found);
+        sorted(found);
+        Set<Path> repoFiles = new HashSet<>();
+        for (ModelChoice repoGraph : found) {
+            repoFiles.add(realPathOf(repoGraph.path));
+        }
+        for (ModelChoice staged : staging(stagingRoot).choices) {
+            if (!repoFiles.contains(realPathOf(staged.path))) {
+                found.add(new ModelChoice(STAGED_PREFIX + staged.displayName, staged.path,
+                        staged.kind));
+            }
+        }
+        return new ModelCatalog(repoDslRoot, found);
     }
 
     /**
@@ -170,7 +209,7 @@ public final class ModelCatalog {
     }
 
     /**
-     * View a collection as a model catalog, so the ESC menu, the {@code model} command and the
+     * View a collection as a model catalog, so the model menu, the {@code model} command and the
      * {@code [} / {@code ]} keys reach its members the way they reach any other model list.
      *
      * @param collection collection whose members become the catalog's choices
@@ -196,6 +235,77 @@ public final class ModelCatalog {
             return Path.of(override).toAbsolutePath();
         }
         return Path.of(System.getProperty("user.home"), ".ix", "ixdar-models");
+    }
+
+    /**
+     * The repo's DSL resource folder: below the working directory when the scene runs from the
+     * module, else below the module directory when it runs from the repo root.
+     *
+     * @return absolute path of the folder, which need not exist (the web build has none)
+     */
+    public static Path repoDslRoot() {
+        Path inWorkingDirectory = Path.of(DSL_RESOURCE_DIRECTORY);
+        Path root = Files.isDirectory(inWorkingDirectory) ? inWorkingDirectory
+                : Path.of(MeshLoader.MODULE_DIRECTORY, DSL_RESOURCE_DIRECTORY);
+        return root.toAbsolutePath();
+    }
+
+    /**
+     * The tracked file a DSL resource name lives in, preferred over the build output because that
+     * is the copy a written statement persists into.
+     *
+     * @param resourceName graph's path below the {@code dsl} resource folder
+     * @return the file's path, relative to the working directory, or {@code null} when absent
+     */
+    public static String trackedDslFile(String resourceName) {
+        Path inWorkingDirectory = Path.of(DSL_RESOURCE_DIRECTORY, resourceName);
+        if (Files.exists(inWorkingDirectory)) {
+            return inWorkingDirectory.toString();
+        }
+        Path inModule = Path.of(MeshLoader.MODULE_DIRECTORY, DSL_RESOURCE_DIRECTORY, resourceName);
+        return Files.exists(inModule) ? inModule.toString() : null;
+    }
+
+    /**
+     * A DSL resource as a choice: its tracked file when one exists on disk, and the packaged
+     * resource otherwise, which is the only copy the web build has.
+     *
+     * @param resourceName graph's path below the {@code dsl} resource folder
+     * @return the graph's choice, whose {@link ModelChoice#path} is {@code null} without a file
+     */
+    public static ModelChoice packagedGraph(String resourceName) {
+        return new ModelChoice(resourceName, trackedDslFile(resourceName), ModelChoice.Kind.DSL,
+                resourceName);
+    }
+
+    /**
+     * Resolve a launch property such as {@code -Dixdar.model}: a directory opens as a collection,
+     * a catalog token resolves through {@code catalog}, a {@code .dsl} path is a graph, and anything
+     * else is a mesh file path, tried below the module directory when absent here.
+     *
+     * @param token property value
+     * @param catalog catalog to resolve tokens against, or {@code null}
+     * @return the choice the property names
+     */
+    public static ModelChoice launchChoice(String token, ModelCatalog catalog) {
+        Path directory = Path.of(token);
+        if (Files.isDirectory(directory)) {
+            Path absolute = directory.toAbsolutePath();
+            return new ModelChoice(absolute.getFileName().toString(), absolute.toString(),
+                    ModelChoice.Kind.COLLECTION);
+        }
+        ModelChoice match = catalog == null ? null : catalog.resolve(token);
+        if (match != null) {
+            return match;
+        }
+        Path file = Path.of(token);
+        if (!Files.exists(file) && Files.exists(Path.of(MeshLoader.MODULE_DIRECTORY, token))) {
+            file = Path.of(MeshLoader.MODULE_DIRECTORY, token);
+        }
+        ModelChoice.Kind kind = token.endsWith(DSL_EXTENSION) ? ModelChoice.Kind.DSL
+                : ModelChoice.Kind.MESH_FILE;
+        return new ModelChoice(file.getFileName().toString(), file.toAbsolutePath().toString(),
+                kind);
     }
 
     /**
@@ -288,6 +398,16 @@ public final class ModelCatalog {
     }
 
     /**
+     * Find the entry whose loader path is the file {@code file} names, relative or absolute.
+     *
+     * @param file path of the file, or {@code null}
+     * @return matching index, or {@code -1} when none matches or {@code file} is {@code null}
+     */
+    public int indexOfFile(String file) {
+        return file == null ? -1 : indexOfPath(Path.of(file).toAbsolutePath().toString());
+    }
+
+    /**
      * Resolve a token against this catalog alone.
      *
      * @param token text typed at the terminal
@@ -316,11 +436,27 @@ public final class ModelCatalog {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName().toString().toLowerCase().endsWith(extension))
                 .forEach(path -> found.add(new ModelChoice(
-                        prefix + " • " + dir.relativize(path),
+                        prefix + ": " + dir.relativize(path),
                         path.toAbsolutePath().toString(),
                         kind)));
         } catch (IOException ignored) {
             found.clear();
+        }
+    }
+
+    /**
+     * The file a path finally names, following symlinks, so a staged link to a repo graph compares
+     * equal to the graph itself.
+     *
+     * @param path loader path of a choice
+     * @return the real path, or the normalized absolute path when it cannot be resolved
+     */
+    private static Path realPathOf(String path) {
+        Path file = Path.of(path);
+        try {
+            return file.toRealPath();
+        } catch (IOException unresolvable) {
+            return file.toAbsolutePath().normalize();
         }
     }
 

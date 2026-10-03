@@ -24,6 +24,7 @@ import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.menu.MenuItem;
+import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
@@ -454,6 +455,20 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                             REGION_BOTTOM,
                             scene.sceneTerminal.history,
                             scene.sceneTerminal.scrollOffsetY));
+        }
+        if (runtime.canvas instanceof ModelScene menuScene && menuScene.sceneModelMenu != null
+                && menuScene.sceneModelMenu.isVisible()) {
+            for (MenuScrollBox box : new MenuScrollBox[] {menuScene.sceneModelMenu.modelsBox,
+                    menuScene.sceneModelMenu.controlsBox}) {
+                JsonObject element = runtime.hyperStringElement("scene_menu_box", box.bounds.id,
+                        box.text, box.scrollOffsetY);
+                element.addProperty("maximumScrollOffsetY", box.maximumScrollOffsetY());
+                element.addProperty(XPX, box.bounds.offsetX);
+                element.addProperty(YPX, box.bounds.offsetY);
+                element.addProperty("width", box.bounds.viewWidth);
+                element.addProperty("height", box.bounds.viewHeight);
+                textElements.add(element);
+            }
         }
         if (MainScene.terminal != null) {
             textElements.add(

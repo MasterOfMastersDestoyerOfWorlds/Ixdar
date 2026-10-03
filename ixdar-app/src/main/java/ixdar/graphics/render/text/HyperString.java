@@ -432,7 +432,8 @@ public class HyperString {
     }
 
     /**
-     * Lay out every line top-down starting at {@code row}.
+     * Lay out every line top-down starting at {@code row}. When wrapping, a static word wider
+     * than the view is first split for good into pieces that fit, keeping its colour and actions.
      *
      * @param camera 2D camera providing viewport size and screen offset
      * @param row top row index for the first line
@@ -441,6 +442,36 @@ public class HyperString {
      * @return total rows occupied (including wrap-induced extras)
      */
     public int setLineOffsetFromTopRow(Camera2D camera, int row, float scrollOffsetY, float rowHeight) {
+        float scale = Drawing.FONT_HEIGHT_PIXELS / font.fontHeight;
+        float widthPixels = camera.getWidth();
+        for (int index = 0; wrap && index < words.size(); index++) {
+            HyperWord word = words.get(index);
+            if (word.newLine || word.wordAction != null || !(word.width * scale > widthPixels)) {
+                continue;
+            }
+            ArrayList<HyperWord> pieces = new ArrayList<>();
+            String rest = word.charSequence.toString();
+            while (rest.length() > 1 && font.getWidth(rest) * scale > widthPixels) {
+                int fitting = 1;
+                while (fitting + 1 < rest.length()
+                        && font.getWidth(rest.substring(0, fitting + 1)) * scale <= widthPixels) {
+                    fitting++;
+                }
+                pieces.add(new HyperWord(rest.substring(0, fitting), word.color, word.hoverAction,
+                        word.clearHover, word.clickAction, font));
+                rest = rest.substring(fitting);
+            }
+            pieces.add(new HyperWord(rest, word.color, word.hoverAction, word.clearHover,
+                    word.clickAction, font));
+            words.remove(index);
+            words.addAll(index, pieces);
+            for (int line = 0; line < lineStartMap.size(); line++) {
+                if (lineStartMap.get(line) > index) {
+                    lineStartMap.set(line, lineStartMap.get(line) + pieces.size() - 1);
+                }
+            }
+            index += pieces.size() - 1;
+        }
         int startRow = row;
         for (int i = 0; i < lines; i++) {
             row += setLineOffsetFromTopRow(camera, row, scrollOffsetY, rowHeight, i);
@@ -485,7 +516,8 @@ public class HyperString {
                 float wordX = offset;
                 float wordWidth = Drawing.FONT_HEIGHT_PIXELS / font.fontHeight * subWord.width;
 
-                if (wrap && (wordX + wordWidth > camera.getWidth() || charLength > charWrap)) {
+                if (wrap && offset > 0
+                        && (wordX + wordWidth > camera.getWidth() || charLength > charWrap)) {
                     row++;
                     wrappedLines++;
                     offset = 0;

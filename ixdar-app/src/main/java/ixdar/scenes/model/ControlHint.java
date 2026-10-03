@@ -3,7 +3,7 @@ package ixdar.scenes.model;
 import ixdar.gui.ui.actions.Action;
 
 /**
- * One row in the ESC menu's Controls section: a {@link #key} label, a short
+ * One row in the model menu's Controls section: a {@link #key} label, a short
  * {@link #description}, an optional {@link #action} (clickable in the menu, and fired by the
  * scene key handler when a key press matches {@link #keyCode}). A {@link #NO_KEY} keycode marks a
  * display-only row (orbit, scroll) with no keyboard trigger.

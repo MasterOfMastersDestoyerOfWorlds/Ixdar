@@ -12,6 +12,7 @@ import org.joml.Vector3f;
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.platform.Platforms;
 
@@ -68,6 +69,31 @@ public class OrbitMouseTrap extends MouseTrap {
         super(null, camera, canvas);
         this.orbitCamera = camera;
         applyOrbit();
+    }
+
+    /**
+     * A scroll region that takes the wheel from the orbit while the cursor is over it. The orbit's
+     * wheel otherwise always zooms, so only regions that opt in here scroll in a 3D scene; a
+     * region such as the terminal strip keeps zooming.
+     */
+    public interface WheelClaimer extends ScrollHandler {
+
+        /**
+         * Whether the wheel over this region scrolls it instead of zooming, right now.
+         *
+         * @return true while the region is shown and wants the wheel
+         */
+        boolean claimsWheel();
+    }
+
+    /**
+     * The scroll region under the cursor that claims the wheel from the orbit right now.
+     *
+     * @return its handler, or {@code null} when the wheel should zoom
+     */
+    public ScrollHandler wheelClaimerUnderCursor() {
+        return scrollHandlerUnderCursor(
+                handler -> handler instanceof WheelClaimer claimer && claimer.claimsWheel());
     }
 
     /**
@@ -321,8 +347,9 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * Per-frame: drain queued scroll ticks into a multiplicative distance change
-     * ({@link #ZOOM_BASE}^ticks, then clamped) and reapply the camera pose.
+     * Per-frame: hand queued scroll ticks to a region under the cursor that takes the wheel from
+     * the orbit, else drain them into a multiplicative distance change ({@link #ZOOM_BASE}^ticks,
+     * then clamped) and reapply the camera pose.
      *
      * @param shiftMod speed multiplier (currently unused)
      */
@@ -335,6 +362,11 @@ public class OrbitMouseTrap extends MouseTrap {
             queuedMouseWheelTicks = 0;
         }
         if (queuedMouseWheelTicks != 0) {
+            ScrollHandler region = wheelClaimerUnderCursor();
+            if (region != null) {
+                region.onScroll(queuedMouseWheelTicks < 0, Clock.deltaTime() * SCROLL_SPEED_SCALE);
+                return;
+            }
             distance = clamp(distance * (float) Math.pow(ZOOM_BASE, queuedMouseWheelTicks), minDistance, maxDistance);
             queuedMouseWheelTicks = 0;
             applyOrbit();

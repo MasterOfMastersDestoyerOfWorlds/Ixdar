@@ -1,12 +1,11 @@
 package ixdar.gui.ui.menu;
 
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.text.HyperString;
 import ixdar.scenes.model.ModelCollection;
 import ixdar.scenes.model.ModelScene;
 
 /**
- * The COLLECTION section of the ESC menu: the open collection's members with their keep flags and
+ * The COLLECTION section of the model menu: the open collection's members with their keep flags and
  * sizes, clickable to load, plus the cycle and keep/reject actions. Drawn by {@link SceneModelMenu}
  * only while a collection is open.
  */
@@ -40,24 +39,24 @@ public final class SceneCollectionMenu {
     }
 
     /**
-     * Append the section to a menu under construction. Nothing is appended when no collection is
-     * open, so a scene pointed at a single mesh sees the menu it always had.
+     * Append the section's rows to a menu box under construction. Nothing is appended when no
+     * collection is open, so a scene pointed at a single mesh sees the menu it always had.
      *
-     * @param hyper menu text being built this frame
+     * @param box scroll box whose rows are being built this frame
      */
-    public void append(HyperString hyper) {
+    public void append(MenuScrollBox box) {
         ModelCollection collection = scene.modelCollection;
         if (collection == null) {
             return;
         }
-        hyper.addLine(COLLECTION_HEADER + " " + collection.name, Color.AMBER);
-        hyper.addLine(collection.memberCount() + " members, " + collection.keptCount() + " kept",
-                Color.LIGHT_GRAY);
+        box.addRow(COLLECTION_HEADER + " " + collection.name, Color.AMBER, null);
+        box.addRow(collection.memberCount() + " members, " + collection.keptCount() + " kept",
+                Color.LIGHT_GRAY, null);
         String shared = collection.sharedSettingsSummary();
         if (!shared.isEmpty()) {
-            hyper.addLine(shared, Color.LIGHT_GRAY);
+            box.addRow(shared, Color.LIGHT_GRAY, null);
         }
-        hyper.addLine(collection.manifestPath.toString(), Color.LIGHT_GRAY);
+        box.addRow(collection.manifestPath.toString(), Color.LIGHT_GRAY, null);
 
         int current = collection.index();
         for (int member = 0; member < collection.memberCount(); member++) {
@@ -73,16 +72,12 @@ public final class SceneCollectionMenu {
             Color color = isCurrent ? Color.BRIGHT_GREEN
                     : (keep ? Color.COMMAND : Color.LIGHT_GRAY);
             int target = member;
-            hyper.addWordClick(row, color, () -> scene.loadMember(target));
-            hyper.newLine();
+            box.addRow(row, color, () -> scene.loadMember(target));
         }
 
-        hyper.addWordClick(PREV_LABEL, Color.BLUE_WHITE, () -> scene.prevMember());
-        hyper.newLine();
-        hyper.addWordClick(NEXT_LABEL, Color.BLUE_WHITE, () -> scene.nextMember());
-        hyper.newLine();
-        hyper.addWordClick(KEEP_LABEL, Color.BLUE_WHITE, () -> scene.toggleKeepCurrentMember());
-        hyper.newLine();
-        hyper.newLine();
+        box.addRow(PREV_LABEL, Color.BLUE_WHITE, () -> scene.prevMember());
+        box.addRow(NEXT_LABEL, Color.BLUE_WHITE, () -> scene.nextMember());
+        box.addRow(KEEP_LABEL, Color.BLUE_WHITE, () -> scene.toggleKeepCurrentMember());
+        box.addRow("", Color.LIGHT_GRAY, null);
     }
 }
