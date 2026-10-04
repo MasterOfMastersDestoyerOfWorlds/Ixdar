@@ -1723,6 +1723,49 @@
       "description": "Evaluates a float curve closure at a scalar or per-vertex field value, returning the mapped result."
     },
     {
+      "id": "export_mesh",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. The bundle is written and then passed on untouched, including its slots; the file carries positions, normals, triangles and the per-corner _uv field, with seam vertices re-split so a per-vertex format can hold it. Materials are not written yet.",
+          "defaultValue": null
+        },
+        {
+          "name": "path",
+          "portType": "STRING",
+          "description": "File to write, absolute or relative to the working directory. Missing parent directories are created; an empty path writes nothing.",
+          "defaultValue": ""
+        },
+        {
+          "name": "format",
+          "portType": "STRING",
+          "description": "GLB or PLY. Empty (the default) takes the format from the path\u0027s extension, defaulting to GLB.",
+          "defaultValue": "",
+          "canonicalModes": [
+            "GLB",
+            "PLY"
+          ],
+          "aliases": {},
+          "defaultMode": "GLB"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. The bundle is written and then passed on untouched, including its slots; the file carries positions, normals, triangles and the per-corner _uv field, with seam vertices re-split so a per-vertex format can hold it. Materials are not written yet."
+        }
+      ],
+      "description": "Writes the incoming geometry to a .glb or .ply file and passes the bundle through unchanged, so a graph can park an expensive result on disk and later graphs load it instead of recomputing it."
+    },
+    {
       "id": "extract_ring_region",
       "category": "Selection",
       "scopes": [

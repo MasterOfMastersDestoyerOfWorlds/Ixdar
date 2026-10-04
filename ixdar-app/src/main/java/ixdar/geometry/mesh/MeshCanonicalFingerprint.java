@@ -9,6 +9,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
@@ -60,12 +62,21 @@ public final class MeshCanonicalFingerprint {
         if (mesh == null) {
             return 0;
         }
-        HalfEdgeCompiledMeshData data = ((HalfEdgeMesh) mesh).compileSurfaceData();
-        return data.indices.length / 3;
+        if (mesh instanceof HalfEdgeMesh half) {
+            return half.compileSurfaceData().indices.length / 3;
+        }
+        int count = 0;
+        for (int index = 0; index < mesh.faceCount(); index++) {
+            int arity = mesh.faceVertexCount(mesh.faceIdAt(index));
+            count += arity < 3 ? 0 : arity - 2;
+        }
+        return count;
     }
 
     /**
-     * Order-independent SHA-256 fingerprint of {@code mesh}.
+     * Order-independent SHA-256 fingerprint of {@code mesh}. A half-edge mesh is read through its
+     * compiled surface data; any other topology is walked and fanned into triangles, so a mesh
+     * loaded straight from a file fingerprints the same as the same geometry in the pipeline.
      *
      * @param mesh mesh to fingerprint, or {@code null}
      * @return lowercase hex SHA-256; the empty-input digest when {@code mesh} is null
@@ -74,8 +85,41 @@ public final class MeshCanonicalFingerprint {
         if (mesh == null) {
             return sha256HexBytes(new byte[0]);
         }
-        HalfEdgeCompiledMeshData data = ((HalfEdgeMesh) mesh).compileSurfaceData();
-        return sha256HexFromCompiled(data);
+        if (mesh instanceof HalfEdgeMesh half) {
+            HalfEdgeCompiledMeshData data = half.compileSurfaceData();
+            return sha256HexFromCompiled(data);
+        }
+        List<float[][]> triangles = new ArrayList<>(triangleCount(mesh));
+        Vector3f scratch = new Vector3f();
+        for (int index = 0; index < mesh.faceCount(); index++) {
+            int faceId = mesh.faceIdAt(index);
+            int arity = mesh.faceVertexCount(faceId);
+            for (int fan = 1; fan + 1 < arity; fan++) {
+                triangles.add(sortCorners(corner(mesh, faceId, 0, scratch),
+                        corner(mesh, faceId, fan, scratch),
+                        corner(mesh, faceId, fan + 1, scratch)));
+            }
+        }
+        triangles.sort(TRIANGLE_ORDER);
+        return sha256HexBytes(encodeTriangles(triangles));
+    }
+
+    /**
+     * One face corner's rounded position.
+     *
+     * @param mesh mesh to read
+     * @param faceId face the corner belongs to
+     * @param cornerIndex corner index within that face
+     * @param scratch reusable vector
+     * @return the rounded {@code (x, y, z)}
+     */
+    private static float[] corner(MeshTopology mesh, int faceId, int cornerIndex, Vector3f scratch) {
+        mesh.vertexPosition(mesh.faceVertexAt(faceId, cornerIndex), scratch);
+        return new float[] {
+                roundCoord(scratch.x),
+                roundCoord(scratch.y),
+                roundCoord(scratch.z),
+        };
     }
 
     static String sha256HexFromCompiled(HalfEdgeCompiledMeshData data) {

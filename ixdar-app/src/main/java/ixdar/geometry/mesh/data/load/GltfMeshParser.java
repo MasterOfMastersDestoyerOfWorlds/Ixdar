@@ -103,6 +103,8 @@ public final class GltfMeshParser {
 
     public static final String TEXCOORD = "TEXCOORD_0";
 
+    public static final String WELD_KEY = "_IXDAR_WELD_KEY";
+
     public static final String CHILDREN = "children";
 
     public static final String INDICES = "indices";
@@ -172,6 +174,8 @@ public final class GltfMeshParser {
 
     private float[] sourceUv;
 
+    private float[] sourceWeldKey;
+
     private float[] weldedPositions;
 
     private float[] weldedNormals;
@@ -191,6 +195,8 @@ public final class GltfMeshParser {
     private boolean anyNormals;
 
     private boolean anyTextureCoordinates;
+
+    private boolean anyWeldKeys;
 
     private GltfMeshParser() {
     }
@@ -249,6 +255,9 @@ public final class GltfMeshParser {
         normals = new float[totalVertexCount * FLOATS_PER_VERTEX];
         if (anyTextureCoordinates) {
             sourceUv = new float[totalVertexCount * COMPONENTS_PER_CORNER];
+        }
+        if (anyWeldKeys) {
+            sourceWeldKey = new float[totalVertexCount];
         }
         triangleIndices = new int[totalTriangleCount * VERTICES_PER_TRIANGLE];
         for (int rootNode : sceneRoots()) {
@@ -366,16 +375,20 @@ public final class GltfMeshParser {
         int hash = Float.floatToRawIntBits(positions[offset]);
         hash = hash * HASH_MULTIPLIER + Float.floatToRawIntBits(positions[offset + 1]);
         hash = hash * HASH_MULTIPLIER + Float.floatToRawIntBits(positions[offset + 2]);
+        if (sourceWeldKey != null) {
+            hash = hash * HASH_MULTIPLIER + Float.floatToRawIntBits(sourceWeldKey[sourceVertex]);
+        }
         return (hash ^ (hash >>> HASH_SHIFT)) & Integer.MAX_VALUE;
     }
 
     /**
-     * Whether two source vertices sit at bitwise-identical positions. No epsilon: a real seam
+     * Whether two source vertices sit at bitwise-identical positions and carry the same
+     * {@link #WELD_KEY} when the file has one. No epsilon: a real seam
      * duplicate is a byte-for-byte copy of its twin, and a tolerance would merge distinct geometry.
      *
      * @param left index into the source vertex arrays
      * @param right index into the source vertex arrays
-     * @return {@code true} when all three components match bit for bit
+     * @return {@code true} when all three components and the weld keys match bit for bit
      */
     private boolean samePosition(int left, int right) {
         int leftOffset = left * FLOATS_PER_VERTEX;
@@ -386,7 +399,7 @@ public final class GltfMeshParser {
                 return false;
             }
         }
-        return true;
+        return sourceWeldKey == null || sourceWeldKey[left] == sourceWeldKey[right];
     }
 
     /**
@@ -509,6 +522,7 @@ public final class GltfMeshParser {
             totalTriangleCount += primitiveTriangleCount(primitive, vertexCount);
             anyNormals |= attributes.has(NORMAL);
             anyTextureCoordinates |= attributes.has(TEXCOORD);
+            anyWeldKeys |= attributes.has(WELD_KEY);
         }
         JsonValue children = node.get(CHILDREN);
         for (int slot = 0; slot < children.size(); slot++) {
@@ -624,6 +638,25 @@ public final class GltfMeshParser {
         if (uvAccessor >= 0 && sourceUv != null) {
             readTextureCoordinates(accessors.item(uvAccessor),
                     vertexCursor * COMPONENTS_PER_CORNER, vertexCount);
+        }
+        int weldKeyAccessor = attributes.getInt(WELD_KEY, -1);
+        if (weldKeyAccessor >= 0 && sourceWeldKey != null) {
+            // A float SCALAR accessor, one key per vertex of this primitive.
+            JsonValue weldKeys = accessors.item(weldKeyAccessor);
+            int componentType = weldKeys.getInt(COMPONENT_TYPE, COMPONENT_FLOAT);
+            if (componentType != COMPONENT_FLOAT) {
+                throw new IOException("glTF " + WELD_KEY + " componentType " + componentType
+                        + " is not float, in " + source);
+            }
+            byte[] bytes = accessorBytes(weldKeys);
+            if (bytes != null) {
+                ByteBuffer buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+                int base = accessorByteOffset(weldKeys);
+                int stride = accessorStride(weldKeys, BYTES_PER_WORD);
+                for (int vertex = 0; vertex < vertexCount; vertex++) {
+                    sourceWeldKey[vertexCursor + vertex] = buffer.getFloat(base + vertex * stride);
+                }
+            }
         }
         bakeTransform(world, floatOffset, vertexCount, hasNormals);
 

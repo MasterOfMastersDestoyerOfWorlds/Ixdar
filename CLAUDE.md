@@ -97,6 +97,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 
 **Server-backed commands** (generated from the automation routes manifest):
 - `ixdar-cli click [--x] [--y] [--normalized] [--button] [--settle]` — Click at a point on the active mouse handler, then wait for the click to be drawn.
+- `ixdar-cli drag --fromX --fromY --toX --toY [--steps] [--settle]` — Drag with the left button from one window point to another, a frame drawn after every step.
 - `ixdar-cli frame [--selection] [--bounds] [--padding] [--azimuth] [--elevation]` — Fit the camera to a named selection or an explicit bounding box, filling the view with it.
 - `ixdar-cli health` — Liveness probe reporting server status, recording/replaying flags, and port.
 - `ixdar-cli hover [--x] [--y] [--normalized] [--persistent] [--settle]` — Move the cursor without clicking, then wait for the hover to be drawn.
@@ -106,6 +107,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli mesh-dsl --name [--node] [--port]` — Load and execute a named DSL skill graph, making its output geometry the active mesh.
 - `ixdar-cli mesh-dsl-timing` — Report per-node execution times and peak heap from the most recent DSL graph run.
 - `ixdar-cli mesh-dsl-validate --dsl [--export]` — Validate DSL source text, or the contents of a .dsl file path, against the skill schema.
+- `ixdar-cli mesh-export --path [--format]` — Write the active viewer mesh, with normals and per-corner UVs, to a glTF binary or ASCII PLY file.
 - `ixdar-cli mesh-fingerprint` — Compute the canonical SHA-256 fingerprint of the active viewer mesh.
 - `ixdar-cli mesh-holes [--path]` — List every boundary loop of the mesh with its edge count, perimeter and area estimate, plus the loops repair_mesh filled and the triangles it used.
 - `ixdar-cli mesh-patches-decompose --path [--resolution]` — Hybrid skeleton and curvature patch decomposition of a reference mesh.
@@ -124,6 +126,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli record-start` — Begin a new recording session, clearing any previously buffered events.
 - `ixdar-cli record-status` — Snapshot of the recorder: recording flag, event counts, start time, saved file.
 - `ixdar-cli record-stop [--path]` — End the active recording session and write the captured events to disk.
+- `ixdar-cli regions` — Report the ring regions the editing scene's region-select tool shows: each region's faces, area and bounding rings, the problem rings, and the selection.
 - `ixdar-cli replay-cancel` — Signal the active replay to abort at the next event boundary; no-op if idle.
 - `ixdar-cli replay-pause` — Suspend the replay engine before the next event; no-op when nothing is running.
 - `ixdar-cli replay-resume` — Clear the paused flag on the replay engine; no-op when nothing is running.

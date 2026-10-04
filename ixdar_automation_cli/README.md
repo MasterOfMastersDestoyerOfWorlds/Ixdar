@@ -24,6 +24,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | Command | Description |
 | --- | --- |
 | [`click`](#click) | Click at a point on the active mouse handler, then wait for the click to be drawn. |
+| [`drag`](#drag) | Drag with the left button from one window point to another, a frame drawn after every step. |
 | [`frame`](#frame) | Fit the camera to a named selection or an explicit bounding box, filling the view with it. |
 | [`health`](#health) | Liveness probe reporting server status, recording/replaying flags, and port. |
 | [`hover`](#hover) | Move the cursor without clicking, then wait for the hover to be drawn. |
@@ -33,6 +34,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`mesh-dsl`](#mesh-dsl) | Load and execute a named DSL skill graph, making its output geometry the active mesh. |
 | [`mesh-dsl-timing`](#mesh-dsl-timing) | Report per-node execution times and peak heap from the most recent DSL graph run. |
 | [`mesh-dsl-validate`](#mesh-dsl-validate) | Validate DSL source text, or the contents of a .dsl file path, against the skill schema. |
+| [`mesh-export`](#mesh-export) | Write the active viewer mesh, with normals and per-corner UVs, to a glTF binary or ASCII PLY file. |
 | [`mesh-fingerprint`](#mesh-fingerprint) | Compute the canonical SHA-256 fingerprint of the active viewer mesh. |
 | [`mesh-holes`](#mesh-holes) | List every boundary loop of the mesh with its edge count, perimeter and area estimate, plus the loops repair_mesh filled and the triangles it used. |
 | [`mesh-patches-decompose`](#mesh-patches-decompose) | Hybrid skeleton and curvature patch decomposition of a reference mesh. |
@@ -51,6 +53,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`record-start`](#record-start) | Begin a new recording session, clearing any previously buffered events. |
 | [`record-status`](#record-status) | Snapshot of the recorder: recording flag, event counts, start time, saved file. |
 | [`record-stop`](#record-stop) | End the active recording session and write the captured events to disk. |
+| [`regions`](#regions) | Report the ring regions the editing scene's region-select tool shows: each region's faces, area and bounding rings, the problem rings, and the selection. |
 | [`replay-cancel`](#replay-cancel) | Signal the active replay to abort at the next event boundary; no-op if idle. |
 | [`replay-pause`](#replay-pause) | Suspend the replay engine before the next event; no-op when nothing is running. |
 | [`replay-resume`](#replay-resume) | Clear the paused flag on the replay engine; no-op when nothing is running. |
@@ -117,6 +120,23 @@ Click at a point on the active mouse handler, then wait for the click to be draw
   - `--settle` (int, default `2`) — Frames to wait for after the click, so a screenshot needs no sleep; 0 returns at once., e.g. `0`
 - **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"x": 0.5, "y": 0.25, "normalized": true, "button": 1, "settle": 0}'`
+
+### `drag`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectDrag.java)
+
+Drag with the left button from one window point to another, a frame drawn after every step.
+
+- **Route:** `POST /input/drag`
+- **Flags:**
+  - `--fromX` (float, required) — Start X in window pixels., e.g. `310`
+  - `--fromY` (float, required) — Start Y in window pixels., e.g. `500`
+  - `--toX` (float, required) — End X in window pixels., e.g. `330`
+  - `--toY` (float, required) — End Y in window pixels., e.g. `470`
+  - `--steps` (int, default `8`) — Equal moves the drag is split into., e.g. `12`
+  - `--settle` (int, default `2`) — Frames to wait for after the release., e.g. `2`
+- **Response:** `{ok, steps, settled}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/drag -d '{"fromX": 310, "fromY": 500, "toX": 330, "toY": 470, "steps": 12, "settle": 2}'`
 
 ### `frame`
 
@@ -235,6 +255,19 @@ Validate DSL source text, or the contents of a .dsl file path, against the skill
   - `--export` (string, default ``) — Optional path to export the probed output mesh as OBJ., e.g. `~/probe.obj`
 - **Response:** `{valid, nodeCount, errors:[...], warnings:[...], meshProbe:{...}, dslPath?}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/dsl/validate -d '{"dsl": "ixdar-app/src/main/resources/dsl/skull.dsl", "export": "~/probe.obj"}'`
+
+### `mesh-export`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Export.java)
+
+Write the active viewer mesh, with normals and per-corner UVs, to a glTF binary or ASCII PLY file.
+
+- **Route:** `POST /mesh/export`
+- **Flags:**
+  - `--path` (string, required) — File to write; missing parent directories are created., e.g. `/home/acw/crawfish/repaired/IMG_4109.glb`
+  - `--format` (string, default ``) — GLB or PLY; empty takes the format from the path's extension., e.g. `glb`
+- **Response:** `{ok, path, format, bytes, vertex_count, triangle_count, has_uv, zeroed_uv_corners}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/export -d '{"path": "/home/acw/crawfish/repaired/IMG_4109.glb", "format": "glb"}'`
 
 ### `mesh-fingerprint`
 
@@ -456,6 +489,16 @@ End the active recording session and write the captured events to disk.
   - `--path` (string, default ``) — Output file path; empty falls back to recordings/automation/., e.g. `/tmp/rec.json`
 - **Response:** `{recording, rawEventCount, abstractActionCount, startedAtIso, lastSavedFile, saved, file}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/record/stop -d '{"path": "/tmp/rec.json"}'`
+
+### `regions`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Regions.java)
+
+Report the ring regions the editing scene's region-select tool shows: each region's faces, area and bounding rings, the problem rings, and the selection.
+
+- **Route:** `GET /mesh/regions`
+- **Response:** `{ok, activeTool, regionCount, regions:[{region, faces, area, boundedBy, selected}], problems, ringCount, selectedCount, select, lastRow, error}`
+- **Direct call:** `curl -s http://127.0.0.1:47832/mesh/regions`
 
 ### `replay-cancel`
 
@@ -845,7 +888,7 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L620)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L624)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 

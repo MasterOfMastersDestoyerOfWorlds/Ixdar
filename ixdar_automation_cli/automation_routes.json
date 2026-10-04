@@ -417,6 +417,35 @@
       "responseHint": "{valid, nodeCount, errors:[...], warnings:[...], meshProbe:{...}, dslPath?}"
     },
     {
+      "commandName": "mesh-export",
+      "path": "/mesh/export",
+      "method": "POST",
+      "description": "Write the active viewer mesh, with normals and per-corner UVs, to a glTF binary or ASCII PLY file.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Export",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Export.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "File to write; missing parent directories are created.",
+          "example": "/home/acw/crawfish/repaired/IMG_4109.glb"
+        },
+        {
+          "name": "format",
+          "cliName": "format",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "GLB or PLY; empty takes the format from the path\u0027s extension.",
+          "example": "glb"
+        }
+      ],
+      "responseHint": "{ok, path, format, bytes, vertex_count, triangle_count, has_uv, zeroed_uv_corners}"
+    },
+    {
       "commandName": "mesh-fingerprint",
       "path": "/mesh/fingerprint",
       "method": "GET",
