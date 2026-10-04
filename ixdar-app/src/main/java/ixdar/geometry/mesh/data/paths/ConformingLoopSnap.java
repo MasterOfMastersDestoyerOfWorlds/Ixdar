@@ -20,8 +20,6 @@ public final class ConformingLoopSnap {
 
     public static final int DEFAULT_SEARCH_BUDGET = 4096;
 
-    public static final int TRIANGLE_CORNERS = 3;
-
     /** Vertex ids the snapped path runs through, in travel order. */
     public int[] vertexCycle = new int[0];
 
@@ -99,16 +97,12 @@ public final class ConformingLoopSnap {
             }
         }
         vertexCycle = Arrays.copyOf(vertexCycle, vertexCycleLength);
-        boolean polygonal = false;
-        for (int activeFace = 0; path.closed && !polygonal && activeFace < mesh.faceCount();
-                activeFace++) {
-            polygonal = mesh.faceVertexCount(mesh.faceIdAt(activeFace)) > TRIANGLE_CORNERS;
-        }
-        if (!polygonal) {
+        if (!path.closed) {
             return marks;
         }
-        // A walk across a polygon whose next walk turns back along one of its sides leaves a
-        // dead-end spur; a closed ring never needs one, so unmark them down to the loop.
+        // A walk whose next walk turns back along its last edge leaves a dead-end spur: across a
+        // polygon, or where consecutive traced points snap to vertices A, B, A on a fine triangle
+        // mesh. A closed ring never needs one, so unmark them down to the loop.
         int[] markedDegree = new int[visitStamp.length];
         for (int edgeId = 0; edgeId < marks.length; edgeId++) {
             if (marks[edgeId]) {

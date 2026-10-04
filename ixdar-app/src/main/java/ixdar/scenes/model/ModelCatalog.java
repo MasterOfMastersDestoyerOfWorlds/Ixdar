@@ -267,13 +267,18 @@ public final class ModelCatalog {
     }
 
     /**
-     * A DSL resource as a choice: its tracked file when one exists on disk, and the packaged
-     * resource otherwise, which is the only copy the web build has.
+     * A DSL resource as a choice: its tracked file when on disk, else the packaged resource. An
+     * absolute path is a graph outside the resources, read and saved in place.
      *
-     * @param resourceName graph's path below the {@code dsl} resource folder
+     * @param resourceName graph's path below the {@code dsl} resource folder, or an absolute path
      * @return the graph's choice, whose {@link ModelChoice#path} is {@code null} without a file
      */
     public static ModelChoice packagedGraph(String resourceName) {
+        Path outside = Path.of(resourceName);
+        if (outside.isAbsolute()) {
+            return new ModelChoice(outside.getFileName().toString(), resourceName,
+                    ModelChoice.Kind.DSL, resourceName);
+        }
         return new ModelChoice(resourceName, trackedDslFile(resourceName), ModelChoice.Kind.DSL,
                 resourceName);
     }
