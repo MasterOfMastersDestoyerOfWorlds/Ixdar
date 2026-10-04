@@ -7,8 +7,8 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
- * Traces an intrinsic path back onto its surface, unfolding source triangles along each intrinsic
- * half-edge to find the original edges it crosses.
+ * Traces an intrinsic path back onto its surface, unfolding the starting triangles along each
+ * intrinsic half-edge to find the source edges it crosses and the polygon splits it passes.
  *
  * <p>
  * {@link #snapshotOf} must be called while the triangulation is still unflipped.
@@ -35,8 +35,14 @@ public final class IntrinsicPathTracer {
     /** Mesh vertex id per dense intrinsic vertex index. */
     public int[] sourceVertexId;
 
-    /** Mesh edge id per dense intrinsic edge index. */
+    /** Mesh edge id per dense intrinsic edge index, {@link MeshTopology#NONE} on a split edge. */
     public int[] sourceEdgeId;
+
+    /** Unflipped {@code halfEdgeFace}, indexed by intrinsic half-edge. */
+    public int[] inputHalfEdgeFace;
+
+    /** Source polygon's face id per unflipped intrinsic face. */
+    public int[] sourceFaceId;
 
     /** Outgoing half-edge whose angular coordinate is zero, per vertex. */
     public int[] vertexReferenceHalfEdge;
@@ -47,6 +53,7 @@ public final class IntrinsicPathTracer {
     private double[] positions = new double[0];
     private int[] pointVertexId = new int[0];
     private int[] pointEdgeId = new int[0];
+    private int[] pointFaceId = new int[0];
     private double[] pointFraction = new double[0];
     private int pointCount;
     private final Vector3f scratchPosition = new Vector3f();
@@ -69,6 +76,8 @@ public final class IntrinsicPathTracer {
         tracer.inputSignpostAngle = intrinsic.signpostAngle.clone();
         tracer.sourceVertexId = intrinsic.sourceVertexId;
         tracer.sourceEdgeId = intrinsic.sourceEdgeId;
+        tracer.inputHalfEdgeFace = intrinsic.halfEdgeFace.clone();
+        tracer.sourceFaceId = intrinsic.sourceFaceId.clone();
         tracer.vertexReferenceHalfEdge = intrinsic.vertexReferenceHalfEdge.clone();
         tracer.maxUnfoldSteps = Math.max(intrinsic.faceCount, 64);
         return tracer;
@@ -80,7 +89,7 @@ public final class IntrinsicPathTracer {
      * @param intrinsic the flipped triangulation the path lives on
      * @param pathHalfEdges intrinsic half-edges in travel order
      * @param closed whether the path is a closed loop
-     * @return the polyline with its per-point vertex and edge-crossing correspondence
+     * @return the polyline with its per-point vertex, edge-crossing or inside-face correspondence
      */
     public TracedSurfacePath trace(IntrinsicTriangulation intrinsic, int[] pathHalfEdges,
             boolean closed) {
@@ -99,8 +108,9 @@ public final class IntrinsicPathTracer {
         if (!closed) {
             appendVertex(intrinsic.halfEdgeHead(pathHalfEdges[pathHalfEdges.length - 1]));
         }
-        return new TracedSurfacePath(Arrays.copyOf(positions, 3 * pointCount),
-                Arrays.copyOf(pointVertexId, pointCount), Arrays.copyOf(pointEdgeId, pointCount),
+        double[] packed = Arrays.copyOf(positions, 3 * pointCount);
+        return new TracedSurfacePath(packed, packed, Arrays.copyOf(pointVertexId, pointCount),
+                Arrays.copyOf(pointEdgeId, pointCount), Arrays.copyOf(pointFaceId, pointCount),
                 Arrays.copyOf(pointFraction, pointCount), pointCount, closed);
     }
 
@@ -265,10 +275,15 @@ public final class IntrinsicPathTracer {
         positions[base + 2] = scratchPosition.z;
         pointVertexId[pointCount] = vertexId;
         pointEdgeId[pointCount] = -1;
+        pointFaceId[pointCount] = -1;
         pointFraction[pointCount] = -1.0;
         pointCount++;
     }
 
+    /**
+     * Appends where the walk leaves a starting triangle: a crossing of the source edge under it,
+     * or, on an edge splitting a source polygon, a point inside that polygon.
+     */
     private void appendCrossing(int inputHalfEdge, double parameter) {
         ensureCapacity();
         int edge = inputHalfEdge >> 1;
@@ -285,7 +300,12 @@ public final class IntrinsicPathTracer {
         positions[base + 2] = tailZ + parameter * (scratchPosition.z - tailZ);
         pointVertexId[pointCount] = -1;
         pointEdgeId[pointCount] = sourceEdgeId[edge];
+        pointFaceId[pointCount] = -1;
         pointFraction[pointCount] = (inputHalfEdge & 1) == 0 ? parameter : 1.0 - parameter;
+        if (sourceEdgeId[edge] < 0) {
+            pointFaceId[pointCount] = sourceFaceId[inputHalfEdgeFace[inputHalfEdge]];
+            pointFraction[pointCount] = -1.0;
+        }
         pointCount++;
     }
 
@@ -297,6 +317,7 @@ public final class IntrinsicPathTracer {
         positions = Arrays.copyOf(positions, 3 * grown);
         pointVertexId = Arrays.copyOf(pointVertexId, grown);
         pointEdgeId = Arrays.copyOf(pointEdgeId, grown);
+        pointFaceId = Arrays.copyOf(pointFaceId, grown);
         pointFraction = Arrays.copyOf(pointFraction, grown);
     }
 }

@@ -66,11 +66,13 @@ public class SplineRingNode implements MeshNode {
     public Map<String, String> socketDocs() {
         return Map.of(
                 GEOMETRY.name,
-                "Input: the triangle mesh to ring. Output: the same bundle carrying the spline as "
-                        + "curve geometry, its snapped edge cycle in the edge-marks slot under "
-                        + "`label`, ready for mark_edges consumers and delete_geometry cuts, and "
-                        + "the traced spline itself under `label` in the " + SurfaceSpline.SLOT
-                        + " slot, which extract_ring_region cuts along.",
+                "Input: the mesh to ring, of any polygon sizes; quads and larger polygons are "
+                        + "split only inside the geodesic engine. Output: the same mesh, "
+                        + "unchanged, carrying the spline as curve geometry, its edge cycle, on "
+                        + "the mesh's own edges, in the edge-marks slot under `label`, ready for "
+                        + "mark_edges consumers and delete_geometry cuts, and the traced spline "
+                        + "itself under `label` in the " + SurfaceSpline.SLOT + " slot, which "
+                        + "extract_ring_region cuts along.",
                 POINTS.name,
                 "Authored anchor points as \"x,y,z; x,y,z; ...\", each snapped to its nearest "
                         + "vertex. The first leads the ring. The supporting anchors between them "

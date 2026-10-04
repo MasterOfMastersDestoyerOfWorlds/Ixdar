@@ -54,7 +54,10 @@ public final class RingRegionExtraction {
     /** Kernel that judges the capped mesh as a boolean operand, or null to skip the check. */
     public MeshBooleanBackend solidCheck;
 
-    /** Packed xyz of the cut surface: the source vertices in dense order, then the crossings. */
+    /**
+     * Packed xyz of the cut surface: the source vertices in dense order, then the edge crossings,
+     * then the points inside polygons.
+     */
     public float[] cutPositions = new float[0];
 
     /** Vertices of the cut surface. */
@@ -142,6 +145,8 @@ public final class RingRegionExtraction {
 
     private int[] edgeIdOfInserted = new int[0];
 
+    private int[] faceIdOfInside = new int[0];
+
     private int wallCount;
 
     private int[] neighbourByCorner = new int[0];
@@ -211,6 +216,7 @@ public final class RingRegionExtraction {
         double[] crossingFraction = new double[0];
         int[][] crossingOfPoint = new int[ringCount][];
         crossingCount = 0;
+        int insidePointCount = 0;
         for (int ring = 0; ring < ringCount; ring++) {
             if (!cutsAlongSpline(ring)) {
                 continue;
@@ -220,6 +226,7 @@ public final class RingRegionExtraction {
             crossingOfPoint[ring] = new int[points];
             for (int point = 0; point < points; point++) {
                 crossingOfPoint[ring][point] = MeshTopology.NONE;
+                insidePointCount += spline.pointFaceId[point] >= 0 ? 1 : 0;
                 int edgeId = spline.pointEdgeId[point];
                 if (spline.pointVertexId[point] >= 0 || edgeId < 0 || !mesh.hasEdge(edgeId)) {
                     continue;
@@ -246,7 +253,7 @@ public final class RingRegionExtraction {
         // Merge each edge's crossings into clusters and mint one vertex per cluster, or reuse the
         // end vertex a cluster sits next to, so no cut leaves a sliver.
         int[] crossingVertex = new int[crossingCount];
-        cutPositions = new float[XYZ * (sourceVertexCount + crossingCount)];
+        cutPositions = new float[XYZ * (sourceVertexCount + crossingCount + insidePointCount)];
         for (int activeVertex = 0; activeVertex < sourceVertexCount; activeVertex++) {
             mesh.vertexPosition(mesh.vertexIdAt(activeVertex), tail);
             cutPositions[XYZ * activeVertex] = tail.x;
@@ -295,6 +302,46 @@ public final class RingRegionExtraction {
             clusterStart = clusterEnd;
         }
         insertedVertexCount = cutVertexCount - sourceVertexCount;
+
+        // A point inside a polygon becomes a vertex of its own, unless it sits within the snap
+        // distance of one of that polygon's corners, which takes its place.
+        int[][] insideVertexOfPoint = new int[ringCount][];
+        faceIdOfInside = new int[insidePointCount];
+        for (int ring = 0; ring < ringCount; ring++) {
+            if (crossingOfPoint[ring] == null || insidePointCount == 0) {
+                continue;
+            }
+            SurfaceSpline spline = splineByRing[ring];
+            insideVertexOfPoint[ring] = new int[crossingOfPoint[ring].length];
+            Arrays.fill(insideVertexOfPoint[ring], MeshTopology.NONE);
+            for (int point = 0; point < insideVertexOfPoint[ring].length; point++) {
+                int faceId = spline.pointFaceId[point];
+                if (spline.pointVertexId[point] >= 0 || faceId < 0 || !mesh.hasFace(faceId)) {
+                    continue;
+                }
+                head.set(spline.surfacePolyline[XYZ * point],
+                        spline.surfacePolyline[XYZ * point + 1],
+                        spline.surfacePolyline[XYZ * point + 2]);
+                int vertex = MeshTopology.NONE;
+                double nearest = snapFraction * meanEdgeLength;
+                for (int corner = 0; corner < mesh.faceVertexCount(faceId); corner++) {
+                    int cornerVertexId = mesh.faceVertexAt(faceId, corner);
+                    mesh.vertexPosition(cornerVertexId, tail);
+                    if (tail.distance(head) <= nearest) {
+                        nearest = tail.distance(head);
+                        vertex = activeVertexByVertexId[cornerVertexId];
+                    }
+                }
+                if (vertex == MeshTopology.NONE) {
+                    vertex = cutVertexCount++;
+                    cutPositions[XYZ * vertex] = head.x;
+                    cutPositions[XYZ * vertex + 1] = head.y;
+                    cutPositions[XYZ * vertex + 2] = head.z;
+                    faceIdOfInside[vertex - sourceVertexCount - insertedVertexCount] = faceId;
+                }
+                insideVertexOfPoint[ring][point] = vertex;
+            }
+        }
         cutPositions = Arrays.copyOf(cutPositions, XYZ * cutVertexCount);
         // Vertices were minted in ascending (edge, fraction) order, so each edge's run of inserted
         // vertices is the consecutive range its offsets name.
@@ -318,6 +365,8 @@ public final class RingRegionExtraction {
                         ? activeVertexByVertexId[spline.pointVertexId[point]]
                         : crossingOfPoint[ring][point] >= 0
                                 ? crossingVertex[crossingOfPoint[ring][point]]
+                        : insideVertexOfPoint[ring] != null
+                                ? insideVertexOfPoint[ring][point]
                                 : MeshTopology.NONE;
                 if (vertex != MeshTopology.NONE && (length == 0 || path[length - 1] != vertex)) {
                     path[length++] = vertex;
@@ -335,13 +384,16 @@ public final class RingRegionExtraction {
         }
 
         // Walls and chords: a span along a source edge walls that edge's pieces, any other span
-        // crosses the one face both ends lie on; a ring with no spline walls its marked edges.
+        // crosses the one face both ends lie on, through the points it passes inside that face;
+        // a ring with no spline walls its marked edges.
         int[] chordHeadByActiveFace = new int[mesh.faceCount()];
         Arrays.fill(chordHeadByActiveFace, MeshTopology.NONE);
         int[] chordNext = new int[0];
         int[] chordFrom = new int[0];
         int[] chordTo = new int[0];
+        int[][] chordInterior = new int[0][];
         int chordCount = 0;
+        int firstInsideVertex = sourceVertexCount + insertedVertexCount;
         wallKeys = new long[0];
         wallCount = 0;
         int unresolvedSpans = 0;
@@ -361,16 +413,35 @@ public final class RingRegionExtraction {
                 }
                 continue;
             }
-            for (int index = 0; index < path.length; index++) {
-                int from = path[index];
-                int to = path[(index + 1) % path.length];
-                int sharedEdge;
-                if (from >= sourceVertexCount || to >= sourceVertexCount) {
+            int start = 0;
+            while (start < path.length && path[start] >= firstInsideVertex) {
+                start++;
+            }
+            if (start == path.length) {
+                unresolvedSpans += path.length;
+                continue;
+            }
+            int step = 0;
+            while (step < path.length) {
+                int from = path[(start + step) % path.length];
+                int next = step + 1;
+                while (next < path.length && path[(start + next) % path.length] >= firstInsideVertex) {
+                    next++;
+                }
+                int to = path[(start + next) % path.length];
+                int[] interior = new int[next - step - 1];
+                for (int inside = 0; inside < interior.length; inside++) {
+                    interior[inside] = path[(start + step + 1 + inside) % path.length];
+                }
+                step = next;
+                int sharedEdge = MeshTopology.NONE;
+                boolean edgeEnded = from >= sourceVertexCount || to >= sourceVertexCount;
+                if (interior.length == 0 && edgeEnded) {
                     int inserted = from >= sourceVertexCount ? from : to;
                     int edgeId = edgeIdOfInserted[inserted - sourceVertexCount];
                     sharedEdge = indexOf(edgeRun(edgeId), inserted == from ? to : from) >= 0
                             ? edgeId : MeshTopology.NONE;
-                } else {
+                } else if (interior.length == 0) {
                     sharedEdge = mesh.edgeBetween(mesh.vertexIdAt(from), mesh.vertexIdAt(to));
                 }
                 if (sharedEdge != MeshTopology.NONE) {
@@ -380,8 +451,14 @@ public final class RingRegionExtraction {
                 }
                 int sharedFace = MeshTopology.NONE;
                 int[] toFaces = facesOf(to);
-                for (int faceId : facesOf(from)) {
-                    if (faceId != MeshTopology.NONE && indexOf(toFaces, faceId) >= 0) {
+                int[] fromFaces = facesOf(from);
+                for (int faceId : interior.length == 0 ? fromFaces : facesOf(interior[0])) {
+                    boolean shared = faceId != MeshTopology.NONE && indexOf(toFaces, faceId) >= 0
+                            && indexOf(fromFaces, faceId) >= 0;
+                    for (int inside : interior) {
+                        shared &= faceIdOfInside[inside - firstInsideVertex] == faceId;
+                    }
+                    if (shared) {
                         sharedFace = faceId;
                         break;
                     }
@@ -395,13 +472,20 @@ public final class RingRegionExtraction {
                     chordFrom = Arrays.copyOf(chordFrom, grown);
                     chordTo = Arrays.copyOf(chordTo, grown);
                     chordNext = Arrays.copyOf(chordNext, grown);
+                    chordInterior = Arrays.copyOf(chordInterior, grown);
                 }
                 int activeFace = activeFaceByFaceId[sharedFace];
                 chordFrom[chordCount] = from;
                 chordTo[chordCount] = to;
+                chordInterior[chordCount] = interior;
                 chordNext[chordCount] = chordHeadByActiveFace[activeFace];
                 chordHeadByActiveFace[activeFace] = chordCount++;
-                addWall(EdgeKey.undirected(from, to));
+                int previous = from;
+                for (int inside : interior) {
+                    addWall(EdgeKey.undirected(previous, inside));
+                    previous = inside;
+                }
+                addWall(EdgeKey.undirected(previous, to));
             }
         }
         wallKeys = Arrays.copyOf(wallKeys, wallCount);
@@ -418,9 +502,10 @@ public final class RingRegionExtraction {
                     + "their cut has a gap the flood can leak through");
         }
 
-        // Split every face along its chords and triangulate the pieces. A piece is convex, being
-        // a convex face cut by straight chords, so the interval program below triangulates it;
-        // its cost, squared edges over area, keeps collinear crossings out of any one triangle.
+        // Split every face along its chords and triangulate the pieces. A piece is convex, or
+        // nearly so where a chord bends at a point inside a polygon, being a convex face cut by
+        // straight chords, so the interval program below triangulates it; its cost, squared
+        // edges over area, keeps collinear points out of any one triangle.
         cutTriangles = new int[TRIANGLE_CORNERS * (mesh.faceCount() + 2 * crossingCount + 2)];
         parentActiveFaceByTriangle = new int[cutTriangles.length / TRIANGLE_CORNERS];
         cutTriangleCount = 0;
@@ -451,6 +536,32 @@ public final class RingRegionExtraction {
                     int from = indexOf(polygon, chordFrom[chord]);
                     int to = indexOf(polygon, chordTo[chord]);
                     if (from < 0 || to < 0) {
+                        continue;
+                    }
+                    int[] interior = chordInterior[chord];
+                    if (interior.length > 0) {
+                        // A chord through inside points: one piece walks the polygon forward from
+                        // its start to its end and returns along the chord, the other the rest.
+                        placed = from != to;
+                        if (!placed) {
+                            continue;
+                        }
+                        int forwardSides = Math.floorMod(to - from, polygon.length);
+                        int[] ahead = new int[forwardSides + 1 + interior.length];
+                        int[] behind = new int[polygon.length - forwardSides + 1 + interior.length];
+                        for (int side = 0; side <= forwardSides; side++) {
+                            ahead[side] = polygon[(from + side) % polygon.length];
+                        }
+                        for (int side = 0; side <= polygon.length - forwardSides; side++) {
+                            behind[side] = polygon[(to + side) % polygon.length];
+                        }
+                        for (int inside = 0; inside < interior.length; inside++) {
+                            ahead[forwardSides + 1 + inside] =
+                                    interior[interior.length - 1 - inside];
+                            behind[polygon.length - forwardSides + 1 + inside] = interior[inside];
+                        }
+                        pieces.set(piece, ahead);
+                        pieces.add(behind);
                         continue;
                     }
                     placed = true;
@@ -767,10 +878,14 @@ public final class RingRegionExtraction {
             splineRings += alongSpline ? 1 : 0;
             edgeRings += regions.ringIsWall[ring] && !alongSpline ? 1 : 0;
         }
+        // Vertices after the source ones and the edge crossings were inserted inside polygons.
+        int insideVertices = cutVertexCount - sourceVertexCount - insertedVertexCount;
         lines.add(String.format(Locale.ROOT, "cut %d ring(s) along their splines and %d along "
                 + "their edges: %d crossing(s), %d vertex(es) inserted, %d snapped; %d triangle(s) "
-                + "in %d piece(s)", splineRings, edgeRings, crossingCount, insertedVertexCount,
-                snappedCrossingCount, cutTriangleCount, componentCount));
+                + "in %d piece(s)%s", splineRings, edgeRings, crossingCount, insertedVertexCount,
+                snappedCrossingCount, cutTriangleCount, componentCount,
+                insideVertices <= 0 ? ""
+                        : "; " + insideVertices + " vertex(es) inside polygons"));
         if (openMesh != null) {
             double unit = Math.max(meanEdgeLength, Double.MIN_VALUE);
             lines.add(String.format(Locale.ROOT, "kept %d face(s), %d open boundary edge(s); "
@@ -832,6 +947,9 @@ public final class RingRegionExtraction {
     }
 
     private int[] facesOf(int vertex) {
+        if (vertex >= sourceVertexCount + insertedVertexCount) {
+            return new int[] { faceIdOfInside[vertex - sourceVertexCount - insertedVertexCount] };
+        }
         if (vertex >= sourceVertexCount) {
             int edgeId = edgeIdOfInserted[vertex - sourceVertexCount];
             return new int[] { mesh.edgeFace(edgeId, 0), mesh.edgeFace(edgeId, 1) };

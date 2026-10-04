@@ -1734,7 +1734,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: a surface carrying ring edge marks and, from spline_ring, the traced splines in the _surface_splines slot. Output: the extracted closed mesh alone, no slots carried, ready for mesh_boolean.",
+          "description": "Input: a surface carrying ring edge marks and, from spline_ring, the traced splines in the _surface_splines slot; quads and larger polygons are split where a spline crosses or passes inside them. Output: the extracted closed mesh alone, all triangles, no slots carried, ready for mesh_boolean.",
           "defaultValue": null
         },
         {
@@ -1766,7 +1766,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: a surface carrying ring edge marks and, from spline_ring, the traced splines in the _surface_splines slot. Output: the extracted closed mesh alone, no slots carried, ready for mesh_boolean."
+          "description": "Input: a surface carrying ring edge marks and, from spline_ring, the traced splines in the _surface_splines slot; quads and larger polygons are split where a spline crosses or passes inside them. Output: the extracted closed mesh alone, all triangles, no slots carried, ready for mesh_boolean."
         },
         {
           "name": "open",
@@ -4520,7 +4520,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: the triangle mesh to ring. Output: the same bundle carrying the spline as curve geometry, its snapped edge cycle in the edge-marks slot under `label`, ready for mark_edges consumers and delete_geometry cuts, and the traced spline itself under `label` in the _surface_splines slot, which extract_ring_region cuts along.",
+          "description": "Input: the mesh to ring, of any polygon sizes; quads and larger polygons are split only inside the geodesic engine. Output: the same mesh, unchanged, carrying the spline as curve geometry, its edge cycle, on the mesh\u0027s own edges, in the edge-marks slot under `label`, ready for mark_edges consumers and delete_geometry cuts, and the traced spline itself under `label` in the _surface_splines slot, which extract_ring_region cuts along.",
           "defaultValue": null
         },
         {
@@ -4546,7 +4546,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: the triangle mesh to ring. Output: the same bundle carrying the spline as curve geometry, its snapped edge cycle in the edge-marks slot under `label`, ready for mark_edges consumers and delete_geometry cuts, and the traced spline itself under `label` in the _surface_splines slot, which extract_ring_region cuts along."
+          "description": "Input: the mesh to ring, of any polygon sizes; quads and larger polygons are split only inside the geodesic engine. Output: the same mesh, unchanged, carrying the spline as curve geometry, its edge cycle, on the mesh\u0027s own edges, in the edge-marks slot under `label`, ready for mark_edges consumers and delete_geometry cuts, and the traced spline itself under `label` in the _surface_splines slot, which extract_ring_region cuts along."
         },
         {
           "name": "selection",

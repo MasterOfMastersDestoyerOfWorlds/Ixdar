@@ -170,6 +170,9 @@ public final class RingTool implements EditTool {
     /** Geodesic engine over the current surface, built once and reused every frame. */
     public SurfaceGeodesics geodesics;
 
+    /** Surface the geodesic engine could not be built on, which the tool leaves alone. */
+    public MeshTopology refusedSurface;
+
     /** Whether the tool is taking the mouse. */
     public boolean active;
 
@@ -518,6 +521,11 @@ public final class RingTool implements EditTool {
         }
         long start = System.nanoTime();
         prepare(runtime, surface);
+        if (geodesics == null || geodesics.mesh != surface) {
+            pendingClick = false;
+            uploadOverlay();
+            return;
+        }
         // Pick the face under the cursor with the GPU id buffer, hit it with the view ray, and keep
         // the hit point and the face corner nearest it, the vertex a click anchors to.
         hitValid = false;
@@ -1611,8 +1619,9 @@ public final class RingTool implements EditTool {
      */
     public void adoptGraphRings(MeshTopology surface) {
         graphRingsPending = false;
-        if (geodesics == null || geodesics.mesh != surface) {
-            geodesics = SurfaceGeodesics.over(surface);
+        if (!readyGeodesics(surface)) {
+            invalidateRings();
+            return;
         }
         NodeGraphRuntime graph = scene.getLastGraphRuntime();
         List<PythonParser.ParsedNode> statements = graph == null ? List.of() : graph.statements;
@@ -1735,16 +1744,43 @@ public final class RingTool implements EditTool {
         }
         long start = System.nanoTime();
         runtime.uploadFacePickBuffer(surface);
-        limbAxis.cacheFor(surface);
-        if (geodesics == null || geodesics.mesh != surface) {
-            geodesics = SurfaceGeodesics.over(surface);
-        }
         preparedSurface = surface;
+        if (!readyGeodesics(surface)) {
+            return;
+        }
+        limbAxis.cacheFor(surface);
         Platforms.get().log(String.format(Locale.ROOT,
                 "[ring-tool] prepared %d faces: pick buffer, %s axis and the intrinsic "
                         + "triangulation (mean edge %.5f) in %.0f ms",
                 surface.faceCount(), limbAxis.skeleton == null ? "curvature" : "skeleton",
                 geodesics.meanEdgeLength, (System.nanoTime() - start) / 1e6));
+    }
+
+    /**
+     * Build the geodesic engine over a surface once, or refuse the surface with the reason in
+     * {@link #lastError} and the log, leaving the scene running without the tool.
+     *
+     * @param surface the surface rings are traced on
+     * @return true when {@link #geodesics} runs on {@code surface}
+     */
+    private boolean readyGeodesics(MeshTopology surface) {
+        if (geodesics != null && geodesics.mesh == surface) {
+            return true;
+        }
+        if (surface == refusedSurface) {
+            return false;
+        }
+        try {
+            geodesics = SurfaceGeodesics.over(surface);
+            return true;
+        } catch (RuntimeException failure) {
+            refusedSurface = surface;
+            geodesics = null;
+            lastError = "the ring tool cannot trace rings on this surface: "
+                    + failure.getMessage();
+            Platforms.get().log(LOG_PREFIX + lastError);
+            return false;
+        }
     }
 
     /**
@@ -1987,7 +2023,7 @@ public final class RingTool implements EditTool {
         LineSet lines = new LineSet(points - 1);
         for (int point = 0; point + 1 < points; point++) {
             lines.pathStep(mesh, spline.surfacePolyline, spline.pointVertexId,
-                    spline.pointEdgeId, point, point + 1);
+                    spline.pointEdgeId, spline.pointFaceId, point, point + 1);
         }
         return lines;
     }

@@ -13,12 +13,14 @@ import ixdar.geometry.mesh.data.MeshTopology;
  * edge marks rather than a polyline.
  *
  * <p>
- * Traced points collapse to the nearer end of the element they sit on and are joined by a bounded
- * Dijkstra walk, so no vertex is inserted.
+ * Traced points collapse to a nearby vertex and are joined by a bounded Dijkstra walk, so no vertex
+ * is inserted.
  */
 public final class ConformingLoopSnap {
 
     public static final int DEFAULT_SEARCH_BUDGET = 4096;
+
+    public static final int TRIANGLE_CORNERS = 3;
 
     /** Vertex ids the snapped path runs through, in travel order. */
     public int[] vertexCycle = new int[0];
@@ -40,10 +42,11 @@ public final class ConformingLoopSnap {
     private final Vector3f otherPosition = new Vector3f();
 
     /**
-     * Marks the edges of the conforming path nearest a traced geodesic.
+     * Marks the edges of the conforming path nearest a traced geodesic, only ever the mesh's own
+     * edges: a point inside a polygon snaps to that polygon's nearest corner.
      *
      * @param mesh source mesh the trace was taken on
-     * @param path traced polyline with its per-point vertex and edge correspondence
+     * @param path traced polyline with its per-point vertex, edge or face correspondence
      * @return per-edge-id flags, true on every edge of the snapped path
      */
     public boolean[] snap(MeshTopology mesh, TracedSurfacePath path) {
@@ -61,9 +64,25 @@ public final class ConformingLoopSnap {
         prepareVisitBuffers(mesh);
 
         for (int index = 0; index < path.pointCount; index++) {
-            int vertexId = path.vertexId[index] >= 0
-                    ? path.vertexId[index]
-                    : nearerEdgeEnd(mesh, path.edgeId[index], path.fraction[index]);
+            int vertexId = path.vertexId[index];
+            int faceId = path.faceId[index];
+            if (vertexId < 0 && faceId < 0) {
+                vertexId = nearerEdgeEnd(mesh, path.edgeId[index], path.fraction[index]);
+            }
+            double nearest = Double.POSITIVE_INFINITY;
+            int corners = vertexId < 0 ? mesh.faceVertexCount(faceId) : 0;
+            for (int corner = 0; corner < corners; corner++) {
+                int cornerVertexId = mesh.faceVertexAt(faceId, corner);
+                mesh.vertexPosition(cornerVertexId, scratchPosition);
+                double distance = scratchPosition.distanceSquared(
+                        (float) path.surfacePositions[3 * index],
+                        (float) path.surfacePositions[3 * index + 1],
+                        (float) path.surfacePositions[3 * index + 2]);
+                if (distance < nearest) {
+                    nearest = distance;
+                    vertexId = cornerVertexId;
+                }
+            }
             appendVertex(vertexId);
         }
         if (path.closed && vertexCycleLength > 1
@@ -80,6 +99,47 @@ public final class ConformingLoopSnap {
             }
         }
         vertexCycle = Arrays.copyOf(vertexCycle, vertexCycleLength);
+        boolean polygonal = false;
+        for (int activeFace = 0; path.closed && !polygonal && activeFace < mesh.faceCount();
+                activeFace++) {
+            polygonal = mesh.faceVertexCount(mesh.faceIdAt(activeFace)) > TRIANGLE_CORNERS;
+        }
+        if (!polygonal) {
+            return marks;
+        }
+        // A walk across a polygon whose next walk turns back along one of its sides leaves a
+        // dead-end spur; a closed ring never needs one, so unmark them down to the loop.
+        int[] markedDegree = new int[visitStamp.length];
+        for (int edgeId = 0; edgeId < marks.length; edgeId++) {
+            if (marks[edgeId]) {
+                int halfEdge = mesh.edgeHalfEdge(edgeId);
+                markedDegree[mesh.halfEdgeVertex(halfEdge)]++;
+                markedDegree[mesh.halfEdgeEndVertex(halfEdge)]++;
+            }
+        }
+        int[] deadEnds = new int[markedDegree.length];
+        int deadEndCount = 0;
+        for (int vertexId = 0; vertexId < markedDegree.length; vertexId++) {
+            if (markedDegree[vertexId] == 1) {
+                deadEnds[deadEndCount++] = vertexId;
+            }
+        }
+        while (deadEndCount > 0) {
+            int vertexId = deadEnds[--deadEndCount];
+            int spokes = mesh.vertexEdgeCount(vertexId);
+            for (int spoke = 0; spoke < spokes && markedDegree[vertexId] == 1; spoke++) {
+                int edgeId = mesh.vertexEdgeAt(vertexId, spoke);
+                if (edgeId >= marks.length || !marks[edgeId]) {
+                    continue;
+                }
+                marks[edgeId] = false;
+                markedDegree[vertexId]--;
+                int other = mesh.edgeOtherVertex(edgeId, vertexId);
+                if (--markedDegree[other] == 1) {
+                    deadEnds[deadEndCount++] = other;
+                }
+            }
+        }
         return marks;
     }
 

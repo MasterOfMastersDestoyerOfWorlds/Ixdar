@@ -61,8 +61,10 @@ public class ExtractRingRegionNode implements MeshNode {
         return Map.of(
                 GEOMETRY.name,
                 "Input: a surface carrying ring edge marks and, from spline_ring, the traced "
-                        + "splines in the " + SurfaceSpline.SLOT + " slot. Output: the extracted "
-                        + "closed mesh alone, no slots carried, ready for mesh_boolean.",
+                        + "splines in the " + SurfaceSpline.SLOT + " slot; quads and larger "
+                        + "polygons are split where a spline crosses or passes inside them. "
+                        + "Output: the extracted closed mesh alone, all triangles, no slots "
+                        + "carried, ready for mesh_boolean.",
                 LABELS.name,
                 "Comma-separated ring labels, as ring_regions takes them; empty takes every "
                         + "boolean edge-mark label.",

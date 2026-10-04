@@ -69,13 +69,19 @@ public final class SurfaceSplineTracer {
     /** Packed xyz of each segment's traced points, its last anchor excluded. */
     public double[][] segmentXyz = new double[0][];
 
-    /** Mesh vertex id per traced point of each segment, -1 at an edge crossing. */
+    /** Packed xyz on the surface of each segment's traced points, under {@link #segmentXyz}. */
+    public double[][] segmentSurfaceXyz = new double[0][];
+
+    /** Mesh vertex id per traced point of each segment, -1 elsewhere. */
     public int[][] segmentVertexId = new int[0][];
 
-    /** Crossed mesh edge id per traced point of each segment, -1 at a vertex. */
+    /** Crossed mesh edge id per traced point of each segment, -1 elsewhere. */
     public int[][] segmentEdgeId = new int[0][];
 
-    /** Crossing parameter per traced point of each segment, -1 at a vertex. */
+    /** Mesh face id per traced point of each segment strictly inside a polygon, -1 elsewhere. */
+    public int[][] segmentFaceId = new int[0][];
+
+    /** Crossing parameter per traced point of each segment, -1 off an edge. */
     public double[][] segmentFraction = new double[0][];
 
     /** Bisection depth each segment was traced at. */
@@ -94,7 +100,9 @@ public final class SurfaceSplineTracer {
     private float[] midpointXyz = new float[0];
     private double[] emittedXyz = new double[0];
     private int[] emittedVertexId = new int[0];
+    private double[] emittedSurfaceXyz = new double[0];
     private int[] emittedEdgeId = new int[0];
+    private int[] emittedFaceId = new int[0];
     private double[] emittedFraction = new double[0];
     private int emittedCount;
     private int emittedDepth;
@@ -172,7 +180,9 @@ public final class SurfaceSplineTracer {
         int[] keptDepth = segmentDepth;
         double[][] keptXyz = segmentXyz;
         int[][] keptVertexId = segmentVertexId;
+        double[][] keptSurfaceXyz = segmentSurfaceXyz;
         int[][] keptEdgeId = segmentEdgeId;
+        int[][] keptFaceId = segmentFaceId;
         double[][] keptFraction = segmentFraction;
         resizeSegments();
         for (int segment = 0; segment < anchorCount; segment++) {
@@ -183,7 +193,9 @@ public final class SurfaceSplineTracer {
             }
             segmentXyz[segment] = keptXyz[source];
             segmentVertexId[segment] = keptVertexId[source];
+            segmentSurfaceXyz[segment] = keptSurfaceXyz[source];
             segmentEdgeId[segment] = keptEdgeId[source];
+            segmentFaceId[segment] = keptFaceId[source];
             segmentFraction[segment] = keptFraction[source];
             segmentDepth[segment] = keptDepth[source];
         }
@@ -225,7 +237,10 @@ public final class SurfaceSplineTracer {
         subdivide(0, depthFor(segment));
         segmentXyz[segment] = Arrays.copyOf(emittedXyz, COORDINATES_PER_POINT * emittedCount);
         segmentVertexId[segment] = Arrays.copyOf(emittedVertexId, emittedCount);
+        segmentSurfaceXyz[segment] =
+                Arrays.copyOf(emittedSurfaceXyz, COORDINATES_PER_POINT * emittedCount);
         segmentEdgeId[segment] = Arrays.copyOf(emittedEdgeId, emittedCount);
+        segmentFaceId[segment] = Arrays.copyOf(emittedFaceId, emittedCount);
         segmentFraction[segment] = Arrays.copyOf(emittedFraction, emittedCount);
         segmentDepth[segment] = emittedDepth;
     }
@@ -242,20 +257,26 @@ public final class SurfaceSplineTracer {
             total += segmentVertexId[segment].length;
         }
         double[] positions = new double[COORDINATES_PER_POINT * total];
+        double[] surfacePositions = new double[COORDINATES_PER_POINT * total];
         int[] vertexId = new int[total];
         int[] edgeId = new int[total];
+        int[] faceId = new int[total];
         double[] fraction = new double[total];
         int cursor = 0;
         for (int segment = 0; segment < anchorCount; segment++) {
             int points = segmentVertexId[segment].length;
             System.arraycopy(segmentXyz[segment], 0, positions,
                     COORDINATES_PER_POINT * cursor, COORDINATES_PER_POINT * points);
+            System.arraycopy(segmentSurfaceXyz[segment], 0, surfacePositions,
+                    COORDINATES_PER_POINT * cursor, COORDINATES_PER_POINT * points);
             System.arraycopy(segmentVertexId[segment], 0, vertexId, cursor, points);
             System.arraycopy(segmentEdgeId[segment], 0, edgeId, cursor, points);
+            System.arraycopy(segmentFaceId[segment], 0, faceId, cursor, points);
             System.arraycopy(segmentFraction[segment], 0, fraction, cursor, points);
             cursor += points;
         }
-        return new TracedSurfacePath(positions, vertexId, edgeId, fraction, total, true);
+        return new TracedSurfacePath(positions, surfacePositions, vertexId, edgeId, faceId,
+                fraction, total, true);
     }
 
     private void prepareRecursionStack() {
@@ -272,14 +293,18 @@ public final class SurfaceSplineTracer {
     private void resizeSegments() {
         segmentXyz = Arrays.copyOf(segmentXyz, anchorCount);
         segmentVertexId = Arrays.copyOf(segmentVertexId, anchorCount);
+        segmentSurfaceXyz = Arrays.copyOf(segmentSurfaceXyz, anchorCount);
         segmentEdgeId = Arrays.copyOf(segmentEdgeId, anchorCount);
+        segmentFaceId = Arrays.copyOf(segmentFaceId, anchorCount);
         segmentFraction = Arrays.copyOf(segmentFraction, anchorCount);
         segmentDepth = Arrays.copyOf(segmentDepth, anchorCount);
         for (int segment = 0; segment < anchorCount; segment++) {
             if (segmentXyz[segment] == null) {
                 segmentXyz[segment] = new double[0];
+                segmentSurfaceXyz[segment] = new double[0];
                 segmentVertexId[segment] = new int[0];
                 segmentEdgeId[segment] = new int[0];
+                segmentFaceId[segment] = new int[0];
                 segmentFraction[segment] = new double[0];
             }
         }
@@ -478,7 +503,7 @@ public final class SurfaceSplineTracer {
         int toBase = COORDINATES_PER_POINT * (control + 3);
         if (fromVertexId == toVertexId || !geodesics.geodesic(fromVertexId, toVertexId)) {
             appendPoint(controlXyz[fromBase], controlXyz[fromBase + 1], controlXyz[fromBase + 2],
-                    fromVertexId, -1, -1.0);
+                    fromVertexId, -1);
             return;
         }
         for (int point = 0; point < geodesics.tracedPointCount - 1; point++) {
@@ -501,21 +526,36 @@ public final class SurfaceSplineTracer {
                             + second * controlXyz[fromBase + COORDINATES_PER_POINT + 2]
                             + third * controlXyz[fromBase + 2 * COORDINATES_PER_POINT + 2]
                             + fourth * controlXyz[toBase + 2],
-                    geodesics.tracedVertexId[point], geodesics.tracedEdgeId[point],
-                    geodesics.tracedFraction[point]);
+                    geodesics.tracedVertexId[point], point);
         }
     }
 
-    private void appendPoint(double x, double y, double z, int vertexId, int edgeId,
-            double fraction) {
+    /**
+     * Appends one sample of the cubic over the point of the last geodesic it stands for, or over
+     * a bare vertex when {@code tracedPoint} is -1.
+     */
+    private void appendPoint(double x, double y, double z, int vertexId, int tracedPoint) {
         ensureEmitCapacity();
         int base = COORDINATES_PER_POINT * emittedCount;
         emittedXyz[base] = x;
         emittedXyz[base + 1] = y;
         emittedXyz[base + 2] = z;
         emittedVertexId[emittedCount] = vertexId;
-        emittedEdgeId[emittedCount] = edgeId;
-        emittedFraction[emittedCount] = fraction;
+        if (tracedPoint < 0) {
+            geodesics.mesh.vertexPosition(vertexId, anchorPosition);
+            emittedSurfaceXyz[base] = anchorPosition.x;
+            emittedSurfaceXyz[base + 1] = anchorPosition.y;
+            emittedSurfaceXyz[base + 2] = anchorPosition.z;
+            emittedEdgeId[emittedCount] = -1;
+            emittedFaceId[emittedCount] = -1;
+            emittedFraction[emittedCount] = -1.0;
+        } else {
+            System.arraycopy(geodesics.tracedXyz, COORDINATES_PER_POINT * tracedPoint,
+                    emittedSurfaceXyz, base, COORDINATES_PER_POINT);
+            emittedEdgeId[emittedCount] = geodesics.tracedEdgeId[tracedPoint];
+            emittedFaceId[emittedCount] = geodesics.tracedFaceId[tracedPoint];
+            emittedFraction[emittedCount] = geodesics.tracedFraction[tracedPoint];
+        }
         emittedCount++;
     }
 
@@ -526,7 +566,9 @@ public final class SurfaceSplineTracer {
         int grown = Math.max(256, 2 * emittedVertexId.length);
         emittedXyz = Arrays.copyOf(emittedXyz, COORDINATES_PER_POINT * grown);
         emittedVertexId = Arrays.copyOf(emittedVertexId, grown);
+        emittedSurfaceXyz = Arrays.copyOf(emittedSurfaceXyz, COORDINATES_PER_POINT * grown);
         emittedEdgeId = Arrays.copyOf(emittedEdgeId, grown);
+        emittedFaceId = Arrays.copyOf(emittedFaceId, grown);
         emittedFraction = Arrays.copyOf(emittedFraction, grown);
     }
 }

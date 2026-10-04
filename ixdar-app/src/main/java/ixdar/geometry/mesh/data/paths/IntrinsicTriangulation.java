@@ -7,12 +7,12 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
- * Signpost intrinsic triangulation over a triangle mesh (Sharp, Soliman &amp; Crane 2019): edge
- * lengths, angular coordinates and vertex angle sums, kept current under edge flip.
+ * Signpost intrinsic triangulation over a polygon mesh (Sharp, Soliman &amp; Crane 2019), kept
+ * current under edge flip.
  *
  * <p>
- * Half-edge {@code h} sits on edge {@code h >> 1} and twins {@code h ^ 1}; a flip preserves both,
- * so intrinsic vertices stay source vertices.
+ * Half-edge {@code h} sits on edge {@code h >> 1} and twins {@code h ^ 1}. A polygon starts as
+ * intrinsic triangles joined by split edges with no source edge.
  */
 public final class IntrinsicTriangulation {
 
@@ -33,13 +33,22 @@ public final class IntrinsicTriangulation {
     /** Dense intrinsic vertex index per mesh vertex id; -1 for dead ids. */
     public int[] vertexIndexByVertexId;
 
-    /** Mesh edge id per dense intrinsic edge index, as the edge stood before any flip. */
+    /**
+     * Mesh edge id per dense intrinsic edge index, as the edge stood before any flip, or
+     * {@link MeshTopology#NONE} for an edge splitting a source polygon. Source edges come first.
+     */
     public int[] sourceEdgeId;
 
-    /** Mesh face id per dense intrinsic face index, as the face stood before any flip. */
+    /**
+     * Mesh face id per dense intrinsic face index, as the face stood before any flip: the polygon
+     * each starting intrinsic triangle lies in.
+     */
     public int[] sourceFaceId;
 
-    /** Whether an intrinsic edge is still the source-mesh edge it started as. */
+    /**
+     * Whether an intrinsic edge is still the edge it was built as, a source edge or a straight
+     * split inside one source polygon, rather than a flipped one that crosses source edges.
+     */
     public boolean[] edgeIsOriginal;
 
     /** Dense intrinsic vertex index each half-edge leaves from. */
@@ -105,15 +114,19 @@ public final class IntrinsicTriangulation {
     private int[] journalFaceHalfEdge = new int[0];
     private int[] journalVertex = new int[0];
     private int[] journalVertexReference = new int[0];
+    private int nextFreeFace;
+    private final Vector3f cornerPosition = new Vector3f();
 
     private IntrinsicTriangulation() {
     }
 
     /**
-     * Builds the signpost structure over a triangle mesh, taking Euclidean edge lengths.
+     * Builds the signpost structure over a polygon mesh, taking Euclidean edge lengths; each
+     * polygon is ear-split into intrinsic triangles on its shortest valid diagonals.
      *
-     * @param mesh source mesh; every face must be a triangle
-     * @throws IllegalArgumentException when a face is not a triangle
+     * @param mesh source mesh; every face needs at least three sides
+     * @throws IllegalArgumentException when a face has fewer than three sides or the mesh is not
+     *                                  manifold
      * @return a fresh triangulation whose connectivity mirrors {@code mesh}
      */
     public static IntrinsicTriangulation over(MeshTopology mesh) {
@@ -468,7 +481,20 @@ public final class IntrinsicTriangulation {
             vertexIndexByVertexId[vertexId] = index;
         }
 
-        edgeCount = mesh.edgeCount();
+        int sourceEdgeCount = mesh.edgeCount();
+        faceCount = 0;
+        int splitEdgeCount = 0;
+        for (int index = 0; index < mesh.faceCount(); index++) {
+            int faceId = mesh.faceIdAt(index);
+            int sides = mesh.faceHalfEdgeCount(faceId);
+            if (sides < TRIANGLE_SIDES) {
+                throw new IllegalArgumentException("intrinsic triangulation needs polygons, face "
+                        + faceId + " has " + sides + " sides");
+            }
+            splitEdgeCount += sides - TRIANGLE_SIDES;
+            faceCount += sides - 2;
+        }
+        edgeCount = sourceEdgeCount + splitEdgeCount;
         halfEdgeCount = 2 * edgeCount;
         sourceEdgeId = new int[edgeCount];
         edgeIsOriginal = new boolean[edgeCount];
@@ -487,7 +513,8 @@ public final class IntrinsicTriangulation {
         }
         int[] halfEdgeIndexByHalfEdgeId = new int[maxHalfEdgeId + 1];
         Arrays.fill(halfEdgeIndexByHalfEdgeId, -1);
-        for (int index = 0; index < edgeCount; index++) {
+        Arrays.fill(sourceEdgeId, sourceEdgeCount, edgeCount, MeshTopology.NONE);
+        for (int index = 0; index < sourceEdgeCount; index++) {
             int edgeId = mesh.edgeIdAt(index);
             sourceEdgeId[index] = edgeId;
             int frontId = mesh.edgeHalfEdge(edgeId);
@@ -502,30 +529,86 @@ public final class IntrinsicTriangulation {
             halfEdgeTail[back] = vertexIndexByVertexId[mesh.halfEdgeEndVertex(frontId)];
         }
 
-        faceCount = mesh.faceCount();
         sourceFaceId = new int[faceCount];
         faceHalfEdge = new int[faceCount];
-        for (int index = 0; index < faceCount; index++) {
+        int nextSplitEdge = sourceEdgeCount;
+        nextFreeFace = 0;
+        for (int index = 0; index < mesh.faceCount(); index++) {
             int faceId = mesh.faceIdAt(index);
-            sourceFaceId[index] = faceId;
-            if (mesh.faceHalfEdgeCount(faceId) != TRIANGLE_SIDES) {
-                throw new IllegalArgumentException("intrinsic triangulation needs triangles, face "
-                        + faceId + " has " + mesh.faceHalfEdgeCount(faceId) + " sides");
+            int[] boundary = new int[mesh.faceHalfEdgeCount(faceId)];
+            for (int side = 0; side < boundary.length; side++) {
+                boundary[side] = halfEdgeIndexByHalfEdgeId[mesh.faceHalfEdgeAt(faceId, side)];
+                if (boundary[side] < 0) {
+                    throw new IllegalArgumentException("face " + faceId
+                            + " uses a half-edge its edge does not pair; the mesh is not manifold");
+                }
             }
-            int first = halfEdgeIndexByHalfEdgeId[mesh.faceHalfEdgeAt(faceId, 0)];
-            int second = halfEdgeIndexByHalfEdgeId[mesh.faceHalfEdgeAt(faceId, 1)];
-            int third = halfEdgeIndexByHalfEdgeId[mesh.faceHalfEdgeAt(faceId, 2)];
-            if (first < 0 || second < 0 || third < 0) {
-                throw new IllegalArgumentException("face " + faceId
-                        + " uses a half-edge its edge does not pair; the mesh is not manifold");
+            // Ear-clip a polygon, always cutting the shortest diagonal of an ear valid in its
+            // Newell plane, so a convex quad splits on its shorter diagonal and a concave polygon
+            // never folds over itself; the last three sides close the last triangle.
+            int remaining = boundary.length;
+            int[] ring = boundary;
+            if (remaining > TRIANGLE_SIDES) {
+                double[] xyz = new double[TRIANGLE_SIDES * remaining];
+                double[] normal = new double[TRIANGLE_SIDES];
+                int[] cornerSlot = new int[remaining];
+                for (int corner = 0; corner < remaining; corner++) {
+                    mesh.vertexPosition(sourceVertexId[halfEdgeTail[ring[corner]]], cornerPosition);
+                    xyz[TRIANGLE_SIDES * corner] = cornerPosition.x;
+                    xyz[TRIANGLE_SIDES * corner + 1] = cornerPosition.y;
+                    xyz[TRIANGLE_SIDES * corner + 2] = cornerPosition.z;
+                    cornerSlot[corner] = corner;
+                }
+                for (int corner = 0; corner < remaining; corner++) {
+                    int here = TRIANGLE_SIDES * corner;
+                    int there = TRIANGLE_SIDES * ((corner + 1) % remaining);
+                    normal[0] += (xyz[here + 1] - xyz[there + 1]) * (xyz[here + 2] + xyz[there + 2]);
+                    normal[1] += (xyz[here + 2] - xyz[there + 2]) * (xyz[here] + xyz[there]);
+                    normal[2] += (xyz[here] - xyz[there]) * (xyz[here + 1] + xyz[there + 1]);
+                }
+                while (remaining > TRIANGLE_SIDES) {
+                    int bestEar = 0;
+                    boolean bestValid = false;
+                    double bestLength = Double.POSITIVE_INFINITY;
+                    for (int ear = 0; ear < remaining; ear++) {
+                        int previous = cornerSlot[(ear + remaining - 1) % remaining];
+                        int middle = cornerSlot[ear];
+                        int following = cornerSlot[(ear + 1) % remaining];
+                        boolean valid = turn(xyz, previous, middle, following, normal) > 0.0;
+                        for (int other = 0; other < remaining && valid; other++) {
+                            int slot = cornerSlot[other];
+                            valid = slot == previous || slot == middle || slot == following
+                                    || turn(xyz, previous, middle, slot, normal) < 0.0
+                                    || turn(xyz, middle, following, slot, normal) < 0.0
+                                    || turn(xyz, following, previous, slot, normal) < 0.0;
+                        }
+                        double dx = xyz[TRIANGLE_SIDES * previous]
+                                - xyz[TRIANGLE_SIDES * following];
+                        double dy = xyz[TRIANGLE_SIDES * previous + 1]
+                                - xyz[TRIANGLE_SIDES * following + 1];
+                        double dz = xyz[TRIANGLE_SIDES * previous + 2]
+                                - xyz[TRIANGLE_SIDES * following + 2];
+                        double length = dx * dx + dy * dy + dz * dz;
+                        if (valid && !bestValid || valid == bestValid && length < bestLength) {
+                            bestEar = ear;
+                            bestValid = valid;
+                            bestLength = length;
+                        }
+                    }
+                    int incoming = (bestEar + remaining - 1) % remaining;
+                    int inEar = nextSplitEdge++ << 1;
+                    int onPolygon = inEar | 1;
+                    halfEdgeTail[inEar] = halfEdgeTail[ring[(bestEar + 1) % remaining]];
+                    halfEdgeTail[onPolygon] = halfEdgeTail[ring[incoming]];
+                    linkTriangle(ring[incoming], ring[bestEar], inEar, faceId);
+                    ring[incoming] = onPolygon;
+                    System.arraycopy(ring, bestEar + 1, ring, bestEar, remaining - bestEar - 1);
+                    System.arraycopy(cornerSlot, bestEar + 1, cornerSlot, bestEar,
+                            remaining - bestEar - 1);
+                    remaining--;
+                }
             }
-            halfEdgeNext[first] = second;
-            halfEdgeNext[second] = third;
-            halfEdgeNext[third] = first;
-            halfEdgeFace[first] = index;
-            halfEdgeFace[second] = index;
-            halfEdgeFace[third] = index;
-            faceHalfEdge[index] = first;
+            linkTriangle(ring[0], ring[1], ring[2], faceId);
         }
 
         vertexIsBoundary = new boolean[vertexCount];
@@ -548,6 +631,33 @@ public final class IntrinsicTriangulation {
                 vertexReferenceHalfEdge[tail] = halfEdge;
             }
         }
+    }
+
+    /**
+     * Signed turn at {@code middle} from {@code from} to {@code to}, positive when it is
+     * counter-clockwise about the polygon normal.
+     */
+    private static double turn(double[] xyz, int from, int middle, int to, double[] normal) {
+        double inX = xyz[TRIANGLE_SIDES * middle] - xyz[TRIANGLE_SIDES * from];
+        double inY = xyz[TRIANGLE_SIDES * middle + 1] - xyz[TRIANGLE_SIDES * from + 1];
+        double inZ = xyz[TRIANGLE_SIDES * middle + 2] - xyz[TRIANGLE_SIDES * from + 2];
+        double outX = xyz[TRIANGLE_SIDES * to] - xyz[TRIANGLE_SIDES * middle];
+        double outY = xyz[TRIANGLE_SIDES * to + 1] - xyz[TRIANGLE_SIDES * middle + 1];
+        double outZ = xyz[TRIANGLE_SIDES * to + 2] - xyz[TRIANGLE_SIDES * middle + 2];
+        return (inY * outZ - inZ * outY) * normal[0] + (inZ * outX - inX * outZ) * normal[1]
+                + (inX * outY - inY * outX) * normal[2];
+    }
+
+    private void linkTriangle(int first, int second, int third, int faceId) {
+        int face = nextFreeFace++;
+        halfEdgeNext[first] = second;
+        halfEdgeNext[second] = third;
+        halfEdgeNext[third] = first;
+        halfEdgeFace[first] = face;
+        halfEdgeFace[second] = face;
+        halfEdgeFace[third] = face;
+        faceHalfEdge[face] = first;
+        sourceFaceId[face] = faceId;
     }
 
     private void measureEdges(MeshTopology mesh) {

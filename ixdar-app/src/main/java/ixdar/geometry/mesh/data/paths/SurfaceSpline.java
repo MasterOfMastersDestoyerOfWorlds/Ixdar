@@ -37,26 +37,32 @@ public final class SurfaceSpline {
     /** Whether the user placed each anchor rather than the fit, in ring order. */
     public boolean[] anchorAuthored = new boolean[0];
 
-
-    /** Surface {@link #pointVertexId} and {@link #pointEdgeId} index, or null before a trace. */
+    /** Surface the spline lies on, which every point and edge id here indexes; null before. */
     public MeshTopology mesh;
 
     /** Packed xyz of the traced spline; the first point is repeated at the end. */
     public float[] polyline = new float[0];
 
-    /** Mesh vertex each {@link #polyline} point sits on, or -1 where it crosses an edge. */
+    /** Mesh vertex each {@link #polyline} point sits on, or -1 elsewhere. */
     public int[] pointVertexId = new int[0];
 
-    /** Mesh edge each {@link #polyline} point crosses, or -1 where it sits on a vertex. */
+    /** Mesh edge each {@link #polyline} point crosses, or -1 elsewhere. */
     public int[] pointEdgeId = new int[0];
 
-    /** The trace's crossing parameter along {@link #pointEdgeId}, or -1 at a vertex point. */
+    /**
+     * Mesh face each {@link #polyline} point lies strictly inside, or -1 elsewhere: where the
+     * trace crossed an intrinsic split of a quad or larger polygon. Its place is in
+     * {@link #surfacePolyline}.
+     */
+    public int[] pointFaceId = new int[0];
+
+    /** The trace's crossing parameter along {@link #pointEdgeId}, or -1 off an edge. */
     public double[] pointFraction = new double[0];
 
     /**
-     * Packed xyz of the surface point each {@link #polyline} point stands for: its vertex, or where
-     * the trace's geodesic crosses its edge. Consecutive points share a face, so each span lies on
-     * one; the polyline itself is the Euclidean cubic, off the surface between anchors.
+     * Packed xyz of the surface point each {@link #polyline} point stands for: its vertex, where
+     * the trace's geodesic crosses its edge, or its place inside its face. Consecutive points
+     * share a face; the polyline itself is the Euclidean cubic, off the surface.
      */
     public float[] surfacePolyline = new float[0];
 
@@ -193,10 +199,11 @@ public final class SurfaceSpline {
 
     /**
      * Take a closed traced path as this spline's points: {@link #polyline} and the per-point
-     * vertex or edge it lies on, the first point repeated at the end, and their surface positions.
+     * vertex, edge or face it lies on, the first point repeated at the end, and their surface
+     * positions.
      *
-     * @param mesh   surface the path's vertex and edge ids index
-     * @param traced closed path whose points each sit on a vertex or cross an edge
+     * @param mesh   surface the path's vertex, edge and face ids index
+     * @param traced closed path whose points each sit on a vertex, cross an edge or lie in a face
      */
     public void followPath(MeshTopology mesh, TracedSurfacePath traced) {
         this.mesh = mesh;
@@ -205,6 +212,7 @@ public final class SurfaceSpline {
         surfacePolyline = new float[COORDINATES_PER_POINT * pointCount];
         pointVertexId = new int[pointCount];
         pointEdgeId = new int[pointCount];
+        pointFaceId = new int[pointCount];
         pointFraction = new double[pointCount];
         Vector3f point = new Vector3f();
         Vector3f head = new Vector3f();
@@ -217,9 +225,14 @@ public final class SurfaceSpline {
             }
             pointVertexId[target] = traced.vertexId[source];
             pointEdgeId[target] = traced.edgeId[source];
+            pointFaceId[target] = traced.faceId[source];
             pointFraction[target] = traced.fraction[source];
             if (traced.vertexId[source] >= 0) {
                 mesh.vertexPosition(traced.vertexId[source], point);
+            } else if (traced.faceId[source] >= 0) {
+                int surface = COORDINATES_PER_POINT * source;
+                point.set(traced.surfacePositions[surface], traced.surfacePositions[surface + 1],
+                        traced.surfacePositions[surface + 2]);
             } else {
                 int halfEdge = mesh.edgeHalfEdge(traced.edgeId[source]);
                 mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), point);

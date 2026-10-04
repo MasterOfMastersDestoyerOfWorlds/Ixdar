@@ -38,16 +38,19 @@ public final class SurfaceGeodesics {
      */
     public int vertexIdBound;
 
-    /** Packed xyz of the last geodesic, one point per vertex or edge crossing. */
+    /** Packed xyz of the last geodesic, one point per vertex, edge crossing or inside-face point. */
     public double[] tracedXyz = new double[0];
 
-    /** Mesh vertex id per traced point, or -1 at an edge crossing. */
+    /** Mesh vertex id per traced point, or -1 elsewhere. */
     public int[] tracedVertexId = new int[0];
 
-    /** Crossed mesh edge id per traced point, or -1 at a vertex. */
+    /** Crossed mesh edge id per traced point, or -1 elsewhere. */
     public int[] tracedEdgeId = new int[0];
 
-    /** Crossing parameter per traced point, or -1 at a vertex. */
+    /** Mesh face id per traced point strictly inside a polygon, or -1 elsewhere. */
+    public int[] tracedFaceId = new int[0];
+
+    /** Crossing parameter per traced point, or -1 off an edge. */
     public double[] tracedFraction = new double[0];
 
     /** Arc length from the start of the last geodesic to each of its points. */
@@ -88,7 +91,7 @@ public final class SurfaceGeodesics {
     /**
      * Builds the triangulation and the tracer a run of splines shares.
      *
-     * @param surface triangle mesh every path will run on
+     * @param surface polygon mesh every path will run on, its polygons split intrinsically
      * @return an engine bound to that surface
      */
     public static SurfaceGeodesics over(MeshTopology surface) {
@@ -198,8 +201,11 @@ public final class SurfaceGeodesics {
         int best = -1;
         double bestSquared = Double.POSITIVE_INFINITY;
         for (int side = previous; side <= point; side++) {
-            for (int end = 0; end < 2; end++) {
+            int faceId = tracedFaceId[side];
+            int candidates = faceId >= 0 ? mesh.faceVertexCount(faceId) : 2;
+            for (int end = 0; end < candidates; end++) {
                 int candidate = tracedVertexId[side] >= 0 ? tracedVertexId[side]
+                        : faceId >= 0 ? mesh.faceVertexAt(faceId, end)
                         : edgeEnd(tracedEdgeId[side], end);
                 if (candidate < 0) {
                     continue;
@@ -291,6 +297,7 @@ public final class SurfaceGeodesics {
         tracedXyz = traced.positions;
         tracedVertexId = traced.vertexId;
         tracedEdgeId = traced.edgeId;
+        tracedFaceId = traced.faceId;
         tracedFraction = traced.fraction;
         tracedArcLength[0] = 0.0;
         for (int point = 1; point < tracedPointCount; point++) {

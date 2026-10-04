@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.data;
 
+import ixdar.geometry.mesh.csg.QuadTriangulation;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonResult;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
@@ -57,7 +58,20 @@ public final class LimbAxis {
             buildMillis = 0.0;
             return;
         }
-        dense = ArrayMeshEngine.fromUniformMeshTopology(mesh);
+        // The skeleton and the curvature read a dense mesh of one face size, so a mixed polygon
+        // mesh goes in split into triangles, its vertices in the same active order.
+        boolean uniform = true;
+        int corners = mesh.faceVertexCount(mesh.faceIdAt(0));
+        for (int activeFace = 1; uniform && activeFace < mesh.faceCount(); activeFace++) {
+            uniform = mesh.faceVertexCount(mesh.faceIdAt(activeFace)) == corners;
+        }
+        if (uniform) {
+            dense = ArrayMeshEngine.fromUniformMeshTopology(mesh);
+        } else {
+            QuadTriangulation split = new QuadTriangulation(mesh).build();
+            dense = new ArrayMesh(split.positions, null, split.triangles,
+                    QuadTriangulation.THREE);
+        }
         SkeletonResult extracted =
                 MeshSkeletonExtractor.extract(dense, resolution, skeletonBranchBudget);
         if (!extracted.branches().isEmpty()) {
