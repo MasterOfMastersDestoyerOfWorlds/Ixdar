@@ -21,9 +21,10 @@ import ixdar.canvas.Canvas3D;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
 import ixdar.platform.file.FileManagement;
-import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerDispatcher;
+import ixdar.platform.input.PointerRegion;
 
-public class MenuBox implements MouseTrap.ScrollHandler {
+public class MenuBox implements PointerRegion {
     public static final float MENU_ALPHA = 0.95f;
     public static final float INNER_OFFSET_Y = 0.02f;
     public static final int PIN_STRIPE_COUNT = 5;
@@ -87,7 +88,7 @@ public class MenuBox implements MouseTrap.ScrollHandler {
         }
         menuItems = activeMenu.loadMenu();
         scrollBounds = new Bounds(0, 0, 0, 0, "MENU_SCROLL");
-        MouseTrap.subscribeScrollRegion(scrollBounds, this);
+        PointerDispatcher.current().subscribe(scrollBounds, this);
     }
 
     private static Object getAutomationRuntime() {

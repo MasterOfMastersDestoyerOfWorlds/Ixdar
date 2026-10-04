@@ -158,7 +158,7 @@ def _camera_methods_template(camera: str) -> str:
             "        // Reflective by design: calling AutomationInputBinder directly would pull the\n"
             "        // desktop automation stack, and gson behind it, into the TeaVM web build.\n"
             "        bindAutomationIfAvailable(Platforms.get(), keys, mouse);\n"
-            "        MouseTrap.subscribeScrollRegion(camera2D.getBounds(),\n"
+            "        MouseTrap.subscribeRegion(camera2D.getBounds(),\n"
             "                (scrollUp, deltaSeconds) -> camera2D.onScroll(scrollUp, deltaSeconds));\n"
             "    }\n\n"
             "    private void updateCameraControls() {\n"

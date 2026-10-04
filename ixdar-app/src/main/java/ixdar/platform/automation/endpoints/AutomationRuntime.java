@@ -36,6 +36,7 @@ import ixdar.platform.automation.AutomationReplayEngine;
 import ixdar.platform.automation.endpoints.mesh.dsl.Timing;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerDispatcher;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.trade.TradeScene;
@@ -520,9 +521,9 @@ public class AutomationRuntime {
                 float y = payload.has(YPX)
                         ? payload.get(YPX).getAsFloat()
                         : payload.get(Y).getAsFloat();
-                activeMouse().moveOrDrag(0L, x, y);
+                PointerDispatcher.current().moveOrDrag(activeMouse(), 0L, x, y);
             } else if (MOUSE_BUTTON.equals(type)) {
-                activeMouse().mouseButton(
+                PointerDispatcher.current().mouseButton(activeMouse(),
                         payload.get(BUTTON).getAsInt(),
                         payload.get(ACTION).getAsInt(),
                         payload.get(MODS).getAsInt());

@@ -17,6 +17,7 @@ import ixdar.graphics.render.Clock;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.automation.InputSettle;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerDispatcher;
 
 /**
  * {@code POST /input/drag}: a left-button drag from one point to another in steps, a frame
@@ -56,7 +57,7 @@ public class InjectDrag extends AutomationEndpoint implements AutomationRoute {
         JsonObject result = new JsonObject();
         try {
             if (!deliver(mouse -> mouse.mousePos(fromX, fromY), 1)
-                    || !deliver(mouse -> mouse.mouseButton(0, ACTION_PRESS, 0), 1)) {
+                    || !deliver(mouse -> PointerDispatcher.current().mouseButton(mouse, 0, ACTION_PRESS, 0), 1)) {
                 result.addProperty(OK, false);
                 result.addProperty(ERROR, "No active mouse handler");
                 return result;
@@ -65,9 +66,10 @@ public class InjectDrag extends AutomationEndpoint implements AutomationRoute {
                 float along = (float) step / steps;
                 float x = fromX + along * (toX - fromX);
                 float y = fromY + along * (toY - fromY);
-                deliver(mouse -> mouse.mouseDragged(x, y), 1);
+                deliver(mouse -> PointerDispatcher.current().mouseDragged(mouse, x, y), 1);
             }
-            deliver(mouse -> mouse.mouseButton(0, ACTION_RELEASE, 0), settleFrames);
+            deliver(mouse -> PointerDispatcher.current().mouseButton(mouse, 0, ACTION_RELEASE, 0),
+                    settleFrames);
             JsonObject payload = new JsonObject();
             payload.addProperty(FROM_X, fromX);
             payload.addProperty(FROM_Y, fromY);

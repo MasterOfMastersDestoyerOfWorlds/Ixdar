@@ -26,6 +26,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.platform.input.TradeKeyGuy;
 import ixdar.platform.input.TradeMouseTrap;
@@ -138,7 +139,7 @@ public class TradeScene {
         }, VIEW_TOOLTIP));
 
         camera.initCamera(views, VIEW_MAIN);
-        MouseTrap.subscribeScrollRegion(views.get(VIEW_MAIN), camera);
+        PointerDispatcher.current().subscribe(views.get(VIEW_MAIN), camera);
     }
 
     /**

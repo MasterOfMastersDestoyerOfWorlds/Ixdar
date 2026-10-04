@@ -16,6 +16,7 @@ import ixdar.graphics.render.Clock;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.automation.InputSettle;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.TradeMouseTrap;
 
 @AutomationRouteAnnotation(path = "input/click", method = APIMethod.POST)
@@ -70,8 +71,9 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                 }
                 try {
                     mouse.mousePos(xPos, yPos);
-                    mouse.mouseButton(button, ACTION_PRESS, 0);
-                    mouse.mouseButton(button, ACTION_RELEASE, 0);
+                    PointerDispatcher pointer = PointerDispatcher.current();
+                    pointer.mouseButton(mouse, button, ACTION_PRESS, 0);
+                    pointer.mouseButton(mouse, button, ACTION_RELEASE, 0);
                 } finally {
                     if (mouse instanceof TradeMouseTrap) {
                         ((TradeMouseTrap) mouse).endAutomationInput();

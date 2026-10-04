@@ -14,7 +14,6 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.color.ColorRGB;
@@ -23,7 +22,6 @@ import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.menu.SceneModelMenu;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.Scene;
@@ -156,20 +154,14 @@ public abstract class ModelScene extends Scene {
         }
     }
 
+    /**
+     * Add the model menu's strip to the scene's views, so the menu is drawn into it.
+     */
     @Override
     public void initPanes() {
         super.initPanes();
         chromeBackground = new ColorBox();
-        webViews.put(VIEW_SCENE_MENU, new Bounds(
-                Platforms.get().getFrameBufferWidth() - MENU_PANEL_WIDTH, 0,
-                MENU_PANEL_WIDTH, Platforms.get().getFrameBufferHeight(),
-                bounds -> bounds.update(Platforms.get().getFrameBufferWidth() - MENU_PANEL_WIDTH, 0,
-                        MENU_PANEL_WIDTH, Platforms.get().getFrameBufferHeight()),
-                VIEW_SCENE_MENU));
-        MouseTrap.subscribeScrollRegion(sceneModelMenu.modelsBox.bounds, sceneModelMenu.modelsBox);
-        MouseTrap.subscribeScrollRegion(sceneModelMenu.controlsBox.bounds,
-                sceneModelMenu.controlsBox);
-        MouseTrap.subscribeScrollRegion(webViews.get(VIEW_SCENE_MENU), sceneModelMenu);
+        webViews.put(VIEW_SCENE_MENU, sceneModelMenu.strip);
     }
 
     /**

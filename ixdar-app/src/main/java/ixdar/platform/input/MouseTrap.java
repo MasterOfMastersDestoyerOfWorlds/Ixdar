@@ -15,7 +15,6 @@ import ixdar.scenes.main.PaneTypes;
 import java.util.List;
 
 import java.util.Map;
-import java.util.function.Predicate;
 
 import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
@@ -33,8 +32,6 @@ public class MouseTrap {
 
     private static Object automationRuntime;
     private static boolean automationChecked;
-
-    private static final HashMap<Integer, List<ScrollSubscription>> SCROLL_SUBSCRIPTIONS_BY_PLATFORM = new HashMap<>();
 
     private static final HashMap<Integer, List<ClickSubscription>> CLICK_SUBSCRIPTIONS_BY_PLATFORM = new HashMap<>();
 
@@ -95,32 +92,6 @@ public class MouseTrap {
             }
             rt.getClass().getMethod("recordAbstractActionMap", String.class, Map.class).invoke(rt, action, payload);
         } catch (Throwable ignored) {}
-    }
-
-    private static List<ScrollSubscription> getSubscriptionsForCurrentPlatform() {
-        int id = Platforms.gl().getPlatformID();
-        return SCROLL_SUBSCRIPTIONS_BY_PLATFORM.computeIfAbsent(id, k -> new ArrayList<>());
-    }
-
-    /**
-     * Register a region of the screen that wants its own scroll behavior; while the cursor is
-     * inside {@code bounds}, scroll events go to {@code handler} instead of camera zoom.
-     *
-     * @param bounds screen region
-     * @param handler callback invoked while the cursor is inside {@code bounds}
-     */
-    public static void subscribeScrollRegion(Bounds bounds, ScrollHandler handler) {
-        getSubscriptionsForCurrentPlatform().add(new ScrollSubscription(bounds, handler));
-    }
-
-    /**
-     * Remove every scroll subscription whose handler is {@code handler} on the current platform.
-     *
-     * @param handler handler to unregister
-     */
-    public static void unsubscribeScrollRegion(ScrollHandler handler) {
-        List<ScrollSubscription> list = getSubscriptionsForCurrentPlatform();
-        list.removeIf(s -> s.handler == handler);
     }
 
     private static List<ClickSubscription> getClickSubscriptionsForCurrentPlatform() {
@@ -285,6 +256,16 @@ public class MouseTrap {
     }
 
     /**
+     * Whether the trap puts the wheel to a use of its own, such as a zoom; the base trap only
+     * refreshes hover with it.
+     *
+     * @return false for the base trap
+     */
+    public boolean usesWheel() {
+        return false;
+    }
+
+    /**
      * Re-bind this trap to a different canvas (used during scene switches).
      *
      * @param canvas3d new owning canvas
@@ -330,10 +311,8 @@ public class MouseTrap {
     }
 
     /**
-     * Per-frame: drain the queued scroll delta. A region under the cursor that
-     * {@link ScrollHandler#claimsWheel claims the wheel} gets the whole delta once; any other region
-     * gets a frame-time step in its sign each frame until it decays after {@link #SCROLL_DECAY_MS}
-     * ms; otherwise HyperString hover is refreshed.
+     * Per-frame: drain the queued scroll delta, refreshing HyperString hover when the cursor is
+     * over a pane; a delta decays after {@link #SCROLL_DECAY_MS} ms.
      *
      * @param SHIFT_MOD speed multiplier (currently unused; kept for API parity)
      */
@@ -344,51 +323,12 @@ public class MouseTrap {
         PaneTypes view = MainScene.inView(lastX, lastY);
 
         if (queuedScrollDelta != 0) {
-            ScrollHandler region = scrollHandlerUnderCursor(handler -> true);
-            if (region != null && region.claimsWheel()) {
-                region.onScrollDelta(queuedScrollDelta);
-                queuedScrollDelta = 0;
-                return;
-            }
-            if (region != null) {
-                region.onScroll(queuedScrollDelta < 0, Clock.deltaTime() * SCROLL_SPEED_SCALE);
-                return;
-            }
             if (view != PaneTypes.None) {
                 updateHyperStrings();
             }
             queuedScrollDelta = 0;
         }
         MouseTrap.hyperStrings = new ArrayList<>();
-    }
-
-    /**
-     * The first subscribed scroll region holding the cursor, in subscription order, with every
-     * region's bounds recalculated first so a resized pane is tested at its current size. Regions
-     * are viewports, so the test uses the cursor in framebuffer pixels, y up, the way clicks do.
-     *
-     * @param eligible which handlers may take the wheel; a subclass with its own default wheel
-     *                 action narrows this to the regions it yields to
-     * @return that region's handler, or {@code null} when the cursor is in none
-     */
-    public ScrollHandler scrollHandlerUnderCursor(Predicate<ScrollHandler> eligible) {
-        if (lastX == Integer.MIN_VALUE) {
-            return null;
-        }
-        for (ScrollSubscription sub : getSubscriptionsForCurrentPlatform()) {
-            if (sub.bounds == null || !eligible.test(sub.handler)) {
-                continue;
-            }
-            sub.bounds.recalc();
-            boolean inside = normalizedPosX >= sub.bounds.offsetX
-                    && normalizedPosX <= sub.bounds.offsetX + sub.bounds.viewWidth
-                    && normalizedPosY >= sub.bounds.offsetY
-                    && normalizedPosY <= sub.bounds.offsetY + sub.bounds.viewHeight;
-            if (inside) {
-                return sub.handler;
-            }
-        }
-        return null;
     }
 
     private void updateHyperStrings() {
@@ -449,37 +389,6 @@ public class MouseTrap {
         }
     }
 
-    public interface ScrollHandler {
-        /**
-         * Called once per frame while a queued scroll delta lands inside the registered region
-         * and the region does not {@link #claimsWheel claim the raw delta}.
-         *
-         * @param scrollUp true when the wheel rolled "up" (negative delta)
-         * @param deltaSeconds frame delta in seconds, scaled by {@link #SCROLL_SPEED_SCALE}
-         */
-        void onScroll(boolean scrollUp, double deltaSeconds);
-
-        /**
-         * Whether this region takes the raw scroll delta through {@link #onScrollDelta} right now,
-         * so the wheel over it scrolls it rather than zooming a 3D scene's orbit camera.
-         *
-         * @return false unless the region opts in
-         */
-        default boolean claimsWheel() {
-            return false;
-        }
-
-        /**
-         * Scroll by the raw platform delta summed since the last frame, each delta delivered once
-         * and never rounded; only called while {@link #claimsWheel} holds.
-         *
-         * @param delta summed scroll delta, 1.0 per wheel notch, negative when the wheel rolled
-         *              toward the user
-         */
-        default void onScrollDelta(double delta) {
-        }
-    }
-
     @FunctionalInterface
     public interface ClickHandler {
         /**
@@ -488,22 +397,6 @@ public class MouseTrap {
          * @param button button index
          */
         void onClick(int button);
-    }
-
-    public static class ScrollSubscription {
-        public Bounds bounds;
-        public ScrollHandler handler;
-
-        /**
-         * Build a scroll subscription for a screen region.
-         *
-         * @param bounds screen region (recalculated each event)
-         * @param handler callback invoked while the cursor is inside {@code bounds}
-         */
-        public ScrollSubscription(Bounds bounds, ScrollHandler handler) {
-            this.bounds = bounds;
-            this.handler = handler;
-        }
     }
 
     public static class ClickSubscription {

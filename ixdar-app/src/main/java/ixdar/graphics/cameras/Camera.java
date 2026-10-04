@@ -3,14 +3,14 @@ package ixdar.graphics.cameras;
 import org.joml.Vector2f;
 
 import ixdar.geometry.point.PointSet;
-import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerRegion;
 
 /**
  * Common surface for the editor's 2D and 3D cameras: viewport sizing,
  * scroll/drag/keyboard input, point↔screen-space transforms, and a
  * z-index counter that orders successive ortho draws within a frame.
  */
-public interface Camera extends MouseTrap.ScrollHandler {
+public interface Camera extends PointerRegion {
 
     /**
      * Restore the camera to its default framing of the current scene.

@@ -2,22 +2,23 @@ package ixdar.gui.ui.menu;
 
 import java.util.List;
 
+import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
 import ixdar.platform.Platforms;
-import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerDispatcher;
+import ixdar.platform.input.PointerRegion;
 import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelChoice;
 import ixdar.scenes.model.ModelScene;
 
 /**
- * The right-side model menu shared by every {@link ModelScene}: a fixed MODELS title over a box of
- * the collection or every model, Recompute, then a fixed CONTROLS title over a box of controls.
- * Each box scrolls on its own; the text is rebuilt each frame to re-register its clicks.
+ * The right-side model menu of every {@link ModelScene}: a MODELS box, Recompute, then a CONTROLS
+ * box, each scrolling on its own; while shown it takes the wheel and pointer over its strip.
  */
-public final class SceneModelMenu implements MouseTrap.ScrollHandler {
+public final class SceneModelMenu implements PointerRegion {
 
     public static final String MODELS_HEADER = "MODELS";
 
@@ -45,6 +46,12 @@ public final class SceneModelMenu implements MouseTrap.ScrollHandler {
     /** The scrolling list of the scene's key controls. */
     public final MenuScrollBox controlsBox;
 
+    /** The whole right-side strip the menu covers, framebuffer pixels, y up. */
+    public final Bounds strip;
+
+    /** The Recompute row and the CONTROLS title between the boxes, as last drawn. */
+    public HyperString betweenBoxes = new HyperString();
+
     private final ModelScene scene;
 
     private final SceneCollectionMenu collectionSection;
@@ -54,7 +61,8 @@ public final class SceneModelMenu implements MouseTrap.ScrollHandler {
     private boolean centreCurrentModel;
 
     /**
-     * Bind the menu to the scene it drives.
+     * Bind the menu to the scene it drives and subscribe its boxes, then its whole strip, as
+     * pointer regions, so the boxes win where they overlap the strip.
      *
      * @param scene scene whose models and controls this menu shows
      */
@@ -65,6 +73,16 @@ public final class SceneModelMenu implements MouseTrap.ScrollHandler {
         controlsBox = new MenuScrollBox(VIEW_CONTROLS_BOX, this::isVisible);
         modelsBox.bounds.setUpdateCallback(bounds -> layout());
         controlsBox.bounds.setUpdateCallback(bounds -> layout());
+        strip = new Bounds(0, 0, 0, 0,
+                bounds -> bounds.update(
+                        Platforms.get().getFrameBufferWidth() - ModelScene.MENU_PANEL_WIDTH, 0,
+                        ModelScene.MENU_PANEL_WIDTH, Platforms.get().getFrameBufferHeight()),
+                ModelScene.VIEW_SCENE_MENU);
+        strip.recalc();
+        PointerDispatcher pointer = PointerDispatcher.current();
+        pointer.subscribe(modelsBox.bounds, modelsBox);
+        pointer.subscribe(controlsBox.bounds, controlsBox);
+        pointer.subscribe(strip, this);
     }
 
     /**
@@ -156,7 +174,7 @@ public final class SceneModelMenu implements MouseTrap.ScrollHandler {
                 camera);
         modelsBox.draw(camera);
 
-        HyperString betweenBoxes = new HyperString();
+        betweenBoxes = new HyperString();
         betweenBoxes.addWordClick(RECOMPUTE_LABEL, Color.SKY_BLUE, () -> {
             ModelChoice reload = scene.currentModel();
             if (reload != null) {
@@ -190,6 +208,31 @@ public final class SceneModelMenu implements MouseTrap.ScrollHandler {
     @Override
     public boolean claimsWheel() {
         return visible;
+    }
+
+    /**
+     * The open menu takes presses over its whole strip, titles included, so nothing under it, the
+     * orbit or a scene tool, sees them; a closed menu takes none.
+     *
+     * @return whether the menu is shown
+     */
+    @Override
+    public boolean claimsPointer() {
+        return visible;
+    }
+
+    /**
+     * A click on the strip outside both boxes runs the Recompute row when it lands there.
+     *
+     * @param x framebuffer x of the release
+     * @param y framebuffer y of the release, y up
+     * @param click whether the press and release make a click
+     */
+    @Override
+    public void onRelease(float x, float y, boolean click) {
+        if (click) {
+            betweenBoxes.click(x, y);
+        }
     }
 
     /**

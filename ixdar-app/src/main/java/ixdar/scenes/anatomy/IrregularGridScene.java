@@ -15,7 +15,7 @@ import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.KeyGuy;
-import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.platform.input.Scene2DMousePanTrap;
 
@@ -55,7 +55,7 @@ public class IrregularGridScene extends Canvas3D {
         buildGrid();
         centerCameraOnGrid();
         fpsText = new HyperString();
-        MouseTrap.subscribeScrollRegion(camera2D.getBounds(),
+        PointerDispatcher.current().subscribe(camera2D.getBounds(),
                 (scrollUp, deltaSeconds) -> camera2D.onScroll(scrollUp, deltaSeconds));
     }
 

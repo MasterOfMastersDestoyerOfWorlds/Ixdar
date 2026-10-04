@@ -70,16 +70,6 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * The scroll region under the cursor that claims the wheel from the orbit right now; the
-     * orbit's wheel otherwise zooms, so a region that does not opt in (the terminal strip) zooms.
-     *
-     * @return its handler, or {@code null} when the wheel should zoom
-     */
-    public ScrollHandler wheelClaimerUnderCursor() {
-        return scrollHandlerUnderCursor(ScrollHandler::claimsWheel);
-    }
-
-    /**
      * Re-center the orbit on a new world-space point and reapply the camera pose.
      *
      * @param target new orbit center (copied)
@@ -330,9 +320,8 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * Per-frame: hand the whole queued delta, however old, to the region under the cursor that
-     * claims the wheel, else zoom by {@link #ZOOM_BASE} to the power of
-     * {@link #SCROLL_TICKS_PER_UNIT} times the delta; either way the queue empties, nothing rounded.
+     * Per-frame: zoom by {@link #ZOOM_BASE} to the power of {@link #SCROLL_TICKS_PER_UNIT} times
+     * the whole queued delta, however old, and empty the queue, nothing rounded.
      *
      * @param shiftMod speed multiplier (currently unused)
      */
@@ -343,14 +332,19 @@ public class OrbitMouseTrap extends MouseTrap {
         }
         double delta = queuedScrollDelta;
         queuedScrollDelta = 0;
-        ScrollHandler region = wheelClaimerUnderCursor();
-        if (region != null) {
-            region.onScrollDelta(delta);
-            return;
-        }
         distance = clamp(distance * (float) Math.pow(ZOOM_BASE, SCROLL_TICKS_PER_UNIT * delta),
                 minDistance, maxDistance);
         applyOrbit();
+    }
+
+    /**
+     * The wheel zooms the orbit.
+     *
+     * @return true
+     */
+    @Override
+    public boolean usesWheel() {
+        return true;
     }
 
     private void applyOrbit() {

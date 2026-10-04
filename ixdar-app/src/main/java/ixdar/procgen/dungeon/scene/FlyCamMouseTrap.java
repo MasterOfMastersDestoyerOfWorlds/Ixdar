@@ -142,6 +142,16 @@ public class FlyCamMouseTrap extends MouseTrap {
         }
     }
 
+    /**
+     * The wheel goes to the scene's scroll handler.
+     *
+     * @return true
+     */
+    @Override
+    public boolean usesWheel() {
+        return true;
+    }
+
     @FunctionalInterface
     public interface DeltaHandler {
         /**

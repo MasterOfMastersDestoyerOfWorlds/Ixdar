@@ -5,6 +5,7 @@ import ixdar.platform.automation.endpoints.AutomationRuntime;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerDispatcher;
 
 public class AutomationInputBinder {
 
@@ -30,13 +31,14 @@ public class AutomationInputBinder {
             AutomationRuntime.get().recordRawChar(codepoint);
             keys.charCallback(0L, codepoint);
         });
+        PointerDispatcher pointer = PointerDispatcher.forPlatform(platform.getPlatformID());
         platform.setMouseButtonCallback((button, action, mods) -> {
             AutomationRuntime.get().recordRawMouseButton(button, action, mods, mouse.lastX, mouse.lastY);
-            mouse.mouseButton(button, action, mods);
+            pointer.mouseButton(mouse, button, action, mods);
         });
         platform.setCursorPosCallback((window, x, y) -> {
             AutomationRuntime.get().recordRawMouseMove((float) x, (float) y);
-            mouse.moveOrDrag(window, (float) x, (float) y);
+            pointer.moveOrDrag(mouse, window, (float) x, (float) y);
         });
         platform.setScrollCallback((xoff, yoff) -> {
             AutomationRuntime.get().recordRawScroll(yoff);

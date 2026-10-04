@@ -4,9 +4,9 @@ import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.tools.Tool;
-import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerRegion;
 
-public class InfoPane implements MouseTrap.ScrollHandler {
+public class InfoPane implements PointerRegion {
 
     public float scrollOffsetY = 0;
     public float SCROLL_SPEED = 4f;

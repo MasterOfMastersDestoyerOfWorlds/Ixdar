@@ -21,6 +21,8 @@ import ixdar.platform.gl.GL;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.OrbitMouseTrap;
+import ixdar.platform.input.PointerDispatcher;
+import ixdar.platform.input.PointerRegion;
 
 /**
  * A subscribed scroll region is a framebuffer viewport, so on a scaled display (window 800x600,
@@ -79,6 +81,8 @@ class ScrollRegionHitTest {
 
     private OrbitMouseTrap orbit;
 
+    private PointerDispatcher pointer;
+
     /**
      * Install a scaled platform and subscribe a right-hand strip and a bottom box inside it.
      */
@@ -102,10 +106,11 @@ class ScrollRegionHitTest {
                     }
                 });
         Platforms.init(scaled, suiteGl);
-        MouseTrap.subscribeScrollRegion(
+        pointer = PointerDispatcher.current();
+        pointer.subscribe(
                 new Bounds(MENU_STRIP_LEFT, 0, MENU_STRIP_WIDTH, BOTTOM_BOX_HEIGHT, "BOX"),
                 bottomBoxHandler);
-        MouseTrap.subscribeScrollRegion(
+        pointer.subscribe(
                 new Bounds(MENU_STRIP_LEFT, 0, MENU_STRIP_WIDTH, FRAMEBUFFER_HEIGHT, "STRIP"),
                 stripHandler);
         orbit = new OrbitMouseTrap(new Camera3D(new Vector3f(), 0f, 0f, null), null);
@@ -116,14 +121,14 @@ class ScrollRegionHitTest {
      */
     @AfterEach
     void restoreSuitePlatform() {
-        MouseTrap.unsubscribeScrollRegion(stripHandler);
-        MouseTrap.unsubscribeScrollRegion(bottomBoxHandler);
+        pointer.unsubscribe(stripHandler);
+        pointer.unsubscribe(bottomBoxHandler);
         Platforms.init(suitePlatform, suiteGl);
     }
 
     @Test
     void wheelBeforeAnyCursorMoveReachesNoRegion() {
-        assertNull(orbit.wheelClaimerUnderCursor());
+        assertNull(pointer.regionUnderCursor(orbit,PointerRegion::claimsWheel));
     }
 
     @Test
@@ -131,22 +136,23 @@ class ScrollRegionHitTest {
         for (float windowX : new float[] {WINDOW_X_JUST_RIGHT_OF_STRIP_LEFT, WINDOW_X_MIDDLE_OF_STRIP,
                 WINDOW_X_RIGHT_EDGE}) {
             orbit.mousePos(windowX, WINDOW_Y_MIDDLE);
-            assertSame(stripHandler, orbit.wheelClaimerUnderCursor(), "window x " + windowX);
+            assertSame(stripHandler, pointer.regionUnderCursor(orbit,PointerRegion::claimsWheel),
+                    "window x " + windowX);
         }
     }
 
     @Test
     void justLeftOfTheDrawnStripTheWheelStaysWithTheCamera() {
         orbit.mousePos(WINDOW_X_JUST_LEFT_OF_STRIP_LEFT, WINDOW_Y_MIDDLE);
-        assertNull(orbit.wheelClaimerUnderCursor());
+        assertNull(pointer.regionUnderCursor(orbit,PointerRegion::claimsWheel));
     }
 
     @Test
     void theBottomBoxIsTestedYUpInFramebufferPixels() {
         orbit.mousePos(WINDOW_X_JUST_RIGHT_OF_STRIP_LEFT, WINDOW_Y_INSIDE_BOTTOM_BOX);
-        assertSame(bottomBoxHandler, orbit.wheelClaimerUnderCursor());
+        assertSame(bottomBoxHandler, pointer.regionUnderCursor(orbit,PointerRegion::claimsWheel));
         orbit.mousePos(WINDOW_X_JUST_RIGHT_OF_STRIP_LEFT, WINDOW_Y_ABOVE_BOTTOM_BOX);
-        assertSame(stripHandler, orbit.wheelClaimerUnderCursor());
+        assertSame(stripHandler, pointer.regionUnderCursor(orbit,PointerRegion::claimsWheel));
     }
 
     @Test
@@ -154,7 +160,7 @@ class ScrollRegionHitTest {
         orbit.mousePos(WINDOW_X_JUST_RIGHT_OF_STRIP_LEFT, WINDOW_Y_INSIDE_BOTTOM_BOX);
         for (int event = 0; event < TRACKPAD_EVENTS; event++) {
             orbit.scrollCallback(TRACKPAD_DELTA);
-            orbit.paintUpdate(1f);
+            pointer.paintUpdate(orbit, 1f);
         }
         assertEquals(TRACKPAD_EVENTS, bottomBoxHandler.deltas.size());
         for (double delta : bottomBoxHandler.deltas) {
@@ -171,8 +177,8 @@ class ScrollRegionHitTest {
         for (int event = 0; event < TRACKPAD_EVENTS; event++) {
             orbit.scrollCallback(-TRACKPAD_DELTA);
         }
-        orbit.paintUpdate(1f);
-        orbit.paintUpdate(1f);
+        pointer.paintUpdate(orbit, 1f);
+        pointer.paintUpdate(orbit, 1f);
         assertEquals(1, bottomBoxHandler.deltas.size());
         assertEquals(-TRACKPAD_TOTAL, bottomBoxHandler.total(), EXACT);
     }
@@ -182,26 +188,44 @@ class ScrollRegionHitTest {
         orbit.mousePos(WINDOW_X_JUST_LEFT_OF_STRIP_LEFT, WINDOW_Y_MIDDLE);
         float start = orbit.getDistance();
         orbit.scrollCallback(TRACKPAD_DELTA);
-        orbit.paintUpdate(1f);
+        pointer.paintUpdate(orbit, 1f);
         assertTrue(orbit.getDistance() < start, "one 0.05 delta zooms in");
         for (int event = 1; event < TRACKPAD_EVENTS; event++) {
             orbit.scrollCallback(TRACKPAD_DELTA);
-            orbit.paintUpdate(1f);
+            pointer.paintUpdate(orbit, 1f);
         }
         double perUnit = Math.pow(ZOOM_BASE, MouseTrap.SCROLL_TICKS_PER_UNIT);
         assertEquals(start * Math.pow(perUnit, TRACKPAD_TOTAL), orbit.getDistance(), ZOOM_TOLERANCE);
         assertEquals(0, bottomBoxHandler.deltas.size() + stripHandler.deltas.size());
     }
 
+    @Test
+    void overARegionThatDoesNotClaimTheWheelTheOrbitStillZooms() {
+        stripHandler.claiming = false;
+        bottomBoxHandler.claiming = false;
+        orbit.mousePos(WINDOW_X_MIDDLE_OF_STRIP, WINDOW_Y_MIDDLE);
+        float start = orbit.getDistance();
+        orbit.scrollCallback(TRACKPAD_DELTA);
+        pointer.paintUpdate(orbit, 1f);
+        assertTrue(orbit.getDistance() < start, "the orbit zoomed");
+        assertEquals(0, stripHandler.steps + bottomBoxHandler.steps, "no region stepped");
+    }
+
     /**
-     * A region that always takes the wheel and records every delta it is handed.
+     * A region that takes the wheel while {@link #claiming} holds and records every delta and
+     * step it is handed.
      */
-    private static final class TakesWheel implements MouseTrap.ScrollHandler {
+    private static final class TakesWheel implements PointerRegion {
 
         public final List<Double> deltas = new ArrayList<>();
 
+        public boolean claiming = true;
+
+        public int steps;
+
         @Override
         public void onScroll(boolean scrollUp, double deltaSeconds) {
+            steps++;
         }
 
         @Override
@@ -211,7 +235,7 @@ class ScrollRegionHitTest {
 
         @Override
         public boolean claimsWheel() {
-            return true;
+            return claiming;
         }
 
         /**

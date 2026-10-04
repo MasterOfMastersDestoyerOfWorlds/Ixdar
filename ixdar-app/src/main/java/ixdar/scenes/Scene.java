@@ -17,6 +17,7 @@ import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerDispatcher;
 import ixdar.scenes.main.PaneTypes;
 import ixdar.scenes.model.ControlHint;
 
@@ -80,7 +81,7 @@ public abstract class Scene extends Canvas3D {
                 bounds -> bounds.update(0, 0,
                         Platforms.get().getFrameBufferWidth(), TERMINAL_PANEL_HEIGHT),
                 VIEW_SCENE_TERMINAL));
-        MouseTrap.subscribeScrollRegion(webViews.get(VIEW_SCENE_TERMINAL), sceneTerminal);
+        PointerDispatcher.current().subscribe(webViews.get(VIEW_SCENE_TERMINAL), sceneTerminal);
     }
 
     /**
@@ -163,10 +164,11 @@ public abstract class Scene extends Canvas3D {
      * @param mouseTrap mouse handler
      */
     public static void bindInputDirect(Platform platform, KeyGuy keyGuy, MouseTrap mouseTrap) {
+        PointerDispatcher pointer = PointerDispatcher.forPlatform(platform.getPlatformID());
         platform.setCursorPosCallback(
-                (window, x, y) -> mouseTrap.moveOrDrag(window, (float) x, (float) y));
+                (window, x, y) -> pointer.moveOrDrag(mouseTrap, window, (float) x, (float) y));
         platform.setMouseButtonCallback(
-                (button, action, mods) -> mouseTrap.mouseButton(button, action, mods));
+                (button, action, mods) -> pointer.mouseButton(mouseTrap, button, action, mods));
         platform.setScrollCallback((xoff, yoff) -> mouseTrap.scrollCallback(yoff));
         platform.setKeyCallback(
                 (key, scancode, action, mods) -> keyGuy.keyCallback(0L, key, scancode, action, mods));

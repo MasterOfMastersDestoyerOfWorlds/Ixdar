@@ -47,6 +47,7 @@ import ixdar.platform.file.TextFile;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.SceneInputFrameUpdater;
 
 public class MainScene {
@@ -241,9 +242,10 @@ public class MainScene {
         // Subscribe scroll regions for Info and Terminal panels
         Bounds rightTop = views.get(VIEW_RIGHT_TOP);
         Bounds bottom = views.get(VIEW_BOTTOM);
-        MouseTrap.subscribeScrollRegion(rightTop, info);
-        MouseTrap.subscribeScrollRegion(bottom, terminal);
-        MouseTrap.subscribeScrollRegion(views.get(VIEW_MAIN), camera);
+        PointerDispatcher pointer = PointerDispatcher.current();
+        pointer.subscribe(rightTop, info);
+        pointer.subscribe(bottom, terminal);
+        pointer.subscribe(views.get(VIEW_MAIN), camera);
         DistanceMatrix d = retTup.d;
         if (retTup.d == null) {
             d = new DistanceMatrix(retTup.ps);

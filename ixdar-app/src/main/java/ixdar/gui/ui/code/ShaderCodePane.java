@@ -23,12 +23,14 @@ import ixdar.parsing.glsl.GLSLParseText;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerDispatcher;
+import ixdar.platform.input.PointerRegion;
 
 /**
  * Renders shader source code into a scrollable pane area using HyperString.
  * Owns its HyperString buffer and a scroll subscription bound.
  */
-public class ShaderCodePane implements MouseTrap.ScrollHandler {
+public class ShaderCodePane implements PointerRegion {
     public static final float CROSSHAIR_LINE_WIDTH = 2f;
     public static final float FLASH_RADS_PER_SECOND = 8f;
     public static final float CROSSHAIR_SIZE_PX = 20f;
@@ -129,7 +131,7 @@ public class ShaderCodePane implements MouseTrap.ScrollHandler {
             return new ColorText<Float>("FPS: " + Clock.fps(), Color.CYAN);
         });
         webViews.put(paneBounds.id, paneBounds);
-        MouseTrap.subscribeScrollRegion(this.paneBounds, this);
+        PointerDispatcher.current().subscribe(this.paneBounds, this);
         MouseTrap.subscribeClickRegion(parentBounds, (button) -> handleParentClick(button));
     }
 

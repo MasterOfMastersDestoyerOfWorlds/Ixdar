@@ -34,7 +34,7 @@ public class SceneInputFrameUpdater {
             keys.paintUpdate(speedMod);
         }
         if (mouse != null) {
-            mouse.paintUpdate(speedMod);
+            PointerDispatcher.current().paintUpdate(mouse, speedMod);
         }
         MouseTrap.hyperStrings = new ArrayList<>();
     }

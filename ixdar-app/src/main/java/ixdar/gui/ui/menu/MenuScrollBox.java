@@ -8,14 +8,13 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.actions.Action;
-import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerRegion;
 
 /**
- * One independently scrolling box of a menu: a framebuffer rectangle that clips its rows and, while
- * its menu is shown, takes the wheel from the orbit camera to scroll them. The rows are one wrapping
- * {@link HyperString}, a line per row, which wraps, lays out, hit-tests and counts them.
+ * One independently scrolling box of a menu: rows of one wrapping {@link HyperString}, clipped to
+ * a framebuffer rectangle that, while the menu is shown, takes the wheel and pointer over it.
  */
-public final class MenuScrollBox implements MouseTrap.ScrollHandler {
+public final class MenuScrollBox implements PointerRegion {
 
     public static final float PIXELS_PER_SCROLL_UNIT = 90f;
 
@@ -34,6 +33,9 @@ public final class MenuScrollBox implements MouseTrap.ScrollHandler {
     /** Box rows the text took at the last {@link #layout}, wrapped continuation rows included. */
     public int rowsUsed;
 
+    /** The bar at the box's right edge, drawn and clickable only while the rows overflow. */
+    public final MenuScrollBar scrollBar;
+
     private final BooleanSupplier shown;
 
     private int rowToCentre = -1;
@@ -47,6 +49,7 @@ public final class MenuScrollBox implements MouseTrap.ScrollHandler {
     public MenuScrollBox(String id, BooleanSupplier shown) {
         this.bounds = new Bounds(0, 0, 0, 0, id);
         this.shown = shown;
+        this.scrollBar = new MenuScrollBar(this);
     }
 
     /**
@@ -74,16 +77,18 @@ public final class MenuScrollBox implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * Set the camera's view to the box, let the text wrap to its width and count the rows used,
-     * then apply a pending {@link #centreRow} and clamp the scroll to those rows.
+     * Set the camera's view to the box, let the text wrap to its width and count the rows used;
+     * rows that overflow wrap again to the width left of the {@link #scrollBar}. Then apply a
+     * pending {@link #centreRow} and clamp the scroll to those rows.
      *
-     * @param camera 2D camera whose view is set to the box and left there
+     * @param camera 2D camera whose view is set to the box's text and left there
      */
     public void layout(Camera2D camera) {
-        camera.updateView((int) bounds.offsetX, (int) bounds.offsetY, (int) bounds.viewWidth,
-                (int) bounds.viewHeight);
         float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
-        rowsUsed = text.words.isEmpty() ? 0 : text.setLineOffsetFromTopRow(camera, 0, 0, rowHeight);
+        layoutRows(camera, bounds.viewWidth);
+        if (scrollBar.isNeeded()) {
+            layoutRows(camera, scrollBar.textWidth());
+        }
         if (rowToCentre >= 0 && rowToCentre < text.lines) {
             int firstRow = 0;
             for (int line = 0; line < rowToCentre; line++) {
@@ -97,15 +102,30 @@ public final class MenuScrollBox implements MouseTrap.ScrollHandler {
     }
 
     /**
-     * Draw the rows top-down at {@link #drawnScrollOffsetY()} with the GL viewport on the box, so a
-     * part-scrolled row is cut at the box edge, as its hit area is.
+     * Set the camera's view to the box's left {@code width} pixels and wrap the rows to it.
      *
-     * @param camera 2D camera whose view is set to the box and left there
+     * @param camera 2D camera whose view is set there
+     * @param width pixels the rows may take
+     */
+    private void layoutRows(Camera2D camera, float width) {
+        camera.updateView((int) bounds.offsetX, (int) bounds.offsetY, (int) width,
+                (int) bounds.viewHeight);
+        rowsUsed = text.words.isEmpty() ? 0
+                : text.setLineOffsetFromTopRow(camera, 0, 0, Drawing.FONT_HEIGHT_PIXELS);
+    }
+
+    /**
+     * Draw the rows top-down at {@link #drawnScrollOffsetY()} with the GL viewport on the rows' part
+     * of the box, so a part-scrolled row is cut at the box edge as its hit area is, then the scroll
+     * bar when they overflow.
+     *
+     * @param camera 2D camera whose view is moved to the box and left on a part of it
      */
     public void draw(Camera2D camera) {
         layout(camera);
         Drawing.getDrawing().font.drawHyperStringRows(text, 0, drawnScrollOffsetY(),
                 Drawing.FONT_HEIGHT_PIXELS, camera);
+        scrollBar.draw(camera);
     }
 
     /**
@@ -171,5 +191,53 @@ public final class MenuScrollBox implements MouseTrap.ScrollHandler {
     @Override
     public boolean claimsWheel() {
         return shown.getAsBoolean();
+    }
+
+    /**
+     * A shown box takes presses over it, so they reach its rows and bar and nothing under the menu.
+     *
+     * @return whether the owning menu is shown
+     */
+    @Override
+    public boolean claimsPointer() {
+        return shown.getAsBoolean();
+    }
+
+    /**
+     * Hand the press to the {@link #scrollBar}, which acts on it when it lands on the bar; a press
+     * on a row waits for its release.
+     *
+     * @param x framebuffer x of the press
+     * @param y framebuffer y of the press, y up
+     */
+    @Override
+    public void onPress(float x, float y) {
+        scrollBar.press(x, y);
+    }
+
+    /**
+     * Move a thumb the press grabbed.
+     *
+     * @param x framebuffer x of the cursor
+     * @param y framebuffer y of the cursor, y up
+     */
+    @Override
+    public void onDrag(float x, float y) {
+        scrollBar.dragTo(x, y);
+    }
+
+    /**
+     * Let go of the thumb and, for a click, run the action of the row word under the cursor.
+     *
+     * @param x framebuffer x of the release
+     * @param y framebuffer y of the release, y up
+     * @param click whether the press and release make a click
+     */
+    @Override
+    public void onRelease(float x, float y, boolean click) {
+        scrollBar.release();
+        if (click && text != null) {
+            text.click(x, y);
+        }
     }
 }

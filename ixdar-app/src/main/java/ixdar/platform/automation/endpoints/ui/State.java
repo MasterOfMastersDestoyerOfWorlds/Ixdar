@@ -468,6 +468,10 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 element.addProperty(YPX, box.bounds.offsetY);
                 element.addProperty("width", box.bounds.viewWidth);
                 element.addProperty("height", box.bounds.viewHeight);
+                element.addProperty("rowsUsed", box.rowsUsed);
+                element.addProperty("scrollBarShown", box.scrollBar.isNeeded());
+                element.addProperty("scrollBarThumbTop", box.scrollBar.thumbTop());
+                element.addProperty("scrollBarThumbLength", box.scrollBar.thumbLength());
                 textElements.add(element);
             }
         }

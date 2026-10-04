@@ -303,4 +303,14 @@ public class TradeMouseTrap extends MouseTrap {
             applyHoverAt(automationHoverX, automationHoverY);
         }
     }
+
+    /**
+     * The wheel zooms the camera.
+     *
+     * @return true
+     */
+    @Override
+    public boolean usesWheel() {
+        return true;
+    }
 }

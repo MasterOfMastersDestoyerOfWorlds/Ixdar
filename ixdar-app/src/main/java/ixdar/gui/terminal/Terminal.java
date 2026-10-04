@@ -27,7 +27,7 @@ import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.tools.Tool;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.MouseTrap;
+import ixdar.platform.input.PointerRegion;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.model.ModelScene;
 
@@ -36,7 +36,7 @@ import ixdar.scenes.model.ModelScene;
  * tokenises and dispatches input lines through the matching {@link TerminalCommand},
  * and renders the scrollable history plus current prompt into a {@link HyperString}.
  */
-public class Terminal implements MouseTrap.ScrollHandler {
+public class Terminal implements PointerRegion {
 
     public static ArrayList<TerminalOption> commandList;
     public static HashMap<String, TerminalOption> commandMap = new HashMap<>();

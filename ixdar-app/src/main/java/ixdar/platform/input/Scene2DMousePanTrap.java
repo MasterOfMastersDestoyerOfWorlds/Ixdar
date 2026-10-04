@@ -133,4 +133,14 @@ public class Scene2DMousePanTrap extends MouseTrap {
             queuedScrollDelta = 0;
         }
     }
+
+    /**
+     * The wheel zooms the camera.
+     *
+     * @return true
+     */
+    @Override
+    public boolean usesWheel() {
+        return true;
+    }
 }
