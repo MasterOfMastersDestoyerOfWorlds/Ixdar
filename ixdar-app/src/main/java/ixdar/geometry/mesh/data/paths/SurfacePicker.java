@@ -5,12 +5,8 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
- * Where a ray meets a surface: the face it lands on, the barycentric weights inside that face,
- * and the world point they interpolate.
- *
- * <p>
- * Moller and Trumbore 1997. The interactive tool narrows the ray to one face with the GPU id
- * buffer and calls {@link #hitFace}; only tests scan every face.
+ * Where a ray meets a surface: the face it lands on, its barycentric weights there, and the
+ * world point; a ray onto an edge two faces share lands on at least one of them.
  */
 public final class SurfacePicker {
 
@@ -19,8 +15,6 @@ public final class SurfacePicker {
     public static final int TRIANGLE_CORNERS = 3;
 
     public static final float MINIMUM_DISTANCE = 1e-6f;
-
-    public static final float PARALLEL_EPSILON = 1e-12f;
 
     /** Face the last hit landed on, or {@code -1} when nothing was hit. */
     public int faceId = -1;
@@ -54,8 +48,46 @@ public final class SurfacePicker {
     private final Vector3f cornerC = new Vector3f();
 
     /**
-     * Intersects the ray with one face of the mesh, a polygon as the fan of triangles from its
-     * first corner, and records the hit.
+     * The ray's hit on {@code hintFace} or, when it passes outside it, the nearest hit on a face
+     * sharing a corner with it: the id buffer and the ray may give an edge to different sides.
+     *
+     * @param mesh         surface the face belongs to
+     * @param hintFace     face id the GPU id buffer reports under the ray
+     * @param rayOrigin    ray origin, packed xyz
+     * @param rayDirection ray direction, packed xyz, need not be normalised
+     * @return true when the ray crosses the hint face or one of its neighbours
+     */
+    public boolean pickNear(MeshTopology mesh, int hintFace, float[] rayOrigin,
+            float[] rayDirection) {
+        if (hitFace(mesh, hintFace, rayOrigin, rayDirection)) {
+            return true;
+        }
+        if (mesh == null || hintFace < 0 || !mesh.hasFace(hintFace)) {
+            return false;
+        }
+        int nearestFace = -1;
+        float nearestDistance = Float.POSITIVE_INFINITY;
+        for (int corner = 0; corner < mesh.faceVertexCount(hintFace); corner++) {
+            int vertexId = mesh.faceVertexAt(hintFace, corner);
+            for (int slot = 0; slot < mesh.vertexFaceCount(vertexId); slot++) {
+                int neighbour = mesh.vertexFaceAt(vertexId, slot);
+                if (neighbour != hintFace && neighbour != nearestFace
+                        && hitFace(mesh, neighbour, rayOrigin, rayDirection)
+                        && distanceAlongRay < nearestDistance) {
+                    nearestDistance = distanceAlongRay;
+                    nearestFace = neighbour;
+                }
+            }
+        }
+        return nearestFace >= 0 && hitFace(mesh, nearestFace, rayOrigin, rayDirection);
+    }
+
+    /**
+     * Intersects the ray with one face, a polygon as the fan from its first corner, and records
+     * the hit; triangles sharing an edge agree which side the ray passes, so none falls between.
+     *
+     * <p>
+     * Woop, Benthin and Wald 2013, "Watertight Ray/Triangle Intersection", JCGT 2(1).
      *
      * @param mesh          surface the face belongs to
      * @param candidateFace face id to test
@@ -69,55 +101,65 @@ public final class SurfacePicker {
         if (mesh == null || candidateFace < 0 || !mesh.hasFace(candidateFace)) {
             return false;
         }
+        // Shear the ray onto +z of a frame whose z is the direction's dominant axis; the swap
+        // keeps the frame right-handed so every edge's 2D function has one sign convention.
+        int axisZ = 0;
+        for (int axis = 1; axis < COORDINATES_PER_POINT; axis++) {
+            if (Math.abs(rayDirection[axis]) > Math.abs(rayDirection[axisZ])) {
+                axisZ = axis;
+            }
+        }
+        if (rayDirection[axisZ] == 0f) {
+            return false;
+        }
+        int axisX = (axisZ + 1) % COORDINATES_PER_POINT;
+        int axisY = (axisX + 1) % COORDINATES_PER_POINT;
+        if (rayDirection[axisZ] < 0f) {
+            int swapped = axisX;
+            axisX = axisY;
+            axisY = swapped;
+        }
+        double shearX = rayDirection[axisX] / (double) rayDirection[axisZ];
+        double shearY = rayDirection[axisY] / (double) rayDirection[axisZ];
+        double scaleZ = 1.0 / rayDirection[axisZ];
         for (int fan = 1; fan + 1 < mesh.faceVertexCount(candidateFace); fan++) {
             mesh.vertexPosition(mesh.faceVertexAt(candidateFace, 0), cornerA);
             mesh.vertexPosition(mesh.faceVertexAt(candidateFace, fan), cornerB);
             mesh.vertexPosition(mesh.faceVertexAt(candidateFace, fan + 1), cornerC);
-
-            float edgeOneX = cornerB.x - cornerA.x;
-            float edgeOneY = cornerB.y - cornerA.y;
-            float edgeOneZ = cornerB.z - cornerA.z;
-            float edgeTwoX = cornerC.x - cornerA.x;
-            float edgeTwoY = cornerC.y - cornerA.y;
-            float edgeTwoZ = cornerC.z - cornerA.z;
-            float pivotX = rayDirection[1] * edgeTwoZ - rayDirection[2] * edgeTwoY;
-            float pivotY = rayDirection[2] * edgeTwoX - rayDirection[0] * edgeTwoZ;
-            float pivotZ = rayDirection[0] * edgeTwoY - rayDirection[1] * edgeTwoX;
-            float determinant = edgeOneX * pivotX + edgeOneY * pivotY + edgeOneZ * pivotZ;
-            if (Math.abs(determinant) < PARALLEL_EPSILON) {
+            double aDepth = cornerA.get(axisZ) - (double) rayOrigin[axisZ];
+            double bDepth = cornerB.get(axisZ) - (double) rayOrigin[axisZ];
+            double cDepth = cornerC.get(axisZ) - (double) rayOrigin[axisZ];
+            double aX = cornerA.get(axisX) - (double) rayOrigin[axisX] - shearX * aDepth;
+            double aY = cornerA.get(axisY) - (double) rayOrigin[axisY] - shearY * aDepth;
+            double bX = cornerB.get(axisX) - (double) rayOrigin[axisX] - shearX * bDepth;
+            double bY = cornerB.get(axisY) - (double) rayOrigin[axisY] - shearY * bDepth;
+            double cX = cornerC.get(axisX) - (double) rayOrigin[axisX] - shearX * cDepth;
+            double cY = cornerC.get(axisY) - (double) rayOrigin[axisY] - shearY * cDepth;
+            double oppositeA = cX * bY - cY * bX;
+            double oppositeB = aX * cY - aY * cX;
+            double oppositeC = bX * aY - bY * aX;
+            if ((oppositeA < 0.0 || oppositeB < 0.0 || oppositeC < 0.0)
+                    && (oppositeA > 0.0 || oppositeB > 0.0 || oppositeC > 0.0)) {
                 continue;
             }
-            float inverseDeterminant = 1f / determinant;
-            float toOriginX = rayOrigin[0] - cornerA.x;
-            float toOriginY = rayOrigin[1] - cornerA.y;
-            float toOriginZ = rayOrigin[2] - cornerA.z;
-            float alongEdgeTwo = inverseDeterminant
-                    * (toOriginX * pivotX + toOriginY * pivotY + toOriginZ * pivotZ);
-            if (alongEdgeTwo < 0f || alongEdgeTwo > 1f) {
+            double determinant = oppositeA + oppositeB + oppositeC;
+            if (determinant == 0.0) {
                 continue;
             }
-            float crossX = toOriginY * edgeOneZ - toOriginZ * edgeOneY;
-            float crossY = toOriginZ * edgeOneX - toOriginX * edgeOneZ;
-            float crossZ = toOriginX * edgeOneY - toOriginY * edgeOneX;
-            float alongEdgeOne = inverseDeterminant * (rayDirection[0] * crossX
-                    + rayDirection[1] * crossY + rayDirection[2] * crossZ);
-            if (alongEdgeOne < 0f || alongEdgeTwo + alongEdgeOne > 1f) {
-                continue;
-            }
-            float parameter = inverseDeterminant
-                    * (edgeTwoX * crossX + edgeTwoY * crossY + edgeTwoZ * crossZ);
+            double parameter = scaleZ * (oppositeA * aDepth + oppositeB * bDepth
+                    + oppositeC * cDepth) / determinant;
             if (parameter < MINIMUM_DISTANCE) {
                 continue;
             }
             faceId = candidateFace;
             fanCorner = fan;
-            weightAtSecondCorner = alongEdgeTwo;
-            weightAtThirdCorner = alongEdgeOne;
-            weightAtFirstCorner = 1f - alongEdgeTwo - alongEdgeOne;
-            distanceAlongRay = parameter;
-            pointX = rayOrigin[0] + parameter * rayDirection[0];
-            pointY = rayOrigin[1] + parameter * rayDirection[1];
-            pointZ = rayOrigin[2] + parameter * rayDirection[2];
+            weightAtFirstCorner = (float) (oppositeA / determinant);
+            weightAtSecondCorner = (float) (oppositeB / determinant);
+            weightAtThirdCorner = (float) (oppositeC / determinant);
+            distanceAlongRay = (float) parameter;
+            pointX = (float) (rayOrigin[0] + parameter * rayDirection[0]);
+            pointY = (float) (rayOrigin[1] + parameter * rayDirection[1]);
+            pointZ = (float) (rayOrigin[2] + parameter * rayDirection[2]);
             return true;
         }
         return false;

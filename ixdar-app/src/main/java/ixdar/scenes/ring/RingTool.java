@@ -543,8 +543,8 @@ public final class RingTool implements EditTool {
         if (faceIndex >= 0 && faceIndex < surface.faceCount()
                 && runtime.rayThroughPixel(scene.camera, framebufferX, framebufferY, rayOrigin,
                         rayDirection)
-                && picker.hitFace(surface, surface.faceIdAt(faceIndex), rayOrigin, rayDirection)) {
-            faceId = surface.faceIdAt(faceIndex);
+                && picker.pickNear(surface, surface.faceIdAt(faceIndex), rayOrigin, rayDirection)) {
+            faceId = picker.faceId;
             hitPoint[0] = picker.pointX;
             hitPoint[1] = picker.pointY;
             hitPoint[2] = picker.pointZ;

@@ -19,8 +19,6 @@ public final class GirdlingPlane {
 
     public static final int DEFAULT_REFINE_LEVELS = 3;
 
-    public static final double DEFAULT_LONGEST_GIRDLE_IN_RADII = 2.0;
-
     public static final float HALF = 0.5f;
 
     /** Directions the scan samples across the half-circle of candidate normals. */
@@ -28,9 +26,6 @@ public final class GirdlingPlane {
 
     /** Bisection rounds run after the scan. */
     public int refineLevels = DEFAULT_REFINE_LEVELS;
-
-    /** Model radii a cut may reach before the search abandons it. */
-    public double longestGirdleInRadii = DEFAULT_LONGEST_GIRDLE_IN_RADII;
 
     /** Extra rotation of the found normal about {@link #viewDirection}, in radians. */
     public float tiltAboutView;
@@ -55,15 +50,6 @@ public final class GirdlingPlane {
 
     /** The walk the last search settled on, whose crossings carry the edges the cut runs over. */
     public final PlaneSurfaceLoop cut = new PlaneSurfaceLoop();
-
-    /**
-     * Surface {@link #modelRadius} was measured on. A hover searches the same surface every frame,
-     * and measuring it walks every vertex, so it is measured once per surface instance.
-     */
-    public MeshTopology measuredSurface;
-
-    /** Bounding-sphere radius of {@link #measuredSurface}, the unit the length budget is in. */
-    public double modelRadius;
 
     private final Vector3f surfaceNormal = new Vector3f();
     private final Vector3f firstTangent = new Vector3f();
@@ -104,13 +90,9 @@ public final class GirdlingPlane {
                         seedAxis[0] * firstTangent.x + seedAxis[1] * firstTangent.y
                                 + seedAxis[2] * firstTangent.z);
 
-        if (mesh != measuredSurface) {
-            measuredSurface = mesh;
-            modelRadius = mesh.radius();
-        }
         double step = Math.PI / scanDirections;
         double bestAngle = seedAngle;
-        double bestLength = longestGirdleInRadii * modelRadius;
+        double bestLength = Double.POSITIVE_INFINITY;
         boolean found = false;
         for (int direction = 0; direction < scanDirections; direction++) {
             double angle = seedAngle + direction * step;

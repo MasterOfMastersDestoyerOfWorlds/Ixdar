@@ -19,32 +19,37 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
  */
 public class SurfacePickerTest {
 
-    /** Coordinates per point in every packed position here. */
     private static final int COORDINATES_PER_POINT = 3;
 
-    /** Half the side of the unit cube the rays are fired at. */
     private static final float HALF_SIDE = 0.5f;
 
-    /** How far outside the surface a test ray starts. */
     private static final float RAY_START = 4f;
 
-    /** Sides the procedural tube is swept with. */
     private static final int TUBE_SIDES = 48;
 
-    /** Cross-sections along the procedural tube. */
     private static final int TUBE_RINGS = 40;
 
-    /** Radius of the procedural tube. */
     private static final float TUBE_RADIUS = 0.25f;
 
-    /** Length of the procedural tube, along x. */
     private static final float TUBE_LENGTH = 4f;
 
-    /** Angle the girdling plane's normal may miss the tube's axis by, in degrees. */
     private static final double AXIS_TOLERANCE_DEGREES = 2.0;
 
-    /** Barycentric weights are compared to this many places. */
     private static final double WEIGHT_TOLERANCE = 1e-4;
+
+    private static final int DIAMOND_SIDES = 16;
+
+    private static final int DIAMOND_ROWS_ODD_FOR_A_CREASE_ROW = 51;
+
+    private static final float DIAMOND_CREASE_RADIUS = 0.8f;
+
+    private static final float DIAMOND_END_RADIUS = 0.2f;
+
+    private static final int QUAD_CORNERS = 4;
+
+    private static final String HIT_DRIFTED_IN_X = "the hit drifted in x";
+
+    private static final String HIT_DRIFTED_IN_Z = "the hit drifted in z";
 
     @Test
     void aRayDownTheCubeLandsOnTheTopFaceWithTheExpectedWeights() {
@@ -58,8 +63,8 @@ public class SurfacePickerTest {
 
         assertEquals(HALF_SIDE, picker.pointY, WEIGHT_TOLERANCE,
                 "the hit is not on the cube's top face");
-        assertEquals(origin[0], picker.pointX, WEIGHT_TOLERANCE, "the hit drifted in x");
-        assertEquals(origin[2], picker.pointZ, WEIGHT_TOLERANCE, "the hit drifted in z");
+        assertEquals(origin[0], picker.pointX, WEIGHT_TOLERANCE, HIT_DRIFTED_IN_X);
+        assertEquals(origin[2], picker.pointZ, WEIGHT_TOLERANCE, HIT_DRIFTED_IN_Z);
         assertEquals(RAY_START - HALF_SIDE, picker.distanceAlongRay, WEIGHT_TOLERANCE,
                 "the hit is not at the expected distance along the ray");
 
@@ -118,6 +123,133 @@ public class SurfacePickerTest {
         double circumference = 2.0 * Math.PI * TUBE_RADIUS;
         assertTrue(Math.abs(girdle.length - circumference) < 0.05 * circumference,
                 "the cut is " + girdle.length + ", not the tube's circumference " + circumference);
+    }
+
+    /**
+     * CRAW-40: a ray landing exactly on the diamond tube's crease ring, an edge two quads share
+     * and fold across, is a hit on either quad, and the girdle through it is found even though
+     * the crease is the tube's widest loop.
+     */
+    @Test
+    void aRayOntoTheCreaseEdgeHitsBothQuadsAndGirdlesTheTube() {
+        MeshTopology diamond = diamondTube();
+        int creaseRow = DIAMOND_ROWS_ODD_FOR_A_CREASE_ROW / 2;
+        assertRayOntoSegmentHits(diamond, diamondVertex(creaseRow, 0),
+                diamondVertex(creaseRow, 1), 2);
+    }
+
+    /**
+     * CRAW-40: a ray landing exactly on an edge two quads share along the cone is a hit on both,
+     * and one landing on a quad's own fan diagonal is a hit on that quad.
+     */
+    @Test
+    void aRayOntoASharedEdgeOrAFanDiagonalHitsEveryFaceHoldingIt() {
+        MeshTopology diamond = diamondTube();
+        int coneRow = DIAMOND_ROWS_ODD_FOR_A_CREASE_ROW / 2 + 2;
+        assertRayOntoSegmentHits(diamond, diamondVertex(coneRow, 0),
+                diamondVertex(coneRow + 1, 0), 2);
+        assertRayOntoSegmentHits(diamond, diamondVertex(coneRow, 0),
+                diamondVertex(coneRow + 1, 1), 1);
+    }
+
+    /**
+     * Fire a ray radially inward at the midpoint of the segment between two vertices and require
+     * a hit on that point whichever face holding both the id buffer hints, and a girdle there.
+     *
+     * @param mesh          surface to fire at
+     * @param first         one end of the segment, packed xyz
+     * @param second        the other end, packed xyz
+     * @param expectedFaces faces holding both ends: two for a shared edge, one for a diagonal
+     */
+    private static void assertRayOntoSegmentHits(MeshTopology mesh, float[] first,
+            float[] second, int expectedFaces) {
+        float[] target = new float[COORDINATES_PER_POINT];
+        for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+            target[axis] = 0.5f * (first[axis] + second[axis]);
+        }
+        float[] direction = { -target[0], 0f, -target[2] };
+        float[] origin = {
+            target[0] - RAY_START * direction[0], target[1], target[2] - RAY_START * direction[2] };
+        SurfacePicker picker = new SurfacePicker();
+        GirdlingPlane girdle = new GirdlingPlane();
+        Vector3f corner = new Vector3f();
+        int holdingFaces = 0;
+        for (int index = 0; index < mesh.faceCount(); index++) {
+            int faceId = mesh.faceIdAt(index);
+            boolean holdsFirst = false;
+            boolean holdsSecond = false;
+            for (int slot = 0; slot < mesh.faceVertexCount(faceId); slot++) {
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, slot), corner);
+                holdsFirst |= corner.equals(first[0], first[1], first[2]);
+                holdsSecond |= corner.equals(second[0], second[1], second[2]);
+            }
+            if (!holdsFirst || !holdsSecond) {
+                continue;
+            }
+            holdingFaces++;
+            assertTrue(picker.pickNear(mesh, faceId, origin, direction),
+                    "a ray exactly onto the shared segment, hinted at face " + faceId
+                            + ", missed the surface");
+            assertEquals(target[0], picker.pointX, WEIGHT_TOLERANCE, HIT_DRIFTED_IN_X);
+            assertEquals(target[1], picker.pointY, WEIGHT_TOLERANCE, "the hit drifted in y");
+            assertEquals(target[2], picker.pointZ, WEIGHT_TOLERANCE, HIT_DRIFTED_IN_Z);
+            float[] hit = { picker.pointX, picker.pointY, picker.pointZ };
+            assertTrue(girdle.find(mesh, picker.faceId, hit, new float[] { 0f, 1f, 0f }),
+                    "no girdle was found through the hit on face " + picker.faceId);
+        }
+        assertTrue(picker.pickNearestFace(mesh, origin, direction),
+                "a ray exactly onto the shared segment fell between the faces holding it");
+        assertEquals(expectedFaces, holdingFaces, "the segment is not held by the faces expected");
+    }
+
+    /**
+     * Position of one vertex of {@link #diamondTube()}.
+     *
+     * @param row  cross-section, 0 at the bottom tip
+     * @param side index around the cross-section
+     * @return the position, packed xyz
+     */
+    private static float[] diamondVertex(int row, int side) {
+        float halfLength = 0.5f * TUBE_LENGTH;
+        float height = -halfLength + TUBE_LENGTH * row / (DIAMOND_ROWS_ODD_FOR_A_CREASE_ROW - 1);
+        float radius = DIAMOND_CREASE_RADIUS
+                - (DIAMOND_CREASE_RADIUS - DIAMOND_END_RADIUS) * Math.abs(height) / halfLength;
+        double angle = 2.0 * Math.PI * side / DIAMOND_SIDES;
+        return new float[] {
+            (float) (radius * Math.cos(angle)), height, (float) (radius * Math.sin(angle)) };
+    }
+
+    /**
+     * The quad tube varying_tube_test.dsl sweeps: radius 0.2 at the ends and 0.8 at the middle,
+     * a crease ring at the middle row, and that ring longer than twice the bounding radius.
+     *
+     * @return the open diamond tube as a quad half-edge mesh
+     */
+    private static HalfEdgeMesh diamondTube() {
+        float[] positions = new float[COORDINATES_PER_POINT * DIAMOND_SIDES
+                * DIAMOND_ROWS_ODD_FOR_A_CREASE_ROW];
+        for (int row = 0; row < DIAMOND_ROWS_ODD_FOR_A_CREASE_ROW; row++) {
+            for (int side = 0; side < DIAMOND_SIDES; side++) {
+                System.arraycopy(diamondVertex(row, side), 0, positions,
+                        COORDINATES_PER_POINT * (DIAMOND_SIDES * row + side),
+                        COORDINATES_PER_POINT);
+            }
+        }
+        int[] faces =
+                new int[QUAD_CORNERS * DIAMOND_SIDES * (DIAMOND_ROWS_ODD_FOR_A_CREASE_ROW - 1)];
+        int corner = 0;
+        for (int row = 0; row + 1 < DIAMOND_ROWS_ODD_FOR_A_CREASE_ROW; row++) {
+            for (int side = 0; side < DIAMOND_SIDES; side++) {
+                int next = (side + 1) % DIAMOND_SIDES;
+                faces[corner++] = DIAMOND_SIDES * row + side;
+                faces[corner++] = DIAMOND_SIDES * (row + 1) + side;
+                faces[corner++] = DIAMOND_SIDES * (row + 1) + next;
+                faces[corner++] = DIAMOND_SIDES * row + next;
+            }
+        }
+        HalfEdgeMesh diamond = HalfEdgeMeshEngine.bulkAllocate(positions, faces, QUAD_CORNERS);
+        diamond.computeNormals();
+        return diamond;
     }
 
     /**
