@@ -65,6 +65,8 @@ public final class RingTool implements EditTool {
 
     public static final String REDO_HINT = "redo ring edit";
 
+    public static final String NO_SELECTED_ANCHOR = "no authored anchor is selected";
+
     public static final int PREVIEW_COLOR = 0xFF2D95;
 
     public static final int[] RING_COLORS = {
@@ -599,18 +601,8 @@ public final class RingTool implements EditTool {
                 for (int held : draftAuthoredVertexId) {
                     vertexFree &= held != hitVertexId;
                 }
-                int selected = selectedIndex();
-                if (draggingAnchor && vertexFree && selected >= 0) {
-                    // A drag re-traces at the fit's depth, the rate a frame allows; the whole
-                    // drag is one edit, recorded on release.
-                    int[] before = draftAuthoredVertexId;
-                    int[] moved = Arrays.copyOf(before, before.length);
-                    moved[selected] = hitVertexId;
-                    if (retraceDraft(moved, AuthoredSplineRing.SUPPORTING_FIT_DEPTH)) {
-                        selectedAnchorVertexId = hitVertexId;
-                    } else {
-                        retraceDraft(before, AuthoredSplineRing.SUPPORTING_FIT_DEPTH);
-                    }
+                if (draggingAnchor && vertexFree && selectedIndex() >= 0) {
+                    moveSelectedAnchor(hitVertexId);
                 }
             }
         } else if (hitValid) {
@@ -674,7 +666,7 @@ public final class RingTool implements EditTool {
                 System.arraycopy(confirmedBaseNormal.get(hoveredRing), 0, draftBaseNormal, 0,
                         COORDINATES_PER_POINT);
                 if (retraceDraft(confirmedAuthoredVertexId.get(hoveredRing),
-                        SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
+                        SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
                     draftSourceRing = hoveredRing;
                     draftSourceLabel = null;
                     selectedAnchorVertexId = -1;
@@ -695,7 +687,7 @@ public final class RingTool implements EditTool {
                             COORDINATES_PER_POINT);
                 }
                 if (anchors.length > 0
-                        && retraceDraft(anchors, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
+                        && retraceDraft(anchors, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
                     convertedGraphLabels.add(label);
                     draftSourceRing = -1;
                     draftSourceLabel = label;
@@ -712,7 +704,7 @@ public final class RingTool implements EditTool {
                 System.arraycopy(previewPlaneNormal, 0, draftBaseNormal, 0,
                         COORDINATES_PER_POINT);
                 if (retraceDraft(new int[] { previewAuthoredVertexId },
-                        SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
+                        SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, true)) {
                     selectedAnchorVertexId = -1;
                     recordEdit("draft opened", stateBefore);
                     reportDraft("drafted");
@@ -739,8 +731,9 @@ public final class RingTool implements EditTool {
     }
 
     /**
-     * Add an authored anchor at a vertex; the ring re-fits through it, and a vertex the draft
-     * already holds is refused.
+     * Add an authored anchor at a vertex, between the neighbours where it adds the least surface
+     * length, the held anchors keeping their order; a vertex already held, or an anchor that only
+     * fits by making the ring cross itself, is refused.
      *
      * @param vertexId mesh vertex the anchor sits on
      * @return true when the draft took the anchor
@@ -757,15 +750,41 @@ public final class RingTool implements EditTool {
             }
         }
         RingToolState stateBefore = new RingToolState(this);
-        int[] before = draftAuthoredVertexId;
-        int[] grown = Arrays.copyOf(before, before.length + 1);
-        grown[before.length] = vertexId;
-        if (!retraceDraft(grown, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
-            retraceDraft(before, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH);
+        holdDraft();
+        long start = System.nanoTime();
+        if (!draftRing.insert(vertexId, draftBaseNormal, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
+            lastError = draftRing.failure;
             return false;
         }
+        draftAuthoredVertexId = draftRing.authoredVertexId;
+        draft = SurfaceSpline.of(draftRing.tracer);
+        draftDepth = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH;
+        draftMillis = (System.nanoTime() - start) / 1e6;
         recordEdit("anchor added", stateBefore);
         reportDraft("authored anchor added");
+        return true;
+    }
+
+    /**
+     * One step of a drag: the selected authored anchor moves to a vertex keeping its place in the
+     * ring, re-traced at the fit's depth, the rate a frame allows; a move that would make a simple
+     * ring cross itself is refused. The whole drag is one edit, recorded on release.
+     *
+     * @param vertexId mesh vertex the anchor moves to
+     * @return true when the draft took the move
+     */
+    public boolean moveSelectedAnchor(int vertexId) {
+        int selected = selectedIndex();
+        if (draft == null || selected < 0) {
+            lastError = NO_SELECTED_ANCHOR;
+            return false;
+        }
+        int[] moved = Arrays.copyOf(draftAuthoredVertexId, draftAuthoredVertexId.length);
+        moved[selected] = vertexId;
+        if (!retraceDraft(moved, AuthoredSplineRing.SUPPORTING_FIT_DEPTH, true)) {
+            return false;
+        }
+        selectedAnchorVertexId = vertexId;
         return true;
     }
 
@@ -779,7 +798,7 @@ public final class RingTool implements EditTool {
         lastError = "";
         int selected = selectedIndex();
         if (draft == null || selected < 0) {
-            lastError = "no authored anchor is selected";
+            lastError = NO_SELECTED_ANCHOR;
             return false;
         }
         int[] before = draftAuthoredVertexId;
@@ -792,8 +811,7 @@ public final class RingTool implements EditTool {
         int[] kept = new int[before.length - 1];
         System.arraycopy(before, 0, kept, 0, selected);
         System.arraycopy(before, selected + 1, kept, selected, kept.length - selected);
-        if (!retraceDraft(kept, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
-            retraceDraft(before, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH);
+        if (!retraceDraft(kept, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, true)) {
             return false;
         }
         recordEdit("anchor deleted", stateBefore);
@@ -957,9 +975,15 @@ public final class RingTool implements EditTool {
             return;
         }
         draggingAnchor = false;
-        if (draft != null && draftDepth != SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH
-                && retraceDraft(draftAuthoredVertexId, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
-            reportDraft("authored anchor moved");
+        if (draft != null && draftDepth != SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH) {
+            if (retraceDraft(draftAuthoredVertexId, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH,
+                    true)) {
+                reportDraft("authored anchor moved");
+            } else if (dragBefore != null) {
+                String refusal = lastError;
+                dragBefore.restore(this);
+                lastError = refusal;
+            }
         }
         if (dragBefore != null && draft != null
                 && !Arrays.equals(dragBefore.draftAuthoredVertexId, draftAuthoredVertexId)) {
@@ -983,8 +1007,8 @@ public final class RingTool implements EditTool {
         long start = System.nanoTime();
         RingToolState stateBefore = new RingToolState(this);
         draggingAnchor = false;
-        if (draftDepth != SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH
-                && !retraceDraft(draftAuthoredVertexId, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
+        if (draftDepth != SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH && !retraceDraft(
+                draftAuthoredVertexId, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, true)) {
             return false;
         }
         float[] normal = Arrays.copyOf(draftBaseNormal, COORDINATES_PER_POINT);
@@ -1110,18 +1134,24 @@ public final class RingTool implements EditTool {
     }
 
     /**
-     * Trace the draft through authored anchors under the draft's base normal, keeping the old
-     * draft and saying why when the anchors decide no ring.
+     * Trace the draft through authored anchors in ring order under the draft's base normal,
+     * keeping the old draft and saying why when the anchors decide no ring, or, with
+     * {@code keepSimple}, when they would make a simple draft cross itself.
      *
      * @return true when the draft now runs through {@code authored}
      */
-    private boolean retraceDraft(int[] authored, int depth) {
-        if (draftRing == null || draftRing.tracer.geodesics != geodesics) {
-            draftRing = new AuthoredSplineRing(geodesics);
-        }
+    private boolean retraceDraft(int[] authored, int depth, boolean keepSimple) {
+        holdDraft();
+        boolean wasSimple = draft == null || draftRing.simple;
         long start = System.nanoTime();
         if (!draftRing.trace(authored, authored.length, draftBaseNormal, depth)) {
             lastError = draftRing.failure;
+            return false;
+        }
+        if (keepSimple && wasSimple && !draftRing.simple) {
+            float[] at = draftRing.crossings.firstCrossingXyz;
+            lastError = String.format(Locale.ROOT,
+                    "refused: the ring would cross itself near %.4f,%.4f,%.4f", at[0], at[1], at[2]);
             return false;
         }
         draftAuthoredVertexId = draftRing.authoredVertexId;
@@ -1132,17 +1162,34 @@ public final class RingTool implements EditTool {
     }
 
     /**
+     * Make {@link #draftRing} hold the draft as it stands, re-tracing it when an undo, a redo or a
+     * refused edit left it behind, so the next edit starts from the draft's own anchor cycle.
+     */
+    private void holdDraft() {
+        if (draftRing == null || draftRing.tracer.geodesics != geodesics) {
+            draftRing = new AuthoredSplineRing(geodesics);
+        }
+        if (draft != null && !Arrays.equals(draftRing.authoredVertexId, draftAuthoredVertexId)) {
+            draftRing.trace(draftAuthoredVertexId, draftAuthoredVertexId.length, draftBaseNormal,
+                    draftDepth);
+        }
+    }
+
+    /**
      * Put what the last draft edit did in the row under the status line, the one line the user
      * reads after every edit, with the ring's fingerprint in the log.
      */
     private void reportDraft(String what) {
         int authoredAnchors = draft.authoredCount();
+        float[] crossing = draftRing.crossings.firstCrossingXyz;
         lastRow = String.format(Locale.ROOT,
                 "draft %s: %d authored + %d supporting anchors, %d edges, length %.5f, "
-                        + "sharpest corner %.1f deg, %.0f ms",
+                        + "sharpest corner %.1f deg, %.0f ms%s",
                 what, authoredAnchors, draft.anchorCount - authoredAnchors,
                 draft.markedEdgeCount, draft.length, draft.minimumInteriorAngleDegrees,
-                draftMillis);
+                draftMillis, draftRing.simple ? "" : String.format(Locale.ROOT,
+                        ", crosses itself near %.4f,%.4f,%.4f", crossing[0], crossing[1],
+                        crossing[2]));
         Platforms.get().log(LOG_PREFIX + lastRow + ", fingerprint "
                 + EdgeMarks.fingerprint(scene.halfEdgeSurface(), draft.markedByEdgeId));
     }

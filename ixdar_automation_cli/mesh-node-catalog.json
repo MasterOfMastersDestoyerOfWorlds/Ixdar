@@ -4569,7 +4569,7 @@
         {
           "name": "points",
           "portType": "STRING",
-          "description": "Authored anchor points as \"x,y,z; x,y,z; ...\", each snapped to its nearest vertex. The first leads the ring. The supporting anchors between them are re-fitted on every evaluation, so only the points the user placed are stored. One is enough with a normal, three without.",
+          "description": "Authored anchor points as \"x,y,z; x,y,z; ...\" in ring order, each snapped to its nearest vertex. The first leads the ring. The supporting anchors between them are re-fitted on every evaluation, so only the points the user placed are stored. One is enough with a normal, three without.",
           "defaultValue": ""
         },
         {
@@ -4597,7 +4597,7 @@
           "description": "Per-edge BoolField, true on every edge of the conforming cycle nearest the traced spline."
         }
       ],
-      "description": "Rings a surface with a closed cubic spline through authored anchor points: each anchor snaps to its nearest vertex, a plane is fitted through them (leaning toward the base normal), and supporting anchors are fitted on the loop that plane cuts until the spline stays within tolerance of it. Segments are traced with b/Surf\u0027s recursive De Casteljau bisection over geodesic midpoints (Mancinelli et al. 2021), both tangent handles at an anchor on one line so the ring turns smoothly. Emits the polyline as curve geometry and the mesh edges nearest it as edge marks."
+      "description": "Rings a surface with a closed cubic spline through authored anchor points, in the order given: each anchor snaps to its nearest vertex, and supporting anchors are fitted until every span stays within tolerance of its reference, the geodesic to the next anchor, or for up to three anchors (or where geodesics would make the ring cross itself) the loop of a plane fitted through them, leaning toward the base normal. Segments are traced with b/Surf\u0027s recursive De Casteljau bisection over geodesic midpoints (Mancinelli et al. 2021), both tangent handles at an anchor on one line so the ring turns smoothly. Emits the polyline as curve geometry and the mesh edges nearest it as edge marks."
     },
     {
       "id": "subdivide_mesh",

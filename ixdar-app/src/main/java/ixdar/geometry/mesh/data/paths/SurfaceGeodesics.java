@@ -222,6 +222,60 @@ public final class SurfaceGeodesics {
     }
 
     /**
+     * Surface distance over mesh edges from one vertex to the nearest vertex carrying each label,
+     * searched outward until every label is reached or {@link #searchBudget} vertices are settled.
+     *
+     * @param fromVertexId    vertex the search starts at
+     * @param labelByVertexId label per vertex id, -1 for none
+     * @param labels          labels in use, numbered from zero
+     * @return the distance per label, positive infinity for a label the search never reached
+     */
+    public double[] distanceToLabels(int fromVertexId, int[] labelByVertexId, int labels) {
+        double[] distance = new double[labels];
+        Arrays.fill(distance, Double.POSITIVE_INFINITY);
+        if (!mesh.hasVertex(fromVertexId)) {
+            return distance;
+        }
+        prepareVisitBuffers();
+        currentStamp++;
+        heapSize = 0;
+        visitStamp[fromVertexId] = currentStamp;
+        costToVertex[fromVertexId] = 0.0;
+        heapPush(0.0, fromVertexId);
+        int found = 0;
+        int settled = 0;
+        while (heapSize > 0 && found < labels && settled < searchBudget) {
+            double cost = heapKey[0];
+            int vertexId = heapPop();
+            if (cost > costToVertex[vertexId]) {
+                continue;
+            }
+            settled++;
+            int label = vertexId < labelByVertexId.length ? labelByVertexId[vertexId] : -1;
+            if (label >= 0 && distance[label] == Double.POSITIVE_INFINITY) {
+                distance[label] = cost;
+                found++;
+            }
+            mesh.vertexPosition(vertexId, scratchPosition);
+            for (int spoke = 0; spoke < mesh.vertexEdgeCount(vertexId); spoke++) {
+                int other = mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, spoke), vertexId);
+                if (other < 0) {
+                    continue;
+                }
+                mesh.vertexPosition(other, otherPosition);
+                double relaxed = cost + scratchPosition.distance(otherPosition);
+                if (visitStamp[other] == currentStamp && relaxed >= costToVertex[other]) {
+                    continue;
+                }
+                visitStamp[other] = currentStamp;
+                costToVertex[other] = relaxed;
+                heapPush(relaxed, other);
+            }
+        }
+        return distance;
+    }
+
+    /**
      * Walks the surface from a vertex in a direction, the straight-line extension the tangent
      * handles of a spline are built with.
      *

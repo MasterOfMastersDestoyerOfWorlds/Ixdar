@@ -284,6 +284,22 @@ public final class SurfaceSpline {
     }
 
     /**
+     * The spline's path on the surface as one closed trace, its points on the vertices, edges and
+     * faces they lie on, the form {@link SurfacePathCrossings} reads.
+     *
+     * @return the closed path, without the repeated first point
+     */
+    public TracedSurfacePath surfacePath() {
+        int points = Math.max(0, pointVertexId.length - 1);
+        double[] xyz = new double[COORDINATES_PER_POINT * points];
+        for (int coordinate = 0; coordinate < xyz.length; coordinate++) {
+            xyz[coordinate] = surfacePolyline[coordinate];
+        }
+        return new TracedSurfacePath(xyz, xyz, pointVertexId, pointEdgeId, pointFaceId,
+                pointFraction, points, true);
+    }
+
+    /**
      * How many of the anchors the user placed, the ones a save writes.
      *
      * @return the authored anchors among {@link #anchorAuthored}
