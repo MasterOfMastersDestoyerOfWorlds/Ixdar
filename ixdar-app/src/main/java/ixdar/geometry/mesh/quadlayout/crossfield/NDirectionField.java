@@ -3,7 +3,6 @@ package ixdar.geometry.mesh.quadlayout.crossfield;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -24,8 +23,11 @@ import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
+import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.Preconditioner;
+import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
 import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
 import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
 import ixdar.geometry.mesh.quadlayout.solver.system.PowerIteration;
 import ixdar.platform.Platforms;
@@ -64,6 +66,10 @@ public class NDirectionField implements MeshNode {
     public static final double EPS = 1e-12;
 
     public static final String PCG_CONVERGED_SUFFIX = " converged=";
+
+    public static final int ALIGNED_CONJUGATE_GRADIENT_ITERATIONS = 5000;
+
+    public static final double ALIGNED_CONJUGATE_GRADIENT_TOLERANCE = 1e-8;
 
     public HalfEdgeMesh mesh;
 
@@ -114,18 +120,23 @@ public class NDirectionField implements MeshNode {
 
     public boolean useCurvatureAlignment = true;
 
-    /** The field being built; every durable product lands here. */
-    private CrossField cf;
-
-    private int[] vertexIdOf; // active index -> vertex id
-    private int[] activeOfVertexId;
+    /** Active vertex index per vertex id, -1 where no live vertex carries that id. */
+    public int[] activeOfVertexId;
 
     /**
      * Rescaled angle of each half-edge in its own start vertex's flattened tangent frame
      * (paper Eq. 11/12), indexed by half-edge id and NaN where none was assigned. The
      * half-edge already names its vertex, so no composite key is needed.
      */
-    private double[] angleInFrame;
+    public double[] angleInFrame;
+
+    /** Raw per-face triangle index of the solved field (KCP13 §6.1.3), set by {@link #populate}. */
+    public int[] triangleIndex;
+
+    /** The field being built; every durable product lands here. */
+    private CrossField cf;
+
+    private int[] vertexIdOf; // active index -> vertex id
 
     private Vector3f[] vertexNormal;
 
@@ -374,7 +385,7 @@ public class NDirectionField implements MeshNode {
     }
 
     /**
-     * Runs the field solve over the assembled system: the aligned PCG path when
+     * Runs the field solve over the assembled system: the aligned Cholesky solve when
      * curvature or feature alignment is active, the smoothest power iteration
      * otherwise, then populates the field. Re-solving skips frames and assembly.
      */
@@ -725,31 +736,92 @@ public class NDirectionField implements MeshNode {
     }
 
     /**
-     * Assemble the complex Hermitian connection Laplacian (upper triangle).
+     * Assembles the complex Hermitian connection Laplacian and mass matrix, realified, straight
+     * into CSR arrays over the vertex adjacency of the edge graph. Both matrices share one
+     * sparsity structure; no entry is boxed.
      */
     private void assemble() {
+        int edgeCount = cf.edgeCount;
+        int[] edgeLowVertex = new int[edgeCount];
+        int[] edgeHighVertex = new int[edgeCount];
+        int[] incidenceStart = new int[vertexCount + 1];
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            int edgeHalfEdge = mesh.edgeHalfEdge(mesh.edgeIdAt(activeEdge));
+            int startVertex = activeOfVertexId[mesh.halfEdgeVertex(edgeHalfEdge)];
+            int endVertex = activeOfVertexId[mesh.halfEdgeEndVertex(edgeHalfEdge)];
+            edgeLowVertex[activeEdge] = Math.min(startVertex, endVertex);
+            edgeHighVertex[activeEdge] = Math.max(startVertex, endVertex);
+            if (startVertex != endVertex) {
+                incidenceStart[startVertex + 1]++;
+                incidenceStart[endVertex + 1]++;
+            }
+        }
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            incidenceStart[activeVertex + 1] += incidenceStart[activeVertex];
+        }
+        int[] incidentEdge = new int[incidenceStart[vertexCount]];
+        int[] incidenceCursor = Arrays.copyOf(incidenceStart, vertexCount);
+        for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
+            if (edgeLowVertex[activeEdge] != edgeHighVertex[activeEdge]) {
+                incidentEdge[incidenceCursor[edgeLowVertex[activeEdge]]++] = activeEdge;
+                incidentEdge[incidenceCursor[edgeHighVertex[activeEdge]]++] = activeEdge;
+            }
+        }
+
+        // One slot per distinct neighbour, so parallel edges share an entry as the keyed map did.
+        int[] neighborStart = new int[vertexCount + 1];
+        int[] neighbor = new int[incidentEdge.length];
+        int[] slotInLowRow = new int[edgeCount];
+        int[] slotInHighRow = new int[edgeCount];
+        int[] slotOfNeighbor = new int[vertexCount];
+        int[] rowOfNeighborSlot = new int[vertexCount];
+        Arrays.fill(rowOfNeighborSlot, -1);
+        int slotCount = 0;
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            neighborStart[activeVertex] = slotCount;
+            for (int incidence = incidenceStart[activeVertex];
+                    incidence < incidenceStart[activeVertex + 1]; incidence++) {
+                int activeEdge = incidentEdge[incidence];
+                boolean lowEnd = edgeLowVertex[activeEdge] == activeVertex;
+                int other = lowEnd ? edgeHighVertex[activeEdge] : edgeLowVertex[activeEdge];
+                if (rowOfNeighborSlot[other] != activeVertex) {
+                    rowOfNeighborSlot[other] = activeVertex;
+                    slotOfNeighbor[other] = slotCount;
+                    neighbor[slotCount++] = other;
+                }
+                if (lowEnd) {
+                    slotInLowRow[activeEdge] = slotOfNeighbor[other];
+                } else {
+                    slotInHighRow[activeEdge] = slotOfNeighbor[other];
+                }
+            }
+        }
+        neighborStart[vertexCount] = slotCount;
+
         double[] diag = new double[vertexCount];
-        Map<Long, Double> upRe = new HashMap<>();
-        Map<Long, Double> upIm = new HashMap<>();
-
+        double[] entryReal = new double[slotCount];
+        double[] entryImaginary = new double[slotCount];
         double[] diagMass = new double[vertexCount];
-        Map<Long, Double> massUpRe = new HashMap<>();
-        Map<Long, Double> massUpIm = new HashMap<>();
+        double[] massReal = new double[slotCount];
+        double[] massImaginary = new double[slotCount];
 
+        int[] halfEdge = new int[3];
+        int[] vertexId = new int[3];
+        int[] active = new int[3];
+        Vector3f[] position = {new Vector3f(), new Vector3f(), new Vector3f()};
+        double[] transportAngle = new double[3];
+        Vector3f edge0 = new Vector3f();
+        Vector3f edge1 = new Vector3f();
         for (int f = 0; f < mesh.faceCount(); f++) {
             int fId = mesh.faceIdAt(f);
-            int[] halfEdge = orderedFaceHalfEdges(fId); // CCW: v0->v1->v2->v0
-            int[] vertexId = new int[3];
-            int[] active = new int[3];
-            Vector3f[] position = new Vector3f[3];
             for (int corner = 0; corner < 3; corner++) {
+                halfEdge[corner] = mesh.faceHalfEdgeAt(fId, corner); // CCW: v0->v1->v2->v0
                 vertexId[corner] = mesh.halfEdgeVertex(halfEdge[corner]);
                 active[corner] = activeOfVertexId[vertexId[corner]];
-                position[corner] = mesh.vertexPosition(vertexId[corner]);
+                mesh.vertexPosition(vertexId[corner], position[corner]);
             }
 
             // Transport angle on each CCW directed edge, and the triangle holonomy.
-            double[] transportAngle = new double[3];
             for (int corner = 0; corner < 3; corner++) {
                 int twin = mesh.halfEdgeTwin(halfEdge[corner]);
                 transportAngle[corner] = n * (getAngle(vertexId[(corner + 1) % 3], twin)
@@ -757,9 +829,9 @@ public class NDirectionField implements MeshNode {
             }
             double holonomy = principal(transportAngle[0] + transportAngle[1] + transportAngle[2]);
 
-            Vector3f edge0 = new Vector3f(position[1]).sub(position[0]);
-            double area = 0.5 * new Vector3f(edge0)
-                    .cross(new Vector3f(position[2]).sub(position[0])).length();
+            edge0.set(position[1]).sub(position[0]);
+            edge1.set(position[2]).sub(position[0]);
+            double area = 0.5 * edge0.cross(edge1).length();
             if (area < EPS) {
                 continue;
             }
@@ -767,21 +839,22 @@ public class NDirectionField implements MeshNode {
             // Diagonal: full stiffness (with the holonomy correction) minus the curvature
             // term.
             for (int corner = 0; corner < 3; corner++) {
-                Vector3f toNext = new Vector3f(position[(corner + 1) % 3]).sub(position[corner]);
-                Vector3f toPrev = new Vector3f(position[(corner + 2) % 3]).sub(position[corner]);
+                Vector3f toNext = edge0.set(position[(corner + 1) % 3]).sub(position[corner]);
+                Vector3f toPrev = edge1.set(position[(corner + 2) % 3]).sub(position[corner]);
                 double diagStiff = SectionIntegrals.stiffnessDiagonal(holonomy,
                         toNext.lengthSquared(), toNext.dot(toPrev), toPrev.lengthSquared());
                 diag[active[corner]] += diagStiff / area - curvatureBias * holonomy / 6.0;
                 diagMass[active[corner]] += area / 6.0;
             }
 
-            // Off-diagonal: one per edge, from the two edges at the opposite vertex.
+            // Off-diagonal: one per edge, from the two edges at the opposite vertex. Each
+            // directed entry H[from][to] lands in from's row and its conjugate in to's row.
             for (int corner = 0; corner < 3; corner++) {
                 int from = active[corner];
                 int to = active[(corner + 1) % 3];
                 int opposite = (corner + 2) % 3;
-                Vector3f oppToFrom = new Vector3f(position[corner]).sub(position[opposite]);
-                Vector3f oppToTo = new Vector3f(position[(corner + 1) % 3]).sub(position[opposite]);
+                Vector3f oppToFrom = edge0.set(position[corner]).sub(position[opposite]);
+                Vector3f oppToTo = edge1.set(position[(corner + 1) % 3]).sub(position[opposite]);
 
                 double[] stiff = SectionIntegrals.stiffnessOffDiagonal(holonomy,
                         oppToFrom.lengthSquared(), oppToFrom.dot(oppToTo), oppToTo.lengthSquared());
@@ -797,65 +870,86 @@ public class NDirectionField implements MeshNode {
                 double re = entryRe * cosRho + entryIm * sinRho;
                 double im = entryIm * cosRho - entryRe * sinRho;
 
-                int low = Math.min(from, to);
-                int high = Math.max(from, to);
-                if (low == from) {
-                    accum(upRe, upIm, low, high, re, im);
-                } else {
-                    accum(upRe, upIm, low, high, re, -im);
-                }
+                int activeEdge = cf.edgeIdToActive[mesh.halfEdgeEdge(halfEdge[corner])];
+                int fromSlot = from < to ? slotInLowRow[activeEdge] : slotInHighRow[activeEdge];
+                int toSlot = from < to ? slotInHighRow[activeEdge] : slotInLowRow[activeEdge];
+                entryReal[fromSlot] += re;
+                entryImaginary[fromSlot] += im;
+                entryReal[toSlot] += re;
+                entryImaginary[toSlot] -= im;
 
                 double massRe0 = area * massOff[0];
                 double massIm0 = area * massOff[1];
                 double massRe = massRe0 * cosRho + massIm0 * sinRho; // * conjugate transport
                 double massIm = massIm0 * cosRho - massRe0 * sinRho;
-                if (low == from) {
-                    accum(massUpRe, massUpIm, low, high, massRe, massIm);
-                } else {
-                    accum(massUpRe, massUpIm, low, high, massRe, -massIm);
-                }
+                massReal[fromSlot] += massRe;
+                massImaginary[fromSlot] += massIm;
+                massReal[toSlot] += massRe;
+                massImaginary[toSlot] -= massIm;
             }
         }
 
         for (int v = 0; v < vertexCount; v++) {
             diag[v] += DEFAULT_SHIFT * diagMass[v];
         }
-        this.energyMatrix = realify(diag, upRe, upIm);
-        this.massSystemMatrix = realify(diagMass, massUpRe, massUpIm);
+
+        // Realified rows 2v (real DOF) and 2v + 1 (imaginary DOF) each hold the real and
+        // imaginary DOF of every neighbour slot of v, in slot order.
+        int dofCount = 2 * vertexCount;
+        int[] rowStart = new int[dofCount + 1];
+        int[] rowColumn = new int[4 * slotCount];
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            int degree = neighborStart[activeVertex + 1] - neighborStart[activeVertex];
+            int realRow = 4 * neighborStart[activeVertex];
+            int imaginaryRow = realRow + 2 * degree;
+            rowStart[2 * activeVertex] = realRow;
+            rowStart[2 * activeVertex + 1] = imaginaryRow;
+            for (int offset = 0; offset < degree; offset++) {
+                int other = neighbor[neighborStart[activeVertex] + offset];
+                rowColumn[realRow + 2 * offset] = 2 * other;
+                rowColumn[realRow + 2 * offset + 1] = 2 * other + 1;
+                rowColumn[imaginaryRow + 2 * offset] = 2 * other;
+                rowColumn[imaginaryRow + 2 * offset + 1] = 2 * other + 1;
+            }
+        }
+        rowStart[dofCount] = 4 * slotCount;
+        this.energyMatrix = realify(diag, entryReal, entryImaginary, rowStart, rowColumn);
+        this.massSystemMatrix = realify(diagMass, massReal, massImaginary, rowStart, rowColumn);
     }
 
-    private static void accum(Map<Long, Double> re, Map<Long, Double> im, int i, int j, double a, double b) {
-        long k = (((long) i) << 32) | (j & 0xFFFFFFFFL);
-        re.merge(k, a, Double::sum);
-        im.merge(k, b, Double::sum);
-    }
-
-    private NormalMatrix realify(double[] complexDiag, Map<Long, Double> upRe,
-            Map<Long, Double> upIm) {
-        int V = vertexCount;
-        int N = 2 * V;
-        double[] diag2 = new double[N];
-        for (int v = 0; v < V; v++) {
-            diag2[2 * v] = complexDiag[v]; // real DOF
-            diag2[2 * v + 1] = complexDiag[v]; // imaginary DOF
+    /**
+     * Realifies a Hermitian matrix held as a real diagonal and one complex entry per neighbour
+     * slot: each entry c + id becomes the 2x2 block [[c, -d], [d, c]].
+     *
+     * @param complexDiagonal real diagonal per active vertex
+     * @param slotReal        real part of H[row][neighbour] per slot, in row order
+     * @param slotImaginary   imaginary part of H[row][neighbour] per slot
+     * @param rowStart        realified row starts, four values per slot
+     * @param rowColumn       realified columns, shared by every matrix on this pattern
+     * @return the realified matrix, sharing {@code rowStart} and {@code rowColumn}
+     */
+    private NormalMatrix realify(double[] complexDiagonal, double[] slotReal,
+            double[] slotImaginary, int[] rowStart, int[] rowColumn) {
+        int dofCount = 2 * vertexCount;
+        double[] realDiagonal = new double[dofCount];
+        double[] rowValue = new double[rowColumn.length];
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            realDiagonal[2 * activeVertex] = complexDiagonal[activeVertex];
+            realDiagonal[2 * activeVertex + 1] = complexDiagonal[activeVertex];
+            int realRow = rowStart[2 * activeVertex];
+            int imaginaryRow = rowStart[2 * activeVertex + 1];
+            int firstSlot = realRow / 4;
+            for (int offset = 0; offset < (imaginaryRow - realRow) / 2; offset++) {
+                double real = slotReal[firstSlot + offset];
+                double imaginary = slotImaginary[firstSlot + offset];
+                rowValue[realRow + 2 * offset] = real;
+                rowValue[realRow + 2 * offset + 1] = -imaginary;
+                rowValue[imaginaryRow + 2 * offset] = imaginary;
+                rowValue[imaginaryRow + 2 * offset + 1] = real;
+            }
         }
-        Map<Long, Double> upper = new HashMap<>();
-        for (Map.Entry<Long, Double> en : upRe.entrySet()) {
-            long k = en.getKey();
-            int i = (int) (k >>> 32);
-            int j = (int) (k & 0xFFFFFFFFL); // i < j
-            double a = en.getValue();
-            double b = upIm.getOrDefault(k, 0.0);
-
-            int ri = 2 * i, ii = 2 * i + 1; // real / imag DOFs of vertex i
-            int rj = 2 * j, ij = 2 * j + 1;
-
-            put(upper, ri, rj, a); // Re block
-            put(upper, ii, ij, a); // Re block (imag diagonal block)
-            put(upper, ri, ij, -b); // (real_i, imag_j) = -b
-            put(upper, ii, rj, b); // (imag_i, real_j) = b — note ii<rj since i<j
-        }
-        return new NormalMatrix(diag2, upper, new double[N]);
+        return new NormalMatrix(dofCount, rowStart, rowColumn, rowValue, realDiagonal,
+                new double[dofCount]);
     }
 
     /**
@@ -882,6 +976,12 @@ public class NDirectionField implements MeshNode {
         }
     }
 
+    /**
+     * Solves {@code (A - tM) u = M g (+ feature load)} by one sparse Cholesky factorization and
+     * back-substitution (KCP13 Sec. 7), then mass-normalizes u into the field angles.
+     *
+     * @param t eigenvalue shift; 0 factors the energy matrix itself
+     */
     private void solveAligned(double t) {
         int N = 2 * vertexCount;
 
@@ -890,8 +990,7 @@ public class NDirectionField implements MeshNode {
                 ? energyMatrix
                 : energyMatrix.subtract(massSystemMatrix.scale(t));
 
-        // RHS = M g (+ dual-form feature load), written into shifted.rightHandSide
-        // for PCG to read.
+        // RHS = M g (+ dual-form feature load).
         for (int i = 0; i < N; i++) {
             shifted.rightHandSide[i] = massSystemMatrix.rowDot(i, crossFieldGuidance);
         }
@@ -901,16 +1000,23 @@ public class NDirectionField implements MeshNode {
             }
         }
 
-        double[] x = system.solution; // warm start 0; mutated in place into u
+        double[] x = system.solution;
         Arrays.fill(x, 0.0);
-        AdaptiveSolver.PcgResult result = AdaptiveSolver.preconditionedConjugateGradient(
-                shifted,
-                x,
-                null,
-                jacobi(shifted), // Laplacian: try Jacobi first, upgrade to IC(0) if slow
-                5000,
-                1e-8);
-        System.out.println("[aligned] PCG iters=" + result.iterations() + PCG_CONVERGED_SUFFIX + result.converged());
+        // The bias term's boundary integral (the i/2 entries that cancel across interior edges)
+        // leaves A indefinite on an open mesh, where Cholesky refuses it; CG is kept there.
+        boolean openMesh = false;
+        for (int activeEdge = 0; activeEdge < cf.edgeCount && !openMesh; activeEdge++) {
+            openMesh = mesh.isBoundaryEdge(mesh.edgeIdAt(activeEdge));
+        }
+        if (openMesh && curvatureBias != 0.0) {
+            AdaptiveSolver.preconditionedConjugateGradient(shifted, x, null, jacobi(shifted),
+                    ALIGNED_CONJUGATE_GRADIENT_ITERATIONS, ALIGNED_CONJUGATE_GRADIENT_TOLERANCE);
+        } else {
+            DirectSolver.CholeskyHandle handle =
+                    DirectSolver.factorize(shifted, system.frozen, OrderingMethod.AMD);
+            DirectSolver.solveCompact(handle, shifted, shifted.rightHandSide, x, x, system.frozen);
+            DirectSolver.releaseHandle(handle);
+        }
 
         massNormalize(x, massSystemMatrix);
 
@@ -945,14 +1051,18 @@ public class NDirectionField implements MeshNode {
     public int[] computeTriangleIndices() {
         int count = mesh.faceCount();
         int[] index = new int[count];
+        double[] vertexArgument = new double[vertexCount];
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            vertexArgument[activeVertex] = Math.atan2(uImaginary[activeVertex], uReal[activeVertex]);
+        }
         for (int f = 0; f < count; f++) {
             int fId = mesh.faceIdAt(f);
-            int[] hes = orderedFaceHalfEdges(fId);
             double sumOmega = 0.0; // sum of edge rotation angles
             double holonomy = 0.0; // Omega_ijk = arg(prod r)
             double rhoProd = 0.0;
-            for (int c = 0; c < hes.length; c++) {
-                int he = hes[c];
+            int corners = mesh.faceHalfEdgeCount(fId);
+            for (int c = 0; c < corners; c++) {
+                int he = mesh.faceHalfEdgeAt(fId, c);
                 int twin = mesh.halfEdgeTwin(he);
                 int aId = mesh.halfEdgeVertex(he);
                 int bId = mesh.halfEdgeEndVertex(he);
@@ -964,7 +1074,7 @@ public class NDirectionField implements MeshNode {
                 double raRe = Math.cos(rho), raIm = Math.sin(rho);
                 double tRe = raRe * uReal[a] - raIm * uImaginary[a]; // r_ab * u_a
                 double tIm = raRe * uImaginary[a] + raIm * uReal[a];
-                double omega = Math.atan2(uImaginary[b], uReal[b]) - Math.atan2(tIm, tRe);
+                double omega = vertexArgument[b] - Math.atan2(tIm, tRe);
                 sumOmega += principal(omega);
             }
             holonomy = principal(rhoProd);
@@ -1024,10 +1134,6 @@ public class NDirectionField implements MeshNode {
         return r;
     }
 
-    private static void put(Map<Long, Double> m, int i, int j, double v) {
-        m.merge((((long) i) << 32) | (j & 0xFFFFFFFFL), v, Double::sum);
-    }
-
     private void putAngle(int vId, int he, double angle) {
         angleInFrame[he] = angle;
     }
@@ -1043,9 +1149,7 @@ public class NDirectionField implements MeshNode {
      * {@code n} should match the cross field's symmetry (4 for a cross field).
      */
     public void populate() {
-        // vertex id -> NDirectionField active vertex index. NDirectionField numbers
-        // vertices by mesh.vertexIdAt order, so this inverse matches its indexing.
-        int[] vIdToActive = activeIndexById(mesh.vertexCount(), mesh::vertexIdAt);
+        int[] vIdToActive = activeOfVertexId;
 
         // Per-face angle as the complex mean of the corners' n-power
         // directions in the face frame (KCP13's u interpolated to the face).
@@ -1114,7 +1218,6 @@ public class NDirectionField implements MeshNode {
         // KCP13 §6.1.3 ground truth: the raw field's per-triangle indices. The
         // converted cf.theta/cf.periodJump representation must reproduce them; a
         // count mismatch means the conversion minted or lost cf.singularities.
-        int[] triangleIndex = computeTriangleIndices();
         int triangleNonzero = 0;
         int triangleSum = 0;
         for (int face = 0; face < triangleIndex.length; face++) {
@@ -1163,7 +1266,7 @@ public class NDirectionField implements MeshNode {
      *                          mean (reliability of that face's cf.theta)
      */
     private void concentrateSingularFaceWindings(double[] faceMeanMagnitude) {
-        int[] triangleIndex = computeTriangleIndices();
+        triangleIndex = computeTriangleIndices();
         for (int fAi = 0; fAi < cf.faceCount; fAi++) {
             if (triangleIndex[fAi] == 0) {
                 continue;

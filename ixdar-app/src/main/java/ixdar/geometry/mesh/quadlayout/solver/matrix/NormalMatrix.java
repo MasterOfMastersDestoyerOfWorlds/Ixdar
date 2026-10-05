@@ -244,8 +244,18 @@ public final class NormalMatrix {
         }
     }
 
-    /** Direct CSR constructor — assigns prebuilt arrays without reassembling. */
-    private NormalMatrix(int variableCount, int[] rowStart, int[] rowColumn,
+    /**
+     * Direct CSR constructor: adopts the prebuilt arrays without copying, so matrices on one
+     * pattern may share {@code rowStart} and {@code rowColumn}.
+     *
+     * @param variableCount number of variables
+     * @param rowStart      off-diagonal row starts, length {@code variableCount + 1}
+     * @param rowColumn     off-diagonal columns, both triangles
+     * @param rowValue      off-diagonal values matching {@code rowColumn}
+     * @param diagonal      diagonal values, length {@code variableCount}
+     * @param rightHandSide right-hand side, length {@code variableCount}
+     */
+    public NormalMatrix(int variableCount, int[] rowStart, int[] rowColumn,
             double[] rowValue, double[] diagonal, double[] rightHandSide) {
         this.variableCount = variableCount;
         this.rowStart = rowStart;

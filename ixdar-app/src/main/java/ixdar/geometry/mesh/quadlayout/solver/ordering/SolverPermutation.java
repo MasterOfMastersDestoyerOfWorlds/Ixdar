@@ -2,8 +2,6 @@ package ixdar.geometry.mesh.quadlayout.solver.ordering;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
 import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
 import ixdar.geometry.mesh.quadlayout.solver.IncrementalCholeskySolver;
@@ -114,24 +112,27 @@ public final class SolverPermutation {
 
     /**
      * Approximate-minimum-degree fill-reducing ordering of the compact free-variable subgraph, via
-     * the SuiteSparse {@link AMDOrdering} port the seamless stage uses. The adjacency is packed into
-     * a pattern-only {@link NormalMatrix} — the ordering reads only the non-zero pattern — and
-     * handed to {@link AMDOrdering#order}.
+     * the SuiteSparse {@link AMDOrdering} port the seamless stage uses. The symmetric adjacency is
+     * packed row by row into a pattern-only {@link NormalMatrix}; the ordering sorts and dedupes
+     * each row itself.
      *
      * @param adj per-vertex neighbour lists for the compact problem, entries in the same index space
      * @return {@code perm[newIndex] = oldIndex}, length {@code adj.length}
      */
     public static int[] amdOrdering(int[][] adj) {
         int n = adj.length;
-        Map<Long, Double> upper = new HashMap<>();
+        int[] rowStart = new int[n + 1];
         for (int vertex = 0; vertex < n; vertex++) {
-            for (int neighbour : adj[vertex]) {
-                if (neighbour > vertex) {
-                    upper.put(((long) vertex << NormalMatrix.KEY_ROW_SHIFT) | neighbour, PATTERN_ENTRY);
-                }
-            }
+            rowStart[vertex + 1] = rowStart[vertex] + adj[vertex].length;
         }
-        NormalMatrix pattern = new NormalMatrix(new double[n], upper, new double[n]);
+        int[] rowColumn = new int[rowStart[n]];
+        for (int vertex = 0; vertex < n; vertex++) {
+            System.arraycopy(adj[vertex], 0, rowColumn, rowStart[vertex], adj[vertex].length);
+        }
+        double[] rowValue = new double[rowColumn.length];
+        Arrays.fill(rowValue, PATTERN_ENTRY);
+        NormalMatrix pattern = new NormalMatrix(n, rowStart, rowColumn, rowValue, new double[n],
+                new double[n]);
         AMDOrdering ordering = new AMDOrdering();
         ordering.order(pattern);
         return ordering.permutation;

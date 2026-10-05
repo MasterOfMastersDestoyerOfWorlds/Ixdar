@@ -49,6 +49,7 @@ import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 
 import ixdar.annotations.scene.SceneDrawable;
+import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
 import ixdar.graphics.render.Clock;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.headless.HeadlessGL;
@@ -128,6 +129,7 @@ public class IxdarWindow {
         HeadlessGL gl = platform.getGL();
         gl.setPlatformID(HEADLESS_PLATFORM_ID);
         Platforms.init(platform, gl);
+        CholeskyBackend.preloadAsync();
         gl.enable(gl.DEPTH_TEST());
         platform.setFrameBufferSize(size, size);
 
@@ -192,6 +194,7 @@ public class IxdarWindow {
 
         System.out.println("Window Create Time: " + (Clock.time() - startTime));
         Platforms.init(new LwjglPlatform(window), new LwjglGL());
+        CholeskyBackend.preloadAsync();
 
         glfwSetWindowSizeCallback(window, (long windowID, int width, int height) -> {
             try (MemoryStack stack = stackPush()) {

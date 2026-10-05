@@ -1,5 +1,10 @@
 package ixdar.geometry.mesh.quadlayout.solver.chol.paradiso;
 
+import java.lang.foreign.FunctionDescriptor;
+import java.lang.foreign.Linker;
+import java.lang.foreign.SymbolLookup;
+import java.lang.foreign.ValueLayout;
+import java.lang.invoke.MethodHandle;
 import java.lang.ref.Cleaner;
 
 import org.bytedeco.javacpp.DoublePointer;
@@ -41,6 +46,14 @@ public final class PardisoCholesky implements FactorizedSystem {
     public static final String BACKEND_NAME = "PARDISO";
 
     private static final Cleaner CLEANER = Cleaner.create();
+
+    private static final int OPENMP_SLEEP_IMMEDIATELY_MILLISECONDS = 0;
+
+    private static final MethodHandle OPENMP_SET_BLOCKTIME = SymbolLookup.loaderLookup()
+            .find("kmp_set_blocktime")
+            .map(address -> Linker.nativeLinker().downcallHandle(address,
+                    FunctionDescriptor.ofVoid(ValueLayout.JAVA_INT)))
+            .orElse(null);
 
     public final int dimension;
     public final LongPointer handleSlots;
@@ -140,12 +153,21 @@ public final class PardisoCholesky implements FactorizedSystem {
 
     /**
      * Invoke PARDISO with the current {@code phaseNative} and this factor's
-     * stored arguments.
+     * stored arguments. The calling thread's Intel OpenMP blocktime is set to 0
+     * first: by default MKL's workers spin 200 ms after each phase, starving the
+     * JIT and whatever stage follows a small solve.
      *
      * @throws SingularSystemException if PARDISO stopped on a zero pivot
      * @throws IllegalStateException   if PARDISO reports any other non-zero error code
      */
     private void callPardiso() {
+        if (OPENMP_SET_BLOCKTIME != null) {
+            try {
+                OPENMP_SET_BLOCKTIME.invokeExact(OPENMP_SLEEP_IMMEDIATELY_MILLISECONDS);
+            } catch (Throwable downcallFailure) {
+                throw new IllegalStateException("kmp_set_blocktime failed", downcallFailure);
+            }
+        }
         mkl_rt.pardiso(handle, maxfctNative, mnumNative, mtypeNative, phaseNative, nNative,
                 valuesNative, rowPtrNative, colIdxNative, permNative, nrhsNative,
                 iparmNative, msglvlNative, rhsNative, solutionNative, errorNative);
