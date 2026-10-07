@@ -28,6 +28,7 @@ public class MouseTrap {
     public static final int SCROLL_DECAY_MS = 60;
     public static final float SCROLL_SPEED_SCALE = 100f;
     public static final int CLICK_DRAG_THRESHOLD_PX = 3;
+    public static final int ZOOM_SETTLE_FRAMES = 10;
     public static ArrayList<HyperString> hyperStrings = new ArrayList<>();
 
     private static Object automationRuntime;
@@ -40,6 +41,16 @@ public class MouseTrap {
      * trackpad's many small deltas add up exactly as a wheel's whole notches do.
      */
     public double queuedScrollDelta = 0;
+
+    /** Window position of the left press this trap holds, or {@code null} while none is held. */
+    public Vector2f heldPressPosition;
+
+    /** Whether the held left press has moved past {@link #CLICK_DRAG_THRESHOLD_PX}; kept until release. */
+    public boolean heldPressDragged;
+
+    /** Frames until the wheel zoom counts as over; see {@link #isZooming()}. */
+    public int zoomSettleFramesLeft;
+
     public int lastX = Integer.MIN_VALUE;
     public int lastY = Integer.MIN_VALUE;
     public Camera camera;
@@ -263,6 +274,67 @@ public class MouseTrap {
      */
     public boolean usesWheel() {
         return false;
+    }
+
+    /**
+     * Whether a left press this trap took is dragging its view, held still or moving: true from
+     * its first move past {@link #CLICK_DRAG_THRESHOLD_PX} until its release.
+     *
+     * @return true while such a drag is in progress
+     */
+    public boolean isCameraDragging() {
+        return heldPressDragged;
+    }
+
+    /**
+     * Whether a wheel zoom is in progress. GLFW reports no scroll start or end, so the zoom lasts
+     * from the frame a wheel delta reaches this trap until {@link #ZOOM_SETTLE_FRAMES} frames pass
+     * with none; a trackpad gesture, a stream of small deltas, ends that many frames after its last.
+     *
+     * @return true from a frame that zoomed until the settle frames have passed
+     */
+    public boolean isZooming() {
+        return zoomSettleFramesLeft > 0;
+    }
+
+    /**
+     * Track the held left press from a button event the dispatcher hands this trap: a press is
+     * held undragged, a release ends it.
+     *
+     * @param button button index
+     * @param action {@code ACTION_PRESS} or {@code ACTION_RELEASE}
+     */
+    public void trackPress(int button, int action) {
+        if (button != Keys.MOUSE_BUTTON_LEFT) {
+            return;
+        }
+        heldPressDragged = false;
+        heldPressPosition = action == ACTION_PRESS && active ? new Vector2f(lastX, lastY) : null;
+    }
+
+    /**
+     * Track a cursor move with the left press held: past {@link #CLICK_DRAG_THRESHOLD_PX} from
+     * the press it becomes a drag, which stays one until the release.
+     *
+     * @param x cursor x in window pixels
+     * @param y cursor y in window pixels
+     */
+    public void trackDrag(float x, float y) {
+        if (heldPressPosition != null && heldPressPosition.distance(x, y) > CLICK_DRAG_THRESHOLD_PX) {
+            heldPressDragged = true;
+        }
+    }
+
+    /**
+     * Count one frame of the zoom state, before the trap drains its wheel delta: a delta it zooms
+     * with restarts the settle count, any other frame counts it down.
+     */
+    public void trackZoomFrame() {
+        if (queuedScrollDelta != 0 && usesWheel() && active) {
+            zoomSettleFramesLeft = ZOOM_SETTLE_FRAMES;
+        } else if (zoomSettleFramesLeft > 0) {
+            zoomSettleFramesLeft--;
+        }
     }
 
     /**

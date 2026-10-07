@@ -283,6 +283,17 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
+     * A held drag is the camera's unless {@link #toolGrab} took its press, which moves the tool's
+     * handle instead of orbiting.
+     *
+     * @return true while a drag the tool did not grab is in progress
+     */
+    @Override
+    public boolean isCameraDragging() {
+        return !toolDragging && super.isCameraDragging();
+    }
+
+    /**
      * Translate the orbit centre in the screen plane opposite the mouse travel, so
      * the grabbed scene follows the cursor. The screen right/up basis is derived from
      * the current orbit angles; the step scales with orbit distance so panning feels

@@ -111,6 +111,15 @@
           "example": "12"
         },
         {
+          "name": "hold",
+          "cliName": "hold",
+          "type": "int",
+          "required": false,
+          "default": "0",
+          "help": "Frames drawn with the button held still at the end before the release.",
+          "example": "60"
+        },
+        {
           "name": "settle",
           "cliName": "settle",
           "type": "int",

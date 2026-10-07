@@ -644,6 +644,16 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
+     * Whether the input layer is moving the camera: the scene's trap reports a camera drag, held
+     * still or moving, or a wheel zoom still settling.
+     *
+     * @return true from a drag's first move until its release, and through a zoom and its settle
+     */
+    public boolean cameraMoving() {
+        return mouse != null && (mouse.isCameraDragging() || mouse.isZooming());
+    }
+
+    /**
      * The scene's key controls, shown as the ESC menu's Controls section.
      *
      * @return the control list

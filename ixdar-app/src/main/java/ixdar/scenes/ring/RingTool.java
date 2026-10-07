@@ -507,9 +507,8 @@ public final class RingTool implements EditTool {
     }
 
     /**
-     * One frame of the tool: pick the surface under the cursor, then drag the grabbed anchor,
-     * find what a click would act on, or fit the hover preview, and run a click that arrived
-     * since the last frame against that fresh pick.
+     * One frame of the tool: pick under the cursor, then drag an anchor, fit the hover preview or
+     * run a waiting click. Nothing is picked while the camera is dragged or zoomed.
      */
     public void perFrame() {
         HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
@@ -541,7 +540,8 @@ public final class RingTool implements EditTool {
         int framebufferY = height <= 0 ? 0
                 : Math.round(scene.orbitMouse.lastY
                         * (float) Platforms.get().getFrameBufferHeight() / height);
-        int faceIndex = runtime.faceIndexAtPixel(scene.camera, framebufferX, framebufferY);
+        int faceIndex = scene.cameraMoving() ? -1
+                : runtime.faceIndexAtPixel(scene.camera, framebufferX, framebufferY);
         int faceId = -1;
         if (faceIndex >= 0 && faceIndex < surface.faceCount()
                 && runtime.rayThroughPixel(scene.camera, framebufferX, framebufferY, rayOrigin,

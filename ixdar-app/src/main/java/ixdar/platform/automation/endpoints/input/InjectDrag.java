@@ -31,6 +31,7 @@ public class InjectDrag extends AutomationEndpoint implements AutomationRoute {
     public static final String TO_Y = "toY";
     public static final String STEPS = "steps";
     public static final String SETTLE = "settle";
+    public static final String HOLD = "hold";
     public static final String OK = "ok";
     public static final String ERROR = "error";
     public static final String COMMAND = "drag";
@@ -38,10 +39,11 @@ public class InjectDrag extends AutomationEndpoint implements AutomationRoute {
 
     /**
      * Rest the cursor on the start and let a frame pick under it, press, move to the end in
-     * {@code steps} equal moves with a frame after each, then release there.
+     * {@code steps} equal moves with a frame after each, hold still there, then release.
      *
      * @param body JSON body with {@code fromX}, {@code fromY}, {@code toX}, {@code toY} in window
-     *             pixels, {@code steps} (default 8) and {@code settle} (frames after the release)
+     *             pixels, {@code steps} (default 8), {@code hold} (frames drawn with the button
+     *             held still at the end, default 0) and {@code settle} (frames after the release)
      * @throws IOException never thrown directly; declared to satisfy the route contract
      * @return {@code {"ok": true, "steps": n, "settled": true}}, or an error object when no mouse
      *         handler is active
@@ -54,6 +56,7 @@ public class InjectDrag extends AutomationEndpoint implements AutomationRoute {
         int steps = Math.max(1, body.has(STEPS) ? body.get(STEPS).getAsInt() : DEFAULT_STEPS);
         int settleFrames = body.has(SETTLE) ? body.get(SETTLE).getAsInt()
                 : InputSettle.DEFAULT_FRAMES;
+        int holdFrames = body.has(HOLD) ? Math.max(0, body.get(HOLD).getAsInt()) : 0;
         JsonObject result = new JsonObject();
         try {
             if (!deliver(mouse -> mouse.mousePos(fromX, fromY), 1)
@@ -66,7 +69,8 @@ public class InjectDrag extends AutomationEndpoint implements AutomationRoute {
                 float along = (float) step / steps;
                 float x = fromX + along * (toX - fromX);
                 float y = fromY + along * (toY - fromY);
-                deliver(mouse -> PointerDispatcher.current().mouseDragged(mouse, x, y), 1);
+                deliver(mouse -> PointerDispatcher.current().mouseDragged(mouse, x, y),
+                        step == steps ? 1 + holdFrames : 1);
             }
             deliver(mouse -> PointerDispatcher.current().mouseButton(mouse, 0, ACTION_RELEASE, 0),
                     settleFrames);
@@ -124,6 +128,9 @@ public class InjectDrag extends AutomationEndpoint implements AutomationRoute {
                 .param(TO_Y, RouteParamType.FLOAT, true, "", "End Y in window pixels.", "470")
                 .param(STEPS, RouteParamType.INT, false, String.valueOf(DEFAULT_STEPS),
                         "Equal moves the drag is split into.", "12")
+                .param(HOLD, RouteParamType.INT, false, "0",
+                        "Frames drawn with the button held still at the end before the release.",
+                        "60")
                 .param(SETTLE, RouteParamType.INT, false,
                         String.valueOf(InputSettle.DEFAULT_FRAMES),
                         "Frames to wait for after the release.", "2")

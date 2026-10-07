@@ -151,12 +151,13 @@ public class PointerDispatcher {
                     trap.camera.getNormalizePosY(heldCursorWindowY), click);
             return;
         }
+        trap.trackPress(button, action);
         trap.mouseButton(button, action, mods);
     }
 
     /**
      * Cursor motion: while a region holds the press it is that region's drag, otherwise the
-     * trap's.
+     * trap's, which {@link MouseTrap#trackDrag tracks} it against its held press.
      *
      * @param trap the platform's current trap
      * @param window platform window handle (for GL mouse-state polling)
@@ -165,6 +166,7 @@ public class PointerDispatcher {
      */
     public void moveOrDrag(MouseTrap trap, long window, float x, float y) {
         if (pressHolder == null) {
+            trap.trackDrag(x, y);
             trap.moveOrDrag(window, x, y);
         } else {
             mouseDragged(trap, x, y);
@@ -181,6 +183,7 @@ public class PointerDispatcher {
      */
     public void mouseDragged(MouseTrap trap, float x, float y) {
         if (pressHolder == null) {
+            trap.trackDrag(x, y);
             trap.mouseDragged(x, y);
             return;
         }
@@ -192,7 +195,8 @@ public class PointerDispatcher {
     /**
      * Per-frame: the trap's queued wheel delta goes whole to a region under the cursor that
      * {@link PointerRegion#claimsWheel claims it}; when the trap does not
-     * {@link MouseTrap#usesWheel use the wheel}, any region there steps instead.
+     * {@link MouseTrap#usesWheel use the wheel}, any region there steps instead. Whatever reaches
+     * the trap counts toward its {@link MouseTrap#isZooming zoom state}.
      *
      * @param trap trap whose frame this is
      * @param shiftMod speed multiplier, passed to the trap
@@ -214,6 +218,7 @@ public class PointerDispatcher {
                 }
             }
         }
+        trap.trackZoomFrame();
         trap.paintUpdate(shiftMod);
     }
 }
