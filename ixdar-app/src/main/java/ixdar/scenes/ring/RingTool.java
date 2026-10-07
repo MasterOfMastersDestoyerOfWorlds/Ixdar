@@ -53,7 +53,8 @@ public final class RingTool implements EditTool {
     public static final String STATUS_LINE =
             "ring tool: hover to preview, click to draft, click to add an anchor, drag or Delete "
                     + "one, Delete with none selected removes the ring, Ctrl+Z undo, Ctrl+Shift+Z "
-                    + "or Ctrl+Y redo, Enter confirm, X discard, Ctrl+S save, Esc back to orbit";
+                    + "or Ctrl+Y redo, Enter confirm, X discard, Ctrl+S save, Esc close an unedited ring, "
+                    + "else back to orbit keeping the draft";
 
     public static final String LOG_PREFIX = "[ring-tool] ";
 
@@ -662,20 +663,7 @@ public final class RingTool implements EditTool {
             } else if (draft != null) {
                 addAuthoredAnchor(hitVertexId);
             } else if (hoveredRing >= 0) {
-                // Re-open the confirmed ring through the anchors and normal it was saved with.
-                System.arraycopy(confirmedBaseNormal.get(hoveredRing), 0, draftBaseNormal, 0,
-                        COORDINATES_PER_POINT);
-                if (retraceDraft(confirmedAuthoredVertexId.get(hoveredRing),
-                        SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
-                    draftSourceRing = hoveredRing;
-                    draftSourceLabel = null;
-                    selectedAnchorVertexId = -1;
-                    recordEdit("ring re-opened", stateBefore);
-                    invalidateRings();
-                    reportDraft("re-opened ring " + drawnRingNumber(hoveredRing) + " as the draft");
-                } else {
-                    draft = null;
-                }
+                reopenRing(hoveredRing);
             } else if (hoveredGraphRing != null) {
                 // Fit anchors to the graph ring's edge loop and make every one authored, with
                 // the plane they fit as the base normal, so a save writes a spline_ring.
@@ -728,6 +716,36 @@ public final class RingTool implements EditTool {
      */
     public void requestClick() {
         pendingClick = active;
+    }
+
+    /**
+     * Re-open a confirmed ring as the draft through the anchors and normal it was confirmed with,
+     * as one undoable edit; a click on the ring with no draft open lands here.
+     *
+     * @param ring index in {@link #confirmedRings}
+     * @return true when the ring is now the draft
+     */
+    public boolean reopenRing(int ring) {
+        if (draft != null || ring < 0 || ring >= confirmedRings.size()
+                || confirmedRingDeleted.get(ring)) {
+            lastError = "ring " + ring + " is not a live confirmed ring to re-open";
+            return false;
+        }
+        RingToolState stateBefore = new RingToolState(this);
+        System.arraycopy(confirmedBaseNormal.get(ring), 0, draftBaseNormal, 0,
+                COORDINATES_PER_POINT);
+        if (!retraceDraft(confirmedAuthoredVertexId.get(ring),
+                SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
+            draft = null;
+            return false;
+        }
+        draftSourceRing = ring;
+        draftSourceLabel = null;
+        selectedAnchorVertexId = -1;
+        recordEdit("ring re-opened", stateBefore);
+        invalidateRings();
+        reportDraft("re-opened ring " + drawnRingNumber(ring) + " as the draft");
+        return true;
     }
 
     /**
@@ -1048,6 +1066,39 @@ public final class RingTool implements EditTool {
                 + EdgeMarks.fingerprint(scene.halfEdgeSurface(), spline.markedByEdgeId));
         invalidateRings();
         return true;
+    }
+
+    /**
+     * Esc: a draft untouched since the click that opened it closes, that click taken back off the
+     * history, and the tool stays on the new-ring picker. An edited draft stays open, and the
+     * scene goes on to the orbit tool.
+     *
+     * @return true when an unedited draft was closed
+     */
+    @Override
+    public boolean escapePressed() {
+        if (draft == null) {
+            return false;
+        }
+        lastError = "";
+        int applied = history.undoDepth;
+        if (draggingAnchor || applied == 0 || history.statesBefore.get(applied - 1).draft != null
+                || !history.statesAfter.get(applied - 1).sameEdit(new RingToolState(this))) {
+            lastRow = "draft kept with its edits: Ctrl+R returns to it, Enter confirms, X discards";
+            Platforms.get().log(LOG_PREFIX + lastRow);
+            return false;
+        }
+        String opening = history.nextUndoName();
+        history.retract().restore(this);
+        previewedFace = -1;
+        lastRow = "closed the unedited ring (" + opening + " taken back, nothing recorded)";
+        Platforms.get().log(LOG_PREFIX + lastRow);
+        return true;
+    }
+
+    @Override
+    public String escapeDescription() {
+        return "close an unedited ring (an edited one stays open)";
     }
 
     /** Drop the draft; a re-opened ring stays as it was and a converted graph ring shows again. */

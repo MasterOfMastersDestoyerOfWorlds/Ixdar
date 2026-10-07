@@ -613,7 +613,7 @@ public abstract class ModelScene extends Scene {
 
     /** Escape closes an open model menu, and otherwise does what the scene gives it to do. */
     public void escapePressed() {
-        if (sceneModelMenu.isVisible()) {
+        if (sceneModelMenu != null && sceneModelMenu.isVisible()) {
             sceneModelMenu.toggle();
         } else {
             escapeWithMenuClosed();

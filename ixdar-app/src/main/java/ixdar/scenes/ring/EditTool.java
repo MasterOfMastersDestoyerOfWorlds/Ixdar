@@ -32,4 +32,23 @@ public interface EditTool {
      * @param controls the scene's control list, rebuilt whenever the active tool changes
      */
     void addControls(List<ControlHint> controls);
+
+    /**
+     * The active tool's first chance at Esc with the menu closed; the scene returns to the orbit
+     * tool only when the tool leaves it.
+     *
+     * @return true when the tool consumed the key
+     */
+    default boolean escapePressed() {
+        return false;
+    }
+
+    /**
+     * What {@link #escapePressed} does when it consumes the key, for the controls menu.
+     *
+     * @return a short phrase, or empty when the tool never consumes Esc
+     */
+    default String escapeDescription() {
+        return "";
+    }
 }

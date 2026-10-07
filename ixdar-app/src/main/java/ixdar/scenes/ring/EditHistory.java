@@ -83,6 +83,26 @@ public final class EditHistory<S> {
     }
 
     /**
+     * Take back the last applied edit as though it had never been pushed: neither undo nor redo
+     * reaches it afterwards, and the redo tail goes with it, as on a push.
+     *
+     * @return the state the edit started from, to restore, or null when nothing is applied
+     */
+    public S retract() {
+        if (undoDepth == 0) {
+            return null;
+        }
+        S before = statesBefore.get(undoDepth - 1);
+        for (int edit = editNames.size() - 1; edit >= undoDepth - 1; edit--) {
+            editNames.remove(edit);
+            statesBefore.remove(edit);
+            statesAfter.remove(edit);
+        }
+        undoDepth--;
+        return before;
+    }
+
+    /**
      * Edits an undo has stepped back over that a redo can re-apply.
      *
      * @return the redo depth, zero after any push

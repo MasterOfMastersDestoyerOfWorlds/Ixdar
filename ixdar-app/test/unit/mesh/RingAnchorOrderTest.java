@@ -229,7 +229,7 @@ class RingAnchorOrderTest {
      * An open tube along x whose cross-section is a stadium: two flat faces {@code flatHalfWidth}
      * either side of the middle joined by half circles, sampled evenly by arc length.
      */
-    private static MeshTopology tube(float flatHalfWidth, float radius) {
+    public static MeshTopology tube(float flatHalfWidth, float radius) {
         double flat = 2.0 * flatHalfWidth;
         double perimeter = 2.0 * flat + 2.0 * Math.PI * radius;
         float[] positions = new float[XYZ * SIDES * RINGS];

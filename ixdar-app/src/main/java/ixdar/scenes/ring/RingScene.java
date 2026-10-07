@@ -19,9 +19,9 @@ import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.regions.RingRegionTool;
 
 /**
- * The mesh editing scene: the mesh viewer, without its patch and collection keys, hosting the
- * orbit, ring and region-select {@link EditTool}s over the ring tool's rings. Ctrl+R and Ctrl+T
- * pick the ring and region tools, Esc returns to the orbit tool and Ctrl+I toggles the menu.
+ * The mesh editing scene: the mesh viewer hosting the orbit, ring and region-select
+ * {@link EditTool}s over the ring tool's rings. Ctrl+R and Ctrl+T pick a tool; Esc goes to the
+ * active tool, else back to orbit.
  */
 @SceneAnnotation(id = "ring-tool")
 public class RingScene extends MeshNodeViewerScene {
@@ -283,8 +283,8 @@ public class RingScene extends MeshNodeViewerScene {
 
     /**
      * The tool keys, the active tool's own hints, then the hints every tool shares. Ctrl+I and
-     * Esc come from the model scene, so no tool may bind either; Esc with the menu closed returns
-     * to the orbit tool.
+     * Esc come from the model scene, so no tool may bind either; a tool takes Esc through
+     * {@link EditTool#escapePressed} instead.
      */
     @Override
     public void setControls() {
@@ -297,20 +297,24 @@ public class RingScene extends MeshNodeViewerScene {
         super.setControls();
     }
 
-    /** Escape with the menu closed returns to the orbit tool. */
+    /** Escape with the menu closed goes to the active tool first, else returns to the orbit tool. */
     @Override
     public void escapeWithMenuClosed() {
-        switchTool(orbitTool);
+        if (!activeTool.escapePressed()) {
+            switchTool(orbitTool);
+        }
     }
 
     /**
-     * Escape closes the menu, else returns to the orbit tool.
+     * Escape closes the menu, else does the active tool's Esc, else returns to the orbit tool.
      *
      * @return the description
      */
     @Override
     public String escapeDescription() {
-        return "close menu, else " + toolLabel(orbitTool);
+        String toolEscape = activeTool.escapeDescription();
+        return "close menu, else " + (toolEscape.isEmpty() ? "" : toolEscape + ", else ")
+                + toolLabel(orbitTool);
     }
 
     /**
