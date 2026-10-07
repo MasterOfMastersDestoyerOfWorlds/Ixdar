@@ -62,6 +62,16 @@ public class RingScene extends MeshNodeViewerScene {
     /** Whether each ring's number is drawn beside it; the {@code N} key flips it. */
     public boolean showRingNumbers;
 
+    /** Whether the rings are drawn, in every tool, while the regions are assembled; H flips it. */
+    public boolean showRings = true;
+
+    /**
+     * Whether the rings are drawn while the region tool's view is exploded, where they would float
+     * at the assembled positions; H flips this one then, and collapsing returns to
+     * {@link #showRings}.
+     */
+    public boolean showRingsExploded;
+
     @Override
     public String windowTitle() {
         return "Ixdar : Mesh Edit";
@@ -131,6 +141,7 @@ public class RingScene extends MeshNodeViewerScene {
         }
         super.renderScene();
         if (surfaceRuntime() instanceof MeshOverlayRuntime overlay) {
+            overlay.showLineGroups = ringsShown();
             overlay.renderOverlays(camera);
             overlay.renderHighlights(camera);
         }
@@ -149,13 +160,14 @@ public class RingScene extends MeshNodeViewerScene {
     }
 
     /**
-     * Draw each ring's number beside its centroid while {@link #showRingNumbers} is set, in the
-     * overlay order the tool numbers rings in, leaving the depth test to hide the numbers of
-     * rings the surface covers.
+     * Draw each ring's number beside its centroid while {@link #showRingNumbers} is set and the
+     * rings are shown, in the overlay order the tool numbers rings in, leaving the depth test to
+     * hide the numbers of rings the surface covers.
      */
     @Override
     public void drawSceneOverlayText() {
-        if (showRingNumbers && surfaceRuntime() instanceof MeshOverlayRuntime overlay) {
+        if (showRingNumbers && ringsShown()
+                && surfaceRuntime() instanceof MeshOverlayRuntime overlay) {
             overlay.drawLabels(camera, camera2D);
         }
     }
@@ -294,7 +306,25 @@ public class RingScene extends MeshNodeViewerScene {
         controls.add(new ControlHint(Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));
         controls.add(new ControlHint(Keys.N, "N", "ring numbers",
                 () -> showRingNumbers = !showRingNumbers));
+        // H flips the visibility that applies now: the exploded view's, or the assembled one.
+        controls.add(new ControlHint(Keys.H, "H", "show / hide rings", () -> {
+            if (regionTool.explosion.exploded()) {
+                showRingsExploded = !showRingsExploded;
+            } else {
+                showRings = !showRings;
+            }
+        }));
         super.setControls();
+    }
+
+    /**
+     * Whether the ring lines and numbers are drawn this frame: the exploded view's own setting
+     * while the region tool is exploded, else the viewer's.
+     *
+     * @return true when the rings are drawn
+     */
+    public boolean ringsShown() {
+        return regionTool.explosion.exploded() ? showRingsExploded : showRings;
     }
 
     /** Escape with the menu closed goes to the active tool first, else returns to the orbit tool. */

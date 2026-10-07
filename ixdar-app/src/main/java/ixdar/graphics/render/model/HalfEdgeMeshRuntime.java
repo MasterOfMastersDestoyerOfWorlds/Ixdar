@@ -93,10 +93,17 @@ public class HalfEdgeMeshRuntime {
     /** The feature-edge categories' edges as surface lines, one vertex range per category. */
     public final VertexBuffer featureEdgeLines = new VertexBuffer();
 
+    /**
+     * Model-space translation each tag's triangles are drawn with, by tag name; a tag without one
+     * draws in place. A view offset only: the uploaded geometry and the picking pass ignore it.
+     */
+    public final Map<String, Vector3f> tagOffsets = new HashMap<>();
+
     private final ShaderProgram meshShader;
     private final ShaderProgram meshUnlitShader;
     private final ShaderProgram meshScalarShader;
     private final Matrix4f modelMatrix = new Matrix4f();
+    private final Matrix4f tagModelMatrix = new Matrix4f();
     private final Matrix4f projectionMatrix = new Matrix4f();
     private final Vector4f solidColor = Color.BLUE_GRAY.toVector4f();
     private final Vector4f edgeColor = Color.RED.toVector4f();
@@ -530,10 +537,13 @@ public class HalfEdgeMeshRuntime {
                     Platforms.gl().UNSIGNED_INT(),
                     0);
         } else {
-            // Per-tag draws: set solidColor per range, issue glDrawElements
+            // Per-tag draws: set solidColor and any tag offset per range, issue glDrawElements
             // with a byte offset into the EBO.
             for (TagRange range : tagRanges) {
                 active.setVec4(SOLIDCOLOR, range.color);
+                Vector3f offset = tagOffsets.get(range.tagName);
+                active.setMat4(MODEL, offset == null ? modelMatrix
+                        : tagModelMatrix.set(modelMatrix).translate(offset));
                 Platforms.gl().drawElements(
                         Platforms.gl().TRIANGLES(),
                         range.indexCount,

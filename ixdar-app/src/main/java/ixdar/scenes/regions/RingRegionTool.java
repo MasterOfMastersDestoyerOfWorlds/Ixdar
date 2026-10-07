@@ -15,13 +15,16 @@ import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.RegionExplosion;
 import ixdar.geometry.mesh.data.RingRegionExtraction;
 import ixdar.geometry.mesh.data.RingRegions;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.platform.Platforms;
+import ixdar.platform.Toggle;
 import ixdar.platform.automation.AutomationPortFile;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ControlHint;
@@ -92,6 +95,9 @@ public final class RingRegionTool implements EditTool {
     /** Where the last extraction was exported, or empty. */
     public String exportedPath = "";
 
+    /** Exploded view of {@link #regions}, re-measured when they are rebuilt. */
+    public final RegionExplosion explosion = new RegionExplosion(RingRegionTool::regionTag);
+
     private int builtRingRevision = -1;
 
     private boolean pendingExtract;
@@ -144,6 +150,7 @@ public final class RingRegionTool implements EditTool {
         }
         HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
         if (runtime != null) {
+            explosion.collapse(runtime.tagOffsets);
             runtime.clearTags();
             runtime.clearTagColors();
             if (shaderModeBefore != null) {
@@ -161,6 +168,18 @@ public final class RingRegionTool implements EditTool {
                 this::extractPressed));
         controls.add(new ControlHint(Keys.O, "O", "extracted: open cut / capped",
                 this::toggleOpenCut));
+        controls.add(new ControlHint(Keys.X, "X", "explode / collapse regions",
+                explosion::toggle));
+        controls.add(new ControlHint("hold , / .", "explode less / more"));
+    }
+
+    /**
+     * The {@code explode} command: animate the exploded view to an amount and hold it there.
+     *
+     * @param amount 0 assembled to 1 fully exploded; clamped into that range
+     */
+    public void explodeTo(float amount) {
+        explosion.animateTo(amount);
     }
 
     /** E: drop a shown extraction, else extract the selection on the next frame. */
@@ -270,8 +289,13 @@ public final class RingRegionTool implements EditTool {
             }
             Platforms.get().log(String.format(Locale.ROOT, LOG_PREFIX + "regions built in %.0f ms",
                     (System.nanoTime() - start) / 1e6));
+            explosion.measure(surface, regions.regionByActiveFace, regions.regionCount);
             reselect();
         }
+        boolean keysFree = scene.keys != null && !Toggle.IsTerminalFocused.value;
+        int heldDirection = (keysFree && scene.keys.pressedKeys.contains(Keys.PERIOD) ? 1 : 0)
+                - (keysFree && scene.keys.pressedKeys.contains(Keys.COMMA) ? 1 : 0);
+        explosion.step((float) Clock.deltaTime(), heldDirection, runtime.tagOffsets);
         if (pendingExtract) {
             pendingExtract = false;
             if (selectedCount() == 0) {
@@ -359,6 +383,13 @@ public final class RingRegionTool implements EditTool {
             return;
         }
         pendingClick = false;
+        if (explosion.exploded()) {
+            // The id pass draws the surface assembled, so a click on a moved region would name
+            // whatever lies at its rest position.
+            lastError = "collapse the exploded view (X) to pick a region";
+            Platforms.get().log(LOG_PREFIX + lastError);
+            return;
+        }
         int width = Platforms.get().getWindowWidth();
         int height = Platforms.get().getWindowHeight();
         int framebufferX = width <= 0 ? 0
@@ -408,6 +439,16 @@ public final class RingRegionTool implements EditTool {
                 + regions.regionCount + " selected, select=\"" + selectQuery + "\"");
     }
 
+    /**
+     * The runtime tag a region's faces are coloured and offset under.
+     *
+     * @param region region index
+     * @return the tag name
+     */
+    public static String regionTag(int region) {
+        return TAG_PREFIX + region;
+    }
+
     /** Rebuild the query from the picked points, select its regions and recolour. */
     public void reselect() {
         if (regions == null) {
@@ -437,7 +478,7 @@ public final class RingRegionTool implements EditTool {
         Map<String, boolean[]> tags = new HashMap<>();
         runtime.clearTagColors();
         for (int region = 0; region < regions.regionCount; region++) {
-            String tag = TAG_PREFIX + region;
+            String tag = regionTag(region);
             tags.put(tag, new boolean[mesh.vertexCount()]);
             Vector4f colour = HalfEdgeMeshRuntime.stableTagColor(REGION_COLOUR_KEY + region);
             if (anySelected && !selectedRegions[region]) {
@@ -446,7 +487,7 @@ public final class RingRegionTool implements EditTool {
             runtime.setTagColor(tag, colour);
         }
         for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
-            boolean[] mask = tags.get(TAG_PREFIX + regions.regionByActiveFace[activeFace]);
+            boolean[] mask = tags.get(regionTag(regions.regionByActiveFace[activeFace]));
             int faceId = mesh.faceIdAt(activeFace);
             for (int slot = 0; slot < mesh.faceVertexCount(faceId); slot++) {
                 mask[activeVertexById.get(mesh.faceVertexAt(faceId, slot))] = true;

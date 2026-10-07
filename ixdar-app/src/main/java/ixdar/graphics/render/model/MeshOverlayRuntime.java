@@ -163,6 +163,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     public boolean showCopyWireframe;
     public boolean showPatchClouds;
     public boolean showDiagnostic;
+    public boolean showLineGroups = true;
 
     /** Sphere radius derived from the mesh bounding-box diagonal, under {@link #sphereRadiusCap}. */
     public float sphereRadius;
@@ -877,7 +878,8 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         boolean drawEmbeddedArcs = showEmbeddedArcs && (embeddedArcs.vertexCount > 0
                 || embeddedZeroArcs.vertexCount > 0 || embeddedNodes != null);
         boolean drawCopyWireframe = showCopyWireframe && copyWireframe.vertexCount > 0;
-        boolean drawLineGroups = lineGroups.vertexCount > 0 && lineGroupSegmentStart.length > 1;
+        boolean drawLineGroups = showLineGroups && lineGroups.vertexCount > 0
+                && lineGroupSegmentStart.length > 1;
         boolean drawMarkers = anchorDiscs.vertexCount > 0;
         if (!drawSurface && !drawCross && !drawConstraints && !drawSingularities && !drawNodes
                 && !drawLayoutFill && !drawLayoutBoundaries && !drawQuadGrid && !drawEmbeddedArcs
