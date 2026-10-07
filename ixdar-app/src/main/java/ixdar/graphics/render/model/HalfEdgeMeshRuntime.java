@@ -2,6 +2,7 @@ package ixdar.graphics.render.model;
 
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import java.util.Collection;
@@ -1161,6 +1162,64 @@ public class HalfEdgeMeshRuntime {
             int count = cursor - start;
             Vector4f untaggedColor = new Vector4f(solidColor);
             ranges.add(new TagRange("", untaggedColor, start, count));
+        }
+        tagRanges = List.copyOf(ranges);
+        uploadIndexBuffer(newIndices, Platforms.gl().DYNAMIC_DRAW());
+    }
+
+    /**
+     * Tag the uploaded mesh by face: each face draws in its group's colour, one draw call per
+     * group under the group's tag name, the triangles bucketed in one pass. Call after
+     * {@link #upload}.
+     *
+     * @param mesh              the uploaded surface, whose face order the triangles follow
+     * @param groupByActiveFace group of each face, by dense face index, in {@code [0, groups)}
+     * @param colourByGroup     colour of each group
+     * @param tagByGroup        tag name of each group's draw range
+     * @throws IllegalArgumentException when {@code mesh} is not the surface uploaded
+     */
+    public void setFaceGroups(MeshTopology mesh, int[] groupByActiveFace,
+            Vector4f[] colourByGroup, String[] tagByGroup) {
+        if (compiledMesh == null || compiledMesh.indices.length == 0) {
+            tagRanges = List.of();
+            return;
+        }
+        int[] originalIndices = compiledMesh.indices;
+        int faceCount = mesh.faceCount();
+        int[] triangleStart = new int[faceCount + 1];
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            triangleStart[activeFace + 1] = triangleStart[activeFace]
+                    + Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(activeFace)) - 2);
+        }
+        if (3 * triangleStart[faceCount] != originalIndices.length) {
+            throw new IllegalArgumentException(faceCount + " faces make " + triangleStart[faceCount]
+                    + " triangles, but the uploaded mesh has " + originalIndices.length / 3);
+        }
+        int groups = colourByGroup.length;
+        int[] groupIndexStart = new int[groups + 1];
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            groupIndexStart[groupByActiveFace[activeFace] + 1] +=
+                    3 * (triangleStart[activeFace + 1] - triangleStart[activeFace]);
+        }
+        for (int group = 0; group < groups; group++) {
+            groupIndexStart[group + 1] += groupIndexStart[group];
+        }
+        int[] cursor = Arrays.copyOf(groupIndexStart, groups);
+        int[] newIndices = new int[originalIndices.length];
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            int from = 3 * triangleStart[activeFace];
+            int length = 3 * triangleStart[activeFace + 1] - from;
+            int group = groupByActiveFace[activeFace];
+            System.arraycopy(originalIndices, from, newIndices, cursor[group], length);
+            cursor[group] += length;
+        }
+        List<TagRange> ranges = new ArrayList<>();
+        for (int group = 0; group < groups; group++) {
+            int count = groupIndexStart[group + 1] - groupIndexStart[group];
+            if (count > 0) {
+                ranges.add(new TagRange(tagByGroup[group], new Vector4f(colourByGroup[group]),
+                        groupIndexStart[group], count));
+            }
         }
         tagRanges = List.copyOf(ranges);
         uploadIndexBuffer(newIndices, Platforms.gl().DYNAMIC_DRAW());

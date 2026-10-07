@@ -53,8 +53,8 @@ public final class RingTool implements EditTool {
     public static final String STATUS_LINE =
             "ring tool: hover to preview, click to draft, click to add an anchor, drag or Delete "
                     + "one, Delete with none selected removes the ring, Ctrl+Z undo, Ctrl+Shift+Z "
-                    + "or Ctrl+Y redo, Enter confirm, X discard, Ctrl+S save, Esc close an unedited ring, "
-                    + "else back to orbit keeping the draft";
+                    + "or Ctrl+Y redo, Enter confirm, X discard, Ctrl+S save, G region colours, "
+                    + "Ctrl+T region tool, Esc back to orbit";
 
     public static final String LOG_PREFIX = "[ring-tool] ";
 
@@ -69,6 +69,8 @@ public final class RingTool implements EditTool {
     public static final String NO_SELECTED_ANCHOR = "no authored anchor is selected";
 
     public static final int PREVIEW_COLOR = 0xFF2D95;
+
+    public static final int MARKED_RING_COLOR = 0xFF1A1A;
 
     public static final int[] RING_COLORS = {
         0x2ADF4F, 0x2E9BFF, 0xFFD60A, 0xFF9F0A, 0x9D7BFF, 0xD08A4A, 0xE8E8A0, 0xB6FF3B };
@@ -290,6 +292,12 @@ public final class RingTool implements EditTool {
     /** Bumped whenever the rings change, so a tool built on them knows to rebuild. */
     public int ringRevision;
 
+    /**
+     * Rings drawn in {@link #MARKED_RING_COLOR} with a note after their number, such as one that
+     * loops a handle, by live ring label.
+     */
+    public Map<String, String> ringNoteByLabel = Map.of();
+
     private final SurfacePicker picker = new SurfacePicker();
     private final GirdlingPlane girdle = new GirdlingPlane();
     private final float[] rayOrigin = new float[COORDINATES_PER_POINT];
@@ -463,6 +471,22 @@ public final class RingTool implements EditTool {
         ringsStale = true;
         overlayStale = true;
         ringRevision++;
+    }
+
+    /**
+     * Draw some rings in {@link #MARKED_RING_COLOR} with a note after their number; the rings
+     * themselves do not change.
+     *
+     * @param noteByLabel note by live ring label, as {@link #liveRingMarks} names them; empty
+     *                    marks none
+     */
+    public void markRings(Map<String, String> noteByLabel) {
+        if (noteByLabel.equals(ringNoteByLabel)) {
+            return;
+        }
+        ringNoteByLabel = noteByLabel;
+        ringsStale = true;
+        overlayStale = true;
     }
 
     /**
@@ -1981,6 +2005,7 @@ public final class RingTool implements EditTool {
         MeshTopology surface = scene.halfEdgeSurface();
         List<float[]> perRing = new ArrayList<>();
         List<LineSet> perRingLines = new ArrayList<>();
+        List<String> perRingLiveLabel = new ArrayList<>();
         Map<String, boolean[]> graphMarks = scene.ringMarksByLabel;
         graphRingSegments = new ArrayList<>();
         graphRingLabels = new ArrayList<>();
@@ -1994,6 +2019,7 @@ public final class RingTool implements EditTool {
                 float[] ringSegments = converted ? new float[0]
                         : markedEdgeSegments(surface, entry.getValue());
                 perRing.add(ringSegments);
+                perRingLiveLabel.add(entry.getKey());
                 LineSet edges = new LineSet(ringSegments.length / SEGMENT_FLOATS);
                 boolean[] marks = entry.getValue();
                 for (int index = 0; !converted && index < surface.edgeCount(); index++) {
@@ -2015,6 +2041,9 @@ public final class RingTool implements EditTool {
             SurfaceSpline spline = confirmedRings.get(ring);
             perRing.add(hidden ? new float[0] : closedPolylineSegments(spline.surfacePolyline));
             perRingLines.add(hidden ? new LineSet(0) : splineLines(surface, spline));
+            String sourceLabel = confirmedSourceLabel.get(ring);
+            perRingLiveLabel.add(sourceLabel != null ? sourceLabel
+                    : UNSAVED_RING_PREFIX + drawnRingNumber(ring));
         }
         drawnRingLabel = ringNumberTexts(
                 surface == null ? List.of() : unownedLabels, confirmedRings.size());
@@ -2034,9 +2063,13 @@ public final class RingTool implements EditTool {
                     lines.cursor);
             ringLines.cursor += lines.cursor;
             ringSegmentStart[ring + 1] = ringLines.vertexCount() / 2;
-            drawnRingColorRgb[ring] = RING_COLORS[ring % RING_COLORS.length];
+            String note = ringNoteByLabel.get(perRingLiveLabel.get(ring));
+            drawnRingColorRgb[ring] = note != null ? MARKED_RING_COLOR
+                    : RING_COLORS[ring % RING_COLORS.length];
             if (ringSegments.length == 0 && ring < drawnRingLabel.length) {
                 drawnRingLabel[ring] = "";
+            } else if (note != null && ring < drawnRingLabel.length) {
+                drawnRingLabel[ring] += " " + note;
             }
             measureLoop(ringSegments, ring);
         }

@@ -16,6 +16,7 @@ import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.model.ControlHint;
+import ixdar.scenes.regions.RegionLayer;
 import ixdar.scenes.regions.RingRegionTool;
 
 /**
@@ -32,14 +33,19 @@ public class RingScene extends MeshNodeViewerScene {
 
     public static final String LOG_PREFIX = "[mesh-edit] ";
 
+    public static final String ACTIVE_MARK = " (active)";
+
     /** The tool the scene opens with, which only moves the camera. */
     public final OrbitTool orbitTool = new OrbitTool(this);
 
     /** The hover-to-preview ring tool, which holds the rings every tool works over. */
     public final RingTool ringTool = new RingTool(this);
 
-    /** The region-select tool over the regions the ring tool's rings enclose. */
+    /** The region tool, which selects and extracts the regions the ring tool's rings enclose. */
     public final RingRegionTool regionTool = new RingRegionTool(this);
+
+    /** The region colours, shown in the region tool and, switched on, in every tool. */
+    public final RegionLayer regionLayer = new RegionLayer(this);
 
     /** Every tool the scene hosts, each run once per frame whether active or not. */
     public final List<EditTool> tools = List.of(orbitTool, ringTool, regionTool);
@@ -102,12 +108,16 @@ public class RingScene extends MeshNodeViewerScene {
         activeTool.activate();
     }
 
-    /** Run one frame of every tool, after any pending model switch and before the mesh is drawn. */
+    /**
+     * Run one frame of every tool, then bring the region colours up to date with any ring the
+     * tools changed, after any pending model switch and before the mesh is drawn.
+     */
     @Override
     public void updateScene() {
         for (EditTool tool : tools) {
             tool.perFrame();
         }
+        regionLayer.perFrame();
     }
 
     /**
@@ -300,9 +310,13 @@ public class RingScene extends MeshNodeViewerScene {
      */
     @Override
     public void setControls() {
-        controls.add(toolHint(Keys.R, true, "ctrl+R", ringTool));
-        controls.add(toolHint(Keys.T, true, "ctrl+T", regionTool));
+        controls.add(toolHint(Keys.R, true, "ctrl+R", ringTool, "draw and edit rings"));
+        controls.add(toolHint(Keys.T, true, "ctrl+T", regionTool, RingRegionTool.TOOL_PURPOSE));
         activeTool.addControls(controls);
+        controls.add(new ControlHint(Keys.G, "G", "region colours in every tool",
+                regionLayer::toggleVisible));
+        controls.add(new ControlHint(Keys.A, "A", "absorb slivers into largest neighbour",
+                regionLayer::toggleAbsorbSlivers));
         controls.add(new ControlHint(Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));
         controls.add(new ControlHint(Keys.N, "N", "ring numbers",
                 () -> showRingNumbers = !showRingNumbers));
@@ -348,16 +362,19 @@ public class RingScene extends MeshNodeViewerScene {
     }
 
     /**
-     * A tool-switch hint, marked when its tool is the active one.
+     * A tool-switch hint naming the tool and what it is for, marked when it is the active one.
      *
      * @param keyCode     key that switches to the tool
      * @param controlHeld whether the key needs Control held
      * @param key         key label shown to the viewer
      * @param tool        tool the key switches to
+     * @param purpose     what the tool does, in a few plain words
      * @return the hint
      */
-    private ControlHint toolHint(int keyCode, boolean controlHeld, String key, EditTool tool) {
-        return new ControlHint(keyCode, controlHeld, key, toolLabel(tool), () -> switchTool(tool));
+    private ControlHint toolHint(int keyCode, boolean controlHeld, String key, EditTool tool,
+            String purpose) {
+        return new ControlHint(keyCode, controlHeld, key, tool.toolName() + ": " + purpose
+                + (tool == activeTool ? ACTIVE_MARK : ""), () -> switchTool(tool));
     }
 
     /**
@@ -367,6 +384,6 @@ public class RingScene extends MeshNodeViewerScene {
      * @return the label
      */
     public String toolLabel(EditTool tool) {
-        return tool.toolName() + (tool == activeTool ? " (active)" : "");
+        return tool.toolName() + (tool == activeTool ? ACTIVE_MARK : "");
     }
 }

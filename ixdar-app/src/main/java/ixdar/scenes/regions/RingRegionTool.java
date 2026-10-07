@@ -11,7 +11,6 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.joml.Vector3f;
-import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -32,19 +31,23 @@ import ixdar.scenes.ring.EditTool;
 import ixdar.scenes.ring.RingScene;
 
 /**
- * The region-select tool of the editing scene: colours the regions the ring tool's rings cut the
- * surface into, selects them by click and Shift+click, and extracts the selection as its own
- * closed mesh, cut along the ring splines. The selection is kept as surface points.
+ * The region tool of the editing scene: shows the region colours, selects regions by click and
+ * Shift+click, and extracts the selection as its own closed mesh, cut along the ring splines. The
+ * selection is kept as surface points.
  */
 public final class RingRegionTool implements EditTool {
 
     public static final String LOG_PREFIX = "[ring-regions] ";
 
-    public static final String TOOL_NAME = "region select";
+    public static final String TOOL_NAME = "region tool";
+
+    public static final String TOOL_PURPOSE = "region colours, select and extract regions";
+
+    public static final String STATUS_LINE = TOOL_NAME + " (" + TOOL_PURPOSE + "): click "
+            + "selects the region under the cursor, Shift+click adds or drops one, C clears, "
+            + "E extracts, A absorbs slivers, Esc back to orbit";
 
     public static final String TAG_PREFIX = "region_";
-
-    public static final float UNSELECTED_GREY = 0.42f;
 
     public static final String QUERY_JOIN = "; ";
 
@@ -52,15 +55,10 @@ public final class RingRegionTool implements EditTool {
 
     public static final String EXPORT_DIRECTORY = "extracted";
 
-    public static final String REGION_COLOUR_KEY = "patch_";
-
     public static final String EXPORT_PREFIX = "region";
 
-    /** Scene the tool runs on, whose ring tool holds the rings the regions are cut by. */
+    /** Scene the tool runs on, whose region layer holds the regions the tool selects. */
     public final RingScene scene;
-
-    /** Regions of the shown surface, or {@code null} before the tool first ran on one. */
-    public RingRegions regions;
 
     /** Regions currently selected, one flag per region. */
     public boolean[] selectedRegions = new boolean[0];
@@ -95,18 +93,16 @@ public final class RingRegionTool implements EditTool {
     /** Where the last extraction was exported, or empty. */
     public String exportedPath = "";
 
-    /** Exploded view of {@link #regions}, re-measured when they are rebuilt. */
+    /** Exploded view of the region layer's regions, re-measured when they are rebuilt. */
     public final RegionExplosion explosion = new RegionExplosion(RingRegionTool::regionTag);
 
-    private int builtRingRevision = -1;
+    private int selectedRevision = -1;
 
     private boolean pendingExtract;
 
     private boolean pendingClick;
 
     private boolean pendingShift;
-
-    private HalfEdgeMeshRuntime.ShaderMode shaderModeBefore;
 
     /**
      * Binds the tool to its scene.
@@ -122,23 +118,20 @@ public final class RingRegionTool implements EditTool {
         return TOOL_NAME;
     }
 
-    /** Take clicks from the orbit and colour the regions, rebuilt if the rings changed. */
+    /** Take clicks from the orbit; the region layer colours the regions while the tool is on. */
     @Override
     public void activate() {
         active = true;
-        HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
-        shaderModeBefore = runtime == null ? null : runtime.getShaderMode();
         if (scene.orbitMouse != null) {
             scene.orbitMouse.toolClick = button -> requestClick(shiftHeld());
             scene.orbitMouse.toolGrab = null;
             scene.orbitMouse.toolRelease = null;
         }
-        Platforms.get().log(LOG_PREFIX + "region select: click selects the region under the "
-                + "cursor, Shift+click adds or drops one, C clears, Esc back to orbit");
-        applyOverlay();
+        Platforms.get().log(LOG_PREFIX + STATUS_LINE);
+        scene.regionLayer.redraw();
     }
 
-    /** Hand the mouse back, drop the extraction and restore the surface's shading. */
+    /** Hand the mouse back and drop the extraction; the layer drops the colours unless kept on. */
     @Override
     public void deactivate() {
         active = false;
@@ -151,12 +144,8 @@ public final class RingRegionTool implements EditTool {
         HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
         if (runtime != null) {
             explosion.collapse(runtime.tagOffsets);
-            runtime.clearTags();
-            runtime.clearTagColors();
-            if (shaderModeBefore != null) {
-                runtime.setShaderMode(shaderModeBefore);
-            }
         }
+        scene.regionLayer.redraw();
     }
 
     @Override
@@ -230,8 +219,9 @@ public final class RingRegionTool implements EditTool {
         while (firstRegion + 1 < selectedRegions.length && !selectedRegions[firstRegion]) {
             firstRegion++;
         }
-        extractedRuntime.setSolidColor(
-                HalfEdgeMeshRuntime.stableTagColor(REGION_COLOUR_KEY + firstRegion));
+        int[] colourByRegion = scene.regionLayer.colouring.colourByRegion;
+        extractedRuntime.setSolidColor(RegionColouring.paletteColor(
+                firstRegion < colourByRegion.length ? colourByRegion[firstRegion] : 0).toVector4f());
         if (!showingOpenCut) {
             return;
         }
@@ -265,32 +255,24 @@ public final class RingRegionTool implements EditTool {
     }
 
     /**
-     * One frame while active: rebuild the regions when the surface or the ring tool's rings
-     * changed, then run a queued click.
+     * One frame while active: re-resolve the selection when the region layer's regions changed,
+     * then run a queued extraction or click.
      */
     @Override
     public void perFrame() {
         HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
         MeshTopology surface = scene.halfEdgeSurface();
-        if (!active || runtime == null || surface == null || surface.faceCount() == 0) {
+        RingRegions regions = scene.regionLayer.regions;
+        if (!active || runtime == null || surface == null || surface.faceCount() == 0
+                || regions == null || regions.mesh != surface) {
             pendingClick = false;
             return;
         }
-        if (regions == null || regions.mesh != surface
-                || builtRingRevision != scene.ringTool.ringRevision) {
-            long start = System.nanoTime();
-            builtRingRevision = scene.ringTool.ringRevision;
+        if (selectedRevision != scene.regionLayer.revision) {
+            selectedRevision = scene.regionLayer.revision;
             releaseExtraction();
-            Map<String, boolean[]> rings = scene.ringTool.liveRingMarks();
-            regions = new RingRegions(surface, rings.keySet().toArray(new String[0]),
-                    rings.values().toArray(new boolean[0][])).build();
-            for (String line : regions.reportLines()) {
-                Platforms.get().log(LOG_PREFIX + line);
-            }
-            Platforms.get().log(String.format(Locale.ROOT, LOG_PREFIX + "regions built in %.0f ms",
-                    (System.nanoTime() - start) / 1e6));
-            explosion.measure(surface, regions.regionByActiveFace, regions.regionCount);
             reselect();
+            explosion.measure(surface, regions.regionByActiveFace, regions.regionCount);
         }
         boolean keysFree = scene.keys != null && !Toggle.IsTerminalFocused.value;
         int heldDirection = (keysFree && scene.keys.pressedKeys.contains(Keys.PERIOD) ? 1 : 0)
@@ -432,15 +414,15 @@ public final class RingRegionTool implements EditTool {
             pickedPoints.add(centroid);
         }
         lastRow = (dropped ? "dropped region " : "picked region ") + region + ": "
-                + regions.regionFaceCount[region] + " faces, bounded by "
-                + regions.boundingRingText(region);
+                + regions.regionFaceCount[region] + " faces" + (regions.isSliver(region)
+                        ? " (sliver)" : "") + ", bounded by " + regions.boundingRingText(region);
         reselect();
         Platforms.get().log(LOG_PREFIX + lastRow + " -> " + selectedCount() + " of "
                 + regions.regionCount + " selected, select=\"" + selectQuery + "\"");
     }
 
     /**
-     * The runtime tag a region's faces are coloured and offset under.
+     * The runtime tag a region's faces are drawn under, which names its draw range.
      *
      * @param region region index
      * @return the tag name
@@ -451,6 +433,7 @@ public final class RingRegionTool implements EditTool {
 
     /** Rebuild the query from the picked points, select its regions and recolour. */
     public void reselect() {
+        RingRegions regions = scene.regionLayer.regions;
         if (regions == null) {
             return;
         }
@@ -460,41 +443,7 @@ public final class RingRegionTool implements EditTool {
         }
         selectQuery = String.join(QUERY_JOIN, terms);
         selectedRegions = regions.select(selectQuery);
-        applyOverlay();
-    }
-
-    /** Colour each region, dimming the unselected ones while anything is selected. */
-    public void applyOverlay() {
-        HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
-        if (!active || runtime == null || regions == null) {
-            return;
-        }
-        MeshTopology mesh = regions.mesh;
-        Map<Integer, Integer> activeVertexById = new HashMap<>();
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            activeVertexById.put(mesh.vertexIdAt(activeVertex), activeVertex);
-        }
-        boolean anySelected = selectedCount() > 0;
-        Map<String, boolean[]> tags = new HashMap<>();
-        runtime.clearTagColors();
-        for (int region = 0; region < regions.regionCount; region++) {
-            String tag = regionTag(region);
-            tags.put(tag, new boolean[mesh.vertexCount()]);
-            Vector4f colour = HalfEdgeMeshRuntime.stableTagColor(REGION_COLOUR_KEY + region);
-            if (anySelected && !selectedRegions[region]) {
-                colour.set(UNSELECTED_GREY, UNSELECTED_GREY, UNSELECTED_GREY, 1f);
-            }
-            runtime.setTagColor(tag, colour);
-        }
-        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
-            boolean[] mask = tags.get(regionTag(regions.regionByActiveFace[activeFace]));
-            int faceId = mesh.faceIdAt(activeFace);
-            for (int slot = 0; slot < mesh.faceVertexCount(faceId); slot++) {
-                mask[activeVertexById.get(mesh.faceVertexAt(faceId, slot))] = true;
-            }
-        }
-        runtime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.STAGES);
-        runtime.setTags(tags);
+        scene.regionLayer.redraw();
     }
 
     /** Drop the whole selection. */

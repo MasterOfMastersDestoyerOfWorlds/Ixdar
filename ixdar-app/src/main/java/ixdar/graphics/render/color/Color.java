@@ -64,6 +64,15 @@ public interface Color {
     public static final Color EDGE_MARK_AMBER = new ColorRGB(255, 160, 0, "Edge Mark Amber");
     public static final Color EDGE_MARK_CYAN = new ColorRGB(0, 200, 255, "Edge Mark Cyan");
     public static final Color EDGE_MARK_MAGENTA = new ColorRGB(255, 0, 200, "Edge Mark Magenta");
+    public static final Color REGION_COBALT = new ColorRGB(23, 115, 207, "Region Cobalt");
+    public static final Color REGION_ROSE = new ColorRGB(255, 0, 128, "Region Rose");
+    public static final Color REGION_RUST = new ColorRGB(178, 89, 0, "Region Rust");
+    public static final Color REGION_VIOLET = new ColorRGB(127, 0, 255, "Region Violet");
+    public static final Color REGION_MINT = new ColorRGB(121, 233, 99, "Region Mint");
+    public static final Color REGION_AQUA = new ColorRGB(77, 255, 255, "Region Aqua");
+    public static final Color REGION_ORCHID = new ColorRGB(255, 77, 255, "Region Orchid");
+    public static final Color REGION_SAND = new ColorRGB(233, 166, 99, "Region Sand");
+    public static final Color REGION_SPRING_GREEN = new ColorRGB(0, 255, 128, "Region Spring Green");
 
     /**
      * RGB channels of this color as a {@code (r, g, b)} vector.

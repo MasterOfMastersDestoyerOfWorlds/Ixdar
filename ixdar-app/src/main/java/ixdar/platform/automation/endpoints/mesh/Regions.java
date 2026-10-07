@@ -11,11 +11,12 @@ import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.geometry.mesh.data.RingRegions;
 import ixdar.platform.automation.AutomationEndpoint;
+import ixdar.scenes.regions.RegionLayer;
 import ixdar.scenes.regions.RingRegionTool;
 import ixdar.scenes.ring.RingScene;
 
 /**
- * Reports the ring regions the editing scene's region-select tool shows: the count, each region's
+ * Reports the ring regions the editing scene's region layer shows: the count, each region's
  * faces, area and bounding rings, the problem rings, and the current selection and its query.
  */
 @AutomationRouteAnnotation(path = "/mesh/regions", method = APIMethod.GET)
@@ -38,23 +39,33 @@ public class Regions extends AutomationEndpoint implements AutomationRoute {
                     return result;
                 }
                 RingRegionTool tool = scene.regionTool;
-                RingRegions regions = tool.regions;
+                RegionLayer layer = scene.regionLayer;
+                RingRegions regions = layer.regions;
                 result.addProperty("activeTool", scene.activeTool.toolName());
                 if (regions == null) {
                     result.addProperty(OK, false);
-                    result.addProperty(ERROR, "no regions yet: switch to the "
-                            + RingRegionTool.TOOL_NAME + " tool with Ctrl+T");
+                    result.addProperty(ERROR, "no regions yet: switch the region colours on "
+                            + "with G or open the " + RingRegionTool.TOOL_NAME + " with Ctrl+T");
                     return result;
                 }
                 result.addProperty(OK, true);
                 result.addProperty("regionCount", regions.regionCount);
                 JsonArray rows = new JsonArray();
+                int[] colourByRegion = layer.colouring.colourByRegion;
                 for (int region = 0; region < regions.regionCount; region++) {
                     JsonObject row = new JsonObject();
                     row.addProperty("region", region);
                     row.addProperty("faces", regions.regionFaceCount[region]);
                     row.addProperty("area", regions.regionArea[region]);
                     row.addProperty("boundedBy", regions.boundingRingText(region));
+                    row.addProperty("sliver", regions.isSliver(region));
+                    row.addProperty("colour", region < colourByRegion.length
+                            ? colourByRegion[region] : -1);
+                    JsonArray neighbours = new JsonArray();
+                    for (int neighbour : regions.neighboursByRegion[region]) {
+                        neighbours.add(neighbour);
+                    }
+                    row.add("neighbours", neighbours);
                     row.addProperty("selected", tool.selectedRegions.length > region
                             && tool.selectedRegions[region]);
                     rows.add(row);
@@ -63,6 +74,21 @@ public class Regions extends AutomationEndpoint implements AutomationRoute {
                 JsonArray problems = new JsonArray();
                 regions.problems.forEach(problems::add);
                 result.add("problems", problems);
+                JsonArray handleRings = new JsonArray();
+                JsonArray ringsSplittingNothing = new JsonArray();
+                for (int ring = 0; ring < regions.ringLabels.length; ring++) {
+                    if (regions.ringIsWall[ring] && !regions.ringSeparates[ring]) {
+                        handleRings.add(regions.ringLabels[ring]);
+                    }
+                    if (regions.ringSplitsNothing[ring]) {
+                        ringsSplittingNothing.add(regions.ringLabels[ring]);
+                    }
+                }
+                result.add("handleRings", handleRings);
+                result.add("ringsSplittingNothing", ringsSplittingNothing);
+                result.addProperty("visible", layer.visible);
+                result.addProperty("absorbSlivers", layer.absorbSlivers);
+                result.addProperty("summary", layer.lastRow);
                 result.addProperty("ringCount", regions.ringLabels.length);
                 result.addProperty("selectedCount", tool.selectedCount());
                 result.addProperty("select", tool.selectQuery);
@@ -86,8 +112,9 @@ public class Regions extends AutomationEndpoint implements AutomationRoute {
                         + "shows: each region's faces, area and bounding rings, the problem "
                         + "rings, and the selection.")
                 .responseHint("{ok, activeTool, regionCount, regions:[{region, faces, area, "
-                        + "boundedBy, selected}], problems, ringCount, selectedCount, select, "
-                        + "lastRow, error}")
+                        + "boundedBy, sliver, colour, neighbours, selected}], problems, "
+                        + "handleRings, ringsSplittingNothing, visible, absorbSlivers, summary, "
+                        + "ringCount, selectedCount, select, lastRow, error}")
                 .build();
     }
 }

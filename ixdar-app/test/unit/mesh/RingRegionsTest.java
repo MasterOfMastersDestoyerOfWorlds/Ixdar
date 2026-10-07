@@ -27,9 +27,9 @@ import ixdar.geometry.mesh.nodes.selection.RingRegionsNode;
  */
 class RingRegionsTest {
 
-    private static final int SEGMENTS_AROUND = 12;
+    static final int SEGMENTS_AROUND = 12;
 
-    private static final int SIDE_ROWS = 8;
+    static final int SIDE_ROWS = 8;
 
     private static final int[] RING_VERTEX_ROWS = { 2, 4, 6 };
 
@@ -166,7 +166,7 @@ class RingRegionsTest {
      * A closed cylinder of radius 1 along z, its side split into triangles and each end capped
      * by a fan around a centre vertex; side vertex {@code row * SEGMENTS_AROUND + segment}.
      */
-    private static MeshTopology cappedCylinder() {
+    static MeshTopology cappedCylinder() {
         int sideVertices = (SIDE_ROWS + 1) * SEGMENTS_AROUND;
         float[] positions = new float[3 * (sideVertices + 2)];
         for (int row = 0; row <= SIDE_ROWS; row++) {

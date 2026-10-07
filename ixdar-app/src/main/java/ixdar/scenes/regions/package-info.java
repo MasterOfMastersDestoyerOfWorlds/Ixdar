@@ -1,5 +1,6 @@
 /**
- * Ring regions: `RingRegionTool` is the region-select tool of the `ring-tool` editing scene,
- * colouring the regions the ring tool's rings enclose and selecting them by click and Shift+click.
+ * Ring regions of the `ring-tool` editing scene: `RegionLayer` keeps the regions the ring tool's
+ * rings enclose up to date and colours them, `RegionColouring` picks the colours, and
+ * `RingRegionTool` (the region tool) selects regions by click and Shift+click and extracts them.
  */
 package ixdar.scenes.regions;

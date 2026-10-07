@@ -245,7 +245,7 @@ commas between test names, never `+`.
 - **ixdar.scenes.main**: `MainScene`: the 2D TSP editor scene; knots, shells, terminal, tools. The legacy lineage's user surface.
 - **ixdar.scenes.mesh**: Mesh-centric scenes: the node viewer (`MeshNodeViewerScene`, also the web entry scene) and `MeshBooleanScene`. Both execute .dsl graphs and log node timings.
 - **ixdar.scenes.model**: Model viewing support: `ModelScene` base class, `ModelCatalog` with `quadLayout` and `staging` factories, `ModelChoice` and its `Kind`.
-- **ixdar.scenes.regions**: Ring regions: `RingRegionTool` is the region-select tool of the `ring-tool` editing scene, colouring the regions the ring tool's rings enclose and selecting them by click and Shift+click.
-- **ixdar.scenes.ring**: Ring authoring: `RingScene` (scene id `ring-tool`) is the mesh editing scene hosting the orbit, ring and region-select `EditTool`s, plus the `ring` command's waypoints and the numbered ring overlay.
+- **ixdar.scenes.regions**: Ring regions of the `ring-tool` editing scene: `RegionLayer` keeps the regions the ring tool's rings enclose up to date and colours them, `RegionColouring` picks the colours, and `RingRegionTool` (the region tool) selects regions by click and Shift+click and extracts them.
+- **ixdar.scenes.ring**: Ring authoring: `RingScene` (scene id `ring-tool`) is the mesh editing scene hosting the orbit, ring and region `EditTool`s and the region colour layer, plus the `ring` command's waypoints and the numbered ring overlay.
 - **ixdar.scenes.trade**: `TradeScene`: the trade-game scene over `CityNetwork`, with its own input handlers.
 <!-- package-map:end -->
