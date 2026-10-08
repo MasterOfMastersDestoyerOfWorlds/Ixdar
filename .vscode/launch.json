@@ -282,6 +282,87 @@
       "args": "ring-tool",
       "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.mesh.dsl=fixtures/crawfish_rings.dsl",
       "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Ring Tool (IMG_4110)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.mesh.dsl=${userHome}/crawfish/segment/IMG_4110.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Ring Tool (IMG_4111)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.mesh.dsl=${userHome}/crawfish/segment/IMG_4111.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Ring Tool (IMG_4112)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.mesh.dsl=${userHome}/crawfish/segment/IMG_4112.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Ring Tool (IMG_4113)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.mesh.dsl=${userHome}/crawfish/segment/IMG_4113.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Ring Tool (IMG_4114)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.mesh.dsl=${userHome}/crawfish/segment/IMG_4114.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Ring Tool (IMG_4115)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.mesh.dsl=${userHome}/crawfish/segment/IMG_4115.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Ring Tool (IMG_4116)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.mesh.dsl=${userHome}/crawfish/segment/IMG_4116.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Ring Tool (IMG_4117)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.mesh.dsl=${userHome}/crawfish/segment/IMG_4117.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
+    },
+    {
+      "type": "java",
+      "name": "Ring Tool (IMG_4118)",
+      "request": "launch",
+      "mainClass": "ixdar.canvas.IxdarWindow",
+      "args": "ring-tool",
+      "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true -Dixdar.mesh.dsl=${userHome}/crawfish/segment/IMG_4118.dsl",
+      "cwd": "${workspaceFolder}/ixdar-app"
     }
 
   ]
