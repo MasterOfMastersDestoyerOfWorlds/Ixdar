@@ -394,7 +394,8 @@ public final class SurfaceSplineTracer {
         mesh.vertexPosition(anchorVertexId[(segment + 1) % anchorCount], nextPosition);
         double chord = anchorPosition.distance(nextPosition);
         double shortest =
-                Math.max(shortestLeafInEdges * geodesics.meanEdgeLength, Double.MIN_NORMAL);
+                Math.max(shortestLeafInEdges * geodesics.metric.meanEdgeLength,
+                        Double.MIN_NORMAL);
         int allowed = chord <= shortest ? 0
                 : (int) Math.floor(Math.log(chord / shortest) / Math.log(2.0));
         return Math.min(maximumDepth, allowed);

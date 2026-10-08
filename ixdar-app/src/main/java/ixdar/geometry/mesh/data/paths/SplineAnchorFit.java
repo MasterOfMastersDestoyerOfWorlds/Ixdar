@@ -103,7 +103,7 @@ public final class SplineAnchorFit {
             return false;
         }
         tolerance = Math.max(radiusFraction * meanRadiusOf(referenceXyz, pointCount),
-                tracer.geodesics.meanEdgeLength);
+                tracer.geodesics.metric.meanEdgeLength);
         int authoredAnchors = authoredVertexId.length;
         int capacity = Math.max(STARTING_ANCHORS, maximumAnchors) + authoredAnchors;
         anchorAtPoint = new int[capacity];

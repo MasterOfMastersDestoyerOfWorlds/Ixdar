@@ -24,6 +24,12 @@ public final class FlipGeodesics {
 
     public static final int TURN_RIGHT = 2;
 
+    public static final int EMPTY_SLOT = -1;
+
+    public static final int INITIAL_OCCUPANCY_CAPACITY = 256;
+
+    public static final int FIBONACCI_HASH = 0x9E3779B9;
+
     /** Triangulation the current run mutates by flipping. */
     public IntrinsicTriangulation triangulation;
 
@@ -58,11 +64,17 @@ public final class FlipGeodesics {
     /** Wedges straightened by the last run. */
     public long shortenCount;
 
-    private int[] occupiedEdge = new int[0];
+    /**
+     * Open-addressed table of the edges the path runs along, sized to the path rather than the
+     * mesh: the edge per slot, or {@link #EMPTY_SLOT}, with the segments on its two sides.
+     */
+    private int[] occupancyEdge = new int[0];
+    private int[] occupancyCount = new int[0];
+    private int[] occupancyFront = new int[0];
+    private int[] occupancyBack = new int[0];
+    private int[] occupiedSlot = new int[0];
     private int occupiedEdgeCount;
-    private int[] edgeOccupancy = new int[0];
-    private int[] edgeSegmentFront = new int[0];
-    private int[] edgeSegmentBack = new int[0];
+    private int occupancyShift;
     private int[] newPathBuffer = new int[0];
     private final double[] sideAngles = new double[2];
     private PriorityQueue<double[]> wedgeQueue;
@@ -147,7 +159,7 @@ public final class FlipGeodesics {
         double total = 0.0;
         for (int segment = 0; segment < segmentIdCount; segment++) {
             if (segmentAlive[segment]) {
-                total += triangulation.edgeLength[segmentHalfEdge[segment] >> 1];
+                total += triangulation.edgeLength(segmentHalfEdge[segment] >> 1);
             }
         }
         return total;
@@ -198,14 +210,8 @@ public final class FlipGeodesics {
             segmentAlive = new boolean[capacity];
         }
         segmentIdCount = 0;
-        if (edgeOccupancy.length < triangulation.edgeCount) {
-            edgeOccupancy = new int[triangulation.edgeCount];
-            edgeSegmentFront = new int[triangulation.edgeCount];
-            edgeSegmentBack = new int[triangulation.edgeCount];
-        } else {
-            for (int index = 0; index < occupiedEdgeCount; index++) {
-                edgeOccupancy[occupiedEdge[index]] = 0;
-            }
+        for (int index = 0; index < occupiedEdgeCount; index++) {
+            occupancyEdge[occupiedSlot[index]] = EMPTY_SLOT;
         }
         occupiedEdgeCount = 0;
         if (newPathBuffer.length < 64) {
@@ -228,7 +234,7 @@ public final class FlipGeodesics {
         int previous = -1;
         for (int index = 0; index < seedHalfEdges.length; index++) {
             int halfEdge = seedHalfEdges[index];
-            if (index > 0 && triangulation.halfEdgeTail[halfEdge]
+            if (index > 0 && triangulation.halfEdgeTail(halfEdge)
                     != triangulation.halfEdgeHead(seedHalfEdges[index - 1])) {
                 throw new IllegalArgumentException("seed half-edges do not form a chain at index "
                         + index);
@@ -247,7 +253,7 @@ public final class FlipGeodesics {
         }
         int last = previous;
         if (triangulation.halfEdgeHead(seedHalfEdges[seedHalfEdges.length - 1])
-                != triangulation.halfEdgeTail[seedHalfEdges[0]]) {
+                != triangulation.halfEdgeTail(seedHalfEdges[0])) {
             throw new IllegalArgumentException("closed seed does not return to its first vertex");
         }
         segmentPrevious[0] = last;
@@ -273,7 +279,7 @@ public final class FlipGeodesics {
             return;
         }
         if (vertexIsPinned != null
-                && vertexIsPinned[triangulation.halfEdgeTail[segmentHalfEdge[segment]]]) {
+                && vertexIsPinned[triangulation.halfEdgeTail(segmentHalfEdge[segment])]) {
             return;
         }
         triangulation.measureSideAngles(segmentHalfEdge[segmentPrevious[segment]],
@@ -305,15 +311,15 @@ public final class FlipGeodesics {
             return false;
         }
         int current = turn == TURN_LEFT
-                ? triangulation.halfEdgeNext[incomingHalfEdge]
+                ? triangulation.halfEdgeNext(incomingHalfEdge)
                 : triangulation.counterClockwiseNeighbor(incomingHalfEdge ^ 1);
         int guard = 0;
         while (current != outgoingHalfEdge) {
             if (current < 0 || !triangulation.isInterior(current)
-                    || guard++ > triangulation.halfEdgeCount) {
+                    || guard++ > triangulation.metric.halfEdgeTail.length) {
                 return false;
             }
-            if (edgeOccupancy[current >> 1] > 0) {
+            if (outsideSegment(current) >= 0) {
                 return false;
             }
             current = turn == TURN_LEFT
@@ -332,19 +338,19 @@ public final class FlipGeodesics {
             shortenSingleEdgeLoop(segment, turn);
             return;
         }
-        double initialLength = triangulation.edgeLength[incomingHalfEdge >> 1]
-                + triangulation.edgeLength[outgoingHalfEdge >> 1];
+        double initialLength = triangulation.edgeLength(incomingHalfEdge >> 1)
+                + triangulation.edgeLength(outgoingHalfEdge >> 1);
 
         boolean reversed = turn == TURN_RIGHT;
         int wedgeStart = reversed ? outgoingHalfEdge ^ 1 : incomingHalfEdge;
         int wedgeEnd = reversed ? incomingHalfEdge ^ 1 : outgoingHalfEdge;
         int startTwin = wedgeStart ^ 1;
 
-        int current = triangulation.halfEdgeNext[wedgeStart];
+        int current = triangulation.halfEdgeNext(wedgeStart);
         int guard = 0;
         while (current != wedgeEnd) {
             if (current < 0 || !triangulation.isInterior(current)
-                    || guard++ > triangulation.halfEdgeCount) {
+                    || guard++ > triangulation.metric.halfEdgeTail.length) {
                 return;
             }
             if (current == startTwin) {
@@ -353,7 +359,7 @@ public final class FlipGeodesics {
             }
             if (triangulation.flipIfPossible(current >> 1)) {
                 flipCount++;
-                current = triangulation.halfEdgeNext[current ^ 1] ^ 1;
+                current = triangulation.halfEdgeNext(current ^ 1) ^ 1;
             } else {
                 current = triangulation.clockwiseNeighbor(current);
             }
@@ -361,14 +367,14 @@ public final class FlipGeodesics {
 
         int replacementCount = 0;
         double replacementLength = 0.0;
-        current = triangulation.halfEdgeNext[wedgeStart];
+        current = triangulation.halfEdgeNext(wedgeStart);
         while (true) {
-            int far = triangulation.halfEdgeNext[current];
+            int far = triangulation.halfEdgeNext(current);
             if (replacementCount == newPathBuffer.length) {
                 newPathBuffer = Arrays.copyOf(newPathBuffer, newPathBuffer.length * 2);
             }
             newPathBuffer[replacementCount++] = far ^ 1;
-            replacementLength += triangulation.edgeLength[far >> 1];
+            replacementLength += triangulation.edgeLength(far >> 1);
             if (current == wedgeEnd) {
                 break;
             }
@@ -452,12 +458,12 @@ public final class FlipGeodesics {
         int first;
         int second;
         if (turn == TURN_LEFT) {
-            first = triangulation.halfEdgeNext[triangulation.halfEdgeNext[halfEdge]] ^ 1;
-            second = triangulation.halfEdgeNext[halfEdge] ^ 1;
+            first = triangulation.halfEdgeNext(triangulation.halfEdgeNext(halfEdge)) ^ 1;
+            second = triangulation.halfEdgeNext(halfEdge) ^ 1;
             popOutsideSegment(halfEdge);
         } else {
-            first = triangulation.halfEdgeNext[halfEdge ^ 1];
-            second = triangulation.halfEdgeNext[first];
+            first = triangulation.halfEdgeNext(halfEdge ^ 1);
+            second = triangulation.halfEdgeNext(first);
             popOutsideSegment(halfEdge ^ 1);
         }
         segmentAlive[segment] = false;
@@ -474,40 +480,94 @@ public final class FlipGeodesics {
     }
 
     private int outsideSegment(int halfEdge) {
-        int edge = halfEdge >> 1;
-        if (edgeOccupancy[edge] == 0) {
+        int slot = occupancySlot(halfEdge >> 1);
+        if (slot < 0 || occupancyCount[slot] == 0) {
             return -1;
         }
-        return (halfEdge & 1) == 0 ? edgeSegmentFront[edge] : edgeSegmentBack[edge];
+        return (halfEdge & 1) == 0 ? occupancyFront[slot] : occupancyBack[slot];
     }
 
+    /**
+     * Records a path segment along one side of an edge, entering the edge in the occupancy table
+     * when the path first reaches it; the table doubles before it passes half full.
+     */
     private void pushOutsideSegment(int halfEdge, int segment) {
         int edge = halfEdge >> 1;
-        if (edgeOccupancy[edge] == 0) {
-            if (occupiedEdgeCount == occupiedEdge.length) {
-                occupiedEdge = Arrays.copyOf(occupiedEdge, Math.max(64, 2 * occupiedEdge.length));
+        if (2 * (occupiedEdgeCount + 1) > occupancyEdge.length) {
+            int[] oldEdge = occupancyEdge;
+            int[] oldCount = occupancyCount;
+            int[] oldFront = occupancyFront;
+            int[] oldBack = occupancyBack;
+            int[] oldOccupied = occupiedSlot;
+            int oldOccupiedCount = occupiedEdgeCount;
+            int capacity = Math.max(INITIAL_OCCUPANCY_CAPACITY, 2 * occupancyEdge.length);
+            occupancyEdge = new int[capacity];
+            Arrays.fill(occupancyEdge, EMPTY_SLOT);
+            occupancyCount = new int[capacity];
+            occupancyFront = new int[capacity];
+            occupancyBack = new int[capacity];
+            occupiedSlot = new int[capacity];
+            occupiedEdgeCount = 0;
+            occupancyShift = Integer.SIZE - Integer.numberOfTrailingZeros(capacity);
+            for (int index = 0; index < oldOccupiedCount; index++) {
+                int from = oldOccupied[index];
+                int slot = (oldEdge[from] * FIBONACCI_HASH) >>> occupancyShift;
+                while (occupancyEdge[slot] != EMPTY_SLOT) {
+                    slot = (slot + 1) & (capacity - 1);
+                }
+                occupancyEdge[slot] = oldEdge[from];
+                occupancyCount[slot] = oldCount[from];
+                occupancyFront[slot] = oldFront[from];
+                occupancyBack[slot] = oldBack[from];
+                occupiedSlot[occupiedEdgeCount++] = slot;
             }
-            occupiedEdge[occupiedEdgeCount++] = edge;
-            edgeSegmentFront[edge] = segment;
-            edgeSegmentBack[edge] = segment;
-        } else if ((halfEdge & 1) == 0) {
-            edgeSegmentFront[edge] = segment;
-        } else {
-            edgeSegmentBack[edge] = segment;
         }
-        edgeOccupancy[edge]++;
+        int slot = (edge * FIBONACCI_HASH) >>> occupancyShift;
+        while (occupancyEdge[slot] != EMPTY_SLOT && occupancyEdge[slot] != edge) {
+            slot = (slot + 1) & (occupancyEdge.length - 1);
+        }
+        if (occupancyEdge[slot] == EMPTY_SLOT) {
+            occupancyEdge[slot] = edge;
+            occupancyCount[slot] = 0;
+            occupiedSlot[occupiedEdgeCount++] = slot;
+        }
+        if (occupancyCount[slot] == 0) {
+            occupancyFront[slot] = segment;
+            occupancyBack[slot] = segment;
+        } else if ((halfEdge & 1) == 0) {
+            occupancyFront[slot] = segment;
+        } else {
+            occupancyBack[slot] = segment;
+        }
+        occupancyCount[slot]++;
     }
 
     private void popOutsideSegment(int halfEdge) {
-        int edge = halfEdge >> 1;
-        if (edgeOccupancy[edge] == 0) {
+        int slot = occupancySlot(halfEdge >> 1);
+        if (slot < 0 || occupancyCount[slot] == 0) {
             return;
         }
-        edgeOccupancy[edge]--;
+        occupancyCount[slot]--;
         if ((halfEdge & 1) == 0) {
-            edgeSegmentFront[edge] = edgeSegmentBack[edge];
+            occupancyFront[slot] = occupancyBack[slot];
         } else {
-            edgeSegmentBack[edge] = edgeSegmentFront[edge];
+            occupancyBack[slot] = occupancyFront[slot];
+        }
+    }
+
+    /** The occupancy slot of an edge, or -1 when the path has never run along it this run. */
+    private int occupancySlot(int edge) {
+        if (occupiedEdgeCount == 0) {
+            return -1;
+        }
+        int mask = occupancyEdge.length - 1;
+        for (int slot = (edge * FIBONACCI_HASH) >>> occupancyShift;; slot = (slot + 1) & mask) {
+            if (occupancyEdge[slot] == edge) {
+                return slot;
+            }
+            if (occupancyEdge[slot] == EMPTY_SLOT) {
+                return -1;
+            }
         }
     }
 
@@ -530,8 +590,8 @@ public final class FlipGeodesics {
                 }
                 continue;
             }
-            int vertexId = triangulation.sourceVertexId[
-                    triangulation.halfEdgeTail[segmentHalfEdge[segment]]];
+            int vertexId = triangulation.metric.sourceVertexId[
+                    triangulation.halfEdgeTail(segmentHalfEdge[segment])];
             if (vertexId < bestVertexId) {
                 bestVertexId = vertexId;
                 start = segment;

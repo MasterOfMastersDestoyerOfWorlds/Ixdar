@@ -33,10 +33,13 @@ class RingDeletionTest {
 
     private static final String FIXTURE = "\"fixture\"";
 
-    private static final String CANDIDATES_SOURCE = CANDIDATES_ID
-            + " = ring_candidates(geometry=" + FIXTURE + ", resolution=96)\n";
-
     private static final String GEOMETRY_PORT = "." + RingDslWriter.DEFAULT_UPSTREAM_PORT;
+
+    private static final String SURFACE = RingDslWriter.METRIC_STATEMENT_ID + GEOMETRY_PORT;
+
+    private static final String CANDIDATES_SOURCE = RingDslWriter.METRIC_STATEMENT_ID + " = "
+            + RingDslWriter.SURFACE_METRIC_NODE + "(geometry=" + FIXTURE + ")\n" + CANDIDATES_ID
+            + " = ring_candidates(geometry=" + SURFACE + ", resolution=96)\n";
 
     private static final String FIRST_PROPOSED = "ring_00";
 
@@ -98,9 +101,9 @@ class RingDeletionTest {
                 "a ring other than the two deleted changed or vanished on reload: " + deleted);
 
         String allProposedDeleted = frozen(deleted, savedRun, List.of());
-        assertTrue(allProposedDeleted.startsWith(KEPT_SPLINE + " = spline_ring(geometry="
-                + FIXTURE), "deleting every proposed ring left a statement behind: "
-                + allProposedDeleted);
+        assertTrue(allProposedDeleted.contains(RingDslWriter.LINE_BREAK + KEPT_SPLINE
+                + " = spline_ring(geometry=" + SURFACE), "deleting every proposed ring left a "
+                + "statement behind: " + allProposedDeleted);
         Map<String, String> splineOnly = fingerprints(run(allProposedDeleted, fixture));
         assertEquals(Set.of(KEPT_SPLINE), splineOnly.keySet(), allProposedDeleted);
         assertEquals(saved.get(KEPT_SPLINE), splineOnly.get(KEPT_SPLINE),
@@ -138,7 +141,7 @@ class RingDeletionTest {
     private static String frozen(String source, GeometryBundle proposed, List<String> kept) {
         MeshTopology mesh = proposed.mesh();
         Map<String, boolean[]> marks = marks(proposed);
-        String output = FIXTURE;
+        String output = SURFACE;
         List<String> block = new ArrayList<>();
         Vector3f position = new Vector3f();
         for (String label : kept) {
@@ -156,11 +159,12 @@ class RingDeletionTest {
         }
         Set<String> blockIds = new HashSet<>(PROPOSED);
         blockIds.add(CANDIDATES_ID);
-        return RingDslWriter.replaceBlock(source, blockIds, block, FIXTURE, output);
+        return RingDslWriter.replaceBlock(source, blockIds, block, SURFACE, output);
     }
 
     /**
-     * Run a graph over the fixture surface.
+     * Run a graph over the fixture surface, its spline rings wired to a surface metric the way
+     * the ring tool's save writes them.
      *
      * @param source  graph whose first statement reads the fixture through its geometry argument
      * @param fixture the fixture surface
@@ -168,7 +172,8 @@ class RingDeletionTest {
      * @return the bundle the graph's last statement leaves
      */
     private static GeometryBundle run(String source, MeshTopology fixture) throws Exception {
-        NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
+        NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(
+                RingDslWriter.wireSurfaceMetric(source));
         String last = runtime.statements.get(runtime.statements.size() - 1).id;
         Map<String, Object> overrides = new LinkedHashMap<>();
         overrides.put(runtime.statements.get(0).id + GEOMETRY_PORT,

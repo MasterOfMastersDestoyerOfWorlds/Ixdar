@@ -4583,6 +4583,12 @@
           "portType": "STRING",
           "description": "Name the snapped edge cycle is stored under in the edge-marks slot, so several spline rings can be kept on one bundle.",
           "defaultValue": "spline_ring"
+        },
+        {
+          "name": "metric",
+          "portType": "SURFACE_METRIC",
+          "description": "Required: the metric output of a surface_metric statement measured on this very mesh, shared by every ring of a chain so the surface is measured once. A ring without one is refused.",
+          "defaultValue": null
         }
       ],
       "outputs": [
@@ -4669,6 +4675,35 @@
         }
       ],
       "description": "Applies Catmull-Clark subdivision surface smoothing, supporting crease weights for semi-sharp edges. Handles mixed tri/quad input."
+    },
+    {
+      "id": "surface_metric",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the surface to measure, of any polygon sizes; larger polygons are split intrinsically. Output: the same bundle on the half-edge mesh the metric was measured on; consumers of the metric must read their geometry from here or downstream of it.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the surface to measure, of any polygon sizes; larger polygons are split intrinsically. Output: the same bundle on the half-edge mesh the metric was measured on; consumers of the metric must read their geometry from here or downstream of it."
+        },
+        {
+          "name": "metric",
+          "portType": "SURFACE_METRIC",
+          "description": "The surface\u0027s metric and connection, for spline_ring\u0027s metric input and any other node that measures geodesics or angles on this surface."
+        }
+      ],
+      "description": "Measures the surface\u0027s intrinsic metric and connection once: the signpost intrinsic triangulation (Sharp, Soliman \u0026 Crane 2019) with its edge lengths, per-vertex signpost angles and angle sums, reference half-edges, connectivity and source-mesh mapping, plus the mean edge length and a vertex grid that lands authored points on the surface. The value is never written after it is built, so every consumer wired to it shares one."
     },
     {
       "id": "switch_float",

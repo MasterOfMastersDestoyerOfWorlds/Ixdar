@@ -220,7 +220,7 @@ public final class AuthoredSplineRing {
                     - fit.authoredPoint[Math.floorMod(anchor - 1, distinct.length)], points);
             int nextSpan = Math.floorMod(fit.authoredPoint[(anchor + 1) % distinct.length] - at,
                     points);
-            double arc = Math.max(FOLD_ARC_EDGES * geodesics.meanEdgeLength,
+            double arc = Math.max(FOLD_ARC_EDGES * geodesics.metric.meanEdgeLength,
                     Math.min(arcLength(at, -1, previousSpan), arcLength(at, 1, nextSpan))
                             * FOLD_ARC_OF_SPAN);
             int before = at;
@@ -397,8 +397,8 @@ public final class AuthoredSplineRing {
         SurfaceGeodesics geodesics = tracer.geodesics;
         MeshTopology mesh = geodesics.mesh;
         int count = authoredVertexId.length;
-        if (spanLabel.length < geodesics.vertexIdBound) {
-            spanLabel = new int[geodesics.vertexIdBound];
+        if (spanLabel.length < geodesics.metric.vertexIdBound) {
+            spanLabel = new int[geodesics.metric.vertexIdBound];
             Arrays.fill(spanLabel, -1);
         }
         // Label every vertex the ring's path runs through or beside with the span it lies on,

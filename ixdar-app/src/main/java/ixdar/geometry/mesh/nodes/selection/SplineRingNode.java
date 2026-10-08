@@ -10,9 +10,11 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
@@ -36,13 +38,15 @@ public class SplineRingNode implements MeshNode {
     public static final InputPort NORMAL = new InputPort("normal", PortType.STRING, "");
     public static final InputPort LABEL = new InputPort("label", PortType.STRING,
             DEFAULT_MARK_LABEL);
+    public static final InputPort METRIC = new InputPort("metric", PortType.SURFACE_METRIC,
+            null);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name,
             PortType.GEOMETRY_BUNDLE);
     public static final OutputPort SELECTION = new OutputPort("selection", PortType.BOOLEAN);
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(GEOMETRY, POINTS, NORMAL, LABEL);
+        return List.of(GEOMETRY, POINTS, NORMAL, LABEL, METRIC);
     }
 
     @Override
@@ -88,6 +92,10 @@ public class SplineRingNode implements MeshNode {
                 LABEL.name,
                 "Name the snapped edge cycle is stored under in the edge-marks slot, so several "
                         + "spline rings can be kept on one bundle.",
+                METRIC.name,
+                "Required: the metric output of a surface_metric statement measured on this very "
+                        + "mesh, shared by every ring of a chain so the surface is measured "
+                        + "once. A ring without one is refused.",
                 SELECTION.name,
                 "Per-edge BoolField, true on every edge of the conforming cycle nearest the "
                         + "traced spline.");
@@ -107,9 +115,9 @@ public class SplineRingNode implements MeshNode {
         }
         // The half-edge form ring_candidates also passes on, so a ring reading a loaded file
         // marks the same edges as one chained after the proposed rings.
-        mesh = HalfEdgeMeshEngine.fromMeshTopology(mesh);
-        if (mesh != bundle.mesh()) {
-            bundle = bundle.withMesh(mesh);
+        HalfEdgeMesh surface = HalfEdgeMeshEngine.fromMeshTopology(mesh);
+        if (surface != mesh) {
+            bundle = bundle.withMesh(surface);
         }
         String label = ctx.getInput(LABEL.name, String.class);
         if (label == null || label.isBlank()) {
@@ -118,8 +126,20 @@ public class SplineRingNode implements MeshNode {
         float[] points = SurfaceWaypoints.parse(ctx.getInput(POINTS.name, String.class));
         int anchorCount = points.length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
         float[] normal = SurfaceWaypoints.parse(ctx.getInput(NORMAL.name, String.class));
-        AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(mesh));
-        boolean traced = ring.trace(SurfaceWaypoints.snap(mesh, points, anchorCount), anchorCount,
+        SurfaceMetric metric = ctx.getInput(METRIC.name, SurfaceMetric.class);
+        if (metric == null) {
+            throw new IllegalArgumentException("spline_ring " + label + " has no metric; wire "
+                    + "surface = surface_metric(geometry=...) on the surface it rings and pass "
+                    + "metric=surface.metric to every spline_ring downstream of it");
+        }
+        if (metric.sourceMesh != surface) {
+            throw new IllegalArgumentException("spline_ring " + label + ": its metric was "
+                    + "measured on another mesh; read the geometry from the surface_metric "
+                    + "statement that measured it, or from a ring downstream of it");
+        }
+        int[] anchorVertexIds = SurfaceWaypoints.snap(metric.nearestVertex, points, anchorCount);
+        AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(metric));
+        boolean traced = ring.trace(anchorVertexIds, anchorCount,
                 normal.length == SurfaceWaypoints.COORDINATES_PER_WAYPOINT ? normal : null,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH);
         if (!traced) {
@@ -130,11 +150,12 @@ public class SplineRingNode implements MeshNode {
         GeometryBundle out = SurfaceSpline.with(bundle.withSlot(CurveGeometry.SLOT,
                 CurveGeometry.singlePolyline(spline.polyline)), label, spline);
         ctx.setOutput(GEOMETRY.name, EdgeMarks.with(out, label, spline.markedByEdgeId));
-        boolean[] selection = new boolean[mesh.edgeCount()];
-        for (int activeEdge = 0; activeEdge < selection.length; activeEdge++) {
-            int edgeId = mesh.edgeIdAt(activeEdge);
-            selection[activeEdge] =
-                    edgeId < spline.markedByEdgeId.length && spline.markedByEdgeId[edgeId];
+        boolean[] selection = new boolean[surface.edgeCount()];
+        for (int edgeId : spline.markedEdgeIds) {
+            int activeEdge = surface.activeEdgeIndexOf(edgeId);
+            if (activeEdge >= 0) {
+                selection[activeEdge] = true;
+            }
         }
         ctx.setOutput(SELECTION.name, new BoolField(selection));
     }

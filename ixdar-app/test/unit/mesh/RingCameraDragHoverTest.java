@@ -17,7 +17,9 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
+import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
@@ -107,7 +109,7 @@ class RingCameraDragHoverTest {
             }
         };
         tool = scene.ringTool;
-        tool.geodesics = SurfaceGeodesics.over(tube);
+        tool.geodesics = SurfaceGeodesics.over(SurfaceMetric.of(tube));
         suitePlatform = Platforms.get();
         suiteGl = Platforms.gl();
         Platform window = (Platform) Proxy.newProxyInstance(Platform.class.getClassLoader(),
@@ -235,7 +237,7 @@ class RingCameraDragHoverTest {
             xyz[XYZ * quarter + 1] = (float) (RADIUS * Math.cos(angle));
             xyz[XYZ * quarter + 2] = (float) (RADIUS * Math.sin(angle));
         }
-        int[] quarters = SurfaceWaypoints.snap(tube, xyz, QUARTERS);
+        int[] quarters = SurfaceWaypoints.snap(NearestVertex.over(tube),xyz, QUARTERS);
         AuthoredSplineRing ring = new AuthoredSplineRing(tool.geodesics);
         assertTrue(ring.trace(quarters, QUARTERS, TUBE_AXIS,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);

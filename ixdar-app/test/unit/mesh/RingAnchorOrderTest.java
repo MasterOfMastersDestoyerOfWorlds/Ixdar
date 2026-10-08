@@ -13,7 +13,9 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
+import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfacePathCrossings;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
@@ -76,7 +78,7 @@ class RingAnchorOrderTest {
                 xyz[base + 2] = face == 0 ? HALF_THICKNESS : -HALF_THICKNESS;
             }
         }
-        int[] anchors = SurfaceWaypoints.snap(tube, xyz, 2 * ACROSS.length);
+        int[] anchors = SurfaceWaypoints.snap(NearestVertex.over(tube),xyz, 2 * ACROSS.length);
         // Across the top face, then back across the bottom.
         int[] around = new int[anchors.length];
         for (int anchor = 0; anchor < ACROSS.length; anchor++) {
@@ -160,7 +162,7 @@ class RingAnchorOrderTest {
             xyz[XYZ * quarter + 1] = (float) (ROUND_RADIUS * Math.cos(angle));
             xyz[XYZ * quarter + 2] = (float) (ROUND_RADIUS * Math.sin(angle));
         }
-        int[] quarters = SurfaceWaypoints.snap(tube, xyz, QUARTERS);
+        int[] quarters = SurfaceWaypoints.snap(NearestVertex.over(tube),xyz, QUARTERS);
         RingTool tool = draftOn(tube, quarters[0], TUBE_AXIS);
         for (int quarter = 1; quarter < QUARTERS; quarter++) {
             assertTrue(tool.addAuthoredAnchor(quarters[quarter]), tool.lastError);
@@ -170,7 +172,7 @@ class RingAnchorOrderTest {
         // The quarter-turn anchor keeps its place between the first and the half-turn one, but
         // moves past the half turn, so the ring must double back over itself to reach it.
         double angle = Math.toRadians(MOVED_ANCHOR_DEGREES);
-        int moved = SurfaceWaypoints.snap(tube, new float[] { 0f,
+        int moved = SurfaceWaypoints.snap(NearestVertex.over(tube),new float[] { 0f,
             (float) (ROUND_RADIUS * Math.cos(angle)), (float) (ROUND_RADIUS * Math.sin(angle)) },
                 1)[0];
         tool.selectedAnchorVertexId = quarters[1];
@@ -199,7 +201,7 @@ class RingAnchorOrderTest {
             }
         };
         RingTool tool = scene.ringTool;
-        tool.geodesics = SurfaceGeodesics.over(tube);
+        tool.geodesics = SurfaceGeodesics.over(SurfaceMetric.of(tube));
         AuthoredSplineRing first = new AuthoredSplineRing(tool.geodesics);
         assertTrue(first.trace(new int[] { firstAnchor }, 1, normal,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), first.failure);

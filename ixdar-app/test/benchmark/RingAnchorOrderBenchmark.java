@@ -19,7 +19,9 @@ import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
+import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfacePathCrossings;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
@@ -112,12 +114,12 @@ public final class RingAnchorOrderBenchmark {
         GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.statements,
                 surfaceNode, GEOMETRY_PORT);
         surface = HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
-        geodesics = SurfaceGeodesics.over(surface);
+        geodesics = SurfaceGeodesics.over(SurfaceMetric.of(surface));
         float[] points = SurfaceWaypoints.parse(
                 String.valueOf(ring.arguments.get(SplineRingNode.POINTS.name)));
         baseNormal = SurfaceWaypoints.parse(
                 String.valueOf(ring.arguments.get(SplineRingNode.NORMAL.name)));
-        savedVertexId = SurfaceWaypoints.snap(surface, points, points.length / XYZ);
+        savedVertexId = SurfaceWaypoints.snap(NearestVertex.over(surface), points, points.length / XYZ);
         int anchors = savedVertexId.length;
         rows.add("run\tmode\tclicked\tring order\tsame ring as saved\tskipped adds\tloop crossings"
                 + "\tloop length\ttied anchors\tnear-tied anchors\tfurthest off loop (edges)"
@@ -190,7 +192,7 @@ public final class RingAnchorOrderBenchmark {
         GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(statements,
                 statements.get(statements.size() - 1).id, GEOMETRY_PORT);
         MeshTopology mesh = bundle.mesh();
-        double meanEdge = SurfaceGeodesics.meanEdgeLengthOf(mesh);
+        double meanEdge = SurfaceMetric.of(mesh).meanEdgeLength;
         String graphName = Path.of(graphPath).getFileName().toString().replace(".dsl", "");
         rows.add("ring\tanchors (authored)\tmarked edges\tfingerprint\tself-crossings"
                 + "\trevisited vertices\tsnapped loop simple\tlength\tmoved from baseline (edges)");
@@ -333,8 +335,8 @@ public final class RingAnchorOrderBenchmark {
         rows.add(String.format(Locale.ROOT, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%.4f\t%d\t%d\t%.1f\t%d\t%d"
                 + "\t%.1f\t%s\t%.0f", run, mode, joined(clicked), ringOrder,
                 ringOrder.equals(savedRingOrder) ? YES : NO, skipped, steps, ring.cut.length,
-                tied, nearTied, furthest / geodesics.meanEdgeLength, crossings.crossings,
-                crossings.revisitedVertices, crossingToAnchor / geodesics.meanEdgeLength,
+                tied, nearTied, furthest / geodesics.metric.meanEdgeLength, crossings.crossings,
+                crossings.revisitedVertices, crossingToAnchor / geodesics.metric.meanEdgeLength,
                 snappedSimple ? YES : NO, (System.nanoTime() - start) / 1e6));
     }
 

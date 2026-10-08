@@ -23,6 +23,7 @@ import ixdar.geometry.mesh.data.paths.IntrinsicTriangulation;
 import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.data.paths.SplineAnchorFit;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfaceRing;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
@@ -43,55 +44,40 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  */
 public final class FlipGeodesicsScanBenchmark {
 
-    /** Input-file entry point: the scan the loop is tightened on. */
     private static final String MESH_PROPERTY = "benchmark.geodesicMesh";
 
-    /** Output-file entry point: where the manifold shell is written as OBJ, for the viewer. */
     private static final String SHELL_PROPERTY = "benchmark.shellObj";
 
-    /** Scan used when the property is absent. */
     private static final String DEFAULT_MESH = "/home/acw/crawfish/IMG_4109.glb";
 
-    /**
-     * Three surface points spread around one walking leg at {@code z ~= 0.4}, at three different
-     * heights along it so the seed walk spirals instead of following one cross-section.
-     */
+    // Around one walking leg at z ~= 0.4, at three heights so the seed walk spirals instead of
+    // following one cross-section.
     private static final float[][] LEG_WAYPOINTS = {
         { 0.158970f, -0.111934f, 0.400764f },
         { 0.107179f, -0.108244f, 0.428180f },
         { 0.127260f, -0.110376f, 0.366955f },
     };
 
-    /**
-     * Three points around the abdomen at {@code z ~= -0.3}, a girth loop an order of magnitude
-     * longer than the leg loop, kept as the scaling data point.
-     */
+    // Around the abdomen at z ~= -0.3, a girth loop an order of magnitude longer than the leg
+    // loop, kept as the scaling data point.
     private static final float[][] BODY_WAYPOINTS = {
         { 0.142617f, 0.015641f, -0.297141f },
         { -0.074982f, 0.134666f, -0.283574f },
         { -0.054713f, -0.066467f, -0.319990f },
     };
 
-    /** Timed rounds; the first ones are discarded as warm-up. */
     private static final int ROUNDS = 6;
 
-    /** Rounds discarded before the warm numbers are collected. */
     private static final int WARMUP_ROUNDS = 2;
 
-    /** Floats per packed xyz position. */
     private static final int POSITION_STRIDE = 3;
 
-    /** Nanoseconds in a millisecond. */
     private static final double NANOS_PER_MILLI = 1e6;
 
-    /** One half, the crossing fraction a cut point snaps to its edge's tail or head at. */
     private static final double HALF = 0.5;
 
-    /**
-     * Weld radius applied before anything else. The scan's glTF indices split vertices at texture
-     * seams, which leaves 19255 index-connected components on IMG_4109; welding coincident
-     * positions restores one surface (7 components, 460459 of 468350 vertices in the largest).
-     */
+    // The scan's glTF indices split vertices at texture seams (19255 components on IMG_4109);
+    // welding coincident positions restores one surface (7 components, 460459 of 468350 vertices).
     private static final float WELD_DISTANCE = 1e-6f;
 
     /**
@@ -149,11 +135,11 @@ public final class FlipGeodesicsScanBenchmark {
     public void hoverPreviewOnTheCrawfish() throws IOException {
         HalfEdgeMesh mesh = crawfishShell();
         long prepareStart = System.nanoTime();
-        SurfaceGeodesics geodesics = SurfaceGeodesics.over(mesh);
+        SurfaceGeodesics geodesics = SurfaceGeodesics.over(SurfaceMetric.of(mesh));
         System.out.printf(
                 "[hover] prepare: intrinsic triangulation over %d faces in %.1f ms, mean edge %.5f%n",
                 mesh.faceCount(), (System.nanoTime() - prepareStart) / NANOS_PER_MILLI,
-                geodesics.meanEdgeLength);
+                geodesics.metric.meanEdgeLength);
 
         for (int waypoint = 0; waypoint < LEG_WAYPOINTS.length; waypoint++) {
             timeHover("leg " + waypoint, mesh, geodesics, LEG_WAYPOINTS[waypoint]);
@@ -175,7 +161,7 @@ public final class FlipGeodesicsScanBenchmark {
     private static void timeHover(String name, HalfEdgeMesh mesh, SurfaceGeodesics geodesics,
             float[] point) {
         Vector3f position = new Vector3f();
-        int hitVertexId = NearestVertex.find(mesh, point[0], point[1], point[2]);
+        int hitVertexId = NearestVertex.over(mesh).find(point[0], point[1], point[2]);
         mesh.vertexPosition(hitVertexId, position);
         float[] hitPoint = { position.x, position.y, position.z };
         int faceId = mesh.vertexFaceAt(hitVertexId, 0);
@@ -284,9 +270,10 @@ public final class FlipGeodesicsScanBenchmark {
      */
     private static void timeLoop(String name, HalfEdgeMesh mesh, float[][] waypoints) {
         int[] waypointVertexIds = new int[waypoints.length];
+        NearestVertex grid = NearestVertex.over(mesh);
         for (int index = 0; index < waypointVertexIds.length; index++) {
             float[] point = waypoints[index];
-            waypointVertexIds[index] = NearestVertex.find(mesh, point[0], point[1], point[2]);
+            waypointVertexIds[index] = grid.find(point[0], point[1], point[2]);
         }
 
         double bestSetupMillis = Double.POSITIVE_INFINITY;
@@ -301,9 +288,10 @@ public final class FlipGeodesicsScanBenchmark {
         long flips = 0;
         for (int round = 0; round < ROUNDS; round++) {
             long setupStart = System.nanoTime();
-            IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(mesh);
+            SurfaceMetric metric = SurfaceMetric.of(mesh);
+            IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(metric);
             long setupEnd = System.nanoTime();
-            IntrinsicPathTracer tracer = IntrinsicPathTracer.snapshotOf(intrinsic);
+            IntrinsicPathTracer tracer = IntrinsicPathTracer.over(metric);
             long seedStart = System.nanoTime();
             int[] seed = GeodesicSeedPath.throughVertices(intrinsic, waypointVertexIds, true);
             long seedEnd = System.nanoTime();

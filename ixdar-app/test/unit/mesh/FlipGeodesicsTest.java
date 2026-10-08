@@ -17,6 +17,7 @@ import ixdar.geometry.mesh.data.paths.GeodesicSeedPath;
 import ixdar.geometry.mesh.data.paths.IntrinsicPathTracer;
 import ixdar.geometry.mesh.data.paths.IntrinsicTriangulation;
 import ixdar.geometry.mesh.data.paths.NearestVertex;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
@@ -29,43 +30,33 @@ import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
  */
 class FlipGeodesicsTest {
 
-    /** Torus centre-line radius. */
     private static final float MAJOR_RADIUS = 1.0f;
 
-    /** Torus tube radius; the minimal meridian is {@code 2 * pi * MINOR_RADIUS}. */
     private static final float MINOR_RADIUS = 0.35f;
 
-    /** Faces the long way around the torus. */
     private static final int MAJOR_SEGMENTS = 64;
 
-    /** Faces around the torus tube. */
     private static final int MINOR_SEGMENTS = 48;
 
-    /** Icosphere radius; a great circle arc is {@code SPHERE_RADIUS * angle}. */
     private static final float SPHERE_RADIUS = 1.0f;
 
-    /** Icosphere subdivision rounds. */
     private static final int SPHERE_SUBDIVISIONS = 4;
 
-    /**
-     * Residual bend a closed FlipOut loop keeps where it closes on a vertex.
-     *
-     * <p>
-     * A tightened loop always retains at least one vertex, and on a polyhedral surface that vertex
-     * carries an {@code O(h^2)} kink: measured 3.28e-3, 1.45e-3, 8.1e-4 and 3.6e-4 rad at 48, 72,
-     * 96 and 144 tube segments. Only an open path reaches pi exactly, by keeping no vertex at all.
-     */
+    // A tightened loop keeps one vertex, whose O(h^2) kink measured 3.28e-3, 1.45e-3, 8.1e-4 and
+    // 3.6e-4 rad at 48, 72, 96 and 144 tube segments; only an open path reaches pi exactly.
     private static final double CLOSURE_KINK_LIMIT = 5e-3;
+
+    private static final String MESH_PORT = "mesh";
 
     @Test
     void torusLoopTightensToTheMinimalMeridian() {
         MeshTopology torus = torus();
-        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(torus);
+        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(SurfaceMetric.of(torus));
         int[] seed = GeodesicSeedPath.throughVertices(intrinsic, wobblyTubeWaypoints(torus), true);
         FlipGeodesics flipper = new FlipGeodesics();
         double seedLength = 0.0;
         for (int halfEdge : seed) {
-            seedLength += intrinsic.edgeLength[halfEdge >> 1];
+            seedLength += intrinsic.edgeLength(halfEdge >> 1);
         }
 
         flipper.shorten(intrinsic, seed, true, FlipGeodesics.UNBOUNDED_ITERATIONS);
@@ -87,9 +78,10 @@ class FlipGeodesicsTest {
     @Test
     void spherePathTightensToTheGreatCircle() {
         MeshTopology sphere = icosphere();
-        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(sphere);
-        int startVertexId = NearestVertex.find(sphere, 0f, SPHERE_RADIUS, 0f);
-        int endVertexId = NearestVertex.find(sphere, 0.83f, 0.21f, 0.51f);
+        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(SurfaceMetric.of(sphere));
+        NearestVertex grid = NearestVertex.over(sphere);
+        int startVertexId = grid.find(0f, SPHERE_RADIUS, 0f);
+        int endVertexId = grid.find(0.83f, 0.21f, 0.51f);
         Vector3f startPosition = sphere.vertexPosition(startVertexId, new Vector3f());
         Vector3f endPosition = sphere.vertexPosition(endVertexId, new Vector3f());
         int[] seed = GeodesicSeedPath.throughVertices(intrinsic,
@@ -124,8 +116,9 @@ class FlipGeodesicsTest {
     @Test
     void tracedPolylineFollowsTheIntrinsicLoop() {
         MeshTopology torus = torus();
-        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(torus);
-        IntrinsicPathTracer tracer = IntrinsicPathTracer.snapshotOf(intrinsic);
+        SurfaceMetric metric = SurfaceMetric.of(torus);
+        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(metric);
+        IntrinsicPathTracer tracer = IntrinsicPathTracer.over(metric);
         int[] seed = GeodesicSeedPath.throughVertices(intrinsic, wobblyTubeWaypoints(torus), true);
         FlipGeodesics flipper = new FlipGeodesics();
 
@@ -148,14 +141,14 @@ class FlipGeodesicsTest {
     @Test
     void sliverStripStillTerminatesAndShortens() {
         MeshTopology strip = perturbedSliverStrip();
-        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(strip);
+        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(SurfaceMetric.of(strip));
         int startVertexId = strip.vertexIdAt(0);
         int endVertexId = strip.vertexIdAt(strip.vertexCount() - 1);
         int[] seed = GeodesicSeedPath.throughVertices(intrinsic,
                 new int[] { startVertexId, endVertexId }, false);
         double seedLength = 0.0;
         for (int halfEdge : seed) {
-            seedLength += intrinsic.edgeLength[halfEdge >> 1];
+            seedLength += intrinsic.edgeLength(halfEdge >> 1);
         }
         FlipGeodesics flipper = new FlipGeodesics();
 
@@ -172,8 +165,9 @@ class FlipGeodesicsTest {
 
     private static double[] tightenedTorusPolyline() {
         MeshTopology torus = torus();
-        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(torus);
-        IntrinsicPathTracer tracer = IntrinsicPathTracer.snapshotOf(intrinsic);
+        SurfaceMetric metric = SurfaceMetric.of(torus);
+        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(metric);
+        IntrinsicPathTracer tracer = IntrinsicPathTracer.over(metric);
         int[] seed = GeodesicSeedPath.throughVertices(intrinsic, wobblyTubeWaypoints(torus), true);
         FlipGeodesics flipper = new FlipGeodesics();
         int[] tightened = flipper.shorten(intrinsic, seed, true,
@@ -190,12 +184,13 @@ class FlipGeodesicsTest {
         List<Integer> waypoints = new ArrayList<>();
         double[] tubeAngles = { 0.0, 2.0 * Math.PI / 3.0, 4.0 * Math.PI / 3.0 };
         double[] ringAngles = { 0.0, 0.35, -0.3 };
+        NearestVertex grid = NearestVertex.over(torus);
         for (int index = 0; index < tubeAngles.length; index++) {
             double distanceFromAxis = MAJOR_RADIUS + MINOR_RADIUS * Math.cos(tubeAngles[index]);
             float x = (float) (distanceFromAxis * Math.cos(ringAngles[index]));
             float y = (float) (MINOR_RADIUS * Math.sin(tubeAngles[index]));
             float z = (float) (distanceFromAxis * Math.sin(ringAngles[index]));
-            waypoints.add(NearestVertex.find(torus, x, y, z));
+            waypoints.add(grid.find(x, y, z));
         }
         int[] ids = new int[waypoints.size()];
         for (int index = 0; index < ids.length; index++) {
@@ -213,7 +208,7 @@ class FlipGeodesicsTest {
         ctx.setInput("minor_segments", MINOR_SEGMENTS);
         ctx.setInput("triangulate", true);
         node.evaluate(ctx);
-        return ctx.getOutput("mesh", GeometryBundle.class).mesh();
+        return ctx.getOutput(MESH_PORT, GeometryBundle.class).mesh();
     }
 
     private static MeshTopology icosphere() {
@@ -222,7 +217,7 @@ class FlipGeodesicsTest {
         ctx.setInput("radius", SPHERE_RADIUS);
         ctx.setInput("subdivisions", SPHERE_SUBDIVISIONS);
         node.evaluate(ctx);
-        return ctx.getOutput("mesh", GeometryBundle.class).mesh();
+        return ctx.getOutput(MESH_PORT, GeometryBundle.class).mesh();
     }
 
     /**

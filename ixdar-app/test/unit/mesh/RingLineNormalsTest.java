@@ -15,7 +15,9 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
+import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
@@ -47,14 +49,15 @@ class RingLineNormalsTest {
         ArrayMesh loaded = MeshLoader.load(FERTILITY);
         MeshTopology mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(loaded.copyPositions(),
                 loaded.copyFaceIndices());
-        SurfaceGeodesics geodesics = SurfaceGeodesics.over(mesh);
+        SurfaceGeodesics geodesics = SurfaceGeodesics.over(SurfaceMetric.of(mesh));
         SurfaceFaceLocator locator = new SurfaceFaceLocator(mesh);
         Matcher statement = SPLINE_RING.matcher(Files.readString(Path.of(RINGS)));
         List<String> problems = new ArrayList<>();
         int rings = 0;
+        NearestVertex grid = NearestVertex.over(mesh);
         while (statement.find()) {
             float[] points = SurfaceWaypoints.parse(statement.group(2));
-            int[] anchors = SurfaceWaypoints.snap(mesh, points,
+            int[] anchors = SurfaceWaypoints.snap(grid, points,
                     points.length / SurfaceSpline.COORDINATES_PER_POINT);
             AuthoredSplineRing ring = new AuthoredSplineRing(geodesics);
             assertTrue(ring.trace(anchors, anchors.length,

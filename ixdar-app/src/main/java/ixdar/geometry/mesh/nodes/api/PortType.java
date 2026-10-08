@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.nodes.api;
 
 import ixdar.geometry.mesh.curve.FloatCurveKernel;
 import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
@@ -20,6 +21,8 @@ public enum PortType {
     CLOSURE(FloatCurveKernel.class),
     /** Cross field over a mesh. */
     CROSS_FIELD(CrossField.class),
+    /** Intrinsic metric and connection of a surface, shared read-only by every consumer. */
+    SURFACE_METRIC(SurfaceMetric.class),
     /** Per-corner UV assignment over a mesh. */
     UV_FIELD(UvField.class),
     /** Node-arc-patch network on a surface. */

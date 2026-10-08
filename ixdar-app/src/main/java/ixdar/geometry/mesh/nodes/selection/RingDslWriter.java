@@ -8,9 +8,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -18,6 +20,7 @@ import ixdar.geometry.mesh.data.RingCandidates;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.parsing.python.PythonParser;
@@ -42,6 +45,15 @@ public final class RingDslWriter {
     public static final String LABEL_ARGUMENT = "label";
 
     public static final String CANDIDATES_NODE = "ring_candidates";
+
+    public static final String SPLINE_RING_NODE = "spline_ring";
+
+    public static final String SURFACE_METRIC_NODE = "surface_metric";
+
+    public static final String METRIC_STATEMENT_ID = "surface";
+
+    public static final Set<String> MESH_PRESERVING_RING_NODES =
+            Set.of(SPLINE_RING_NODE, "loop_through_points");
 
     public static final String NO_UPSTREAM =
             "the working graph has no statement for the ring to read its geometry from";
@@ -343,6 +355,75 @@ public final class RingDslWriter {
         }
         return block.isEmpty() ? source
                 : insertAfter(source, upstreamReference, block, outputReference);
+    }
+
+    /**
+     * The DSL source with every spline ring wired to a surface measurement, which spline_ring
+     * requires: {@code metric=} names the {@code surface_metric} its geometry chain runs back to
+     * through rings, and a ring with none gets a new {@code surface_metric} statement before it.
+     *
+     * @param dslSource working graph
+     * @throws IllegalArgumentException when a statement the wiring rewrites is bound twice
+     * @return the wired source, or the source itself when every spline ring is already wired
+     */
+    public static String wireSurfaceMetric(String dslSource) {
+        List<PythonParser.ParsedNode> statements = NodeGraphRuntime.fromSource(dslSource).statements;
+        Set<String> bound = new HashSet<>();
+        for (PythonParser.ParsedNode statement : statements) {
+            bound.add(statement.id);
+        }
+        List<String> lines = new ArrayList<>(List.of(dslSource.split(LINE_BREAK, -1)));
+        // Only rings pass the measured mesh through untouched, so a metric reaches a statement
+        // only along an unbroken chain of rings reading geometry from geometry.
+        Map<String, String> metricIdByStatement = new HashMap<>();
+        for (PythonParser.ParsedNode statement : statements) {
+            if (SURFACE_METRIC_NODE.equals(statement.type)) {
+                metricIdByStatement.put(statement.id, statement.id);
+                continue;
+            }
+            if (!MESH_PRESERVING_RING_NODES.contains(statement.type)) {
+                continue;
+            }
+            String upstream = geometryInput(statement);
+            String metricId = statement.arguments.get(DEFAULT_UPSTREAM_PORT)
+                    instanceof PythonParser.NodeReference reference
+                    && DEFAULT_UPSTREAM_PORT.equals(reference.portName)
+                    ? metricIdByStatement.get(reference.nodeId) : null;
+            if (statement.arguments.get(SplineRingNode.METRIC.name)
+                    instanceof PythonParser.NodeReference wired) {
+                metricId = wired.nodeId;
+            } else if (SPLINE_RING_NODE.equals(statement.type) && upstream != null) {
+                int target = bindingLine(lines.toArray(new String[0]), statement.id);
+                if (metricId == null) {
+                    metricId = METRIC_STATEMENT_ID;
+                    for (int suffix = 2; bound.contains(metricId); suffix++) {
+                        metricId = METRIC_STATEMENT_ID + "_" + suffix;
+                    }
+                    bound.add(metricId);
+                    upstream = metricId + "." + SurfaceMetricNode.GEOMETRY_OUT.name;
+                    lines.set(target, rewired(lines.get(target), geometryInput(statement),
+                            upstream));
+                    lines.add(target, metricId + " = " + SURFACE_METRIC_NODE + "(geometry="
+                            + geometryInput(statement) + ")");
+                    target++;
+                }
+                String geometryArgument = DEFAULT_UPSTREAM_PORT + "=" + upstream;
+                int at = tokenIndex(lines.get(target), geometryArgument, 0);
+                if (at < 0) {
+                    throw new IllegalArgumentException("statement " + statement.id
+                            + " does not spell its input as " + geometryArgument
+                            + ", so its metric could not be wired");
+                }
+                int end = at + geometryArgument.length();
+                lines.set(target, lines.get(target).substring(0, end) + ", "
+                        + SplineRingNode.METRIC.name + "=" + metricId + "."
+                        + SurfaceMetricNode.METRIC.name + lines.get(target).substring(end));
+            }
+            if (metricId != null) {
+                metricIdByStatement.put(statement.id, metricId);
+            }
+        }
+        return String.join(LINE_BREAK, lines);
     }
 
     /**

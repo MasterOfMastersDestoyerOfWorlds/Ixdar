@@ -25,12 +25,14 @@ import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.paths.GirdlingPlane;
 import ixdar.geometry.mesh.data.paths.SplineAnchorFit;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfacePicker;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.paths.TracedSurfacePath;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
 import ixdar.geometry.mesh.nodes.selection.LoopThroughPointsNode;
 import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.geometry.mesh.nodes.selection.SelectRingNode;
@@ -1612,7 +1614,7 @@ public final class RingTool implements EditTool {
                     deleted++;
                 }
             }
-            RingDslWriter.writeAtomically(path, source);
+            RingDslWriter.writeAtomically(path, RingDslWriter.wireSurfaceMetric(source));
         } catch (IOException | RuntimeException failure) {
             lastError = "could not write " + target + ": " + failure.getMessage();
             Platforms.get().log(LOG_PREFIX + lastError);
@@ -1741,13 +1743,13 @@ public final class RingTool implements EditTool {
      */
     public void adoptGraphRings(MeshTopology surface) {
         graphRingsPending = false;
+        long start = System.nanoTime();
         if (!readyGeodesics(surface)) {
             invalidateRings();
             return;
         }
         NodeGraphRuntime graph = scene.getLastGraphRuntime();
         List<PythonParser.ParsedNode> statements = graph == null ? List.of() : graph.statements;
-        long start = System.nanoTime();
         int adopted = 0;
         List<String> refused = new ArrayList<>();
         // A new graph either proposes rings itself, whose block the next freeze rewrites, or has
@@ -1779,7 +1781,7 @@ public final class RingTool implements EditTool {
                 float[] written = SurfaceWaypoints.parse(
                         String.valueOf(statement.arguments.get(SplineRingNode.NORMAL.name)));
                 normal = written.length == COORDINATES_PER_POINT ? written : null;
-                anchors = SurfaceWaypoints.snap(surface, points,
+                anchors = SurfaceWaypoints.snap(geodesics.metric.nearestVertex, points,
                         points.length / COORDINATES_PER_POINT);
             } else {
                 anchors = fitGraphRing(surface, label, anchored);
@@ -1875,12 +1877,13 @@ public final class RingTool implements EditTool {
                 "[ring-tool] prepared %d faces: pick buffer, %s axis and the intrinsic "
                         + "triangulation (mean edge %.5f) in %.0f ms",
                 surface.faceCount(), limbAxis.skeleton == null ? "curvature" : "skeleton",
-                geodesics.meanEdgeLength, (System.nanoTime() - start) / 1e6));
+                geodesics.metric.meanEdgeLength, (System.nanoTime() - start) / 1e6));
     }
 
     /**
-     * Build the geodesic engine over a surface once, or refuse the surface with the reason in
-     * {@link #lastError} and the log, leaving the scene running without the tool.
+     * Ready the geodesic engine over a surface: on the graph's own surface_metric when one was
+     * measured on it, else on a metric measured here. A surface that cannot be measured is refused
+     * with the reason in {@link #lastError} and the log, leaving the scene running without the tool.
      *
      * @param surface the surface rings are traced on
      * @return true when {@link #geodesics} runs on {@code surface}
@@ -1892,8 +1895,17 @@ public final class RingTool implements EditTool {
         if (surface == refusedSurface) {
             return false;
         }
+        NodeGraphRuntime graph = scene.getLastGraphRuntime();
+        SurfaceMetric metric = null;
+        for (PythonParser.ParsedNode statement : graph == null ? List.<PythonParser.ParsedNode>of()
+                : graph.statements) {
+            if (graph.getNodeOutput(statement.id, SurfaceMetricNode.METRIC.name)
+                    instanceof SurfaceMetric measured && measured.sourceMesh == surface) {
+                metric = measured;
+            }
+        }
         try {
-            geodesics = SurfaceGeodesics.over(surface);
+            geodesics = SurfaceGeodesics.over(metric != null ? metric : SurfaceMetric.of(surface));
             return true;
         } catch (RuntimeException failure) {
             refusedSurface = surface;

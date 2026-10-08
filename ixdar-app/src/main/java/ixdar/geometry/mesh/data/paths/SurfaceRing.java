@@ -89,7 +89,7 @@ public final class SurfaceRing {
                     + " needs at least " + minimum + " surface points, got " + waypointCount
                     + (closed ? "; two points bound a loop only with a third side point" : ""));
         }
-        return build(mesh, SurfaceWaypoints.snap(mesh, packedXyz, waypointCount), closed, pinned,
+        return build(mesh, SurfaceWaypoints.snap(NearestVertex.over(mesh), packedXyz, waypointCount), closed, pinned,
                 iterations);
     }
 
@@ -127,8 +127,9 @@ public final class SurfaceRing {
         ring.waypointVertexIds = waypointVertexIds;
         ring.pinnedWaypointCount = Math.min(Math.max(0, pinned), waypointVertexIds.length);
 
-        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(mesh);
-        IntrinsicPathTracer tracer = IntrinsicPathTracer.snapshotOf(intrinsic);
+        SurfaceMetric metric = SurfaceMetric.of(mesh);
+        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(metric);
+        IntrinsicPathTracer tracer = IntrinsicPathTracer.over(metric);
         int[] seed = GeodesicSeedPath.throughVertices(intrinsic, ring.waypointVertexIds, closed);
         TracedSurfacePath seedTrace = tracer.trace(intrinsic, seed, closed);
         ring.seedPolyline = closedPolyline(seedTrace);
@@ -137,10 +138,10 @@ public final class SurfaceRing {
 
         FlipGeodesics flipper = new FlipGeodesics();
         if (ring.pinnedWaypointCount > 0) {
-            flipper.vertexIsPinned = new boolean[intrinsic.vertexCount];
+            flipper.vertexIsPinned = new boolean[metric.sourceVertexId.length];
             for (int waypoint = 0; waypoint < ring.pinnedWaypointCount; waypoint++) {
                 flipper.vertexIsPinned[
-                        intrinsic.vertexIndexByVertexId[waypointVertexIds[waypoint]]] = true;
+                        metric.vertexIndexByVertexId[waypointVertexIds[waypoint]]] = true;
             }
         }
         int[] tightened = flipper.shorten(intrinsic, seed, closed, iterations);

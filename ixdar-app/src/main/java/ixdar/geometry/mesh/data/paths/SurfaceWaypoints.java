@@ -2,8 +2,6 @@ package ixdar.geometry.mesh.data.paths;
 
 import java.util.Locale;
 
-import ixdar.geometry.mesh.data.MeshTopology;
-
 /**
  * The authored form of a surface path: {@code "x,y,z; x,y,z; ..."} parsed to packed coordinates,
  * printed back byte-stably, and snapped to the mesh vertices a walk runs through.
@@ -84,17 +82,17 @@ public final class SurfaceWaypoints {
      * Snaps each waypoint to the mesh vertex nearest it, the geometric selection rings are
      * re-evaluated through on another scan.
      *
-     * @param mesh          mesh the waypoints are snapped against
+     * @param grid          vertex grid of the mesh the waypoints are snapped against
      * @param packedXyz     packed xyz, three floats per waypoint
      * @param waypointCount waypoints to snap from the front of the array
      * @return mesh vertex ids in waypoint order
      */
-    public static int[] snap(MeshTopology mesh, float[] packedXyz, int waypointCount) {
+    public static int[] snap(NearestVertex grid, float[] packedXyz, int waypointCount) {
         int[] vertexIds = new int[waypointCount];
         for (int waypoint = 0; waypoint < waypointCount; waypoint++) {
             int base = COORDINATES_PER_WAYPOINT * waypoint;
-            vertexIds[waypoint] = NearestVertex.find(mesh, packedXyz[base], packedXyz[base + 1],
-                    packedXyz[base + 2]);
+            vertexIds[waypoint] =
+                    grid.find(packedXyz[base], packedXyz[base + 1], packedXyz[base + 2]);
         }
         return vertexIds;
     }

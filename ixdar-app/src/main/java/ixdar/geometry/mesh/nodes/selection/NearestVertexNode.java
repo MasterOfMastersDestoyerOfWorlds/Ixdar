@@ -68,7 +68,7 @@ public class NearestVertexNode implements MeshNode {
             throw new IllegalStateException("nearest vertex to (" + pt.x() + ", " + pt.y()
                     + ", " + pt.z() + "): the geometry has no mesh");
         }
-        int vertexId = NearestVertex.find(mesh, pt.x(), pt.y(), pt.z());
+        int vertexId = NearestVertex.over(mesh).find(pt.x(), pt.y(), pt.z());
         int vc = mesh.vertexCount();
         boolean[] sel = new boolean[vc];
         int index = -1;

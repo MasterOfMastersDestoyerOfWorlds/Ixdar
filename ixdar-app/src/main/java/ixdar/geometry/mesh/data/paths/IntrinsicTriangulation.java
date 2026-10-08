@@ -2,140 +2,129 @@ package ixdar.geometry.mesh.data.paths;
 
 import java.util.Arrays;
 
-import org.joml.Vector3f;
-
-import ixdar.geometry.mesh.data.MeshTopology;
-
 /**
- * Signpost intrinsic triangulation over a polygon mesh (Sharp, Soliman &amp; Crane 2019), kept
- * current under edge flip.
+ * A signpost intrinsic triangulation kept current under edge flip, over a shared
+ * {@link SurfaceMetric} it never writes: each flip lands in a private overlay of the elements it
+ * changed.
  *
  * <p>
- * Half-edge {@code h} sits on edge {@code h >> 1} and twins {@code h ^ 1}. A polygon starts as
- * intrinsic triangles joined by split edges with no source edge.
+ * Reads fall through to the metric wherever the overlay holds nothing, and
+ * {@link #discardFlips} empties the overlay in time proportional to the flips.
  */
 public final class IntrinsicTriangulation {
 
-    public static final double ANGLE_EPSILON = 1e-5;
-
     public static final double TRIANGLE_TEST_EPSILON = 1e-6;
 
-    public static final int TRIANGLE_SIDES = 3;
+    public static final int ELEMENT_KINDS = 3;
 
-    public static final int HALF_EDGES_PER_FLIP = 6;
+    public static final int HALF_EDGE_KIND = 0;
 
-    /** Mesh the triangulation was built over; its geometry fixes the initial edge lengths. */
-    public MeshTopology sourceMesh;
+    public static final int EDGE_KIND = 1;
 
-    /** Mesh vertex id per dense intrinsic vertex index. */
-    public int[] sourceVertexId;
+    public static final int VERTEX_KIND = 2;
 
-    /** Dense intrinsic vertex index per mesh vertex id; -1 for dead ids. */
-    public int[] vertexIndexByVertexId;
+    public static final int INITIAL_OVERLAY_CAPACITY = 256;
 
-    /**
-     * Mesh edge id per dense intrinsic edge index, as the edge stood before any flip, or
-     * {@link MeshTopology#NONE} for an edge splitting a source polygon. Source edges come first.
-     */
-    public int[] sourceEdgeId;
+    public static final int EMPTY_SLOT = -1;
+
+    public static final int FIBONACCI_HASH = 0x9E3779B9;
+
+    /** Metric every unflipped element is read from. */
+    public final SurfaceMetric metric;
 
     /**
-     * Mesh face id per dense intrinsic face index, as the face stood before any flip: the polygon
-     * each starting intrinsic triangle lies in.
+     * Overlay key per slot, {@code element * ELEMENT_KINDS + kind}, or {@link #EMPTY_SLOT}. Columns:
+     * a half-edge's next, tail and signpost; an edge's length; a vertex's reference half-edge.
+     * Faces are not tracked: nothing reads them once an edge has flipped.
      */
-    public int[] sourceFaceId;
-
-    /**
-     * Whether an intrinsic edge is still the edge it was built as, a source edge or a straight
-     * split inside one source polygon, rather than a flipped one that crosses source edges.
-     */
-    public boolean[] edgeIsOriginal;
-
-    /** Dense intrinsic vertex index each half-edge leaves from. */
-    public int[] halfEdgeTail;
-
-    /** Next half-edge around the same face, or -1 when the half-edge is exterior. */
-    public int[] halfEdgeNext;
-
-    /** Dense intrinsic face index on the half-edge's left, or -1 when it is exterior. */
-    public int[] halfEdgeFace;
-
-    /** One bounding half-edge per intrinsic face. */
-    public int[] faceHalfEdge;
-
-    /** Intrinsic length per edge index, shared by both of the edge's half-edges. */
-    public double[] edgeLength;
-
-    /** Counter-clockwise angular coordinate of each half-edge at its tail vertex. */
-    public double[] signpostAngle;
-
-    /** Total corner angle around each vertex; {@code 2*pi} in the interior of a flat region. */
-    public double[] vertexAngleSum;
-
-    /** Outgoing half-edge whose signpost angle is zero, per vertex. */
-    public int[] vertexReferenceHalfEdge;
-
-    /** Whether the vertex lies on the source mesh boundary. */
-    public boolean[] vertexIsBoundary;
-
-    /** Number of intrinsic vertices. */
-    public int vertexCount;
-
-    /** Number of intrinsic edges; flips preserve edge identity, so this never changes. */
-    public int edgeCount;
-
-    /** Number of intrinsic half-edges, always {@code 2 * edgeCount}. */
-    public int halfEdgeCount;
-
-    /** Number of intrinsic faces. */
-    public int faceCount;
-
-    /**
-     * Whether every flip records what it overwrote so {@link #undoFlips} can put the
-     * triangulation back. A cached triangulation that many runs share must set this; a
-     * throw-away one need not pay for it.
-     */
-    public boolean recordFlips;
-
-    /** Flips recorded since the journal was last unwound. */
-    public int journalledFlipCount;
-
+    private int[] slotKey = new int[0];
+    private int[] slotFirst = new int[0];
+    private int[] slotSecond = new int[0];
+    private double[] slotValue = new double[0];
+    private int[] occupiedSlot = new int[0];
+    private int occupiedCount;
+    private int hashShift;
     private final double[] diamondX = new double[4];
     private final double[] diamondY = new double[4];
-    private int[] journalHalfEdge = new int[0];
-    private int[] journalNext = new int[0];
-    private int[] journalTail = new int[0];
-    private int[] journalFace = new int[0];
-    private double[] journalAngle = new double[0];
-    private int[] journalEdge = new int[0];
-    private double[] journalEdgeLength = new double[0];
-    private boolean[] journalEdgeWasOriginal = new boolean[0];
-    private int[] journalFaceId = new int[0];
-    private int[] journalFaceHalfEdge = new int[0];
-    private int[] journalVertex = new int[0];
-    private int[] journalVertexReference = new int[0];
-    private int nextFreeFace;
-    private final Vector3f cornerPosition = new Vector3f();
 
-    private IntrinsicTriangulation() {
+    private IntrinsicTriangulation(SurfaceMetric metric) {
+        this.metric = metric;
     }
 
     /**
-     * Builds the signpost structure over a polygon mesh, taking Euclidean edge lengths; each
-     * polygon is ear-split into intrinsic triangles on its shortest valid diagonals.
+     * A flippable triangulation that starts as the metric's own.
      *
-     * @param mesh source mesh; every face needs at least three sides
-     * @throws IllegalArgumentException when a face has fewer than three sides or the mesh is not
-     *                                  manifold
-     * @return a fresh triangulation whose connectivity mirrors {@code mesh}
+     * @param metric shared metric, read and never written
+     * @return a triangulation with no flips
      */
-    public static IntrinsicTriangulation over(MeshTopology mesh) {
-        IntrinsicTriangulation intrinsic = new IntrinsicTriangulation();
-        intrinsic.sourceMesh = mesh;
-        intrinsic.buildConnectivity(mesh);
-        intrinsic.measureEdges(mesh);
-        intrinsic.layOutSignposts();
-        return intrinsic;
+    public static IntrinsicTriangulation over(SurfaceMetric metric) {
+        return new IntrinsicTriangulation(metric);
+    }
+
+    /**
+     * Dense intrinsic vertex index a half-edge leaves from.
+     *
+     * @param halfEdge half-edge to query
+     * @return its tail vertex
+     */
+    public int halfEdgeTail(int halfEdge) {
+        int slot = find(halfEdge, HALF_EDGE_KIND);
+        return slot < 0 ? metric.halfEdgeTail[halfEdge] : slotSecond[slot];
+    }
+
+    /**
+     * Next half-edge around the same face.
+     *
+     * @param halfEdge half-edge to query
+     * @return the next half-edge, or -1 when the half-edge is exterior
+     */
+    public int halfEdgeNext(int halfEdge) {
+        int slot = find(halfEdge, HALF_EDGE_KIND);
+        return slot < 0 ? metric.halfEdgeNext[halfEdge] : slotFirst[slot];
+    }
+
+    /**
+     * Counter-clockwise angular coordinate of a half-edge at its tail vertex.
+     *
+     * @param halfEdge half-edge to query
+     * @return the signpost angle in {@code [0, vertexAngleSum)}
+     */
+    public double signpostAngle(int halfEdge) {
+        int slot = find(halfEdge, HALF_EDGE_KIND);
+        return slot < 0 ? metric.signpostAngle[halfEdge] : slotValue[slot];
+    }
+
+    /**
+     * Intrinsic length of an edge.
+     *
+     * @param edge dense intrinsic edge index
+     * @return its length, shared by both half-edges
+     */
+    public double edgeLength(int edge) {
+        int slot = find(edge, EDGE_KIND);
+        return slot < 0 ? metric.edgeLength[edge] : slotValue[slot];
+    }
+
+    /**
+     * Whether an edge is still the edge it was built as, a source edge or a straight split inside
+     * one source polygon, rather than a flipped one that crosses source edges.
+     *
+     * @param edge dense intrinsic edge index
+     * @return true when the edge has not been flipped
+     */
+    public boolean edgeIsOriginal(int edge) {
+        return find(edge, EDGE_KIND) < 0;
+    }
+
+    /**
+     * Outgoing half-edge whose signpost angle is zero.
+     *
+     * @param vertex dense intrinsic vertex index
+     * @return the reference half-edge, or -1 for an isolated vertex
+     */
+    public int vertexReferenceHalfEdge(int vertex) {
+        int slot = find(vertex, VERTEX_KIND);
+        return slot < 0 ? metric.vertexReferenceHalfEdge[vertex] : slotFirst[slot];
     }
 
     /**
@@ -145,7 +134,7 @@ public final class IntrinsicTriangulation {
      * @return dense intrinsic vertex index of the head
      */
     public int halfEdgeHead(int halfEdge) {
-        return halfEdgeTail[halfEdge ^ 1];
+        return halfEdgeTail(halfEdge ^ 1);
     }
 
     /**
@@ -155,7 +144,7 @@ public final class IntrinsicTriangulation {
      * @return the half-edge whose {@code next} is {@code halfEdge}
      */
     public int halfEdgePrevious(int halfEdge) {
-        return halfEdgeNext[halfEdgeNext[halfEdge]];
+        return halfEdgeNext(halfEdgeNext(halfEdge));
     }
 
     /**
@@ -165,7 +154,7 @@ public final class IntrinsicTriangulation {
      * @return true when the half-edge carries a face
      */
     public boolean isInterior(int halfEdge) {
-        return halfEdgeNext[halfEdge] >= 0;
+        return metric.halfEdgeNext[halfEdge] >= 0;
     }
 
     /**
@@ -175,7 +164,7 @@ public final class IntrinsicTriangulation {
      * @return true when either side of the edge is exterior
      */
     public boolean isBoundaryEdge(int edge) {
-        return halfEdgeNext[edge << 1] < 0 || halfEdgeNext[(edge << 1) | 1] < 0;
+        return metric.halfEdgeNext[edge << 1] < 0 || metric.halfEdgeNext[(edge << 1) | 1] < 0;
     }
 
     /**
@@ -195,7 +184,7 @@ public final class IntrinsicTriangulation {
      * @return the outgoing half-edge one corner clockwise
      */
     public int clockwiseNeighbor(int halfEdge) {
-        return halfEdgeNext[halfEdge ^ 1];
+        return halfEdgeNext(halfEdge ^ 1);
     }
 
     /**
@@ -206,7 +195,7 @@ public final class IntrinsicTriangulation {
      * @return the half-edge index, or -1 when the two vertices share no intrinsic edge
      */
     public int halfEdgeBetween(int fromVertex, int toVertex) {
-        int reference = vertexReferenceHalfEdge[fromVertex];
+        int reference = vertexReferenceHalfEdge(fromVertex);
         if (reference < 0) {
             return -1;
         }
@@ -215,7 +204,7 @@ public final class IntrinsicTriangulation {
             if (halfEdgeHead(current) == toVertex) {
                 return current;
             }
-            if (halfEdgeNext[current] < 0) {
+            if (!isInterior(current)) {
                 break;
             }
             current = counterClockwiseNeighbor(current);
@@ -230,9 +219,9 @@ public final class IntrinsicTriangulation {
      * @return the corner angle in radians, in {@code [0, pi]}
      */
     public double cornerAngle(int halfEdge) {
-        double adjacent = edgeLength[halfEdge >> 1];
-        double other = edgeLength[halfEdgePrevious(halfEdge) >> 1];
-        double opposite = edgeLength[halfEdgeNext[halfEdge] >> 1];
+        double adjacent = edgeLength(halfEdge >> 1);
+        double other = edgeLength(halfEdgePrevious(halfEdge) >> 1);
+        double opposite = edgeLength(halfEdgeNext(halfEdge) >> 1);
         double denominator = 2.0 * adjacent * other;
         if (denominator <= 0.0) {
             return 0.0;
@@ -249,7 +238,7 @@ public final class IntrinsicTriangulation {
      * @return the equivalent angle inside one turn around {@code vertex}
      */
     public double standardizeAngle(int vertex, double angle) {
-        double period = vertexAngleSum[vertex];
+        double period = metric.vertexAngleSum[vertex];
         if (period <= 0.0) {
             return 0.0;
         }
@@ -269,11 +258,11 @@ public final class IntrinsicTriangulation {
      * @param sideAngles       two-element buffer filled with {left, right}
      */
     public void measureSideAngles(int incomingHalfEdge, int outgoingHalfEdge, double[] sideAngles) {
-        int middleVertex = halfEdgeTail[outgoingHalfEdge];
-        double period = vertexAngleSum[middleVertex];
-        double angleIn = signpostAngle[incomingHalfEdge ^ 1];
-        double angleOut = signpostAngle[outgoingHalfEdge];
-        boolean boundary = vertexIsBoundary[middleVertex];
+        int middleVertex = halfEdgeTail(outgoingHalfEdge);
+        double period = metric.vertexAngleSum[middleVertex];
+        double angleIn = signpostAngle(incomingHalfEdge ^ 1);
+        double angleOut = signpostAngle(outgoingHalfEdge);
+        boolean boundary = metric.vertexIsBoundary[middleVertex];
 
         double right;
         if (angleIn < angleOut) {
@@ -307,23 +296,30 @@ public final class IntrinsicTriangulation {
         }
         int frontHalfEdge = edge << 1;
         int backHalfEdge = frontHalfEdge | 1;
-        int frontNext = halfEdgeNext[frontHalfEdge];
-        int frontPrevious = halfEdgeNext[frontNext];
-        int backNext = halfEdgeNext[backHalfEdge];
-        int backPrevious = halfEdgeNext[backNext];
-        if (halfEdgeNext[frontPrevious] != frontHalfEdge
-                || halfEdgeNext[backPrevious] != backHalfEdge) {
+        int frontNext = halfEdgeNext(frontHalfEdge);
+        int frontPrevious = halfEdgeNext(frontNext);
+        int backNext = halfEdgeNext(backHalfEdge);
+        int backPrevious = halfEdgeNext(backNext);
+        if (halfEdgeNext(frontPrevious) != frontHalfEdge
+                || halfEdgeNext(backPrevious) != backHalfEdge) {
             return false;
         }
-        int tailVertex = halfEdgeTail[frontHalfEdge];
-        int headVertex = halfEdgeTail[backHalfEdge];
-        int frontApex = halfEdgeTail[frontPrevious];
-        int backApex = halfEdgeTail[backPrevious];
+        int tailVertex = halfEdgeTail(frontHalfEdge);
+        int headVertex = halfEdgeTail(backHalfEdge);
+        int frontApex = halfEdgeTail(frontPrevious);
+        int backApex = halfEdgeTail(backPrevious);
         if (frontApex == backApex || frontNext == backHalfEdge || backNext == frontHalfEdge) {
             return false;
         }
 
-        layOutDiamond(frontHalfEdge);
+        // Lay the two triangles flat: the edge runs from corner 2 to corner 0, corner 3 sits at the
+        // origin and edge 3-0 lies along the x axis.
+        diamondX[3] = 0.0;
+        diamondY[3] = 0.0;
+        diamondX[0] = edgeLength(backPrevious >> 1);
+        diamondY[0] = 0.0;
+        layOutTriangleVertex(3, 0, edgeLength(edge), edgeLength(backNext >> 1), 2);
+        layOutTriangleVertex(2, 0, edgeLength(frontNext >> 1), edgeLength(frontPrevious >> 1), 1);
         double firstArea = cross(diamondX[1] - diamondX[0], diamondY[1] - diamondY[0],
                 diamondX[3] - diamondX[0], diamondY[3] - diamondY[0]);
         double secondArea = cross(diamondX[3] - diamondX[2], diamondY[3] - diamondY[2],
@@ -337,118 +333,49 @@ public final class IntrinsicTriangulation {
             return false;
         }
 
-        int frontFace = halfEdgeFace[frontHalfEdge];
-        int backFace = halfEdgeFace[backHalfEdge];
-        if (recordFlips) {
-            journalFlip(edge, frontHalfEdge, backHalfEdge, frontNext, frontPrevious, backNext,
-                    backPrevious, frontFace, backFace, tailVertex, headVertex);
+        // Each slot is written right after it is touched: a later touch may rehash the overlay.
+        int slot = touch(frontHalfEdge, HALF_EDGE_KIND);
+        slotFirst[slot] = backPrevious;
+        slotSecond[slot] = frontApex;
+        slot = touch(backPrevious, HALF_EDGE_KIND);
+        slotFirst[slot] = frontNext;
+        slot = touch(frontNext, HALF_EDGE_KIND);
+        slotFirst[slot] = frontHalfEdge;
+        slot = touch(backHalfEdge, HALF_EDGE_KIND);
+        slotFirst[slot] = frontPrevious;
+        slotSecond[slot] = backApex;
+        slot = touch(frontPrevious, HALF_EDGE_KIND);
+        slotFirst[slot] = backNext;
+        slot = touch(backNext, HALF_EDGE_KIND);
+        slotFirst[slot] = backHalfEdge;
+        if (vertexReferenceHalfEdge(tailVertex) == frontHalfEdge) {
+            slot = touch(tailVertex, VERTEX_KIND);
+            slotFirst[slot] = backNext;
         }
-        halfEdgeNext[frontHalfEdge] = backPrevious;
-        halfEdgeNext[backPrevious] = frontNext;
-        halfEdgeNext[frontNext] = frontHalfEdge;
-        halfEdgeNext[backHalfEdge] = frontPrevious;
-        halfEdgeNext[frontPrevious] = backNext;
-        halfEdgeNext[backNext] = backHalfEdge;
-        halfEdgeTail[frontHalfEdge] = frontApex;
-        halfEdgeTail[backHalfEdge] = backApex;
-        halfEdgeFace[frontPrevious] = backFace;
-        halfEdgeFace[backPrevious] = frontFace;
-        faceHalfEdge[frontFace] = frontHalfEdge;
-        faceHalfEdge[backFace] = backHalfEdge;
-        if (vertexReferenceHalfEdge[tailVertex] == frontHalfEdge) {
-            vertexReferenceHalfEdge[tailVertex] = backNext;
+        if (vertexReferenceHalfEdge(headVertex) == backHalfEdge) {
+            slot = touch(headVertex, VERTEX_KIND);
+            slotFirst[slot] = frontNext;
         }
-        if (vertexReferenceHalfEdge[headVertex] == backHalfEdge) {
-            vertexReferenceHalfEdge[headVertex] = frontNext;
-        }
-
-        edgeLength[edge] = newLength;
-        edgeIsOriginal[edge] = false;
-        updateAngleFromClockwiseNeighbor(frontHalfEdge);
-        updateAngleFromClockwiseNeighbor(backHalfEdge);
+        slot = touch(edge, EDGE_KIND);
+        slotValue[slot] = newLength;
+        double frontSignpost = clockwiseSignpost(frontHalfEdge);
+        slot = touch(frontHalfEdge, HALF_EDGE_KIND);
+        slotValue[slot] = frontSignpost;
+        double backSignpost = clockwiseSignpost(backHalfEdge);
+        slot = touch(backHalfEdge, HALF_EDGE_KIND);
+        slotValue[slot] = backSignpost;
         return true;
     }
 
     /**
-     * Saves everything one flip is about to overwrite: the six half-edges of the two triangles,
-     * the flipped edge, the two faces and the two vertices whose reference half-edge may move.
+     * Forgets every flip, so the triangulation reads as the metric again; the cost is one slot
+     * clear per element the flips touched.
      */
-    private void journalFlip(int edge, int frontHalfEdge, int backHalfEdge, int frontNext,
-            int frontPrevious, int backNext, int backPrevious, int frontFace, int backFace,
-            int tailVertex, int headVertex) {
-        if (journalledFlipCount == journalEdge.length) {
-            int grown = Math.max(HALF_EDGES_PER_FLIP * HALF_EDGES_PER_FLIP,
-                    journalEdge.length * 2);
-            journalHalfEdge = Arrays.copyOf(journalHalfEdge, HALF_EDGES_PER_FLIP * grown);
-            journalNext = Arrays.copyOf(journalNext, HALF_EDGES_PER_FLIP * grown);
-            journalTail = Arrays.copyOf(journalTail, HALF_EDGES_PER_FLIP * grown);
-            journalFace = Arrays.copyOf(journalFace, HALF_EDGES_PER_FLIP * grown);
-            journalAngle = Arrays.copyOf(journalAngle, HALF_EDGES_PER_FLIP * grown);
-            journalFaceId = Arrays.copyOf(journalFaceId, 2 * grown);
-            journalFaceHalfEdge = Arrays.copyOf(journalFaceHalfEdge, 2 * grown);
-            journalVertex = Arrays.copyOf(journalVertex, 2 * grown);
-            journalVertexReference = Arrays.copyOf(journalVertexReference, 2 * grown);
-            journalEdge = Arrays.copyOf(journalEdge, grown);
-            journalEdgeLength = Arrays.copyOf(journalEdgeLength, grown);
-            journalEdgeWasOriginal = Arrays.copyOf(journalEdgeWasOriginal, grown);
+    public void discardFlips() {
+        for (int index = 0; index < occupiedCount; index++) {
+            slotKey[occupiedSlot[index]] = EMPTY_SLOT;
         }
-        int flip = journalledFlipCount++;
-        int[] touched = {
-            frontHalfEdge, backHalfEdge, frontNext, frontPrevious, backNext, backPrevious };
-        for (int slot = 0; slot < HALF_EDGES_PER_FLIP; slot++) {
-            int entry = HALF_EDGES_PER_FLIP * flip + slot;
-            journalHalfEdge[entry] = touched[slot];
-            journalNext[entry] = halfEdgeNext[touched[slot]];
-            journalTail[entry] = halfEdgeTail[touched[slot]];
-            journalFace[entry] = halfEdgeFace[touched[slot]];
-            journalAngle[entry] = signpostAngle[touched[slot]];
-        }
-        journalFaceId[2 * flip] = frontFace;
-        journalFaceId[2 * flip + 1] = backFace;
-        journalFaceHalfEdge[2 * flip] = faceHalfEdge[frontFace];
-        journalFaceHalfEdge[2 * flip + 1] = faceHalfEdge[backFace];
-        journalVertex[2 * flip] = tailVertex;
-        journalVertex[2 * flip + 1] = headVertex;
-        journalVertexReference[2 * flip] = vertexReferenceHalfEdge[tailVertex];
-        journalVertexReference[2 * flip + 1] = vertexReferenceHalfEdge[headVertex];
-        journalEdge[flip] = edge;
-        journalEdgeLength[flip] = edgeLength[edge];
-        journalEdgeWasOriginal[flip] = edgeIsOriginal[edge];
-    }
-
-    /**
-     * Puts every journalled flip back, newest first, so a cached triangulation returns to the
-     * state it was in when {@link #recordFlips} was switched on.
-     *
-     * <p>
-     * Only flips are undone; the connectivity is restored value by value, so the result is
-     * bit-identical and a later run on the same triangulation is deterministic.
-     */
-    public void undoFlips() {
-        for (int flip = journalledFlipCount - 1; flip >= 0; flip--) {
-            for (int slot = 0; slot < HALF_EDGES_PER_FLIP; slot++) {
-                int entry = HALF_EDGES_PER_FLIP * flip + slot;
-                int halfEdge = journalHalfEdge[entry];
-                halfEdgeNext[halfEdge] = journalNext[entry];
-                halfEdgeTail[halfEdge] = journalTail[entry];
-                halfEdgeFace[halfEdge] = journalFace[entry];
-                signpostAngle[halfEdge] = journalAngle[entry];
-            }
-            for (int slot = 0; slot < 2; slot++) {
-                faceHalfEdge[journalFaceId[2 * flip + slot]] =
-                        journalFaceHalfEdge[2 * flip + slot];
-                vertexReferenceHalfEdge[journalVertex[2 * flip + slot]] =
-                        journalVertexReference[2 * flip + slot];
-            }
-            edgeLength[journalEdge[flip]] = journalEdgeLength[flip];
-            edgeIsOriginal[journalEdge[flip]] = journalEdgeWasOriginal[flip];
-        }
-        journalledFlipCount = 0;
-    }
-
-    /** Drops the recorded flips without undoing them, keeping the triangulation as it stands. */
-    public void forgetFlips() {
-        journalledFlipCount = 0;
+        occupiedCount = 0;
     }
 
     /**
@@ -461,279 +388,25 @@ public final class IntrinsicTriangulation {
     public double chainLength(int[] halfEdges, int count) {
         double total = 0.0;
         for (int index = 0; index < count; index++) {
-            total += edgeLength[halfEdges[index] >> 1];
+            total += edgeLength(halfEdges[index] >> 1);
         }
         return total;
     }
 
-    private void buildConnectivity(MeshTopology mesh) {
-        int maxVertexId = 0;
-        for (int index = 0; index < mesh.vertexCount(); index++) {
-            maxVertexId = Math.max(maxVertexId, mesh.vertexIdAt(index));
-        }
-        vertexCount = mesh.vertexCount();
-        sourceVertexId = new int[vertexCount];
-        vertexIndexByVertexId = new int[maxVertexId + 1];
-        Arrays.fill(vertexIndexByVertexId, -1);
-        for (int index = 0; index < vertexCount; index++) {
-            int vertexId = mesh.vertexIdAt(index);
-            sourceVertexId[index] = vertexId;
-            vertexIndexByVertexId[vertexId] = index;
-        }
-
-        int sourceEdgeCount = mesh.edgeCount();
-        faceCount = 0;
-        int splitEdgeCount = 0;
-        for (int index = 0; index < mesh.faceCount(); index++) {
-            int faceId = mesh.faceIdAt(index);
-            int sides = mesh.faceHalfEdgeCount(faceId);
-            if (sides < TRIANGLE_SIDES) {
-                throw new IllegalArgumentException("intrinsic triangulation needs polygons, face "
-                        + faceId + " has " + sides + " sides");
-            }
-            splitEdgeCount += sides - TRIANGLE_SIDES;
-            faceCount += sides - 2;
-        }
-        edgeCount = sourceEdgeCount + splitEdgeCount;
-        halfEdgeCount = 2 * edgeCount;
-        sourceEdgeId = new int[edgeCount];
-        edgeIsOriginal = new boolean[edgeCount];
-        edgeLength = new double[edgeCount];
-        halfEdgeTail = new int[halfEdgeCount];
-        halfEdgeNext = new int[halfEdgeCount];
-        halfEdgeFace = new int[halfEdgeCount];
-        signpostAngle = new double[halfEdgeCount];
-        Arrays.fill(halfEdgeNext, -1);
-        Arrays.fill(halfEdgeFace, -1);
-        Arrays.fill(edgeIsOriginal, true);
-
-        int maxHalfEdgeId = 0;
-        for (int index = 0; index < mesh.halfEdgeCount(); index++) {
-            maxHalfEdgeId = Math.max(maxHalfEdgeId, mesh.halfEdgeIdAt(index));
-        }
-        int[] halfEdgeIndexByHalfEdgeId = new int[maxHalfEdgeId + 1];
-        Arrays.fill(halfEdgeIndexByHalfEdgeId, -1);
-        Arrays.fill(sourceEdgeId, sourceEdgeCount, edgeCount, MeshTopology.NONE);
-        for (int index = 0; index < sourceEdgeCount; index++) {
-            int edgeId = mesh.edgeIdAt(index);
-            sourceEdgeId[index] = edgeId;
-            int frontId = mesh.edgeHalfEdge(edgeId);
-            int backId = mesh.halfEdgeTwin(frontId);
-            int front = index << 1;
-            int back = front | 1;
-            halfEdgeIndexByHalfEdgeId[frontId] = front;
-            if (backId >= 0) {
-                halfEdgeIndexByHalfEdgeId[backId] = back;
-            }
-            halfEdgeTail[front] = vertexIndexByVertexId[mesh.halfEdgeVertex(frontId)];
-            halfEdgeTail[back] = vertexIndexByVertexId[mesh.halfEdgeEndVertex(frontId)];
-        }
-
-        sourceFaceId = new int[faceCount];
-        faceHalfEdge = new int[faceCount];
-        int nextSplitEdge = sourceEdgeCount;
-        nextFreeFace = 0;
-        for (int index = 0; index < mesh.faceCount(); index++) {
-            int faceId = mesh.faceIdAt(index);
-            int[] boundary = new int[mesh.faceHalfEdgeCount(faceId)];
-            for (int side = 0; side < boundary.length; side++) {
-                boundary[side] = halfEdgeIndexByHalfEdgeId[mesh.faceHalfEdgeAt(faceId, side)];
-                if (boundary[side] < 0) {
-                    throw new IllegalArgumentException("face " + faceId
-                            + " uses a half-edge its edge does not pair; the mesh is not manifold");
-                }
-            }
-            // Ear-clip a polygon, always cutting the shortest diagonal of an ear valid in its
-            // Newell plane, so a convex quad splits on its shorter diagonal and a concave polygon
-            // never folds over itself; the last three sides close the last triangle.
-            int remaining = boundary.length;
-            int[] ring = boundary;
-            if (remaining > TRIANGLE_SIDES) {
-                double[] xyz = new double[TRIANGLE_SIDES * remaining];
-                double[] normal = new double[TRIANGLE_SIDES];
-                int[] cornerSlot = new int[remaining];
-                for (int corner = 0; corner < remaining; corner++) {
-                    mesh.vertexPosition(sourceVertexId[halfEdgeTail[ring[corner]]], cornerPosition);
-                    xyz[TRIANGLE_SIDES * corner] = cornerPosition.x;
-                    xyz[TRIANGLE_SIDES * corner + 1] = cornerPosition.y;
-                    xyz[TRIANGLE_SIDES * corner + 2] = cornerPosition.z;
-                    cornerSlot[corner] = corner;
-                }
-                for (int corner = 0; corner < remaining; corner++) {
-                    int here = TRIANGLE_SIDES * corner;
-                    int there = TRIANGLE_SIDES * ((corner + 1) % remaining);
-                    normal[0] += (xyz[here + 1] - xyz[there + 1]) * (xyz[here + 2] + xyz[there + 2]);
-                    normal[1] += (xyz[here + 2] - xyz[there + 2]) * (xyz[here] + xyz[there]);
-                    normal[2] += (xyz[here] - xyz[there]) * (xyz[here + 1] + xyz[there + 1]);
-                }
-                while (remaining > TRIANGLE_SIDES) {
-                    int bestEar = 0;
-                    boolean bestValid = false;
-                    double bestLength = Double.POSITIVE_INFINITY;
-                    for (int ear = 0; ear < remaining; ear++) {
-                        int previous = cornerSlot[(ear + remaining - 1) % remaining];
-                        int middle = cornerSlot[ear];
-                        int following = cornerSlot[(ear + 1) % remaining];
-                        boolean valid = turn(xyz, previous, middle, following, normal) > 0.0;
-                        for (int other = 0; other < remaining && valid; other++) {
-                            int slot = cornerSlot[other];
-                            valid = slot == previous || slot == middle || slot == following
-                                    || turn(xyz, previous, middle, slot, normal) < 0.0
-                                    || turn(xyz, middle, following, slot, normal) < 0.0
-                                    || turn(xyz, following, previous, slot, normal) < 0.0;
-                        }
-                        double dx = xyz[TRIANGLE_SIDES * previous]
-                                - xyz[TRIANGLE_SIDES * following];
-                        double dy = xyz[TRIANGLE_SIDES * previous + 1]
-                                - xyz[TRIANGLE_SIDES * following + 1];
-                        double dz = xyz[TRIANGLE_SIDES * previous + 2]
-                                - xyz[TRIANGLE_SIDES * following + 2];
-                        double length = dx * dx + dy * dy + dz * dz;
-                        if (valid && !bestValid || valid == bestValid && length < bestLength) {
-                            bestEar = ear;
-                            bestValid = valid;
-                            bestLength = length;
-                        }
-                    }
-                    int incoming = (bestEar + remaining - 1) % remaining;
-                    int inEar = nextSplitEdge++ << 1;
-                    int onPolygon = inEar | 1;
-                    halfEdgeTail[inEar] = halfEdgeTail[ring[(bestEar + 1) % remaining]];
-                    halfEdgeTail[onPolygon] = halfEdgeTail[ring[incoming]];
-                    linkTriangle(ring[incoming], ring[bestEar], inEar, faceId);
-                    ring[incoming] = onPolygon;
-                    System.arraycopy(ring, bestEar + 1, ring, bestEar, remaining - bestEar - 1);
-                    System.arraycopy(cornerSlot, bestEar + 1, cornerSlot, bestEar,
-                            remaining - bestEar - 1);
-                    remaining--;
-                }
-            }
-            linkTriangle(ring[0], ring[1], ring[2], faceId);
-        }
-
-        vertexIsBoundary = new boolean[vertexCount];
-        vertexReferenceHalfEdge = new int[vertexCount];
-        Arrays.fill(vertexReferenceHalfEdge, -1);
-        for (int halfEdge = 0; halfEdge < halfEdgeCount; halfEdge++) {
-            int tail = halfEdgeTail[halfEdge];
-            if (halfEdgeNext[halfEdge] < 0) {
-                vertexIsBoundary[tail] = true;
-                vertexIsBoundary[halfEdgeHead(halfEdge)] = true;
-            }
-        }
-        for (int halfEdge = halfEdgeCount - 1; halfEdge >= 0; halfEdge--) {
-            int tail = halfEdgeTail[halfEdge];
-            if (halfEdgeNext[halfEdge] < 0) {
-                continue;
-            }
-            boolean startsBoundaryFan = halfEdgeNext[halfEdge ^ 1] < 0;
-            if (!vertexIsBoundary[tail] || startsBoundaryFan) {
-                vertexReferenceHalfEdge[tail] = halfEdge;
-            }
-        }
-    }
-
     /**
-     * Signed turn at {@code middle} from {@code from} to {@code to}, positive when it is
-     * counter-clockwise about the polygon normal.
+     * The signpost angle a just-flipped half-edge takes: its clockwise neighbour's angle plus the
+     * corner between them, or the fixed angle at either end of a boundary fan.
      */
-    private static double turn(double[] xyz, int from, int middle, int to, double[] normal) {
-        double inX = xyz[TRIANGLE_SIDES * middle] - xyz[TRIANGLE_SIDES * from];
-        double inY = xyz[TRIANGLE_SIDES * middle + 1] - xyz[TRIANGLE_SIDES * from + 1];
-        double inZ = xyz[TRIANGLE_SIDES * middle + 2] - xyz[TRIANGLE_SIDES * from + 2];
-        double outX = xyz[TRIANGLE_SIDES * to] - xyz[TRIANGLE_SIDES * middle];
-        double outY = xyz[TRIANGLE_SIDES * to + 1] - xyz[TRIANGLE_SIDES * middle + 1];
-        double outZ = xyz[TRIANGLE_SIDES * to + 2] - xyz[TRIANGLE_SIDES * middle + 2];
-        return (inY * outZ - inZ * outY) * normal[0] + (inZ * outX - inX * outZ) * normal[1]
-                + (inX * outY - inY * outX) * normal[2];
-    }
-
-    private void linkTriangle(int first, int second, int third, int faceId) {
-        int face = nextFreeFace++;
-        halfEdgeNext[first] = second;
-        halfEdgeNext[second] = third;
-        halfEdgeNext[third] = first;
-        halfEdgeFace[first] = face;
-        halfEdgeFace[second] = face;
-        halfEdgeFace[third] = face;
-        faceHalfEdge[face] = first;
-        sourceFaceId[face] = faceId;
-    }
-
-    private void measureEdges(MeshTopology mesh) {
-        Vector3f tailPosition = new Vector3f();
-        Vector3f headPosition = new Vector3f();
-        for (int edge = 0; edge < edgeCount; edge++) {
-            int front = edge << 1;
-            mesh.vertexPosition(sourceVertexId[halfEdgeTail[front]], tailPosition);
-            mesh.vertexPosition(sourceVertexId[halfEdgeTail[front | 1]], headPosition);
-            edgeLength[edge] = tailPosition.distance(headPosition);
+    private double clockwiseSignpost(int halfEdge) {
+        int tail = halfEdgeTail(halfEdge);
+        if (halfEdgeNext(halfEdge) < 0) {
+            return metric.vertexAngleSum[tail];
         }
-    }
-
-    private void layOutSignposts() {
-        vertexAngleSum = new double[vertexCount];
-        for (int halfEdge = 0; halfEdge < halfEdgeCount; halfEdge++) {
-            if (halfEdgeNext[halfEdge] >= 0) {
-                vertexAngleSum[halfEdgeTail[halfEdge]] += cornerAngle(halfEdge);
-            }
-        }
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
-            int first = vertexReferenceHalfEdge[vertex];
-            if (first < 0) {
-                continue;
-            }
-            double running = 0.0;
-            int current = first;
-            do {
-                signpostAngle[current] = running;
-                if (halfEdgeNext[current] < 0) {
-                    break;
-                }
-                running += cornerAngle(current);
-                current = counterClockwiseNeighbor(current);
-            } while (current != first);
-        }
-    }
-
-    private void updateAngleFromClockwiseNeighbor(int halfEdge) {
-        int tail = halfEdgeTail[halfEdge];
-        if (halfEdgeNext[halfEdge] < 0) {
-            signpostAngle[halfEdge] = vertexAngleSum[tail];
-            return;
-        }
-        if (halfEdgeNext[halfEdge ^ 1] < 0) {
-            signpostAngle[halfEdge] = 0.0;
-            return;
+        if (halfEdgeNext(halfEdge ^ 1) < 0) {
+            return 0.0;
         }
         int clockwise = clockwiseNeighbor(halfEdge);
-        signpostAngle[halfEdge] =
-                standardizeAngle(tail, signpostAngle[clockwise] + cornerAngle(clockwise));
-    }
-
-    /**
-     * Lays the two triangles around {@code frontHalfEdge} flat: the half-edge runs from corner 2
-     * to corner 0, corner 3 sits at the origin, and edge 3-0 lies along the x axis.
-     */
-    private void layOutDiamond(int frontHalfEdge) {
-        int frontNext = halfEdgeNext[frontHalfEdge];
-        int frontPrevious = halfEdgeNext[frontNext];
-        int backHalfEdge = frontHalfEdge ^ 1;
-        int backNext = halfEdgeNext[backHalfEdge];
-        int backPrevious = halfEdgeNext[backNext];
-
-        double lengthZeroOne = edgeLength[frontNext >> 1];
-        double lengthOneTwo = edgeLength[frontPrevious >> 1];
-        double lengthTwoThree = edgeLength[backNext >> 1];
-        double lengthThreeZero = edgeLength[backPrevious >> 1];
-        double lengthZeroTwo = edgeLength[frontHalfEdge >> 1];
-
-        diamondX[3] = 0.0;
-        diamondY[3] = 0.0;
-        diamondX[0] = lengthThreeZero;
-        diamondY[0] = 0.0;
-        layOutTriangleVertex(3, 0, lengthZeroTwo, lengthTwoThree, 2);
-        layOutTriangleVertex(2, 0, lengthZeroOne, lengthOneTwo, 1);
+        return standardizeAngle(tail, signpostAngle(clockwise) + cornerAngle(clockwise));
     }
 
     private void layOutTriangleVertex(int corner, int otherCorner, double oppositeToCorner,
@@ -757,5 +430,79 @@ public final class IntrinsicTriangulation {
 
     private static double cross(double firstX, double firstY, double secondX, double secondY) {
         return firstX * secondY - firstY * secondX;
+    }
+
+    /** The overlay slot holding an element, or -1 when the element still reads as the metric. */
+    private int find(int element, int kind) {
+        if (occupiedCount == 0) {
+            return -1;
+        }
+        int key = element * ELEMENT_KINDS + kind;
+        int mask = slotKey.length - 1;
+        for (int slot = (key * FIBONACCI_HASH) >>> hashShift;; slot = (slot + 1) & mask) {
+            if (slotKey[slot] == key) {
+                return slot;
+            }
+            if (slotKey[slot] == EMPTY_SLOT) {
+                return -1;
+            }
+        }
+    }
+
+    /**
+     * The overlay slot of an element, created holding the metric's values when the element has
+     * none yet. The overlay doubles before it passes half full, which moves every slot.
+     */
+    private int touch(int element, int kind) {
+        if (2 * (occupiedCount + 1) > slotKey.length) {
+            int[] oldKey = slotKey;
+            int[] oldFirst = slotFirst;
+            int[] oldSecond = slotSecond;
+            double[] oldValue = slotValue;
+            int[] oldOccupied = occupiedSlot;
+            int oldCount = occupiedCount;
+            int capacity = Math.max(INITIAL_OVERLAY_CAPACITY, 2 * slotKey.length);
+            slotKey = new int[capacity];
+            Arrays.fill(slotKey, EMPTY_SLOT);
+            slotFirst = new int[capacity];
+            slotSecond = new int[capacity];
+            slotValue = new double[capacity];
+            occupiedSlot = new int[capacity];
+            occupiedCount = 0;
+            hashShift = Integer.SIZE - Integer.numberOfTrailingZeros(capacity);
+            for (int index = 0; index < oldCount; index++) {
+                int from = oldOccupied[index];
+                int slot = (oldKey[from] * FIBONACCI_HASH) >>> hashShift;
+                while (slotKey[slot] != EMPTY_SLOT) {
+                    slot = (slot + 1) & (slotKey.length - 1);
+                }
+                slotKey[slot] = oldKey[from];
+                slotFirst[slot] = oldFirst[from];
+                slotSecond[slot] = oldSecond[from];
+                slotValue[slot] = oldValue[from];
+                occupiedSlot[occupiedCount++] = slot;
+            }
+        }
+        int key = element * ELEMENT_KINDS + kind;
+        int mask = slotKey.length - 1;
+        int slot = (key * FIBONACCI_HASH) >>> hashShift;
+        while (slotKey[slot] != EMPTY_SLOT) {
+            if (slotKey[slot] == key) {
+                return slot;
+            }
+            slot = (slot + 1) & mask;
+        }
+        slotKey[slot] = key;
+        occupiedSlot[occupiedCount++] = slot;
+        if (kind == HALF_EDGE_KIND) {
+            slotFirst[slot] = metric.halfEdgeNext[element];
+            slotSecond[slot] = metric.halfEdgeTail[element];
+            slotValue[slot] = metric.signpostAngle[element];
+        } else if (kind == EDGE_KIND) {
+            slotValue[slot] = metric.edgeLength[element];
+        } else {
+            slotFirst[slot] = metric.vertexReferenceHalfEdge[element];
+        }
+        return slot;
     }
 }

@@ -88,14 +88,14 @@ public final class NetworkArc implements MeshNode {
         boolean feature = Boolean.TRUE.equals(ctx.getInput(FEATURE.name, Boolean.class));
         List<Integer> waypoints = new ArrayList<>();
         waypoints.add(net.nodes.get(from).copyVertex);
+        NearestVertex grid = NearestVertex.over(net.topology.copy);
         for (InputPort via : VIAS) {
             Object value = ctx.getInput(via.name, Object.class);
             if (value == null) {
                 continue;
             }
             Vector3Value point = (Vector3Value) value;
-            waypoints.add(NearestVertex.find(net.topology.copy,
-                    point.x(), point.y(), point.z()));
+            waypoints.add(grid.find(point.x(), point.y(), point.z()));
         }
         waypoints.add(net.nodes.get(to).copyVertex);
         List<Integer> path = new ArrayList<>();

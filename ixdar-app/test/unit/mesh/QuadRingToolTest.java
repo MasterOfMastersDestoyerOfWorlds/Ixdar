@@ -19,8 +19,9 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.RingRegions;
 import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
-import ixdar.geometry.mesh.data.paths.IntrinsicTriangulation;
+import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
@@ -28,6 +29,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
+import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
 import ixdar.geometry.mesh.nodes.selection.ExtractRingRegionNode;
 import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
@@ -102,13 +104,13 @@ class QuadRingToolTest {
             }
         }
         HalfEdgeMesh grid = HalfEdgeMeshEngine.bulkAllocateMixed(positions, cornerCounts, corners);
-        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(grid);
-        assertCoversEveryPolygon(grid, intrinsic);
-        assertEquals(grid.edgeCount() + grid.faceCount(), intrinsic.edgeCount,
+        SurfaceMetric metric = SurfaceMetric.of(grid);
+        assertCoversEveryPolygon(grid, metric);
+        assertEquals(grid.edgeCount() + grid.faceCount(), metric.edgeLength.length,
                 "one split edge per quad");
 
         // Interior endpoints: FlipOut leaves a path hugging the boundary as it does on triangles.
-        SurfaceGeodesics geodesics = SurfaceGeodesics.over(grid);
+        SurfaceGeodesics geodesics = SurfaceGeodesics.over(metric);
         assertTrue(geodesics.geodesic(gridVertexId(1, 1),
                 gridVertexId(1 + RUN_ACROSS, 1 + RUN_UP)));
 
@@ -137,19 +139,19 @@ class QuadRingToolTest {
     @Test
     void theIntrinsicTriangulationSplitsEachPolygonOfTheQuadCylinder() {
         MeshTopology quads = quadCylinder();
-        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(quads);
-        assertCoversEveryPolygon(quads, intrinsic);
+        SurfaceMetric metric = SurfaceMetric.of(quads);
+        assertCoversEveryPolygon(quads, metric);
         int sideQuads = SIDE_ROWS * SEGMENTS_AROUND;
         int capSplits = 2 * (SEGMENTS_AROUND - 3);
-        assertEquals(quads.edgeCount() + sideQuads + capSplits, intrinsic.edgeCount);
+        assertEquals(quads.edgeCount() + sideQuads + capSplits, metric.edgeLength.length);
         for (int edge = 0; edge < quads.edgeCount(); edge++) {
-            assertEquals(quads.edgeIdAt(edge), intrinsic.sourceEdgeId[edge]);
+            assertEquals(quads.edgeIdAt(edge), metric.sourceEdgeId[edge]);
         }
-        for (int edge = quads.edgeCount(); edge < intrinsic.edgeCount; edge++) {
-            assertEquals(MeshTopology.NONE, intrinsic.sourceEdgeId[edge]);
+        for (int edge = quads.edgeCount(); edge < metric.edgeLength.length; edge++) {
+            assertEquals(MeshTopology.NONE, metric.sourceEdgeId[edge]);
         }
 
-        SurfaceGeodesics geodesics = SurfaceGeodesics.over(quads);
+        SurfaceGeodesics geodesics = SurfaceGeodesics.over(metric);
         assertTrue(geodesics.geodesic(0, SEGMENTS_AROUND / 2));
         assertEquals(2.0, geodesics.pathLength, CAP_TOLERANCE,
                 "the shortest way across the flat cap is its diameter");
@@ -160,11 +162,11 @@ class QuadRingToolTest {
         float[] rhombus = { 0f, 0f, 0f, 2f, 0f, 0f, 3f, 1f, 0f, 1f, 1f, 0f };
         MeshTopology quad = HalfEdgeMeshEngine.bulkAllocateMixed(rhombus,
                 new int[] { QUAD_CORNERS }, new int[] { 0, 1, 2, 3 });
-        IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(quad);
+        SurfaceMetric metric = SurfaceMetric.of(quad);
 
-        assertEquals(QUAD_CORNERS + 1, intrinsic.edgeCount);
-        assertEquals(Math.sqrt(2.0), intrinsic.edgeLength[QUAD_CORNERS], CAP_TOLERANCE);
-        assertCoversEveryPolygon(quad, intrinsic);
+        assertEquals(QUAD_CORNERS + 1, metric.edgeLength.length);
+        assertEquals(Math.sqrt(2.0), metric.edgeLength[QUAD_CORNERS], CAP_TOLERANCE);
+        assertCoversEveryPolygon(quad, metric);
     }
 
     @Test
@@ -247,8 +249,13 @@ class QuadRingToolTest {
             points.append(points.length() == 0 ? "" : "; ").append(String.format(Locale.ROOT,
                     "%f,%f,%f", position.x, position.y, position.z));
         }
+        MapNodeContext measured = new MapNodeContext(new SurfaceMetricNode())
+                .with(SurfaceMetricNode.GEOMETRY, GeometryBundle.ofMesh(quads)).eval();
         GeometryBundle ringed = new MapNodeContext(new SplineRingNode())
-                .with(SplineRingNode.GEOMETRY, GeometryBundle.ofMesh(quads))
+                .with(SplineRingNode.GEOMETRY,
+                        measured.output(SurfaceMetricNode.GEOMETRY_OUT, GeometryBundle.class))
+                .with(SplineRingNode.METRIC,
+                        measured.output(SurfaceMetricNode.METRIC, SurfaceMetric.class))
                 .with(SplineRingNode.POINTS, points.toString())
                 .with(SplineRingNode.LABEL, RING_LABEL)
                 .eval().output(SplineRingNode.GEOMETRY_OUT, GeometryBundle.class);
@@ -287,14 +294,13 @@ class QuadRingToolTest {
      * Check every intrinsic triangle maps to a live source face and each source polygon of
      * {@code n} corners owns exactly {@code n - 2} of them.
      *
-     * @param mesh      the source mesh
-     * @param intrinsic its intrinsic triangulation, unflipped
+     * @param mesh   the source mesh
+     * @param metric its metric, the unflipped intrinsic triangulation
      */
-    private static void assertCoversEveryPolygon(MeshTopology mesh,
-            IntrinsicTriangulation intrinsic) {
+    private static void assertCoversEveryPolygon(MeshTopology mesh, SurfaceMetric metric) {
         Map<Integer, Integer> trianglesByFaceId = new HashMap<>();
-        for (int face = 0; face < intrinsic.faceCount; face++) {
-            int faceId = intrinsic.sourceFaceId[face];
+        for (int face = 0; face < metric.sourceFaceId.length; face++) {
+            int faceId = metric.sourceFaceId[face];
             assertTrue(mesh.hasFace(faceId), "intrinsic face " + face + " maps to no face");
             trianglesByFaceId.merge(faceId, 1, Integer::sum);
         }
@@ -332,22 +338,25 @@ class QuadRingToolTest {
             float[] points, int anchorCount, float[] normal) throws Exception {
         MeshTopology surface = scene.halfEdgeSurface();
         if (scene.ringTool.geodesics == null) {
-            scene.ringTool.geodesics = SurfaceGeodesics.over(surface);
+            scene.ringTool.geodesics = SurfaceGeodesics.over(SurfaceMetric.of(surface));
         }
         AuthoredSplineRing edited = new AuthoredSplineRing(scene.ringTool.geodesics);
-        assertTrue(edited.trace(SurfaceWaypoints.snap(surface, points, anchorCount), anchorCount,
+        assertTrue(edited.trace(SurfaceWaypoints.snap(NearestVertex.over(surface), points, anchorCount), anchorCount,
                 normal, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), edited.failure);
         SurfaceSpline held = SurfaceSpline.of(edited.tracer);
         assertEquals(0, held.unresolvedGaps);
         assertClosedLoopOfQuadEdges(quads, held.markedByEdgeId, "the tool's ring");
 
-        String statement = RingDslWriter.splineStatement(SAVED_LABEL, FIXTURE, points,
-                anchorCount, normal);
+        String measuredSurface = RingDslWriter.METRIC_STATEMENT_ID + "."
+                + RingDslWriter.DEFAULT_UPSTREAM_PORT;
+        String statement = RingDslWriter.wireSurfaceMetric(RingDslWriter.METRIC_STATEMENT_ID
+                + " = " + RingDslWriter.SURFACE_METRIC_NODE + "(geometry=" + FIXTURE + ")"
+                + RingDslWriter.LINE_BREAK + RingDslWriter.splineStatement(SAVED_LABEL,
+                        measuredSurface, points, anchorCount, normal));
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(statement);
         Object result = runtime.executeGraphResult(runtime.statements, SAVED_LABEL,
                 RingDslWriter.DEFAULT_UPSTREAM_PORT,
-                Map.of(SAVED_LABEL + "." + RingDslWriter.DEFAULT_UPSTREAM_PORT,
-                        GeometryBundle.ofMesh(quads)));
+                Map.of(measuredSurface, GeometryBundle.ofMesh(quads)));
         assertTrue(result instanceof GeometryBundle, "the statement left no bundle");
         MeshTopology reloaded = ((GeometryBundle) result).mesh();
 

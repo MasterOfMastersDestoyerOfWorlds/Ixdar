@@ -11,7 +11,9 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
+import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
@@ -71,7 +73,7 @@ class RingEscapeTest {
         RingTool tool = scene.ringTool;
         assertTrue(tool.reopenRing(0), tool.lastError);
         double angle = Math.toRadians(ADDED_ANCHOR_DEGREES);
-        int added = SurfaceWaypoints.snap(tube, new float[] { 0f,
+        int added = SurfaceWaypoints.snap(NearestVertex.over(tube),new float[] { 0f,
             (float) (RADIUS * Math.cos(angle)), (float) (RADIUS * Math.sin(angle)) }, 1)[0];
         assertTrue(tool.addAuthoredAnchor(added), tool.lastError);
         int[] edited = tool.draftAuthoredVertexId;
@@ -120,14 +122,14 @@ class RingEscapeTest {
             }
         };
         RingTool tool = scene.ringTool;
-        tool.geodesics = SurfaceGeodesics.over(tube);
+        tool.geodesics = SurfaceGeodesics.over(SurfaceMetric.of(tube));
         float[] xyz = new float[XYZ * QUARTERS];
         for (int quarter = 0; quarter < QUARTERS; quarter++) {
             double angle = 2.0 * Math.PI * quarter / QUARTERS;
             xyz[XYZ * quarter + 1] = (float) (RADIUS * Math.cos(angle));
             xyz[XYZ * quarter + 2] = (float) (RADIUS * Math.sin(angle));
         }
-        int[] quarters = SurfaceWaypoints.snap(tube, xyz, QUARTERS);
+        int[] quarters = SurfaceWaypoints.snap(NearestVertex.over(tube),xyz, QUARTERS);
         AuthoredSplineRing ring = new AuthoredSplineRing(tool.geodesics);
         assertTrue(ring.trace(quarters, QUARTERS, TUBE_AXIS,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);

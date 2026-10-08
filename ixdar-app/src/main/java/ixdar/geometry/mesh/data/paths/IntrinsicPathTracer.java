@@ -4,48 +4,18 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.MeshTopology;
-
 /**
- * Traces an intrinsic path back onto its surface, unfolding the starting triangles along each
+ * Traces an intrinsic path back onto its surface, unfolding the metric's own triangles along each
  * intrinsic half-edge to find the source edges it crosses and the polygon splits it passes.
- *
- * <p>
- * {@link #snapshotOf} must be called while the triangulation is still unflipped.
  */
 public final class IntrinsicPathTracer {
 
     public static final double LENGTH_EPSILON = 1e-9;
 
-    /** Source mesh the trace lands on. */
-    public MeshTopology mesh;
+    public static final int MINIMUM_UNFOLD_STEPS = 64;
 
-    /** Unflipped {@code halfEdgeNext}, indexed by intrinsic half-edge. */
-    public int[] inputHalfEdgeNext;
-
-    /** Unflipped {@code halfEdgeTail}, indexed by intrinsic half-edge. */
-    public int[] inputHalfEdgeTail;
-
-    /** Unflipped edge lengths, indexed by intrinsic edge. */
-    public double[] inputEdgeLength;
-
-    /** Unflipped signpost angles, indexed by intrinsic half-edge. */
-    public double[] inputSignpostAngle;
-
-    /** Mesh vertex id per dense intrinsic vertex index. */
-    public int[] sourceVertexId;
-
-    /** Mesh edge id per dense intrinsic edge index, {@link MeshTopology#NONE} on a split edge. */
-    public int[] sourceEdgeId;
-
-    /** Unflipped {@code halfEdgeFace}, indexed by intrinsic half-edge. */
-    public int[] inputHalfEdgeFace;
-
-    /** Source polygon's face id per unflipped intrinsic face. */
-    public int[] sourceFaceId;
-
-    /** Outgoing half-edge whose angular coordinate is zero, per vertex. */
-    public int[] vertexReferenceHalfEdge;
+    /** Unflipped triangulation the walk unfolds; the trace lands on its source mesh. */
+    public SurfaceMetric metric;
 
     /** Steps the unfolding walk may take along one intrinsic half-edge before it gives up. */
     public int maxUnfoldSteps;
@@ -62,24 +32,15 @@ public final class IntrinsicPathTracer {
     }
 
     /**
-     * Snapshots an unflipped triangulation so later traces can unfold the original triangles.
+     * A tracer over a metric, holding only its own point buffers.
      *
-     * @param intrinsic triangulation that has not been flipped yet
-     * @return a tracer bound to the same source mesh
+     * @param metric unflipped triangulation every traced path was flipped from
+     * @return a tracer landing paths on the metric's source mesh
      */
-    public static IntrinsicPathTracer snapshotOf(IntrinsicTriangulation intrinsic) {
+    public static IntrinsicPathTracer over(SurfaceMetric metric) {
         IntrinsicPathTracer tracer = new IntrinsicPathTracer();
-        tracer.mesh = intrinsic.sourceMesh;
-        tracer.inputHalfEdgeNext = intrinsic.halfEdgeNext.clone();
-        tracer.inputHalfEdgeTail = intrinsic.halfEdgeTail.clone();
-        tracer.inputEdgeLength = intrinsic.edgeLength.clone();
-        tracer.inputSignpostAngle = intrinsic.signpostAngle.clone();
-        tracer.sourceVertexId = intrinsic.sourceVertexId;
-        tracer.sourceEdgeId = intrinsic.sourceEdgeId;
-        tracer.inputHalfEdgeFace = intrinsic.halfEdgeFace.clone();
-        tracer.sourceFaceId = intrinsic.sourceFaceId.clone();
-        tracer.vertexReferenceHalfEdge = intrinsic.vertexReferenceHalfEdge.clone();
-        tracer.maxUnfoldSteps = Math.max(intrinsic.faceCount, 64);
+        tracer.metric = metric;
+        tracer.maxUnfoldSteps = Math.max(metric.faceHalfEdge.length, MINIMUM_UNFOLD_STEPS);
         return tracer;
     }
 
@@ -100,8 +61,8 @@ public final class IntrinsicPathTracer {
         }
         for (int index = 0; index < pathHalfEdges.length; index++) {
             int halfEdge = pathHalfEdges[index];
-            appendVertex(intrinsic.halfEdgeTail[halfEdge]);
-            if (!intrinsic.edgeIsOriginal[halfEdge >> 1]) {
+            appendVertex(intrinsic.halfEdgeTail(halfEdge));
+            if (!intrinsic.edgeIsOriginal(halfEdge >> 1)) {
                 walkHalfEdge(intrinsic, halfEdge);
             }
         }
@@ -122,11 +83,13 @@ public final class IntrinsicPathTracer {
      * unfolds each triangle it enters into a single plane and follows one straight ray.
      */
     private void walkHalfEdge(IntrinsicTriangulation intrinsic, int halfEdge) {
-        int tailVertex = intrinsic.halfEdgeTail[halfEdge];
-        double targetAngle = intrinsic.signpostAngle[halfEdge];
-        double targetLength = intrinsic.edgeLength[halfEdge >> 1];
+        int tailVertex = intrinsic.halfEdgeTail(halfEdge);
+        double targetAngle = intrinsic.signpostAngle(halfEdge);
+        double targetLength = intrinsic.edgeLength(halfEdge >> 1);
+        int[] inputHalfEdgeNext = metric.halfEdgeNext;
+        double[] inputEdgeLength = metric.edgeLength;
 
-        int reference = vertexReferenceHalfEdge[tailVertex];
+        int reference = metric.vertexReferenceHalfEdge[tailVertex];
         if (reference < 0) {
             return;
         }
@@ -137,8 +100,8 @@ public final class IntrinsicPathTracer {
             if (inputHalfEdgeNext[current] < 0) {
                 break;
             }
-            double start = inputSignpostAngle[current];
-            double corner = inputCornerAngle(current);
+            double start = metric.signpostAngle[current];
+            double corner = metric.cornerAngle(current);
             if (targetAngle >= start - LENGTH_EPSILON
                     && targetAngle < start + corner + LENGTH_EPSILON) {
                 cornerHalfEdge = current;
@@ -221,18 +184,6 @@ public final class IntrinsicPathTracer {
         }
     }
 
-    private double inputCornerAngle(int halfEdge) {
-        double adjacent = inputEdgeLength[halfEdge >> 1];
-        double other = inputEdgeLength[inputHalfEdgeNext[inputHalfEdgeNext[halfEdge]] >> 1];
-        double opposite = inputEdgeLength[inputHalfEdgeNext[halfEdge] >> 1];
-        double denominator = 2.0 * adjacent * other;
-        if (denominator <= 0.0) {
-            return 0.0;
-        }
-        double cosine = (adjacent * adjacent + other * other - opposite * opposite) / denominator;
-        return Math.acos(Math.max(-1.0, Math.min(1.0, cosine)));
-    }
-
     private static void layOutOpposite(double fromX, double fromY, double toX, double toY,
             double toApexLength, double apexToFromLength, double[] apex) {
         double dx = toX - fromX;
@@ -267,8 +218,8 @@ public final class IntrinsicPathTracer {
 
     private void appendVertex(int intrinsicVertex) {
         ensureCapacity();
-        int vertexId = sourceVertexId[intrinsicVertex];
-        mesh.vertexPosition(vertexId, scratchPosition);
+        int vertexId = metric.sourceVertexId[intrinsicVertex];
+        metric.sourceMesh.vertexPosition(vertexId, scratchPosition);
         int base = 3 * pointCount;
         positions[base] = scratchPosition.x;
         positions[base + 1] = scratchPosition.y;
@@ -287,23 +238,23 @@ public final class IntrinsicPathTracer {
     private void appendCrossing(int inputHalfEdge, double parameter) {
         ensureCapacity();
         int edge = inputHalfEdge >> 1;
-        int tailVertexId = sourceVertexId[inputHalfEdgeTail[inputHalfEdge]];
-        int headVertexId = sourceVertexId[inputHalfEdgeTail[inputHalfEdge ^ 1]];
-        mesh.vertexPosition(tailVertexId, scratchPosition);
+        int tailVertexId = metric.sourceVertexId[metric.halfEdgeTail[inputHalfEdge]];
+        int headVertexId = metric.sourceVertexId[metric.halfEdgeTail[inputHalfEdge ^ 1]];
+        metric.sourceMesh.vertexPosition(tailVertexId, scratchPosition);
         double tailX = scratchPosition.x;
         double tailY = scratchPosition.y;
         double tailZ = scratchPosition.z;
-        mesh.vertexPosition(headVertexId, scratchPosition);
+        metric.sourceMesh.vertexPosition(headVertexId, scratchPosition);
         int base = 3 * pointCount;
         positions[base] = tailX + parameter * (scratchPosition.x - tailX);
         positions[base + 1] = tailY + parameter * (scratchPosition.y - tailY);
         positions[base + 2] = tailZ + parameter * (scratchPosition.z - tailZ);
         pointVertexId[pointCount] = -1;
-        pointEdgeId[pointCount] = sourceEdgeId[edge];
+        pointEdgeId[pointCount] = metric.sourceEdgeId[edge];
         pointFaceId[pointCount] = -1;
         pointFraction[pointCount] = (inputHalfEdge & 1) == 0 ? parameter : 1.0 - parameter;
-        if (sourceEdgeId[edge] < 0) {
-            pointFaceId[pointCount] = sourceFaceId[inputHalfEdgeFace[inputHalfEdge]];
+        if (metric.sourceEdgeId[edge] < 0) {
+            pointFaceId[pointCount] = metric.sourceFaceId[metric.halfEdgeFace[inputHalfEdge]];
             pointFraction[pointCount] = -1.0;
         }
         pointCount++;

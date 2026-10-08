@@ -16,9 +16,11 @@ import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
+import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.data.paths.PlaneSurfaceLoop;
 import ixdar.geometry.mesh.data.paths.SplineAnchorFit;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
@@ -180,7 +182,8 @@ class SurfaceSplineTest {
                     : mesh.halfEdgeEndVertex(halfEdge);
         }
         SplineAnchorFit fit =
-                new SplineAnchorFit(new SurfaceSplineTracer(SurfaceGeodesics.over(mesh)));
+                new SplineAnchorFit(new SurfaceSplineTracer(
+                        SurfaceGeodesics.over(SurfaceMetric.of(mesh))));
         assertTrue(fit.fit(cut.polyline, cut.stepCount, nearestVertexId, 0), "the fit failed");
         return fit;
     }
@@ -283,7 +286,8 @@ class SurfaceSplineTest {
         float[] normal = SurfaceWaypoints.parse(SurfaceWaypoints.format(new float[] {
             (float) Math.cos(TAPER_CUT_TILT), (float) Math.sin(TAPER_CUT_TILT), 0f }, 1));
         int[] authored = tubeVertices(tube, NEAR_SIDE_RING, 0, FAR_SIDE_RING, TUBE_SIDES / 2);
-        AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(tube));
+        AuthoredSplineRing ring =
+                new AuthoredSplineRing(SurfaceGeodesics.over(SurfaceMetric.of(tube)));
         assertTrue(ring.trace(authored, authored.length, normal,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);
         SurfaceSpline live = SurfaceSpline.of(ring.tracer);
@@ -296,6 +300,7 @@ class SurfaceSplineTest {
         ctx.setInput(SplineRingNode.POINTS.name,
                 SurfaceWaypoints.format(authoredXyz, authoredAnchors));
         ctx.setInput(SplineRingNode.NORMAL.name, SurfaceWaypoints.format(normal, 1));
+        ctx.setInput(SplineRingNode.METRIC.name, SurfaceMetric.of(tube));
         node.evaluate(ctx);
         GeometryBundle reloaded =
                 ctx.getOutput(SplineRingNode.GEOMETRY.name, GeometryBundle.class);
@@ -313,7 +318,8 @@ class SurfaceSplineTest {
     void aDraftWithTwoAuthoredAnchorsPassesThroughBoth() {
         MeshTopology tube = tube(TAPER_GROWTH);
         int[] authored = tubeVertices(tube, NEAR_SIDE_RING, 0, FAR_SIDE_RING, TUBE_SIDES / 2);
-        AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(tube));
+        AuthoredSplineRing ring =
+                new AuthoredSplineRing(SurfaceGeodesics.over(SurfaceMetric.of(tube)));
         assertTrue(ring.trace(authored, authored.length, AXIS,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);
         SurfaceSpline spline = SurfaceSpline.of(ring.tracer);
@@ -325,9 +331,9 @@ class SurfaceSplineTest {
             double miss = SurfaceSpline.distanceToPolyline(spline.polyline, points,
                     anchorXyz[COORDINATES * anchor], anchorXyz[COORDINATES * anchor + 1],
                     anchorXyz[COORDINATES * anchor + 2]);
-            assertTrue(miss <= ring.tracer.geodesics.meanEdgeLength, "authored anchor " + anchor
+            assertTrue(miss <= ring.tracer.geodesics.metric.meanEdgeLength, "authored anchor " + anchor
                     + " is " + miss + " off the ring, over one mean edge "
-                    + ring.tracer.geodesics.meanEdgeLength);
+                    + ring.tracer.geodesics.metric.meanEdgeLength);
         }
         assertTrue(spline.minimumInteriorAngleDegrees > SMOOTHEST_CORNER_DEGREES,
                 "sharpest corner " + spline.minimumInteriorAngleDegrees + " degrees");
@@ -337,7 +343,8 @@ class SurfaceSplineTest {
     void removingAnAuthoredAnchorRestoresTheOneAnchorRingExactly() {
         MeshTopology tube = tube(TAPER_GROWTH);
         int[] authored = tubeVertices(tube, NEAR_SIDE_RING, 0, FAR_SIDE_RING, TUBE_SIDES / 2);
-        AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(tube));
+        AuthoredSplineRing ring =
+                new AuthoredSplineRing(SurfaceGeodesics.over(SurfaceMetric.of(tube)));
         assertTrue(ring.trace(authored, 1, AXIS, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH));
         SurfaceSpline before = SurfaceSpline.of(ring.tracer);
         assertTrue(ring.trace(authored, 2, AXIS, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH));
@@ -356,7 +363,8 @@ class SurfaceSplineTest {
     @Test
     void theFitNeverMovesOrRemovesAnAuthoredAnchor() {
         MeshTopology tube = tube(TAPER_GROWTH);
-        AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(tube));
+        AuthoredSplineRing ring =
+                new AuthoredSplineRing(SurfaceGeodesics.over(SurfaceMetric.of(tube)));
         Random random = new Random(RANDOM_SEED);
         int[] authored = new int[RANDOM_INSERTIONS + 1];
         authored[0] = tubeVertices(tube, NEAR_SIDE_RING, 0)[0];
@@ -394,7 +402,7 @@ class SurfaceSplineTest {
             xyz[COORDINATES * pair + 1] = (float) (radius * Math.cos(angle));
             xyz[COORDINATES * pair + 2] = (float) (radius * Math.sin(angle));
         }
-        return SurfaceWaypoints.snap(tube, xyz, ringAndSide.length / 2);
+        return SurfaceWaypoints.snap(NearestVertex.over(tube),xyz, ringAndSide.length / 2);
     }
 
     private static float[] positionsOf(MeshTopology mesh, int[] vertexIds, int count) {

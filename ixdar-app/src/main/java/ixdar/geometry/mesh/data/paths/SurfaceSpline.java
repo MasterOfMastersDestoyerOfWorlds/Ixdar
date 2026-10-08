@@ -126,8 +126,9 @@ public final class SurfaceSpline {
             throw new IllegalArgumentException("a closed spline needs at least "
                     + SurfaceSplineTracer.MINIMUM_ANCHORS + " anchors, got " + anchorCount);
         }
-        int[] vertexIds = SurfaceWaypoints.snap(mesh, packedXyz, anchorCount);
-        SurfaceSplineTracer tracer = new SurfaceSplineTracer(SurfaceGeodesics.over(mesh));
+        SurfaceMetric metric = SurfaceMetric.of(mesh);
+        int[] vertexIds = SurfaceWaypoints.snap(metric.nearestVertex, packedXyz, anchorCount);
+        SurfaceSplineTracer tracer = new SurfaceSplineTracer(SurfaceGeodesics.over(metric));
         tracer.setAnchors(vertexIds, anchorCount);
         return of(tracer);
     }
@@ -157,7 +158,7 @@ public final class SurfaceSpline {
             }
         }
         spline.smallestMeasuredSpan =
-                SMALLEST_MEASURED_SPAN_IN_EDGES * tracer.geodesics.meanEdgeLength;
+                SMALLEST_MEASURED_SPAN_IN_EDGES * tracer.geodesics.metric.meanEdgeLength;
         spline.setCentroid();
         spline.setMeanRadius();
         spline.setMinimumInteriorAngle();

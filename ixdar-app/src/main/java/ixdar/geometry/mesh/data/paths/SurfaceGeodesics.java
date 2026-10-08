@@ -7,12 +7,11 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
- * The geodesic primitives a spline is built from, over one cached triangulation: the shortest path
- * between two vertices, a point along it, and a straight walk.
+ * The geodesic primitives a spline is built from, over a shared {@link SurfaceMetric}: the
+ * shortest path between two vertices, a point along it, and a straight walk.
  *
  * <p>
- * Every run undoes its own flips, so repeating a call gives the same path. See b/Surf §5.2 for the
- * A* seed.
+ * One engine per user holds its flips, buffers and last path. See b/Surf §5.2 for the A* seed.
  */
 public final class SurfaceGeodesics {
 
@@ -20,23 +19,17 @@ public final class SurfaceGeodesics {
 
     public static final int DEFAULT_SEARCH_BUDGET = 200000;
 
-    /** Surface every path here runs on. */
+    /** Metric every path here is measured in. */
+    public SurfaceMetric metric;
+
+    /** Surface every path here runs on, the metric's source mesh. */
     public MeshTopology mesh;
 
-    /** Signpost triangulation the tightening flips and then puts back. */
+    /** This engine's flippable view of the metric, every flip discarded once a path is traced. */
     public IntrinsicTriangulation intrinsic;
 
-    /** Tracer bound to the unflipped triangulation, which lands a tightened path on the surface. */
+    /** Tracer that lands a tightened path on the surface. */
     public IntrinsicPathTracer tracer;
-
-    /** Mean Euclidean edge length, the resolution every tolerance here is measured against. */
-    public double meanEdgeLength;
-
-    /**
-     * One past the largest vertex id the surface holds, the length the visit buffers need. It is a
-     * property of the mesh, so it is measured once here rather than per geodesic.
-     */
-    public int vertexIdBound;
 
     /** Packed xyz of the last geodesic, one point per vertex, edge crossing or inside-face point. */
     public double[] tracedXyz = new double[0];
@@ -89,42 +82,18 @@ public final class SurfaceGeodesics {
     }
 
     /**
-     * Builds the triangulation and the tracer a run of splines shares.
+     * An engine over a metric; it allocates only its own buffers, so one per user is cheap.
      *
-     * @param surface polygon mesh every path will run on, its polygons split intrinsically
-     * @return an engine bound to that surface
+     * @param metric the surface's metric, shared and never written
+     * @return an engine bound to the metric's source mesh
      */
-    public static SurfaceGeodesics over(MeshTopology surface) {
+    public static SurfaceGeodesics over(SurfaceMetric metric) {
         SurfaceGeodesics geodesics = new SurfaceGeodesics();
-        geodesics.mesh = surface;
-        geodesics.intrinsic = IntrinsicTriangulation.over(surface);
-        geodesics.tracer = IntrinsicPathTracer.snapshotOf(geodesics.intrinsic);
-        geodesics.intrinsic.recordFlips = true;
-        geodesics.meanEdgeLength = meanEdgeLengthOf(surface);
-        for (int index = 0; index < surface.vertexCount(); index++) {
-            geodesics.vertexIdBound =
-                    Math.max(geodesics.vertexIdBound, surface.vertexIdAt(index) + 1);
-        }
+        geodesics.metric = metric;
+        geodesics.mesh = metric.sourceMesh;
+        geodesics.intrinsic = IntrinsicTriangulation.over(metric);
+        geodesics.tracer = IntrinsicPathTracer.over(metric);
         return geodesics;
-    }
-
-    /**
-     * Mean Euclidean edge length of a mesh, the unit a spline's tolerances are quoted in.
-     *
-     * @param surface mesh to measure
-     * @return the mean length, or zero when the mesh has no edges
-     */
-    public static double meanEdgeLengthOf(MeshTopology surface) {
-        double total = 0.0;
-        Vector3f tail = new Vector3f();
-        Vector3f head = new Vector3f();
-        for (int index = 0; index < surface.edgeCount(); index++) {
-            int halfEdge = surface.edgeHalfEdge(surface.edgeIdAt(index));
-            surface.vertexPosition(surface.halfEdgeVertex(halfEdge), tail);
-            surface.vertexPosition(surface.halfEdgeEndVertex(halfEdge), head);
-            total += tail.distance(head);
-        }
-        return surface.edgeCount() == 0 ? 0.0 : total / surface.edgeCount();
     }
 
     /**
@@ -150,8 +119,8 @@ public final class SurfaceGeodesics {
         }
         for (int step = 0; step < seedVertexCount - 1; step++) {
             int halfEdge = intrinsic.halfEdgeBetween(
-                    intrinsic.vertexIndexByVertexId[seedVertex[step]],
-                    intrinsic.vertexIndexByVertexId[seedVertex[step + 1]]);
+                    metric.vertexIndexByVertexId[seedVertex[step]],
+                    metric.vertexIndexByVertexId[seedVertex[step + 1]]);
             if (halfEdge < 0) {
                 return false;
             }
@@ -160,7 +129,7 @@ public final class SurfaceGeodesics {
         int[] tightened = flipper.shorten(intrinsic, seedHalfEdge, false,
                 FlipGeodesics.UNBOUNDED_ITERATIONS);
         TracedSurfacePath traced = tracer.trace(intrinsic, tightened, false);
-        intrinsic.undoFlips();
+        intrinsic.discardFlips();
         keep(traced);
         return tracedPointCount > 1;
     }
@@ -429,14 +398,13 @@ public final class SurfaceGeodesics {
     }
 
     private void prepareVisitBuffers() {
+        int vertexIdBound = metric.vertexIdBound;
         if (visitStamp.length >= vertexIdBound) {
             return;
         }
         visitStamp = new int[vertexIdBound];
         costToVertex = new double[vertexIdBound];
         visitParent = new int[vertexIdBound];
-        heapKey = new double[vertexIdBound + 1];
-        heapVertex = new int[vertexIdBound + 1];
         currentStamp = 0;
     }
 

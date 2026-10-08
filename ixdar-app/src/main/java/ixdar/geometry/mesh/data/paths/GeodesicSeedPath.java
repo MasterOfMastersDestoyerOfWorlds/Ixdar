@@ -30,7 +30,7 @@ public final class GeodesicSeedPath {
             throw new IllegalArgumentException("a seed path needs at least two waypoints, got "
                     + waypointVertexIds.length);
         }
-        MeshTopology mesh = intrinsic.sourceMesh;
+        MeshTopology mesh = intrinsic.metric.sourceMesh;
         double[] edgeCost = edgeCosts(mesh);
         List<Integer> vertexWalk = new ArrayList<>();
         vertexWalk.add(waypointVertexIds[0]);
@@ -84,8 +84,8 @@ public final class GeodesicSeedPath {
         int[] halfEdges = new int[spans];
         for (int index = 0; index < spans; index++) {
             int fromVertex =
-                    intrinsic.vertexIndexByVertexId[vertexWalk.get(index)];
-            int toVertex = intrinsic.vertexIndexByVertexId[
+                    intrinsic.metric.vertexIndexByVertexId[vertexWalk.get(index)];
+            int toVertex = intrinsic.metric.vertexIndexByVertexId[
                     vertexWalk.get((index + 1) % vertexWalk.size())];
             int halfEdge = intrinsic.halfEdgeBetween(fromVertex, toVertex);
             if (halfEdge < 0) {

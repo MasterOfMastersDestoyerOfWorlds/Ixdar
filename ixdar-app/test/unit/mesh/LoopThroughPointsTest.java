@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.data.paths.SurfaceRing;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
@@ -30,57 +31,45 @@ import ixdar.parsing.python.PythonParser;
  */
 class LoopThroughPointsTest {
 
-    /** Torus centre-line radius. */
     private static final float MAJOR_RADIUS = 1.0f;
 
-    /** Torus tube radius; the minimal meridian is {@code 2 * pi * MINOR_RADIUS}. */
+    // The minimal meridian is 2 * pi * MINOR_RADIUS.
     private static final float MINOR_RADIUS = 0.35f;
 
-    /** Faces the long way around the torus. */
     private static final int MAJOR_SEGMENTS = 64;
 
-    /** Faces around the torus tube. */
     private static final int MINOR_SEGMENTS = 48;
 
-    /** The fixture's three tube points, the ones {@code torus_loop_through_points.dsl} uses. */
+    // The three tube points torus_loop_through_points.dsl uses.
     private static final float[] TUBE_POINTS = {
         1.350000f, 0.000000f, 0.000000f,
         0.445749f, 0.303109f, 0.694214f,
         0.512828f, -0.303109f, -0.646245f };
 
-    /** Waypoints in {@link #TUBE_POINTS}. */
     private static final int TUBE_POINT_COUNT = 3;
 
-    /** Widest radius of the procedural tapered tube. */
     private static final float WAIST_TUBE_RADIUS = 0.4f;
 
-    /** Fraction of {@link #WAIST_TUBE_RADIUS} the waist pinches away at x = 0. */
+    // Fraction of WAIST_TUBE_RADIUS the waist pinches away at x = 0.
     private static final float WAIST_PINCH = 0.5f;
 
-    /** How quickly the waist opens back out, in x. */
     private static final float WAIST_WIDTH = 0.6f;
 
-    /** Half the length of the procedural tapered tube, along x. */
     private static final float WAIST_TUBE_HALF_LENGTH = 2f;
 
-    /** Sides the procedural tapered tube is swept with. */
     private static final int WAIST_TUBE_SIDES = 40;
 
-    /** Cross-sections along the procedural tapered tube. */
     private static final int WAIST_TUBE_RINGS = 41;
 
-    /** Where along x the pinned ring is authored, well away from the waist at x = 0. */
+    // Well away from the waist at x = 0.
     private static final float PIN_X = 1f;
 
-    /** Waypoints the pinned ring is authored and re-evaluated through. */
     private static final int PINNED_WAYPOINTS = 3;
 
-    /** The graph a saved ring statement is appended to. */
     private static final String TORUS_GRAPH =
             "carrier = torus(major_radius=1.0, minor_radius=0.35, major_segments=64, "
                     + "minor_segments=48, triangulate=true)\n";
 
-    /** Failure message when writing the same ring twice does not give the same text. */
     private static final String NOT_BYTE_STABLE = "the writer is not byte-stable";
 
     @Test
@@ -262,7 +251,7 @@ class LoopThroughPointsTest {
             System.arraycopy(ring.polyline, coordinates * (point % loopPoints), sampled,
                     coordinates * waypoint, coordinates);
         }
-        int[] vertexIds = SurfaceWaypoints.snap(mesh, sampled, waypointCount);
+        int[] vertexIds = SurfaceWaypoints.snap(NearestVertex.over(mesh), sampled, waypointCount);
         float[] chosen = new float[coordinates * waypointCount];
         Vector3f position = new Vector3f();
         for (int waypoint = 0; waypoint < waypointCount; waypoint++) {
