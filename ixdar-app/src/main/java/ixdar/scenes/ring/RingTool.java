@@ -23,7 +23,9 @@ import ixdar.geometry.mesh.data.LimbAxis;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.paths.GirdlingPlane;
+import ixdar.geometry.mesh.data.paths.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.SplineAnchorFit;
+import ixdar.geometry.mesh.data.paths.SurfaceCreases;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
@@ -31,6 +33,7 @@ import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.paths.TracedSurfacePath;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.data.SurfaceCreasesNode;
 import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
 import ixdar.geometry.mesh.nodes.selection.LoopThroughPointsNode;
 import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
@@ -117,6 +120,9 @@ public final class RingTool implements EditTool {
 
     /** Base normal each confirmed ring's plane leans toward, at the precision a save writes. */
     public final List<float[]> confirmedBaseNormal = new ArrayList<>();
+
+    /** How each confirmed ring runs between its authored anchors, what a save writes as mode. */
+    public final List<RingSegmentMode> confirmedMode = new ArrayList<>();
 
     /**
      * Statement id each confirmed ring was last saved under, {@code null} until a save writes it.
@@ -240,6 +246,12 @@ public final class RingTool implements EditTool {
     /** Base normal the draft's plane leans toward, at the precision a save writes. */
     public final float[] draftBaseNormal = new float[COORDINATES_PER_POINT];
 
+    /** How the draft runs between its authored anchors; T switches it. */
+    public RingSegmentMode draftMode = RingSegmentMode.GEODESIC;
+
+    /** Groove cost of the current surface the crease mode follows, measured once per model. */
+    public SurfaceCreases creases;
+
     /** Confirmed ring the draft re-opened, which Enter replaces and X restores, or -1. */
     public int draftSourceRing = -1;
 
@@ -269,6 +281,9 @@ public final class RingTool implements EditTool {
 
     /** Base normal the working .dsl holds under each statement id this session saved. */
     public final Map<String, float[]> savedNormalByStatement = new HashMap<>();
+
+    /** Segment mode the working .dsl holds under each statement id this session saved. */
+    public final Map<String, RingSegmentMode> savedModeByStatement = new HashMap<>();
 
     /** Wall time the last draft re-trace spent, in milliseconds. */
     public double draftMillis;
@@ -393,6 +408,96 @@ public final class RingTool implements EditTool {
         controls.add(new ControlHint(Keys.Y, true, "ctrl+Y", REDO_HINT, () -> redo()));
         controls.add(new ControlHint(Keys.ENTER, "enter", "confirm draft",
                 () -> confirmDraft()));
+        // T switches the draft between the geodesic spline and the crease path, as one edit.
+        controls.add(new ControlHint(Keys.T, "T", "mode: " + draftMode.label, () -> {
+            lastError = "";
+            if (!active || draft == null) {
+                lastError = "no draft to change the segment mode of";
+                return;
+            }
+            RingSegmentMode next = draftMode == RingSegmentMode.GEODESIC ? RingSegmentMode.CREASE
+                    : RingSegmentMode.GEODESIC;
+            if (next == RingSegmentMode.CREASE && !readyCreases(scene.halfEdgeSurface())) {
+                return;
+            }
+            RingToolState stateBefore = new RingToolState(this);
+            RingSegmentMode previous = draftMode;
+            draftMode = next;
+            if (!retraceDraft(draftAuthoredVertexId, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH,
+                    false)) {
+                draftMode = previous;
+                return;
+            }
+            recordEdit("segment mode " + next.label, stateBefore);
+            reportDraft("now in " + next.label + " mode");
+            scene.refreshControls();
+        }));
+        // V drafts the ring along the groove nearest the hovered point, on the preview's plane.
+        controls.add(new ControlHint(Keys.V, "V", "groove ring at the cursor", () -> {
+            lastError = "";
+            if (!active || draft != null || !previewValid || previewAuthoredVertexId < 0) {
+                lastError = draft != null ? "confirm or discard the draft before ringing a groove"
+                        : "no preview under the cursor to ring a groove at";
+                return;
+            }
+            if (!readyCreases(scene.halfEdgeSurface())) {
+                return;
+            }
+            RingToolState stateBefore = new RingToolState(this);
+            holdDraft();
+            long start = System.nanoTime();
+            if (!draftRing.traceGroove(previewAuthoredVertexId, previewPlaneNormal,
+                    SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
+                lastError = "groove ring refused: " + draftRing.failure;
+                Platforms.get().log(LOG_PREFIX + lastError);
+                return;
+            }
+            System.arraycopy(draftRing.grooveNormal, 0, draftBaseNormal, 0,
+                    COORDINATES_PER_POINT);
+            draftMode = RingSegmentMode.CREASE;
+            draftAuthoredVertexId = draftRing.authoredVertexId;
+            draft = SurfaceSpline.of(draftRing.tracer);
+            draftDepth = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH;
+            draftMillis = (System.nanoTime() - start) / 1e6;
+            draftSourceRing = -1;
+            draftSourceLabel = null;
+            selectedAnchorVertexId = -1;
+            recordEdit("groove ring drafted", stateBefore);
+            reportDraft(String.format(Locale.ROOT, "along the groove, %.0f%% of it in a groove",
+                    AuthoredSplineRing.PERCENT * draftRing.grooveFraction));
+            scene.refreshControls();
+        }));
+    }
+
+    /**
+     * Ready {@link #creases} on a surface: the working graph's own surface_creases output when
+     * one was built on it, else measured here once per model, timed and logged.
+     *
+     * @param surface the surface rings are traced on
+     * @return true when {@link #creases} lies on {@code surface}; {@link #lastError} says why not
+     */
+    private boolean readyCreases(MeshTopology surface) {
+        if (creases != null && creases.sourceMesh == surface) {
+            return true;
+        }
+        if (surface == null) {
+            lastError = "no surface to measure grooves on";
+            return false;
+        }
+        NodeGraphRuntime graph = scene.getLastGraphRuntime();
+        for (PythonParser.ParsedNode statement : graph == null ? List.<PythonParser.ParsedNode>of()
+                : graph.statements) {
+            if (graph.getNodeOutput(statement.id, SurfaceCreasesNode.CREASES.name)
+                    instanceof SurfaceCreases built && built.sourceMesh == surface) {
+                creases = built;
+                return true;
+            }
+        }
+        creases = SurfaceCreases.of(surface);
+        Platforms.get().log(String.format(Locale.ROOT,
+                LOG_PREFIX + "measured the grooves of %d faces in %.0f ms, kept for this model",
+                surface.faceCount(), creases.buildMillis));
+        return true;
     }
 
     /**
@@ -698,9 +803,12 @@ public final class RingTool implements EditTool {
         RingToolState stateBefore = new RingToolState(this);
         System.arraycopy(confirmedBaseNormal.get(ring), 0, draftBaseNormal, 0,
                 COORDINATES_PER_POINT);
-        if (!retraceDraft(confirmedAuthoredVertexId.get(ring),
-                SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
+        draftMode = confirmedMode.get(ring);
+        if (draftMode == RingSegmentMode.CREASE && !readyCreases(scene.halfEdgeSurface())
+                || !retraceDraft(confirmedAuthoredVertexId.get(ring),
+                        SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
             draft = null;
+            draftMode = RingSegmentMode.GEODESIC;
             return false;
         }
         draftSourceRing = ring;
@@ -998,18 +1106,21 @@ public final class RingTool implements EditTool {
         if (ring >= 0) {
             boolean changed = !Arrays.equals(confirmedAuthoredVertexId.get(ring),
                     draftAuthoredVertexId)
-                    || !Arrays.equals(confirmedBaseNormal.get(ring), normal);
+                    || !Arrays.equals(confirmedBaseNormal.get(ring), normal)
+                    || confirmedMode.get(ring) != draftMode;
             if (changed) {
                 confirmedRings.set(ring, draft);
             }
             confirmedAuthoredVertexId.set(ring, draftAuthoredVertexId);
             confirmedBaseNormal.set(ring, normal);
+            confirmedMode.set(ring, draftMode);
             confirmedRingUnsaved.set(ring, confirmedRingUnsaved.get(ring) || changed);
         } else {
             ring = confirmedRings.size();
             confirmedRings.add(draft);
             confirmedAuthoredVertexId.add(draftAuthoredVertexId);
             confirmedBaseNormal.add(normal);
+            confirmedMode.add(draftMode);
             confirmedStatementIds.add(null);
             confirmedRingUnsaved.add(true);
             confirmedSourceLabel.add(draftSourceLabel);
@@ -1082,6 +1193,8 @@ public final class RingTool implements EditTool {
 
     private void clearDraft() {
         draft = null;
+        draftMode = RingSegmentMode.GEODESIC;
+        scene.refreshControls();
         draftAuthoredVertexId = new int[0];
         draftSourceRing = -1;
         draftSourceLabel = null;
@@ -1184,7 +1297,11 @@ public final class RingTool implements EditTool {
         if (draftRing == null || draftRing.tracer.geodesics != geodesics) {
             draftRing = new AuthoredSplineRing(geodesics);
         }
-        if (draft != null && !Arrays.equals(draftRing.authoredVertexId, draftAuthoredVertexId)) {
+        boolean behind = draftRing.mode != draftMode
+                || !Arrays.equals(draftRing.authoredVertexId, draftAuthoredVertexId);
+        draftRing.mode = draftMode;
+        draftRing.creases = creases;
+        if (draft != null && behind) {
             draftRing.trace(draftAuthoredVertexId, draftAuthoredVertexId.length, draftBaseNormal,
                     draftDepth);
         }
@@ -1198,9 +1315,9 @@ public final class RingTool implements EditTool {
         int authoredAnchors = draft.authoredCount();
         float[] crossing = draftRing.crossings.firstCrossingXyz;
         lastRow = String.format(Locale.ROOT,
-                "draft %s: %d authored + %d supporting anchors, %d edges, length %.5f, "
+                "draft %s: %s, %d authored + %d supporting anchors, %d edges, length %.5f, "
                         + "sharpest corner %.1f deg, %.0f ms%s",
-                what, authoredAnchors, draft.anchorCount - authoredAnchors,
+                what, draftMode.label, authoredAnchors, draft.anchorCount - authoredAnchors,
                 draft.markedEdgeCount, draft.length, draft.minimumInteriorAngleDegrees,
                 draftMillis, draftRing.simple ? "" : String.format(Locale.ROOT,
                         ", crosses itself near %.4f,%.4f,%.4f", crossing[0], crossing[1],
@@ -1483,9 +1600,9 @@ public final class RingTool implements EditTool {
                     } else {
                         int index = confirmedRings.indexOf(ring);
                         int[] authored = confirmedAuthoredVertexId.get(index);
-                        block.add(RingDslWriter.splineStatement(label, output,
-                                positionsOf(authored), authored.length,
-                                confirmedBaseNormal.get(index)));
+                        block.add(RingDslWriter.withMode(RingDslWriter.splineStatement(label,
+                                output, positionsOf(authored), authored.length,
+                                confirmedBaseNormal.get(index)), label, confirmedMode.get(index)));
                     }
                     output = label + "." + RingDslWriter.DEFAULT_UPSTREAM_PORT;
                 }
@@ -1536,6 +1653,7 @@ public final class RingTool implements EditTool {
                     source = RingDslWriter.replaceSpline(source, savedId[ring], authoredXyz,
                             authored.length, normal);
                 }
+                source = RingDslWriter.withMode(source, savedId[ring], confirmedMode.get(ring));
             }
             // A statement written for a ring the tool no longer holds, such as one whose confirm
             // was undone after a save, goes too, so the file matches the rings in memory.
@@ -1545,7 +1663,7 @@ public final class RingTool implements EditTool {
                     deleted++;
                 }
             }
-            RingDslWriter.writeAtomically(path, RingDslWriter.wireSurfaceMetric(source));
+            RingDslWriter.writeAtomically(path, RingDslWriter.wireRingInputs(source));
         } catch (IOException | RuntimeException failure) {
             lastError = "could not write " + target + ": " + failure.getMessage();
             Platforms.get().log(LOG_PREFIX + lastError);
@@ -1581,6 +1699,7 @@ public final class RingTool implements EditTool {
             savedStatementByRing.put(confirmedRings.get(ring), savedId[ring]);
             savedAuthoredByStatement.put(savedId[ring], confirmedAuthoredVertexId.get(ring));
             savedNormalByStatement.put(savedId[ring], confirmedBaseNormal.get(ring));
+            savedModeByStatement.put(savedId[ring], confirmedMode.get(ring));
         }
         knownRingStatementIds.clear();
         for (String statementId : confirmedStatementIds) {
@@ -1612,6 +1731,7 @@ public final class RingTool implements EditTool {
         savedStatementByRing.clear();
         savedAuthoredByStatement.clear();
         savedNormalByStatement.clear();
+        savedModeByStatement.clear();
         candidateLabels.clear();
         candidateRingByLabel.clear();
         writtenCandidateRings.clear();
@@ -1624,6 +1744,7 @@ public final class RingTool implements EditTool {
         confirmedRings.clear();
         confirmedAuthoredVertexId.clear();
         confirmedBaseNormal.clear();
+        confirmedMode.clear();
         confirmedStatementIds.clear();
         confirmedRingUnsaved.clear();
         confirmedSourceLabel.clear();
@@ -1659,6 +1780,7 @@ public final class RingTool implements EditTool {
         confirmedRings.remove(ring);
         confirmedAuthoredVertexId.remove(ring);
         confirmedBaseNormal.remove(ring);
+        confirmedMode.remove(ring);
         confirmedStatementIds.remove(ring);
         confirmedRingUnsaved.remove(ring);
         confirmedSourceLabel.remove(ring);
@@ -1712,6 +1834,11 @@ public final class RingTool implements EditTool {
                 float[] written = SurfaceWaypoints.parse(
                         String.valueOf(statement.arguments.get(SplineRingNode.NORMAL.name)));
                 normal = written.length == COORDINATES_PER_POINT ? written : null;
+                Object mode = statement.arguments.get(SplineRingNode.MODE.name);
+                anchored.mode = RingSegmentMode.named(mode instanceof String text ? text : null);
+                if (anchored.mode == RingSegmentMode.CREASE && readyCreases(surface)) {
+                    anchored.creases = creases;
+                }
                 anchors = SurfaceWaypoints.snap(geodesics.metric.nearestVertex, points,
                         points.length / COORDINATES_PER_POINT);
             } else {
@@ -1744,6 +1871,7 @@ public final class RingTool implements EditTool {
             confirmedRings.add(traced);
             confirmedAuthoredVertexId.add(anchored.authoredVertexId);
             confirmedBaseNormal.add(normal == null ? written(anchored.planeNormal) : normal);
+            confirmedMode.add(anchored.mode);
             confirmedStatementIds.add(spline ? statement.id : null);
             if (spline) {
                 knownRingStatementIds.add(statement.id);
@@ -1824,6 +1952,7 @@ public final class RingTool implements EditTool {
         confirmedRings.add(spline);
         confirmedAuthoredVertexId.add(anchored.authoredVertexId);
         confirmedBaseNormal.add(normal);
+        confirmedMode.add(RingSegmentMode.GEODESIC);
         confirmedStatementIds.add(null);
         confirmedRingUnsaved.add(true);
         confirmedSourceLabel.add(null);

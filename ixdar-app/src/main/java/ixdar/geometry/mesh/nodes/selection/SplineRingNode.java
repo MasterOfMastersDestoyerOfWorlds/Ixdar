@@ -9,6 +9,8 @@ import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
+import ixdar.geometry.mesh.data.paths.RingSegmentMode;
+import ixdar.geometry.mesh.data.paths.SurfaceCreases;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
@@ -40,13 +42,17 @@ public class SplineRingNode implements MeshNode {
             DEFAULT_MARK_LABEL);
     public static final InputPort METRIC = new InputPort("metric", PortType.SURFACE_METRIC,
             null);
+    public static final InputPort MODE = new InputPort("mode", PortType.STRING,
+            RingSegmentMode.GEODESIC.dslName);
+    public static final InputPort CREASES = new InputPort("creases", PortType.SURFACE_CREASES,
+            null);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name,
             PortType.GEOMETRY_BUNDLE);
     public static final OutputPort SELECTION = new OutputPort("selection", PortType.BOOLEAN);
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(GEOMETRY, POINTS, NORMAL, LABEL, METRIC);
+        return List.of(GEOMETRY, POINTS, NORMAL, LABEL, METRIC, MODE, CREASES);
     }
 
     @Override
@@ -96,6 +102,14 @@ public class SplineRingNode implements MeshNode {
                 "Required: the metric output of a surface_metric statement measured on this very "
                         + "mesh, shared by every ring of a chain so the surface is measured "
                         + "once. A ring without one is refused.",
+                MODE.name,
+                "How the ring runs between authored anchors: \"geodesic\" (the default) is the "
+                        + "smooth spline; \"crease\" fits the spline to the cheapest path over "
+                        + "the surface's crease cost that joins the anchors in order once round "
+                        + "the part, so it hugs the groove they sit in.",
+                CREASES.name,
+                "The creases output of a surface_creases statement on this very mesh; required "
+                        + "by the crease mode and ignored by the geodesic one.",
                 SELECTION.name,
                 "Per-edge BoolField, true on every edge of the conforming cycle nearest the "
                         + "traced spline.");
@@ -139,6 +153,13 @@ public class SplineRingNode implements MeshNode {
         }
         int[] anchorVertexIds = SurfaceWaypoints.snap(metric.nearestVertex, points, anchorCount);
         AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(metric));
+        ring.mode = RingSegmentMode.named(ctx.getInput(MODE.name, String.class));
+        ring.creases = ctx.getInput(CREASES.name, SurfaceCreases.class);
+        if (ring.mode == RingSegmentMode.CREASE && ring.creases == null) {
+            throw new IllegalArgumentException("spline_ring " + label + " runs in crease mode "
+                    + "but has no creases; wire creases = surface_creases(geometry=...) on the "
+                    + "surface it rings and pass creases=creases.creases");
+        }
         boolean traced = ring.trace(anchorVertexIds, anchorCount,
                 normal.length == SurfaceWaypoints.COORDINATES_PER_WAYPOINT ? normal : null,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH);

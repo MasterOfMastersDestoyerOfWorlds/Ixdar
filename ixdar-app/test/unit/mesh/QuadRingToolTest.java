@@ -349,7 +349,7 @@ class QuadRingToolTest {
 
         String measuredSurface = RingDslWriter.METRIC_STATEMENT_ID + "."
                 + RingDslWriter.DEFAULT_UPSTREAM_PORT;
-        String statement = RingDslWriter.wireSurfaceMetric(RingDslWriter.METRIC_STATEMENT_ID
+        String statement = RingDslWriter.wireRingInputs(RingDslWriter.METRIC_STATEMENT_ID
                 + " = " + RingDslWriter.SURFACE_METRIC_NODE + "(geometry=" + FIXTURE + ")"
                 + RingDslWriter.LINE_BREAK + RingDslWriter.splineStatement(SAVED_LABEL,
                         measuredSurface, points, anchorCount, normal));

@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.data.paths;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
 
@@ -40,6 +41,24 @@ public final class AuthoredSplineRing {
 
     public static final double FOLD_GAP_OF_ARC = 0.5;
 
+    // A crease ring's search keeps to a slab this many plane-loop radii either side of the plane,
+    // so it stays on the part the anchors girdle.
+    public static final double CREASE_BAND_OF_RADIUS = 1.0;
+
+    // A groove ring starts from the nearest groove within this fraction of the plane loop's
+    // radius of the click.
+    public static final double GROOVE_REACH_OF_RADIUS = 0.15;
+
+    // Valley strength at which a vertex counts as lying in a groove.
+    public static final double IN_GROOVE_STRENGTH = 0.5;
+
+    // A groove ring that runs in a groove for less than this fraction of its length found none.
+    public static final double MINIMUM_GROOVE_FRACTION = 0.5;
+
+    public static final int SHEETS = 2;
+
+    public static final double PERCENT = 100.0;
+
     /** Tracer holding the ring after a successful {@link #trace}. */
     public final SurfaceSplineTracer tracer;
 
@@ -72,6 +91,21 @@ public final class AuthoredSplineRing {
     /** Where the last traced ring crosses or touches itself, when it is not simple. */
     public final SurfacePathCrossings crossings = new SurfacePathCrossings();
 
+    /** How the ring runs between authored anchors; the crease mode needs {@link #creases}. */
+    public RingSegmentMode mode = RingSegmentMode.GEODESIC;
+
+    /** Crease cost of the surface the crease mode follows, or {@code null} for none. */
+    public SurfaceCreases creases;
+
+    /** Fraction of the last crease reference's length lying in a groove; zero in geodesic mode. */
+    public double grooveFraction;
+
+    /**
+     * Base normal the last successful {@link #traceGroove} traced with, as a statement writes it:
+     * the groove's own plane, or the girdling plane given when that rang no groove.
+     */
+    public final float[] grooveNormal = new float[COORDINATES_PER_POINT];
+
     private final float[] planePoint = new float[COORDINATES_PER_POINT];
     private final Vector3f position = new Vector3f();
     private final double[] spread = new double[PLANE_FIT_MATRIX_ENTRIES];
@@ -81,6 +115,12 @@ public final class AuthoredSplineRing {
     private int[] spanLabel = new int[0];
     private boolean cycleDoublesBack;
     private int referencePoints;
+    private double[] sheetDistance = new double[0];
+    private int[] sheetParent = new int[0];
+    private int[] sheetVisit = new int[0];
+    private int visit;
+    private final Vector3f neighbour = new Vector3f();
+    private final Vector3f clickPosition = new Vector3f();
 
     /**
      * Binds a ring to the surface engine its geodesics run on.
@@ -94,8 +134,8 @@ public final class AuthoredSplineRing {
 
     /**
      * Trace the ring through authored anchors into {@link #tracer}. Up to
-     * {@link #PLANE_STARTED_ANCHORS} follow the plane's loop; more keep the given order, each span
-     * following the geodesic to the next unless only the plane's loop makes the ring simple.
+     * {@link #PLANE_STARTED_ANCHORS} follow the plane's loop, more the geodesics between them; in
+     * the crease {@link #mode} every span follows the cheapest crease path once round the part.
      *
      * @param anchorVertexIds mesh vertices the user placed, in ring order; the first leads the
      *                        ring, repeats drop
@@ -125,45 +165,361 @@ public final class AuthoredSplineRing {
             return false;
         }
         MeshTopology mesh = tracer.geodesics.mesh;
+        grooveFraction = 0.0;
+        if (mode == RingSegmentMode.CREASE && (creases == null || creases.sourceMesh != mesh)) {
+            failure = "a crease ring needs the creases of the surface it rings";
+            return false;
+        }
         fitPlane(mesh, distinct, distinctCount, baseNormal);
         fit.authoredVertexId = Arrays.copyOf(distinct, distinctCount);
         fit.authoredPoint = new int[distinctCount];
         fit.authoredAllowance = new double[distinctCount];
-        if (distinctCount <= PLANE_STARTED_ANCHORS) {
-            int loopPoints = planeLoopReference(mesh);
-            return loopPoints > 0 && fitAndTrace(mesh, cut.polyline, loopPoints, finalDepth);
-        }
-        // Geodesic spans when they make a simple ring that passes through every anchor. Where the
-        // anchors leave a stretch of the girdle uncovered a geodesic cuts back the short way, so
-        // the plane's loop shapes the ring instead, provided it keeps the anchors' order; the
-        // geodesic ring stands otherwise.
-        int cyclePoints = geodesicCycleReference(mesh);
-        if (cyclePoints < 0 || !fitAndTrace(mesh, cycleXyz, cyclePoints, finalDepth)) {
-            return false;
-        }
-        if (simple && !cycleDoublesBack) {
-            return true;
-        }
-        int loopPoints = planeLoopReference(mesh);
-        if (loopPoints > 0 && fitAndTrace(mesh, cut.polyline, loopPoints, finalDepth) && simple
-                && authoredVertexId.length == distinctCount) {
-            int start = 0;
-            while (authoredVertexId[start] != distinct[0]) {
-                start++;
+        if (mode == RingSegmentMode.GEODESIC) {
+            if (distinctCount <= PLANE_STARTED_ANCHORS) {
+                int loopPoints = planeLoopReference(mesh);
+                return loopPoints > 0 && fitAndTrace(mesh, cut.polyline, loopPoints, finalDepth);
             }
-            boolean forward = true;
-            boolean backward = true;
-            for (int anchor = 0; anchor < distinctCount; anchor++) {
-                forward &= authoredVertexId[(start + anchor) % distinctCount] == distinct[anchor];
-                backward &= authoredVertexId[Math.floorMod(start - anchor, distinctCount)]
-                        == distinct[anchor];
+            // Geodesic spans when they make a simple ring that passes through every anchor.
+            // Where the anchors leave a stretch of the girdle uncovered a geodesic cuts back the
+            // short way, so the plane's loop shapes the ring instead, provided it keeps the
+            // anchors' order; the geodesic ring stands otherwise.
+            int cyclePoints = geodesicCycleReference(mesh);
+            if (cyclePoints < 0 || !fitAndTrace(mesh, cycleXyz, cyclePoints, finalDepth)) {
+                return false;
             }
-            if (forward || backward) {
+            if (simple && !cycleDoublesBack) {
                 return true;
             }
+            int loopPoints = planeLoopReference(mesh);
+            if (loopPoints > 0 && fitAndTrace(mesh, cut.polyline, loopPoints, finalDepth)
+                    && simple && authoredVertexId.length == distinctCount) {
+                int start = 0;
+                while (authoredVertexId[start] != distinct[0]) {
+                    start++;
+                }
+                boolean forward = true;
+                boolean backward = true;
+                for (int anchor = 0; anchor < distinctCount; anchor++) {
+                    forward &= authoredVertexId[(start + anchor) % distinctCount]
+                            == distinct[anchor];
+                    backward &= authoredVertexId[Math.floorMod(start - anchor, distinctCount)]
+                            == distinct[anchor];
+                }
+                if (forward || backward) {
+                    return true;
+                }
+            }
+            geodesicCycleReference(mesh);
+            return fitAndTrace(mesh, cycleXyz, cyclePoints, finalDepth);
         }
-        geodesicCycleReference(mesh);
-        return fitAndTrace(mesh, cycleXyz, cyclePoints, finalDepth);
+        // The crease ring: the cheapest closed crease path through the anchors in their order,
+        // once round the part, is the reference the spline fits. Once round is tested on a double
+        // cover of a slab about the plane: a half-plane from the plane loop's centre through the
+        // first anchor is a seam, crossing it swaps sheets, and the closed path must end on the
+        // other sheet. Each span is one Dijkstra from its anchor over both sheets and takes its
+        // cheaper sheet; when the swaps come out even, the span losing least by its other sheet
+        // takes that one.
+        int loopPoints = planeLoopReference(mesh);
+        if (loopPoints < 0) {
+            return false;
+        }
+        double[] centre = new double[COORDINATES_PER_POINT];
+        for (int point = 0; point < loopPoints; point++) {
+            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+                centre[axis] += cut.polyline[COORDINATES_PER_POINT * point + axis] / loopPoints;
+            }
+        }
+        double band = CREASE_BAND_OF_RADIUS * SplineAnchorFit.meanRadiusOf(cut.polyline,
+                loopPoints);
+        for (int anchor = 0; anchor < distinctCount; anchor++) {
+            mesh.vertexPosition(distinct[anchor], position);
+            band = Math.max(band, Math.abs(planeNormal[0] * (position.x - centre[0])
+                    + planeNormal[1] * (position.y - centre[1])
+                    + planeNormal[2] * (position.z - centre[2])));
+        }
+        // The seam runs from the centre along the first anchor's direction in the plane, and the
+        // across axis completes the plane's frame.
+        mesh.vertexPosition(distinct[0], position);
+        double[] seam = { position.x - centre[0], position.y - centre[1], position.z - centre[2] };
+        double off = seam[0] * planeNormal[0] + seam[1] * planeNormal[1] + seam[2] * planeNormal[2];
+        double seamLength = 0.0;
+        for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+            seam[axis] -= off * planeNormal[axis];
+            seamLength += seam[axis] * seam[axis];
+        }
+        seamLength = Math.sqrt(seamLength);
+        if (seamLength <= 0.0) {
+            failure = "the first anchor sits on the axis of the plane's loop";
+            return false;
+        }
+        for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+            seam[axis] /= seamLength;
+        }
+        double[] across = {
+            planeNormal[1] * seam[2] - planeNormal[2] * seam[1],
+            planeNormal[2] * seam[0] - planeNormal[0] * seam[2],
+            planeNormal[0] * seam[1] - planeNormal[1] * seam[0] };
+        int states = SHEETS * tracer.geodesics.metric.vertexIdBound;
+        if (sheetVisit.length < states) {
+            sheetDistance = new double[states];
+            sheetParent = new int[states];
+            sheetVisit = new int[states];
+            visit = 0;
+        }
+        double[] spanCost = new double[SHEETS * distinctCount];
+        int[][] spanPath = new int[SHEETS * distinctCount][];
+        PriorityQueue<double[]> frontier = new PriorityQueue<>(
+                (left, right) -> Double.compare(left[0], right[0]));
+        for (int anchor = 0; anchor < distinctCount; anchor++) {
+            int source = SHEETS * distinct[anchor];
+            int target = SHEETS * distinct[(anchor + 1) % distinctCount];
+            visit++;
+            frontier.clear();
+            sheetVisit[source] = visit;
+            sheetDistance[source] = 0.0;
+            sheetParent[source] = -1;
+            frontier.add(new double[] { 0.0, source });
+            int settledTargets = 0;
+            while (!frontier.isEmpty() && settledTargets < SHEETS) {
+                double[] entry = frontier.poll();
+                int state = (int) entry[1];
+                if (entry[0] > sheetDistance[state]) {
+                    continue;
+                }
+                settledTargets += state == target || state == target + 1 ? 1 : 0;
+                int vertexId = state / SHEETS;
+                int sheet = state % SHEETS;
+                mesh.vertexPosition(vertexId, position);
+                double hereAlong = (position.x - centre[0]) * seam[0]
+                        + (position.y - centre[1]) * seam[1] + (position.z - centre[2]) * seam[2];
+                double hereAcross = (position.x - centre[0]) * across[0]
+                        + (position.y - centre[1]) * across[1]
+                        + (position.z - centre[2]) * across[2];
+                int spokes = mesh.vertexEdgeCount(vertexId);
+                for (int spoke = 0; spoke < spokes; spoke++) {
+                    int edgeId = mesh.vertexEdgeAt(vertexId, spoke);
+                    int otherId = mesh.edgeOtherVertex(edgeId, vertexId);
+                    if (otherId < 0) {
+                        continue;
+                    }
+                    mesh.vertexPosition(otherId, neighbour);
+                    double dx = neighbour.x - centre[0];
+                    double dy = neighbour.y - centre[1];
+                    double dz = neighbour.z - centre[2];
+                    if (Math.abs(dx * planeNormal[0] + dy * planeNormal[1] + dz * planeNormal[2])
+                            > band) {
+                        continue;
+                    }
+                    double thereAlong = dx * seam[0] + dy * seam[1] + dz * seam[2];
+                    double thereAcross = dx * across[0] + dy * across[1] + dz * across[2];
+                    // The edge crosses the seam where it changes side of the across axis on the
+                    // seam's own half, not on the half behind the centre.
+                    boolean crosses = (hereAcross < 0.0) != (thereAcross < 0.0)
+                            && hereAlong + (thereAlong - hereAlong) * hereAcross
+                                    / (hereAcross - thereAcross) > 0.0;
+                    int next = SHEETS * otherId + (crosses ? 1 - sheet : sheet);
+                    double relaxed = sheetDistance[state] + creases.edgeCost[edgeId];
+                    if (sheetVisit[next] != visit || relaxed < sheetDistance[next]) {
+                        sheetVisit[next] = visit;
+                        sheetDistance[next] = relaxed;
+                        sheetParent[next] = state;
+                        frontier.add(new double[] { relaxed, next });
+                    }
+                }
+            }
+            for (int sheet = 0; sheet < SHEETS; sheet++) {
+                int end = target + sheet;
+                boolean reached = sheetVisit[end] == visit;
+                spanCost[SHEETS * anchor + sheet] = reached ? sheetDistance[end]
+                        : Double.POSITIVE_INFINITY;
+                int length = 0;
+                for (int state = end; reached && state >= 0; state = sheetParent[state]) {
+                    length++;
+                }
+                int[] path = new int[length];
+                for (int state = end; reached && state >= 0; state = sheetParent[state]) {
+                    path[--length] = state / SHEETS;
+                }
+                spanPath[SHEETS * anchor + sheet] = path;
+            }
+        }
+        int[] chosen = new int[distinctCount];
+        int parity = 0;
+        int flip = -1;
+        double cheapestFlip = Double.POSITIVE_INFINITY;
+        for (int anchor = 0; anchor < distinctCount; anchor++) {
+            double first = spanCost[SHEETS * anchor];
+            double second = spanCost[SHEETS * anchor + 1];
+            chosen[anchor] = first <= second ? 0 : 1;
+            parity ^= chosen[anchor];
+            double loss = Math.abs(second - first);
+            if (loss < cheapestFlip) {
+                cheapestFlip = loss;
+                flip = anchor;
+            }
+        }
+        if (parity == 0 && flip >= 0) {
+            chosen[flip] ^= 1;
+        }
+        int points = 0;
+        for (int anchor = 0; anchor < distinctCount; anchor++) {
+            if (spanCost[SHEETS * anchor + chosen[anchor]] == Double.POSITIVE_INFINITY) {
+                failure = "no crease path joins authored anchors " + anchor + " and "
+                        + (anchor + 1) % distinctCount + " once round the part";
+                return false;
+            }
+            points += spanPath[SHEETS * anchor + chosen[anchor]].length - 1;
+        }
+        if (referenceVertexId.length < points) {
+            referenceVertexId = new int[points];
+        }
+        if (cycleXyz.length < COORDINATES_PER_POINT * points) {
+            cycleXyz = new float[COORDINATES_PER_POINT * points];
+        }
+        points = 0;
+        for (int anchor = 0; anchor < distinctCount; anchor++) {
+            int[] path = spanPath[SHEETS * anchor + chosen[anchor]];
+            fit.authoredPoint[anchor] = points;
+            for (int step = 0; step + 1 < path.length; step++) {
+                referenceVertexId[points] = path[step];
+                mesh.vertexPosition(path[step], position);
+                cycleXyz[COORDINATES_PER_POINT * points] = position.x;
+                cycleXyz[COORDINATES_PER_POINT * points + 1] = position.y;
+                cycleXyz[COORDINATES_PER_POINT * points + 2] = position.z;
+                points++;
+            }
+        }
+        Arrays.fill(fit.authoredAllowance, 0.0);
+        double inGroove = 0.0;
+        double total = 0.0;
+        for (int point = 0; point < points; point++) {
+            int next = (point + 1) % points;
+            double squared = 0.0;
+            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+                double gap = cycleXyz[COORDINATES_PER_POINT * next + axis]
+                        - cycleXyz[COORDINATES_PER_POINT * point + axis];
+                squared += gap * gap;
+            }
+            double step = Math.sqrt(squared);
+            total += step;
+            inGroove += creases.valleyStrength[referenceVertexId[point]]
+                    + creases.valleyStrength[referenceVertexId[next]]
+                    >= 2.0 * IN_GROOVE_STRENGTH ? step : 0.0;
+        }
+        grooveFraction = total > 0.0 ? inGroove / total : 0.0;
+        referencePoints = points;
+        return fitAndTrace(mesh, cycleXyz, points, finalDepth);
+    }
+
+    /**
+     * Trace the crease ring along the groove nearest a click: its one authored anchor is the
+     * bottom of the nearest groove within {@link #GROOVE_REACH_OF_RADIUS} of the plane loop's
+     * radius, and its plane the groove's own, normal to the across-groove line there.
+     *
+     * @param clickedVertexId mesh vertex under the click
+     * @param baseNormal      normal of the plane girdling the part at the click, packed xyz
+     * @param finalDepth      bisections the finished ring is traced to
+     * @return true when a ring was traced that runs in a groove for at least
+     *         {@link #MINIMUM_GROOVE_FRACTION} of its length; {@link #failure} says why not
+     */
+    public boolean traceGroove(int clickedVertexId, float[] baseNormal, int finalDepth) {
+        mode = RingSegmentMode.CREASE;
+        failure = "";
+        authoredVertexId = new int[0];
+        MeshTopology mesh = tracer.geodesics.mesh;
+        if (creases == null || creases.sourceMesh != mesh) {
+            failure = "a groove ring needs the creases of the surface it rings";
+            return false;
+        }
+        int[] clicked = { clickedVertexId };
+        fitPlane(mesh, clicked, 1, baseNormal);
+        fit.authoredVertexId = clicked;
+        fit.authoredPoint = new int[1];
+        fit.authoredAllowance = new double[1];
+        int loopPoints = planeLoopReference(mesh);
+        if (loopPoints < 0) {
+            return false;
+        }
+        double reach = GROOVE_REACH_OF_RADIUS * SplineAnchorFit.meanRadiusOf(cut.polyline,
+                loopPoints);
+        // Breadth-first over the vertices within reach of the click, keeping the groove vertex
+        // nearest it.
+        int bound = tracer.geodesics.metric.vertexIdBound;
+        if (sheetVisit.length < SHEETS * bound) {
+            sheetDistance = new double[SHEETS * bound];
+            sheetParent = new int[SHEETS * bound];
+            sheetVisit = new int[SHEETS * bound];
+            visit = 0;
+        }
+        visit++;
+        mesh.vertexPosition(clickedVertexId, clickPosition);
+        int[] queue = new int[Math.min(bound, mesh.vertexCount())];
+        int head = 0;
+        int tail = 0;
+        queue[tail++] = clickedVertexId;
+        sheetVisit[SHEETS * clickedVertexId] = visit;
+        int groove = -1;
+        double grooveDistance = Double.POSITIVE_INFINITY;
+        while (head < tail) {
+            int vertexId = queue[head++];
+            mesh.vertexPosition(vertexId, neighbour);
+            double distance = neighbour.distance(clickPosition);
+            if (creases.valleyStrength[vertexId] >= IN_GROOVE_STRENGTH
+                    && distance < grooveDistance) {
+                groove = vertexId;
+                grooveDistance = distance;
+            }
+            for (int spoke = 0; spoke < mesh.vertexEdgeCount(vertexId); spoke++) {
+                int otherId = mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, spoke), vertexId);
+                if (otherId < 0 || sheetVisit[SHEETS * otherId] == visit) {
+                    continue;
+                }
+                sheetVisit[SHEETS * otherId] = visit;
+                mesh.vertexPosition(otherId, neighbour);
+                if (neighbour.distance(clickPosition) <= reach) {
+                    queue[tail++] = otherId;
+                }
+            }
+        }
+        if (groove < 0) {
+            failure = String.format(Locale.ROOT, "no groove within %.5f of the click", reach);
+            return false;
+        }
+        // From the groove's edge nearest the click, up to the bottom of that groove.
+        for (boolean climbing = true; climbing;) {
+            climbing = false;
+            for (int spoke = 0; spoke < mesh.vertexEdgeCount(groove) && !climbing; spoke++) {
+                int otherId = mesh.edgeOtherVertex(mesh.vertexEdgeAt(groove, spoke), groove);
+                if (otherId >= 0
+                        && creases.valleyStrength[otherId] > creases.valleyStrength[groove]) {
+                    groove = otherId;
+                    climbing = true;
+                }
+            }
+        }
+        // The groove's own plane first, the girdling plane when that rings no groove; each normal
+        // goes through the statement's text format, so a reload traces from the same numbers.
+        float[][] normals = {
+            SurfaceWaypoints.parse(SurfaceWaypoints.format(Arrays.copyOfRange(
+                    creases.acrossGroove, COORDINATES_PER_POINT * groove,
+                    COORDINATES_PER_POINT * (groove + 1)), 1)),
+            baseNormal };
+        String refusal = "";
+        int[] anchor = { groove };
+        for (float[] normal : normals) {
+            if (trace(anchor, 1, normal, finalDepth)
+                    && grooveFraction >= MINIMUM_GROOVE_FRACTION) {
+                System.arraycopy(normal, 0, grooveNormal, 0, COORDINATES_PER_POINT);
+                return true;
+            }
+            refusal = !failure.isEmpty() ? failure : refusal.isEmpty() ? String.format(Locale.ROOT,
+                    "no closed groove: the cheapest ring round the part from the groove at the "
+                            + "click runs in a groove for only %.0f%% of its length",
+                    PERCENT * grooveFraction) : refusal;
+        }
+        failure = refusal;
+        authoredVertexId = new int[0];
+        return false;
     }
 
     /**

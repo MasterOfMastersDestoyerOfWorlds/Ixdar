@@ -173,7 +173,7 @@ class RingDeletionTest {
      */
     private static GeometryBundle run(String source, MeshTopology fixture) throws Exception {
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(
-                RingDslWriter.wireSurfaceMetric(source));
+                RingDslWriter.wireRingInputs(source));
         String last = runtime.statements.get(runtime.statements.size() - 1).id;
         Map<String, Object> overrides = new LinkedHashMap<>();
         overrides.put(runtime.statements.get(0).id + GEOMETRY_PORT,

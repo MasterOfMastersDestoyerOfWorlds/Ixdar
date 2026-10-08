@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.nodes.api;
 
 import ixdar.geometry.mesh.curve.FloatCurveKernel;
 import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.paths.SurfaceCreases;
 import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
@@ -23,6 +24,8 @@ public enum PortType {
     CROSS_FIELD(CrossField.class),
     /** Intrinsic metric and connection of a surface, shared read-only by every consumer. */
     SURFACE_METRIC(SurfaceMetric.class),
+    /** Groove strength and crease path cost of a surface, shared read-only by every ring. */
+    SURFACE_CREASES(SurfaceCreases.class),
     /** Per-corner UV assignment over a mesh. */
     UV_FIELD(UvField.class),
     /** Node-arc-patch network on a surface. */

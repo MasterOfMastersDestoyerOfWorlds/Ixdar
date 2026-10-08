@@ -13,6 +13,7 @@ import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.NearestVertex;
+import ixdar.geometry.mesh.data.paths.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
@@ -47,6 +48,8 @@ class SplineRingChainTest {
     private static final String FIRST_LABEL = "ring_00";
 
     private static final String SECOND_LABEL = "ring_01";
+
+    private static final String WIRED_TWICE = "wiring twice changed it";
 
     private static final String UNWIRED_GRAPH = "sphere = icosphere(radius=1.0, subdivisions=4)\n"
             + FIRST_LABEL + " = spline_ring(geometry=sphere.mesh, points=\"" + EQUATOR_POINT
@@ -101,9 +104,9 @@ class SplineRingChainTest {
 
     @Test
     void theSaveWiresOneMetricIntoEveryRingWhichAnUnwiredGraphLacks() throws Exception {
-        String wired = RingDslWriter.wireSurfaceMetric(UNWIRED_GRAPH);
+        String wired = RingDslWriter.wireRingInputs(UNWIRED_GRAPH);
         assertEquals(WIRED_GRAPH, wired);
-        assertEquals(wired, RingDslWriter.wireSurfaceMetric(wired), "wiring twice changed it");
+        assertEquals(wired, RingDslWriter.wireRingInputs(wired), WIRED_TWICE);
 
         GeometryBundle wiredRun = run(wired);
         for (String label : new String[] { FIRST_LABEL, SECOND_LABEL }) {
@@ -114,6 +117,32 @@ class SplineRingChainTest {
         assertTrue(unwired.getMessage().contains(FIRST_LABEL + " has no metric")
                 && unwired.getMessage().contains("surface_metric(geometry=")
                 && unwired.getMessage().contains("metric=surface.metric"), unwired.getMessage());
+    }
+
+    @Test
+    void theSaveWiresOneCreaseFieldIntoEveryCreaseRing() throws Exception {
+        String creaseMode = RingDslWriter.withMode(RingDslWriter.withMode(UNWIRED_GRAPH,
+                FIRST_LABEL, RingSegmentMode.CREASE), SECOND_LABEL, RingSegmentMode.CREASE);
+        assertEquals(creaseMode, RingDslWriter.withMode(RingDslWriter.withMode(creaseMode,
+                FIRST_LABEL, RingSegmentMode.GEODESIC), FIRST_LABEL, RingSegmentMode.CREASE),
+                "writing the mode back and forth changed the statement");
+        String wired = RingDslWriter.wireRingInputs(creaseMode);
+        String creaseArguments = "metric=surface.metric, creases=creases.creases, ";
+        assertEquals("sphere = icosphere(radius=1.0, subdivisions=4)\n"
+                + "surface = surface_metric(geometry=sphere.mesh)\n"
+                + "creases = surface_creases(geometry=surface.geometry)\n"
+                + FIRST_LABEL + " = spline_ring(geometry=surface.geometry, " + creaseArguments
+                + "points=\"" + EQUATOR_POINT + "\", normal=\"" + EQUATOR_NORMAL
+                + "\", mode=\"crease\", label=\"" + FIRST_LABEL + "\")\n"
+                + SECOND_LABEL + " = spline_ring(geometry=" + FIRST_LABEL + ".geometry, "
+                + creaseArguments + "points=\"" + MERIDIAN_POINT + "\", normal=\""
+                + MERIDIAN_NORMAL + "\", mode=\"crease\", label=\"" + SECOND_LABEL + "\")\n",
+                wired);
+        assertEquals(wired, RingDslWriter.wireRingInputs(wired), WIRED_TWICE);
+        GeometryBundle wiredRun = run(wired);
+        for (String label : new String[] { FIRST_LABEL, SECOND_LABEL }) {
+            assertTrue(EdgeMarks.bools(wiredRun, label) != null, label + " left no marks");
+        }
     }
 
     @Test
@@ -132,7 +161,7 @@ class SplineRingChainTest {
                 + "surface_2 = surface_metric(geometry=rings.geometry)\n"
                 + SECOND_LABEL + " = spline_ring(geometry=surface_2.geometry, "
                 + "metric=surface_2.metric, points=\"" + MERIDIAN_POINT + "\", label=\""
-                + SECOND_LABEL + "\")\n", RingDslWriter.wireSurfaceMetric(rebuilt));
+                + SECOND_LABEL + "\")\n", RingDslWriter.wireRingInputs(rebuilt));
     }
 
     @Test

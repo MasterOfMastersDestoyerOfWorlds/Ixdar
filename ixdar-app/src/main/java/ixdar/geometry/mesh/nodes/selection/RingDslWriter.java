@@ -17,9 +17,11 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import ixdar.geometry.mesh.data.RingCandidates;
+import ixdar.geometry.mesh.data.paths.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.geometry.mesh.nodes.data.SurfaceCreasesNode;
 import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -51,6 +53,12 @@ public final class RingDslWriter {
     public static final String SURFACE_METRIC_NODE = "surface_metric";
 
     public static final String METRIC_STATEMENT_ID = "surface";
+
+    public static final String MODE_ARGUMENT = "mode=\"";
+
+    public static final String SURFACE_CREASES_NODE = "surface_creases";
+
+    public static final String CREASES_STATEMENT_ID = "creases";
 
     public static final Set<String> MESH_PRESERVING_RING_NODES =
             Set.of(SPLINE_RING_NODE, "loop_through_points");
@@ -358,19 +366,23 @@ public final class RingDslWriter {
     }
 
     /**
-     * The DSL source with every spline ring wired to a surface measurement, which spline_ring
-     * requires: {@code metric=} names the {@code surface_metric} its geometry chain runs back to
-     * through rings, and a ring with none gets a new {@code surface_metric} statement before it.
+     * The DSL source with every spline ring wired to what it reads besides geometry: {@code metric=}
+     * names the {@code surface_metric} its chain runs back to, one made before it when there is
+     * none, and a crease-mode ring's {@code creases=} the {@code surface_creases} on that surface.
      *
      * @param dslSource working graph
      * @throws IllegalArgumentException when a statement the wiring rewrites is bound twice
      * @return the wired source, or the source itself when every spline ring is already wired
      */
-    public static String wireSurfaceMetric(String dslSource) {
+    public static String wireRingInputs(String dslSource) {
         List<PythonParser.ParsedNode> statements = NodeGraphRuntime.fromSource(dslSource).statements;
         Set<String> bound = new HashSet<>();
+        Map<String, String> creasesIdBySurface = new HashMap<>();
         for (PythonParser.ParsedNode statement : statements) {
             bound.add(statement.id);
+            if (SURFACE_CREASES_NODE.equals(statement.type) && geometryInput(statement) != null) {
+                creasesIdBySurface.putIfAbsent(geometryInput(statement), statement.id);
+            }
         }
         List<String> lines = new ArrayList<>(List.of(dslSource.split(LINE_BREAK, -1)));
         // Only rings pass the measured mesh through untouched, so a metric reaches a statement
@@ -422,7 +434,80 @@ public final class RingDslWriter {
             if (metricId != null) {
                 metricIdByStatement.put(statement.id, metricId);
             }
+            Object mode = statement.arguments.get(SplineRingNode.MODE.name);
+            if (metricId == null || !SPLINE_RING_NODE.equals(statement.type)
+                    || statement.arguments.get(SplineRingNode.CREASES.name)
+                            instanceof PythonParser.NodeReference
+                    || RingSegmentMode.named(mode instanceof String text ? text : null)
+                            != RingSegmentMode.CREASE) {
+                continue;
+            }
+            String surface = metricId + "." + SurfaceMetricNode.GEOMETRY_OUT.name;
+            String creasesId = creasesIdBySurface.get(surface);
+            if (creasesId == null) {
+                creasesId = CREASES_STATEMENT_ID;
+                for (int suffix = 2; bound.contains(creasesId); suffix++) {
+                    creasesId = CREASES_STATEMENT_ID + "_" + suffix;
+                }
+                bound.add(creasesId);
+                creasesIdBySurface.put(surface, creasesId);
+                lines.add(bindingLine(lines.toArray(new String[0]), metricId) + 1, creasesId
+                        + " = " + SURFACE_CREASES_NODE + "(" + SurfaceCreasesNode.GEOMETRY.name
+                        + "=" + surface + ")");
+            }
+            int target = bindingLine(lines.toArray(new String[0]), statement.id);
+            String metricArgument = SplineRingNode.METRIC.name + "=" + metricId + "."
+                    + SurfaceMetricNode.METRIC.name;
+            int at = tokenIndex(lines.get(target), metricArgument, 0);
+            if (at < 0) {
+                throw new IllegalArgumentException("statement " + statement.id
+                        + " does not spell its metric as " + metricArgument
+                        + ", so its creases could not be wired");
+            }
+            int end = at + metricArgument.length();
+            lines.set(target, lines.get(target).substring(0, end) + ", "
+                    + SplineRingNode.CREASES.name + "=" + creasesId + "."
+                    + SurfaceCreasesNode.CREASES.name + lines.get(target).substring(end));
         }
+        return String.join(LINE_BREAK, lines);
+    }
+
+    /**
+     * The DSL source with one spline ring's segment mode written in place: {@code mode=} after its
+     * anchors and normal, or dropped for the geodesic mode, which is the default.
+     *
+     * @param dslSource working graph holding the statement
+     * @param id        statement id to rewrite
+     * @param mode      the ring's segment mode
+     * @throws IllegalArgumentException when no line, or more than one line, binds that id, or when
+     *                                  the line carries no points argument
+     * @return the source with that one argument written
+     */
+    public static String withMode(String dslSource, String id, RingSegmentMode mode) {
+        String[] lines = dslSource.split(LINE_BREAK, -1);
+        int target = bindingLine(lines, id);
+        String line = lines[target];
+        int opening = tokenIndex(line, MODE_ARGUMENT, 0);
+        if (opening >= 0) {
+            int closing = line.indexOf('"', opening + MODE_ARGUMENT.length()) + 1;
+            int cut = opening;
+            while (cut > 0 && line.charAt(cut - 1) == ' ') {
+                cut--;
+            }
+            cut -= cut > 0 && line.charAt(cut - 1) == ',' ? 1 : 0;
+            line = line.substring(0, cut) + line.substring(closing);
+        }
+        if (mode != RingSegmentMode.GEODESIC) {
+            int argument = Math.max(line.indexOf(NORMAL_ARGUMENT), line.indexOf(POINTS_ARGUMENT));
+            if (argument < 0) {
+                throw new IllegalArgumentException("statement " + id
+                        + " carries no points argument to write its mode after");
+            }
+            int end = line.indexOf('"', line.indexOf('"', argument) + 1) + 1;
+            line = line.substring(0, end) + ", " + MODE_ARGUMENT + mode.dslName
+                    + "\"" + line.substring(end);
+        }
+        lines[target] = line;
         return String.join(LINE_BREAK, lines);
     }
 

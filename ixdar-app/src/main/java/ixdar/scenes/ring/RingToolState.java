@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.paths.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 
 /**
@@ -23,6 +24,9 @@ public final class RingToolState {
 
     /** Base normal of each confirmed ring. */
     public final List<float[]> confirmedBaseNormal;
+
+    /** Segment mode of each confirmed ring. */
+    public final List<RingSegmentMode> confirmedMode;
 
     /** Statement id of each confirmed ring when captured, {@code null} for one not saved yet. */
     public final List<String> confirmedStatementIds;
@@ -48,6 +52,9 @@ public final class RingToolState {
     /** Base normal the draft's plane leans toward. */
     public final float[] draftBaseNormal;
 
+    /** Segment mode the draft was traced in. */
+    public final RingSegmentMode draftMode;
+
     /** Confirmed ring the draft re-opened, or -1. */
     public final int draftSourceRing;
 
@@ -66,6 +73,7 @@ public final class RingToolState {
         confirmedRings = new ArrayList<>(tool.confirmedRings);
         confirmedAuthoredVertexId = new ArrayList<>(tool.confirmedAuthoredVertexId);
         confirmedBaseNormal = new ArrayList<>(tool.confirmedBaseNormal);
+        confirmedMode = new ArrayList<>(tool.confirmedMode);
         confirmedStatementIds = new ArrayList<>(tool.confirmedStatementIds);
         confirmedRingUnsaved = new ArrayList<>(tool.confirmedRingUnsaved);
         confirmedSourceLabel = new ArrayList<>(tool.confirmedSourceLabel);
@@ -74,6 +82,7 @@ public final class RingToolState {
         draft = tool.draft;
         draftAuthoredVertexId = tool.draftAuthoredVertexId;
         draftBaseNormal = Arrays.copyOf(tool.draftBaseNormal, tool.draftBaseNormal.length);
+        draftMode = tool.draftMode;
         draftSourceRing = tool.draftSourceRing;
         draftSourceLabel = tool.draftSourceLabel;
         draftDepth = tool.draftDepth;
@@ -90,6 +99,7 @@ public final class RingToolState {
         return draft == other.draft && draftSourceRing == other.draftSourceRing
                 && Arrays.equals(draftAuthoredVertexId, other.draftAuthoredVertexId)
                 && Arrays.equals(draftBaseNormal, other.draftBaseNormal)
+                && draftMode == other.draftMode
                 && confirmedRings.equals(other.confirmedRings)
                 && confirmedRingDeleted.equals(other.confirmedRingDeleted)
                 && convertedGraphLabels.equals(other.convertedGraphLabels);
@@ -109,6 +119,8 @@ public final class RingToolState {
         tool.confirmedAuthoredVertexId.addAll(confirmedAuthoredVertexId);
         tool.confirmedBaseNormal.clear();
         tool.confirmedBaseNormal.addAll(confirmedBaseNormal);
+        tool.confirmedMode.clear();
+        tool.confirmedMode.addAll(confirmedMode);
         tool.confirmedStatementIds.clear();
         tool.confirmedRingUnsaved.clear();
         tool.confirmedSourceLabel.clear();
@@ -137,7 +149,8 @@ public final class RingToolState {
                 unsaved = !Arrays.equals(confirmedAuthoredVertexId.get(ring),
                         tool.savedAuthoredByStatement.get(statementId))
                         || !Arrays.equals(confirmedBaseNormal.get(ring),
-                                tool.savedNormalByStatement.get(statementId));
+                                tool.savedNormalByStatement.get(statementId))
+                        || confirmedMode.get(ring) != tool.savedModeByStatement.get(statementId);
             } else {
                 unsaved = confirmedRingUnsaved.get(ring);
             }
@@ -150,6 +163,7 @@ public final class RingToolState {
         tool.draft = draft;
         tool.draftAuthoredVertexId = draftAuthoredVertexId;
         System.arraycopy(draftBaseNormal, 0, tool.draftBaseNormal, 0, draftBaseNormal.length);
+        tool.draftMode = draftMode;
         tool.draftSourceRing = draftSourceRing;
         tool.draftSourceLabel = draftSourceLabel;
         tool.draftDepth = draftDepth;

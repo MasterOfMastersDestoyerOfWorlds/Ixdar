@@ -169,9 +169,14 @@ public class RingScene extends MeshNodeViewerScene {
         activeTool.deactivate();
         activeTool = tool;
         activeTool.activate();
+        refreshControls();
+        Platforms.get().log(LOG_PREFIX + "active tool: " + activeTool.toolName());
+    }
+
+    /** Rebuild the control hints, after the active tool changed what one of them says. */
+    public void refreshControls() {
         controls.clear();
         setControls();
-        Platforms.get().log(LOG_PREFIX + "active tool: " + activeTool.toolName());
     }
 
     /**

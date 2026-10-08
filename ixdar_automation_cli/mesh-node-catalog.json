@@ -4589,6 +4589,18 @@
           "portType": "SURFACE_METRIC",
           "description": "Required: the metric output of a surface_metric statement measured on this very mesh, shared by every ring of a chain so the surface is measured once. A ring without one is refused.",
           "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "portType": "STRING",
+          "description": "How the ring runs between authored anchors: \"geodesic\" (the default) is the smooth spline; \"crease\" fits the spline to the cheapest path over the surface\u0027s crease cost that joins the anchors in order once round the part, so it hugs the groove they sit in.",
+          "defaultValue": "geodesic"
+        },
+        {
+          "name": "creases",
+          "portType": "SURFACE_CREASES",
+          "description": "The creases output of a surface_creases statement on this very mesh; required by the crease mode and ignored by the geodesic one.",
+          "defaultValue": null
         }
       ],
       "outputs": [
@@ -4675,6 +4687,35 @@
         }
       ],
       "description": "Applies Catmull-Clark subdivision surface smoothing, supporting crease weights for semi-sharp edges. Handles mixed tri/quad input."
+    },
+    {
+      "id": "surface_creases",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the surface to measure, which must be the very mesh the rings using the creases ring (read it from surface_metric\u0027s geometry). Output: the same bundle, unchanged.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the surface to measure, which must be the very mesh the rings using the creases ring (read it from surface_metric\u0027s geometry). Output: the same bundle, unchanged."
+        },
+        {
+          "name": "creases",
+          "portType": "SURFACE_CREASES",
+          "description": "The surface\u0027s valley strength and crease path cost, for spline_ring\u0027s creases input, which its crease mode follows."
+        }
+      ],
+      "description": "Measures the surface\u0027s grooves once: the minimum principal curvature, the curvature across a valley, diffused over a few edges and ranked into a valley strength per vertex, and each edge\u0027s length scaled down where it runs in a groove. Concave grooves are cheap to follow and convex ridges are not. The value is never written after it is built, so every ring wired to it shares one."
     },
     {
       "id": "surface_metric",
