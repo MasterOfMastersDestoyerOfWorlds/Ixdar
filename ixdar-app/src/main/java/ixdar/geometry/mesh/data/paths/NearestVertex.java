@@ -2,20 +2,27 @@ package ixdar.geometry.mesh.data.paths;
 
 import java.util.Arrays;
 
+import org.joml.Intersectionf;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
- * Deterministic geometric vertex pick: the one mesh vertex nearest an authored point, found
- * through a vertex grid built by {@link #over}. A near-tie is an authoring error, never broken
- * by vertex id.
+ * Deterministic geometric pick of the vertex nearest an authored point. A near-tie is refused,
+ * never broken by id; coincident copies go to the one whose faces the point lies on.
  */
 public final class NearestVertex {
 
     public static final double RELATIVE_EPSILON = 1e-6;
 
     public static final double CELL_BOUND_SLACK = 1e-6;
+
+    public static final double SHEET_TOLERANCE = 0.1;
+
+    public static final double MINIMUM_SHEET_OFFSET = 0.02;
+
+    /** The indexed mesh, whose faces tell its coincident vertices apart. */
+    public MeshTopology mesh;
 
     /** Grid origin, the minimum corner of the vertices' bounding box. */
     public final float[] origin = new float[3];
@@ -70,6 +77,7 @@ public final class NearestVertex {
      */
     public static NearestVertex over(MeshTopology mesh) {
         NearestVertex index = new NearestVertex();
+        index.mesh = mesh;
         int vertexCount = mesh.vertexCount();
         int[] vertexIds = new int[vertexCount];
         float[] xyz = new float[3 * vertexCount];
@@ -138,13 +146,16 @@ public final class NearestVertex {
 
     /**
      * The indexed vertex nearest the given point by Euclidean distance, refusing a near-tie
-     * between the two closest rather than picking one arbitrarily.
+     * between the two closest rather than picking one arbitrarily. Among coincident copies it is
+     * the one with a face within {@link #SHEET_TOLERANCE} of the point's distance.
      *
      * @param x point x
      * @param y point y
      * @param z point z
-     * @throws IllegalStateException when no vertex is indexed, or the two nearest tie within
-     *                               {@link #RELATIVE_EPSILON}
+     * @throws IllegalStateException when no vertex is indexed, the two nearest positions tie
+     *                               within {@link #RELATIVE_EPSILON}, or the point sits on no
+     *                               one coincident copy's faces at least
+     *                               {@link #MINIMUM_SHEET_OFFSET} of the way to the next vertex
      * @return the nearest vertex's id
      */
     public int find(float x, float y, float z) {
@@ -154,7 +165,7 @@ public final class NearestVertex {
         int widestAxis = Math.max(cellsPerAxis[0], Math.max(cellsPerAxis[1], cellsPerAxis[2]));
         double bestSquared = Double.POSITIVE_INFINITY;
         double secondSquared = Double.POSITIVE_INFINITY;
-        int bestVertex = -1;
+        int bestEntry = -1;
         // Shell by shell outward: before shell r every unvisited vertex lies at least r - 1 whole
         // cells away, so the search ends once that bound passes the second-best distance.
         for (int radius = 0; radius <= widestAxis; radius++) {
@@ -179,10 +190,15 @@ public final class NearestVertex {
                             double dy = entryXyz[3 * entry + 1] - y;
                             double dz = entryXyz[3 * entry + 2] - z;
                             double squared = dx * dx + dy * dy + dz * dz;
+                            // A copy at the best entry's very position is the same pick, settled
+                            // below by its faces, so it is not a second candidate.
+                            if (bestEntry >= 0 && samePosition(entry, bestEntry)) {
+                                continue;
+                            }
                             if (squared < bestSquared) {
                                 secondSquared = bestSquared;
                                 bestSquared = squared;
-                                bestVertex = entryVertexId[entry];
+                                bestEntry = entry;
                             } else if (squared < secondSquared) {
                                 secondSquared = squared;
                             }
@@ -191,20 +207,74 @@ public final class NearestVertex {
                 }
             }
         }
-        if (bestVertex < 0) {
+        if (bestEntry < 0) {
             throw new IllegalStateException("nearest vertex to (" + x + ", " + y + ", " + z
                     + "): the mesh has no vertices");
         }
-        if (secondSquared != Double.POSITIVE_INFINITY) {
-            double bestDistance = Math.sqrt(bestSquared);
-            double secondDistance = Math.sqrt(secondSquared);
-            if (secondDistance - bestDistance <= RELATIVE_EPSILON * secondDistance) {
-                throw new IllegalStateException("ambiguous nearest vertex to (" + x + ", " + y
-                        + ", " + z + "): distances " + bestDistance + " and " + secondDistance
-                        + " tie, move the point");
+        double bestDistance = Math.sqrt(bestSquared);
+        double secondDistance = Math.sqrt(secondSquared);
+        if (secondSquared != Double.POSITIVE_INFINITY
+                && secondDistance - bestDistance <= RELATIVE_EPSILON * secondDistance) {
+            throw new IllegalStateException("ambiguous nearest vertex to (" + x + ", " + y
+                    + ", " + z + "): distances " + bestDistance + " and " + secondDistance
+                    + " tie, move the point");
+        }
+        int cell = (cellCoordinate(entryXyz[3 * bestEntry], 0) * cellsPerAxis[1]
+                + cellCoordinate(entryXyz[3 * bestEntry + 1], 1)) * cellsPerAxis[2]
+                + cellCoordinate(entryXyz[3 * bestEntry + 2], 2);
+        int copyCount = 0;
+        for (int entry = cellStart[cell]; entry < cellStart[cell + 1]; entry++) {
+            copyCount += samePosition(entry, bestEntry) ? 1 : 0;
+        }
+        if (copyCount == 1) {
+            return entryVertexId[bestEntry];
+        }
+        // Coincident copies, such as repair_mesh's split of a non-manifold vertex, share one
+        // position: the point picks the copy whose own faces it lies on, and only when it lies
+        // clearly off the shared position, near that one copy's faces and away from every other's.
+        double sheetReach = SHEET_TOLERANCE * bestDistance;
+        int sheetVertex = -1;
+        int sheetCount = 0;
+        Vector3f position = new Vector3f();
+        Vector3f corner = new Vector3f();
+        Vector3f nextCorner = new Vector3f();
+        Vector3f closest = new Vector3f();
+        Vector3f point = new Vector3f(x, y, z);
+        for (int entry = cellStart[cell]; entry < cellStart[cell + 1]; entry++) {
+            if (!samePosition(entry, bestEntry)) {
+                continue;
+            }
+            int vertexId = entryVertexId[entry];
+            double nearestFace = Double.POSITIVE_INFINITY;
+            for (int adjacency = 0; adjacency < mesh.vertexFaceCount(vertexId); adjacency++) {
+                int faceId = mesh.vertexFaceAt(vertexId, adjacency);
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), position);
+                for (int fan = 1; fan + 1 < mesh.faceVertexCount(faceId); fan++) {
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, fan), corner);
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, fan + 1), nextCorner);
+                    Intersectionf.findClosestPointOnTriangle(position, corner, nextCorner,
+                            point, closest);
+                    nearestFace = Math.min(nearestFace, closest.distance(point));
+                }
+            }
+            if (nearestFace <= sheetReach) {
+                sheetVertex = vertexId;
+                sheetCount++;
             }
         }
-        return bestVertex;
+        if (sheetCount != 1 || bestDistance < MINIMUM_SHEET_OFFSET * secondDistance) {
+            throw new IllegalStateException("ambiguous nearest vertex to (" + x + ", " + y
+                    + ", " + z + "): " + copyCount + " coincident vertices at distance "
+                    + bestDistance + " and the point lies on the faces of " + sheetCount
+                    + " of them, move the point off the shared position onto one copy's faces");
+        }
+        return sheetVertex;
+    }
+
+    private boolean samePosition(int entry, int other) {
+        return entryXyz[3 * entry] == entryXyz[3 * other]
+                && entryXyz[3 * entry + 1] == entryXyz[3 * other + 1]
+                && entryXyz[3 * entry + 2] == entryXyz[3 * other + 2];
     }
 
     private int cellCoordinate(float coordinate, int axis) {

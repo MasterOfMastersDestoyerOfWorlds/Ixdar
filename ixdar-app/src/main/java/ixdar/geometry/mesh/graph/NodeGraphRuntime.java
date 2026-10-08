@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -63,6 +64,9 @@ public class NodeGraphRuntime {
 
     /** Top-level statements of the program this runtime was parsed from, in source order. */
     public final List<PythonParser.ParsedNode> statements;
+
+    /** Failures nodes of the current run carried on past, thrown together once it has run. */
+    public final List<String> deferredFailures = new ArrayList<>();
 
     private final Map<String, Class<? extends MeshNode>> nodeRegistry = new HashMap<>();
     private final Map<String, PythonParser.FunctionDef> functionDefs = new HashMap<>();
@@ -393,6 +397,7 @@ public class NodeGraphRuntime {
     public Object executeGraphResult(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
             String outputPortName, Map<String, Object> overridesByNodeId) throws Exception {
         evaluatedNodes.clear();
+        deferredFailures.clear();
         lastTimingMs.clear();
         lastPeakHeapBytes.clear();
         lastStatementId = parsedStatements.isEmpty() ? null
@@ -470,6 +475,7 @@ public class NodeGraphRuntime {
                     MeshNode activeNode = supplier.get();
 
                     GraphNodeContext context = new GraphNodeContext();
+                    context.deferredFailures = deferredFailures;
                     context.setFieldContext(currentFieldContext);
                     context.setNodeAssignmentId(parsedData.id);
 
@@ -502,6 +508,10 @@ public class NodeGraphRuntime {
         }
 
         lastTotalMs = (System.nanoTime() - graphStart) / NANOS_PER_MILLI;
+        if (!deferredFailures.isEmpty()) {
+            throw new IllegalArgumentException(deferredFailures.size()
+                    + " failure(s) in the graph:\n" + String.join("\n", deferredFailures));
+        }
 
         GraphNodeContext finalContext = evaluatedNodes.get(finalOutputId);
         if (finalContext != null) {
@@ -616,6 +626,7 @@ public class NodeGraphRuntime {
                 MeshNode activeNode = supplier.get();
 
                 lastContext = new GraphNodeContext();
+                lastContext.deferredFailures = deferredFailures;
                 lastContext.setFieldContext(localFieldContext);
                 lastContext.setNodeAssignmentId(bodyNode.id);
 

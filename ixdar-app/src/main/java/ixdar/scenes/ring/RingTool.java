@@ -1596,13 +1596,18 @@ public final class RingTool implements EditTool {
                                     + " is not one closed edge loop, so it cannot be frozen");
                         }
                         block.add(RingDslWriter.exactLoopStatement(label, output,
-                                positionsOf(loop), loop.length));
+                                SurfaceWaypoints.resolvingPoints(
+                                        geodesics.metric.nearestVertex, loop, loop.length),
+                                loop.length));
                     } else {
                         int index = confirmedRings.indexOf(ring);
                         int[] authored = confirmedAuthoredVertexId.get(index);
                         block.add(RingDslWriter.withMode(RingDslWriter.splineStatement(label,
-                                output, positionsOf(authored), authored.length,
-                                confirmedBaseNormal.get(index)), label, confirmedMode.get(index)));
+                                output, SurfaceWaypoints.resolvingPoints(
+                                        geodesics.metric.nearestVertex, authored,
+                                        authored.length),
+                                authored.length, confirmedBaseNormal.get(index)), label,
+                                confirmedMode.get(index)));
                     }
                     output = label + "." + RingDslWriter.DEFAULT_UPSTREAM_PORT;
                 }
@@ -1635,7 +1640,8 @@ public final class RingTool implements EditTool {
                     continue;
                 }
                 int[] authored = confirmedAuthoredVertexId.get(ring);
-                float[] authoredXyz = positionsOf(authored);
+                float[] authoredXyz = SurfaceWaypoints.resolvingPoints(
+                        geodesics.metric.nearestVertex, authored, authored.length);
                 float[] normal = confirmedBaseNormal.get(ring);
                 if (owner != null) {
                     savedId[ring] = owner.id;

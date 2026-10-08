@@ -151,7 +151,16 @@ public class SplineRingNode implements MeshNode {
                     + "measured on another mesh; read the geometry from the surface_metric "
                     + "statement that measured it, or from a ring downstream of it");
         }
-        int[] anchorVertexIds = SurfaceWaypoints.snap(metric.nearestVertex, points, anchorCount);
+        int[] anchorVertexIds;
+        try {
+            anchorVertexIds = SurfaceWaypoints.snap(metric.nearestVertex, points, anchorCount);
+        } catch (IllegalStateException unresolved) {
+            // Passing the surface on unmarked lets every later ring report its own points too.
+            ctx.reportFailure("spline_ring " + label + ":\n" + unresolved.getMessage());
+            ctx.setOutput(GEOMETRY.name, bundle);
+            ctx.setOutput(SELECTION.name, false);
+            return;
+        }
         AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(metric));
         ring.mode = RingSegmentMode.named(ctx.getInput(MODE.name, String.class));
         ring.creases = ctx.getInput(CREASES.name, SurfaceCreases.class);

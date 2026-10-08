@@ -128,8 +128,17 @@ public class LoopThroughPointsNode implements MeshNode {
         }
         float[] points = SurfaceWaypoints.parse(ctx.getInput(POINTS.name, String.class));
         int waypointCount = points.length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
-        SurfaceRing ring = SurfaceRing.through(mesh, points, waypointCount, closed,
-                pin ? waypointCount : 0, iterations);
+        SurfaceRing ring;
+        try {
+            ring = SurfaceRing.through(mesh, points, waypointCount, closed,
+                    pin ? waypointCount : 0, iterations);
+        } catch (IllegalStateException unresolved) {
+            // Passing the surface on unmarked lets every later ring report its own points too.
+            ctx.reportFailure("loop_through_points " + label + ":\n" + unresolved.getMessage());
+            ctx.setOutput(GEOMETRY.name, bundle);
+            ctx.setOutput(SELECTION.name, false);
+            return;
+        }
 
         GeometryBundle out = bundle.withSlot(CurveGeometry.SLOT,
                 CurveGeometry.singlePolyline(ring.polyline));

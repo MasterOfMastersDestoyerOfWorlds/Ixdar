@@ -2,6 +2,10 @@ package ixdar.geometry.mesh.data.paths;
 
 import java.util.Locale;
 
+import org.joml.Vector3f;
+
+import ixdar.geometry.mesh.data.MeshTopology;
+
 /**
  * The authored form of a surface path: {@code "x,y,z; x,y,z; ..."} parsed to packed coordinates,
  * printed back byte-stably, and snapped to the mesh vertices a walk runs through.
@@ -15,6 +19,8 @@ public final class SurfaceWaypoints {
     public static final int OPEN_PATH_MINIMUM = 2;
 
     public static final String COORDINATE_FORMAT = "%.6f";
+
+    public static final float FACE_STEP = 0.5f;
 
     private SurfaceWaypoints() {
     }
@@ -85,15 +91,92 @@ public final class SurfaceWaypoints {
      * @param grid          vertex grid of the mesh the waypoints are snapped against
      * @param packedXyz     packed xyz, three floats per waypoint
      * @param waypointCount waypoints to snap from the front of the array
+     * @throws IllegalStateException naming every waypoint the grid refuses, one per line
      * @return mesh vertex ids in waypoint order
      */
     public static int[] snap(NearestVertex grid, float[] packedXyz, int waypointCount) {
         int[] vertexIds = new int[waypointCount];
+        StringBuilder refused = new StringBuilder();
         for (int waypoint = 0; waypoint < waypointCount; waypoint++) {
             int base = COORDINATES_PER_WAYPOINT * waypoint;
-            vertexIds[waypoint] =
-                    grid.find(packedXyz[base], packedXyz[base + 1], packedXyz[base + 2]);
+            try {
+                vertexIds[waypoint] =
+                        grid.find(packedXyz[base], packedXyz[base + 1], packedXyz[base + 2]);
+            } catch (IllegalStateException unresolved) {
+                refused.append(refused.length() == 0 ? "" : "\n").append("point ")
+                        .append(waypoint + 1).append(" of ").append(waypointCount).append(": ")
+                        .append(unresolved.getMessage());
+            }
+        }
+        if (refused.length() > 0) {
+            throw new IllegalStateException(refused.toString());
         }
         return vertexIds;
+    }
+
+    /**
+     * Points to write for held vertices, each resolving back to its own vertex through
+     * {@link #snap} once printed by {@link #format} and parsed again. A vertex's own position is
+     * used when it resolves; a coincident copy gets a point inside one of its own faces.
+     *
+     * @param grid        vertex grid of the mesh the vertices belong to
+     * @param vertexIds   the held vertices, in writing order
+     * @param vertexCount vertices to place from the front of the array
+     * @throws IllegalArgumentException naming every vertex no written point resolves to
+     * @return packed xyz, three floats per vertex
+     */
+    public static float[] resolvingPoints(NearestVertex grid, int[] vertexIds, int vertexCount) {
+        MeshTopology mesh = grid.mesh;
+        float[] packed = new float[COORDINATES_PER_WAYPOINT * vertexCount];
+        StringBuilder unplaced = new StringBuilder();
+        Vector3f position = new Vector3f();
+        Vector3f centroid = new Vector3f();
+        Vector3f corner = new Vector3f();
+        float[] written = new float[COORDINATES_PER_WAYPOINT];
+        for (int anchor = 0; anchor < vertexCount; anchor++) {
+            int vertexId = vertexIds[anchor];
+            mesh.vertexPosition(vertexId, position);
+            boolean placed = false;
+            // Candidate -1 is the vertex itself; candidate k moves it toward the centroid of its
+            // k-th face, which only that copy's faces contain.
+            for (int candidate = -1; !placed && candidate < mesh.vertexFaceCount(vertexId);
+                    candidate++) {
+                centroid.set(position);
+                if (candidate >= 0) {
+                    int faceId = mesh.vertexFaceAt(vertexId, candidate);
+                    centroid.zero();
+                    for (int at = 0; at < mesh.faceVertexCount(faceId); at++) {
+                        centroid.add(mesh.vertexPosition(mesh.faceVertexAt(faceId, at), corner));
+                    }
+                    centroid.div(mesh.faceVertexCount(faceId)).sub(position)
+                            .mul(FACE_STEP).add(position);
+                }
+                for (int axis = 0; axis < COORDINATES_PER_WAYPOINT; axis++) {
+                    written[axis] = Float.parseFloat(String.format(Locale.ROOT,
+                            COORDINATE_FORMAT, centroid.get(axis)));
+                }
+                try {
+                    placed = grid.find(written[0], written[1], written[2]) == vertexId;
+                } catch (IllegalStateException unresolved) {
+                    placed = false;
+                }
+            }
+            if (!placed) {
+                if (unplaced.length() > 0) {
+                    unplaced.append("; ");
+                }
+                unplaced.append("anchor ")
+                        .append(anchor + 1).append(" (vertex ").append(vertexId).append(" at ")
+                        .append(format(new float[] { position.x, position.y, position.z }, 1))
+                        .append(')');
+            }
+            System.arraycopy(written, 0, packed, COORDINATES_PER_WAYPOINT * anchor,
+                    COORDINATES_PER_WAYPOINT);
+        }
+        if (unplaced.length() > 0) {
+            throw new IllegalArgumentException("no written point resolves back to "
+                    + unplaced + "; the coincident vertices there share every face");
+        }
+        return packed;
     }
 }

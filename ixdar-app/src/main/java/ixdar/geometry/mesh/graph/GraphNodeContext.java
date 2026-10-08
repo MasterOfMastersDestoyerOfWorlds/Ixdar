@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.graph;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import ixdar.geometry.mesh.nodes.api.FieldContext;
@@ -14,10 +15,28 @@ import ixdar.geometry.mesh.nodes.api.NodeContext;
  * {@link AutoTagHook}).
  */
 public class GraphNodeContext implements NodeContext {
+    /** The running graph's failure list {@link #reportFailure} adds to, or null to throw. */
+    public List<String> deferredFailures;
+
     private final Map<String, Object> inputs = new HashMap<>();
     private final Map<String, Object> outputs = new HashMap<>();
     private FieldContext fieldContext;
     private String nodeAssignmentId;
+
+    /**
+     * Adds the failure to the running graph's list, which the runtime throws once every
+     * statement has run.
+     *
+     * @param failure what failed, naming the statement and the offending input
+     * @throws IllegalArgumentException when no graph run collects failures for this context
+     */
+    @Override
+    public void reportFailure(String failure) {
+        if (deferredFailures == null) {
+            throw new IllegalArgumentException(failure);
+        }
+        deferredFailures.add(failure);
+    }
 
     /**
      * Sets the DSL left-hand-side variable name of the node about to evaluate.

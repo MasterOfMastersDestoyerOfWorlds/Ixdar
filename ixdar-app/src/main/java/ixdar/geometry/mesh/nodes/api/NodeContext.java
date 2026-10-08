@@ -69,4 +69,15 @@ public interface NodeContext {
     default String nodeAssignmentId() {
         return null;
     }
+
+    /**
+     * Records a failure the node carries on past with its input passed through, so a graph run
+     * fails once at its end naming every such failure; a context that cannot defer throws here.
+     *
+     * @param failure what failed, naming the statement and the offending input
+     * @throws IllegalArgumentException when this context does not defer failures
+     */
+    default void reportFailure(String failure) {
+        throw new IllegalArgumentException(failure);
+    }
 }
