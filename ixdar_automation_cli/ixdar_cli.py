@@ -5,11 +5,11 @@ import sys
 import urllib.error
 
 try:
-    from .automation_client import AutomationClient, discover_base_url
+    from .automation_client import AutomationClient, SceneResolutionError, describe_scene
     from .cli_registry import CliCommand, CliCommandResult, CliParameter, get_registry
     from .server_routes import add_server_parsers, dispatch_server_command, load_manifest, server_command_map
 except ImportError:
-    from automation_client import AutomationClient, discover_base_url
+    from automation_client import AutomationClient, SceneResolutionError, describe_scene
     from cli_registry import CliCommand, CliCommandResult, CliParameter, get_registry
     from server_routes import add_server_parsers, dispatch_server_command, load_manifest, server_command_map
 
@@ -28,7 +28,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--base-url",
         default="",
-        help="Automation server URL; the default reads tmp/automation.port under this checkout.",
+        help="Automation server URL of any scene, windowed included; the default is the one "
+        "headless scene of this checkout (tmp/automation/<pid>.json).",
+    )
+    parser.add_argument(
+        "--pid",
+        type=int,
+        default=0,
+        help="Process id of the scene to drive, windowed included, as a refusal lists them.",
     )
     subparsers = parser.add_subparsers(dest="command_name", required=True)
 
@@ -110,7 +117,7 @@ def _execute_registry_command(command: CliCommand, args: argparse.Namespace, cli
 def main(argv: list[str]) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    client = AutomationClient(args.base_url or discover_base_url())
+    client = AutomationClient(args.base_url, pid=args.pid)
 
     try:
         registry = get_registry()
@@ -124,18 +131,39 @@ def main(argv: list[str]) -> int:
         else:
             parser.print_help()
             return 1
+    except SceneResolutionError as exc:
+        print(json.dumps({"ok": False, "error": str(exc),
+                          "scenes": [describe_scene(record) for record in exc.scenes]}, indent=2))
+        return 4
     except ValueError as exc:
-        print(json.dumps({"ok": False, "error": str(exc)}))
+        print(json.dumps(_with_target({"ok": False, "error": str(exc)}, client)))
         return 6
     except urllib.error.HTTPError as exc:
-        print(json.dumps({"ok": False, "error": f"HTTP {exc.code}"}))
+        print(json.dumps(_with_target({"ok": False, "error": f"HTTP {exc.code}"}, client)))
         return 2
     except urllib.error.URLError as exc:
-        print(json.dumps({"ok": False, "error": str(exc.reason)}))
+        print(json.dumps(_with_target({"ok": False, "error": str(exc.reason)}, client)))
         return 3
 
-    print(json.dumps(command_result.payload, indent=2))
+    print(json.dumps(_with_target(command_result.payload, client), indent=2))
     return command_result.exit_code
+
+
+def _with_target(payload, client: AutomationClient):
+    """Name the scene a command talked to at the head of its output, so no reply is anonymous.
+
+    :param payload: The command's result.
+    :param client: The client the command used; unresolved when it never reached a scene.
+    :return: ``payload`` led by a ``target`` line when it is a dict and a scene was reached; a
+        non-dict payload is returned as is with the line printed to stderr.
+    """
+    if not client.target:
+        return payload
+    line = describe_scene(client.target)
+    if isinstance(payload, dict):
+        return {"target": line, **payload}
+    print(f"target: {line}", file=sys.stderr)
+    return payload
 
 
 def cli() -> int:

@@ -13,34 +13,35 @@ import subprocess
 import sys
 import time
 
-from ..automation_client import DEFAULT_BASE_URL, AutomationClient
+from ..automation_client import AutomationClient, live_scenes
 from ..cli_registry import CliCommandResult, cli_command
 
 IXDAR_APP_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "ixdar-app"))
 
 
-def _wait_for_server(client: AutomationClient, timeout: float = 60.0) -> bool:
+def _wait_for_server(client: AutomationClient, known_pids: set, timeout: float = 60.0) -> bool:
+    """Wait for the viewer this command launched to publish its record and answer health.
+
+    The launched viewer is the scene whose record appears after the launch, so the client is
+    pointed at it by pid rather than at whatever already holds a port in this checkout.
+
+    :param client: Client to point at the new scene.
+    :param known_pids: Pids of the scenes that were already live before the launch.
+    :param timeout: Seconds to wait.
+    :return: True once the new scene answers health.
+    """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        try:
-            health = client.health()
-            if health.get("status") == "ok":
-                return True
-        except Exception:
-            pass
+        fresh = [record for record in live_scenes() if record["pid"] not in known_pids]
+        if fresh:
+            client.target = fresh[0]
+            client.base_url = fresh[0]["baseUrl"]
+            try:
+                if client.health().get("status") == "ok":
+                    return True
+            except Exception:
+                pass
         time.sleep(1.0)
-    return False
-
-
-def _wait_for_port_free(port: int, timeout: float = 5.0) -> bool:
-    """Wait until the given port is no longer in use."""
-    import socket
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(("127.0.0.1", port)) != 0:
-                return True
-        time.sleep(0.3)
     return False
 
 
@@ -56,12 +57,12 @@ def _build_maven_args(dsl: str, node: str, port: str) -> list[str]:
 
 
 def run(
+    client: AutomationClient,
     dsl: str = "",
     node: str = "",
     port: str = "",
     overlay: str = "",
     screenshot: str = "",
-    base_url: str = DEFAULT_BASE_URL,
     timeout: float = 60.0,
     no_launch: bool = False,
     keep_alive: bool = False,
@@ -70,31 +71,22 @@ def run(
 
     All human-readable progress goes to stderr; the returned dict is the machine-readable result.
 
+    :param client: client for the running scene with ``no_launch``, retargeted at the launched
+        viewer otherwise
     :param dsl: DSL resource name (empty uses the skull.dsl default)
     :param node: final node name in the DSL graph
     :param port: final port name on the node
     :param overlay: path to a reference OBJ to overlay
     :param screenshot: output path for the screenshot; empty uses the server default
-    :param base_url: automation server base URL
     :param timeout: seconds to wait for server startup
     :param no_launch: skip launching Ixdar (assume already running)
     :param keep_alive: keep Ixdar running after the screenshot
     :return: ``{"ok": True, "overlay"?: ..., "screenshot"?: ...}``
     """
-    client = AutomationClient(base_url=base_url)
     proc = None
 
     if not no_launch:
-        try:
-            health = client.health()
-            if health.get("status") == "ok":
-                print("Killing existing Ixdar instance...", file=sys.stderr)
-                client.shutdown()
-                if not _wait_for_port_free(47832, timeout=5.0):
-                    print("WARNING: Port 47832 still in use after 5s, proceeding anyway.", file=sys.stderr)
-        except Exception:
-            pass
-
+        known_pids = {record["pid"] for record in live_scenes()}
         maven_cmd = _build_maven_args(dsl, node, port)
         print(f"Starting mesh-viewer: {' '.join(maven_cmd)}", file=sys.stderr)
         print(f"  working dir: {IXDAR_APP_DIR}", file=sys.stderr)
@@ -107,7 +99,7 @@ def run(
         )
 
         print(f"Waiting for automation server (timeout={timeout}s)...", file=sys.stderr)
-        if not _wait_for_server(client, timeout):
+        if not _wait_for_server(client, known_pids, timeout):
             print("ERROR: Automation server did not start in time.", file=sys.stderr)
             if proc:
                 proc.terminate()
@@ -191,12 +183,12 @@ def mesh_viewer(
     :param keep_alive: Keep Ixdar running after the screenshot.
     """
     payload = run(
+        client,
         dsl=dsl,
         node=node,
         port=port,
         overlay=overlay,
         screenshot=screenshot,
-        base_url=client.base_url,
         timeout=timeout,
         no_launch=no_launch,
         keep_alive=keep_alive,

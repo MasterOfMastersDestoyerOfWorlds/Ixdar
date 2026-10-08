@@ -8,8 +8,7 @@ from ..cli_registry import CliCommandResult, cli_command
 from ..trade_scenarios import create_initial_pipe, ensure_trade_scene, place_headquarters, require
 
 
-def run_validation(base_url: str) -> tuple[int, dict]:
-    client = AutomationClient(base_url)
+def run_validation(client: AutomationClient) -> tuple[int, dict]:
     report: dict = {"steps": []}
     try:
         health = client.health()
@@ -75,5 +74,5 @@ def run_validation(base_url: str) -> tuple[int, dict]:
 @cli_command(name="validate-route-ops")
 def validate_route_ops(client: AutomationClient) -> CliCommandResult:
     """Validate trade route operations against the running app."""
-    exit_code, payload = run_validation(client.base_url)
+    exit_code, payload = run_validation(client)
     return CliCommandResult(payload=payload, exit_code=exit_code)

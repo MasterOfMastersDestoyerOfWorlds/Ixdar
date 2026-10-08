@@ -6,9 +6,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import com.google.gson.JsonObject;
+
 public class AutomationPortFile {
     public static final String TMP_DIRECTORY = "tmp";
-    public static final String PORT_FILE_NAME = "automation.port";
+    public static final String RECORD_DIRECTORY = "automation";
+    public static final String RECORD_SUFFIX = ".json";
     public static final String MODULE_DIRECTORY = "ixdar-app";
     public static final String POM_FILE = "pom.xml";
     public static final String WORKING_DIRECTORY_PROPERTY = "user.dir";
@@ -34,28 +37,34 @@ public class AutomationPortFile {
     }
 
     /**
-     * Where this checkout advertises its automation server, so a CLI run from the same
-     * checkout finds the right scene without being told a port.
+     * This process's own record under {@code tmp/automation/}, one file per scene, so two
+     * scenes in one checkout never overwrite each other's port.
      *
-     * @return path to {@code tmp/automation.port} under {@link #checkoutRoot()}
+     * @return path to {@code tmp/automation/<pid>.json} under {@link #checkoutRoot()}
      */
     public static Path location() {
-        return checkoutRoot().resolve(TMP_DIRECTORY).resolve(PORT_FILE_NAME);
+        return checkoutRoot().resolve(TMP_DIRECTORY).resolve(RECORD_DIRECTORY)
+                .resolve(ProcessHandle.current().pid() + RECORD_SUFFIX);
     }
 
     /**
-     * Publish the bound port and this JVM's process id, so a caller can both reach the
-     * server and wait for the process to die. Failures are ignored.
+     * Publish the bound port with this JVM's pid, scene id and headless flag, so the CLI can
+     * pick the scene it launched and never drive a window the user opened. Failures are ignored.
      *
-     * @param port the port the automation server actually bound
+     * @param port     the port the automation server actually bound
+     * @param scene    the scene id the JVM was started with
+     * @param headless whether the scene runs off-screen rather than in a desktop window
      */
-    public static void write(int port) {
+    public static void write(int port, String scene, boolean headless) {
         Path file = location();
-        String contents = "{\"port\": " + port
-                + ", \"pid\": " + ProcessHandle.current().pid() + "}\n";
+        JsonObject record = new JsonObject();
+        record.addProperty("port", port);
+        record.addProperty("pid", ProcessHandle.current().pid());
+        record.addProperty("scene", scene == null ? "" : scene);
+        record.addProperty("headless", headless);
         try {
             Files.createDirectories(file.getParent());
-            Files.writeString(file, contents, StandardCharsets.UTF_8);
+            Files.writeString(file, record + "\n", StandardCharsets.UTF_8);
             file.toFile().deleteOnExit();
         } catch (IOException unwritable) {
             // Advertising the port is best-effort; an explicit --base-url still works.
@@ -63,14 +72,14 @@ public class AutomationPortFile {
     }
 
     /**
-     * Remove this checkout's port file so a later CLI call does not chase a dead scene.
+     * Remove this process's record so a later CLI call does not chase a dead scene.
      * Failures are ignored.
      */
     public static void delete() {
         try {
             Files.deleteIfExists(location());
         } catch (IOException undeletable) {
-            // A stale file is survivable: the CLI falls back when nothing answers.
+            // A stale record is survivable: the CLI drops records whose pid is gone.
         }
     }
 }

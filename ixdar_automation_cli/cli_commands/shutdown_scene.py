@@ -5,35 +5,23 @@ which is a lie by omission: the process is still holding its port, its GL contex
 profiler output for another second or two. Callers papered over that with ``pgrep`` loops that
 had to be written to avoid matching the calling shell — so this command does the waiting.
 
+With no ``--pid`` or ``--base-url`` the scene is the one headless scene of this checkout, so a
+window the user opened with F5 is never shut down unless it is named.
+
 Usage:
     uv run ixdar-cli shutdown
     uv run ixdar-cli shutdown --timeout 60
+    uv run ixdar-cli --pid 12345 shutdown
 """
 
-import os
 import time
 
-from ..automation_client import AutomationClient, port_file_path, read_port_file
+from ..automation_client import AutomationClient, process_alive
 from ..cli_registry import CliCommandResult, cli_command
 
 POLL_SECONDS = 0.2
 
 DEFAULT_SHUTDOWN_TIMEOUT = 30.0
-
-
-def process_alive(pid: int) -> bool:
-    """Report whether a process id still names a live process.
-
-    :param pid: Process id read from the port file.
-    :return: True while the process exists.
-    """
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
 
 
 def await_exit(pid: int, timeout: float) -> tuple[bool, float]:
@@ -59,14 +47,15 @@ def shutdown(
 ) -> CliCommandResult:
     """Ask the scene to exit and return only once its process is gone.
 
-    The process id comes from this checkout's ``tmp/automation.port``, so nothing has to match
-    a JVM by command line — the idiom that used to kill the caller's own shell.
+    The process id comes from the scene's own record under ``tmp/automation/``, so nothing has to
+    match a JVM by command line — the idiom that used to kill the caller's own shell. With no
+    target named, only this checkout's headless scene is ever stopped, never a windowed one.
 
     :param timeout: Seconds to wait for the process to disappear.
     """
-    published = read_port_file()
-    pid = published.get("pid")
-    payload: dict = {"ok": True, "port": published.get("port"), "pid": pid}
+    target = client.resolve()
+    pid = target.get("pid")
+    payload: dict = {"ok": True, "port": target.get("port"), "pid": pid}
     try:
         payload["accepted"] = bool(client.shutdown().get("accepted"))
     except Exception as unreachable:
@@ -77,8 +66,8 @@ def shutdown(
 
     if not pid:
         payload["exited"] = None
-        payload["note"] = ("no pid published in " + port_file_path()
-                           + "; the scene was not started from this checkout")
+        payload["note"] = (f"no scene record names port {target.get('port')}; "
+                           "the scene was not started from this checkout")
         return CliCommandResult(payload=payload)
 
     exited, waited = await_exit(int(pid), timeout)

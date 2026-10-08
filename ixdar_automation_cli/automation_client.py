@@ -4,13 +4,15 @@ import time
 import urllib.request
 
 
-DEFAULT_BASE_URL = "http://127.0.0.1:47832"
+LOOPBACK_HOST = "127.0.0.1"
 DEFAULT_RETRIES = 3
 DEFAULT_RETRY_DELAY = 1.0
 DEFAULT_REQUEST_TIMEOUT = 10.0
 
 PACKAGE_REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
-PORT_FILE_RELATIVE = os.path.join("tmp", "automation.port")
+# AutomationPortFile: every scene writes tmp/automation/<pid>.json and removes it on exit.
+RECORD_DIRECTORY_RELATIVE = os.path.join("tmp", "automation")
+RECORD_SUFFIX = ".json"
 MODULE_DIRECTORY = "ixdar-app"
 POM_FILE = "pom.xml"
 
@@ -46,22 +48,23 @@ def _ancestors(directory: str) -> list[str]:
         chain.append(current)
 
 
-def port_file_path() -> str:
-    """Where this checkout's scene advertises its automation port.
+def records_directory(root: str = "") -> str:
+    """Where the scenes of a checkout publish their records, one ``<pid>.json`` per scene.
 
-    :return: Absolute path to ``tmp/automation.port``.
+    :param root: Checkout root; empty uses :func:`checkout_root`.
+    :return: Absolute path to ``tmp/automation``.
     """
-    return os.path.join(checkout_root(), PORT_FILE_RELATIVE)
+    return os.path.join(root or checkout_root(), RECORD_DIRECTORY_RELATIVE)
 
 
-def read_port_file(path: str = "") -> dict:
-    """Read the port file a running scene wrote, tolerating a bare number.
+def read_port_file(path: str) -> dict:
+    """Read one scene record, tolerating a bare port number.
 
-    :param path: Port file to read; empty uses :func:`port_file_path`.
-    :return: ``{"port": int, "pid": int}`` with whichever fields were present, or ``{}``.
+    :param path: Record file to read.
+    :return: ``{"port", "pid", "scene", "headless"}`` with whichever fields were present, or ``{}``.
     """
     try:
-        with open(path or port_file_path(), encoding="utf-8") as handle:
+        with open(path, encoding="utf-8") as handle:
             text = handle.read().strip()
     except OSError:
         return {}
@@ -76,14 +79,117 @@ def read_port_file(path: str = "") -> dict:
     return parsed if isinstance(parsed, dict) else {}
 
 
-def discover_base_url() -> str:
-    """Resolve the automation base URL without anyone naming a port.
+def process_alive(pid: int) -> bool:
+    """Report whether a process id still names a live process.
 
-    :return: The URL of this checkout's scene, or :data:`DEFAULT_BASE_URL` when no scene
-        has published a port file.
+    :param pid: Process id read from a scene record.
+    :return: True while the process exists.
     """
-    port = read_port_file().get("port")
-    return f"http://127.0.0.1:{port}" if port else DEFAULT_BASE_URL
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def live_scenes(root: str = "") -> list[dict]:
+    """The scenes of a checkout whose process is still alive, deleting the records of dead ones.
+
+    A scene removes its own record when it exits; a killed one cannot, so a record whose pid is
+    gone is stale and is dropped here rather than resolved to.
+
+    :param root: Checkout root; empty uses :func:`checkout_root`.
+    :return: One record per live scene, ordered by pid, each with its ``baseUrl`` added.
+    """
+    directory = records_directory(root)
+    try:
+        names = sorted(os.listdir(directory))
+    except OSError:
+        return []
+    scenes = []
+    for name in names:
+        if not name.endswith(RECORD_SUFFIX):
+            continue
+        path = os.path.join(directory, name)
+        record = read_port_file(path)
+        pid = record.get("pid")
+        if not pid or not record.get("port") or not process_alive(int(pid)):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            continue
+        record["baseUrl"] = f"http://{LOOPBACK_HOST}:{record['port']}"
+        scenes.append(record)
+    return sorted(scenes, key=lambda record: record["pid"])
+
+
+def describe_scene(record: dict) -> str:
+    """One line naming a scene the way a refusal lists it.
+
+    :param record: A scene record, or the bare ``port`` of a URL no record matches.
+    :return: ``pid=… port=… scene=… headless|windowed|unrecorded``.
+    """
+    if "headless" not in record:
+        kind = "unrecorded"
+    else:
+        kind = "headless" if record["headless"] else "windowed"
+    return (f"pid={record.get('pid', '?')} port={record.get('port', '?')} "
+            f"scene={record.get('scene') or '?'} {kind}")
+
+
+class SceneResolutionError(ValueError):
+    """No single scene answers to a command, carrying the live scenes so the refusal lists them."""
+
+    def __init__(self, message: str, scenes: list[dict]):
+        super().__init__(message)
+        self.scenes = scenes
+
+
+def resolve_target(base_url: str = "", pid: int = 0, root: str = "") -> dict:
+    """Pick the one scene a command talks to, refusing rather than guessing.
+
+    An explicit ``base_url`` or ``pid`` names any scene, windowed included. With neither, only a
+    headless scene counts — the kind ``ixdar-cli launch`` and ``run-scene`` start — so a window the
+    user opened with F5 is never driven by accident, and two headless scenes are an ambiguity.
+
+    :param base_url: Explicit automation URL, or empty.
+    :param pid: Explicit scene process id, or 0.
+    :param root: Checkout root; empty uses :func:`checkout_root`.
+    :return: The scene's record with ``baseUrl``; for a URL no record matches, just ``port`` and
+        ``baseUrl``.
+    :raises SceneResolutionError: When no scene, or more than one, fits.
+    """
+    scenes = live_scenes(root)
+    listing = "; ".join(describe_scene(record) for record in scenes) or "none"
+    if base_url:
+        port = int(base_url.rstrip("/").rsplit(":", 1)[1])
+        named = [record for record in scenes if record["port"] == port]
+        return named[0] if named else {"port": port, "baseUrl": base_url}
+    if pid:
+        named = [record for record in scenes if record["pid"] == pid]
+        if not named:
+            raise SceneResolutionError(
+                f"no live scene has pid {pid} in {records_directory(root)}; live scenes: {listing}",
+                scenes)
+        return named[0]
+    headless = [record for record in scenes if record.get("headless")]
+    if len(headless) == 1:
+        return headless[0]
+    if headless:
+        raise SceneResolutionError(
+            f"{len(headless)} headless scenes are running in this checkout; name one with --pid: "
+            + listing, scenes)
+    if scenes:
+        raise SceneResolutionError(
+            "no headless scene is running in this checkout, and a windowed scene is only driven "
+            f"when named with --pid or --base-url: {listing}", scenes)
+    raise SceneResolutionError(
+        f"no scene is running in this checkout ({records_directory(root)} is empty); start one "
+        "with `ixdar-cli launch \"<entry>\" --keep-alive` or `ixdar-cli run-scene --keep-alive`",
+        scenes)
 
 KEY_ENTER = 257
 KEY_G = 71
@@ -142,13 +248,36 @@ def toolbar_button_center(window_width: float, window_height: float, button_name
 class AutomationClient:
     def __init__(
         self,
-        base_url: str = DEFAULT_BASE_URL,
+        base_url: str = "",
         retries: int = DEFAULT_RETRIES,
         retry_delay: float = DEFAULT_RETRY_DELAY,
+        pid: int = 0,
     ):
+        """A client for one scene, resolved on first use by :func:`resolve_target`.
+
+        :param base_url: Explicit automation URL; empty resolves this checkout's scene.
+        :param retries: Attempts per request on connection errors and timeouts.
+        :param retry_delay: Seconds before the first retry, doubling after each.
+        :param pid: Explicit scene process id, used when ``base_url`` is empty.
+        """
         self.base_url = base_url
         self.retries = retries
         self.retry_delay = retry_delay
+        self.pid = pid
+        self.target: dict = {}
+
+    def resolve(self) -> dict:
+        """Settle which scene this client talks to, once, so every request and report agree.
+
+        Resolution is lazy so a command that launches its own scene never needs one running.
+
+        :return: The scene record, ``baseUrl`` included.
+        :raises SceneResolutionError: When no single scene fits.
+        """
+        if not self.target:
+            self.target = resolve_target(self.base_url, self.pid)
+            self.base_url = self.target["baseUrl"]
+        return self.target
 
     def request_json(self, path: str, body: dict | None = None,
                      timeout: float = DEFAULT_REQUEST_TIMEOUT) -> dict:
@@ -160,6 +289,7 @@ class AutomationClient:
             slow work finishes declares a longer one in the manifest.
         :return: The decoded response.
         """
+        self.resolve()
         payload = None
         headers = {"Content-Type": "application/json"}
         if body is not None:

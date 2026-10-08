@@ -23,7 +23,7 @@ import subprocess
 import sys
 from typing import Annotated
 
-from ..automation_client import AutomationClient, checkout_root
+from ..automation_client import LOOPBACK_HOST, AutomationClient, checkout_root
 from ..cli_registry import CliCommandResult, CliOption, cli_command
 from ..run_logs import next_log_path, point_latest
 from .run_scene import (
@@ -32,7 +32,6 @@ from .run_scene import (
     CLASSES_DIR,
     CLASSPATH_FILE,
     IXDAR_APP_DIR,
-    LOOPBACK_HOST,
     _await_scene,
     _ensure_build,
     _terminate,
@@ -291,13 +290,14 @@ def launch(
         )
         status = _await_scene(client, process, log_path, "", timeout)
         payload: dict = {
+            "port": int(client.base_url.rsplit(":", 1)[1]),
+            "pid": process.pid,
             "ok": status["ready"],
             "entry": name,
             "mainClass": configuration.get("mainClass", ""),
             "args": _tokens(configuration.get("args")),
             "cwd": cwd,
-            "port": port,
-            "baseUrl": base_url,
+            "baseUrl": client.base_url,
             "log": log_path,
             "waitedSeconds": status["waited"],
             "logLines": _opening_lines(log_path, log_lines),
@@ -310,9 +310,7 @@ def launch(
                                 else "scene did not become ready within timeout")
         if status["ready"] and screenshot:
             payload["screenshot"] = client.screenshot(out_path=os.path.abspath(screenshot))
-        if keep_alive:
-            payload["pid"] = process.pid
-        else:
+        if not keep_alive:
             _terminate(process, client)
     return CliCommandResult(payload=payload, exit_code=0 if payload["ok"] else 1)
 

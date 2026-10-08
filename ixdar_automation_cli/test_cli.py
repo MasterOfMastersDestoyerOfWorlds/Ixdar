@@ -99,6 +99,116 @@ class FakeHealthClient:
         return {"status": "ok", "sceneReady": self.polls > self.ready_after}
 
 
+HEADLESS_SCENE = {"port": 47960, "pid": 7001, "scene": "mesh-viewer", "headless": True,
+                  "baseUrl": "http://127.0.0.1:47960"}
+
+
+def write_scene_record(root: str, record: dict) -> str:
+    """Publish a scene record the way AutomationPortFile does, under a checkout's tmp/automation.
+
+    :param root: Checkout root.
+    :param record: Record fields; ``pid`` names the file.
+    :return: The record's path.
+    """
+    directory = automation_client.records_directory(root)
+    os.makedirs(directory, exist_ok=True)
+    path = os.path.join(directory, f"{record['pid']}.json")
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(record, handle)
+    return path
+
+
+def dead_pid() -> int:
+    """A pid that named a process which has since exited.
+
+    :return: The exited process's pid.
+    """
+    process = subprocess.Popen(["true"])
+    process.wait()
+    return process.pid
+
+
+class SceneResolutionTest(unittest.TestCase):
+    """Two scenes in one checkout: the F5 window and the headless scene ixdar-cli launched."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = make_checkout(directory.name)
+        # Live pids of processes the test owns: this one and its parent stand in for two JVMs.
+        self.windowed = {"port": 47970, "pid": os.getppid(), "scene": "craw-50", "headless": False}
+        self.headless = {"port": 47971, "pid": os.getpid(), "scene": "craw-50", "headless": True}
+
+    def test_two_records_in_one_checkout_resolve_to_the_headless_scene(self):
+        write_scene_record(self.root, self.windowed)
+        write_scene_record(self.root, self.headless)
+        self.assertEqual(2, len(automation_client.live_scenes(self.root)))
+        target = automation_client.resolve_target(root=self.root)
+        self.assertEqual(47971, target["port"])
+        self.assertEqual("http://127.0.0.1:47971", target["baseUrl"])
+
+    def test_a_windowed_scene_alone_is_refused_and_listed(self):
+        write_scene_record(self.root, self.windowed)
+        with self.assertRaises(automation_client.SceneResolutionError) as refusal:
+            automation_client.resolve_target(root=self.root)
+        self.assertIn("port=47970", str(refusal.exception))
+        self.assertIn("windowed", str(refusal.exception))
+        self.assertEqual([47970], [scene["port"] for scene in refusal.exception.scenes])
+
+    def test_a_windowed_scene_is_reached_when_named(self):
+        write_scene_record(self.root, self.windowed)
+        write_scene_record(self.root, self.headless)
+        by_pid = automation_client.resolve_target(pid=self.windowed["pid"], root=self.root)
+        self.assertEqual(47970, by_pid["port"])
+        by_url = automation_client.resolve_target("http://127.0.0.1:47970", root=self.root)
+        self.assertEqual(self.windowed["pid"], by_url["pid"])
+        self.assertFalse(by_url["headless"])
+
+    def test_two_headless_scenes_are_an_ambiguity_not_a_guess(self):
+        write_scene_record(self.root, self.headless)
+        write_scene_record(self.root, {**self.windowed, "port": 47972, "headless": True})
+        with self.assertRaises(automation_client.SceneResolutionError) as refusal:
+            automation_client.resolve_target(root=self.root)
+        self.assertIn("2 headless scenes", str(refusal.exception))
+        self.assertIn("port=47971", str(refusal.exception))
+        self.assertIn("port=47972", str(refusal.exception))
+
+    def test_a_record_of_a_dead_pid_is_dropped_and_deleted(self):
+        stale = write_scene_record(self.root, {**self.headless, "port": 47973, "pid": dead_pid()})
+        write_scene_record(self.root, self.headless)
+        self.assertEqual([47971], [scene["port"] for scene in automation_client.live_scenes(self.root)])
+        self.assertFalse(os.path.exists(stale))
+        self.assertEqual(47971, automation_client.resolve_target(root=self.root)["port"])
+
+    def test_an_empty_checkout_refuses_instead_of_falling_back_to_a_default_port(self):
+        with self.assertRaisesRegex(automation_client.SceneResolutionError, "no scene is running"):
+            automation_client.resolve_target(root=self.root)
+
+    @patch("urllib.request.urlopen")
+    def test_a_command_names_the_scene_it_talked_to(self, urlopen):
+        write_scene_record(self.root, self.windowed)
+        write_scene_record(self.root, self.headless)
+        urlopen.return_value = FakeResponse({"ok": True, "azimuth": 0.5})
+        output = io.StringIO()
+        with patch.object(automation_client, "checkout_root", return_value=self.root), \
+                patch("sys.stdout", output):
+            self.assertEqual(0, ixdar_cli.main(["orbit-get"]))
+        self.assertTrue(urlopen.call_args[0][0].full_url.startswith("http://127.0.0.1:47971/"))
+        self.assertIn("port=47971", json.loads(output.getvalue())["target"])
+
+    @patch("urllib.request.urlopen")
+    def test_shutdown_without_a_target_never_stops_a_windowed_scene(self, urlopen):
+        write_scene_record(self.root, self.windowed)
+        output = io.StringIO()
+        with patch.object(automation_client, "checkout_root", return_value=self.root), \
+                patch("sys.stdout", output):
+            self.assertEqual(4, ixdar_cli.main(["shutdown"]))
+        urlopen.assert_not_called()
+        refusal = json.loads(output.getvalue())
+        self.assertFalse(refusal["ok"])
+        self.assertIn("port=47970", refusal["scenes"][0])
+
+
 class SceneLifecycleTest(unittest.TestCase):
     def test_checkout_root_is_the_working_directory_s_checkout(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -126,12 +236,6 @@ class SceneLifecycleTest(unittest.TestCase):
             self.assertEqual({}, automation_client.read_port_file(
                 os.path.join(directory, "absent.port")))
 
-    def test_discover_base_url_prefers_the_published_port(self):
-        with patch.object(automation_client, "read_port_file", return_value={"port": 47903}):
-            self.assertEqual("http://127.0.0.1:47903", automation_client.discover_base_url())
-        with patch.object(automation_client, "read_port_file", return_value={}):
-            self.assertEqual(automation_client.DEFAULT_BASE_URL,
-                             automation_client.discover_base_url())
 
     def test_await_scene_keeps_waiting_until_the_scene_is_ready(self):
         # A log line matching --await-log used to end the wait on its own, handing back a scene
@@ -302,8 +406,8 @@ class SceneLifecycleTest(unittest.TestCase):
 
     def test_shutdown_returns_only_after_the_process_is_gone(self):
         alive = [True, True, False]
-        with patch.object(shutdown_scene, "read_port_file",
-                          return_value={"port": 47907, "pid": 9911}), \
+        scene = {**HEADLESS_SCENE, "port": 47907, "pid": 9911, "baseUrl": "http://127.0.0.1:47907"}
+        with patch.object(automation_client, "live_scenes", return_value=[scene]), \
                 patch.object(shutdown_scene, "process_alive", side_effect=lambda pid: alive.pop(0)), \
                 patch("time.sleep"), \
                 patch("urllib.request.urlopen",
@@ -313,8 +417,8 @@ class SceneLifecycleTest(unittest.TestCase):
         self.assertEqual([], alive)
 
     def test_shutdown_fails_when_the_process_outlives_the_timeout(self):
-        with patch.object(shutdown_scene, "read_port_file",
-                          return_value={"port": 47908, "pid": 9912}), \
+        scene = {**HEADLESS_SCENE, "port": 47908, "pid": 9912, "baseUrl": "http://127.0.0.1:47908"}
+        with patch.object(automation_client, "live_scenes", return_value=[scene]), \
                 patch.object(shutdown_scene, "process_alive", return_value=True), \
                 patch("time.sleep"), \
                 patch("urllib.request.urlopen",
@@ -527,6 +631,12 @@ class RunLogsTest(unittest.TestCase):
 
 
 class CliTest(unittest.TestCase):
+    def setUp(self):
+        # Every command here talks to one fake headless scene, never to a live one of this checkout.
+        patcher = patch.object(automation_client, "live_scenes", return_value=[dict(HEADLESS_SCENE)])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_async_profiler_library_prefers_environment_override(self):
         with tempfile.NamedTemporaryFile(suffix=".so") as fake_library:
             with patch.dict(os.environ, {"ASYNC_PROFILER_LIB": fake_library.name}):
@@ -726,9 +836,9 @@ class CliTest(unittest.TestCase):
     @patch("urllib.request.urlopen")
     def test_shutdown_command_posts_request(self, urlopen):
         urlopen.return_value = FakeResponse({"ok": True, "accepted": True})
-        # No port file means no pid to wait on, so the command reports the acknowledgement alone.
-        with patch.object(shutdown_scene, "read_port_file", return_value={}):
-            exit_code = ixdar_cli.main(["shutdown"])
+        # A URL no scene record names has no pid to wait on, so the command reports the
+        # acknowledgement alone.
+        exit_code = ixdar_cli.main(["--base-url", "http://127.0.0.1:47950", "shutdown"])
         self.assertEqual(0, exit_code)
 
     @patch("urllib.request.urlopen")

@@ -20,6 +20,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import ixdar.canvas.Canvas3D;
+import ixdar.canvas.IxdarWindow;
 import ixdar.geometry.mesh.data.MeshDistance;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.load.MeshLoader;
@@ -34,6 +35,7 @@ import ixdar.platform.automation.AutomationPortFile;
 import ixdar.platform.automation.AutomationRecorder;
 import ixdar.platform.automation.AutomationReplayEngine;
 import ixdar.platform.automation.endpoints.mesh.dsl.Timing;
+import ixdar.platform.gl.headless.HeadlessPlatform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.PointerDispatcher;
@@ -87,9 +89,9 @@ public class AutomationRuntime {
 
     /**
      * Bind the runtime to a live render canvas and start the HTTP automation
-     * server, publishing the bound port to this checkout's
-     * {@code tmp/automation.port}. Idempotent: subsequent calls only refresh the
-     * canvas reference.
+     * server, publishing the bound port to this process's own record under the
+     * checkout's {@code tmp/automation/}. Idempotent: subsequent calls only refresh
+     * the canvas reference.
      *
      * @param canvas3D the active render canvas; held so endpoints can drive scenes
      */
@@ -106,7 +108,8 @@ public class AutomationRuntime {
             server = new AutomationApiServer(this, requestedPort);
             server.start();
             started = true;
-            AutomationPortFile.write(server.port());
+            AutomationPortFile.write(server.port(), IxdarWindow.getCanvasId(),
+                    Platforms.get() instanceof HeadlessPlatform);
             String message = "[Automation] Listening on http://127.0.0.1:" + server.port()
                     + " (" + AutomationPortFile.location() + ")";
             Platforms.get().log(message);

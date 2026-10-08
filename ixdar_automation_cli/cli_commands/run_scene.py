@@ -23,7 +23,13 @@ import subprocess
 import sys
 import time
 
-from ..automation_client import AutomationClient, read_port_file
+from ..automation_client import (
+    LOOPBACK_HOST,
+    RECORD_SUFFIX,
+    AutomationClient,
+    read_port_file,
+    records_directory,
+)
 from ..cli_registry import CliCommandResult, cli_command
 from ..jacoco_coverage import DEFAULT_PACKAGE_FILTER, agent_argument, build_report, format_coverage
 from ..mesh_catalog import MODEL_PROPERTY, mesh_size, resolve_mesh, resolve_scene_properties
@@ -55,8 +61,6 @@ ASYNC_PROFILER_CANDIDATES = (
     "/opt/async-profiler/lib/libasyncProfiler.so",
 )
 AUTOMATION_PORT_PROPERTY = "ixdar.automation.port"
-
-LOOPBACK_HOST = "127.0.0.1"
 
 
 def free_port() -> int:
@@ -297,19 +301,20 @@ def _adopt_published_port(client: AutomationClient, process: subprocess.Popen) -
     The port this command picked is only a request: another process can take it in the moment
     between the pick and the JVM's bind, and the scene then falls back to a free one. The port
     file is the authority, and its pid is what proves the file belongs to this scene rather than
-    to a previous one.
+    to a previous one or to another scene of the same checkout.
 
-    :param client: Automation client to retarget in place.
-    :param process: The launched JVM, whose pid must match the published one.
+    :param client: Automation client to retarget in place; its target becomes the scene's record.
+    :param process: The launched JVM, whose pid names its record.
     """
-    published = read_port_file()
+    published = read_port_file(os.path.join(records_directory(), f"{process.pid}{RECORD_SUFFIX}"))
     port = published.get("port")
     if not port or published.get("pid") != process.pid:
         return
     base_url = f"http://{LOOPBACK_HOST}:{port}"
     if client.base_url != base_url:
         print(f"  scene bound {base_url} instead; following it", file=sys.stderr)
-        client.base_url = base_url
+    client.base_url = base_url
+    client.target = {**published, "baseUrl": base_url}
 
 
 def _await_log_beyond(log_path: str, pattern: re.Pattern, offset: int,
@@ -562,6 +567,7 @@ def run(
             "ok": status["ready"],
             "scene": scene,
             "port": int(client.base_url.rsplit(":", 1)[1]),
+            "pid": process.pid,
             "baseUrl": client.base_url,
             "log": log_path,
             "waitedSeconds": status["waited"],
@@ -593,7 +599,6 @@ def run(
         if not keep_alive:
             _terminate(process, client)
         else:
-            result["pid"] = process.pid
             result["next"] = KEEP_ALIVE_HINT
 
     if resolved_profile and not keep_alive:
@@ -645,8 +650,9 @@ def run_scene(
 ) -> CliCommandResult:
     """Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
-    The scene binds a free port of its own and publishes it to ``tmp/automation.port`` under this
-    checkout, so parallel worktrees never collide and no other command needs a ``--base-url``.
+    The scene binds a free port of its own and publishes it in its own ``tmp/automation/<pid>.json``
+    record under this checkout, so parallel scenes never collide; while it is the checkout's one
+    headless scene, no other command needs a ``--base-url``.
 
     :param scene: Scene id passed to IxdarWindow (see @SceneAnnotation ids).
     :param property: Repeatable ``key=value`` JVM system property; a ``*.off`` or ``ixdar.model``
