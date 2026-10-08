@@ -114,6 +114,9 @@ public final class MeshRepairReport {
     /** Triangles the filling added to each loop of {@link #holeEdgeCounts}; zero where unfilled. */
     public int[] holeFillFaceCounts = new int[0];
 
+    /** Face index in the repaired mesh of every triangle the hole filling added, ascending. */
+    public int[] fillFaceIndices = new int[0];
+
     /**
      * Whether the repaired surface is still torn: a boundary loop the filling could not close, or
      * an orientation contradiction that survived the split. Debris and bubble shells are a

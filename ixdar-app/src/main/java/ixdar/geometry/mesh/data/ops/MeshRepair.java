@@ -83,6 +83,9 @@ public final class MeshRepair {
     /** Working faces, alive or not. */
     public int faceCount;
 
+    /** First working face the hole filling appended; every later face is a fill triangle. */
+    public int firstFillFace;
+
     /** Per-corner {@code u}, or null when the input carried no UV field. */
     public double[] cornerU;
 
@@ -153,6 +156,7 @@ public final class MeshRepair {
         splitNonManifold();
         fixDegenerates();
         classifyShells();
+        firstFillFace = faceCount;
         fillHoles();
         assemble();
     }
@@ -1224,9 +1228,14 @@ public final class MeshRepair {
         double[] outU = cornerU == null ? null : new double[aliveFaces * TRIANGLE_CORNERS];
         double[] outV = cornerU == null ? null : new double[aliveFaces * TRIANGLE_CORNERS];
         int nextFace = 0;
+        int[] fillFaceIndices = new int[Math.max(0, faceCount - firstFillFace)];
+        int fillFaces = 0;
         for (int face = 0; face < faceCount; face++) {
             if (!faceAlive[face]) {
                 continue;
+            }
+            if (face >= firstFillFace) {
+                fillFaceIndices[fillFaces++] = nextFace;
             }
             for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
                 int slot = face * TRIANGLE_CORNERS + corner;
@@ -1241,6 +1250,7 @@ public final class MeshRepair {
         HalfEdgeMesh repaired = HalfEdgeMeshEngine.buildFromIndexedMesh(outPositions, outFaces);
         report.outputVertexCount = survivors;
         report.outputFaceCount = aliveFaces;
+        report.fillFaceIndices = Arrays.copyOf(fillFaceIndices, fillFaces);
 
         GeometryBundle bundle = input.withMesh(repaired);
         if (outU != null) {

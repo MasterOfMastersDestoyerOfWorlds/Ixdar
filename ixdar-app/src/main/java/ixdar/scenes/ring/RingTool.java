@@ -26,7 +26,6 @@ import ixdar.geometry.mesh.data.paths.GirdlingPlane;
 import ixdar.geometry.mesh.data.paths.SplineAnchorFit;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.SurfaceMetric;
-import ixdar.geometry.mesh.data.paths.SurfacePicker;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
@@ -98,8 +97,6 @@ public final class RingTool implements EditTool {
     public static final float AUTHORED_ANCHOR_PIXELS = 5f;
 
     public static final float SELECTED_ANCHOR_PIXELS = 7f;
-
-    public static final float ANCHOR_HIT_RADIUS_PIXELS = 8f;
 
     public static final int COORDINATES_PER_POINT = 3;
 
@@ -300,20 +297,13 @@ public final class RingTool implements EditTool {
      */
     public Map<String, String> ringNoteByLabel = Map.of();
 
-    private final SurfacePicker picker = new SurfacePicker();
     private final GirdlingPlane girdle = new GirdlingPlane();
-    private final float[] rayOrigin = new float[COORDINATES_PER_POINT];
-    private final float[] rayDirection = new float[COORDINATES_PER_POINT];
-    private final float[] hitPoint = new float[COORDINATES_PER_POINT];
     private final float[] limbDirection = new float[COORDINATES_PER_POINT];
     private final float[] previewedHit = new float[COORDINATES_PER_POINT];
     private final Vector3f scratchPosition = new Vector3f();
-    private final float[] anchorPixel = new float[COORDINATES_PER_POINT];
     private AuthoredSplineRing previewRing;
     private AuthoredSplineRing draftRing;
     private MeshTopology preparedSurface;
-    private boolean hitValid;
-    private int hitVertexId = -1;
     private int previewedFace = -1;
     private boolean pendingClick;
     private RingToolState dragBefore;
@@ -350,6 +340,8 @@ public final class RingTool implements EditTool {
     public void activate() {
         active = true;
         lastError = "";
+        // Another tool may have drawn its own anchors over the draft's since this one uploaded.
+        overlayStale = true;
         if (scene.orbitMouse != null) {
             scene.orbitMouse.toolClick = button -> requestClick();
             scene.orbitMouse.toolGrab = this::grabAnchor;
@@ -554,41 +546,12 @@ public final class RingTool implements EditTool {
             uploadOverlay();
             return;
         }
-        // Pick the face under the cursor with the GPU id buffer, hit it with the view ray, and keep
-        // the hit point and the face corner nearest it, the vertex a click anchors to.
-        hitValid = false;
-        hitVertexId = -1;
-        int width = Platforms.get().getWindowWidth();
-        int height = Platforms.get().getWindowHeight();
-        int framebufferX = width <= 0 ? 0
-                : Math.round(scene.orbitMouse.lastX * (float) Platforms.get().getFrameBufferWidth()
-                        / width);
-        int framebufferY = height <= 0 ? 0
-                : Math.round(scene.orbitMouse.lastY
-                        * (float) Platforms.get().getFrameBufferHeight() / height);
-        int faceIndex = scene.cameraMoving() ? -1
-                : runtime.faceIndexAtPixel(scene.camera, framebufferX, framebufferY);
-        int faceId = -1;
-        if (faceIndex >= 0 && faceIndex < surface.faceCount()
-                && runtime.rayThroughPixel(scene.camera, framebufferX, framebufferY, rayOrigin,
-                        rayDirection)
-                && picker.pickNear(surface, surface.faceIdAt(faceIndex), rayOrigin, rayDirection)) {
-            faceId = picker.faceId;
-            hitPoint[0] = picker.pointX;
-            hitPoint[1] = picker.pointY;
-            hitPoint[2] = picker.pointZ;
+        boolean hitValid = scene.pickCursor(runtime, surface);
+        int hitVertexId = scene.cursorVertexId;
+        int faceId = scene.cursorFaceId;
+        float[] hitPoint = scene.cursorPoint;
+        if (hitValid) {
             System.arraycopy(hitPoint, 0, previewHitPoint, 0, COORDINATES_PER_POINT);
-            double nearestCorner = Double.POSITIVE_INFINITY;
-            for (int corner = 0; corner < surface.faceVertexCount(faceId); corner++) {
-                int vertexId = surface.faceVertexAt(faceId, corner);
-                surface.vertexPosition(vertexId, scratchPosition);
-                double distance = scratchPosition.distance(hitPoint[0], hitPoint[1], hitPoint[2]);
-                if (distance < nearestCorner) {
-                    nearestCorner = distance;
-                    hitVertexId = vertexId;
-                }
-            }
-            hitValid = hitVertexId >= 0;
         }
         hoveredRing = -1;
         hoveredGraphRing = null;
@@ -597,33 +560,7 @@ public final class RingTool implements EditTool {
             previewValid = false;
             previewSpline = null;
             if (hitValid) {
-                double nearestPixels = Double.POSITIVE_INFINITY;
-                double eyeToHit =
-                        scene.camera.position.distance(hitPoint[0], hitPoint[1], hitPoint[2]);
-                for (int anchor = 0; anchor < draftAuthoredVertexId.length; anchor++) {
-                    int vertexId = draftAuthoredVertexId[anchor];
-                    surface.vertexPosition(vertexId, scratchPosition);
-                    float diameter = anchorDiameterPixels(vertexId, true);
-                    boolean onAnchorFace = false;
-                    for (int corner = 0; corner < surface.faceVertexCount(faceId); corner++) {
-                        onAnchorFace |= surface.faceVertexAt(faceId, corner) == vertexId;
-                    }
-                    if (!onAnchorFace && scene.camera.position.distance(scratchPosition)
-                            > eyeToHit + diameter * worldPerPixel()) {
-                        continue;
-                    }
-                    if (!runtime.projectToPixels(scene.camera, scratchPosition.x,
-                            scratchPosition.y, scratchPosition.z, anchorPixel)) {
-                        continue;
-                    }
-                    double pixels = Math.hypot(Math.floor(anchorPixel[0]) - framebufferX,
-                            Math.floor(anchorPixel[1]) - framebufferY);
-                    if (pixels <= Math.max(diameter * HALF, ANCHOR_HIT_RADIUS_PIXELS)
-                            && pixels < nearestPixels) {
-                        nearestPixels = pixels;
-                        hoveredAnchor = anchor;
-                    }
-                }
+                hoveredAnchor = scene.anchorUnderCursor(runtime, surface, draftAuthoredVertexId);
                 boolean vertexFree = true;
                 for (int held : draftAuthoredVertexId) {
                     vertexFree &= held != hitVertexId;
@@ -634,7 +571,7 @@ public final class RingTool implements EditTool {
             }
         } else if (hitValid) {
             hoveredRing = ringUnderCursor();
-            double graphReach = RING_HIT_PIXELS * worldPerPixel();
+            double graphReach = RING_HIT_PIXELS * scene.worldPerPixel();
             for (int ring = 0; hoveredRing < 0 && ring < graphRingSegments.size(); ring++) {
                 float[] segments = graphRingSegments.get(ring);
                 for (int base = 0; base + SEGMENT_FLOATS <= segments.length;
@@ -695,7 +632,8 @@ public final class RingTool implements EditTool {
                 // the plane they fit as the base normal, so a save writes a spline_ring.
                 String label = hoveredGraphRing;
                 AuthoredSplineRing converted = new AuthoredSplineRing(geodesics);
-                int[] anchors = fitGraphRing(surface, label, converted);
+                int[] anchors = fitLoop(orderedLoop(surface, scene.ringMarksByLabel.get(label)),
+                        converted, "graph ring " + label);
                 if (anchors.length > 0) {
                     System.arraycopy(written(converted.planeNormal), 0, draftBaseNormal, 0,
                             COORDINATES_PER_POINT);
@@ -1290,7 +1228,8 @@ public final class RingTool implements EditTool {
      * cursor, which a click re-opens instead of starting a new ring.
      */
     private int ringUnderCursor() {
-        double reach = RING_HIT_PIXELS * worldPerPixel();
+        double reach = RING_HIT_PIXELS * scene.worldPerPixel();
+        float[] hitPoint = scene.cursorPoint;
         int nearest = -1;
         double nearestDistance = reach;
         for (int ring = 0; ring < confirmedRings.size(); ring++) {
@@ -1309,17 +1248,6 @@ public final class RingTool implements EditTool {
         return nearest;
     }
 
-    /** Model units one screen pixel spans at the hit point, the scale a pixel reach is in. */
-    private double worldPerPixel() {
-        int height = Platforms.get().getFrameBufferHeight();
-        if (height <= 0) {
-            return 0.0;
-        }
-        double eyeDistance =
-                scene.camera.position.distance(hitPoint[0], hitPoint[1], hitPoint[2]);
-        return 2.0 * eyeDistance * Math.tan(Math.toRadians(scene.camera.fov * HALF)) / height;
-    }
-
     /**
      * Find the girdling plane through the hit point and trace the one-anchor ring through the
      * vertex under the cursor on it, exactly the ring a click would draft.
@@ -1329,13 +1257,16 @@ public final class RingTool implements EditTool {
         previewGirdleEdgeCount = 0;
         previewLength = 0.0;
         previewSpline = null;
+        float[] hitPoint = scene.cursorPoint;
+        int hitVertexId = scene.cursorVertexId;
         axisFromSkeleton = limbAxis.skeletonAxisAt(hitPoint[0], hitPoint[1], hitPoint[2],
                 limbDirection);
         boolean seeded = axisFromSkeleton || limbAxis.curvatureAxisAt(faceId, limbDirection);
         if (seeded) {
             System.arraycopy(limbDirection, 0, previewLimbAxis, 0, COORDINATES_PER_POINT);
         }
-        System.arraycopy(rayDirection, 0, girdle.viewDirection, 0, COORDINATES_PER_POINT);
+        System.arraycopy(scene.cursorRayDirection, 0, girdle.viewDirection, 0,
+                COORDINATES_PER_POINT);
         if (!girdle.find(surface, faceId, hitPoint, seeded ? limbDirection : null)) {
             return false;
         }
@@ -1784,7 +1715,8 @@ public final class RingTool implements EditTool {
                 anchors = SurfaceWaypoints.snap(geodesics.metric.nearestVertex, points,
                         points.length / COORDINATES_PER_POINT);
             } else {
-                anchors = fitGraphRing(surface, label, anchored);
+                anchors = fitLoop(orderedLoop(surface, entry.getValue()), anchored,
+                        "graph ring " + label);
                 normal = anchors.length > 0 ? written(anchored.planeNormal) : null;
             }
             if (anchors.length == 0 || !anchored.trace(anchors, anchors.length, normal,
@@ -1834,31 +1766,76 @@ public final class RingTool implements EditTool {
     }
 
     /**
-     * Fit authored anchors to a graph ring's edge loop, every supporting anchor the fit settles
-     * on made authored, and leave the plane they fit in {@code ring}'s plane normal.
+     * Fit authored anchors to a closed vertex loop, every supporting anchor the fit settles on
+     * made authored, and leave the plane they fit in {@code ring}'s plane normal.
      *
-     * @param surface the surface the graph's marks index
-     * @param label   the graph ring's mark label
-     * @param ring    ring the fit and trace run on
+     * @param loop the loop's vertex ids in walking order
+     * @param ring ring the fit and trace run on
+     * @param name what the loop is, as {@link #lastError} names it
      * @return the anchors, or an empty array with {@link #lastError} saying why
      */
-    private int[] fitGraphRing(MeshTopology surface, String label, AuthoredSplineRing ring) {
-        int[] loop = orderedLoop(surface, scene.ringMarksByLabel.get(label));
+    private int[] fitLoop(int[] loop, AuthoredSplineRing ring, String name) {
         ring.tracer.maximumDepth = AuthoredSplineRing.SUPPORTING_FIT_DEPTH;
         if (loop.length < SplineAnchorFit.STARTING_ANCHORS) {
-            lastError = "graph ring " + label + " is not one closed edge loop";
+            lastError = name + " is not one closed edge loop";
             return new int[0];
         }
         if (!ring.fit.fit(positionsOf(loop), loop.length, loop, 0)) {
-            lastError = "no anchors fit graph ring " + label;
+            lastError = "no anchors fit " + name;
             return new int[0];
         }
         int[] anchors = Arrays.copyOf(ring.tracer.anchorVertexId, ring.tracer.anchorCount);
         if (!ring.trace(anchors, anchors.length, null, AuthoredSplineRing.SUPPORTING_FIT_DEPTH)) {
-            lastError = "graph ring " + label + ": " + ring.failure;
+            lastError = name + ": " + ring.failure;
             return new int[0];
         }
         return anchors;
+    }
+
+    /**
+     * Confirm a closed vertex loop, such as a neck's cross-section, as a new unsaved ring through
+     * anchors fitted to it, as one undoable edit.
+     *
+     * @param loop the loop's vertex ids in walking order
+     * @param what the edit's name in the undo history and the log
+     * @return the new ring's index in {@link #confirmedRings}, or -1 with {@link #lastError}
+     *         saying why
+     */
+    public int confirmLoop(int[] loop, String what) {
+        lastError = "";
+        MeshTopology surface = scene.halfEdgeSurface();
+        if (surface == null || surface.faceCount() == 0 || !readyGeodesics(surface)) {
+            lastError = lastError.isEmpty() ? "no surface to ring" : lastError;
+            return -1;
+        }
+        AuthoredSplineRing anchored = new AuthoredSplineRing(geodesics);
+        int[] anchors = fitLoop(loop, anchored, what);
+        if (anchors.length == 0) {
+            return -1;
+        }
+        float[] normal = written(anchored.planeNormal);
+        if (!anchored.trace(anchors, anchors.length, normal,
+                SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
+            lastError = what + ": " + anchored.failure;
+            return -1;
+        }
+        RingToolState stateBefore = new RingToolState(this);
+        SurfaceSpline spline = SurfaceSpline.of(anchored.tracer);
+        confirmedRings.add(spline);
+        confirmedAuthoredVertexId.add(anchored.authoredVertexId);
+        confirmedBaseNormal.add(normal);
+        confirmedStatementIds.add(null);
+        confirmedRingUnsaved.add(true);
+        confirmedSourceLabel.add(null);
+        confirmedRingDeleted.add(false);
+        recordEdit(what, stateBefore);
+        invalidateRings();
+        int ring = confirmedRings.size() - 1;
+        lastRow = String.format(Locale.ROOT, "ring %d from %s: %d authored anchors, %d edges, "
+                + "length %.5f, unsaved", drawnRingNumber(ring), what, spline.authoredCount(),
+                spline.markedEdgeCount, spline.length);
+        Platforms.get().log(LOG_PREFIX + lastRow);
+        return ring;
     }
 
     /** Build the pick buffer, the axis cache and the geodesic engine when the surface changed. */
@@ -1994,7 +1971,7 @@ public final class RingTool implements EditTool {
     }
 
     /**
-     * The drawn diameter of one of the draft's anchors, which is also its click radius doubled.
+     * The drawn diameter of one of the draft's anchors.
      *
      * @param vertexId mesh vertex the anchor sits on
      * @param authored whether the user placed the anchor rather than the fit

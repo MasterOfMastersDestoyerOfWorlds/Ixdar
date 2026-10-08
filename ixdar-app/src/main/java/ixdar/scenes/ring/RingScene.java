@@ -4,9 +4,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.joml.Vector3f;
+
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.FlipGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfacePicker;
 import ixdar.geometry.mesh.data.paths.SurfaceRing;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
@@ -14,15 +17,16 @@ import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
+import ixdar.scenes.connection.ConnectionTool;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.regions.RegionLayer;
 import ixdar.scenes.regions.RingRegionTool;
 
 /**
- * The mesh editing scene: the mesh viewer hosting the orbit, ring and region-select
- * {@link EditTool}s over the ring tool's rings. Ctrl+R and Ctrl+T pick a tool; Esc goes to the
- * active tool, else back to orbit.
+ * The mesh editing scene: the mesh viewer hosting the orbit, ring, region-select and connection
+ * {@link EditTool}s over the ring tool's rings. Ctrl+R, Ctrl+T and Ctrl+J pick a tool; Esc goes
+ * to the active tool, else back to orbit.
  */
 @SceneAnnotation(id = "ring-tool")
 public class RingScene extends MeshNodeViewerScene {
@@ -35,6 +39,12 @@ public class RingScene extends MeshNodeViewerScene {
 
     public static final String ACTIVE_MARK = " (active)";
 
+    public static final int COORDINATES_PER_POINT = 3;
+
+    public static final float ANCHOR_HIT_RADIUS_PIXELS = 8f;
+
+    public static final float HALF = 0.5f;
+
     /** The tool the scene opens with, which only moves the camera. */
     public final OrbitTool orbitTool = new OrbitTool(this);
 
@@ -44,11 +54,14 @@ public class RingScene extends MeshNodeViewerScene {
     /** The region tool, which selects and extracts the regions the ring tool's rings enclose. */
     public final RingRegionTool regionTool = new RingRegionTool(this);
 
+    /** The tool showing how two places are joined and the neck between them, to ring. */
+    public final ConnectionTool connectionTool = new ConnectionTool(this);
+
     /** The region colours, shown in the region tool and, switched on, in every tool. */
     public final RegionLayer regionLayer = new RegionLayer(this);
 
     /** Every tool the scene hosts, each run once per frame whether active or not. */
-    public final List<EditTool> tools = List.of(orbitTool, ringTool, regionTool);
+    public final List<EditTool> tools = List.of(orbitTool, ringTool, regionTool, connectionTool);
 
     /** The tool that owns clicks, drags and tool keys now. */
     public EditTool activeTool = orbitTool;
@@ -77,6 +90,29 @@ public class RingScene extends MeshNodeViewerScene {
      * {@link #showRings}.
      */
     public boolean showRingsExploded;
+
+    /** Surface point under the cursor at the active tool's last {@link #pickCursor}, packed xyz. */
+    public final float[] cursorPoint = new float[COORDINATES_PER_POINT];
+
+    /** Direction of the view ray through the cursor at the last pick, packed xyz. */
+    public final float[] cursorRayDirection = new float[COORDINATES_PER_POINT];
+
+    /** Face the last pick hit, or -1 when it missed or the camera was moving. */
+    public int cursorFaceId = -1;
+
+    /** Corner of {@link #cursorFaceId} nearest {@link #cursorPoint}, the vertex a click anchors to. */
+    public int cursorVertexId = -1;
+
+    /** Framebuffer pixel the last pick read, x. */
+    public int cursorFramebufferX;
+
+    /** Framebuffer pixel the last pick read, y. */
+    public int cursorFramebufferY;
+
+    private final SurfacePicker cursorPicker = new SurfacePicker();
+    private final float[] cursorRayOrigin = new float[COORDINATES_PER_POINT];
+    private final float[] anchorPixel = new float[COORDINATES_PER_POINT];
+    private final Vector3f anchorPosition = new Vector3f();
 
     @Override
     public String windowTitle() {
@@ -136,6 +172,109 @@ public class RingScene extends MeshNodeViewerScene {
         controls.clear();
         setControls();
         Platforms.get().log(LOG_PREFIX + "active tool: " + activeTool.toolName());
+    }
+
+    /**
+     * Pick the surface under the cursor for the active tool: the face from the GPU id buffer, the
+     * point the view ray hits on it and the face corner nearest that point. Nothing is picked
+     * while the camera moves.
+     *
+     * @param runtime the surface's runtime, its face-pick buffer uploaded
+     * @param surface the shown surface
+     * @return true when {@link #cursorVertexId} names a vertex under the cursor
+     */
+    public boolean pickCursor(HalfEdgeMeshRuntime runtime, MeshTopology surface) {
+        cursorFaceId = -1;
+        cursorVertexId = -1;
+        int width = Platforms.get().getWindowWidth();
+        int height = Platforms.get().getWindowHeight();
+        cursorFramebufferX = width <= 0 ? 0
+                : Math.round(orbitMouse.lastX * (float) Platforms.get().getFrameBufferWidth()
+                        / width);
+        cursorFramebufferY = height <= 0 ? 0
+                : Math.round(orbitMouse.lastY * (float) Platforms.get().getFrameBufferHeight()
+                        / height);
+        int faceIndex = cameraMoving() ? -1
+                : runtime.faceIndexAtPixel(camera, cursorFramebufferX, cursorFramebufferY);
+        if (faceIndex < 0 || faceIndex >= surface.faceCount()
+                || !runtime.rayThroughPixel(camera, cursorFramebufferX, cursorFramebufferY,
+                        cursorRayOrigin, cursorRayDirection)
+                || !cursorPicker.pickNear(surface, surface.faceIdAt(faceIndex), cursorRayOrigin,
+                        cursorRayDirection)) {
+            return false;
+        }
+        cursorFaceId = cursorPicker.faceId;
+        cursorPoint[0] = cursorPicker.pointX;
+        cursorPoint[1] = cursorPicker.pointY;
+        cursorPoint[2] = cursorPicker.pointZ;
+        double nearestCorner = Double.POSITIVE_INFINITY;
+        for (int corner = 0; corner < surface.faceVertexCount(cursorFaceId); corner++) {
+            int vertexId = surface.faceVertexAt(cursorFaceId, corner);
+            surface.vertexPosition(vertexId, anchorPosition);
+            double distance = anchorPosition.distance(cursorPoint[0], cursorPoint[1],
+                    cursorPoint[2]);
+            if (distance < nearestCorner) {
+                nearestCorner = distance;
+                cursorVertexId = vertexId;
+            }
+        }
+        return cursorVertexId >= 0;
+    }
+
+    /**
+     * The anchor the cursor is over at the last pick: the nearest whose projection lies within
+     * {@link #ANCHOR_HIT_RADIUS_PIXELS} of the cursor and which the surface does not hide.
+     *
+     * @param runtime        the surface's runtime, which projects anchors to pixels
+     * @param surface        the shown surface
+     * @param anchorVertexId the anchors, each a vertex of {@code surface}
+     * @return the anchor's index in {@code anchorVertexId}, or -1 for none
+     */
+    public int anchorUnderCursor(HalfEdgeMeshRuntime runtime, MeshTopology surface,
+            int[] anchorVertexId) {
+        if (cursorVertexId < 0) {
+            return -1;
+        }
+        int hovered = -1;
+        double nearestPixels = Double.POSITIVE_INFINITY;
+        double eyeToHit = camera.position.distance(cursorPoint[0], cursorPoint[1], cursorPoint[2]);
+        double depthReach = ANCHOR_HIT_RADIUS_PIXELS * worldPerPixel();
+        for (int anchor = 0; anchor < anchorVertexId.length; anchor++) {
+            int vertexId = anchorVertexId[anchor];
+            surface.vertexPosition(vertexId, anchorPosition);
+            boolean onCursorFace = false;
+            for (int corner = 0; corner < surface.faceVertexCount(cursorFaceId); corner++) {
+                onCursorFace |= surface.faceVertexAt(cursorFaceId, corner) == vertexId;
+            }
+            if (!onCursorFace && camera.position.distance(anchorPosition) > eyeToHit + depthReach
+                    || !runtime.projectToPixels(camera, anchorPosition.x, anchorPosition.y,
+                            anchorPosition.z, anchorPixel)) {
+                continue;
+            }
+            double pixels = Math.hypot(Math.floor(anchorPixel[0]) - cursorFramebufferX,
+                    Math.floor(anchorPixel[1]) - cursorFramebufferY);
+            if (pixels <= ANCHOR_HIT_RADIUS_PIXELS && pixels < nearestPixels) {
+                nearestPixels = pixels;
+                hovered = anchor;
+            }
+        }
+        return hovered;
+    }
+
+    /**
+     * Model units one screen pixel spans at the cursor's surface point, the scale a pixel reach
+     * is in.
+     *
+     * @return the span, or 0 before the framebuffer has a size
+     */
+    public double worldPerPixel() {
+        int height = Platforms.get().getFrameBufferHeight();
+        if (height <= 0) {
+            return 0.0;
+        }
+        double eyeDistance = camera.position.distance(cursorPoint[0], cursorPoint[1],
+                cursorPoint[2]);
+        return 2.0 * eyeDistance * Math.tan(Math.toRadians(camera.fov * HALF)) / height;
     }
 
     /**
@@ -312,6 +451,8 @@ public class RingScene extends MeshNodeViewerScene {
     public void setControls() {
         controls.add(toolHint(Keys.R, true, "ctrl+R", ringTool, "draw and edit rings"));
         controls.add(toolHint(Keys.T, true, "ctrl+T", regionTool, RingRegionTool.TOOL_PURPOSE));
+        controls.add(toolHint(Keys.J, true, "ctrl+J", connectionTool,
+                "find the neck joining two places"));
         activeTool.addControls(controls);
         controls.add(new ControlHint(Keys.G, "G", "region colours in every tool",
                 regionLayer::toggleVisible));

@@ -733,12 +733,31 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
      */
     public void setDiagnostic(List<float[]> faceGroupCenters, List<float[]> markerPositions,
             List<float[]> polylines) {
+        List<Color> palette = new ArrayList<>();
+        int groups = faceGroupCenters.size() + polylines.size() + markerPositions.size();
+        for (int group = 0; group < groups; group++) {
+            palette.add(paletteColor(group));
+        }
+        setDiagnostic(faceGroupCenters, markerPositions, polylines, palette);
+    }
+
+    /**
+     * Upload one diagnostic's geometry groups in the given colours: face groups as dot clouds,
+     * path groups as lines, marker groups as large markers.
+     *
+     * @param faceGroupCenters one dot cloud per face group
+     * @param markerPositions  one point set per marker group
+     * @param polylines        one point sequence per path group
+     * @param groupColors      one colour per group, face groups first, then paths, then markers
+     */
+    public void setDiagnostic(List<float[]> faceGroupCenters, List<float[]> markerPositions,
+            List<float[]> polylines, List<Color> groupColors) {
         clearDiagnostic();
         List<float[]> regionClouds = new ArrayList<>(faceGroupCenters);
         regionClouds.addAll(markerPositions);
         int palette = 0;
         for (float[] centers : faceGroupCenters) {
-            diagnosticRegions.add(PointSet.cloud(centers, paletteColor(palette++),
+            diagnosticRegions.add(PointSet.cloud(centers, groupColors.get(palette++),
                     HIGHLIGHT_REGION_SCALE, 0f));
         }
         SurfaceFaceLocator locator = surfaceFaceLocator();
@@ -757,11 +776,11 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             VertexBuffer buffer = new VertexBuffer();
             buffer.upload(LineSet.LAYOUT, segments.vertices, null);
             diagnosticLines.add(buffer);
-            diagnosticLineColors.add(paletteColor(palette++));
+            diagnosticLineColors.add(groupColors.get(palette++));
             regionClouds.add(polyline);
         }
         for (float[] markerGroup : markerPositions) {
-            diagnosticMarkers.add(PointSet.cloud(markerGroup, paletteColor(palette++),
+            diagnosticMarkers.add(PointSet.cloud(markerGroup, groupColors.get(palette++),
                     HIGHLIGHT_MARKER_SCALE, 0f));
         }
         diagnosticRegionRadius = cloudRadius(regionClouds, new Vector3f());

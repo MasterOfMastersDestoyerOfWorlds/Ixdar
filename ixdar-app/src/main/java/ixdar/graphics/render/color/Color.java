@@ -73,6 +73,9 @@ public interface Color {
     public static final Color REGION_ORCHID = new ColorRGB(255, 77, 255, "Region Orchid");
     public static final Color REGION_SAND = new ColorRGB(233, 166, 99, "Region Sand");
     public static final Color REGION_SPRING_GREEN = new ColorRGB(0, 255, 128, "Region Spring Green");
+    public static final Color CONNECTION_PATH = new ColorRGB(255, 214, 10, "Connection Path");
+    public static final Color CONNECTION_NECK = new ColorRGB(42, 223, 79, "Connection Neck");
+    public static final Color CONNECTION_REPAIR_FILL = new ColorRGB(255, 77, 26, "Connection Repair Fill");
 
     /**
      * RGB channels of this color as a {@code (r, g, b)} vector.

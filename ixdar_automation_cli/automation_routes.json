@@ -58,6 +58,53 @@
       "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}"
     },
     {
+      "commandName": "connection",
+      "path": "/mesh/connection",
+      "method": "POST",
+      "description": "Show how two surface points are joined in the editing scene\u0027s connection tool: the path and its narrowest cross-section, the neck, optionally confirmed as a ring opened in the ring tool.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Connection",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Connection.java",
+      "params": [
+        {
+          "name": "from",
+          "cliName": "from",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "First surface point, \"x,y,z\".",
+          "example": "-0.28,-0.066,0.052"
+        },
+        {
+          "name": "to",
+          "cliName": "to",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Second surface point, \"x,y,z\".",
+          "example": "-0.2,-0.05,0.04"
+        },
+        {
+          "name": "through_rings",
+          "cliName": "through_rings",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Let the path and the cross-sections cross the rings; by default the rings are walls.",
+          "example": "true"
+        },
+        {
+          "name": "confirm",
+          "cliName": "confirm",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Confirm the neck as an unsaved ring and open it in the ring tool as the draft, as Enter does.",
+          "example": "true"
+        }
+      ],
+      "responseHint": "{ok, connected, pathLength, pathFaces, pathFilledFaces, narrowestGirth, narrowestPoint, widestGirth, neckEdges, girthsCrossingRings, pathMillis, girthMillis, confirmedRing, draftOpen, activeTool, lastRow, error}"
+    },
+    {
       "commandName": "drag",
       "path": "/input/drag",
       "method": "POST",

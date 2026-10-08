@@ -25,43 +25,30 @@ import ixdar.geometry.mesh.nodes.modifier.RepairMeshNode;
  */
 class MeshRepairTest {
 
-    /** Corners of a triangle. */
     private static final int TRIANGLE_CORNERS = 3;
 
-    /** Weld distance used where the fixture asks for one. */
     private static final double WELD_EPSILON = 1e-4;
 
-    /** Faces of the cube fixture. */
     private static final int CUBE_FACES = 12;
 
-    /** Segments around the Mobius band. */
     private static final int MOBIUS_SEGMENTS = 12;
 
-    /** Half-width of the Mobius band's cross section. */
     private static final double MOBIUS_HALF_WIDTH = 0.3;
 
-    /** Vertices on the annulus fixture's inner rim, which is its six-edge hole. */
     private static final int RIM_VERTICES = 6;
 
-    /** Outer-ring vertices per rim vertex on the annulus fixture. */
     private static final int OUTER_PER_RIM = 3;
 
-    /** Radius of the annulus fixture's inner rim. */
     private static final double RIM_RADIUS = 1.0;
 
-    /** Radius of the annulus fixture's outer ring. */
     private static final double OUTER_RADIUS = 1.1;
 
-    /** Full turn in radians. */
     private static final double TAU = Math.PI * 2;
 
-    /** Radius of the tetrahedral bubble floating inside the octahedron fixture. */
     private static final float BUBBLE_RADIUS = 0.25f;
 
-    /** Faces of the octahedron fixture. */
     private static final int OCTAHEDRON_FACES = 8;
 
-    /** Faces of the tetrahedral bubble. */
     private static final int TETRAHEDRON_FACES = 4;
 
     @Test
@@ -181,6 +168,13 @@ class MeshRepairTest {
         assertEquals(repair.report.outputFaceCount, uv.faceCount(), "the field still covers faces");
         assertTrue(Double.isNaN(uv.cornerU[uv.cornerU.length - 1]),
                 "the last corner belongs to a fill triangle and has no u");
+        int[] fillFaces = repair.report.fillFaceIndices;
+        assertEquals(repair.report.fillFaceCount, fillFaces.length, "every fill face is named");
+        for (int face = 0; face < uv.faceCount(); face++) {
+            boolean named = Arrays.binarySearch(fillFaces, face) >= 0;
+            assertEquals(named, Double.isNaN(uv.cornerU[face * TRIANGLE_CORNERS]),
+                    "face " + face + " is named exactly when the filling minted it");
+        }
     }
 
     @Test

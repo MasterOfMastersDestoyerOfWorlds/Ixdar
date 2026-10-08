@@ -242,6 +242,7 @@ commas between test names, never `+`.
 - **ixdar.procgen.dungeon.values**: `CellType`, the named constants behind the per-cell `cell_type` int attribute the corridor and grid-to-mesh stages share. Dungeon data itself flows as geometry bundles with attributes.
 - **ixdar.scenes**: Scene layer root. `Scene` extends `Canvas3D`; `ModelScene` adds mesh viewing (framing, orbit preservation, model catalog, direct input binding). Scenes register via `@SceneAnnotation` into the generated scene registry.
 - **ixdar.scenes.anatomy**: Anatomy visualization scenes built on the point/knot lineage.
+- **ixdar.scenes.connection**: Hidden connections: `ConnectionTool` is the `ring-tool` editing scene's tool that shows how two picked places of the surface are joined and offers the neck between them as a ring to edit.
 - **ixdar.scenes.main**: `MainScene`: the 2D TSP editor scene; knots, shells, terminal, tools. The legacy lineage's user surface.
 - **ixdar.scenes.mesh**: Mesh-centric scenes: the node viewer (`MeshNodeViewerScene`, also the web entry scene) and `MeshBooleanScene`. Both execute .dsl graphs and log node timings.
 - **ixdar.scenes.model**: Model viewing support: `ModelScene` base class, `ModelCatalog` with `quadLayout` and `staging` factories, `ModelChoice` and its `Kind`.
