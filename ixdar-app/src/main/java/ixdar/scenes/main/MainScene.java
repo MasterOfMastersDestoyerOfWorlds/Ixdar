@@ -89,7 +89,7 @@ public class MainScene {
     public static ArrayList<Color> knotGradientColors = new ArrayList<>();
     public static HashMap<Long, Integer> colorLookup = new HashMap<>();
     public static boolean active;
-    public static KeyGuy keys;
+    public static MainSceneKeyGuy keys;
     public static MouseTrap mouse;
     public static int MAIN_VIEW_OFFSET_X;
     public static int MAIN_VIEW_OFFSET_Y;
@@ -170,7 +170,7 @@ public class MainScene {
 
         Toggle.setPanelFocus(PaneTypes.KnotView);
         grid = retTup.grid;
-        keys = new KeyGuy(this, fileName, camera, canvas);
+        keys = new MainSceneKeyGuy(camera, canvas);
         mouse = new MouseTrap(this, camera, canvas);
         activate(true);
         tool = new FreeTool();
