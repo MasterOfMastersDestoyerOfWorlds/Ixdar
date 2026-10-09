@@ -97,7 +97,8 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 
 **Server-backed commands** (generated from the automation routes manifest):
 - `ixdar-cli click [--x] [--y] [--normalized] [--button] [--settle]` — Click at a point on the active mouse handler, then wait for the click to be drawn.
-- `ixdar-cli drag --fromX --fromY --toX --toY [--steps] [--settle]` — Drag with the left button from one window point to another, a frame drawn after every step.
+- `ixdar-cli connection --from --to [--through-rings] [--confirm]` — Show how two surface points are joined in the editing scene's connection tool: the path and its narrowest cross-section, the neck, optionally confirmed as a ring opened in the ring tool.
+- `ixdar-cli drag --fromX --fromY --toX --toY [--steps] [--hold] [--settle]` — Drag with the left button from one window point to another, a frame drawn after every step.
 - `ixdar-cli frame [--selection] [--bounds] [--padding] [--azimuth] [--elevation]` — Fit the camera to a named selection or an explicit bounding box, filling the view with it.
 - `ixdar-cli health` — Liveness probe reporting server status, recording/replaying flags, and port.
 - `ixdar-cli hover [--x] [--y] [--normalized] [--persistent] [--settle]` — Move the cursor without clicking, then wait for the hover to be drawn.

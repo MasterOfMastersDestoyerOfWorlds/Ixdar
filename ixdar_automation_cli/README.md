@@ -24,6 +24,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | Command | Description |
 | --- | --- |
 | [`click`](#click) | Click at a point on the active mouse handler, then wait for the click to be drawn. |
+| [`connection`](#connection) | Show how two surface points are joined in the editing scene's connection tool: the path and its narrowest cross-section, the neck, optionally confirmed as a ring opened in the ring tool. |
 | [`drag`](#drag) | Drag with the left button from one window point to another, a frame drawn after every step. |
 | [`frame`](#frame) | Fit the camera to a named selection or an explicit bounding box, filling the view with it. |
 | [`health`](#health) | Liveness probe reporting server status, recording/replaying flags, and port. |
@@ -121,6 +122,21 @@ Click at a point on the active mouse handler, then wait for the click to be draw
 - **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"x": 0.5, "y": 0.25, "normalized": true, "button": 1, "settle": 0}'`
 
+### `connection`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Connection.java)
+
+Show how two surface points are joined in the editing scene's connection tool: the path and its narrowest cross-section, the neck, optionally confirmed as a ring opened in the ring tool.
+
+- **Route:** `POST /mesh/connection`
+- **Flags:**
+  - `--from` (string, required) — First surface point, "x,y,z"., e.g. `-0.28,-0.066,0.052`
+  - `--to` (string, required) — Second surface point, "x,y,z"., e.g. `-0.2,-0.05,0.04`
+  - `--through-rings` (bool, default `false`) — Let the path and the cross-sections cross the rings; by default the rings are walls., e.g. `true`
+  - `--confirm` (bool, default `false`) — Confirm the neck as an unsaved ring and open it in the ring tool as the draft, as Enter does., e.g. `true`
+- **Response:** `{ok, connected, pathLength, pathFaces, pathFilledFaces, narrowestGirth, narrowestPoint, widestGirth, neckEdges, girthsCrossingRings, pathMillis, girthMillis, confirmedRing, draftOpen, activeTool, lastRow, error}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/connection -d '{"from": "-0.28,-0.066,0.052", "to": "-0.2,-0.05,0.04", "through_rings": true, "confirm": true}'`
+
 ### `drag`
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectDrag.java)
@@ -134,9 +150,10 @@ Drag with the left button from one window point to another, a frame drawn after 
   - `--toX` (float, required) — End X in window pixels., e.g. `330`
   - `--toY` (float, required) — End Y in window pixels., e.g. `470`
   - `--steps` (int, default `8`) — Equal moves the drag is split into., e.g. `12`
+  - `--hold` (int, default `0`) — Frames drawn with the button held still at the end before the release., e.g. `60`
   - `--settle` (int, default `2`) — Frames to wait for after the release., e.g. `2`
 - **Response:** `{ok, steps, settled}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/drag -d '{"fromX": 310, "fromY": 500, "toX": 330, "toY": 470, "steps": 12, "settle": 2}'`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/drag -d '{"fromX": 310, "fromY": 500, "toX": 330, "toY": 470, "steps": 12, "hold": 60, "settle": 2}'`
 
 ### `frame`
 
@@ -497,7 +514,7 @@ End the active recording session and write the captured events to disk.
 Report the ring regions the editing scene's region-select tool shows: each region's faces, area and bounding rings, the problem rings, and the selection.
 
 - **Route:** `GET /mesh/regions`
-- **Response:** `{ok, activeTool, regionCount, regions:[{region, faces, area, boundedBy, selected}], problems, ringCount, selectedCount, select, lastRow, error}`
+- **Response:** `{ok, activeTool, regionCount, regions:[{region, faces, area, boundedBy, sliver, colour, neighbours, selected}], problems, handleRings, ringsSplittingNothing, visible, absorbSlivers, summary, ringCount, selectedCount, select, lastRow, error}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/mesh/regions`
 
 ### `replay-cancel`
@@ -731,7 +748,7 @@ Report duplicated code ranked by how much repetition factoring it out would remo
 
 ### `gen-docs`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/gen_docs.py#L269)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/gen_docs.py#L273)
 
 Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry.
 
@@ -766,7 +783,7 @@ Install a global ixdar-cli wrapper into ~/.local/bin.
 
 ### `launch`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/launch_entry.py#L232)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/launch_entry.py#L231)
 
 Run a .vscode/launch.json entry headless, then report its first log lines and a screenshot.
 
@@ -825,7 +842,7 @@ Validate the current mesh viewer payload.
 
 ### `mesh-viewer`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/mesh_viewer.py#L170)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/mesh_viewer.py#L162)
 
 Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
 
@@ -888,7 +905,7 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L624)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L629)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
@@ -914,7 +931,7 @@ Build, launch, wait for, optionally profile and screenshot, then shut down a sce
 
 ### `shutdown`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/shutdown_scene.py#L55)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/shutdown_scene.py#L43)
 
 Ask the scene to exit and return only once its process is gone.
 
@@ -952,7 +969,7 @@ Scan trade cities until the requested toolbar tooltip appears.
 
 ### `validate-route-ops`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/trade_route_ops_validation.py#L75)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/trade_route_ops_validation.py#L74)
 
 Validate trade route operations against the running app.
 
