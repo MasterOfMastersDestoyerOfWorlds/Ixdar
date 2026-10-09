@@ -166,8 +166,32 @@ public final class SurfacePicker {
     }
 
     /**
-     * The nearest face the ray crosses, found by testing every face. Only small procedural meshes
-     * and unit tests use this; the interactive tool reads the face from the GPU id buffer.
+     * The corner of the last hit's face nearest the hit point, the vertex a click there anchors to.
+     *
+     * @param mesh surface the last hit landed on
+     * @return the vertex id, or -1 when the last pick missed
+     */
+    public int nearestCornerVertexId(MeshTopology mesh) {
+        if (faceId < 0) {
+            return -1;
+        }
+        int nearestVertexId = -1;
+        double nearestDistance = Double.POSITIVE_INFINITY;
+        for (int corner = 0; corner < mesh.faceVertexCount(faceId); corner++) {
+            int vertexId = mesh.faceVertexAt(faceId, corner);
+            mesh.vertexPosition(vertexId, cornerA);
+            double distance = cornerA.distance(pointX, pointY, pointZ);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestVertexId = vertexId;
+            }
+        }
+        return nearestVertexId;
+    }
+
+    /**
+     * The nearest face the ray crosses, found by testing every face: one pass over the surface,
+     * which the interactive tools avoid per frame by reading the face from the GPU id buffer.
      *
      * @param mesh         surface to test
      * @param rayOrigin    ray origin, packed xyz

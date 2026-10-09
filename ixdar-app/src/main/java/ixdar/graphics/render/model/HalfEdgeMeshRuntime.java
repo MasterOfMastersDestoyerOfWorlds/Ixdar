@@ -893,17 +893,17 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * The world-space ray a framebuffer pixel looks along, for the exact barycentric hit inside
-     * the face the id pass named.
+     * The world-space ray a framebuffer pixel looks along, from the near plane to the far plane,
+     * for the exact barycentric hit inside the face the id pass named.
      *
      * @param camera       active camera
-     * @param framebufferX pixel x, measured from the left
-     * @param framebufferY pixel y, measured from the top
+     * @param framebufferX pixel x, measured from the left, a whole number the pixel's centre
+     * @param framebufferY pixel y, measured from the top, a whole number the pixel's centre
      * @param origin       receives the ray origin, packed xyz
      * @param direction    receives the ray direction, packed xyz, not normalised
-     * @return true when the pixel lies inside the framebuffer
+     * @return true when the framebuffer has a size
      */
-    public boolean rayThroughPixel(Camera3D camera, int framebufferX, int framebufferY,
+    public boolean rayThroughPixel(Camera3D camera, float framebufferX, float framebufferY,
             float[] origin, float[] direction) {
         int width = Platforms.get().getFrameBufferWidth();
         int height = Platforms.get().getFrameBufferHeight();

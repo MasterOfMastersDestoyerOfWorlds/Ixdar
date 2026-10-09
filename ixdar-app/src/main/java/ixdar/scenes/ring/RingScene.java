@@ -212,18 +212,25 @@ public class RingScene extends MeshNodeViewerScene {
         cursorPoint[0] = cursorPicker.pointX;
         cursorPoint[1] = cursorPicker.pointY;
         cursorPoint[2] = cursorPicker.pointZ;
-        double nearestCorner = Double.POSITIVE_INFINITY;
-        for (int corner = 0; corner < surface.faceVertexCount(cursorFaceId); corner++) {
-            int vertexId = surface.faceVertexAt(cursorFaceId, corner);
-            surface.vertexPosition(vertexId, anchorPosition);
-            double distance = anchorPosition.distance(cursorPoint[0], cursorPoint[1],
-                    cursorPoint[2]);
-            if (distance < nearestCorner) {
-                nearestCorner = distance;
-                cursorVertexId = vertexId;
-            }
-        }
+        cursorVertexId = cursorPicker.nearestCornerVertexId(surface);
         return cursorVertexId >= 0;
+    }
+
+    /**
+     * The viewer's refusal, or the region tool's view when it does not draw the surface where it
+     * lies: an exploded view or a shown extraction.
+     *
+     * @return the reason, or empty when the shown surface can be picked
+     */
+    @Override
+    public String pickRefusal() {
+        if (regionTool.showingExtraction) {
+            return "the region tool shows an extraction; E returns to the surface";
+        }
+        if (regionTool.explosion.exploded()) {
+            return "collapse the region tool's exploded view (X) to pick the surface";
+        }
+        return super.pickRefusal();
     }
 
     /**

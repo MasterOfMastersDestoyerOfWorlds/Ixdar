@@ -20,6 +20,7 @@ import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.load.ObjMeshParser;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
+import ixdar.geometry.mesh.data.paths.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
@@ -56,6 +57,7 @@ public class MeshNodeViewerScene extends ModelScene {
     public static final int BYTE_MASK = 0xff;
     public static final float COLOR_CHANNEL_MAX = 255f;
     public static final int GREEN_SHIFT = 8;
+    public static final float PIXEL_CENTRE = 0.5f;
 
     private static final String DSL_FOLDER = "dsl";
     private static final String DEFAULT_DSL_RESOURCE = "skull.dsl";
@@ -855,6 +857,89 @@ public class MeshNodeViewerScene extends ModelScene {
     @Override
     public HalfEdgeMeshRuntime surfaceRuntime() {
         return meshRuntime;
+    }
+
+    /**
+     * Why {@link #pickPixel} and {@link #projectPoint} cannot answer for the view shown now.
+     *
+     * @return the reason, or empty when the shown surface can be picked
+     */
+    public String pickRefusal() {
+        MeshTopology surface = halfEdgeSurface();
+        return surfaceRuntime() == null || surface == null || surface.faceCount() == 0
+                ? "no mesh is loaded" : "";
+    }
+
+    /**
+     * The surface under a framebuffer pixel as the viewer draws it, touching no tool: the nearest
+     * face the view ray through the pixel's centre crosses.
+     *
+     * @param framebufferX pixel x from the left, whole numbers at pixel centres
+     * @param framebufferY pixel y from the top, whole numbers at pixel centres
+     * @param picker       receives the hit face, its weights and the world point
+     * @return true when the ray meets the surface
+     */
+    public boolean pickPixel(float framebufferX, float framebufferY, SurfacePicker picker) {
+        HalfEdgeMeshRuntime runtime = surfaceRuntime();
+        MeshTopology surface = halfEdgeSurface();
+        picker.faceId = -1;
+        float[] origin = new float[SurfacePicker.COORDINATES_PER_POINT];
+        float[] direction = new float[SurfacePicker.COORDINATES_PER_POINT];
+        return runtime != null && surface != null && surface.faceCount() > 0
+                && runtime.rayThroughPixel(camera, framebufferX, framebufferY, origin, direction)
+                && picker.pickNearestFace(surface, origin, direction);
+    }
+
+    /**
+     * Where a world point lands in the framebuffer and what hides it: the surface hides the point
+     * when the view ray to it crosses a face more than one pixel's span in front of it.
+     *
+     * @param x         world x
+     * @param y         world y
+     * @param z         world z
+     * @param pixelDest receives framebuffer x and y, whole numbers at pixel centres as
+     *                  {@link #pickPixel} takes them
+     * @param occluder  receives the hit that hides the point; its face is -1 when none does
+     * @return true when the point lies in front of the camera
+     */
+    public boolean projectPoint(float x, float y, float z, float[] pixelDest,
+            SurfacePicker occluder) {
+        occluder.faceId = -1;
+        HalfEdgeMeshRuntime runtime = surfaceRuntime();
+        MeshTopology surface = halfEdgeSurface();
+        float[] projected = new float[SurfacePicker.COORDINATES_PER_POINT];
+        if (runtime == null || !runtime.projectToPixels(camera, x, y, z, projected)) {
+            return false;
+        }
+        pixelDest[0] = projected[0] - PIXEL_CENTRE;
+        pixelDest[1] = projected[1] - PIXEL_CENTRE;
+        float[] origin = new float[SurfacePicker.COORDINATES_PER_POINT];
+        float[] direction = new float[SurfacePicker.COORDINATES_PER_POINT];
+        float[] besideOrigin = new float[SurfacePicker.COORDINATES_PER_POINT];
+        float[] besideDirection = new float[SurfacePicker.COORDINATES_PER_POINT];
+        if (surface == null || surface.faceCount() == 0
+                || !runtime.rayThroughPixel(camera, pixelDest[0], pixelDest[1], origin, direction)
+                || !runtime.rayThroughPixel(camera, pixelDest[0] + 1f, pixelDest[1], besideOrigin,
+                        besideDirection)
+                || !occluder.pickNearestFace(surface, origin, direction)) {
+            occluder.faceId = -1;
+            return true;
+        }
+        // Both rays run near plane to far plane, so one parameter is one depth on each and the
+        // gap between them there is the world span of a pixel at the point.
+        Vector3f along = new Vector3f(direction[0], direction[1], direction[2]);
+        float pointParameter = along.dot(x - origin[0], y - origin[1], z - origin[2])
+                / along.lengthSquared();
+        float pixelSpan = new Vector3f(besideOrigin[0], besideOrigin[1], besideOrigin[2])
+                .fma(pointParameter, new Vector3f(besideDirection[0], besideDirection[1],
+                        besideDirection[2]))
+                .distance(origin[0] + pointParameter * direction[0],
+                        origin[1] + pointParameter * direction[1],
+                        origin[2] + pointParameter * direction[2]);
+        if ((pointParameter - occluder.distanceAlongRay) * along.length() <= pixelSpan) {
+            occluder.faceId = -1;
+        }
+        return true;
     }
 
     /**
