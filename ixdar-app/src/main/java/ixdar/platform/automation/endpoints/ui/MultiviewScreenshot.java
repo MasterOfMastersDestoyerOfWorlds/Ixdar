@@ -6,6 +6,8 @@ import java.util.Base64;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import org.joml.Vector3f;
+
 import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
@@ -25,9 +27,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
     public static final String INLINE = "inline";
     public static final String ERROR = "error";
     public static final String OK = "ok";
-    public static final float TOP_BOTTOM_ELEVATION_RAD = 1.45f;
     public static final float THREE_QUARTER_ELEVATION_RAD = 0.4f;
-    public static final float VIEW_DISTANCE_RADIUS_MULTIPLIER = 2.5f;
     public static final int VIEW_COUNT = 8;
     public static final int QUARTER_TURN_DIVISOR = 4;
     public static final int THREE_QUARTER_TURN_NUMERATOR = 3;
@@ -37,23 +37,25 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
     public static final int VIEW_DIST_INDEX = 3;
 
     /**
-     * Capture 8 viewpoints into a 4x2 grid PNG, filled in the order {@code viewOrder} names.
-     *
-     * <p>Each view needs two {@code runOnMainThread} calls — set the orbit, then read the next
-     * frame — because reading in the same call re-enters {@code drawScene()} and hangs.
+     * Capture 8 viewpoints framed on a selection into a 4x2 grid PNG, in {@code viewOrder}.
+     * Each view sets the orbit, then reads the next frame in a second main-thread call: reading
+     * in the same call re-enters {@code drawScene()} and hangs.
      */
     @Override
     public JsonObject endpointHandler(JsonObject body) throws Exception {
         String outputPath = body.has(PATH) ? body.get(PATH).getAsString() : "";
         boolean inline = body.has(INLINE) && body.get(INLINE).getAsBoolean();
+        String selection = Frame.selectionExpression(body);
+        float padding = body.has(Frame.PADDING) ? body.get(Frame.PADDING).getAsFloat()
+                : OrbitMouseTrap.DEFAULT_FRAME_PADDING;
         try {
             float[][] views = {
                     { (float) (Math.PI / 2), 0 }, // Front
                     { 0, 0 }, // Right
                     { (float) (-Math.PI / 2), 0 }, // Back
                     { (float) Math.PI, 0 }, // Left
-                    { (float) (Math.PI / 2), TOP_BOTTOM_ELEVATION_RAD }, // Top
-                    { (float) (Math.PI / 2), -TOP_BOTTOM_ELEVATION_RAD }, // Bottom
+                    { (float) (Math.PI / 2), (float) (Math.PI / 2) }, // Top
+                    { (float) (Math.PI / 2), (float) (-Math.PI / 2) }, // Bottom
                     { (float) (Math.PI / QUARTER_TURN_DIVISOR), THREE_QUARTER_ELEVATION_RAD }, // 3/4 Front-R
                     { (float) ((THREE_QUARTER_TURN_NUMERATOR * Math.PI) / QUARTER_TURN_DIVISOR), THREE_QUARTER_ELEVATION_RAD }, // 3/4 Front-L
             };
@@ -68,21 +70,42 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                     "3/4 Front-L",
             };
 
-            // Save original orbit and compute view distance on the render thread
+            // Save the orbit, then aim it at the selection and fit its distance, on the render
+            // thread; every view below keeps that centre and distance.
             float[] saved = new float[SAVED_ORBIT_FIELDS]; // az, el, dist, viewDist
-            runtime.runOnMainThread(() -> {
+            Vector3f savedTarget = new Vector3f();
+            JsonObject framing = runtime.runOnMainThread(() -> {
+                JsonObject framed = new JsonObject();
                 if (!(runtime.canvas instanceof MeshNodeViewerScene mvs)) {
-                    JsonObject err = new JsonObject();
-                    err.addProperty(ERROR, "MeshNodeViewerScene is not active");
-                    return err;
+                    framed.addProperty(ERROR, "MeshNodeViewerScene is not active");
+                    return framed;
+                }
+                SelectionBounds selected = new SelectionBounds();
+                if (selection == null || !selected.resolve(mvs, selection)) {
+                    framed.addProperty(ERROR, selection == null ? "a point needs a radius"
+                            : selected.error);
+                    return framed;
                 }
                 OrbitMouseTrap orbit = mvs.getOrbitMouse();
                 saved[0] = orbit.getAzimuth();
                 saved[1] = orbit.getElevation();
                 saved[2] = orbit.getDistance();
-                saved[VIEW_DIST_INDEX] = Math.max(mvs.getMeshRadius() * VIEW_DISTANCE_RADIUS_MULTIPLIER, 1.0f);
-                return new JsonObject();
+                orbit.getTarget(savedTarget);
+                Vector3f center = new Vector3f();
+                float radius = selected.sphere(center);
+                saved[VIEW_DIST_INDEX] = orbit.frame(center, radius, padding,
+                        mvs.camera.aspectRatio());
+                framed.addProperty(Frame.SELECTION, selected.name.isEmpty() ? selected.kind
+                        : selected.kind + ":" + selected.name);
+                framed.add("center", runtime.vector3Array(center));
+                framed.addProperty(Frame.RADIUS, radius);
+                framed.addProperty(Frame.DISTANCE, saved[VIEW_DIST_INDEX]);
+                return framed;
             });
+            if (framing.has(ERROR)) {
+                framing.addProperty(OK, false);
+                return framing;
+            }
 
             PixelImage[] captures = new PixelImage[VIEW_COUNT];
             int[] dims = new int[2];
@@ -132,6 +155,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             // Restore original orbit
             runtime.runOnMainThread(() -> {
                 if (runtime.canvas instanceof MeshNodeViewerScene mvs) {
+                    mvs.getOrbitMouse().moveTarget(savedTarget);
                     mvs.getOrbitMouse().setOrbit(saved[0], saved[1], saved[2]);
                 }
                 return new JsonObject();
@@ -177,7 +201,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             PngWriter.write(composite, out);
 
             byte[] pngBytes = imageBytes(composite);
-            JsonObject result = new JsonObject();
+            JsonObject result = framing;
             result.addProperty(OK, blankViews < VIEW_COUNT);
             result.addProperty(PATH, out.getAbsolutePath());
             result.addProperty("width", GRID_COLUMNS * cellW);
@@ -212,15 +236,16 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
 
     @Override
     public RouteDoc describe() {
-        return RouteDoc.builder()
+        return Frame.selectionParams(RouteDoc.builder()
                 .commandName("multiview")
-                .description("Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG.")
+                .description("Capture 8 orbit viewpoints, each framed on a selection (the whole "
+                        + "mesh by default), and composite them into a 4x2 grid PNG.")
                 .paramAliased(PATH, "out", RouteParamType.STRING, false, "",
                         "Output file path; empty writes under screenshots/automation/.", "/tmp/multiview.png")
                 .param(INLINE, RouteParamType.BOOL, false, "false",
-                        "Also return the composite PNG as base64 in the response.", "true")
-                .responseHint("{ok, path, width, height, views, blankViews, cellWidth, cellHeight, "
-                        + "viewOrder, sha256, error?, base64?}")
+                        "Also return the composite PNG as base64 in the response.", "true"))
+                .responseHint("{ok, selection, center, radius, distance, path, width, height, views, "
+                        + "blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}")
                 .build();
     }
 }

@@ -569,9 +569,7 @@ public class HalfEdgeMeshRuntime {
      * @param camera active camera
      */
     private void updateProjection(Camera3D camera) {
-        int width = Platforms.get().getFrameBufferWidth();
-        int height = Platforms.get().getFrameBufferHeight();
-        float aspect = width <= 0 || height <= 0 ? 1f : ((float) width / (float) height);
+        float aspect = camera.aspectRatio();
         float near = nearPlaneFor(camera);
         float far = farPlaneFor(camera, compiledMesh == null ? 1f : compiledMesh.radius * 2f);
         if (orthographic) {

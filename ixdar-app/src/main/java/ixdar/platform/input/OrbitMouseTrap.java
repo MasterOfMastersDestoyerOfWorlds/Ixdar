@@ -16,20 +16,20 @@ import ixdar.graphics.render.text.HyperString;
 import ixdar.platform.Platforms;
 
 /**
- * Orbit camera controller: left-drag rotates around a fixed target (azimuth + elevation),
- * scroll wheel adjusts orbit distance. Elevation is clamped to roughly +/-85 degrees so the
- * camera never inverts; distance is clamped between {@link #MIN_DISTANCE} and
- * {@link #MAX_DISTANCE}. Used for mesh-node inspection and 3D debug views.
+ * Orbit camera: left-drag turns azimuth and elevation round a target, the wheel zooms. Elevation
+ * runs through the poles, the up vector following the meridian, so top views never flip.
  */
 public class OrbitMouseTrap extends MouseTrap {
     public static final float CLICK_DRAG_THRESHOLD_PX = 3f;
     public static final float DEFAULT_MIN_DISTANCE = 0.75f;
     public static final float DEFAULT_MAX_DISTANCE = 40.0f;
+    public static final float DEFAULT_FRAME_PADDING = 0.15f;
+    public static final float MINIMUM_FRAME_RADIUS = 1e-4f;
+    public static final float FRAME_DISTANCE_FLOOR_FRACTION = 0.01f;
+    public static final float FRAME_DISTANCE_CEILING_MULTIPLE = 8f;
     private static final float DRAG_RADIANS_PER_PIXEL = 0.01f;
     private static final int MOD_SHIFT = 0x0001;
     private static final float PAN_DISTANCE_FRACTION_PER_PIXEL = 0.0015f;
-    private static final float MIN_ELEVATION = (float) Math.toRadians(-85.0);
-    private static final float MAX_ELEVATION = (float) Math.toRadians(85.0);
     private static final float ZOOM_BASE = 0.97f;
     public ClickHandler toolClick;
 
@@ -91,9 +91,20 @@ public class OrbitMouseTrap extends MouseTrap {
     }
 
     /**
-     * Set the orbit angles and distance directly. Elevation is clamped to
-     * [{@link #MIN_ELEVATION}, {@link #MAX_ELEVATION}] and distance to
-     * [{@link #MIN_DISTANCE}, {@link #MAX_DISTANCE}].
+     * Aim the orbit at a point without moving the home centre, so {@code Ctrl+R} still returns to
+     * the mesh centre afterwards.
+     *
+     * @param target new orbit centre (copied)
+     */
+    public void moveTarget(Vector3f target) {
+        orbitTarget.set(target);
+        applyOrbit();
+    }
+
+    /**
+     * Set the orbit angles and distance directly. Elevation is wrapped into (-pi, pi], so +-pi/2
+     * is a true top or bottom view and a larger angle carries on over the pole; distance is
+     * clamped to the bounds {@link #setDistanceBounds} set.
      *
      * @param azimuthRadians horizontal angle around the target
      * @param elevationRadians vertical angle above the equator
@@ -101,9 +112,33 @@ public class OrbitMouseTrap extends MouseTrap {
      */
     public void setOrbit(float azimuthRadians, float elevationRadians, float orbitDistance) {
         azimuth = azimuthRadians;
-        elevation = clamp(elevationRadians, MIN_ELEVATION, MAX_ELEVATION);
+        elevation = wrapAngle(elevationRadians);
         distance = clamp(orbitDistance, minDistance, maxDistance);
         applyOrbit();
+    }
+
+    /**
+     * Aim at a sphere and pull back until it, grown by the padding, fills the narrower of the two
+     * view angles, keeping the orbit angles. The zoom bounds widen to reach it, never narrow.
+     *
+     * @param center      centre of the sphere to frame; becomes the orbit centre via
+     *                    {@link #moveTarget}
+     * @param radius      radius of the sphere, floored at {@link #MINIMUM_FRAME_RADIUS}
+     * @param padding     margin as a fraction of the radius
+     * @param aspectRatio viewport width over height
+     * @return the distance the fit asked for, before the distance clamp
+     */
+    public float frame(Vector3f center, float radius, float padding, float aspectRatio) {
+        float paddedRadius = Math.max(MINIMUM_FRAME_RADIUS, radius) * (1f + Math.max(0f, padding));
+        float halfFieldOfViewY = (float) Math.toRadians(orbitCamera.fov) * 0.5f;
+        float halfFieldOfViewX = (float) Math.atan(Math.tan(halfFieldOfViewY) * aspectRatio);
+        float fitDistance = paddedRadius
+                / (float) Math.sin(Math.min(halfFieldOfViewY, halfFieldOfViewX));
+        minDistance = Math.min(minDistance, fitDistance * FRAME_DISTANCE_FLOOR_FRACTION);
+        maxDistance = Math.max(maxDistance, fitDistance * FRAME_DISTANCE_CEILING_MULTIPLE);
+        moveTarget(center);
+        setOrbit(azimuth, elevation, fitDistance);
+        return fitDistance;
     }
 
     /**
@@ -130,7 +165,7 @@ public class OrbitMouseTrap extends MouseTrap {
     /**
      * Current elevation angle of the orbit camera.
      *
-     * @return current elevation in radians (clamped to MIN/MAX_ELEVATION)
+     * @return current elevation in radians, in (-pi, pi]; beyond +-pi/2 the camera is over a pole
      */
     public float getElevation() { return elevation; }
     /**
@@ -275,8 +310,11 @@ public class OrbitMouseTrap extends MouseTrap {
         if (panningDrag) {
             panTarget(dx, dy);
         } else {
-            azimuth += dx * DRAG_RADIANS_PER_PIXEL;
-            elevation = clamp(elevation + dy * DRAG_RADIANS_PER_PIXEL, MIN_ELEVATION, MAX_ELEVATION);
+            // Over a pole the view is upside down, so the azimuth turns the other way to keep
+            // following the cursor.
+            float upright = Math.cos(elevation) < 0.0 ? -1f : 1f;
+            azimuth += upright * dx * DRAG_RADIANS_PER_PIXEL;
+            elevation = wrapAngle(elevation + dy * DRAG_RADIANS_PER_PIXEL);
         }
         mousePos(x, y);
         applyOrbit();
@@ -295,23 +333,16 @@ public class OrbitMouseTrap extends MouseTrap {
 
     /**
      * Translate the orbit centre in the screen plane opposite the mouse travel, so
-     * the grabbed scene follows the cursor. The screen right/up basis is derived from
-     * the current orbit angles; the step scales with orbit distance so panning feels
-     * consistent at any zoom.
+     * the grabbed scene follows the cursor. The screen basis is the camera's own up and the right
+     * it makes with the view direction, sound at the poles too; the step scales with distance.
      *
      * @param dx cursor x delta in pixels since the last drag sample
      * @param dy cursor y delta in pixels since the last drag sample
      */
     private void panTarget(float dx, float dy) {
-        float cosElevation = (float) Math.cos(elevation);
-        Vector3f forward = new Vector3f(
-                -cosElevation * (float) Math.cos(azimuth),
-                -(float) Math.sin(elevation),
-                -cosElevation * (float) Math.sin(azimuth));
-        Vector3f right = new Vector3f();
-        forward.cross(orbitCamera.worldUp, right).normalize();
-        Vector3f up = new Vector3f();
-        right.cross(forward, up).normalize();
+        Vector3f forward = new Vector3f(orbitTarget).sub(orbitCamera.position).normalize();
+        Vector3f right = forward.cross(orbitCamera.up, new Vector3f()).normalize();
+        Vector3f up = new Vector3f(orbitCamera.up);
         float step = distance * PAN_DISTANCE_FRACTION_PER_PIXEL;
         orbitTarget.add(right.mul(-dx * step)).add(up.mul(dy * step));
     }
@@ -358,18 +389,36 @@ public class OrbitMouseTrap extends MouseTrap {
         return true;
     }
 
+    /**
+     * Place the camera on the orbit sphere and point it at the centre. Up is the meridian's
+     * tangent toward rising elevation, world up at the equator, never parallel to the view.
+     */
     private void applyOrbit() {
         float cosElevation = (float) Math.cos(elevation);
+        float sinElevation = (float) Math.sin(elevation);
+        float cosAzimuth = (float) Math.cos(azimuth);
+        float sinAzimuth = (float) Math.sin(azimuth);
         orbitCamera.position.set(
-                orbitTarget.x + distance * cosElevation * (float) Math.cos(azimuth),
-                orbitTarget.y + distance * (float) Math.sin(elevation),
-                orbitTarget.z + distance * cosElevation * (float) Math.sin(azimuth));
+                orbitTarget.x + distance * cosElevation * cosAzimuth,
+                orbitTarget.y + distance * sinElevation,
+                orbitTarget.z + distance * cosElevation * sinAzimuth);
         orbitCamera.target.set(orbitTarget);
-        orbitCamera.up.set(orbitCamera.worldUp);
+        orbitCamera.up.set(-sinElevation * cosAzimuth, cosElevation, -sinElevation * sinAzimuth);
         orbitCamera.updateViewFirstPerson();
     }
 
     private float clamp(float value, float min, float max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    /**
+     * An angle wrapped into (-pi, pi].
+     *
+     * @param radians any angle
+     * @return the same direction, in (-pi, pi]
+     */
+    private static float wrapAngle(float radians) {
+        double wrapped = Math.IEEEremainder(radians, 2.0 * Math.PI);
+        return (float) (wrapped <= -Math.PI ? wrapped + 2.0 * Math.PI : wrapped);
     }
 }

@@ -182,7 +182,7 @@
       "commandName": "frame",
       "path": "/ui/frame",
       "method": "POST",
-      "description": "Fit the camera to a named selection or an explicit bounding box, filling the view with it.",
+      "description": "Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it.",
       "sourceClass": "ixdar.platform.automation.endpoints.ui.Frame",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/Frame.java",
       "params": [
@@ -192,7 +192,7 @@
           "type": "string",
           "required": false,
           "default": "mesh",
-          "help": "What to frame: mesh, overlay, tag:NAME, edge-mark:LABEL, patch:ID, or a bare name.",
+          "help": "What to frame: mesh, overlay, tag:NAME, edge-mark:LABEL, ring:LABEL, region:N[,M] or region:selected, or a bare name.",
           "example": "tag:cranium"
         },
         {
@@ -201,8 +201,44 @@
           "type": "string",
           "required": false,
           "default": "",
-          "help": "Explicit box as minX,minY,minZ,maxX,maxY,maxZ; overrides the selection.",
+          "help": "Explicit box as minX,minY,minZ,maxX,maxY,maxZ; overrides every other selection.",
           "example": "-1,-1,-1,1,1,1"
+        },
+        {
+          "name": "point",
+          "cliName": "point",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "A point x,y,z to frame with --radius around it.",
+          "example": "0.1,0.4,0"
+        },
+        {
+          "name": "radius",
+          "cliName": "radius",
+          "type": "float",
+          "required": false,
+          "default": "",
+          "help": "Radius of the sphere framed around --point.",
+          "example": "0.05"
+        },
+        {
+          "name": "region",
+          "cliName": "region",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Ring regions by the numbers the regions command reports, comma-separated, or \u0027selected\u0027 for the region tool\u0027s selection.",
+          "example": "3"
+        },
+        {
+          "name": "ring",
+          "cliName": "ring",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "A ring by its label in the ring-tool scene: a graph ring or \u0027ring #N\u0027.",
+          "example": "ring2"
         },
         {
           "name": "padding",
@@ -210,7 +246,7 @@
           "type": "float",
           "required": false,
           "default": "0.15",
-          "help": "Margin around the box as a fraction of its radius.",
+          "help": "Margin around the selection as a fraction of its radius.",
           "example": "0.25"
         },
         {
@@ -228,7 +264,7 @@
           "type": "float",
           "required": false,
           "default": "",
-          "help": "Orbit elevation in radians to view from; omitted keeps the current angle.",
+          "help": "Orbit elevation in radians to view from, +-1.5708 for a true top or bottom view; omitted keeps the current angle.",
           "example": "0.6"
         }
       ],
@@ -825,7 +861,7 @@
       "commandName": "multiview",
       "path": "/ui/multiview",
       "method": "POST",
-      "description": "Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG.",
+      "description": "Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by default), and composite them into a 4x2 grid PNG.",
       "sourceClass": "ixdar.platform.automation.endpoints.ui.MultiviewScreenshot",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/MultiviewScreenshot.java",
       "params": [
@@ -846,9 +882,72 @@
           "default": "false",
           "help": "Also return the composite PNG as base64 in the response.",
           "example": "true"
+        },
+        {
+          "name": "selection",
+          "cliName": "selection",
+          "type": "string",
+          "required": false,
+          "default": "mesh",
+          "help": "What to frame: mesh, overlay, tag:NAME, edge-mark:LABEL, ring:LABEL, region:N[,M] or region:selected, or a bare name.",
+          "example": "tag:cranium"
+        },
+        {
+          "name": "bounds",
+          "cliName": "bounds",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Explicit box as minX,minY,minZ,maxX,maxY,maxZ; overrides every other selection.",
+          "example": "-1,-1,-1,1,1,1"
+        },
+        {
+          "name": "point",
+          "cliName": "point",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "A point x,y,z to frame with --radius around it.",
+          "example": "0.1,0.4,0"
+        },
+        {
+          "name": "radius",
+          "cliName": "radius",
+          "type": "float",
+          "required": false,
+          "default": "",
+          "help": "Radius of the sphere framed around --point.",
+          "example": "0.05"
+        },
+        {
+          "name": "region",
+          "cliName": "region",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Ring regions by the numbers the regions command reports, comma-separated, or \u0027selected\u0027 for the region tool\u0027s selection.",
+          "example": "3"
+        },
+        {
+          "name": "ring",
+          "cliName": "ring",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "A ring by its label in the ring-tool scene: a graph ring or \u0027ring #N\u0027.",
+          "example": "ring2"
+        },
+        {
+          "name": "padding",
+          "cliName": "padding",
+          "type": "float",
+          "required": false,
+          "default": "0.15",
+          "help": "Margin around the selection as a fraction of its radius.",
+          "example": "0.25"
         }
       ],
-      "responseHint": "{ok, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}"
+      "responseHint": "{ok, selection, center, radius, distance, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}"
     },
     {
       "commandName": "orbit-get",

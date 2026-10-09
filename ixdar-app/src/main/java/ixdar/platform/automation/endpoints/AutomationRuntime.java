@@ -601,8 +601,8 @@ public class AutomationRuntime {
     }
 
     /**
-     * Drain the queue of pending main-thread actions submitted via
-     * {@link #runOnMainThread}. Must be called once per frame from the render
+     * Run the main-thread actions {@link #runOnMainThread} had queued when this pass began; later
+     * ones wait for the next frame. Must be called once per frame from the render
      * thread; the first call also captures the render thread id so subsequent
      * {@code runOnMainThread} calls from that same thread execute inline.
      */
@@ -610,8 +610,10 @@ public class AutomationRuntime {
         if (renderThreadId == -1) {
             renderThreadId = Thread.currentThread().getId();
         }
-        PendingMainThreadAction pending = pendingMainThreadActions.poll();
-        while (pending != null) {
+        // Only the actions queued before this pass: one submitted while it runs waits for the
+        // next frame, so a read that follows a camera change sees that change drawn.
+        for (int queued = pendingMainThreadActions.size(); queued > 0; queued--) {
+            PendingMainThreadAction pending = pendingMainThreadActions.poll();
             try {
                 pending.result = pending.action.call();
             } catch (Exception e) {
@@ -619,7 +621,6 @@ public class AutomationRuntime {
             } finally {
                 pending.latch.countDown();
             }
-            pending = pendingMainThreadActions.poll();
         }
     }
 

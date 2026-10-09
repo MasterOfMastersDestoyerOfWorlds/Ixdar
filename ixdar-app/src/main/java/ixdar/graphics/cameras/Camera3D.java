@@ -444,6 +444,17 @@ public class Camera3D implements Camera {
     }
 
     /**
+     * Width over height of the framebuffer the 3D viewport covers, the aspect its projection uses.
+     *
+     * @return the aspect ratio, or 1 before the framebuffer has a size
+     */
+    public float aspectRatio() {
+        int width = Platforms.get().getFrameBufferWidth();
+        int height = Platforms.get().getFrameBufferHeight();
+        return width <= 0 || height <= 0 ? 1f : (float) width / (float) height;
+    }
+
+    /**
      * {@inheritDoc}.
      *
      * @return zero (3D viewport originates at the framebuffer corner)
