@@ -766,10 +766,9 @@ public final class RingRegions {
             pockets = Math.max(0, pockets - 2);
             boolean separates = sameSideEdges == 0 && secondSide != MeshTopology.NONE;
             ringSeparates[ring] = separates;
+            // A ring that separates only together with others has no sides of its own; that is
+            // expected, and only one that splits nothing with every ring in place is a problem.
             if (!separates) {
-                problems.add(labels[ring] + " does not separate the surface: " + sameSideEdges
-                        + " of its " + edgeCount[ring] + " edges have the same piece on both "
-                        + "sides (it loops a handle), so it bounds regions but has no distal side");
                 continue;
             }
             if (pockets > 0) {

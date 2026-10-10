@@ -1133,7 +1133,7 @@
       "sourceClass": "ixdar.platform.automation.endpoints.mesh.Regions",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Regions.java",
       "params": [],
-      "responseHint": "{ok, activeTool, regionCount, regions:[{region, faces, area, boundedBy, sliver, colour, neighbours, selected, hidden}], problems, handleRings, ringsSplittingNothing, visible, hiddenFaces, hiddenRings, absorbSlivers, summary, ringCount, selectedCount, select, lastRow, error}"
+      "responseHint": "{ok, activeTool, regionCount, regions:[{region, faces, area, boundedBy, sliver, colour, neighbours, selected, hidden}], problems, ringsSplittingNothing, visible, hiddenFaces, hiddenRings, absorbSlivers, summary, ringCount, selectedCount, select, lastRow, error}"
     },
     {
       "commandName": "replay-cancel",

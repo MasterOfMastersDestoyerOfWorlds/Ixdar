@@ -316,7 +316,7 @@ public final class RingTool implements EditTool {
 
     /**
      * Rings drawn in {@link #MARKED_RING_COLOR} with a note after their number, such as one that
-     * loops a handle, by live ring label.
+     * splits nothing, by live ring label.
      */
     public Map<String, String> ringNoteByLabel = Map.of();
 

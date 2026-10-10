@@ -154,7 +154,7 @@ class RingRegionsTest {
 
         assertEquals(2, regions.regionCount);
         assertFalse(regions.ringSeparates[0] || regions.ringSeparates[1]);
-        assertEquals(2, regions.problems.size(), regions.problems.toString());
+        assertTrue(regions.problems.isEmpty(), regions.problems.toString());
         // The outer equator point at column 4, midway between the rings' columns 2 and 6.
         boolean[] stretch = regions.select("point 0,3,0");
         assertEquals(1, count(stretch));

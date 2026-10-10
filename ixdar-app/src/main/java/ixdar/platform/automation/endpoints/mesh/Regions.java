@@ -85,17 +85,12 @@ public class Regions extends AutomationEndpoint implements AutomationRoute {
                 JsonArray problems = new JsonArray();
                 regions.problems.forEach(problems::add);
                 result.add("problems", problems);
-                JsonArray handleRings = new JsonArray();
                 JsonArray ringsSplittingNothing = new JsonArray();
                 for (int ring = 0; ring < regions.ringLabels.length; ring++) {
-                    if (regions.ringIsWall[ring] && !regions.ringSeparates[ring]) {
-                        handleRings.add(regions.ringLabels[ring]);
-                    }
                     if (regions.ringSplitsNothing[ring]) {
                         ringsSplittingNothing.add(regions.ringLabels[ring]);
                     }
                 }
-                result.add("handleRings", handleRings);
                 result.add("ringsSplittingNothing", ringsSplittingNothing);
                 result.addProperty("visible", layer.visible);
                 result.addProperty("hiddenFaces", hiddenFaces);
@@ -128,7 +123,7 @@ public class Regions extends AutomationEndpoint implements AutomationRoute {
                         + "rings, and the selection.")
                 .responseHint("{ok, activeTool, regionCount, regions:[{region, faces, area, "
                         + "boundedBy, sliver, colour, neighbours, selected, hidden}], problems, "
-                        + "handleRings, ringsSplittingNothing, visible, hiddenFaces, hiddenRings, "
+                        + "ringsSplittingNothing, visible, hiddenFaces, hiddenRings, "
                         + "absorbSlivers, summary, "
                         + "ringCount, selectedCount, select, lastRow, error}")
                 .build();

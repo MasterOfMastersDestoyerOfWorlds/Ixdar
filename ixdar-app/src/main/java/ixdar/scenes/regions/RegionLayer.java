@@ -27,8 +27,6 @@ public final class RegionLayer {
 
     public static final Vector4f SLIVER_COLOUR = Color.WHITE.toVector4f();
 
-    public static final String HANDLE_NOTE = "handle";
-
     public static final String SPLITS_NOTHING_NOTE = "splits nothing";
 
     /** Scene whose surface and ring tool the layer reads. */
@@ -50,8 +48,8 @@ public final class RegionLayer {
     public int revision;
 
     /**
-     * The note the ring tool draws beside a marked ring, by label: {@link #HANDLE_NOTE} for a ring
-     * that loops a handle, {@link #SPLITS_NOTHING_NOTE} for one with a single region on both sides.
+     * The note the ring tool draws beside a marked ring, by label: {@link #SPLITS_NOTHING_NOTE}
+     * for one with a single region on both sides with every ring in place.
      */
     public Map<String, String> ringNoteByLabel = Map.of();
 
@@ -208,8 +206,6 @@ public final class RegionLayer {
             for (int ring = 0; ring < regions.ringLabels.length; ring++) {
                 if (regions.ringSplitsNothing[ring]) {
                     notes.put(regions.ringLabels[ring], SPLITS_NOTHING_NOTE);
-                } else if (regions.ringIsWall[ring] && !regions.ringSeparates[ring]) {
-                    notes.put(regions.ringLabels[ring], HANDLE_NOTE);
                 }
             }
             ringNoteByLabel = notes;
@@ -284,16 +280,10 @@ public final class RegionLayer {
         for (int region = 0; region < regions.regionCount; region++) {
             slivers += regions.isSliver(region) ? 1 : 0;
         }
-        int handles = 0;
-        int splittingNothing = 0;
-        for (String note : ringNoteByLabel.values()) {
-            handles += HANDLE_NOTE.equals(note) ? 1 : 0;
-            splittingNothing += SPLITS_NOTHING_NOTE.equals(note) ? 1 : 0;
-        }
         lastRow = String.format(Locale.ROOT, "%d regions, %d slivers under %d faces (white)%s; "
-                + "rings in red: %d loop a handle, %d split nothing; %s and drawn in %.0f ms, "
+                + "rings in red: %d split nothing; %s and drawn in %.0f ms, "
                 + "%d faces re-flooded", regions.regionCount, slivers, RingRegions.SLIVER_FACES,
-                absorbSlivers ? " absorbed" : "", handles, splittingNothing, rebuilt,
+                absorbSlivers ? " absorbed" : "", ringNoteByLabel.size(), rebuilt,
                 (System.nanoTime() - start) / 1e6, regions.refloodedFaces);
         Platforms.get().log(LOG_PREFIX + lastRow);
     }
