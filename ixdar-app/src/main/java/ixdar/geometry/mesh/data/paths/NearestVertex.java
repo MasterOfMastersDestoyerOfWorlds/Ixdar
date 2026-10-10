@@ -42,6 +42,9 @@ public final class NearestVertex {
     /** Packed xyz per entry, in the same order as {@link #entryVertexId}. */
     public float[] entryXyz;
 
+    /** Euclidean length per edge id, measured on the first {@link #byNeighbours} walk. */
+    public double[] edgeLengthById;
+
     private NearestVertex() {
     }
 
@@ -152,13 +155,35 @@ public final class NearestVertex {
      * @param x point x
      * @param y point y
      * @param z point z
-     * @throws IllegalStateException when no vertex is indexed, the two nearest positions tie
-     *                               within {@link #RELATIVE_EPSILON}, or the point sits on no
-     *                               one coincident copy's faces at least
-     *                               {@link #MINIMUM_SHEET_OFFSET} of the way to the next vertex
+     * @throws IllegalStateException when {@link #sheetCopies} refuses the point or leaves more
+     *                               than one copy, whose faces then lie on top of each other
      * @return the nearest vertex's id
      */
     public int find(float x, float y, float z) {
+        int[] copies = sheetCopies(x, y, z);
+        if (copies.length > 1) {
+            throw new IllegalStateException("ambiguous nearest vertex to (" + x + ", " + y + ", "
+                    + z + "): " + copies.length + " coincident vertices there have faces lying on "
+                    + "top of each other under the point, so the point alone cannot tell them "
+                    + "apart");
+        }
+        return copies[0];
+    }
+
+    /**
+     * The vertices a point may name: the one nearest it, or, among coincident copies there,
+     * every copy with a face within {@link #SHEET_TOLERANCE} of the point's distance.
+     *
+     * @param x point x
+     * @param y point y
+     * @param z point z
+     * @throws IllegalStateException when no vertex is indexed, the two nearest positions tie
+     *                               within {@link #RELATIVE_EPSILON}, or the point sits on no
+     *                               coincident copy's faces at least
+     *                               {@link #MINIMUM_SHEET_OFFSET} of the way to the next vertex
+     * @return vertex ids in index order, one unless copies' faces overlap under the point
+     */
+    public int[] sheetCopies(float x, float y, float z) {
         int centerX = cellCoordinate(x, 0);
         int centerY = cellCoordinate(y, 1);
         int centerZ = cellCoordinate(z, 2);
@@ -227,13 +252,13 @@ public final class NearestVertex {
             copyCount += samePosition(entry, bestEntry) ? 1 : 0;
         }
         if (copyCount == 1) {
-            return entryVertexId[bestEntry];
+            return new int[] { entryVertexId[bestEntry] };
         }
         // Coincident copies, such as repair_mesh's split of a non-manifold vertex, share one
-        // position: the point picks the copy whose own faces it lies on, and only when it lies
-        // clearly off the shared position, near that one copy's faces and away from every other's.
+        // position: the point names the copies whose own faces it lies on, and only when it lies
+        // clearly off the shared position.
         double sheetReach = SHEET_TOLERANCE * bestDistance;
-        int sheetVertex = -1;
+        int[] sheetVertex = new int[copyCount];
         int sheetCount = 0;
         Vector3f position = new Vector3f();
         Vector3f corner = new Vector3f();
@@ -252,23 +277,144 @@ public final class NearestVertex {
                 for (int fan = 1; fan + 1 < mesh.faceVertexCount(faceId); fan++) {
                     mesh.vertexPosition(mesh.faceVertexAt(faceId, fan), corner);
                     mesh.vertexPosition(mesh.faceVertexAt(faceId, fan + 1), nextCorner);
-                    Intersectionf.findClosestPointOnTriangle(position, corner, nextCorner,
-                            point, closest);
+                    // A face with two corners at one position, such as a hole fill joining two
+                    // copies, is the segment between its distinct corners; JOML's triangle test
+                    // divides by its zero-length edge and returns NaN, which no copy passes.
+                    Vector3f far = corner.equals(position) ? nextCorner : corner;
+                    if (far.equals(position)) {
+                        closest.set(position);
+                    } else if (corner.equals(position) || corner.equals(nextCorner)
+                            || nextCorner.equals(position)) {
+                        Intersectionf.findClosestPointOnLineSegment(position.x, position.y,
+                                position.z, far.x, far.y, far.z, x, y, z, closest);
+                    } else {
+                        Intersectionf.findClosestPointOnTriangle(position, corner, nextCorner,
+                                point, closest);
+                    }
                     nearestFace = Math.min(nearestFace, closest.distance(point));
                 }
             }
             if (nearestFace <= sheetReach) {
-                sheetVertex = vertexId;
-                sheetCount++;
+                sheetVertex[sheetCount++] = vertexId;
             }
         }
-        if (sheetCount != 1 || bestDistance < MINIMUM_SHEET_OFFSET * secondDistance) {
+        if (sheetCount == 0 || bestDistance < MINIMUM_SHEET_OFFSET * secondDistance) {
             throw new IllegalStateException("ambiguous nearest vertex to (" + x + ", " + y
                     + ", " + z + "): " + copyCount + " coincident vertices at distance "
                     + bestDistance + " and the point lies on the faces of " + sheetCount
                     + " of them, move the point off the shared position onto one copy's faces");
         }
-        return sheetVertex;
+        return Arrays.copyOf(sheetVertex, sheetCount);
+    }
+
+    /**
+     * The vertex a ring's waypoint names: its point's one vertex, or among overlapping copies the
+     * one a surface walk from the neighbouring waypoints' vertices reaches first along its own
+     * edges, then the one whose faces point most toward them.
+     *
+     * @param copiesByWaypoint {@link #sheetCopies} per waypoint, null where it refused; the
+     *                         first and last waypoints neighbour each other
+     * @param waypoint         waypoint to resolve
+     * @throws IllegalStateException when no neighbour reaches a copy, or two tie on both counts
+     *                               within {@link #RELATIVE_EPSILON}
+     * @return the vertex id, or -1 when the waypoint was refused
+     */
+    public int byNeighbours(int[][] copiesByWaypoint, int waypoint) {
+        int[] copies = copiesByWaypoint[waypoint];
+        if (copies == null || copies.length == 1) {
+            return copies == null ? -1 : copies[0];
+        }
+        int count = copiesByWaypoint.length;
+        int[] previous = copiesByWaypoint[Math.floorMod(waypoint - 1, count)];
+        int[] next = copiesByWaypoint[(waypoint + 1) % count];
+        previous = previous == null || previous == copies ? new int[0] : previous;
+        next = next == null || next == copies || next == previous ? new int[0] : next;
+        int[] sources = Arrays.copyOf(previous, previous.length + next.length);
+        System.arraycopy(next, 0, sources, previous.length, next.length);
+        if (edgeLengthById == null) {
+            int edgeBound = 0;
+            for (int index = 0; index < mesh.edgeCount(); index++) {
+                edgeBound = Math.max(edgeBound, mesh.edgeIdAt(index) + 1);
+            }
+            edgeLengthById = new double[edgeBound];
+            Vector3f tail = new Vector3f();
+            Vector3f head = new Vector3f();
+            for (int index = 0; index < mesh.edgeCount(); index++) {
+                int edgeId = mesh.edgeIdAt(index);
+                int halfEdge = mesh.edgeHalfEdge(edgeId);
+                mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), tail);
+                mesh.vertexPosition(mesh.halfEdgeEndVertex(halfEdge), head);
+                edgeLengthById[edgeId] = tail.distance(head);
+            }
+        }
+        double[] distance = Dijkstra.forest(mesh, sources, edgeLengthById, copies).distance;
+        double nearest = Double.POSITIVE_INFINITY;
+        for (int copy : copies) {
+            nearest = Math.min(nearest, distance[copy]);
+        }
+        Vector3f position = mesh.vertexPosition(copies[0], new Vector3f());
+        if (nearest == Double.POSITIVE_INFINITY) {
+            throw new IllegalStateException(copies.length + " coincident vertices at ("
+                    + position.x + ", " + position.y + ", " + position.z + ") have faces lying "
+                    + "on top of each other, and the surface from the neighbouring points "
+                    + "reaches none of them");
+        }
+        // Copies reached equally soon, through vertices they share, go to the one whose faces
+        // point most toward the sources: the sum over source positions of its best face's cosine.
+        Vector3f toSource = new Vector3f();
+        Vector3f toFace = new Vector3f();
+        Vector3f corner = new Vector3f();
+        int first = -1;
+        int tied = 0;
+        double firstFacing = Double.NEGATIVE_INFINITY;
+        double secondFacing = Double.NEGATIVE_INFINITY;
+        for (int copy : copies) {
+            if (distance[copy] == Double.POSITIVE_INFINITY
+                    || distance[copy] - nearest > RELATIVE_EPSILON * distance[copy]) {
+                continue;
+            }
+            tied++;
+            double facing = 0.0;
+            for (int source = 0; source < sources.length; source++) {
+                mesh.vertexPosition(sources[source], toSource).sub(position);
+                boolean repeated = toSource.lengthSquared() == 0f;
+                for (int earlier = 0; earlier < source && !repeated; earlier++) {
+                    repeated = mesh.vertexPosition(sources[earlier], corner).sub(position)
+                            .equals(toSource);
+                }
+                if (repeated) {
+                    continue;
+                }
+                toSource.normalize();
+                double best = -1.0;
+                for (int adjacency = 0; adjacency < mesh.vertexFaceCount(copy); adjacency++) {
+                    int faceId = mesh.vertexFaceAt(copy, adjacency);
+                    toFace.zero();
+                    for (int at = 0; at < mesh.faceVertexCount(faceId); at++) {
+                        toFace.add(mesh.vertexPosition(mesh.faceVertexAt(faceId, at), corner));
+                    }
+                    toFace.div(mesh.faceVertexCount(faceId)).sub(position);
+                    if (toFace.lengthSquared() > 0f) {
+                        best = Math.max(best, toFace.normalize().dot(toSource));
+                    }
+                }
+                facing += best;
+            }
+            if (facing > firstFacing) {
+                secondFacing = firstFacing;
+                firstFacing = facing;
+                first = copy;
+            } else if (facing > secondFacing) {
+                secondFacing = facing;
+            }
+        }
+        if (tied > 1 && firstFacing - secondFacing <= RELATIVE_EPSILON) {
+            throw new IllegalStateException(copies.length + " coincident vertices at ("
+                    + position.x + ", " + position.y + ", " + position.z + ") have faces lying "
+                    + "on top of each other, and the surface from the neighbouring points reaches "
+                    + "two of them equally soon, facing the same way");
+        }
+        return first;
     }
 
     private boolean samePosition(int entry, int other) {

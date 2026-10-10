@@ -38,6 +38,22 @@ class CoincidentAnchorSaveTest {
             + "max_hole_edges=0, min_shell_faces=1)\n"
             + "surface = surface_metric(geometry=repaired.geometry)\n";
 
+    // A unit sphere inside a radius-two one, touching it at their top poles, where the two
+    // fans lie almost on top of each other.
+    private static final String NESTED = "outer_base = icosphere(radius=2.0, subdivisions=2)\n"
+            + "inner_base = icosphere(radius=1.0, subdivisions=2)\n"
+            + "inner = transform_geometry(geometry=inner_base.mesh, translation=<0.0, 1.0, 0.0>)\n"
+            + "nested = join_geometry(a=outer_base.mesh, b=inner.geometry)\n"
+            + "repaired = repair_mesh(geometry=nested.geometry, weld_epsilon=0.0001, "
+            + "max_hole_edges=0, min_shell_faces=1)\n"
+            + "surface = surface_metric(geometry=repaired.geometry)\n";
+
+    private static final String SURFACE = "surface";
+
+    private static final String METRIC = "metric";
+
+    private static final String SURFACE_GEOMETRY = "surface.geometry";
+
     private static final String RING = "ring_00";
 
     private static final String OTHER_RING = "ring_01";
@@ -57,7 +73,7 @@ class CoincidentAnchorSaveTest {
     void aRingHeldOnSplitPolesSavesToPointsThatReloadTheSameRing() throws Exception {
         NodeGraphRuntime measuring = NodeGraphRuntime.fromSource(SPHERES);
         SurfaceMetric metric = (SurfaceMetric) measuring.executeGraphResult(measuring.statements,
-                "surface", "metric");
+                SURFACE, METRIC);
         MeshTopology mesh = metric.sourceMesh;
         NearestVertex grid = metric.nearestVertex;
         int[] held = {
@@ -79,7 +95,7 @@ class CoincidentAnchorSaveTest {
 
         float[] written = SurfaceWaypoints.resolvingPoints(grid, held, ANCHORS);
         String saved = RingDslWriter.wireRingInputs(SPHERES + RingDslWriter.splineStatement(
-                RING, "surface.geometry", written, ANCHORS, MERIDIAN_NORMAL) + "\n");
+                RING, SURFACE_GEOMETRY, written, ANCHORS, MERIDIAN_NORMAL) + "\n");
         NodeGraphRuntime reloading = NodeGraphRuntime.fromSource(saved);
         GeometryBundle reloaded = (GeometryBundle) reloading.executeGraphResult(
                 reloading.statements, RING, RingDslWriter.DEFAULT_UPSTREAM_PORT);
@@ -91,6 +107,50 @@ class CoincidentAnchorSaveTest {
         assertEquals(heldFingerprint,
                 EdgeMarks.fingerprint(reloaded.mesh(), EdgeMarks.bools(reloaded, RING)),
                 "the reloaded ring marks other edges than the held one");
+    }
+
+    @Test
+    void aRingHeldOnEitherOfTwoOverlappingFansSavesAndReloadsTheSameRing() throws Exception {
+        NodeGraphRuntime measuring = NodeGraphRuntime.fromSource(NESTED);
+        SurfaceMetric metric = (SurfaceMetric) measuring.executeGraphResult(measuring.statements,
+                SURFACE, METRIC);
+        MeshTopology mesh = metric.sourceMesh;
+        NearestVertex grid = metric.nearestVertex;
+        for (float radius : new float[] { 1f, 2f }) {
+            float centreY = 2f - radius;
+            float side = 0.98f * radius;
+            int[] held = {
+                copyOnSphere(mesh, radius),
+                grid.find(side, centreY + 0.01f, 0.03f),
+                grid.find(0f, centreY - radius, 0f),
+                grid.find(-side, centreY + 0.01f, 0.03f),
+            };
+            AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(metric));
+            assertTrue(ring.trace(held, ANCHORS, MERIDIAN_NORMAL,
+                    SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);
+            String heldFingerprint =
+                    EdgeMarks.fingerprint(mesh, SurfaceSpline.of(ring.tracer).markedByEdgeId);
+
+            float[] written = SurfaceWaypoints.resolvingPoints(grid, held, ANCHORS);
+            IllegalStateException alone = assertThrows(IllegalStateException.class,
+                    () -> grid.find(written[0], written[1], written[2]),
+                    "the pole point told the overlapping copies apart by itself");
+            assertTrue(alone.getMessage().contains("on top of each other"), alone.getMessage());
+            String saved = RingDslWriter.wireRingInputs(NESTED + RingDslWriter.splineStatement(
+                    RING, SURFACE_GEOMETRY, written, ANCHORS, MERIDIAN_NORMAL) + "\n");
+            NodeGraphRuntime reloading = NodeGraphRuntime.fromSource(saved);
+            GeometryBundle reloaded = (GeometryBundle) reloading.executeGraphResult(
+                    reloading.statements, RING, RingDslWriter.DEFAULT_UPSTREAM_PORT);
+            assertEquals(heldFingerprint,
+                    EdgeMarks.fingerprint(reloaded.mesh(), EdgeMarks.bools(reloaded, RING)),
+                    "the ring on the radius-" + radius + " sphere reloaded onto other edges");
+        }
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> SurfaceWaypoints.resolvingPoints(grid, new int[] { copyOnSphere(mesh, 1f) },
+                        1),
+                "a lone anchor on the overlapping copies saved with no neighbour to settle it");
+        assertTrue(refused.getMessage().startsWith("cannot save the ring at anchor 1")
+                && refused.getMessage().contains("Move that anchor"), refused.getMessage());
     }
 
     @Test
@@ -153,6 +213,39 @@ class CoincidentAnchorSaveTest {
             }
         }
         assertEquals(2, copies, "repair_mesh left the pole at " + y + " unsplit");
+        return found;
+    }
+
+    /**
+     * The copy of the nested spheres' shared top pole whose faces lie on the sphere of the given
+     * radius.
+     *
+     * @param mesh   the repaired nested spheres
+     * @param radius 1 for the inner sphere, 2 for the outer
+     * @return the vertex id
+     */
+    private static int copyOnSphere(MeshTopology mesh, float radius) {
+        Vector3f position = new Vector3f();
+        Vector3f corner = new Vector3f();
+        int found = -1;
+        double closest = Double.POSITIVE_INFINITY;
+        for (int index = 0; index < mesh.vertexCount(); index++) {
+            int vertexId = mesh.vertexIdAt(index);
+            if (mesh.vertexPosition(vertexId, position).distance(0f, 2f, 0f) > WELD) {
+                continue;
+            }
+            // The fan's far corners are icosphere vertices, exactly on their own sphere.
+            int faceId = mesh.vertexFaceAt(vertexId, 0);
+            double offSphere = 0.0;
+            for (int at = 0; at < mesh.faceVertexCount(faceId); at++) {
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, at), corner);
+                offSphere += Math.abs(corner.distance(0f, 2f - radius, 0f) - radius);
+            }
+            if (offSphere < closest) {
+                closest = offSphere;
+                found = vertexId;
+            }
+        }
         return found;
     }
 }

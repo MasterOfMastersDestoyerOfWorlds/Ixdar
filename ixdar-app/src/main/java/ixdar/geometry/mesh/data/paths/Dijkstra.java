@@ -26,6 +26,23 @@ public final class Dijkstra {
      * @return the finished forest, indexed by vertex id
      */
     public static ShortestPathForest forest(MeshTopology mesh, int[] sources, double[] edgeCost) {
+        return forest(mesh, sources, edgeCost, new int[0]);
+    }
+
+    /**
+     * Runs multi-source Dijkstra until every target is settled. A target ends the walks that
+     * reach it: its distance is the shortest arrival along its own edges, never through another
+     * target.
+     *
+     * @param mesh     mesh whose vertex-edge adjacency is walked
+     * @param sources  source vertex ids, seeded at distance zero in order
+     * @param edgeCost traversal cost per edge, indexed by edge id
+     * @param targets  vertex ids that are reached but never walked through; empty walks the
+     *                 whole mesh
+     * @return the forest, final at every target and at every vertex nearer than the farthest
+     */
+    public static ShortestPathForest forest(MeshTopology mesh, int[] sources, double[] edgeCost,
+            int[] targets) {
         int vertexBound = 0;
         for (int index = 0; index < mesh.vertexCount(); index++) {
             vertexBound = Math.max(vertexBound, mesh.vertexIdAt(index) + 1);
@@ -34,6 +51,12 @@ public final class Dijkstra {
         int[] parent = new int[vertexBound];
         Arrays.fill(distance, Double.POSITIVE_INFINITY);
         Arrays.fill(parent, -1);
+        boolean[] unsettledTarget = new boolean[vertexBound];
+        int unsettledTargets = 0;
+        for (int target : targets) {
+            unsettledTargets += unsettledTarget[target] ? 0 : 1;
+            unsettledTarget[target] = true;
+        }
         PriorityQueue<double[]> frontier = new PriorityQueue<>(
                 (left, right) -> Double.compare(left[0], right[0]));
         for (int source : sources) {
@@ -45,6 +68,13 @@ public final class Dijkstra {
             double[] entry = frontier.poll();
             int vertex = (int) entry[1];
             if (entry[0] > distance[vertex]) {
+                continue;
+            }
+            if (unsettledTarget[vertex]) {
+                unsettledTarget[vertex] = false;
+                if (--unsettledTargets == 0) {
+                    break;
+                }
                 continue;
             }
             int spokes = mesh.vertexEdgeCount(vertex);
