@@ -13,6 +13,7 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
@@ -47,6 +48,7 @@ public class NDirectionField implements MeshNode {
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort CURVATURE_BIAS = new InputPort("curvature_bias", PortType.FLOAT,
             -1f);
+    public static final InputPort METRIC = new InputPort("metric", PortType.SURFACE_METRIC, null);
     public static final OutputPort FIELD = new OutputPort("field", PortType.CROSS_FIELD);
     public static final OutputPort SINGULARITY_COUNT = new OutputPort("singularity_count", PortType.INT);
     public static final OutputPort SINGULARITIES = new OutputPort("singularities",
@@ -85,9 +87,11 @@ public class NDirectionField implements MeshNode {
      */
     public double curvatureBias;
 
-    // Per-vertex tangent frame (world space).
-    public Vector3f[] vertexX;
-    public Vector3f[] vertexY;
+    /**
+     * Metric and connection the field is expressed in: vertex frames are its reference
+     * half-edges, transport its rescaled signpost angles.
+     */
+    public SurfaceMetric metric;
 
     // Solution: per-vertex n-th power coefficient u = uRe + i*uIm.
     /** The canonical solve state: the raw DOF vector of the last field solve. */
@@ -124,9 +128,9 @@ public class NDirectionField implements MeshNode {
     public int[] activeOfVertexId;
 
     /**
-     * Rescaled angle of each half-edge in its own start vertex's flattened tangent frame
-     * (paper Eq. 11/12), indexed by half-edge id and NaN where none was assigned. The
-     * half-edge already names its vertex, so no composite key is needed.
+     * Rescaled angle of each half-edge in its start vertex's frame (paper Eq. 11/12): the
+     * metric's signpost angle scaled to a {@code 2*pi} sum at interior vertices. Indexed by
+     * half-edge id, NaN where unassigned.
      */
     public double[] angleInFrame;
 
@@ -136,24 +140,18 @@ public class NDirectionField implements MeshNode {
     /** The field being built; every durable product lands here. */
     private CrossField cf;
 
-    private int[] vertexIdOf; // active index -> vertex id
-
-    private Vector3f[] vertexNormal;
-
-    private double[] angleDefect;
-
     /**
-     * Builds the cross field over a mesh: local frames and transport angles,
-     * alignment edges, the connection Laplacian solve, and the field conversion
-     * with singularity extraction. All durable products land on the returned
-     * {@link CrossField}; this stage instance holds only scratch.
+     * Builds the cross field over a triangle mesh in the metric's connection: face frames,
+     * alignment edges, the connection Laplacian solve, and the field conversion with singularity
+     * extraction. Durable products land on the returned {@link CrossField}.
      *
-     * @param buildMesh half-edge mesh providing geometry, topology, and
-     *                  active-id mapping
+     * @param buildMesh     half-edge mesh providing geometry, topology, and active-id mapping
+     * @param surfaceMetric metric measured on {@code buildMesh}, read and never written
      * @return the built cross field
      */
-    public CrossField build(HalfEdgeMesh buildMesh) {
+    public CrossField build(HalfEdgeMesh buildMesh, SurfaceMetric surfaceMetric) {
         this.mesh = buildMesh;
+        this.metric = surfaceMetric;
         this.cf = new CrossField(buildMesh);
         this.vertexCount = buildMesh.vertexCount();
         this.system = new DofSystem(2 * vertexCount);
@@ -163,10 +161,6 @@ public class NDirectionField implements MeshNode {
         this.system.energy = x -> energyMatrix.quadraticEnergy(x);
         this.system.solve = this::solveField;
         this.system.writeBack = this::populate;
-        this.vertexIdOf = new int[vertexCount];
-        for (int v = 0; v < vertexCount; v++) {
-            vertexIdOf[v] = buildMesh.vertexIdAt(v);
-        }
         this.activeOfVertexId = activeIndexById(vertexCount, buildMesh::vertexIdAt);
         this.angleInFrame = new double[idSpace(buildMesh.halfEdgeCount(), buildMesh::halfEdgeIdAt)];
         Arrays.fill(this.angleInFrame, Double.NaN);
@@ -175,12 +169,20 @@ public class NDirectionField implements MeshNode {
         buildFramesAndTransport();
         cf.system = system;
 
+        // The metric's dense vertex and edge indices are the mesh's active indices, its
+        // half-edge 2e the edge's own half-edge and 2e + 1 the twin; split diagonals come after.
         long sectionStart = System.nanoTime();
-        computeVertexFrames();
-        Platforms.log("[cross-field timing] compute vertex frames %.3fs%n",
-                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
-        sectionStart = System.nanoTime();
-        computeAngleRescaling();
+        for (int halfEdge = 0; halfEdge < 2 * cf.edgeCount; halfEdge++) {
+            int edgeHalfEdge = buildMesh.edgeHalfEdge(metric.sourceEdgeId[halfEdge >> 1]);
+            int halfEdgeId = (halfEdge & 1) == 0 ? edgeHalfEdge : buildMesh.halfEdgeTwin(edgeHalfEdge);
+            int tail = metric.halfEdgeTail[halfEdge];
+            double angleSum = metric.vertexAngleSum[tail];
+            if (halfEdgeId >= 0) {
+                angleInFrame[halfEdgeId] = metric.vertexIsBoundary[tail] || angleSum < EPS
+                        ? metric.signpostAngle[halfEdge]
+                        : metric.signpostAngle[halfEdge] * (2.0 * Math.PI / angleSum);
+            }
+        }
         Platforms.log("[cross-field timing] compute angle rescaling %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
@@ -241,52 +243,55 @@ public class NDirectionField implements MeshNode {
         sectionStart = System.nanoTime();
 
         /*
-         * Edge transport angles κ_ij. Rotate face-i's x-axis about the shared edge by
-         * the dihedral angle so it lies in face-j's tangent plane. Express the rotated
-         * vector in face-j's frame (cf.faceX[j], cf.faceY[j]): κ_ij = atan2(y-component,
-         * x-component).
+         * Edge transport angles κ_ij: the metric's face-to-face transport across the shared
+         * edge, the edge's angle in face j's frame less its angle in face i's (Levi-Civita
+         * unfolding, equal to rotating face i's x-axis about the edge by the dihedral).
          */
-
-        for (int i = 0; i < mesh.edgeCount(); i++) {
-            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(i);
+        for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
+            EdgeFaceIds edgeFaceIds = mesh.edgeFaceIds(activeEdge);
             if (mesh.isBoundaryEdge(edgeFaceIds.edgeId)) {
-                cf.kappa[i] = 0f;
+                cf.kappa[activeEdge] = 0f;
                 continue;
             }
-            Vector3f position1 = mesh.vertexPosition(edgeFaceIds.edgeStartVertex);
-            Vector3f position2 = mesh.vertexPosition(edgeFaceIds.edgeEndVertex);
-            Vector3f edgeDir = new Vector3f(position2).sub(position1);
-            float edgeLen = edgeDir.length();
-            if (edgeLen < CrossField.EPSILON) {
-                cf.kappa[i] = 0f;
-                continue;
-            }
-            edgeDir.div(edgeLen);
-
-            Vector3f faceNormalU = mesh.faceNormal(edgeFaceIds.faceA);
-            Vector3f faceNormalV = mesh.faceNormal(edgeFaceIds.faceB);
-
-            Vector3f cross = new Vector3f(faceNormalU).cross(faceNormalV);
-            float dihedral = (float) Math.atan2(cross.dot(edgeDir),
-                    Math.max(-1f, Math.min(1f, faceNormalU.dot(faceNormalV))));
-            float dihedralCos = (float) Math.cos(dihedral);
-            float dihedralSin = (float) Math.sin(dihedral);
-            Vector3f xiTransported = new Vector3f(cf.faceX[edgeFaceIds.faceA]);
-            Vector3f kCrossV = new Vector3f(edgeDir).cross(xiTransported);
-            float kDotV = edgeDir.dot(xiTransported);
-            float oneMinusC = 1f - dihedralCos;
-            xiTransported.x = xiTransported.x * dihedralCos + kCrossV.x * dihedralSin + edgeDir.x * kDotV * oneMinusC;
-            xiTransported.y = xiTransported.y * dihedralCos + kCrossV.y * dihedralSin + edgeDir.y * kDotV * oneMinusC;
-            xiTransported.z = xiTransported.z * dihedralCos + kCrossV.z * dihedralSin + edgeDir.z * kDotV * oneMinusC;
-            float crossDirX = xiTransported.dot(cf.faceX[edgeFaceIds.faceB]);
-            float crossDirY = xiTransported.dot(cf.faceY[edgeFaceIds.faceB]);
-            cf.kappa[i] = (float) Math.atan2(crossDirY, crossDirX);
+            int front = activeEdge << 1;
+            cf.kappa[activeEdge] = (float) principal(angleInFace(edgeFaceIds.faceB, front | 1)
+                    + Math.PI - angleInFace(edgeFaceIds.faceA, front));
         }
         Platforms.log("[cross-field timing] edge transport angles kappa %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
 
         detectAlignmentEdges();
+    }
+
+    /**
+     * Angle of a triangle's side in that face's frame, whose x-axis is the face's own half-edge,
+     * from the metric's corner angles alone.
+     *
+     * @param faceId   triangle the half-edge bounds
+     * @param halfEdge metric half-edge on that triangle
+     * @return the counter-clockwise angle from the face's x-axis, in {@code (-pi, pi]}
+     */
+    private double angleInFace(int faceId, int halfEdge) {
+        int axis = metricHalfEdge(mesh.faceHalfEdge(faceId));
+        if (halfEdge == axis) {
+            return 0.0;
+        }
+        if (halfEdge == metric.halfEdgeNext[axis]) {
+            return Math.PI - metric.cornerAngle(halfEdge);
+        }
+        return metric.cornerAngle(axis) - Math.PI;
+    }
+
+    /**
+     * The metric's half-edge for a mesh half-edge.
+     *
+     * @param halfEdgeId mesh half-edge id
+     * @return the metric half-edge index, {@code 2 * activeEdge} for the edge's own half-edge
+     */
+    private int metricHalfEdge(int halfEdgeId) {
+        int edgeId = mesh.halfEdgeEdge(halfEdgeId);
+        return cf.edgeIdToActive[edgeId] << 1 | (mesh.edgeHalfEdge(edgeId) == halfEdgeId ? 0 : 1);
     }
 
     /**
@@ -345,22 +350,12 @@ public class NDirectionField implements MeshNode {
     private void extractSingularities() {
         int count = mesh.vertexCount();
         Arrays.fill(cf.singularityIndex4.data(), 0);
-        Vector3f a = new Vector3f();
-        Vector3f b = new Vector3f();
 
         for (int vAi = 0; vAi < count; vAi++) {
             int vId = mesh.vertexIdAt(vAi);
             if (mesh.isBoundaryVertex(vId))
                 continue;
-            Vector3f vPos = mesh.vertexPosition(vId);
-
-            float angleSum = 0f;
-            int faces = mesh.vertexFaceCount(vId);
-            for (int i = 0; i < faces; i++) {
-                int fId = mesh.vertexFaceAt(vId, i);
-                angleSum += mesh.interiorAngleAtVertex(fId, vId, vPos, a, b);
-            }
-            float defect = (float) (2.0 * Math.PI) - angleSum;
+            double defect = 2.0 * Math.PI - metric.vertexAngleSum[vAi];
 
             float signedKappaSum = 0f;
             int signedPeriodSum = 0;
@@ -590,149 +585,6 @@ public class NDirectionField implements MeshNode {
                 z[i] = invDiag[i] * r[i];
             }
         };
-    }
-
-    /**
-     * Compute the per-vertex tangent frames.
-     */
-    public void computeVertexFrames() {
-        vertexX = new Vector3f[vertexCount];
-        vertexY = new Vector3f[vertexCount];
-        vertexNormal = new Vector3f[vertexCount];
-
-        for (int v = 0; v < vertexCount; v++) {
-            int vId = vertexIdOf[v];
-
-            // Vertex normal = normalized sum of incident face normals.
-            Vector3f nrm = new Vector3f();
-            int fCount = mesh.vertexFaceCount(vId);
-            for (int i = 0; i < fCount; i++) {
-                nrm.add(mesh.faceNormal(mesh.vertexFaceAt(vId, i)));
-            }
-            if (nrm.length() < EPS) {
-                nrm.set(0f, 0f, 1f);
-            }
-            nrm.normalize();
-
-            // X = first outgoing edge, projected into the tangent plane.
-            Vector3f x = new Vector3f(0f, 0f, 0f);
-            if (mesh.vertexOutgoingHalfEdgeCount(vId) > 0) {
-                int he = mesh.vertexOutgoingHalfEdgeAt(vId, 0);
-                Vector3f p0 = mesh.vertexPosition(mesh.halfEdgeVertex(he));
-                Vector3f p1 = mesh.vertexPosition(mesh.halfEdgeEndVertex(he));
-                x.set(p1).sub(p0);
-                float d = x.dot(nrm);
-                x.x -= d * nrm.x;
-                x.y -= d * nrm.y;
-                x.z -= d * nrm.z;
-            }
-            if (x.length() < EPS) {
-                CrossField.arbitraryTangent(nrm, x);
-            } else {
-                x.normalize();
-            }
-            Vector3f y = new Vector3f();
-            nrm.cross(x, y).normalize();
-
-            vertexNormal[v] = nrm;
-            vertexX[v] = x;
-            vertexY[v] = y;
-        }
-    }
-
-    /**
-     * Compute the angle rescaling and per-outgoing-edge angles.
-     */
-    public void computeAngleRescaling() {
-        angleDefect = new double[vertexCount];
-
-        for (int v = 0; v < vertexCount; v++) {
-            int vId = vertexIdOf[v];
-            boolean boundary = mesh.isBoundaryVertex(vId);
-            int outCount = mesh.vertexOutgoingHalfEdgeCount(vId);
-            if (outCount == 0) {
-                continue;
-            }
-            Vector3f vp = mesh.vertexPosition(vId);
-
-            // Spokes with their direction and angle in the vertex tangent frame.
-            int[] hes = new int[outCount];
-            Vector3f[] dir = new Vector3f[outCount];
-            double[] raw = new double[outCount];
-            for (int i = 0; i < outCount; i++) {
-                int he = mesh.vertexOutgoingHalfEdgeAt(vId, i);
-                Vector3f d = new Vector3f(mesh.vertexPosition(mesh.halfEdgeEndVertex(he))).sub(vp);
-                if (d.length() < EPS) {
-                    d.set(vertexX[v]);
-                }
-                d.normalize();
-                hes[i] = he;
-                dir[i] = d;
-                raw[i] = Math.atan2(d.dot(vertexY[v]), d.dot(vertexX[v]));
-            }
-
-            // The cached list is insertion order. Sort into rotational (CCW) order.
-            Integer[] order = new Integer[outCount];
-            for (int i = 0; i < outCount; i++) {
-                order[i] = i;
-            }
-            Arrays.sort(order, (p, q) -> Double.compare(raw[p], raw[q]));
-
-            // Corner-angle gaps between rotational neighbours (gap[k] spans sorted k ->
-            // k+1).
-            double[] gap = new double[outCount];
-            for (int k = 0; k < outCount; k++) {
-                Vector3f a = dir[order[k]];
-                Vector3f b = dir[order[(k + 1) % outCount]];
-                double c = Math.max(-1.0, Math.min(1.0, a.dot(b)));
-                gap[k] = Math.acos(c);
-            }
-
-            // On a boundary fan the opening is not a real corner; exclude the largest gap.
-            int openingIndex = -1;
-            if (boundary) {
-                double max = -1.0;
-                for (int k = 0; k < outCount; k++) {
-                    if (gap[k] > max) {
-                        max = gap[k];
-                        openingIndex = k;
-                    }
-                }
-            }
-
-            double total = 0.0;
-            for (int k = 0; k < outCount; k++) {
-                if (k != openingIndex) {
-                    total += gap[k];
-                }
-            }
-            angleDefect[v] = boundary ? 0.0 : (2.0 * Math.PI - total);
-            double scale = (boundary || total < EPS) ? 1.0 : (2.0 * Math.PI / total);
-
-            // Walk the fan (boundary: start just after the opening) assigning cumulative
-            // rescaled angle by sorted position.
-            int startK = boundary ? (openingIndex + 1) % outCount : 0;
-            double[] absPhi = new double[outCount];
-            double phi = 0.0;
-            for (int step = 0; step < outCount; step++) {
-                int k = (startK + step) % outCount;
-                absPhi[k] = phi;
-                phi += scale * gap[k];
-            }
-
-            // Re-zero so the vertexX-defining spoke (outgoing index 0) reads 0.
-            int refHe = mesh.vertexOutgoingHalfEdgeAt(vId, 0);
-            double refPhi = 0.0;
-            for (int k = 0; k < outCount; k++) {
-                if (hes[order[k]] == refHe) {
-                    refPhi = absPhi[k];
-                    break;
-                }
-            }
-            for (int k = 0; k < outCount; k++) {
-                putAngle(vId, hes[order[k]], absPhi[k] - refPhi);
-            }
-        }
     }
 
     /**
@@ -1134,10 +986,6 @@ public class NDirectionField implements MeshNode {
         return r;
     }
 
-    private void putAngle(int vId, int he, double angle) {
-        angleInFrame[he] = angle;
-    }
-
     private double getAngle(int vId, int he) {
         double angle = angleInFrame[he];
         return mesh.halfEdgeVertex(he) == vId && !Double.isNaN(angle) ? angle : 0.0;
@@ -1152,7 +1000,8 @@ public class NDirectionField implements MeshNode {
         int[] vIdToActive = activeOfVertexId;
 
         // Per-face angle as the complex mean of the corners' n-power
-        // directions in the face frame (KCP13's u interpolated to the face).
+        // directions in the face frame (KCP13's u interpolated to the face),
+        // each carried from its vertex frame by the metric's corner transport.
         // The mean is reliable wherever the field has no zero; inside a
         // singular triangle it cancels and its atan2 is arbitrary, which used
         // to let the rounded period jumps split that face's ±1 winding into a
@@ -1162,9 +1011,6 @@ public class NDirectionField implements MeshNode {
         double[] faceMeanMagnitude = new double[cf.faceCount];
         for (int fAi = 0; fAi < cf.faceCount; fAi++) {
             int fId = mesh.faceIdAt(fAi);
-            Vector3f fx = cf.faceX[fAi];
-            Vector3f fy = cf.faceY[fAi];
-
             double accRe = 0.0;
             double accIm = 0.0;
             int corners = mesh.faceHalfEdgeCount(fId);
@@ -1174,12 +1020,8 @@ public class NDirectionField implements MeshNode {
                 if (va < 0) {
                     continue;
                 }
-
-                double a = fieldAngle[va];
-                Vector3f d = new Vector3f(vertexX[va]).mul((float) Math.cos(a));
-                d = d.add(new Vector3f(vertexY[va]).mul((float) Math.sin(a)));
-                d = d.normalize();
-                double alpha = Math.atan2(d.dot(fy), d.dot(fx)); // its angle in face frame
+                double alpha = angleInFace(fId, metricHalfEdge(he)) + fieldAngle[va]
+                        - angleInFrame[he];
                 accRe += Math.cos(n * alpha); // collapse n-fold symmetry
                 accIm += Math.sin(n * alpha);
             }
@@ -1310,7 +1152,7 @@ public class NDirectionField implements MeshNode {
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(GEOMETRY, CURVATURE_BIAS);
+        return List.of(GEOMETRY, CURVATURE_BIAS, METRIC);
     }
 
     @Override
@@ -1321,7 +1163,9 @@ public class NDirectionField implements MeshNode {
     @Override
     public String description() {
         return "Builds the quad-layout cross field (curvature-aligned n-direction field) over a"
-                + " triangle mesh and extracts its singularities.";
+                + " triangle mesh and extracts its singularities. Vertex frames, corner angles and"
+                + " transport come from the surface's metric and connection, so the field's"
+                + " directions agree with geodesics traced on the same metric.";
     }
 
     @Override
@@ -1335,7 +1179,11 @@ public class NDirectionField implements MeshNode {
                 CURVATURE_BIAS.name, "Where the field puts singularities, in [-1, 1]: 0 is"
                         + " Dirichlet and -1 pulls them onto high Gaussian curvature.",
                 FEATURE_EDGES.name, "Per-edge selection of sharp feature and boundary edges.",
-                DOFS.name, "The smoothing solve's system, for solver-composing graphs."
+                DOFS.name, "The smoothing solve's system, for solver-composing graphs.",
+                METRIC.name, "Optional: the metric output of a surface_metric statement measured on"
+                        + " this very mesh, so the field shares its frames and connection with"
+                        + " ring geodesics; read geometry from that statement. Absent, the node"
+                        + " measures the mesh itself."
         );
     }
 
@@ -1346,7 +1194,16 @@ public class NDirectionField implements MeshNode {
         solve.curvatureBias = FieldBroadcast.floatScalarOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, CURVATURE_BIAS.name,
                         CURVATURE_BIAS.defaultValue), 0f);
-        CrossField field = solve.build(HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh()));
+        HalfEdgeMesh surface = HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
+        SurfaceMetric surfaceMetric = ctx.getInput(METRIC.name, SurfaceMetric.class);
+        if (surfaceMetric == null) {
+            surfaceMetric = SurfaceMetric.of(surface);
+        } else if (surfaceMetric.sourceMesh != surface) {
+            throw new IllegalArgumentException("cross_field: its metric was measured on another"
+                    + " mesh; read the geometry from the surface_metric statement that measured"
+                    + " it");
+        }
+        CrossField field = solve.build(surface, surfaceMetric);
         ctx.setOutput(FIELD.name, field);
         ctx.setOutput(SINGULARITY_COUNT.name, field.singularityCount());
         ctx.setOutput(SINGULARITIES.name, field.singularityIndex4);

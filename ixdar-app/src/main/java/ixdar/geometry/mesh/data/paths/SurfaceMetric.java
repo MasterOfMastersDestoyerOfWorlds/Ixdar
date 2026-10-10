@@ -102,6 +102,8 @@ public final class SurfaceMetric {
 
     /**
      * Interior angle at a half-edge's tail, between it and the previous half-edge of its triangle.
+     * Beside a zero-length side it is {@code pi/2} ({@code pi/3} when every side collapsed), so a
+     * triangle's angles always sum to {@code pi} and vertex angle sums keep Gauss-Bonnet.
      *
      * @param halfEdge interior half-edge whose corner is measured
      * @return the corner angle in radians, in {@code [0, pi]}
@@ -112,7 +114,7 @@ public final class SurfaceMetric {
         double opposite = edgeLength[halfEdgeNext[halfEdge] >> 1];
         double denominator = 2.0 * adjacent * other;
         if (denominator <= 0.0) {
-            return 0.0;
+            return adjacent == other ? Math.PI / TRIANGLE_SIDES : Math.PI / 2.0;
         }
         double cosine = (adjacent * adjacent + other * other - opposite * opposite) / denominator;
         return Math.acos(Math.max(-1.0, Math.min(1.0, cosine)));

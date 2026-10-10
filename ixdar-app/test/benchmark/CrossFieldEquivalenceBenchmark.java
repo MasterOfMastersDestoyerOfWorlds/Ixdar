@@ -15,14 +15,16 @@ import java.util.Map;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 
 /**
- * Same-field check for cross-field solver changes: records per-vertex field angles and singularity
- * indices of the {@code -Dbenchmark.dsl} graph as {@code <dsl>.angles}, or compares against that
- * reference and writes {@code <dsl>.angles.report}.
+ * Same-field check for cross-field solver changes: records per-vertex field angles (from each
+ * vertex's first outgoing half-edge) and singularity indices of the {@code -Dbenchmark.dsl} graph
+ * as {@code <dsl>.angles} and per-face theta as {@code <dsl>.theta}, or compares against them and
+ * writes {@code <dsl>.angles.report} with the graph's node times.
  */
 public final class CrossFieldEquivalenceBenchmark {
 
@@ -46,15 +48,37 @@ public final class CrossFieldEquivalenceBenchmark {
         CrossField field = (CrossField) runtime.lastOutput(NDirectionField.FIELD.name);
 
         double[] solution = field.system.solution;
+        SurfaceMetric metric = SurfaceMetric.of(field.mesh);
         List<String> rows = new ArrayList<>(field.mesh.vertexCount());
         Vector3f position = new Vector3f();
         for (int activeVertex = 0; activeVertex < field.mesh.vertexCount(); activeVertex++) {
-            field.mesh.vertexPosition(field.mesh.vertexIdAt(activeVertex), position);
+            int vertexId = field.mesh.vertexIdAt(activeVertex);
+            field.mesh.vertexPosition(vertexId, position);
+            // Measured from the vertex's first outgoing half-edge, so the reference half-edge the
+            // solve's frame starts at drops out.
+            int outgoing = field.mesh.vertexOutgoingHalfEdgeAt(vertexId, 0);
+            int edgeId = field.mesh.halfEdgeEdge(outgoing);
+            int metricHalfEdge = field.edgeIdToActive[edgeId] << 1
+                    | (field.mesh.edgeHalfEdge(edgeId) == outgoing ? 0 : 1);
+            double angleSum = metric.vertexAngleSum[activeVertex];
+            double outgoingAngle = metric.vertexIsBoundary[activeVertex]
+                    ? metric.signpostAngle[metricHalfEdge]
+                    : metric.signpostAngle[metricHalfEdge] * (2.0 * Math.PI / angleSum);
             double angle = Math.atan2(solution[2 * activeVertex + 1], solution[2 * activeVertex])
-                    / CROSS_FIELD_DEGREE;
+                    / CROSS_FIELD_DEGREE - outgoingAngle;
             rows.add(String.format(Locale.ROOT, "%.6f %.6f %.6f %.17g %d", position.x, position.y,
                     position.z, angle, field.singularityIndex4.get(activeVertex)));
         }
+
+        List<String> faceRows = new ArrayList<>(field.faceCount);
+        for (int activeFace = 0; activeFace < field.faceCount; activeFace++) {
+            faceRows.add(String.format(Locale.ROOT, "%.17g", field.theta[activeFace]));
+        }
+        Path faceReference = Path.of(dsl + ".theta");
+        if (!Files.exists(faceReference)) {
+            Files.write(faceReference, faceRows, StandardCharsets.UTF_8);
+        }
+        List<String> faceReferenceRows = Files.readAllLines(faceReference, StandardCharsets.UTF_8);
 
         Path reference = Path.of(dsl + ".angles");
         if (!Files.exists(reference)) {
@@ -62,6 +86,7 @@ public final class CrossFieldEquivalenceBenchmark {
             return;
         }
         Files.write(Path.of(dsl + ".angles.new"), rows, StandardCharsets.UTF_8);
+        Files.write(Path.of(dsl + ".theta.new"), faceRows, StandardCharsets.UTF_8);
         List<String> referenceRows = Files.readAllLines(reference, StandardCharsets.UTF_8);
         assertEquals(referenceRows.size(), rows.size(), "the same vertex count");
 
@@ -91,14 +116,40 @@ public final class CrossFieldEquivalenceBenchmark {
                         + " -> " + afterIndex);
             }
         }
+        assertEquals(faceReferenceRows.size(), faceRows.size(), "the same face count");
+        double maxFaceDifference = 0.0;
+        double sumFaceDifference = 0.0;
+        int worstFace = -1;
+        int undefinedThetaMismatches = 0;
+        for (int activeFace = 0; activeFace < faceRows.size(); activeFace++) {
+            double after = Double.parseDouble(faceRows.get(activeFace));
+            double before = Double.parseDouble(faceReferenceRows.get(activeFace));
+            if (Double.isNaN(after) || Double.isNaN(before)) {
+                undefinedThetaMismatches += Double.isNaN(after) == Double.isNaN(before) ? 0 : 1;
+                continue;
+            }
+            double difference = Math.abs(after - before) % QUARTER_TURN;
+            difference = Math.min(difference, QUARTER_TURN - difference);
+            sumFaceDifference += difference;
+            if (difference > maxFaceDifference) {
+                maxFaceDifference = difference;
+                worstFace = activeFace;
+            }
+        }
         List<String> report = new ArrayList<>();
         report.add(String.format(Locale.ROOT, "vertices %d", rows.size()));
         report.add(String.format(Locale.ROOT, "angle difference mod pi/2: max %.3e rad (vertex %d)"
                 + " mean %.3e rad", maxDifference, worstVertex, sumDifference / rows.size()));
+        report.add(String.format(Locale.ROOT, "face theta difference mod pi/2: max %.3e rad"
+                + " (face %d) mean %.3e rad, %d faces defined on one side only",
+                maxFaceDifference, worstFace, sumFaceDifference / faceRows.size(),
+                undefinedThetaMismatches));
         report.add(String.format(Locale.ROOT, "singular vertices: reference %d new %d,"
                 + " mismatched %d", referenceSingularities, newSingularities,
                 singularityMismatches.size()));
         report.addAll(singularityMismatches);
+        runtime.lastTimingMs().forEach((statement, milliseconds) -> report.add(
+                String.format(Locale.ROOT, "node %s %d ms", statement, milliseconds)));
         Files.write(Path.of(dsl + ".angles.report"), report, StandardCharsets.UTF_8);
 
         String summary = String.join(System.lineSeparator(), report);

@@ -1104,6 +1104,12 @@
           "portType": "FLOAT",
           "description": "Where the field puts singularities, in [-1, 1]: 0 is Dirichlet and -1 pulls them onto high Gaussian curvature.",
           "defaultValue": -1.0
+        },
+        {
+          "name": "metric",
+          "portType": "SURFACE_METRIC",
+          "description": "Optional: the metric output of a surface_metric statement measured on this very mesh, so the field shares its frames and connection with ring geodesics; read geometry from that statement. Absent, the node measures the mesh itself.",
+          "defaultValue": null
         }
       ],
       "outputs": [
@@ -1133,7 +1139,7 @@
           "description": "The smoothing solve\u0027s system, for solver-composing graphs."
         }
       ],
-      "description": "Builds the quad-layout cross field (curvature-aligned n-direction field) over a triangle mesh and extracts its singularities."
+      "description": "Builds the quad-layout cross field (curvature-aligned n-direction field) over a triangle mesh and extracts its singularities. Vertex frames, corner angles and transport come from the surface\u0027s metric and connection, so the field\u0027s directions agree with geodesics traced on the same metric."
     },
     {
       "id": "cube",

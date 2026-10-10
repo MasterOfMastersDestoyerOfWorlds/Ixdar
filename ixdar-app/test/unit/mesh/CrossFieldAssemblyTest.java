@@ -12,6 +12,7 @@ import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
@@ -64,7 +65,7 @@ class CrossFieldAssemblyTest {
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
         NDirectionField field = new NDirectionField();
         field.curvatureBias = CURVATURE_BIAS;
-        field.build(mesh);
+        field.build(mesh, SurfaceMetric.of(mesh));
 
         int vertexCount = mesh.vertexCount();
         double[] diag = new double[vertexCount];
