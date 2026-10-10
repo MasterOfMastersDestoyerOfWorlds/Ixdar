@@ -157,12 +157,15 @@ public final class ConnectionTool implements EditTool {
         controls.add(new ControlHint("click", "pick two places (cyan)"));
         controls.add(new ControlHint("drag pick", "move it, re-run on release"));
         controls.add(new ControlHint(Keys.ENTER, "enter", "make the green neck a ring and edit it",
-                this::confirmNeck));
+                () -> {
+                    confirmNeck();
+                    scene.errorToasts.show(TOOL_NAME, lastError);
+                }));
         controls.add(new ControlHint(Keys.W, "W", "rings as walls on / off", () -> {
             ringsAreWalls = !ringsAreWalls;
             Platforms.get().log(LOG_PREFIX + "rings are " + (ringsAreWalls ? "" : "not ") + "walls");
-            if (pickVertexId[1] >= 0) {
-                run();
+            if (pickVertexId[1] >= 0 && !run()) {
+                scene.errorToasts.show(TOOL_NAME, lastError);
             }
         }));
         controls.add(new ControlHint(Keys.F, "F", "repair_mesh fills (orange-red) on / off", () -> {
@@ -194,6 +197,10 @@ public final class ConnectionTool implements EditTool {
         HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
         MeshTopology surface = scene.halfEdgeSurface();
         if (!active || runtime == null || surface == null || surface.faceCount() == 0) {
+            if (pendingClick) {
+                lastError = RingScene.NO_SURFACE_REFUSAL;
+                scene.errorToasts.show(TOOL_NAME, lastError);
+            }
             pendingClick = false;
             return;
         }
@@ -223,9 +230,10 @@ public final class ConnectionTool implements EditTool {
             pendingClick = false;
             lastError = "";
             if (!hit) {
-                lastError = "the click missed the surface";
-                Platforms.get().log(LOG_PREFIX + lastError);
-            } else if (hoveredPick < 0) {
+                lastError = scene.cursorMissReason;
+            } else if (hoveredPick >= 0) {
+                lastError = "that place is already picked - drag it to move it, or C clears both";
+            } else {
                 int pick = pickVertexId[0] >= 0 && pickVertexId[1] < 0 ? 1 : 0;
                 pickVertexId[pick] = scene.cursorVertexId;
                 pickActiveFace[pick] = connection.activeFaceByFaceId[scene.cursorFaceId];
@@ -240,6 +248,7 @@ public final class ConnectionTool implements EditTool {
                     overlayStale = true;
                 }
             }
+            scene.errorToasts.show(TOOL_NAME, lastError);
         }
         // Draw the connection over the surface, the path yellow and the neck green, and the picks
         // as the ring tool's anchor discs: cyan, the one under the cursor or dragged yellow and
@@ -401,9 +410,10 @@ public final class ConnectionTool implements EditTool {
         overlayStale = true;
         SurfaceConnection joined = connection;
         if (!joined.connected) {
-            lastError = joined.failure + (ringsAreWalls ? " (rings are walls; W lifts them)" : "");
+            lastError = joined.failure + (ringsAreWalls
+                    ? " - the rings are walls; press W to lift them, or pick another place"
+                    : " - pick another place");
             lastRow = "not joined";
-            Platforms.get().log(LOG_PREFIX + lastError);
             return false;
         }
         if (found) {
@@ -411,8 +421,9 @@ public final class ConnectionTool implements EditTool {
             found = neckLoopVertexId.length > 0;
         }
         if (!found) {
-            lastError = joined.failure.isEmpty()
-                    ? "the neck's snapped edges are not one closed loop" : joined.failure;
+            lastError = (joined.failure.isEmpty()
+                    ? "the neck's snapped edges are not one closed loop" : joined.failure)
+                    + " - drag a pick to try another neck";
         }
         lastRow = String.format(Locale.ROOT, "path %.4f over %d faces%s; neck %.4f around, "
                 + "%d edges, at %s (widest %.4f%s); %.0f ms path, %.0f ms cross-sections",
@@ -438,9 +449,10 @@ public final class ConnectionTool implements EditTool {
         lastError = "";
         RingTool rings = scene.ringTool;
         if (neckLoopVertexId.length == 0) {
-            lastError = "no neck to confirm";
+            lastError = "no neck to confirm - click two places to find the green neck first";
         } else if (rings.draft != null) {
-            lastError = "the ring tool has a draft open: confirm or discard it there first";
+            lastError = "the ring tool has a draft open - Ctrl+R, then confirm (Enter) or discard "
+                    + "(X) it";
         } else {
             int ring = rings.confirmLoop(neckLoopVertexId, "neck");
             if (ring >= 0) {
@@ -484,8 +496,9 @@ public final class ConnectionTool implements EditTool {
             fills += filled ? 1 : 0;
         }
         if (fills == 0) {
-            lastError = "no repair_mesh fill faces are known for this surface";
-            Platforms.get().log(LOG_PREFIX + lastError);
+            lastError = "no repair_mesh fill faces are known for this surface - nothing to colour; "
+                    + "F again turns this off";
+            scene.errorToasts.show(TOOL_NAME, lastError);
             return;
         }
         Map<Integer, Integer> activeVertexById = new HashMap<>();
@@ -518,8 +531,8 @@ public final class ConnectionTool implements EditTool {
         }
         boolean moved = pickVertexId[draggingPick] != grabbedVertexId;
         draggingPick = -1;
-        if (moved && pickVertexId[1] >= 0) {
-            run();
+        if (moved && pickVertexId[1] >= 0 && !run()) {
+            scene.errorToasts.show(TOOL_NAME, lastError);
         }
         overlayStale = true;
     }

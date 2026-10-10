@@ -36,6 +36,7 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelCollection;
 import ixdar.scenes.model.ModelScene;
+import ixdar.scenes.ring.ErrorToasts;
 import ixdar.scenes.ring.RingScene;
 import ixdar.scenes.ring.RingTool;
 import ixdar.scenes.trade.TradeScene;
@@ -76,6 +77,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     public static final String BASE_NORMAL = "baseNormal";
 
     public static final String MINIMUM_INTERIOR_ANGLE = "minimumInteriorAngleDegrees";
+
+    public static final String SOURCE = "source";
 
     /**
      * Serialise a packed coordinate triple as a JSON array.
@@ -377,7 +380,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                         && tool.confirmedRingUnsaved.get(index));
                 String sourceLabel = index < tool.confirmedSourceLabel.size()
                         ? tool.confirmedSourceLabel.get(index) : null;
-                row.addProperty("source", sourceLabel == null ? "" : sourceLabel);
+                row.addProperty(SOURCE, sourceLabel == null ? "" : sourceLabel);
                 row.addProperty("deleted", index < tool.confirmedRingDeleted.size()
                         && tool.confirmedRingDeleted.get(index));
                 row.addProperty(EDGECOUNT, ring.markedEdgeCount);
@@ -416,6 +419,16 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             }
             toolJson.add("drawnRings", drawn);
             root.add("ringTool", toolJson);
+            ErrorToasts toasts = toolScene.errorToasts;
+            JsonArray toastRows = new JsonArray();
+            for (int toast = 0; toast < toasts.messages.size(); toast++) {
+                JsonObject row = new JsonObject();
+                row.addProperty(SOURCE, toasts.sources.get(toast));
+                row.addProperty("message", toasts.messages.get(toast));
+                row.addProperty("opacity", toasts.colors.get(toast).toVector4f().w);
+                toastRows.add(row);
+            }
+            root.add("errorToasts", toastRows);
         }
 
         if (runtime.canvas instanceof ModelScene modelScene && modelScene.modelCollection != null) {

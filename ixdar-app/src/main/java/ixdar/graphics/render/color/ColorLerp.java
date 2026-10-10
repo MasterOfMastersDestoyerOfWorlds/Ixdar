@@ -17,6 +17,15 @@ public class ColorLerp implements Color {
     public byte[] channelLerp = { 1, 1, 1, 0 };
     public float radsPerSecond = 6f;
 
+    /**
+     * Seconds a one-shot lerp takes to go from {@link #startColor} to {@link #endColor}, after
+     * which it holds the end; 0 makes the lerp oscillate at {@link #radsPerSecond} instead.
+     */
+    public float durationSeconds;
+
+    /** {@link Clock#time()} a one-shot lerp starts from; setting it again restarts the lerp. */
+    public float startSeconds;
+
     private String name;
 
     /**
@@ -101,12 +110,56 @@ public class ColorLerp implements Color {
     }
 
     /**
+     * One-shot lerp that goes from {@code startColor} to {@code endColor} once, starting now and
+     * taking {@code durationSeconds}, then holds the end instead of oscillating.
+     *
+     * @param startColor      color now.
+     * @param endColor        color once the duration has passed.
+     * @param channelLerp     four-byte RGBA mask (1 = animate, 0 = hold).
+     * @param durationSeconds seconds from start to end; must be above 0.
+     * @return the lerp, started at the current {@link Clock#time()}.
+     */
+    public static ColorLerp lerpOnce(Color startColor, Color endColor, byte[] channelLerp,
+            float durationSeconds) {
+        ColorLerp once = new ColorLerp(startColor, endColor, channelLerp);
+        once.durationSeconds = durationSeconds;
+        once.startSeconds = Clock.time();
+        return once;
+    }
+
+    /**
+     * Whether a one-shot lerp has reached {@link #endColor}; an oscillating one never has.
+     *
+     * @return true once a one-shot lerp's duration has passed.
+     */
+    public boolean finished() {
+        return durationSeconds > 0f && weight() >= 1f;
+    }
+
+    /**
+     * How far the color is from {@link #startColor} toward {@link #endColor} now: the oscillator,
+     * or for a one-shot lerp the elapsed share of its duration, clamped.
+     *
+     * @return the lerp weight in [0, 1].
+     */
+    private float weight() {
+        if (durationSeconds <= 0f) {
+            return Clock.oscillate(0, 1, radsPerSecond);
+        }
+        return Math.max(0f, Math.min(1f, (Clock.time() - startSeconds) / durationSeconds));
+    }
+
+    /**
      * Returns the color as a (x,y,z)-Vector.
      *
      * @return The color as vec3.
      */
     @Override
     public Vector3f toVector3f() {
+        if (durationSeconds > 0f) {
+            Vector4f once = toVector4f();
+            return new Vector3f(once.x, once.y, once.z);
+        }
         float occ = Clock.oscillate(1, 1, radsPerSecond);
         Vector3f vec = startColor.toVector3f();
         float r = vec.x * (1 - occ * channelLerp[0]);
@@ -122,7 +175,7 @@ public class ColorLerp implements Color {
      */
     @Override
     public Vector4f toVector4f() {
-        float occ = Clock.oscillate(0, 1, radsPerSecond);
+        float occ = weight();
         Vector4f vec = startColor.toVector4f();
         Vector4f other = endColor.toVector4f();
         Vector4f lerp = new Vector4f(vec);

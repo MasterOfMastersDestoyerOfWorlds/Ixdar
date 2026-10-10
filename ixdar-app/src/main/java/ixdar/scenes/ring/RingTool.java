@@ -42,6 +42,7 @@ import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.LineSet;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.gui.ui.actions.Action;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
@@ -70,7 +71,14 @@ public final class RingTool implements EditTool {
 
     public static final String REDO_HINT = "redo ring edit";
 
-    public static final String NO_SELECTED_ANCHOR = "no authored anchor is selected";
+    public static final String NO_SELECTED_ANCHOR =
+            "no anchor is selected - click a ring to open it, then click one of its anchors";
+
+    public static final String NO_DRAFT_TO_DISCARD =
+            "no draft is open, so X has nothing to discard - click a ring to draft one";
+
+    public static final String CANNOT_TRACE_REFUSAL =
+            "the ring tool cannot trace rings on this surface - load another model; the log says why";
 
     public static final int PREVIEW_COLOR = 0xFF2D95;
 
@@ -400,22 +408,23 @@ public final class RingTool implements EditTool {
     public void addControls(List<ControlHint> controls) {
         controls.add(new ControlHint("click", "draft ring / add or pick anchor"));
         controls.add(new ControlHint("drag anchor", "move it"));
-        controls.add(new ControlHint(Keys.X, "X", "discard draft", () -> discardDraft()));
+        controls.add(new ControlHint(Keys.X, "X", "discard draft",
+                refusalShown(() -> discardDraft())));
         controls.add(new ControlHint(Keys.DELETE, "del", REMOVE_SELECTED_ANCHOR_HINT,
-                () -> deletePressed()));
+                refusalShown(() -> deletePressed())));
         controls.add(new ControlHint(Keys.BACKSPACE, "backspace", REMOVE_SELECTED_ANCHOR_HINT,
-                () -> deletePressed()));
+                refusalShown(() -> deletePressed())));
         controls.add(new ControlHint(Keys.Z, true, true, "ctrl+shift+Z", REDO_HINT,
-                () -> redo()));
-        controls.add(new ControlHint(Keys.Z, true, "ctrl+Z", "undo ring edit", () -> undo()));
-        controls.add(new ControlHint(Keys.Y, true, "ctrl+Y", REDO_HINT, () -> redo()));
+                refusalShown(() -> redo())));
+        controls.add(new ControlHint(Keys.Z, true, "ctrl+Z", "undo ring edit",
+                refusalShown(() -> undo())));
+        controls.add(new ControlHint(Keys.Y, true, "ctrl+Y", REDO_HINT, refusalShown(() -> redo())));
         controls.add(new ControlHint(Keys.ENTER, "enter", "confirm draft",
-                () -> confirmDraft()));
+                refusalShown(() -> confirmDraft())));
         // T switches the draft between the geodesic spline and the crease path, as one edit.
-        controls.add(new ControlHint(Keys.T, "T", "mode: " + draftMode.label, () -> {
-            lastError = "";
+        controls.add(new ControlHint(Keys.T, "T", "mode: " + draftMode.label, refusalShown(() -> {
             if (!active || draft == null) {
-                lastError = "no draft to change the segment mode of";
+                lastError = "no draft to change the mode of - click a ring to draft one first";
                 return;
             }
             RingSegmentMode next = draftMode == RingSegmentMode.GEODESIC ? RingSegmentMode.CREASE
@@ -434,13 +443,14 @@ public final class RingTool implements EditTool {
             recordEdit("segment mode " + next.label, stateBefore);
             reportDraft("now in " + next.label + " mode");
             scene.refreshControls();
-        }));
+        })));
         // V drafts the ring along the groove nearest the hovered point, on the preview's plane.
-        controls.add(new ControlHint(Keys.V, "V", "groove ring at the cursor", () -> {
-            lastError = "";
+        controls.add(new ControlHint(Keys.V, "V", "groove ring at the cursor", refusalShown(() -> {
             if (!active || draft != null || !previewValid || previewAuthoredVertexId < 0) {
-                lastError = draft != null ? "confirm or discard the draft before ringing a groove"
-                        : "no preview under the cursor to ring a groove at";
+                lastError = draft != null
+                        ? "a draft is open - confirm it (Enter) or discard it (X), then press V"
+                        : "no preview ring under the cursor - hover a limb until the preview "
+                                + "shows, then press V";
                 return;
             }
             if (!readyCreases(scene.halfEdgeSurface())) {
@@ -451,8 +461,8 @@ public final class RingTool implements EditTool {
             long start = System.nanoTime();
             if (!draftRing.traceGroove(previewAuthoredVertexId, previewPlaneNormal,
                     SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
-                lastError = "groove ring refused: " + draftRing.failure;
-                Platforms.get().log(LOG_PREFIX + lastError);
+                lastError = "groove ring refused: " + draftRing.failure
+                        + " - press V nearer the groove";
                 return;
             }
             System.arraycopy(draftRing.grooveNormal, 0, draftBaseNormal, 0,
@@ -469,7 +479,22 @@ public final class RingTool implements EditTool {
             reportDraft(String.format(Locale.ROOT, "along the groove, %.0f%% of it in a groove",
                     AuthoredSplineRing.PERCENT * draftRing.grooveFraction));
             scene.refreshControls();
-        }));
+        })));
+    }
+
+    /**
+     * A key's action whose refusal is shown: {@link #lastError} is cleared first, and whatever
+     * the action leaves there goes to the scene's refusal toasts.
+     *
+     * @param action the key's effect
+     * @return the effect, then its refusal shown
+     */
+    private Action refusalShown(Action action) {
+        return () -> {
+            lastError = "";
+            action.perform();
+            scene.errorToasts.show(TOOL_NAME, lastError);
+        };
     }
 
     /**
@@ -645,6 +670,10 @@ public final class RingTool implements EditTool {
             adoptGraphRings(surface);
         }
         if (!active || runtime == null || surface == null || surface.faceCount() == 0) {
+            if (pendingClick) {
+                lastError = RingScene.NO_SURFACE_REFUSAL;
+                scene.errorToasts.show(TOOL_NAME, lastError);
+            }
             pendingClick = false;
             uploadOverlay();
             return;
@@ -652,6 +681,10 @@ public final class RingTool implements EditTool {
         long start = System.nanoTime();
         prepare(runtime, surface);
         if (geodesics == null || geodesics.mesh != surface) {
+            if (pendingClick) {
+                lastError = CANNOT_TRACE_REFUSAL;
+                scene.errorToasts.show(TOOL_NAME, lastError);
+            }
             pendingClick = false;
             uploadOverlay();
             return;
@@ -728,7 +761,7 @@ public final class RingTool implements EditTool {
             lastError = "";
             RingToolState stateBefore = new RingToolState(this);
             if (!hitValid) {
-                lastError = "the click missed the surface";
+                lastError = scene.cursorMissReason;
             } else if (draft != null && hoveredAnchor >= 0) {
                 selectedAnchorVertexId = draftAuthoredVertexId[hoveredAnchor];
                 lastRow = "selected authored anchor " + hoveredAnchor + " of "
@@ -759,7 +792,8 @@ public final class RingTool implements EditTool {
                     reportDraft("converted graph ring " + label + " into the draft");
                 }
             } else if (!previewValid || previewAuthoredVertexId < 0) {
-                lastError = "no preview loop under the cursor";
+                lastError = "no ring fits under the cursor - move along the limb until the pink "
+                        + "preview ring shows, then click";
             } else {
                 draftSourceRing = -1;
                 draftSourceLabel = null;
@@ -772,6 +806,7 @@ public final class RingTool implements EditTool {
                     reportDraft("drafted");
                 }
             }
+            scene.errorToasts.show(TOOL_NAME, lastError);
         }
         SurfaceSpline shownPreview = previewValid ? previewSpline : null;
         if (shownPreview != uploadedPreview || draft != uploadedDraft
@@ -840,7 +875,7 @@ public final class RingTool implements EditTool {
         }
         for (int held : draftAuthoredVertexId) {
             if (held == vertexId) {
-                lastError = "that vertex already carries an authored anchor";
+                lastError = "an anchor already sits there - drag it to move it, or click elsewhere";
                 return false;
             }
         }
@@ -848,7 +883,7 @@ public final class RingTool implements EditTool {
         holdDraft();
         long start = System.nanoTime();
         if (!draftRing.insert(vertexId, draftBaseNormal, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
-            lastError = draftRing.failure;
+            lastError = "anchor refused: " + draftRing.failure + " - click another place";
             return false;
         }
         draftAuthoredVertexId = draftRing.authoredVertexId;
@@ -1012,11 +1047,11 @@ public final class RingTool implements EditTool {
     private boolean stepHistory(boolean backward) {
         lastError = "";
         if (!active) {
-            lastError = "the ring tool is not running";
+            lastError = "the ring tool is not running - Ctrl+R switches to it";
             return false;
         }
         if (draggingAnchor) {
-            lastError = "finish the drag first";
+            lastError = "an anchor is being dragged - release it first";
             return false;
         }
         String what = backward ? history.nextUndoName() : history.nextRedoName();
@@ -1078,6 +1113,7 @@ public final class RingTool implements EditTool {
                 String refusal = lastError;
                 dragBefore.restore(this);
                 lastError = refusal;
+                scene.errorToasts.show(TOOL_NAME, lastError);
             }
         }
         if (dragBefore != null && draft != null
@@ -1096,7 +1132,7 @@ public final class RingTool implements EditTool {
     public boolean confirmDraft() {
         lastError = "";
         if (!active || draft == null) {
-            lastError = "no draft to confirm";
+            lastError = "no draft to confirm - click a ring to draft one first";
             return false;
         }
         long start = System.nanoTime();
@@ -1184,6 +1220,7 @@ public final class RingTool implements EditTool {
     /** Drop the draft; a re-opened ring stays as it was and a converted graph ring shows again. */
     public void discardDraft() {
         if (draft == null) {
+            lastError = NO_DRAFT_TO_DISCARD;
             return;
         }
         RingToolState stateBefore = new RingToolState(this);
@@ -1278,13 +1315,13 @@ public final class RingTool implements EditTool {
         boolean wasSimple = draft == null || draftRing.simple;
         long start = System.nanoTime();
         if (!draftRing.trace(authored, authored.length, draftBaseNormal, depth)) {
-            lastError = draftRing.failure;
+            lastError = "ring refused: " + draftRing.failure + " - nothing changed; try another place";
             return false;
         }
         if (keepSimple && wasSimple && !draftRing.simple) {
             float[] at = draftRing.crossings.firstCrossingXyz;
-            lastError = String.format(Locale.ROOT,
-                    "refused: the ring would cross itself near %.4f,%.4f,%.4f", at[0], at[1], at[2]);
+            lastError = String.format(Locale.ROOT, "refused: the ring would cross itself near "
+                    + "%.4f,%.4f,%.4f - nothing changed; try another place", at[0], at[1], at[2]);
             return false;
         }
         draftAuthoredVertexId = draftRing.authoredVertexId;

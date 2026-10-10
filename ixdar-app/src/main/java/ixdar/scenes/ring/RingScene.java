@@ -45,6 +45,18 @@ public class RingScene extends MeshNodeViewerScene {
 
     public static final float HALF = 0.5f;
 
+    public static final String CAMERA_MOVING_REFUSAL =
+            "the camera is still moving - click again once it stops";
+
+    public static final String PICK_NOT_READY_REFUSAL =
+            "the surface is not ready for picking yet - click again in a moment";
+
+    public static final String MISSED_SURFACE_REFUSAL =
+            "the click missed the mesh - click on the surface";
+
+    public static final String NO_SURFACE_REFUSAL =
+            "no mesh is shown yet - wait for the model to load, then click";
+
     /** The tool the scene opens with, which only moves the camera. */
     public final OrbitTool orbitTool = new OrbitTool(this);
 
@@ -59,6 +71,9 @@ public class RingScene extends MeshNodeViewerScene {
 
     /** The region colours, shown in the region tool and, switched on, in every tool. */
     public final RegionLayer regionLayer = new RegionLayer(this);
+
+    /** Why the tools refused the last clicks and keys, shown at the top left until they fade. */
+    public final ErrorToasts errorToasts = new ErrorToasts(this);
 
     /** Every tool the scene hosts, each run once per frame whether active or not. */
     public final List<EditTool> tools = List.of(orbitTool, ringTool, regionTool, connectionTool);
@@ -102,6 +117,9 @@ public class RingScene extends MeshNodeViewerScene {
 
     /** Corner of {@link #cursorFaceId} nearest {@link #cursorPoint}, the vertex a click anchors to. */
     public int cursorVertexId = -1;
+
+    /** Why the last {@link #pickCursor} found no surface point, as a refusal says it, or empty. */
+    public String cursorMissReason = "";
 
     /** Framebuffer pixel the last pick read, x. */
     public int cursorFramebufferX;
@@ -154,6 +172,7 @@ public class RingScene extends MeshNodeViewerScene {
             tool.perFrame();
         }
         regionLayer.perFrame();
+        errorToasts.perFrame();
     }
 
     /**
@@ -180,9 +199,27 @@ public class RingScene extends MeshNodeViewerScene {
     }
 
     /**
+     * Why a tool cannot read the face under the cursor now: the camera is moving, the view itself
+     * refuses picks ({@link #pickRefusal()}), or the surface's face-pick buffer is not uploaded.
+     *
+     * @param runtime the surface's runtime, or {@code null} before one is created
+     * @return the refusal a click gets, or empty when a pick can run
+     */
+    public String cursorPickRefusal(HalfEdgeMeshRuntime runtime) {
+        if (cameraMoving()) {
+            return CAMERA_MOVING_REFUSAL;
+        }
+        String viewRefusal = pickRefusal();
+        if (!viewRefusal.isEmpty()) {
+            return viewRefusal;
+        }
+        return runtime == null || !runtime.facePickReady() ? PICK_NOT_READY_REFUSAL : "";
+    }
+
+    /**
      * Pick the surface under the cursor for the active tool: the face from the GPU id buffer, the
      * point the view ray hits on it and the face corner nearest that point. Nothing is picked
-     * while the camera moves.
+     * while the camera moves; {@link #cursorMissReason} says why nothing was.
      *
      * @param runtime the surface's runtime, its face-pick buffer uploaded
      * @param surface the shown surface
@@ -191,6 +228,7 @@ public class RingScene extends MeshNodeViewerScene {
     public boolean pickCursor(HalfEdgeMeshRuntime runtime, MeshTopology surface) {
         cursorFaceId = -1;
         cursorVertexId = -1;
+        cursorMissReason = cursorPickRefusal(runtime);
         int width = Platforms.get().getWindowWidth();
         int height = Platforms.get().getWindowHeight();
         cursorFramebufferX = width <= 0 ? 0
@@ -199,13 +237,15 @@ public class RingScene extends MeshNodeViewerScene {
         cursorFramebufferY = height <= 0 ? 0
                 : Math.round(orbitMouse.lastY * (float) Platforms.get().getFrameBufferHeight()
                         / height);
-        int faceIndex = cameraMoving() ? -1
+        int faceIndex = !cursorMissReason.isEmpty() ? -1
                 : runtime.faceIndexAtPixel(camera, cursorFramebufferX, cursorFramebufferY);
         if (faceIndex < 0 || faceIndex >= surface.faceCount()
                 || !runtime.rayThroughPixel(camera, cursorFramebufferX, cursorFramebufferY,
                         cursorRayOrigin, cursorRayDirection)
                 || !cursorPicker.pickNear(surface, surface.faceIdAt(faceIndex), cursorRayOrigin,
                         cursorRayDirection)) {
+            cursorMissReason = cursorMissReason.isEmpty() ? MISSED_SURFACE_REFUSAL
+                    : cursorMissReason;
             return false;
         }
         cursorFaceId = cursorPicker.faceId;
@@ -323,7 +363,7 @@ public class RingScene extends MeshNodeViewerScene {
     /**
      * Draw each ring's number beside its centroid while {@link #showRingNumbers} is set and the
      * rings are shown, in the overlay order the tool numbers rings in, leaving the depth test to
-     * hide the numbers of rings the surface covers.
+     * hide the numbers of rings the surface covers; then the refusals at the top left.
      */
     @Override
     public void drawSceneOverlayText() {
@@ -331,6 +371,7 @@ public class RingScene extends MeshNodeViewerScene {
                 && surfaceRuntime() instanceof MeshOverlayRuntime overlay) {
             overlay.drawLabels(camera, camera2D);
         }
+        errorToasts.draw(camera2D);
     }
 
     /**
@@ -445,13 +486,14 @@ public class RingScene extends MeshNodeViewerScene {
 
     /**
      * Write the rings the tool holds. Ctrl+S or a click on the menu row reaches here; a bare S
-     * does not, and nothing else in the tool touches the working .dsl.
+     * does not, and nothing else in the tool touches the working .dsl. A refused save is shown.
      */
     public void saveRingsPressed() {
         if (!ringTool.active && ringTool.unsavedRingCount() == 0) {
             return;
         }
         ringTool.saveRings();
+        errorToasts.show(ringTool.toolName(), ringTool.lastError);
     }
 
     /**

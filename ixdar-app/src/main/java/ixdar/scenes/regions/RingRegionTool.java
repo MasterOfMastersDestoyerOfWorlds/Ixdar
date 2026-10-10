@@ -204,6 +204,8 @@ public final class RingRegionTool implements EditTool {
     /** O: switch a shown extraction between the open cut and the capped mesh. */
     public void toggleOpenCut() {
         if (!showingExtraction || extraction == null) {
+            lastError = "no extraction is shown - select a region and press E first";
+            scene.errorToasts.show(TOOL_NAME, lastError);
             return;
         }
         showingOpenCut = !showingOpenCut;
@@ -271,6 +273,12 @@ public final class RingRegionTool implements EditTool {
         RingRegions regions = scene.regionLayer.regions;
         if (!active || runtime == null || surface == null || surface.faceCount() == 0
                 || regions == null || regions.mesh != surface) {
+            if (pendingClick) {
+                lastError = runtime == null || surface == null || surface.faceCount() == 0
+                        ? RingScene.NO_SURFACE_REFUSAL
+                        : "the regions are still being built - click again in a moment";
+                scene.errorToasts.show(TOOL_NAME, lastError);
+            }
             pendingClick = false;
             return;
         }
@@ -287,8 +295,8 @@ public final class RingRegionTool implements EditTool {
         if (pendingExtract) {
             pendingExtract = false;
             if (selectedCount() == 0) {
-                lastError = "select a region to extract first";
-                Platforms.get().log(LOG_PREFIX + lastError);
+                lastError = "no region is selected - click a region, then press E";
+                scene.errorToasts.show(TOOL_NAME, lastError);
                 return;
             }
             releaseExtraction();
@@ -309,7 +317,8 @@ public final class RingRegionTool implements EditTool {
                 Platforms.get().log(LOG_PREFIX + line);
             }
             if (extraction.closedMesh == null) {
-                lastError = "nothing was extracted";
+                lastError = "nothing was extracted - the log says why; select other regions";
+                scene.errorToasts.show(TOOL_NAME, lastError);
                 extraction = null;
                 return;
             }
@@ -351,8 +360,9 @@ public final class RingRegionTool implements EditTool {
                 exportedPath = target.toAbsolutePath().toString();
             } catch (IOException failure) {
                 exportedPath = "";
-                lastError = "could not export " + target + ": " + failure.getMessage();
-                Platforms.get().log(LOG_PREFIX + lastError);
+                lastError = "could not export " + target + ": " + failure.getMessage()
+                        + " - the extraction is shown but not saved";
+                scene.errorToasts.show(TOOL_NAME, lastError);
             }
             lastRow = String.format(Locale.ROOT, "extracted %d region(s) %s in %.0f ms: %d faces, "
                     + "closed=%b, exported to %s", picked.size(), picked, (System.nanoTime() - start)
@@ -371,13 +381,6 @@ public final class RingRegionTool implements EditTool {
             return;
         }
         pendingClick = false;
-        if (explosion.exploded()) {
-            // The id pass draws the surface assembled, so a click on a moved region would name
-            // whatever lies at its rest position.
-            lastError = "collapse the exploded view (X) to pick a region";
-            Platforms.get().log(LOG_PREFIX + lastError);
-            return;
-        }
         int width = Platforms.get().getWindowWidth();
         int height = Platforms.get().getWindowHeight();
         int framebufferX = width <= 0 ? 0
@@ -386,10 +389,14 @@ public final class RingRegionTool implements EditTool {
         int framebufferY = height <= 0 ? 0
                 : Math.round(scene.orbitMouse.lastY
                         * (float) Platforms.get().getFrameBufferHeight() / height);
-        int activeFace = runtime.faceIndexAtPixel(scene.camera, framebufferX, framebufferY);
+        // An extraction hides the surface and the id pass draws an exploded view assembled, so
+        // either refuses the click rather than naming a region the cursor is not over.
+        lastError = scene.cursorPickRefusal(runtime);
+        int activeFace = !lastError.isEmpty() ? -1
+                : runtime.faceIndexAtPixel(scene.camera, framebufferX, framebufferY);
         if (activeFace < 0 || activeFace >= regions.regionByActiveFace.length) {
-            lastError = "the click missed the surface";
-            Platforms.get().log(LOG_PREFIX + lastError);
+            lastError = lastError.isEmpty() ? RingScene.MISSED_SURFACE_REFUSAL : lastError;
+            scene.errorToasts.show(TOOL_NAME, lastError);
             return;
         }
         lastError = "";
