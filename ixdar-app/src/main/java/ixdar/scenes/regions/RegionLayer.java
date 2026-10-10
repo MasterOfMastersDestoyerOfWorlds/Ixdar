@@ -2,7 +2,9 @@ package ixdar.scenes.regions;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import org.joml.Vector4f;
 
@@ -14,9 +16,8 @@ import ixdar.platform.Platforms;
 import ixdar.scenes.ring.RingScene;
 
 /**
- * The editing scene's region colours: the regions the ring tool's rings cut the surface into,
- * updated incrementally as rings change, drawn with neighbours in different colours and slivers in
- * white, while the region tool is active or the layer is switched on.
+ * The editing scene's ring regions, updated incrementally as rings change: their colours, shown in
+ * the region tool or switched on, and the hidden faces no tool draws or picks.
  */
 public final class RegionLayer {
 
@@ -57,6 +58,17 @@ public final class RegionLayer {
     /** One-line summary of the regions and the last update, as logged. */
     public String lastRow = "";
 
+    /**
+     * Faces neither drawn nor picked in any tool, by dense face index, kept through ring edits;
+     * empty hides none.
+     */
+    public boolean[] hiddenByActiveFace = new boolean[0];
+
+    /** Live labels of the rings left undrawn because every region they bound is hidden. */
+    public Set<String> hiddenRingLabels = Set.of();
+
+    private boolean hiddenStale;
+
     private int builtRingRevision = -1;
 
     private boolean builtAbsorbing;
@@ -79,7 +91,51 @@ public final class RegionLayer {
     /** G: show or hide the colours outside the region tool. */
     public void toggleVisible() {
         visible = !visible;
+        overlayStale = true;
         Platforms.get().log(LOG_PREFIX + "region colours " + (visible ? "on" : "off"));
+    }
+
+    /**
+     * Shift+H hides the region tool's selection, Shift+I everything but it. Hidden faces stay
+     * hidden in every tool, through ring edits, until U.
+     *
+     * @param isolate hide everything outside the selection rather than the selection itself
+     */
+    public void hideSelection(boolean isolate) {
+        RingRegionTool tool = scene.regionTool;
+        if (regions == null || tool.selectedCount() == 0
+                || tool.selectedRegions.length != regions.regionCount) {
+            tool.lastError = "select a region to " + (isolate ? "isolate" : "hide") + " first";
+            Platforms.get().log(LOG_PREFIX + tool.lastError);
+            return;
+        }
+        boolean[] selected = regions.selectionByActiveFace(tool.selectedRegions);
+        if (hiddenByActiveFace.length != selected.length) {
+            hiddenByActiveFace = new boolean[selected.length];
+        }
+        int hiddenFaces = 0;
+        for (int activeFace = 0; activeFace < selected.length; activeFace++) {
+            hiddenByActiveFace[activeFace] = isolate ? !selected[activeFace]
+                    : hiddenByActiveFace[activeFace] || selected[activeFace];
+            hiddenFaces += hiddenByActiveFace[activeFace] ? 1 : 0;
+        }
+        hiddenStale = true;
+        tool.lastError = "";
+        Platforms.get().log(LOG_PREFIX + (isolate ? "isolated " : "hid ") + tool.selectedCount()
+                + " region(s): " + hiddenFaces + " of " + selected.length + " faces hidden");
+        if (!isolate) {
+            tool.clearSelection();
+        }
+    }
+
+    /** U: show every hidden face again. */
+    public void showAll() {
+        if (hiddenByActiveFace.length == 0) {
+            return;
+        }
+        hiddenByActiveFace = new boolean[0];
+        hiddenStale = true;
+        Platforms.get().log(LOG_PREFIX + "showing every region");
     }
 
     /** A: merge slivers into their largest neighbour, or split them out again. */
@@ -95,20 +151,32 @@ public final class RegionLayer {
     }
 
     /**
-     * One frame: while the layer is on or the region tool is active, bring the regions up to date with the rings, re-flooding only the
-     * regions a changed ring bounds, and draw them; otherwise drop the colours once.
+     * One frame: while the layer is on, the region tool is active or faces are hidden, bring the
+     * regions up to date with the rings, re-flooding only the regions a changed ring bounds, and
+     * draw the shown faces, coloured unless only hiding; otherwise drop the colours once.
      */
     public void perFrame() {
         HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
         MeshTopology surface = scene.halfEdgeSurface();
-        boolean wanted = visible || scene.activeTool == scene.regionTool;
-        if (runtime == null || surface == null || surface.faceCount() == 0 || !wanted) {
+        if (hiddenByActiveFace.length > 0 && (regions == null || regions.mesh != surface)) {
+            // The mask names faces of a surface no longer shown; a new one shows whole.
+            hiddenByActiveFace = new boolean[0];
+            hiddenStale = true;
+        }
+        if (hiddenStale && runtime != null && surface != null) {
+            hiddenStale = false;
+            runtime.uploadFacePickBuffer(surface, hiddenByActiveFace);
+            overlayStale = true;
+        }
+        boolean coloured = visible || scene.activeTool == scene.regionTool;
+        if (runtime == null || surface == null || surface.faceCount() == 0
+                || !coloured && hiddenByActiveFace.length == 0) {
             if (shown && runtime != null) {
                 runtime.clearTags();
                 runtime.setShaderMode(shaderModeBefore);
             }
             if (shown) {
-                scene.ringTool.markRings(Map.of());
+                scene.ringTool.markRings(Map.of(), Set.of());
             }
             shown = false;
             return;
@@ -153,13 +221,36 @@ public final class RegionLayer {
             shown = true;
             overlayStale = true;
         }
-        scene.ringTool.markRings(ringNoteByLabel);
+        boolean hiding = hiddenByActiveFace.length == regions.regionByActiveFace.length;
+        if (overlayStale) {
+            // A ring is left undrawn when every region it bounds is hidden.
+            boolean[] regionShown = new boolean[regions.regionCount];
+            for (int activeFace = 0; activeFace < regions.regionByActiveFace.length; activeFace++) {
+                regionShown[regions.regionByActiveFace[activeFace]] |= !hiding
+                        || !hiddenByActiveFace[activeFace];
+            }
+            boolean[] ringShown = new boolean[regions.ringLabels.length];
+            for (int region = 0; region < regions.regionCount; region++) {
+                for (int ring : regions.boundingRingsByRegion[region]) {
+                    ringShown[ring] |= regionShown[region];
+                }
+            }
+            Set<String> hiddenRings = new TreeSet<>();
+            for (int ring = 0; ring < ringShown.length; ring++) {
+                if (!ringShown[ring]) {
+                    hiddenRings.add(regions.ringLabels[ring]);
+                }
+            }
+            hiddenRingLabels = hiddenRings;
+        }
+        scene.ringTool.markRings(ringNoteByLabel, hiddenRingLabels);
         if (!overlayStale) {
             return;
         }
         overlayStale = false;
         // One draw range per region under its region tag: its palette colour, white for a
-        // sliver, grey while the region tool has a selection the region is not in.
+        // sliver, grey while the region tool has a selection the region is not in, or the
+        // surface's own colour while the colours are off; hidden faces in no range.
         RingRegionTool tool = scene.regionTool;
         boolean dimming = scene.activeTool == tool && tool.selectedCount() > 0
                 && tool.selectedRegions.length == regions.regionCount;
@@ -167,14 +258,25 @@ public final class RegionLayer {
         Vector4f[] colourByRegion = new Vector4f[regions.regionCount];
         String[] tagByRegion = new String[regions.regionCount];
         for (int region = 0; region < regions.regionCount; region++) {
-            colourByRegion[region] = dimming && !tool.selectedRegions[region] ? grey
-                    : regions.isSliver(region) ? SLIVER_COLOUR
-                            : RegionColouring.paletteColor(colouring.colourByRegion[region])
-                                    .toVector4f();
+            colourByRegion[region] = !coloured ? runtime.solidColor
+                    : dimming && !tool.selectedRegions[region] ? grey
+                            : regions.isSliver(region) ? SLIVER_COLOUR
+                                    : RegionColouring.paletteColor(
+                                            colouring.colourByRegion[region]).toVector4f();
             tagByRegion[region] = RingRegionTool.regionTag(region);
         }
-        runtime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.STAGES);
-        runtime.setFaceGroups(surface, regions.regionByActiveFace, colourByRegion, tagByRegion);
+        int[] groupByActiveFace = regions.regionByActiveFace;
+        if (hiding) {
+            groupByActiveFace = groupByActiveFace.clone();
+            for (int activeFace = 0; activeFace < groupByActiveFace.length; activeFace++) {
+                if (hiddenByActiveFace[activeFace]) {
+                    groupByActiveFace[activeFace] = MeshTopology.NONE;
+                }
+            }
+        }
+        runtime.setShaderMode(coloured ? HalfEdgeMeshRuntime.ShaderMode.STAGES
+                : shaderModeBefore);
+        runtime.setFaceGroups(surface, groupByActiveFace, colourByRegion, tagByRegion);
         if (rebuilt == null) {
             return;
         }

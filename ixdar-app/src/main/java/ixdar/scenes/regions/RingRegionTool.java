@@ -45,7 +45,8 @@ public final class RingRegionTool implements EditTool {
 
     public static final String STATUS_LINE = TOOL_NAME + " (" + TOOL_PURPOSE + "): click "
             + "selects the region under the cursor, Shift+click adds or drops one, C clears, "
-            + "E extracts, A absorbs slivers, Esc back to orbit";
+            + "E extracts, Shift+H hides it, Shift+I isolates it, U shows all, A absorbs slivers, "
+            + "Esc back to orbit";
 
     public static final String TAG_PREFIX = "region_";
 
@@ -159,6 +160,11 @@ public final class RingRegionTool implements EditTool {
                 this::toggleOpenCut));
         controls.add(new ControlHint(Keys.X, "X", "explode / collapse regions",
                 explosion::toggle));
+        controls.add(new ControlHint(Keys.H, false, true, "shift+H", "hide selected regions",
+                () -> scene.regionLayer.hideSelection(false)));
+        controls.add(new ControlHint(Keys.I, false, true, "shift+I",
+                "isolate selected regions (hide the rest)",
+                () -> scene.regionLayer.hideSelection(true)));
         controls.add(new ControlHint("hold , / .", "explode less / more"));
     }
 
@@ -359,7 +365,7 @@ public final class RingRegionTool implements EditTool {
             uploadExtraction();
         }
         if (!runtime.facePickReady()) {
-            runtime.uploadFacePickBuffer(surface);
+            runtime.uploadFacePickBuffer(surface, scene.regionLayer.hiddenByActiveFace);
         }
         if (!pendingClick) {
             return;

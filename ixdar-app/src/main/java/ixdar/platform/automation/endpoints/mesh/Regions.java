@@ -50,6 +50,15 @@ public class Regions extends AutomationEndpoint implements AutomationRoute {
                 }
                 result.addProperty(OK, true);
                 result.addProperty("regionCount", regions.regionCount);
+                boolean[] hidden = layer.hiddenByActiveFace;
+                boolean hiding = hidden.length == regions.regionByActiveFace.length;
+                int[] hiddenFacesByRegion = new int[regions.regionCount];
+                int hiddenFaces = 0;
+                for (int activeFace = 0; hiding && activeFace < hidden.length; activeFace++) {
+                    hiddenFacesByRegion[regions.regionByActiveFace[activeFace]] +=
+                            hidden[activeFace] ? 1 : 0;
+                    hiddenFaces += hidden[activeFace] ? 1 : 0;
+                }
                 JsonArray rows = new JsonArray();
                 int[] colourByRegion = layer.colouring.colourByRegion;
                 for (int region = 0; region < regions.regionCount; region++) {
@@ -68,6 +77,8 @@ public class Regions extends AutomationEndpoint implements AutomationRoute {
                     row.add("neighbours", neighbours);
                     row.addProperty("selected", tool.selectedRegions.length > region
                             && tool.selectedRegions[region]);
+                    row.addProperty("hidden",
+                            hiddenFacesByRegion[region] == regions.regionFaceCount[region]);
                     rows.add(row);
                 }
                 result.add(REGIONS, rows);
@@ -87,6 +98,10 @@ public class Regions extends AutomationEndpoint implements AutomationRoute {
                 result.add("handleRings", handleRings);
                 result.add("ringsSplittingNothing", ringsSplittingNothing);
                 result.addProperty("visible", layer.visible);
+                result.addProperty("hiddenFaces", hiddenFaces);
+                JsonArray hiddenRings = new JsonArray();
+                layer.hiddenRingLabels.forEach(hiddenRings::add);
+                result.add("hiddenRings", hiddenRings);
                 result.addProperty("absorbSlivers", layer.absorbSlivers);
                 result.addProperty("summary", layer.lastRow);
                 result.addProperty("ringCount", regions.ringLabels.length);
@@ -112,8 +127,9 @@ public class Regions extends AutomationEndpoint implements AutomationRoute {
                         + "shows: each region's faces, area and bounding rings, the problem "
                         + "rings, and the selection.")
                 .responseHint("{ok, activeTool, regionCount, regions:[{region, faces, area, "
-                        + "boundedBy, sliver, colour, neighbours, selected}], problems, "
-                        + "handleRings, ringsSplittingNothing, visible, absorbSlivers, summary, "
+                        + "boundedBy, sliver, colour, neighbours, selected, hidden}], problems, "
+                        + "handleRings, ringsSplittingNothing, visible, hiddenFaces, hiddenRings, "
+                        + "absorbSlivers, summary, "
                         + "ringCount, selectedCount, select, lastRow, error}")
                 .build();
     }

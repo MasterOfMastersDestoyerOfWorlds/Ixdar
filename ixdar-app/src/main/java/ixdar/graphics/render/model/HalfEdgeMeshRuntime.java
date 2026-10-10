@@ -100,13 +100,15 @@ public class HalfEdgeMeshRuntime {
      */
     public final Map<String, Vector3f> tagOffsets = new HashMap<>();
 
+    /** Colour of an untagged draw, the surface's own colour; {@link #setSolidColor} sets it. */
+    public final Vector4f solidColor = Color.BLUE_GRAY.toVector4f();
+
     private final ShaderProgram meshShader;
     private final ShaderProgram meshUnlitShader;
     private final ShaderProgram meshScalarShader;
     private final Matrix4f modelMatrix = new Matrix4f();
     private final Matrix4f tagModelMatrix = new Matrix4f();
     private final Matrix4f projectionMatrix = new Matrix4f();
-    private final Vector4f solidColor = Color.BLUE_GRAY.toVector4f();
     private final Vector4f edgeColor = Color.RED.toVector4f();
     private final Vector3f lightDir = new Vector3f(0.4f, -1.0f, 0.25f);
     private final Vector3f emissiveColor = Color.BLUE_WHITE.toVector3f();
@@ -763,13 +765,14 @@ public class HalfEdgeMeshRuntime {
     public float getScalarMax() { return scalarMax; }
 
     /**
-     * Build the face-id draw: every face's corners repeated with that face's index encoded as a
-     * colour, so one pixel of {@link #faceIndexAtPixel} names the face under the cursor. This is a
-     * second, non-indexed copy of the surface, so {@code null} frees it again.
+     * Build the face-id draw, each shown face's corners coloured by its index, so one pixel of
+     * {@link #faceIndexAtPixel} names the face under the cursor; a pick sees through hidden faces.
      *
-     * @param mesh surface to pick on, or {@code null} to release the copy
+     * @param mesh               surface to pick on, or {@code null} to release the copy
+     * @param hiddenByActiveFace faces to leave out, by dense index; a mask of another length than
+     *                           the face count leaves out none
      */
-    public void uploadFacePickBuffer(MeshTopology mesh) {
+    public void uploadFacePickBuffer(MeshTopology mesh, boolean[] hiddenByActiveFace) {
         pickVertexCount = 0;
         pickFaceCount = 0;
         if (mesh == null || mesh.faceCount() == 0) {
@@ -782,9 +785,12 @@ public class HalfEdgeMeshRuntime {
             meshVao.bind();
             return;
         }
+        boolean[] hidden = hiddenByActiveFace.length == mesh.faceCount() ? hiddenByActiveFace
+                : new boolean[mesh.faceCount()];
         int triangles = 0;
         for (int index = 0; index < mesh.faceCount(); index++) {
-            triangles += Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(index)) - 2);
+            triangles += hidden[index] ? 0
+                    : Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(index)) - 2);
         }
         float[] positions = new float[COORDINATES_PER_VERTEX * 3 * triangles];
         float[] ids = new float[COORDINATES_PER_VERTEX * 3 * triangles];
@@ -792,6 +798,9 @@ public class HalfEdgeMeshRuntime {
         Vector3f corner = new Vector3f();
         int vertex = 0;
         for (int index = 0; index < mesh.faceCount(); index++) {
+            if (hidden[index]) {
+                continue;
+            }
             int faceId = mesh.faceIdAt(index);
             int code = index + 1;
             float red = ((code >> (2 * PICK_CHANNEL_BITS)) & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
@@ -830,10 +839,11 @@ public class HalfEdgeMeshRuntime {
     /**
      * Whether a face-id draw is uploaded and can answer a pick.
      *
-     * @return true when {@link #uploadFacePickBuffer} has built a buffer for the live mesh
+     * @return true when {@link #uploadFacePickBuffer} has built a buffer for the live mesh, even
+     *         one whose faces are all hidden
      */
     public boolean facePickReady() {
-        return pickVertexCount > 0;
+        return pickFaceCount > 0;
     }
 
     /**
@@ -1167,11 +1177,12 @@ public class HalfEdgeMeshRuntime {
 
     /**
      * Tag the uploaded mesh by face: each face draws in its group's colour, one draw call per
-     * group under the group's tag name, the triangles bucketed in one pass. Call after
-     * {@link #upload}.
+     * group under the group's tag name, the triangles bucketed in one pass; a face in a negative
+     * group is not drawn. Call after {@link #upload}.
      *
      * @param mesh              the uploaded surface, whose face order the triangles follow
-     * @param groupByActiveFace group of each face, by dense face index, in {@code [0, groups)}
+     * @param groupByActiveFace group of each face, by dense face index, in {@code [0, groups)},
+     *                          or negative for a hidden face
      * @param colourByGroup     colour of each group
      * @param tagByGroup        tag name of each group's draw range
      * @throws IllegalArgumentException when {@code mesh} is not the surface uploaded
@@ -1196,25 +1207,32 @@ public class HalfEdgeMeshRuntime {
         int groups = colourByGroup.length;
         int[] groupIndexStart = new int[groups + 1];
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-            groupIndexStart[groupByActiveFace[activeFace] + 1] +=
-                    3 * (triangleStart[activeFace + 1] - triangleStart[activeFace]);
+            if (groupByActiveFace[activeFace] >= 0) {
+                groupIndexStart[groupByActiveFace[activeFace] + 1] +=
+                        3 * (triangleStart[activeFace + 1] - triangleStart[activeFace]);
+            }
         }
         for (int group = 0; group < groups; group++) {
             groupIndexStart[group + 1] += groupIndexStart[group];
         }
         int[] cursor = Arrays.copyOf(groupIndexStart, groups);
-        int[] newIndices = new int[originalIndices.length];
+        int[] newIndices = new int[groupIndexStart[groups]];
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             int from = 3 * triangleStart[activeFace];
             int length = 3 * triangleStart[activeFace + 1] - from;
             int group = groupByActiveFace[activeFace];
+            if (group < 0) {
+                continue;
+            }
             System.arraycopy(originalIndices, from, newIndices, cursor[group], length);
             cursor[group] += length;
         }
         List<TagRange> ranges = new ArrayList<>();
         for (int group = 0; group < groups; group++) {
             int count = groupIndexStart[group + 1] - groupIndexStart[group];
-            if (count > 0) {
+            // With every face hidden the one empty range left keeps render from taking the mesh
+            // for untagged and drawing all of it.
+            if (count > 0 || group == groups - 1 && ranges.isEmpty()) {
                 ranges.add(new TagRange(tagByGroup[group], new Vector4f(colourByGroup[group]),
                         groupIndexStart[group], count));
             }

@@ -312,6 +312,9 @@ public final class RingTool implements EditTool {
      */
     public Map<String, String> ringNoteByLabel = Map.of();
 
+    /** Live labels of the rings not drawn because every region they bound is hidden. */
+    public Set<String> hiddenRingLabels = Set.of();
+
     private final GirdlingPlane girdle = new GirdlingPlane();
     private final float[] limbDirection = new float[COORDINATES_PER_POINT];
     private final float[] previewedHit = new float[COORDINATES_PER_POINT];
@@ -573,17 +576,19 @@ public final class RingTool implements EditTool {
     }
 
     /**
-     * Draw some rings in {@link #MARKED_RING_COLOR} with a note after their number; the rings
-     * themselves do not change.
+     * Draw some rings in {@link #MARKED_RING_COLOR} with a note after their number and leave others
+     * undrawn; the rings themselves do not change.
      *
-     * @param noteByLabel note by live ring label, as {@link #liveRingMarks} names them; empty
-     *                    marks none
+     * @param noteByLabel  note by live ring label, as {@link #liveRingMarks} names them; empty
+     *                     marks none
+     * @param hiddenLabels live labels of rings not drawn, those lying only on hidden regions
      */
-    public void markRings(Map<String, String> noteByLabel) {
-        if (noteByLabel.equals(ringNoteByLabel)) {
+    public void markRings(Map<String, String> noteByLabel, Set<String> hiddenLabels) {
+        if (noteByLabel.equals(ringNoteByLabel) && hiddenLabels.equals(hiddenRingLabels)) {
             return;
         }
         ringNoteByLabel = noteByLabel;
+        hiddenRingLabels = hiddenLabels;
         ringsStale = true;
         overlayStale = true;
     }
@@ -1979,7 +1984,7 @@ public final class RingTool implements EditTool {
             return;
         }
         long start = System.nanoTime();
-        runtime.uploadFacePickBuffer(surface);
+        runtime.uploadFacePickBuffer(surface, scene.regionLayer.hiddenByActiveFace);
         preparedSurface = surface;
         if (!readyGeodesics(surface)) {
             return;
@@ -2122,7 +2127,8 @@ public final class RingTool implements EditTool {
 
     /**
      * Rebuild the per-ring arrays the overlay draws from, the graph's ring marks then the rings
-     * confirmed here. A ring converted or re-opened as the draft keeps its place but draws nothing.
+     * confirmed here. A ring converted, hidden or re-opened as the draft keeps its place but draws
+     * nothing.
      */
     private void rebuildRings() {
         ringsStale = false;
@@ -2139,35 +2145,37 @@ public final class RingTool implements EditTool {
                 if (!unownedLabels.contains(entry.getKey())) {
                     continue;
                 }
-                boolean converted = convertedGraphLabels.contains(entry.getKey());
-                float[] ringSegments = converted ? new float[0]
+                boolean undrawn = convertedGraphLabels.contains(entry.getKey())
+                        || hiddenRingLabels.contains(entry.getKey());
+                float[] ringSegments = undrawn ? new float[0]
                         : markedEdgeSegments(surface, entry.getValue());
                 perRing.add(ringSegments);
                 perRingLiveLabel.add(entry.getKey());
                 LineSet edges = new LineSet(ringSegments.length / SEGMENT_FLOATS);
                 boolean[] marks = entry.getValue();
-                for (int index = 0; !converted && index < surface.edgeCount(); index++) {
+                for (int index = 0; !undrawn && index < surface.edgeCount(); index++) {
                     int edgeId = surface.edgeIdAt(index);
                     if (edgeId < marks.length && marks[edgeId]) {
                         edges.edge(surface, edgeId);
                     }
                 }
                 perRingLines.add(edges);
-                if (!converted) {
+                if (!undrawn) {
                     graphRingSegments.add(ringSegments);
                     graphRingLabels.add(entry.getKey());
                 }
             }
         }
         for (int ring = 0; ring < confirmedRings.size(); ring++) {
+            String sourceLabel = confirmedSourceLabel.get(ring);
+            String liveLabel = sourceLabel != null ? sourceLabel
+                    : UNSAVED_RING_PREFIX + drawnRingNumber(ring);
             boolean hidden = ring == draftSourceRing && draft != null
-                    || confirmedRingDeleted.get(ring);
+                    || confirmedRingDeleted.get(ring) || hiddenRingLabels.contains(liveLabel);
             SurfaceSpline spline = confirmedRings.get(ring);
             perRing.add(hidden ? new float[0] : closedPolylineSegments(spline.surfacePolyline));
             perRingLines.add(hidden ? new LineSet(0) : splineLines(surface, spline));
-            String sourceLabel = confirmedSourceLabel.get(ring);
-            perRingLiveLabel.add(sourceLabel != null ? sourceLabel
-                    : UNSAVED_RING_PREFIX + drawnRingNumber(ring));
+            perRingLiveLabel.add(liveLabel);
         }
         drawnRingLabel = ringNumberTexts(
                 surface == null ? List.of() : unownedLabels, confirmedRings.size());

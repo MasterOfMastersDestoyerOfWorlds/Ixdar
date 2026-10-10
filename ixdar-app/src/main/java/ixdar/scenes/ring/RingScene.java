@@ -470,6 +470,7 @@ public class RingScene extends MeshNodeViewerScene {
                 regionLayer::toggleVisible));
         controls.add(new ControlHint(Keys.A, "A", "absorb slivers into largest neighbour",
                 regionLayer::toggleAbsorbSlivers));
+        controls.add(new ControlHint(Keys.U, "U", "show hidden regions", regionLayer::showAll));
         controls.add(new ControlHint(Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));
         controls.add(new ControlHint(Keys.N, "N", "ring numbers",
                 () -> showRingNumbers = !showRingNumbers));

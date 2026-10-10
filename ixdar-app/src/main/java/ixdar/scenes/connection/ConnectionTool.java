@@ -205,7 +205,7 @@ public final class ConnectionTool implements EditTool {
             }
         }
         if (!runtime.facePickReady()) {
-            runtime.uploadFacePickBuffer(surface);
+            runtime.uploadFacePickBuffer(surface, scene.regionLayer.hiddenByActiveFace);
         }
         boolean hit = scene.pickCursor(runtime, surface);
         if (draggingPick >= 0) {

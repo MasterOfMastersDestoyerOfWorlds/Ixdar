@@ -179,7 +179,7 @@ public final class GrooveRingBenchmark {
                 magnitude[magnitude.length / 2], acrossRidge));
         start = System.nanoTime();
         NDirectionField field = new NDirectionField();
-        field.build((HalfEdgeMesh) surface);
+        field.build((HalfEdgeMesh) surface, metric);
         float[] bend = new float[vertexIdBound];
         float[] bendSorted = new float[surface.vertexCount()];
         for (int activeVertex = 0; activeVertex < surface.vertexCount(); activeVertex++) {

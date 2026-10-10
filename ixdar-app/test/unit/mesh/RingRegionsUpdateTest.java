@@ -245,7 +245,7 @@ class RingRegionsUpdateTest {
      *
      * @param open leave the last edge out, so the ring does not close
      */
-    private static boolean[] rowMask(MeshTopology mesh, int row, boolean open) {
+    static boolean[] rowMask(MeshTopology mesh, int row, boolean open) {
         boolean[] mask = new boolean[RingBundle.edgeIdCeiling(mesh)];
         int segments = open ? AROUND - 1 : AROUND;
         for (int segment = 0; segment < segments; segment++) {
