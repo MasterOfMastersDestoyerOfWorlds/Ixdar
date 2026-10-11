@@ -19,6 +19,7 @@ import ixdar.gui.ui.Drawing;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.Platform;
+import unit.GlStandIn;
 
 /**
  * A word's click and hover rectangle is the rectangle it is drawn in: as wide as its glyph advance
@@ -55,7 +56,7 @@ class HyperStringBoundsTest {
     void installGlStandIn() {
         suitePlatform = Platforms.get();
         suiteGl = Platforms.gl();
-        Platforms.init(suitePlatform, FontGlStandIn.create());
+        Platforms.init(suitePlatform, GlStandIn.create());
         camera = new Camera2D((int) VIEW_WIDTH, (int) VIEW_HEIGHT, 1f, 0, 0, null);
         camera.updateView(0, 0, (int) VIEW_WIDTH, (int) VIEW_HEIGHT);
         font = Drawing.getDrawing().font;

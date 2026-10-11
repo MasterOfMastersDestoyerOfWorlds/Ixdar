@@ -17,6 +17,7 @@ import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.Platform;
+import unit.GlStandIn;
 
 /**
  * A menu box's scroll bar: the thumb's length and place follow the rows, the box height and the
@@ -58,7 +59,7 @@ class MenuScrollBarTest {
     void installGlStandIn() {
         suitePlatform = Platforms.get();
         suiteGl = Platforms.gl();
-        Platforms.init(suitePlatform, FontGlStandIn.create());
+        Platforms.init(suitePlatform, GlStandIn.create());
     }
 
     /**

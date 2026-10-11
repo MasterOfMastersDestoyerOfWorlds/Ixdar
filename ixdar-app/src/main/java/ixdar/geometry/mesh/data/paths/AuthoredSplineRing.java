@@ -2,7 +2,6 @@ package ixdar.geometry.mesh.data.paths;
 
 import java.util.Arrays;
 import java.util.Locale;
-import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
 
@@ -45,19 +44,7 @@ public final class AuthoredSplineRing {
     // so it stays on the part the anchors girdle.
     public static final double CREASE_BAND_OF_RADIUS = 1.0;
 
-    // A groove ring starts from the nearest groove within this fraction of the plane loop's
-    // radius of the click.
-    public static final double GROOVE_REACH_OF_RADIUS = 0.15;
-
-    // Valley strength at which a vertex counts as lying in a groove.
-    public static final double IN_GROOVE_STRENGTH = 0.5;
-
-    // A groove ring that runs in a groove for less than this fraction of its length found none.
-    public static final double MINIMUM_GROOVE_FRACTION = 0.5;
-
     public static final int SHEETS = 2;
-
-    public static final double PERCENT = 100.0;
 
     /** Tracer holding the ring after a successful {@link #trace}. */
     public final SurfaceSplineTracer tracer;
@@ -97,15 +84,6 @@ public final class AuthoredSplineRing {
     /** Crease cost of the surface the crease mode follows, or {@code null} for none. */
     public SurfaceCreases creases;
 
-    /** Fraction of the last crease reference's length lying in a groove; zero in geodesic mode. */
-    public double grooveFraction;
-
-    /**
-     * Base normal the last successful {@link #traceGroove} traced with, as a statement writes it:
-     * the groove's own plane, or the girdling plane given when that rang no groove.
-     */
-    public final float[] grooveNormal = new float[COORDINATES_PER_POINT];
-
     private final float[] planePoint = new float[COORDINATES_PER_POINT];
     private final Vector3f position = new Vector3f();
     private final double[] spread = new double[PLANE_FIT_MATRIX_ENTRIES];
@@ -118,9 +96,9 @@ public final class AuthoredSplineRing {
     private double[] sheetDistance = new double[0];
     private int[] sheetParent = new int[0];
     private int[] sheetVisit = new int[0];
+    private int[] sheetBranch = new int[0];
     private int visit;
     private final Vector3f neighbour = new Vector3f();
-    private final Vector3f clickPosition = new Vector3f();
 
     /**
      * Binds a ring to the surface engine its geodesics run on.
@@ -165,7 +143,6 @@ public final class AuthoredSplineRing {
             return false;
         }
         MeshTopology mesh = tracer.geodesics.mesh;
-        grooveFraction = 0.0;
         if (mode == RingSegmentMode.CREASE && (creases == null || creases.sourceMesh != mesh)) {
             failure = "a crease ring needs the creases of the surface it rings";
             return false;
@@ -264,45 +241,67 @@ public final class AuthoredSplineRing {
             sheetDistance = new double[states];
             sheetParent = new int[states];
             sheetVisit = new int[states];
+            sheetBranch = new int[states];
             visit = 0;
         }
         double[] spanCost = new double[SHEETS * distinctCount];
         int[][] spanPath = new int[SHEETS * distinctCount][];
-        PriorityQueue<double[]> frontier = new PriorityQueue<>(
-                (left, right) -> Double.compare(left[0], right[0]));
+        // The search runs on the geodesic engine's frontier heap, between its own searches.
+        SurfaceGeodesics frontier = tracer.geodesics;
+        // One anchor's span closes on itself, and swapping the sheets maps the double cover onto
+        // itself, so the search from the anchor's other sheet is this one's mirror image. The ring
+        // is found where this search meets its own mirror, from both ends at once: it stops at
+        // half the ring's cost, the meeting edge leading from closingFrom to the mirror of
+        // closingTo.
+        boolean closing = distinctCount == 1;
+        double closingCost = Double.POSITIVE_INFINITY;
+        int closingFrom = -1;
+        int closingTo = -1;
+        // States are dense metric vertex indices, two per vertex, walked over the metric's flat
+        // half-edge arrays rather than the mesh's per-vertex lists.
+        SurfaceMetric metric = frontier.metric;
         for (int anchor = 0; anchor < distinctCount; anchor++) {
-            int source = SHEETS * distinct[anchor];
-            int target = SHEETS * distinct[(anchor + 1) % distinctCount];
+            int source = SHEETS * metric.vertexIndexByVertexId[distinct[anchor]];
+            int target = SHEETS
+                    * metric.vertexIndexByVertexId[distinct[(anchor + 1) % distinctCount]];
             visit++;
-            frontier.clear();
+            frontier.heapSize = 0;
             sheetVisit[source] = visit;
             sheetDistance[source] = 0.0;
             sheetParent[source] = -1;
-            frontier.add(new double[] { 0.0, source });
+            frontier.heapPush(0.0, source);
             int settledTargets = 0;
-            while (!frontier.isEmpty() && settledTargets < SHEETS) {
-                double[] entry = frontier.poll();
-                int state = (int) entry[1];
-                if (entry[0] > sheetDistance[state]) {
+            while (frontier.heapSize > 0 && settledTargets < SHEETS
+                    && !(closing && 2.0 * frontier.heapKey[0] >= closingCost)) {
+                double key = frontier.heapKey[0];
+                int state = frontier.heapPop();
+                if (key > sheetDistance[state]) {
                     continue;
                 }
                 settledTargets += state == target || state == target + 1 ? 1 : 0;
-                int vertexId = state / SHEETS;
+                int activeVertex = state / SHEETS;
                 int sheet = state % SHEETS;
-                mesh.vertexPosition(vertexId, position);
+                mesh.vertexPosition(metric.sourceVertexId[activeVertex], position);
                 double hereAlong = (position.x - centre[0]) * seam[0]
                         + (position.y - centre[1]) * seam[1] + (position.z - centre[2]) * seam[2];
                 double hereAcross = (position.x - centre[0]) * across[0]
                         + (position.y - centre[1]) * across[1]
                         + (position.z - centre[2]) * across[2];
-                int spokes = mesh.vertexEdgeCount(vertexId);
-                for (int spoke = 0; spoke < spokes; spoke++) {
-                    int edgeId = mesh.vertexEdgeAt(vertexId, spoke);
-                    int otherId = mesh.edgeOtherVertex(edgeId, vertexId);
-                    if (otherId < 0) {
+                // Counter-clockwise round the fan from the reference half-edge, which a boundary
+                // vertex's fan starts at, so its last spoke is the exterior one.
+                int reference = metric.vertexReferenceHalfEdge[activeVertex];
+                int halfEdge = reference;
+                while (halfEdge >= 0) {
+                    int spoke = halfEdge;
+                    halfEdge = metric.halfEdgeNext[spoke] < 0 ? -1
+                            : metric.halfEdgeNext[metric.halfEdgeNext[spoke]] ^ 1;
+                    halfEdge = halfEdge == reference ? -1 : halfEdge;
+                    int edgeId = metric.sourceEdgeId[spoke >> 1];
+                    if (edgeId == MeshTopology.NONE) {
                         continue;
                     }
-                    mesh.vertexPosition(otherId, neighbour);
+                    int otherActive = metric.halfEdgeTail[spoke ^ 1];
+                    mesh.vertexPosition(metric.sourceVertexId[otherActive], neighbour);
                     double dx = neighbour.x - centre[0];
                     double dy = neighbour.y - centre[1];
                     double dz = neighbour.z - centre[2];
@@ -317,28 +316,55 @@ public final class AuthoredSplineRing {
                     boolean crosses = (hereAcross < 0.0) != (thereAcross < 0.0)
                             && hereAlong + (thereAlong - hereAlong) * hereAcross
                                     / (hereAcross - thereAcross) > 0.0;
-                    int next = SHEETS * otherId + (crosses ? 1 - sheet : sheet);
+                    int next = SHEETS * otherActive + (crosses ? 1 - sheet : sheet);
                     double relaxed = sheetDistance[state] + creases.edgeCost[edgeId];
+                    int mirror = next + 1 - 2 * (next % SHEETS);
+                    // Both halves of a closing ring come out of this one search tree, so they
+                    // must leave the anchor by different first vertices: halves sharing a branch
+                    // run out and back along a common stem, a spur that crosses itself.
+                    int outwardFirst = state == source ? otherActive
+                            : sheetBranch[state] / SHEETS;
+                    int inwardFirst = mirror == source ? activeVertex
+                            : sheetBranch[mirror] / SHEETS;
+                    if (closing && sheetVisit[mirror] == visit && outwardFirst != inwardFirst
+                            && relaxed + sheetDistance[mirror] < closingCost) {
+                        closingCost = relaxed + sheetDistance[mirror];
+                        closingFrom = state;
+                        closingTo = mirror;
+                    }
                     if (sheetVisit[next] != visit || relaxed < sheetDistance[next]) {
                         sheetVisit[next] = visit;
                         sheetDistance[next] = relaxed;
                         sheetParent[next] = state;
-                        frontier.add(new double[] { relaxed, next });
+                        sheetBranch[next] = state == source ? next : sheetBranch[state];
+                        frontier.heapPush(relaxed, next);
                     }
                 }
             }
             for (int sheet = 0; sheet < SHEETS; sheet++) {
-                int end = target + sheet;
-                boolean reached = sheetVisit[end] == visit;
-                spanCost[SHEETS * anchor + sheet] = reached ? sheetDistance[end]
-                        : Double.POSITIVE_INFINITY;
-                int length = 0;
+                // A closing ring runs out along the tree to closingFrom, then back down the
+                // mirror of closingTo's branch to the anchor.
+                boolean met = closing && sheet == 1;
+                int end = met ? closingFrom : target + sheet;
+                boolean reached = met ? closingFrom >= 0 : sheetVisit[end] == visit;
+                spanCost[SHEETS * anchor + sheet] = !reached ? Double.POSITIVE_INFINITY
+                        : met ? closingCost : sheetDistance[end];
+                int outward = 0;
                 for (int state = end; reached && state >= 0; state = sheetParent[state]) {
-                    length++;
+                    outward++;
                 }
-                int[] path = new int[length];
+                int inward = 0;
+                for (int state = met ? closingTo : -1; state >= 0; state = sheetParent[state]) {
+                    inward++;
+                }
+                int[] path = new int[outward + inward];
+                int slot = outward;
                 for (int state = end; reached && state >= 0; state = sheetParent[state]) {
-                    path[--length] = state / SHEETS;
+                    path[--slot] = metric.sourceVertexId[state / SHEETS];
+                }
+                slot = outward;
+                for (int state = met ? closingTo : -1; state >= 0; state = sheetParent[state]) {
+                    path[slot++] = metric.sourceVertexId[state / SHEETS];
                 }
                 spanPath[SHEETS * anchor + sheet] = path;
             }
@@ -376,11 +402,27 @@ public final class AuthoredSplineRing {
         if (cycleXyz.length < COORDINATES_PER_POINT * points) {
             cycleXyz = new float[COORDINATES_PER_POINT * points];
         }
+        // The paths lie on two sheets, so the walk may come back to a vertex it passed on the
+        // other sheet; the loop between the two visits is erased as the walk is laid down, unless
+        // an authored anchor lies on it. The searches are done, so each vertex's first sheet
+        // state holds its point in the walk under a fresh stamp.
+        visit++;
         points = 0;
+        int lastAnchorPoint = 0;
         for (int anchor = 0; anchor < distinctCount; anchor++) {
             int[] path = spanPath[SHEETS * anchor + chosen[anchor]];
             fit.authoredPoint[anchor] = points;
+            lastAnchorPoint = points;
             for (int step = 0; step + 1 < path.length; step++) {
+                int state = SHEETS * metric.vertexIndexByVertexId[path[step]];
+                int earlier = sheetVisit[state] == visit ? sheetParent[state] : -1;
+                if (step > 0 && earlier >= lastAnchorPoint && earlier < points
+                        && referenceVertexId[earlier] == path[step]) {
+                    points = earlier + 1;
+                    continue;
+                }
+                sheetVisit[state] = visit;
+                sheetParent[state] = points;
                 referenceVertexId[points] = path[step];
                 mesh.vertexPosition(path[step], position);
                 cycleXyz[COORDINATES_PER_POINT * points] = position.x;
@@ -390,136 +432,8 @@ public final class AuthoredSplineRing {
             }
         }
         Arrays.fill(fit.authoredAllowance, 0.0);
-        double inGroove = 0.0;
-        double total = 0.0;
-        for (int point = 0; point < points; point++) {
-            int next = (point + 1) % points;
-            double squared = 0.0;
-            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                double gap = cycleXyz[COORDINATES_PER_POINT * next + axis]
-                        - cycleXyz[COORDINATES_PER_POINT * point + axis];
-                squared += gap * gap;
-            }
-            double step = Math.sqrt(squared);
-            total += step;
-            inGroove += creases.valleyStrength[referenceVertexId[point]]
-                    + creases.valleyStrength[referenceVertexId[next]]
-                    >= 2.0 * IN_GROOVE_STRENGTH ? step : 0.0;
-        }
-        grooveFraction = total > 0.0 ? inGroove / total : 0.0;
         referencePoints = points;
         return fitAndTrace(mesh, cycleXyz, points, finalDepth);
-    }
-
-    /**
-     * Trace the crease ring along the groove nearest a click: its one authored anchor is the
-     * bottom of the nearest groove within {@link #GROOVE_REACH_OF_RADIUS} of the plane loop's
-     * radius, and its plane the groove's own, normal to the across-groove line there.
-     *
-     * @param clickedVertexId mesh vertex under the click
-     * @param baseNormal      normal of the plane girdling the part at the click, packed xyz
-     * @param finalDepth      bisections the finished ring is traced to
-     * @return true when a ring was traced that runs in a groove for at least
-     *         {@link #MINIMUM_GROOVE_FRACTION} of its length; {@link #failure} says why not
-     */
-    public boolean traceGroove(int clickedVertexId, float[] baseNormal, int finalDepth) {
-        mode = RingSegmentMode.CREASE;
-        failure = "";
-        authoredVertexId = new int[0];
-        MeshTopology mesh = tracer.geodesics.mesh;
-        if (creases == null || creases.sourceMesh != mesh) {
-            failure = "a groove ring needs the creases of the surface it rings";
-            return false;
-        }
-        int[] clicked = { clickedVertexId };
-        fitPlane(mesh, clicked, 1, baseNormal);
-        fit.authoredVertexId = clicked;
-        fit.authoredPoint = new int[1];
-        fit.authoredAllowance = new double[1];
-        int loopPoints = planeLoopReference(mesh);
-        if (loopPoints < 0) {
-            return false;
-        }
-        double reach = GROOVE_REACH_OF_RADIUS * SplineAnchorFit.meanRadiusOf(cut.polyline,
-                loopPoints);
-        // Breadth-first over the vertices within reach of the click, keeping the groove vertex
-        // nearest it.
-        int bound = tracer.geodesics.metric.vertexIdBound;
-        if (sheetVisit.length < SHEETS * bound) {
-            sheetDistance = new double[SHEETS * bound];
-            sheetParent = new int[SHEETS * bound];
-            sheetVisit = new int[SHEETS * bound];
-            visit = 0;
-        }
-        visit++;
-        mesh.vertexPosition(clickedVertexId, clickPosition);
-        int[] queue = new int[Math.min(bound, mesh.vertexCount())];
-        int head = 0;
-        int tail = 0;
-        queue[tail++] = clickedVertexId;
-        sheetVisit[SHEETS * clickedVertexId] = visit;
-        int groove = -1;
-        double grooveDistance = Double.POSITIVE_INFINITY;
-        while (head < tail) {
-            int vertexId = queue[head++];
-            mesh.vertexPosition(vertexId, neighbour);
-            double distance = neighbour.distance(clickPosition);
-            if (creases.valleyStrength[vertexId] >= IN_GROOVE_STRENGTH
-                    && distance < grooveDistance) {
-                groove = vertexId;
-                grooveDistance = distance;
-            }
-            for (int spoke = 0; spoke < mesh.vertexEdgeCount(vertexId); spoke++) {
-                int otherId = mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, spoke), vertexId);
-                if (otherId < 0 || sheetVisit[SHEETS * otherId] == visit) {
-                    continue;
-                }
-                sheetVisit[SHEETS * otherId] = visit;
-                mesh.vertexPosition(otherId, neighbour);
-                if (neighbour.distance(clickPosition) <= reach) {
-                    queue[tail++] = otherId;
-                }
-            }
-        }
-        if (groove < 0) {
-            failure = String.format(Locale.ROOT, "no groove within %.5f of the click", reach);
-            return false;
-        }
-        // From the groove's edge nearest the click, up to the bottom of that groove.
-        for (boolean climbing = true; climbing;) {
-            climbing = false;
-            for (int spoke = 0; spoke < mesh.vertexEdgeCount(groove) && !climbing; spoke++) {
-                int otherId = mesh.edgeOtherVertex(mesh.vertexEdgeAt(groove, spoke), groove);
-                if (otherId >= 0
-                        && creases.valleyStrength[otherId] > creases.valleyStrength[groove]) {
-                    groove = otherId;
-                    climbing = true;
-                }
-            }
-        }
-        // The groove's own plane first, the girdling plane when that rings no groove; each normal
-        // goes through the statement's text format, so a reload traces from the same numbers.
-        float[][] normals = {
-            SurfaceWaypoints.parse(SurfaceWaypoints.format(Arrays.copyOfRange(
-                    creases.acrossGroove, COORDINATES_PER_POINT * groove,
-                    COORDINATES_PER_POINT * (groove + 1)), 1)),
-            baseNormal };
-        String refusal = "";
-        int[] anchor = { groove };
-        for (float[] normal : normals) {
-            if (trace(anchor, 1, normal, finalDepth)
-                    && grooveFraction >= MINIMUM_GROOVE_FRACTION) {
-                System.arraycopy(normal, 0, grooveNormal, 0, COORDINATES_PER_POINT);
-                return true;
-            }
-            refusal = !failure.isEmpty() ? failure : refusal.isEmpty() ? String.format(Locale.ROOT,
-                    "no closed groove: the cheapest ring round the part from the groove at the "
-                            + "click runs in a groove for only %.0f%% of its length",
-                    PERCENT * grooveFraction) : refusal;
-        }
-        failure = refusal;
-        authoredVertexId = new int[0];
-        return false;
     }
 
     /**

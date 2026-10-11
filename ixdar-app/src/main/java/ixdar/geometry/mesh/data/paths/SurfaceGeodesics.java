@@ -61,6 +61,18 @@ public final class SurfaceGeodesics {
     /** Geodesics computed since this engine was built, the measure of a trace's cost. */
     public long geodesicCount;
 
+    /**
+     * Keys of the search frontier, a binary min-heap kept in parallel primitive arrays; the
+     * smallest is {@code heapKey[0]} while {@link #heapSize} is positive.
+     */
+    public double[] heapKey = new double[0];
+
+    /** The id stored beside each frontier key. */
+    public int[] heapVertex = new int[0];
+
+    /** Entries on the frontier; a search empties it by setting this to zero. */
+    public int heapSize;
+
     private final FlipGeodesics flipper = new FlipGeodesics();
     private final Vector3f scratchPosition = new Vector3f();
     private final Vector3f otherPosition = new Vector3f();
@@ -71,9 +83,6 @@ public final class SurfaceGeodesics {
     private double[] costToVertex = new double[0];
     private int[] visitParent = new int[0];
     private int currentStamp;
-    private double[] heapKey = new double[0];
-    private int[] heapVertex = new int[0];
-    private int heapSize;
     private int[] seedVertex = new int[0];
     private int seedVertexCount;
     private int[] seedHalfEdge = new int[0];
@@ -408,7 +417,14 @@ public final class SurfaceGeodesics {
         currentStamp = 0;
     }
 
-    private void heapPush(double key, int vertexId) {
+    /**
+     * Push onto the search frontier. Every search here empties it first, so a caller between
+     * this engine's searches, such as a crease ring's sheet search, may run its own on it.
+     *
+     * @param key      the entry's tentative cost
+     * @param vertexId id stored with it, a vertex id here, any non-negative id to a caller
+     */
+    public void heapPush(double key, int vertexId) {
         if (heapSize == heapKey.length) {
             heapKey = Arrays.copyOf(heapKey, Math.max(64, 2 * heapKey.length));
             heapVertex = Arrays.copyOf(heapVertex, heapKey.length);
@@ -427,7 +443,12 @@ public final class SurfaceGeodesics {
         heapVertex[slot] = vertexId;
     }
 
-    private int heapPop() {
+    /**
+     * Pop the frontier's smallest entry; its key is {@code heapKey[0]} just before the call.
+     *
+     * @return the id stored with it
+     */
+    public int heapPop() {
         int top = heapVertex[0];
         heapSize--;
         if (heapSize == 0) {

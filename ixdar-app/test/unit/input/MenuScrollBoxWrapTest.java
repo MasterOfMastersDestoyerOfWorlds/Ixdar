@@ -20,6 +20,7 @@ import ixdar.gui.ui.menu.SceneModelMenu;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.Platform;
+import unit.GlStandIn;
 
 /**
  * A menu box's rows wrap through HyperString, and its clicks, scroll limit and centring count the
@@ -59,7 +60,7 @@ class MenuScrollBoxWrapTest {
     void installGlStandIn() {
         suitePlatform = Platforms.get();
         suiteGl = Platforms.gl();
-        Platforms.init(suitePlatform, FontGlStandIn.create());
+        Platforms.init(suitePlatform, GlStandIn.create());
         camera = new Camera2D(1, 1, 1f, 0, 0, null);
     }
 

@@ -4,6 +4,8 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 public interface Color {
+    public static final int CHANNEL_BITS = 8;
+    public static final int CHANNEL_MAX = 0xFF;
     public static final Color WHITE = new ColorRGB(1f, 1f, 1f, "White");
     public static final Color BLACK = new ColorRGB(0f, 0f, 0f, "Black");
     public static final Color RED = new ColorRGB(1f, 0f, 0f, "Red");
@@ -25,6 +27,7 @@ public interface Color {
     public static final Color LIGHT_PURPLE = new ColorRGB(167, 147, 238, "Light Purple");
     public static final Color DARK_PURPLE = new ColorRGB(32, 35, 36, "Dark Purple");
     public static final Color PURPLE = new ColorRGB(125, 49, 123, "Purple");
+    public static final Color BRIGHT_PURPLE = new ColorRGB(0.72f, 0.25f, 1f, "Bright Purple");
     public static final Color MAGENTA = new ColorRGB(1f, 0f, 1f, "Magenta");
     public static final Color LIGHT_GRAY = new ColorRGB(0.3f, 0.3f, 0.3f, "Light Gray");
     public static final Color DARK_GRAY = new ColorRGB(0.15f, 0.15f, 0.15f, "Dark Gray");
@@ -91,6 +94,19 @@ public interface Color {
      * @return the color as a vec4
      */
     public Vector4f toVector4f();
+
+    /**
+     * RGB channels of this color packed as {@code 0x00RRGGBB}, the form the mesh overlay's line
+     * groups and anchor discs take.
+     *
+     * @return the color as a packed int, alpha dropped
+     */
+    public default int toPackedRgb() {
+        Vector3f channels = toVector3f();
+        return Math.round(channels.x * CHANNEL_MAX) << (2 * CHANNEL_BITS)
+                | Math.round(channels.y * CHANNEL_MAX) << CHANNEL_BITS
+                | Math.round(channels.z * CHANNEL_MAX);
+    }
 
     /**
      * Convert HSB (hue/saturation/brightness) to an RGB {@link ColorRGB}.

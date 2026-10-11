@@ -39,6 +39,7 @@ import ixdar.geometry.mesh.nodes.selection.LoopThroughPointsNode;
 import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.geometry.mesh.nodes.selection.SelectRingNode;
 import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
+import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.LineSet;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
@@ -80,12 +81,15 @@ public final class RingTool implements EditTool {
     public static final String CANNOT_TRACE_REFUSAL =
             "the ring tool cannot trace rings on this surface - load another model; the log says why";
 
-    public static final int PREVIEW_COLOR = 0xFF2D95;
-
     public static final int MARKED_RING_COLOR = 0xFF1A1A;
 
+    public static final Color GEODESIC_DRAFT_COLOR = Color.RED;
+
+    public static final Color CREASE_DRAFT_COLOR = Color.BRIGHT_PURPLE;
+
+    // No red or purple here: those tell a draft's mode.
     public static final int[] RING_COLORS = {
-        0x2ADF4F, 0x2E9BFF, 0xFFD60A, 0xFF9F0A, 0x9D7BFF, 0xD08A4A, 0xE8E8A0, 0xB6FF3B };
+        0x2ADF4F, 0x2E9BFF, 0xFFD60A, 0xFF9F0A, 0x3DE8C8, 0xD08A4A, 0xE8E8A0, 0xB6FF3B };
 
     public static final String RING_LABEL_PREFIX = "ring";
 
@@ -257,6 +261,12 @@ public final class RingTool implements EditTool {
     /** How the draft runs between its authored anchors; T switches it. */
     public RingSegmentMode draftMode = RingSegmentMode.GEODESIC;
 
+    /**
+     * Mode the next click drafts its one-anchor ring through the cursor in; T sets it with the
+     * open draft's, and undo leaves it alone.
+     */
+    public RingSegmentMode newDraftMode = RingSegmentMode.GEODESIC;
+
     /** Groove cost of the current surface the crease mode follows, measured once per model. */
     public SurfaceCreases creases;
 
@@ -421,63 +431,31 @@ public final class RingTool implements EditTool {
         controls.add(new ControlHint(Keys.Y, true, "ctrl+Y", REDO_HINT, refusalShown(() -> redo())));
         controls.add(new ControlHint(Keys.ENTER, "enter", "confirm draft",
                 refusalShown(() -> confirmDraft())));
-        // T switches the draft between the geodesic spline and the crease path, as one edit.
-        controls.add(new ControlHint(Keys.T, "T", "mode: " + draftMode.label, refusalShown(() -> {
-            if (!active || draft == null) {
-                lastError = "no draft to change the mode of - click a ring to draft one first";
-                return;
-            }
-            RingSegmentMode next = draftMode == RingSegmentMode.GEODESIC ? RingSegmentMode.CREASE
-                    : RingSegmentMode.GEODESIC;
+        // T switches between the geodesic spline and the crease path: the open draft, as one
+        // edit, and the drafts clicks open from now on.
+        RingSegmentMode shownMode = draft != null ? draftMode : newDraftMode;
+        controls.add(new ControlHint(Keys.T, "T", "mode: " + shownMode.label, refusalShown(() -> {
+            RingSegmentMode next = (draft != null ? draftMode : newDraftMode)
+                    == RingSegmentMode.GEODESIC ? RingSegmentMode.CREASE : RingSegmentMode.GEODESIC;
             if (next == RingSegmentMode.CREASE && !readyCreases(scene.halfEdgeSurface())) {
                 return;
             }
-            RingToolState stateBefore = new RingToolState(this);
-            RingSegmentMode previous = draftMode;
-            draftMode = next;
-            if (!retraceDraft(draftAuthoredVertexId, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH,
-                    false)) {
-                draftMode = previous;
-                return;
+            if (draft != null) {
+                RingToolState stateBefore = new RingToolState(this);
+                RingSegmentMode previous = draftMode;
+                draftMode = next;
+                if (!retraceDraft(draftAuthoredVertexId,
+                        SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
+                    draftMode = previous;
+                    return;
+                }
+                recordEdit("segment mode " + next.label, stateBefore);
+                reportDraft("now in " + next.label + " mode");
+            } else {
+                lastRow = "a click drafts in " + next.label + " mode";
             }
-            recordEdit("segment mode " + next.label, stateBefore);
-            reportDraft("now in " + next.label + " mode");
-            scene.refreshControls();
-        })));
-        // V drafts the ring along the groove nearest the hovered point, on the preview's plane.
-        controls.add(new ControlHint(Keys.V, "V", "groove ring at the cursor", refusalShown(() -> {
-            if (!active || draft != null || !previewValid || previewAuthoredVertexId < 0) {
-                lastError = draft != null
-                        ? "a draft is open - confirm it (Enter) or discard it (X), then press V"
-                        : "no preview ring under the cursor - hover a limb until the preview "
-                                + "shows, then press V";
-                return;
-            }
-            if (!readyCreases(scene.halfEdgeSurface())) {
-                return;
-            }
-            RingToolState stateBefore = new RingToolState(this);
-            holdDraft();
-            long start = System.nanoTime();
-            if (!draftRing.traceGroove(previewAuthoredVertexId, previewPlaneNormal,
-                    SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
-                lastError = "groove ring refused: " + draftRing.failure
-                        + " - press V nearer the groove";
-                return;
-            }
-            System.arraycopy(draftRing.grooveNormal, 0, draftBaseNormal, 0,
-                    COORDINATES_PER_POINT);
-            draftMode = RingSegmentMode.CREASE;
-            draftAuthoredVertexId = draftRing.authoredVertexId;
-            draft = SurfaceSpline.of(draftRing.tracer);
-            draftDepth = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH;
-            draftMillis = (System.nanoTime() - start) / 1e6;
-            draftSourceRing = -1;
-            draftSourceLabel = null;
-            selectedAnchorVertexId = -1;
-            recordEdit("groove ring drafted", stateBefore);
-            reportDraft(String.format(Locale.ROOT, "along the groove, %.0f%% of it in a groove",
-                    AuthoredSplineRing.PERCENT * draftRing.grooveFraction));
+            newDraftMode = next;
+            previewedFace = -1;
             scene.refreshControls();
         })));
     }
@@ -780,6 +758,7 @@ public final class RingTool implements EditTool {
                 if (anchors.length > 0) {
                     System.arraycopy(written(converted.planeNormal), 0, draftBaseNormal, 0,
                             COORDINATES_PER_POINT);
+                    draftMode = RingSegmentMode.GEODESIC;
                 }
                 if (anchors.length > 0
                         && retraceDraft(anchors, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
@@ -792,11 +771,16 @@ public final class RingTool implements EditTool {
                     reportDraft("converted graph ring " + label + " into the draft");
                 }
             } else if (!previewValid || previewAuthoredVertexId < 0) {
-                lastError = "no ring fits under the cursor - move along the limb until the pink "
-                        + "preview ring shows, then click";
+                lastError = String.format(Locale.ROOT, "no ring fits under the cursor - move "
+                        + "along the limb until the %s preview ring shows, then click",
+                        newDraftMode == RingSegmentMode.CREASE ? "purple" : "red");
             } else {
+                // The previewed ring at the full depth, in the mode it was previewed in. The hover
+                // shows no ring that crosses itself, so the click refuses one only where the
+                // deeper trace crosses and the preview's did not.
                 draftSourceRing = -1;
                 draftSourceLabel = null;
+                draftMode = newDraftMode;
                 System.arraycopy(previewPlaneNormal, 0, draftBaseNormal, 0,
                         COORDINATES_PER_POINT);
                 if (retraceDraft(new int[] { previewAuthoredVertexId },
@@ -807,6 +791,7 @@ public final class RingTool implements EditTool {
                 }
             }
             scene.errorToasts.show(TOOL_NAME, lastError);
+            scene.refreshControls();
         }
         SurfaceSpline shownPreview = previewValid ? previewSpline : null;
         if (shownPreview != uploadedPreview || draft != uploadedDraft
@@ -848,7 +833,7 @@ public final class RingTool implements EditTool {
                 || !retraceDraft(confirmedAuthoredVertexId.get(ring),
                         SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
             draft = null;
-            draftMode = RingSegmentMode.GEODESIC;
+            draftMode = newDraftMode;
             return false;
         }
         draftSourceRing = ring;
@@ -1061,6 +1046,7 @@ public final class RingTool implements EditTool {
             return false;
         }
         restored.restore(this);
+        scene.refreshControls();
         lastRow = String.format(Locale.ROOT, "%s %s: %d to undo, %d to redo, %d ring(s), %s",
                 backward ? "undid" : "redid", what, history.undoDepth, history.redoDepth(),
                 confirmedRings.size(), draft == null ? "no draft"
@@ -1206,6 +1192,7 @@ public final class RingTool implements EditTool {
         }
         String opening = history.nextUndoName();
         history.retract().restore(this);
+        scene.refreshControls();
         previewedFace = -1;
         lastRow = "closed the unedited ring (" + opening + " taken back, nothing recorded)";
         Platforms.get().log(LOG_PREFIX + lastRow);
@@ -1235,7 +1222,7 @@ public final class RingTool implements EditTool {
 
     private void clearDraft() {
         draft = null;
-        draftMode = RingSegmentMode.GEODESIC;
+        draftMode = newDraftMode;
         scene.refreshControls();
         draftAuthoredVertexId = new int[0];
         draftSourceRing = -1;
@@ -1435,6 +1422,13 @@ public final class RingTool implements EditTool {
             previewRing = new AuthoredSplineRing(geodesics);
         }
         long geodesicsBefore = geodesics.geodesicCount;
+        // The mode the click drafts in; in crease mode the loop away from the cursor is pulled
+        // into the grooves.
+        if (newDraftMode == RingSegmentMode.CREASE && !readyCreases(surface)) {
+            return false;
+        }
+        previewRing.mode = newDraftMode;
+        previewRing.creases = creases;
         if (!previewRing.trace(new int[] { hitVertexId }, 1, previewPlaneNormal,
                 AuthoredSplineRing.SUPPORTING_FIT_DEPTH)) {
             return false;
@@ -1447,7 +1441,8 @@ public final class RingTool implements EditTool {
         previewAnchorCount = previewRing.tracer.anchorCount;
         previewSpline = SurfaceSpline.unsnapped(previewRing.tracer);
         previewLength = previewSpline.length;
-        return previewAnchorCount >= SurfaceSplineTracer.MINIMUM_ANCHORS;
+        // A ring crossing itself is not offered, as the click refuses to draft one.
+        return previewAnchorCount >= SurfaceSplineTracer.MINIMUM_ANCHORS && previewRing.simple;
     }
 
     /**
@@ -2105,17 +2100,24 @@ public final class RingTool implements EditTool {
         System.arraycopy(ringSegmentStart, 0, groupStart, 0, rings + 1);
         int[] groupColor = new int[rings + (drawingEditing ? 1 : 0)];
         System.arraycopy(drawnRingColorRgb, 0, groupColor, 0, rings);
+        // The preview, the draft and the ring a click would re-open or convert are drawn in the
+        // colour of the mode the draft runs in: red geodesic, purple crease.
+        int geodesicRgb = GEODESIC_DRAFT_COLOR.toPackedRgb();
+        int creaseRgb = CREASE_DRAFT_COLOR.toPackedRgb();
         if (drawingEditing) {
             groupStart[rings + 1] = groupStart[rings] + edited.vertexCount() / 2;
-            groupColor[rings] = PREVIEW_COLOR;
+            groupColor[rings] = (draft != null ? draftMode : newDraftMode)
+                    == RingSegmentMode.CREASE ? creaseRgb : geodesicRgb;
         }
         if (hoveredRing >= 0 && drawnRingNumber(hoveredRing) < rings) {
-            groupColor[drawnRingNumber(hoveredRing)] = PREVIEW_COLOR;
+            groupColor[drawnRingNumber(hoveredRing)] =
+                    confirmedMode.get(hoveredRing) == RingSegmentMode.CREASE ? creaseRgb
+                            : geodesicRgb;
         }
         int graphIndex = 0;
         for (String graphLabel : unownedGraphRingLabels()) {
             if (graphLabel.equals(hoveredGraphRing) && graphIndex < rings) {
-                groupColor[graphIndex] = PREVIEW_COLOR;
+                groupColor[graphIndex] = geodesicRgb;
             }
             graphIndex++;
         }

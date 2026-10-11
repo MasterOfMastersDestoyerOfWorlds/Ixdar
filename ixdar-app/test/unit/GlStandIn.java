@@ -1,4 +1,4 @@
-package unit.input;
+package unit;
 
 import java.lang.reflect.Proxy;
 import java.nio.IntBuffer;
@@ -7,14 +7,14 @@ import java.util.ArrayList;
 import ixdar.platform.gl.GL;
 
 /**
- * A GL that does nothing but report success, so the drawing font's real atlas loads in a unit test
- * that never opens a window.
+ * A GL that does nothing but report success, so code that uploads to the GPU (the drawing font's
+ * atlas, a tool's overlay) runs in a unit test that never opens a window.
  */
-final class FontGlStandIn {
+public final class GlStandIn {
 
     private static final int STAND_IN_PLATFORM_ID = 9012;
 
-    private FontGlStandIn() {
+    private GlStandIn() {
     }
 
     /**
@@ -22,7 +22,7 @@ final class FontGlStandIn {
      *
      * @return a GL proxy safe to pair with the suite's platform
      */
-    static GL create() {
+    public static GL create() {
         return (GL) Proxy.newProxyInstance(GL.class.getClassLoader(),
                 new Class<?>[] {GL.class}, (proxy, method, arguments) -> {
                     Class<?> type = method.getReturnType();

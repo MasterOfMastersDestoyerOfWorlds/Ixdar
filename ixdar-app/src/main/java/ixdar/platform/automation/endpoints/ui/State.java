@@ -311,6 +311,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             toolJson.addProperty("previewGirdleEdgeCount", tool.previewGirdleEdgeCount);
             toolJson.addProperty(LENGTH, tool.previewLength);
             toolJson.addProperty("previewMillis", tool.previewMillis);
+            toolJson.addProperty("newDraftMode", tool.newDraftMode.label);
             toolJson.addProperty("tolerance", tool.previewTolerance);
             toolJson.addProperty("deviation", tool.previewDeviation);
             toolJson.addProperty("anchorCapReached", tool.previewAnchorCapReached);

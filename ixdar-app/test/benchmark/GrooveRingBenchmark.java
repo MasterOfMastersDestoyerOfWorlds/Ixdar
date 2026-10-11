@@ -44,7 +44,7 @@ import ixdar.parsing.python.PythonParser;
 import ixdar.scenes.ring.RingTool;
 
 /**
- * One click at each saved ring's first anchor: how far the groove ring of every candidate crease
+ * One click at each saved ring's first anchor: how far the crease ring of every candidate crease
  * signal, and the geodesic preview, lands from that ring and from the valley crest lines.
  *
  * <pre>
@@ -82,6 +82,11 @@ public final class GrooveRingBenchmark {
 
     private static final String NONE = "-";
 
+    private static final String NO_SURFACE = "the graph measures no surface";
+
+    // The crossing sweep clicks about this many surface vertices, evenly spaced by index.
+    private static final int CURSOR_SAMPLES = 400;
+
     /**
      * Writes the per-ring table and a summary per signal: rings landed, near, refused, mean
      * distance over radius, mean distance to the valley crest lines, and trace times.
@@ -103,7 +108,7 @@ public final class GrooveRingBenchmark {
                 rings.add(statement);
             }
         }
-        assertNotNull(metricId, "the graph measures no surface");
+        assertNotNull(metricId, NO_SURFACE);
         GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.statements,
                 metricId, GEOMETRY_PORT);
         MeshTopology surface = bundle.mesh();
@@ -158,25 +163,15 @@ public final class GrooveRingBenchmark {
                 valleyVertexIds.add(surface.vertexIdAt(activeVertex));
             }
         }
-        // Every candidate rings in the plane across its groove that the curvature gives, so the
-        // table compares the signals alone.
-        float[] across = new float[XYZ * vertexIdBound];
-        float[] acrossRidge = new float[XYZ * vertexIdBound];
-        float[] direction = new float[XYZ];
         for (int activeVertex = 0; activeVertex < surface.vertexCount(); activeVertex++) {
-            curvature.dirMin(activeVertex, direction);
-            System.arraycopy(direction, 0, across, XYZ * surface.vertexIdAt(activeVertex), XYZ);
-            curvature.dirMax(activeVertex, direction);
-            System.arraycopy(direction, 0, acrossRidge, XYZ * surface.vertexIdAt(activeVertex),
-                    XYZ);
             convex[surface.vertexIdAt(activeVertex)] = curvature.kappaMax(activeVertex);
             magnitude[activeVertex] = Math.max(Math.abs(curvature.kappaMax(activeVertex)),
                     Math.abs(curvature.kappaMin(activeVertex)));
         }
         Arrays.sort(magnitude);
-        candidates.put("valley crest lines", new SurfaceCreases(surface, onValley, 0.0, across));
+        candidates.put("valley crest lines", new SurfaceCreases(surface, onValley, 0.0));
         candidates.put("convex curvature (ridges)", new SurfaceCreases(surface, convex,
-                magnitude[magnitude.length / 2], acrossRidge));
+                magnitude[magnitude.length / 2]));
         start = System.nanoTime();
         NDirectionField field = new NDirectionField();
         field.build((HalfEdgeMesh) surface, metric);
@@ -190,7 +185,7 @@ public final class GrooveRingBenchmark {
         Arrays.sort(bendSorted);
         double bendFieldMillis = (System.nanoTime() - start) / 1e6;
         candidates.put("Hopf bend (unsigned)", new SurfaceCreases(surface, bend,
-                bendSorted[bendSorted.length / 2], across));
+                bendSorted[bendSorted.length / 2]));
         summary.add(String.format(Locale.ROOT, "curvature + crest lines %.0f ms, cross field for "
                 + "the bend %.0f ms", curvatureMillis, bendFieldMillis));
         for (Map.Entry<String, SurfaceCreases> candidate : candidates.entrySet()) {
@@ -300,8 +295,11 @@ public final class GrooveRingBenchmark {
                     ok = ring.trace(new int[] { clicked }, 1, RingTool.written(saved.planeNormal),
                             SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH);
                 } else {
+                    // The crease ring a click drafts: the click on the hover's girdling plane.
+                    ring.mode = RingSegmentMode.CREASE;
                     ring.creases = candidates.get(names.get(signal));
-                    ok = ring.traceGroove(clicked, plane, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH);
+                    ok = ring.trace(new int[] { clicked }, 1, plane,
+                            SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH);
                 }
                 double millis = (System.nanoTime() - traceStart) / 1e6;
                 if (!ok) {
@@ -367,6 +365,154 @@ public final class GrooveRingBenchmark {
         Files.write(table, (String.join(ROW_END, written) + ROW_END)
                 .getBytes(StandardCharsets.UTF_8));
         assertTrue(measured > 0, "no saved ring could be measured");
+    }
+
+    /**
+     * Crease and geodesic rings at a spread of cursor vertices on each one's girdling plane: how
+     * often each crosses itself, how much of its length runs in a groove (valley strength at
+     * least one half), and how long it takes.
+     *
+     * <pre>
+     * mvn test -Dtest=GrooveRingBenchmark#crossingsOverManyCursorVertices \
+     *     -Dbenchmark.ringGraph=$PWD/tmp/crawfish_rings.dsl -Dbenchmark.table=$PWD/tmp/x.txt
+     * </pre>
+     *
+     * @throws Exception when the graph fails to run or the table cannot be written
+     */
+    @Test
+    public void crossingsOverManyCursorVertices() throws Exception {
+        String graphPath = System.getProperty(RING_GRAPH_PROPERTY);
+        assertNotNull(graphPath, "pass -D" + RING_GRAPH_PROPERTY + "=<a copy of a ring graph>");
+        NodeGraphRuntime graph = NodeGraphRuntime.fromSource(
+                new String(Files.readAllBytes(Path.of(graphPath)), StandardCharsets.UTF_8));
+        String metricId = null;
+        for (PythonParser.ParsedNode statement : graph.statements) {
+            metricId = RingDslWriter.SURFACE_METRIC_NODE.equals(statement.type) && metricId == null
+                    ? statement.id : metricId;
+        }
+        assertNotNull(metricId, NO_SURFACE);
+        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.statements,
+                metricId, GEOMETRY_PORT);
+        MeshTopology surface = bundle.mesh();
+        SurfaceMetric metric = (SurfaceMetric) graph.getNodeOutput(metricId,
+                SurfaceMetricNode.METRIC.name);
+        SurfaceGeodesics geodesics = SurfaceGeodesics.over(metric);
+        SurfaceCreases creases = SurfaceCreases.of(surface);
+        LimbAxis limbAxis = new LimbAxis();
+        limbAxis.cacheFor(surface);
+        GirdlingPlane girdle = new GirdlingPlane();
+        int stride = Math.max(1, surface.vertexCount() / CURSOR_SAMPLES);
+        AuthoredSplineRing geodesic = new AuthoredSplineRing(geodesics);
+        AuthoredSplineRing crease = new AuthoredSplineRing(geodesics);
+        crease.mode = RingSegmentMode.CREASE;
+        crease.creases = creases;
+        int planes = 0;
+        int[] tracedCount = new int[2];
+        int[] crossing = new int[2];
+        double[] grooveSum = new double[2];
+        double[] millisSum = new double[2];
+        double[] millisWorst = new double[2];
+        Vector3f click = new Vector3f();
+        float[] axis = new float[XYZ];
+        for (int activeVertex = 0; activeVertex < surface.vertexCount();
+                activeVertex += stride) {
+            int clicked = surface.vertexIdAt(activeVertex);
+            if (surface.vertexFaceCount(clicked) == 0) {
+                continue;
+            }
+            surface.vertexPosition(clicked, click);
+            float[] clickXyz = { click.x, click.y, click.z };
+            int faceId = surface.vertexFaceAt(clicked, 0);
+            boolean seeded = limbAxis.skeletonAxisAt(click.x, click.y, click.z, axis)
+                    || limbAxis.curvatureAxisAt(faceId, axis);
+            if (!girdle.find(surface, faceId, clickXyz, seeded ? axis : null)) {
+                continue;
+            }
+            planes++;
+            float[] plane = RingTool.written(girdle.normal);
+            for (int mode = 0; mode < 2; mode++) {
+                AuthoredSplineRing ring = mode == 0 ? geodesic : crease;
+                long start = System.nanoTime();
+                boolean ok = ring.trace(new int[] { clicked }, 1, plane,
+                        SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH);
+                double millis = (System.nanoTime() - start) / 1e6;
+                if (!ok) {
+                    continue;
+                }
+                tracedCount[mode]++;
+                millisSum[mode] += millis;
+                millisWorst[mode] = Math.max(millisWorst[mode], millis);
+                grooveSum[mode] += grooveFraction(surface, creases, ring.tracer);
+                crossing[mode] += ring.simple ? 0 : 1;
+            }
+        }
+        List<String> summary = new ArrayList<>();
+        summary.add(String.format(Locale.ROOT, "%d cursor vertices with a girdling plane (every "
+                + "%d of %d)", planes, stride, surface.vertexCount()));
+        String[] names = { "geodesic", "crease" };
+        for (int mode = 0; mode < 2; mode++) {
+            int count = Math.max(1, tracedCount[mode]);
+            summary.add(String.format(Locale.ROOT, "%s: traced %d, crossing %d (%.1f%%), mean "
+                    + "in-groove length %.3f, mean %.0f ms, worst %.0f ms", names[mode],
+                    tracedCount[mode], crossing[mode], 100.0 * crossing[mode] / count,
+                    grooveSum[mode] / count, millisSum[mode] / count, millisWorst[mode]));
+        }
+        Path table = Path.of(System.getProperty(TABLE_PROPERTY, "target/crease-crossings.txt"));
+        Files.write(table, (String.join(ROW_END, summary) + ROW_END)
+                .getBytes(StandardCharsets.UTF_8));
+        assertTrue(planes > 0, "no cursor vertex found a girdling plane");
+    }
+
+    /**
+     * Fraction of a traced ring's surface length whose both ends have valley strength of at least
+     * one half, a crossed edge's strength interpolated along it.
+     */
+    private static double grooveFraction(MeshTopology surface, SurfaceCreases creases,
+            SurfaceSplineTracer tracer) {
+        double total = 0.0;
+        double inGroove = 0.0;
+        double previousStrength = -1.0;
+        double[] previous = null;
+        double firstStrength = -1.0;
+        double[] first = null;
+        for (int segment = 0; segment <= tracer.anchorCount; segment++) {
+            int which = segment % tracer.anchorCount;
+            int count = segment == tracer.anchorCount ? 1 : tracer.segmentVertexId[which].length;
+            for (int point = 0; point < count; point++) {
+                double strength;
+                int vertexId = tracer.segmentVertexId[which][point];
+                int edgeId = tracer.segmentEdgeId[which][point];
+                if (vertexId >= 0) {
+                    strength = creases.valleyStrength[vertexId];
+                } else if (edgeId >= 0) {
+                    int halfEdge = surface.edgeHalfEdge(edgeId);
+                    double fraction = tracer.segmentFraction[which][point];
+                    strength = (1.0 - fraction)
+                            * creases.valleyStrength[surface.halfEdgeVertex(halfEdge)]
+                            + fraction * creases.valleyStrength[surface.halfEdgeEndVertex(halfEdge)];
+                } else {
+                    int faceId = tracer.segmentFaceId[which][point];
+                    strength = 0.0;
+                    for (int corner = 0; corner < XYZ; corner++) {
+                        strength += creases.valleyStrength[surface.faceVertexAt(faceId, corner)]
+                                / XYZ;
+                    }
+                }
+                double[] here = { tracer.segmentSurfaceXyz[which][XYZ * point],
+                    tracer.segmentSurfaceXyz[which][XYZ * point + 1],
+                    tracer.segmentSurfaceXyz[which][XYZ * point + 2] };
+                if (previous != null) {
+                    double length = Math.sqrt((here[0] - previous[0]) * (here[0] - previous[0])
+                            + (here[1] - previous[1]) * (here[1] - previous[1])
+                            + (here[2] - previous[2]) * (here[2] - previous[2]));
+                    total += length;
+                    inGroove += previousStrength >= HALF && strength >= HALF ? length : 0.0;
+                }
+                previous = here;
+                previousStrength = strength;
+            }
+        }
+        return total > 0.0 ? inGroove / total : 0.0;
     }
 
     /**
