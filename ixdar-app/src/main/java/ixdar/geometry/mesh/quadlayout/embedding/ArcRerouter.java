@@ -10,6 +10,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -28,6 +29,20 @@ public final class ArcRerouter {
     private static final int SPLIT_BITS_SHIFT = 32;
 
     private static final long LENGTH_BITS_MASK = 0xFFFFFFFFL;
+
+    private static final int NODE_STATE_STRIDE = 4;
+
+    private static final int MARK_SLOT = 0;
+
+    private static final int SPLITS_SLOT = 1;
+
+    private static final int LENGTH_SLOT = 2;
+
+    private static final int PARENT_SLOT = 3;
+
+    private static final int SETTLED_BIT = 1;
+
+    private static final int LAST_VISIT_STAMP = Integer.MAX_VALUE >> 1;
 
     public final EmbeddedMeshTopology topology;
 
@@ -117,29 +132,15 @@ public final class ArcRerouter {
     public int frontierSize;
 
     /**
-     * Tentative path length per search node, valid where {@link #visitStampByNode}
-     * matches.
+     * Per search node, four adjacent ints: mark (generation shifted left, low bit when
+     * settled), split count, length bits, parent. Adjacent so one relaxation reads one cache
+     * line.
      */
-    public float[] lengthByNode = new float[0];
+    public int[] stateByNode = new int[0];
 
     /**
-     * Tentative split count per search node, valid where {@link #visitStampByNode}
-     * matches.
-     */
-    public int[] splitsByNode = new int[0];
-
-    /** Search parent per node, valid where {@link #visitStampByNode} matches. */
-    public int[] parentByNode = new int[0];
-
-    /** Search generation that last wrote each node's cost and parent. */
-    public int[] visitStampByNode = new int[0];
-
-    /** Search generation that settled each node; a settled node is final. */
-    public int[] settledStampByNode = new int[0];
-
-    /**
-     * Generation counter shared by the stamped scratch arrays; a stamp mismatch
-     * means unvisited, so searches never clear the arrays.
+     * Generation counter behind the node marks; a mark from another generation means
+     * unvisited, so searches never clear the state.
      */
     public int visitStamp;
 
@@ -288,20 +289,23 @@ public final class ArcRerouter {
         routeAttemptCount++;
         vertexIdBound = topology.ownerArcByCopyVertex.length;
         int nodeIdBound = vertexIdBound + topology.ownerArcByCopyEdge.length;
-        if (lengthByNode.length < nodeIdBound) {
-            lengthByNode = Arrays.copyOf(lengthByNode, nodeIdBound);
-            splitsByNode = Arrays.copyOf(splitsByNode, nodeIdBound);
-            parentByNode = Arrays.copyOf(parentByNode, nodeIdBound);
-            visitStampByNode = Arrays.copyOf(visitStampByNode, nodeIdBound);
-            settledStampByNode = Arrays.copyOf(settledStampByNode, nodeIdBound);
+        if (stateByNode.length < nodeIdBound * NODE_STATE_STRIDE) {
+            stateByNode = Arrays.copyOf(stateByNode, nodeIdBound * NODE_STATE_STRIDE);
         }
-        if (visitStamp == Integer.MAX_VALUE) {
-            Arrays.fill(visitStampByNode, 0);
-            Arrays.fill(settledStampByNode, 0);
+        if (visitStamp == LAST_VISIT_STAMP) {
+            Arrays.fill(stateByNode, 0);
             visitStamp = 0;
         }
         int stamp = ++visitStamp;
+        int settledMark = stamp << 1 | SETTLED_BIT;
         frontierSize = 0;
+        // Walking a face's corners through the flat half-edge arrays visits them in the order
+        // of its corner lists, without their per-face object indirection.
+        int[] faceHalfEdges = copy.faceHalfEdge;
+        int[] halfEdgeNexts = copy.halfEdgeNext;
+        int[] halfEdgeVertices = copy.halfEdgeVertex;
+        int[] halfEdgeEdges = copy.halfEdgeEdge;
+        int[] ownerArcByCopyEdge = topology.ownerArcByCopyEdge;
         relax(startCopyVertex, startCopyVertex, 0, 0f, stamp);
         boolean reachedTarget = false;
         while (frontierSize > 0) {
@@ -325,19 +329,20 @@ public final class ArcRerouter {
             }
             frontierKeys[hole] = movedKey;
             frontierNodes[hole] = movedNode;
-            if (settledStampByNode[node] == stamp) {
+            int nodeState = node * NODE_STATE_STRIDE;
+            if (stateByNode[nodeState + MARK_SLOT] == settledMark) {
                 continue;
             }
-            settledStampByNode[node] = stamp;
+            stateByNode[nodeState + MARK_SLOT] = settledMark;
             if (node == endCopyVertex) {
                 reachedTarget = true;
                 break;
             }
-            float headLength = lengthByNode[node];
-            int headSplits = splitsByNode[node];
-
-            // A midpoint (node vertexIdBound + e for edge e) steps onto the corners
-            // and other edge midpoints of the faces either side of its edge.
+            // A midpoint moves onto the corners and edge midpoints of its edge's faces; a vertex
+            // along its free edges and onto its faces' edge midpoints.
+            boolean atStart = node == startCopyVertex;
+            float headLength = Float.intBitsToFloat(stateByNode[nodeState + LENGTH_SLOT]);
+            int headSplits = stateByNode[nodeState + SPLITS_SLOT];
             if (node >= vertexIdBound) {
                 int nodeEdge = node - vertexIdBound;
                 copy.edgeMidpoint(nodeEdge, positionHere);
@@ -346,33 +351,35 @@ public final class ArcRerouter {
                     if (!faceInRestriction(faceId)) {
                         continue;
                     }
+                    int cornerHalfEdge = faceHalfEdges[faceId];
                     for (int corner = 0; corner < CORNERS; corner++) {
-                        int neighbor = copy.faceVertexAt(faceId, corner);
+                        int neighbor = halfEdgeVertices[cornerHalfEdge];
+                        int nextCornerHalfEdge = halfEdgeNexts[cornerHalfEdge];
                         boolean arrivesThroughCorner = neighbor != endCopyVertex
                                 || inCorner(faceId, true);
-                        if (arrivesThroughCorner && standable(neighbor, endCopyVertex, passThrough)) {
+                        if (arrivesThroughCorner
+                                && standable(neighbor, endCopyVertex, passThrough)) {
                             copy.vertexPosition(neighbor, positionCandidate);
                             relax(node, neighbor, headSplits,
                                     headLength + positionHere.distance(positionCandidate), stamp);
                         }
-                        int edgeId = copy.faceEdgeAt(faceId, corner);
-                        if (edgeId != nodeEdge && splittable(edgeId, endCopyVertex, passThrough)) {
+                        int edgeId = halfEdgeEdges[cornerHalfEdge];
+                        if (edgeId != nodeEdge && splittable(edgeId, neighbor,
+                                halfEdgeVertices[nextCornerHalfEdge], endCopyVertex, passThrough)) {
                             copy.edgeMidpoint(edgeId, positionCandidate);
                             relax(node, vertexIdBound + edgeId, headSplits + 1,
                                     headLength + positionHere.distance(positionCandidate), stamp);
                         }
+                        cornerHalfEdge = nextCornerHalfEdge;
                     }
                 }
                 continue;
             }
-
-            // A vertex steps along its free edges and onto the midpoints of its
-            // faces' edges.
             copy.vertexPosition(node, positionHere);
-            boolean atStart = node == startCopyVertex;
-            for (int index = 0; index < copy.vertexEdgeCount(node); index++) {
-                int edgeId = copy.vertexEdgeAt(node, index);
-                boolean edgeFree = topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED;
+            IntIdList nodeEdges = copy.vertexEdges.get(node);
+            for (int index = 0; index < nodeEdges.size(); index++) {
+                int edgeId = nodeEdges.get(index);
+                boolean edgeFree = ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED;
                 if (!edgeFree || !edgeInRestriction(edgeId)) {
                     continue;
                 }
@@ -385,24 +392,29 @@ public final class ArcRerouter {
                         || inCorner(leftFace, true) || inCorner(rightFace, true);
                 if (leavesThroughCorner && arrivesThroughCorner
                         && standable(neighbor, endCopyVertex, passThrough)) {
-                    relax(node, neighbor, headSplits, headLength + topology.edgeLength(edgeId), stamp);
+                    relax(node, neighbor, headSplits, headLength + topology.edgeLength(edgeId),
+                            stamp);
                 }
             }
-            for (int index = 0; index < copy.vertexFaceCount(node); index++) {
-                int faceId = copy.vertexFaceAt(node, index);
+            IntIdList nodeFaces = copy.vertexFaces.get(node);
+            for (int index = 0; index < nodeFaces.size(); index++) {
+                int faceId = nodeFaces.get(index);
                 boolean leavesThroughCorner = !atStart || inCorner(faceId, false);
                 if (!leavesThroughCorner || !faceInRestriction(faceId)) {
                     continue;
                 }
+                int cornerHalfEdge = faceHalfEdges[faceId];
                 for (int corner = 0; corner < CORNERS; corner++) {
-                    int edgeId = copy.faceEdgeAt(faceId, corner);
-                    int halfEdge = copy.edgeHalfEdge(edgeId);
-                    boolean touchesNode = copy.halfEdgeVertex(halfEdge) == node
-                            || copy.halfEdgeEndVertex(halfEdge) == node;
+                    int nextCornerHalfEdge = halfEdgeNexts[cornerHalfEdge];
+                    int tail = halfEdgeVertices[cornerHalfEdge];
+                    int head = halfEdgeVertices[nextCornerHalfEdge];
+                    int edgeId = halfEdgeEdges[cornerHalfEdge];
+                    cornerHalfEdge = nextCornerHalfEdge;
+                    boolean touchesNode = tail == node || head == node;
                     if (touchesNode && !atStart) {
                         continue;
                     }
-                    if (splittable(edgeId, endCopyVertex, passThrough)) {
+                    if (splittable(edgeId, tail, head, endCopyVertex, passThrough)) {
                         copy.edgeMidpoint(edgeId, positionCandidate);
                         relax(node, vertexIdBound + edgeId, headSplits + 1,
                                 headLength + positionHere.distance(positionCandidate), stamp);
@@ -415,7 +427,8 @@ public final class ArcRerouter {
         }
 
         List<Integer> nodePath = new ArrayList<>();
-        for (int walk = endCopyVertex; walk != startCopyVertex; walk = parentByNode[walk]) {
+        for (int walk = endCopyVertex; walk != startCopyVertex;
+                walk = stateByNode[walk * NODE_STATE_STRIDE + PARENT_SLOT]) {
             nodePath.add(walk);
         }
         Collections.reverse(nodePath);
@@ -455,16 +468,19 @@ public final class ArcRerouter {
      * @param stamp     this search's generation
      */
     private void relax(int fromNode, int toNode, int newSplits, float newLength, int stamp) {
-        boolean seen = visitStampByNode[toNode] == stamp;
-        boolean noBetter = splitsByNode[toNode] < newSplits
-                || splitsByNode[toNode] == newSplits && lengthByNode[toNode] <= newLength;
+        int toState = toNode * NODE_STATE_STRIDE;
+        int mark = stateByNode[toState + MARK_SLOT];
+        boolean seen = mark >>> 1 == stamp;
+        int seenSplits = stateByNode[toState + SPLITS_SLOT];
+        boolean noBetter = seenSplits < newSplits || seenSplits == newSplits
+                && Float.intBitsToFloat(stateByNode[toState + LENGTH_SLOT]) <= newLength;
         if (seen && noBetter) {
             return;
         }
-        visitStampByNode[toNode] = stamp;
-        splitsByNode[toNode] = newSplits;
-        lengthByNode[toNode] = newLength;
-        parentByNode[toNode] = fromNode;
+        stateByNode[toState + MARK_SLOT] = stamp << 1 | (seen ? mark & SETTLED_BIT : 0);
+        stateByNode[toState + SPLITS_SLOT] = newSplits;
+        stateByNode[toState + LENGTH_SLOT] = Float.floatToRawIntBits(newLength);
+        stateByNode[toState + PARENT_SLOT] = fromNode;
         if (frontierSize == frontierKeys.length) {
             frontierKeys = Arrays.copyOf(frontierKeys, frontierKeys.length * 2);
             frontierNodes = Arrays.copyOf(frontierNodes, frontierNodes.length * 2);
@@ -519,20 +535,20 @@ public final class ArcRerouter {
      * free endpoint of it offers a way round.
      *
      * @param edgeId        candidate copy edge
+     * @param tail          one endpoint of the edge
+     * @param head          its other endpoint
      * @param endCopyVertex vertex the route reaches, standable however it is
      *                      claimed
      * @param passThrough   a claimed vertex the search may transit anyway
      * @return true when splitting the edge can be part of a route
      */
-    private boolean splittable(int edgeId, int endCopyVertex, int passThrough) {
+    private boolean splittable(int edgeId, int tail, int head, int endCopyVertex,
+            int passThrough) {
         boolean heldByArc = topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED;
         boolean onSourceEdge = topology.sourceEdgeByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED;
         if (heldByArc || interiorOnly && onSourceEdge || !edgeInRestriction(edgeId)) {
             return false;
         }
-        int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-        int tail = topology.copy.halfEdgeVertex(halfEdge);
-        int head = topology.copy.halfEdgeEndVertex(halfEdge);
         boolean touchesTarget = tail == endCopyVertex || head == endCopyVertex;
         boolean touchesPassThrough = tail == passThrough || head == passThrough;
         if (touchesTarget || touchesPassThrough) {

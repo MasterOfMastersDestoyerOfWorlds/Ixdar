@@ -118,6 +118,13 @@ public class ArcNetwork {
     public long relabelNanos;
 
     /**
+     * Per arc id, every patch the arc was written into a side of since the first
+     * {@link #retirePointEmbeddedArc}: a superset of the patches listing it, so that call filters
+     * a few candidates instead of scanning every patch. Null until then; each side write records.
+     */
+    public IntIdList[] sidePatchCandidatesByArc;
+
+    /**
      * Working-copy vertices the carve and the operators minted, filled by
      * {@link #measureDensity}.
      */
@@ -434,6 +441,7 @@ public class ArcNetwork {
             patch.sideArcIds.get(side).addAll(sideArcs);
             patch.sideNodeIds.get(side).add(walkNode);
             for (int arcId : sideArcs) {
+                recordSidePatchCandidate(arcId, patchId);
                 EmbeddedArc arc = arcs.get(arcId);
                 if (arc.startNodeId != walkNode && arc.endNodeId != walkNode) {
                     throw new IllegalStateException("patch " + patchId + " side " + side
@@ -455,6 +463,28 @@ public class ArcNetwork {
         }
         markPatchChanged(patchId);
         return patchId;
+    }
+
+    /**
+     * Notes that an arc was written into a side of a patch, keeping
+     * {@link #sidePatchCandidatesByArc} a superset of the patches listing it; a no-op until
+     * that index is built.
+     *
+     * @param arcId   arc written into the side
+     * @param patchId patch whose side now lists it
+     */
+    private void recordSidePatchCandidate(int arcId, int patchId) {
+        if (sidePatchCandidatesByArc == null) {
+            return;
+        }
+        if (arcId >= sidePatchCandidatesByArc.length) {
+            sidePatchCandidatesByArc = Arrays.copyOf(sidePatchCandidatesByArc,
+                    Math.max(arcId + 1, sidePatchCandidatesByArc.length * 2));
+        }
+        if (sidePatchCandidatesByArc[arcId] == null) {
+            sidePatchCandidatesByArc[arcId] = new IntIdList(2);
+        }
+        sidePatchCandidatesByArc[arcId].add(patchId);
     }
 
     /**
@@ -880,13 +910,42 @@ public class ArcNetwork {
      */
     public void retirePointEmbeddedArc(int arcId) {
         EmbeddedArc arc = arcs.get(arcId);
+        if (sidePatchCandidatesByArc == null) {
+            sidePatchCandidatesByArc = new IntIdList[arcs.size()];
+            for (EmbeddedPatch patch : patches) {
+                if (!patch.alive) {
+                    continue;
+                }
+                for (List<Integer> sideArcs : patch.sideArcIds) {
+                    for (int sideArcId : sideArcs) {
+                        recordSidePatchCandidate(sideArcId, patch.patchId);
+                    }
+                }
+            }
+        }
         // Flank records can be stale on a degenerated arc; the side lists are ground truth
-        // for which cells the point still pretends to bound.
+        // for which cells the point still pretends to bound, and patch-id order decides which
+        // owner becomes the left flank.
         List<Integer> owners = new ArrayList<>();
-        for (EmbeddedPatch patch : patches) {
-            if (patch.alive
+        IntIdList candidates = arcId < sidePatchCandidatesByArc.length
+                ? sidePatchCandidatesByArc[arcId] : null;
+        for (int index = 0; candidates != null && index < candidates.size(); index++) {
+            EmbeddedPatch patch = patches.get(candidates.get(index));
+            if (patch.alive && !owners.contains(patch.patchId)
                     && patch.sideArcIds.stream().anyMatch(side -> side.contains(arcId))) {
                 owners.add(patch.patchId);
+            }
+        }
+        Collections.sort(owners);
+        if (NetworkContraction.VALIDATE_EVERY_COLLAPSE) {
+            for (EmbeddedPatch patch : patches) {
+                boolean listsArc = patch.alive
+                        && patch.sideArcIds.stream().anyMatch(side -> side.contains(arcId));
+                if (listsArc != owners.contains(patch.patchId)) {
+                    throw new IllegalStateException("patch " + patch.patchId + " lists arc "
+                            + arcId + ": " + listsArc + ", but sidePatchCandidatesByArc says"
+                            + " otherwise; a side write skipped recordSidePatchCandidate");
+                }
             }
         }
         arc.leftPatchId = owners.isEmpty() ? NONE : owners.get(0);
@@ -1036,6 +1095,9 @@ public class ArcNetwork {
         List<Integer> sideNodes = patches.get(patchId).sideNodeIds.get(position[0]);
         sideArcs.remove(position[1]);
         sideArcs.addAll(position[1], replacements);
+        for (int replacementArcId : replacements) {
+            recordSidePatchCandidate(replacementArcId, patchId);
+        }
         markPatchChanged(patchId);
         for (int step = 0; step + 1 < replacements.size(); step++) {
             sideNodes.add(position[1] + 1 + step,
@@ -1170,6 +1232,8 @@ public class ArcNetwork {
             sideArcs.set(position[1], forward ? firstArcId : secondArcId);
             sideArcs.add(position[1] + 1, forward ? secondArcId : firstArcId);
             sideNodes.add(position[1] + 1, splitNodeId);
+            recordSidePatchCandidate(firstArcId, patchId);
+            recordSidePatchCandidate(secondArcId, patchId);
             markPatchChanged(patchId);
         }
         return new int[] { firstArcId, secondArcId };
@@ -1362,6 +1426,7 @@ public class ArcNetwork {
         }
         int[] position = sidePosition(patchId, oldArcId);
         patches.get(patchId).sideArcIds.get(position[0]).set(position[1], newArcId);
+        recordSidePatchCandidate(newArcId, patchId);
         markPatchChanged(patchId);
         if (newArc.leftPatchId == oldArc.leftPatchId || newArc.leftPatchId == oldArc.rightPatchId) {
             newArc.leftPatchId = patchId;
@@ -1764,8 +1829,7 @@ public class ArcNetwork {
      * @return the half-edge from the hop's start vertex to its end vertex
      */
     private int orientedHopHalfEdge(EmbeddedArc arc, int hop) {
-        int halfEdge = topology.copy.edgeHalfEdge(topology.copy.edgeBetween(
-                arc.path.copyVertexPath.get(hop), arc.path.copyVertexPath.get(hop + 1)));
+        int halfEdge = topology.copy.edgeHalfEdge(arc.path.copyEdgePath.get(hop));
         if (topology.copy.halfEdgeVertex(halfEdge) != arc.path.copyVertexPath.get(hop)) {
             halfEdge = topology.copy.halfEdgeTwin(halfEdge);
         }

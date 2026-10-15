@@ -185,20 +185,31 @@ public final class PatchCorridor {
         faceScratch.clear();
         visitStampByCopyFace[seed] = visitStamp;
         faceScratch.add(seed);
+        int[] ownerArcByCopyEdge = tmesh.topology.ownerArcByCopyEdge;
+        int[] halfEdgeNexts = copy.halfEdgeNext;
+        int[] halfEdgeEdges = copy.halfEdgeEdge;
+        int[] halfEdgeTwins = copy.halfEdgeTwin;
+        int[] halfEdgeFaces = copy.halfEdgeFace;
+        // The face's half-edge loop visits its corners in corner-list order, through flat
+        // arrays instead of the per-face lists.
         for (int cursor = 0; cursor < faceScratch.size(); cursor++) {
             int faceId = faceScratch.get(cursor);
-            for (int corner = 0; corner < copy.faceHalfEdgeCount(faceId); corner++) {
-                int edgeId = copy.faceEdgeAt(faceId, corner);
-                if (tmesh.topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+            int firstHalfEdge = copy.faceHalfEdge[faceId];
+            int halfEdge = firstHalfEdge;
+            do {
+                int edgeId = halfEdgeEdges[halfEdge];
+                int across = halfEdgeTwins[halfEdge];
+                halfEdge = halfEdgeNexts[halfEdge];
+                if (ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
-                int neighbour = copy.faceAcrossEdge(faceId, edgeId);
+                int neighbour = halfEdgeFaces[across];
                 if (neighbour != EmbeddedMeshTopology.UNCLAIMED
                         && visitStampByCopyFace[neighbour] != visitStamp) {
                     visitStampByCopyFace[neighbour] = visitStamp;
                     faceScratch.add(neighbour);
                 }
-            }
+            } while (halfEdge != firstHalfEdge);
         }
         return faceScratch;
     }

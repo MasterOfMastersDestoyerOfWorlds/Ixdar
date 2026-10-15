@@ -679,24 +679,29 @@ public final class ArcNetworkRecarve {
 
     /**
      * Checks the re-carved arcs cut the clean copy into exactly the patches the
-     * contracted layout has.
+     * contracted layout has. One region flood decides; only a failure pays a second one, to
+     * name the unmatched region and describe its arcs.
      *
      * @throws IllegalStateException when any region matches no live patch
      */
     private void requirePartition() {
-        Set<Integer> boundaryArcs = new HashSet<>();
-        List<Integer> unmatched = new PatchRegions(freshTmesh)
-                .findFirstUnmatchedRegion(boundaryArcs);
-        if (!unmatched.isEmpty()) {
+        try {
+            new PatchRegions(freshTmesh).build();
+        } catch (IllegalStateException partitionFailure) {
+            Set<Integer> boundaryArcs = new HashSet<>();
+            List<Integer> unmatched = new PatchRegions(freshTmesh)
+                    .findFirstUnmatchedRegion(boundaryArcs);
+            if (unmatched.isEmpty()) {
+                throw partitionFailure;
+            }
             StringBuilder detail = new StringBuilder("the re-carved arrangement leaves a region of "
                     + unmatched.size() + " faces " + unmatched + " bounded by arcs " + boundaryArcs
                     + " that matches no live patch");
             for (int denseArcId : boundaryArcs) {
                 detail.append(snapping.describeArc(denseArcId));
             }
-            throw new IllegalStateException(detail.toString());
+            throw new IllegalStateException(detail.toString(), partitionFailure);
         }
-        new PatchRegions(freshTmesh).build();
     }
 
     /**

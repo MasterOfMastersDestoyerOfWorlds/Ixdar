@@ -322,8 +322,16 @@ public final class ZeroArcCollapseOperator {
         }
         // The drags never relabel — mid-collapse cells are transient merges no label fits —
         // so every cover this collapse moved is re-read here, once the arrangement is whole.
+        // Touched ids aliased into one surviving patch re-read it once.
         for (int index = 0; index < touchedPatchCount; index++) {
-            tmesh.relabelPatchCover(touchedPatches[index]);
+            touchedPatches[index] = tmesh.topology.resolvePatch(touchedPatches[index]);
+            boolean floodedAlready = false;
+            for (int earlier = 0; earlier < index && !floodedAlready; earlier++) {
+                floodedAlready = touchedPatches[earlier] == touchedPatches[index];
+            }
+            if (!floodedAlready) {
+                tmesh.relabelPatchCover(touchedPatches[index]);
+            }
         }
         collapsedCount++;
         collapsingArcId = ArcNetwork.NONE;

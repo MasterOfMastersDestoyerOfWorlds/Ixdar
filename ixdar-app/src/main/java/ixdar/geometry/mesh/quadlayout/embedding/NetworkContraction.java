@@ -155,20 +155,28 @@ public final class NetworkContraction implements MeshNode {
                     network.validate();
                 }
             }
-            network.validate();
-            network.requireArcFlanksMatchCovers(progress("collapse round"));
+            // The whole-network checks run per round only when debugging; in production they
+            // run once below, on the fixed point.
+            if (VALIDATE_EVERY_COLLAPSE) {
+                network.validate();
+                network.requireArcFlanksMatchCovers(progress("collapse round"));
+            }
             int nonSimple = splitPatch.nextNonSimpleZeroPatch();
             if (nonSimple == ArcNetwork.NONE) {
                 break;
             }
             splitPatch.split(nonSimple);
             patchSplitCount++;
-            network.validate();
-            network.requireArcFlanksMatchCovers(progress("patch split " + nonSimple));
+            if (VALIDATE_EVERY_COLLAPSE) {
+                network.validate();
+                network.requireArcFlanksMatchCovers(progress("patch split " + nonSimple));
+            }
             if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
                 network.requireArrangementMatchesPatches(progress("patch split " + nonSimple));
             }
         }
+        network.validate();
+        network.requireArcFlanksMatchCovers(progress("contraction"));
         Platforms.log("[contract] relabel floods=%d faces=%d | %.3fs%n",
                 network.relabelCallCount, network.relabelFacesFlooded,
                 network.relabelNanos / NANOS_PER_SECOND);
