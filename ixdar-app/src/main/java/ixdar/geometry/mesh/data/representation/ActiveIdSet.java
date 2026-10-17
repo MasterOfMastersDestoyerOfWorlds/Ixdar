@@ -111,6 +111,30 @@ public final class ActiveIdSet {
     }
 
     /**
+     * Fills an empty set with the ids {@code [0, count)}, in the order {@code count} calls of
+     * {@link #add} in ascending id order leave them.
+     *
+     * @param count number of leading ids to add
+     * @throws IllegalStateException when the set is not empty
+     */
+    public void addFirstIds(int count) {
+        if (size != 0) {
+            throw new IllegalStateException("addFirstIds needs an empty set, not " + size + " ids");
+        }
+        if (count > ids.length) {
+            ids = new int[count];
+        }
+        if (count > indexById.length) {
+            indexById = new int[count];
+        }
+        for (int id = 0; id < count; id++) {
+            ids[id] = id;
+            indexById[id] = id;
+        }
+        size = count;
+    }
+
+    /**
      * Empties the set, keeping the backing arrays so a scratch set can be reused without
      * reallocating its id-space index. Costs one pass over the live ids, not over the id space.
      */

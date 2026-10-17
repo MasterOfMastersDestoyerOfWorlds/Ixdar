@@ -16,6 +16,7 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.TriangleBvh;
 import ixdar.geometry.mesh.data.TriangleGeometry;
 import ixdar.geometry.mesh.data.UnionFind;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.nodes.api.UvField;
@@ -1183,7 +1184,11 @@ public final class MeshRepair {
         return neighbours;
     }
 
-    /** Compacts the survivors into a {@link HalfEdgeMesh} and rebuilds the bundle's slots. */
+    /**
+     * Compacts the survivors into a {@link HalfEdgeMesh} and rebuilds the bundle's slots. An
+     * orientation contradiction has no half-edge form, so then the survivors stay an
+     * {@link ArrayMesh} and the report, not the build, says why.
+     */
     private void assemble() {
         ensureEdges();
         for (int edge = 0; edge < edgeCount; edge++) {
@@ -1247,7 +1252,9 @@ public final class MeshRepair {
             }
             nextFace++;
         }
-        HalfEdgeMesh repaired = HalfEdgeMeshEngine.buildFromIndexedMesh(outPositions, outFaces);
+        MeshTopology repaired = report.unorientedEdgeCount > 0
+                ? new ArrayMesh(outPositions, null, outFaces, TRIANGLE_CORNERS)
+                : HalfEdgeMeshEngine.buildFromIndexedMesh(outPositions, outFaces);
         report.outputVertexCount = survivors;
         report.outputFaceCount = aliveFaces;
         report.fillFaceIndices = Arrays.copyOf(fillFaceIndices, fillFaces);
@@ -1258,8 +1265,10 @@ public final class MeshRepair {
         }
         bundle = carryVertexSlots(bundle, outOriginal);
         bundle = bundle.withSlot(EdgeMarks.SLOT, Map.of());
-        bundle = EdgeMarks.with(bundle, MeshRepairReport.OPEN_BOUNDARY_LABEL,
-                boundaryEdgeMarks(repaired));
+        if (repaired instanceof HalfEdgeMesh halfEdgeMesh) {
+            bundle = EdgeMarks.with(bundle, MeshRepairReport.OPEN_BOUNDARY_LABEL,
+                    boundaryEdgeMarks(halfEdgeMesh));
+        }
         output = bundle.withSlot(MeshRepairReport.SLOT, report);
     }
 

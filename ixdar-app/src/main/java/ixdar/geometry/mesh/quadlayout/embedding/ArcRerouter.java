@@ -10,7 +10,6 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 
 /**
@@ -376,9 +375,8 @@ public final class ArcRerouter {
                 continue;
             }
             copy.vertexPosition(node, positionHere);
-            IntIdList nodeEdges = copy.vertexEdges.get(node);
-            for (int index = 0; index < nodeEdges.size(); index++) {
-                int edgeId = nodeEdges.get(index);
+            for (int index = 0; index < copy.vertexEdgeCount(node); index++) {
+                int edgeId = copy.vertexEdgeAt(node, index);
                 boolean edgeFree = ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED;
                 if (!edgeFree || !edgeInRestriction(edgeId)) {
                     continue;
@@ -396,9 +394,8 @@ public final class ArcRerouter {
                             stamp);
                 }
             }
-            IntIdList nodeFaces = copy.vertexFaces.get(node);
-            for (int index = 0; index < nodeFaces.size(); index++) {
-                int faceId = nodeFaces.get(index);
+            for (int index = 0; index < copy.vertexFaceCount(node); index++) {
+                int faceId = copy.vertexFaceAt(node, index);
                 boolean leavesThroughCorner = !atStart || inCorner(faceId, false);
                 if (!leavesThroughCorner || !faceInRestriction(faceId)) {
                     continue;

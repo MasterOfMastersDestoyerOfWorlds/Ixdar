@@ -1,6 +1,5 @@
 package ixdar.geometry.mesh.data.representation;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 
 import org.joml.Vector3f;
@@ -11,7 +10,7 @@ import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 /**
  * Mutable half-edge mesh: separate id ranges for vertices, edges, faces, and
  * half-edges, each with an active flag and per-id parallel arrays plus
- * {@link IntIdList} adjacency. Editing methods delegate to
+ * {@link IntIdTable} adjacency. Editing methods delegate to
  * {@link HalfEdgeMeshEngine}.
  */
 public class HalfEdgeMesh implements MeshTopology {
@@ -25,12 +24,12 @@ public class HalfEdgeMesh implements MeshTopology {
     public final ActiveIdSet activeEdgeIds;
     public final ActiveIdSet activeFaceIds;
     public final ActiveIdSet activeHalfEdgeIds;
-    public final ArrayList<IntIdList> vertexOutgoingHalfEdges;
-    public final ArrayList<IntIdList> vertexEdges;
-    public final ArrayList<IntIdList> vertexFaces;
-    public final ArrayList<IntIdList> faceHalfEdges;
-    public final ArrayList<IntIdList> faceVertices;
-    public final ArrayList<IntIdList> faceEdges;
+    public final IntIdTable vertexOutgoingHalfEdges;
+    public final IntIdTable vertexEdges;
+    public final IntIdTable vertexFaces;
+    public final IntIdTable faceHalfEdges;
+    public final IntIdTable faceVertices;
+    public final IntIdTable faceEdges;
 
     public float[] vertexPositions;
     public float[] vertexNormals;
@@ -84,22 +83,12 @@ public class HalfEdgeMesh implements MeshTopology {
         this.activeEdgeIds = new ActiveIdSet(ec);
         this.activeFaceIds = new ActiveIdSet(fc);
         this.activeHalfEdgeIds = new ActiveIdSet(hc);
-        this.vertexOutgoingHalfEdges = new ArrayList<>(vc);
-        this.vertexEdges = new ArrayList<>(vc);
-        this.vertexFaces = new ArrayList<>(vc);
-        for (int i = 0; i < vc; i++) {
-            this.vertexOutgoingHalfEdges.add(new IntIdList(DEFAULT_ADJACENCY_CAPACITY));
-            this.vertexEdges.add(new IntIdList(DEFAULT_ADJACENCY_CAPACITY));
-            this.vertexFaces.add(new IntIdList(DEFAULT_ADJACENCY_CAPACITY));
-        }
-        this.faceHalfEdges = new ArrayList<>(fc);
-        this.faceVertices = new ArrayList<>(fc);
-        this.faceEdges = new ArrayList<>(fc);
-        for (int i = 0; i < fc; i++) {
-            this.faceHalfEdges.add(new IntIdList(MIN_CAPACITY));
-            this.faceVertices.add(new IntIdList(MIN_CAPACITY));
-            this.faceEdges.add(new IntIdList(MIN_CAPACITY));
-        }
+        this.vertexOutgoingHalfEdges = new IntIdTable(DEFAULT_ADJACENCY_CAPACITY);
+        this.vertexEdges = new IntIdTable(DEFAULT_ADJACENCY_CAPACITY);
+        this.vertexFaces = new IntIdTable(DEFAULT_ADJACENCY_CAPACITY);
+        this.faceHalfEdges = new IntIdTable(MIN_CAPACITY);
+        this.faceVertices = new IntIdTable(MIN_CAPACITY);
+        this.faceEdges = new IntIdTable(MIN_CAPACITY);
         this.vertexPositions = new float[vc * FLOATS_PER_VERTEX];
         this.vertexNormals = new float[vc * FLOATS_PER_VERTEX];
         this.vertexOutgoing = new int[vc];
@@ -421,45 +410,45 @@ public class HalfEdgeMesh implements MeshTopology {
     /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdgeCount(int vertexId) {
-        return vertexOutgoingHalfEdges.get(vertexId).size();
+        return vertexOutgoingHalfEdges.size(vertexId);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexOutgoingHalfEdgeAt(int vertexId, int adjacencyIndex) {
-        return vertexOutgoingHalfEdges.get(vertexId).get(adjacencyIndex);
+        return vertexOutgoingHalfEdges.get(vertexId, adjacencyIndex);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexEdgeCount(int vertexId) {
-        return vertexEdges.get(vertexId).size();
+        return vertexEdges.size(vertexId);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexEdgeAt(int vertexId, int adjacencyIndex) {
-        return vertexEdges.get(vertexId).get(adjacencyIndex);
+        return vertexEdges.get(vertexId, adjacencyIndex);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexFaceCount(int vertexId) {
-        return vertexFaces.get(vertexId).size();
+        return vertexFaces.size(vertexId);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int vertexFaceAt(int vertexId, int adjacencyIndex) {
-        return vertexFaces.get(vertexId).get(adjacencyIndex);
+        return vertexFaces.get(vertexId, adjacencyIndex);
     }
 
     /** {@inheritDoc}. */
     @Override
     public boolean isBoundaryVertex(int vertexId) {
-        IntIdList edges = vertexEdges.get(vertexId);
-        for (int i = 0; i < edges.size(); i++) {
-            if (isBoundaryEdge(edges.get(i))) {
+        int edgeCount = vertexEdges.size(vertexId);
+        for (int i = 0; i < edgeCount; i++) {
+            if (isBoundaryEdge(vertexEdges.get(vertexId, i))) {
                 return true;
             }
         }
@@ -534,37 +523,37 @@ public class HalfEdgeMesh implements MeshTopology {
     /** {@inheritDoc}. */
     @Override
     public int faceHalfEdgeCount(int faceId) {
-        return faceHalfEdges.get(faceId).size();
+        return faceHalfEdges.size(faceId);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceHalfEdgeAt(int faceId, int adjacencyIndex) {
-        return faceHalfEdges.get(faceId).get(adjacencyIndex);
+        return faceHalfEdges.get(faceId, adjacencyIndex);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceVertexCount(int faceId) {
-        return faceVertices.get(faceId).size();
+        return faceVertices.size(faceId);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceVertexAt(int faceId, int adjacencyIndex) {
-        return faceVertices.get(faceId).get(adjacencyIndex);
+        return faceVertices.get(faceId, adjacencyIndex);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceEdgeCount(int faceId) {
-        return faceEdges.get(faceId).size();
+        return faceEdges.size(faceId);
     }
 
     /** {@inheritDoc}. */
     @Override
     public int faceEdgeAt(int faceId, int adjacencyIndex) {
-        return faceEdges.get(faceId).get(adjacencyIndex);
+        return faceEdges.get(faceId, adjacencyIndex);
     }
 
     /**
@@ -745,9 +734,9 @@ public class HalfEdgeMesh implements MeshTopology {
         vertexOutgoing[vertexId] = NONE;
         setVector(vertexPositions, vertexId, x, y, z);
         setVector(vertexNormals, vertexId, 0f, 0f, 0f);
-        ensureVertexAdjacencySlot(vertexOutgoingHalfEdges, vertexId).clear();
-        ensureVertexAdjacencySlot(vertexEdges, vertexId).clear();
-        ensureVertexAdjacencySlot(vertexFaces, vertexId).clear();
+        vertexOutgoingHalfEdges.clear(vertexId);
+        vertexEdges.clear(vertexId);
+        vertexFaces.clear(vertexId);
         return vertexId;
     }
 
@@ -778,9 +767,9 @@ public class HalfEdgeMesh implements MeshTopology {
         activeFaceIds.add(faceId);
         faceHalfEdge[faceId] = NONE;
         setVector(faceNormals, faceId, 0f, 0f, 0f);
-        ensureFaceAdjacencySlot(faceHalfEdges, faceId).clear();
-        ensureFaceAdjacencySlot(faceVertices, faceId).clear();
-        ensureFaceAdjacencySlot(faceEdges, faceId).clear();
+        faceHalfEdges.clear(faceId);
+        faceVertices.clear(faceId);
+        faceEdges.clear(faceId);
         return faceId;
     }
 
@@ -815,9 +804,9 @@ public class HalfEdgeMesh implements MeshTopology {
         activeFaceIds.remove(faceId);
         faceHalfEdge[faceId] = NONE;
         setVector(faceNormals, faceId, 0f, 0f, 0f);
-        faceHalfEdges.get(faceId).clear();
-        faceVertices.get(faceId).clear();
-        faceEdges.get(faceId).clear();
+        faceHalfEdges.clear(faceId);
+        faceVertices.clear(faceId);
+        faceEdges.clear(faceId);
     }
 
     /**
@@ -859,9 +848,9 @@ public class HalfEdgeMesh implements MeshTopology {
         vertexOutgoing[vertexId] = NONE;
         setVector(vertexPositions, vertexId, 0f, 0f, 0f);
         setVector(vertexNormals, vertexId, 0f, 0f, 0f);
-        vertexOutgoingHalfEdges.get(vertexId).clear();
-        vertexEdges.get(vertexId).clear();
-        vertexFaces.get(vertexId).clear();
+        vertexOutgoingHalfEdges.clear(vertexId);
+        vertexEdges.clear(vertexId);
+        vertexFaces.clear(vertexId);
     }
 
     /**
@@ -945,36 +934,6 @@ public class HalfEdgeMesh implements MeshTopology {
         halfEdgeVertex = resizeIntArray(halfEdgeVertex, nextCapacity);
         halfEdgeFace = resizeIntArray(halfEdgeFace, nextCapacity);
         halfEdgeEdge = resizeIntArray(halfEdgeEdge, nextCapacity);
-    }
-
-    /**
-     * Pads a vertex-indexed adjacency list with empty slots up to {@code vertexId}
-     * and returns the entry at that id.
-     *
-     * @param adjacency vertex-indexed list of {@link IntIdList} adjacency buckets
-     * @param vertexId  vertex id whose slot must exist
-     * @return the {@link IntIdList} bucket for {@code vertexId}
-     */
-    public IntIdList ensureVertexAdjacencySlot(ArrayList<IntIdList> adjacency, int vertexId) {
-        while (adjacency.size() <= vertexId) {
-            adjacency.add(new IntIdList());
-        }
-        return adjacency.get(vertexId);
-    }
-
-    /**
-     * Pads a face-indexed adjacency list with empty slots up to {@code faceId} and
-     * returns the entry at that id.
-     *
-     * @param adjacency face-indexed list of {@link IntIdList} adjacency buckets
-     * @param faceId    face id whose slot must exist
-     * @return the {@link IntIdList} bucket for {@code faceId}
-     */
-    public IntIdList ensureFaceAdjacencySlot(ArrayList<IntIdList> adjacency, int faceId) {
-        while (adjacency.size() <= faceId) {
-            adjacency.add(new IntIdList());
-        }
-        return adjacency.get(faceId);
     }
 
     /**
