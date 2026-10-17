@@ -89,7 +89,7 @@ class BisectorTest {
     @Test
     void xDeletesTheSelectedPointThenTheLastUntilNoneIsLeft() {
         MeshTopology tube = tube();
-        RingTool tool = toolOn(tube, null, null);
+        RingTool tool = toolOn(tube, null);
         ring(tool, FIRST_RING_ROW);
         ring(tool, SECOND_RING_ROW);
         assertTrue(tool.startBisector(), tool.lastError);
@@ -119,8 +119,7 @@ class BisectorTest {
         MeshTopology tube = tube();
         Path dsl = folder.resolve("tube.dsl");
         Files.write(dsl, CARRIER.getBytes(StandardCharsets.UTF_8));
-        NodeGraphRuntime[] graph = { null };
-        RingTool tool = toolOn(tube, dsl, graph);
+        RingTool tool = toolOn(tube, dsl);
         int first = ring(tool, FIRST_RING_ROW);
         int second = ring(tool, SECOND_RING_ROW);
         assertTrue(tool.confirmedRingUnsaved.get(first) && tool.confirmedRingUnsaved.get(second));
@@ -165,7 +164,7 @@ class BisectorTest {
         tool.scene.ringMarksByLabel.put(firstId, tool.confirmedRings.get(first).markedByEdgeId);
         tool.scene.ringMarksByLabel.put(secondId, tool.confirmedRings.get(second).markedByEdgeId);
         tool.scene.ringMarksByLabel.put(bisectorId, drawn);
-        graph[0] = NodeGraphRuntime.fromSource(saved);
+        tool.scene.graph = NodeGraphRuntime.fromSource(saved);
         tool.graphRingsChanged();
         tool.adoptGraphRings(tube);
         int reloaded = tool.confirmedSourceLabel.indexOf(bisectorId);
@@ -192,7 +191,7 @@ class BisectorTest {
             { vertex(SECOND_RING_ROW - 1, TOP_SIDE), vertex(FIRST_RING_ROW - 1, TOP_SIDE),
                 nearSecond, nearFirst } };
         for (int[] order : clicks) {
-            RingTool tool = toolOn(tube, null, null);
+            RingTool tool = toolOn(tube, null);
             ring(tool, FIRST_RING_ROW);
             ring(tool, SECOND_RING_ROW);
             int bisector = bisect(tool, order[0], order[1], order[2], order[3]);
@@ -207,7 +206,7 @@ class BisectorTest {
     @Test
     void oneBisectorCrossesTwoPatchesAndSplitsBoth() {
         MeshTopology tube = tube();
-        RingTool tool = toolOn(tube, null, null);
+        RingTool tool = toolOn(tube, null);
         patch(tool, FIRST_PATCH_ROW);
         patch(tool, SECOND_PATCH_ROW);
         assertEquals(COORDINATES, regions(tool).regionCount, "two patches on the tube");
@@ -226,7 +225,7 @@ class BisectorTest {
     @Test
     void bisectorsJoinedToEachOtherAndToARingCloseRegions() {
         MeshTopology tube = tube();
-        RingTool tool = toolOn(tube, null, null);
+        RingTool tool = toolOn(tube, null);
         int ring = ring(tool, FIRST_RING_ROW);
         int apex = vertex(MIDDLE_ROW, TOP_SIDE);
         // A bite off the ring, steered out to the apex, closes a pocket with the ring.
@@ -258,7 +257,7 @@ class BisectorTest {
         int near = vertex(MIDDLE_ROW - 4, TOP_SIDE + PATCH_HALF_ROWS);
         int end = vertex(SECOND_RING_ROW, TOP_SIDE - 4);
 
-        RingTool placed = toolOn(tube, null, null);
+        RingTool placed = toolOn(tube, null);
         ring(placed, FIRST_RING_ROW);
         ring(placed, SECOND_RING_ROW);
         int bisector = bisect(placed, start, end, far, near);
@@ -267,11 +266,10 @@ class BisectorTest {
                 "the anchors were not placed where they add least");
 
         // The same anchors in click order, as a statement holds them, cross.
-        NodeGraphRuntime[] graph = { null };
-        RingTool clicked = toolOn(tube, null, graph);
+        RingTool clicked = toolOn(tube, null);
         clicked.confirmedSourceLabel.set(ring(clicked, FIRST_RING_ROW), FIRST_WALL);
         clicked.confirmedSourceLabel.set(ring(clicked, SECOND_RING_ROW), SECOND_WALL);
-        graph[0] = NodeGraphRuntime.fromSource(CARRIER + CLICKED_ORDER + " = "
+        clicked.scene.graph = NodeGraphRuntime.fromSource(CARRIER + CLICKED_ORDER + " = "
                 + SplineCutNode.NODE_ID + "(geometry=carrier.geometry, points=\""
                 + SurfaceWaypoints.format(clicked.positionsOf(new int[] { start, far, near, end }),
                         COORDINATES + 1)
@@ -375,10 +373,9 @@ class BisectorTest {
     /**
      * The ring tool on a scene showing the tube, its geodesics ready and the tool active.
      *
-     * @param dsl   working .dsl a save writes, or {@code null} for none
-     * @param graph holder of the graph a re-run would show, or {@code null} for none
+     * @param dsl working .dsl a save writes, or {@code null} for none
      */
-    private static RingTool toolOn(MeshTopology tube, Path dsl, NodeGraphRuntime[] graph) {
+    private static RingTool toolOn(MeshTopology tube, Path dsl) {
         RingScene scene = new RingScene() {
             @Override
             public MeshTopology getMesh() {
@@ -398,11 +395,6 @@ class BisectorTest {
             @Override
             public String workingDslPath() {
                 return dsl == null ? null : dsl.toString();
-            }
-
-            @Override
-            public NodeGraphRuntime getLastGraphRuntime() {
-                return graph == null ? null : graph[0];
             }
         };
         RingTool tool = scene.ringTool;
