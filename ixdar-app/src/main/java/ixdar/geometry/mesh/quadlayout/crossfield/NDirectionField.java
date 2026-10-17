@@ -7,7 +7,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.IntUnaryOperator;
+import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
 
@@ -29,6 +32,7 @@ import ixdar.geometry.mesh.quadlayout.solver.Preconditioner;
 import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
 import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
 import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
+import ixdar.geometry.mesh.quadlayout.solver.ordering.SolverPermutation;
 import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
 import ixdar.geometry.mesh.quadlayout.solver.system.PowerIteration;
 import ixdar.platform.Platforms;
@@ -72,6 +76,10 @@ public class NDirectionField implements MeshNode {
     public static final int ALIGNED_CONJUGATE_GRADIENT_ITERATIONS = 5000;
 
     public static final double ALIGNED_CONJUGATE_GRADIENT_TOLERANCE = 1e-8;
+
+    public static final int STIFFNESS_SERIES_COUNT = 4;
+
+    public static final int FACES_PER_TASK = 2048;
 
     public HalfEdgeMesh mesh;
 
@@ -137,6 +145,43 @@ public class NDirectionField implements MeshNode {
     /** Raw per-face triangle index of the solved field (KCP13 §6.1.3), set by {@link #populate}. */
     public int[] triangleIndex;
 
+    /**
+     * Connection transport angle on each face corner's CCW half-edge, row
+     * {@code 3 * activeFace + corner}, set by {@link #assemble} and read again by the triangle
+     * indices.
+     */
+    public double[] transportAngle;
+
+    /** Cosine of {@link #transportAngle}, row for row. */
+    public double[] transportCosine;
+
+    /** Sine of {@link #transportAngle}, row for row. */
+    public double[] transportSine;
+
+    /**
+     * True when the mesh has a boundary edge; with a curvature bias the aligned solve then runs
+     * conjugate gradients instead of Cholesky.
+     */
+    public boolean openMesh;
+
+    /**
+     * AMD ordering of the energy matrix's pattern, computed off the solving thread from
+     * {@link #assemble}; null when the aligned solve will not factor.
+     */
+    public CompletableFuture<int[]> pendingOrdering;
+
+    /** Frozen-DOF mask {@link #pendingOrdering} was computed for; another mask reorders. */
+    public boolean[] orderingFrozen;
+
+    /**
+     * Cholesky factorization of the energy matrix, run off the solving thread while the
+     * guidance is built; taken and cleared by the aligned solve.
+     */
+    public CompletableFuture<DirectSolver.CholeskyHandle> pendingFactorization;
+
+    /** The curvature load vector being built during assembly; taken by the first solve. */
+    public CompletableFuture<Void> pendingLoadVector;
+
     /** The field being built; every durable product lands here. */
     private CrossField cf;
 
@@ -166,8 +211,9 @@ public class NDirectionField implements MeshNode {
         Arrays.fill(this.angleInFrame, Double.NaN);
         this.loadVector = new double[2 * vertexCount];
         this.crossFieldGuidance = new double[2 * vertexCount];
-        buildFramesAndTransport();
         cf.system = system;
+        cf.faceIdToActive = activeIndexById(buildMesh.faceCount(), buildMesh::faceIdAt);
+        cf.edgeIdToActive = activeIndexById(buildMesh.edgeCount(), buildMesh::edgeIdAt);
 
         // The metric's dense vertex and edge indices are the mesh's active indices, its
         // half-edge 2e the edge's own half-edge and 2e + 1 the twin; split diagonals come after.
@@ -186,25 +232,31 @@ public class NDirectionField implements MeshNode {
         Platforms.log("[cross-field timing] compute angle rescaling %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
         sectionStart = System.nanoTime();
+        openMesh = false;
+        for (int activeEdge = 0; activeEdge < cf.edgeCount && !openMesh; activeEdge++) {
+            openMesh = buildMesh.isBoundaryEdge(buildMesh.edgeIdAt(activeEdge));
+        }
+        // Frames, transport, alignment edges and the curvature load are read only from the solve
+        // on, and none reads the matrices, so they are built while the matrices are assembled.
+        CompletableFuture<Void> framesAndTransport =
+                CompletableFuture.runAsync(this::buildFramesAndTransport);
+        pendingLoadVector = useCurvatureAlignment
+                ? CompletableFuture.runAsync(this::buildLoadVector)
+                : null;
         assemble();
         Platforms.log("[cross-field timing] assemble %.3fs%n",
                 (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
+        framesAndTransport.join();
         solveField();
         return cf;
     }
 
     /**
-     * BZK09 stages: active-id maps, local face frames, edge transport angles
+     * BZK09 stages: local face frames, edge transport angles
      * cf.kappa, and alignment-edge detection, all written onto the field.
      */
     private void buildFramesAndTransport() {
         long sectionStart = System.nanoTime();
-
-        cf.faceIdToActive = activeIndexById(mesh.faceCount(), mesh::faceIdAt);
-        cf.edgeIdToActive = activeIndexById(mesh.edgeCount(), mesh::edgeIdAt);
-        Platforms.log("[cross-field timing] active-id maps %.3fs%n",
-                (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
-        sectionStart = System.nanoTime();
         /*
          * Local face frames. Convention: x_f = first half-edge of f, projected onto the
          * tangent plane. y_f = n_f × x_f. Right-handed.
@@ -351,10 +403,10 @@ public class NDirectionField implements MeshNode {
         int count = mesh.vertexCount();
         Arrays.fill(cf.singularityIndex4.data(), 0);
 
-        for (int vAi = 0; vAi < count; vAi++) {
+        IntStream.range(0, count).parallel().forEach(vAi -> {
             int vId = mesh.vertexIdAt(vAi);
             if (mesh.isBoundaryVertex(vId))
-                continue;
+                return;
             double defect = 2.0 * Math.PI - metric.vertexAngleSum[vAi];
 
             float signedKappaSum = 0f;
@@ -376,7 +428,7 @@ public class NDirectionField implements MeshNode {
             if (iQuarter != 0) {
                 cf.singularityIndex4.data()[vAi] = iQuarter;
             }
-        }
+        });
     }
 
     /**
@@ -388,8 +440,25 @@ public class NDirectionField implements MeshNode {
         long sectionStart = System.nanoTime();
         boolean hasAlignmentEdges = cf.hasAlignmentEdges();
         if (useCurvatureAlignment || hasAlignmentEdges) {
+            // The energy matrix factors while the guidance below is built; neither reads the other.
+            if (!(openMesh && curvatureBias != 0.0)) {
+                NormalMatrix energy = energyMatrix;
+                boolean[] frozen = system.frozen.clone();
+                pendingFactorization = pendingOrdering != null
+                        && Arrays.equals(orderingFrozen, frozen)
+                        ? pendingOrdering.thenApplyAsync(
+                                permutation -> DirectSolver.factorizeWithPerm(energy, frozen,
+                                        permutation))
+                        : CompletableFuture.supplyAsync(
+                                () -> DirectSolver.factorize(energy, frozen, OrderingMethod.AMD));
+            }
             if (useCurvatureAlignment) {
-                buildLoadVector();
+                if (pendingLoadVector != null) {
+                    pendingLoadVector.join();
+                    pendingLoadVector = null;
+                } else {
+                    buildLoadVector();
+                }
 
                 Platforms.log("[cross-field timing] build load vector %.3fs%n",
                         (System.nanoTime() - sectionStart) / NANOS_PER_SECOND);
@@ -590,7 +659,8 @@ public class NDirectionField implements MeshNode {
     /**
      * Assembles the complex Hermitian connection Laplacian and mass matrix, realified, straight
      * into CSR arrays over the vertex adjacency of the edge graph. Both matrices share one
-     * sparsity structure; no entry is boxed.
+     * sparsity structure, whose AMD ordering starts on another thread before any value is
+     * integrated; no entry is boxed.
      */
     private void assemble() {
         int edgeCount = cf.edgeCount;
@@ -650,101 +720,6 @@ public class NDirectionField implements MeshNode {
         }
         neighborStart[vertexCount] = slotCount;
 
-        double[] diag = new double[vertexCount];
-        double[] entryReal = new double[slotCount];
-        double[] entryImaginary = new double[slotCount];
-        double[] diagMass = new double[vertexCount];
-        double[] massReal = new double[slotCount];
-        double[] massImaginary = new double[slotCount];
-
-        int[] halfEdge = new int[3];
-        int[] vertexId = new int[3];
-        int[] active = new int[3];
-        Vector3f[] position = {new Vector3f(), new Vector3f(), new Vector3f()};
-        double[] transportAngle = new double[3];
-        Vector3f edge0 = new Vector3f();
-        Vector3f edge1 = new Vector3f();
-        for (int f = 0; f < mesh.faceCount(); f++) {
-            int fId = mesh.faceIdAt(f);
-            for (int corner = 0; corner < 3; corner++) {
-                halfEdge[corner] = mesh.faceHalfEdgeAt(fId, corner); // CCW: v0->v1->v2->v0
-                vertexId[corner] = mesh.halfEdgeVertex(halfEdge[corner]);
-                active[corner] = activeOfVertexId[vertexId[corner]];
-                mesh.vertexPosition(vertexId[corner], position[corner]);
-            }
-
-            // Transport angle on each CCW directed edge, and the triangle holonomy.
-            for (int corner = 0; corner < 3; corner++) {
-                int twin = mesh.halfEdgeTwin(halfEdge[corner]);
-                transportAngle[corner] = n * (getAngle(vertexId[(corner + 1) % 3], twin)
-                        - getAngle(vertexId[corner], halfEdge[corner]));
-            }
-            double holonomy = principal(transportAngle[0] + transportAngle[1] + transportAngle[2]);
-
-            edge0.set(position[1]).sub(position[0]);
-            edge1.set(position[2]).sub(position[0]);
-            double area = 0.5 * edge0.cross(edge1).length();
-            if (area < EPS) {
-                continue;
-            }
-
-            // Diagonal: full stiffness (with the holonomy correction) minus the curvature
-            // term.
-            for (int corner = 0; corner < 3; corner++) {
-                Vector3f toNext = edge0.set(position[(corner + 1) % 3]).sub(position[corner]);
-                Vector3f toPrev = edge1.set(position[(corner + 2) % 3]).sub(position[corner]);
-                double diagStiff = SectionIntegrals.stiffnessDiagonal(holonomy,
-                        toNext.lengthSquared(), toNext.dot(toPrev), toPrev.lengthSquared());
-                diag[active[corner]] += diagStiff / area - curvatureBias * holonomy / 6.0;
-                diagMass[active[corner]] += area / 6.0;
-            }
-
-            // Off-diagonal: one per edge, from the two edges at the opposite vertex. Each
-            // directed entry H[from][to] lands in from's row and its conjugate in to's row.
-            for (int corner = 0; corner < 3; corner++) {
-                int from = active[corner];
-                int to = active[(corner + 1) % 3];
-                int opposite = (corner + 2) % 3;
-                Vector3f oppToFrom = edge0.set(position[corner]).sub(position[opposite]);
-                Vector3f oppToTo = edge1.set(position[(corner + 1) % 3]).sub(position[opposite]);
-
-                double[] stiff = SectionIntegrals.stiffnessOffDiagonal(holonomy,
-                        oppToFrom.lengthSquared(), oppToFrom.dot(oppToTo), oppToTo.lengthSquared());
-                double[] massOff = SectionIntegrals.massOffDiagonal(holonomy);
-
-                // entry before transport = stiffness/area - curvatureBias*(holonomy*mass - i/2)
-                double entryRe = stiff[0] / area - curvatureBias * holonomy * massOff[0];
-                double entryIm = stiff[1] / area - curvatureBias * (holonomy * massOff[1] - 0.5);
-
-                // multiply by the conjugate transport, e^(-i * transportAngle)
-                double cosRho = Math.cos(transportAngle[corner]);
-                double sinRho = Math.sin(transportAngle[corner]);
-                double re = entryRe * cosRho + entryIm * sinRho;
-                double im = entryIm * cosRho - entryRe * sinRho;
-
-                int activeEdge = cf.edgeIdToActive[mesh.halfEdgeEdge(halfEdge[corner])];
-                int fromSlot = from < to ? slotInLowRow[activeEdge] : slotInHighRow[activeEdge];
-                int toSlot = from < to ? slotInHighRow[activeEdge] : slotInLowRow[activeEdge];
-                entryReal[fromSlot] += re;
-                entryImaginary[fromSlot] += im;
-                entryReal[toSlot] += re;
-                entryImaginary[toSlot] -= im;
-
-                double massRe0 = area * massOff[0];
-                double massIm0 = area * massOff[1];
-                double massRe = massRe0 * cosRho + massIm0 * sinRho; // * conjugate transport
-                double massIm = massIm0 * cosRho - massRe0 * sinRho;
-                massReal[fromSlot] += massRe;
-                massImaginary[fromSlot] += massIm;
-                massReal[toSlot] += massRe;
-                massImaginary[toSlot] -= massIm;
-            }
-        }
-
-        for (int v = 0; v < vertexCount; v++) {
-            diag[v] += DEFAULT_SHIFT * diagMass[v];
-        }
-
         // Realified rows 2v (real DOF) and 2v + 1 (imaginary DOF) each hold the real and
         // imaginary DOF of every neighbour slot of v, in slot order.
         int dofCount = 2 * vertexCount;
@@ -765,6 +740,170 @@ public class NDirectionField implements MeshNode {
             }
         }
         rowStart[dofCount] = 4 * slotCount;
+
+        // The fill-reducing ordering reads the pattern alone, so it runs while the values are
+        // integrated below; solveAligned factors with it, the same permutation factorize finds.
+        if (!(openMesh && curvatureBias != 0.0)) {
+            boolean[] frozen = system.frozen.clone();
+            NormalMatrix pattern = new NormalMatrix(dofCount, rowStart, rowColumn,
+                    new double[rowColumn.length], new double[dofCount], new double[dofCount]);
+            orderingFrozen = frozen;
+            pendingOrdering = CompletableFuture.supplyAsync(() -> {
+                int[] compactOf = new int[dofCount];
+                int freeCount = 0;
+                for (int dof = 0; dof < dofCount; dof++) {
+                    compactOf[dof] = frozen[dof] ? -1 : freeCount++;
+                }
+                return freeCount == 0 ? new int[0]
+                        : SolverPermutation.computePermutation(pattern, frozen, compactOf,
+                                freeCount, OrderingMethod.AMD);
+            });
+        }
+
+        double[] diag = new double[vertexCount];
+        double[] entryReal = new double[slotCount];
+        double[] entryImaginary = new double[slotCount];
+        double[] diagMass = new double[vertexCount];
+        double[] massReal = new double[slotCount];
+        double[] massImaginary = new double[slotCount];
+
+        // Each triangle's terms are integrated in parallel into per-corner rows, then summed into
+        // the matrices in face and corner order, so every sum adds in the sequential order.
+        int faceCount = mesh.faceCount();
+        double[] faceArea = new double[faceCount];
+        int[] cornerActive = new int[3 * faceCount];
+        int[] cornerFromSlot = new int[3 * faceCount];
+        int[] cornerToSlot = new int[3 * faceCount];
+        double[] cornerDiagonal = new double[3 * faceCount];
+        double[] cornerEntryReal = new double[3 * faceCount];
+        double[] cornerEntryImaginary = new double[3 * faceCount];
+        double[] cornerMassReal = new double[3 * faceCount];
+        double[] cornerMassImaginary = new double[3 * faceCount];
+        transportAngle = new double[3 * faceCount];
+        transportCosine = new double[3 * faceCount];
+        transportSine = new double[3 * faceCount];
+        IntStream.range(0, (faceCount + FACES_PER_TASK - 1) / FACES_PER_TASK).parallel()
+                .forEach(task -> {
+            int[] halfEdge = new int[3];
+            int[] vertexId = new int[3];
+            int[] active = new int[3];
+            Vector3f[] position = {new Vector3f(), new Vector3f(), new Vector3f()};
+            Vector3f edge0 = new Vector3f();
+            Vector3f edge1 = new Vector3f();
+            double[] stiffnessSeries = new double[STIFFNESS_SERIES_COUNT];
+            double[] stiff = new double[2];
+            for (int f = task * FACES_PER_TASK; f < Math.min(faceCount, (task + 1) * FACES_PER_TASK);
+                    f++) {
+                int fId = mesh.faceIdAt(f);
+                for (int corner = 0; corner < 3; corner++) {
+                    halfEdge[corner] = mesh.faceHalfEdgeAt(fId, corner); // CCW: v0->v1->v2->v0
+                    vertexId[corner] = mesh.halfEdgeVertex(halfEdge[corner]);
+                    active[corner] = activeOfVertexId[vertexId[corner]];
+                    mesh.vertexPosition(vertexId[corner], position[corner]);
+                }
+
+                // Transport angle on each CCW directed edge, and the triangle holonomy.
+                for (int corner = 0; corner < 3; corner++) {
+                    int twin = mesh.halfEdgeTwin(halfEdge[corner]);
+                    double angle = n * (getAngle(vertexId[(corner + 1) % 3], twin)
+                            - getAngle(vertexId[corner], halfEdge[corner]));
+                    transportAngle[3 * f + corner] = angle;
+                    transportCosine[3 * f + corner] = Math.cos(angle);
+                    transportSine[3 * f + corner] = Math.sin(angle);
+                }
+                double holonomy = principal(transportAngle[3 * f] + transportAngle[3 * f + 1]
+                        + transportAngle[3 * f + 2]);
+
+                edge0.set(position[1]).sub(position[0]);
+                edge1.set(position[2]).sub(position[0]);
+                double area = 0.5 * edge0.cross(edge1).length();
+                faceArea[f] = area;
+                if (area < EPS) {
+                    continue;
+                }
+
+                // Diagonal: full stiffness (with the holonomy correction) minus the curvature
+                // term.
+                for (int corner = 0; corner < 3; corner++) {
+                    Vector3f toNext = edge0.set(position[(corner + 1) % 3]).sub(position[corner]);
+                    Vector3f toPrev = edge1.set(position[(corner + 2) % 3]).sub(position[corner]);
+                    double diagStiff = SectionIntegrals.stiffnessDiagonal(holonomy,
+                            toNext.lengthSquared(), toNext.dot(toPrev), toPrev.lengthSquared());
+                    cornerActive[3 * f + corner] = active[corner];
+                    cornerDiagonal[3 * f + corner] = diagStiff / area
+                            - curvatureBias * holonomy / 6.0;
+                }
+
+                // Off-diagonal: one per edge, from the two edges at the opposite vertex. Each
+                // directed entry H[from][to] lands in from's row and its conjugate in to's row.
+                // The series depend on the holonomy alone, so one evaluation serves all three.
+                double[] massOff = SectionIntegrals.massOffDiagonal(holonomy);
+                SectionIntegrals.stiffnessSeries(holonomy, stiffnessSeries);
+                for (int corner = 0; corner < 3; corner++) {
+                    int from = active[corner];
+                    int to = active[(corner + 1) % 3];
+                    int opposite = (corner + 2) % 3;
+                    Vector3f oppToFrom = edge0.set(position[corner]).sub(position[opposite]);
+                    Vector3f oppToTo = edge1.set(position[(corner + 1) % 3])
+                            .sub(position[opposite]);
+
+                    SectionIntegrals.stiffnessOffDiagonal(holonomy, stiffnessSeries,
+                            oppToFrom.lengthSquared(), oppToFrom.dot(oppToTo),
+                            oppToTo.lengthSquared(), stiff);
+
+                    // entry before transport = stiffness/area - bias*(holonomy*mass - i/2)
+                    double entryRe = stiff[0] / area - curvatureBias * holonomy * massOff[0];
+                    double entryIm = stiff[1] / area
+                            - curvatureBias * (holonomy * massOff[1] - 0.5);
+
+                    // multiply by the conjugate transport, e^(-i * transportAngle)
+                    int row = 3 * f + corner;
+                    double cosRho = transportCosine[row];
+                    double sinRho = transportSine[row];
+                    cornerEntryReal[row] = entryRe * cosRho + entryIm * sinRho;
+                    cornerEntryImaginary[row] = entryIm * cosRho - entryRe * sinRho;
+
+                    int activeEdge = cf.edgeIdToActive[mesh.halfEdgeEdge(halfEdge[corner])];
+                    cornerFromSlot[row] = from < to ? slotInLowRow[activeEdge]
+                            : slotInHighRow[activeEdge];
+                    cornerToSlot[row] = from < to ? slotInHighRow[activeEdge]
+                            : slotInLowRow[activeEdge];
+
+                    double massRe0 = area * massOff[0];
+                    double massIm0 = area * massOff[1];
+                    // * conjugate transport
+                    cornerMassReal[row] = massRe0 * cosRho + massIm0 * sinRho;
+                    cornerMassImaginary[row] = massIm0 * cosRho - massRe0 * sinRho;
+                }
+            }
+        });
+        for (int f = 0; f < faceCount; f++) {
+            double area = faceArea[f];
+            if (area < EPS) {
+                continue;
+            }
+            for (int row = 3 * f; row < 3 * f + 3; row++) {
+                diag[cornerActive[row]] += cornerDiagonal[row];
+                diagMass[cornerActive[row]] += area / 6.0;
+            }
+            for (int row = 3 * f; row < 3 * f + 3; row++) {
+                int fromSlot = cornerFromSlot[row];
+                int toSlot = cornerToSlot[row];
+                entryReal[fromSlot] += cornerEntryReal[row];
+                entryImaginary[fromSlot] += cornerEntryImaginary[row];
+                entryReal[toSlot] += cornerEntryReal[row];
+                entryImaginary[toSlot] -= cornerEntryImaginary[row];
+                massReal[fromSlot] += cornerMassReal[row];
+                massImaginary[fromSlot] += cornerMassImaginary[row];
+                massReal[toSlot] += cornerMassReal[row];
+                massImaginary[toSlot] -= cornerMassImaginary[row];
+            }
+        }
+
+        for (int v = 0; v < vertexCount; v++) {
+            diag[v] += DEFAULT_SHIFT * diagMass[v];
+        }
+
         this.energyMatrix = realify(diag, entryReal, entryImaginary, rowStart, rowColumn);
         this.massSystemMatrix = realify(diagMass, massReal, massImaginary, rowStart, rowColumn);
     }
@@ -830,7 +969,8 @@ public class NDirectionField implements MeshNode {
 
     /**
      * Solves {@code (A - tM) u = M g (+ feature load)} by one sparse Cholesky factorization and
-     * back-substitution (KCP13 Sec. 7), then mass-normalizes u into the field angles.
+     * back-substitution (KCP13 Sec. 7), then mass-normalizes u into the field angles. At
+     * {@code t = 0} it takes {@link #pendingFactorization} when {@link #solveField} started one.
      *
      * @param t eigenvalue shift; 0 factors the energy matrix itself
      */
@@ -841,6 +981,25 @@ public class NDirectionField implements MeshNode {
         NormalMatrix shifted = (t == 0.0)
                 ? energyMatrix
                 : energyMatrix.subtract(massSystemMatrix.scale(t));
+
+        // The factor reads the energy matrix, so it completes before its right-hand side is written.
+        DirectSolver.CholeskyHandle handle = null;
+        CompletableFuture<DirectSolver.CholeskyHandle> factoring = pendingFactorization;
+        pendingFactorization = null;
+        if (factoring != null) {
+            try {
+                handle = factoring.join();
+            } catch (CompletionException failure) {
+                if (failure.getCause() instanceof RuntimeException cause) {
+                    throw cause;
+                }
+                throw failure;
+            }
+            if (t != 0.0) {
+                DirectSolver.releaseHandle(handle);
+                handle = null;
+            }
+        }
 
         // RHS = M g (+ dual-form feature load).
         for (int i = 0; i < N; i++) {
@@ -856,16 +1015,13 @@ public class NDirectionField implements MeshNode {
         Arrays.fill(x, 0.0);
         // The bias term's boundary integral (the i/2 entries that cancel across interior edges)
         // leaves A indefinite on an open mesh, where Cholesky refuses it; CG is kept there.
-        boolean openMesh = false;
-        for (int activeEdge = 0; activeEdge < cf.edgeCount && !openMesh; activeEdge++) {
-            openMesh = mesh.isBoundaryEdge(mesh.edgeIdAt(activeEdge));
-        }
         if (openMesh && curvatureBias != 0.0) {
             AdaptiveSolver.preconditionedConjugateGradient(shifted, x, null, jacobi(shifted),
                     ALIGNED_CONJUGATE_GRADIENT_ITERATIONS, ALIGNED_CONJUGATE_GRADIENT_TOLERANCE);
         } else {
-            DirectSolver.CholeskyHandle handle =
-                    DirectSolver.factorize(shifted, system.frozen, OrderingMethod.AMD);
+            if (handle == null) {
+                handle = DirectSolver.factorize(shifted, system.frozen, OrderingMethod.AMD);
+            }
             DirectSolver.solveCompact(handle, shifted, shifted.rightHandSide, x, x, system.frozen);
             DirectSolver.releaseHandle(handle);
         }
@@ -907,31 +1063,39 @@ public class NDirectionField implements MeshNode {
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
             vertexArgument[activeVertex] = Math.atan2(uImaginary[activeVertex], uReal[activeVertex]);
         }
-        for (int f = 0; f < count; f++) {
-            int fId = mesh.faceIdAt(f);
-            double sumOmega = 0.0; // sum of edge rotation angles
-            double holonomy = 0.0; // Omega_ijk = arg(prod r)
-            double rhoProd = 0.0;
-            int corners = mesh.faceHalfEdgeCount(fId);
-            for (int c = 0; c < corners; c++) {
-                int he = mesh.faceHalfEdgeAt(fId, c);
-                int twin = mesh.halfEdgeTwin(he);
-                int aId = mesh.halfEdgeVertex(he);
-                int bId = mesh.halfEdgeEndVertex(he);
-                int a = activeOfVertexId[aId];
-                int b = activeOfVertexId[bId];
-                double rho = n * (getAngle(bId, twin) - getAngle(aId, he));
-                rhoProd += rho;
-                // omega_ab : u_b = e^{i omega} r_ab u_a -> omega = arg(u_b / (r_ab u_a))
-                double raRe = Math.cos(rho), raIm = Math.sin(rho);
-                double tRe = raRe * uReal[a] - raIm * uImaginary[a]; // r_ab * u_a
-                double tIm = raRe * uImaginary[a] + raIm * uReal[a];
-                double omega = vertexArgument[b] - Math.atan2(tIm, tRe);
-                sumOmega += principal(omega);
+        IntStream.range(0, (count + FACES_PER_TASK - 1) / FACES_PER_TASK).parallel()
+                .forEach(task -> {
+            for (int f = task * FACES_PER_TASK; f < Math.min(count, (task + 1) * FACES_PER_TASK);
+                    f++) {
+                int fId = mesh.faceIdAt(f);
+                double sumOmega = 0.0; // sum of edge rotation angles
+                double holonomy = 0.0; // Omega_ijk = arg(prod r)
+                double rhoProd = 0.0;
+                int corners = mesh.faceHalfEdgeCount(fId);
+                for (int c = 0; c < corners; c++) {
+                    int he = mesh.faceHalfEdgeAt(fId, c);
+                    int twin = mesh.halfEdgeTwin(he);
+                    int aId = mesh.halfEdgeVertex(he);
+                    int bId = mesh.halfEdgeEndVertex(he);
+                    int a = activeOfVertexId[aId];
+                    int b = activeOfVertexId[bId];
+                    double rho = n * (getAngle(bId, twin) - getAngle(aId, he));
+                    rhoProd += rho;
+                    // omega_ab : u_b = e^{i omega} r_ab u_a -> omega = arg(u_b / (r_ab u_a))
+                    // Assemble already took the cosine and sine of this corner's angle.
+                    boolean cached = corners == 3 && transportAngle != null
+                            && transportAngle[3 * f + c] == rho;
+                    double raRe = cached ? transportCosine[3 * f + c] : Math.cos(rho);
+                    double raIm = cached ? transportSine[3 * f + c] : Math.sin(rho);
+                    double tRe = raRe * uReal[a] - raIm * uImaginary[a]; // r_ab * u_a
+                    double tIm = raRe * uImaginary[a] + raIm * uReal[a];
+                    double omega = vertexArgument[b] - Math.atan2(tIm, tRe);
+                    sumOmega += principal(omega);
+                }
+                holonomy = principal(rhoProd);
+                index[f] = (int) Math.round((sumOmega + holonomy) / (2.0 * Math.PI));
             }
-            holonomy = principal(rhoProd);
-            index[f] = (int) Math.round((sumOmega + holonomy) / (2.0 * Math.PI));
-        }
+        });
         return index;
     }
 
@@ -978,7 +1142,8 @@ public class NDirectionField implements MeshNode {
     }
 
     private static double principal(double a) {
-        double r = a % (2.0 * Math.PI);
+        // The remainder of a value already inside (-2pi, 2pi) is that value, exactly.
+        double r = a > -2.0 * Math.PI && a < 2.0 * Math.PI ? a : a % (2.0 * Math.PI);
         if (r <= -Math.PI)
             r += 2.0 * Math.PI;
         if (r > Math.PI)
@@ -1009,25 +1174,29 @@ public class NDirectionField implements MeshNode {
         // raw triangle index, KCP13 §6.1.3) therefore get their cf.theta re-set
         // below by exact transport from their most reliable neighbor.
         double[] faceMeanMagnitude = new double[cf.faceCount];
-        for (int fAi = 0; fAi < cf.faceCount; fAi++) {
-            int fId = mesh.faceIdAt(fAi);
-            double accRe = 0.0;
-            double accIm = 0.0;
-            int corners = mesh.faceHalfEdgeCount(fId);
-            for (int c = 0; c < corners; c++) {
-                int he = mesh.faceHalfEdgeAt(fId, c);
-                int va = vIdToActive[mesh.halfEdgeVertex(he)];
-                if (va < 0) {
-                    continue;
+        IntStream.range(0, (cf.faceCount + FACES_PER_TASK - 1) / FACES_PER_TASK).parallel()
+                .forEach(task -> {
+            for (int fAi = task * FACES_PER_TASK;
+                    fAi < Math.min(cf.faceCount, (task + 1) * FACES_PER_TASK); fAi++) {
+                int fId = mesh.faceIdAt(fAi);
+                double accRe = 0.0;
+                double accIm = 0.0;
+                int corners = mesh.faceHalfEdgeCount(fId);
+                for (int c = 0; c < corners; c++) {
+                    int he = mesh.faceHalfEdgeAt(fId, c);
+                    int va = vIdToActive[mesh.halfEdgeVertex(he)];
+                    if (va < 0) {
+                        continue;
+                    }
+                    double alpha = angleInFace(fId, metricHalfEdge(he)) + fieldAngle[va]
+                            - angleInFrame[he];
+                    accRe += Math.cos(n * alpha); // collapse n-fold symmetry
+                    accIm += Math.sin(n * alpha);
                 }
-                double alpha = angleInFace(fId, metricHalfEdge(he)) + fieldAngle[va]
-                        - angleInFrame[he];
-                accRe += Math.cos(n * alpha); // collapse n-fold symmetry
-                accIm += Math.sin(n * alpha);
+                cf.theta[fAi] = (float) (Math.atan2(accIm, accRe) / n);
+                faceMeanMagnitude[fAi] = Math.hypot(accRe, accIm);
             }
-            cf.theta[fAi] = (float) (Math.atan2(accIm, accRe) / n);
-            faceMeanMagnitude[fAi] = Math.hypot(accRe, accIm);
-        }
+        });
         concentrateSingularFaceWindings(faceMeanMagnitude);
         for (int eAi = 0; eAi < cf.edgeCount; eAi++) {
             int eId = mesh.edgeIdAt(eAi);

@@ -1,5 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.crossfield;
 
+import java.util.Arrays;
+
 /**
  * Closed-form per-triangle entries of the finite-element connection Laplacian and
  * mass matrix, as functions of the triangle holonomy.
@@ -208,6 +210,51 @@ public final class SectionIntegrals {
         double im = (lengthSqFirst + lengthSqSecond) * chebyshev(t, STIFF_FIRST_IMAG)
                 + edgeDot * chebyshev(t, STIFF_SECOND_IMAG);
         return new double[] { re, positive ? -im : im };
+    }
+
+    /**
+     * The four stiffness Chebyshev series at a triangle's holonomy, so its three off-diagonal
+     * entries share one evaluation; NaN-filled outside {@code |holonomy| <= pi}.
+     *
+     * @param holonomy triangle holonomy of the connection over this triangle
+     * @param series   receives first-real, second-real, first-imaginary, second-imaginary
+     */
+    public static void stiffnessSeries(double holonomy, double[] series) {
+        if (Math.abs(holonomy) > Math.PI) {
+            Arrays.fill(series, Double.NaN);
+            return;
+        }
+        double t = (holonomy > 0 ? holonomy : -holonomy) * 2.0 / Math.PI - 1.0;
+        series[0] = chebyshev(t, STIFF_FIRST_REAL);
+        series[1] = chebyshev(t, STIFF_SECOND_REAL);
+        series[2] = chebyshev(t, STIFF_FIRST_IMAG);
+        series[3] = chebyshev(t, STIFF_SECOND_IMAG);
+    }
+
+    /**
+     * {@link #stiffnessOffDiagonal(double, double, double, double)} from series already evaluated
+     * by {@link #stiffnessSeries}, bit-identical to it and allocation-free.
+     *
+     * @param holonomy       triangle holonomy the series were evaluated at
+     * @param series         the triangle's {@link #stiffnessSeries}
+     * @param lengthSqFirst  squared length of the edge vector to the first endpoint
+     * @param edgeDot        dot product of the two opposite-vertex edge vectors
+     * @param lengthSqSecond squared length of the edge vector to the second endpoint
+     * @param entry          receives the real and imaginary off-diagonal stiffness entry
+     */
+    public static void stiffnessOffDiagonal(double holonomy, double[] series,
+            double lengthSqFirst, double edgeDot, double lengthSqSecond, double[] entry) {
+        if (Math.abs(holonomy) > Math.PI) {
+            double[] direct = stiffnessOffDiagonalDirect(holonomy, lengthSqFirst, edgeDot,
+                    lengthSqSecond);
+            entry[0] = direct[0];
+            entry[1] = direct[1];
+            return;
+        }
+        double re = (lengthSqFirst + lengthSqSecond) * series[0] + edgeDot * series[1];
+        double im = (lengthSqFirst + lengthSqSecond) * series[2] + edgeDot * series[3];
+        entry[0] = re;
+        entry[1] = holonomy > 0 ? -im : im;
     }
 
     /**
