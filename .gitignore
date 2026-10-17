@@ -10,7 +10,6 @@ tools/ixdar-automation-cli/__pycache__/test_cli.cpython-314.pyc
 **/hs_err_*.log
 **/__pycache__/
 .cursor/logs/
-ixdar-app/tmp/*.png
 *.obj
 # Quad-layout test fixtures: small reference meshes (Hand-30k, rocker-arm,
 # metriko's hand-quad output) are required at runtime by tests + CLIs.
@@ -25,7 +24,8 @@ ixdar_automation_cli.egg-info/SOURCES.txt
 ixdar_automation_cli.egg-info/top_level.txt
 ixdar_automation_cli.egg-info/entry_points.txt
 ixdar_automation_cli.egg-info/dependency_links.txt
-tmp/*
+# Scratch output of any tool or agent, at every depth (ixdar-app/tmp/ too).
+tmp/
 ixdar-app/${dsl.export}
 ixdar-app/cp.txt
 ixdar-app/screenshots/automation/*.png
