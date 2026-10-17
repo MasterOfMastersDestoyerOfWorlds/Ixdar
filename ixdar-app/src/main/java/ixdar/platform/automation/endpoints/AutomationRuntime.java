@@ -638,6 +638,23 @@ public class AutomationRuntime {
      */
     public JsonObject runOnMainThread(Callable<JsonObject> action)
             throws Exception {
+        return runOnMainThread(action, MAIN_THREAD_WAIT_MS);
+    }
+
+    /**
+     * Marshal {@code action} onto the render thread and block up to {@code waitMillis} for it, for
+     * a route whose work (a whole graph evaluation) outlasts {@value #MAIN_THREAD_WAIT_MS}ms. An
+     * action that outlives the wait still runs; only the answer is given up.
+     *
+     * @param action     work that must execute on the render thread
+     * @param waitMillis longest to wait for {@code action} to finish
+     * @throws Exception             any exception thrown by {@code action}
+     * @throws IllegalStateException if the action does not finish within {@code waitMillis}
+     * @return the JSON value returned by {@code action}, or an empty object if
+     *         {@code action} returned {@code null}
+     */
+    public JsonObject runOnMainThread(Callable<JsonObject> action, long waitMillis)
+            throws Exception {
         if (renderThreadId != -1 &&
                 Thread.currentThread().getId() == renderThreadId) {
             return action.call();
@@ -646,10 +663,11 @@ public class AutomationRuntime {
         pending.action = action;
         pendingMainThreadActions.offer(pending);
         boolean completed = pending.latch.await(
-                MAIN_THREAD_WAIT_MS,
+                waitMillis,
                 TimeUnit.MILLISECONDS);
         if (!completed) {
-            throw new IllegalStateException("Main-thread action timed out");
+            throw new IllegalStateException("Main-thread action timed out after "
+                    + waitMillis + " ms; it still runs when the render thread reaches it");
         }
         if (pending.error != null) {
             throw pending.error;

@@ -467,7 +467,8 @@
           "example": "geometry"
         }
       ],
-      "responseHint": "{ok, dsl, node, port, vertices, faces, timing...}"
+      "responseHint": "{ok, dsl, node, port, vertices, faces, timing...}; while another graph runs, {ok: false, running, error}",
+      "waitSeconds": 1800
     },
     {
       "commandName": "mesh-dsl-timing",

@@ -1,6 +1,9 @@
 import json
 import os
+import sys
+import threading
 import time
+import urllib.error
 import urllib.request
 
 
@@ -8,6 +11,7 @@ LOOPBACK_HOST = "127.0.0.1"
 DEFAULT_RETRIES = 3
 DEFAULT_RETRY_DELAY = 1.0
 DEFAULT_REQUEST_TIMEOUT = 10.0
+PROGRESS_INTERVAL = 30.0
 
 PACKAGE_REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 # AutomationPortFile: every scene writes tmp/automation/<pid>.json and removes it on exit.
@@ -256,7 +260,7 @@ class AutomationClient:
         """A client for one scene, resolved on first use by :func:`resolve_target`.
 
         :param base_url: Explicit automation URL; empty resolves this checkout's scene.
-        :param retries: Attempts per request on connection errors and timeouts.
+        :param retries: Attempts per request; see :meth:`request_json` for which failures retry.
         :param retry_delay: Seconds before the first retry, doubling after each.
         :param pid: Explicit scene process id, used when ``base_url`` is empty.
         """
@@ -281,35 +285,65 @@ class AutomationClient:
 
     def request_json(self, path: str, body: dict | None = None,
                      timeout: float = DEFAULT_REQUEST_TIMEOUT) -> dict:
-        """Send one request and decode its JSON answer, retrying on connection errors and timeouts.
+        """Send one request and decode its JSON answer, never sending a POST the scene may have got twice.
+
+        A GET is retried on connection errors and timeouts. A POST is retried only when the
+        connection was refused, the one failure that proves the scene never saw it: a POST that
+        timed out may still be running there (a long graph), so it is reported, not resent. A
+        wait longer than the default prints the elapsed time to stderr every
+        ``PROGRESS_INTERVAL`` seconds.
 
         :param path: Route path, e.g. ``/scene/model``.
         :param body: JSON body; ``None`` sends a GET.
         :param timeout: Seconds to wait for the answer; a route that holds the request open while
             slow work finishes declares a longer one in the manifest.
         :return: The decoded response.
+        :raises urllib.error.URLError: When no answer came; for a POST that may have been
+            delivered, the reason says it was not resent.
         """
         self.resolve()
         payload = None
         headers = {"Content-Type": "application/json"}
         if body is not None:
             payload = json.dumps(body).encode("utf-8")
+        started = time.monotonic()
+        answered = threading.Event()
+
+        def report_progress() -> None:
+            while not answered.wait(PROGRESS_INTERVAL):
+                print(f"waiting for {path}: {time.monotonic() - started:.0f} s of at most "
+                      f"{timeout:.0f} s; it is sent once and never resent",
+                      file=sys.stderr, flush=True)
+
+        if timeout > DEFAULT_REQUEST_TIMEOUT:
+            threading.Thread(target=report_progress, daemon=True).start()
         last_exc: Exception | None = None
-        for attempt in range(self.retries):
-            try:
-                req = urllib.request.Request(
-                    self.base_url + path,
-                    data=payload,
-                    headers=headers,
-                    method="POST" if body is not None else "GET",
-                )
-                with urllib.request.urlopen(req, timeout=timeout) as response:
-                    return json.loads(response.read().decode("utf-8"))
-            except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
-                last_exc = exc
-                if attempt < self.retries - 1:
-                    time.sleep(self.retry_delay * (2 ** attempt))
-        raise last_exc
+        try:
+            for attempt in range(self.retries):
+                try:
+                    req = urllib.request.Request(
+                        self.base_url + path,
+                        data=payload,
+                        headers=headers,
+                        method="POST" if body is not None else "GET",
+                    )
+                    with urllib.request.urlopen(req, timeout=timeout) as response:
+                        return json.loads(response.read().decode("utf-8"))
+                except urllib.error.HTTPError:
+                    raise
+                except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+                    reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+                    if body is not None and not isinstance(reason, ConnectionRefusedError):
+                        raise urllib.error.URLError(
+                            f"no answer from POST {path} after "
+                            f"{time.monotonic() - started:.0f} s ({reason}); the scene may "
+                            "still be running it, so it was not resent") from exc
+                    last_exc = exc
+                    if attempt < self.retries - 1:
+                        time.sleep(self.retry_delay * (2 ** attempt))
+            raise last_exc
+        finally:
+            answered.set()
 
     def health(self) -> dict:
         return self.request_json("/health")

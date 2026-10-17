@@ -1,10 +1,13 @@
+import http.server
 import io
 import json
 import os
 import subprocess
 import struct
 import tempfile
+import threading
 import unittest
+import urllib.error
 import zlib
 from unittest.mock import patch
 
@@ -726,6 +729,61 @@ class CliTest(unittest.TestCase):
         body = json.loads(request.data.decode("utf-8"))
         self.assertEqual("1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65", body["points"])
         self.assertTrue(body["tighten"])
+
+    def test_a_post_the_scene_is_still_working_on_is_sent_once(self):
+        # A real server slower than the client's timeout: the CRAW-55 15-minute graph, shrunk.
+        received = []
+        release = threading.Event()
+
+        class SlowGraphHandler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                received.append(self.rfile.read(int(self.headers["Content-Length"])))
+                release.wait(5)
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'{"ok": true}')
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SlowGraphHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        self.addCleanup(release.set)
+        client = automation_client.AutomationClient(
+            f"http://127.0.0.1:{server.server_address[1]}", retry_delay=0.0)
+        with self.assertRaises(urllib.error.URLError) as failure:
+            client.request_json("/mesh/dsl", {"name": "slow"}, timeout=0.3)
+        self.assertIn("not resent", str(failure.exception.reason))
+        self.assertEqual(1, len(received))
+
+    @patch("time.sleep")
+    @patch("urllib.request.urlopen")
+    def test_mesh_dsl_reports_a_timeout_instead_of_resubmitting(self, urlopen, _sleep):
+        urlopen.side_effect = TimeoutError("timed out")
+        with patch("sys.stdout", new_callable=io.StringIO) as stdout:
+            exit_code = ixdar_cli.main(["mesh-dsl", "--name", "crawfish_segmentation"])
+        self.assertEqual(3, exit_code)
+        self.assertEqual(1, urlopen.call_count)
+        self.assertIn("not resent", json.loads(stdout.getvalue())["error"])
+        # The route declares how long a graph may run, so the client waits that long, not 10 s.
+        self.assertGreaterEqual(urlopen.call_args.kwargs["timeout"], 1800)
+
+    @patch("time.sleep")
+    @patch("urllib.request.urlopen")
+    def test_a_refused_post_is_retried_because_it_never_arrived(self, urlopen, _sleep):
+        urlopen.side_effect = [urllib.error.URLError(ConnectionRefusedError()),
+                               FakeResponse({"ok": True})]
+        self.assertEqual(0, ixdar_cli.main(["click", "--x", "1", "--y", "2"]))
+        self.assertEqual(2, urlopen.call_count)
+
+    @patch("time.sleep")
+    @patch("urllib.request.urlopen")
+    def test_a_timed_out_get_is_still_retried(self, urlopen, _sleep):
+        urlopen.side_effect = [TimeoutError("timed out"), FakeResponse({"status": "ok"})]
+        self.assertEqual(0, ixdar_cli.main(["health"]))
+        self.assertEqual(2, urlopen.call_count)
 
     def test_rings_add_route_is_registered_under_its_group(self):
         ixdar_cli._build_parser()
