@@ -35,7 +35,9 @@ def _flag_summary(route: dict) -> str:
     for param in route.get("params", []):
         flag = _flag(param)
         if param.get("positional"):
-            parts.append(flag)
+            parts.append(flag if param.get("required", True) else f"[{flag}]")
+        elif param.get("type") == "string_list":
+            parts.append(f"[{flag} ...]")
         elif param.get("type") == "bool" or not param.get("required"):
             parts.append(f"[{flag}]")
         else:

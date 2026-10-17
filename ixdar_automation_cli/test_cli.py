@@ -1166,10 +1166,27 @@ class CliTest(unittest.TestCase):
         self.assertEqual(0, ixdar_cli.main(["model", "bolt"]))
         request = urlopen.call_args[0][0]
         self.assertTrue(request.full_url.endswith("/scene/model"))
-        self.assertEqual({"name": "bolt"}, json.loads(request.data.decode("utf-8")))
+        self.assertEqual({"name": "bolt", "set": []}, json.loads(request.data.decode("utf-8")))
         # The route holds the request open for the whole recompute, so the client must outwait it.
         route = ixdar_cli._server_commands()["model"]
         self.assertGreater(urlopen.call_args.kwargs["timeout"], route["waitSeconds"])
+
+    @patch("urllib.request.urlopen")
+    def test_model_set_is_repeatable(self, urlopen):
+        urlopen.return_value = FakeResponse({"ok": True, "outcome": "loaded", "model": "bolt"})
+        self.assertEqual(0, ixdar_cli.main(["model", "bolt", "--set", "layout/field.curvature_bias=-0.5",
+                                            "--set", "layout.alpha_degrees=20"]))
+        body = json.loads(urlopen.call_args[0][0].data.decode("utf-8"))
+        self.assertEqual(["layout/field.curvature_bias=-0.5", "layout.alpha_degrees=20"], body["set"])
+
+    @patch("urllib.request.urlopen")
+    def test_node_inspect_path_and_field_are_optional_positionals(self, urlopen):
+        urlopen.return_value = FakeResponse({"ok": True, "tree": []})
+        self.assertEqual(0, ixdar_cli.main(["node-inspect"]))
+        self.assertEqual("", json.loads(urlopen.call_args[0][0].data.decode("utf-8"))["path"])
+        self.assertEqual(0, ixdar_cli.main(["node-inspect", "layout/motorcycle", "traces[3].state"]))
+        body = json.loads(urlopen.call_args[0][0].data.decode("utf-8"))
+        self.assertEqual(("layout/motorcycle", "traces[3].state"), (body["path"], body["field"]))
 
     @patch("urllib.request.urlopen")
     def test_a_failed_server_command_exits_non_zero(self, urlopen):
@@ -1179,7 +1196,9 @@ class CliTest(unittest.TestCase):
 
     def test_gen_docs_shows_a_positional_parameter_as_an_argument(self):
         route = ixdar_cli._server_commands()["model"]
-        self.assertEqual(" <name>", gen_docs._flag_summary(route))
+        self.assertEqual(" <name> [--set ...]", gen_docs._flag_summary(route))
+        inspect = ixdar_cli._server_commands()["node-inspect"]
+        self.assertEqual(" [<path>] [<field>] [--depth] [--limit]", gen_docs._flag_summary(inspect))
 
     @patch("urllib.request.urlopen")
     def test_click_and_hover_settle_by_default(self, urlopen):

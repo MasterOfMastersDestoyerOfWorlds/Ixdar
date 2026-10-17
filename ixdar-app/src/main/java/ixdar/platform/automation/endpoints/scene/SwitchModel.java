@@ -1,8 +1,10 @@
 package ixdar.platform.automation.endpoints.scene;
 
 import java.io.IOException;
+import java.util.Map;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import ixdar.annotations.automation.APIMethod;
@@ -11,6 +13,7 @@ import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
+import ixdar.scenes.model.ModelCatalog;
 import ixdar.scenes.model.ModelChoice;
 import ixdar.scenes.model.ModelLoadLedger;
 import ixdar.scenes.model.ModelScene;
@@ -43,6 +46,10 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
 
     public static final String AVAILABLE = "available";
 
+    public static final String SET = "set";
+
+    public static final String OVERRIDES = "overrides";
+
     public static final long WAIT_SECONDS = 900L;
 
     private static final long MILLIS_PER_SECOND = 1000L;
@@ -73,7 +80,7 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
                     return failure("the active scene is not a model scene");
                 }
                 ModelScene scene = (ModelScene) runtime.canvas;
-                ModelChoice match = scene.requestModel(name);
+                ModelChoice match = ModelCatalog.resolve(scene.availableModels(), name);
                 if (match == null) {
                     JsonObject miss = failure("no model matching: " + name);
                     JsonArray available = new JsonArray();
@@ -83,6 +90,26 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
                     miss.add(AVAILABLE, available);
                     return miss;
                 }
+                // Each set entry is checked against the graph the model runs; an empty value
+                // clears its key.
+                JsonArray assignments = body.has(SET) && body.get(SET).isJsonArray()
+                        ? body.getAsJsonArray(SET) : new JsonArray();
+                for (JsonElement entry : assignments) {
+                    String assignment = entry.getAsString();
+                    int equals = assignment.indexOf('=');
+                    if (equals <= 0) {
+                        return failure("--set " + assignment + ": expected path.port=value");
+                    }
+                    String value = assignment.substring(equals + 1);
+                    try {
+                        scene.setOverride(assignment.substring(0, equals).trim(),
+                                value.isBlank() ? null : ModelScene.parseOverrideValue(value),
+                                match.path);
+                    } catch (IllegalArgumentException invalid) {
+                        return failure(invalid.getMessage());
+                    }
+                }
+                scene.requestModelLoad(match.path);
                 requestedOn[0] = scene;
                 serial[0] = scene.modelLoads.requestedSerial;
                 JsonObject accepted = new JsonObject();
@@ -113,6 +140,11 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
         if (error != null) {
             result.addProperty(ERROR, error);
         }
+        JsonObject overrides = new JsonObject();
+        for (Map.Entry<String, Object> override : requestedOn[0].overrides.entrySet()) {
+            overrides.addProperty(override.getKey(), String.valueOf(override.getValue()));
+        }
+        result.add(OVERRIDES, overrides);
         return result;
     }
 
@@ -125,7 +157,11 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
                         + " the failure message and the seconds it took.")
                 .positional(NAME, RouteParamType.STRING,
                         "Model display name, or part of the name or path of a listed model.", "bolt")
-                .responseHint("{ok, outcome: loaded|failed, model, path, seconds, error}")
+                .param(SET, RouteParamType.STRING_LIST, false, "",
+                        "Scene override path.port=value, kept across model switches; an empty value"
+                                + " clears it.",
+                        "layout/field.curvature_bias=-0.5")
+                .responseHint("{ok, outcome: loaded|failed, model, path, seconds, error, overrides}")
                 .waitSeconds(WAIT_SECONDS)
                 .build();
     }

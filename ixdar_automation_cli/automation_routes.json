@@ -474,11 +474,11 @@
       "commandName": "mesh-dsl-timing",
       "path": "/mesh/dsl/timing",
       "method": "GET",
-      "description": "Report per-node execution times and peak heap from the most recent DSL graph run.",
+      "description": "Report per-node execution times and peak heap of the graph the active model scene ran last, nodes inside groups included.",
       "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.Timing",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Timing.java",
       "params": [],
-      "responseHint": "{ok, total_ms, peak_heap_mib, nodes:[{node, ms, peak_heap_mib}, ...]}"
+      "responseHint": "{ok, total_ms, peak_heap_mib, nodes:[{node, type, ms, peak_heap_mib}, ...]}"
     },
     {
       "commandName": "mesh-dsl-validate",
@@ -853,9 +853,18 @@
           "help": "Model display name, or part of the name or path of a listed model.",
           "example": "bolt",
           "positional": true
+        },
+        {
+          "name": "set",
+          "cliName": "set",
+          "type": "string_list",
+          "required": false,
+          "default": "",
+          "help": "Scene override path.port\u003dvalue, kept across model switches; an empty value clears it.",
+          "example": "layout/field.curvature_bias\u003d-0.5"
         }
       ],
-      "responseHint": "{ok, outcome: loaded|failed, model, path, seconds, error}",
+      "responseHint": "{ok, outcome: loaded|failed, model, path, seconds, error, overrides}",
       "waitSeconds": 900
     },
     {
@@ -949,6 +958,55 @@
         }
       ],
       "responseHint": "{ok, selection, center, radius, distance, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}"
+    },
+    {
+      "commandName": "node-inspect",
+      "path": "/mesh/dsl/inspect",
+      "method": "POST",
+      "description": "Inspect the graph the active model scene ran: the node tree with times and peak heap, one node\u0027s inputs, outputs and fields, or a field path below it, with depth and length limits.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.NodeInspect",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/NodeInspect.java",
+      "params": [
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Node path, call-site ids joined with /; omit for the whole tree.",
+          "example": "layout/motorcycle",
+          "positional": true
+        },
+        {
+          "name": "field",
+          "cliName": "field",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Field path below the node: a port or public field, then .field and [index].",
+          "example": "traces[127].state",
+          "positional": true
+        },
+        {
+          "name": "depth",
+          "cliName": "depth",
+          "type": "int",
+          "required": false,
+          "default": "1",
+          "help": "Levels of nested objects to expand.",
+          "example": "2"
+        },
+        {
+          "name": "limit",
+          "cliName": "limit",
+          "type": "int",
+          "required": false,
+          "default": "20",
+          "help": "Elements of a list, array or map to show.",
+          "example": "50"
+        }
+      ],
+      "responseHint": "{ok, tree:[...]} | {ok, node, type, ms, peak_heap_mib, children, inputs, outputs, fields} | {ok, node, field, value}"
     },
     {
       "commandName": "orbit-get",

@@ -15,7 +15,12 @@ import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.data.SceneModelNode;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
+import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
@@ -41,10 +46,14 @@ class CarveOneToOneTest {
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
 
-        QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) ALPHA_RADIANS);
-        engine.buildQuantization();
+        NodeGraphRuntime layout = new NodeGraphRuntime(QuadLayoutNode.overSceneModel());
+        layout.graphInputs.put(SceneModelNode.BINDING, GeometryBundle.ofMesh(mesh));
+        layout.setOverride(QuadLayoutNode.ALPHA_DEGREES_OVERRIDE, (float) Math.toDegrees(ALPHA_RADIANS));
+        ArcNetwork arrangement = (ArcNetwork) layout.pull(
+                QuadLayoutNode.sceneOutput(QuadLayoutNode.SKELETON));
+        SeamlessUv seamless = (SeamlessUv) layout.pull(QuadLayoutNode.sceneOutput(QuadLayoutNode.SEAMLESS));
         LayoutEmbedding embedding = new LayoutEmbedding();
-        embedding.build(engine.arrangement, engine.seamless);
+        embedding.build(arrangement, seamless);
         EmbeddedMeshTopology topology = embedding.topology;
 
         int claimedSourceVertices = 0;
@@ -65,7 +74,7 @@ class CarveOneToOneTest {
                         + " | nodes=%d arcs=%d | source vertices claimed=%d free=%d%n",
                 offPath, mesh.vertexCount(), topology.copy.vertexCount(),
                 topology.copy.vertexCount() / (double) mesh.vertexCount(),
-                engine.arrangement.nodes.size(), engine.arrangement.arcs.size(),
+                arrangement.nodes.size(), arrangement.arcs.size(),
                 claimedSourceVertices, freeSourceVertices);
 
         assertEquals(0, topology.claimConflictCount,
@@ -86,7 +95,7 @@ class CarveOneToOneTest {
 
         Map<Integer, Integer> arcByEdge = new HashMap<>();
         Map<Integer, Integer> arcByInteriorVertex = new HashMap<>();
-        for (EmbeddedArc arc : engine.arrangement.arcs) {
+        for (EmbeddedArc arc : arrangement.arcs) {
             ArcEdgePath path = embedding.pathByArc[arc.arcId];
             List<Integer> vertices = path.copyVertexPath;
             assertEquals(vertices.size(), new HashSet<>(vertices).size(),
@@ -116,7 +125,7 @@ class CarveOneToOneTest {
             }
         }
 
-        assertTrue(arcByEdge.size() >= engine.arrangement.arcs.size(),
+        assertTrue(arcByEdge.size() >= arrangement.arcs.size(),
                 "every arc contributes at least one edge to the mapping");
     }
 }

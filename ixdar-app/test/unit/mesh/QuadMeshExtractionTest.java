@@ -8,8 +8,10 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.data.SceneModelNode;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
@@ -36,10 +38,9 @@ import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
  */
 class QuadMeshExtractionTest {
 
-    /** A torus is genus 1, so V - E + F is zero for any cell decomposition of it. */
     private static final int TORUS_EULER_CHARACTERISTIC = 0;
 
-    /** Quads the shortest arc is sized to, so arcs carry interior grid points. */
+    // Sized so arcs carry interior grid points.
     private static final int QUADS_ON_SHORTEST_ARC = 3;
 
     /**
@@ -48,7 +49,7 @@ class QuadMeshExtractionTest {
      * vertices at every patch boundary.
      */
     @Test
-    void unrelaxedTorusExtractsTheQuantizedQuadMesh() {
+    void unrelaxedTorusExtractsTheQuantizedQuadMesh() throws Exception {
         extractAndCheck(false);
     }
 
@@ -57,7 +58,7 @@ class QuadMeshExtractionTest {
      * every vertex re-fitted by the optimization.
      */
     @Test
-    void relaxedTorusExtractsTheQuantizedQuadMesh() {
+    void relaxedTorusExtractsTheQuantizedQuadMesh() throws Exception {
         extractAndCheck(true);
     }
 
@@ -67,15 +68,17 @@ class QuadMeshExtractionTest {
      * quantization prescribes.
      *
      * @param relax whether to run the Newton relaxation before extracting
+     * @throws Exception when the seamless stage fails
      */
-    private void extractAndCheck(boolean relax) {
+    private void extractAndCheck(boolean relax) throws Exception {
         NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
         ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
         NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
         contraction.conform();
-        SeamlessUv seamless = new QuadLayoutEngine(fixtureNet.topology.sourceMesh, 0f)
-                .buildSeamless();
+        NodeGraphRuntime layout = new NodeGraphRuntime(QuadLayoutNode.overSceneModel());
+        layout.graphInputs.put(SceneModelNode.BINDING, GeometryBundle.ofMesh(fixtureNet.topology.sourceMesh));
+        SeamlessUv seamless = (SeamlessUv) layout.pull(QuadLayoutNode.sceneOutput(QuadLayoutNode.SEAMLESS));
         double targetEdgeLength = shortestArcLength(fixtureNet, seamless) / QUADS_ON_SHORTEST_ARC;
         LayoutPatchMaps patchMaps = new LayoutPatchMaps(fixtureNet, seamless,
                 targetEdgeLength).build();

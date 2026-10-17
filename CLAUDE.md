@@ -99,14 +99,14 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli click [--x] [--y] [--normalized] [--button] [--settle]` — Click at a point on the active mouse handler, then wait for the click to be drawn.
 - `ixdar-cli connection --from --to [--through-rings] [--confirm]` — Show how two surface points are joined in the editing scene's connection tool: the path and its narrowest cross-section, the neck, optionally confirmed as a ring opened in the ring tool.
 - `ixdar-cli drag --fromX --fromY --toX --toY [--steps] [--hold] [--settle]` — Drag with the left button from one window point to another, a frame drawn after every step.
-- `ixdar-cli frame [--selection] [--bounds] [--padding] [--azimuth] [--elevation]` — Fit the camera to a named selection or an explicit bounding box, filling the view with it.
+- `ixdar-cli frame [--selection] [--bounds] [--point] [--radius] [--region] [--ring] [--padding] [--azimuth] [--elevation]` — Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it.
 - `ixdar-cli health` — Liveness probe reporting server status, recording/replaying flags, and port.
 - `ixdar-cli hover [--x] [--y] [--normalized] [--persistent] [--settle]` — Move the cursor without clicking, then wait for the hover to be drawn.
 - `ixdar-cli hover-clear` — Release the persistent automation hover lock on the active trade mouse handler.
 - `ixdar-cli key --key [--action] [--settle]` — Deliver a named key event to the active key handler and report whether it was consumed.
 - `ixdar-cli mesh-compare --reference [--distance-type] [--scale] [--normalize]` — Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics.
 - `ixdar-cli mesh-dsl --name [--node] [--port]` — Load and execute a named DSL skill graph, making its output geometry the active mesh.
-- `ixdar-cli mesh-dsl-timing` — Report per-node execution times and peak heap from the most recent DSL graph run.
+- `ixdar-cli mesh-dsl-timing` — Report per-node execution times and peak heap of the graph the active model scene ran last, nodes inside groups included.
 - `ixdar-cli mesh-dsl-validate --dsl [--export]` — Validate DSL source text, or the contents of a .dsl file path, against the skill schema.
 - `ixdar-cli mesh-export --path [--format]` — Write the active viewer mesh, with normals and per-corner UVs, to a glTF binary or ASCII PLY file.
 - `ixdar-cli mesh-fingerprint` — Compute the canonical SHA-256 fingerprint of the active viewer mesh.
@@ -118,10 +118,13 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli mesh-skeleton-compare-detailed --generated --reference [--resolution]` — Detailed skeleton comparison returning per-joint 3D position deltas.
 - `ixdar-cli mesh-skeleton-sensitivity --dsl --reference [--resolution] [--epsilon]` — Compute the Jacobian of skeleton joints w.r.t. DSL parameters.
 - `ixdar-cli mesh-topology [--path] [--duplicate-tolerance]` — Report mesh topology: element counts, shells with their Euler characteristic, boundary loops, non-manifold edges and duplicate-position vertices.
-- `ixdar-cli model <name>` — Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.
-- `ixdar-cli multiview [--out] [--inline]` — Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG.
+- `ixdar-cli model <name> [--set ...]` — Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.
+- `ixdar-cli multiview [--out] [--inline] [--selection] [--bounds] [--point] [--radius] [--region] [--ring] [--padding]` — Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by default), and composite them into a 4x2 grid PNG.
+- `ixdar-cli node-inspect [<path>] [<field>] [--depth] [--limit]` — Inspect the graph the active model scene ran: the node tree with times and peak heap, one node's inputs, outputs and fields, or a field path below it, with depth and length limits.
 - `ixdar-cli orbit-get` — Report the active mesh viewer's current camera orbit and mesh radius.
 - `ixdar-cli orbit-set [--azimuth] [--elevation] [--distance] [--target]` — Set the active mesh viewer's camera orbit (azimuth, elevation, distance).
+- `ixdar-cli pick --x --y` — Name the surface under a screenshot pixel: point, face, nearest vertex, normal and ring region, touching no tool and no hover.
+- `ixdar-cli project --point` — Place a surface point in the screenshot: the pixel it lands on and whether the surface in front of it hides it, touching no tool.
 - `ixdar-cli projection-get` — Report whether the active mesh viewer is using orthographic projection.
 - `ixdar-cli projection-set [--orthographic]` — Toggle the active mesh viewer between orthographic and perspective projection.
 - `ixdar-cli record-start` — Begin a new recording session, clearing any previously buffered events.

@@ -11,7 +11,7 @@ import ixdar.geometry.mesh.graph.GraphValidator;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 
-import ixdar.geometry.mesh.graph.SkillLibrary;
+import ixdar.geometry.mesh.graph.GroupLibrary;
 import ixdar.parsing.python.PythonLexer;
 import ixdar.parsing.python.PythonParser;
 import java.io.BufferedWriter;
@@ -56,8 +56,8 @@ public final class ValidateDsl {
      * standard JSON schema (valid, nodeCount, errors, warnings, meshProbe, ...).
      *
      * @param source DSL source text to parse and validate
-     * @param skillDir optional path to a directory of skill libraries; preamble is prepended to
-     *                 the parser when non-empty. Unreadable directories are silently ignored.
+     * @param skillDir optional folder of {@code .dsl} group files the source may call, beside the
+     *                 resource group library. Unreadable folders are silently ignored.
      * @param exportPath optional OBJ export path; when set and the mesh probe succeeds, the
      *                   resulting mesh (and a sibling {@code .tags.json} when tags are present)
      *                   is written here.
@@ -69,14 +69,13 @@ public final class ValidateDsl {
         String skillDir,
         String exportPath
     ) {
-        // Load skill library if provided (optional — validation works without it)
-        SkillLibrary skillLib =
-            new SkillLibrary();
+        // Groups from a user folder (optional — validation works without it)
+        Map<String, PythonParser.FunctionDef> funcDefs = new HashMap<>();
         if (skillDir != null && !skillDir.isEmpty()) {
             try {
-                skillLib.loadDirectory(Path.of(skillDir));
-            } catch (IOException e) {
-                // Skills directory unreadable — continue without skills
+                funcDefs.putAll(GroupLibrary.loadDirectory(Path.of(skillDir)));
+            } catch (IOException | RuntimeException e) {
+                // Group folder unreadable — continue without it
             }
         }
 
@@ -84,24 +83,11 @@ public final class ValidateDsl {
             NodeGraphRuntime.annotationRegistryClasses();
 
         List<PythonParser.ParsedNode> parsed;
-        Map<String, PythonParser.FunctionDef> funcDefs;
         try {
             PythonParser parser = new PythonParser(new PythonLexer(source));
-            if (!skillLib.getSkills().isEmpty()) {
-                String preamble = skillLib.toDslPreamble();
-                PythonParser preambleParser = new PythonParser(
-                    new PythonLexer(preamble)
-                );
-                preambleParser.parseGraph();
-                funcDefs = new HashMap<>(
-                    preambleParser.functionDefs()
-                );
-                parsed = parser.parseGraph();
-                funcDefs.putAll(parser.functionDefs());
-            } else {
-                parsed = parser.parseGraph();
-                funcDefs = parser.functionDefs();
-            }
+            parsed = parser.parseGraph();
+            funcDefs.putAll(parser.functionDefs());
+            funcDefs.putAll(GroupLibrary.referencedGroups(parsed, funcDefs, registry.keySet()));
         } catch (RuntimeException e) {
             return Map.of(
                 VALID,

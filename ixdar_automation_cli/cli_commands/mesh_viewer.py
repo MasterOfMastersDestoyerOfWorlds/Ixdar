@@ -1,7 +1,7 @@
 """Launch Ixdar mesh-viewer, optionally load a reference OBJ overlay, and capture a screenshot.
 
 Usage:
-    uv run mesh-viewer-compare --dsl hand.dsl --node palm_body --overlay ~/Blends/Hand/Hand.obj
+    uv run mesh-viewer-compare --dsl hand.dsl --overlay ~/Blends/Hand/Hand.obj
     uv run mesh-viewer-compare --overlay ~/Blends/Hand/Hand.obj --screenshot /tmp/compare.png
     uv run mesh-viewer-compare  # just launch with default skull.dsl
 """
@@ -45,22 +45,16 @@ def _wait_for_server(client: AutomationClient, known_pids: set, timeout: float =
     return False
 
 
-def _build_maven_args(dsl: str, node: str, port: str) -> list[str]:
+def _build_maven_args(dsl: str) -> list[str]:
     cmd = ["mvn", "-P", "mesh-viewer", "-q"]
     if dsl:
         cmd.append(f"-Dmesh.dsl={dsl}")
-    if node:
-        cmd.append(f"-Dmesh.node={node}")
-    if port:
-        cmd.append(f"-Dmesh.port={port}")
     return cmd
 
 
 def run(
     client: AutomationClient,
     dsl: str = "",
-    node: str = "",
-    port: str = "",
     overlay: str = "",
     screenshot: str = "",
     timeout: float = 60.0,
@@ -73,9 +67,8 @@ def run(
 
     :param client: client for the running scene with ``no_launch``, retargeted at the launched
         viewer otherwise
-    :param dsl: DSL resource name (empty uses the skull.dsl default)
-    :param node: final node name in the DSL graph
-    :param port: final port name on the node
+    :param dsl: model the viewer opens as ``ixdar.model``: a DSL resource name, a ``.dsl`` or mesh
+        path (empty uses the skull.dsl default); the shown node is the graph's last statement
     :param overlay: path to a reference OBJ to overlay
     :param screenshot: output path for the screenshot; empty uses the server default
     :param timeout: seconds to wait for server startup
@@ -87,7 +80,7 @@ def run(
 
     if not no_launch:
         known_pids = {record["pid"] for record in live_scenes()}
-        maven_cmd = _build_maven_args(dsl, node, port)
+        maven_cmd = _build_maven_args(dsl)
         print(f"Starting mesh-viewer: {' '.join(maven_cmd)}", file=sys.stderr)
         print(f"  working dir: {IXDAR_APP_DIR}", file=sys.stderr)
 
@@ -163,8 +156,6 @@ def run(
 def mesh_viewer(
     client: AutomationClient,
     dsl: str = "",
-    node: str = "",
-    port: str = "",
     overlay: str = "",
     screenshot: str = "",
     timeout: float = 60.0,
@@ -173,9 +164,7 @@ def mesh_viewer(
 ) -> CliCommandResult:
     """Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
 
-    :param dsl: DSL resource name (empty uses the skull.dsl default).
-    :param node: Final node name in the DSL graph.
-    :param port: Final port name on the node.
+    :param dsl: Model to open: a DSL resource name or a .dsl or mesh path (empty uses skull.dsl).
     :param overlay: Path to a reference OBJ to overlay.
     :param screenshot: Output path for the screenshot (empty uses the server default).
     :param timeout: Seconds to wait for server startup.
@@ -185,8 +174,6 @@ def mesh_viewer(
     payload = run(
         client,
         dsl=dsl,
-        node=node,
-        port=port,
         overlay=overlay,
         screenshot=screenshot,
         timeout=timeout,

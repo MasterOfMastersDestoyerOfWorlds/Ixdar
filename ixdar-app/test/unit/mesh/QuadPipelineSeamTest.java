@@ -8,23 +8,24 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.api.IntField;
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.nodes.data.SceneModelNode;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
+import ixdar.geometry.mesh.quadlayout.QuadLayout;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
 
 /**
- * Characterization of the quad-layout pipeline at the seams the 7.2 node
- * migration will cut, on real pipeline data: cross field, seamless
- * parametrization, embedded contract+conform, Newton relaxation, QEx
- * extraction, and patch surfaces. {@link EmbeddedTMeshPipelineTest} covers the
- * motorcycle/quantization/carve seams; this test pins down the stages that had
- * no direct coverage so the migration can prove it changed nothing.
+ * Characterization of the quad-layout stages {@link EmbeddedTMeshPipelineTest} does not cover, on
+ * real pipeline data: cross field, seamless map, contraction, relaxation, extraction, patch
+ * surfaces.
  *
- * <p>One engine run feeds every assertion. Point at another mesh with
+ * <p>One layout run feeds every assertion. Point at another mesh with
  * {@code -DquadPipelineSeam.off=...}.
  */
 class QuadPipelineSeamTest {
@@ -34,7 +35,7 @@ class QuadPipelineSeamTest {
             "test/resources/quadlayout/figure_7/sphere_base_in_tri.off";
     private static final double ALPHA_RADIANS = Math.toRadians(15.0);
 
-    /** Quarter-index units per unit of Euler characteristic (Poincaré-Hopf for cross fields). */
+    // Poincaré-Hopf for cross fields: quarter-index units per unit of Euler characteristic.
     private static final int QUARTER_INDICES_PER_EULER = 4;
 
     @Test
@@ -43,42 +44,50 @@ class QuadPipelineSeamTest {
         HalfEdgeMesh mesh = loadMesh(offPath);
         int meshEuler = mesh.vertexCount() - mesh.edgeCount() + mesh.faceCount();
 
-        QuadLayoutEngine engine = new QuadLayoutEngine(mesh, (float) ALPHA_RADIANS);
-        engine.buildPatchSurfaces();
+        NodeGraphRuntime graph = new NodeGraphRuntime(QuadLayoutNode.overSceneModel());
+        graph.graphInputs.put(SceneModelNode.BINDING, GeometryBundle.ofMesh(mesh));
+        graph.setOverride(QuadLayoutNode.ALPHA_DEGREES_OVERRIDE, (float) Math.toDegrees(ALPHA_RADIANS));
+        QuadLayout layout = (QuadLayout) graph.pull(QuadLayoutNode.sceneOutput(QuadLayoutNode.LAYOUT));
 
         int indexSum = 0;
-        for (int v = 0; v < engine.crossField.singularityIndex4.length(); v++) {
-            indexSum += engine.crossField.singularityIndex4.get(v);
+        for (int v = 0; v < layout.crossField.singularityIndex4.length(); v++) {
+            indexSum += layout.crossField.singularityIndex4.get(v);
         }
         assertEquals(QUARTER_INDICES_PER_EULER * meshEuler, indexSum,
                 "cross-field singularity indices sum to the Euler characteristic");
 
-        assertEquals(0, engine.seamlessFlippedTriangles,
+        assertEquals(0, graph.pull("layout/seamless.flipped_triangles"),
                 "the seamless parametrization flips no triangle");
-        assertTrue(engine.seamless.injective, "the seamless parametrization is injective");
+        assertTrue(layout.seamless.injective, "the seamless parametrization is injective");
 
-        assertTrue(engine.contracted, "the surfaces build ran the contraction");
-        assertEquals(0, countZeroArcs(engine), "contraction left no live zero arc");
+        int zeroArcs = 0;
+        for (int arcId = 0; arcId < layout.tmesh.arcs.size(); arcId++) {
+            if (layout.tmesh.arcs.get(arcId).alive
+                    && layout.tmesh.arcs.get(arcId).quantizedLength == 0) {
+                zeroArcs++;
+            }
+        }
+        assertEquals(0, zeroArcs, "contraction left no live zero arc");
 
-        assertTrue(engine.globalGrid.gridOptimizer.energyAfter
-                        <= engine.globalGrid.gridOptimizer.energyBefore,
+        assertTrue(layout.globalGrid.gridOptimizer.energyAfter
+                        <= layout.globalGrid.gridOptimizer.energyBefore,
                 "the Newton relaxation does not raise the energy");
-        assertEquals(0, engine.globalGrid.isoSurfaceRelaxed.flippedFaceCount,
+        assertEquals(0, layout.globalGrid.isoSurfaceRelaxed.flippedFaceCount,
                 "the relaxed grid map flips no face");
 
-        assertEquals(engine.globalGrid.quadGridInitial.quadCount,
-                engine.globalGrid.quadMesh.quadCount,
+        assertEquals(layout.globalGrid.quadGridInitial.quadCount,
+                layout.globalGrid.quadMesh.quadCount,
                 "relaxation preserves the extracted quad count");
-        assertEquals(meshEuler, engine.globalGrid.quadMesh.eulerCharacteristic(),
+        assertEquals(meshEuler, layout.globalGrid.quadMesh.eulerCharacteristic(),
                 "the extracted quad mesh closes to the surface's Euler characteristic");
 
         int livePatches = 0;
-        for (int patchId = 0; patchId < engine.tmesh.patches.size(); patchId++) {
-            if (engine.tmesh.patches.get(patchId).alive) {
+        for (int patchId = 0; patchId < layout.tmesh.patches.size(); patchId++) {
+            if (layout.tmesh.patches.get(patchId).alive) {
                 livePatches++;
             }
         }
-        IntField patchIds = PatchSurfaceGeometry.patchIds(engine.patchSurfaces);
+        IntField patchIds = PatchSurfaceGeometry.patchIds(layout.patchSurfaces);
         Set<Integer> surfacePatchIds = new HashSet<>();
         for (int face = 0; face < patchIds.length(); face++) {
             surfacePatchIds.add(patchIds.get(face));
@@ -99,22 +108,5 @@ class QuadPipelineSeamTest {
         ArrayMesh arrayMesh = MeshLoader.load(offPath);
         return HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
-    }
-
-    /**
-     * The number of live zero-length arcs left in the engine's T-mesh.
-     *
-     * @param engine the pipeline, built through contraction
-     * @return count of live arcs whose quantized length is zero
-     */
-    private int countZeroArcs(QuadLayoutEngine engine) {
-        int zero = 0;
-        for (int arcId = 0; arcId < engine.tmesh.arcs.size(); arcId++) {
-            if (engine.tmesh.arcs.get(arcId).alive
-                    && engine.tmesh.arcs.get(arcId).quantizedLength == 0) {
-                zero++;
-            }
-        }
-        return zero;
     }
 }

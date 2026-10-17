@@ -1,13 +1,17 @@
 package ixdar.scenes;
 
 import java.io.IOException;
+import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.nodes.api.IntField;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ControlHint;
@@ -15,13 +19,14 @@ import ixdar.scenes.model.ModelScene;
 
 /**
  * Inspector for Lyon 2021 modified motorcycle graphs: trace iso-lines, T-mesh
- * nodes, patch fills, and live α stepping.
+ * nodes, patch fills, and live α stepping. It pulls the motorcycle output of
+ * {@link QuadLayoutNode}, so only the stages the motorcycle graph depends on run.
  */
 @SceneAnnotation(id = "mcg-exam")
 public class MotorcycleGraphExaminationScene extends ModelScene {
+
     private MeshOverlayRuntime quadRuntime;
     private SeamlessUv seamless;
-    private float alphaDegrees = 15f;
 
     /**
      * Default constructor wired by the scene annotation processor.
@@ -42,6 +47,11 @@ public class MotorcycleGraphExaminationScene extends ModelScene {
     }
 
     @Override
+    public List<PythonParser.ParsedNode> sceneGraph() {
+        return QuadLayoutNode.overSceneModel();
+    }
+
+    @Override
     public void loadModel(String path) throws IOException {
         super.loadModel(path);
         rebuildMotorcycleGraph();
@@ -59,24 +69,30 @@ public class MotorcycleGraphExaminationScene extends ModelScene {
     }
 
     private void rebuildMotorcycleGraph() {
-        float alphaRadians = (float) Math.toRadians(alphaDegrees);
-        QuadLayoutEngine engine = new QuadLayoutEngine(halfEdgeMesh, alphaRadians);
-        ArcNetwork graph = engine.buildMotorcycleGraph();
-        seamless = engine.seamless;
+        runSceneGraph();
+        ArcNetwork motorcycle = (ArcNetwork) sceneOutput(
+                QuadLayoutNode.sceneOutput(QuadLayoutNode.MOTORCYCLE));
+        seamless = (SeamlessUv) sceneOutput(QuadLayoutNode.sceneOutput(QuadLayoutNode.SEAMLESS));
+        IntField singularities = (IntField) sceneOutput(
+                QuadLayoutNode.sceneOutput(QuadLayoutNode.SINGULARITIES));
         quadRuntime.setSeamlessParametrization(seamless, halfEdgeMesh);
-        quadRuntime.setSingularities(engine.crossField.singularityIndex4, halfEdgeMesh);
-        quadRuntime.setMotorcycleGraph(graph);
+        quadRuntime.setSingularities(singularities, halfEdgeMesh);
+        quadRuntime.setMotorcycleGraph(motorcycle);
         quadRuntime.showTraces = true;
         quadRuntime.showNodes = true;
         quadRuntime.showCrossField = false;
         quadRuntime.showFullIsoGrid = false;
+        float alphaDegrees = overrides.get(QuadLayoutNode.ALPHA_DEGREES_OVERRIDE) instanceof Number alpha
+                ? alpha.floatValue() : MotorcycleGraph.DEFAULT_ALPHA_DEGREES;
         String hudLine = String.format("[mcg-exam] α=%.0f° traces=%d arcs=%d nodes=%d",
-                alphaDegrees, graph.traces.size(), graph.arcs.size(), graph.nodes.size());
+                alphaDegrees, motorcycle.traces.size(), motorcycle.arcs.size(),
+                motorcycle.nodes.size());
         Platforms.get().log(hudLine);
     }
 
     void stepAlpha(float deltaDegrees) {
-        alphaDegrees = Math.max(1f, alphaDegrees + deltaDegrees);
+        stepOverride(QuadLayoutNode.ALPHA_DEGREES_OVERRIDE, deltaDegrees, 1f,
+                MotorcycleGraph.DEFAULT_ALPHA_DEGREES);
         rebuildMotorcycleGraph();
     }
 

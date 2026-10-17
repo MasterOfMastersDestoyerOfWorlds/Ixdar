@@ -5,6 +5,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.SurfaceCreases;
 import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
+import ixdar.geometry.mesh.quadlayout.QuadLayout;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
@@ -33,7 +34,9 @@ public enum PortType {
     /** A solve's degrees of freedom and their couplings. */
     DOF_SYSTEM(DofSystem.class),
     /** Atlas of charts covering a surface. */
-    CHART_ATLAS(ChartAtlas.class);
+    CHART_ATLAS(ChartAtlas.class),
+    /** Every stage product of one quad layout. */
+    QUAD_LAYOUT(QuadLayout.class);
 
     private final Class<?> valueType;
 

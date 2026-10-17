@@ -86,7 +86,20 @@ def _add_param_argument(parser, param: dict) -> None:
     param_type = param.get("type", "string")
 
     if param.get("positional", False):
-        parser.add_argument(dest, type=_PARAM_PY_TYPE.get(param_type, str), help=help_text)
+        if param.get("required", True):
+            parser.add_argument(dest, type=_PARAM_PY_TYPE.get(param_type, str), help=help_text)
+        else:
+            parser.add_argument(
+                dest,
+                nargs="?",
+                type=_PARAM_PY_TYPE.get(param_type, str),
+                default=_coerce_default(param_type, param.get("default", "")),
+                help=help_text,
+            )
+        return
+
+    if param_type == "string_list":
+        parser.add_argument(flag, dest=dest, action="append", default=[], help=f"{help_text} Repeatable.")
         return
 
     if param_type == "bool":

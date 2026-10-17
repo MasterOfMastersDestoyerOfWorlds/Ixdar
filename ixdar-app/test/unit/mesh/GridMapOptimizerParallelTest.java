@@ -7,8 +7,10 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.data.SceneModelNode;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
@@ -28,20 +30,16 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
  */
 class GridMapOptimizerParallelTest {
 
-    /** Quads the shortest arc is sized to, so arcs carry interior grid points. */
+    // Sized so arcs carry interior grid points.
     private static final int QUADS_ON_SHORTEST_ARC = 3;
 
-    /**
-     * Relative energy agreement demanded between the single- and multi-threaded
-     * runs, loose only for the reduction's changed summation order.
-     */
+    // Loose only for the parallel reduction's changed summation order.
     private static final double ENERGY_RELATIVE_TOLERANCE = 1.0e-8;
 
-    /** Iteration-count slack between the single- and multi-threaded runs. */
     private static final int ITERATION_SLACK = 3;
 
     @Test
-    void multiThreadedRelaxationMatchesSingleThreaded() {
+    void multiThreadedRelaxationMatchesSingleThreaded() throws Exception {
         GridMapOptimizer single = relaxTorus(1);
         GridMapOptimizer multi = relaxTorus(0);
         assertEquals(0, single.flippedTriangleCount, "single-threaded run folded triangles");
@@ -65,15 +63,17 @@ class GridMapOptimizerParallelTest {
      * @param workerThreads worker threads for the Newton assembly, {@code 0} for
      *                      the optimizer's default
      * @return the solved optimizer, for its result fields
+     * @throws Exception when the seamless stage fails
      */
-    private GridMapOptimizer relaxTorus(int workerThreads) {
+    private GridMapOptimizer relaxTorus(int workerThreads) throws Exception {
         NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
         ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
         NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
         contraction.conform();
-        SeamlessUv seamless = new QuadLayoutEngine(fixtureNet.topology.sourceMesh, 0f)
-                .buildSeamless();
+        NodeGraphRuntime layout = new NodeGraphRuntime(QuadLayoutNode.overSceneModel());
+        layout.graphInputs.put(SceneModelNode.BINDING, GeometryBundle.ofMesh(fixtureNet.topology.sourceMesh));
+        SeamlessUv seamless = (SeamlessUv) layout.pull(QuadLayoutNode.sceneOutput(QuadLayoutNode.SEAMLESS));
         double targetEdgeLength = shortestArcLength(fixtureNet, seamless)
                 / QUADS_ON_SHORTEST_ARC;
         LayoutPatchMaps patchMaps = new LayoutPatchMaps(fixtureNet, seamless,

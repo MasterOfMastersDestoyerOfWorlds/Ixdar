@@ -8,13 +8,14 @@ import java.util.Map;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnostic;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnosticException;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ControlHint;
@@ -57,9 +58,6 @@ public class EmbeddedTMeshScene extends ModelScene {
 
     /** Whether replaying the contraction to just before the recorded failure was requested. */
     public volatile boolean pendingRewind;
-
-    /** The angle to stop motorcycle crashes at. */
-    public double alphaDegrees = 15;
 
     /** Contraction operators applied since the model was loaded, the replay currency of B. */
     public int contractOpsSinceLoad;
@@ -117,6 +115,11 @@ public class EmbeddedTMeshScene extends ModelScene {
         return "Ixdar : Embedded T-Mesh";
     }
 
+    @Override
+    public List<PythonParser.ParsedNode> sceneGraph() {
+        return QuadLayoutNode.overSceneModel();
+    }
+
     /**
      * Load {@code path}, then build the uncontracted T-mesh from the loaded surface.
      *
@@ -143,8 +146,8 @@ public class EmbeddedTMeshScene extends ModelScene {
      */
     @Override
     public NodeGraphRuntime loadGraph(GraphChoice choice) {
-        NodeGraphRuntime graph = super.loadGraph(choice);
-        tmesh = (ArcNetwork) graph.lastOutput("net");
+        NodeGraphRuntime run = super.loadGraph(choice);
+        tmesh = (ArcNetwork) run.lastOutput("net");
         halfEdgeMesh = tmesh.topology.copy;
         runtime.upload(halfEdgeMesh);
         frameLoadedModel();
@@ -158,7 +161,7 @@ public class EmbeddedTMeshScene extends ModelScene {
                 "[embedded-tmesh] fixture=%s nodes=%d arcs=%d patches=%d",
                 choice.displayName, tmesh.nodes.size(), tmesh.arcs.size(),
                 tmesh.patches.size()));
-        return graph;
+        return run;
     }
 
     /**
@@ -166,9 +169,8 @@ public class EmbeddedTMeshScene extends ModelScene {
      * dropping any stale diagnostic or patch clouds.
      */
     private void rebuildTMesh() {
-        QuadLayoutEngine engine = new QuadLayoutEngine(
-                halfEdgeMesh, (float) Math.toRadians(alphaDegrees));
-        tmesh = engine.buildTMesh();
+        runSceneGraph();
+        tmesh = (ArcNetwork) sceneOutput(QuadLayoutNode.sceneOutput(QuadLayoutNode.EMBEDDED));
         contraction = new NetworkContraction(tmesh);
         quadRuntime.setEmbeddedTMesh(tmesh);
         quadRuntime.clearDiagnostic();

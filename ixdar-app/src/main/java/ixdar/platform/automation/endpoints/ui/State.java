@@ -264,7 +264,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                     runtime.vector3Array(meshScene.getBoundingBoxMax()));
             JsonArray edgeMarks = new JsonArray();
             for (Map.Entry<String, boolean[]> entry
-                    : meshScene.graphEdgeMarks(meshScene.getLastGraphRuntime()).entrySet()) {
+                    : meshScene.graphEdgeMarks(meshScene.graph).entrySet()) {
                 JsonObject mark = new JsonObject();
                 mark.addProperty(LABEL, entry.getKey());
                 mark.addProperty(EDGECOUNT, markedEdgeCount(entry.getValue()));

@@ -487,7 +487,7 @@ public final class RingTool implements EditTool {
             lastError = "no surface to measure grooves on";
             return false;
         }
-        NodeGraphRuntime graph = scene.getLastGraphRuntime();
+        NodeGraphRuntime graph = scene.graph;
         for (PythonParser.ParsedNode statement : graph == null ? List.<PythonParser.ParsedNode>of()
                 : graph.statements) {
             if (graph.getNodeOutput(statement.id, SurfaceCreasesNode.CREASES.name)
@@ -1841,7 +1841,7 @@ public final class RingTool implements EditTool {
             invalidateRings();
             return;
         }
-        NodeGraphRuntime graph = scene.getLastGraphRuntime();
+        NodeGraphRuntime graph = scene.graph;
         List<PythonParser.ParsedNode> statements = graph == null ? List.of() : graph.statements;
         int adopted = 0;
         List<String> refused = new ArrayList<>();
@@ -2041,7 +2041,7 @@ public final class RingTool implements EditTool {
         if (surface == refusedSurface) {
             return false;
         }
-        NodeGraphRuntime graph = scene.getLastGraphRuntime();
+        NodeGraphRuntime graph = scene.graph;
         SurfaceMetric metric = null;
         for (PythonParser.ParsedNode statement : graph == null ? List.<PythonParser.ParsedNode>of()
                 : graph.statements) {

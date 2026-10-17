@@ -1,14 +1,16 @@
 package benchmark;
 
-import java.io.IOException;
-
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.data.SceneModelNode;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
+import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
 import ixdar.platform.Platforms;
 
 /**
@@ -22,25 +24,27 @@ public final class GridMapPipelineBenchmark {
     private static final double NANOS_PER_SECOND = 1.0e9;
 
     /**
-     * Runs the engine through {@code buildGlobalGridMap} and prints the wall time
+     * Pulls the layout through the relaxed grid map and prints the wall time
      * of each stage group plus the grid-map stage on its own.
      *
-     * @throws IOException when the mesh file cannot be read
+     * @throws Exception when the mesh file cannot be read or a stage fails
      */
     @Test
-    public void buildGlobalGridMap() throws IOException {
+    public void buildGlobalGridMap() throws Exception {
         String offPath = System.getProperty(OFF_PROPERTY, DEFAULT_OFF);
         ArrayMesh arrayMesh = MeshLoader.load(offPath);
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
-        QuadLayoutEngine engine = new QuadLayoutEngine(mesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
+        NodeGraphRuntime layout = new NodeGraphRuntime(QuadLayoutNode.overSceneModel());
+        layout.graphInputs.put(SceneModelNode.BINDING, GeometryBundle.ofMesh(mesh));
 
         long start = System.nanoTime();
-        engine.buildSeamless();
+        layout.pull(QuadLayoutNode.sceneOutput(QuadLayoutNode.SEAMLESS));
         long seamlessEnd = System.nanoTime();
-        engine.buildContractedTMesh();
+        layout.pull(QuadLayoutNode.sceneOutput(QuadLayoutNode.TMESH));
         long contractedEnd = System.nanoTime();
-        engine.buildGlobalGridMap();
+        GlobalGridMap globalGrid = (GlobalGridMap) layout.pull(
+                QuadLayoutNode.sceneOutput(QuadLayoutNode.UV));
         long gridMapEnd = System.nanoTime();
 
         Platforms.log("[benchmark] %s V=%d F=%d%n", offPath, mesh.vertexCount(),
@@ -54,9 +58,9 @@ public final class GridMapPipelineBenchmark {
                 (gridMapEnd - start) / NANOS_PER_SECOND);
         Platforms.log("[benchmark] grid-optimize energy %.6e -> %.6e iterations=%d"
                 + " flipped=%d%n",
-                engine.globalGrid.gridOptimizer.energyBefore,
-                engine.globalGrid.gridOptimizer.energyAfter,
-                engine.globalGrid.gridOptimizer.iterationCount,
-                engine.globalGrid.gridOptimizer.flippedTriangleCount);
+                globalGrid.gridOptimizer.energyBefore,
+                globalGrid.gridOptimizer.energyAfter,
+                globalGrid.gridOptimizer.iterationCount,
+                globalGrid.gridOptimizer.flippedTriangleCount);
     }
 }

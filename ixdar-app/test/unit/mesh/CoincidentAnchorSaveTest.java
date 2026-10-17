@@ -160,26 +160,35 @@ class CoincidentAnchorSaveTest {
             POLES[3], POLES[4], POLES[5], EQUATOR[3], EQUATOR[4], EQUATOR[5],
         }, ANCHORS);
         String normal = SurfaceWaypoints.format(MERIDIAN_NORMAL, 1);
-        String source = SPHERES
-                + RING + " = spline_ring(geometry=surface.geometry, metric=surface.metric, points=\""
-                + onPoles + "\", normal=\"" + normal + "\", label=\"" + RING + "\")\n"
+        String rings = RING + " = spline_ring(geometry=surface.geometry, metric=surface.metric, "
+                + "points=\"" + onPoles + "\", normal=\"" + normal + "\", label=\"" + RING + "\")\n"
                 + OTHER_RING + " = spline_ring(geometry=" + RING + ".geometry, "
                 + "metric=surface.metric, points=\"" + onPoles + "\", normal=\"" + normal
                 + "\", label=\"" + OTHER_RING + "\")\n";
-        NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
+        // The same rings at the top level and inside a group call: a failure deferred in a group
+        // body still fails the run.
+        String[][] sourceAndOutput = {
+            { SPHERES + rings, OTHER_RING },
+            { "def rings(geometry: GEOMETRY_BUNDLE) -> GEOMETRY_BUNDLE:\n"
+                    + "surface = surface_metric(geometry=geometry)\n" + rings + "end\n" + SPHERES
+                    + "ringed = rings(geometry=surface.geometry)\n", "ringed" },
+        };
+        for (String[] graph : sourceAndOutput) {
+            NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(graph[0]);
 
-        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                () -> runtime.executeGraphResult(runtime.statements, OTHER_RING,
-                        RingDslWriter.DEFAULT_UPSTREAM_PORT));
+            IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                    () -> runtime.executeGraphResult(runtime.statements, graph[1],
+                            RingDslWriter.DEFAULT_UPSTREAM_PORT));
 
-        String report = refused.getMessage();
-        assertTrue(report.startsWith("2 failure(s)"), report);
-        for (String label : new String[] { RING, OTHER_RING }) {
-            String section = report.substring(report.indexOf("spline_ring " + label));
-            assertTrue(section.contains("point 1 of 4") && section.contains("point 3 of 4"),
-                    label + " does not name both of its pole points: " + report);
+            String report = refused.getMessage();
+            assertTrue(report.startsWith("2 failure(s)"), report);
+            for (String label : new String[] { RING, OTHER_RING }) {
+                String section = report.substring(report.indexOf("spline_ring " + label));
+                assertTrue(section.contains("point 1 of 4") && section.contains("point 3 of 4"),
+                        label + " does not name both of its pole points: " + report);
+            }
+            assertEquals(-1, report.indexOf("point 2 of 4"), "an equator point was refused");
         }
-        assertEquals(-1, report.indexOf("point 2 of 4"), "an equator point was refused");
     }
 
     /**

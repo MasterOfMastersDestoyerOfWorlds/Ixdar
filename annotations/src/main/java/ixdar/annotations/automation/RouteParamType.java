@@ -10,7 +10,9 @@ public enum RouteParamType {
     STRING,
     INT,
     FLOAT,
-    BOOL;
+    BOOL,
+    /** A JSON array of strings; the CLI takes the flag repeatedly, {@code --set a=1 --set b=2}. */
+    STRING_LIST;
 
     /**
      * Lowercase token used in the JSON manifest (and mapped to a CLI argument type).

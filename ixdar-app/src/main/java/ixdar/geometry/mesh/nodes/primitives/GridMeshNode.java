@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.geometry.mesh.nodes.api.InputPort;
-import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
@@ -94,7 +93,23 @@ public class GridMeshNode implements MeshNode {
 
         uTileSize = Math.max(MIN_TILE_SIZE, uTileSize);
         vTileSize = Math.max(MIN_TILE_SIZE, vTileSize);
+        ctx.setOutput(MESH.name, GeometryBundle.ofMesh(
+                build(uTiles, vTiles, uTileSize, vTileSize, triangulate)));
+    }
 
+    /**
+     * A flat grid on the XZ plane centered at the origin, vertex ids U-major (see
+     * {@link #vertexId}).
+     *
+     * @param uTiles      quads along U, at least 1
+     * @param vTiles      quads along V, at least 1
+     * @param uTileSize   tile edge length along U
+     * @param vTileSize   tile edge length along V
+     * @param triangulate whether each quad splits into two triangles along its v00-v11 diagonal
+     * @return the grid mesh with normals computed
+     */
+    public static HalfEdgeMesh build(int uTiles, int vTiles, float uTileSize, float vTileSize,
+            boolean triangulate) {
         float totalU = uTiles * uTileSize;
         float totalV = vTiles * vTileSize;
         float x0 = -totalU * 0.5f;
@@ -130,7 +145,7 @@ public class GridMeshNode implements MeshNode {
         }
 
         mesh.computeNormals();
-        ctx.setOutput(MESH.name, GeometryBundle.ofMesh(mesh));
+        return mesh;
     }
 
     /**
@@ -142,13 +157,7 @@ public class GridMeshNode implements MeshNode {
      * @return the generated mesh
      */
     public static HalfEdgeMesh triangulated(int columns, int rows) {
-        GridMeshNode node = new GridMeshNode();
-        MapNodeContext context = new MapNodeContext(node);
-        context.setInput(GridMeshNode.U_TILES.name, columns - 1);
-        context.setInput(GridMeshNode.V_TILES.name, rows - 1);
-        context.setInput(GridMeshNode.TRIANGULATE.name, true);
-        node.evaluate(context);
-        return (HalfEdgeMesh) context.getOutput(GridMeshNode.MESH.name, GeometryBundle.class).mesh();
+        return build(Math.max(1, columns - 1), Math.max(1, rows - 1), 1f, 1f, true);
     }
 
     /**

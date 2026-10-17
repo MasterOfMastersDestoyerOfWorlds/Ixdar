@@ -339,26 +339,9 @@ public class AutomationRuntime {
     public static void appendTiming(
             MeshNodeViewerScene mvs,
             JsonObject result) {
-        var runtime = mvs.getLastGraphRuntime();
-        if (runtime == null)
-            return;
-        JsonObject timing = new JsonObject();
-        timing.addProperty("total_ms", runtime.lastTotalMs());
-        JsonArray nodes = new JsonArray();
-        for (var entry : runtime.lastTimingMs().entrySet()) {
-            if (entry.getValue() >= 1) {
-                JsonObject n = new JsonObject();
-                n.addProperty("node", entry.getKey());
-                n.addProperty("ms", entry.getValue());
-                Long peakBytes = runtime.lastPeakHeapBytes().get(entry.getKey());
-                if (peakBytes != null) {
-                    n.addProperty(Timing.PEAK_HEAP_MIB, peakBytes / HeapSampler.BYTES_PER_MIB);
-                }
-                nodes.add(n);
-            }
+        if (mvs.graph != null) {
+            result.add("timing", Timing.timingJson(mvs.graph, 1));
         }
-        timing.add("nodes", nodes);
-        result.add("timing", timing);
     }
 
     /**

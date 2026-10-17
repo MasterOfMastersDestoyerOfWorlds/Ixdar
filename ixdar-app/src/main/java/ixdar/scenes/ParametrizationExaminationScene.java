@@ -1,14 +1,19 @@
 package ixdar.scenes;
 
 import java.io.IOException;
+import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.load.CrossFieldLoader;
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.graph.GraphNodeContext;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.scenes.model.ModelScene;
 
@@ -24,6 +29,7 @@ import ixdar.scenes.model.ModelScene;
 @SceneAnnotation(id = "param-exam")
 public class ParametrizationExaminationScene extends ModelScene {
     public static final String CROSS_FIELD_PROPERTY = "parametrization.scene.cf";
+
     public String cfPath = System.getProperty(CROSS_FIELD_PROPERTY);
     public MeshOverlayRuntime quadRuntime;
 
@@ -43,10 +49,15 @@ public class ParametrizationExaminationScene extends ModelScene {
         return "Ixdar : Parametrization Examination";
     }
 
+    @Override
+    public List<PythonParser.ParsedNode> sceneGraph() {
+        return QuadLayoutNode.overSceneModel();
+    }
+
     /**
-     * Load {@code path}: build the cross field (optionally overridden by the
-     * {@code -D…cf} reference), run the seamless parametrization, and hand it to
-     * the runtime.
+     * Load {@code path}: pull the scene graph's cross field (optionally overwritten
+     * by the {@code -D…cf} reference before the seamless stage reads it), then its
+     * seamless parametrization, and hand it to the runtime.
      *
      * @param path mesh file path to load
      * @throws IOException if the mesh file cannot be read
@@ -54,8 +65,9 @@ public class ParametrizationExaminationScene extends ModelScene {
     @Override
     public void loadModel(String path) throws IOException {
         super.loadModel(path);
-        QuadLayoutEngine engine = new QuadLayoutEngine(halfEdgeMesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
-        CrossField crossField = engine.buildCrossField();
+        runSceneGraph();
+        CrossField crossField = (CrossField) sceneOutput(
+                QuadLayoutNode.sceneOutput(QuadLayoutNode.FIELD));
         int ourSingCount = crossField.singularityCount();
         if (cfPath != null) {
             try {
@@ -75,7 +87,11 @@ public class ParametrizationExaminationScene extends ModelScene {
                         + cfPath + ": " + ex.getMessage());
             }
         }
-        SeamlessUv seamless = engine.buildSeamless();
+        SeamlessUv seamless = (SeamlessUv) sceneOutput(
+                QuadLayoutNode.sceneOutput(QuadLayoutNode.SEAMLESS));
+        Object flipped = sceneOutput(QuadLayoutNode.LAYOUT_CALL + GraphNodeContext.PATH_SEPARATOR
+                + QuadLayoutNode.SEAMLESS.name + NodeGraphRuntime.PORT_SEPARATOR
+                + SeamlessParameterization.FLIPPED_TRIANGLES.name);
 
         quadRuntime.showIsoLines = true;
         quadRuntime.showSingularities = true;
@@ -87,7 +103,7 @@ public class ParametrizationExaminationScene extends ModelScene {
                 + " V=" + halfEdgeMesh.vertexCount()
                 + " F=" + halfEdgeMesh.faceCount()
                 + " singularities=" + crossField.singularityCount()
-                + " flipped=" + engine.seamlessFlippedTriangles
+                + " flipped=" + flipped
                 + " injective=" + seamless.injective);
     }
 

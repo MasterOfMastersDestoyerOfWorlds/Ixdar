@@ -69,6 +69,22 @@ public final class RouteDocBuilder {
     }
 
     /**
+     * Append an optional parameter the CLI takes as a bare argument, which may be left off, as in
+     * {@code node-inspect} and {@code node-inspect layout/motorcycle}.
+     *
+     * @param name JSON body key the handler reads (also the argument's name in the CLI help)
+     * @param type value type of the parameter
+     * @param help one-line description of the parameter
+     * @param example a representative value a caller might pass
+     * @return this builder
+     */
+    public RouteDocBuilder optionalPositional(String name, RouteParamType type, String help,
+            String example) {
+        parameters.add(new RouteParameterDoc(name, name, type, false, "", help, example, true));
+        return this;
+    }
+
+    /**
      * Declare that the route holds the request open until slow work finishes, so the CLI waits
      * that long instead of timing out and retrying.
      *

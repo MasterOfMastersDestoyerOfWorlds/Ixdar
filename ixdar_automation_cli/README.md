@@ -26,14 +26,14 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`click`](#click) | Click at a point on the active mouse handler, then wait for the click to be drawn. |
 | [`connection`](#connection) | Show how two surface points are joined in the editing scene's connection tool: the path and its narrowest cross-section, the neck, optionally confirmed as a ring opened in the ring tool. |
 | [`drag`](#drag) | Drag with the left button from one window point to another, a frame drawn after every step. |
-| [`frame`](#frame) | Fit the camera to a named selection or an explicit bounding box, filling the view with it. |
+| [`frame`](#frame) | Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it. |
 | [`health`](#health) | Liveness probe reporting server status, recording/replaying flags, and port. |
 | [`hover`](#hover) | Move the cursor without clicking, then wait for the hover to be drawn. |
 | [`hover-clear`](#hover-clear) | Release the persistent automation hover lock on the active trade mouse handler. |
 | [`key`](#key) | Deliver a named key event to the active key handler and report whether it was consumed. |
 | [`mesh-compare`](#mesh-compare) | Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics. |
 | [`mesh-dsl`](#mesh-dsl) | Load and execute a named DSL skill graph, making its output geometry the active mesh. |
-| [`mesh-dsl-timing`](#mesh-dsl-timing) | Report per-node execution times and peak heap from the most recent DSL graph run. |
+| [`mesh-dsl-timing`](#mesh-dsl-timing) | Report per-node execution times and peak heap of the graph the active model scene ran last, nodes inside groups included. |
 | [`mesh-dsl-validate`](#mesh-dsl-validate) | Validate DSL source text, or the contents of a .dsl file path, against the skill schema. |
 | [`mesh-export`](#mesh-export) | Write the active viewer mesh, with normals and per-corner UVs, to a glTF binary or ASCII PLY file. |
 | [`mesh-fingerprint`](#mesh-fingerprint) | Compute the canonical SHA-256 fingerprint of the active viewer mesh. |
@@ -46,9 +46,12 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`mesh-skeleton-sensitivity`](#mesh-skeleton-sensitivity) | Compute the Jacobian of skeleton joints w.r.t. DSL parameters. |
 | [`mesh-topology`](#mesh-topology) | Report mesh topology: element counts, shells with their Euler characteristic, boundary loops, non-manifold edges and duplicate-position vertices. |
 | [`model`](#model) | Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took. |
-| [`multiview`](#multiview) | Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG. |
+| [`multiview`](#multiview) | Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by default), and composite them into a 4x2 grid PNG. |
+| [`node-inspect`](#node-inspect) | Inspect the graph the active model scene ran: the node tree with times and peak heap, one node's inputs, outputs and fields, or a field path below it, with depth and length limits. |
 | [`orbit-get`](#orbit-get) | Report the active mesh viewer's current camera orbit and mesh radius. |
 | [`orbit-set`](#orbit-set) | Set the active mesh viewer's camera orbit (azimuth, elevation, distance). |
+| [`pick`](#pick) | Name the surface under a screenshot pixel: point, face, nearest vertex, normal and ring region, touching no tool and no hover. |
+| [`project`](#project) | Place a surface point in the screenshot: the pixel it lands on and whether the surface in front of it hides it, touching no tool. |
 | [`projection-get`](#projection-get) | Report whether the active mesh viewer is using orthographic projection. |
 | [`projection-set`](#projection-set) | Toggle the active mesh viewer between orthographic and perspective projection. |
 | [`record-start`](#record-start) | Begin a new recording session, clearing any previously buffered events. |
@@ -159,17 +162,21 @@ Drag with the left button from one window point to another, a frame drawn after 
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/Frame.java)
 
-Fit the camera to a named selection or an explicit bounding box, filling the view with it.
+Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it.
 
 - **Route:** `POST /ui/frame`
 - **Flags:**
-  - `--selection` (string, default `mesh`) — What to frame: mesh, overlay, tag:NAME, edge-mark:LABEL, patch:ID, or a bare name., e.g. `tag:cranium`
-  - `--bounds` (string, default ``) — Explicit box as minX,minY,minZ,maxX,maxY,maxZ; overrides the selection., e.g. `-1,-1,-1,1,1,1`
-  - `--padding` (float, default `0.15`) — Margin around the box as a fraction of its radius., e.g. `0.25`
+  - `--selection` (string, default `mesh`) — What to frame: mesh, overlay, tag:NAME, edge-mark:LABEL, ring:LABEL, region:N[,M] or region:selected, or a bare name., e.g. `tag:cranium`
+  - `--bounds` (string, default ``) — Explicit box as minX,minY,minZ,maxX,maxY,maxZ; overrides every other selection., e.g. `-1,-1,-1,1,1,1`
+  - `--point` (string, default ``) — A point x,y,z to frame with --radius around it., e.g. `0.1,0.4,0`
+  - `--radius` (float, default ``) — Radius of the sphere framed around --point., e.g. `0.05`
+  - `--region` (string, default ``) — Ring regions by the numbers the regions command reports, comma-separated, or 'selected' for the region tool's selection., e.g. `3`
+  - `--ring` (string, default ``) — A ring by its label in the ring-tool scene: a graph ring or 'ring #N'., e.g. `ring2`
+  - `--padding` (float, default `0.15`) — Margin around the selection as a fraction of its radius., e.g. `0.25`
   - `--azimuth` (float, default ``) — Orbit azimuth in radians to view from; omitted keeps the current angle., e.g. `1.5708`
-  - `--elevation` (float, default ``) — Orbit elevation in radians to view from; omitted keeps the current angle., e.g. `0.6`
+  - `--elevation` (float, default ``) — Orbit elevation in radians to view from, +-1.5708 for a true top or bottom view; omitted keeps the current angle., e.g. `0.6`
 - **Response:** `{ok, selection, matchedVertices, boundsMin, boundsMax, center, radius, padding, azimuth, elevation, distance, requestedDistance, error?}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/frame -d '{"selection": "tag:cranium", "bounds": "-1,-1,-1,1,1,1", "padding": 0.25, "azimuth": 1.5708, "elevation": 0.6}'`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/frame -d '{"selection": "tag:cranium", "bounds": "-1,-1,-1,1,1,1", "point": "0.1,0.4,0", "radius": 0.05, "region": "3", "ring": "ring2", "padding": 0.25, "azimuth": 1.5708, "elevation": 0.6}'`
 
 ### `health`
 
@@ -247,17 +254,17 @@ Load and execute a named DSL skill graph, making its output geometry the active 
   - `--name` (string, required) — Name of the DSL skill graph to run., e.g. `skeleton-decompose`
   - `--node` (string, default ``) — Graph node whose output geometry becomes the active mesh., e.g. `output`
   - `--port` (string, default `geometry`) — Output port on the selected node to read geometry from., e.g. `geometry`
-- **Response:** `{ok, dsl, node, port, vertices, faces, timing...}`
+- **Response:** `{ok, dsl, node, port, vertices, faces, timing...}; while another graph runs, {ok: false, running, error}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/dsl -d '{"name": "skeleton-decompose", "node": "output", "port": "geometry"}'`
 
 ### `mesh-dsl-timing`
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Timing.java)
 
-Report per-node execution times and peak heap from the most recent DSL graph run.
+Report per-node execution times and peak heap of the graph the active model scene ran last, nodes inside groups included.
 
 - **Route:** `GET /mesh/dsl/timing`
-- **Response:** `{ok, total_ms, peak_heap_mib, nodes:[{node, ms, peak_heap_mib}, ...]}`
+- **Response:** `{ok, total_ms, peak_heap_mib, nodes:[{node, type, ms, peak_heap_mib}, ...]}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/mesh/dsl/timing`
 
 ### `mesh-dsl-validate`
@@ -412,21 +419,44 @@ Switch the active model scene to a named model and recompute, as the terminal co
 - **Route:** `POST /scene/model`
 - **Flags:**
   - `<name>` (string, required) — Model display name, or part of the name or path of a listed model., e.g. `bolt`
-- **Response:** `{ok, outcome: loaded|failed, model, path, seconds, error}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/scene/model -d '{"name": "bolt"}'`
+  - `--set` (string_list, default ``) — Scene override path.port=value, kept across model switches; an empty value clears it., e.g. `layout/field.curvature_bias=-0.5`
+- **Response:** `{ok, outcome: loaded|failed, model, path, seconds, error, overrides}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/scene/model -d '{"name": "bolt", "set": "layout/field.curvature_bias=-0.5"}'`
 
 ### `multiview`
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/MultiviewScreenshot.java)
 
-Capture 8 orbit viewpoints and composite them into a 4x2 grid PNG.
+Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by default), and composite them into a 4x2 grid PNG.
 
 - **Route:** `POST /ui/multiview`
 - **Flags:**
   - `--out` (string, default ``) — Output file path; empty writes under screenshots/automation/., e.g. `/tmp/multiview.png`
   - `--inline` (bool, default `false`) — Also return the composite PNG as base64 in the response., e.g. `true`
-- **Response:** `{ok, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/multiview -d '{"path": "/tmp/multiview.png", "inline": true}'`
+  - `--selection` (string, default `mesh`) — What to frame: mesh, overlay, tag:NAME, edge-mark:LABEL, ring:LABEL, region:N[,M] or region:selected, or a bare name., e.g. `tag:cranium`
+  - `--bounds` (string, default ``) — Explicit box as minX,minY,minZ,maxX,maxY,maxZ; overrides every other selection., e.g. `-1,-1,-1,1,1,1`
+  - `--point` (string, default ``) — A point x,y,z to frame with --radius around it., e.g. `0.1,0.4,0`
+  - `--radius` (float, default ``) — Radius of the sphere framed around --point., e.g. `0.05`
+  - `--region` (string, default ``) — Ring regions by the numbers the regions command reports, comma-separated, or 'selected' for the region tool's selection., e.g. `3`
+  - `--ring` (string, default ``) — A ring by its label in the ring-tool scene: a graph ring or 'ring #N'., e.g. `ring2`
+  - `--padding` (float, default `0.15`) — Margin around the selection as a fraction of its radius., e.g. `0.25`
+- **Response:** `{ok, selection, center, radius, distance, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/multiview -d '{"path": "/tmp/multiview.png", "inline": true, "selection": "tag:cranium", "bounds": "-1,-1,-1,1,1,1", "point": "0.1,0.4,0", "radius": 0.05, "region": "3", "ring": "ring2", "padding": 0.25}'`
+
+### `node-inspect`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/NodeInspect.java)
+
+Inspect the graph the active model scene ran: the node tree with times and peak heap, one node's inputs, outputs and fields, or a field path below it, with depth and length limits.
+
+- **Route:** `POST /mesh/dsl/inspect`
+- **Flags:**
+  - `<path>` (string, default ``) — Node path, call-site ids joined with /; omit for the whole tree., e.g. `layout/motorcycle`
+  - `<field>` (string, default ``) — Field path below the node: a port or public field, then .field and [index]., e.g. `traces[127].state`
+  - `--depth` (int, default `1`) — Levels of nested objects to expand., e.g. `2`
+  - `--limit` (int, default `20`) — Elements of a list, array or map to show., e.g. `50`
+- **Response:** `{ok, tree:[...]} | {ok, node, type, ms, peak_heap_mib, children, inputs, outputs, fields} | {ok, node, field, value}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/dsl/inspect -d '{"path": "layout/motorcycle", "field": "traces[127].state", "depth": 2, "limit": 50}'`
 
 ### `orbit-get`
 
@@ -452,6 +482,31 @@ Set the active mesh viewer's camera orbit (azimuth, elevation, distance).
   - `--target` (string, default ``) — Point the orbit pivots around, as x,y,z; empty leaves the pivot where it is., e.g. `0.1,-0.4,0.2`
 - **Response:** `{ok, azimuth, elevation, distance, target}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/orbit -d '{"azimuth": 1.5708, "elevation": 0.6, "distance": 5.0, "target": "0.1,-0.4,0.2"}'`
+
+### `pick`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Pick.java)
+
+Name the surface under a screenshot pixel: point, face, nearest vertex, normal and ring region, touching no tool and no hover.
+
+- **Route:** `POST /mesh/pick`
+- **Flags:**
+  - `--x` (float, required) — Framebuffer x from the left, as in a screenshot; whole numbers are pixel centres., e.g. `512`
+  - `--y` (float, required) — Framebuffer y from the top, as in a screenshot., e.g. `384`
+- **Response:** `{ok, hit, point:"x,y,z", normal:[x,y,z], faceId, vertexId, vertex:"x,y,z", region, regionBoundedBy, error}; region is present once the editing scene's regions are built`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/pick -d '{"x": 512, "y": 384}'`
+
+### `project`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Project.java)
+
+Place a surface point in the screenshot: the pixel it lands on and whether the surface in front of it hides it, touching no tool.
+
+- **Route:** `POST /mesh/project`
+- **Flags:**
+  - `--point` (string, required) — World point, "x,y,z"., e.g. `-0.28,-0.066,0.052`
+- **Response:** `{ok, inFront, x, y, onScreen, occluded, visible, occluderFaceId, occluderPoint:"x,y,z", error}; x and y are framebuffer pixels as pick takes them, whole numbers at pixel centres`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/project -d '{"point": "-0.28,-0.066,0.052"}'`
 
 ### `projection-get`
 
@@ -514,7 +569,7 @@ End the active recording session and write the captured events to disk.
 Report the ring regions the editing scene's region-select tool shows: each region's faces, area and bounding rings, the problem rings, and the selection.
 
 - **Route:** `GET /mesh/regions`
-- **Response:** `{ok, activeTool, regionCount, regions:[{region, faces, area, boundedBy, sliver, colour, neighbours, selected}], problems, handleRings, ringsSplittingNothing, visible, absorbSlivers, summary, ringCount, selectedCount, select, lastRow, error}`
+- **Response:** `{ok, activeTool, regionCount, regions:[{region, faces, area, boundedBy, sliver, colour, neighbours, selected, hidden}], problems, ringsSplittingNothing, visible, hiddenFaces, hiddenRings, absorbSlivers, summary, ringCount, selectedCount, select, lastRow, error}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/mesh/regions`
 
 ### `replay-cancel`
@@ -748,7 +803,7 @@ Report duplicated code ranked by how much repetition factoring it out would remo
 
 ### `gen-docs`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/gen_docs.py#L273)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/gen_docs.py#L275)
 
 Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry.
 
@@ -842,13 +897,11 @@ Validate the current mesh viewer payload.
 
 ### `mesh-viewer`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/mesh_viewer.py#L162)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/mesh_viewer.py#L155)
 
 Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
 
-- `--dsl` — DSL resource name (empty uses the skull.dsl default).
-- `--node` — Final node name in the DSL graph.
-- `--port` — Final port name on the node.
+- `--dsl` — Model to open: a DSL resource name or a .dsl or mesh path (empty uses skull.dsl).
 - `--overlay` — Path to a reference OBJ to overlay.
 - `--screenshot` — Output path for the screenshot (empty uses the server default).
 - `--timeout` — Seconds to wait for server startup.

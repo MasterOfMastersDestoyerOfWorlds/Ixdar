@@ -3,22 +3,27 @@ package ixdar.scenes.model;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BooleanSupplier;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.data.SceneModelNode;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.menu.SceneModelMenu;
+import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
@@ -89,6 +94,19 @@ public abstract class ModelScene extends Scene {
 
     /** Serial and outcome of every requested model switch, read by automation waiting on one. */
     public final ModelLoadLedger modelLoads = new ModelLoadLedger();
+
+    /**
+     * The graph the scene ran last, its scene graph or a registered graph, whose node tree
+     * node-inspect and the timing route read; {@code null} before any graph ran.
+     */
+    public NodeGraphRuntime graph;
+
+    /**
+     * Overrides by path ({@code layout/field.curvature_bias}) the scene applies to every graph it
+     * runs; they survive model switches and are set through {@code ixdar-cli model --set} or the
+     * terminal's {@code set}.
+     */
+    public final Map<String, Object> overrides = new LinkedHashMap<>();
 
     /** Center of the loaded mesh, used as the orbit target. */
     public final Vector3f meshCenter = new Vector3f();
@@ -306,18 +324,151 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Load a registered graph the way {@link #loadModel} loads a file: execute its .dsl fresh,
-     * so reloading is resetting. The base knows only the choice's path and overrides; scenes
-     * that show a graph's product override this, call {@code super.loadGraph} first, and hand
-     * the outputs they understand to their runtime.
+     * Execute a registered graph fresh as {@link #graph}, the scene's overrides replacing the
+     * choice's key by key. Scenes showing its product override this and call it first.
      *
      * @param choice registered graph to execute
+     * @throws IllegalStateException when an override is invalid or a node fails
      * @return the executed runtime, for the override to read outputs from
      */
     public NodeGraphRuntime loadGraph(GraphChoice choice) {
-        NodeGraphRuntime graph = NodeGraphRuntime.executeResource(choice.dslPath, choice.overrides);
+        NodeGraphRuntime run = NodeGraphRuntime.fromResource(choice.dslPath);
+        Map<String, Object> merged = new LinkedHashMap<>(choice.overrides);
+        merged.putAll(overrides);
+        graph = run;
+        try {
+            String last = run.statements.get(run.statements.size() - 1).id;
+            run.executeGraphResult(run.statements, last, NodeGraphRuntime.RESULT, merged);
+        } catch (Exception failure) {
+            throw new IllegalStateException("graph " + choice.dslPath + " failed", failure);
+        }
         offPath = GRAPH_PREFIX + choice.displayName;
-        return graph;
+        return run;
+    }
+
+    /**
+     * Graph a mesh-file model runs through, built in Java, whose {@code scene_model()} node is fed
+     * the loaded model; {@code null} for a scene that runs no graph over its model.
+     *
+     * @return the scene graph's statements, or {@code null}
+     */
+    public List<PythonParser.ParsedNode> sceneGraph() {
+        return null;
+    }
+
+    /**
+     * Starts a run of the scene graph over {@link #halfEdgeMesh} with the scene's overrides and
+     * makes it {@link #graph}. Nothing evaluates until the scene reads an output through
+     * {@link #sceneOutput}, which runs only what that output depends on.
+     *
+     * @throws IllegalArgumentException when an override names no path or port of the graph
+     * @return the prepared run
+     */
+    public NodeGraphRuntime runSceneGraph() {
+        NodeGraphRuntime run = new NodeGraphRuntime(sceneGraph());
+        run.graphInputs.put(SceneModelNode.BINDING, GeometryBundle.ofMesh(halfEdgeMesh));
+        graph = run;
+        run.setOverrides(overrides);
+        return run;
+    }
+
+    /**
+     * An output of the current {@link #graph}, evaluating only what it depends on.
+     *
+     * @param reference {@code path.port}, e.g. {@code layout.seamless}
+     * @throws IllegalStateException when no graph ran or a node fails with a checked exception
+     * @return the output's value
+     */
+    public Object sceneOutput(String reference) {
+        if (graph == null) {
+            throw new IllegalStateException("no scene graph has run");
+        }
+        try {
+            return graph.pull(reference);
+        } catch (RuntimeException failure) {
+            throw failure;
+        } catch (Exception failure) {
+            throw new IllegalStateException(reference + " failed", failure);
+        }
+    }
+
+    /**
+     * Sets, or with a {@code null} value clears, a scene override by path. The key is checked
+     * against the graph the given model runs, so a typo fails here and not on the next load.
+     *
+     * @param key       override key, e.g. {@code layout/field.curvature_bias}
+     * @param value     the port's value, or {@code null} to clear the key
+     * @param modelPath loader token of the model the override is meant for
+     * @throws IllegalArgumentException when the key names no path or port of that graph
+     */
+    public void setOverride(String key, Object value, String modelPath) {
+        if (value == null) {
+            overrides.remove(key);
+            return;
+        }
+        graphFor(modelPath).validateOverrideKey(key);
+        overrides.put(key, value);
+    }
+
+    /**
+     * The parsed graph a model runs: its registered graph for a {@link #GRAPH_PREFIX} token, else
+     * the scene graph.
+     *
+     * @param modelPath loader token, or {@code null} for the current model
+     * @throws IllegalArgumentException when the model runs no graph
+     * @return the parsed graph, not executed
+     */
+    public NodeGraphRuntime graphFor(String modelPath) {
+        String path = modelPath != null ? modelPath : offPath;
+        if (path != null && path.startsWith(GRAPH_PREFIX)) {
+            for (GraphChoice choice : graphs) {
+                if (path.equals(GRAPH_PREFIX + choice.displayName)) {
+                    return NodeGraphRuntime.fromResource(choice.dslPath);
+                }
+            }
+        }
+        if (sceneGraph() != null) {
+            return new NodeGraphRuntime(sceneGraph());
+        }
+        if (graph != null) {
+            return graph;
+        }
+        throw new IllegalArgumentException("this scene runs no graph over its model");
+    }
+
+    /**
+     * Steps a float scene override, as a key control nudging a group parameter does.
+     *
+     * @param key      override key
+     * @param delta    amount added to the current value
+     * @param floor    smallest value the step may reach
+     * @param fallback value before the first step, the parameter's default
+     * @return the new value
+     */
+    public float stepOverride(String key, float delta, float floor, float fallback) {
+        float current = overrides.get(key) instanceof Number number ? number.floatValue() : fallback;
+        float next = Math.max(floor, current + delta);
+        overrides.put(key, next);
+        return next;
+    }
+
+    /**
+     * Parses an override value the way the DSL parses a literal: a number is a float, true and
+     * false are booleans, anything else is a string.
+     *
+     * @param text the value as typed
+     * @return the literal
+     */
+    public static Object parseOverrideValue(String text) {
+        String trimmed = text.trim();
+        if ("true".equalsIgnoreCase(trimmed) || "false".equalsIgnoreCase(trimmed)) {
+            return Boolean.parseBoolean(trimmed);
+        }
+        try {
+            return Float.parseFloat(trimmed);
+        } catch (NumberFormatException notANumber) {
+            return trimmed;
+        }
     }
 
     /**

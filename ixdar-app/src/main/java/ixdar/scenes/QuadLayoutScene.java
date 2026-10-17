@@ -1,25 +1,28 @@
 package ixdar.scenes;
 
 import java.io.IOException;
+import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.nodes.api.BoolField;
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
+import ixdar.geometry.mesh.quadlayout.QuadLayout;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapIsoSurface;
+import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelScene;
 
 /**
- * Final-output view of the quad-layout pipeline: runs {@link QuadLayoutEngine}
- * to the conforming layout and shows the quad mesh it prescribes, over
- * colour-hashed layout patches. Intermediate stages have their own inspector
- * scenes.
+ * Final-output view of the quad-layout pipeline: runs the model through {@link QuadLayoutNode}
+ * to the conforming layout and shows the quad mesh it prescribes, over colour-hashed layout
+ * patches. Intermediate stages have their own inspector scenes.
  */
 @SceneAnnotation(id = "quad-layout")
 public class QuadLayoutScene extends ModelScene {
@@ -36,12 +39,11 @@ public class QuadLayoutScene extends ModelScene {
     public MeshOverlayRuntime quadRuntime;
 
     /**
-     * The engine of the last build, held so the fill can be swapped without
-     * rebuilding.
+     * The layout of the last build, held so the fill can be swapped without rebuilding; the
+     * diagnosis route reads its seamless map.
      */
-    public QuadLayoutEngine engine;
+    public QuadLayout layout;
 
-    private float alphaDegrees = 15f;
     private boolean coonsFill;
 
     /**
@@ -83,6 +85,11 @@ public class QuadLayoutScene extends ModelScene {
     }
 
     @Override
+    public List<PythonParser.ParsedNode> sceneGraph() {
+        return QuadLayoutNode.overSceneModel();
+    }
+
+    @Override
     public void loadModel(String path) throws IOException {
         super.loadModel(path);
         rebuildLayout();
@@ -116,18 +123,17 @@ public class QuadLayoutScene extends ModelScene {
      * first, so a throw part-way leaves nothing indexed by the old mesh.
      */
     private void rebuildLayout() {
-        engine = null;
+        layout = null;
         patchSurfacesInitial = null;
         patchCoonsInitial = null;
         gridMapView = GRID_MAP_VIEW_OFF;
-        float alphaRadians = (float) Math.toRadians(alphaDegrees);
-        QuadLayoutEngine built = new QuadLayoutEngine(halfEdgeMesh, alphaRadians);
-        built.buildPatchSurfaces();
-        quadRuntime.setSeamlessParametrization(built.seamless, built.mesh);
-        quadRuntime.setSingularities(built.crossField.singularityIndex4, built.mesh);
-        quadRuntime.setMotorcycleGraph(built.arrangement);
+        runSceneGraph();
+        QuadLayout built = (QuadLayout) sceneOutput(QuadLayoutNode.sceneOutput(QuadLayoutNode.LAYOUT));
+        quadRuntime.setSeamlessParametrization(built.seamless, halfEdgeMesh);
+        quadRuntime.setSingularities(built.crossField.singularityIndex4, halfEdgeMesh);
+        quadRuntime.setMotorcycleGraph(built.skeleton);
         quadRuntime.setEmbeddedTMesh(built.tmesh);
-        engine = built;
+        layout = built;
         uploadSurfaces();
         quadRuntime.showTraces = false;
         quadRuntime.showNodes = false;
@@ -148,13 +154,13 @@ public class QuadLayoutScene extends ModelScene {
     private void uploadSurfaces() {
         if (showInitialGrid && patchSurfacesInitial == null) {
             patchSurfacesInitial =
-                    PatchSurfaceGeometry.surfaceBundle(engine.globalGrid.quadGridInitial);
+                    PatchSurfaceGeometry.surfaceBundle(layout.globalGrid.quadGridInitial);
             patchCoonsInitial =
-                    PatchSurfaceGeometry.coonsBundle(engine.globalGrid.quadGridInitial);
+                    PatchSurfaceGeometry.coonsBundle(layout.globalGrid.quadGridInitial);
         }
         GeometryBundle chosen = showInitialGrid
                 ? (coonsFill ? patchCoonsInitial : patchSurfacesInitial)
-                : (coonsFill ? engine.patchCoons : engine.patchSurfaces);
+                : (coonsFill ? layout.patchCoons : layout.patchSurfaces);
         quadRuntime.setLayoutPatchSurfaces(chosen);
     }
 
@@ -164,7 +170,7 @@ public class QuadLayoutScene extends ModelScene {
      */
     private void toggleCoonsFill() {
         coonsFill = !coonsFill;
-        if (engine != null) {
+        if (layout != null) {
             uploadSurfaces();
         }
     }
@@ -175,7 +181,7 @@ public class QuadLayoutScene extends ModelScene {
      */
     private void toggleInitialGrid() {
         showInitialGrid = !showInitialGrid;
-        if (engine != null) {
+        if (layout != null) {
             uploadSurfaces();
             Platforms.get().log("[quad-layout] showing "
                     + (showInitialGrid ? "PRE-relaxation" : "relaxed") + " grid");
@@ -189,19 +195,19 @@ public class QuadLayoutScene extends ModelScene {
      */
     private void cycleGridMapView() {
         gridMapView = (gridMapView + 1) % GRID_MAP_VIEW_COUNT;
-        if (engine == null) {
+        if (layout == null) {
             return;
         }
         if (gridMapView == GRID_MAP_VIEW_OFF) {
             quadRuntime.showFullIsoGrid = false;
-            quadRuntime.setSeamlessParametrization(engine.seamless, engine.mesh);
+            quadRuntime.setSeamlessParametrization(layout.seamless, halfEdgeMesh);
             Platforms.get().log("[quad-layout] grid map paint off");
             return;
         }
         GridMapIsoSurface isoSurface = gridMapView == GRID_MAP_VIEW_INITIAL
-                ? engine.globalGrid.isoSurfaceInitial
-                : engine.globalGrid.isoSurfaceRelaxed;
-        quadRuntime.setGridMapParametrization(isoSurface, engine.tmesh.topology.copy,
+                ? layout.globalGrid.isoSurfaceInitial
+                : layout.globalGrid.isoSurfaceRelaxed;
+        quadRuntime.setGridMapParametrization(isoSurface, layout.tmesh.topology.copy,
                 new BoolField(isoSurface.faceFlipped));
         quadRuntime.showFullIsoGrid = true;
         Platforms.get().log("[quad-layout] grid map paint: "
@@ -210,7 +216,8 @@ public class QuadLayoutScene extends ModelScene {
     }
 
     void stepAlpha(float deltaDegrees) {
-        alphaDegrees = Math.max(1f, alphaDegrees + deltaDegrees);
+        stepOverride(QuadLayoutNode.ALPHA_DEGREES_OVERRIDE, deltaDegrees, 1f,
+                MotorcycleGraph.DEFAULT_ALPHA_DEGREES);
         rebuildLayout();
     }
 

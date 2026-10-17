@@ -89,7 +89,6 @@ public class MeshNodeViewerScene extends ModelScene {
 
     private HalfEdgeMeshRuntime overlayRuntime;
     private ArrayMesh overlayMesh;
-    private NodeGraphRuntime lastGraphRuntime;
 
     /** File the last graph was read from, which is also the file an edit is written back into. */
     private String loadedDslFile;
@@ -104,14 +103,11 @@ public class MeshNodeViewerScene extends ModelScene {
     private DecomposerKind activeDecomposer = DecomposerKind.SEMANTIC;
 
     /**
-     * Default constructor: pick the DSL resource, final node, and port from the
-     * {@code ixdar.mesh.*} system properties, falling back to built-in defaults.
+     * Default constructor: the model comes from {@code -Dixdar.model} (a catalog name, a mesh or
+     * a {@code .dsl} graph), falling back to the built-in default graph.
      */
     public MeshNodeViewerScene() {
-        this(
-                sysPropOrDefault("ixdar.mesh.dsl", DEFAULT_DSL_RESOURCE),
-                sysPropOrDefault("ixdar.mesh.node", DEFAULT_DSL_FINAL_NODE),
-                sysPropOrDefault("ixdar.mesh.port", DEFAULT_DSL_FINAL_PORT));
+        this(DEFAULT_DSL_RESOURCE, DEFAULT_DSL_FINAL_NODE, DEFAULT_DSL_FINAL_PORT);
     }
 
     /**
@@ -175,27 +171,12 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Returns the NodeGraphRuntime from the most recent DSL execution (for timing
-     * data).
-     *
-     * @return last runtime, or {@code null} if no DSL has been executed yet
-     */
-    public NodeGraphRuntime getLastGraphRuntime() {
-        return lastGraphRuntime;
-    }
-
-    /**
      * Orbit-camera input handler driving the 3D view.
      *
      * @return the orbit mouse trap, or {@code null} before {@link #initGL()} runs
      */
     public OrbitMouseTrap getOrbitMouse() {
         return orbitMouse;
-    }
-
-    private static String sysPropOrDefault(String key, String fallback) {
-        String v = System.getProperty(key);
-        return (v != null && !v.isEmpty()) ? v : fallback;
     }
 
     /**
@@ -301,18 +282,16 @@ public class MeshNodeViewerScene extends ModelScene {
             loadModelEntry(ModelCatalog.launchChoice(requested, modelCatalog));
             return;
         }
+        ModelChoice defaultGraph = ModelCatalog.packagedGraph(dslResource);
+        if (defaultGraph.path != null) {
+            loadModelEntry(defaultGraph);
+            return;
+        }
         try {
-            loadDslSource(ModelCatalog.packagedGraph(dslResource), dslCode -> {
-                NodeGraphRuntime graphRuntime = NodeGraphRuntime.fromSource(dslCode);
-                List<PythonParser.ParsedNode> ast = graphRuntime.statements;
-                lastGraphRuntime = graphRuntime;
-                // If no final node specified, use the last node in the graph
-                String resolvedNode = (dslFinalNode != null && !dslFinalNode.isEmpty())
-                        ? dslFinalNode
-                        : ast.get(ast.size() - 1).id;
+            loadDslSource(defaultGraph, dslCode -> {
+                Object result;
                 try {
-                    mesh = graphRuntime.executeGraphToMesh(ast, resolvedNode, dslFinalPort);
-                    graphRuntime.logTimings(TIMING_PREFIX);
+                    result = executeViewerGraph(dslCode, dslFinalNode, dslFinalPort);
                 } catch (Exception e) {
                     for (Throwable t = e; t != null; t = t.getCause()) {
                         Platforms.get().log("[mesh-viewer] " + t.getClass().getName() + ": " + t.getMessage());
@@ -322,10 +301,7 @@ public class MeshNodeViewerScene extends ModelScene {
                                     + " port=" + dslFinalPort,
                             e);
                 }
-                logTiming(graphRuntime);
-                createRuntime();
-                meshRuntime.upload(mesh);
-                meshRuntime.frameCamera(camera);
+                uploadGraphOutput(result);
                 if (mesh != null) {
                     Platforms.get().log(
                             "[mesh-viewer] mesh ready " + dslResource + VERTS + mesh.vertexCount() + FACES
@@ -333,7 +309,7 @@ public class MeshNodeViewerScene extends ModelScene {
                 } else {
                     Platforms.get().log("[mesh-viewer] mesh is null for " + dslResource);
                 }
-                applyEdgeMarkOverlay(graphRuntime);
+                applyEdgeMarkOverlay(graph);
                 frameMesh(mesh);
             });
 
@@ -510,8 +486,8 @@ public class MeshNodeViewerScene extends ModelScene {
      * @return the report, or null when the graph carries no repair node
      */
     public MeshRepairReport getLastRepairReport() {
-        if (lastGraphRuntime == null
-                || !(lastGraphRuntime.lastOutput(DEFAULT_DSL_FINAL_PORT)
+        if (graph == null
+                || !(graph.lastOutput(DEFAULT_DSL_FINAL_PORT)
                         instanceof GeometryBundle bundle)
                 || !(bundle.slots().get(MeshRepairReport.SLOT) instanceof MeshRepairReport report)) {
             return null;
@@ -665,23 +641,13 @@ public class MeshNodeViewerScene extends ModelScene {
         String resolvedPort = finalPort;
         String resolvedDslName = dslName;
         loadDslSource(ModelCatalog.packagedGraph(resolvedDslName), dslCode -> {
-            NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(dslCode);
-            List<PythonParser.ParsedNode> ast = runtime.statements;
-            lastGraphRuntime = runtime;
-
-            String resolvedNode = (finalNode != null && !finalNode.isEmpty())
-                    ? finalNode
-                    : ast.get(ast.size() - 1).id;
-
             Object result;
             try {
-                result = runtime.executeGraphResult(ast, resolvedNode, resolvedPort);
-                runtime.logTimings(TIMING_PREFIX);
+                result = executeViewerGraph(dslCode, finalNode, resolvedPort);
             } catch (Exception e) {
                 Platforms.get().log("[mesh-viewer] DSL reload failed: " + e.getMessage());
                 throw new IllegalStateException("Failed to execute DSL: " + resolvedDslName, e);
             }
-            logTiming(runtime);
             uploadGraphOutput(result);
 
             if (mesh != null) {
@@ -691,7 +657,7 @@ public class MeshNodeViewerScene extends ModelScene {
             } else {
                 Platforms.get().log("[mesh-viewer] dsl reload produced null mesh: " + resolvedDslName);
             }
-            applyEdgeMarkOverlay(runtime);
+            applyEdgeMarkOverlay(graph);
             frameMesh(mesh);
         });
     }
@@ -818,8 +784,8 @@ public class MeshNodeViewerScene extends ModelScene {
         if (meshBundle != null) {
             return meshBundle;
         }
-        if (lastGraphRuntime != null
-                && lastGraphRuntime.lastOutput(DEFAULT_DSL_FINAL_PORT) instanceof GeometryBundle bundle) {
+        if (graph != null
+                && graph.lastOutput(DEFAULT_DSL_FINAL_PORT) instanceof GeometryBundle bundle) {
             return bundle;
         }
         return null;
@@ -946,13 +912,38 @@ public class MeshNodeViewerScene extends ModelScene {
      * @return the working graph's path, or {@code null} when no DSL file backs the view
      */
     public String workingDslPath() {
-        if (lastGraphRuntime == null) {
+        if (graph == null) {
             return null;
         }
         if (loadedDslFile != null) {
             return loadedDslFile;
         }
         return dslResource == null ? null : ModelCatalog.packagedGraph(dslResource).workingFile();
+    }
+
+    /**
+     * The graph a model runs: a {@code .dsl} model is its own graph; a mesh file runs none, so an
+     * override is checked against the graph that ran last.
+     *
+     * @param modelPath catalog path of the model, or {@code null} for the current one
+     * @throws IllegalArgumentException when the model runs no graph or its file cannot be read
+     * @return the parsed graph, not executed
+     */
+    @Override
+    public NodeGraphRuntime graphFor(String modelPath) {
+        String path = modelPath != null ? modelPath : currentModelKey;
+        if (path != null && path.endsWith(DSL)) {
+            try {
+                return NodeGraphRuntime.fromSource(
+                        new ModelChoice(path, path, ModelChoice.Kind.DSL).readSource());
+            } catch (IOException unreadable) {
+                throw new IllegalArgumentException("cannot read graph " + path, unreadable);
+            }
+        }
+        if (graph != null) {
+            return graph;
+        }
+        throw new IllegalArgumentException("the current model runs no graph");
     }
 
     /**
@@ -1057,29 +1048,47 @@ public class MeshNodeViewerScene extends ModelScene {
     private void loadDslFromAbsolutePath(String absolutePath) {
         // loadDsl() expects a resource-relative name, but the staging dir
         // contains symlinks — read the choice's file directly and execute the graph.
-        ModelChoice graph = new ModelChoice(absolutePath, absolutePath, ModelChoice.Kind.DSL);
-        String file = graph.workingFile();
+        ModelChoice choice = new ModelChoice(absolutePath, absolutePath, ModelChoice.Kind.DSL);
+        String file = choice.workingFile();
         try {
-            String dslCode = graph.readSource();
+            String dslCode = choice.readSource();
             loadedDslFile = file;
             disposeMeshRuntime();
             meshBundle = null;
-            NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(dslCode);
-            List<PythonParser.ParsedNode> ast = runtime.statements;
-            lastGraphRuntime = runtime;
-            String resolvedNode = ast.get(ast.size() - 1).id;
-            Object result = runtime.executeGraphResult(ast, resolvedNode, DEFAULT_DSL_FINAL_PORT);
-            runtime.logTimings(TIMING_PREFIX);
-            uploadGraphOutput(result);
+            uploadGraphOutput(executeViewerGraph(dslCode, DEFAULT_DSL_FINAL_NODE,
+                    DEFAULT_DSL_FINAL_PORT));
             if (mesh != null) {
                 Platforms.get().log("[mesh-viewer] dsl loaded: " + file + VERTS + mesh.vertexCount()
                         + FACES + mesh.faceCount());
             }
-            applyEdgeMarkOverlay(runtime);
+            applyEdgeMarkOverlay(graph);
             frameMesh(mesh);
         } catch (Exception e) {
             Platforms.get().log("[mesh-viewer] DSL load failed for " + file + ": " + e.getMessage());
         }
+    }
+
+    /**
+     * Executes a viewer graph with the scene's overrides as the scene's {@link #graph}, logs its
+     * timing, and returns the value on the chosen output.
+     *
+     * @param dslCode   graph source
+     * @param finalNode id of the node whose output is shown, or empty for the last statement
+     * @param finalPort output port of that node
+     * @throws Exception if an override is invalid or a node fails
+     * @return the value on that port, a bundle for a mesh-producing graph
+     */
+    private Object executeViewerGraph(String dslCode, String finalNode, String finalPort)
+            throws Exception {
+        NodeGraphRuntime run = NodeGraphRuntime.fromSource(dslCode);
+        graph = run;
+        List<PythonParser.ParsedNode> ast = run.statements;
+        String resolvedNode = finalNode != null && !finalNode.isEmpty() ? finalNode
+                : ast.get(ast.size() - 1).id;
+        Object result = run.executeGraphResult(ast, resolvedNode, finalPort, overrides);
+        run.logTimings(TIMING_PREFIX);
+        logTiming(run);
+        return result;
     }
 
     /**

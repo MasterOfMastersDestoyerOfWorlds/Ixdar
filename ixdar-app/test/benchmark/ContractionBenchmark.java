@@ -1,14 +1,15 @@
 package benchmark;
 
-import java.io.IOException;
-
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.data.SceneModelNode;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.platform.Platforms;
@@ -26,16 +27,17 @@ public final class ContractionBenchmark {
      * Contracts the mesh's T-mesh the way the pipeline does and prints the wall time with the
      * operator counts at the fixed point, or the wall time and the diagnostic when it fails.
      *
-     * @throws IOException when the mesh file cannot be read
+     * @throws Exception when the mesh file cannot be read or a stage fails
      */
     @Test
-    public void timeContraction() throws IOException {
+    public void timeContraction() throws Exception {
         String offPath = System.getProperty(OFF_PROPERTY, DEFAULT_OFF);
         ArrayMesh arrayMesh = MeshLoader.load(offPath);
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
                 arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
-        QuadLayoutEngine engine = new QuadLayoutEngine(mesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
-        ArcNetwork tmesh = engine.buildTMesh();
+        NodeGraphRuntime layout = new NodeGraphRuntime(QuadLayoutNode.overSceneModel());
+        layout.graphInputs.put(SceneModelNode.BINDING, GeometryBundle.ofMesh(mesh));
+        ArcNetwork tmesh = (ArcNetwork) layout.pull(QuadLayoutNode.sceneOutput(QuadLayoutNode.EMBEDDED));
         NetworkContraction contraction = new NetworkContraction(tmesh);
         long start = System.nanoTime();
         try {

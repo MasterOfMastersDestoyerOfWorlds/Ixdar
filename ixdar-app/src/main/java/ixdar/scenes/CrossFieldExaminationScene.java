@@ -4,13 +4,15 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.load.CrossFieldLoader;
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ControlHint;
@@ -32,6 +34,7 @@ public class CrossFieldExaminationScene extends ModelScene {
     public static final String IN_TRI_OFF_SUFFIX = "_in_tri.off";
     public static final String IN_CF_NDF_SUFFIX = "_in_cf.ndf";
     public static final float CROSS_SCALE = 1f;
+
     private CrossField oursField;
     private CrossField referenceField;
     private boolean showingReference;
@@ -53,6 +56,11 @@ public class CrossFieldExaminationScene extends ModelScene {
         return "Ixdar : Cross Field Examination";
     }
 
+    @Override
+    public List<PythonParser.ParsedNode> sceneGraph() {
+        return QuadLayoutNode.overSceneModel();
+    }
+
     /**
      * Load {@code path}: build our cross field, load the sibling reference NDF if
      * present, upload the surface, and re-frame the orbit camera.
@@ -63,7 +71,8 @@ public class CrossFieldExaminationScene extends ModelScene {
     @Override
     public void loadModel(String path) throws IOException {
         super.loadModel(path);
-        oursField = new QuadLayoutEngine(halfEdgeMesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS).buildCrossField();
+        runSceneGraph();
+        oursField = (CrossField) sceneOutput(QuadLayoutNode.sceneOutput(QuadLayoutNode.FIELD));
         referenceField = null;
         showingReference = false;
 

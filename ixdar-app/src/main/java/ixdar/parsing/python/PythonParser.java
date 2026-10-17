@@ -2,9 +2,12 @@ package ixdar.parsing.python;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
+import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.geometry.mesh.nodes.api.Vector3Value;
 import ixdar.parsing.python.PythonLexer.Token;
 import ixdar.parsing.python.PythonLexer.TokenType;
@@ -14,6 +17,8 @@ public class PythonParser {
     public static final String TRUE = "true";
     public static final String FALSE = "false";
     public static final String EXPECTED_PORT_NAME_AFTER = "Expected port name after '.'";
+
+    public static final String RETURN = "return";
     private final PythonLexer lexer;
     private Token current;
     private int inlineCounter = 0;
@@ -93,7 +98,8 @@ public class PythonParser {
         return node;
     }
 
-    // FunctionDef -> "def" Identifier "(" ParamList ")" "->" Identifier ":" Body "end"
+    // FunctionDef -> "def" Identifier "(" ParamList ")" "->" Identifier ":" Body Return? "end"
+    // Return -> "return" "(" Arguments ")"
     private void parseFunctionDef() {
         consume(TokenType.IDENTIFIER, "Expected 'def'"); // consume "def"
         String name = consume(TokenType.IDENTIFIER, "Expected function name after 'def'").value;
@@ -107,15 +113,30 @@ public class PythonParser {
         String returnType = consume(TokenType.IDENTIFIER, "Expected return type after '->'").value;
         consume(TokenType.COLON, "Expected ':' after return type");
         List<ParsedNode> body = new ArrayList<>();
+        Map<String, Object> outputs = new LinkedHashMap<>();
         while (current.type != TokenType.EOF
                 && !(current.type == TokenType.IDENTIFIER && "end".equals(current.value))) {
             pendingInlineNodes.clear();
+            if (current.type == TokenType.IDENTIFIER && RETURN.equals(current.value)) {
+                if (!outputs.isEmpty()) {
+                    throw new RuntimeException(LINE + current.line + ": function '" + name
+                            + "' has a second return");
+                }
+                advance();
+                consume(TokenType.LPAREN, "Expected '(' after 'return'");
+                parseArguments(outputs);
+                consume(TokenType.RPAREN, "Expected ')' to close the return outputs");
+                body.addAll(pendingInlineNodes);
+                continue;
+            }
             ParsedNode node = parseStatement();
             body.addAll(pendingInlineNodes);
             body.add(node);
         }
         consume(TokenType.IDENTIFIER, "Expected 'end' to close function definition");
-        functionDefs.put(name, new FunctionDef(name, params, returnType, body));
+        FunctionDef def = new FunctionDef(name, params, returnType, body);
+        def.outputs.putAll(outputs);
+        functionDefs.put(name, def);
     }
 
     private void parseFunctionParams(List<FunctionParam> params) {
@@ -127,11 +148,22 @@ public class PythonParser {
         }
     }
 
+    // Param -> Identifier ":" Identifier ("=" Literal)?
     private FunctionParam parseFunctionParam() {
         String paramName = consume(TokenType.IDENTIFIER, "Expected parameter name").value;
         consume(TokenType.COLON, "Expected ':' after parameter name");
         String paramType = consume(TokenType.IDENTIFIER, "Expected type after ':'").value;
-        return new FunctionParam(paramName, paramType);
+        FunctionParam param = new FunctionParam(paramName, paramType);
+        if (current.type == TokenType.EQUALS) {
+            int defaultLine = current.line;
+            advance();
+            param.defaultValue = parseValue();
+            if (param.defaultValue instanceof NodeReference) {
+                throw new RuntimeException(LINE + defaultLine + ": default of parameter '"
+                        + paramName + "' must be a literal");
+            }
+        }
+        return param;
     }
 
     // Arguments -> Argument ("," Argument)*
@@ -248,6 +280,34 @@ public class PythonParser {
         public String type;
         public int line;
         public Map<String, Object> arguments = new HashMap<>();
+
+        /**
+         * The node a Java-built statement instantiates, set by {@code GroupBuilder}; {@code null}
+         * for a parsed statement, whose {@link #type} the runtime looks up in its registry.
+         */
+        public Supplier<? extends MeshNode> supplier;
+
+        /**
+         * Wires one input of a Java-built statement, as {@code port=value} does in source.
+         *
+         * @param port  input port name
+         * @param value a {@link NodeReference} from {@link #port}, or a literal
+         * @return this statement, for chaining
+         */
+        public ParsedNode input(String port, Object value) {
+            arguments.put(port, value);
+            return this;
+        }
+
+        /**
+         * A reference to one output of this statement, as {@code id.port} is in source.
+         *
+         * @param name output port name
+         * @return the reference, for another statement's {@link #input}
+         */
+        public NodeReference port(String name) {
+            return new NodeReference(id, name);
+        }
     }
 
     public static class NodeReference {
@@ -265,6 +325,10 @@ public class PythonParser {
     public static class FunctionParam {
         public String name;
         public String type;
+
+        /** Literal a call that omits this parameter binds to it; {@code null} makes it required. */
+        public Object defaultValue;
+
         /**
          * Build a typed parameter descriptor.
          *
@@ -279,6 +343,14 @@ public class PythonParser {
         public List<FunctionParam> params;
         public String returnType;
         public List<ParsedNode> body;
+
+        /**
+         * Named outputs of the {@code return(...)} statement, in source order: each value is a
+         * reference into the body, a parameter name or a literal. Empty when the body has no
+         * return, and a call then exposes its last body node's outputs.
+         */
+        public final Map<String, Object> outputs = new LinkedHashMap<>();
+
         /**
          * Build a parsed function definition.
          *

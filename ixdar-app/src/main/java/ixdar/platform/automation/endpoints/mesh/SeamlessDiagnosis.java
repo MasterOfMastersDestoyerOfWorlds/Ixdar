@@ -44,12 +44,12 @@ public class SeamlessDiagnosis extends AutomationEndpoint implements AutomationR
                     return result;
                 }
                 QuadLayoutScene scene = (QuadLayoutScene) runtime.canvas;
-                if (scene.engine == null || scene.engine.seamless == null) {
+                if (scene.layout == null) {
                     result.addProperty(OK, false);
                     result.addProperty(ERROR, "The seamless stage has not run yet");
                     return result;
                 }
-                SingularSystemDiagnosis diagnosis = scene.engine.seamless.singularDiagnosis;
+                SingularSystemDiagnosis diagnosis = scene.layout.seamless.singularDiagnosis;
                 result.addProperty(OK, true);
                 result.addProperty(SINGULAR, diagnosis != null);
                 if (diagnosis == null) {

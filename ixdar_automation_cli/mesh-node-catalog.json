@@ -2038,6 +2038,36 @@
       "description": "Evaluates a math expression over x in [0,1] to produce a float curve closure. Variable: x. Constants: pi, e, tau. Operators: + - * / ^ (power). Trig: sin cos tan asin acos atan atan2(y,x) sinh cosh tanh. Rounding: floor ceil round sign abs fract. Exp: exp log log2 log10 sqrt pow(x,n). Range: min max clamp(x,lo,hi) step(edge,x) mod(x,y). Interpolation: lerp(a,b,t) inverselerp(a,b,x) remap(x,inLo,inHi,outLo,outHi). Easing: smoothstep(e0,e1,x) smootherstep(e0,e1,x) ease_in(x) ease_out(x) ease_in_out(x). Organic: smin(a,b,k) pingpong(x,len). Use function_curve for math formulas, float_curve for hand-tuned control points."
     },
     {
+      "id": "grid_map_quads",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "uv",
+          "portType": "UV_FIELD",
+          "description": "Global grid map relaxed by newton_solver; the same map, now carrying its extraction, out.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "The extracted pure quad mesh."
+        },
+        {
+          "name": "uv",
+          "portType": "UV_FIELD",
+          "description": "Global grid map relaxed by newton_solver; the same map, now carrying its extraction, out."
+        }
+      ],
+      "description": "Extracts the quad mesh of a relaxed global grid map and records its per-patch grids on the map."
+    },
+    {
       "id": "icosphere",
       "category": "Primitives",
       "scopes": [
@@ -3583,6 +3613,36 @@
       "description": "Newton-relaxes an integer grid map\u0027s UV field in place, minimizing symmetric Dirichlet energy while keeping the map flip-free."
     },
     {
+      "id": "patch_surfaces",
+      "category": "Other",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "desktopOnly": true,
+      "inputs": [
+        {
+          "name": "uv",
+          "portType": "UV_FIELD",
+          "description": "Global grid map after grid_map_quads extracted it.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Every live patch\u0027s extracted quad grid on the surface."
+        },
+        {
+          "name": "coons",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "The same grids as each patch\u0027s Coons blend of its boundary."
+        }
+      ],
+      "description": "Builds each live layout patch\u0027s quad grid on the surface and its Coons blend, with per-face patch ids."
+    },
+    {
       "id": "quad_cylinder",
       "category": "Primitives",
       "scopes": [
@@ -3693,6 +3753,12 @@
           "portType": "FLOAT",
           "description": "Parametric length one quad edge spans.",
           "defaultValue": 1.0
+        },
+        {
+          "name": "curvature_bias",
+          "portType": "FLOAT",
+          "description": "Cross-field curvature alignment bias.",
+          "defaultValue": -1.0
         }
       ],
       "outputs": [
@@ -3720,9 +3786,44 @@
           "name": "singularities",
           "portType": "INT",
           "description": "Per-vertex index4 of the field\u0027s cone points (0 \u003d not singular)."
+        },
+        {
+          "name": "seamless",
+          "portType": "UV_FIELD",
+          "description": "The seamless parametrization."
+        },
+        {
+          "name": "motorcycle",
+          "portType": "ARC_NETWORK",
+          "description": "The motorcycle-graph arrangement, quantized in place once the quantization ran."
+        },
+        {
+          "name": "skeleton",
+          "portType": "ARC_NETWORK",
+          "description": "The quantized separatrix skeleton."
+        },
+        {
+          "name": "embedded",
+          "portType": "ARC_NETWORK",
+          "description": "The embedded T-mesh, contracted in place once the contraction ran."
+        },
+        {
+          "name": "surfaces",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Every live patch\u0027s quad grid on the surface."
+        },
+        {
+          "name": "coons",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "The patch grids as Coons blends of their boundaries."
+        },
+        {
+          "name": "layout",
+          "portType": "QUAD_LAYOUT",
+          "description": "Every stage product as one quad layout."
         }
       ],
-      "description": "Runs the whole quad-layout pipeline over a triangle mesh: cross field, seamless parametrization, motorcycle T-mesh, quantization, contraction, grid-map relaxation, and quad extraction."
+      "description": "Runs the quad-layout pipeline over a triangle mesh as a group of its stage nodes: cross field, seamless parametrization, motorcycle graph, quantization, embedding, contraction, integer grid map, relaxation, quad extraction and patch surfaces."
     },
     {
       "id": "random_rooms",
@@ -4118,6 +4219,23 @@
         }
       ],
       "description": "Splits the surface into the regions its ring mark loops enclose: faces flood across every edge no closed ring marks, and each region records its bounding rings and which side of each it lies on (distal is a ring\u0027s smaller side). An open ring is reported by name and walls nothing; crossing and non-separating rings are reported too."
+    },
+    {
+      "id": "scene_model",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "The scene\u0027s loaded model as a geometry bundle."
+        }
+      ],
+      "description": "The model the host scene loaded, bound by the scene; standalone graphs use load_mesh instead."
     },
     {
       "id": "seamless_uv",

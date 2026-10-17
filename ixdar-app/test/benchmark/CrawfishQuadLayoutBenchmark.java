@@ -22,7 +22,11 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.geometry.mesh.nodes.data.SceneModelNode;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
+import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.platform.Platforms;
 
 /**
@@ -32,45 +36,37 @@ import ixdar.platform.Platforms;
  */
 public final class CrawfishQuadLayoutBenchmark {
 
-    /** System property naming the scan to run. */
     public static final String GLB_PROPERTY = "benchmark.glb";
 
-    /** System property naming the last pipeline stage to attempt. */
-    public static final String STAGE_PROPERTY = "benchmark.stage";
+    public static final String LAST_STAGE_PROPERTY = "benchmark.stage";
 
-    /** Scan the benchmark runs when {@link #GLB_PROPERTY} is unset. */
     public static final String DEFAULT_GLB = "/home/acw/crawfish/IMG_4109.glb";
 
-    /**
-     * Stage names in pipeline order. {@link #STAGE_PROPERTY} names the last one attempted; the
-     * default stops at the last stage known to complete inside the CRAW-2 heap budget.
-     */
+    // Stage names in pipeline order; the default last stage is the last one known to complete
+    // inside the CRAW-2 heap budget.
     public static final List<String> STAGES = List.of("crossField", "seamless", "motorcycle",
             "quantization", "carve", "contract", "gridMap", "patchSurfaces");
 
-    /** Corners of a triangle. */
+    public static final List<OutputPort> STAGE_LAYOUT_OUTPUTS = List.of(QuadLayoutNode.FIELD,
+            QuadLayoutNode.SEAMLESS, QuadLayoutNode.MOTORCYCLE, QuadLayoutNode.SKELETON,
+            QuadLayoutNode.EMBEDDED, QuadLayoutNode.TMESH, QuadLayoutNode.UV,
+            QuadLayoutNode.SURFACES);
+
     private static final int TRIANGLE_CORNERS = 3;
 
-    /** Bytes in a mebibyte, for the reported heap figures. */
     private static final double BYTES_PER_MEBIBYTE = 1024.0 * 1024.0;
 
-    /** Nanoseconds per second, for the reported stage times. */
     private static final double NANOS_PER_SECOND = 1.0e9;
 
-    /** Mixing multiplier for the x component of a vertex-position key. */
-    private static final long POSITION_KEY_X = 0x9E3779B97F4A7C15L;
+    private static final long POSITION_KEY_X_MULTIPLIER = 0x9E3779B97F4A7C15L;
 
-    /** Mixing multiplier for the y component of a vertex-position key. */
-    private static final long POSITION_KEY_Y = 0xC2B2AE3D27D4EB4FL;
+    private static final long POSITION_KEY_Y_MULTIPLIER = 0xC2B2AE3D27D4EB4FL;
 
-    /** Mixing multiplier for the z component of a vertex-position key. */
-    private static final long POSITION_KEY_Z = 0x165667B19E3779F9L;
+    private static final long POSITION_KEY_Z_MULTIPLIER = 0x165667B19E3779F9L;
 
-    /** Shift separating the two vertex indices of a packed directed-edge key. */
     private static final int DIRECTED_EDGE_SHIFT = 32;
 
-    /** Low-word mask of a packed directed-edge key. */
-    private static final long DIRECTED_EDGE_MASK = 0xFFFFFFFFL;
+    private static final long DIRECTED_EDGE_LOW_WORD_MASK = 0xFFFFFFFFL;
 
     /** Wall time in nanoseconds of each stage that ran, parallel to {@link #stageNames}. */
     private final List<Long> stageNanos = new ArrayList<>();
@@ -86,12 +82,12 @@ public final class CrawfishQuadLayoutBenchmark {
      * heap reached by its end, then the table again so an out-of-memory stage still leaves every
      * earlier measurement in the log.
      *
-     * @throws IOException when the scan cannot be read
+     * @throws Exception when the scan cannot be read or a stage fails
      */
     @Test
-    public void quadLayoutOnOneScan() throws IOException {
+    public void quadLayoutOnOneScan() throws Exception {
         String glbPath = System.getProperty(GLB_PROPERTY, DEFAULT_GLB);
-        String lastStage = System.getProperty(STAGE_PROPERTY, STAGES.get(0));
+        String lastStage = System.getProperty(LAST_STAGE_PROPERTY, STAGES.get(0));
         assertTrue(STAGES.contains(lastStage), lastStage + " is not one of " + STAGES);
         resetPeakHeap();
 
@@ -111,38 +107,20 @@ public final class CrawfishQuadLayoutBenchmark {
                 glbPath, scan.vertexCount(), scan.faceCount(), mesh.vertexCount(), mesh.edgeCount(),
                 mesh.faceCount(), Runtime.getRuntime().maxMemory() / BYTES_PER_MEBIBYTE);
 
-        QuadLayoutEngine engine = new QuadLayoutEngine(mesh, QuadLayoutEngine.DEFAULT_ALPHA_RADIANS);
+        NodeGraphRuntime layout = new NodeGraphRuntime(QuadLayoutNode.overSceneModel());
+        layout.graphInputs.put(SceneModelNode.BINDING, GeometryBundle.ofMesh(mesh));
         try {
-            runStages(engine, STAGES.indexOf(lastStage));
+            for (int stageIndex = 0; stageIndex <= STAGES.indexOf(lastStage); stageIndex++) {
+                long start = System.nanoTime();
+                layout.pull(QuadLayoutNode.sceneOutput(STAGE_LAYOUT_OUTPUTS.get(stageIndex)));
+                record(STAGES.get(stageIndex), start);
+            }
         } finally {
             reportTable();
         }
-        assertTrue(engine.crossField.singularityCount() > 0, "the scan's cross field has cone points");
-    }
-
-    /**
-     * Runs the pipeline stages up to and including {@code lastStageIndex}, timing each one on its
-     * own.
-     *
-     * @param engine         engine over the repaired scan
-     * @param lastStageIndex index into {@link #STAGES} of the last stage to attempt
-     */
-    private void runStages(QuadLayoutEngine engine, int lastStageIndex) {
-        for (int stageIndex = 0; stageIndex <= lastStageIndex; stageIndex++) {
-            String stage = STAGES.get(stageIndex);
-            long start = System.nanoTime();
-            switch (stage) {
-                case "crossField" -> engine.buildCrossField();
-                case "seamless" -> engine.buildSeamless();
-                case "motorcycle" -> engine.buildMotorcycleGraph();
-                case "quantization" -> engine.buildQuantization();
-                case "carve" -> engine.buildTMesh();
-                case "contract" -> engine.buildContractedTMesh();
-                case "gridMap" -> engine.buildGlobalGridMap();
-                default -> engine.buildPatchSurfaces();
-            }
-            record(stage, start);
-        }
+        CrossField crossField = (CrossField) layout.pull(
+                QuadLayoutNode.sceneOutput(QuadLayoutNode.FIELD));
+        assertTrue(crossField.singularityCount() > 0, "the scan's cross field has cone points");
     }
 
     /**
@@ -173,14 +151,8 @@ public final class CrawfishQuadLayoutBenchmark {
     }
 
     /**
-     * The one manifold shell underlying a Trellis2 scan: coincident vertices welded, faces that
-     * would give an edge a third incidence or a second same-direction use dropped, then only the
-     * largest edge-connected component kept.
-     *
-     * <p>The scans arrive unwelded (the glTF splits vertices along the texture atlas's seams),
-     * carry a handful of non-manifold faces and come apart into more than a dozen shells, so the
-     * half-edge build rejects them as they stand. This is scaffolding for the measurement, not the
-     * fix: see CRAW-2's unknowns for the repair node the pipeline actually needs.
+     * The one manifold shell underlying a Trellis2 scan: vertices welded, non-manifold faces
+     * dropped, the largest edge-connected component kept. Measurement scaffolding (CRAW-2).
      *
      * @param scan the scan as loaded
      * @return a triangle mesh the half-edge build accepts
@@ -194,9 +166,9 @@ public final class CrawfishQuadLayoutBenchmark {
         int weldedCount = 0;
         for (int vertex = 0; vertex < scanVertexCount; vertex++) {
             scan.vertexPosition(vertex, position);
-            long key = Float.floatToIntBits(position.x) * POSITION_KEY_X
-                    ^ Float.floatToIntBits(position.y) * POSITION_KEY_Y
-                    ^ Float.floatToIntBits(position.z) * POSITION_KEY_Z;
+            long key = Float.floatToIntBits(position.x) * POSITION_KEY_X_MULTIPLIER
+                    ^ Float.floatToIntBits(position.y) * POSITION_KEY_Y_MULTIPLIER
+                    ^ Float.floatToIntBits(position.z) * POSITION_KEY_Z_MULTIPLIER;
             Integer existing = canonicalOfPosition.putIfAbsent(key, weldedCount);
             if (existing == null) {
                 weldedPositions[weldedCount * TRIANGLE_CORNERS] = position.x;
@@ -349,7 +321,7 @@ public final class CrawfishQuadLayoutBenchmark {
      * @return the packed key
      */
     private static long directedEdgeKey(int from, int to) {
-        return ((long) from << DIRECTED_EDGE_SHIFT) | (to & DIRECTED_EDGE_MASK);
+        return ((long) from << DIRECTED_EDGE_SHIFT) | (to & DIRECTED_EDGE_LOW_WORD_MASK);
     }
 
     /** Clears the peak-usage watermark of every heap pool so the run's own peak is measured. */

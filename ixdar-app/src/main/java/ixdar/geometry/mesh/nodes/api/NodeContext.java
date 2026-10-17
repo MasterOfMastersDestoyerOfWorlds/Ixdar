@@ -80,4 +80,15 @@ public interface NodeContext {
     default void reportFailure(String failure) {
         throw new IllegalArgumentException(failure);
     }
+
+    /**
+     * A value the graph's host bound for scene-bound input nodes, such as the model a scene
+     * loaded for {@code scene_model()}.
+     *
+     * @param name binding name, e.g. {@code "model"}
+     * @return the bound value, or {@code null} when the host bound nothing under that name
+     */
+    default Object graphInput(String name) {
+        return null;
+    }
 }

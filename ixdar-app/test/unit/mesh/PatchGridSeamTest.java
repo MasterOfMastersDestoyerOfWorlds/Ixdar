@@ -9,8 +9,10 @@ import java.util.Map;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.QuadLayoutEngine;
+import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.geometry.mesh.nodes.data.SceneModelNode;
+import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
@@ -28,17 +30,10 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
  */
 class PatchGridSeamTest {
 
-    /**
-     * Positions this far apart are the same point; the grids are built from the
-     * same floats.
-     */
+    // The grids are built from the same floats, so seam points agree to this.
     private static final float TOLERANCE = 1e-6f;
 
-    /**
-     * Quads the shortest arc is sized to, which fixes the target edge length so
-     * every arc carries interior points and the seam check sees more than its two
-     * end nodes.
-     */
+    // Sized so every arc carries interior points and the seam check sees more than its ends.
     private static final int QUADS_ON_SHORTEST_ARC = 3;
 
     /**
@@ -46,13 +41,15 @@ class PatchGridSeamTest {
      * its patches.
      */
     @Test
-    void adjacentPatchesShareTheirSeamPoints() {
+    void adjacentPatchesShareTheirSeamPoints() throws Exception {
         NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
         ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
         NetworkContraction contraction = new NetworkContraction(fixtureNet);
         contraction.contract();
         contraction.conform();
-        SeamlessUv seamless = new QuadLayoutEngine(fixtureNet.topology.sourceMesh, 0f).buildSeamless();
+        NodeGraphRuntime layout = new NodeGraphRuntime(QuadLayoutNode.overSceneModel());
+        layout.graphInputs.put(SceneModelNode.BINDING, GeometryBundle.ofMesh(fixtureNet.topology.sourceMesh));
+        SeamlessUv seamless = (SeamlessUv) layout.pull(QuadLayoutNode.sceneOutput(QuadLayoutNode.SEAMLESS));
         double targetEdgeLength =
                 shortestArcLength(fixtureNet, seamless) / QUADS_ON_SHORTEST_ARC;
         PatchGridExtraction grid = new PatchGridExtraction(
