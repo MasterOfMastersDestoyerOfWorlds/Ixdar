@@ -19,8 +19,6 @@ import com.google.gson.Gson;
 
 import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
-import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
-import ixdar.geometry.mesh.quadlayout.quantization.OjAlgoIntegerProgram;
 import ixdar.geometry.mesh.quadlayout.solver.chol.DesktopCholeskyBackend;
 import ixdar.geometry.mesh.quadlayout.solver.chol.NativeCholeskyBackend;
 import ixdar.graphics.image.PixelImage;
@@ -271,16 +269,6 @@ public class HeadlessPlatform implements Platform {
     @Override
     public NativeCholeskyBackend nativeCholeskyBackend() {
         return choleskyBackend;
-    }
-
-    /**
-     * Solve integer programs with ojAlgo, the same as the desktop backend.
-     *
-     * @return a new ojAlgo-backed integer program
-     */
-    @Override
-    public IntegerProgram newIntegerProgram() {
-        return new OjAlgoIntegerProgram();
     }
 
     /**

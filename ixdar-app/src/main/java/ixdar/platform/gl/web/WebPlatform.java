@@ -21,7 +21,6 @@ import org.teavm.jso.typedarrays.Uint8ClampedArray;
 
 import ixdar.canvas.WebLauncher;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
-import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
 import ixdar.geometry.mesh.quadlayout.solver.chol.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.ModelRuntime;
@@ -495,20 +494,6 @@ public class WebPlatform implements Platform {
     @Override
     public NativeCholeskyBackend nativeCholeskyBackend() {
         return null;
-    }
-
-    /**
-     * {@inheritDoc}.
-     *
-     * <p>Refusing here is what keeps ojAlgo out of the JavaScript output; the quad-layout
-     * quantization is a desktop pipeline stage and never runs in the browser.
-     *
-     * @return never returns
-     * @throws UnsupportedOperationException always
-     */
-    @Override
-    public IntegerProgram newIntegerProgram() {
-        throw new UnsupportedOperationException("Integer programming is desktop-only");
     }
 
     /**

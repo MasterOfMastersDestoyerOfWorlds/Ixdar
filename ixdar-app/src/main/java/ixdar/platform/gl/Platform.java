@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.function.Consumer;
 
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
-import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
 import ixdar.geometry.mesh.quadlayout.solver.chol.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.ModelRuntime;
@@ -232,15 +231,6 @@ public interface Platform {
      * @return the platform's native backend, or {@code null}
      */
     NativeCholeskyBackend nativeCholeskyBackend();
-
-    /**
-     * A fresh integer-program builder for the quantization solve. Naming the solver here rather than
-     * in the quantization code is what keeps ojAlgo — whose static initializers reach for executors
-     * and {@code ManagementFactory} — out of the browser build.
-     *
-     * @return a new, empty integer program
-     */
-    IntegerProgram newIntegerProgram();
 
     /**
      * A pool for fanning identical work out across {@code workerCount} slices. Backends without

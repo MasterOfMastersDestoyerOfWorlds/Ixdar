@@ -55,7 +55,10 @@ public class QuantizedMeshGrid implements MeshNode {
     /** Solved non-negative integer per arc id; filled by {@link #build()}. */
     public int[] quantizedLengthByArc;
 
-    /** Diagnostics and render products of the collapse half, off the port flow. */
+    /** Zero-arc collapse of the final solution; filled by {@link #build()}. */
+    public ZeroArcCollapse collapse;
+
+    /** Diagnostics of the collapse half, off the port flow. */
     public LayoutExtraction layout;
 
     /** Variable-class index per arc id after the §5.2 merge. */
@@ -197,11 +200,7 @@ public class QuantizedMeshGrid implements MeshNode {
         accumulatePerpendicularWeights(arcs, classWeight);
 
         List<List<Integer>> separationCutPaths = new ArrayList<>();
-        ZeroArcCollapse collapse = null;
         for (int round = 0; round <= MAX_SEPARATION_ROUNDS; round++) {
-            // ojAlgo models do not support re-minimising after post-solve
-            // mutation, so every separation round rebuilds the model from
-            // scratch with the accumulated cuts.
             consistencyConstraintCount = 0;
             validityConstraintCount = 0;
             layoutConstraintCount = 0;
@@ -210,17 +209,12 @@ public class QuantizedMeshGrid implements MeshNode {
             validitySkipNoNodeCount = 0;
             prefixFallbackCount = 0;
             constraintLoggingEnabled = round == 0;
-            IntegerProgram model = Platforms.get().newIntegerProgram();
-            for (int classIndex = 0; classIndex < classCount; classIndex++) {
-                model.addVariable("q" + classIndex, classWeight[classIndex]);
-            }
+            IntegerProgram model = new IntegerProgram(classWeight);
             addConsistencyConstraints(model);
             addValidityConstraints(model);
             addLayoutConstraints(model);
-            for (int cutIndex = 0; cutIndex < separationCutPaths.size(); cutIndex++) {
-                IntegerProgramExpression expression = model.newExpression("separation_" + cutIndex);
-                setPrefixCoefficients(expression, separationCutPaths.get(cutIndex));
-                expression.lower(1);
+            for (List<Integer> cutPath : separationCutPaths) {
+                model.coverRows.add(classMultiset(cutPath));
             }
             if (round == 0) {
                 Platforms.log(
@@ -231,27 +225,26 @@ public class QuantizedMeshGrid implements MeshNode {
                         layoutConstraintCount, prefixFallbackCount);
             }
 
-            IntegerProgramSolution result = model.minimise();
-            if (!result.feasible) {
-                throw new IllegalStateException("quantization ILP " + result.state
+            model.solve();
+            if (!model.feasible) {
+                throw new IllegalStateException("quantization ILP INFEASIBLE"
                         + " — a consistent T-mesh always admits the all-ones quantization");
             }
-            optimal = result.optimal;
-            objectiveValue = result.objectiveValue;
+            optimal = true;
+            objectiveValue = model.objectiveValue;
 
             quantizedLengthByArc = new int[arcCount];
             int zeroArcs = 0;
             for (int arcId = 0; arcId < arcCount; arcId++) {
-                quantizedLengthByArc[arcId] = (int) Math.round(
-                        result.variableValues[variableClassByArc[arcId]]);
+                quantizedLengthByArc[arcId] = model.values[variableClassByArc[arcId]];
                 if (quantizedLengthByArc[arcId] == 0) {
                     zeroArcs++;
                 }
             }
             int violations = verifySolution();
             Platforms.log(
-                    "[quantize] state=%s objective=%.3f zeroArcs=%d/%d violations=%d round=%d%n",
-                    result.state, objectiveValue, zeroArcs, arcCount, violations, round);
+                    "[quantize] state=OPTIMAL objective=%.3f zeroArcs=%d/%d violations=%d round=%d%n",
+                    objectiveValue, zeroArcs, arcCount, violations, round);
 
             collapse = new ZeroArcCollapse(network, quantizedLengthByArc).build();
             if (collapse.mergedSingularityVertexIdsByCluster.isEmpty()) {
@@ -429,38 +422,18 @@ public class QuantizedMeshGrid implements MeshNode {
      * are skipped.
      */
     private void addConsistencyConstraints(IntegerProgram model) {
-        int patchIndex = 0;
         for (EmbeddedPatch patch : network.patches) {
-            patchIndex++;
             if (!patch.validRectangle) {
                 continue;
             }
             for (int sideIndex = 0; sideIndex < 2; sideIndex++) {
-                double[] coefficientByClass = new double[variableCount];
-                for (int arcId : patch.sideArcIds.get(sideIndex)) {
-                    coefficientByClass[variableClassByArc[arcId]] += 1.0;
-                }
-                for (int arcId : patch.sideArcIds.get(sideIndex + 2)) {
-                    coefficientByClass[variableClassByArc[arcId]] -= 1.0;
-                }
-                boolean nonTrivial = false;
-                for (double coefficient : coefficientByClass) {
-                    if (coefficient != 0.0) {
-                        nonTrivial = true;
-                        break;
-                    }
-                }
-                if (!nonTrivial) {
+                int[] side = classMultiset(patch.sideArcIds.get(sideIndex));
+                int[] oppositeSide = classMultiset(patch.sideArcIds.get(sideIndex + 2));
+                if (Arrays.equals(side, oppositeSide)) {
                     continue;
                 }
-                IntegerProgramExpression expression = model.newExpression(
-                        "consistency_" + patchIndex + "_" + sideIndex);
-                for (int classIndex = 0; classIndex < coefficientByClass.length; classIndex++) {
-                    if (coefficientByClass[classIndex] != 0.0) {
-                        expression.set(classIndex, coefficientByClass[classIndex]);
-                    }
-                }
-                expression.level(0);
+                model.equalityLeftSides.add(side);
+                model.equalityRightSides.add(oppositeSide);
                 consistencyConstraintCount++;
             }
         }
@@ -519,9 +492,7 @@ public class QuantizedMeshGrid implements MeshNode {
             if (prefix.isEmpty()) {
                 continue;
             }
-            IntegerProgramExpression expression = model.newExpression("validity_" + trace.traceId);
-            setPrefixCoefficients(expression, prefix);
-            expression.lower(1);
+            model.coverRows.add(classMultiset(prefix));
             validityConstraintCount++;
         }
     }
@@ -573,9 +544,7 @@ public class QuantizedMeshGrid implements MeshNode {
                 if (prefix.isEmpty()) {
                     continue;
                 }
-                IntegerProgramExpression expression = model.newExpression("layout_" + key);
-                setPrefixCoefficients(expression, prefix);
-                expression.lower(1);
+                model.coverRows.add(classMultiset(prefix));
                 layoutConstraintCount++;
             }
         }
@@ -606,20 +575,19 @@ public class QuantizedMeshGrid implements MeshNode {
     }
 
     /**
-     * Accumulate +1 per prefix arc onto its class variable in the expression
-     * (duplicate classes in one prefix sum their coefficients).
+     * Class indices of a prefix's arcs, sorted, a class repeated once per arc in it, so the
+     * multiplicity is the class's coefficient in the {@code Σ ≥ 1} row.
+     *
+     * @param prefixArcIds arc ids of one trace prefix or cut path
+     * @return the sorted class multiset
      */
-    private void setPrefixCoefficients(IntegerProgramExpression expression,
-            List<Integer> prefixArcIds) {
-        double[] coefficientByClass = new double[variableCount];
-        for (int arcId : prefixArcIds) {
-            coefficientByClass[variableClassByArc[arcId]] += 1.0;
+    private int[] classMultiset(List<Integer> prefixArcIds) {
+        int[] classes = new int[prefixArcIds.size()];
+        for (int position = 0; position < classes.length; position++) {
+            classes[position] = variableClassByArc[prefixArcIds.get(position)];
         }
-        for (int classIndex = 0; classIndex < coefficientByClass.length; classIndex++) {
-            if (coefficientByClass[classIndex] != 0.0) {
-                expression.set(classIndex, coefficientByClass[classIndex]);
-            }
-        }
+        Arrays.sort(classes);
+        return classes;
     }
 
     /**

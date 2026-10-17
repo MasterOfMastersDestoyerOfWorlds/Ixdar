@@ -46,8 +46,6 @@ import ixdar.platform.json.JsonValue;
 import ixdar.canvas.IxdarWindow;
 import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
-import ixdar.geometry.mesh.quadlayout.quantization.IntegerProgram;
-import ixdar.geometry.mesh.quadlayout.quantization.OjAlgoIntegerProgram;
 import ixdar.geometry.mesh.quadlayout.solver.chol.DesktopCholeskyBackend;
 import ixdar.geometry.mesh.quadlayout.solver.chol.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
@@ -272,12 +270,6 @@ public class LwjglPlatform implements Platform {
     @Override
     public NativeCholeskyBackend nativeCholeskyBackend() {
         return choleskyBackend;
-    }
-
-    /** {@inheritDoc}. */
-    @Override
-    public IntegerProgram newIntegerProgram() {
-        return new OjAlgoIntegerProgram();
     }
 
     /** {@inheritDoc}. */
