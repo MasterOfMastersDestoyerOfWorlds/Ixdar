@@ -23,7 +23,7 @@ import ixdar.graphics.render.color.Color;
 /**
  * {@link Color}'s constants are named {@code BASE[_LEAN][_LIGHTNESS][_<percent>]} and sorted by
  * hue in the source: neutrals black to white, then hue angle from red, ties by lightness, alpha
- * variants after their base. {@code IXDAR} (the logo red), {@code DARK_IXDAR} and
+ * variants after their base. {@code IXDAR} (the logo red), {@code IXDAR_DARK} and
  * {@code TRANSPARENT} are the names exempt from that grammar.
  */
 class ColorOrderTest {
@@ -40,7 +40,7 @@ class ColorOrderTest {
 
     private static final double DEGREES_PER_SEXTANT = 60.0;
 
-    private static final Set<String> EXCEPTIONS = Set.of("IXDAR", "DARK_IXDAR", "TRANSPARENT");
+    private static final Set<String> EXCEPTIONS = Set.of("IXDAR", "IXDAR_DARK", "TRANSPARENT");
 
     private static final Set<String> BASE_WORDS = Set.of("BLACK", "GREY", "WHITE", "RED",
             "ORANGE", "BROWN", "YELLOW", "GREEN", "TEAL", "BLUE", "PURPLE", "PINK");
