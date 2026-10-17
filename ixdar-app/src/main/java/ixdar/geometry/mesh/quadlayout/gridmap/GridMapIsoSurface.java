@@ -1,8 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.gridmap;
 
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.api.UvField;
@@ -32,8 +31,11 @@ public final class GridMapIsoSurface implements UvField {
     /** Faces folding against their patch map's orientation; a healthy map has none. */
     public int flippedFaceCount;
 
-    /** Active face index by copy face id, for the per-corner accessors. */
-    public Map<Integer, Integer> activeByFaceId;
+    /**
+     * Active face index by copy face id, for the per-corner accessors; -1 for ids
+     * the copy no longer holds.
+     */
+    public int[] activeFaceByFaceId;
 
     /**
      * Stores the patch maps and the map state to bake.
@@ -58,9 +60,14 @@ public final class GridMapIsoSurface implements UvField {
         cornerU = new double[faceCount * HalfEdgeMesh.TRIANGLE_CORNERS];
         cornerV = new double[faceCount * HalfEdgeMesh.TRIANGLE_CORNERS];
         faceFlipped = new boolean[faceCount];
-        activeByFaceId = new HashMap<>(faceCount * 2);
+        int faceIdBound = 0;
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-            activeByFaceId.put(copy.faceIdAt(activeFace), activeFace);
+            faceIdBound = Math.max(faceIdBound, copy.faceIdAt(activeFace) + 1);
+        }
+        activeFaceByFaceId = new int[faceIdBound];
+        Arrays.fill(activeFaceByFaceId, -1);
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            activeFaceByFaceId[copy.faceIdAt(activeFace)] = activeFace;
         }
         for (EmbeddedPatch patch : patchMaps.tmesh.patches) {
             if (!patch.alive) {
@@ -71,7 +78,7 @@ public final class GridMapIsoSurface implements UvField {
             double[] uv = uvByPatchId[patch.patchId];
             List<Integer> regionFaces = patchMaps.regions.copyFacesByPatch.get(patch.patchId);
             for (int faceIndex = 0; faceIndex < regionFaces.size(); faceIndex++) {
-                int activeFace = activeByFaceId.get(regionFaces.get(faceIndex));
+                int activeFace = activeFaceByFaceId[regionFaces.get(faceIndex)];
                 int[] triangle = map.triangles[faceIndex];
                 int base = activeFace * HalfEdgeMesh.TRIANGLE_CORNERS;
                 for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
@@ -101,7 +108,7 @@ public final class GridMapIsoSurface implements UvField {
      */
     @Override
     public double u(int faceId, int corner) {
-        return cornerU[activeByFaceId.get(faceId) * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
+        return cornerU[activeFaceByFaceId[faceId] * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
     }
 
     /**
@@ -113,6 +120,6 @@ public final class GridMapIsoSurface implements UvField {
      */
     @Override
     public double v(int faceId, int corner) {
-        return cornerV[activeByFaceId.get(faceId) * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
+        return cornerV[activeFaceByFaceId[faceId] * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
     }
 }

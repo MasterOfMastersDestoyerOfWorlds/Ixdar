@@ -40,4 +40,9 @@ public final class DesktopCholeskyBackend implements NativeCholeskyBackend {
         }
         return accelerate.factorUpper(upperCsr, dimension);
     }
+
+    @Override
+    public int limitCallingThreadSolverThreads(int threads) {
+        return pardiso.available() ? pardiso.limitCallingThreadSolverThreads(threads) : 0;
+    }
 }

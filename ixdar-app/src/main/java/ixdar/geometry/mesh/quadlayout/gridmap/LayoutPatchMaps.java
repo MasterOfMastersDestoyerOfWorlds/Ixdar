@@ -10,6 +10,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.nodes.api.UvField;
 import ixdar.platform.Platforms;
+import ixdar.platform.concurrent.WorkerPool;
 
 /**
  * The Tutte map of every patch of a conforming layout onto the rectangle its
@@ -22,6 +23,8 @@ import ixdar.platform.Platforms;
 public final class LayoutPatchMaps {
 
     public static final int LARGEST_REGIONS_LISTED = 5;
+
+    public static final int MAX_WORKER_THREADS = 8;
 
     public final ArcNetwork tmesh;
 
@@ -96,18 +99,49 @@ public final class LayoutPatchMaps {
         regions = new PatchRegions(tmesh).build();
         reportRegionBalance();
         PatchRegionMapper mapper = new PatchRegionMapper(tmesh, regions);
-        mapByPatchId = new PatchRectangleMap[tmesh.patches.size()];
+        int patchCount = tmesh.patches.size();
+        mapByPatchId = new PatchRectangleMap[patchCount];
+        int[] cotangentFoldCountByPatchId = new int[patchCount];
+        RuntimeException[] failureByPatchId = new RuntimeException[patchCount];
+        int workerCount = Math.max(1, Math.min(patchCount,
+                Math.min(Runtime.getRuntime().availableProcessors(), MAX_WORKER_THREADS)));
+        Runnable[] tasks = new Runnable[workerCount];
+        for (int worker = 0; worker < workerCount; worker++) {
+            int firstPatchId = worker;
+            tasks[worker] = () -> {
+                for (int patchId = firstPatchId; patchId < patchCount; patchId += workerCount) {
+                    if (!tmesh.patches.get(patchId).alive) {
+                        continue;
+                    }
+                    try {
+                        PatchRectangleMap map = mapper.mapPatch(patchId);
+                        cotangentFoldCountByPatchId[patchId] = map.flippedTriangleCount();
+                        if (cotangentFoldCountByPatchId[patchId] > 0) {
+                            map.solveUniform();
+                        }
+                        mapByPatchId[patchId] = map;
+                    } catch (RuntimeException failure) {
+                        failureByPatchId[patchId] = failure;
+                    }
+                }
+            };
+        }
+        WorkerPool pool = Platforms.get().newWorkerPool(workerCount, "patch-maps");
+        pool.runAll(tasks, "patch maps");
+        pool.shutdown();
         for (EmbeddedPatch patch : tmesh.patches) {
             if (!patch.alive) {
                 continue;
             }
-            PatchRectangleMap map = mapper.mapPatch(patch.patchId);
-            int cotangentFoldCount = map.flippedTriangleCount();
+            if (failureByPatchId[patch.patchId] != null) {
+                throw failureByPatchId[patch.patchId];
+            }
+            PatchRectangleMap map = mapByPatchId[patch.patchId];
+            int cotangentFoldCount = cotangentFoldCountByPatchId[patch.patchId];
             if (cotangentFoldCount > 0) {
                 Platforms.log("[patch-maps] patch=" + patch.patchId + " cotangentFolds="
                         + cotangentFoldCount + "; retrying with uniform weights");
                 uniformFallbackPatchCount++;
-                map.solveUniform();
             }
             try {
                 map.assertFoldFree();
@@ -116,7 +150,6 @@ public final class LayoutPatchMaps {
                 Platforms.log("[patch-maps] patch=" + patch.patchId + ": "
                         + stillFolded.getMessage());
             }
-            mapByPatchId[patch.patchId] = map;
             mappedPatchCount++;
         }
         Platforms.log("[patch-maps] patches=" + mappedPatchCount + " subdividedChords="

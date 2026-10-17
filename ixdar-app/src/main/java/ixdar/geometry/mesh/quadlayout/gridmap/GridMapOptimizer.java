@@ -1,15 +1,18 @@
 package ixdar.geometry.mesh.quadlayout.gridmap;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
 import ixdar.geometry.mesh.quadlayout.solver.system.NewtonRelaxation;
 import ixdar.platform.Platforms;
 import ixdar.platform.concurrent.WorkerPool;
@@ -35,8 +38,11 @@ public final class GridMapOptimizer {
 
     public static final int MAX_WORKER_THREADS = 8;
 
-    private static final int KEY_ROW_SHIFT = 32;
+    public static final int UNOWNED_SLOT = -1;
 
+    public static final int SHARED_SLOT = -2;
+
+    public static final int KEY_ROW_SHIFT = 32;
     public final GridMapDofSystem dofs;
     public final GlobalGridMap gridMap;
 
@@ -79,30 +85,30 @@ public final class GridMapOptimizer {
     public double acceptedStep;
 
     /** Gradient operator of every triangle, six entries each, in triangle order. */
-    private double[] operatorByTriangle;
+    public double[] operatorByTriangle;
 
     /**
      * Reference area of every triangle in the parametrization, in triangle order.
      */
-    private double[] areaByTriangle;
+    public double[] areaByTriangle;
 
     /** The three slots of every triangle, in triangle order. */
-    private int[] slotByTriangleCorner;
+    public int[] slotByTriangleCorner;
 
     /**
      * Quarter turns reading each triangle corner's slot into its patch chart; zero
      * uncoupled.
      */
-    private int[] rotationByTriangleCorner;
+    public int[] rotationByTriangleCorner;
 
     /** Grid u translation of each corner's read transform. */
-    private double[] translationUByTriangleCorner;
+    public double[] translationUByTriangleCorner;
 
     /** Grid v translation of each corner's read transform. */
-    private double[] translationVByTriangleCorner;
+    public double[] translationVByTriangleCorner;
 
     /** Owning patch of every gathered triangle, in triangle order. */
-    private int[] patchByTriangle;
+    public int[] patchByTriangle;
 
     /** Triangles gathered from all live patches. */
     private int triangleCount;
@@ -142,11 +148,28 @@ public final class GridMapOptimizer {
     private long[] upperKeys;
 
     /**
-     * Destination of each triangle's 36 Hessian entries: an upper-values index, a
-     * diagonal index encoded as {@code -(index + 1)}, or {@link Integer#MIN_VALUE}
-     * for the strict lower triangle.
+     * First scattered Hessian entry of each triangle, plus one past the last
+     * triangle's; the strict lower triangle in system order is never scattered.
      */
-    private int[] scatterByTriangleEntry;
+    private int[] entryStartByTriangle;
+
+    /** Element Hessian entry each scattered entry reads, {@code row * 6 + column}. */
+    private int[] entrySourceByEntry;
+
+    /**
+     * Destination of each scattered entry: an upper-values index, or a diagonal
+     * index encoded as {@code -(index + 1)}.
+     */
+    private int[] entryDestinationByEntry;
+
+    /**
+     * Upper-values indices each worker's triangle range writes; every other index
+     * of its buffer stays zero, so only these are cleared and reduced.
+     */
+    private int[][] touchedUpperByWorker;
+
+    /** System variables each worker's triangle range writes, likewise. */
+    private int[][] touchedVariableByWorker;
 
     /** Workers the assembly actually uses, at most one per gathered triangle. */
     private int assemblyWorkerCount;
@@ -198,11 +221,11 @@ public final class GridMapOptimizer {
      */
     public GridMapOptimizer build() {
         gatherTriangles();
+        assemblyWorkerCount = Math.max(1,
+                Math.min(Math.min(workerThreads, MAX_WORKER_THREADS), triangleCount));
         buildSparsityPattern();
         double[] start = dofs.system.solution.clone();
         int size = dofs.slotCount * SLOT_COORDINATES;
-        assemblyWorkerCount = Math.max(1,
-                Math.min(Math.min(workerThreads, MAX_WORKER_THREADS), triangleCount));
         assemblyPool = Platforms.get().newWorkerPool(assemblyWorkerCount, "grid-optimize-assembly");
         elementByWorker = new SymmetricDirichletEnergy[assemblyWorkerCount];
         rightHandSideByWorker = new double[assemblyWorkerCount][size];
@@ -225,6 +248,48 @@ public final class GridMapOptimizer {
                     + " despite having no folded triangles; a numerically collapsed source"
                     + " reference was not filtered");
         }
+        // Every patch's interior settles first, arcs and nodes held, as independent
+        // concurrent solves with one solver thread each; the global solve after it
+        // then only has the interfaces left. Gathered triangles are contiguous per patch.
+        int[] ownerPatchBySlot = new int[dofs.slotCount];
+        Arrays.fill(ownerPatchBySlot, UNOWNED_SLOT);
+        for (int corner = 0; corner < triangleCount * HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+            int slot = slotByTriangleCorner[corner];
+            int patchId = patchByTriangle[corner / HalfEdgeMesh.TRIANGLE_CORNERS];
+            int owner = ownerPatchBySlot[slot];
+            ownerPatchBySlot[slot] = owner == UNOWNED_SLOT || owner == patchId ? patchId
+                    : SHARED_SLOT;
+        }
+        List<int[]> triangleRanges = new ArrayList<>();
+        int rangeStart = 0;
+        for (int triangle = 1; triangle <= triangleCount; triangle++) {
+            if (triangle == triangleCount
+                    || patchByTriangle[triangle] != patchByTriangle[rangeStart]) {
+                triangleRanges.add(new int[] { rangeStart, triangle });
+                rangeStart = triangle;
+            }
+        }
+        triangleRanges.sort((first, second) -> Integer.compare(second[1] - second[0],
+                first[1] - first[0]));
+        AtomicInteger nextRange = new AtomicInteger();
+        double[] solution = dofs.system.solution;
+        Runnable[] patchTasks = new Runnable[assemblyWorkerCount];
+        for (int worker = 0; worker < assemblyWorkerCount; worker++) {
+            patchTasks[worker] = () -> {
+                int previousThreads = CholeskyBackend.limitCallingThreadSolverThreads(1);
+                try {
+                    for (int range = nextRange.getAndIncrement(); range < triangleRanges.size();
+                            range = nextRange.getAndIncrement()) {
+                        int[] triangles = triangleRanges.get(range);
+                        new PatchInteriorSolve(this, triangles[0], triangles[1], ownerPatchBySlot,
+                                solution).relax(solution);
+                    }
+                } finally {
+                    CholeskyBackend.limitCallingThreadSolverThreads(previousThreads);
+                }
+            };
+        }
+        assemblyPool.runAll(patchTasks, "patch interiors");
         dofs.system.energy = this::totalEnergy;
         dofs.system.writeBack = dofs::writeBack;
         NewtonRelaxation newton = new NewtonRelaxation(dofs.system, this::assembleInto, upperKeys,
@@ -433,7 +498,20 @@ public final class GridMapOptimizer {
      * @param out         receives the position
      */
     private void cornerPosition(int cornerIndex, double[] x, double[] out) {
-        int slot = slotByTriangleCorner[cornerIndex];
+        cornerPosition(cornerIndex, slotByTriangleCorner[cornerIndex], x, out);
+    }
+
+    /**
+     * One triangle corner's chart position, reading the given slot through the
+     * corner's transform.
+     *
+     * @param cornerIndex index into the per-corner arrays,
+     *                    {@code triangle * 3 + corner}
+     * @param slot        the corner's slot in the numbering of {@code x}
+     * @param x           interleaved slot coordinates
+     * @param out         receives the position
+     */
+    public void cornerPosition(int cornerIndex, int slot, double[] x, double[] out) {
         IntegerGridMap.rotate(rotationByTriangleCorner[cornerIndex],
                 x[slot * SLOT_COORDINATES], x[slot * SLOT_COORDINATES + 1], out);
         out[0] += translationUByTriangleCorner[cornerIndex];
@@ -503,42 +581,116 @@ public final class GridMapOptimizer {
         }
         int entriesPerTriangle = SymmetricDirichletEnergy.VARIABLES
                 * SymmetricDirichletEnergy.VARIABLES;
-        long[] candidates = new long[triangleCount * entriesPerTriangle];
-        int candidateCount = 0;
+        int systemSize = dofs.slotCount * SLOT_COORDINATES;
+        int[] columnStartByRow = new int[systemSize + 1];
         int[] variable = new int[SymmetricDirichletEnergy.VARIABLES];
-        for (int triangle = 0; triangle < triangleCount; triangle++) {
-            triangleVariables(triangle, variable);
-            for (int row = 0; row < SymmetricDirichletEnergy.VARIABLES; row++) {
-                for (int column = 0; column < SymmetricDirichletEnergy.VARIABLES; column++) {
-                    if (variable[row] < variable[column]) {
-                        candidates[candidateCount++] = ((long) variable[row] << KEY_ROW_SHIFT) | variable[column];
+        int[] columnByUpperEntry = null;
+        for (int pass = 0; pass < 2; pass++) {
+            int[] fillByRow = pass == 0 ? null : Arrays.copyOf(columnStartByRow, systemSize);
+            for (int triangle = 0; triangle < triangleCount; triangle++) {
+                triangleVariables(triangle, variable);
+                for (int row = 0; row < SymmetricDirichletEnergy.VARIABLES; row++) {
+                    for (int column = 0; column < SymmetricDirichletEnergy.VARIABLES; column++) {
+                        if (variable[row] >= variable[column]) {
+                            continue;
+                        }
+                        if (pass == 0) {
+                            columnStartByRow[variable[row] + 1]++;
+                        } else {
+                            columnByUpperEntry[fillByRow[variable[row]]++] = variable[column];
+                        }
                     }
                 }
             }
-        }
-        Arrays.sort(candidates, 0, candidateCount);
-        int distinct = 0;
-        for (int index = 0; index < candidateCount; index++) {
-            if (index == 0 || candidates[index] != candidates[index - 1]) {
-                candidates[distinct++] = candidates[index];
+            if (pass == 0) {
+                for (int row = 0; row < systemSize; row++) {
+                    columnStartByRow[row + 1] += columnStartByRow[row];
+                }
+                columnByUpperEntry = new int[columnStartByRow[systemSize]];
             }
         }
-        upperKeys = Arrays.copyOf(candidates, distinct);
-        scatterByTriangleEntry = new int[triangleCount * entriesPerTriangle];
+        int[] upperStartByRow = new int[systemSize + 1];
+        int distinct = 0;
+        for (int row = 0; row < systemSize; row++) {
+            int from = columnStartByRow[row];
+            int to = columnStartByRow[row + 1];
+            Arrays.sort(columnByUpperEntry, from, to);
+            upperStartByRow[row] = distinct;
+            for (int index = from; index < to; index++) {
+                if (index == from || columnByUpperEntry[index] != columnByUpperEntry[index - 1]) {
+                    columnByUpperEntry[distinct++] = columnByUpperEntry[index];
+                }
+            }
+        }
+        upperStartByRow[systemSize] = distinct;
+        upperKeys = new long[distinct];
+        for (int row = 0; row < systemSize; row++) {
+            for (int index = upperStartByRow[row]; index < upperStartByRow[row + 1]; index++) {
+                upperKeys[index] = ((long) row << KEY_ROW_SHIFT) | columnByUpperEntry[index];
+            }
+        }
+        entryStartByTriangle = new int[triangleCount + 1];
+        entrySourceByEntry = new int[triangleCount * entriesPerTriangle];
+        entryDestinationByEntry = new int[triangleCount * entriesPerTriangle];
         int at = 0;
         for (int triangle = 0; triangle < triangleCount; triangle++) {
+            entryStartByTriangle[triangle] = at;
             triangleVariables(triangle, variable);
             for (int row = 0; row < SymmetricDirichletEnergy.VARIABLES; row++) {
                 for (int column = 0; column < SymmetricDirichletEnergy.VARIABLES; column++) {
-                    if (variable[row] == variable[column]) {
-                        scatterByTriangleEntry[at++] = -(variable[row] + 1);
-                    } else if (variable[row] > variable[column]) {
-                        scatterByTriangleEntry[at++] = Integer.MIN_VALUE;
-                    } else {
-                        scatterByTriangleEntry[at++] = Arrays.binarySearch(upperKeys,
-                                ((long) variable[row] << KEY_ROW_SHIFT) | variable[column]);
+                    if (variable[row] > variable[column]) {
+                        continue;
+                    }
+                    entrySourceByEntry[at] = row * SymmetricDirichletEnergy.VARIABLES + column;
+                    entryDestinationByEntry[at++] = variable[row] == variable[column]
+                            ? -(variable[row] + 1)
+                            : Arrays.binarySearch(columnByUpperEntry,
+                                    upperStartByRow[variable[row]],
+                                    upperStartByRow[variable[row] + 1], variable[column]);
+                }
+            }
+        }
+        entryStartByTriangle[triangleCount] = at;
+        int chunk = (triangleCount + assemblyWorkerCount - 1) / assemblyWorkerCount;
+        touchedUpperByWorker = new int[assemblyWorkerCount][];
+        touchedVariableByWorker = new int[assemblyWorkerCount][];
+        boolean[] upperSeen = new boolean[upperKeys.length];
+        boolean[] variableSeen = new boolean[dofs.slotCount * SLOT_COORDINATES];
+        for (int worker = 0; worker < assemblyWorkerCount; worker++) {
+            int firstTriangle = Math.min(triangleCount, worker * chunk);
+            int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
+            int[] upperTouched = new int[entryStartByTriangle[endTriangle]
+                    - entryStartByTriangle[firstTriangle]];
+            int upperCount = 0;
+            for (int entry = entryStartByTriangle[firstTriangle];
+                    entry < entryStartByTriangle[endTriangle]; entry++) {
+                int destination = entryDestinationByEntry[entry];
+                if (destination >= 0 && !upperSeen[destination]) {
+                    upperSeen[destination] = true;
+                    upperTouched[upperCount++] = destination;
+                }
+            }
+            int[] variableTouched = new int[(endTriangle - firstTriangle)
+                    * SymmetricDirichletEnergy.VARIABLES];
+            int variableCount = 0;
+            for (int triangle = firstTriangle; triangle < endTriangle; triangle++) {
+                triangleVariables(triangle, variable);
+                for (int index : variable) {
+                    if (!variableSeen[index]) {
+                        variableSeen[index] = true;
+                        variableTouched[variableCount++] = index;
                     }
                 }
+            }
+            touchedUpperByWorker[worker] = Arrays.copyOf(upperTouched, upperCount);
+            touchedVariableByWorker[worker] = Arrays.copyOf(variableTouched, variableCount);
+            Arrays.sort(touchedUpperByWorker[worker]);
+            Arrays.sort(touchedVariableByWorker[worker]);
+            for (int index : touchedUpperByWorker[worker]) {
+                upperSeen[index] = false;
+            }
+            for (int index : touchedVariableByWorker[worker]) {
+                variableSeen[index] = false;
             }
         }
     }
@@ -583,11 +735,11 @@ public final class GridMapOptimizer {
             double[] workerRightHandSide = rightHandSideByWorker[worker];
             double[] workerDiagonal = diagonalByWorker[worker];
             double[] workerUpperValues = upperValuesByWorker[worker];
-            for (int index = 0; index < diagonal.length; index++) {
+            for (int index : touchedVariableByWorker[worker]) {
                 rightHandSide[index] += workerRightHandSide[index];
                 diagonal[index] += workerDiagonal[index];
             }
-            for (int index = 0; index < upperValuesOut.length; index++) {
+            for (int index : touchedUpperByWorker[worker]) {
                 upperValuesOut[index] += workerUpperValues[index];
             }
         }
@@ -608,16 +760,18 @@ public final class GridMapOptimizer {
         double[] rightHandSide = rightHandSideByWorker[worker];
         double[] diagonal = diagonalByWorker[worker];
         double[] upperValuesLocal = upperValuesByWorker[worker];
-        Arrays.fill(rightHandSide, 0.0);
-        Arrays.fill(diagonal, 0.0);
-        Arrays.fill(upperValuesLocal, 0.0);
+        for (int index : touchedVariableByWorker[worker]) {
+            rightHandSide[index] = 0.0;
+            diagonal[index] = 0.0;
+        }
+        for (int index : touchedUpperByWorker[worker]) {
+            upperValuesLocal[index] = 0.0;
+        }
         double[] targetX = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] targetY = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] operator = new double[OPERATOR_SIZE];
         double[] position = new double[SLOT_COORDINATES];
         int[] variable = new int[SymmetricDirichletEnergy.VARIABLES];
-        int at = firstTriangle * SymmetricDirichletEnergy.VARIABLES
-                * SymmetricDirichletEnergy.VARIABLES;
         for (int triangle = firstTriangle; triangle < endTriangle; triangle++) {
             System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0,
                     OPERATOR_SIZE);
@@ -631,16 +785,17 @@ public final class GridMapOptimizer {
             triangleVariables(triangle, variable);
             for (int row = 0; row < SymmetricDirichletEnergy.VARIABLES; row++) {
                 rightHandSide[variable[row]] -= element.gradient[row];
-                for (int column = 0; column < SymmetricDirichletEnergy.VARIABLES; column++) {
-                    int destination = scatterByTriangleEntry[at++];
-                    if (destination == Integer.MIN_VALUE) {
-                        continue;
-                    }
-                    if (destination < 0) {
-                        diagonal[-destination - 1] += element.hessian[row][column];
-                    } else {
-                        upperValuesLocal[destination] += element.hessian[row][column];
-                    }
+            }
+            for (int entry = entryStartByTriangle[triangle];
+                    entry < entryStartByTriangle[triangle + 1]; entry++) {
+                int source = entrySourceByEntry[entry];
+                double value = element.hessian[source / SymmetricDirichletEnergy.VARIABLES][
+                        source % SymmetricDirichletEnergy.VARIABLES];
+                int destination = entryDestinationByEntry[entry];
+                if (destination < 0) {
+                    diagonal[-destination - 1] += value;
+                } else {
+                    upperValuesLocal[destination] += value;
                 }
             }
         }
@@ -654,7 +809,7 @@ public final class GridMapOptimizer {
      * @param triangle triangle index
      * @param element  evaluator holding the chart-coordinate gradient and Hessian
      */
-    private void rotateElementToSlots(int triangle, SymmetricDirichletEnergy element) {
+    public void rotateElementToSlots(int triangle, SymmetricDirichletEnergy element) {
         for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
             int rotation = rotationByTriangleCorner[triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner];
             if (rotation == 0) {
@@ -726,14 +881,13 @@ public final class GridMapOptimizer {
     public double maximumStep(double[] x, double[] delta) {
         int chunk = (triangleCount + assemblyWorkerCount - 1) / assemblyWorkerCount;
         double[] rootByWorker = new double[assemblyWorkerCount];
-        int[] triangleByWorker = new int[assemblyWorkerCount];
         Runnable[] tasks = new Runnable[assemblyWorkerCount];
         for (int worker = 0; worker < assemblyWorkerCount; worker++) {
             int workerIndex = worker;
             int firstTriangle = Math.min(triangleCount, worker * chunk);
             int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
-            tasks[worker] = () -> maximumStepOfRange(workerIndex,
-                    firstTriangle, endTriangle, x, delta, rootByWorker, triangleByWorker);
+            tasks[worker] = () -> rootByWorker[workerIndex] = maximumStepOfRange(firstTriangle,
+                    endTriangle, slotByTriangleCorner, 0, x, delta);
         }
         assemblyPool.runAll(tasks, "maximal-step");
         double alphaMax = Double.POSITIVE_INFINITY;
@@ -747,19 +901,19 @@ public final class GridMapOptimizer {
 
     /**
      * The smallest positive degeneracy root over one contiguous triangle range,
-     * written into the worker's reduction slots; thread-confined.
+     * reading each corner's slot from a slot table; thread-confined.
      *
-     * @param worker           worker index owning the reduction slots
-     * @param firstTriangle    first triangle of the range, inclusive
-     * @param endTriangle      end of the range, exclusive
-     * @param delta            the displacement of every coordinate
-     * @param rootByWorker     receives the range's smallest root
-     * @param triangleByWorker receives the triangle setting that root
+     * @param firstTriangle first triangle of the range, inclusive
+     * @param endTriangle   end of the range, exclusive
+     * @param slotByCorner  slot of each corner, indexed from {@code cornerBase}
+     * @param cornerBase    gathered corner index of the table's first entry
+     * @param x             interleaved slot coordinates in the table's numbering
+     * @param delta         the displacement of every coordinate
+     * @return the range's smallest root, infinite when none degenerates
      */
-    private void maximumStepOfRange(int worker, int firstTriangle, int endTriangle, double[] x,
-            double[] delta, double[] rootByWorker, int[] triangleByWorker) {
+    public double maximumStepOfRange(int firstTriangle, int endTriangle, int[] slotByCorner,
+            int cornerBase, double[] x, double[] delta) {
         double alphaMax = Double.POSITIVE_INFINITY;
-        int blocking = -1;
         double[] origin = new double[SLOT_COORDINATES];
         double[] along = new double[SLOT_COORDINATES];
         double[] across = new double[SLOT_COORDINATES];
@@ -767,12 +921,13 @@ public final class GridMapOptimizer {
         double[] alongMove = new double[SLOT_COORDINATES];
         double[] acrossMove = new double[SLOT_COORDINATES];
         for (int triangle = firstTriangle; triangle < endTriangle; triangle++) {
-            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS, x, origin);
-            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 1, x, along);
-            cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 2, x, across);
-            cornerMove(triangle * HalfEdgeMesh.TRIANGLE_CORNERS, delta, originMove);
-            cornerMove(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 1, delta, alongMove);
-            cornerMove(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + 2, delta, acrossMove);
+            int first = triangle * HalfEdgeMesh.TRIANGLE_CORNERS;
+            cornerPosition(first, slotByCorner[first - cornerBase], x, origin);
+            cornerPosition(first + 1, slotByCorner[first + 1 - cornerBase], x, along);
+            cornerPosition(first + 2, slotByCorner[first + 2 - cornerBase], x, across);
+            cornerMove(first, slotByCorner[first - cornerBase], delta, originMove);
+            cornerMove(first + 1, slotByCorner[first + 1 - cornerBase], delta, alongMove);
+            cornerMove(first + 2, slotByCorner[first + 2 - cornerBase], delta, acrossMove);
             double edgeOneU = along[0] - origin[0];
             double edgeOneV = along[1] - origin[1];
             double edgeTwoU = across[0] - origin[0];
@@ -806,11 +961,9 @@ public final class GridMapOptimizer {
             }
             if (root < alphaMax) {
                 alphaMax = root;
-                blocking = triangle;
             }
         }
-        rootByWorker[worker] = alphaMax;
-        triangleByWorker[worker] = blocking;
+        return alphaMax;
     }
 
     /**
@@ -819,11 +972,11 @@ public final class GridMapOptimizer {
      *
      * @param cornerIndex index into the per-corner arrays,
      *                    {@code triangle * 3 + corner}
+     * @param slot        the corner's slot in the numbering of {@code delta}
      * @param delta       the displacement of every coordinate
      * @param out         receives the chart displacement
      */
-    private void cornerMove(int cornerIndex, double[] delta, double[] out) {
-        int slot = slotByTriangleCorner[cornerIndex];
+    private void cornerMove(int cornerIndex, int slot, double[] delta, double[] out) {
         IntegerGridMap.rotate(rotationByTriangleCorner[cornerIndex],
                 delta[slot * SLOT_COORDINATES], delta[slot * SLOT_COORDINATES + 1], out);
     }
@@ -843,8 +996,9 @@ public final class GridMapOptimizer {
             int workerIndex = worker;
             int firstTriangle = Math.min(triangleCount, worker * chunk);
             int endTriangle = Math.min(triangleCount, firstTriangle + chunk);
-            tasks[worker] = () -> energyByWorker[workerIndex] = energyOfTriangleRange(workerIndex, firstTriangle,
-                    endTriangle, x);
+            tasks[worker] = () -> energyByWorker[workerIndex] = energyOfTriangleRange(
+                    elementByWorker[workerIndex], firstTriangle, endTriangle,
+                    slotByTriangleCorner, 0, x);
         }
         assemblyPool.runAll(tasks, "trial-energy");
         double total = 0.0;
@@ -855,18 +1009,19 @@ public final class GridMapOptimizer {
     }
 
     /**
-     * The summed energy of one contiguous triangle range, using the worker's own
-     * evaluator; thread-confined.
+     * The summed energy of one contiguous triangle range, reading each corner's
+     * slot from a slot table so a patch-local system can share it; thread-confined.
      *
-     * @param worker        worker index owning the evaluator
+     * @param element       evaluator confined to the calling thread
      * @param firstTriangle first triangle of the range, inclusive
      * @param endTriangle   end of the range, exclusive
-     * @param x             interleaved slot coordinates
+     * @param slotByCorner  slot of each corner, indexed from {@code cornerBase}
+     * @param cornerBase    gathered corner index of the table's first entry
+     * @param x             interleaved slot coordinates in the table's numbering
      * @return the range's summed energy, infinite when a triangle has folded
      */
-    private double energyOfTriangleRange(int worker, int firstTriangle, int endTriangle,
-            double[] x) {
-        SymmetricDirichletEnergy element = elementByWorker[worker];
+    public double energyOfTriangleRange(SymmetricDirichletEnergy element, int firstTriangle,
+            int endTriangle, int[] slotByCorner, int cornerBase, double[] x) {
         double[] targetX = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] targetY = new double[HalfEdgeMesh.TRIANGLE_CORNERS];
         double[] operator = new double[OPERATOR_SIZE];
@@ -876,7 +1031,8 @@ public final class GridMapOptimizer {
             System.arraycopy(operatorByTriangle, triangle * OPERATOR_SIZE, operator, 0,
                     OPERATOR_SIZE);
             for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
-                cornerPosition(triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner, x, position);
+                int cornerIndex = triangle * HalfEdgeMesh.TRIANGLE_CORNERS + corner;
+                cornerPosition(cornerIndex, slotByCorner[cornerIndex - cornerBase], x, position);
                 targetX[corner] = position[0];
                 targetY[corner] = position[1];
             }

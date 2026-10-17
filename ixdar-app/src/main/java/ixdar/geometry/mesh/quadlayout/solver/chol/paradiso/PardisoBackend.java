@@ -68,4 +68,10 @@ public final class PardisoBackend implements NativeCholeskyBackend {
     public FactorizedSystem factorUpper(CompressedSparseRowArrays upperCsr, int dimension) {
         return new PardisoCholesky(upperCsr, dimension);
     }
+
+    /** MKL's thread-local cap, which PARDISO honours for every call made on this thread. */
+    @Override
+    public int limitCallingThreadSolverThreads(int threads) {
+        return mkl_rt.MKL_Set_Num_Threads_Local(threads);
+    }
 }

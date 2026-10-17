@@ -34,4 +34,15 @@ public interface NativeCholeskyBackend {
      * @return the factorized system operating in permuted compact index space
      */
     FactorizedSystem factorUpper(CompressedSparseRowArrays upperCsr, int dimension);
+
+    /**
+     * Caps the native threads the calling thread's factorizations use, so many small concurrent
+     * solves do not each fan out over every core.
+     *
+     * @param threads thread cap for this calling thread; 0 restores the process-wide setting
+     * @return the calling thread's previous cap, 0 when none was set
+     */
+    default int limitCallingThreadSolverThreads(int threads) {
+        return 0;
+    }
 }

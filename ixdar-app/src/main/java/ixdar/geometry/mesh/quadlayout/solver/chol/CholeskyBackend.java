@@ -133,6 +133,17 @@ public final class CholeskyBackend {
     }
 
     /**
+     * Caps the native solver threads of factorizations made on the calling thread.
+     *
+     * @param threads thread cap; 0 restores the process-wide setting
+     * @return the previous cap, 0 when none was set or no native backend loaded
+     */
+    public static int limitCallingThreadSolverThreads(int threads) {
+        NativeCholeskyBackend backend = nativeBackend();
+        return backend != null ? backend.limitCallingThreadSolverThreads(threads) : 0;
+    }
+
+    /**
      * The platform's native backend when its libraries loaded, else {@code null}.
      *
      * @return usable native backend, or {@code null} to use the pure-Java path

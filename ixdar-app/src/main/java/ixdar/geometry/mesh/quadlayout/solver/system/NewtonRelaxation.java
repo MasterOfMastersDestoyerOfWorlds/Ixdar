@@ -59,6 +59,9 @@ public final class NewtonRelaxation {
     /** Whether every iteration logs a progress line. */
     public boolean verboseIterations;
 
+    /** Whether any iteration logs; off for the many small solves of a decomposition. */
+    public boolean logIterations = true;
+
     public double energyBefore;
     public double energyAfter;
     public double acceptedStep;
@@ -121,7 +124,6 @@ public final class NewtonRelaxation {
         double[] diagonal = new double[size];
         double[] rightHandSide = new double[size];
         double[] upperValues = new double[upperKeys.length];
-        double[] heldStart = new double[size];
         NormalMatrix matrix = null;
         DirectSolver.CholeskyHandle handle = null;
         int[] valueSources = null;
@@ -151,19 +153,35 @@ public final class NewtonRelaxation {
                 valueSources = DirectSolver.valueSources(handle, matrix, dofs.frozen, upperKeys);
                 factorValues = new double[valueSources.length];
             } else {
-                matrix.refreshValues(diagonal, upperValues, rightHandSide);
-                DirectSolver.refactorizeHandleValues(handle, matrix.diagonal, upperValues,
+                if (dofs.energy == null) {
+                    matrix.refreshValues(diagonal, upperValues, rightHandSide);
+                }
+                DirectSolver.refactorizeHandleValues(handle, diagonal, upperValues,
                         valueSources, factorValues);
             }
             double[] delta = new double[size];
-            DirectSolver.solveCompact(handle, matrix, rightHandSide, delta, heldStart, dofs.frozen);
+            // The step holds every frozen variable at zero, so the frozen columns fold nothing
+            // into the right-hand side and DirectSolver.solveCompact's fold pass is skipped.
+            if (handle.freeCount() > 0) {
+                int[] perm = handle.perm();
+                int[] fullOf = handle.fullOf();
+                double[] permutedRightHandSide = handle.rhsScratch();
+                double[] permutedDelta = handle.solutionScratch();
+                for (int permuted = 0; permuted < handle.freeCount(); permuted++) {
+                    permutedRightHandSide[permuted] = rightHandSide[fullOf[perm[permuted]]];
+                }
+                handle.factor().solve(permutedRightHandSide, permutedDelta);
+                for (int permuted = 0; permuted < handle.freeCount(); permuted++) {
+                    delta[fullOf[perm[permuted]]] = permutedDelta[permuted];
+                }
+            }
             gradientDotDirection = 0.0;
             for (int index = 0; index < size; index++) {
                 gradientDotDirection -= rightHandSide[index] * delta[index];
             }
             double stepped = takeStep(matrix, delta, energy);
             iterationCount++;
-            if (verboseIterations || iteration % ITERATION_LOG_STRIDE == 0) {
+            if (logIterations && (verboseIterations || iteration % ITERATION_LOG_STRIDE == 0)) {
                 Platforms.log("[newton]   iteration %d energy %.6e (%.3f%%) step=%.3e"
                         + " alphaMax=%.3e%n", iteration, stepped,
                         100.0 * (energy - stepped) / Math.max(1.0e-30, energy), acceptedStep,
