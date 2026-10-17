@@ -55,6 +55,7 @@ public class AutomationRuntime {
     public static final String YPX = "yPx";
     public static final String MOUSE_BUTTON = "mouse_button";
     public static final String MOUSE_MOVE = "mouse_move";
+    public static final String XOFFSET = "xOffset";
     public static final String YOFFSET = "yOffset";
     public static final String SCROLL = "scroll";
     public static final String ERROR = "error";
@@ -233,10 +234,12 @@ public class AutomationRuntime {
     /**
      * Forward a scroll callback to the recorder as a raw {@code "scroll"} event.
      *
+     * @param xOffset horizontal scroll delta from GLFW
      * @param yOffset vertical scroll delta from GLFW
      */
-    public void recordRawScroll(double yOffset) {
+    public void recordRawScroll(double xOffset, double yOffset) {
         JsonObject payload = new JsonObject();
+        payload.addProperty(XOFFSET, xOffset);
         payload.addProperty(YOFFSET, yOffset);
         recorder.recordRaw(SCROLL, payload);
     }
@@ -515,6 +518,7 @@ public class AutomationRuntime {
                         payload.get(MODS).getAsInt());
             } else if (SCROLL.equals(type)) {
                 activeMouse().scrollCallback(
+                        payload.has(XOFFSET) ? payload.get(XOFFSET).getAsDouble() : 0,
                         payload.get(YOFFSET).getAsDouble());
             } else if (KEY.equals(type)) {
                 activeKeys().keyCallback(

@@ -33,6 +33,9 @@ public class OrbitMouseTrap extends MouseTrap {
     private static final float ZOOM_BASE = 0.97f;
     public ClickHandler toolClick;
 
+    /** Told of a click no {@link #toolClick} took, after the overlay strings; {@code null} for none. */
+    public ClickHandler untakenClick;
+
     /**
      * Asked on every left press whether a tool takes the drag that may follow, so the drag moves
      * the tool's handle instead of orbiting; {@code null} leaves every drag to the camera.
@@ -239,6 +242,9 @@ public class OrbitMouseTrap extends MouseTrap {
                 for (HyperString hyperString : hyperStrings) {
                     hyperString.click(overlayX, overlayY);
                 }
+            }
+            if (wasClick && untakenClick != null) {
+                untakenClick.onClick(button);
             }
         }
     }

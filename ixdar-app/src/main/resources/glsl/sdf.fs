@@ -30,7 +30,14 @@ float map(float value, float min1, float max1, float min2, float max2) {
 void main() {
     vec4 smp = texture(innerTexture, textureCoord);
     float sigDist = median(smp.r, smp.g, smp.b);
-    float w = fwidth(sigDist); 
-    float opacity = smoothstep(edgeDist - w, edgeDist + w, sigDist);
+    // The atlas edge band is pxRange texels wide; measured in screen pixels it shrinks with the
+    // text, and below one pixel a smoothstep over fwidth turns binary and drops thin stems. Keep the
+    // ramp at least one pixel wide (msdfgen's screenPxRange, github.com/Chlumsky/msdfgen, MIT).
+    // Where the band is under two pixels the sample comes from a mipmap, whose averaged channels
+    // break the median at corners, so fade to the alpha channel's true distance (MTSDF).
+    vec2 unitRange = vec2(pxRange) / vec2(textureSize(innerTexture, 0));
+    float screenPxRange = 0.5 * dot(unitRange, vec2(1.0) / fwidth(textureCoord));
+    float distance = mix(smp.a, sigDist, clamp(screenPxRange - 1.0, 0.0, 1.0));
+    float opacity = clamp(max(screenPxRange, 1.0) * (distance - edgeDist) + 0.5, 0.0, 1.0);
     fragColor = vec4(vertexColor.r, vertexColor.g, vertexColor.b, vertexColor.a * opacity);
 }

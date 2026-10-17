@@ -17,8 +17,8 @@ import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
+import ixdar.scenes.EditTool;
 import ixdar.scenes.model.ControlHint;
-import ixdar.scenes.ring.EditTool;
 import ixdar.scenes.ring.RingScene;
 import ixdar.scenes.ring.RingTool;
 

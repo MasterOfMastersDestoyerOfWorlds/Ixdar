@@ -4,6 +4,9 @@ import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import static ixdar.platform.input.Keys.ACTION_REPEAT;
 import static ixdar.platform.input.Keys.LEFT_CONTROL;
+import static ixdar.platform.input.Keys.LEFT_SHIFT;
+import static ixdar.platform.input.Keys.RIGHT_CONTROL;
+import static ixdar.platform.input.Keys.RIGHT_SHIFT;
 import java.util.HashSet;
 
 import java.util.HashMap;
@@ -130,9 +133,8 @@ public class KeyGuy extends Camera2DInputController {
     }
 
     /**
-     * Handle a key-up: while the canvas is active and the terminal does not own the key, Escape
-     * steps the menu back and R resets the camera; then clear the control mask on left-control
-     * release and drop {@code key} from {@link #pressedKeys}.
+     * Handle a key-up: Escape steps the menu back, R resets the camera, then {@code key} leaves
+     * {@link #pressedKeys} and each modifier mask holds only while one of its keys is down.
      *
      * @param key  key code that was released
      * @param mask modifier-key bitmask
@@ -150,10 +152,9 @@ public class KeyGuy extends Camera2DInputController {
                 camera.reset();
             }
         }
-        if (key == LEFT_CONTROL) {
-            controlMask = false;
-        }
         pressedKeys.remove(key);
+        controlMask = pressedKeys.contains(LEFT_CONTROL) || pressedKeys.contains(RIGHT_CONTROL);
+        shiftMask = pressedKeys.contains(LEFT_SHIFT) || pressedKeys.contains(RIGHT_SHIFT);
     }
 
     /**

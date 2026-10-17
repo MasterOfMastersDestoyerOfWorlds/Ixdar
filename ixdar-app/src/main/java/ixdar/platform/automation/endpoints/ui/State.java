@@ -476,8 +476,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             for (MenuScrollBox box : new MenuScrollBox[] {menuScene.sceneModelMenu.modelsBox,
                     menuScene.sceneModelMenu.controlsBox}) {
                 JsonObject element = runtime.hyperStringElement("scene_menu_box", box.bounds.id,
-                        box.text, box.scrollOffsetY);
-                element.addProperty("maximumScrollOffsetY", box.maximumScrollOffsetY());
+                        box.text, box.scrollBar.scrollOffset);
+                element.addProperty("maximumScrollOffsetY", box.scrollBar.maximumScrollOffset());
                 element.addProperty("drawnScrollOffsetY", box.drawnScrollOffsetY());
                 element.addProperty(XPX, box.bounds.offsetX);
                 element.addProperty(YPX, box.bounds.offsetY);
@@ -485,7 +485,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 element.addProperty("height", box.bounds.viewHeight);
                 element.addProperty("rowsUsed", box.rowsUsed);
                 element.addProperty("scrollBarShown", box.scrollBar.isNeeded());
-                element.addProperty("scrollBarThumbTop", box.scrollBar.thumbTop());
+                element.addProperty("scrollBarThumbStart", box.scrollBar.thumbStart());
                 element.addProperty("scrollBarThumbLength", box.scrollBar.thumbLength());
                 textElements.add(element);
             }

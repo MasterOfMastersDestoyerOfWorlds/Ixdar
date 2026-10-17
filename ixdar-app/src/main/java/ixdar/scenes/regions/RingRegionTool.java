@@ -27,8 +27,8 @@ import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
 import ixdar.platform.automation.AutomationPortFile;
 import ixdar.platform.input.Keys;
+import ixdar.scenes.EditTool;
 import ixdar.scenes.model.ControlHint;
-import ixdar.scenes.ring.EditTool;
 import ixdar.scenes.ring.RingScene;
 
 /**

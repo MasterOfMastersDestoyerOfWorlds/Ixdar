@@ -26,6 +26,7 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
     public static final String NORMALIZED = "normalized";
     public static final String BUTTON = "button";
     public static final String SETTLE = "settle";
+    public static final String COUNT = "count";
     public static final String SETTLED = "settled";
     public static final String OK = "ok";
     public static final String ERROR = "error";
@@ -39,8 +40,9 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
      * @param body JSON body with {@code x}, {@code y} (floats, default 0),
      *             {@code normalized} (boolean; when true, {@code x}/{@code y} are
      *             treated as fractions of window size), {@code button}
-     *             (GLFW button code, default 0) and {@code settle} (frames to wait
-     *             for after the click; default 2)
+     *             (GLFW button code, default 0), {@code count} (press/release pairs
+     *             back to back, 2 for a double-click; default 1) and {@code settle}
+     *             (frames to wait for after the click; default 2)
      * @throws IOException never thrown directly; declared to satisfy the route contract
      * @return {@code {"ok": true, "settled": true, "event": {xPx, yPx, xNorm, yNorm, button}}} on
      *         success, or an error object when no mouse handler is active
@@ -50,6 +52,7 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
         float y = body.has(Y) ? body.get(Y).getAsFloat() : 0f;
         boolean normalized = body.has(NORMALIZED) && body.get(NORMALIZED).getAsBoolean();
         int button = body.has(BUTTON) ? body.get(BUTTON).getAsInt() : 0;
+        int count = body.has(COUNT) ? body.get(COUNT).getAsInt() : 1;
         int settleFrames = body.has(SETTLE)
                 ? body.get(SETTLE).getAsInt()
                 : InputSettle.DEFAULT_FRAMES;
@@ -72,8 +75,10 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                 try {
                     mouse.mousePos(xPos, yPos);
                     PointerDispatcher pointer = PointerDispatcher.current();
-                    pointer.mouseButton(mouse, button, ACTION_PRESS, 0);
-                    pointer.mouseButton(mouse, button, ACTION_RELEASE, 0);
+                    for (int click = 0; click < count; click++) {
+                        pointer.mouseButton(mouse, button, ACTION_PRESS, 0);
+                        pointer.mouseButton(mouse, button, ACTION_RELEASE, 0);
+                    }
                 } finally {
                     if (mouse instanceof TradeMouseTrap) {
                         ((TradeMouseTrap) mouse).endAutomationInput();
@@ -116,6 +121,8 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                         "Treat X/Y as fractions of window size rather than pixels.", "true")
                 .param(BUTTON, RouteParamType.INT, false, String.valueOf(0),
                         "GLFW mouse button code.", "1")
+                .param(COUNT, RouteParamType.INT, false, String.valueOf(1),
+                        "Press/release pairs delivered back to back; 2 is a double-click.", "2")
                 .param(SETTLE, RouteParamType.INT, false, String.valueOf(InputSettle.DEFAULT_FRAMES),
                         "Frames to wait for after the click, so a screenshot needs no sleep; 0 returns at once.", "0")
                 .responseHint("{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}")

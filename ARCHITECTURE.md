@@ -202,6 +202,7 @@ commas between test names, never `+`.
 - **ixdar.gui.ui**: `Drawing`: static low-level 2D overlay drawing (segments, circles, paths, knot diagrams), cached per platform id. Its statics (thickness, font size) are retuned at runtime with global visual effect.
 - **ixdar.gui.ui.actions**: Command-pattern adapters between menu rows and effects (`Action.perform()`): screen switches, `.ix` loading, map editor. Mostly delegates to terminal commands; `StartNewGameAction` carries real game-setup logic.
 - **ixdar.gui.ui.code**: The live GLSL editor view: `ShaderCodePane` (scrollable pane), `GLSLColorizer` (highlighting), `ShaderBranchInjector` (rewrites shader source to inject debug preview writes). Evaluation lives in `ixdar.parsing.glsl`.
+- **ixdar.gui.ui.graph**: The DSL graph view: a ran DSL's statements laid out left to right by dependency depth as rounded boxes joined by bezier arrows, each box carrying its run time, toggled over any model scene that ran a graph.
 - **ixdar.gui.ui.menu**: Two coexisting menu kinds: the `Menu`/`MenuBox`/`MenuItem` screen-stack system, and `SceneModelMenu`, an immediate-mode ESC panel rebuilt every frame for live highlights and clickable regions.
 - **ixdar.gui.ui.tools**: Mode-like editor tools subclassing `Tool`: free inspection, map editing, diagnostic overlays, plus two trade-game tools (`HeadquartersPickerTool`, `RoutePlanningTool`) that depend on the game model instead of the knot editor. `Tool.draw` throws unless overridden.
 - **ixdar.parsing**: Container for the two parsers: `glsl` and `python`.

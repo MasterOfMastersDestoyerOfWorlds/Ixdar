@@ -8,6 +8,7 @@ import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 
 public class SDFBezier extends ShaderDrawable {
     public static final double MAX_EDGE_SHARPNESS = 0.1;
+    public static final float STROKE_MARGIN_PER_WIDTH = 2f;
 
     public ShaderProgram bezierShader;
     public float lineWidth;
@@ -24,7 +25,6 @@ public class SDFBezier extends ShaderDrawable {
     public Vector2f pATex;
     public Vector2f pBTex;
     private Vector2f controlTex;
-    private float edgeDistUnits = 0.35f;
 
     /**
      * Build a Bezier SDF drawable, wiring the {@code BezierSDF} shader
@@ -38,12 +38,8 @@ public class SDFBezier extends ShaderDrawable {
     }
 
     /**
-     * Compute the oriented bounding box enclosing the quadratic Bezier through {@code pA},
-     * {@code pControl}, {@code pB}, expanded by {@code edgeDistUnits} to leave the shader an
-     * anti-aliasing margin.
-     *
-     * <p>Writes the corner vectors, the {@code uAxis}/{@code vAxis} basis, and the
-     * texture-space control points that {@link #setUniforms()} reads.
+     * Compute the oriented bounding box of the quadratic Bezier, padded by a margin proportional
+     * to {@link #lineWidth} so the stroke keeps its pixel width at any curve size.
      */
     @Override
     public void calculateQuad() {
@@ -86,28 +82,30 @@ public class SDFBezier extends ShaderDrawable {
         topRight = maRot;
         topLeft = b;
 
-        uAxis = new Vector2f(bottomRight).sub(bottomLeft);
-        vAxis = new Vector2f(topLeft).sub(bottomLeft);
-        float h0 = vAxis.length();
-        float w0 = uAxis.length();
+        Vector2f uDirection = new Vector2f(bottomRight).sub(bottomLeft);
+        if (uDirection.lengthSquared() > 0) {
+            uDirection.normalize();
+        } else {
+            uDirection.set(normalizedDirB);
+        }
+        Vector2f vDirection = new Vector2f(topLeft).sub(bottomLeft);
+        if (vDirection.lengthSquared() > 0) {
+            vDirection.normalize();
+        } else {
+            vDirection.set(-uDirection.y, uDirection.x);
+        }
 
-        
-
-        // Compute final dimensions
-        float hFinal = h0 / (1f - 2f * edgeDistUnits);
-        float wFinal = w0 / (1f - 2f * edgeDistUnits);
-
-        // Compute how much to expand (half per side)
-        float edgeDistV = (hFinal - h0) * 0.5f;
-        float edgeDistU = (wFinal - w0) * 0.5f * (h0/w0);
-        Vector2f edgeDistWorldV = new Vector2f(vAxis).normalize().mul(edgeDistV);
-        Vector2f edgeDistWorldU = new Vector2f(uAxis).normalize().mul(edgeDistU);
+        float margin = lineWidth * STROKE_MARGIN_PER_WIDTH;
+        Vector2f edgeDistWorldV = vDirection.mul(margin);
+        Vector2f edgeDistWorldU = uDirection.mul(margin);
         topLeft = new Vector2f(topLeft).add(edgeDistWorldV).sub(edgeDistWorldU);
         topRight = new Vector2f(topRight).add(edgeDistWorldV).add(edgeDistWorldU);
         bottomLeft = new Vector2f(bottomLeft).sub(edgeDistWorldV).sub(edgeDistWorldU);
         bottomRight = new Vector2f(bottomRight).sub(edgeDistWorldV).add(edgeDistWorldU);
         uAxis = new Vector2f(bottomRight).sub(bottomLeft);
         vAxis = new Vector2f(topLeft).sub(bottomLeft);
+        texWidth = uAxis.length() / vAxis.length();
+        texHeight = 1;
 
         pATex = toScaledTextureSpace(pA);
         pBTex = toScaledTextureSpace(pB);
@@ -137,8 +135,10 @@ public class SDFBezier extends ShaderDrawable {
         shader.setVec2("pointA", pATex);
         shader.setVec2("pointB", pBTex);
         shader.setVec2("control", controlTex);
-        shader.setFloat("edgeDist", edgeDistUnits);
-        shader.setFloat("edgeSharpness", (float) Math.min(1 / (lineWidth * 2), MAX_EDGE_SHARPNESS));
+        float quadHeight = vAxis.length();
+        shader.setFloat("edgeDist", lineWidth * SDFLine.DEFAULT_EDGE_DIST * 2 * STROKE_MARGIN_PER_WIDTH / quadHeight);
+        shader.setFloat("edgeSharpness", (float) Math.min(1 / (lineWidth * 2), MAX_EDGE_SHARPNESS)
+                * 2 * STROKE_MARGIN_PER_WIDTH * lineWidth / quadHeight);
     }
 
     float lengthSq(Vector2f a, Vector2f b) {

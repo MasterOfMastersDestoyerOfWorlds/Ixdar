@@ -42,6 +42,12 @@ public class MouseTrap {
      */
     public double queuedScrollDelta = 0;
 
+    /**
+     * Raw horizontal scroll deltas summed the same way, positive toward the left as GLFW reports
+     * them; only a region that {@link PointerRegion#claimsWheel claims the wheel} uses them.
+     */
+    public double queuedScrollDeltaX = 0;
+
     /** Window position of the left press this trap holds, or {@code null} while none is held. */
     public Vector2f heldPressPosition;
 
@@ -264,6 +270,18 @@ public class MouseTrap {
         queuedScrollDelta += y;
         timeLastScroll = System.currentTimeMillis();
         recordAbstractAction("mouse_scroll", "delta", y);
+    }
+
+    /**
+     * The platform's two-axis scroll: queue the horizontal delta in {@link #queuedScrollDeltaX},
+     * then the vertical one through {@link #scrollCallback(double)}, which traps override.
+     *
+     * @param x horizontal scroll delta, positive toward the left, fractions from a trackpad
+     * @param y vertical scroll delta, positive away from the user
+     */
+    public void scrollCallback(double x, double y) {
+        queuedScrollDeltaX += x;
+        scrollCallback(y);
     }
 
     /**

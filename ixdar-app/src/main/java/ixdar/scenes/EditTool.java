@@ -1,0 +1,79 @@
+package ixdar.scenes;
+
+import java.util.List;
+
+import ixdar.scenes.model.ControlHint;
+
+/**
+ * One tool a {@link Scene} hosts. Exactly one is active: it owns the scene's clicks, drags and
+ * tool keys, and keeps its state when another tool takes over.
+ */
+public interface EditTool {
+
+    /**
+     * Name the tool-switch hint and the log call the tool by.
+     *
+     * @return a short lower-case name
+     */
+    String toolName();
+
+    /** Become the active tool: take the mouse and start showing what the tool shows. */
+    void activate();
+
+    /** Hand the mouse back for another tool, keeping every edit and selection for later. */
+    void deactivate();
+
+    /** One frame, active or not; an inactive tool keeps only what must stay in step. */
+    void perFrame();
+
+    /**
+     * Append the tool's own key and mouse hints, which the scene's key handler dispatches ahead of
+     * the scene's own.
+     *
+     * @param controls the scene's control list, rebuilt whenever the active tool changes
+     */
+    void addControls(List<ControlHint> controls);
+
+    /**
+     * The active tool's first chance at Esc with the menu closed; the scene returns to its default
+     * tool only when the tool leaves it.
+     *
+     * @return true when the tool consumed the key
+     */
+    default boolean escapePressed() {
+        return false;
+    }
+
+    /**
+     * What {@link #escapePressed} does when it consumes the key, for the controls menu.
+     *
+     * @return a short phrase, or empty when the tool never consumes Esc
+     */
+    default String escapeDescription() {
+        return "";
+    }
+
+    /**
+     * Whether the active tool draws its own view in place of the scene's, so the scene's view, its
+     * overlay text and its own key hints step aside and {@link #addControls} lists every key.
+     *
+     * @return false for a tool that works over the scene's view
+     */
+    default boolean replacesView() {
+        return false;
+    }
+
+    /**
+     * Frame everything the tool shows, its home view, on F or a double-click on empty space as
+     * {@link Scene#frameAll} binds them.
+     *
+     * @return false for a tool over the scene's view, which the scene then frames itself
+     */
+    default boolean frameAll() {
+        return false;
+    }
+
+    /** Draw the tool's view in place of the scene's; only called while {@link #replacesView}. */
+    default void drawView() {
+    }
+}

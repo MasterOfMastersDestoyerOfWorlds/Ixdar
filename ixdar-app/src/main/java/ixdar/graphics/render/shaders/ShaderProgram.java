@@ -1367,6 +1367,8 @@ public abstract class ShaderProgram {
 
         CircleSDFSimple(SDFShader.class, FONT_VS, "sdf_circle_simple.fs"),
 
+        RoundedRectSDF(SDFShader.class, FONT_VS, "sdf_rounded_rect.fs"),
+
         UnionSDF(SDFShader.class, FONT_VS, "sdf_union.fs"),
 
         Fluid(SDFShader.class, FONT_VS, "sdf_fluid.fs"),
@@ -1393,7 +1395,7 @@ public abstract class ShaderProgram {
 
         MeshCrossField(MeshShader.class, "mesh_cross_field.vs", "mesh_cross_field.fs"),
 
-        BezierSDF(SDFShader.class, FONT_VS, "sdf_bezier_simple.fs");
+        BezierSDF(SDFShader.class, FONT_VS, "sdf_bezier.fs");
 
         public String vertexShaderLocation;
         public String fragmentShaderLocation;

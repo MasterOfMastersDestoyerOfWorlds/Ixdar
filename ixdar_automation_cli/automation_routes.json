@@ -46,6 +46,15 @@
           "example": "1"
         },
         {
+          "name": "count",
+          "cliName": "count",
+          "type": "int",
+          "required": false,
+          "default": "1",
+          "help": "Press/release pairs delivered back to back; 2 is a double-click.",
+          "example": "2"
+        },
+        {
           "name": "settle",
           "cliName": "settle",
           "type": "int",
@@ -469,6 +478,35 @@
       ],
       "responseHint": "{ok, dsl, node, port, vertices, faces, timing...}; while another graph runs, {ok: false, running, error}",
       "waitSeconds": 1800
+    },
+    {
+      "commandName": "mesh-dsl-graph",
+      "path": "/mesh/dsl/graph",
+      "method": "POST",
+      "description": "Report the DSL graph view of the active model scene: every node\u0027s box, depth and run time, every edge, the critical path, the zoom and the scroll bars.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.Graph",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Graph.java",
+      "params": [
+        {
+          "name": "text_px",
+          "cliName": "text_px",
+          "type": "float",
+          "required": false,
+          "default": "0",
+          "help": "First zoom about the slowest node so its text is this many pixels tall; 0 leaves the zoom.",
+          "example": "8"
+        },
+        {
+          "name": "toggle_group",
+          "cliName": "toggle_group",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "First expand this group call\u0027s box, or collapse the expanded group it is or sits in, as E does under the cursor.",
+          "example": "layout"
+        }
+      ],
+      "responseHint": "{ok, shown, active_tool, hotspots, hotspot, hotspot_rank, node_count, edge_count, total_ms, critical_path_ms, critical_path, slowest, text_px, scale_factor, scroll:{horizontal, vertical:{content_px, visible_px, offset_px, thumb_start_px, thumb_length_px, track_px}}, home_frame, scroll_range, view_rect, whole_graph_visible, nodes:[{id, type, ms, peak_heap_mib, expandable, depth, order, box, screen}], expanded_groups:[{path, type, ms, screen}], edges:[{from, from_port, to, to_port, critical}]}"
     },
     {
       "commandName": "mesh-dsl-timing",
@@ -1410,7 +1448,7 @@
       "commandName": "scroll",
       "path": "/input/scroll",
       "method": "POST",
-      "description": "Deliver a synthesized scroll event to the active mouse handler.",
+      "description": "Deliver a synthesized two-axis scroll event to the active mouse handler.",
       "sourceClass": "ixdar.platform.automation.endpoints.input.InjectScroll",
       "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectScroll.java",
       "params": [
@@ -1422,6 +1460,15 @@
           "default": "0",
           "help": "Vertical scroll delta passed to the scroll callback.",
           "example": "-1.5"
+        },
+        {
+          "name": "deltaX",
+          "cliName": "deltaX",
+          "type": "float",
+          "required": false,
+          "default": "0",
+          "help": "Horizontal scroll delta, positive toward the left as GLFW reports it.",
+          "example": "0.5"
         }
       ],
       "responseHint": "{ok}"

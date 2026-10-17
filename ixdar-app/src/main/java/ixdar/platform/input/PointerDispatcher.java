@@ -193,22 +193,23 @@ public class PointerDispatcher {
     }
 
     /**
-     * Per-frame: the trap's queued wheel delta goes whole to a region under the cursor that
-     * {@link PointerRegion#claimsWheel claims it}; when the trap does not
-     * {@link MouseTrap#usesWheel use the wheel}, any region there steps instead. Whatever reaches
-     * the trap counts toward its {@link MouseTrap#isZooming zoom state}.
+     * Per-frame: the queued wheel deltas, both axes, go whole to a region under the cursor that
+     * {@link PointerRegion#claimsWheel claims them}; otherwise the vertical one steps a region or
+     * reaches the trap, and the horizontal one is dropped.
      *
      * @param trap trap whose frame this is
      * @param shiftMod speed multiplier, passed to the trap
      */
     public void paintUpdate(MouseTrap trap, float shiftMod) {
-        if (trap.queuedScrollDelta != 0) {
+        double deltaX = trap.queuedScrollDeltaX;
+        trap.queuedScrollDeltaX = 0;
+        if (trap.queuedScrollDelta != 0 || deltaX != 0) {
             PointerRegion claimer = trap.active ? regionUnderCursor(trap, PointerRegion::claimsWheel) : null;
             if (claimer != null) {
-                double delta = trap.queuedScrollDelta;
+                double deltaY = trap.queuedScrollDelta;
                 trap.queuedScrollDelta = 0;
-                claimer.onScrollDelta(delta);
-            } else if (!trap.usesWheel()
+                claimer.onScrollDelta(deltaX, deltaY);
+            } else if (trap.queuedScrollDelta != 0 && !trap.usesWheel()
                     && System.currentTimeMillis() - trap.timeLastScroll <= MouseTrap.SCROLL_DECAY_MS) {
                 PointerRegion region = regionUnderCursor(trap, any -> true);
                 if (region != null) {

@@ -52,6 +52,7 @@ import ixdar.gui.ui.actions.Action;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
+import ixdar.scenes.EditTool;
 import ixdar.scenes.model.ControlHint;
 
 /**

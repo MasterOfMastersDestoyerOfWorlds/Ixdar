@@ -14,6 +14,7 @@ public class BezierCurveScene extends Scene {
     public static final double ENDPOINT_Y = 0.2;
     public static final double CONTROL_X = 0.35;
     public static final double CONTROL_Y = 0.5;
+    public static final float STROKE_WIDTH_PIXELS = 40f;
     public PointND point2;
     public PointND point1;
     public PointND control;
@@ -67,7 +68,7 @@ public class BezierCurveScene extends Scene {
         bezier.pA = screenSpaceVectors[0];
         bezier.pControl = screenSpaceVectors[1];
         bezier.pB = screenSpaceVectors[2];
-        bezier.lineWidth = 1f;
+        bezier.lineWidth = STROKE_WIDTH_PIXELS;
         bezier.c2 = Color.GREEN;
         bezier.draw(0f, 0f, cx, cy, Color.RED, camera2D);
     }

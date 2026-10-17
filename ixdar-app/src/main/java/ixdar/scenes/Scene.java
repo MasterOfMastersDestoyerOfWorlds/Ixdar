@@ -27,11 +27,38 @@ public abstract class Scene extends Canvas3D {
 
     public static final int TERMINAL_PANEL_HEIGHT = 300;
 
+    public static final String TOOL_LOG_PREFIX = "[tools] ";
+
+    public static final String ACTIVE_MARK = " (active)";
+
+    public static final long DOUBLE_CLICK_MS = 500;
+
+    public static final float DOUBLE_CLICK_RADIUS_PX = 6f;
+
+    public static final String FRAME_ALL_CLICK = "double-click empty";
+
+    public static final String FRAME_ALL_DESCRIPTION = "frame all: back to the tool's home view";
+
     public ShaderCodePane codePane;
     public float SCROLL_SPEED = 10f;
 
 
     public final ArrayList<ControlHint> controls = new ArrayList<>();
+
+    /** Every tool the scene hosts, each run once per frame whether active or not; empty for none. */
+    public final ArrayList<EditTool> tools = new ArrayList<>();
+
+    /** The key hints that switch tools, as registered, each paired with {@link #switchedTools}. */
+    public final ArrayList<ControlHint> toolSwitchHints = new ArrayList<>();
+
+    /** The tool each of {@link #toolSwitchHints} switches to. */
+    public final ArrayList<EditTool> switchedTools = new ArrayList<>();
+
+    /** The tool that owns clicks, drags and tool keys now, or {@code null} in a scene with none. */
+    public EditTool activeTool;
+
+    /** The tool Esc returns to when the active tool leaves the key alone. */
+    public EditTool defaultTool;
 
     /**
      * In-scene terminal opened with {@code ~}; {@code null} for scenes with no
@@ -46,6 +73,11 @@ public abstract class Scene extends Canvas3D {
      * a shader program.
      */
     public ColorBox chromeBackground;
+
+    /** When and where the last {@link #emptySpaceClicked} click fell, 0 once it made a double-click. */
+    public long lastEmptyClickMillis;
+    public float lastEmptyClickX;
+    public float lastEmptyClickY;
 
     /**
      * Default Scene constructor; defers GL setup to {@link #initGL()}.
@@ -66,7 +98,7 @@ public abstract class Scene extends Canvas3D {
                 b -> b.update(0, 0, Platforms.get().getFrameBufferWidth(),
                         Platforms.get().getFrameBufferHeight()));
         camera2D.initCamera(webViews, DEFAULT_VIEW);
-        setControls();
+        refreshControls();
     }
 
     /**
@@ -138,6 +170,103 @@ public abstract class Scene extends Canvas3D {
     }
 
     /**
+     * Host {@code tool} with a key that switches to it, listed before every other control.
+     *
+     * @param tool       the tool, run every frame from now on
+     * @param switchHint the key and purpose; the hint shows the tool's name and whether it is active
+     */
+    public void addToolSwitch(EditTool tool, ControlHint switchHint) {
+        tools.add(tool);
+        toolSwitchHints.add(switchHint);
+        switchedTools.add(tool);
+    }
+
+    /**
+     * Make {@code tool} active: the current one hands back the mouse keeping its state, and the
+     * control hints become the new tool's. Switching to the active tool does nothing.
+     *
+     * @param tool the tool to switch to
+     */
+    public void switchTool(EditTool tool) {
+        if (tool == activeTool) {
+            return;
+        }
+        activeTool.deactivate();
+        activeTool = tool;
+        activeTool.activate();
+        refreshControls();
+        Platforms.get().log(TOOL_LOG_PREFIX + "active tool: " + activeTool.toolName());
+    }
+
+    /**
+     * Rebuild {@link #controls}: the tool switches, the active tool's hints, F for
+     * {@link #frameAll} unless the tool binds F itself, then the scene's own from
+     * {@link #setControls}, left out by a tool that {@link EditTool#replacesView replaces the view}.
+     */
+    public void refreshControls() {
+        controls.clear();
+        for (int switchIndex = 0; switchIndex < toolSwitchHints.size(); switchIndex++) {
+            ControlHint hint = toolSwitchHints.get(switchIndex);
+            EditTool tool = switchedTools.get(switchIndex);
+            controls.add(new ControlHint(hint.keyCode, hint.controlHeld, hint.shiftHeld, hint.key,
+                    tool.toolName() + ": " + hint.description + (tool == activeTool ? ACTIVE_MARK : ""),
+                    hint.action));
+        }
+        if (activeTool != null) {
+            activeTool.addControls(controls);
+            boolean toolBindsF = false;
+            for (ControlHint hint : controls) {
+                toolBindsF |= hint.keyCode == Keys.F && !hint.controlHeld && !hint.shiftHeld;
+            }
+            if (!toolBindsF) {
+                controls.add(new ControlHint(Keys.F, "F", FRAME_ALL_DESCRIPTION, this::frameAll));
+            }
+        }
+        if (activeTool == null || !activeTool.replacesView()) {
+            setControls();
+        }
+    }
+
+    /**
+     * Frame everything the active tool shows, the same gesture in every tool, through
+     * {@link EditTool#frameAll}; a scene with a view of its own frames that when the tool does not.
+     *
+     * @return whether the active tool framed its own view
+     */
+    public boolean frameAll() {
+        return activeTool != null && activeTool.frameAll();
+    }
+
+    /**
+     * A tool's click that landed on nothing it acts on: the second within {@link #DOUBLE_CLICK_MS}
+     * and {@link #DOUBLE_CLICK_RADIUS_PX} of the first is a double-click, which {@link #frameAll frames all}.
+     *
+     * @param x framebuffer x of the click
+     * @param y framebuffer y of the click, y up
+     */
+    public void emptySpaceClicked(float x, float y) {
+        long now = System.currentTimeMillis();
+        boolean doubleClick = now - lastEmptyClickMillis <= DOUBLE_CLICK_MS
+                && Math.hypot(x - lastEmptyClickX, y - lastEmptyClickY) <= DOUBLE_CLICK_RADIUS_PX;
+        lastEmptyClickMillis = doubleClick ? 0 : now;
+        lastEmptyClickX = x;
+        lastEmptyClickY = y;
+        if (doubleClick) {
+            frameAll();
+        }
+    }
+
+    /**
+     * A tool's name as its switch hint shows it, marked when it is the active tool.
+     *
+     * @param tool the tool
+     * @return the label
+     */
+    public String toolLabel(EditTool tool) {
+        return tool.toolName() + (tool == activeTool ? ACTIVE_MARK : "");
+    }
+
+    /**
      * Bind automation input via reflection to avoid pulling desktop-only classes
      * into the TeaVM compilation graph. On web, this silently does nothing.
      *
@@ -169,7 +298,7 @@ public abstract class Scene extends Canvas3D {
                 (window, x, y) -> pointer.moveOrDrag(mouseTrap, window, (float) x, (float) y));
         platform.setMouseButtonCallback(
                 (button, action, mods) -> pointer.mouseButton(mouseTrap, button, action, mods));
-        platform.setScrollCallback((xoff, yoff) -> mouseTrap.scrollCallback(yoff));
+        platform.setScrollCallback(mouseTrap::scrollCallback);
         platform.setKeyCallback(
                 (key, scancode, action, mods) -> keyGuy.keyCallback(0L, key, scancode, action, mods));
     }

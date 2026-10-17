@@ -26,13 +26,15 @@ public interface PointerRegion {
     }
 
     /**
-     * Scroll by the raw platform delta summed since the last frame, each delta delivered once and
+     * Scroll by the raw platform deltas summed since the last frame, each delta delivered once and
      * never rounded; only called while {@link #claimsWheel} holds.
      *
-     * @param delta summed scroll delta, 1.0 per wheel notch, negative when the wheel rolled toward
-     *              the user
+     * @param deltaX summed horizontal delta, positive toward the left, from a tilting wheel or a
+     *               two-finger sideways swipe
+     * @param deltaY summed vertical delta, 1.0 per wheel notch, negative when the wheel rolled
+     *               toward the user
      */
-    default void onScrollDelta(double delta) {
+    default void onScrollDelta(double deltaX, double deltaY) {
     }
 
     /**

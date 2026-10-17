@@ -22,12 +22,14 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.terminal.Terminal;
+import ixdar.gui.ui.graph.DslGraphView;
 import ixdar.gui.ui.menu.SceneModelMenu;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
+import ixdar.scenes.EditTool;
 import ixdar.scenes.Scene;
 
 /**
@@ -86,6 +88,12 @@ public abstract class ModelScene extends Scene {
 
     public OrbitCameraKeyGuy keyGuy;
 
+    /** The tool the scene opens with and Esc returns to, which only moves the camera. */
+    public final OrbitTool orbitTool = new OrbitTool(this);
+
+    /** Tool drawing the node tree of {@link #graph} in place of the 3D view. */
+    public DslGraphView graphTool;
+
     /**
      * Model path requested by the model menu or {@code model} command, applied on the
      * render thread.
@@ -126,6 +134,13 @@ public abstract class ModelScene extends Scene {
 
     private ModelChoice currentChoice;
 
+    /** Host the orbit tool as the active and default tool; scenes add their own tools after it. */
+    public ModelScene() {
+        tools.add(orbitTool);
+        defaultTool = orbitTool;
+        activeTool = orbitTool;
+    }
+
     @Override
     public void initGL() {
         super.initGL();
@@ -138,6 +153,7 @@ public abstract class ModelScene extends Scene {
         Terminal.current = sceneTerminal;
         sceneModelMenu = new SceneModelMenu(this);
         initPanes();
+        refreshControls();
         initModel();
     }
 
@@ -154,6 +170,7 @@ public abstract class ModelScene extends Scene {
         orbitMouse.setOrbit(orbitAzimuth, orbitElevation, CAMERA_DISTANCE_DEFAULT);
         bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         bindInputDirect(Platforms.get(), keys, mouse);
+        activeTool.activate();
     }
 
     /**
@@ -172,18 +189,22 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Add the model menu's strip to the scene's views, so the menu is drawn into it.
+     * Add the model menu's strip to the scene's views, so the menu is drawn into it, and host the
+     * DSL graph tool on ctrl+G, which toggles back to the default tool.
      */
     @Override
     public void initPanes() {
         super.initPanes();
         chromeBackground = new ColorBox();
         webViews.put(VIEW_SCENE_MENU, sceneModelMenu.strip);
+        graphTool = new DslGraphView(this);
+        addToolSwitch(graphTool, new ControlHint(Keys.G, true, "ctrl+G", "the DSL's node graph and run times",
+                () -> switchTool(activeTool == graphTool ? defaultTool : graphTool)));
     }
 
     /**
-     * Per-frame: apply a pending model switch, run the scene's 3D pass, then the UI
-     * chrome.
+     * Per-frame: apply a pending model switch, run the scene's 3D pass, or the active tool's view
+     * when it replaces that pass, then the UI chrome.
      */
     @Override
     public void drawScene() {
@@ -192,24 +213,34 @@ public abstract class ModelScene extends Scene {
         }
         applyPendingModel();
         updateScene();
-        renderScene();
+        if (activeTool.replacesView()) {
+            activeTool.drawView();
+        } else {
+            renderScene();
+        }
         super.drawScene();
     }
 
     /**
-     * Scene-specific per-frame work, run after a pending model switch and before the 3D pass. The
-     * base scene has none.
+     * Per-frame work run after a pending model switch and before the 3D pass: one frame of every
+     * hosted tool. Scenes with more call {@code super.updateScene()} first.
      */
     public void updateScene() {
+        for (EditTool tool : tools) {
+            tool.perFrame();
+        }
     }
 
     /**
-     * Draw the base chrome (terminal), then the ESC model menu when visible.
+     * Draw the base chrome (terminal), the scene's overlay text unless the active tool's view
+     * covers the 3D view it labels, then the ESC model menu when visible.
      */
     @Override
     public void drawUI() {
         super.drawUI();
-        drawSceneOverlayText();
+        if (!activeTool.replacesView()) {
+            drawSceneOverlayText();
+        }
         if (sceneModelMenu != null && sceneModelMenu.isVisible()) {
             camera2D.updateView(VIEW_SCENE_MENU);
             chromeBackground.draw(Color.GREY_VERY_DARK, camera2D);
@@ -519,6 +550,22 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
+     * Frame the active tool's view, or, for a tool over the 3D view, the whole model from where the
+     * camera looks now: the orbit back on the centre at the distance {@link #frameMesh} chose.
+     *
+     * @return whether the active tool framed its own view
+     */
+    @Override
+    public boolean frameAll() {
+        boolean toolFramed = super.frameAll();
+        if (!toolFramed && orbitMouse != null) {
+            orbitMouse.setTarget(meshCenter);
+            orbitMouse.setOrbit(orbitMouse.getAzimuth(), orbitMouse.getElevation(), framedDistance);
+        }
+        return toolFramed;
+    }
+
+    /**
      * Reload without yanking the camera. Saves the orbit orientation and the zoom relative to
      * {@link #framedDistance}, runs {@code reload}, and puts them back if it succeeded, so an
      * unzoomed view frames the new mesh whatever its size. The reload sets the target and bounds.
@@ -761,26 +808,28 @@ public abstract class ModelScene extends Scene {
         }
     }
 
-    /** Escape closes an open model menu, and otherwise does what the scene gives it to do. */
+    /**
+     * Escape closes an open model menu, else goes to the active tool, else returns to the default
+     * tool.
+     */
     public void escapePressed() {
         if (sceneModelMenu != null && sceneModelMenu.isVisible()) {
             sceneModelMenu.toggle();
-        } else {
-            escapeWithMenuClosed();
+        } else if (!activeTool.escapePressed()) {
+            switchTool(defaultTool);
         }
     }
 
-    /** What Escape does while the menu is closed: nothing, unless a scene gives it a job. */
-    public void escapeWithMenuClosed() {
-    }
-
     /**
-     * The Escape row's text in the controls.
+     * The Escape row's text in the controls: close the menu, else the active tool's Esc, else the
+     * default tool.
      *
      * @return the description
      */
     public String escapeDescription() {
-        return "close the menu";
+        String toolEscape = activeTool.escapeDescription();
+        return "close menu, else " + (toolEscape.isEmpty() ? "" : toolEscape + ", else ")
+                + toolLabel(defaultTool);
     }
 
     /**
@@ -804,7 +853,7 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * The scene's key controls, shown as the ESC menu's Controls section.
+     * The scene's key controls, shown as the ctrl+I menu's Controls section.
      *
      * @return the control list
      */

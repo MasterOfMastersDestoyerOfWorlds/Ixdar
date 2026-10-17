@@ -205,8 +205,9 @@ public class Texture {
 
     /**
      * Upload the staged image to GL: generate a texture id, set repeat
-     * wrapping with linear filtering, allocate storage, generate mipmaps,
-     * and enable standard alpha blending. No-op if no image was staged.
+     * wrapping with trilinear minification, so a texture drawn far smaller than it was made, the
+     * font atlas above all, samples its mipmaps; allocate storage, generate them, and enable
+     * standard alpha blending. No-op if no image was staged.
      */
     public void initGL() {
         if (image == null) {
@@ -221,7 +222,7 @@ public class Texture {
         gl.texParameteri(gl.TEXTURE_2D(),
                 gl.TEXTURE_WRAP_T(), gl.REPEAT());
         gl.texParameteri(gl.TEXTURE_2D(),
-                gl.TEXTURE_MIN_FILTER(), gl.LINEAR());
+                gl.TEXTURE_MIN_FILTER(), gl.LINEAR_MIPMAP_LINEAR());
         gl.texParameteri(gl.TEXTURE_2D(),
                 gl.TEXTURE_MAG_FILTER(), gl.LINEAR());
         gl.texImage2D(gl.TEXTURE_2D(), 0,

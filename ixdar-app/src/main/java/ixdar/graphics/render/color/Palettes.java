@@ -29,6 +29,10 @@ public final class Palettes {
     public static final Palette GLSL_VECTOR_COMPONENT = new Palette(Color.PINK_PASTEL, Color.GREEN_VERY_LIGHT,
             Color.PURPLE_PASTEL, Color.YELLOW_ORANGE_VERY_LIGHT);
 
+    // A DSL graph node's box by its share of the run's total time, coolest (least) first.
+    public static final Palette DSL_TIME_SHARE = new Palette(Color.BLUE_VERY_DARK, Color.BLUE_DARK, Color.PURPLE,
+            Color.IXDAR);
+
     private Palettes() {
     }
 }

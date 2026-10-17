@@ -41,8 +41,8 @@ public class AutomationInputBinder {
             pointer.moveOrDrag(mouse, window, (float) x, (float) y);
         });
         platform.setScrollCallback((xoff, yoff) -> {
-            AutomationRuntime.get().recordRawScroll(yoff);
-            mouse.scrollCallback(yoff);
+            AutomationRuntime.get().recordRawScroll(xoff, yoff);
+            mouse.scrollCallback(xoff, yoff);
         });
     }
 }

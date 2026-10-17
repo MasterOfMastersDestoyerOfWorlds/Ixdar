@@ -21,19 +21,16 @@ public final class MenuScrollBox implements PointerRegion {
     /** The box's rectangle in framebuffer pixels, y up; the owning menu lays it out. */
     public final Bounds bounds;
 
-    /**
-     * Pixels the rows are scrolled on by, between zero and {@link #maximumScrollOffsetY()}; any
-     * value, not only whole rows.
-     */
-    public float scrollOffsetY;
-
     /** This frame's rows, one line each; {@code null} before the first {@link #clearRows()}. */
     public HyperString text;
 
     /** Box rows the text took at the last {@link #layout}, wrapped continuation rows included. */
     public int rowsUsed;
 
-    /** The bar at the box's right edge, drawn and clickable only while the rows overflow. */
+    /**
+     * The bar at the box's right edge, which holds the scroll: any pixel, not only whole rows. It
+     * is drawn and clickable only while the rows overflow.
+     */
     public final MenuScrollBar scrollBar;
 
     private final BooleanSupplier shown;
@@ -49,7 +46,7 @@ public final class MenuScrollBox implements PointerRegion {
     public MenuScrollBox(String id, BooleanSupplier shown) {
         this.bounds = new Bounds(0, 0, 0, 0, id);
         this.shown = shown;
-        this.scrollBar = new MenuScrollBar(this);
+        this.scrollBar = new MenuScrollBar(bounds, false, Drawing.FONT_HEIGHT_PIXELS);
     }
 
     /**
@@ -87,7 +84,7 @@ public final class MenuScrollBox implements PointerRegion {
         float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
         layoutRows(camera, bounds.viewWidth);
         if (scrollBar.isNeeded()) {
-            layoutRows(camera, scrollBar.textWidth());
+            layoutRows(camera, bounds.viewWidth - MenuScrollBar.WIDTH_PIXELS);
         }
         if (rowToCentre >= 0 && rowToCentre < text.lines) {
             int firstRow = 0;
@@ -95,14 +92,15 @@ public final class MenuScrollBox implements PointerRegion {
                 firstRow += text.setLineOffsetFromTopRow(camera, firstRow, 0, rowHeight, line);
             }
             int ownRows = text.setLineOffsetFromTopRow(camera, firstRow, 0, rowHeight, rowToCentre);
-            scrollOffsetY = (firstRow + ownRows / 2f) * rowHeight - bounds.viewHeight / 2;
+            scrollBar.scrollOffset = (firstRow + ownRows / 2f) * rowHeight - bounds.viewHeight / 2;
         }
         rowToCentre = -1;
-        scrollOffsetY = Math.max(0, Math.min(scrollOffsetY, maximumScrollOffsetY()));
+        scrollBar.scrollBy(0);
     }
 
     /**
-     * Set the camera's view to the box's left {@code width} pixels and wrap the rows to it.
+     * Set the camera's view to the box's left {@code width} pixels, wrap the rows to it and give
+     * the {@link #scrollBar} their height.
      *
      * @param camera 2D camera whose view is set there
      * @param width pixels the rows may take
@@ -112,6 +110,8 @@ public final class MenuScrollBox implements PointerRegion {
                 (int) bounds.viewHeight);
         rowsUsed = text.words.isEmpty() ? 0
                 : text.setLineOffsetFromTopRow(camera, 0, 0, Drawing.FONT_HEIGHT_PIXELS);
+        scrollBar.contentLength = rowsUsed * Drawing.FONT_HEIGHT_PIXELS;
+        scrollBar.visibleLength = bounds.viewHeight;
     }
 
     /**
@@ -125,26 +125,19 @@ public final class MenuScrollBox implements PointerRegion {
         layout(camera);
         Drawing.getDrawing().font.drawHyperStringRows(text, 0, drawnScrollOffsetY(),
                 Drawing.FONT_HEIGHT_PIXELS, camera);
-        scrollBar.draw(camera);
+        if (scrollBar.isNeeded()) {
+            scrollBar.draw(camera);
+        }
     }
 
     /**
-     * The scroll the rows are drawn, hit-tested and reported at: {@link #scrollOffsetY} itself, with
-     * no easing, so a scroll shows on the next frame.
+     * The scroll the rows are drawn, hit-tested and reported at: the bar's scroll itself, with no
+     * easing, so a scroll shows on the next frame.
      *
-     * @return the offset in pixels, between zero and {@link #maximumScrollOffsetY()}
+     * @return the offset in pixels, between zero and the bar's maximum
      */
     public float drawnScrollOffsetY() {
-        return scrollOffsetY;
-    }
-
-    /**
-     * Largest scroll that still leaves the last row at the bottom of the box.
-     *
-     * @return the limit in pixels, zero when every row fits
-     */
-    public float maximumScrollOffsetY() {
-        return Math.max(0, rowsUsed * Drawing.FONT_HEIGHT_PIXELS - bounds.viewHeight);
+        return scrollBar.scrollOffset;
     }
 
     /**
@@ -160,17 +153,17 @@ public final class MenuScrollBox implements PointerRegion {
     /**
      * Scroll by {@link #PIXELS_PER_SCROLL_UNIT} times the delta at once, clamped to the rows, so the
      * list follows a trackpad finger and can stop at any pixel: a delta below zero (wheel toward
-     * the user) moves on to later rows.
+     * the user) moves on to later rows. The box scrolls only vertically.
      *
-     * @param delta raw scroll delta, 1.0 per wheel notch
+     * @param deltaX raw horizontal delta, ignored
+     * @param deltaY raw vertical delta, 1.0 per wheel notch
      */
     @Override
-    public void onScrollDelta(double delta) {
+    public void onScrollDelta(double deltaX, double deltaY) {
         if (!shown.getAsBoolean()) {
             return;
         }
-        scrollOffsetY = (float) Math.max(0, Math.min(maximumScrollOffsetY(),
-                scrollOffsetY - delta * PIXELS_PER_SCROLL_UNIT));
+        scrollBar.scrollBy((float) (-deltaY * PIXELS_PER_SCROLL_UNIT));
     }
 
     /**

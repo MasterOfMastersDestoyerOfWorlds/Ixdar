@@ -164,18 +164,18 @@ class MenuScrollBoxWrapTest {
         box.layout(camera);
         int wrappedRows = rowsOf(box, 2).size();
         assertEquals(5 + wrappedRows, box.rowsUsed);
-        assertEquals((box.rowsUsed - 4) * ROW, box.maximumScrollOffsetY());
+        assertEquals((box.rowsUsed - 4) * ROW, box.scrollBar.maximumScrollOffset());
 
         box.centreRow(2);
         box.layout(camera);
-        assertEquals((2 + wrappedRows / 2f) * ROW - 2 * ROW, box.scrollOffsetY, 1e-3f);
+        assertEquals((2 + wrappedRows / 2f) * ROW - 2 * ROW, box.drawnScrollOffsetY(), 1e-3f);
 
         box.centreRow(5);
         box.layout(camera);
-        assertEquals(box.maximumScrollOffsetY(), box.scrollOffsetY);
+        assertEquals(box.scrollBar.maximumScrollOffset(), box.drawnScrollOffsetY());
         box.centreRow(0);
         box.layout(camera);
-        assertEquals(0, box.scrollOffsetY);
+        assertEquals(0, box.drawnScrollOffsetY());
     }
 
     @Test
@@ -183,12 +183,12 @@ class MenuScrollBoxWrapTest {
         MenuScrollBox box = rowsBox(4, 60);
         float expected = 0;
         for (int event = 0; event < TRACKPAD_EVENTS; event++) {
-            box.onScrollDelta(-TRACKPAD_DELTA);
+            box.onScrollDelta(0,-TRACKPAD_DELTA);
             expected += TRACKPAD_DELTA * PER_UNIT;
             assertEquals(expected, box.drawnScrollOffsetY(), PIXEL_TOLERANCE, "after event " + event);
         }
         assertEquals(TRACKPAD_TOTAL * PER_UNIT, box.drawnScrollOffsetY(), PIXEL_TOLERANCE);
-        box.onScrollDelta(WHEEL_NOTCH);
+        box.onScrollDelta(0,WHEEL_NOTCH);
         assertEquals((TRACKPAD_TOTAL - WHEEL_NOTCH) * PER_UNIT, box.drawnScrollOffsetY(),
                 PIXEL_TOLERANCE, "a wheel notch toward the screen goes back three rows");
         assertEquals(3 * ROW, WHEEL_NOTCH * PER_UNIT, "a notch is three rows of the default font");
@@ -197,11 +197,11 @@ class MenuScrollBoxWrapTest {
     @Test
     void theOffsetIsClampedToTheRowsAndAHiddenBoxIgnoresTheWheel() {
         MenuScrollBox box = rowsBox(4, 20);
-        box.onScrollDelta(-100);
-        assertEquals(box.maximumScrollOffsetY(), box.drawnScrollOffsetY());
-        box.onScrollDelta(100);
+        box.onScrollDelta(0,-100);
+        assertEquals(box.scrollBar.maximumScrollOffset(), box.drawnScrollOffsetY());
+        box.onScrollDelta(0,100);
         assertEquals(0, box.drawnScrollOffsetY());
-        box.onScrollDelta(TRACKPAD_DELTA);
+        box.onScrollDelta(0,TRACKPAD_DELTA);
         assertEquals(0, box.drawnScrollOffsetY(), "past the top stays at the top");
 
         boolean[] shown = {false};
@@ -213,7 +213,7 @@ class MenuScrollBoxWrapTest {
         }
         hidden.layout(camera);
         assertTrue(!hidden.claimsWheel());
-        hidden.onScrollDelta(-1);
+        hidden.onScrollDelta(0,-1);
         assertEquals(0, hidden.drawnScrollOffsetY());
     }
 
@@ -221,7 +221,7 @@ class MenuScrollBoxWrapTest {
     void theOffsetRestsAtAnyPixelThroughLayout() {
         MenuScrollBox box = rowsBox(4, 20);
         double smallDelta = -0.0123;
-        box.onScrollDelta(smallDelta);
+        box.onScrollDelta(0,smallDelta);
         box.layout(camera);
         assertEquals((float) (-smallDelta * PER_UNIT), box.drawnScrollOffsetY(), PIXEL_TOLERANCE);
         assertTrue(box.drawnScrollOffsetY() % ROW != 0, "between rows");
@@ -236,7 +236,7 @@ class MenuScrollBoxWrapTest {
             box.addRow("row " + row, Color.TEAL_DARK, () -> clicks[clicked]++);
         }
         box.layout(camera);
-        box.onScrollDelta(-1.5f * ROW / PER_UNIT);
+        box.onScrollDelta(0,-1.5f * ROW / PER_UNIT);
         assertEquals(1.5f * ROW, box.drawnScrollOffsetY(), PIXEL_TOLERANCE);
         box.text.setLineOffsetFromTopRow(camera, 0, box.drawnScrollOffsetY(), ROW);
 
