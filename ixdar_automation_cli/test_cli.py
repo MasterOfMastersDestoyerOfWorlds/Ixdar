@@ -2,6 +2,7 @@ import http.server
 import io
 import json
 import os
+import shutil
 import subprocess
 import struct
 import tempfile
@@ -335,6 +336,126 @@ class SceneLifecycleTest(unittest.TestCase):
                 copied = run_scene.sync_resources()
             self.assertEqual([os.path.join("dsl", "fresh.dsl")], copied)
             self.assertTrue(os.path.exists(os.path.join(classes, "fresh.dsl")))
+
+    def test_build_decision_covers_every_build_state(self):
+        # Each case is a fake checkout: a built tree whose stamp recorded its inputs, then one
+        # change. No Maven runs; the decision reads only paths, mtimes and the stamp.
+        built_at = 1_700_000_000
+        files = ("pom.xml", "annotations/pom.xml", "ixdar-app/pom.xml",
+                 "annotations/src/main/java/ixdar/annotations/scene/SceneRegistry.java",
+                 "ixdar-app/src/main/java/ixdar/scenes/Plain.java",
+                 "ixdar-app/src/main/resources/dsl/fixture.dsl",
+                 "ixdar-app/target/classes/ixdar/scenes/Plain.class",
+                 "annotations/target/classes/ixdar/annotations/scene/SceneRegistry.class")
+
+        def checkout(directory, stamp=True):
+            for relative in files:
+                path = os.path.join(directory, relative)
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as handle:
+                    handle.write("x")
+                os.utime(path, (built_at, built_at))
+            if stamp:
+                with open(os.path.join(directory, run_scene.BUILD_STAMP), "w", encoding="utf-8") as handle:
+                    json.dump({"built": built_at, "inputs": run_scene.build_inputs(directory)}, handle)
+
+        def touch(directory, relative):
+            path = os.path.join(directory, relative)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "a", encoding="utf-8") as handle:
+                handle.write("y")
+            os.utime(path, (built_at + 60, built_at + 60))
+
+        def rename_keeping_mtime(directory, relative, new_relative):
+            os.rename(os.path.join(directory, relative), os.path.join(directory, new_relative))
+
+        def remove(directory, relative):
+            os.remove(os.path.join(directory, relative))
+
+        def old_copy(directory, relative):
+            path = os.path.join(directory, relative)
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("restored")
+            os.utime(path, (built_at - 600, built_at - 600))
+
+        source = "ixdar-app/src/main/java/ixdar/scenes/Plain.java"
+        resource = "ixdar-app/src/main/resources/dsl/fixture.dsl"
+        cases = [
+            ("nothing changed", lambda d: None, run_scene.BUILD_CURRENT, "no input changed"),
+            ("resource edited", lambda d: touch(d, resource), run_scene.BUILD_RESOURCES, "fixture.dsl"),
+            ("resource added", lambda d: touch(d, "ixdar-app/src/main/resources/dsl/new.dsl"),
+             run_scene.BUILD_RESOURCES, "new.dsl"),
+            ("resource removed", lambda d: remove(d, resource), run_scene.BUILD_CLEAN, "resource removed"),
+            ("source edited", lambda d: touch(d, source), run_scene.BUILD_INCREMENTAL, "Plain.java"),
+            ("source replaced by an older copy", lambda d: old_copy(d, source),
+             run_scene.BUILD_INCREMENTAL, "Plain.java"),
+            ("source renamed with its mtime", lambda d: rename_keeping_mtime(
+                d, source, "ixdar-app/src/main/java/ixdar/scenes/Renamed.java"),
+             run_scene.BUILD_INCREMENTAL, "2 source(s)"),
+            ("source deleted", lambda d: remove(d, source), run_scene.BUILD_INCREMENTAL, "Plain.java"),
+            ("annotations source edited", lambda d: touch(
+                d, "annotations/src/main/java/ixdar/annotations/scene/SceneRegistry.java"),
+             run_scene.BUILD_CLEAN, "annotations changed"),
+            ("app pom edited", lambda d: touch(d, "ixdar-app/pom.xml"), run_scene.BUILD_CLEAN,
+             "pom changed"),
+            ("parent pom edited with a source", lambda d: (touch(d, source), touch(d, "pom.xml")),
+             run_scene.BUILD_CLEAN, "pom changed"),
+            ("classes deleted", lambda d: shutil.rmtree(os.path.join(d, "ixdar-app", "target", "classes")),
+             run_scene.BUILD_CLEAN, "missing"),
+            ("annotations classes deleted",
+             lambda d: shutil.rmtree(os.path.join(d, "annotations", "target", "classes")),
+             run_scene.BUILD_CLEAN, "missing"),
+            ("stamp deleted by an interrupted or failed build",
+             lambda d: remove(d, run_scene.BUILD_STAMP), run_scene.BUILD_CLEAN,
+             "no successful build recorded"),
+            ("stamp truncated", lambda d: open(os.path.join(d, run_scene.BUILD_STAMP), "w").close(),
+             run_scene.BUILD_CLEAN, "no successful build recorded"),
+        ]
+        for name, change, mode, reason in cases:
+            with self.subTest(name), tempfile.TemporaryDirectory() as directory:
+                checkout(directory)
+                change(directory)
+                decided, why = run_scene.build_decision(directory, run_scene.build_inputs(directory))
+                self.assertEqual(mode, decided)
+                self.assertIn(reason, why)
+        with tempfile.TemporaryDirectory() as directory:
+            checkout(directory, stamp=False)
+            self.assertEqual((run_scene.BUILD_CLEAN, "no successful build recorded"),
+                             run_scene.build_decision(directory, run_scene.build_inputs(directory)))
+
+    def test_ensure_build_stamps_only_a_build_that_succeeded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for output in run_scene.BUILD_OUTPUTS:
+                os.makedirs(os.path.join(directory, output))
+            source = os.path.join(directory, run_scene.SOURCES_INPUT, "Plain.java")
+            os.makedirs(os.path.dirname(source))
+            with open(source, "w", encoding="utf-8") as handle:
+                handle.write("class Plain {}")
+            stamp = os.path.join(directory, run_scene.BUILD_STAMP)
+            classpath = os.path.join(directory, "CP")
+            with open(classpath, "w", encoding="utf-8") as handle:
+                handle.write("")
+            maven_calls: list[list[str]] = []
+
+            def failing_maven(args, description, pom=""):
+                maven_calls.append(args)
+                raise RuntimeError("Building failed")
+
+            with patch.object(run_scene, "REPO_DIR", directory), \
+                    patch.object(run_scene, "CLASSPATH_FILE", classpath), \
+                    patch.object(run_scene, "_run_maven", side_effect=failing_maven):
+                with self.assertRaises(RuntimeError):
+                    run_scene._ensure_build(skip_build=False)
+            self.assertEqual(["clean", "compile", "-pl", "annotations,ixdar-app"], maven_calls[0])
+            self.assertFalse(os.path.exists(stamp))
+
+            with patch.object(run_scene, "REPO_DIR", directory), \
+                    patch.object(run_scene, "CLASSPATH_FILE", classpath), \
+                    patch.object(run_scene, "_run_maven", side_effect=lambda *a, **k: maven_calls.append(a[0])):
+                run_scene._ensure_build(skip_build=False)
+                self.assertTrue(os.path.exists(stamp))
+                run_scene._ensure_build(skip_build=False)
+            self.assertEqual(2, len(maven_calls), "a current tree must not run Maven")
 
     def test_run_scene_puts_the_crash_inline_and_reports_its_port(self):
         crash = ['Exception in thread "main" java.lang.IllegalStateException: no layout',

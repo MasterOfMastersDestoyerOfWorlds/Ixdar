@@ -848,7 +848,7 @@ Run a .vscode/launch.json entry headless, then report its first log lines and a 
 - `--timeout` — Seconds to wait for the scene to become ready.
 - `--log-lines` — How many opening log lines to return.
 - `--log` — Log path (default: next free tmp/logs/<scene>-<entry>-<n>.log; latest-<scene>.log links the newest).
-- `--skip-build` — Do not compile first; run whatever classes are on disk.
+- `--skip-build` — Launch the classes on disk even if stale; by default the build state decides, as for run-scene.
 - `--keep-alive` — Leave the scene running instead of shutting it down.
 
 ### `list-meshes`
@@ -958,7 +958,7 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L629)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L735)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
@@ -978,7 +978,7 @@ Build, launch, wait for, optionally profile and screenshot, then shut down a sce
 - `--screenshot` — Capture a screenshot to this path once ready.
 - `--multiview` — Capture an 8-angle multiview composite to this path once ready.
 - `--log` — Log path (default: next free tmp/logs/<scene>-<mesh>-<n>.log; latest-<scene>.log links the newest).
-- `--skip-build` — Do not compile first; copy any resources newer than target/classes and run
+- `--skip-build` — Launch the classes on disk even if stale, after syncing newer resources; by default the build state decides.
 - `--keep-alive` — Leave the scene running, returning only once it reports ready.
 - `--top` — How many profile-report hot methods or partly-covered classes to report.
 

@@ -251,7 +251,7 @@ def launch(
     :param timeout: Seconds to wait for the scene to become ready.
     :param log_lines: How many opening log lines to return.
     :param log: Log path (default: next free tmp/logs/<scene>-<entry>-<n>.log; latest-<scene>.log links the newest).
-    :param skip_build: Do not compile first; run whatever classes are on disk.
+    :param skip_build: Launch the classes on disk even if stale; by default the build state decides, as for run-scene.
     :param keep_alive: Leave the scene running instead of shutting it down.
     """
     root = checkout_root()
