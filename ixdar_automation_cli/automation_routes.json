@@ -1293,6 +1293,35 @@
       "responseHint": "{ok, waypointCount, points, edgeCount, length, seedLength, centroid:[x,y,z], fingerprint}"
     },
     {
+      "commandName": "rings bisect",
+      "path": "/mesh/rings/bisect",
+      "method": "POST",
+      "description": "Draw a bisector in the ring scene as K and clicks do: its two ends snap onto the nearest ring or bisector, the points between steer it, and the open geodesic spline through them splits every region it crosses.",
+      "sourceClass": "ixdar.platform.automation.endpoints.mesh.rings.Bisect",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/rings/Bisect.java",
+      "params": [
+        {
+          "name": "points",
+          "cliName": "points",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Points as \"x,y,z; ...\": the first and last are the ends, on or beside walls; any between are steering anchors, in any order.",
+          "example": "0.04,-0.01,-0.03; 0.05,-0.12,-0.16"
+        },
+        {
+          "name": "confirm",
+          "cliName": "confirm",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Confirm the bisector as Enter does.",
+          "example": "true"
+        }
+      ],
+      "responseHint": "{ok, anchors, simple, firstWall, lastWall, edges, length, fingerprint, confirmed, error, lastRow}"
+    },
+    {
       "commandName": "rings-list",
       "path": "/mesh/rings/list",
       "method": "POST",

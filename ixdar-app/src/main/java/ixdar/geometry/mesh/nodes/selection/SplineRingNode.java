@@ -144,7 +144,7 @@ public class SplineRingNode implements MeshNode {
         if (metric == null) {
             throw new IllegalArgumentException("spline_ring " + label + " has no metric; wire "
                     + "surface = surface_metric(geometry=...) on the surface it rings and pass "
-                    + "metric=surface.metric to every spline_ring downstream of it");
+                    + "metric=surface.metric to every spline_ring and spline_cut downstream of it");
         }
         if (metric.sourceMesh != surface) {
             throw new IllegalArgumentException("spline_ring " + label + ": its metric was "

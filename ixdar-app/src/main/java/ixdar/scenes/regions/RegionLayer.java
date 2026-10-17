@@ -18,7 +18,8 @@ import ixdar.scenes.ring.RingScene;
 
 /**
  * The editing scene's ring regions, updated incrementally as rings change: their colours, shown in
- * the region tool or switched on, and the hidden faces no tool draws or picks.
+ * the region tool, while the ring tool bisects, or switched on, and the hidden faces no
+ * tool draws or picks.
  */
 public final class RegionLayer {
 
@@ -148,9 +149,8 @@ public final class RegionLayer {
     }
 
     /**
-     * One frame: while the layer is on, the region tool is active or faces are hidden, bring the
-     * regions up to date with the rings, re-flooding only the regions a changed ring bounds, and
-     * draw the shown faces, coloured unless only hiding; otherwise drop the colours once.
+     * One frame: while colours are wanted or faces hidden, re-flood the regions changed rings
+     * bound and draw the shown faces; otherwise drop the colours once.
      */
     public void perFrame() {
         HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
@@ -165,7 +165,8 @@ public final class RegionLayer {
             runtime.uploadFacePickBuffer(surface, hiddenByActiveFace);
             overlayStale = true;
         }
-        boolean coloured = visible || scene.activeTool == scene.regionTool;
+        boolean coloured = visible || scene.activeTool == scene.regionTool
+                || scene.ringTool.bisecting;
         if (runtime == null || surface == null || surface.faceCount() == 0
                 || !coloured && hiddenByActiveFace.length == 0) {
             if (shown && runtime != null) {

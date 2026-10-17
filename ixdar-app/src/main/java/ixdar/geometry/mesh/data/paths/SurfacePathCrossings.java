@@ -5,11 +5,8 @@ import java.util.Arrays;
 import ixdar.geometry.mesh.data.MeshTopology;
 
 /**
- * Finds where a closed path traced on a mesh crosses or touches itself: two spans crossing inside
- * a face they share, or the path passing through one mesh vertex twice.
- *
- * <p>
- * A ring is a simple closed curve exactly when neither happens.
+ * Finds where a ring or a bisector traced on a mesh crosses or touches itself: two spans crossing
+ * inside a shared face, or one mesh vertex passed twice.
  */
 public final class SurfacePathCrossings {
 
@@ -34,17 +31,18 @@ public final class SurfacePathCrossings {
     private long[] faceSpans = new long[0];
 
     /**
-     * Whether a closed path is a simple curve on its surface, counting its crossings and revisited
-     * vertices. A stretch run out and straight back over the same vertices has no width and is
-     * read as not taken; a path that cancels down to nothing is not a ring.
+     * Whether a path, closed or open, is a simple curve on its surface, counting its crossings and
+     * revisited vertices. A stretch run out and straight back has no width and is read as not
+     * taken; a closed path that cancels down to nothing is not a ring.
      *
      * @param mesh surface the path's vertex, edge and face ids index
-     * @param path closed path, its points each on a vertex, across an edge or inside a face
+     * @param path the path, its points each on a vertex, across an edge or inside a face
      * @return true when the path neither crosses nor touches itself
      */
     public boolean isSimple(MeshTopology mesh, TracedSurfacePath path) {
         crossings = 0;
         revisitedVertices = 0;
+        boolean closed = path.closed;
         // Cancel every stretch the path runs out along and straight back over the same vertices,
         // across the seam too; what is left is the curve the path draws.
         int[] order = new int[path.pointCount];
@@ -61,7 +59,8 @@ public final class SurfacePathCrossings {
             order[points++] = point;
         }
         int start = 0;
-        while (points - start >= COORDINATES_PER_POINT && path.vertexId[order[points - 1]] >= 0
+        while (closed && points - start >= COORDINATES_PER_POINT
+                && path.vertexId[order[points - 1]] >= 0
                 && (path.vertexId[order[points - 1]] == path.vertexId[order[start]]
                         || path.vertexId[order[points - 1]] == path.vertexId[order[start + 1]])) {
             start += path.vertexId[order[points - 1]] == path.vertexId[order[start]] ? 0 : 1;
@@ -69,7 +68,7 @@ public final class SurfacePathCrossings {
         }
         order = Arrays.copyOfRange(order, start, points);
         points -= start;
-        if (points < COORDINATES_PER_POINT) {
+        if (closed && points < COORDINATES_PER_POINT) {
             revisitedVertices = path.pointCount < COORDINATES_PER_POINT ? 0 : 1;
             if (revisitedVertices > 0) {
                 record(path, 0, -1, 0.0);
@@ -80,8 +79,8 @@ public final class SurfacePathCrossings {
         int visits = 0;
         for (int point = 0; point < points; point++) {
             int vertexId = path.vertexId[order[point]];
-            if (vertexId >= 0 && vertexId != path.vertexId[order[Math.floorMod(point - 1,
-                    points)]]) {
+            if (vertexId >= 0 && (!closed && point == 0
+                    || vertexId != path.vertexId[order[Math.floorMod(point - 1, points)]])) {
                 byVertex[visits++] = ((long) vertexId << FACE_SHIFT) | order[point];
             }
         }
@@ -100,8 +99,8 @@ public final class SurfacePathCrossings {
             faceSpans = new long[MOST_SHARED_FACES * points];
         }
         // A span lies in every face its two ends share: one across a face, two along an edge,
-        // none across a gap in the path.
-        for (int span = 0; span < points; span++) {
+        // none across a gap in the path. An open path has no span back to its start.
+        for (int span = 0; span < (closed ? points : points - 1); span++) {
             int from = order[span];
             int to = order[(span + 1) % points];
             int shared = 0;
@@ -140,8 +139,9 @@ public final class SurfacePathCrossings {
                 for (int other = one + 1; other < last; other++) {
                     int spanA = (int) (faceSpans[one] & SPAN_MASK);
                     int spanB = (int) (faceSpans[other] & SPAN_MASK);
-                    int apart = Math.floorMod(spanB - spanA, points);
-                    if (apart <= 1 || apart >= points - 1) {
+                    int apart = closed ? Math.floorMod(spanB - spanA, points)
+                            : Math.abs(spanB - spanA);
+                    if (apart <= 1 || closed && apart >= points - 1) {
                         continue;
                     }
                     int a0 = COORDINATES_PER_POINT * order[spanA];

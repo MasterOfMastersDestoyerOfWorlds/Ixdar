@@ -40,6 +40,12 @@ public final class RingToolState {
     /** Whether each confirmed ring was deleted and awaiting a save. */
     public final List<Boolean> confirmedRingDeleted;
 
+    /** Serials of the walls each confirmed bisector ends on, {@code null} for a ring. */
+    public final List<int[]> confirmedBisectorEnds;
+
+    /** In-memory identity of each confirmed ring. */
+    public final List<Integer> confirmedRingSerial;
+
     /** Graph ring labels hidden because a tool ring replaced them. */
     public final Set<String> convertedGraphLabels;
 
@@ -64,6 +70,18 @@ public final class RingToolState {
     /** Depth the draft was traced at. */
     public final int draftDepth;
 
+    /** Serials of the walls the draft's ends sit on when it is a bisector, or null. */
+    public final int[] draftBisectorEnds;
+
+    /** Whether the bisector draft ran without crossing itself. */
+    public final boolean draftSimple;
+
+    /** Wall vertex a bisector's first end waited on for its second, or -1. */
+    public final int bisectorStartVertexId;
+
+    /** Serial of the wall that first end sat on, or -1. */
+    public final int bisectorStartWall;
+
     /**
      * Capture the tool's editable state as it stands.
      *
@@ -78,8 +96,14 @@ public final class RingToolState {
         confirmedRingUnsaved = new ArrayList<>(tool.confirmedRingUnsaved);
         confirmedSourceLabel = new ArrayList<>(tool.confirmedSourceLabel);
         confirmedRingDeleted = new ArrayList<>(tool.confirmedRingDeleted);
+        confirmedBisectorEnds = new ArrayList<>(tool.confirmedBisectorEnds);
+        confirmedRingSerial = new ArrayList<>(tool.confirmedRingSerial);
         convertedGraphLabels = new HashSet<>(tool.convertedGraphLabels);
         draft = tool.draft;
+        draftBisectorEnds = tool.draftBisectorEnds;
+        draftSimple = tool.draftSimple;
+        bisectorStartVertexId = tool.bisectorStartVertexId;
+        bisectorStartWall = tool.bisectorStartWall;
         draftAuthoredVertexId = tool.draftAuthoredVertexId;
         draftBaseNormal = Arrays.copyOf(tool.draftBaseNormal, tool.draftBaseNormal.length);
         draftMode = tool.draftMode;
@@ -97,6 +121,7 @@ public final class RingToolState {
      */
     public boolean sameEdit(RingToolState other) {
         return draft == other.draft && draftSourceRing == other.draftSourceRing
+                && bisectorStartVertexId == other.bisectorStartVertexId
                 && Arrays.equals(draftAuthoredVertexId, other.draftAuthoredVertexId)
                 && Arrays.equals(draftBaseNormal, other.draftBaseNormal)
                 && draftMode == other.draftMode
@@ -126,6 +151,10 @@ public final class RingToolState {
         tool.confirmedSourceLabel.clear();
         tool.confirmedRingDeleted.clear();
         tool.confirmedRingDeleted.addAll(confirmedRingDeleted);
+        tool.confirmedBisectorEnds.clear();
+        tool.confirmedBisectorEnds.addAll(confirmedBisectorEnds);
+        tool.confirmedRingSerial.clear();
+        tool.confirmedRingSerial.addAll(confirmedRingSerial);
         for (int ring = 0; ring < confirmedRings.size(); ring++) {
             String statementId = confirmedStatementIds.get(ring);
             String sourceLabel = confirmedSourceLabel.get(ring);
@@ -167,6 +196,12 @@ public final class RingToolState {
         tool.draftSourceRing = draftSourceRing;
         tool.draftSourceLabel = draftSourceLabel;
         tool.draftDepth = draftDepth;
+        tool.draftBisectorEnds = draftBisectorEnds;
+        tool.draftSimple = draftSimple;
+        tool.bisectorStartVertexId = bisectorStartVertexId;
+        tool.bisectorStartWall = bisectorStartWall;
+        // A first end waiting for its second is only ever placed while bisecting.
+        tool.bisecting |= bisectorStartVertexId >= 0;
         boolean selectionKept = false;
         for (int held : draftAuthoredVertexId) {
             selectionKept |= held == tool.selectedAnchorVertexId;

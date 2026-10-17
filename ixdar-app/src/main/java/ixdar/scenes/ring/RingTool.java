@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -23,10 +24,12 @@ import ixdar.geometry.mesh.data.LimbAxis;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.paths.GirdlingPlane;
+import ixdar.geometry.mesh.data.paths.RingAttachment;
 import ixdar.geometry.mesh.data.paths.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.SplineAnchorFit;
 import ixdar.geometry.mesh.data.paths.SurfaceCreases;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.SurfacePathCrossings;
 import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
@@ -38,6 +41,7 @@ import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
 import ixdar.geometry.mesh.nodes.selection.LoopThroughPointsNode;
 import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.geometry.mesh.nodes.selection.SelectRingNode;
+import ixdar.geometry.mesh.nodes.selection.SplineCutNode;
 import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
@@ -61,7 +65,13 @@ public final class RingTool implements EditTool {
             "ring tool: hover to preview, click to draft, click to add an anchor, drag or Delete "
                     + "one, Delete with none selected removes the ring, Ctrl+Z undo, Ctrl+Shift+Z "
                     + "or Ctrl+Y redo, Enter confirm, X discard, Ctrl+S save, G region colours, "
-                    + "Ctrl+T region tool, Esc back to orbit";
+                    + "Ctrl+T region tool, Esc back to orbit; K: bisect";
+
+    public static final String BISECTOR_HINT = "K: bisect - a geodesic spline through your anchors, "
+            + "traced like a ring but open. Click near a ring or bisector for each end (it snaps "
+            + "to the nearest wall vertex), then click anywhere to add an anchor that steers it; "
+            + "it may cross walls and splits every region it crosses. X/Del deletes a point, "
+            + "Enter confirms, Esc leaves";
 
     public static final String LOG_PREFIX = "[ring-tool] ";
 
@@ -69,7 +79,24 @@ public final class RingTool implements EditTool {
 
     public static final String UNSAVED_RING_PREFIX = "ring #";
 
+    public static final String BISECTOR_DRAFT_LABEL = "bisector draft";
+
+    public static final float BISECTOR_REACH_PIXELS = 40f;
+
+    public static final Color BISECTOR_DRAFT_COLOR = Color.PURPLE_PINK;
+
+    public static final Color CROSSING_BISECTOR_COLOR = Color.BLACK;
+
     public static final String REMOVE_SELECTED_ANCHOR_HINT = "remove anchor (or ring)";
+
+    public static final String DELETE_BISECTOR_POINT_HINT = "delete bisector point";
+
+    public static final String BISECTOR_POINT_DELETED = "bisector point deleted";
+
+    public static final String LEFT_BISECTOR = "left the bisector";
+
+    public static final String BISECTOR_WALLS_NOTHING = "the bisector runs along its wall or does "
+            + "not join its two walls; add an anchor to steer it off";
 
     public static final String REDO_HINT = "redo ring edit";
 
@@ -330,6 +357,54 @@ public final class RingTool implements EditTool {
     /** Live labels of the rings not drawn because every region they bound is hidden. */
     public Set<String> hiddenRingLabels = Set.of();
 
+    /**
+     * Identity of each confirmed ring in memory, which bisectors name their end walls by; it
+     * outlives edits, saves and the re-adoption of the ring's statement.
+     */
+    public final List<Integer> confirmedRingSerial = new ArrayList<>();
+
+    /**
+     * Serials of the walls each confirmed bisector's first and last anchor sit on, or
+     * {@code null} for a ring.
+     */
+    public final List<int[]> confirmedBisectorEnds = new ArrayList<>();
+
+    /** Serial the next confirmed ring takes. */
+    public int nextRingSerial;
+
+    /** Serial a statement label's ring had before the graph re-ran, which its re-adoption keeps. */
+    public final Map<String, Integer> retiredSerialByLabel = new HashMap<>();
+
+    /** Serials of the walls the draft's ends sit on when it is a bisector, else {@code null}. */
+    public int[] draftBisectorEnds;
+
+    /** Whether the bisector draft runs without crossing itself; Enter refuses it otherwise. */
+    public boolean draftSimple = true;
+
+    /** Whether clicks place bisectors rather than draft rings; K flips it. */
+    public boolean bisecting;
+
+    /** Wall vertex a bisector's first end was clicked onto, waiting for its second, or -1. */
+    public int bisectorStartVertexId = -1;
+
+    /** Serial of the wall the waiting first end sits on, or -1. */
+    public int bisectorStartWall = -1;
+
+    /** Whether the bisector hover preview runs without crossing itself onto a wall. */
+    public boolean previewSimple;
+
+    /** Serial of the wall the last snap landed on, or -1 when none lay within reach. */
+    public int snappedWall = -1;
+
+    private final SurfacePathCrossings bisectorCrossings = new SurfacePathCrossings();
+    private int[] wallSerialByVertex = new int[0];
+    private int[] wallVertexStamp = new int[0];
+    private int wallEpoch;
+    private int wallsBuiltRevision = -1;
+    private int[] snapVisitStamp = new int[0];
+    private int[] snapQueue = new int[0];
+    private int snapEpoch;
+    private int uploadedSnap = -1;
     private final GirdlingPlane girdle = new GirdlingPlane();
     private final float[] limbDirection = new float[COORDINATES_PER_POINT];
     private final float[] previewedHit = new float[COORDINATES_PER_POINT];
@@ -392,6 +467,9 @@ public final class RingTool implements EditTool {
         if (draggingAnchor) {
             releaseAnchor();
         }
+        if (bisecting) {
+            leaveBisector("left the bisector with the tool");
+        }
         active = false;
         pendingClick = false;
         previewValid = false;
@@ -415,12 +493,36 @@ public final class RingTool implements EditTool {
     public void addControls(List<ControlHint> controls) {
         controls.add(new ControlHint("click", "draft ring / add or pick anchor"));
         controls.add(new ControlHint("drag anchor", "move it"));
-        controls.add(new ControlHint(Keys.X, "X", "discard draft",
-                refusalShown(() -> discardDraft())));
-        controls.add(new ControlHint(Keys.DELETE, "del", REMOVE_SELECTED_ANCHOR_HINT,
-                refusalShown(() -> deletePressed())));
-        controls.add(new ControlHint(Keys.BACKSPACE, "backspace", REMOVE_SELECTED_ANCHOR_HINT,
-                refusalShown(() -> deletePressed())));
+        // On a bisector, X, Delete and Backspace all delete a point; on a ring X discards the
+        // draft and Delete or Backspace removes an anchor or the ring.
+        boolean onBisector = draftBisectorEnds != null || bisecting && draft == null;
+        controls.add(new ControlHint(Keys.X, "X", onBisector ? DELETE_BISECTOR_POINT_HINT
+                : "discard draft", refusalShown(() -> {
+                    if (draftBisectorEnds != null || bisecting && draft == null) {
+                        deleteBisectorPoint();
+                    } else {
+                        discardDraft();
+                    }
+                })));
+        for (int key : new int[] { Keys.DELETE, Keys.BACKSPACE }) {
+            controls.add(new ControlHint(key, key == Keys.DELETE ? "del" : "backspace",
+                    onBisector ? DELETE_BISECTOR_POINT_HINT : REMOVE_SELECTED_ANCHOR_HINT,
+                    refusalShown(() -> {
+                        if (draftBisectorEnds != null || bisecting && draft == null) {
+                            deleteBisectorPoint();
+                        } else {
+                            deletePressed();
+                        }
+                    })));
+        }
+        controls.add(new ControlHint(Keys.K, "K", bisecting ? "leave the bisector" : "bisect",
+                refusalShown(() -> {
+                    if (bisecting) {
+                        leaveBisector(LEFT_BISECTOR);
+                    } else {
+                        startBisector();
+                    }
+                })));
         controls.add(new ControlHint(Keys.Z, true, true, "ctrl+shift+Z", REDO_HINT,
                 refusalShown(() -> redo())));
         controls.add(new ControlHint(Keys.Z, true, "ctrl+Z", "undo ring edit",
@@ -595,7 +697,9 @@ public final class RingTool implements EditTool {
 
     /**
      * The rings as they stand, each as its edge mask: the graph's unconverted rings no confirmed
-     * ring stands for, then every confirmed ring not deleted, an open draft's original included.
+     * ring stands for, then every confirmed ring or bisector not deleted, an open draft's original
+     * included, then a new bisector being drafted when it runs simple, which the region colours
+     * preview.
      *
      * @return masks by ring label: the graph or statement label, or {@code ring #N} by drawn
      *         number for a ring only this session holds
@@ -628,10 +732,35 @@ public final class RingTool implements EditTool {
                 continue;
             }
             String label = confirmedSourceLabel.get(ring);
-            splines.put(label != null ? label : UNSAVED_RING_PREFIX + drawnRingNumber(ring),
-                    confirmedRings.get(ring));
+            splines.put(liveLabel(ring), confirmedRings.get(ring));
+        }
+        if (bisecting && draft != null && draftBisectorEnds != null && draftSourceRing < 0
+                && draftSimple && draft.markedEdgeCount > 0) {
+            splines.put(BISECTOR_DRAFT_LABEL, draft);
         }
         return splines;
+    }
+
+    /**
+     * The label a confirmed ring goes by while the tool runs: its statement or graph label, or
+     * {@code ring #N} by drawn number for one only this session holds.
+     *
+     * @param ring index in {@link #confirmedRings}
+     * @return the live label
+     */
+    public String liveLabel(int ring) {
+        String label = confirmedSourceLabel.get(ring);
+        return label != null ? label : UNSAVED_RING_PREFIX + drawnRingNumber(ring);
+    }
+
+    /**
+     * The confirmed ring holding a serial.
+     *
+     * @param serial a ring's {@link #confirmedRingSerial}
+     * @return its index in {@link #confirmedRings}, or -1 when no ring holds it
+     */
+    public int ringOfSerial(int serial) {
+        return confirmedRingSerial.indexOf(serial);
     }
 
     /**
@@ -687,6 +816,28 @@ public final class RingTool implements EditTool {
                     moveSelectedAnchor(hitVertexId);
                 }
             }
+        } else if (hitValid && bisecting) {
+            // The bisector's hover: the wall vertex a click puts an end on and, with a first end
+            // waiting, the bisector it would trace there, invalid off a wall or when it crosses
+            // itself.
+            if (faceId != previewedFace || !Arrays.equals(hitPoint, previewedHit)) {
+                previewAuthoredVertexId = snapToWall(hitVertexId, hitPoint);
+                int endWall = snappedWall;
+                int startRing = ringOfSerial(bisectorStartWall);
+                int endRing = ringOfSerial(endWall);
+                int target = previewAuthoredVertexId >= 0 ? previewAuthoredVertexId : hitVertexId;
+                previewValid = bisectorStartVertexId >= 0 && startRing >= 0
+                        && target != bisectorStartVertexId;
+                previewSpline = !previewValid ? null : SurfaceSpline.bisector(geodesics,
+                        new int[] { bisectorStartVertexId, target },
+                        confirmedRings.get(startRing).markedByEdgeId,
+                        endRing < 0 ? new boolean[0] : confirmedRings.get(endRing).markedByEdgeId);
+                previewSimple = previewValid && endRing >= 0 && previewSpline.markedEdgeCount > 0
+                        && bisectorCrossings.isSimple(surface, previewSpline.surfacePath());
+                previewedFace = faceId;
+                System.arraycopy(hitPoint, 0, previewedHit, 0, COORDINATES_PER_POINT);
+                previewMillis = (System.nanoTime() - start) / 1e6;
+            }
         } else if (hitValid) {
             hoveredRing = ringUnderCursor();
             double graphReach = RING_HIT_PIXELS * scene.worldPerPixel();
@@ -737,6 +888,8 @@ public final class RingTool implements EditTool {
             RingToolState stateBefore = new RingToolState(this);
             if (!hitValid) {
                 lastError = scene.cursorMissReason;
+            } else if (bisecting && draft == null) {
+                placeBisectorEnd(hitVertexId, hitPoint);
             } else if (draft != null && hoveredAnchor >= 0) {
                 selectedAnchorVertexId = draftAuthoredVertexId[hoveredAnchor];
                 lastRow = "selected authored anchor " + hoveredAnchor + " of "
@@ -792,6 +945,7 @@ public final class RingTool implements EditTool {
         }
         SurfaceSpline shownPreview = previewValid ? previewSpline : null;
         if (shownPreview != uploadedPreview || draft != uploadedDraft
+                || bisecting && previewAuthoredVertexId != uploadedSnap
                 || hoveredRing != uploadedHoveredRing
                 || selectedAnchorVertexId != uploadedSelected
                 || (hoveredGraphRing == null ? uploadedHoveredGraphRing != null
@@ -807,6 +961,221 @@ public final class RingTool implements EditTool {
      */
     public void requestClick() {
         pendingClick = active;
+    }
+
+    /**
+     * K: start bisecting, the region colours shown; refused while a ring draft is open.
+     *
+     * @return true when the bisector mode started
+     */
+    public boolean startBisector() {
+        if (draft != null && draftBisectorEnds == null) {
+            lastError = "confirm or discard the open ring draft before bisecting";
+            return false;
+        }
+        bisecting = true;
+        lastError = "";
+        lastRow = BISECTOR_HINT;
+        previewedFace = -1;
+        invalidateRings();
+        scene.refreshControls();
+        Platforms.get().log(LOG_PREFIX + lastRow);
+        return true;
+    }
+
+    /**
+     * Leave the bisector mode, dropping a first end still waiting for its second; an open bisector
+     * draft stays open for Enter or X.
+     *
+     * @param why what ended it, as the status row says
+     */
+    private void leaveBisector(String why) {
+        RingToolState stateBefore = new RingToolState(this);
+        bisecting = false;
+        bisectorStartVertexId = -1;
+        bisectorStartWall = -1;
+        previewValid = false;
+        previewSpline = null;
+        previewAuthoredVertexId = -1;
+        previewedFace = -1;
+        recordEdit("bisector left", stateBefore);
+        lastRow = why;
+        invalidateRings();
+        scene.refreshControls();
+        Platforms.get().log(LOG_PREFIX + lastRow);
+    }
+
+    /**
+     * Put a bisector's end on the wall vertex nearest a clicked point, as a click while bisecting
+     * with no draft does: the first end waits for the second, which opens the bisector as the
+     * draft.
+     *
+     * @param vertexId mesh vertex under the click
+     * @param xyz      clicked surface point, packed xyz
+     * @return true when the end was placed
+     */
+    public boolean placeBisectorEnd(int vertexId, float[] xyz) {
+        lastError = "";
+        if (!bisecting || draft != null) {
+            lastError = bisecting ? "the bisector has both ends: click to add an anchor"
+                    : "K starts a bisector first";
+            return false;
+        }
+        int snapped = snapToWall(vertexId, xyz);
+        if (snapped < 0) {
+            lastError = String.format(Locale.ROOT, "refused: no ring or bisector within %.0f px; "
+                    + "a bisector's ends sit on walls, so click on or beside one",
+                    BISECTOR_REACH_PIXELS);
+            return false;
+        }
+        if (snapped == bisectorStartVertexId) {
+            lastError = "refused: the second end lands on the first; click another wall vertex";
+            return false;
+        }
+        RingToolState stateBefore = new RingToolState(this);
+        String wall = liveLabel(ringOfSerial(snappedWall));
+        if (bisectorStartVertexId < 0) {
+            bisectorStartVertexId = snapped;
+            bisectorStartWall = snappedWall;
+            previewedFace = -1;
+            overlayStale = true;
+            recordEdit("bisector end placed", stateBefore);
+            lastRow = "bisector: first end on " + wall + "; click near a wall for the second end";
+            Platforms.get().log(LOG_PREFIX + lastRow);
+            return true;
+        }
+        // The lower vertex leads, so which end was clicked first does not change the trace.
+        boolean startLeads = bisectorStartVertexId < snapped;
+        draftBisectorEnds = startLeads ? new int[] { bisectorStartWall, snappedWall }
+                : new int[] { snappedWall, bisectorStartWall };
+        draftMode = RingSegmentMode.GEODESIC;
+        draftSourceRing = -1;
+        draftSourceLabel = null;
+        if (!retraceDraft(startLeads ? new int[] { bisectorStartVertexId, snapped }
+                : new int[] { snapped, bisectorStartVertexId },
+                SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
+            draftBisectorEnds = null;
+            return false;
+        }
+        bisectorStartVertexId = -1;
+        bisectorStartWall = -1;
+        selectedAnchorVertexId = snapped;
+        recordEdit("bisector drafted", stateBefore);
+        reportDraft("bisector drafted, second end on " + wall);
+        scene.refreshControls();
+        return true;
+    }
+
+    /**
+     * The wall vertex nearest a surface point within {@link #BISECTOR_REACH_PIXELS}, found by a
+     * walk out from the vertex under it; {@link #snappedWall} names its wall. Walls are the live
+     * confirmed rings and bisectors, the draft's own original aside.
+     *
+     * @param vertexId mesh vertex under the point
+     * @param xyz      the point, packed xyz
+     * @return the wall vertex, or -1 when no wall lies within reach
+     */
+    private int snapToWall(int vertexId, float[] xyz) {
+        MeshTopology surface = geodesics.mesh;
+        int vertexIdBound = geodesics.metric.vertexIdBound;
+        if (wallVertexStamp.length != vertexIdBound) {
+            wallVertexStamp = new int[vertexIdBound];
+            wallSerialByVertex = new int[vertexIdBound];
+            snapVisitStamp = new int[vertexIdBound];
+            snapQueue = new int[vertexIdBound];
+            wallsBuiltRevision = -1;
+        }
+        if (wallsBuiltRevision != ringRevision) {
+            wallsBuiltRevision = ringRevision;
+            wallEpoch++;
+            for (int ring = 0; ring < confirmedRings.size(); ring++) {
+                if (confirmedRingDeleted.get(ring) || ring == draftSourceRing && draft != null) {
+                    continue;
+                }
+                for (int edgeId : confirmedRings.get(ring).markedEdgeIds) {
+                    int halfEdge = surface.edgeHalfEdge(edgeId);
+                    for (int end : new int[] { surface.halfEdgeVertex(halfEdge),
+                        surface.halfEdgeEndVertex(halfEdge) }) {
+                        if (wallVertexStamp[end] != wallEpoch) {
+                            wallVertexStamp[end] = wallEpoch;
+                            wallSerialByVertex[end] = confirmedRingSerial.get(ring);
+                        }
+                    }
+                }
+            }
+        }
+        snappedWall = -1;
+        if (vertexId < 0 || vertexId >= vertexIdBound) {
+            return -1;
+        }
+        double reach = BISECTOR_REACH_PIXELS * scene.worldPerPixel();
+        int stamp = ++snapEpoch;
+        int head = 0;
+        int tail = 0;
+        snapQueue[tail++] = vertexId;
+        snapVisitStamp[vertexId] = stamp;
+        double nearest = Double.POSITIVE_INFINITY;
+        int snapped = -1;
+        while (head < tail) {
+            int here = snapQueue[head++];
+            surface.vertexPosition(here, scratchPosition);
+            double distance = scratchPosition.distance(xyz[0], xyz[1], xyz[2]);
+            if (wallVertexStamp[here] == wallEpoch && distance < nearest) {
+                nearest = distance;
+                snapped = here;
+            }
+            for (int spoke = 0; spoke < surface.vertexEdgeCount(here); spoke++) {
+                int other = surface.edgeOtherVertex(surface.vertexEdgeAt(here, spoke), here);
+                if (snapVisitStamp[other] == stamp) {
+                    continue;
+                }
+                snapVisitStamp[other] = stamp;
+                surface.vertexPosition(other, scratchPosition);
+                if (scratchPosition.distance(xyz[0], xyz[1], xyz[2]) <= reach) {
+                    snapQueue[tail++] = other;
+                }
+            }
+        }
+        snappedWall = snapped < 0 ? -1 : wallSerialByVertex[snapped];
+        return snapped;
+    }
+
+    /**
+     * A bisector through anchors, each end first moved onto the nearest vertex of its wall as the
+     * wall stands now unless already on it, so a bisector follows an edited wall.
+     *
+     * @param anchors anchor vertices end to end; the two ends are re-attached in place
+     * @param ends    serials of the walls the first and the last anchor sit on
+     * @return the bisector, with no marked edge when it walls nothing
+     *         ({@link #BISECTOR_WALLS_NOTHING}), or {@code null} with {@link #lastError} saying
+     *         which wall is gone
+     */
+    private SurfaceSpline tracedBisector(int[] anchors, int[] ends) {
+        MeshTopology surface = geodesics.mesh;
+        boolean[][] marks = new boolean[2][];
+        for (int end = 0; end < 2; end++) {
+            int ring = ringOfSerial(ends[end]);
+            int anchor = end == 0 ? 0 : anchors.length - 1;
+            marks[end] = ring < 0 || confirmedRingDeleted.get(ring) ? null
+                    : confirmedRings.get(ring).markedByEdgeId;
+            boolean onWall = false;
+            for (int spoke = 0; marks[end] != null
+                    && spoke < surface.vertexEdgeCount(anchors[anchor]); spoke++) {
+                int edgeId = surface.vertexEdgeAt(anchors[anchor], spoke);
+                onWall |= edgeId < marks[end].length && marks[end][edgeId];
+            }
+            if (marks[end] != null && !onWall) {
+                surface.vertexPosition(anchors[anchor], scratchPosition);
+                anchors[anchor] = RingAttachment.attach(surface, marks[end], scratchPosition.x,
+                        scratchPosition.y, scratchPosition.z);
+            }
+            if (marks[end] == null || anchors[anchor] < 0) {
+                lastError = "refused: the wall the bisector's " + (end == 0 ? "first" : "last")
+                        + " end sat on is gone";
+                return null;
+            }
+        }
+        return SurfaceSpline.bisector(geodesics, anchors, marks[0], marks[1]);
     }
 
     /**
@@ -826,11 +1195,13 @@ public final class RingTool implements EditTool {
         System.arraycopy(confirmedBaseNormal.get(ring), 0, draftBaseNormal, 0,
                 COORDINATES_PER_POINT);
         draftMode = confirmedMode.get(ring);
+        draftBisectorEnds = confirmedBisectorEnds.get(ring);
         if (draftMode == RingSegmentMode.CREASE && !readyCreases(scene.halfEdgeSurface())
                 || !retraceDraft(confirmedAuthoredVertexId.get(ring),
                         SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
             draft = null;
             draftMode = newDraftMode;
+            draftBisectorEnds = null;
             return false;
         }
         draftSourceRing = ring;
@@ -862,16 +1233,52 @@ public final class RingTool implements EditTool {
             }
         }
         RingToolState stateBefore = new RingToolState(this);
-        holdDraft();
-        long start = System.nanoTime();
-        if (!draftRing.insert(vertexId, draftBaseNormal, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
-            lastError = "anchor refused: " + draftRing.failure + " - click another place";
-            return false;
+        if (draftBisectorEnds != null) {
+            // A bisector takes the anchor in the span where its traced spline comes out shortest
+            // without crossing itself, never before its first end or after its last; click order
+            // does not decide the place.
+            long start = System.nanoTime();
+            int[] held = draftAuthoredVertexId;
+            int[] kept = null;
+            SurfaceSpline shortest = null;
+            for (int before = 0; before + 1 < held.length; before++) {
+                int[] grown = new int[held.length + 1];
+                System.arraycopy(held, 0, grown, 0, before + 1);
+                grown[before + 1] = vertexId;
+                System.arraycopy(held, before + 1, grown, before + 2, held.length - before - 1);
+                SurfaceSpline traced = tracedBisector(grown, draftBisectorEnds);
+                if (traced != null && traced.markedEdgeCount > 0
+                        && (shortest == null || traced.length < shortest.length)
+                        && bisectorCrossings.isSimple(geodesics.mesh, traced.surfacePath())) {
+                    shortest = traced;
+                    kept = grown;
+                }
+            }
+            if (shortest == null) {
+                lastError = "anchor refused: in every span the bisector would cross itself or "
+                        + "lose its walls - click another place";
+                return false;
+            }
+            draft = shortest;
+            draftAuthoredVertexId = kept;
+            draftSimple = true;
+            draftDepth = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH;
+            draftMillis = (System.nanoTime() - start) / 1e6;
+            selectedAnchorVertexId = vertexId;
+            invalidateRings();
+        } else {
+            holdDraft();
+            long start = System.nanoTime();
+            if (!draftRing.insert(vertexId, draftBaseNormal,
+                    SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
+                lastError = "anchor refused: " + draftRing.failure + " - click another place";
+                return false;
+            }
+            draftAuthoredVertexId = draftRing.authoredVertexId;
+            draft = SurfaceSpline.of(draftRing.tracer);
+            draftDepth = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH;
+            draftMillis = (System.nanoTime() - start) / 1e6;
         }
-        draftAuthoredVertexId = draftRing.authoredVertexId;
-        draft = SurfaceSpline.of(draftRing.tracer);
-        draftDepth = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH;
-        draftMillis = (System.nanoTime() - start) / 1e6;
         recordEdit("anchor added", stateBefore);
         reportDraft("authored anchor added");
         return true;
@@ -893,10 +1300,23 @@ public final class RingTool implements EditTool {
         }
         int[] moved = Arrays.copyOf(draftAuthoredVertexId, draftAuthoredVertexId.length);
         moved[selected] = vertexId;
+        int[] endsBefore = draftBisectorEnds;
+        boolean end = draftBisectorEnds != null && (selected == 0 || selected == moved.length - 1);
+        if (end) {
+            // A bisector's end moves onto the wall vertex nearest the cursor, on any wall.
+            moved[selected] = snapToWall(vertexId, positionsOf(new int[] { vertexId }));
+            if (moved[selected] < 0) {
+                lastError = "refused: a bisector's end stays on a wall; no wall within reach";
+                return false;
+            }
+            draftBisectorEnds = Arrays.copyOf(draftBisectorEnds, 2);
+            draftBisectorEnds[selected == 0 ? 0 : 1] = snappedWall;
+        }
         if (!retraceDraft(moved, AuthoredSplineRing.SUPPORTING_FIT_DEPTH, true)) {
+            draftBisectorEnds = endsBefore;
             return false;
         }
-        selectedAnchorVertexId = vertexId;
+        selectedAnchorVertexId = end ? draftAuthoredVertexId[selected] : vertexId;
         return true;
     }
 
@@ -914,6 +1334,9 @@ public final class RingTool implements EditTool {
             return false;
         }
         int[] before = draftAuthoredVertexId;
+        if (draftBisectorEnds != null) {
+            return deleteBisectorPoint();
+        }
         if (before.length == 1) {
             discardDraft();
             lastRow = "removed the last authored anchor: draft discarded";
@@ -929,6 +1352,71 @@ public final class RingTool implements EditTool {
         recordEdit("anchor deleted", stateBefore);
         selectedAnchorVertexId = -1;
         reportDraft("authored anchor removed");
+        return true;
+    }
+
+    /**
+     * X, Delete or Backspace on a bisector: delete the selected point, else the last in path
+     * order, an inner anchor before the second end; deleting an end leaves the other waiting, or
+     * deletes a confirmed bisector re-opened as the draft.
+     *
+     * @return true when a point was deleted
+     */
+    public boolean deleteBisectorPoint() {
+        lastError = "";
+        RingToolState stateBefore = new RingToolState(this);
+        if (draft == null || draftBisectorEnds == null) {
+            if (bisectorStartVertexId < 0) {
+                lastError = "no bisector point to delete; click near a wall to start one, Esc "
+                        + "leaves the bisector";
+                return false;
+            }
+            bisectorStartVertexId = -1;
+            bisectorStartWall = -1;
+            previewValid = false;
+            previewSpline = null;
+            previewedFace = -1;
+            overlayStale = true;
+            recordEdit(BISECTOR_POINT_DELETED, stateBefore);
+            lastRow = "deleted the bisector's first end; click near a wall to start again";
+            return true;
+        }
+        int[] held = draftAuthoredVertexId;
+        int selected = selectedIndex();
+        int doomed = selected >= 0 ? selected : held.length > 2 ? held.length - 2 : held.length - 1;
+        boolean end = doomed == 0 || doomed == held.length - 1;
+        if (end && held.length > 2) {
+            lastError = "refused: inner anchors hold the bisector between its ends; delete them "
+                    + "first, or drag the end along a wall";
+            return false;
+        }
+        if (end && draftSourceRing >= 0) {
+            // A confirmed bisector down to its two ends goes whole, as Delete takes a ring.
+            deleteDraftRing();
+            return lastError.isEmpty();
+        }
+        if (end) {
+            int other = doomed == 0 ? 1 : 0;
+            bisectorStartVertexId = held[other];
+            bisectorStartWall = draftBisectorEnds[other];
+            clearDraft();
+            bisecting = true;
+            previewedFace = -1;
+            invalidateRings();
+            recordEdit(BISECTOR_POINT_DELETED, stateBefore);
+            lastRow = "deleted a bisector end; the other waits for a new second end";
+            Platforms.get().log(LOG_PREFIX + lastRow);
+            return true;
+        }
+        int[] kept = new int[held.length - 1];
+        System.arraycopy(held, 0, kept, 0, doomed);
+        System.arraycopy(held, doomed + 1, kept, doomed, kept.length - doomed);
+        if (!retraceDraft(kept, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
+            return false;
+        }
+        recordEdit(BISECTOR_POINT_DELETED, stateBefore);
+        selectedAnchorVertexId = -1;
+        reportDraft(BISECTOR_POINT_DELETED);
         return true;
     }
 
@@ -965,16 +1453,29 @@ public final class RingTool implements EditTool {
             lastRow = "deleted the draft, which was never confirmed";
             return -1;
         }
+        int serial = ring >= 0 ? confirmedRingSerial.get(ring) : -1;
+        for (int other = 0; serial >= 0 && other < confirmedRings.size(); other++) {
+            int[] ends = confirmedBisectorEnds.get(other);
+            if (other != ring && ends != null && !confirmedRingDeleted.get(other)
+                    && (ends[0] == serial || ends[1] == serial)) {
+                lastError = "bisector " + liveLabel(other) + " ends on " + liveLabel(ring)
+                        + "; delete that bisector first";
+                return -1;
+            }
+        }
         RingToolState stateBefore = new RingToolState(this);
         if (ring < 0) {
             ring = confirmedRings.size();
             confirmedRings.add(draft);
             confirmedAuthoredVertexId.add(draftAuthoredVertexId);
             confirmedBaseNormal.add(Arrays.copyOf(draftBaseNormal, COORDINATES_PER_POINT));
+            confirmedMode.add(draftMode);
             confirmedStatementIds.add(null);
             confirmedRingUnsaved.add(false);
             confirmedSourceLabel.add(draftSourceLabel);
             confirmedRingDeleted.add(false);
+            confirmedBisectorEnds.add(draftBisectorEnds);
+            confirmedRingSerial.add(nextRingSerial++);
         }
         clearDraft();
         deleteRing(ring);
@@ -1115,7 +1616,19 @@ public final class RingTool implements EditTool {
     public boolean confirmDraft() {
         lastError = "";
         if (!active || draft == null) {
-            lastError = "no draft to confirm - click a ring to draft one first";
+            lastError = bisecting ? "no bisector to confirm - click near a wall for each end"
+                    : "no draft to confirm - click a ring to draft one first";
+            return false;
+        }
+        if (draftBisectorEnds != null && !draftSimple) {
+            float[] crossing = bisectorCrossings.firstCrossingXyz;
+            lastError = String.format(Locale.ROOT, "refused: the bisector crosses itself near "
+                    + "%.4f,%.4f,%.4f; move or delete an anchor first", crossing[0], crossing[1],
+                    crossing[2]);
+            return false;
+        }
+        if (draftBisectorEnds != null && draft.markedEdgeCount == 0) {
+            lastError = "refused: " + BISECTOR_WALLS_NOTHING;
             return false;
         }
         long start = System.nanoTime();
@@ -1139,6 +1652,29 @@ public final class RingTool implements EditTool {
             confirmedBaseNormal.set(ring, normal);
             confirmedMode.set(ring, draftMode);
             confirmedRingUnsaved.set(ring, confirmedRingUnsaved.get(ring) || changed);
+            // The bisectors ending on an edited ring follow it: each end re-attaches to the ring's
+            // nearest vertex, as the bisector's statement does on reload.
+            int serial = confirmedRingSerial.get(ring);
+            for (int other = 0; changed && other < confirmedRings.size(); other++) {
+                int[] ends = confirmedBisectorEnds.get(other);
+                if (ends == null || confirmedRingDeleted.get(other)
+                        || ends[0] != serial && ends[1] != serial) {
+                    continue;
+                }
+                int[] anchors = confirmedAuthoredVertexId.get(other).clone();
+                SurfaceSpline followed = tracedBisector(anchors, ends);
+                lastError = followed != null && followed.markedEdgeCount == 0
+                        ? BISECTOR_WALLS_NOTHING : lastError;
+                if (followed == null || followed.markedEdgeCount == 0) {
+                    lastError = "bisector " + liveLabel(other) + " keeps its old shape: "
+                            + lastError;
+                    continue;
+                }
+                confirmedRings.set(other, followed);
+                confirmedRingUnsaved.set(other, confirmedRingUnsaved.get(other)
+                        || !Arrays.equals(anchors, confirmedAuthoredVertexId.get(other)));
+                confirmedAuthoredVertexId.set(other, anchors);
+            }
         } else {
             ring = confirmedRings.size();
             confirmedRings.add(draft);
@@ -1149,14 +1685,18 @@ public final class RingTool implements EditTool {
             confirmedRingUnsaved.add(true);
             confirmedSourceLabel.add(draftSourceLabel);
             confirmedRingDeleted.add(false);
+            confirmedBisectorEnds.add(draftBisectorEnds);
+            confirmedRingSerial.add(nextRingSerial++);
         }
+        boolean bisector = draftBisectorEnds != null;
         SurfaceSpline spline = confirmedRings.get(ring);
         clearDraft();
         recordEdit("draft confirmed", stateBefore);
         lastRow = String.format(Locale.ROOT,
-                "ring %d: %d authored + %d supporting anchors, %d edges, length %.5f, "
+                "%s %d: %d authored + %d supporting anchors, %d edges, length %.5f, "
                         + "centroid %.5f,%.5f,%.5f, sharpest corner %.1f deg, %.0f ms, %s",
-                drawnRingNumber(ring), spline.authoredCount(),
+                bisector ? "bisector" : RING_LABEL_PREFIX, drawnRingNumber(ring),
+                spline.authoredCount(),
                 spline.anchorCount - spline.authoredCount(), spline.markedEdgeCount, spline.length,
                 spline.centroidX, spline.centroidY, spline.centroidZ,
                 spline.minimumInteriorAngleDegrees, (System.nanoTime() - start) / 1e6,
@@ -1168,14 +1708,19 @@ public final class RingTool implements EditTool {
     }
 
     /**
-     * Esc: a draft untouched since the click that opened it closes, that click taken back off the
-     * history, and the tool stays on the new-ring picker. An edited draft stays open, and the
-     * scene goes on to the orbit tool.
+     * Esc: leaves the bisector, a first end still waiting dropped. A draft untouched since the
+     * click that opened it closes, that click taken back off the history, and the tool stays on
+     * the new-ring picker. An edited draft stays open, and the scene goes on to the orbit tool.
      *
-     * @return true when an unedited draft was closed
+     * @return true when the bisector was left or an unedited draft closed
      */
     @Override
     public boolean escapePressed() {
+        if (bisecting) {
+            leaveBisector(draft == null ? LEFT_BISECTOR
+                    : LEFT_BISECTOR + "; its draft stays open: Enter confirms, X deletes points");
+            return true;
+        }
         if (draft == null) {
             return false;
         }
@@ -1198,7 +1743,7 @@ public final class RingTool implements EditTool {
 
     @Override
     public String escapeDescription() {
-        return "close an unedited ring (an edited one stays open)";
+        return "leave the bisector, or close an unedited ring (an edited one stays open)";
     }
 
     /** Drop the draft; a re-opened ring stays as it was and a converted graph ring shows again. */
@@ -1220,6 +1765,8 @@ public final class RingTool implements EditTool {
     private void clearDraft() {
         draft = null;
         draftMode = newDraftMode;
+        draftBisectorEnds = null;
+        draftSimple = true;
         scene.refreshControls();
         draftAuthoredVertexId = new int[0];
         draftSourceRing = -1;
@@ -1295,6 +1842,31 @@ public final class RingTool implements EditTool {
      * @return true when the draft now runs through {@code authored}
      */
     private boolean retraceDraft(int[] authored, int depth, boolean keepSimple) {
+        if (draftBisectorEnds != null) {
+            // A bisector is traced whole at full depth, its ends kept on their walls; one that
+            // crosses itself is drawn as invalid, and Enter refuses it.
+            long start = System.nanoTime();
+            int[] anchors = authored.clone();
+            SurfaceSpline bisector = tracedBisector(anchors, draftBisectorEnds);
+            if (bisector == null) {
+                return false;
+            }
+            boolean simple = bisectorCrossings.isSimple(geodesics.mesh, bisector.surfacePath());
+            if (keepSimple && draftSimple && draft != null && !simple) {
+                float[] at = bisectorCrossings.firstCrossingXyz;
+                lastError = String.format(Locale.ROOT, "refused: the bisector would cross itself "
+                        + "near %.4f,%.4f,%.4f - nothing changed; try another place", at[0], at[1],
+                        at[2]);
+                return false;
+            }
+            draftAuthoredVertexId = anchors;
+            draft = bisector;
+            draftSimple = simple;
+            draftDepth = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH;
+            draftMillis = (System.nanoTime() - start) / 1e6;
+            invalidateRings();
+            return true;
+        }
         holdDraft();
         boolean wasSimple = draft == null || draftRing.simple;
         long start = System.nanoTime();
@@ -1339,13 +1911,20 @@ public final class RingTool implements EditTool {
      */
     private void reportDraft(String what) {
         int authoredAnchors = draft.authoredCount();
-        float[] crossing = draftRing.crossings.firstCrossingXyz;
+        boolean bisector = draftBisectorEnds != null;
+        boolean simple = bisector ? draftSimple : draftRing.simple;
+        float[] crossing = simple ? new float[COORDINATES_PER_POINT]
+                : bisector ? bisectorCrossings.firstCrossingXyz
+                        : draftRing.crossings.firstCrossingXyz;
         lastRow = String.format(Locale.ROOT,
                 "draft %s: %s, %d authored + %d supporting anchors, %d edges, length %.5f, "
                         + "sharpest corner %.1f deg, %.0f ms%s",
-                what, draftMode.label, authoredAnchors, draft.anchorCount - authoredAnchors,
+                what, bisector ? "bisector, the open geodesic spline through its anchors from "
+                        + liveLabel(ringOfSerial(draftBisectorEnds[0])) + " to "
+                        + liveLabel(ringOfSerial(draftBisectorEnds[1])) : draftMode.label,
+                authoredAnchors, draft.anchorCount - authoredAnchors,
                 draft.markedEdgeCount, draft.length, draft.minimumInteriorAngleDegrees,
-                draftMillis, draftRing.simple ? "" : String.format(Locale.ROOT,
+                draftMillis, simple ? "" : String.format(Locale.ROOT,
                         ", crosses itself near %.4f,%.4f,%.4f", crossing[0], crossing[1],
                         crossing[2]));
         Platforms.get().log(LOG_PREFIX + lastRow + ", fingerprint "
@@ -1676,6 +2255,11 @@ public final class RingTool implements EditTool {
                 int[] authored = confirmedAuthoredVertexId.get(ring);
                 float[] authoredXyz = SurfaceWaypoints.resolvingPoints(
                         geodesics.metric.nearestVertex, authored, authored.length);
+                if (confirmedBisectorEnds.get(ring) != null) {
+                    // Written below, after every wall.
+                    savedId[ring] = owner != null ? owner.id : savedId[ring];
+                    continue;
+                }
                 float[] normal = confirmedBaseNormal.get(ring);
                 if (owner != null) {
                     savedId[ring] = owner.id;
@@ -1694,6 +2278,61 @@ public final class RingTool implements EditTool {
                             authored.length, normal);
                 }
                 source = RingDslWriter.withMode(source, savedId[ring], confirmedMode.get(ring));
+            }
+            // A bisector names its walls by label, resolved only now, and reads them from the
+            // chain, so it must follow them. Once any bisector or a wall one ends on changed,
+            // every live bisector is written again at the end, each after the bisectors it ends
+            // on, under the id it already had.
+            List<Integer> pending = new ArrayList<>();
+            boolean bisectorsChanged = false;
+            for (int ring = 0; ring < confirmedRings.size(); ring++) {
+                int[] ends = confirmedBisectorEnds.get(ring);
+                if (ends == null || confirmedRingDeleted.get(ring)) {
+                    continue;
+                }
+                pending.add(ring);
+                bisectorsChanged |= confirmedRingUnsaved.get(ring);
+                for (int end : ends) {
+                    int wall = ringOfSerial(end);
+                    bisectorsChanged |= wall >= 0 && confirmedRingUnsaved.get(wall);
+                }
+            }
+            for (int ring : bisectorsChanged ? pending : List.<Integer>of()) {
+                if (savedId[ring] != null) {
+                    source = RingDslWriter.remove(source, savedId[ring]);
+                }
+            }
+            while (bisectorsChanged && !pending.isEmpty()) {
+                boolean wrote = false;
+                for (Iterator<Integer> waiting = pending.iterator(); waiting.hasNext();) {
+                    int ring = waiting.next();
+                    int[] ends = confirmedBisectorEnds.get(ring);
+                    String[] walls = new String[2];
+                    for (int end = 0; end < 2; end++) {
+                        int wall = ringOfSerial(ends[end]);
+                        walls[end] = wall < 0 || pending.contains(wall) ? null
+                                : savedId[wall] != null ? savedId[wall]
+                                        : confirmedSourceLabel.get(wall);
+                    }
+                    if (walls[0] == null || walls[1] == null) {
+                        continue;
+                    }
+                    appended += savedId[ring] == null ? 1 : 0;
+                    savedId[ring] = savedId[ring] != null ? savedId[ring]
+                            : RingDslWriter.nextRingId(source, liveLabels);
+                    int[] authored = confirmedAuthoredVertexId.get(ring);
+                    source = RingDslWriter.appendBisector(source, savedId[ring],
+                            SurfaceWaypoints.resolvingPoints(geodesics.metric.nearestVertex,
+                                    authored, authored.length),
+                            authored.length, walls);
+                    waiting.remove();
+                    wrote = true;
+                }
+                if (!wrote) {
+                    throw new IllegalArgumentException(pending.size() + " bisector(s) end on "
+                            + "each other in a cycle or on a wall that is gone, so none can be "
+                            + "written after its walls");
+                }
             }
             // A statement written for a ring the tool no longer holds, such as one whose confirm
             // was undone after a save, goes too, so the file matches the rings in memory.
@@ -1789,6 +2428,9 @@ public final class RingTool implements EditTool {
         confirmedRingUnsaved.clear();
         confirmedSourceLabel.clear();
         confirmedRingDeleted.clear();
+        confirmedBisectorEnds.clear();
+        confirmedRingSerial.clear();
+        retiredSerialByLabel.clear();
         knownRingStatementIds.clear();
         hoveredRing = -1;
         lastRow = "";
@@ -1808,6 +2450,9 @@ public final class RingTool implements EditTool {
             if (confirmedSourceLabel.get(ring) != null && !confirmedRingUnsaved.get(ring)
                     && !confirmedRingDeleted.get(ring)) {
                 knownRingStatementIds.remove(confirmedStatementIds.get(ring));
+                // Its label is adopted again under the same serial, so bisectors keep their walls.
+                retiredSerialByLabel.put(confirmedSourceLabel.get(ring),
+                        confirmedRingSerial.get(ring));
                 removeConfirmedRing(ring);
             }
         }
@@ -1825,6 +2470,8 @@ public final class RingTool implements EditTool {
         confirmedRingUnsaved.remove(ring);
         confirmedSourceLabel.remove(ring);
         confirmedRingDeleted.remove(ring);
+        confirmedBisectorEnds.remove(ring);
+        confirmedRingSerial.remove(ring);
     }
 
     /**
@@ -1861,6 +2508,45 @@ public final class RingTool implements EditTool {
                 writtenCandidateRings.add(null);
             }
             if (confirmedSourceLabel.contains(label) || convertedGraphLabels.contains(label)) {
+                continue;
+            }
+            if (statement != null && SplineCutNode.NODE_ID.equals(statement.type)) {
+                // A bisector attaches to walls adopted before it, which in graph order are its
+                // walls; from here on it names them by serial, not by label.
+                float[] points = SurfaceWaypoints.parse(
+                        String.valueOf(statement.arguments.get(SplineCutNode.POINTS.name)));
+                String[] endLabels = String.valueOf(
+                        statement.arguments.get(SplineCutNode.ENDS.name))
+                        .split(SplineCutNode.END_SEPARATOR);
+                int[] ends = new int[endLabels.length];
+                for (int end = 0; end < ends.length; end++) {
+                    int wall = confirmedSourceLabel.indexOf(endLabels[end].strip());
+                    ends[end] = wall < 0 ? -1 : confirmedRingSerial.get(wall);
+                }
+                int[] anchors = SurfaceWaypoints.snap(geodesics.metric.nearestVertex, points,
+                        points.length / COORDINATES_PER_POINT);
+                lastError = "it needs two points and two end walls";
+                SurfaceSpline bisector = ends.length == 2 && anchors.length >= 2
+                        ? tracedBisector(anchors, ends) : null;
+                lastError = bisector != null && bisector.markedEdgeCount == 0
+                        ? BISECTOR_WALLS_NOTHING : lastError;
+                if (bisector == null || bisector.markedEdgeCount == 0) {
+                    refused.add(label + ": " + lastError);
+                    continue;
+                }
+                confirmedRings.add(bisector);
+                confirmedAuthoredVertexId.add(anchors);
+                confirmedBaseNormal.add(new float[COORDINATES_PER_POINT]);
+                confirmedMode.add(RingSegmentMode.GEODESIC);
+                confirmedStatementIds.add(statement.id);
+                knownRingStatementIds.add(statement.id);
+                confirmedRingUnsaved.add(false);
+                confirmedSourceLabel.add(label);
+                confirmedRingDeleted.add(false);
+                confirmedBisectorEnds.add(ends);
+                Integer retired = retiredSerialByLabel.remove(label);
+                confirmedRingSerial.add(retired != null ? retired : nextRingSerial++);
+                adopted++;
                 continue;
             }
             AuthoredSplineRing anchored = new AuthoredSplineRing(geodesics);
@@ -1919,6 +2605,9 @@ public final class RingTool implements EditTool {
             confirmedRingUnsaved.add(false);
             confirmedSourceLabel.add(label);
             confirmedRingDeleted.add(false);
+            confirmedBisectorEnds.add(null);
+            Integer retired = retiredSerialByLabel.remove(label);
+            confirmedRingSerial.add(retired != null ? retired : nextRingSerial++);
             if (proposed) {
                 candidateRingByLabel.put(label, traced);
                 writtenCandidateRings.set(candidateLabels.size() - 1, traced);
@@ -1997,6 +2686,8 @@ public final class RingTool implements EditTool {
         confirmedRingUnsaved.add(true);
         confirmedSourceLabel.add(null);
         confirmedRingDeleted.add(false);
+        confirmedBisectorEnds.add(null);
+        confirmedRingSerial.add(nextRingSerial++);
         recordEdit(what, stateBefore);
         invalidateRings();
         int ring = confirmedRings.size() - 1;
@@ -2084,6 +2775,7 @@ public final class RingTool implements EditTool {
         uploadedHoveredGraphRing = hoveredGraphRing;
         uploadedSelected = selectedAnchorVertexId;
         int rings = drawnRingColors.length;
+        uploadedSnap = previewAuthoredVertexId;
         boolean drawingEditing = editing != null
                 && editing.polyline.length >= 2 * COORDINATES_PER_POINT;
         LineSet edited = drawingEditing ? splineLines(scene.halfEdgeSurface(), editing)
@@ -2098,11 +2790,15 @@ public final class RingTool implements EditTool {
         Color[] groupColor = new Color[rings + (drawingEditing ? 1 : 0)];
         System.arraycopy(drawnRingColors, 0, groupColor, 0, rings);
         // The preview, the draft and the ring a click would re-open or convert are drawn in the
-        // colour of the mode the draft runs in: red geodesic, purple crease.
+        // colour of the mode the draft runs in: red geodesic, purple crease; a bisector magenta,
+        // or black while it crosses itself or, previewed, ends off a wall.
+        boolean bisector = draft != null ? draftBisectorEnds != null : bisecting;
+        boolean valid = draft != null ? draftSimple && draft.markedEdgeCount > 0 : previewSimple;
         if (drawingEditing) {
             groupStart[rings + 1] = groupStart[rings] + edited.vertexCount() / 2;
-            groupColor[rings] = (draft != null ? draftMode : newDraftMode)
-                    == RingSegmentMode.CREASE ? CREASE_DRAFT_COLOR : GEODESIC_DRAFT_COLOR;
+            groupColor[rings] = bisector ? (valid ? BISECTOR_DRAFT_COLOR : CROSSING_BISECTOR_COLOR)
+                    : (draft != null ? draftMode : newDraftMode)
+                            == RingSegmentMode.CREASE ? CREASE_DRAFT_COLOR : GEODESIC_DRAFT_COLOR;
         }
         if (hoveredRing >= 0 && drawnRingNumber(hoveredRing) < rings) {
             groupColor[drawnRingNumber(hoveredRing)] =
@@ -2122,9 +2818,15 @@ public final class RingTool implements EditTool {
         // authored larger and cyan, the selected one largest and yellow. Smaller classes go
         // first so a larger disc wins where two overlap.
         int anchors = draft == null ? 0 : draft.anchorCount;
-        int[] anchorVertexId = new int[anchors];
-        Color[] anchorColor = new Color[anchors];
-        float[] anchorDiameter = new float[anchors];
+        // While bisecting with no draft: the waiting first end and the wall vertex a click would
+        // put an end on.
+        int[] bisectorEnds = !bisecting || draft != null ? new int[0]
+                : Arrays.stream(new int[] { bisectorStartVertexId, previewAuthoredVertexId })
+                        .filter(vertexId -> vertexId >= 0).toArray();
+        int discs = anchors + bisectorEnds.length;
+        int[] anchorVertexId = new int[discs];
+        Color[] anchorColor = new Color[discs];
+        float[] anchorDiameter = new float[discs];
         int cursor = 0;
         for (float diameter : new float[] { SUPPORTING_ANCHOR_PIXELS, AUTHORED_ANCHOR_PIXELS,
             SELECTED_ANCHOR_PIXELS }) {
@@ -2140,6 +2842,11 @@ public final class RingTool implements EditTool {
                         : diameter == AUTHORED_ANCHOR_PIXELS ? AUTHORED_ANCHOR_COLOR
                                 : SELECTED_ANCHOR_COLOR;
             }
+        }
+        for (int end : bisectorEnds) {
+            anchorVertexId[cursor] = end;
+            anchorDiameter[cursor] = SELECTED_ANCHOR_PIXELS;
+            anchorColor[cursor++] = SELECTED_ANCHOR_COLOR;
         }
         overlay.setAnchorDiscs(anchorVertexId, anchorColor, anchorDiameter);
     }

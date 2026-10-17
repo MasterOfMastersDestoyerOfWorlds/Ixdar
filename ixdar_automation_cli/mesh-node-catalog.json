@@ -4677,6 +4677,59 @@
       "description": "Blends vertex positions toward a sphere centered at the mesh centroid, controlled by a 0-to-1 factor for partial or full spherization."
     },
     {
+      "id": "spline_cut",
+      "category": "Selection",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the mesh carrying both end walls as edge marks under their labels. Output: the same mesh with the bisector\u0027s edge path added under `label` and its polyline as curve geometry.",
+          "defaultValue": null
+        },
+        {
+          "name": "points",
+          "portType": "STRING",
+          "description": "Anchors as \"x,y,z; x,y,z; ...\" from one end to the other, at least two. The first and last attach to the nearest vertex of their wall, the rest snap to their nearest vertex.",
+          "defaultValue": ""
+        },
+        {
+          "name": "ends",
+          "portType": "STRING",
+          "description": "The edge-mark labels of the walls the first and the last anchor sit on, as \"ring_61; ring_62\"; both may name the same wall.",
+          "defaultValue": ""
+        },
+        {
+          "name": "label",
+          "portType": "STRING",
+          "description": "Name the bisector\u0027s edge path is stored under in the edge-marks slot.",
+          "defaultValue": "spline_cut"
+        },
+        {
+          "name": "metric",
+          "portType": "SURFACE_METRIC",
+          "description": "Required: the metric output of the surface_metric statement measured on this very mesh, the one every spline_ring of the chain shares. A bisector without one is refused.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: the mesh carrying both end walls as edge marks under their labels. Output: the same mesh with the bisector\u0027s edge path added under `label` and its polyline as curve geometry."
+        },
+        {
+          "name": "selection",
+          "portType": "BOOLEAN",
+          "description": "Per-edge BoolField, true on every edge of the bisector."
+        }
+      ],
+      "description": "A bisector: an open geodesic spline through authored anchors, traced like a spline_ring, its first and last anchor attached to the walls named in ends, rings or earlier bisectors on the bundle. It may cross other walls, and splits every region it crosses. The ends are linked: each is re-attached to its wall\u0027s nearest vertex on every evaluation, so editing the wall moves the end. Emits the snapped edge path, trimmed to touch its end walls only at its two ends, as edge marks the region flood takes as a wall."
+    },
+    {
       "id": "spline_ring",
       "category": "Selection",
       "scopes": [

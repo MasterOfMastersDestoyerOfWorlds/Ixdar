@@ -8,9 +8,12 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.paths.RingAttachment;
+
 /**
  * The regions closed ring mark loops cut a surface into, each with its bounding rings and its
- * side of every ring; {@link #SIDE_DISTAL} is a ring's smaller side. An open ring walls nothing.
+ * side of every ring; {@link #SIDE_DISTAL} is a ring's smaller side. An open ring walls only as a
+ * bisector, its loose ends on other walls.
  * {@link #update} re-floods only the regions a changed ring bounds.
  */
 public final class RingRegions {
@@ -52,7 +55,10 @@ public final class RingRegions {
     /** Each ring's edge-id-indexed mark mask, as given. */
     public boolean[][] ringMarksByEdgeId;
 
-    /** Whether each ring closed and so walls the flood; an open or empty ring does not. */
+    /**
+     * Whether each ring walls the flood: a closed ring, or a bisector; an empty ring, or an open one with
+     * an end off every other wall, does not.
+     */
     public boolean[] ringIsWall;
 
     /** Whether each walling ring splits its shell in two; a ring around a handle does not. */
@@ -150,9 +156,7 @@ public final class RingRegions {
 
     private int[][] ringVertexIds = new int[0][];
 
-    private int[] ringLooseEnds = new int[0];
-
-    private int[] ringFirstLooseEnd = new int[0];
+    private int[][] ringLooseEnds = new int[0][];
 
     private int[] ringJunctions = new int[0];
 
@@ -315,9 +319,9 @@ public final class RingRegions {
         int[] edgeCount = new int[ringCount];
         int[][] edgeIds = new int[ringCount][];
         int[][] vertexIds = new int[ringCount][];
-        int[] looseEnds = new int[ringCount];
-        int[] firstLooseEnd = new int[ringCount];
+        int[][] looseEnds = new int[ringCount][];
         int[] junctions = new int[ringCount];
+        int[] ringOfFormer = new int[formerRings];
         for (int ring = 0; ring < ringCount; ring++) {
             formerRingOf[ring] = MeshTopology.NONE;
             for (int former = 0; former < formerRings && formerRingOf[ring] < 0; former++) {
@@ -326,16 +330,15 @@ public final class RingRegions {
                                 && Arrays.equals(ringMarksByEdgeId[former], masks[ring]))) {
                     formerClaimed[former] = true;
                     formerRingOf[ring] = former;
+                    ringOfFormer[former] = ring;
                 }
             }
             int former = formerRingOf[ring];
             if (former != MeshTopology.NONE) {
-                isWall[ring] = ringIsWall[former];
                 edgeCount[ring] = ringEdgeCount[former];
                 edgeIds[ring] = ringEdgeIds[former];
                 vertexIds[ring] = ringVertexIds[former];
                 looseEnds[ring] = ringLooseEnds[former];
-                firstLooseEnd[ring] = ringFirstLooseEnd[former];
                 junctions[ring] = ringJunctions[former];
                 continue;
             }
@@ -363,24 +366,49 @@ public final class RingRegions {
                     }
                 }
             }
-            // A ring walls the flood only when no vertex on it has a single ring edge: a loose end
-            // means the loop never closed, and walling it would only scar the region it lies in.
-            firstLooseEnd[ring] = MeshTopology.NONE;
+            // A vertex on a single ring edge is a loose end: the loop never closed there.
+            int[] ends = new int[vertices];
+            int endCount = 0;
             for (int index = 0; index < vertices; index++) {
                 int vertexId = ringVertices[index];
                 if (vertexDegree[vertexId] == 1) {
-                    looseEnds[ring]++;
-                    firstLooseEnd[ring] = firstLooseEnd[ring] == MeshTopology.NONE ? vertexId
-                            : Math.min(firstLooseEnd[ring], vertexId);
+                    ends[endCount++] = vertexId;
                 } else if (vertexDegree[vertexId] > 2) {
                     junctions[ring]++;
                 }
                 vertexDegree[vertexId] = 0;
             }
+            looseEnds[ring] = Arrays.copyOf(ends, endCount);
+            Arrays.sort(looseEnds[ring]);
             edgeCount[ring] = edges;
             edgeIds[ring] = ringEdges;
             vertexIds[ring] = Arrays.copyOf(ringVertices, vertices);
-            isWall[ring] = edges > 0 && looseEnds[ring] == 0;
+        }
+
+        // A closed ring walls the flood. An open one walls it as a bisector once every loose end
+        // lies on another wall, settled until none is added so a bisector may end on an earlier
+        // one; any other open ring would only scar the region it lies in. A bisector may cross
+        // walls on its way, splitting every region it passes through.
+        boolean[] isBisector = new boolean[ringCount];
+        int wallStamp = ++vertexEpoch;
+        for (boolean grew = true; grew;) {
+            grew = false;
+            for (int ring = 0; ring < ringCount; ring++) {
+                boolean closed = edgeCount[ring] > 0 && looseEnds[ring].length == 0;
+                boolean landed = !closed && edgeCount[ring] > 0;
+                for (int vertexId : landed ? looseEnds[ring] : new int[0]) {
+                    landed &= vertexStamp[vertexId] == wallStamp;
+                }
+                if (isWall[ring] || !closed && !landed) {
+                    continue;
+                }
+                isWall[ring] = true;
+                isBisector[ring] = !closed;
+                grew = true;
+                for (int vertexId : vertexIds[ring]) {
+                    vertexStamp[vertexId] = wallStamp;
+                }
+            }
         }
 
         // Count each edge's walling rings; an edge whose count crosses zero changed its wall.
@@ -389,9 +417,11 @@ public final class RingRegions {
         for (int pass = 0; pass < 2; pass++) {
             int rings = pass == 0 ? formerRings : ringCount;
             for (int ring = 0; ring < rings; ring++) {
-                boolean leaving = pass == 0 && !formerClaimed[ring] && ringIsWall[ring];
-                boolean arriving = pass == 1 && formerRingOf[ring] == MeshTopology.NONE
-                        && isWall[ring];
+                boolean leaving = pass == 0 && ringIsWall[ring]
+                        && (!formerClaimed[ring] || !isWall[ringOfFormer[ring]]);
+                boolean arriving = pass == 1 && isWall[ring]
+                        && (formerRingOf[ring] == MeshTopology.NONE
+                                || !ringIsWall[formerRingOf[ring]]);
                 if (!leaving && !arriving) {
                     continue;
                 }
@@ -673,7 +703,6 @@ public final class RingRegions {
         ringEdgeIds = edgeIds;
         ringVertexIds = vertexIds;
         ringLooseEnds = looseEnds;
-        ringFirstLooseEnd = firstLooseEnd;
         ringJunctions = junctions;
         ringSplitsNothing = splitsNothing;
         ringSeparates = new boolean[ringCount];
@@ -684,12 +713,13 @@ public final class RingRegions {
         for (int ring = 0; ring < ringCount; ring++) {
             if (edgeCount[ring] == 0) {
                 problems.add(labels[ring] + " marks no edge of this surface");
-            } else if (looseEnds[ring] > 0) {
-                mesh.vertexPosition(firstLooseEnd[ring], position);
+            } else if (!isWall[ring]) {
+                mesh.vertexPosition(looseEnds[ring][0], position);
                 problems.add(String.format(Locale.ROOT,
-                        "%s is open: %d loose end(s), the first at %.4f,%.4f,%.4f; it walls "
-                                + "nothing",
-                        labels[ring], looseEnds[ring], position.x, position.y, position.z));
+                        "%s is open: %d loose end(s), the first at %.4f,%.4f,%.4f, not all on "
+                                + "another wall; it walls nothing",
+                        labels[ring], looseEnds[ring].length, position.x, position.y,
+                        position.z));
             } else if (junctions[ring] > 0) {
                 problems.add(labels[ring] + " meets itself at " + junctions[ring]
                         + " vertex(es); it still walls, but is not one simple loop");
@@ -698,13 +728,14 @@ public final class RingRegions {
 
         // A ring's sides are the pieces the surface falls into with only that ring as a wall:
         // components joined across every other walling edge, the flood each ring alone would make.
+        // A bisector alone parts nothing, so it has no sides.
         sideByRingRegion = new byte[ringCount][regionCount];
         int[] pieceOf = new int[componentCount];
         double[] pieceArea = new double[componentCount];
         boolean[] adjacent = new boolean[componentCount];
         for (int ring = 0; ring < ringCount; ring++) {
             Arrays.fill(sideByRingRegion[ring], SIDE_NONE);
-            if (!isWall[ring]) {
+            if (!isWall[ring] || isBisector[ring]) {
                 continue;
             }
             boolean[] marks = masks[ring];
@@ -787,7 +818,9 @@ public final class RingRegions {
         boolean[][] crossed = new boolean[ringCount][ringCount];
         for (int ring = 0; ring < ringCount; ring++) {
             for (int other = 0; ringSeparates[ring] && other < ringCount; other++) {
-                if (other == ring || !isWall[other] || ringSeparates[other] && other < ring) {
+                // A bisector crosses the walls on its way by design.
+                if (other == ring || !isWall[other] || isBisector[other]
+                        || ringSeparates[other] && other < ring) {
                     continue;
                 }
                 if (sidesReached(other, ring) == (SIDE_MASK_DISTAL | SIDE_MASK_PROXIMAL)) {
@@ -798,6 +831,9 @@ public final class RingRegions {
             }
         }
         // Rings that touch without crossing still pinch slivers of a face or two between them.
+        // Rings that share edges share one wall there, so a vertex on an edge both mark is no
+        // touch, and neither is a bisector's end, which sits on its wall by design.
+        int[] bisectorEdge = new int[2];
         for (int ring = 0; ring < ringCount; ring++) {
             int stamp = ++vertexEpoch;
             for (int vertexId : isWall[ring] ? vertexIds[ring] : new int[0]) {
@@ -807,9 +843,35 @@ public final class RingRegions {
                 if (!isWall[other] || crossed[ring][other]) {
                     continue;
                 }
+                boolean[] marks = ringMarksByEdgeId[ring];
+                boolean[] otherMarks = ringMarksByEdgeId[other];
                 int shared = 0;
                 for (int vertexId : vertexIds[other]) {
-                    shared += vertexStamp[vertexId] == stamp ? 1 : 0;
+                    boolean pinchesNothing = isBisector[ring]
+                            && Arrays.binarySearch(looseEnds[ring], vertexId) >= 0
+                            || isBisector[other] && Arrays.binarySearch(looseEnds[other], vertexId) >= 0;
+                    for (int slot = 0; vertexStamp[vertexId] == stamp && !pinchesNothing
+                            && slot < mesh.vertexEdgeCount(vertexId); slot++) {
+                        int edgeId = mesh.vertexEdgeAt(vertexId, slot);
+                        pinchesNothing = edgeId < marks.length && edgeId < otherMarks.length
+                                && marks[edgeId] && otherMarks[edgeId];
+                    }
+                    // A bisector passing through a wall at a vertex crosses it there, which pinches
+                    // nothing.
+                    boolean[] bisectorMarks = isBisector[ring] ? marks : otherMarks;
+                    int bisectorEdges = 0;
+                    for (int slot = 0; vertexStamp[vertexId] == stamp && !pinchesNothing
+                            && (isBisector[ring] || isBisector[other])
+                            && slot < mesh.vertexEdgeCount(vertexId); slot++) {
+                        int edgeId = mesh.vertexEdgeAt(vertexId, slot);
+                        if (edgeId < bisectorMarks.length && bisectorMarks[edgeId]) {
+                            bisectorEdge[Math.min(1, bisectorEdges++)] = edgeId;
+                        }
+                    }
+                    pinchesNothing |= bisectorEdges == 2 && RingAttachment.crossesAt(mesh,
+                            vertexId, bisectorEdge[0], bisectorEdge[1],
+                            isBisector[ring] ? otherMarks : marks);
+                    shared += vertexStamp[vertexId] == stamp && !pinchesNothing ? 1 : 0;
                 }
                 if (shared > 0) {
                     problems.add(labels[ring] + " and " + labels[other]

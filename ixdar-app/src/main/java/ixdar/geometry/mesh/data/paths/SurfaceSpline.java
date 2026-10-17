@@ -8,20 +8,19 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.RingBundle;
 
 /**
- * A closed cubic spline lying on a surface: its anchors, the polyline traced through them, and the
- * mesh edge cycle nearest that polyline.
- *
- * <p>
- * Both tangent handles at an anchor lie on one line through it, so the junction is smooth where a
- * ring of geodesics would corner.
+ * A cubic spline on a surface, a closed ring or an open bisector: its anchors, its traced polyline and
+ * the mesh edges nearest it. Each anchor's two tangent handles are collinear, so it turns smoothly.
  */
 public final class SurfaceSpline {
 
     public static final int COORDINATES_PER_POINT = 3;
 
     public static final double SMALLEST_MEASURED_SPAN_IN_EDGES = 0.25;
+
+    public static final int GRAZING_STEPS = 4;
 
     public static final String SLOT = "_surface_splines";
 
@@ -40,8 +39,11 @@ public final class SurfaceSpline {
     /** Surface the spline lies on, which every point and edge id here indexes; null before. */
     public MeshTopology mesh;
 
-    /** Packed xyz of the traced spline; the first point is repeated at the end. */
+    /** Packed xyz of the traced spline; a closed one repeats its first point at the end. */
     public float[] polyline = new float[0];
+
+    /** Whether the spline is an open bisector from its first anchor to its last, not a ring. */
+    public boolean open;
 
     /** Mesh vertex each {@link #polyline} point sits on, or -1 elsewhere. */
     public int[] pointVertexId = new int[0];
@@ -141,28 +143,146 @@ public final class SurfaceSpline {
      */
     public static SurfaceSpline of(SurfaceSplineTracer tracer) {
         SurfaceSpline spline = unsnapped(tracer);
-        MeshTopology mesh = tracer.geodesics.mesh;
         ConformingLoopSnap snap = new ConformingLoopSnap();
-        spline.markedByEdgeId = snap.snap(mesh, tracer.tracedRing());
+        boolean[] marks = snap.snap(tracer.geodesics.mesh, tracer.tracedRing());
         spline.unresolvedGaps = snap.unresolvedGaps;
-        for (boolean marked : spline.markedByEdgeId) {
-            if (marked) {
-                spline.markedEdgeCount++;
-            }
-        }
-        spline.markedEdgeIds = new int[spline.markedEdgeCount];
-        int next = 0;
-        for (int edgeId = 0; edgeId < spline.markedByEdgeId.length; edgeId++) {
-            if (spline.markedByEdgeId[edgeId]) {
-                spline.markedEdgeIds[next++] = edgeId;
-            }
-        }
-        spline.smallestMeasuredSpan =
-                SMALLEST_MEASURED_SPAN_IN_EDGES * tracer.geodesics.metric.meanEdgeLength;
-        spline.setCentroid();
-        spline.setMeanRadius();
-        spline.setMinimumInteriorAngle();
+        spline.measure(marks, tracer.geodesics.metric.meanEdgeLength);
         return spline;
+    }
+
+    /**
+     * A bisector through authored anchors whose first and last sit on walls: the open geodesic
+     * spline, walled by the longest run of its snapped edge path touching those walls only at its
+     * ends. Walls it crosses on the way do not stop it.
+     *
+     * @param geodesics       engine over the surface the bisector lies on
+     * @param anchorVertexIds mesh vertices it passes through in order, both ends on walls
+     * @param startWall       edge-id-indexed wall the first anchor sits on
+     * @param endWall         edge-id-indexed wall the last anchor sits on, possibly the same
+     * @return the bisector, with no marked edge when its snapped path does not join its two ends
+     */
+    public static SurfaceSpline bisector(SurfaceGeodesics geodesics, int[] anchorVertexIds,
+            boolean[] startWall, boolean[] endWall) {
+        MeshTopology mesh = geodesics.mesh;
+        SurfaceSplineTracer tracer = new SurfaceSplineTracer(geodesics);
+        tracer.open = true;
+        boolean[] authored = new boolean[anchorVertexIds.length];
+        Arrays.fill(authored, true);
+        boolean traced = tracer.setAnchors(anchorVertexIds, authored, anchorVertexIds.length);
+        SurfaceSpline spline = unsnapped(tracer);
+        boolean[] marks = new boolean[RingBundle.edgeIdCeiling(mesh)];
+        boolean[] snapped = new boolean[0];
+        if (traced) {
+            ConformingLoopSnap snap = new ConformingLoopSnap();
+            snapped = snap.snap(mesh, tracer.tracedRing());
+            spline.unresolvedGaps = snap.unresolvedGaps;
+        }
+        // The walk runs over the snapped edges' own vertices, sorted so a vertex finds its slot
+        // by binary search, which keeps its arrays the size of the path, not of the mesh.
+        int[] vertices = new int[0];
+        int vertexCount = 0;
+        for (int edgeId = 0; edgeId < snapped.length; edgeId++) {
+            if (!snapped[edgeId]) {
+                continue;
+            }
+            vertices = vertexCount + 2 > vertices.length
+                    ? Arrays.copyOf(vertices, 2 * vertexCount + 2) : vertices;
+            int halfEdge = mesh.edgeHalfEdge(edgeId);
+            vertices[vertexCount++] = mesh.halfEdgeVertex(halfEdge);
+            vertices[vertexCount++] = mesh.halfEdgeEndVertex(halfEdge);
+        }
+        vertices = Arrays.stream(vertices, 0, vertexCount).sorted().distinct().toArray();
+        int[] parent = new int[vertices.length];
+        Arrays.fill(parent, -1);
+        int[] queue = new int[vertices.length];
+        int from = traced ? Arrays.binarySearch(vertices, anchorVertexIds[0]) : -1;
+        int to = traced ? Arrays.binarySearch(vertices, anchorVertexIds[anchorVertexIds.length - 1])
+                : -1;
+        int tail = 0;
+        if (from >= 0 && to >= 0) {
+            parent[from] = from;
+            queue[tail++] = from;
+        }
+        // The fewest-edge walk over the snapped edges drops the spurs and loops a snap of an open
+        // curve leaves where consecutive points fall back onto a vertex already passed.
+        for (int head = 0; head < tail && parent[to] < 0; head++) {
+            int vertexId = vertices[queue[head]];
+            for (int spoke = 0; spoke < mesh.vertexEdgeCount(vertexId); spoke++) {
+                int edgeId = mesh.vertexEdgeAt(vertexId, spoke);
+                if (edgeId >= snapped.length || !snapped[edgeId]) {
+                    continue;
+                }
+                int other = Arrays.binarySearch(vertices, mesh.edgeOtherVertex(edgeId, vertexId));
+                if (parent[other] < 0) {
+                    parent[other] = queue[head];
+                    queue[tail++] = other;
+                }
+            }
+        }
+        int steps = 0;
+        for (int slot = to; to >= 0 && parent[to] >= 0 && slot != from; slot = parent[slot]) {
+            queue[steps++] = vertices[slot];
+        }
+        if (to >= 0 && parent[to] >= 0) {
+            queue[steps++] = vertices[from];
+        }
+        // The walk runs end to start in the queue. Near each end it may run along its wall, or
+        // touch it again a few edges on, which would pinch a pocket of faces off: each end moves
+        // in to the last such touch. A crossing, of its own wall or any other, is kept.
+        int runFrom = 0;
+        int runTo = steps - 1;
+        for (int side = 0; side < 2 && steps >= 2; side++) {
+            boolean[] wall = side == 0 ? endWall : startWall;
+            int direction = side == 0 ? 1 : -1;
+            int last = side == 0 ? 0 : steps - 1;
+            for (int step = last + direction; step > 0 && step < steps - 1
+                    && Math.abs(step - last) <= GRAZING_STEPS; step += direction) {
+                int vertexId = queue[step];
+                boolean onWall = false;
+                for (int spoke = 0; !onWall && spoke < mesh.vertexEdgeCount(vertexId); spoke++) {
+                    int edgeId = mesh.vertexEdgeAt(vertexId, spoke);
+                    onWall = edgeId < wall.length && wall[edgeId];
+                }
+                if (onWall && RingAttachment.crossesAt(mesh, vertexId,
+                        mesh.edgeBetween(queue[step - direction], vertexId),
+                        mesh.edgeBetween(vertexId, queue[step + direction]), wall)) {
+                    break;
+                }
+                last = onWall ? step : last;
+            }
+            runFrom = side == 0 ? last : runFrom;
+            runTo = side == 1 ? last : runTo;
+        }
+        for (int step = runFrom; step < runTo; step++) {
+            marks[mesh.edgeBetween(queue[step], queue[step + 1])] = true;
+        }
+        spline.measure(marks, geodesics.metric.meanEdgeLength);
+        return spline;
+    }
+
+    /**
+     * Take an edge mask as this spline's walls and measure the traced points: centroid, mean
+     * radius and sharpest corner.
+     */
+    private void measure(boolean[] marks, double meanEdgeLength) {
+        markedByEdgeId = marks;
+        markedEdgeCount = 0;
+        for (boolean marked : marks) {
+            if (marked) {
+                markedEdgeCount++;
+            }
+        }
+        markedEdgeIds = new int[markedEdgeCount];
+        int next = 0;
+        for (int edgeId = 0; edgeId < marks.length; edgeId++) {
+            if (marks[edgeId]) {
+                markedEdgeIds[next++] = edgeId;
+            }
+        }
+        smallestMeasuredSpan = SMALLEST_MEASURED_SPAN_IN_EDGES * meanEdgeLength;
+        setCentroid();
+        setMeanRadius();
+        setMinimumInteriorAngle();
     }
 
     /**
@@ -199,16 +319,18 @@ public final class SurfaceSpline {
     }
 
     /**
-     * Take a closed traced path as this spline's points: {@link #polyline} and the per-point
-     * vertex, edge or face it lies on, the first point repeated at the end, and their surface
+     * Take a traced path as this spline's points: {@link #polyline} and the per-point vertex, edge
+     * or face it lies on, a closed path's first point repeated at the end, and their surface
      * positions.
      *
      * @param mesh   surface the path's vertex, edge and face ids index
-     * @param traced closed path whose points each sit on a vertex, cross an edge or lie in a face
+     * @param traced path whose points each sit on a vertex, cross an edge or lie in a face
      */
     public void followPath(MeshTopology mesh, TracedSurfacePath traced) {
         this.mesh = mesh;
-        int pointCount = traced.pointCount == 0 ? 0 : traced.pointCount + 1;
+        open = !traced.closed;
+        int pointCount = traced.pointCount == 0 || open ? traced.pointCount
+                : traced.pointCount + 1;
         polyline = new float[COORDINATES_PER_POINT * pointCount];
         surfacePolyline = new float[COORDINATES_PER_POINT * pointCount];
         pointVertexId = new int[pointCount];
@@ -285,19 +407,19 @@ public final class SurfaceSpline {
     }
 
     /**
-     * The spline's path on the surface as one closed trace, its points on the vertices, edges and
-     * faces they lie on, the form {@link SurfacePathCrossings} reads.
+     * The spline's path on the surface as one trace, its points on the vertices, edges and faces
+     * they lie on, the form {@link SurfacePathCrossings} reads.
      *
-     * @return the closed path, without the repeated first point
+     * @return the path, closed without the repeated first point unless the spline is open
      */
     public TracedSurfacePath surfacePath() {
-        int points = Math.max(0, pointVertexId.length - 1);
+        int points = open ? pointVertexId.length : Math.max(0, pointVertexId.length - 1);
         double[] xyz = new double[COORDINATES_PER_POINT * points];
         for (int coordinate = 0; coordinate < xyz.length; coordinate++) {
             xyz[coordinate] = surfacePolyline[coordinate];
         }
         return new TracedSurfacePath(xyz, xyz, pointVertexId, pointEdgeId, pointFaceId,
-                pointFraction, points, true);
+                pointFraction, points, !open);
     }
 
     /**

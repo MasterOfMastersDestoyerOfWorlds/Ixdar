@@ -60,8 +60,11 @@ public final class RingDslWriter {
 
     public static final String CREASES_STATEMENT_ID = "creases";
 
+    public static final Set<String> METRIC_RING_NODES =
+            Set.of(SPLINE_RING_NODE, SplineCutNode.NODE_ID);
+
     public static final Set<String> MESH_PRESERVING_RING_NODES =
-            Set.of(SPLINE_RING_NODE, "loop_through_points");
+            Set.of(SPLINE_RING_NODE, SplineCutNode.NODE_ID, "loop_through_points");
 
     public static final String NO_UPSTREAM =
             "the working graph has no statement for the ring to read its geometry from";
@@ -146,6 +149,30 @@ public final class RingDslWriter {
         return appended(dslSource, splineStatement(id,
                 upstream.id + "." + geometryPort(upstream.type), packedXyz, anchorCount,
                 baseNormal));
+    }
+
+    /**
+     * The DSL source with one more bisector appended under a given id, chained onto the graph's
+     * last statement, which puts it after every wall already written.
+     *
+     * @param dslSource   working graph the bisector is added to
+     * @param id          statement id and label to bind it to, unbound in the source
+     * @param packedXyz   the bisector's anchors as packed xyz, end to end
+     * @param anchorCount anchors to write from the front of the array
+     * @param ends        labels of the walls the first and the last anchor sit on
+     * @throws IllegalArgumentException when the source holds no statement to chain onto
+     * @return the source with the statement and a trailing newline appended
+     */
+    public static String appendBisector(String dslSource, String id, float[] packedXyz,
+            int anchorCount, String[] ends) {
+        List<PythonParser.ParsedNode> statements = upstreamStatements(dslSource);
+        PythonParser.ParsedNode upstream = statements.get(statements.size() - 1);
+        return appended(dslSource, id + " = " + SplineCutNode.NODE_ID + "(geometry="
+                + upstream.id + "." + geometryPort(upstream.type) + ", " + POINTS_ARGUMENT
+                + SurfaceWaypoints.format(packedXyz, anchorCount) + "\", "
+                + SplineCutNode.ENDS.name + "=\""
+                + String.join(SplineCutNode.END_SEPARATOR + " ", ends) + "\", label=\"" + id
+                + "\")");
     }
 
     /**
@@ -366,13 +393,12 @@ public final class RingDslWriter {
     }
 
     /**
-     * The DSL source with every spline ring wired to what it reads besides geometry: {@code metric=}
-     * names the {@code surface_metric} its chain runs back to, one made before it when there is
-     * none, and a crease-mode ring's {@code creases=} the {@code surface_creases} on that surface.
+     * The DSL source with every spline ring and bisector wired to its {@code surface_metric}, made
+     * when missing, and every crease-mode ring to that surface's {@code surface_creases}.
      *
      * @param dslSource working graph
      * @throws IllegalArgumentException when a statement the wiring rewrites is bound twice
-     * @return the wired source, or the source itself when every spline ring is already wired
+     * @return the wired source, or the source itself when every such ring is already wired
      */
     public static String wireRingInputs(String dslSource) {
         List<PythonParser.ParsedNode> statements = NodeGraphRuntime.fromSource(dslSource).statements;
@@ -404,7 +430,7 @@ public final class RingDslWriter {
             if (statement.arguments.get(SplineRingNode.METRIC.name)
                     instanceof PythonParser.NodeReference wired) {
                 metricId = wired.nodeId;
-            } else if (SPLINE_RING_NODE.equals(statement.type) && upstream != null) {
+            } else if (METRIC_RING_NODES.contains(statement.type) && upstream != null) {
                 int target = bindingLine(lines.toArray(new String[0]), statement.id);
                 if (metricId == null) {
                     metricId = METRIC_STATEMENT_ID;

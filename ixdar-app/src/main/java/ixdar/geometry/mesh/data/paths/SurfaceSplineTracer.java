@@ -39,6 +39,12 @@ public final class SurfaceSplineTracer {
     /** Geodesic engine every average and every leaf is computed with. */
     public SurfaceGeodesics geodesics;
 
+    /**
+     * Whether the spline runs from its first anchor to its last without closing: each end's
+     * tangent follows its one chord, and no segment returns to the first anchor.
+     */
+    public boolean open;
+
     /** Bisections a segment may reach. */
     public int maximumDepth = DEFAULT_MAXIMUM_DEPTH;
 
@@ -135,10 +141,11 @@ public final class SurfaceSplineTracer {
      * @param vertexIds mesh vertices the spline passes through, in ring order
      * @param authored  whether each anchor was placed by the user, in the same order
      * @param count     anchors to take from the front of {@code vertexIds}
-     * @return true when at least three anchors were accepted and traced
+     * @return true when at least three anchors, or two for an {@link #open} spline, were
+     *         accepted and traced
      */
     public boolean setAnchors(int[] vertexIds, boolean[] authored, int count) {
-        if (count < MINIMUM_ANCHORS) {
+        if (count < (open ? 2 : MINIMUM_ANCHORS)) {
             anchorCount = 0;
             return false;
         }
@@ -220,6 +227,16 @@ public final class SurfaceSplineTracer {
      * @param segment segment index, running from anchor {@code segment} to the next one
      */
     public void retraceSegment(int segment) {
+        if (open && segment == anchorCount - 1) {
+            segmentXyz[segment] = new double[0];
+            segmentVertexId[segment] = new int[0];
+            segmentSurfaceXyz[segment] = new double[0];
+            segmentEdgeId[segment] = new int[0];
+            segmentFaceId[segment] = new int[0];
+            segmentFraction[segment] = new double[0];
+            segmentDepth[segment] = 0;
+            return;
+        }
         setHandles(segment);
         prepareRecursionStack();
         int[] seed = {
@@ -246,13 +263,13 @@ public final class SurfaceSplineTracer {
     }
 
     /**
-     * The whole ring as one closed traced path, the form the conforming edge-cycle snap and the
-     * ring overlay both read.
+     * The whole spline as one traced path, the form the conforming edge-cycle snap and the ring
+     * overlay both read: closed, or for an {@link #open} spline ending on its last anchor.
      *
-     * @return the closed path, or an empty one before any anchors are set
+     * @return the path, or an empty one before any anchors are set
      */
     public TracedSurfacePath tracedRing() {
-        int total = 0;
+        int total = open && anchorCount > 0 ? 1 : 0;
         for (int segment = 0; segment < anchorCount; segment++) {
             total += segmentVertexId[segment].length;
         }
@@ -275,8 +292,19 @@ public final class SurfaceSplineTracer {
             System.arraycopy(segmentFraction[segment], 0, fraction, cursor, points);
             cursor += points;
         }
+        if (open && anchorCount > 0) {
+            geodesics.mesh.vertexPosition(anchorVertexId[anchorCount - 1], anchorPosition);
+            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+                positions[COORDINATES_PER_POINT * cursor + axis] = anchorPosition.get(axis);
+                surfacePositions[COORDINATES_PER_POINT * cursor + axis] = anchorPosition.get(axis);
+            }
+            vertexId[cursor] = anchorVertexId[anchorCount - 1];
+            edgeId[cursor] = -1;
+            faceId[cursor] = -1;
+            fraction[cursor] = -1.0;
+        }
         return new TracedSurfacePath(positions, surfacePositions, vertexId, edgeId, faceId,
-                fraction, total, true);
+                fraction, total, !open);
     }
 
     private void prepareRecursionStack() {
@@ -324,6 +352,13 @@ public final class SurfaceSplineTracer {
             mesh.vertexPosition(anchorVertexId[Math.floorMod(anchor - 1, anchorCount)],
                     previousPosition);
             mesh.vertexPosition(anchorVertexId[(anchor + 1) % anchorCount], nextPosition);
+            // An open spline's end has one chord, which its tangent follows: the anchor stands in
+            // for the missing neighbour, so that side weighs nothing.
+            if (open && anchor == 0) {
+                previousPosition.set(anchorPosition);
+            } else if (open && anchor == anchorCount - 1) {
+                nextPosition.set(anchorPosition);
+            }
             incoming.set(anchorPosition).sub(previousPosition);
             outgoing.set(nextPosition).sub(anchorPosition);
             double behind = incoming.length();

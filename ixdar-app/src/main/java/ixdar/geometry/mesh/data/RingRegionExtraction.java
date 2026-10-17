@@ -852,15 +852,16 @@ public final class RingRegionExtraction {
     }
 
     /**
-     * Whether a ring is cut along its spline: it walls the regions and carries a spline traced on
-     * this surface.
+     * Whether a ring is cut along its spline: it walls the regions and carries a closed spline
+     * traced on this surface. An open cut is trimmed off its spline, so it follows its edges.
      *
      * @param ring ring index
      * @return true when the cut follows the spline, false when it follows the marked edges
      */
     public boolean cutsAlongSpline(int ring) {
         SurfaceSpline spline = splineByRing[ring];
-        return regions.ringIsWall[ring] && spline != null && spline.mesh == regions.mesh
+        return regions.ringIsWall[ring] && spline != null && !spline.open
+                && spline.mesh == regions.mesh
                 && spline.pointVertexId.length > TRIANGLE_CORNERS;
     }
 
