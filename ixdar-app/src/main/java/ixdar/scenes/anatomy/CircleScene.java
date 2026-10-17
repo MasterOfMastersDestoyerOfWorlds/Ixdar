@@ -42,7 +42,7 @@ public class CircleScene extends Scene {
         float radius = Math.min(cx, cy);
 
         Vector2f center = new Vector2f(cx, cy);
-        circle.draw(center, radius, Color.BLUE_WHITE, camera2D);
+        circle.draw(center, radius, Color.BLUE_GREY, camera2D);
     }
 
 }

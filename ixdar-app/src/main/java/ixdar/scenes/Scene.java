@@ -119,7 +119,7 @@ public abstract class Scene extends Canvas3D {
         }
         if (sceneTerminal != null && Toggle.IsTerminalFocused.value) {
             camera2D.updateView(VIEW_SCENE_TERMINAL);
-            chromeBackground.draw(Color.DARK_GRAY, camera2D);
+            chromeBackground.draw(Color.GREY_VERY_DARK, camera2D);
             sceneTerminal.draw(camera2D);
         }
         camera2D.resetView();

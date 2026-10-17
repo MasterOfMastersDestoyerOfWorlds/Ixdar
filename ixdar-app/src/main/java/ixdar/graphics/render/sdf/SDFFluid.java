@@ -25,8 +25,8 @@ public class SDFFluid extends ShaderDrawable {
     }
 
     /**
-     * Push fluid effect uniforms (palette, spin, contrast, time, aspect-aware
-     * pixel size) for the current frame.
+     * Push fluid effect uniforms (palette, spin, contrast, time, aspect-aware pixel
+     * size) for the current frame.
      */
     protected void setUniforms() {
         shader.setBool("polar_coordinates", false); // cool polar coordinates effect
@@ -42,9 +42,10 @@ public class SDFFluid extends ShaderDrawable {
         shader.setFloat("spin_rotation", 1);
         shader.setFloat("spin_speed", SPIN_SPEED);
         shader.setVec2("offset", new Vector2f(0f, 0f));
-        shader.setVec4("colour_1", new ColorLerp(Color.PURPLE, Color.NAVY, COLOR_MIX_1).toVector4f());
-        shader.setVec4("colour_2", new ColorLerp(Color.IXDAR, Color.LIGHT_NAVY, COLOR_MIX_2).toVector4f());
-        shader.setVec4("colour_3", new ColorLerp(Color.DARK_IXDAR, Color.DARK_PURPLE, COLOR_MIX_3).toVector4f());
+        shader.setVec4("colour_1",
+                new ColorLerp(Color.PURPLE_DARK, Color.BLUE_TEAL_VERY_DARK, COLOR_MIX_1).toVector4f());
+        shader.setVec4("colour_2", new ColorLerp(Color.IXDAR, Color.BLUE_DARK, COLOR_MIX_2).toVector4f());
+        shader.setVec4("colour_3", new ColorLerp(Color.IXDAR_DARK, Color.GREY_VERY_DARK, COLOR_MIX_3).toVector4f());
         shader.setFloat("contrast", CONTRAST);
         shader.setFloat("spin_amount", SPIN_AMOUNT);
         shader.setFloat("pixel_filter", PIXEL_FILTER);

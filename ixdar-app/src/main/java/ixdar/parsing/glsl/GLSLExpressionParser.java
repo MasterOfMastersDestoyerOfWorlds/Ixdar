@@ -12,7 +12,6 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.joml.Vector4f;
 
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.text.SpecialGlyphs;
 
 public class GLSLExpressionParser {
@@ -57,7 +56,7 @@ public class GLSLExpressionParser {
     public static final int MIN_UNIFORM_DECL_TOKENS = 3;
     public static final int COMPONENT_W_INDEX = 3;
 
-    public static final GLSLParseText MISSING = new GLSLParseText("?Missing?", Color.PINK, -1);
+    public static final GLSLParseText MISSING = new GLSLParseText("?Missing?", Color.PINK_VERY_LIGHT, -1);
 
     private final String s;
     private int pos;
@@ -142,7 +141,7 @@ public class GLSLExpressionParser {
                         GLSLParseText.putVec(env, var, vec);
                         return env.get(var);
                     } else {
-                        env.put(var, new GLSLParseText(right, Color.BLUE_WHITE, -1));
+                        env.put(var, new GLSLParseText(right, Color.BLUE_GREY, -1));
                         return env.get(var);
                     }
                 }
@@ -245,7 +244,7 @@ public class GLSLExpressionParser {
                 braceDepth++;
 
                 boolean doExecThen = parentExec && thenExec;
-                GLSLParseText boolVal = new GLSLParseText(doExecThen ? TRUE : FALSE, Color.GLSL_BOOLEAN);
+                GLSLParseText boolVal = new GLSLParseText(doExecThen ? TRUE : FALSE, GLSLParseText.BOOLEAN_COLOR);
                 cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(boolVal));
                 continue;
             }
@@ -266,7 +265,7 @@ public class GLSLExpressionParser {
                 if (doExec) {
                     awaitingElseExec = false;
                 }
-                GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, Color.GLSL_BOOLEAN);
+                GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, GLSLParseText.BOOLEAN_COLOR);
                 cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(boolVal));
                 continue;
             }
@@ -280,7 +279,7 @@ public class GLSLExpressionParser {
                 braceDepth++;
                 awaitingElseExec = false;
 
-                GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, Color.GLSL_BOOLEAN);
+                GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, GLSLParseText.BOOLEAN_COLOR);
                 cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(boolVal));
                 continue;
             }
@@ -312,9 +311,9 @@ public class GLSLExpressionParser {
                     if (runThen) {
                         awaitingElseExec = false;
                     }
-                    GLSLParseText boolVal = new GLSLParseText(runThen ? TRUE : FALSE, Color.GLSL_BOOLEAN);
+                    GLSLParseText boolVal = new GLSLParseText(runThen ? TRUE : FALSE, GLSLParseText.BOOLEAN_COLOR);
                     if (!runThen) {
-                        GLSLParseText skip = new GLSLParseText(SKIP, Color.GLSL_SKIP);
+                        GLSLParseText skip = new GLSLParseText(SKIP, GLSLParseText.SKIP_COLOR);
                         cachedSuffixes.set(i, commentStart(skip).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(skip));
                     } else {
                         cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(boolVal));
@@ -327,7 +326,7 @@ public class GLSLExpressionParser {
                             out = commentStart(res).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(res);
                         }
                     } else if (!afterElse.isEmpty()) {
-                        GLSLParseText skip = new GLSLParseText(SKIP, Color.GLSL_SKIP);
+                        GLSLParseText skip = new GLSLParseText(SKIP, GLSLParseText.SKIP_COLOR);
                         out = commentStart(skip).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(skip);
                     } else {
                         out = GLSLParseText.BLANK;
@@ -355,7 +354,7 @@ public class GLSLExpressionParser {
                     }
                 }
             } else if (!executing && !skipControlOnlyLine(decl)) {
-                GLSLParseText skip = new GLSLParseText(SKIP, Color.GLSL_SKIP);
+                GLSLParseText skip = new GLSLParseText(SKIP, GLSLParseText.SKIP_COLOR);
                 out = commentStart(skip).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(skip);
             } else {
                 out = GLSLParseText.BLANK;
@@ -552,7 +551,7 @@ public class GLSLExpressionParser {
     private static GLSLParseText commentStart(GLSLParseText res) {
         if (res.vectorLength == VEC4_COMPONENTS) {
             return new GLSLParseText(SpecialGlyphs.COLOR_TRACKER.getChar() + "",
-                    new ColorRGB(res.data.x, res.data.y, res.data.z, res.data.w));
+                    Color.fromVector4f(res.data));
         } else {
             return new GLSLParseText(COMMENT_MARKER);
         }
@@ -840,7 +839,7 @@ public class GLSLExpressionParser {
         if (match('-')) {
             GLSLParseText f = parseFactor();
             Vector4f out = new Vector4f(f.data).negate();
-            return new GLSLParseText("", Color.GLSL_FLOAT, out, f.vectorLength, "");
+            return new GLSLParseText("", GLSLParseText.FLOAT_COLOR, out, f.vectorLength, "");
         }
         if (match('(')) {
             GLSLParseText v = parseExpr();

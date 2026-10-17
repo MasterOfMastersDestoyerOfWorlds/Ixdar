@@ -3,7 +3,6 @@ package ixdar.platform.automation.endpoints.mesh.patches;
 import java.io.File;
 import java.io.IOException;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import ixdar.annotations.automation.APIMethod;
@@ -13,9 +12,7 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.automation.AutomationEndpoint;
 
-import ixdar.geometry.mesh.data.Patch;
-
-import ixdar.geometry.mesh.data.PatchColors;
+import ixdar.geometry.mesh.data.PatchDecomposerCLI;
 
 import ixdar.geometry.mesh.data.PatchDecomposition;
 
@@ -50,33 +47,7 @@ public class Decompose extends AutomationEndpoint implements AutomationRoute {
                 .decompose(
                         mesh,
                         resolution);
-        JsonObject out = new JsonObject();
-        out.addProperty(OK, true);
-        out.addProperty("vertex_count", decomposition.vertexCount());
-        JsonArray patches = new JsonArray();
-        for (Patch p : decomposition.patches()) {
-            JsonObject pj = new JsonObject();
-            pj.addProperty("id", p.id());
-            pj.addProperty("branch_id", p.branchId());
-            pj.addProperty("color", p.color());
-            pj.addProperty("flat_color", PatchColors.uniquePatchColorHex(p.id()));
-            pj.addProperty("curvature_mean", p.curvatureMean());
-            JsonArray centroid = new JsonArray();
-            for (float c : p.centroid())
-                centroid.add(c);
-            pj.add("centroid", centroid);
-            JsonArray verts = new JsonArray();
-            for (int v : p.vertexIndices())
-                verts.add(v);
-            pj.add("vertex_indices", verts);
-            JsonArray faces = new JsonArray();
-            for (int fi : p.faceIndices())
-                faces.add(fi);
-            pj.add("face_indices", faces);
-            patches.add(pj);
-        }
-        out.add("patches", patches);
-        return out;
+        return PatchDecomposerCLI.decompositionToJson(decomposition);
     }
 
     @Override

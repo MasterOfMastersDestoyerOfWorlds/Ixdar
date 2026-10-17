@@ -73,7 +73,7 @@ class HyperStringBoundsTest {
     @Test
     void rowBoundsAreTheDrawnWidthAndAbut() {
         HyperString text = new HyperString();
-        text.addWordClick("Knot segments wide", Color.COMMAND, () -> {
+        text.addWordClick("Knot segments wide", Color.TEAL_DARK, () -> {
         });
         text.setLineOffsetFromTopRow(camera, 0, 0, ROW);
 
@@ -100,7 +100,7 @@ class HyperStringBoundsTest {
         String[] labels = {"alpha", "beta", "gamma"};
         for (int index = 0; index < labels.length; index++) {
             int counter = index;
-            text.addWord(labels[index], Color.COMMAND, () -> hovers[counter]++, () -> {
+            text.addWord(labels[index], Color.TEAL_DARK, () -> hovers[counter]++, () -> {
             }, () -> clicks[counter]++);
         }
         text.setLineOffsetFromTopRow(camera, 0, 0, ROW);

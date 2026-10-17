@@ -7,6 +7,7 @@ import java.util.Set;
 
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.ColorText;
+import ixdar.parsing.glsl.GLSLParseText;
 
 /**
  * Lightweight syntax colorizer for a single line of GLSL: recognises
@@ -76,19 +77,19 @@ public final class GLSLColorizer {
             }
 
             if (c == '(' || c == ')') {
-                out.add(new ColorText<String>(String.valueOf(c), Color.GLSL_PARENTHESIS));
+                out.add(new ColorText<String>(String.valueOf(c), GLSLParseText.PARENTHESIS_COLOR));
                 i++;
                 continue;
             }
 
             if (c == '{' || c == '}') {
-                out.add(new ColorText<String>(String.valueOf(c), Color.GLSL_BRACE));
+                out.add(new ColorText<String>(String.valueOf(c), GLSLParseText.BRACE_COLOR));
                 i++;
                 continue;
             }
 
             if (c == ',') {
-                out.add(new ColorText<String>(",", Color.GLSL_COMMA));
+                out.add(new ColorText<String>(",", GLSLParseText.COMMA_COLOR));
                 i++;
                 continue;
             }
@@ -110,7 +111,7 @@ public final class GLSLColorizer {
                     }
                     break;
                 }
-                out.add(new ColorText<String>(codeLine.substring(start, i), Color.GLSL_FLOAT));
+                out.add(new ColorText<String>(codeLine.substring(start, i), GLSLParseText.FLOAT_COLOR));
                 continue;
             }
 
@@ -141,13 +142,13 @@ public final class GLSLColorizer {
                 boolean isCall = (j < n && codeLine.charAt(j) == '(');
 
                 if (KEYWORDS.contains(lower)) {
-                    out.add(new ColorText<String>(ident, Color.GLSL_KEYWORD));
+                    out.add(new ColorText<String>(ident, GLSLParseText.KEYWORD_COLOR));
                 } else if (lower.matches("vec[234]")) {
-                    out.add(new ColorText<String>(ident, Color.GLSL_VECN));
+                    out.add(new ColorText<String>(ident, GLSLParseText.VECN_COLOR));
                 } else if (TYPES.contains(lower)) {
-                    out.add(new ColorText<String>(ident, Color.GLSL_TYPE));
+                    out.add(new ColorText<String>(ident, GLSLParseText.TYPE_COLOR));
                 } else if (isCall) {
-                    out.add(new ColorText<String>(ident, Color.GLSL_FUNCTION));
+                    out.add(new ColorText<String>(ident, GLSLParseText.FUNCTION_COLOR));
                 } else {
                     out.add(new ColorText<String>(ident, Color.WHITE));
                 }
@@ -155,9 +156,9 @@ public final class GLSLColorizer {
             }
 
             if (c == '+' || c == '-' || c == '*' || c == '/') {
-                out.add(new ColorText<String>(String.valueOf(c), Color.GLSL_OPERATOR));
+                out.add(new ColorText<String>(String.valueOf(c), GLSLParseText.OPERATOR_COLOR));
             } else if (c == '=') {
-                out.add(new ColorText<String>("=", Color.GLSL_EQUALS));
+                out.add(new ColorText<String>("=", GLSLParseText.EQUALS_COLOR));
             } else {
                 out.add(new ColorText<String>(String.valueOf(c), Color.WHITE));
             }

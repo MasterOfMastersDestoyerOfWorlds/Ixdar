@@ -41,7 +41,7 @@ public class CheckCommand extends TerminalCommand {
         File[] solutions = new File(terminal.directory).listFiles();
         for (int i = 0; i < solutions.length; i++) {
             File f = solutions[i];
-            terminal.history.addLine(f.getName(), f.isDirectory() ? Color.BLUE_WHITE : Color.IXDAR);
+            terminal.history.addLine(f.getName(), f.isDirectory() ? Color.BLUE_GREY : Color.IXDAR);
         }
         terminal.history.addLine("dir: " + terminal.directory, Color.GREEN);
         return new String[] { "cd " };

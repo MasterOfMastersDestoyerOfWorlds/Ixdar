@@ -2,12 +2,9 @@ package ixdar.scenes.regions;
 
 import java.util.Arrays;
 
-import org.joml.Vector3f;
-
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.RingRegions;
-import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.ColorRGB;
+import ixdar.graphics.render.color.Palettes;
 
 /**
  * Palette colours for ring regions: regions across a ring edge from each other always take
@@ -15,16 +12,12 @@ import ixdar.graphics.render.color.ColorRGB;
  */
 public final class RegionColouring {
 
-    public static final Color[] PALETTE = {
-        Color.REGION_COBALT, Color.YELLOW, Color.REGION_ROSE, Color.GREEN, Color.REGION_RUST,
-        Color.REGION_VIOLET, Color.REGION_MINT, Color.REGION_AQUA, Color.REGION_ORCHID,
-        Color.REGION_SAND, Color.BLUE, Color.REGION_SPRING_GREEN };
-
     public static final double MINIMUM_PALETTE_DISTANCE = 0.45;
 
-    public static final float EXTRA_ROUND_SHADE = 0.55f;
-
-    /** Colour of each region: an index into {@link #PALETTE}, or past it an extra colour. */
+    /**
+     * Colour of each region: an index into {@link Palettes#REGION}, or past it a shade that
+     * {@link ixdar.graphics.render.color.Palette#shadedColor} draws.
+     */
     public int[] colourByRegion = new int[0];
 
     /**
@@ -71,7 +64,7 @@ public final class RegionColouring {
                         : 0);
         // How many regions hold each entry, so a free region takes the least used palette entry its
         // neighbours leave free and the whole palette gets used, not just its first four entries.
-        int[] uses = new int[PALETTE.length + count];
+        int[] uses = new int[Palettes.REGION.size() + count];
         for (int region = 0; region < count; region++) {
             if (next[region] != MeshTopology.NONE) {
                 uses[next[region]]++;
@@ -88,35 +81,22 @@ public final class RegionColouring {
                     used[next[neighbour]] = true;
                 }
             }
-            int colour = MeshTopology.NONE;
-            for (int entry = 0; entry < PALETTE.length; entry++) {
-                if (!used[entry] && (colour == MeshTopology.NONE || uses[entry] < uses[colour])) {
-                    colour = entry;
+            int chosen = MeshTopology.NONE;
+            for (int entry = 0; entry < Palettes.REGION.size(); entry++) {
+                if (!used[entry] && (chosen == MeshTopology.NONE || uses[entry] < uses[chosen])) {
+                    chosen = entry;
                 }
             }
             // Only a region whose neighbours hold every palette entry goes past it, to a shade.
-            if (colour == MeshTopology.NONE) {
-                colour = PALETTE.length;
-                while (used[colour]) {
-                    colour++;
+            if (chosen == MeshTopology.NONE) {
+                chosen = Palettes.REGION.size();
+                while (used[chosen]) {
+                    chosen++;
                 }
             }
-            next[region] = colour;
-            uses[colour]++;
+            next[region] = chosen;
+            uses[chosen]++;
         }
         colourByRegion = next;
-    }
-
-    /**
-     * The colour an entry draws in; past the palette, each further round of it is a darker shade,
-     * which only a region with a neighbour in every palette colour needs.
-     *
-     * @param colour palette entry, 0 or more
-     * @return the opaque colour
-     */
-    public static Color paletteColor(int colour) {
-        Vector3f rgb = PALETTE[colour % PALETTE.length].toVector3f()
-                .mul((float) Math.pow(EXTRA_ROUND_SHADE, colour / PALETTE.length));
-        return new ColorRGB(rgb.x, rgb.y, rgb.z);
     }
 }

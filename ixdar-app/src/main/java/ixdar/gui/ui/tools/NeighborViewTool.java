@@ -95,14 +95,14 @@ public class NeighborViewTool extends Tool {
         HyperString h = new HyperString();
         if (displaySegment != null) {
             h.addWord("Cut: ", Color.IXDAR);
-            h.addHyperString(displaySegment.toHyperString(Color.ORANGE, false));
+            h.addHyperString(displaySegment.toHyperString(Color.BROWN_DARK, false));
             h.newLine();
             h.addWord("Cut Length: ");
-            h.addDistance(displaySegment.distance, Color.ORANGE);
+            h.addDistance(displaySegment.distance, Color.BROWN_DARK);
             h.newLine();
             h.addWord("Knot Point: " + displayKP, Color.GREEN);
             h.newLine();
-            h.addWord("Cut Point: " + displayCP, Color.ORANGE);
+            h.addWord("Cut Point: " + displayCP, Color.BROWN_DARK);
             h.newLine();
 
         }

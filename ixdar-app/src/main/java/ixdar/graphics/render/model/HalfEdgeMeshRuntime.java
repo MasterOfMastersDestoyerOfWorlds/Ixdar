@@ -101,7 +101,7 @@ public class HalfEdgeMeshRuntime {
     public final Map<String, Vector3f> tagOffsets = new HashMap<>();
 
     /** Colour of an untagged draw, the surface's own colour; {@link #setSolidColor} sets it. */
-    public final Vector4f solidColor = Color.BLUE_GRAY.toVector4f();
+    public final Vector4f solidColor = Color.BLUE_VERY_DARK.toVector4f();
 
     private final ShaderProgram meshShader;
     private final ShaderProgram meshUnlitShader;
@@ -111,7 +111,7 @@ public class HalfEdgeMeshRuntime {
     private final Matrix4f projectionMatrix = new Matrix4f();
     private final Vector4f edgeColor = Color.RED.toVector4f();
     private final Vector3f lightDir = new Vector3f(0.4f, -1.0f, 0.25f);
-    private final Vector3f emissiveColor = Color.BLUE_WHITE.toVector3f();
+    private final Vector3f emissiveColor = Color.BLUE_GREY.toVector3f();
     private final Vector3f minBounds = new Vector3f();
     private final Vector3f maxBounds = new Vector3f();
     private final Vector3f center = new Vector3f();
@@ -877,7 +877,7 @@ public class HalfEdgeMeshRuntime {
                 .scaling(width, height, 1f)
                 .translate(-cursorNdcX, -cursorNdcY, 0f)
                 .mul(projectionMatrix);
-        gl.clearColor(0f, 0f, 0f, 1f);
+        gl.clearColor(Color.BLACK);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         gl.viewport(framebufferX, bottomY, 1, 1);
         meshPickShader.use();
@@ -889,7 +889,7 @@ public class HalfEdgeMeshRuntime {
         int[] pixel = gl.readPixels(framebufferX, bottomY, 1, 1, gl.RGBA(),
                 gl.UNSIGNED_BYTE(), 0);
         gl.viewport(0, 0, width, height);
-        gl.clearColor(Color.DARK_GRAY);
+        gl.clearColor(Color.GREY_VERY_DARK);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         meshVao.bind();
         int code = pixel.length == 0 ? 0 : pixel[0] & PICK_ID_MASK;
@@ -1316,8 +1316,7 @@ public class HalfEdgeMeshRuntime {
             int hash = stableHash(tagName == null ? "" : tagName);
             h = ((hash & HASH_MASK) % HUE_QUANTIZATION) / 10000f;
         }
-        float[] rgb = hslToRgb(h, TAG_SATURATION, TAG_LIGHTNESS);
-        return new Vector4f(rgb[0], rgb[1], rgb[2], 1f);
+        return Color.fromHsl(h, TAG_SATURATION, TAG_LIGHTNESS).toVector4f();
     }
 
     private static int stableHash(String s) {
@@ -1326,25 +1325,6 @@ public class HalfEdgeMeshRuntime {
             h = HASH_PRIME * h + s.charAt(i);
         }
         return h;
-    }
-
-    private static float[] hslToRgb(float h, float s, float l) {
-        float c = (1f - Math.abs(2f * l - 1f)) * s;
-        float hp = h * 6f;
-        float x = c * (1f - Math.abs(hp % 2f - 1f));
-        float r1 = 0f, g1 = 0f, b1 = 0f;
-        if (hp < 1f)      { r1 = c; g1 = x; }
-        else if (hp < 2f) { r1 = x; g1 = c; }
-        else if (hp < 3f) { g1 = c; b1 = x; }
-        else if (hp < 4f) { g1 = x; b1 = c; }
-        else if (hp < 5f) { r1 = x; b1 = c; }
-        else              { r1 = c; b1 = x; }
-        float m = l - c * 0.5f;
-        return new float[]{
-                Math.max(0, Math.min(1, r1 + m)),
-                Math.max(0, Math.min(1, g1 + m)),
-                Math.max(0, Math.min(1, b1 + m)),
-        };
     }
 
     private void uploadIndexBuffer(int[] indices, int usage) {

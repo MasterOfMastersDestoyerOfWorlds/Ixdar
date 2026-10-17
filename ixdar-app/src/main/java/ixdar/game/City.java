@@ -203,7 +203,7 @@ public class City {
      * @param isHovered true if this city is currently hovered
      */
     public void draw(Camera2D camera, boolean isHQ, boolean isHovered) {
-        Color cityColor = Color.CYAN;
+        Color cityColor = Color.TEAL;
         if (isHQ) {
             cityColor = Color.YELLOW;
         } else if (isHovered) {
@@ -233,27 +233,27 @@ public class City {
         tip.addWord(name, Color.WHITE);
         tip.newLine();
 
-        tip.addWord("Pop: " + population, Color.LIGHT_GRAY);
+        tip.addWord("Pop: " + population, Color.GREY_DARK);
         tip.newLine();
 
         if (!resources.isEmpty()) {
-            tip.addWord("Resources: ", Color.LIGHT_GRAY);
+            tip.addWord("Resources: ", Color.GREY_DARK);
             for (int i = 0; i < resources.size(); i++) {
                 String resource = resources.get(i);
-                tip.addWord(resource, Color.CYAN);
+                tip.addWord(resource, Color.TEAL);
                 if (i < resources.size() - 1) {
-                    tip.addWord(LIST_ITEM_SEPARATOR, Color.LIGHT_GRAY);
+                    tip.addWord(LIST_ITEM_SEPARATOR, Color.GREY_DARK);
                 }
             }
             tip.newLine();
         }
 
         if (!produces.isEmpty()) {
-            tip.addWord("Produces: ", Color.LIGHT_GRAY);
+            tip.addWord("Produces: ", Color.GREY_DARK);
             boolean first = true;
             for (Map.Entry<String, Integer> entry : produces.entrySet()) {
                 if (!first) {
-                    tip.addWord(LIST_ITEM_SEPARATOR, Color.LIGHT_GRAY);
+                    tip.addWord(LIST_ITEM_SEPARATOR, Color.GREY_DARK);
                 }
                 tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", Color.GREEN);
                 first = false;
@@ -262,13 +262,13 @@ public class City {
         }
 
         if (!consumes.isEmpty()) {
-            tip.addWord("Consumes: ", Color.LIGHT_GRAY);
+            tip.addWord("Consumes: ", Color.GREY_DARK);
             boolean first = true;
             for (Map.Entry<String, Integer> entry : consumes.entrySet()) {
                 if (!first) {
-                    tip.addWord(LIST_ITEM_SEPARATOR, Color.LIGHT_GRAY);
+                    tip.addWord(LIST_ITEM_SEPARATOR, Color.GREY_DARK);
                 }
-                tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", Color.ORANGE);
+                tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", Color.BROWN_DARK);
                 first = false;
             }
             tip.newLine();

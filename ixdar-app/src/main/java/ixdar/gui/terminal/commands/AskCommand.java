@@ -58,12 +58,12 @@ public class AskCommand extends TerminalCommand {
             Knot vp1 = MainScene.shell.pointMap.get(id1);
             Knot vp2 = MainScene.shell.pointMap.get(id2);
             terminal.history.addLine("distance from " + id1 + " to " + id2 + " " + vp1.getSegment(vp2).distance,
-                    Color.BLUE_WHITE);
+                    Color.BLUE_GREY);
             return new String[] { "ask dist " + id1 + " " + id2 };
         } else if (questionName.equals("min")) {
             Pair<PointND, Pair<PointND, PointND>> isMinima = MainScene.orgShell.isLocalMinima();
             if (isMinima == null) {
-                terminal.history.addLine("Calculated answer is a local minima.", Color.BLUE_WHITE);
+                terminal.history.addLine("Calculated answer is a local minima.", Color.BLUE_GREY);
             } else {
                 PointND mP = isMinima.getFirst();
                 PointND fP = isMinima.getSecond().getFirst();
@@ -85,7 +85,7 @@ public class AskCommand extends TerminalCommand {
                 terminal.error("Point does not have " + numPrint + " segments to display");
             } else {
                 for (int i = 0; i < numPrint; i++) {
-                    HyperString seg = vp.sortedSegments.get(i).toHyperString(Color.BLUE_WHITE, false, true);
+                    HyperString seg = vp.sortedSegments.get(i).toHyperString(Color.BLUE_GREY, false, true);
                     seg.addWord(SEGMENT_SEPARATOR);
                     terminal.history.addHyperString(seg);
                 }
@@ -101,7 +101,7 @@ public class AskCommand extends TerminalCommand {
             } else {
                 int i = 0;
                 for (Segment s : MainScene.shell.sortedSegments) {
-                    HyperString seg = s.toHyperString(Color.BLUE_WHITE, false, true);
+                    HyperString seg = s.toHyperString(Color.BLUE_GREY, false, true);
                     terminal.history.addHyperString(seg);
                     terminal.history.newLine();
                     i++;
@@ -131,7 +131,7 @@ public class AskCommand extends TerminalCommand {
                 }
                 segements.sort(null);
                 for (Segment s : segements) {
-                    HyperString seg = s.toHyperString(Color.BLUE_WHITE, false, true);
+                    HyperString seg = s.toHyperString(Color.BLUE_GREY, false, true);
                     terminal.history.addHyperString(seg);
                     terminal.history.newLine();
                 }
@@ -166,7 +166,7 @@ public class AskCommand extends TerminalCommand {
                     if (green.contains(segment.id)) {
                         str = segment.toHyperString(Color.GREEN, false, true);
                     } else {
-                        str = segment.toHyperString(Color.BLUE_WHITE, false, true);
+                        str = segment.toHyperString(Color.BLUE_GREY, false, true);
                     }
                     str.addWord(SEGMENT_SEPARATOR);
                     terminal.history.addHyperString(str);

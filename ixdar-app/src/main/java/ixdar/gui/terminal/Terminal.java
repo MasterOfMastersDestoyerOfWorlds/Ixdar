@@ -97,7 +97,7 @@ public class Terminal implements PointerRegion {
     int commandHistoryIdx;
     String commandLine;
     String commandLineInstruct;
-    ColorLerp instructColor = ColorLerp.flashColor(Color.BLUE_WHITE, 3);
+    ColorLerp instructColor = ColorLerp.flashColor(Color.BLUE_GREY, 3);
     String[] nextLogicalCommand;
     boolean scrollToCommandLine;
     private int nextLogicalCommandIdx;

@@ -600,11 +600,11 @@ public class CutMatchList implements FileStringable {
         int internalCount = Math.max(internalCutCount, internalMatchCount);
         h.newLine();
         h.addWord("MatchCount: ", matchColor);
-        h.addLine(internalCount + "", Color.COMMAND);
+        h.addLine(internalCount + "", Color.TEAL_DARK);
         h.addWord("Delta: ", matchColor);
-        h.addLine(String.format(STR_2F, delta), Color.COMMAND);
+        h.addLine(String.format(STR_2F, delta), Color.TEAL_DARK);
         h.addWord("IntDelta: ", matchColor);
-        h.addLine(String.format(STR_2F, internalDelta) + "", Color.COMMAND);
+        h.addLine(String.format(STR_2F, internalDelta) + "", Color.TEAL_DARK);
         return h;
     }
 

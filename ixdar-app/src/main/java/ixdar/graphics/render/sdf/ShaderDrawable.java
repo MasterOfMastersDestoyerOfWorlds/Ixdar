@@ -48,7 +48,7 @@ public abstract class ShaderDrawable {
 
     protected float drawX;
     protected float drawY;
-    protected Color c = Color.PINK;
+    protected Color c = Color.PINK_VERY_LIGHT;
     protected boolean culled = false;
 
     protected final long drawingId;
@@ -190,7 +190,7 @@ public abstract class ShaderDrawable {
             } else if (value instanceof Boolean) {
                 Boolean b = (Boolean) value;
 
-                map.put(key, new GLSLParseText(b ? "tru" : "false", Color.GLSL_BOOLEAN,
+                map.put(key, new GLSLParseText(b ? "tru" : "false", GLSLParseText.BOOLEAN_COLOR,
                         new Vector4f(b ? 1f : 0f, 0f, 0f, 0f), 1, key));
             } else if (value instanceof Vector2f) {
                 Vector2f vec2 = (Vector2f) value;

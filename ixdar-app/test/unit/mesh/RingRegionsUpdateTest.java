@@ -12,12 +12,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.joml.Vector4f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.RingBundle;
 import ixdar.geometry.mesh.data.RingRegions;
+import ixdar.graphics.render.color.Palettes;
 import ixdar.scenes.regions.RegionColouring;
 
 /**
@@ -108,13 +108,7 @@ class RingRegionsUpdateTest {
 
     @Test
     void neighboursGetDistinctColoursThatStayPutAwayFromAnEdit() {
-        for (int first = 0; first < RegionColouring.PALETTE.length; first++) {
-            for (int second = first + 1; second < RegionColouring.PALETTE.length; second++) {
-                assertTrue(distance(RegionColouring.paletteColor(first).toVector4f(),
-                        RegionColouring.paletteColor(second).toVector4f())
-                        >= RegionColouring.MINIMUM_PALETTE_DISTANCE, first + " vs " + second);
-            }
-        }
+        assertTrue(Palettes.REGION.minimumDistance() >= RegionColouring.MINIMUM_PALETTE_DISTANCE);
         MeshTopology cylinder = RingRegionsTest.cappedCylinder();
         List<String> labels = new ArrayList<>(List.of(row(2), row(4), row(6), MERIDIAN));
         List<boolean[]> masks = new ArrayList<>(List.of(rowMask(cylinder, 2, false),
@@ -225,8 +219,8 @@ class RingRegionsUpdateTest {
                 int colour = colouring.colourByRegion[region];
                 int other = colouring.colourByRegion[neighbour];
                 assertNotEquals(colour, other, region + " and " + neighbour);
-                assertTrue(distance(RegionColouring.paletteColor(colour).toVector4f(),
-                        RegionColouring.paletteColor(other).toVector4f())
+                assertTrue(Palettes.REGION.shadedColor(colour)
+                        .distanceTo(Palettes.REGION.shadedColor(other))
                         >= RegionColouring.MINIMUM_PALETTE_DISTANCE);
             }
         }
@@ -274,12 +268,5 @@ class RingRegionsUpdateTest {
         int edgeId = mesh.edgeBetween(mesh.vertexIdAt(from), mesh.vertexIdAt(to));
         assertTrue(edgeId != MeshTopology.NONE, from + "-" + to);
         mask[edgeId] = true;
-    }
-
-    private static double distance(Vector4f first, Vector4f second) {
-        double red = first.x - second.x;
-        double green = first.y - second.y;
-        double blue = first.z - second.z;
-        return Math.sqrt(red * red + green * green + blue * blue);
     }
 }

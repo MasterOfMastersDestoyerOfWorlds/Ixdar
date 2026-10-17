@@ -31,7 +31,6 @@ import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.color.ColorLerp;
-import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.text.Font;
 import ixdar.graphics.render.text.HyperString;
@@ -125,14 +124,16 @@ public class MainScene {
     public Font font;
 
     /**
-     * Construct the main editor scene: load (or create) the temp/source
-     * file, parse its point set, build the camera and view layout, wire
-     * input handlers, and pick a default tool.
+     * Construct the main editor scene: load (or create) the temp/source file, parse
+     * its point set, build the camera and view layout, wire input handlers, and
+     * pick a default tool.
      *
-     * @param fileName name of the point-set file to open (blank uses the temp file only)
-     * @param canvas backing 3D canvas used for input dispatch and timing
-     * @throws TerminalParseException if existing terminal commands in the file fail to parse
-     * @throws IOException if the file cannot be read
+     * @param fileName name of the point-set file to open (blank uses the temp file
+     *                 only)
+     * @param canvas   backing 3D canvas used for input dispatch and timing
+     * @throws TerminalParseException if existing terminal commands in the file fail
+     *                                to parse
+     * @throws IOException            if the file cannot be read
      */
     public MainScene(String fileName, Canvas3D canvas) throws TerminalParseException, IOException {
         metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -158,14 +159,15 @@ public class MainScene {
             Terminal.current = terminal;
         }
         for (String comment : retTup.comments) {
-            terminal.history.addLine(comment, Color.BLUE_WHITE);
+            terminal.history.addLine(comment, Color.BLUE_GREY);
         }
 
         Platforms.gl().setWindowTitle("Ixdar : " + fileName);
 
         int wWidth = (int) Platforms.get().getWindowWidth();
         int wHeight = (int) Platforms.get().getWindowHeight();
-        camera = new Camera2D(wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, CAMERA_ZOOM_DEFAULT, 0, BOTTOM_PANEL_SIZE,
+        camera = new Camera2D(wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, CAMERA_ZOOM_DEFAULT, 0,
+                BOTTOM_PANEL_SIZE,
                 retTup.ps);
 
         Toggle.setPanelFocus(PaneTypes.KnotView);
@@ -174,19 +176,20 @@ public class MainScene {
         mouse = new MouseTrap(this, camera, canvas);
         activate(true);
         tool = new FreeTool();
-        logo = new SDFTexture("decal_sdf_small.png", Color.DARK_IXDAR, LOGO_SCALE, 0f, true);
+        logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, LOGO_SCALE, 0f, true);
     }
 
     /**
-     * Entry point that bootstraps the editor: creates the canvas and
-     * scene, registers all named view bounds (main, right top/bottom,
-     * bottom, tooltip) with scroll subscriptions, kicks off knot finding
-     * on the loaded point set, and seeds the per-knot color tables used
-     * by the metro/gradient diagram modes.
+     * Entry point that bootstraps the editor: creates the canvas and scene,
+     * registers all named view bounds (main, right top/bottom, bottom, tooltip)
+     * with scroll subscriptions, kicks off knot finding on the loaded point set,
+     * and seeds the per-knot color tables used by the metro/gradient diagram modes.
      *
-     * @param args command-line arguments; {@code args[0]} is the point-set file name
-     * @throws TerminalParseException if existing terminal commands in the file fail to parse
-     * @throws IOException if the file cannot be read
+     * @param args command-line arguments; {@code args[0]} is the point-set file
+     *             name
+     * @throws TerminalParseException if existing terminal commands in the file fail
+     *                                to parse
+     * @throws IOException            if the file cannot be read
      */
     public static void main(String[] args) throws TerminalParseException, IOException {
         canvas = new Canvas3D();
@@ -301,7 +304,7 @@ public class MainScene {
         float step = 1.0f / ((float) numKnots);
         int i = 0;
         for (Knot k : flatKnots) {
-            knotGradientColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
+            knotGradientColors.add(Color.fullHue((startHue + step * i) % 1.0f));
             colorLookup.put((long) k.id, i);
             for (Knot vp : k.knotPoints) {
                 if (vp.isSingleton()) {
@@ -337,7 +340,7 @@ public class MainScene {
         float startHueM = colorSeed.nextFloat();
         float stepM = 1.0f / ((float) totalLayers);
         for (int j = 0; j <= totalLayers; j++) {
-            metroColors.add(Color.getHSBColor((startHueM + stepM * j) % 1.0f, 1.0f, 1.0f));
+            metroColors.add(Color.fullHue((startHueM + stepM * j) % 1.0f));
         }
 
         Drawing.initDrawingSizes(shell, camera, d);
@@ -351,17 +354,15 @@ public class MainScene {
         System.out.println("Calculated Length: " + tourLength);
         System.out.println("===============================================");
 
-        stickyColor = new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat());
-        stickyColor = Color.CYAN;
+        stickyColor = Color.TEAL;
 
     }
 
     /**
-     * Per-frame draw of the editor: refresh view dimensions, pump input,
-     * render the active tool over the main view, draw the segment-balance
-     * exception trace if any, draw the displayed knots/metro diagram,
-     * then render the right-side logo, info pane, bottom terminal, and
-     * any tooltip.
+     * Per-frame draw of the editor: refresh view dimensions, pump input, render the
+     * active tool over the main view, draw the segment-balance exception trace if
+     * any, draw the displayed knots/metro diagram, then render the right-side logo,
+     * info pane, bottom terminal, and any tooltip.
      *
      * @param camera3D outer 3D camera whose z-index is shared with the 2D camera
      */
@@ -385,7 +386,7 @@ public class MainScene {
             tool.setScreenOffset(camera);
             tool.draw(camera, Drawing.MIN_THICKNESS);
             if (sbe != null) {
-                Drawing.drawShell(resultShell, true, Drawing.MIN_THICKNESS, Color.MAGENTA, retTup.ps, camera);
+                Drawing.drawShell(resultShell, true, Drawing.MIN_THICKNESS, Color.PURPLE_PINK, retTup.ps, camera);
                 if (sbe.cutMatchList != null) {
                     Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS, retTup.ps, camera);
                 }
@@ -419,24 +420,25 @@ public class MainScene {
                 float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
                 toolTip.setLineOffsetFromTopRow(camera, 0, 0, rowHeight);
                 camera.updateView(VIEW_TOOLTIP);
-                new ColorBox().draw(Color.DARK_GRAY, camera);
+                new ColorBox().draw(Color.GREY_VERY_DARK, camera);
                 Drawing.getDrawing().font.drawHyperStringRows(toolTip, 0, 0, rowHeight, camera);
             }
             camera3D.setZIndex(camera);
 
         } catch (Exception e) {
             for (StackTraceElement ste : e.getStackTrace()) {
-                Platforms.get().log(ste.getFileName() + PACKAGE_SEPARATOR + ste.getMethodName() + ":" + ste.getLineNumber());
+                Platforms.get()
+                        .log(ste.getFileName() + PACKAGE_SEPARATOR + ste.getMethodName() + ":" + ste.getLineNumber());
             }
         }
     }
 
     /**
-     * Render the currently visible layer of knots. At the top layer this
-     * draws gradient paths (or metro sub-paths); at intermediate layers
-     * it walks {@link #metroPathsLayer} and draws each knot's shell
-     * styled per active toggle. Always overlays the hover knot and any
-     * partial-cycle dashed segments for displayed knots.
+     * Render the currently visible layer of knots. At the top layer this draws
+     * gradient paths (or metro sub-paths); at intermediate layers it walks
+     * {@link #metroPathsLayer} and draws each knot's shell styled per active
+     * toggle. Always overlays the hover knot and any partial-cycle dashed segments
+     * for displayed knots.
      *
      * @param camera 2D camera providing the main-view transform
      */
@@ -531,7 +533,8 @@ public class MainScene {
      * Look up the gradient color assigned to the given knot.
      *
      * @param displayPoint knot to color
-     * @return assigned gradient color, or {@link Color#IXDAR} if {@code displayPoint} is null
+     * @return assigned gradient color, or {@link Color#IXDAR} if
+     *         {@code displayPoint} is null
      */
     public static Color getKnotGradientColor(Knot displayPoint) {
         Knot smallestKnot = displayPoint;
@@ -542,8 +545,8 @@ public class MainScene {
     }
 
     /**
-     * Like {@link #getKnotGradientColor} but treats nested-knot wrappers
-     * as their flattened representative.
+     * Like {@link #getKnotGradientColor} but treats nested-knot wrappers as their
+     * flattened representative.
      *
      * @param k knot to color
      * @return assigned gradient color, or {@link Color#IXDAR} if {@code k} is null
@@ -557,12 +560,12 @@ public class MainScene {
     }
 
     /**
-     * Look up the metro-diagram color for {@code k}'s layer; when no
-     * specific layer is being drawn ({@code knotDrawLayer < 0}) the
-     * lookup keys off the same knot.
+     * Look up the metro-diagram color for {@code k}'s layer; when no specific layer
+     * is being drawn ({@code knotDrawLayer < 0}) the lookup keys off the same knot.
      *
-     * @param displayPoint knot being drawn (currently unused but mirrors {@link #getKnotGradientColor})
-     * @param k knot whose layer is looked up
+     * @param displayPoint knot being drawn (currently unused but mirrors
+     *                     {@link #getKnotGradientColor})
+     * @param k            knot whose layer is looked up
      * @return color assigned to {@code k}'s layer
      */
     public static Color getMetroColor(Knot displayPoint, Knot k) {
@@ -575,9 +578,9 @@ public class MainScene {
     }
 
     /**
-     * Like {@link #getMetroColor} but treats nested-knot wrappers as
-     * their flattened representative; returns {@link Color#IXDAR} when
-     * the knot or its layer is unknown.
+     * Like {@link #getMetroColor} but treats nested-knot wrappers as their
+     * flattened representative; returns {@link Color#IXDAR} when the knot or its
+     * layer is unknown.
      *
      * @param thickKnot knot whose layer color is requested
      * @return color assigned to its layer, or {@link Color#IXDAR} if not assigned
@@ -595,8 +598,8 @@ public class MainScene {
     }
 
     /**
-     * Build the per-segment color-lookup pairs used by gradient path
-     * drawing — one (id, id) pair per manifold segment in {@code k}.
+     * Build the per-segment color-lookup pairs used by gradient path drawing — one
+     * (id, id) pair per manifold segment in {@code k}.
      *
      * @param k knot whose manifold segments drive the result
      * @return list of identity pairs, one per manifold segment
@@ -614,10 +617,9 @@ public class MainScene {
     }
 
     /**
-     * Capture a {@link SegmentBalanceException} for on-screen display:
-     * record the offending top knot's points as {@link #resultShell},
-     * dump the buffer's layer 0, and log the exception's stack until
-     * the {@code cutKnot} frame.
+     * Capture a {@link SegmentBalanceException} for on-screen display: record the
+     * offending top knot's points as {@link #resultShell}, dump the buffer's layer
+     * 0, and log the exception's stack until the {@code cutKnot} frame.
      *
      * @param sbe exception thrown during knot solving
      */
@@ -644,9 +646,9 @@ public class MainScene {
     }
 
     /**
-     * Rebuild {@link #knotsDisplayed} by walking the metro-paths queue
-     * and selecting the entries whose layer matches {@link #knotDrawLayer}.
-     * Called after {@link #knotDrawLayer} changes.
+     * Rebuild {@link #knotsDisplayed} by walking the metro-paths queue and
+     * selecting the entries whose layer matches {@link #knotDrawLayer}. Called
+     * after {@link #knotDrawLayer} changes.
      */
     public static void updateKnotsDisplayed() {
         PriorityQueue<ShellPair> newQueue = new PriorityQueue<ShellPair>(new ShellComparator());
@@ -664,9 +666,9 @@ public class MainScene {
     }
 
     /**
-     * Toggle this scene's input handling. When activating, automation
-     * input is rebound and the underlying canvas's own input is
-     * suspended; the inverse on deactivate.
+     * Toggle this scene's input handling. When activating, automation input is
+     * rebound and the underlying canvas's own input is suspended; the inverse on
+     * deactivate.
      *
      * @param state true to activate the scene, false to suspend it
      */
@@ -719,16 +721,16 @@ public class MainScene {
     }
 
     /**
-     * Highlight {@code segment} on the next frame, fading {@code c}
-     * toward 25%-transparent over a few frames.
+     * Highlight {@code segment} on the next frame, fading {@code c} toward
+     * 25%-transparent over a few frames.
      *
      * @param segment segment to highlight
-     * @param c base color used for the lerp
+     * @param c       base color used for the lerp
      */
     public static void setHoverSegment(Segment segment, Color c) {
         hoverSegment = segment;
         showHoverSegment = true;
-        hoverSegmentColor = new ColorLerp(c, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, HOVER_SEGMENT_LERP_SPEED);
+        hoverSegmentColor = new ColorLerp(c, Color.BLACK_25, new byte[] { 0, 0, 0, 1 }, HOVER_SEGMENT_LERP_SPEED);
 
     }
 
@@ -741,15 +743,16 @@ public class MainScene {
     }
 
     /**
-     * Highlight {@code k} on the next frame, fading the knot's current
-     * color toward 25%-transparent over a few frames.
+     * Highlight {@code k} on the next frame, fading the knot's current color toward
+     * 25%-transparent over a few frames.
      *
      * @param k knot to highlight
      */
     public static void setHoverKnot(Knot k) {
         hoverKnot = k;
         showHoverKnot = true;
-        hoverKnotColor = new ColorLerp(getKnotColor(hoverKnot), Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, HOVER_KNOT_LERP_SPEED);
+        hoverKnotColor = new ColorLerp(getKnotColor(hoverKnot), Color.BLACK_25, new byte[] { 0, 0, 0, 1 },
+                HOVER_KNOT_LERP_SPEED);
     }
 
     /**
@@ -761,8 +764,8 @@ public class MainScene {
     }
 
     /**
-     * Classify the screen-space point {@code (x, y)} into one of the
-     * four panes (knot view, terminal, info, logo).
+     * Classify the screen-space point {@code (x, y)} into one of the four panes
+     * (knot view, terminal, info, logo).
      *
      * @param x window-space x in pixels
      * @param y window-space y in pixels (top-down; flipped internally)
@@ -787,9 +790,8 @@ public class MainScene {
     }
 
     /**
-     * Switch the draw layer to the layer that contains {@code k}, then
-     * refresh {@link #knotsDisplayed}. Falls back to the top layer if
-     * the knot is unknown.
+     * Switch the draw layer to the layer that contains {@code k}, then refresh
+     * {@link #knotsDisplayed}. Falls back to the top layer if the knot is unknown.
      *
      * @param k knot whose layer becomes the new draw layer
      */
@@ -804,8 +806,8 @@ public class MainScene {
     }
 
     /**
-     * Toggle between drawing every layer (sentinel {@code -1}) and the
-     * top layer, then refresh {@link #knotsDisplayed}.
+     * Toggle between drawing every layer (sentinel {@code -1}) and the top layer,
+     * then refresh {@link #knotsDisplayed}.
      */
     public static void setDrawLevelMetro() {
         if (MainScene.knotDrawLayer != -1) {
@@ -817,8 +819,8 @@ public class MainScene {
     }
 
     /**
-     * Return {@code k} unchanged, or the first result knot when {@code k}
-     * is null — used as a safe default for color/layer lookups.
+     * Return {@code k} unchanged, or the first result knot when {@code k} is null —
+     * used as a safe default for color/layer lookups.
      *
      * @param k candidate knot (may be null)
      * @return {@code k} or the first {@link #resultKnots} entry when null

@@ -2,9 +2,9 @@ package ixdar.gui.ui;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Random;
 
 import org.apache.commons.math3.util.Pair;
-import org.joml.Random;
 import org.joml.Vector2f;
 
 import ixdar.common.exceptions.SegmentBalanceException;
@@ -21,7 +21,6 @@ import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorFixedLerp;
-import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.graphics.render.sdf.SDFLine;
 import ixdar.graphics.render.text.Font;
@@ -216,7 +215,7 @@ public class Drawing {
                         if (s.id == cutMatch.c.lowerMatchSegment.id || s.id == cutMatch.c.upperMatchSegment.id) {
                             drawSegment(s, Color.GREEN, camera);
                         } else {
-                            drawSegment(s, Color.CYAN, camera);
+                            drawSegment(s, Color.TEAL, camera);
                         }
                     }
 
@@ -224,9 +223,9 @@ public class Drawing {
                     for (Segment s : cutMatch.cutSegments) {
                         s.setStroke(2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
                         if (s.id == cutMatch.c.lowerCutSegment.id || s.id == cutMatch.c.upperCutSegment.id) {
-                            drawSegment(s, Color.MAGENTA, camera);
+                            drawSegment(s, Color.PURPLE_PINK, camera);
                         } else {
-                            drawSegment(s, Color.ORANGE, camera);
+                            drawSegment(s, Color.BROWN_DARK, camera);
                         }
                     }
                 }
@@ -417,7 +416,7 @@ public class Drawing {
         if (c == null) {
             Random colorSeed = new Random();
             Drawing.drawPath(shell, lineThickness,
-                    new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(), colorSeed.nextFloat()), ps,
+                    Color.random(colorSeed), ps,
                     true, false, false, false, camera);
         } else {
             Drawing.drawPath(shell, lineThickness, c, ps, true, false, false, false, camera);
@@ -586,10 +585,10 @@ public class Drawing {
             PointSet ps, Camera2D camera) {
 
         matchSegment.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
-        Drawing.drawSegment(matchSegment, Color.CYAN, camera);
+        Drawing.drawSegment(matchSegment, Color.TEAL, camera);
 
         cutSegment.setStroke(2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
-        Drawing.drawSegment(cutSegment, Color.ORANGE, camera);
+        Drawing.drawSegment(cutSegment, Color.BROWN_DARK, camera);
     }
 
     /**

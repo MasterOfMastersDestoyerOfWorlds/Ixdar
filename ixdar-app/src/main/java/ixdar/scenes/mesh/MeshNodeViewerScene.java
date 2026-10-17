@@ -25,7 +25,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.ColorRGB;
+import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.parsing.python.PythonParser;
@@ -63,9 +63,6 @@ public class MeshNodeViewerScene extends ModelScene {
     private static final String DEFAULT_DSL_RESOURCE = "skull.dsl";
     private static final String DEFAULT_DSL_FINAL_NODE = "";
     private static final String DEFAULT_DSL_FINAL_PORT = "geometry";
-
-    private static final Color[] EDGE_MARK_COLORS = {
-        Color.EDGE_MARK_AMBER, Color.EDGE_MARK_CYAN, Color.EDGE_MARK_MAGENTA };
 
     private static final String TIMING_PREFIX = "[mesh-viewer]";
 
@@ -619,7 +616,7 @@ public class MeshNodeViewerScene extends ModelScene {
             overlayMesh = refMesh;
             overlayRuntime = new HalfEdgeMeshRuntime();
             overlayRuntime.upload(refMesh);
-            overlayRuntime.setSolidColor(ColorRGB.BLUE_WHITE.toVector4f());
+            overlayRuntime.setSolidColor(Color.BLUE_GREY.toVector4f());
             Platforms.get().log("[mesh-viewer] overlay loaded: " + objPath
                     + VERTS + refMesh.vertexCount() + FACES + refMesh.faceCount());
         } catch (IOException e) {
@@ -786,7 +783,7 @@ public class MeshNodeViewerScene extends ModelScene {
                 }
             }
             categories.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(
-                    EDGE_MARK_COLORS[slot % EDGE_MARK_COLORS.length], edgeKeys));
+                    Palettes.EDGE_MARK.color(slot), edgeKeys));
         }
         meshRuntime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.STAGES);
         meshRuntime.setFeatureEdgeOverlay(categories);

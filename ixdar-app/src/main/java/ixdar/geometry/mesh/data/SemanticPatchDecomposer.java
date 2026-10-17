@@ -20,6 +20,8 @@ import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonJoint;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonResult;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palettes;
 
 import org.joml.Vector3f;
 
@@ -90,14 +92,6 @@ public final class SemanticPatchDecomposer {
     // nearest-neighbour scan per mesh vertex, fine for skull-scale
     // meshes (~25k verts). Bump if we see quantization artifacts.
     private static final int COONS_UV_SAMPLES = 16;
-
-    // 20-colour distinguishable palette (hex without leading #).
-    private static final String[] PALETTE = {
-        "E84A5F", "FECEAB", "99B898", "2A363B", "FF847C",
-        "6C5B7B", "355C7D", "F8B195", "C06C84", "F67280",
-        "AD8CAE", "8FB1CB", "B6E0D4", "F3C77A", "D26F5C",
-        "7B9ACC", "A4C3A2", "E7A3B6", "5D4E60", "C7B5D9"
-    };
 
     private SemanticPatchDecomposer() {}
 
@@ -520,7 +514,7 @@ public final class SemanticPatchDecomposer {
             centroid[0] /= vertCount;
             centroid[1] /= vertCount;
             centroid[2] /= vertCount;
-            String color = PALETTE[colorIdx[pid] % PALETTE.length];
+            Color color = Palettes.PATCH.color(colorIdx[pid]);
             out.add(new Patch(
                     pid,
                     verts,
@@ -1302,7 +1296,7 @@ public final class SemanticPatchDecomposer {
      * @param adj per-face adjacency table
      * @param faceCount number of triangles
      * @param patchCount number of patches
-     * @return per-patch palette index in {@code [0, PALETTE.length)}
+     * @return per-patch palette index in {@code [0, Palettes.PATCH.size())}
      */
     private static int[] welshPowellColoring(
             int[] facePatch, int[][] adj, int faceCount, int patchCount) {
@@ -1325,7 +1319,7 @@ public final class SemanticPatchDecomposer {
         int[] colorIdx = new int[patchCount];
         Arrays.fill(colorIdx, -1);
         for (int p : order) {
-            boolean[] used = new boolean[PALETTE.length];
+            boolean[] used = new boolean[Palettes.PATCH.size()];
             for (int nb : neighbours[p]) {
                 int c = colorIdx[nb];
                 if (c >= 0 && c < used.length) used[c] = true;

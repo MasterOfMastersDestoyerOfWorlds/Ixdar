@@ -26,12 +26,12 @@ public abstract class TerminalCommand implements TerminalOption {
     public static void help(Terminal terminal, TerminalOption command) {
         String commandName = command.fullName();
         String fileLoc = "./src/shell/terminal/help/" + commandName + ".help";
-        terminal.history.addWord(commandName, Color.COMMAND);
+        terminal.history.addWord(commandName, Color.TEAL_DARK);
         terminal.history.addLine(command.desc(), Color.GREEN);
         try {
             TextFile file = Platforms.get().loadFile(fileLoc);
             for (String line : file.getLines()) {
-                terminal.history.addLine(line, Color.LIGHT_GRAY);
+                terminal.history.addLine(line, Color.GREY_DARK);
             }
         } catch (Exception e) {
             terminal.error("helpfile: " + commandName + ".help not found at: " + fileLoc);

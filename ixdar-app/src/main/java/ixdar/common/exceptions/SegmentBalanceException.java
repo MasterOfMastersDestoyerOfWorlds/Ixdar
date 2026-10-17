@@ -98,7 +98,7 @@ public class SegmentBalanceException extends Exception {
         x1 = new HyperString();
         x1.addWord(X, Color.RED);
         x2 = new HyperString();
-        x2.addWord(X, Color.ORANGE);
+        x2.addWord(X, Color.BROWN_DARK);
     }
 
     /**

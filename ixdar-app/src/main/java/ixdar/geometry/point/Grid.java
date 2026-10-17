@@ -15,7 +15,7 @@ import ixdar.scenes.main.MainScene;
 
 public abstract class Grid {
 
-    private static final Color GRID_LINE_COLOR = Color.LIGHT_GRAY;
+    private static final Color GRID_LINE_COLOR = Color.GREY_DARK;
 
     public boolean showGrid = false;
 

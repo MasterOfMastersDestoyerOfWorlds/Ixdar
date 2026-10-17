@@ -62,7 +62,7 @@ public class ListCommand extends TerminalCommand {
             File[] solutions = new File(terminal.directory).listFiles();
             for (int i = 0; i < solutions.length; i++) {
                 File f = solutions[i];
-                terminal.history.addLine(f.getName(), f.isDirectory() ? Color.BLUE_WHITE : Color.IXDAR);
+                terminal.history.addLine(f.getName(), f.isDirectory() ? Color.BLUE_GREY : Color.IXDAR);
             }
             terminal.history.addLine("dir: " + terminal.directory, Color.GREEN);
             return new String[] { "cd " };
@@ -78,22 +78,22 @@ public class ListCommand extends TerminalCommand {
                 }
             } else if (commandOptionAliases.contains(target)) {
                 for (TerminalOption tc : Terminal.commandList) {
-                    terminal.history.addWord(tc.shortName(), Color.COMMAND);
+                    terminal.history.addWord(tc.shortName(), Color.TEAL_DARK);
                     terminal.history.addLine(" - " + tc.desc(), Color.GREEN);
                 }
             } else if (pointCollectionOptionAliases.contains(target)) {
                 for (PointCollection pc : Terminal.pointCollectionList) {
-                    terminal.history.addWord(pc.shortName(), Color.COMMAND);
+                    terminal.history.addWord(pc.shortName(), Color.TEAL_DARK);
                     terminal.history.addLine(" - " + pc.desc(), Color.GREEN);
                 }
             } else if (toolOptionAliases.contains(target)) {
                 for (Tool t : Terminal.tools) {
-                    terminal.history.addWord(t.shortName(), Color.COMMAND);
+                    terminal.history.addWord(t.shortName(), Color.TEAL_DARK);
                     terminal.history.addLine(" - " + t.desc(), Color.GREEN);
                 }
             } else if (toggleOptionAliases.contains(target)) {
                 for (Toggle t : Toggle.values()) {
-                    terminal.history.addWord(t.shortName(), Color.COMMAND);
+                    terminal.history.addWord(t.shortName(), Color.TEAL_DARK);
                     terminal.history.addLine(" - " + t.name() + " : " + t.value, Color.GREEN);
                 }
             } else if (Terminal.commandMap.containsKey(target)) {

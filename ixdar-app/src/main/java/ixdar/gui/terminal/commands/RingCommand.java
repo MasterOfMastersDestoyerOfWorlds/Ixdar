@@ -122,7 +122,7 @@ public class RingCommand extends TerminalCommand {
                 Float.parseFloat(args[startIdx + 2]),
                 Float.parseFloat(args[startIdx + 3]));
         terminal.history.addLine("ring point " + count + ": "
-                + SurfaceWaypoints.format(scene.ringWaypointsXyz, count), Color.COMMAND);
+                + SurfaceWaypoints.format(scene.ringWaypointsXyz, count), Color.TEAL_DARK);
     }
 
     private void close(Terminal terminal, RingScene scene) {
@@ -131,7 +131,7 @@ public class RingCommand extends TerminalCommand {
                 + ring.length + " (seed " + ring.seedLength + "), centroid "
                 + SurfaceWaypoints.format(
                         new float[] { ring.centroidX, ring.centroidY, ring.centroidZ }, 1),
-                Color.BRIGHT_GREEN);
+                Color.GREEN_TEAL_LIGHT);
     }
 
     private void save(String[] args, int startIdx, Terminal terminal, RingScene scene) {
@@ -156,9 +156,9 @@ public class RingCommand extends TerminalCommand {
             String updated = RingDslWriter.append(source, scene.ringWaypointsXyz,
                     scene.ringWaypointCount, true, false);
             RingDslWriter.writeAtomically(path, updated);
-            terminal.history.addLine("ring saved to " + path, Color.BRIGHT_GREEN);
+            terminal.history.addLine("ring saved to " + path, Color.GREEN_TEAL_LIGHT);
             terminal.history.addLine(RingDslWriter.appendedStatement(source, updated),
-                    Color.LIGHT_GRAY);
+                    Color.GREY_DARK);
         } catch (IOException failure) {
             terminal.error("could not write " + target + ": " + failure.getMessage());
         }
@@ -166,6 +166,6 @@ public class RingCommand extends TerminalCommand {
 
     private void clear(Terminal terminal, RingScene scene) {
         scene.clearRing();
-        terminal.history.addLine("ring cleared", Color.COMMAND);
+        terminal.history.addLine("ring cleared", Color.TEAL_DARK);
     }
 }

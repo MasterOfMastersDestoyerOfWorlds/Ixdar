@@ -13,7 +13,6 @@ import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.color.ColorLerp;
-import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.sdf.SDFUnion;
 import ixdar.gui.ui.Drawing;
@@ -60,19 +59,20 @@ public class MenuBox implements PointerRegion {
     private Bounds scrollBounds;
 
     /**
-     * Build the menu-box widget: load button textures, create the debug and
-     * game menus, pick the active one based on {@code Toggle.GameMode}, and
-     * subscribe to scroll input so the user can scroll long menus.
+     * Build the menu-box widget: load button textures, create the debug and game
+     * menus, pick the active one based on {@code Toggle.GameMode}, and subscribe to
+     * scroll input so the user can scroll long menus.
      */
     public MenuBox() {
         alpha = MENU_ALPHA;
 
-        innerColor = new ColorRGB(Color.NAVY, alpha);
-        outerColor = new ColorRGB(Color.BLUE_WHITE, alpha);
-        outerFlash = new ColorLerp(Color.BLUE_WHITE, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 });
-        menuOuterBorder = new SDFUnion("menu_inner.png", Color.NAVY, MENU_ALPHA, 0, -INNER_OFFSET_Y, "menu_outer.png",
-                Color.BLUE_WHITE, alpha, PIN_STRIPE_COUNT, 2);
-        logo = new SDFTexture("decal_sdf.png", Color.DARK_IXDAR, LOGO_BORDER_DIST, 0f, true);
+        innerColor = Color.BLUE_TEAL_VERY_DARK.withAlpha(alpha);
+        outerColor = Color.BLUE_GREY.withAlpha(alpha);
+        outerFlash = new ColorLerp(Color.BLUE_GREY, Color.BLACK_25, new byte[] { 0, 0, 0, 1 });
+        menuOuterBorder = new SDFUnion("menu_inner.png", Color.BLUE_TEAL_VERY_DARK, MENU_ALPHA, 0, -INNER_OFFSET_Y,
+                "menu_outer.png",
+                Color.BLUE_GREY, alpha, PIN_STRIPE_COUNT, 2);
+        logo = new SDFTexture("decal_sdf.png", Color.IXDAR_DARK, LOGO_BORDER_DIST, 0f, true);
         boundingBox = new ColorBox();
         String cachedFileName = FileManagement.getTestFileCache();
 
@@ -98,21 +98,24 @@ public class MenuBox implements PointerRegion {
                 Class<?> cls = Class.forName(
                         String.join(".", "ixdar", "platform", "automation", "endpoints", "AutomationRuntime"));
                 automationRuntime = cls.getMethod("get").invoke(null);
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         }
         return automationRuntime;
     }
 
     private static void recordAbstractAction(String action, Object... keyValues) {
         Object rt = getAutomationRuntime();
-        if (rt == null) return;
+        if (rt == null)
+            return;
         try {
             Map<String, Object> payload = new HashMap<>();
             for (int i = 0; i < keyValues.length; i += 2) {
                 payload.put((String) keyValues[i], keyValues[i + 1]);
             }
             rt.getClass().getMethod("recordAbstractActionMap", String.class, Map.class).invoke(rt, action, payload);
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
     }
 
     /**
@@ -132,8 +135,8 @@ public class MenuBox implements PointerRegion {
 
     /**
      * Draw the logo, then (when {@link #menuVisible}) the stack of menu-item
-     * buttons centered on screen. Highlights whichever button the cursor
-     * currently hovers and updates the scroll bounds to the menu's extents.
+     * buttons centered on screen. Highlights whichever button the cursor currently
+     * hovers and updates the scroll bounds to the menu's extents.
      *
      * @param camera the active camera used for screen-space rendering
      */
@@ -181,7 +184,8 @@ public class MenuBox implements PointerRegion {
                 menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, outerColor, camera);
 
             }
-            Drawing.getDrawing().font.drawHyperString(menuItems.get(i).itemString(), centerX, itemCenterY + itemHeight * LABEL_Y_OFFSET_FACTOR,
+            Drawing.getDrawing().font.drawHyperString(menuItems.get(i).itemString(), centerX,
+                    itemCenterY + itemHeight * LABEL_Y_OFFSET_FACTOR,
                     itemHeight / 2, (Camera2D) camera);
         }
         if (menuItems.size() > 0) {
@@ -194,8 +198,8 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Record the current cursor position so that the next {@link #draw} can
-     * detect which menu item (if any) is hovered.
+     * Record the current cursor position so that the next {@link #draw} can detect
+     * which menu item (if any) is hovered.
      *
      * @param x cursor x in screen pixels
      * @param y cursor y in screen pixels
@@ -206,8 +210,8 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Hit-test menu items against the current hover position; if one is hit,
-     * record an automation event, play the click SFX, and fire its action.
+     * Hit-test menu items against the current hover position; if one is hit, record
+     * an automation event, play the click SFX, and fire its action.
      *
      * @param x cursor x in screen pixels (used only for normalized telemetry)
      * @param y cursor y in screen pixels (used only for normalized telemetry)
@@ -219,7 +223,8 @@ public class MenuBox implements PointerRegion {
         MenuItem clickedItem = null;
         for (int i = 0; i < menuItems.size(); i++) {
             float centerX = Platforms.get().getFrameBufferWidth() / 2;
-            float centerY = Platforms.get().getFrameBufferHeight() / 2 - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR) - scrollOffsetY;
+            float centerY = Platforms.get().getFrameBufferHeight() / 2 - itemHeight
+                    - (itemHeight * i * ITEM_SPACING_FACTOR) - scrollOffsetY;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = centerY + itemHeight / 2;
@@ -241,8 +246,8 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Make the given menu the active screen, resetting scroll and refreshing
-     * the displayed item list.
+     * Make the given menu the active screen, resetting scroll and refreshing the
+     * displayed item list.
      *
      * @param parent the menu to display
      */
@@ -253,23 +258,24 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Forward a back-navigation gesture to the active menu's
-     * {@link Menu#back()} hook.
+     * Forward a back-navigation gesture to the active menu's {@link Menu#back()}
+     * hook.
      */
     public void back() {
         activeMenu.back();
     }
 
     /**
-     * Scroll the menu list up or down. Clamps so the top item never goes below
-     * its starting position and the bottom item never scrolls past the screen
-     * floor; if the whole menu fits on screen, scrolling is disabled.
+     * Scroll the menu list up or down. Clamps so the top item never goes below its
+     * starting position and the bottom item never scrolls past the screen floor; if
+     * the whole menu fits on screen, scrolling is disabled.
      *
      * @param scrollUp     true if the wheel ticked up, false for down
      * @param deltaSeconds time since the last frame, used to scale scroll speed
      */
     public void onScroll(boolean scrollUp, double deltaSeconds) {
-        float menuBottom = Platforms.get().getFrameBufferHeight() / 2 - (itemHeight * menuItems.size() * ITEM_SPACING_FACTOR);
+        float menuBottom = Platforms.get().getFrameBufferHeight() / 2
+                - (itemHeight * menuItems.size() * ITEM_SPACING_FACTOR);
 
         if (menuBottom > 0) {
             scrollOffsetY = 0;
@@ -310,12 +316,12 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Compute per-item screen-space bounds for the currently visible menu.
-     * Used by automation/test harnesses to locate buttons without having to
-     * replicate the layout math.
+     * Compute per-item screen-space bounds for the currently visible menu. Used by
+     * automation/test harnesses to locate buttons without having to replicate the
+     * layout math.
      *
-     * @return a list of {@link MenuItemBounds}, one per item, or empty if the
-     *         menu has no items or its textures are not yet loaded
+     * @return a list of {@link MenuItemBounds}, one per item, or empty if the menu
+     *         has no items or its textures are not yet loaded
      */
     public List<MenuItemBounds> getMenuItemBounds() {
         ArrayList<MenuItemBounds> bounds = new ArrayList<>();
@@ -338,6 +344,7 @@ public class MenuBox implements PointerRegion {
         }
         return bounds;
     }
+
     public static class MenuItemBounds {
         public String label;
         public float left;

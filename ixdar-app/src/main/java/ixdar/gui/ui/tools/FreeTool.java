@@ -18,7 +18,7 @@ public class FreeTool extends Tool {
     @Override
     public void draw(Camera2D camera, float minLineThickness) {
         if (displayKP != null) {
-            Drawing.drawCircle(displayKP, Color.LIGHT_GRAY, camera, minLineThickness);
+            Drawing.drawCircle(displayKP, Color.GREY_DARK, camera, minLineThickness);
         }
     }
 
@@ -68,7 +68,7 @@ public class FreeTool extends Tool {
                 return NONE;
             }
             return new ColorText(displayKP.id + "");
-        }, Color.BLUE_WHITE, pointInfo, () -> {
+        }, Color.BLUE_GREY, pointInfo, () -> {
             if (displayKP != null) {
                 MainScene.camera.centerOnPoint(MainScene.tool.displayKP.p);
             }
@@ -130,7 +130,7 @@ public class FreeTool extends Tool {
             }
             minKnotInfo.addLine("FlatID: " + containingKnot.id, c);
             h.addTooltip(containingKnot.beforeString(displayKP.id), c, minKnotInfo, () -> MainScene.camera.zoomToKnot(reeK));
-            h.addTooltip(pointStr, Color.BLUE_WHITE, pointInfo, () -> MainScene.camera.centerOnPoint(coordPointF));
+            h.addTooltip(pointStr, Color.BLUE_GREY, pointInfo, () -> MainScene.camera.centerOnPoint(coordPointF));
             h.addTooltip(containingKnot.afterString(displayKP.id), c, minKnotInfo, () -> MainScene.camera.zoomToKnot(reeK));
 
         }

@@ -21,6 +21,7 @@ import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
@@ -228,7 +229,7 @@ public final class RingRegionTool implements EditTool {
             firstRegion++;
         }
         int[] colourByRegion = scene.regionLayer.colouring.colourByRegion;
-        extractedRuntime.setSolidColor(RegionColouring.paletteColor(
+        extractedRuntime.setSolidColor(Palettes.REGION.shadedColor(
                 firstRegion < colourByRegion.length ? colourByRegion[firstRegion] : 0).toVector4f());
         if (!showingOpenCut) {
             return;
@@ -249,7 +250,7 @@ public final class RingRegionTool implements EditTool {
         }
         extractedRuntime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.STAGES);
         extractedRuntime.setFeatureEdgeOverlay(List.of(
-                new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.EDGE_MARK_AMBER, boundaryKeys)));
+                new HalfEdgeMeshRuntime.FeatureEdgeCategory(Color.ORANGE, boundaryKeys)));
     }
 
     /**

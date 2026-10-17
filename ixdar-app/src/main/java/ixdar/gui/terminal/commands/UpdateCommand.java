@@ -50,12 +50,12 @@ public class UpdateCommand extends TerminalCommand {
             if (oldLength > newLength || force) {
                 FileManagement.appendAns(MainScene.file, ans);
                 MainScene.orgShell = ans;
-                terminal.history.addLine(oldLength + "New Shortest Tour Found", Color.COMMAND);
+                terminal.history.addLine(oldLength + "New Shortest Tour Found", Color.TEAL_DARK);
             }
             terminal.history.addWord("Stored shortest tour length was:", Color.GREEN);
-            terminal.history.addLine(oldLength + "", Color.BLUE_WHITE);
+            terminal.history.addLine(oldLength + "", Color.BLUE_GREY);
             terminal.history.addWord("New tour length is:", Color.GREEN);
-            terminal.history.addLine(newLength + "", Color.BLUE_WHITE);
+            terminal.history.addLine(newLength + "", Color.BLUE_GREY);
         }
         return new String[] { cmd };
     }

@@ -110,10 +110,10 @@ public class ShaderCodePane implements PointerRegion {
 
         showCodeButton = new HyperString();
         showCodeButton.addDynamicWordClick(() -> {
-            final ColorText<Float> HIDE = new ColorText<Float>("Hide Code", Color.CYAN);
-            final ColorText<Float> SHOW = new ColorText<Float>("Show Code", Color.CYAN);
+            final ColorText<Float> HIDE = new ColorText<Float>("Hide Code", Color.TEAL);
+            final ColorText<Float> SHOW = new ColorText<Float>("Show Code", Color.TEAL);
             return showCode ? HIDE : SHOW;
-        }, Color.CYAN, () -> {
+        }, Color.TEAL, () -> {
             showCode = !showCode;
             if (showCode) {
                 paneBounds.viewWidth = Platforms.get().getFrameBufferWidth() / 2f;
@@ -128,7 +128,7 @@ public class ShaderCodePane implements PointerRegion {
         showCodeButton.newLine();
         showCodeButton.addDynamicWord(() -> mouseText());
         showCodeButton.addDynamicWord(() -> {
-            return new ColorText<Float>("FPS: " + Clock.fps(), Color.CYAN);
+            return new ColorText<Float>("FPS: " + Clock.fps(), Color.TEAL);
         });
         webViews.put(paneBounds.id, paneBounds);
         PointerDispatcher.current().subscribe(this.paneBounds, this);
@@ -142,7 +142,7 @@ public class ShaderCodePane implements PointerRegion {
             String fs = shader != null ? shader.getFragmentSource() : "";
             shaderBranchInjector = new ShaderBranchInjector(uniformProvider, fs, shader);
             int gIndex = 0;
-            codeText.addDynamicWord(() -> updateCacheIfMouseMoved(), Color.BLUE_WHITE);
+            codeText.addDynamicWord(() -> updateCacheIfMouseMoved(), Color.BLUE_GREY);
             for (String ln : fs.split("\n")) {
                 final int idx = gIndex;
                 final boolean isAssignment = GLSLExpressionParser.isAssignmentLine(ln);
@@ -188,7 +188,7 @@ public class ShaderCodePane implements PointerRegion {
                         if (hoverLineIndex == idx)
                             hoverLineIndex = -1;
                     }, () -> onLineClicked(idx));
-                    codeText.addDynamicWord(() -> dynamicSuffix(idx), Color.BLUE_WHITE, () -> {
+                    codeText.addDynamicWord(() -> dynamicSuffix(idx), Color.BLUE_GREY, () -> {
                         hoverLineIndex = idx;
                     }, () -> {
                         if (hoverLineIndex == idx)
@@ -197,7 +197,7 @@ public class ShaderCodePane implements PointerRegion {
                             () -> onLineClicked(idx));
                 } else {
                     codeText.addWord("  ", Color.WHITE);
-                    codeText.addDynamicWord(() -> dynamicSuffix(idx), Color.BLUE_WHITE);
+                    codeText.addDynamicWord(() -> dynamicSuffix(idx), Color.BLUE_GREY);
                 }
                 codeText.newLine();
                 displayedLines.add(ln);
@@ -308,9 +308,9 @@ public class ShaderCodePane implements PointerRegion {
             float cy = crosshairScreenPos.y;
 
             d.sdfLine.setStroke(CROSSHAIR_LINE_WIDTH, false, 1f, 0f, false, false, false, camera);
-            d.sdfLine.draw(new Vector2f(cx - crosshairSize, cy), new Vector2f(cx + crosshairSize, cy), Color.CYAN,
+            d.sdfLine.draw(new Vector2f(cx - crosshairSize, cy), new Vector2f(cx + crosshairSize, cy), Color.TEAL,
                     camera);
-            d.sdfLine.draw(new Vector2f(cx, cy - crosshairSize), new Vector2f(cx, cy + crosshairSize), Color.CYAN,
+            d.sdfLine.draw(new Vector2f(cx, cy - crosshairSize), new Vector2f(cx, cy + crosshairSize), Color.TEAL,
                     camera);
         }
     }

@@ -4,7 +4,7 @@ import org.joml.Matrix4f;
 
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.graphics.cameras.Camera3D;
-import ixdar.graphics.render.color.ColorRGB;
+import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 
 /**
@@ -32,7 +32,7 @@ public final class DebugCapsuleRuntime {
      */
     public DebugCapsuleRuntime() throws Exception {
         this.runtime = new HalfEdgeMeshRuntime();
-        this.runtime.setSolidColor(ColorRGB.BLUE_WHITE.toVector4f());
+        this.runtime.setSolidColor(Color.BLUE_GREY.toVector4f());
     }
 
     /**

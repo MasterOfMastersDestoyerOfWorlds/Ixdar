@@ -53,8 +53,8 @@ public class ArrowLineScene extends Scene {
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
         lineSegment.setStroke(STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 1f, true, false, true,
                 camera2D);
-        lineSegment.setBackgroundColor(Color.NAVY);
-        lineSegment.setBorderColor(Color.BLUE_WHITE);
+        lineSegment.setBackgroundColor(Color.BLUE_TEAL_VERY_DARK);
+        lineSegment.setBorderColor(Color.BLUE_GREY);
         lineSegment.setBorderBand(BORDER_BAND_WIDTH);
         initCodePane("Arrow Line SDF", lineSegment.getShader(), lineSegment);
     }
@@ -68,8 +68,8 @@ public class ArrowLineScene extends Scene {
         super.drawScene();
         lineSegment.setStroke(STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false, 1f, 1f, true, false, true,
                 camera2D);
-        lineSegment.setBackgroundColor(Color.NAVY);
-        lineSegment.setBorderColor(Color.BLUE_WHITE);
+        lineSegment.setBackgroundColor(Color.BLUE_TEAL_VERY_DARK);
+        lineSegment.setBorderColor(Color.BLUE_GREY);
         lineSegment.setBorderBand(BORDER_BAND_WIDTH);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;

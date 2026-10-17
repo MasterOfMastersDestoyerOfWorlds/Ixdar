@@ -25,7 +25,7 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.ColorRGB;
+import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.color.PatchColorHash;
 import ixdar.graphics.render.shaders.MeshLineShader;
 import ixdar.graphics.render.shaders.ShaderProgram;
@@ -83,8 +83,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private static final float LABEL_ROW_HEIGHT_PIXELS = 26f;
     private static final float LABEL_OFFSET_PIXELS = 10f;
     private static final float LABEL_LIFT_TIE = 0.25f;
-    private static final int COLOR_CHANNEL_BITS = 8;
-    private static final int COLOR_CHANNEL_MAX = 0xFF;
     private static final int LABEL_PIXEL_VALUES = 3;
 
     private static final String BASE_COLOR = "baseColor";
@@ -96,30 +94,28 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private static final String USE_PATCH_COLOR_UNIFORM = "usePatchColor";
 
     private static final Color COLOR_U_ARM = Color.YELLOW;
-    private static final Color COLOR_V_ARM = Color.CYAN;
+    private static final Color COLOR_V_ARM = Color.TEAL;
     private static final Color COLOR_INTERSECTION_NODE = Color.WHITE;
     private static final Color COLOR_BOUNDARY_NODE = Color.YELLOW;
-    private static final Color COLOR_TRUNCATED_NODE = Color.ORANGE;
-    private static final Color COLOR_POSITIVE_INDEX = new ColorRGB(Color.CYAN, 0.5f);
-    private static final Color COLOR_NEGATIVE_INDEX = new ColorRGB(Color.RED, 0.5f);
+    private static final Color COLOR_TRUNCATED_NODE = Color.BROWN_DARK;
+    private static final Color COLOR_POSITIVE_INDEX = Color.TEAL_50;
+    private static final Color COLOR_NEGATIVE_INDEX = Color.RED_50;
     private static final Color COLOR_CONSTRAINT_BOUNDARY = Color.GREEN;
-    private static final Color COLOR_CONSTRAINT_FEATURE = Color.ORANGE;
-    private static final Color COLOR_CONSTRAINT_CURVATURE = Color.MAGENTA;
+    private static final Color COLOR_CONSTRAINT_FEATURE = Color.BROWN_DARK;
+    private static final Color COLOR_CONSTRAINT_CURVATURE = Color.PURPLE_PINK;
     private static final Color COLOR_CONSTRAINT_ANCHOR = Color.WHITE;
     private static final ConstraintSource[] CONSTRAINT_DRAW_ORDER = {
             ConstraintSource.BOUNDARY, ConstraintSource.FEATURE,
             ConstraintSource.CURVATURE, ConstraintSource.ANCHOR
     };
     private static final Color COLOR_LAYOUT_BOUNDARY = Color.WHITE;
-    private static final Color COLOR_LAYOUT_CORNER = Color.SOFT_RED;
-    private static final Color COLOR_QUAD_GRID = Color.DARK_GRAY;
-    private static final Color COLOR_EMBEDDED_ARC = Color.BRIGHT_ORANGE;
+    private static final Color COLOR_LAYOUT_CORNER = Color.RED_LIGHT;
+    private static final Color COLOR_QUAD_GRID = Color.GREY_VERY_DARK;
+    private static final Color COLOR_EMBEDDED_ARC = Color.ORANGE;
     private static final Color COLOR_EMBEDDED_ZERO_ARC = Color.RED;
-    private static final Color COLOR_COPY_WIREFRAME = new ColorRGB(Color.WHITE, 0.25f);
-    private static final Color COLOR_EMBEDDED_NODE = Color.SKY_BLUE;
-    private static final Color COLOR_EMBEDDED_NODE_CRITICAL = Color.GOLD;
-    private static final Color[] GROUP_PALETTE = { Color.YELLOW, Color.BRIGHT_GREEN,
-            Color.MAGENTA, Color.CYAN, Color.LIGHT_PURPLE, Color.WHITE, Color.RED, Color.AZURE };
+    private static final Color COLOR_COPY_WIREFRAME = Color.WHITE_25;
+    private static final Color COLOR_EMBEDDED_NODE = Color.TEAL_BLUE_LIGHT;
+    private static final Color COLOR_EMBEDDED_NODE_CRITICAL = Color.YELLOW_ORANGE;
 
     private static final float PHI = (1f + (float) Math.sqrt(5f)) * 0.5f;
     private static final float[] ICO_VERTICES = {
@@ -143,10 +139,10 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     public final MeshLineShader anchorShader;
 
     public float lineHalfWidth = DEFAULT_LINE_HALF_WIDTH;
-    public Color baseColor = Color.BLUE_WHITE;
-    public Color uLineColor = Color.CYAN;
+    public Color baseColor = Color.BLUE_GREY;
+    public Color uLineColor = Color.TEAL;
     public Color vLineColor = Color.YELLOW;
-    public Color flippedColor = Color.MAGENTA;
+    public Color flippedColor = Color.PURPLE_PINK;
 
     public boolean showIsoLines;
     public boolean showSingularities;
@@ -178,8 +174,8 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     /** Text drawn beside each label's point; an empty entry draws nothing. */
     public String[] labelText = new String[0];
 
-    /** One {@code 0x00RRGGBB} colour per label, parallel to {@link #labelText}. */
-    public int[] labelColorRgb = new int[0];
+    /** One colour per label, parallel to {@link #labelText}. */
+    public Color[] labelColors = new Color[0];
 
     /**
      * World distance each label's point is pulled toward the eye before its depth test, so a
@@ -222,7 +218,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private int[] layoutPatchIndexCount;
     private Color[] layoutPatchColors;
     private int[] lineGroupSegmentStart = new int[0];
-    private int[] lineGroupColorRgb = new int[0];
+    private Color[] lineGroupColors = new Color[0];
 
     private final Matrix4f model = new Matrix4f();
     private final Matrix4f localProjection = new Matrix4f();
@@ -443,22 +439,22 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
      *                          normals of the faces it lies on
      * @param groupSegmentStart first segment of each group plus a closing total, so it is one
      *                          longer than the group count
-     * @param groupColorRgb     one {@code 0x00RRGGBB} colour per group
+     * @param groupColors       one colour per group
      */
-    public void setLineGroups(LineSet lines, int[] groupSegmentStart, int[] groupColorRgb) {
+    public void setLineGroups(LineSet lines, int[] groupSegmentStart, Color[] groupColors) {
         if (lines == null || groupSegmentStart == null || groupSegmentStart.length < 2) {
             clearLineGroups();
             return;
         }
         lineGroupSegmentStart = groupSegmentStart;
-        lineGroupColorRgb = groupColorRgb == null ? new int[0] : groupColorRgb;
+        lineGroupColors = groupColors == null ? new Color[0] : groupColors;
         lineGroups.upload(LineSet.LAYOUT, lines.vertices, null);
     }
 
     /** Drop the coloured line groups; nothing is drawn until {@link #setLineGroups} runs again. */
     public void clearLineGroups() {
         lineGroupSegmentStart = new int[0];
-        lineGroupColorRgb = new int[0];
+        lineGroupColors = new Color[0];
         lineGroups.delete();
     }
 
@@ -467,10 +463,10 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
      * zoom and hidden by nearer surface exactly as the overlay lines are. Later anchors win ties.
      *
      * @param vertexId       vertex of {@link #surfaceMesh} each disc sits on
-     * @param colorRgb       one {@code 0x00RRGGBB} colour per disc
+     * @param colors         one colour per disc
      * @param diameterPixels one diameter per disc, in framebuffer pixels
      */
-    public void setAnchorDiscs(int[] vertexId, int[] colorRgb, float[] diameterPixels) {
+    public void setAnchorDiscs(int[] vertexId, Color[] colors, float[] diameterPixels) {
         MeshTopology surface = surfaceMesh;
         if (vertexId == null || vertexId.length == 0 || surface == null) {
             clearMarkers();
@@ -487,7 +483,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         int cursor = 0;
         for (int anchor = 0; anchor < vertexId.length; anchor++) {
             surface.vertexPosition(vertexId[anchor], center);
-            Vector3f color = colorOf(colorRgb[anchor]).toVector3f();
+            Vector3f color = colors[anchor].toVector3f();
             int faces = surface.vertexFaceCount(vertexId[anchor]);
             for (int face = 0; face < Math.max(1, faces); face++) {
                 if (faces == 0) {
@@ -519,18 +515,18 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
      *
      * @param packedXyz packed world xyz of every label's point
      * @param text      one text per point; empty entries draw nothing
-     * @param colorRgb  one {@code 0x00RRGGBB} colour per point
+     * @param colors    one colour per point
      * @param depthLift world distance each point is pulled toward the eye before its depth test,
      *                  zero for a point lying on the surface
      */
-    public void setLabels(float[] packedXyz, String[] text, int[] colorRgb, float[] depthLift) {
+    public void setLabels(float[] packedXyz, String[] text, Color[] colors, float[] depthLift) {
         if (packedXyz == null || text == null) {
             clearLabels();
             return;
         }
         labelXyz = packedXyz;
         labelText = text;
-        labelColorRgb = colorRgb == null ? new int[0] : colorRgb;
+        labelColors = colors == null ? new Color[0] : colors;
         labelDepthLift = depthLift == null ? new float[0] : depthLift;
     }
 
@@ -538,7 +534,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     public void clearLabels() {
         labelXyz = new float[0];
         labelText = new String[0];
-        labelColorRgb = new int[0];
+        labelColors = new Color[0];
         labelDepthLift = new float[0];
     }
 
@@ -736,7 +732,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         List<Color> palette = new ArrayList<>();
         int groups = faceGroupCenters.size() + polylines.size() + markerPositions.size();
         for (int group = 0; group < groups; group++) {
-            palette.add(paletteColor(group));
+            palette.add(Palettes.OVERLAY_GROUP.color(group));
         }
         setDiagnostic(faceGroupCenters, markerPositions, polylines, palette);
     }
@@ -867,7 +863,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     public void setPatchClouds(List<float[]> clouds, float[] dotRadii) {
         patchClouds.clear();
         for (int index = 0; index < clouds.size(); index++) {
-            patchClouds.add(PointSet.cloud(clouds.get(index), paletteColor(index),
+            patchClouds.add(PointSet.cloud(clouds.get(index), Palettes.OVERLAY_GROUP.color(index),
                     PATCH_CLOUD_SCALE, index < dotRadii.length ? dotRadii[index] : 0f));
         }
         ensureSphere();
@@ -950,7 +946,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
                 int vertices =
                         2 * (lineGroupSegmentStart[group + 1] - lineGroupSegmentStart[group]);
                 drawLines(camera, lineGroups, firstVertex, vertices,
-                        colorOf(group < lineGroupColorRgb.length ? lineGroupColorRgb[group] : 0),
+                        group < lineGroupColors.length ? lineGroupColors[group] : Color.BLACK,
                         LAYOUT_LINE_WIDTH);
             }
             Platforms.gl().depthMask(true);
@@ -1072,7 +1068,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             }
             HyperString drawn = new HyperString();
             drawn.addWord(text,
-                    colorOf(label < labelColorRgb.length ? labelColorRgb[label] : 0));
+                    label < labelColors.length ? labelColors[label] : Color.BLACK);
             Drawing.getDrawing().font.drawHyperString(drawn,
                     labelPixel[0] + LABEL_OFFSET_PIXELS,
                     height - labelPixel[1] + LABEL_OFFSET_PIXELS, LABEL_ROW_HEIGHT_PIXELS, screen);
@@ -1274,14 +1270,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         return indices;
     }
 
-    private static Color paletteColor(int index) {
-        return GROUP_PALETTE[index % GROUP_PALETTE.length];
-    }
-
-    private static Color colorOf(int rgb) {
-        return new ColorRGB((rgb >> (2 * COLOR_CHANNEL_BITS)) & COLOR_CHANNEL_MAX,
-                (rgb >> COLOR_CHANNEL_BITS) & COLOR_CHANNEL_MAX, rgb & COLOR_CHANNEL_MAX);
-    }
 
     private static Color nodeColor(EmbeddedNode node) {
         if (node.critical) {

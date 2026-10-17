@@ -6,7 +6,6 @@ import static org.lwjgl.opengl.GL13.GL_TEXTURE1;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 import ixdar.platform.Platforms;
 
@@ -49,9 +48,9 @@ public class SDFUnion extends ShaderDrawable {
             this.outerTexture = t;
         });
         shader = ShaderType.UnionSDF.getShader();
-        this.innerColor = new ColorRGB(innerColor, alpha);
+        this.innerColor = innerColor.withAlpha(alpha);
         this.innerScale = innerScale;
-        this.outerColor = new ColorRGB(outerColor, alpha);
+        this.outerColor = outerColor.withAlpha(alpha);
         this.innerOffsetX = innerOffsetX;
         this.innerOffsetY = innerOffsetY;
         this.numberPinStripes = numberPinStripes;

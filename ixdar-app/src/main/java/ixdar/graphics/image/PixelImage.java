@@ -12,7 +12,7 @@ public final class PixelImage {
 
     public static final int RGB_MASK = 0x00FFFFFF;
 
-    public final int[] argb;
+    public final int[] pixels;
 
     public final int width;
 
@@ -32,7 +32,7 @@ public final class PixelImage {
         }
         this.width = width;
         this.height = height;
-        this.argb = new int[width * height];
+        this.pixels = new int[width * height];
     }
 
     /**
@@ -44,7 +44,7 @@ public final class PixelImage {
      * @throws IndexOutOfBoundsException if the position lies outside the image
      */
     public int get(int x, int y) {
-        return argb[y * width + x];
+        return pixels[y * width + x];
     }
 
     /**
@@ -58,7 +58,7 @@ public final class PixelImage {
         if (x < 0 || y < 0 || x >= width || y >= height) {
             return;
         }
-        argb[y * width + x] = packed;
+        pixels[y * width + x] = packed;
     }
 
     /**
@@ -67,7 +67,7 @@ public final class PixelImage {
      * @param packed the packed ARGB value to store everywhere
      */
     public void fill(int packed) {
-        Arrays.fill(argb, packed);
+        Arrays.fill(pixels, packed);
     }
 
     /**
@@ -87,7 +87,7 @@ public final class PixelImage {
         int clampedHeight = Math.max(1, Math.min(regionHeight, height - top));
         PixelImage out = new PixelImage(clampedWidth, clampedHeight);
         for (int row = 0; row < clampedHeight; row++) {
-            System.arraycopy(argb, (top + row) * width + left, out.argb, row * clampedWidth,
+            System.arraycopy(pixels, (top + row) * width + left, out.pixels, row * clampedWidth,
                     clampedWidth);
         }
         return out;
@@ -110,7 +110,7 @@ public final class PixelImage {
             int targetStart = row * width + Math.max(0, destinationX);
             int span = right - Math.max(0, destinationX);
             if (span > 0) {
-                System.arraycopy(source.argb, sourceStart, argb, targetStart, span);
+                System.arraycopy(source.pixels, sourceStart, pixels, targetStart, span);
             }
         }
     }
@@ -131,7 +131,7 @@ public final class PixelImage {
             int sourceRow = (y / factor) * width;
             int targetRow = y * out.width;
             for (int x = 0; x < out.width; x++) {
-                out.argb[targetRow + x] = argb[sourceRow + x / factor];
+                out.pixels[targetRow + x] = pixels[sourceRow + x / factor];
             }
         }
         return out;
@@ -144,8 +144,8 @@ public final class PixelImage {
      * @return true when the image holds a single colour
      */
     public boolean isUniform() {
-        int first = argb[0] & RGB_MASK;
-        for (int pixel : argb) {
+        int first = pixels[0] & RGB_MASK;
+        for (int pixel : pixels) {
             if ((pixel & RGB_MASK) != first) {
                 return false;
             }

@@ -238,7 +238,7 @@ public class Canvas3D extends SceneDrawable {
         gl.enable(gl.POLYGON_OFFSET_FILL());
         gl.polygonOffset(0f, 1f);
 
-        gl.clearColor(Color.DARK_RED);
+        gl.clearColor(Color.RED_DARK);
         gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
         gl.enable(gl.BLEND());
         Object audio = getAudioSystem();
@@ -266,7 +266,7 @@ public class Canvas3D extends SceneDrawable {
         if (fbw > 0 && fbh > 0) {
             gl.viewport(0, 0, fbw, fbh);
         }
-        gl.clearColor(Color.DARK_GRAY);
+        gl.clearColor(Color.GREY_VERY_DARK);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
         camera2D.resetZIndex();

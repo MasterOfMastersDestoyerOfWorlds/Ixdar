@@ -173,7 +173,7 @@ class MenuScrollBarTest {
         box.clearRows();
         for (int row = 0; row < 8; row++) {
             box.addRow("model row " + row + " with a name long enough to reach the bar",
-                    Color.COMMAND, null);
+                    Color.TEAL_DARK, null);
         }
         box.layout(camera);
         assertTrue(box.scrollBar.isNeeded());

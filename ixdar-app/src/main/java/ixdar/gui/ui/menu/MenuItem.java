@@ -18,7 +18,7 @@ public class MenuItem {
 
     /**
      * Build a menu item. The {@link HyperString} label is rendered with
-     * {@code Color.BLUE_WHITE}.
+     * {@code Color.BLUE_GREY}.
      *
      * @param string the heading text shown to the user
      * @param action the action fired by {@link #performAction()}; may be null
@@ -29,7 +29,7 @@ public class MenuItem {
         subHeading = "";
         String labelText = subHeading.isEmpty() ? heading : heading + ": " + subHeading;
         label = new HyperString();
-        label.addWord(labelText, Color.BLUE_WHITE);
+        label.addWord(labelText, Color.BLUE_GREY);
         this.action = action;
     }
 

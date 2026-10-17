@@ -4,11 +4,11 @@ import java.nio.IntBuffer;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.Texture;
+import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.shaders.VertexArrayObject;
 import ixdar.graphics.render.shaders.VertexBufferObject;
@@ -27,8 +27,6 @@ public class AssimpModelRuntime implements ModelRuntime {
     public static final float NEAR_PLANE = 0.01f;
     public static final float MIN_FAR_PLANE = 1000f;
     public static final float FAR_PLANE_RADIUS_MULTIPLIER = 20f;
-    public static final float SOLID_COLOR_R = 0.7f;
-    public static final float SOLID_COLOR_G = 0.85f;
     public static final float LIGHT_DIR_X = 0.5f;
     public static final float LIGHT_DIR_Z = 0.2f;
     public static final int CHECKER_DARK = 35;
@@ -142,7 +140,7 @@ public class AssimpModelRuntime implements ModelRuntime {
         meshShader.setMat4("model", modelMatrix);
         meshShader.setMat4("view", camera.view);
         meshShader.setMat4("projection", projection);
-        meshShader.setVec4("solidColor", new Vector4f(SOLID_COLOR_R, SOLID_COLOR_G, 1.0f, 1.0f));
+        meshShader.setVec4("solidColor", Color.BLUE_PASTEL.toVector4f());
         meshShader.setVec3("lightDir", new Vector3f(LIGHT_DIR_X, -1.0f, LIGHT_DIR_Z));
         if (handle.texture != null && handle.hasTexCoords) {
             meshShader.setBool(USETEXTURE, true);

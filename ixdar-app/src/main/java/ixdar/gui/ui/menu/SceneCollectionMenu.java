@@ -49,14 +49,14 @@ public final class SceneCollectionMenu {
         if (collection == null) {
             return;
         }
-        box.addRow(COLLECTION_HEADER + " " + collection.name, Color.AMBER, null);
+        box.addRow(COLLECTION_HEADER + " " + collection.name, Color.YELLOW_ORANGE, null);
         box.addRow(collection.memberCount() + " members, " + collection.keptCount() + " kept",
-                Color.LIGHT_GRAY, null);
+                Color.GREY_DARK, null);
         String shared = collection.sharedSettingsSummary();
         if (!shared.isEmpty()) {
-            box.addRow(shared, Color.LIGHT_GRAY, null);
+            box.addRow(shared, Color.GREY_DARK, null);
         }
-        box.addRow(collection.manifestPath.toString(), Color.LIGHT_GRAY, null);
+        box.addRow(collection.manifestPath.toString(), Color.GREY_DARK, null);
 
         int current = collection.index();
         for (int member = 0; member < collection.memberCount(); member++) {
@@ -69,15 +69,15 @@ public final class SceneCollectionMenu {
             if (shared.isEmpty() && !settings.isEmpty()) {
                 row = row + "  " + settings;
             }
-            Color color = isCurrent ? Color.BRIGHT_GREEN
-                    : (keep ? Color.COMMAND : Color.LIGHT_GRAY);
+            Color color = isCurrent ? Color.GREEN_TEAL_LIGHT
+                    : (keep ? Color.TEAL_DARK : Color.GREY_DARK);
             int target = member;
             box.addRow(row, color, () -> scene.loadMember(target));
         }
 
-        box.addRow(PREV_LABEL, Color.BLUE_WHITE, () -> scene.prevMember());
-        box.addRow(NEXT_LABEL, Color.BLUE_WHITE, () -> scene.nextMember());
-        box.addRow(KEEP_LABEL, Color.BLUE_WHITE, () -> scene.toggleKeepCurrentMember());
-        box.addRow("", Color.LIGHT_GRAY, null);
+        box.addRow(PREV_LABEL, Color.BLUE_GREY, () -> scene.prevMember());
+        box.addRow(NEXT_LABEL, Color.BLUE_GREY, () -> scene.nextMember());
+        box.addRow(KEEP_LABEL, Color.BLUE_GREY, () -> scene.toggleKeepCurrentMember());
+        box.addRow("", Color.GREY_DARK, null);
     }
 }

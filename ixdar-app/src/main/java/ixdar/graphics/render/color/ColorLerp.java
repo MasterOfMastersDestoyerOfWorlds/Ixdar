@@ -54,8 +54,8 @@ public class ColorLerp implements Color {
      * @param alpha shared alpha applied to both endpoints. Range from 0f to 1f.
      */
     public ColorLerp(Color startColor, Color endColor, float radsPerSecond, float alpha) {
-        this.startColor = new ColorRGB(startColor, alpha);
-        this.endColor = new ColorRGB(endColor, alpha);
+        this.startColor = startColor.withAlpha(alpha);
+        this.endColor = endColor.withAlpha(alpha);
         this.radsPerSecond = radsPerSecond;
         lerpName(startColor, endColor);
     }
@@ -97,7 +97,7 @@ public class ColorLerp implements Color {
 
     /**
      * Cached lerp that flashes the alpha of {@code c} between full opacity
-     * and {@link Color#TRANSPARENT25}. Subsequent calls with the same
+     * and {@link Color#BLACK_25}. Subsequent calls with the same
      * {@code c} return the same instance so callers share its phase.
      *
      * @param c color whose alpha should pulse.
@@ -105,7 +105,7 @@ public class ColorLerp implements Color {
      * @return the cached alpha-only lerp for {@code c}.
      */
     public static ColorLerp flashColor(Color c, float radsPerSecond) {
-        flashColors.putIfAbsent(c, new ColorLerp(c, Color.TRANSPARENT25, new byte[] { 0, 0, 0, 1 }, radsPerSecond));
+        flashColors.putIfAbsent(c, new ColorLerp(c, Color.BLACK_25, new byte[] { 0, 0, 0, 1 }, radsPerSecond));
         return flashColors.get(c);
     }
 

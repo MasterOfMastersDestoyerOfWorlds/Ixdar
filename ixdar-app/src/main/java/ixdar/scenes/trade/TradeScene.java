@@ -194,7 +194,7 @@ public class TradeScene {
                 float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
                 toolTip.setLineOffsetFromTopRow(camera, 0, 0, rowHeight);
                 camera.updateView(VIEW_TOOLTIP);
-                new ColorBox().draw(Color.DARK_GRAY, camera);
+                new ColorBox().draw(Color.GREY_VERY_DARK, camera);
                 Drawing.getDrawing().font.drawHyperStringRows(toolTip, 0, 0, rowHeight, camera);
             }
 

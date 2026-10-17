@@ -11,6 +11,7 @@ import org.joml.Vector4f;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.RingRegions;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.platform.Platforms;
 import ixdar.scenes.ring.RingScene;
@@ -22,8 +23,6 @@ import ixdar.scenes.ring.RingScene;
 public final class RegionLayer {
 
     public static final String LOG_PREFIX = "[regions] ";
-
-    public static final float UNSELECTED_GREY = 0.42f;
 
     public static final Vector4f SLIVER_COLOUR = Color.WHITE.toVector4f();
 
@@ -250,14 +249,14 @@ public final class RegionLayer {
         RingRegionTool tool = scene.regionTool;
         boolean dimming = scene.activeTool == tool && tool.selectedCount() > 0
                 && tool.selectedRegions.length == regions.regionCount;
-        Vector4f grey = new Vector4f(UNSELECTED_GREY, UNSELECTED_GREY, UNSELECTED_GREY, 1f);
+        Vector4f grey = Color.GREY.toVector4f();
         Vector4f[] colourByRegion = new Vector4f[regions.regionCount];
         String[] tagByRegion = new String[regions.regionCount];
         for (int region = 0; region < regions.regionCount; region++) {
             colourByRegion[region] = !coloured ? runtime.solidColor
                     : dimming && !tool.selectedRegions[region] ? grey
                             : regions.isSliver(region) ? SLIVER_COLOUR
-                                    : RegionColouring.paletteColor(
+                                    : Palettes.REGION.shadedColor(
                                             colouring.colourByRegion[region]).toVector4f();
             tagByRegion[region] = RingRegionTool.regionTag(region);
         }
@@ -281,7 +280,7 @@ public final class RegionLayer {
             slivers += regions.isSliver(region) ? 1 : 0;
         }
         lastRow = String.format(Locale.ROOT, "%d regions, %d slivers under %d faces (white)%s; "
-                + "rings in red: %d split nothing; %s and drawn in %.0f ms, "
+                + "rings in pink: %d split nothing; %s and drawn in %.0f ms, "
                 + "%d faces re-flooded", regions.regionCount, slivers, RingRegions.SLIVER_FACES,
                 absorbSlivers ? " absorbed" : "", ringNoteByLabel.size(), rebuilt,
                 (System.nanoTime() - start) / 1e6, regions.refloodedFaces);

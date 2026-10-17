@@ -99,7 +99,7 @@ public class HeadquartersPickerTool extends Tool {
         HyperString h = new HyperString();
         h.addWord("Select a city to place your headquarters", Color.WHITE);
         h.wrap();
-        h.addWord("Click on any city to begin your trade empire", Color.LIGHT_GRAY);
+        h.addWord("Click on any city to begin your trade empire", Color.GREY_DARK);
         return h;
     }
 

@@ -40,6 +40,7 @@ import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.geometry.mesh.nodes.selection.SelectRingNode;
 import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.LineSet;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
@@ -81,15 +82,11 @@ public final class RingTool implements EditTool {
     public static final String CANNOT_TRACE_REFUSAL =
             "the ring tool cannot trace rings on this surface - load another model; the log says why";
 
-    public static final int MARKED_RING_COLOR = 0xFF1A1A;
+    public static final Color MARKED_RING_COLOR = Color.PINK_LIGHT;
 
     public static final Color GEODESIC_DRAFT_COLOR = Color.RED;
 
-    public static final Color CREASE_DRAFT_COLOR = Color.BRIGHT_PURPLE;
-
-    // No red or purple here: those tell a draft's mode.
-    public static final int[] RING_COLORS = {
-        0x2ADF4F, 0x2E9BFF, 0xFFD60A, 0xFF9F0A, 0x3DE8C8, 0xD08A4A, 0xE8E8A0, 0xB6FF3B };
+    public static final Color CREASE_DRAFT_COLOR = Color.PURPLE_BLUE;
 
     public static final String RING_LABEL_PREFIX = "ring";
 
@@ -99,11 +96,11 @@ public final class RingTool implements EditTool {
 
     public static final int MAXIMUM_RING_DIGITS = 9;
 
-    public static final int SUPPORTING_ANCHOR_COLOR = 0xFFFFFF;
+    public static final Color SUPPORTING_ANCHOR_COLOR = Color.WHITE;
 
-    public static final int AUTHORED_ANCHOR_COLOR = 0x00E5FF;
+    public static final Color AUTHORED_ANCHOR_COLOR = Color.TEAL_BLUE;
 
-    public static final int SELECTED_ANCHOR_COLOR = 0xFFE000;
+    public static final Color SELECTED_ANCHOR_COLOR = Color.YELLOW_ORANGE;
 
     public static final float RING_HIT_PIXELS = 8f;
 
@@ -313,7 +310,7 @@ public final class RingTool implements EditTool {
     public String[] drawnRingLabel = new String[0];
 
     /** Colour each drawn ring takes, parallel to {@link #drawnRingLabel}. */
-    public int[] drawnRingColorRgb = new int[0];
+    public Color[] drawnRingColors = new Color[0];
 
     /** One-line summary of the last edit, shown under the status line. */
     public String lastRow = "";
@@ -2086,7 +2083,7 @@ public final class RingTool implements EditTool {
         uploadedHoveredRing = hoveredRing;
         uploadedHoveredGraphRing = hoveredGraphRing;
         uploadedSelected = selectedAnchorVertexId;
-        int rings = drawnRingColorRgb.length;
+        int rings = drawnRingColors.length;
         boolean drawingEditing = editing != null
                 && editing.polyline.length >= 2 * COORDINATES_PER_POINT;
         LineSet edited = drawingEditing ? splineLines(scene.halfEdgeSurface(), editing)
@@ -2098,37 +2095,35 @@ public final class RingTool implements EditTool {
         lines.cursor = ringLines.cursor + edited.cursor;
         int[] groupStart = new int[rings + (drawingEditing ? 2 : 1)];
         System.arraycopy(ringSegmentStart, 0, groupStart, 0, rings + 1);
-        int[] groupColor = new int[rings + (drawingEditing ? 1 : 0)];
-        System.arraycopy(drawnRingColorRgb, 0, groupColor, 0, rings);
+        Color[] groupColor = new Color[rings + (drawingEditing ? 1 : 0)];
+        System.arraycopy(drawnRingColors, 0, groupColor, 0, rings);
         // The preview, the draft and the ring a click would re-open or convert are drawn in the
         // colour of the mode the draft runs in: red geodesic, purple crease.
-        int geodesicRgb = GEODESIC_DRAFT_COLOR.toPackedRgb();
-        int creaseRgb = CREASE_DRAFT_COLOR.toPackedRgb();
         if (drawingEditing) {
             groupStart[rings + 1] = groupStart[rings] + edited.vertexCount() / 2;
             groupColor[rings] = (draft != null ? draftMode : newDraftMode)
-                    == RingSegmentMode.CREASE ? creaseRgb : geodesicRgb;
+                    == RingSegmentMode.CREASE ? CREASE_DRAFT_COLOR : GEODESIC_DRAFT_COLOR;
         }
         if (hoveredRing >= 0 && drawnRingNumber(hoveredRing) < rings) {
             groupColor[drawnRingNumber(hoveredRing)] =
-                    confirmedMode.get(hoveredRing) == RingSegmentMode.CREASE ? creaseRgb
-                            : geodesicRgb;
+                    confirmedMode.get(hoveredRing) == RingSegmentMode.CREASE ? CREASE_DRAFT_COLOR
+                            : GEODESIC_DRAFT_COLOR;
         }
         int graphIndex = 0;
         for (String graphLabel : unownedGraphRingLabels()) {
             if (graphLabel.equals(hoveredGraphRing) && graphIndex < rings) {
-                groupColor[graphIndex] = geodesicRgb;
+                groupColor[graphIndex] = GEODESIC_DRAFT_COLOR;
             }
             graphIndex++;
         }
         overlay.setLineGroups(lines, groupStart, groupColor);
-        overlay.setLabels(ringLabelXyz, drawnRingLabel, drawnRingColorRgb, ringLabelLift);
+        overlay.setLabels(ringLabelXyz, drawnRingLabel, drawnRingColors, ringLabelLift);
         // Only the draft shows its anchors, as fixed-pixel discs: supporting smallest and white,
         // authored larger and cyan, the selected one largest and yellow. Smaller classes go
         // first so a larger disc wins where two overlap.
         int anchors = draft == null ? 0 : draft.anchorCount;
         int[] anchorVertexId = new int[anchors];
-        int[] anchorColor = new int[anchors];
+        Color[] anchorColor = new Color[anchors];
         float[] anchorDiameter = new float[anchors];
         int cursor = 0;
         for (float diameter : new float[] { SUPPORTING_ANCHOR_PIXELS, AUTHORED_ANCHOR_PIXELS,
@@ -2224,7 +2219,7 @@ public final class RingTool implements EditTool {
         }
         ringLines = new LineSet(total);
         ringSegmentStart = new int[perRing.size() + 1];
-        drawnRingColorRgb = new int[perRing.size()];
+        drawnRingColors = new Color[perRing.size()];
         ringLabelXyz = new float[COORDINATES_PER_POINT * perRing.size()];
         ringLabelLift = new float[perRing.size()];
         for (int ring = 0; ring < perRing.size(); ring++) {
@@ -2235,8 +2230,7 @@ public final class RingTool implements EditTool {
             ringLines.cursor += lines.cursor;
             ringSegmentStart[ring + 1] = ringLines.vertexCount() / 2;
             String note = ringNoteByLabel.get(perRingLiveLabel.get(ring));
-            drawnRingColorRgb[ring] = note != null ? MARKED_RING_COLOR
-                    : RING_COLORS[ring % RING_COLORS.length];
+            drawnRingColors[ring] = note != null ? MARKED_RING_COLOR : Palettes.RING.color(ring);
             if (ringSegments.length == 0 && ring < drawnRingLabel.length) {
                 drawnRingLabel[ring] = "";
             } else if (note != null && ring < drawnRingLabel.length) {

@@ -271,7 +271,7 @@ public final class ConnectionTool implements EditTool {
         Vector3f position = new Vector3f();
         if (joined) {
             polylines.add(shown.pathPolyline);
-            colors.add(Color.CONNECTION_PATH);
+            colors.add(Color.YELLOW_ORANGE);
             if (neckLoopVertexId.length > 0) {
                 float[] neck = new float[XYZ * (neckLoopVertexId.length + 1)];
                 for (int index = 0; index <= neckLoopVertexId.length; index++) {
@@ -282,13 +282,13 @@ public final class ConnectionTool implements EditTool {
                     neck[XYZ * index + 2] = position.z;
                 }
                 polylines.add(neck);
-                colors.add(Color.CONNECTION_NECK);
+                colors.add(Color.GREEN_TEAL);
             }
         }
         int emphasised = draggingPick >= 0 ? draggingPick : hoveredPick;
         int picked = pickVertexId[1] >= 0 ? PICKS : 1;
         int[] discVertexId = new int[picked];
-        int[] discColor = new int[picked];
+        Color[] discColor = new Color[picked];
         float[] discDiameter = new float[picked];
         int disc = 0;
         for (int pick = 0; pick < picked; pick++) {
@@ -517,7 +517,7 @@ public final class ConnectionTool implements EditTool {
         }
         shaderModeBefore = runtime.getShaderMode();
         runtime.clearTagColors();
-        runtime.setTagColor(FILL_TAG, Color.CONNECTION_REPAIR_FILL.toVector4f());
+        runtime.setTagColor(FILL_TAG, Color.RED_ORANGE.toVector4f());
         runtime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.STAGES);
         runtime.setTags(Map.of(FILL_TAG, mask));
         lastRow = fills + " repair_mesh fill faces coloured";

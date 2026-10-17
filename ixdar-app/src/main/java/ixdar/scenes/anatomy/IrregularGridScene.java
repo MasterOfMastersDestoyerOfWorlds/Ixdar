@@ -78,18 +78,18 @@ public class IrregularGridScene extends Canvas3D {
             Vector2f to = grid.anchorPoints().get(edge[1]);
             tmpA.set(camera2D.pointTransformX(from.x), camera2D.pointTransformY(from.y));
             tmpB.set(camera2D.pointTransformX(to.x), camera2D.pointTransformY(to.y));
-            Drawing.getDrawing().sdfLine.draw(tmpA, tmpB, Color.LIGHT_GRAY, camera2D);
+            Drawing.getDrawing().sdfLine.draw(tmpA, tmpB, Color.GREY_DARK, camera2D);
         }
         for (Vector2f pt : grid.anchorPoints()) {
             tmpScreen.set(camera2D.pointTransformX(pt.x), camera2D.pointTransformY(pt.y));
-            Drawing.drawCircle(tmpScreen, Color.CYAN, camera2D, ANCHOR_DOT_RADIUS);
+            Drawing.drawCircle(tmpScreen, Color.TEAL, camera2D, ANCHOR_DOT_RADIUS);
         }
         for (Vector2f pt : grid.dualPoints()) {
             tmpScreen.set(camera2D.pointTransformX(pt.x), camera2D.pointTransformY(pt.y));
-            Drawing.drawCircle(tmpScreen, Color.ORANGE, camera2D, DUAL_DOT_RADIUS);
+            Drawing.drawCircle(tmpScreen, Color.BROWN_DARK, camera2D, DUAL_DOT_RADIUS);
         }
         fpsText = new HyperString();
-        fpsText.addWord("FPS: " + Clock.fps(), Color.CYAN);
+        fpsText.addWord("FPS: " + Clock.fps(), Color.TEAL);
         Drawing.getDrawing().font.drawHyperStringRows(fpsText, 0, TEXT_Y_OFFSET, Drawing.FONT_HEIGHT_PIXELS, camera2D);
         Drawing.getDrawing().sdfLine.setCulling(true);
     }

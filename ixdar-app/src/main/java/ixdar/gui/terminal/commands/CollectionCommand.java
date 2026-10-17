@@ -116,7 +116,7 @@ public class CollectionCommand extends TerminalCommand {
     private void printMembers(ModelCollection collection, Terminal terminal) {
         terminal.history.addLine(collection.name + ": " + collection.memberCount() + " members, "
                 + collection.keptCount() + " kept, manifest " + collection.manifestPath,
-                Color.COMMAND);
+                Color.TEAL_DARK);
         int current = collection.index();
         for (int member = 0; member < collection.memberCount(); member++) {
             boolean keep = collection.memberKeep[member];
@@ -125,7 +125,7 @@ public class CollectionCommand extends TerminalCommand {
                     + (keep ? "[x] " : "[ ] ") + collection.memberNames[member]
                     + "  " + collection.countSummary(member)
                     + (settings.isEmpty() ? "" : "  " + settings);
-            terminal.history.addLine(row, keep ? Color.BRIGHT_GREEN : Color.LIGHT_GRAY);
+            terminal.history.addLine(row, keep ? Color.GREEN_TEAL_LIGHT : Color.GREY_DARK);
         }
     }
 
@@ -147,6 +147,6 @@ public class CollectionCommand extends TerminalCommand {
             scene.toggleKeepCurrentMember();
         }
         terminal.history.addLine(collection.memberNames[member]
-                + (collection.memberKeep[member] ? " kept" : " rejected"), Color.COMMAND);
+                + (collection.memberKeep[member] ? " kept" : " rejected"), Color.TEAL_DARK);
     }
 }

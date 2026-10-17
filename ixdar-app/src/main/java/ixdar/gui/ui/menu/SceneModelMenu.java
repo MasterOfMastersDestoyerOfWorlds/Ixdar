@@ -135,7 +135,7 @@ public final class SceneModelMenu implements PointerRegion {
         controlsBox.clearRows();
         for (ControlHint hint : scene.controls()) {
             controlsBox.addRow(hint.key + KEY_SEP + hint.description,
-                    hint.action == null ? Color.LIGHT_GRAY : Color.BLUE_WHITE, hint.action);
+                    hint.action == null ? Color.GREY_DARK : Color.BLUE_GREY, hint.action);
         }
         layout();
         controlsBox.layout(camera);
@@ -148,13 +148,13 @@ public final class SceneModelMenu implements PointerRegion {
             String currentPath = current == null ? null : current.path;
             List<ModelChoice> choices = scene.availableModels();
             if (choices.isEmpty()) {
-                modelsBox.addRow("(no models found)", Color.LIGHT_GRAY, null);
+                modelsBox.addRow("(no models found)", Color.GREY_DARK, null);
             }
             for (ModelChoice choice : choices) {
                 boolean isCurrent = currentPath != null && currentPath.equals(choice.path);
                 int row = modelsBox.addRow(
                         (isCurrent ? CURRENT_MARKER : OTHER_MARKER) + choice.displayName,
-                        isCurrent ? Color.BRIGHT_GREEN : Color.COMMAND,
+                        isCurrent ? Color.GREEN_TEAL_LIGHT : Color.TEAL_DARK,
                         () -> scene.requestModelLoad(choice.path));
                 if (isCurrent) {
                     currentModelRow = row;
@@ -169,13 +169,13 @@ public final class SceneModelMenu implements PointerRegion {
             }
         }
         HyperString modelsTitle = new HyperString();
-        modelsTitle.addLine(MODELS_HEADER, Color.AMBER);
+        modelsTitle.addLine(MODELS_HEADER, Color.YELLOW_ORANGE);
         drawFixedRows(modelsTitle, modelsBox.bounds.offsetY + modelsBox.bounds.viewHeight, 1,
                 camera);
         modelsBox.draw(camera);
 
         betweenBoxes = new HyperString();
-        betweenBoxes.addWordClick(RECOMPUTE_LABEL, Color.SKY_BLUE, () -> {
+        betweenBoxes.addWordClick(RECOMPUTE_LABEL, Color.TEAL_BLUE_LIGHT, () -> {
             ModelChoice reload = scene.currentModel();
             if (reload != null) {
                 scene.requestModelLoad(reload.path);
@@ -183,7 +183,7 @@ public final class SceneModelMenu implements PointerRegion {
         });
         betweenBoxes.newLine();
         betweenBoxes.newLine();
-        betweenBoxes.addLine(CONTROLS_HEADER, Color.AMBER);
+        betweenBoxes.addLine(CONTROLS_HEADER, Color.YELLOW_ORANGE);
         drawFixedRows(betweenBoxes, controlsBox.bounds.viewHeight,
                 RECOMPUTE_BLANK_AND_CONTROLS_TITLE_ROWS, camera);
         controlsBox.draw(camera);

@@ -65,12 +65,12 @@ public class NegativeCutMatchViewTool extends Tool {
             ArrayList<Segment> matchSegments = negativeSegmentMap.get(matchId);
             long cutId = Segment.idTransform(displayKP.id, displayCP.id);
             Segment cutSeg = displayKP.segmentLookup.get(cutId);
-            Drawing.drawScaledSegment(cutSeg, Color.ORANGE, 2 * Drawing.MIN_THICKNESS,
+            Drawing.drawScaledSegment(cutSeg, Color.BROWN_DARK, 2 * Drawing.MIN_THICKNESS,
                     camera);
             if (matchSegments != null) {
                 for (Segment s : matchSegments) {
                     if (!s.equals(MainScene.hoverSegment)) {
-                        Drawing.drawScaledSegment(s, Color.CYAN, Drawing.MIN_THICKNESS,
+                        Drawing.drawScaledSegment(s, Color.TEAL, Drawing.MIN_THICKNESS,
                                 camera);
                     }
                 }
@@ -146,21 +146,21 @@ public class NegativeCutMatchViewTool extends Tool {
         HyperString h = new HyperString();
         if (displaySegment != null) {
             h.addWord("Cut: ", Color.IXDAR);
-            h.addHyperString(displaySegment.toHyperString(Color.ORANGE, false));
+            h.addHyperString(displaySegment.toHyperString(Color.BROWN_DARK, false));
             h.newLine();
             h.addWord("Cut Length: ");
-            h.addDistance(displaySegment.distance, Color.ORANGE);
+            h.addDistance(displaySegment.distance, Color.BROWN_DARK);
             h.newLine();
             h.addWord("Knot Point: " + displayKP, Color.GREEN);
             h.newLine();
-            h.addWord("Cut Point: " + displayCP, Color.ORANGE);
+            h.addWord("Cut Point: " + displayCP, Color.BROWN_DARK);
             long matchId = Segment.idTransformOrdered(displayKP.id, displayCP.id);
             ArrayList<Segment> matchSegments = negativeSegmentMap.get(matchId);
             h.newLine();
             h.addWord("Negative Matches:");
             h.newLine();
             for (Segment s : matchSegments) {
-                h.addHyperString(s.toHyperString(Color.CYAN, false));
+                h.addHyperString(s.toHyperString(Color.TEAL, false));
                 h.addDistance(s.distance - displaySegment.distance, Color.RED);
                 h.newLine();
             }

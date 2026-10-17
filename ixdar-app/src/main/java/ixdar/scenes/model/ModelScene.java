@@ -16,7 +16,6 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
-import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.menu.SceneModelMenu;
@@ -195,7 +194,7 @@ public abstract class ModelScene extends Scene {
         drawSceneOverlayText();
         if (sceneModelMenu != null && sceneModelMenu.isVisible()) {
             camera2D.updateView(VIEW_SCENE_MENU);
-            chromeBackground.draw(Color.DARK_GRAY, camera2D);
+            chromeBackground.draw(Color.GREY_VERY_DARK, camera2D);
             sceneModelMenu.draw(camera2D);
             camera2D.resetView();
         }
@@ -336,7 +335,7 @@ public abstract class ModelScene extends Scene {
      * and graph load paths.
      */
     public void frameLoadedModel() {
-        runtime.setSolidColor(ColorRGB.BLUE_GRAY.toVector4f());
+        runtime.setSolidColor(Color.BLUE_VERY_DARK.toVector4f());
         runtime.frameCamera(camera);
         frameMesh(halfEdgeMesh);
     }

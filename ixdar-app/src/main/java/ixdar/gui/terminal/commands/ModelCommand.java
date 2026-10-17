@@ -91,7 +91,7 @@ public class ModelCommand extends TerminalCommand {
             terminal.error("no model matching: " + token);
             return null;
         }
-        terminal.history.addLine("loading " + match.displayName, Color.COMMAND);
+        terminal.history.addLine("loading " + match.displayName, Color.TEAL_DARK);
         return null;
     }
 

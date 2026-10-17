@@ -12,8 +12,8 @@ import ixdar.graphics.render.sdf.SDFLine;
  */
 public class Road {
 
-    private static final Color ROAD_COLOR = Color.BLUE_WHITE;
-    private static final Color DISCOVERED_ROAD_COLOR = Color.LIGHT_GRAY;
+    private static final Color ROAD_COLOR = Color.BLUE_GREY;
+    private static final Color DISCOVERED_ROAD_COLOR = Color.GREY_DARK;
     public City from;
     public City to;
     public double distance;

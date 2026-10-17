@@ -241,9 +241,9 @@ public class MeshBooleanScene extends ModelScene {
         tags.put(TAG_FROM_A, fromA);
         tags.put(TAG_FROM_B, fromB);
         tags.put(TAG_INTERSECTION, intersection);
-        runtime.setTagColor(TAG_FROM_A, Color.BLUE_WHITE.toVector4f());
-        runtime.setTagColor(TAG_FROM_B, Color.BRIGHT_ORANGE.toVector4f());
-        runtime.setTagColor(TAG_INTERSECTION, Color.BRIGHT_GREEN.toVector4f());
+        runtime.setTagColor(TAG_FROM_A, Color.BLUE_GREY.toVector4f());
+        runtime.setTagColor(TAG_FROM_B, Color.ORANGE.toVector4f());
+        runtime.setTagColor(TAG_INTERSECTION, Color.GREEN_TEAL_LIGHT.toVector4f());
         runtime.setTags(tags);
         Platforms.get().log(LOG_PREFIX + "faces new=" + newFaces + "/" + faceCount);
     }

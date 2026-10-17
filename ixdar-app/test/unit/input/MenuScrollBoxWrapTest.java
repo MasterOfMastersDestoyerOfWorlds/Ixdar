@@ -75,8 +75,8 @@ class MenuScrollBoxWrapTest {
     @Test
     void rowsThatFitTakeOneBoxRowEach() {
         MenuScrollBox box = box(10);
-        box.addRow("ctrl+S  save", Color.COMMAND, null);
-        box.addRow("R  rings", Color.COMMAND, null);
+        box.addRow("ctrl+S  save", Color.TEAL_DARK, null);
+        box.addRow("R  rings", Color.TEAL_DARK, null);
         box.layout(camera);
         assertEquals(2, box.rowsUsed);
         assertEquals(1, rowsOf(box, 0).size());
@@ -86,9 +86,9 @@ class MenuScrollBoxWrapTest {
     void longRowWrapsAndEveryRowOfItClicksThatRow() {
         MenuScrollBox box = box(20);
         int[] clicks = new int[3];
-        box.addRow("short", Color.COMMAND, () -> clicks[0]++);
-        box.addRow(LONG_ROW, Color.COMMAND, () -> clicks[1]++);
-        box.addRow("not clickable", Color.LIGHT_GRAY, null);
+        box.addRow("short", Color.TEAL_DARK, () -> clicks[0]++);
+        box.addRow(LONG_ROW, Color.TEAL_DARK, () -> clicks[1]++);
+        box.addRow("not clickable", Color.GREY_DARK, null);
         box.layout(camera);
 
         TreeSet<Float> wrappedRows = rowsOf(box, 1);
@@ -119,8 +119,8 @@ class MenuScrollBoxWrapTest {
     void oneClickOnAModelRowRunsItsActionOnce() {
         MenuScrollBox box = box(10);
         int[] loads = new int[2];
-        box.addRow(SceneModelMenu.OTHER_MARKER + "botijo in tri", Color.COMMAND, () -> loads[0]++);
-        box.addRow(SceneModelMenu.CURRENT_MARKER + "kitten", Color.BRIGHT_GREEN, () -> loads[1]++);
+        box.addRow(SceneModelMenu.OTHER_MARKER + "botijo in tri", Color.TEAL_DARK, () -> loads[0]++);
+        box.addRow(SceneModelMenu.CURRENT_MARKER + "kitten", Color.GREEN_TEAL_LIGHT, () -> loads[1]++);
         box.layout(camera);
 
         List<HyperWord> words = wordsOf(box, 0);
@@ -140,7 +140,7 @@ class MenuScrollBoxWrapTest {
     void unbrokenTokenIsCutToFitWithNoBlankRowBeforeIt() {
         MenuScrollBox box = box(20);
         String token = "abcdefghijklmnopqrstuvwxyz".repeat(3) + ".dsl";
-        box.addRow(token, Color.COMMAND, null);
+        box.addRow(token, Color.TEAL_DARK, null);
         box.layout(camera);
 
         List<HyperWord> pieces = wordsOf(box, 0);
@@ -159,7 +159,7 @@ class MenuScrollBoxWrapTest {
     void scrollLimitAndCentringCountWrappedRows() {
         MenuScrollBox box = box(4);
         for (int row = 0; row < 6; row++) {
-            box.addRow(row == 2 ? LONG_ROW : "row " + row, Color.COMMAND, null);
+            box.addRow(row == 2 ? LONG_ROW : "row " + row, Color.TEAL_DARK, null);
         }
         box.layout(camera);
         int wrappedRows = rowsOf(box, 2).size();
@@ -209,7 +209,7 @@ class MenuScrollBoxWrapTest {
         hidden.bounds.update(0, 0, BOX_WIDTH, 4 * ROW);
         hidden.clearRows();
         for (int row = 0; row < 20; row++) {
-            hidden.addRow("row " + row, Color.COMMAND, null);
+            hidden.addRow("row " + row, Color.TEAL_DARK, null);
         }
         hidden.layout(camera);
         assertTrue(!hidden.claimsWheel());
@@ -233,7 +233,7 @@ class MenuScrollBoxWrapTest {
         MenuScrollBox box = box(4);
         for (int row = 0; row < clicks.length; row++) {
             int clicked = row;
-            box.addRow("row " + row, Color.COMMAND, () -> clicks[clicked]++);
+            box.addRow("row " + row, Color.TEAL_DARK, () -> clicks[clicked]++);
         }
         box.layout(camera);
         box.onScrollDelta(-1.5f * ROW / PER_UNIT);
@@ -263,7 +263,7 @@ class MenuScrollBoxWrapTest {
     private MenuScrollBox rowsBox(int rowsTall, int rowCount) {
         MenuScrollBox box = box(rowsTall);
         for (int row = 0; row < rowCount; row++) {
-            box.addRow("row " + row, Color.COMMAND, null);
+            box.addRow("row " + row, Color.TEAL_DARK, null);
         }
         box.layout(camera);
         return box;

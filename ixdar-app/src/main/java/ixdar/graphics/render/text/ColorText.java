@@ -61,7 +61,7 @@ public class ColorText<T> {
      * @param value        caller-defined payload
      */
     public ColorText(String scalarString, T value) {
-        this(scalarString, Color.BLUE_WHITE, value);
+        this(scalarString, Color.BLUE_GREY, value);
     }
 
     /**
@@ -70,7 +70,7 @@ public class ColorText<T> {
      * @param scalarString whitespace-separated string
      */
     public ColorText(String scalarString) {
-        this(scalarString, Color.BLUE_WHITE, null);
+        this(scalarString, Color.BLUE_GREY, null);
     }
 
     /**

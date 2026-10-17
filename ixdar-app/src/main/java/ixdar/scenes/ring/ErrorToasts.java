@@ -22,6 +22,8 @@ public final class ErrorToasts {
 
     public static final String LOG_PREFIX = "[refused] ";
 
+    public static final Color REFUSAL_COLOR = Color.RED_LIGHT;
+
     private static final byte[] ALPHA_ONLY_LERP_MASK = { 0, 0, 0, 1 };
 
     /** Scene whose terminal each refusal is printed to. */
@@ -68,12 +70,12 @@ public final class ErrorToasts {
         }
         messages.add(0, message);
         sources.add(0, source);
-        colors.add(0, ColorLerp.lerpOnce(Color.ERROR_TOAST, Color.TRANSPARENT,
+        colors.add(0, ColorLerp.lerpOnce(REFUSAL_COLOR, Color.TRANSPARENT,
                 ALPHA_ONLY_LERP_MASK, FADE_SECONDS));
         String line = source + ": " + message;
         Platforms.get().log(LOG_PREFIX + line);
         if (scene.sceneTerminal != null) {
-            scene.sceneTerminal.history.addLine(line, Color.ERROR_TOAST);
+            scene.sceneTerminal.history.addLine(line, REFUSAL_COLOR);
         }
     }
 

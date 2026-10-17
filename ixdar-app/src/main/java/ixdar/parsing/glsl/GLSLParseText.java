@@ -6,15 +6,27 @@ import java.util.Map;
 import org.joml.Vector4f;
 
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.text.ColorText;
 
 public class GLSLParseText extends ColorText<Vector4f> {
     public static final int VEC4_COMPONENTS = 4;
     public static final int DECIMAL_BASE = 10;
-    public static final GLSLParseText BLANK = new GLSLParseText("", Color.BLUE_WHITE, new Vector4f(), -1, "BLANK");
+    public static final Color FLOAT_COLOR = Color.PINK_VERY_LIGHT;
+    public static final Color VECTOR_COLOR = Color.PURPLE_BLUE_LIGHT;
+    public static final Color VECN_COLOR = Color.PURPLE_PINK_VERY_LIGHT;
+    public static final Color PARENTHESIS_COLOR = Color.PURPLE_VERY_LIGHT;
+    public static final Color BRACE_COLOR = Color.BLUE_VERY_LIGHT;
+    public static final Color COMMA_COLOR = Color.PURPLE_PASTEL;
+    public static final Color KEYWORD_COLOR = Color.BROWN_PASTEL;
+    public static final Color TYPE_COLOR = Color.TEAL_BLUE_PASTEL;
+    public static final Color FUNCTION_COLOR = Color.GREEN_PASTEL;
+    public static final Color OPERATOR_COLOR = Color.YELLOW_PASTEL;
+    public static final Color EQUALS_COLOR = Color.YELLOW_GREEN_PASTEL;
+    public static final Color BOOLEAN_COLOR = Color.GREEN_YELLOW_LIGHT;
+    public static final Color SKIP_COLOR = Color.YELLOW_VERY_LIGHT;
+    public static final GLSLParseText BLANK = new GLSLParseText("", Color.BLUE_GREY, new Vector4f(), -1, "BLANK");
 
-    static final Color[] VECTOR_COMPONENT_COLORS = new Color[] { Color.GLSL_VECTOR_FLOAT_X, Color.GLSL_VECTOR_FLOAT_Y,
-            Color.GLSL_VECTOR_FLOAT_Z, Color.GLSL_VECTOR_FLOAT_W };
     String key;
     int vectorLength;
 
@@ -56,7 +68,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
      * @param key environment binding name for this token
      */
     public GLSLParseText(String text, int vectorLength, String key) {
-        this(text, Color.BLUE_WHITE, new Vector4f(), vectorLength, key);
+        this(text, Color.BLUE_GREY, new Vector4f(), vectorLength, key);
     }
 
     /**
@@ -68,7 +80,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
      * @param key environment binding name for this token
      */
     public GLSLParseText(String text, Vector4f data, int vectorLength, String key) {
-        this(text, Color.BLUE_WHITE, data, vectorLength, key);
+        this(text, Color.BLUE_GREY, data, vectorLength, key);
     }
 
     GLSLParseText(GLSLParseText text, Vector4f data, int vectorLength, String key) {
@@ -103,7 +115,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
      * @param val scalar value stored at component x
      */
     public GLSLParseText(String text, Float val) {
-        this(text, Color.BLUE_WHITE, new Vector4f(val, 0f, 0f, 0f), 1, "");
+        this(text, Color.BLUE_GREY, new Vector4f(val, 0f, 0f, 0f), 1, "");
     }
 
     /**
@@ -112,7 +124,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
      * @param val scalar value stored at component x
      */
     public GLSLParseText(Float val) {
-        this("", Color.BLUE_WHITE, new Vector4f(val, 0f, 0f, 0f), 1, "");
+        this("", Color.BLUE_GREY, new Vector4f(val, 0f, 0f, 0f), 1, "");
     }
 
     /**
@@ -122,7 +134,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
      * @param key environment binding name for this token
      */
     public GLSLParseText(String text, String key) {
-        this(text, Color.BLUE_WHITE, null, -1, key);
+        this(text, Color.BLUE_GREY, null, -1, key);
     }
 
     /**
@@ -131,7 +143,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
      * @param text plain label
      */
     public GLSLParseText(String text) {
-        this(text, Color.BLUE_WHITE, null, -1, null);
+        this(text, Color.BLUE_GREY, null, -1, null);
     }
 
     /**
@@ -152,7 +164,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
      * @param vectorLength 1..4 to render as scalar/vec; values outside skip rendering
      */
     public GLSLParseText(String text, Vector4f vec, int vectorLength) {
-        this(text, Color.BLUE_WHITE, vec, vectorLength, null);
+        this(text, Color.BLUE_GREY, vec, vectorLength, null);
     }
 
     private void transformVecText(Vector4f data, int vectorLength) {
@@ -161,16 +173,16 @@ public class GLSLParseText extends ColorText<Vector4f> {
         }
         super.resetText();
         if (vectorLength == 1) {
-            super.addWord(formatFixed(data.x), Color.GLSL_FLOAT);
+            super.addWord(formatFixed(data.x), FLOAT_COLOR);
         } else {
-            super.addWord(String.format("vec%s", vectorLength), Color.GLSL_VECTOR);
-            super.addWord("(", Color.GLSL_PARENTHESIS);
+            super.addWord(String.format("vec%s", vectorLength), VECTOR_COLOR);
+            super.addWord("(", PARENTHESIS_COLOR);
             for (int i = 0; i < vectorLength; i++) {
-                super.addWord(formatFixed(data.get(i)), VECTOR_COMPONENT_COLORS[i]);
+                super.addWord(formatFixed(data.get(i)), Palettes.GLSL_VECTOR_COMPONENT.color(i));
                 if (i != vectorLength - 1) {
-                    super.addWord(",", Color.GLSL_COMMA);
+                    super.addWord(",", COMMA_COLOR);
                 } else {
-                    super.addWord(")", Color.GLSL_PARENTHESIS);
+                    super.addWord(")", PARENTHESIS_COLOR);
                 }
             }
         }
@@ -242,7 +254,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
         }
         if (dv.length == 1) {
             Float value = dv[0];
-            env.put(var, new GLSLParseText("", VECTOR_COMPONENT_COLORS[0], new Vector4f(value, 0f, 0f, 0f), 1, var));
+            env.put(var, new GLSLParseText("", Palettes.GLSL_VECTOR_COMPONENT.color(0),new Vector4f(value, 0f, 0f, 0f), 1, var));
             return;
         }
         float[] xyzw = new float[VEC4_COMPONENTS];
@@ -250,7 +262,7 @@ public class GLSLParseText extends ColorText<Vector4f> {
             xyzw[i] = dv[i];
         }
         Vector4f result = new Vector4f(xyzw);
-        GLSLParseText vectorString = new GLSLParseText("", Color.PINK, result, dv.length, var);
+        GLSLParseText vectorString = new GLSLParseText("", Color.PINK_VERY_LIGHT, result, dv.length, var);
 
         env.put(var, vectorString);
     }

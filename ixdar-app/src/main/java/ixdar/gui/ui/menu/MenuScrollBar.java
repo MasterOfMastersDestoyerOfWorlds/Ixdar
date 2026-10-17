@@ -198,23 +198,23 @@ public final class MenuScrollBar {
         float trackCap = TRACK_STROKE_PIXELS * LINE_CAP_REACH_PAST_ENDPOINT_PER_STROKE_PIXEL;
         line.setStroke(TRACK_STROKE_PIXELS, false, 1f, 0f, false, false, false);
         line.draw(new Vector2f(middleX, WIDTH_PIXELS + trackCap),
-                new Vector2f(middleX, height - WIDTH_PIXELS - trackCap), Color.LIGHT_GRAY, camera);
+                new Vector2f(middleX, height - WIDTH_PIXELS - trackCap), Color.GREY_DARK, camera);
         float thumbTop = thumbTop();
         float thumbMiddle = thumbTop - thumbLength() / 2;
         float thumbHalf = Math.max(1, thumbLength() / 2
                 - THUMB_STROKE_PIXELS * LINE_CAP_REACH_PAST_ENDPOINT_PER_STROKE_PIXEL);
         line.setStroke(THUMB_STROKE_PIXELS, false, 1f, 0f, false, false, false);
         line.draw(new Vector2f(middleX, thumbMiddle - thumbHalf),
-                new Vector2f(middleX, thumbMiddle + thumbHalf), Color.BLUE_WHITE, camera);
+                new Vector2f(middleX, thumbMiddle + thumbHalf), Color.BLUE_GREY, camera);
         line.setStroke(ARROW_STROKE_PIXELS, false, 1f, 0f, false, false, false);
         for (int end = 0; end < 2; end++) {
             float centreY = end == 0 ? height - WIDTH_PIXELS / 2 : WIDTH_PIXELS / 2;
             float tipDirection = end == 0 ? 1 : -1;
             Vector2f tip = new Vector2f(middleX, centreY + tipDirection * ARROW_HALF_HEIGHT_PIXELS);
             float baseY = centreY - tipDirection * ARROW_HALF_HEIGHT_PIXELS;
-            line.draw(new Vector2f(middleX - ARROW_HALF_WIDTH_PIXELS, baseY), tip, Color.BLUE_WHITE,
+            line.draw(new Vector2f(middleX - ARROW_HALF_WIDTH_PIXELS, baseY), tip, Color.BLUE_GREY,
                     camera);
-            line.draw(tip, new Vector2f(middleX + ARROW_HALF_WIDTH_PIXELS, baseY), Color.BLUE_WHITE,
+            line.draw(tip, new Vector2f(middleX + ARROW_HALF_WIDTH_PIXELS, baseY), Color.BLUE_GREY,
                     camera);
         }
     }

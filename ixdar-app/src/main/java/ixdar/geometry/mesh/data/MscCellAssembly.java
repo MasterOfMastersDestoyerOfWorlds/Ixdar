@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.graphics.render.color.Color;
 
 /**
  * Ascending-manifold segmentation from a Morse-Smale critical-point set: each face is labelled by
@@ -18,8 +19,6 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
  * cell per maximum with boundaries on the ridge curves. These are not formal MSC 2-cells.
  */
 public final class MscCellAssembly {
-    public static final int RGB_MASK = 0xFFFFFF;
-
     private static final int MAX_WALK_STEPS = 256;
 
     private MscCellAssembly() {}
@@ -165,8 +164,7 @@ public final class MscCellAssembly {
             centroid[0] /= vertCount;
             centroid[1] /= vertCount;
             centroid[2] /= vertCount;
-            String color = String.format("%06X",
-                    PatchColors.uniquePatchColor(patchId) & RGB_MASK);
+            Color color = PatchColors.uniquePatchColor(patchId);
             patches.add(new Patch(patchId++, verts, faces, /*branch=*/-1,
                     centroid, /*meanCurvature=*/0f, color));
         }

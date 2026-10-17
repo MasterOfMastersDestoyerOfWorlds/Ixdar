@@ -5,7 +5,6 @@ import java.util.Random;
 
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.ColorRGB;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
@@ -43,21 +42,20 @@ public class ColorCommand extends TerminalCommand {
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
         Random colorSeed = new Random();
-        MainScene.stickyColor = new ColorRGB(colorSeed.nextFloat(), colorSeed.nextFloat(),
-                colorSeed.nextFloat());
+        MainScene.stickyColor = Color.random(colorSeed);
         if (MainScene.tool.canUseToggle(Toggle.DrawMetroDiagram)) {
             MainScene.metroColors = new ArrayList<>();
             int totalLayers = MainScene.totalLayers;
             float startHue = colorSeed.nextFloat();
             float step = 1.0f / ((float) totalLayers);
             for (int i = 0; i <= totalLayers; i++) {
-                MainScene.metroColors.add(Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
+                MainScene.metroColors.add(Color.fullHue((startHue + step * i) % 1.0f));
             }
         }
         float startHue = colorSeed.nextFloat();
         float step = 1.0f / ((float) MainScene.resultKnots.size());
         for (int i = 0; i < MainScene.knotGradientColors.size(); i++) {
-            MainScene.knotGradientColors.set(i, Color.getHSBColor((startHue + step * i) % 1.0f, 1.0f, 1.0f));
+            MainScene.knotGradientColors.set(i, Color.fullHue((startHue + step * i) % 1.0f));
         }
         return new String[] { cmd };
     }

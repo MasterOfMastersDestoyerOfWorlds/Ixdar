@@ -88,7 +88,7 @@ public class ExplodeCommand extends TerminalCommand {
         scene.switchTool(scene.regionTool);
         scene.regionTool.explodeTo(amount);
         terminal.history.addLine("exploding the regions to " + scene.regionTool.explosion.target,
-                Color.COMMAND);
+                Color.TEAL_DARK);
         return null;
     }
 }

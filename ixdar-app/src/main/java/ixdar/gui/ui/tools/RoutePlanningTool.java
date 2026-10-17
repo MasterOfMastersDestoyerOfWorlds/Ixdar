@@ -14,7 +14,6 @@ import ixdar.geometry.knot.RouteOperationStack;
 import ixdar.geometry.knot.Segment;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.ColorRGB;
 import ixdar.graphics.render.sdf.SDFCircleSimple;
 import ixdar.graphics.render.sdf.SDFLine;
 import ixdar.graphics.render.text.HyperString;
@@ -50,15 +49,15 @@ public class RoutePlanningTool extends Tool {
     public static final int KEY_BACKSPACE = 259;
 
     
-    private static final Color ROUTE_COLOR = Color.MAGENTA;
-    private static final Color ROUTE_PREVIEW_COLOR = new ColorRGB(1f, 0f, 1f, 0.5f);
-    private static final Color EDGE_REMOVE_COLOR = new ColorRGB(1f, 0.2f, 0.2f, 0.8f);
-    private static final Color EDGE_ADD_COLOR = new ColorRGB(0.2f, 1f, 0.2f, 0.8f);
-    private static final Color CROSSING_COLOR = new ColorRGB(0.2f, 0.5f, 1f, 0.8f);
-    private static final Color BUTTON_COLOR = new ColorRGB(0.3f, 0.3f, 0.3f, 0.9f);
-    private static final Color BUTTON_SELECTED_COLOR = new ColorRGB(0.5f, 0.5f, 0.8f, 0.9f);
-    private static final Color BUTTON_HOVER_COLOR = new ColorRGB(0.4f, 0.4f, 0.5f, 0.9f);
-    private static final Color SELECTED_KNOT_COLOR = new ColorRGB(1f, 1f, 0f, 0.5f);
+    private static final Color ROUTE_COLOR = Color.PURPLE_PINK;
+    private static final Color ROUTE_PREVIEW_COLOR = Color.PURPLE_PINK_50;
+    private static final Color EDGE_REMOVE_COLOR = Color.RED_LIGHT_80;
+    private static final Color EDGE_ADD_COLOR = Color.GREEN_80;
+    private static final Color CROSSING_COLOR = Color.BLUE_TEAL_LIGHT_80;
+    private static final Color BUTTON_COLOR = Color.GREY_DARK_90;
+    private static final Color BUTTON_SELECTED_COLOR = Color.BLUE_GREY_LIGHT_90;
+    private static final Color BUTTON_HOVER_COLOR = Color.BLUE_GREY_DARK_90;
+    private static final Color SELECTED_KNOT_COLOR = Color.YELLOW_50;
 
     
     private static final float TOOLBAR_HEIGHT = 50f;
@@ -992,27 +991,27 @@ public class RoutePlanningTool extends Tool {
         case 0:
             h.addWord("Pipe (P)", Color.WHITE);
             h.wrap();
-            h.addWord("Connect two cities/knots into one loop", Color.LIGHT_GRAY);
+            h.addWord("Connect two cities/knots into one loop", Color.GREY_DARK);
             break;
         case 1:
             h.addWord("Grow (G)", Color.WHITE);
             h.wrap();
-            h.addWord("Insert a city into an existing route edge", Color.LIGHT_GRAY);
+            h.addWord("Insert a city into an existing route edge", Color.GREY_DARK);
             break;
         case 2:
             h.addWord("Collapse (C)", Color.WHITE);
             h.wrap();
-            h.addWord("Compress a linked chain while preserving one loop", Color.LIGHT_GRAY);
+            h.addWord("Compress a linked chain while preserving one loop", Color.GREY_DARK);
             break;
         case UNDO_BUTTON_INDEX:
             h.addWord("Undo (Ctrl+Z)", Color.WHITE);
             h.wrap();
-            h.addWord("Revert the last route operation", Color.LIGHT_GRAY);
+            h.addWord("Revert the last route operation", Color.GREY_DARK);
             break;
         case CONFIRM_BUTTON_INDEX:
             h.addWord("Confirm (Enter)", Color.WHITE);
             h.wrap();
-            h.addWord("Apply the current preview operation", Color.LIGHT_GRAY);
+            h.addWord("Apply the current preview operation", Color.GREY_DARK);
             break;
         default:
             return null;
@@ -1163,19 +1162,19 @@ public class RoutePlanningTool extends Tool {
 
         
         if (currentRoute != null && !hierarchyPath.isEmpty()) {
-            h.addWord("Route: ", Color.LIGHT_GRAY);
+            h.addWord("Route: ", Color.GREY_DARK);
             h.addWord(getHierarchyPathString(), Color.YELLOW);
             if (canNavigateUp()) {
-                h.addWord(" [Backspace=Up]", Color.LIGHT_GRAY);
+                h.addWord(" [Backspace=Up]", Color.GREY_DARK);
             }
             if (canNavigateDown()) {
-                h.addWord(" [Click child=Down]", Color.LIGHT_GRAY);
+                h.addWord(" [Click child=Down]", Color.GREY_DARK);
             }
             h.wrap();
         }
 
         
-        h.addWord("[" + currentMode.name() + "] ", Color.CYAN);
+        h.addWord("[" + currentMode.name() + "] ", Color.TEAL);
 
         switch (state) {
         case IDLE:
@@ -1213,7 +1212,7 @@ public class RoutePlanningTool extends Tool {
 
         
         h.wrap();
-        h.addWord("P=Pipe G=Grow C=Collapse | Ctrl+Z=Undo | Backspace=Up", Color.LIGHT_GRAY);
+        h.addWord("P=Pipe G=Grow C=Collapse | Ctrl+Z=Undo | Backspace=Up", Color.GREY_DARK);
 
         return h;
     }

@@ -14,8 +14,11 @@ import java.util.Arrays;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.graphics.render.color.Color;
 
 /**
  * Headless CLI for the patch decomposition pipeline, callable without the automation server.
@@ -106,7 +109,14 @@ public final class PatchDecomposerCLI {
         System.out.println(res);
     }
 
-    static JsonObject decompositionToJson(PatchDecomposition d) {
+    /**
+     * The decomposition as the JSON the CLI prints and the decompose route returns: each patch's
+     * id, branch, palette {@code color}, per-id {@code flat_color}, centroid, vertices and faces.
+     *
+     * @param d the decomposition to write
+     * @return {@code {ok, vertex_count, patches}}
+     */
+    public static JsonObject decompositionToJson(PatchDecomposition d) {
         JsonObject out = new JsonObject();
         out.addProperty(OK, true);
         out.addProperty(VERTEX_COUNT, d.vertexCount());
@@ -115,8 +125,8 @@ public final class PatchDecomposerCLI {
             JsonObject pj = new JsonObject();
             pj.addProperty(ID, p.id());
             pj.addProperty("branch_id", p.branchId());
-            pj.addProperty(COLOR, p.color());
-            pj.addProperty(FLAT_COLOR, PatchColors.uniquePatchColorHex(p.id()));
+            pj.add(COLOR, channels(p.color()));
+            pj.add(FLAT_COLOR, channels(PatchColors.uniquePatchColor(p.id())));
             pj.addProperty("curvature_mean", p.curvatureMean());
             JsonArray centroid = new JsonArray();
             for (float c : p.centroid()) centroid.add(c);
@@ -131,6 +141,22 @@ public final class PatchDecomposerCLI {
         }
         out.add("patches", patches);
         return out;
+    }
+
+    /**
+     * A colour as the JSON array {@code [r, g, b]} of channels in [0, 1]; a flat-shaded pixel
+     * reads back as those channels times 255.
+     *
+     * @param color the colour to write
+     * @return the three channels
+     */
+    private static JsonArray channels(Color color) {
+        Vector3f rgb = color.toVector3f();
+        JsonArray channels = new JsonArray();
+        channels.add(rgb.x);
+        channels.add(rgb.y);
+        channels.add(rgb.z);
+        return channels;
     }
 
     private static void stats(String[] args) throws Exception {

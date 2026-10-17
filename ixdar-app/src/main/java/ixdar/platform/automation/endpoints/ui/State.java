@@ -414,8 +414,9 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             for (int ring = 0; ring < tool.drawnRingLabel.length; ring++) {
                 JsonObject label = new JsonObject();
                 label.addProperty(LABEL, tool.drawnRingLabel[ring]);
-                label.addProperty("colorRgb", ring < tool.drawnRingColorRgb.length
-                        ? tool.drawnRingColorRgb[ring] : 0);
+                if (ring < tool.drawnRingColors.length) {
+                    label.addProperty("color", tool.drawnRingColors[ring].getName());
+                }
                 drawn.add(label);
             }
             toolJson.add("drawnRings", drawn);

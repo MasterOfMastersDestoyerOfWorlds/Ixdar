@@ -99,7 +99,7 @@ public final class PngWriter {
             raw[out++] = FILTER_NONE;
             int row = y * image.width;
             for (int x = 0; x < image.width; x++) {
-                int pixel = image.argb[row + x];
+                int pixel = image.pixels[row + x];
                 raw[out++] = (byte) ((pixel >> RED_SHIFT) & BYTE_MASK);
                 raw[out++] = (byte) ((pixel >> GREEN_SHIFT) & BYTE_MASK);
                 raw[out++] = (byte) (pixel & BYTE_MASK);
