@@ -682,7 +682,7 @@
                 <argument>-XstartOnFirstThread</argument>
                 <argument>-Dsun.awt.noerasebackground=true</argument>
                 <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>
-                <argument>-Dixdar.mesh.dsl=${mesh.dsl}</argument>
+                <argument>-Dixdar.model=${mesh.dsl}</argument>
                 <argument>-XX:ErrorFile=target/hs_err_pid%p.log</argument>
                 <argument>-classpath</argument>
                 <classpath />

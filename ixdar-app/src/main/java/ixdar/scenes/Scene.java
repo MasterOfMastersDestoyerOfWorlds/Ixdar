@@ -526,7 +526,7 @@ public abstract class Scene extends SceneDrawable {
 
     /**
      * Rebuild {@link #controls}: the tool switches, the active tool's hints, F for
-     * {@link #frameAll} unless the tool binds F itself, then the scene's own from
+     * {@link #frameAll} unless the tool or the scene binds F itself, then the scene's own from
      * {@link #setControls}, left out by a tool that {@link Tool#replacesView replaces the view}.
      */
     public void refreshControls() {
@@ -543,16 +543,19 @@ public abstract class Scene extends SceneDrawable {
         }
         if (activeTool != null) {
             activeTool.addControls(controls);
-            boolean toolBindsF = false;
-            for (ControlHint hint : controls) {
-                toolBindsF |= hint.keyCode == Keys.F && !hint.controlHeld && !hint.shiftHeld;
-            }
-            if (!toolBindsF) {
-                controls.add(new ControlHint(Keys.F, "F", FRAME_ALL_DESCRIPTION, this::frameAll));
-            }
         }
+        int frameAllRow = controls.size();
         if (activeTool == null || !activeTool.replacesView()) {
             setControls();
+        }
+        if (activeTool != null) {
+            boolean bindsF = false;
+            for (ControlHint hint : controls) {
+                bindsF |= hint.keyCode == Keys.F && !hint.controlHeld && !hint.shiftHeld;
+            }
+            if (!bindsF) {
+                controls.add(frameAllRow, new ControlHint(Keys.F, "F", FRAME_ALL_DESCRIPTION, this::frameAll));
+            }
         }
     }
 

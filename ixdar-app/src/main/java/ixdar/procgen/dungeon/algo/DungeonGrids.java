@@ -186,6 +186,17 @@ public final class DungeonGrids {
     }
 
     /**
+     * Whether a tile bundle is a {@link #latticeBundle}, whose cells are faceless vertices, rather
+     * than a {@link #gridBundle}, whose cells are faces.
+     *
+     * @param bundle tile bundle from {@code astar_corridors}
+     * @return true for a 3D lattice; false for a planar grid or an empty bundle
+     */
+    public static boolean isLattice(GeometryBundle bundle) {
+        return bundle.mesh().faceCount() == 0 && bundle.mesh().vertexCount() > 0;
+    }
+
+    /**
      * Dimensions of a {@link #gridBundle} geometry, read from its vertex extents.
      *
      * @param bundle 2D tile-grid bundle

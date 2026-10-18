@@ -15,6 +15,7 @@ import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.procgen.dungeon.algo.DungeonGrids;
 import ixdar.procgen.dungeon.algo.GridToMesh2D;
+import ixdar.procgen.dungeon.algo.GridToMesh3D;
 import ixdar.procgen.dungeon.values.CellType;
 
 @MeshNodeAnnotation(id = "dungeon_grid_to_mesh", scopes = { "dungeon" }, category = NodeCategory.DUNGEON)
@@ -35,15 +36,18 @@ public class DungeonGridToMeshNode implements MeshNode {
 
     @Override
     public String description() {
-        return "Emits an axis-aligned hollow-room mesh from 2D tile-grid geometry (quad grid with a "
-                + "per-face 'cell_type' attribute): floor, ceiling, and EMPTY-bordering walls per "
-                + "non-empty cell. Stage 5 (final) of the dungeon pipeline.";
+        return "Emits an axis-aligned hollow-room mesh from astar_corridors' tiles: floor, ceiling and "
+                + "EMPTY-bordering walls per non-empty cell. A planar quad grid gives one floor; a 3D "
+                + "point lattice gives every floor, leaving stair openings passable. Stage 5 (final) of "
+                + "the dungeon pipeline.";
     }
 
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                GEOMETRY.name, "Tile grid from astar_corridors: quad-grid geometry with the per-face 'cell_type' IntField.",
+                GEOMETRY.name, "Tiles from astar_corridors: quad-grid geometry with a per-face 'cell_type' "
+                        + "IntField, or a point lattice with one vertex per cell center and a per-vertex "
+                        + "'cell_type' IntField.",
                 CELL_SIZE.name, "Edge length of one cell in world units.",
                 MESH.name, "Origin-centered ArrayMesh with double-sided quads and computed normals.");
     }
@@ -53,9 +57,16 @@ public class DungeonGridToMeshNode implements MeshNode {
         GeometryBundle tiles = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         Number cs = ctx.getInput(CELL_SIZE.name, Number.class);
         float cellSize = cs == null ? 1.0f : cs.floatValue();
-        int[] dims = DungeonGrids.gridDims(tiles);
-        CellType[] cells = DungeonGrids.gridCells(tiles, dims[0], dims[1]);
-        ArrayMesh mesh = GridToMesh2D.emit(dims[0], dims[1], cells, cellSize);
+        ArrayMesh mesh;
+        if (DungeonGrids.isLattice(tiles)) {
+            int[] dims = DungeonGrids.latticeDims(tiles);
+            CellType[] cells = DungeonGrids.latticeCells(tiles, dims[0], dims[1], dims[2]);
+            mesh = GridToMesh3D.emit(dims[0], dims[1], dims[2], cells, cellSize);
+        } else {
+            int[] dims = DungeonGrids.gridDims(tiles);
+            CellType[] cells = DungeonGrids.gridCells(tiles, dims[0], dims[1]);
+            mesh = GridToMesh2D.emit(dims[0], dims[1], cells, cellSize);
+        }
         ctx.setOutput(MESH.name, GeometryBundle.ofMesh(mesh));
     }
 }

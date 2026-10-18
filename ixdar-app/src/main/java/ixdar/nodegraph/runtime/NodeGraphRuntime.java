@@ -217,7 +217,7 @@ public class NodeGraphRuntime {
     /**
      * Returns the output value of a previously-executed node, or {@code null} if the node never
      * ran or the port doesn't exist. Used by viewer scenes that grab intermediate values from
-     * the DSL graph (e.g. the dungeon viewer wiring {@code astar_corridors_3d}'s tile-lattice
+     * the DSL graph (e.g. the dungeon viewer wiring {@code astar_corridors}' tile-lattice
      * geometry into the player controller's collision world).
      *
      * @param nodeId id or {@code /}-joined path of the previously-executed graph node

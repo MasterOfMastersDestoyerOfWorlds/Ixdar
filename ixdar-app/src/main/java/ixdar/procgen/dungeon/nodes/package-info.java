@@ -1,6 +1,6 @@
 /**
  * Thin `MeshNode` adapters wrapping each algorithm stage for the DSL, all in the `dungeon` scope.
- * Rooms, Delaunay, and MST are dimension-neutral single nodes over point geometry; corridors and
- * grid-to-mesh keep 2D/3D ids because stairs and vertical adjacency have no 2D analog.
+ * Every stage is one node for 2D and 3D: `grid_d` on rooms and corridors chooses 3D, and
+ * grid-to-mesh reads the dimension off the tiles it is given.
  */
 package ixdar.procgen.dungeon.nodes;

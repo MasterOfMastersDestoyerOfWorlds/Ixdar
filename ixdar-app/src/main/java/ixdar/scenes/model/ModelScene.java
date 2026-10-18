@@ -298,15 +298,15 @@ public abstract class ModelScene extends Scene {
 
     /**
      * Resolve the initial model: {@code -Dixdar.model} (display-name token or path)
-     * through the catalog, else {@link #DEFAULT_OFF}. Scenes with a different
-     * catalog override this.
+     * through {@link #availableModels()}, registered graphs included, else
+     * {@link #DEFAULT_OFF}. Scenes with a different default override this.
      *
-     * @return the initial model path
+     * @return the initial model path or {@code graph:} token
      */
     public String resolveInitialModel() {
         String common = System.getProperty(COMMON_MODEL_PROPERTY);
         if (common != null && !common.isBlank()) {
-            ModelChoice match = modelCatalog.resolve(common);
+            ModelChoice match = ModelCatalog.resolve(availableModels(), common);
             return match != null ? match.path : common;
         }
         return DEFAULT_OFF;
@@ -855,14 +855,16 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Populate {@link #controls}. Base adds the orbit/scroll rows, Ctrl+R to re-centre the orbit
-     * unless a tool binds it, Ctrl+I for the menu and Esc to close it; scenes call
-     * {@code super.setControls()} then add their keyed hints.
+     * Populate {@link #controls}. Base adds the orbit/scroll rows while the mouse orbits the camera,
+     * Ctrl+R to re-centre the orbit unless a tool binds it, Ctrl+I for the menu and Esc to close
+     * it; scenes call {@code super.setControls()} then add their keyed hints.
      */
     @Override
     public void setControls() {
-        controls.add(new ControlHint("drag", "orbit the camera"));
-        controls.add(new ControlHint("scroll", "zoom"));
+        if (mouse.controller == camera) {
+            controls.add(new ControlHint("drag", "orbit the camera"));
+            controls.add(new ControlHint("scroll", "zoom"));
+        }
         boolean controlRBound = false;
         for (ControlHint hint : controls) {
             controlRBound |= hint.keyCode == Keys.R && hint.controlHeld && !hint.shiftHeld;

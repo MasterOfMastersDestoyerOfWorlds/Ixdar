@@ -53,14 +53,16 @@ public final class OrbitTool implements Tool {
     }
 
     /**
-     * Shift+drag pans and a double-click frames the whole model, as the F the scene adds does; the
-     * scene lists drag and scroll.
+     * Shift+drag pans while the mouse orbits the camera, and a double-click frames the whole model,
+     * as the F the scene adds does; the scene lists drag and scroll.
      *
      * @param controls the scene's control list, after the tool switches
      */
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("shift+drag", "pan the camera"));
+        if (scene.mouse.controller == scene.camera) {
+            controls.add(new ControlHint("shift+drag", "pan the camera"));
+        }
         controls.add(new ControlHint(Scene.FRAME_ALL_CLICK, "frame the whole model, as F does", scene::frameAll));
     }
 

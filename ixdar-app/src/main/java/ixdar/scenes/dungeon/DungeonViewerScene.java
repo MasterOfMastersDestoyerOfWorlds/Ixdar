@@ -1,6 +1,7 @@
 package ixdar.scenes.dungeon;
 
-import java.util.List;
+import java.io.IOException;
+import java.util.Map;
 
 import org.joml.Vector3f;
 
@@ -8,36 +9,38 @@ import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.graphics.cameras.FlyController;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.field.Vector3Field;
 import ixdar.platform.Clock;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
+import ixdar.models.GraphChoice;
 import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.Platform;
 import ixdar.procgen.dungeon.algo.DungeonGrids;
 import ixdar.procgen.dungeon.camera.ThirdPersonCamera;
+import ixdar.procgen.dungeon.nodes.AStarCorridorsNode;
+import ixdar.procgen.dungeon.nodes.DungeonGridToMeshNode;
 import ixdar.procgen.dungeon.player.PlayerController;
 import ixdar.procgen.dungeon.player.PlayerSpawner;
 import ixdar.procgen.dungeon.player.SpawnPoint;
 import ixdar.procgen.dungeon.render.DebugCapsuleRuntime;
 import ixdar.platform.input.Keys;
 import ixdar.procgen.dungeon.values.CellType;
-import ixdar.scenes.Scene;
+import ixdar.scenes.model.ModelScene;
 import ixdar.tools.ControlHint;
 
 /**
- * Viewer for procedural dungeons, switching with <kbd>F</kbd> between walking a collided player
- * capsule and flying the camera freely. Override the DSL with {@code -Dmesh.dsl=dungeon_3d}.
- *
- * <p>The DSL mesh feeds both the renderer and the collision world, so only 3D dungeons support
- * player mode; 2D ones fall back to fly-cam.
+ * Viewer for the registered dungeon graphs, picked from the model menu or with
+ * {@code -Dixdar.model=dungeon_3d}: <kbd>F</kbd> switches between walking a collided player capsule,
+ * which only a 3D dungeon's tile lattice supports, and flying the camera.
  */
 @SceneAnnotation(id = "dungeon-viewer")
-public class DungeonViewerScene extends Scene {
-    public static final String DSL = ".dsl";
+public class DungeonViewerScene extends ModelScene {
+    public static final String PLANAR_DUNGEON = "dungeon_2d";
+    public static final String LAYERED_DUNGEON = "dungeon_3d";
     public static final String PLAYER = "player";
     public static final String FLY_CAM = "fly-cam";
     public static final float MIN_CAMERA_RADIUS = 0.1f;
@@ -49,18 +52,14 @@ public class DungeonViewerScene extends Scene {
     public static final float DEFAULT_OVERVIEW_PITCH = 25f;
     public static final double MAX_FRAME_DT = 0.1;
 
-    private static final String DSL_FOLDER = "dsl";
-    private static final String DEFAULT_DSL_RESOURCE = "dungeon_2d.dsl";
     private static final float CAPSULE_HALF_HEIGHT_FRAC = 0.30f; // of cellSize
     private static final float CAPSULE_RADIUS_FRAC = 0.20f;
     private static final float JUMP_SPEED_PER_CELL = 4.0f;       // cells per second
     private static final float WALK_SPEED_PER_CELL = 3.0f;       // cells per second
 
-    private final String dslResource;
     private MeshTopology mesh;
-    private volatile HalfEdgeMeshRuntime meshRuntime;
 
-    // Player mode state — populated once the DSL output is ready and we have a 3D grid.
+    // Player mode state — populated once a graph whose tiles are a 3D lattice has run.
     private CellType[] playerCells;
     private int playerGridW;
     private int playerGridH;
@@ -69,138 +68,136 @@ public class DungeonViewerScene extends Scene {
     private Vector3Field playerRoomHalfExtents;
     private float playerCellSize = 1.0f;
     private PlayerController player;
-    private boolean playerMode = true;
+    private boolean playerMode;
     private ViewMode viewMode = ViewMode.FIRST_PERSON;
     private final FlyController flyController = new FlyController(camera, () -> playerMode);
     private final ThirdPersonCamera thirdPersonCamera = new ThirdPersonCamera(camera);
     private DebugCapsuleRuntime capsuleRuntime;
 
-    /**
-     * Builds the scene, picking the DSL resource from the {@code ixdar.mesh.dsl} system property
-     * (defaulting to {@code dungeon_2d.dsl}) and appending the {@code .dsl} extension if absent.
-     */
+    /** Registers the planar and the layered dungeon graphs for the model menu. */
     public DungeonViewerScene() {
-        String v = System.getProperty("ixdar.mesh.dsl");
-        String pick = (v != null && !v.isEmpty()) ? v : DEFAULT_DSL_RESOURCE;
-        this.dslResource = pick.endsWith(DSL) ? pick : pick + DSL;
+        registerGraph(new GraphChoice(PLANAR_DUNGEON, "dsl/dungeon_2d.dsl", Map.of()));
+        registerGraph(new GraphChoice(LAYERED_DUNGEON, "dsl/dungeon_3d.dsl", Map.of()));
+    }
+
+    @Override
+    public String windowTitle() {
+        return "Ixdar : Dungeon Viewer";
     }
 
     /**
-     * Wires up input handlers and the debug capsule runtime, then kicks off the asynchronous
-     * DSL load that populates the mesh and (for 3D dungeons) the player collision world.
+     * The dungeon {@code -Dixdar.model} names, else the planar dungeon.
      *
-     * @throws IllegalStateException if the debug capsule runtime cannot be created
+     * @return the initial model's {@code graph:} token, or the requested path
      */
     @Override
-    public void initGL() {
-        super.initGL();
-        Platforms.gl().setWindowTitle("Ixdar : Dungeon Viewer");
+    public String resolveInitialModel() {
+        String requested = System.getProperty(COMMON_MODEL_PROPERTY);
+        return requested == null || requested.isBlank() ? GRAPH_PREFIX + PLANAR_DUNGEON
+                : super.resolveInitialModel();
+    }
+
+    /**
+     * Hide the main menu and bind the input as every model scene does, then hand the mouse to the
+     * fly controller: player mode captures the cursor, so every move looks; fly-cam looks on a drag.
+     */
+    @Override
+    public void initInput() {
         MenuBox.menuVisible = false;
-        // Player mode captures the cursor, so every move looks; fly-cam looks on a drag.
+        super.initInput();
         mouse.controller = flyController;
-        bindAutomationIfAvailable(Platforms.get());
-        bindInputDirect(Platforms.get(), keys, mouse);
+    }
+
+    /**
+     * The surface runtime the dungeon is drawn through, and the debug capsule third person shows.
+     *
+     * @throws IllegalStateException if the debug capsule runtime cannot be created
+     * @return the surface runtime
+     */
+    @Override
+    public HalfEdgeMeshRuntime createRuntime() {
         try {
             capsuleRuntime = new DebugCapsuleRuntime();
         } catch (Exception e) {
             throw new IllegalStateException("Failed to create debug capsule runtime", e);
         }
-        // Cursor capture follows player mode.
-        applyCursorModeForCurrentMode();
-
-        Platforms.get().log("[dungeon-viewer] loading " + dslResource);
-        Platforms.get().loadSourceAsync(DSL_FOLDER, dslResource,
-                Platforms.gl().getPlatformID(), this::executeDsl);
+        return new HalfEdgeMeshRuntime();
     }
 
-    private void executeDsl(String dslCode) {
-        NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(dslCode);
-        List<PythonParser.ParsedNode> ast = runtime.statements;
+    /**
+     * Run a dungeon graph and show its mesh. When the tiles the final grid-to-mesh read are a 3D
+     * lattice, they become the player's collision world and the player walks from room[0];
+     * otherwise the scene flies.
+     *
+     * @param choice registered dungeon graph to run
+     * @throws IllegalStateException when a node fails or the graph ends in no mesh
+     * @return the executed runtime
+     */
+    @Override
+    public NodeGraphRuntime loadGraph(GraphChoice choice) {
+        NodeGraphRuntime run = super.loadGraph(choice);
+        if (!(run.lastOutput(DungeonGridToMeshNode.MESH.name) instanceof GeometryBundle dungeon)) {
+            throw new IllegalStateException("dungeon graph " + choice.dslPath + " ends in no mesh");
+        }
+        this.mesh = dungeon.mesh();
+        runtime.upload(mesh);
+        frameMesh(mesh);
+        updateCurrentChoice();
 
-        String finalId = ast.get(ast.size() - 1).id;
-        MeshTopology result;
-        try {
-            result = runtime.executeGraphToMesh(ast, finalId, "mesh");
-            runtime.logTimings("[dungeon]");
-        } catch (Exception e) {
-            Platforms.get().log("[dungeon-viewer] DSL execution failed: " + e.getMessage());
-            throw new IllegalStateException("Failed to execute DSL: " + dslResource, e);
+        player = null;
+        PythonParser.ParsedNode last = run.statements.get(run.statements.size() - 1);
+        GraphNodeContext mesher = run.node(last.id);
+        GeometryBundle tiles = mesher.getInput(DungeonGridToMeshNode.GEOMETRY.name, GeometryBundle.class);
+        if (tiles != null && DungeonGrids.isLattice(tiles)
+                && mesher.inputSources.get(DungeonGridToMeshNode.GEOMETRY.name)
+                        instanceof PythonParser.NodeReference tilesSource) {
+            int[] dims = DungeonGrids.latticeDims(tiles);
+            this.playerGridW = dims[0];
+            this.playerGridH = dims[1];
+            this.playerGridD = dims[2];
+            this.playerCells = DungeonGrids.latticeCells(tiles, dims[0], dims[1], dims[2]);
+            Number cellSize = mesher.getInput(DungeonGridToMeshNode.CELL_SIZE.name, Number.class);
+            this.playerCellSize = cellSize == null ? 1.0f : cellSize.floatValue();
+            // The rooms graph the corridors were carved over carries the room centres and extents.
+            GeometryBundle rooms = run.node(tilesSource.nodeId)
+                    .getInput(AStarCorridorsNode.GEOMETRY.name, GeometryBundle.class);
+            this.playerRooms = rooms.mesh();
+            this.playerRoomHalfExtents = DungeonGrids.halfExtents(rooms);
+            float hh = playerCellSize * CAPSULE_HALF_HEIGHT_FRAC;
+            float r  = playerCellSize * CAPSULE_RADIUS_FRAC;
+            float jump = JUMP_SPEED_PER_CELL * playerCellSize;
+            float walk = WALK_SPEED_PER_CELL * playerCellSize;
+            this.player = new PlayerController(playerCells, playerGridW, playerGridH, playerGridD,
+                    playerCellSize, new Vector3f(0f, 0f, 0f),
+                    hh, r, PlayerController.DEFAULT_GRAVITY, jump, walk);
         }
-        if (!(result instanceof ArrayMesh)) {
-            throw new IllegalStateException(
-                    "dungeon DSL final output should be ArrayMesh, got "
-                            + (result == null ? "null" : result.getClass().getSimpleName()));
-        }
-        this.mesh = result;
-        try {
-            meshRuntime = new HalfEdgeMeshRuntime();
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to create mesh GL runtime", e);
-        }
-        meshRuntime.upload(mesh);
-
-        // Pull the dungeon's tile grid for player collision. Walks the DSL: prefer
-        // astar_corridors_3d / astar_corridors output, falling back to no-grid (fly-cam only).
-        bindPlayerGridFromDsl(ast, runtime);
 
         positionCameraAboveDungeon();
-        if (player == null || playerRooms == null) {
-            // No 3D grid available — disable player mode for this DSL.
-            playerMode = false;
-        } else {
+        playerMode = player != null;
+        viewMode = ViewMode.FIRST_PERSON;
+        mouse.controller = flyController;
+        applyCursorModeForCurrentMode();
+        if (playerMode) {
             spawnPlayerAtRoomZero();
         }
         Platforms.get().log("[dungeon-viewer] mesh ready verts=" + mesh.vertexCount()
                 + " faces=" + mesh.faceCount() + " mode=" + (playerMode ? PLAYER : FLY_CAM));
+        return run;
     }
 
     /**
-     * Looks for the tile-lattice geometry produced by an {@code astar_corridors_3d} node so the
-     * player has a collision world. 2D dungeons leave {@link #playerCells} null and the scene
-     * falls back to fly-cam mode.
+     * Load a mesh file to fly round: it has no tile grid, so the player and its mode are dropped.
+     *
+     * @param path mesh file path to load
+     * @throws IOException if the mesh file cannot be read
      */
-    private void bindPlayerGridFromDsl(List<PythonParser.ParsedNode> ast, NodeGraphRuntime runtime) {
-        for (PythonParser.ParsedNode n : ast) {
-            if ("astar_corridors_3d".equals(n.type)) {
-                Object tiles = runtime.getNodeOutput(n.id, NodeGraphRuntime.GEOMETRY);
-                if (tiles instanceof GeometryBundle lattice) {
-                    int[] dims = DungeonGrids.latticeDims(lattice);
-                    this.playerGridW = dims[0];
-                    this.playerGridH = dims[1];
-                    this.playerGridD = dims[2];
-                    this.playerCells = DungeonGrids.latticeCells(lattice, dims[0], dims[1], dims[2]);
-                    // Find the cell_size from the dungeon_grid_to_mesh_3d node downstream.
-                    for (PythonParser.ParsedNode m : ast) {
-                        if ("dungeon_grid_to_mesh_3d".equals(m.type)) {
-                            Object cs = m.arguments.get("cell_size");
-                            if (cs instanceof Number csNum) {
-                                this.playerCellSize = csNum.floatValue();
-                            }
-                            break;
-                        }
-                    }
-                    // Find the rooms produced by random_rooms so PlayerSpawner has them.
-                    for (PythonParser.ParsedNode m : ast) {
-                        if ("random_rooms".equals(m.type)) {
-                            Object rooms = runtime.getNodeOutput(m.id, NodeGraphRuntime.GEOMETRY);
-                            if (rooms instanceof GeometryBundle rb) {
-                                this.playerRooms = rb.mesh();
-                                this.playerRoomHalfExtents = DungeonGrids.halfExtents(rb);
-                            }
-                            break;
-                        }
-                    }
-                    float hh = playerCellSize * CAPSULE_HALF_HEIGHT_FRAC;
-                    float r  = playerCellSize * CAPSULE_RADIUS_FRAC;
-                    float jump = JUMP_SPEED_PER_CELL * playerCellSize;
-                    float walk = WALK_SPEED_PER_CELL * playerCellSize;
-                    this.player = new PlayerController(playerCells, playerGridW, playerGridH, playerGridD,
-                            playerCellSize, new Vector3f(0f, 0f, 0f),
-                            hh, r, PlayerController.DEFAULT_GRAVITY, jump, walk);
-                    return;
-                }
-            }
-        }
+    @Override
+    public void loadModel(String path) throws IOException {
+        player = null;
+        playerMode = false;
+        applyCursorModeForCurrentMode();
+        super.loadModel(path);
+        mesh = halfEdgeMesh;
     }
 
     /**
@@ -271,20 +268,38 @@ public class DungeonViewerScene extends Scene {
     }
 
     /**
-     * The viewer's keys: F walks the player or flies the camera, V swaps first and third person
-     * and Esc leaves player mode, both only while walking, and R resets the look.
+     * The viewer's controls: the mouse looks, F walks the player or flies the camera, V swaps first
+     * and third person while walking, and R resets the look; Esc stops walking through
+     * {@link #escapePressed}.
      */
     @Override
     public void setControls() {
+        controls.add(new ControlHint("drag", "look round; while walking every move looks"));
+        controls.add(new ControlHint("scroll", "zoom the third-person camera"));
         controls.add(new ControlHint(Keys.F, "F", "walk the player or fly the camera", this::togglePlayerMode));
         controls.add(new ControlHint(Keys.V, "V", "first or third person while walking", this::toggleViewMode));
-        controls.add(new ControlHint(Keys.ESCAPE, "esc", "stop walking and fly", () -> {
-            if (playerMode) {
-                togglePlayerMode();
-            }
-        }));
         controls.add(new ControlHint(Keys.R, "R", "reset the look", camera::reset));
         super.setControls();
+    }
+
+    /** Escape stops walking, else does what every model scene's does. */
+    @Override
+    public void escapePressed() {
+        if (playerMode) {
+            togglePlayerMode();
+        } else {
+            super.escapePressed();
+        }
+    }
+
+    /**
+     * The Escape row's text: stop walking, else the model scene's Escape.
+     *
+     * @return the description
+     */
+    @Override
+    public String escapeDescription() {
+        return "stop walking and fly, else " + super.escapeDescription();
     }
 
     /** Player mode = cursor captured (FPS look). Fly-cam = cursor visible (drag to rotate). */
@@ -294,14 +309,10 @@ public class DungeonViewerScene extends Scene {
                 : Platform.CursorMode.NORMAL);
     }
 
-    /**
-     * Per-frame draw. Steps player physics (in player mode), refreshes the camera, renders the
-     * dungeon mesh, and overlays the debug capsule when in third-person.
-     */
+    /** Per-frame: the hosted tools, then the player physics in player mode, before the view is drawn. */
     @Override
-    public void drawScene() {
-        if (meshRuntime == null) return;
-        // Run the player physics (in player mode) before refreshing the view matrix.
+    public void updateScene() {
+        super.updateScene();
         if (playerMode && player != null) {
             float dt = (float) Math.min(MAX_FRAME_DT, Clock.deltaTime()); // clamp to avoid huge dt on stalls
             if (viewMode == ViewMode.THIRD_PERSON) {
@@ -315,9 +326,14 @@ public class DungeonViewerScene extends Scene {
                 camera.position.set(eye.x(), eye.y(), eye.z());
             }
         }
+    }
+
+    /** Refresh the camera, render the dungeon mesh, and overlay the debug capsule in third person. */
+    @Override
+    public void renderScene() {
         camera.resetView();
         camera.updateViewFirstPerson();
-        meshRuntime.render(camera);
+        runtime.render(camera);
         if (playerMode && viewMode == ViewMode.THIRD_PERSON && player != null && capsuleRuntime != null) {
             Vector3f p = player.position();
             float yawRad = (float) Math.toRadians(player.facingYawDegrees());
@@ -327,36 +343,26 @@ public class DungeonViewerScene extends Scene {
     }
 
     /**
-     * Scene activation hook. On deactivation, releases GL-bound mesh and capsule runtimes so
-     * resources don't leak when switching scenes.
+     * Scene activation hook. On deactivation, releases the capsule runtime as the model scene
+     * releases the surface's, so resources don't leak when switching scenes.
      *
      * @param state {@code true} when the scene is being activated, {@code false} on deactivation
      */
     @Override
     public void activate(boolean state) {
         super.activate(state);
-        if (!state) {
-            if (meshRuntime != null) {
-                meshRuntime.dispose();
-                meshRuntime = null;
-            }
-            if (capsuleRuntime != null) {
-                capsuleRuntime.dispose();
-                capsuleRuntime = null;
-            }
+        if (!state && capsuleRuntime != null) {
+            capsuleRuntime.dispose();
+            capsuleRuntime = null;
         }
     }
 
     /**
-     * Releases GL runtimes and restores the OS cursor so the user can interact with the desktop
+     * Releases the GL runtimes and restores the OS cursor so the user can interact with the desktop
      * after the scene exits.
      */
     @Override
     public void shutdown() {
-        if (meshRuntime != null) {
-            meshRuntime.dispose();
-            meshRuntime = null;
-        }
         if (capsuleRuntime != null) {
             capsuleRuntime.dispose();
             capsuleRuntime = null;
