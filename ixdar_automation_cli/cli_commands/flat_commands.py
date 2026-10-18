@@ -12,7 +12,7 @@ from ..cli_registry import CliCommandResult, cli_command
 @cli_command(name="mesh-state")
 def mesh_state(client: AutomationClient) -> dict:
     """Extract the mesh viewer state from the UI snapshot."""
-    ui_state_payload = client.ui_state()
+    ui_state_payload = client.call("ui-state")
     return {
         "ok": True,
         "mesh": ui_state_payload.get("mesh", {}),
@@ -32,7 +32,7 @@ def mesh_validate(
     :param allow_degenerate_faces: Permit degenerate faces in the validation result.
     :param min_faces: Minimum acceptable face count for the current mesh.
     """
-    ui_state_payload = client.ui_state()
+    ui_state_payload = client.call("ui-state")
     mesh = ui_state_payload.get("mesh", {})
     vertex_count = int(mesh.get("vertexCount", 0))
     face_count = int(mesh.get("faceCount", 0))
@@ -60,7 +60,7 @@ def mesh_validate(
 @cli_command(name="audio-state")
 def audio_state(client: AutomationClient) -> dict:
     """Extract the audio state from the UI snapshot."""
-    ui_state_payload = client.ui_state()
+    ui_state_payload = client.call("ui-state")
     return {
         "ok": True,
         "audio": ui_state_payload.get("audio", {}),
@@ -73,7 +73,7 @@ def audio_log(client: AutomationClient, tail: int = 20) -> dict:
 
     :param tail: Number of trailing events to include, or a negative value to include all events.
     """
-    ui_state_payload = client.ui_state()
+    ui_state_payload = client.call("ui-state")
     audio = ui_state_payload.get("audio", {})
     events = audio.get("eventLog", [])
     if tail >= 0:

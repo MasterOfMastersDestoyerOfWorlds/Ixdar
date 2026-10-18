@@ -11,7 +11,7 @@ from ..trade_scenarios import create_initial_pipe, ensure_trade_scene, place_hea
 def run_validation(client: AutomationClient) -> tuple[int, dict]:
     report: dict = {"steps": []}
     try:
-        health = client.health()
+        health = client.call("health")
         require(health.get("status") == "ok", "Automation health check failed")
         report["steps"].append({"health": "ok"})
 
@@ -20,7 +20,7 @@ def run_validation(client: AutomationClient) -> tuple[int, dict]:
         if enter_trade.get("strategy") != "already_trade":
             time.sleep(0.2)
 
-        state = client.ui_state()
+        state = client.call("ui-state")
         require(state.get("mode") == "trade", "Did not enter trade scene")
         trade = state.get("trade", {})
         cities = trade.get("cities", [])
@@ -30,7 +30,7 @@ def run_validation(client: AutomationClient) -> tuple[int, dict]:
         # Place HQ on first city.
         hq_result = place_headquarters(client, city_name=None)
         require(hq_result.get("ok", False), "Expected Route Planning after HQ placement")
-        state = hq_result.get("state", client.ui_state())
+        state = hq_result.get("state", client.call("ui-state"))
         trade = state.get("trade", {})
         hq_city = hq_result["city"]
         report["steps"].append({"headquarters": trade.get("headquartersCity")})
@@ -39,9 +39,9 @@ def run_validation(client: AutomationClient) -> tuple[int, dict]:
         window_width = float(state.get("windowWidth", 0))
         window_height = float(state.get("windowHeight", 0))
         pipe_x, pipe_y = toolbar_button_center(window_width, window_height, "pipe")
-        client.hover(pipe_x, pipe_y, normalized=False, persistent=True)
+        client.call("hover", x=pipe_x, y=pipe_y, normalized=False, persistent=True)
         time.sleep(0.1)
-        state = client.ui_state()
+        state = client.call("ui-state")
         tooltip_lines = collect_trade_tooltip_lines(state)
         require(any("Pipe (P)" in line for line in tooltip_lines), "Pipe toolbar tooltip missing")
         report["steps"].append({"pipe_tooltip": tooltip_lines})
@@ -51,17 +51,17 @@ def run_validation(client: AutomationClient) -> tuple[int, dict]:
         create_pipe_result = create_initial_pipe(client, hq_city, second_city, window_height)
         require(create_pipe_result.get("ok", False), "Expected route after initial pipe")
         time.sleep(0.15)
-        state = client.ui_state()
+        state = client.call("ui-state")
         trade = state.get("trade", {})
         require(trade.get("routeSegmentCount", 0) >= 2, "Expected at least 2 route segments after initial pipe")
         report["steps"].append({"initial_pipe_segments": trade.get("routeSegmentCount", 0)})
 
         # Grow route with a third city (G mode -> route city -> singleton city -> Enter).
         third_city = cities[2]
-        client.key("G")
+        client.call("key", key="G")
         create_initial_pipe(client, hq_city, third_city, window_height)
         time.sleep(0.15)
-        state = client.ui_state()
+        state = client.call("ui-state")
         trade = state.get("trade", {})
         require(trade.get("routeSegmentCount", 0) >= 3, "Expected grow to increase route segment count")
         require(trade.get("canUndo", False), "Expected undo availability after operations")

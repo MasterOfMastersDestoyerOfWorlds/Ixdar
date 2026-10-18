@@ -6,47 +6,23 @@ description. This module reads those verbatim and builds argparse subcommands â€
 knowledge of any specific route.
 """
 
-from pathlib import Path
-import json
+from .cli_registry import CliCommandResult
 
-try:
-    from .automation_client import DEFAULT_REQUEST_TIMEOUT
-    from .cli_registry import CliCommandResult
-except ImportError:
-    from automation_client import DEFAULT_REQUEST_TIMEOUT
-    from cli_registry import CliCommandResult
-
-
-MANIFEST_PATH = Path(__file__).with_name("automation_routes.json")
 
 _PARAM_PY_TYPE = {"int": int, "float": float, "string": str}
 
 
-def load_manifest() -> dict:
-    """Load the committed routes manifest, or an empty manifest if it is absent.
+def server_command_map(manifest: dict) -> dict:
+    """Map each server route to its Java-declared command name.
 
-    The CLI still works with only its registry commands when the manifest is missing.
-    """
-    try:
-        return json.loads(MANIFEST_PATH.read_text())
-    except (OSError, ValueError):
-        return {}
-
-
-def server_command_map(manifest: dict, claimed_names: set) -> dict:
-    """Map each server route to its Java-declared command name, skipping already-claimed names.
+    A registry command never takes a route's name (``test_cli`` holds the two sets disjoint), so
+    no route is shadowed here.
 
     :param manifest: parsed routes manifest
-    :param claimed_names: command names already owned by registry commands (they win)
     :return: ordered mapping of command name to route dict
     """
-    commands: dict = {}
-    for route in manifest.get("routes", []):
-        name = route["commandName"]
-        if name in claimed_names or name in commands:
-            continue
-        commands[name] = route
-    return dict(sorted(commands.items()))
+    routes = sorted(manifest.get("routes", []), key=lambda route: route["commandName"])
+    return {route["commandName"]: route for route in routes}
 
 
 def add_server_parsers(subparsers, command_map: dict) -> None:
@@ -138,10 +114,6 @@ def dispatch_server_command(route: dict, args, client) -> CliCommandResult:
     :return: the server response wrapped in a ``CliCommandResult``, exiting non-zero when the
         response says ``"ok": false``
     """
-    timeout = DEFAULT_REQUEST_TIMEOUT + route.get("waitSeconds", 0)
-    if route["method"] == "GET":
-        payload = client.request_json(route["path"], timeout=timeout)
-    else:
-        body = {param["name"]: getattr(args, param["name"]) for param in route.get("params", [])}
-        payload = client.request_json(route["path"], body, timeout=timeout)
+    body = {param["name"]: getattr(args, param["name"]) for param in route.get("params", [])}
+    payload = client.call(route["commandName"], **body)
     return CliCommandResult(payload=payload, exit_code=1 if payload.get("ok") is False else 0)

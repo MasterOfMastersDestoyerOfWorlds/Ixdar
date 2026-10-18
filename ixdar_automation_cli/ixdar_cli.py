@@ -4,19 +4,14 @@ import json
 import sys
 import urllib.error
 
-try:
-    from .automation_client import AutomationClient, SceneResolutionError, describe_scene
-    from .cli_registry import CliCommand, CliCommandResult, CliParameter, get_registry
-    from .server_routes import add_server_parsers, dispatch_server_command, load_manifest, server_command_map
-except ImportError:
-    from automation_client import AutomationClient, SceneResolutionError, describe_scene
-    from cli_registry import CliCommand, CliCommandResult, CliParameter, get_registry
-    from server_routes import add_server_parsers, dispatch_server_command, load_manifest, server_command_map
+from .automation_client import AutomationClient, SceneResolutionError, describe_scene, load_manifest
+from .cli_registry import CliCommand, CliCommandResult, CliParameter, get_registry
+from .server_routes import add_server_parsers, dispatch_server_command, server_command_map
 
 
 def _server_commands() -> dict:
-    """Resolve the dynamic server-backed commands, skipping names owned by registry commands."""
-    return server_command_map(load_manifest(), set(get_registry()))
+    """Resolve the dynamic server-backed commands from the routes manifest."""
+    return server_command_map(load_manifest())
 
 
 def _build_parser() -> argparse.ArgumentParser:

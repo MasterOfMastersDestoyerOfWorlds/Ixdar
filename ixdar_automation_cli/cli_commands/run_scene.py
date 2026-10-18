@@ -1,7 +1,7 @@
 """Build, launch, observe and shut down an Ixdar scene in one command.
 
 Driving a scene by hand takes four separately-approved privileged invocations — ``setsid java`` to
-launch, a ``curl`` health-poll loop, ``ixdar-cli shutdown``, and ``pgrep``/``kill`` to clean up — and
+launch, a ``curl`` health-poll loop, ``ixdar-cli stop-scene``, and ``pgrep``/``kill`` to clean up — and
 one of them is a trap: ``pkill -f IxdarWindow`` also matches the *invoking shell*, whose command line
 contains that string, so it kills the caller. This command replaces the whole loop.
 
@@ -397,7 +397,7 @@ def _await_scene(client: AutomationClient, process: subprocess.Popen, log_path: 
                 matched = [line.rstrip() for line in handle if pattern.search(line)]
         _adopt_published_port(client, process)
         try:
-            ready = ready or bool(client.health().get("sceneReady"))
+            ready = ready or bool(client.call("health").get("sceneReady"))
         except Exception:
             pass
         if ready and (pattern is None or matched):
@@ -486,7 +486,7 @@ def _drive_keys(client: AutomationClient, process: subprocess.Popen, log_path: s
         name, separator, expression = spec.partition("=")
         key = name.strip().upper()
         print(f"  key {key}" + (f" → awaiting /{expression}/" if separator else ""), file=sys.stderr)
-        response = client.key(key)
+        response = client.call("key", key=key)
         entry: dict = {"key": key, "consumed": response.get("consumed")}
         if not response.get("ok", False):
             entry["error"] = response.get("error", "the key route refused the key")
@@ -522,7 +522,7 @@ def _terminate(process: subprocess.Popen, client: AutomationClient) -> None:
     if process.poll() is not None:
         return
     try:
-        client.shutdown()
+        client.call("shutdown")
     except Exception:
         pass
     try:
@@ -541,7 +541,7 @@ CRASH_EXCEPTION_PREFIX = "Exception in thread \"main\" "
 
 MATCHED_LINES_REPORTED = 10
 
-KEEP_ALIVE_HINT = ("switch a model scene's mesh with `ixdar-cli model <name>`, then `ixdar-cli screenshot`; stop with `ixdar-cli shutdown`")
+KEEP_ALIVE_HINT = ("switch a model scene's mesh with `ixdar-cli model <name>`, then `ixdar-cli screenshot`; stop with `ixdar-cli stop-scene`")
 
 
 def crash_headline(crash: list[str]) -> str:
@@ -605,7 +605,7 @@ def _mesh_summary(client: AutomationClient, mesh_name: str) -> dict:
     :return: ``{"name", "vertices", "faces"}``, or ``{}`` when neither source knows anything.
     """
     try:
-        mesh = client.ui_state().get("mesh") or {}
+        mesh = client.call("ui-state").get("mesh") or {}
     except Exception:
         mesh = {}
     vertices = mesh.get("vertexCount", 0)
@@ -705,9 +705,9 @@ def run(
                 result["keys"] = _drive_keys(
                     client, process, log_path, key_specs, key_settle, timeout)
             if screenshot:
-                result["screenshot"] = client.screenshot(out_path=os.path.abspath(screenshot))
+                result["screenshot"] = client.call("screenshot", path=os.path.abspath(screenshot))
             if multiview:
-                result["multiview"] = client.multiview(out_path=os.path.abspath(multiview))
+                result["multiview"] = client.call("multiview", path=os.path.abspath(multiview))
 
         if not keep_alive:
             _terminate(process, client)

@@ -23,7 +23,6 @@ from ixdar_automation_cli.cli_commands import launch_entry
 from ixdar_automation_cli import png_image
 from ixdar_automation_cli import quilt_mesh_fingerprint
 from ixdar_automation_cli import run_logs
-from ixdar_automation_cli import server_routes
 from ixdar_automation_cli.cli_commands import image_commands
 from ixdar_automation_cli.cli_commands import new_scene
 from ixdar_automation_cli.cli_commands import run_scene
@@ -100,7 +99,8 @@ class FakeHealthClient:
         self.polls = 0
         self.base_url = "http://127.0.0.1:47999"
 
-    def health(self):
+    def call(self, command):
+        assert command == "health", command
         self.polls += 1
         return {"status": "ok", "sceneReady": self.polls > self.ready_after}
 
@@ -208,7 +208,7 @@ class SceneResolutionTest(unittest.TestCase):
         output = io.StringIO()
         with patch.object(automation_client, "checkout_root", return_value=self.root), \
                 patch("sys.stdout", output):
-            self.assertEqual(4, ixdar_cli.main(["shutdown"]))
+            self.assertEqual(4, ixdar_cli.main(["stop-scene"]))
         urlopen.assert_not_called()
         refusal = json.loads(output.getvalue())
         self.assertFalse(refusal["ok"])
@@ -538,7 +538,7 @@ class SceneLifecycleTest(unittest.TestCase):
                 patch("time.sleep"), \
                 patch("urllib.request.urlopen",
                       return_value=FakeResponse({"ok": True, "accepted": True})):
-            exit_code = ixdar_cli.main(["shutdown"])
+            exit_code = ixdar_cli.main(["stop-scene"])
         self.assertEqual(0, exit_code)
         self.assertEqual([], alive)
 
@@ -549,12 +549,16 @@ class SceneLifecycleTest(unittest.TestCase):
                 patch("time.sleep"), \
                 patch("urllib.request.urlopen",
                       return_value=FakeResponse({"ok": True, "accepted": True})):
-            exit_code = ixdar_cli.main(["shutdown", "--timeout", "0.01"])
+            exit_code = ixdar_cli.main(["stop-scene", "--timeout", "0.01"])
         self.assertEqual(1, exit_code)
 
-    def test_shutdown_replaces_the_generated_server_command(self):
-        self.assertIn("shutdown", get_registry())
-        self.assertNotIn("shutdown", ixdar_cli._server_commands())
+    def test_no_registry_command_shadows_a_route(self):
+        # A registry command named after a route used to hide it; stop-scene wraps shutdown.
+        server_commands = ixdar_cli._server_commands()
+        self.assertEqual(set(), set(get_registry()) & set(server_commands))
+        self.assertIn("stop-scene", get_registry())
+        for route_name in ("shutdown", "terminal", "mesh-overlay"):
+            self.assertIn(route_name, server_commands)
 
 
 class LaunchEntryTest(unittest.TestCase):
@@ -823,8 +827,7 @@ class CliTest(unittest.TestCase):
         self.assertIn("mesh-patches-decompose", server_commands)
         self.assertIn("rings-list", server_commands)
         self.assertIn("record-start", server_commands)
-        # Names owned by a registry command (e.g. the mesh-overlay scenario) are not duplicated.
-        self.assertNotIn("mesh-overlay", server_commands)
+        self.assertIn("mesh-overlay", server_commands)
 
     @patch("urllib.request.urlopen")
     def test_health_command(self, urlopen):
@@ -1034,7 +1037,7 @@ class CliTest(unittest.TestCase):
         urlopen.return_value = FakeResponse({"ok": True, "accepted": True})
         # A URL no scene record names has no pid to wait on, so the command reports the
         # acknowledgement alone.
-        exit_code = ixdar_cli.main(["--base-url", "http://127.0.0.1:47950", "shutdown"])
+        exit_code = ixdar_cli.main(["--base-url", "http://127.0.0.1:47950", "stop-scene"])
         self.assertEqual(0, exit_code)
 
     @patch("urllib.request.urlopen")
@@ -1289,9 +1292,9 @@ class CliTest(unittest.TestCase):
         self.assertEqual({"key": "SHIFT+P", "action": "tap", "settle": 2}, body)
 
     @patch("urllib.request.urlopen")
-    def test_terminal_command_takes_the_line_positionally(self, urlopen):
+    def test_terminal_command_posts_the_line_to_its_route(self, urlopen):
         urlopen.return_value = FakeResponse({"ok": True, "response": ["ring 0: 12 edges"]})
-        self.assertEqual(0, ixdar_cli.main(["terminal", "rings list"]))
+        self.assertEqual(0, ixdar_cli.main(["terminal", "--line", "rings list"]))
         request = urlopen.call_args[0][0]
         self.assertTrue(request.full_url.endswith("/input/terminal"))
         self.assertEqual({"line": "rings list", "settle": 2},
@@ -1435,24 +1438,58 @@ class CliTest(unittest.TestCase):
 
 
 class ClientRoutesTest(unittest.TestCase):
-    def test_every_path_the_client_requests_is_a_manifest_route(self):
-        """Each literal ``request_json`` path in the client is a route, with the method it sends.
+    def test_every_route_the_package_requests_is_in_the_manifest(self):
+        """Each ``client.call`` in the package names a manifest route with parameters it declares.
 
-        The other tests mock ``urlopen``, so a path that drifted from the Java route reaches the
-        scene as a 404 and nothing here would notice.
+        The other tests mock ``urlopen``, so a request that drifted from the Java route reaches
+        the scene as a 404 and nothing here would notice. No module copies a route path either:
+        the path is only ever read from the manifest.
         """
-        routes = {(route["path"], route["method"]) for route in server_routes.load_manifest()["routes"]}
-        with open(automation_client.__file__, encoding="utf-8") as source:
-            tree = ast.parse(source.read())
-        requested = []
-        for call in ast.walk(tree):
-            if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
-                    and call.func.attr == "request_json" and call.args
-                    and isinstance(call.args[0], ast.Constant)):
-                method = "POST" if len(call.args) > 1 else "GET"
-                requested.append((call.args[0].value, method))
-        self.assertIn(("/mesh/fingerprint", "GET"), requested)
-        self.assertEqual([], [request for request in requested if request not in routes])
+        routes = {route["commandName"]: route for route in automation_client.load_manifest()["routes"]}
+        package = os.path.dirname(automation_client.__file__)
+        calls = []
+        literal_paths = []
+        for directory, _, names in os.walk(package):
+            for name in names:
+                if not name.endswith(".py") or name == os.path.basename(__file__):
+                    continue
+                path = os.path.join(directory, name)
+                with open(path, encoding="utf-8") as source:
+                    tree = ast.parse(source.read())
+                for call in ast.walk(tree):
+                    if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+                            and call.args and isinstance(call.args[0], ast.Constant)):
+                        continue
+                    if call.func.attr == "call":
+                        keywords = {keyword.arg for keyword in call.keywords}
+                        calls.append((name, call.args[0].value, keywords))
+                    elif call.func.attr == "request_json":
+                        literal_paths.append((name, call.args[0].value))
+        self.assertEqual([], literal_paths)
+        self.assertIn("mesh-fingerprint", {command for _, command, _ in calls})
+        for module, command, keywords in calls:
+            with self.subTest(module=module, command=command):
+                self.assertIn(command, routes)
+                declared = {param["name"] for param in routes[command].get("params", [])}
+                self.assertEqual(set(), keywords - declared)
+
+    def test_call_refuses_a_command_or_parameter_the_manifest_does_not_declare(self):
+        client = automation_client.AutomationClient("http://127.0.0.1:47999")
+        with self.assertRaisesRegex(ValueError, "no automation route is named 'ui/state'"):
+            client.call("ui/state")
+        with self.assertRaisesRegex(ValueError, "declares no parameter out_path"):
+            client.call("screenshot", out_path="shot.png")
+
+    @patch("urllib.request.urlopen")
+    def test_call_sends_only_the_given_parameters_to_the_route_path(self, urlopen):
+        urlopen.return_value = FakeResponse({"ok": True})
+        client = automation_client.AutomationClient("http://127.0.0.1:47999")
+        client.call("screenshot", path="shot.png")
+        request = urlopen.call_args.args[0]
+        self.assertEqual("http://127.0.0.1:47999/ui/screenshot", request.full_url)
+        self.assertEqual({"path": "shot.png"}, json.loads(request.data.decode("utf-8")))
+        client.call("ui-state")
+        self.assertEqual("GET", urlopen.call_args.args[0].method)
 
     def test_fingerprint_rounds_a_half_way_coordinate_as_java_does(self):
         """``0.499745`` is a single just above the half step, so Java's float rounding goes up.

@@ -309,7 +309,7 @@ def launch(
             payload["error"] = ("process exited before the scene was ready" if status["exited"]
                                 else "scene did not become ready within timeout")
         if status["ready"] and screenshot:
-            payload["screenshot"] = client.screenshot(out_path=os.path.abspath(screenshot))
+            payload["screenshot"] = client.call("screenshot", path=os.path.abspath(screenshot))
         if not keep_alive:
             _terminate(process, client)
     return CliCommandResult(payload=payload, exit_code=0 if payload["ok"] else 1)

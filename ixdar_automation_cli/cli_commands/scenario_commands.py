@@ -22,7 +22,7 @@ def _scan_trade_toolbar_tooltip(
     toolbar_button: str,
     button: int,
 ) -> dict:
-    state = client.ui_state()
+    state = client.call("ui-state")
     window_height = float(state.get("windowHeight", 0))
     window_width = float(state.get("windowWidth", 0))
     if toolbar_x is None:
@@ -44,9 +44,9 @@ def _scan_trade_toolbar_tooltip(
         city_clicks = [(x_value, y_value) for x_value in range(70, 681, 60) for y_value in range(90, 651, 60)]
 
     for x_value, y_value in city_clicks:
-        client.click(x_value, y_value, normalized=False, button=button)
-        client.hover(toolbar_x, toolbar_y, normalized=False, persistent=True)
-        state = client.ui_state()
+        client.call("click", x=x_value, y=y_value, normalized=False, button=button)
+        client.call("hover", x=toolbar_x, y=toolbar_y, normalized=False, persistent=True)
+        state = client.call("ui-state")
         tips = collect_trade_tooltip_lines(state)
         active_tool = state.get("trade", {}).get("activeTool", "")
         if any(expected_text in tip for tip in tips):
@@ -57,7 +57,7 @@ def _scan_trade_toolbar_tooltip(
                 "trade_tooltips": tips,
             }
 
-    state = client.ui_state()
+    state = client.call("ui-state")
     return {
         "ok": False,
         "activeTool": state.get("trade", {}).get("activeTool", ""),
@@ -72,9 +72,9 @@ def probe(client: AutomationClient, out: str = "") -> dict:
 
     :param out: Output path for the probe screenshot file, or empty to use the server default.
     """
-    health_payload = client.health()
-    state = client.ui_state()
-    screenshot = client.screenshot(out, inline=False)
+    health_payload = client.call("health")
+    state = client.call("ui-state")
+    screenshot = client.call("screenshot", path=out, inline=False)
     return {
         "ok": True,
         "health": health_payload,
@@ -101,9 +101,9 @@ def mesh_probe(client: AutomationClient, out: str = "") -> dict:
 
     :param out: Output path for the probe screenshot file, or empty to use the server default.
     """
-    health_payload = client.health()
-    state = client.ui_state()
-    screenshot = client.screenshot(out, inline=False)
+    health_payload = client.call("health")
+    state = client.call("ui-state")
+    screenshot = client.call("screenshot", path=out, inline=False)
     mesh = state.get("mesh", {})
     return {
         "ok": True,
@@ -153,7 +153,7 @@ def quilt_mesh_compare(client: AutomationClient, reference: str = "") -> CliComm
             payload={"ok": False, "error": f"Reference OBJ not found: {ref_path}"},
             exit_code=6,
         )
-    live = client.mesh_fingerprint()
+    live = client.call("mesh-fingerprint")
     if not live.get("ok", False):
         return CliCommandResult(
             payload={
@@ -180,22 +180,6 @@ def quilt_mesh_compare(client: AutomationClient, reference: str = "") -> CliComm
     return CliCommandResult(payload=payload)
 
 
-@cli_command(name="mesh-overlay")
-def mesh_overlay(client: AutomationClient, path: str = "", clear: bool = False) -> CliCommandResult:
-    """Load a reference OBJ as a semi-transparent overlay, or clear it.
-
-    :param path: Path to reference OBJ file to overlay.
-    :param clear: If true, remove any existing overlay.
-    """
-    if not clear and not path.strip():
-        return CliCommandResult(
-            payload={"ok": False, "error": "Provide --path or --clear"},
-            exit_code=1,
-        )
-    result = client.mesh_overlay(path=path.strip(), clear=clear)
-    return CliCommandResult(payload=result, exit_code=0 if result.get("ok") else 1)
-
-
 @cli_command(name="assert-tooltip")
 def assert_tooltip(
     client: AutomationClient,
@@ -207,7 +191,7 @@ def assert_tooltip(
     :param contains: Tooltip strings that must all appear; pass the flag multiple times to require more than one.
     :param include_trade: Include trade tooltip text in the search.
     """
-    ui_state_payload = client.ui_state()
+    ui_state_payload = client.call("ui-state")
     lines = collect_tooltip_lines(ui_state_payload, include_trade)
     joined = "\n".join(lines)
     missing = [needle for needle in contains if needle not in joined]

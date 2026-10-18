@@ -8,10 +8,12 @@ had to be written to avoid matching the calling shell — so this command does t
 With no ``--pid`` or ``--base-url`` the scene is the one headless scene of this checkout, so a
 window the user opened with F5 is never shut down unless it is named.
 
+The name is ``stop-scene`` because ``shutdown`` is the route's own command, which returns at once.
+
 Usage:
-    uv run ixdar-cli shutdown
-    uv run ixdar-cli shutdown --timeout 60
-    uv run ixdar-cli --pid 12345 shutdown
+    uv run ixdar-cli stop-scene
+    uv run ixdar-cli stop-scene --timeout 60
+    uv run ixdar-cli --pid 12345 stop-scene
 """
 
 import time
@@ -40,8 +42,8 @@ def await_exit(pid: int, timeout: float) -> tuple[bool, float]:
     return False, round(time.monotonic() - started, 1)
 
 
-@cli_command(name="shutdown")
-def shutdown(
+@cli_command(name="stop-scene")
+def stop_scene(
     client: AutomationClient,
     timeout: float = DEFAULT_SHUTDOWN_TIMEOUT,
 ) -> CliCommandResult:
@@ -57,7 +59,7 @@ def shutdown(
     pid = target.get("pid")
     payload: dict = {"ok": True, "port": target.get("port"), "pid": pid}
     try:
-        payload["accepted"] = bool(client.shutdown().get("accepted"))
+        payload["accepted"] = bool(client.call("shutdown").get("accepted"))
     except Exception as unreachable:
         payload["accepted"] = False
         payload["error"] = f"no scene answered {client.base_url}: {unreachable}"

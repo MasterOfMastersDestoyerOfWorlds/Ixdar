@@ -37,7 +37,7 @@ def _wait_for_server(client: AutomationClient, known_pids: set, timeout: float =
             client.target = fresh[0]
             client.base_url = fresh[0]["baseUrl"]
             try:
-                if client.health().get("status") == "ok":
+                if client.call("health").get("status") == "ok":
                     return True
             except Exception:
                 pass
@@ -102,7 +102,7 @@ def run(
         mesh_deadline = time.monotonic() + 30.0
         while time.monotonic() < mesh_deadline:
             try:
-                state = client.ui_state()
+                state = client.call("ui-state")
                 mesh_info = state.get("mesh", {})
                 verts = mesh_info.get("vertexCount", 0)
                 if verts > 0:
@@ -120,7 +120,7 @@ def run(
         overlay_path = os.path.abspath(os.path.expanduser(overlay))
         print(f"Loading overlay: {overlay_path}", file=sys.stderr)
         try:
-            overlay_result = client.mesh_overlay(path=overlay_path)
+            overlay_result = client.call("mesh-overlay", path=overlay_path)
             result["overlay"] = overlay_result
             if not overlay_result.get("ok"):
                 print(f"WARNING: overlay load returned: {overlay_result}", file=sys.stderr)
@@ -134,7 +134,7 @@ def run(
     if screenshot or overlay or not no_launch:
         print("Taking screenshot...", file=sys.stderr)
         try:
-            shot = client.screenshot(screenshot, inline=False)
+            shot = client.call("screenshot", path=screenshot, inline=False)
             result["screenshot"] = shot
             print(f"Screenshot saved: {shot.get('path', '')}", file=sys.stderr)
         except Exception as e:
@@ -144,7 +144,7 @@ def run(
     if not keep_alive and proc:
         print("Shutting down Ixdar...", file=sys.stderr)
         try:
-            client.shutdown()
+            client.call("shutdown")
         except Exception:
             pass
         proc.wait(timeout=10)

@@ -5,8 +5,10 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 
+MANIFEST_PATH = Path(__file__).with_name("automation_routes.json")
 LOOPBACK_HOST = "127.0.0.1"
 DEFAULT_RETRIES = 3
 DEFAULT_RETRY_DELAY = 1.0
@@ -19,6 +21,19 @@ RECORD_DIRECTORY_RELATIVE = os.path.join("tmp", "automation")
 RECORD_SUFFIX = ".json"
 MODULE_DIRECTORY = "ixdar-app"
 POM_FILE = "pom.xml"
+
+
+def load_manifest() -> dict:
+    """Load the committed routes manifest, or an empty manifest if it is absent.
+
+    The CLI still works with only its registry commands when the manifest is missing.
+
+    :return: The parsed ``automation_routes.json``, or ``{}``.
+    """
+    try:
+        return json.loads(MANIFEST_PATH.read_text())
+    except (OSError, ValueError):
+        return {}
 
 
 def checkout_root() -> str:
@@ -195,13 +210,6 @@ def resolve_target(base_url: str = "", pid: int = 0, root: str = "") -> dict:
         "with `ixdar-cli launch \"<entry>\" --keep-alive` or `ixdar-cli run-scene --keep-alive`",
         scenes)
 
-KEY_ENTER = 257
-KEY_G = 71
-KEY_P = 80
-KEY_Z = 90
-MOD_CTRL = 2
-DEFAULT_SETTLE_FRAMES = 2
-
 TOOLBAR_BUTTON_OFFSETS_X = {
     "pipe": -70.0,
     "grow": -20.0,
@@ -269,6 +277,7 @@ class AutomationClient:
         self.retry_delay = retry_delay
         self.pid = pid
         self.target: dict = {}
+        self.routes = {route["commandName"]: route for route in load_manifest().get("routes", [])}
 
     def resolve(self) -> dict:
         """Settle which scene this client talks to, once, so every request and report agree.
@@ -345,56 +354,24 @@ class AutomationClient:
         finally:
             answered.set()
 
-    def health(self) -> dict:
-        return self.request_json("/health")
+    def call(self, command: str, **params) -> dict:
+        """Request the route the manifest names ``command``, so no route path is copied here.
 
-    def ui_state(self) -> dict:
-        return self.request_json("/ui/state")
+        Only the parameters passed are sent; the route applies its own defaults to the rest. The
+        wait is the default plus the route's declared ``waitSeconds``.
 
-    def mesh_fingerprint(self) -> dict:
-        """Return canonical mesh SHA-256 from the mesh viewer (GET /mesh/fingerprint)."""
-        return self.request_json("/mesh/fingerprint")
-
-    def mesh_overlay(self, path: str = "", clear: bool = False) -> dict:
-        """Load or clear a reference OBJ overlay on the mesh viewer."""
-        if clear:
-            return self.request_json("/mesh/overlay", {"clear": True})
-        return self.request_json("/mesh/overlay", {"path": path})
-
-    def screenshot(self, out_path: str = "", inline: bool = False) -> dict:
-        return self.request_json("/ui/screenshot", {"path": out_path, "inline": inline})
-
-    def multiview(self, out_path: str = "", inline: bool = False) -> dict:
-        """Capture 8-view composite (4x2 grid: front/right/back/left/top/bottom/3-4 views)."""
-        return self.request_json("/ui/multiview", {"path": out_path, "inline": inline})
-
-    def click(self, x: float, y: float, normalized: bool = False, button: int = 0) -> dict:
-        return self.request_json("/input/click", {"x": x, "y": y, "normalized": normalized, "button": button})
-
-    def hover(self, x: float, y: float, normalized: bool = False, persistent: bool = False) -> dict:
-        return self.request_json(
-            "/input/hover",
-            {"x": x, "y": y, "normalized": normalized, "persistent": persistent},
-        )
-
-    def key(self, key: str, action: str = "tap", settle: int = DEFAULT_SETTLE_FRAMES) -> dict:
-        """Deliver a named key event, e.g. ``ESCAPE``, ``GRAVE`` or ``SHIFT+P``.
-
-        :param key: Key name with optional modifiers; raw GLFW codes are rejected by the server.
-        :param action: ``tap``, ``press``, ``release`` or ``repeat``.
-        :param settle: Frames to wait for after the key, so no sleep is needed before a screenshot.
-        :return: The server response, carrying ``consumed`` — whether any handler took the key.
+        :param command: The route's ``commandName`` in ``automation_routes.json``, e.g. ``ui-state``.
+        :param params: Body fields, each one of the route's declared parameter names.
+        :return: The decoded response.
+        :raises ValueError: When no route has that name or a parameter is not one it declares.
         """
-        return self.request_json("/input/key", {"key": key, "action": action, "settle": settle})
-
-    def terminal(self, line: str, settle: int = DEFAULT_SETTLE_FRAMES) -> dict:
-        """Run one line in the scene terminal and return the history lines it produced.
-
-        :param line: Command line to type and enter, arguments included.
-        :param settle: Frames to wait for after the command runs.
-        :return: The server response, carrying the terminal's ``response`` lines.
-        """
-        return self.request_json("/input/terminal", {"line": line, "settle": settle})
-
-    def shutdown(self) -> dict:
-        return self.request_json("/shutdown", {})
+        route = self.routes.get(command)
+        if route is None:
+            raise ValueError(f"no automation route is named {command!r} in {MANIFEST_PATH.name}")
+        undeclared = sorted(set(params) - {param["name"] for param in route.get("params", [])})
+        if undeclared:
+            raise ValueError(f"route {command!r} declares no parameter {', '.join(undeclared)}")
+        timeout = DEFAULT_REQUEST_TIMEOUT + route.get("waitSeconds", 0)
+        if route["method"] == "GET":
+            return self.request_json(route["path"], timeout=timeout)
+        return self.request_json(route["path"], params, timeout=timeout)

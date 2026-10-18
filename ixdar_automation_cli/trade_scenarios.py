@@ -1,7 +1,4 @@
-try:
-    from .automation_client import AutomationClient, opengl_to_click_y
-except ImportError:
-    from automation_client import AutomationClient, opengl_to_click_y
+from .automation_client import AutomationClient, opengl_to_click_y
 
 
 def require(condition: bool, message: str) -> None:
@@ -10,7 +7,7 @@ def require(condition: bool, message: str) -> None:
 
 
 def start_new_game(client: AutomationClient, button: int, fallback_scan: bool) -> dict:
-    state = client.ui_state()
+    state = client.call("ui-state")
     if state.get("mode") != "menu" or not state.get("menuVisible", True):
         return {"ok": True, "message": "Already outside menu", "state": state}
 
@@ -23,8 +20,8 @@ def start_new_game(client: AutomationClient, button: int, fallback_scan: bool) -
                 if x is not None and y is not None:
                     window_height = state.get("windowHeight", 0)
                     click_y = opengl_to_click_y(window_height, y) if window_height else y
-                    click_result = client.click(x, click_y, normalized=False, button=button)
-                    post = client.ui_state()
+                    click_result = client.call("click", x=x, y=click_y, normalized=False, button=button)
+                    post = client.call("ui-state")
                     return {
                         "ok": post.get("mode") != "menu" or not post.get("menuVisible", True),
                         "strategy": "menu_bounds_center",
@@ -56,7 +53,7 @@ def click_until_scene_transition(
     y_step: int,
     button: int,
 ) -> dict:
-    initial = client.ui_state()
+    initial = client.call("ui-state")
     result = {
         "ok": False,
         "initial": {
@@ -73,29 +70,29 @@ def click_until_scene_transition(
 
     for x in x_values:
         for y in range(y_start, y_end, y_step):
-            client.click(x, y, normalized=False, button=button)
+            client.call("click", x=x, y=y, normalized=False, button=button)
             result["attempts"] += 1
-            state = client.ui_state()
+            state = client.call("ui-state")
             if state.get("mode") != "menu" or not state.get("menuVisible", True):
                 result["ok"] = True
                 result["found"] = {"x": x, "y": y}
                 result["state"] = state
                 return result
 
-    result["state"] = client.ui_state()
+    result["state"] = client.call("ui-state")
     result["error"] = "No scene transition detected"
     return result
 
 
 def ensure_trade_scene(client: AutomationClient, button: int = 0, fallback_scan: bool = True) -> dict:
-    state = client.ui_state()
+    state = client.call("ui-state")
     if state.get("mode") == "trade":
         return {"ok": True, "strategy": "already_trade", "state": state}
     return start_new_game(client, button=button, fallback_scan=fallback_scan)
 
 
 def place_headquarters(client: AutomationClient, city_name: str | None = None) -> dict:
-    state = client.ui_state()
+    state = client.call("ui-state")
     trade = state.get("trade", {})
     cities = trade.get("cities", [])
     require(len(cities) > 0, "No cities available for headquarters placement")
@@ -108,8 +105,8 @@ def place_headquarters(client: AutomationClient, city_name: str | None = None) -
                 break
 
     click_y = opengl_to_click_y(float(state.get("windowHeight", 0)), float(target["yPx"]))
-    client.click(float(target["xPx"]), click_y, normalized=False, button=0)
-    post = client.ui_state()
+    client.call("click", x=float(target["xPx"]), y=click_y, normalized=False, button=0)
+    post = client.call("ui-state")
     return {
         "ok": post.get("trade", {}).get("activeTool") == "Route Planning",
         "city": target,
@@ -120,10 +117,10 @@ def place_headquarters(client: AutomationClient, city_name: str | None = None) -
 def create_initial_pipe(client: AutomationClient, city_a: dict, city_b: dict, window_height: float) -> dict:
     click_y_a = opengl_to_click_y(window_height, float(city_a["yPx"]))
     click_y_b = opengl_to_click_y(window_height, float(city_b["yPx"]))
-    client.click(float(city_a["xPx"]), click_y_a, normalized=False, button=0)
-    client.click(float(city_b["xPx"]), click_y_b, normalized=False, button=0)
-    client.key("ENTER")
-    post = client.ui_state()
+    client.call("click", x=float(city_a["xPx"]), y=click_y_a, normalized=False, button=0)
+    client.call("click", x=float(city_b["xPx"]), y=click_y_b, normalized=False, button=0)
+    client.call("key", key="ENTER")
+    post = client.call("ui-state")
     return {
         "ok": bool(post.get("trade", {}).get("hasRoute", False)),
         "state": post,
