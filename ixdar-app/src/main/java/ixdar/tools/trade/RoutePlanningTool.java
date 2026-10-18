@@ -487,7 +487,7 @@ public class RoutePlanningTool implements Tool {
 
     /**
      * The route keys: P, G and C pick the operation, Enter applies the preview, Z and Y undo and
-     * redo, Backspace climbs the route hierarchy.
+     * redo and keep stepping while held, Backspace climbs the route hierarchy.
      *
      * @param controls the scene's control list
      */
@@ -500,8 +500,8 @@ public class RoutePlanningTool implements Tool {
         controls.add(new ControlHint(Keys.C, C, "collapse: compress a chain, keeping one loop",
                 () -> setMode(Mode.COLLAPSE)));
         controls.add(new ControlHint(Keys.ENTER, "enter", "apply the preview", this::confirm));
-        controls.add(new ControlHint(Keys.Z, Z, "undo the last route operation", this::undo));
-        controls.add(new ControlHint(Keys.Y, "Y", "redo", this::redo));
+        controls.add(ControlHint.repeating(Keys.Z, Z, "undo the last route operation", this::undo));
+        controls.add(ControlHint.repeating(Keys.Y, "Y", "redo", this::redo));
         controls.add(new ControlHint(Keys.BACKSPACE, "backspace", "up the route hierarchy", this::navigateUp));
     }
 

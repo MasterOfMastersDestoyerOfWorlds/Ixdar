@@ -20,7 +20,7 @@ import ixdar.tools.ControlHint;
 
 /**
  * The key handler fires a scene's control rows the way the tour editor's keys always fired: a
- * plain row stays silent under Control when the handler says so, a Control row needs Control, and
+ * plain row stays silent under Control in every scene, a Control row needs Control, and
  * a repeating row refires while held once the repeat interval has passed.
  */
 class ControlRowDispatchTest {
@@ -69,17 +69,23 @@ class ControlRowDispatchTest {
     }
 
     @Test
-    void aPlainRowFiresUnderControlUnlessControlSilencesIt() {
-        keyGuy.handleSceneKeys(Keys.LEFT, KeyNames.MOD_CONTROL);
-        keyGuy.controlSilencesPlainKeys = true;
+    void aPlainRowStaysSilentUnderControl() {
         keyGuy.handleSceneKeys(Keys.LEFT, KeyNames.MOD_CONTROL);
         keyGuy.handleSceneKeys(Keys.LEFT, 0);
-        assertEquals(List.of(CYCLE, CYCLE), fired);
+        assertEquals(List.of(CYCLE), fired);
+    }
+
+    @Test
+    void aHeldRepeatingRowStaysSilentUnderControl() {
+        keyGuy.pressedKeys.add(Keys.LEFT);
+        keyGuy.controlMask = true;
+        keyGuy.lastRepeatMillis -= KeyGuy.REPEAT_MILLIS + 1;
+        keyGuy.paintUpdate(1f);
+        assertEquals(List.of(), fired);
     }
 
     @Test
     void theControlChordAndItsPlainKeyEachFireTheirOwnRow() {
-        keyGuy.controlSilencesPlainKeys = true;
         keyGuy.handleSceneKeys(Keys.B, KeyNames.MOD_CONTROL);
         keyGuy.handleSceneKeys(Keys.B, 0);
         assertEquals(List.of(CONTROL_B, PLAIN_B), fired);

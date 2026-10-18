@@ -168,7 +168,6 @@ public class MainScene extends Scene {
 
         Toggle.setPanelFocus(PaneTypes.KnotView);
         grid = retTup.grid;
-        keys.controlSilencesPlainKeys = true;
         editorCamera.wheelZooms = false;
         mouse.camera = editorCamera;
         mouse.controller = editorCamera;
