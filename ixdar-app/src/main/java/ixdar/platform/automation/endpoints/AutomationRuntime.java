@@ -1,6 +1,5 @@
 package ixdar.platform.automation.endpoints;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,17 +12,11 @@ import java.util.concurrent.TimeUnit;
 
 import org.joml.Vector3f;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.canvas.IxdarWindow;
-import ixdar.geometry.mesh.data.MeshDistance;
-import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
-import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.graph.HeapSampler;
 import ixdar.graphics.render.text.HyperString;
@@ -58,7 +51,6 @@ public class AutomationRuntime {
     public static final String XOFFSET = "xOffset";
     public static final String YOFFSET = "yOffset";
     public static final String SCROLL = "scroll";
-    public static final String ERROR = "error";
     public static final String TYPE = "type";
     public static final String X = "x";
     public static final String Y = "y";
@@ -345,64 +337,6 @@ public class AutomationRuntime {
         if (mvs.graph != null) {
             result.add("timing", Timing.timingJson(mvs.graph, 1));
         }
-    }
-
-    /**
-     * Parse a {@link MeshDistance.DistanceType} name (case-insensitive), defaulting
-     * to {@link MeshDistance.DistanceType#HAUSDORFF} on unknown values.
-     *
-     * @param str distance type identifier from a request body
-     * @return matched enum constant, or {@code HAUSDORFF} when {@code str} is
-     *         unrecognized
-     */
-    public static MeshDistance.DistanceType parseDistanceType(
-            String str) {
-        try {
-            return MeshDistance.DistanceType.valueOf(
-                    str.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return MeshDistance.DistanceType.HAUSDORFF;
-        }
-    }
-
-    /**
-     * Extract skeleton from a mesh OBJ file via TEASAR algorithm. Pure CPU — no GL
-     * context needed.
-     *
-     * @param meshPath   OBJ file path; relative paths resolve against
-     *                   {@code user.dir}
-     * @param resolution voxel resolution passed to {@link MeshSkeletonExtractor}
-     * @throws IOException if the mesh file cannot be loaded
-     * @return JSON serialization of the
-     *         {@link MeshSkeletonExtractor.SkeletonResult}, or an object with an
-     *         {@code error} field when {@code meshPath} is missing or the file does
-     *         not exist
-     */
-    public JsonObject meshSkeleton(String meshPath, int resolution)
-            throws IOException {
-        if (meshPath == null || meshPath.isBlank()) {
-            JsonObject err = new JsonObject();
-            err.addProperty(ERROR, "meshPath is required");
-            return err;
-        }
-        File f = new File(meshPath);
-        if (!f.isAbsolute())
-            f = new File(
-                    System.getProperty("user.dir"),
-                    meshPath);
-        if (!f.exists()) {
-            JsonObject err = new JsonObject();
-            err.addProperty(ERROR, "File not found: " + f.getAbsolutePath());
-            return err;
-        }
-
-        ArrayMesh mesh = MeshLoader.load(f.getAbsolutePath());
-        MeshSkeletonExtractor.SkeletonResult skeleton = MeshSkeletonExtractor.extract(mesh, resolution);
-
-        // Serialize to JsonObject via Gson
-        Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        String json = gson.toJson(skeleton);
-        return JsonParser.parseString(json).getAsJsonObject();
     }
 
     /**

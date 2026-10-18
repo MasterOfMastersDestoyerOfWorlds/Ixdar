@@ -18,7 +18,6 @@ import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.graphics.render.sdf.SDFFluid;
-import ixdar.graphics.render.shaders.DiffuseShader;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platforms;
@@ -76,8 +75,6 @@ public class Canvas3D extends SceneDrawable {
 
     public SDFCircle circle;
     public SDFFluid fluid;
-
-    protected DiffuseShader shader;
 
     /**
      * Construct the active canvas: store as the singleton, mark active, capture the

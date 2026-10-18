@@ -2,14 +2,9 @@ package ixdar.platform.automation;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.sun.net.httpserver.HttpExchange;
 
 import ixdar.graphics.image.PixelImage;
 import ixdar.graphics.image.PngWriter;
@@ -17,89 +12,10 @@ import ixdar.platform.Platforms;
 import ixdar.platform.automation.endpoints.AutomationRuntime;
 
 public class AutomationEndpoint {
-    public static final int HTTP_OK = 200;
     public static final Gson GSON = new Gson();
-    
+
     protected AutomationRuntime runtime;
-    
-    /**
-     * Read the request body as a UTF-8 JSON object.
-     *
-     * @param exchange the HTTP exchange whose request body should be consumed
-     * @throws IOException if reading the body stream fails
-     * @return parsed object, or an empty object when the body is missing or blank
-     */
-    public JsonObject readBodyJson(HttpExchange exchange) throws IOException {
-        InputStream bodyStream = exchange.getRequestBody();
-        if (bodyStream == null) {
-            return new JsonObject();
-        }
-        String body = new String(
-            bodyStream.readAllBytes(),
-            StandardCharsets.UTF_8
-        );
-        if (body.isBlank()) {
-            return new JsonObject();
-        }
-        return JsonParser.parseString(body).getAsJsonObject();
-    }
 
-    /**
-     * Write a JSON error envelope ({@code {"ok": false, "error": message}}) and close
-     * the exchange.
-     *
-     * @param exchange the HTTP exchange to respond on
-     * @param statusCode HTTP status code to send
-     * @param message human-readable error message; null is rendered as the empty string
-     * @throws IOException if writing the response fails
-     * @return the error payload that was sent
-     */
-    public JsonObject writeError(
-        HttpExchange exchange,
-        int statusCode,
-        String message
-    ) throws IOException {
-        JsonObject error = new JsonObject();
-        error.addProperty("ok", false);
-        error.addProperty("error", message == null ? "" : message);
-        return writeJson(exchange, statusCode, error);
-    }
-
-    /**
-     * Convenience overload that writes {@code payload} with HTTP 200.
-     *
-     * @param exchange the HTTP exchange to respond on
-     * @param payload JSON body to serialize
-     * @throws IOException if writing the response fails
-     * @return the same {@code payload} that was sent
-     */
-    public JsonObject writeJson(HttpExchange exchange, JsonObject payload)
-        throws IOException {
-        return writeJson(exchange, HTTP_OK, payload);
-    }
-
-    /**
-     * Serialize {@code payload} as UTF-8 JSON, send it with the given status code, and
-     * close the exchange.
-     *
-     * @param exchange the HTTP exchange to respond on
-     * @param code HTTP status code to send
-     * @param payload JSON body to serialize
-     * @throws IOException if writing the response fails
-     * @return the same {@code payload} that was sent
-     */
-    public JsonObject writeJson(HttpExchange exchange, int code, JsonObject payload)
-        throws IOException {
-        byte[] response = GSON.toJson(payload).getBytes(StandardCharsets.UTF_8);
-        exchange
-            .getResponseHeaders()
-            .set("Content-Type", "application/json; charset=utf-8");
-        exchange.sendResponseHeaders(code, response.length);
-        exchange.getResponseBody().write(response);
-        exchange.close();
-        return payload;
-    }
-    
     /**
      * Convert a pixel x-coordinate into a normalized {@code [0, 1]} fraction of the
      * current window width. Window width is clamped to at least 1 to avoid division

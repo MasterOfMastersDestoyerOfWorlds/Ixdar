@@ -187,12 +187,6 @@ public class CutMatchList implements FileStringable {
     public CutMatch addCutMatch(Segment[] cutSegments,
             Segment[] matchSegments, CutInfo c, String cutType)
             throws SegmentBalanceException {
-        // shell.buff.add("MAKING TWO CUT TWO MATCH
-        // ---------------------=================");
-        // shell.buff.add("cutSegment1 : " + c.cutSegment1 + " cutSegment2: " +
-        // cutSegment2 + " "
-        // + Utils.printArray(matchSegments));
-
         CutMatch cm = new CutMatch(cutType, shell, sbe);
 
         cm.originalCutSegments = cutSegments;

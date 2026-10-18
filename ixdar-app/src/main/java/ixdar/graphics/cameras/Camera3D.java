@@ -13,7 +13,7 @@ import ixdar.platform.Platforms;
 /**
  * Perspective 3D first-person camera. Holds position plus yaw/pitch and
  * derives front/right/up basis vectors and a JOML look-at view matrix.
- * Supports orbit, drag-rotate, mouse-look, WASD movement, and fov-based
+ * Supports drag-rotate, mouse-look, WASD movement, and fov-based
  * scroll zoom; many of the {@link Camera} 2D-only hooks throw
  * {@link UnsupportedOperationException}.
  */
@@ -80,20 +80,6 @@ public class Camera3D implements Camera {
      */
     public void setMovementSpeed(float speed) {
         this.movementSpeed = speed;
-    }
-
-    /**
-     * Continuously orbit the camera around {@code target} at the given radius
-     * and angular rate, keeping target.y as the orbit-plane height.
-     *
-     * @param radius orbital radius in world units
-     * @param radsPerSecond angular speed in radians per second
-     */
-    public void orbit(float radius, float radsPerSecond) {
-
-        float camX = ((float) Math.sin(Clock.time() * radsPerSecond)) * radius;
-        float camZ = ((float) Math.cos(Clock.time() * radsPerSecond)) * radius;
-        view.set(new Matrix4f()).lookAt(position.set(camX, target.y, camZ), target, up);
     }
 
     /**

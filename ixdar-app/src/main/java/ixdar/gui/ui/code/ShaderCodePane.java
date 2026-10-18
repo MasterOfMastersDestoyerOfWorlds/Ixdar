@@ -14,7 +14,6 @@ import ixdar.graphics.render.color.ColorLerp;
 import ixdar.graphics.render.sdf.ShaderDrawable;
 import ixdar.graphics.render.sdf.ShaderDrawable.Quad;
 import ixdar.graphics.render.shaders.ShaderProgram;
-import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 import ixdar.graphics.render.text.ColorText;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
@@ -68,7 +67,7 @@ public class ShaderCodePane implements PointerRegion {
 
     /**
      * Wire this pane up, resolving the target shader from {@code shader}, then {@code provider},
-     * then the font shader, and registering its bounds, resize callbacks, and {@link MouseTrap}
+     * and registering its bounds, resize callbacks, and {@link MouseTrap}
      * scroll and click subscriptions.
      *
      * @param parentBounds host region that the pane lays itself out within
@@ -92,11 +91,7 @@ public class ShaderCodePane implements PointerRegion {
         this.parentBounds = parentBounds;
         this.scrollSpeed = scrollSpeed;
         this.codeText = new HyperString();
-        ShaderProgram resolved = shader;
-        if (resolved == null && provider != null) {
-            resolved = provider.getShader();
-        }
-        this.targetShader = resolved != null ? resolved : ShaderType.Font.getShader();
+        this.targetShader = shader != null ? shader : provider.getShader();
         this.title = title != null ? title : "Shader";
         this.uniformProvider = provider;
         showCode = true;

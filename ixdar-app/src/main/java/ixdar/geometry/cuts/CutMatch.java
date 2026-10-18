@@ -1,10 +1,10 @@
 package ixdar.geometry.cuts;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import ixdar.common.exceptions.InvalidCutException;
 import ixdar.common.exceptions.SegmentBalanceException;
-import ixdar.common.utils.Utils;
 import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
 import ixdar.geometry.shell.Shell;
@@ -146,8 +146,8 @@ public class CutMatch {
                 "diff: " + diff + N +
                 "kpSegment: " + kpSegment + N +
                 "delta: " + delta + N +
-                "original cuts: " + Utils.printArray(originalCutSegments) + N +
-                "original matches: " + Utils.printArray(originalMatchSegments) + N +
+                "original cuts: " + Arrays.toString(originalCutSegments) + N +
+                "original matches: " + Arrays.toString(originalMatchSegments) + N +
                 "Cut ID:" + id + N +
                 "Cut Type: " + cutType + " \n]";
         return str;

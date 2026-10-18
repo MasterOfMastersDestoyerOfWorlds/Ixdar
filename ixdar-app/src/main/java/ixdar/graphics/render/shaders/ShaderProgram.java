@@ -770,83 +770,6 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Draws the currently bound texture on specified coordinates and with specified
-     * color.
-     *
-     * @param texture Used for getting width and height of the texture
-     * @param x       X position of the texture
-     * @param y       Y position of the texture
-     * @param c       The color to use
-     * @param zIndex  depth value written to gl_Position.z
-     */
-    public void drawTexture(Texture texture, float x, float y, float zIndex, Color c) {
-        /* Vertex positions */
-        float x1 = x;
-        float y1 = y;
-        float x2 = x1 + texture.getWidth();
-        float y2 = y1 + texture.getHeight();
-
-        /* Texture coordinates */
-        float s1 = 0f;
-        float t1 = 0f;
-        float s2 = 1f;
-        float t2 = 1f;
-
-        drawTextureRegion(x1, y1, x2, y2, zIndex, s1, t1, s2, t2, c);
-    }
-
-    /**
-     * Draws a texture region with the currently bound texture on specified
-     * coordinates.
-     *
-     * @param texture   Used for getting width and height of the texture
-     * @param x         X position of the texture
-     * @param y         Y position of the texture
-     * @param regX      X position of the texture region
-     * @param regY      Y position of the texture region
-     * @param regWidth  Width of the texture region
-     * @param regHeight Height of the texture region
-     * @param zIndex    depth value written to gl_Position.z
-     */
-    public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
-            float regWidth,
-            float regHeight) {
-        drawTextureRegion(texture, x, y, zIndex, regX, regY, regWidth, regHeight, Color.WHITE);
-    }
-
-    /**
-     * Draws a texture region with the currently bound texture on specified
-     * coordinates.
-     *
-     * @param texture   Used for getting width and height of the texture
-     * @param x         X position of the texture
-     * @param y         Y position of the texture
-     * @param regX      X position of the texture region
-     * @param regY      Y position of the texture region
-     * @param regWidth  Width of the texture region
-     * @param regHeight Height of the texture region
-     * @param c         The color to use
-     * @param zIndex    depth value written to gl_Position.z
-     */
-    public void drawTextureRegion(Texture texture, float x, float y, float zIndex, float regX, float regY,
-            float regWidth,
-            float regHeight, Color c) {
-        /* Vertex positions */
-        float x1 = x;
-        float y1 = y;
-        float x2 = x + regWidth;
-        float y2 = y + regHeight;
-
-        /* Texture coordinates */
-        float s1 = regX / texture.getWidth();
-        float t1 = regY / texture.getHeight();
-        float s2 = (regX + regWidth) / texture.getWidth();
-        float t2 = (regY + regHeight) / texture.getHeight();
-
-        drawTextureRegion(x1, y1, x2, y2, zIndex, s1, t1, s2, t2, c);
-    }
-
-    /**
      * Draw a texture region with explicit destination corners (allows non-square
      * stretching).
      *
@@ -876,56 +799,6 @@ public abstract class ShaderProgram {
         float t2 = (regY + regHeight) / texture.getHeight();
 
         drawTextureRegion(x1, y1, x2, y2, zIndex, s1, t1, s2, t2, c);
-    }
-
-    /**
-     * Draw a quad with synthesized [0..1]x[0..1] uvs derived from
-     * {@code regWidth}/{@code regHeight} (no underlying texture binding assumed).
-     *
-     * @param x         bottom-left destination x
-     * @param y         bottom-left destination y
-     * @param x2        top-right destination x
-     * @param y2        top-right destination y
-     * @param zIndex    depth value written to gl_Position.z
-     * @param regX      source x divisor for s1
-     * @param regY      source y divisor for t1
-     * @param regWidth  full-width divisor (scales s coordinates)
-     * @param regHeight full-height divisor (scales t coordinates)
-     * @param c         tint color
-     */
-    public void drawBlankTextureRegion(float x, float y, float x2, float y2, float zIndex, float regX,
-            float regY, float regWidth,
-            float regHeight, Color c) {
-        /* Vertex positions */
-        float x1 = x;
-        float y1 = y;
-
-        /* Texture coordinates */
-        float s1 = regX / regWidth;
-        float t1 = regY / regHeight;
-        float s2 = (regX + regWidth) / regWidth;
-        float t2 = (regY + regHeight) / regHeight;
-
-        drawTextureRegion(x1, y1, x2, y2, zIndex, s1, t1, s2, t2, c);
-    }
-
-    /**
-     * Draws a texture region with the currently bound texture on specified
-     * coordinates.
-     *
-     * @param x1     Bottom left x position
-     * @param y1     Bottom left y position
-     * @param x2     Top right x position
-     * @param y2     Top right y position
-     * @param s1     Bottom left s coordinate
-     * @param t1     Bottom left t coordinate
-     * @param s2     Top right s coordinate
-     * @param t2     Top right t coordinate
-     * @param zIndex depth value written to gl_Position.z
-     */
-    public void drawTextureRegion(float x1, float y1, float x2, float y2, float zIndex, float s1, float t1, float s2,
-            float t2) {
-        drawTextureRegion(x1, y1, x2, y2, zIndex, s1, t1, s2, t2, Color.WHITE);
     }
 
     /**
@@ -1373,8 +1246,6 @@ public abstract class ShaderProgram {
 
         Fluid(SDFShader.class, FONT_VS, "sdf_fluid.fs"),
 
-        Font(FontShader.class, FONT_VS, "font.fs"),
-
         Color(ColorShader.class, "color.vs", "color.fs"),
 
         Mesh(MeshShader.class, MESH_VS, "mesh.fs"),
@@ -1423,9 +1294,6 @@ public abstract class ShaderProgram {
             try {
                 if (shaderClass.equals(SDFShader.class)) {
                     shader = new SDFShader(vertexShaderLocation, fragmentShaderLocation);
-                } else if (shaderClass.equals(FontShader.class)) {
-                    shader = new FontShader(Platforms.get().getFrameBufferWidth(),
-                            Platforms.get().getFrameBufferHeight());
                 } else if (shaderClass.equals(ColorShader.class)) {
                     shader = new ColorShader(vertexShaderLocation, fragmentShaderLocation);
                 } else if (shaderClass.equals(MeshLineShader.class)) {
