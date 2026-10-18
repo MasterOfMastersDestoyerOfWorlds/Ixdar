@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.crossfield.SectionIntegrals;
-import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.numeric.sparse.matrix.NormalMatrix;
 
 /**
  * The flat-array cross-field assembly must reproduce, entry for entry, the keyed-map assembly it

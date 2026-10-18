@@ -1,7 +1,7 @@
 package ixdar.geometry.mesh.quadlayout.seamless;
 
-import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
+import ixdar.numeric.sparse.matrix.NormalMatrix;
+import ixdar.numeric.sparse.system.DofSystem;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -11,7 +11,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.seamless.exact.ExactArithmetic;
+import ixdar.numeric.exact.ExactArithmetic;
 import ixdar.platform.Platforms;
 
 /**

@@ -177,8 +177,6 @@ commas between test names, never `+`.
 - **ixdar.geometry.mesh.quadlayout.quantization**: Quantization of T-mesh arc lengths to integers, deciding which arcs collapse to zero.
 - **ixdar.geometry.mesh.quadlayout.seamless**: Seamless global parametrization built over the cross field: per-corner (u,v) with matched transitions across cut edges.
 - **ixdar.geometry.mesh.quadlayout.seamless.exact**: Exact-arithmetic predicates for the seamless parametrization's degenerate cases.
-- **ixdar.geometry.mesh.quadlayout.solver**: Sparse linear algebra for the pipeline: normal matrices, AMD ordering, Cholesky backends (MKL when present, EJML fallback on macOS).
-- **ixdar.geometry.mesh.quadlayout.solver.system**: The DOF-system state and the solve strategies decoupled from the stacks: `DofSystem` holds the canonical solution/frozen state plus assembly, energy, and write-back hooks; each outer loop (single solve, Newton, greedy rounding, lazy constraints, power iteration) is its own strategy class.
 - **ixdar.geometry.point**: Shared point primitives (`PointND`, `PointSet`) with wide live usage across cameras, scenes, and automation, plus the terminal-addable CLI geometries registered via `@GeometryAnnotation`. Not TSP-free: `Grid` and `PointSet` import knot and shell.
 - **ixdar.geometry.shell**: `Shell`: a point list that starts as a convex hull and merges toward a TSP path, with the cached `DistanceMatrix` (Apache commons-math eigendecomposition). Constructing a `Shell` eagerly builds a `KnotEngine`.
 - **ixdar.graphics**: Namespace root for `cameras` and `render`.
@@ -213,6 +211,11 @@ commas between test names, never `+`.
 - **ixdar.nodegraph.runtime**: Node-graph runtime: `NodeGraphRuntime` parses and executes .dsl sources against the generated registries, with the `Class.forName` desktop firewall and per-node timing (`logTimings`); node groups, the group library and the heap sampler.
 - **ixdar.nodegraph.syntax**: Lexer and recursive-descent parser for the Python-flavored mesh DSL, producing the AST `NodeGraphRuntime` executes. Deliberately lenient: unknown characters are skipped so LLM- generated DSL stays parseable; malformed input degrades silently.
 - **ixdar.nodegraph.syntax.expr**: `MathExpressionEvaluator`: the single-variable math expressions procedural curve nodes evaluate.
+- **ixdar.numeric**: General numerics with no stage of the pipeline in them: sparse linear algebra (`sparse`), exact predicates and integer elimination (`exact`), and graph primitives (`graph`).
+- **ixdar.numeric.exact**: Exact arithmetic: `ExactArithmetic` (fraction-free integer elimination and fixed-point doubles for the seamless constraints) and `ExactBarycentricOrient` (the filtered, sign-exact orientation predicate).
+- **ixdar.numeric.graph**: Graph primitives: `UnionFind` over a caller-owned parent array, and the shared multi-source `Dijkstra` core with the `ShortestPathForest` it returns.
+- **ixdar.numeric.sparse**: Sparse linear algebra for the pipeline: normal matrices, AMD ordering, Cholesky backends (MKL when present, EJML fallback on macOS).
+- **ixdar.numeric.sparse.system**: The DOF-system state and the solve strategies decoupled from the stacks: `DofSystem` holds the canonical solution/frozen state plus assembly, energy, and write-back hooks; each outer loop (single solve, Newton, greedy rounding, lazy constraints, power iteration) is its own strategy class.
 - **ixdar.platform**: Portability root: `Platforms` is the process-global registry (`init`, `get()`, `gl()`, `switchTo` for multi-canvas web). `Toggle` is the app-wide feature-flag enum, here only because everything reaches for it.
 - **ixdar.platform.automation**: The loopback HTTP automation server that lets `ixdar-cli` and agents drive the editor. Desktop only: scenes reach it through `Platform.automation()`, which the browser platform answers with null.
 - **ixdar.platform.automation.documentation**: `ExportAutomationRoutes` writes the route manifest JSON every compile; the checked-in `automation_routes.json` is generated output and the single source of truth for the Python CLI.

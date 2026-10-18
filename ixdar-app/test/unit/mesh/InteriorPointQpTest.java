@@ -12,8 +12,8 @@ import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.solver.InteriorPointQp;
-import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.numeric.sparse.InteriorPointQp;
+import ixdar.numeric.sparse.matrix.NormalMatrix;
 
 /**
  * {@link InteriorPointQp} correctness: hand-solvable projections and a random

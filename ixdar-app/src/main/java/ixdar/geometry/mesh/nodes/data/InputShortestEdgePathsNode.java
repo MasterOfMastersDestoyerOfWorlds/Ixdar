@@ -17,8 +17,8 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.paths.Dijkstra;
-import ixdar.geometry.mesh.data.paths.ShortestPathForest;
+import ixdar.numeric.graph.Dijkstra;
+import ixdar.numeric.graph.ShortestPathForest;
 import ixdar.nodegraph.field.MeshFieldContext;
 import ixdar.nodegraph.field.FieldBroadcast;
 

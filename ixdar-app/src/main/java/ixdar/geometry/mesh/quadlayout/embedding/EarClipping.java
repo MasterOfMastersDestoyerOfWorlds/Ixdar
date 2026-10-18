@@ -3,6 +3,8 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 import java.util.ArrayList;
 import java.util.List;
 
+import ixdar.numeric.exact.ExactBarycentricOrient;
+
 /**
  * Triangulates a simple polygon given in barycentric coordinates of one source face,
  * clipping ears the exact orientation predicate certifies.

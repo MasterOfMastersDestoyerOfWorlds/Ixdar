@@ -23,7 +23,7 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.PrincipalDirectionField;
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
-import ixdar.geometry.mesh.data.paths.Dijkstra;
+import ixdar.numeric.graph.Dijkstra;
 import ixdar.geometry.mesh.data.paths.GirdlingPlane;
 import ixdar.geometry.mesh.data.paths.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.SplineAnchorFit;

@@ -11,7 +11,7 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
-import ixdar.geometry.mesh.quadlayout.solver.SingularSystemDiagnosis;
+import ixdar.numeric.sparse.SingularSystemDiagnosis;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.scenes.QuadLayoutScene;
 

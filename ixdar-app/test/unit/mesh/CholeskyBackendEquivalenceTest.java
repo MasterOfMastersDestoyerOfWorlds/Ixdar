@@ -10,12 +10,12 @@ import java.util.Random;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.solver.FactorizedSystem;
-import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
-import ixdar.geometry.mesh.quadlayout.solver.chol.EjmlCholeskyFactor;
-import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
-import ixdar.geometry.mesh.quadlayout.solver.ordering.SolverPermutation;
+import ixdar.numeric.sparse.FactorizedSystem;
+import ixdar.numeric.sparse.chol.CholeskyBackend;
+import ixdar.numeric.sparse.chol.EjmlCholeskyFactor;
+import ixdar.numeric.sparse.matrix.NormalMatrix;
+import ixdar.numeric.sparse.ordering.OrderingMethod;
+import ixdar.numeric.sparse.ordering.SolverPermutation;
 
 /**
  * Backend-equivalence test for the Cholesky seam: the native backend (PARDISO

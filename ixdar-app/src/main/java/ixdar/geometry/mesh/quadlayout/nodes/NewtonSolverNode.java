@@ -10,7 +10,7 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
+import ixdar.numeric.sparse.system.DofSystem;
 import ixdar.nodegraph.field.UvField;
 
 /**

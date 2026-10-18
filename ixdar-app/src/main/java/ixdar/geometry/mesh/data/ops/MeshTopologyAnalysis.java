@@ -5,7 +5,7 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.UnionFind;
+import ixdar.numeric.graph.UnionFind;
 
 /**
  * Element counts, edge-connected shells and boundary loops of a mesh, as parallel arrays indexed

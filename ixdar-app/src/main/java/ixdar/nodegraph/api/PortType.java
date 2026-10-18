@@ -8,7 +8,7 @@ import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.QuadLayout;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
+import ixdar.numeric.sparse.system.DofSystem;
 
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.field.FloatField;

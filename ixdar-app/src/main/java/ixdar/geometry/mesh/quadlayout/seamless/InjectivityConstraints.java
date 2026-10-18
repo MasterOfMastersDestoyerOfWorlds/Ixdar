@@ -5,7 +5,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.quadlayout.solver.system.LazyConstraints;
+import ixdar.numeric.sparse.system.LazyConstraints;
 import ixdar.platform.Platforms;
 
 /**

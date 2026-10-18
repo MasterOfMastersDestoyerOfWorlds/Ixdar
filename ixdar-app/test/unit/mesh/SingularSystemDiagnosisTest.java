@@ -8,12 +8,12 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
-import ixdar.geometry.mesh.quadlayout.solver.SingularSystemDiagnoser;
-import ixdar.geometry.mesh.quadlayout.solver.SingularSystemDiagnosis;
-import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
-import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
+import ixdar.numeric.sparse.DirectSolver;
+import ixdar.numeric.sparse.SingularSystemDiagnoser;
+import ixdar.numeric.sparse.SingularSystemDiagnosis;
+import ixdar.numeric.sparse.chol.CholeskyBackend;
+import ixdar.numeric.sparse.matrix.NormalMatrix;
+import ixdar.numeric.sparse.ordering.OrderingMethod;
 
 /**
  * The three ways the seamless system goes singular, built on purpose in DOF space: a chart with no

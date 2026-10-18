@@ -27,15 +27,15 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.field.FieldBroadcast;
-import ixdar.geometry.mesh.quadlayout.solver.AdaptiveSolver;
-import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
-import ixdar.geometry.mesh.quadlayout.solver.Preconditioner;
-import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
-import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
-import ixdar.geometry.mesh.quadlayout.solver.ordering.SolverPermutation;
-import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
-import ixdar.geometry.mesh.quadlayout.solver.system.PowerIteration;
+import ixdar.numeric.sparse.AdaptiveSolver;
+import ixdar.numeric.sparse.DirectSolver;
+import ixdar.numeric.sparse.Preconditioner;
+import ixdar.numeric.sparse.chol.CholeskyBackend;
+import ixdar.numeric.sparse.matrix.NormalMatrix;
+import ixdar.numeric.sparse.ordering.OrderingMethod;
+import ixdar.numeric.sparse.ordering.SolverPermutation;
+import ixdar.numeric.sparse.system.DofSystem;
+import ixdar.numeric.sparse.system.PowerIteration;
 import ixdar.platform.Platforms;
 
 /**

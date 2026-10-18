@@ -9,6 +9,7 @@ import java.util.Set;
 
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.numeric.exact.ExactBarycentricOrient;
 
 /**
  * Exact chord walk inside one source face: connects a path head to a target point,

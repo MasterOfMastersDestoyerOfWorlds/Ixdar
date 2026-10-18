@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
-import ixdar.geometry.mesh.quadlayout.solver.system.NewtonRelaxation;
+import ixdar.numeric.sparse.system.DofSystem;
+import ixdar.numeric.sparse.system.NewtonRelaxation;
 
 /**
  * The Newton line search must grow its step out of a collapsed barrier instead of

@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.quadlayout.seamless;
 
 import java.util.Arrays;
 
-import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.numeric.sparse.matrix.NormalMatrix;
 
 /**
  * Primitive-array accumulator for {@link SeamlessDofSystem}'s cached assembly

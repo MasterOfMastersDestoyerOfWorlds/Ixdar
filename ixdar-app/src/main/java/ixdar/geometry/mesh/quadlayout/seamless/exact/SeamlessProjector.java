@@ -14,6 +14,8 @@ import ixdar.geometry.mesh.quadlayout.seamless.CutGraph;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessDofSystem;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
+import ixdar.numeric.exact.ExactArithmetic;
+import ixdar.numeric.exact.IrrefResult;
 import ixdar.platform.Platforms;
 
 /**

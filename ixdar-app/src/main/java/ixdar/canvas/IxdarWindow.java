@@ -49,7 +49,7 @@ import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 
 import ixdar.annotations.scene.SceneDrawable;
-import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
+import ixdar.numeric.sparse.chol.CholeskyBackend;
 import ixdar.graphics.render.Clock;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.headless.HeadlessGL;

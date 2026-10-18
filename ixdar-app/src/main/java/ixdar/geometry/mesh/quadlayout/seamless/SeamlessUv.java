@@ -4,7 +4,7 @@ import java.util.Arrays;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.field.UvField;
-import ixdar.geometry.mesh.quadlayout.solver.SingularSystemDiagnosis;
+import ixdar.numeric.sparse.SingularSystemDiagnosis;
 
 /**
  * The seamless parametrization's data: per-corner (u, v) over the active faces,

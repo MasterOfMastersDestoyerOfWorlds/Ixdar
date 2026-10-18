@@ -11,9 +11,9 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
-import ixdar.geometry.mesh.quadlayout.solver.DirectSolver;
-import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
-import ixdar.geometry.mesh.quadlayout.solver.ordering.OrderingMethod;
+import ixdar.numeric.sparse.DirectSolver;
+import ixdar.numeric.sparse.matrix.NormalMatrix;
+import ixdar.numeric.sparse.ordering.OrderingMethod;
 
 /**
  * Harmonic (cotangent-weighted) embedding of one patch's triangulated region

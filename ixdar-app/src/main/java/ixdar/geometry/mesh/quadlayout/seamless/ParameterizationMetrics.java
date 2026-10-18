@@ -3,7 +3,7 @@ package ixdar.geometry.mesh.quadlayout.seamless;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.seamless.exact.ExactArithmetic;
+import ixdar.numeric.exact.ExactArithmetic;
 
 public class ParameterizationMetrics {
 

@@ -17,6 +17,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
+import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.platform.Platforms;
 
 /**

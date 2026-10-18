@@ -207,11 +207,11 @@ the quads for improved feature alignment.
 A Greedy Mixed-Integer Solver
 
 > **Code (§2 — Greedy MI Solver).** The cross-field stage uses
-> [AdaptiveSolver.solveAfterRounding](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/AdaptiveSolver.java#L75-L131)
+> [AdaptiveSolver.solveAfterRounding](ixdar-app/src/main/java/ixdar/numeric/sparse/AdaptiveSolver.java#L75-L131)
 > driven by [SmoothEnergySystem.solveGreedyMIP](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/crossfield/SmoothEnergySystem.java#L163-L202).
 > The seamless stage uses a different greedy loop —
 > [SeamlessParameterization.runGreedyIntegerRounding](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java#L363-L431) —
-> backed by [IncrementalCholeskySolver](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/IncrementalCholeskySolver.java)
+> backed by [IncrementalCholeskySolver](ixdar-app/src/main/java/ixdar/numeric/sparse/IncrementalCholeskySolver.java)
 > for rank-1 LDL updates after each pin, instead of running the local-GS / CG / direct ladder.
 
 The minimization of a quadratic energy E(x1 , . . . , xn ) is called
@@ -286,9 +286,9 @@ the variable xk → xk − rk /Akk and push all variables which depend on xk ont
 empty, i.e. all local residui are within the prescribed tolerance, or a
 maximum number of iterations is reached.
 > **Code (§2.1 — local Gauss-Seidel seeded by the rounded variable).**
-> Implemented as [AdaptiveSolver.localGaussSeidel](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/AdaptiveSolver.java#L94-L101)
+> Implemented as [AdaptiveSolver.localGaussSeidel](ixdar-app/src/main/java/ixdar/numeric/sparse/AdaptiveSolver.java#L94-L101)
 > (loop body inside the file — search for `localGaussSeidel`). The seed set is collected by
-> [AdaptiveSolver.collectAffectedPatch](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/AdaptiveSolver.java)
+> [AdaptiveSolver.collectAffectedPatch](ixdar-app/src/main/java/ixdar/numeric/sparse/AdaptiveSolver.java)
 > (used both for the GS frontier and for batching disjoint roundings in
 > [SmoothEnergySystem.selectRoundingBatch](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/crossfield/SmoothEnergySystem.java#L269-L305)).
 
@@ -324,15 +324,15 @@ statistics about the solver are given in Section 6.
 
 > **Code (adaptive ladder).** The three-rung escalation
 > (local GS → CG → sparse Cholesky) lives in
-> [AdaptiveSolver.solveAfterRounding](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/AdaptiveSolver.java#L75-L131);
-> the methods are enumerated in [AdaptiveSolver.Method](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/AdaptiveSolver.java#L475-L481).
+> [AdaptiveSolver.solveAfterRounding](ixdar-app/src/main/java/ixdar/numeric/sparse/AdaptiveSolver.java#L75-L131);
+> the methods are enumerated in [AdaptiveSolver.Method](ixdar-app/src/main/java/ixdar/numeric/sparse/AdaptiveSolver.java#L475-L481).
 > The direct fallback uses CHOLMOD-style AMD reorderings via
-> [DirectSolver.solve](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/DirectSolver.java) and
-> [SolverPermutation](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/SolverPermutation.java).
+> [DirectSolver.solve](ixdar-app/src/main/java/ixdar/numeric/sparse/DirectSolver.java) and
+> [SolverPermutation](ixdar-app/src/main/java/ixdar/numeric/sparse/SolverPermutation.java).
 > Note: this ladder is used only for the **cross-field** stage; the
 > **seamless** stage skips local-GS / CG and goes straight to incremental
 > sparse Cholesky updates per pin
-> ([IncrementalCholeskySolver.pinDof](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/IncrementalCholeskySolver.java)),
+> ([IncrementalCholeskySolver.pinDof](ixdar-app/src/main/java/ixdar/numeric/sparse/IncrementalCholeskySolver.java)),
 > consistent with BZK09 §6's observation that parametrization roundings
 > have global impact.
 In the future we plan to publish our implementation of the presented
@@ -688,7 +688,7 @@ Cholesky factorization of this matrix once and then compute solutions for differ
 > Implements the paper's RHS-only trick: the θ-only Laplacian is
 > [factorized once](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/crossfield/CrossField.java#L489-L499)
 > and re-solved per candidate period perturbation via
-> [DirectSolver.solveCompact](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/DirectSolver.java)
+> [DirectSolver.solveCompact](ixdar-app/src/main/java/ixdar/numeric/sparse/DirectSolver.java)
 > with the matrix held constant. Trials ±1, ±2 on every edge adjacent to
 > a singularity; non-overlapping candidates run in parallel.
 
@@ -824,7 +824,7 @@ Eorient to zero.
 > (cached per-face playback log so the §5.4 re-solves don't rebuild the
 > non-zero pattern) and solved by
 > [SeamlessParameterization.solveOnce](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java#L710-L717)
-> via [DirectSolver.solveWithPerm](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/DirectSolver.java).
+> via [DirectSolver.solveWithPerm](ixdar-app/src/main/java/ixdar/numeric/sparse/DirectSolver.java).
 > The global scale `h` defaults to the mean edge length —
 > [SeamlessParameterization.h](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java#L106-L111).
 Cutting the mesh: In order to be able to compute a proper
@@ -1317,7 +1317,7 @@ Date: 2026-05-17. Scope: BZK09 §5 implementation under
 [ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/)
 and the helpers it consumes from
 [crossfield/](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/crossfield/),
-[solver/](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/),
+[solver/](ixdar-app/src/main/java/ixdar/numeric/sparse/),
 and [seamless/exact/](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/exact/).
 
 ### What is correct
@@ -1348,13 +1348,13 @@ These pieces match the paper closely and need no change:
 - **Integer-grid-map greedy rounding.** Pick-closest-to-integer + rank-1
   Cholesky update per pin
   ([runGreedyIntegerRounding](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/SeamlessParameterization.java#L363-L431) +
-  [IncrementalCholeskySolver](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/solver/IncrementalCholeskySolver.java))
+  [IncrementalCholeskySolver](ixdar-app/src/main/java/ixdar/numeric/sparse/IncrementalCholeskySolver.java))
   is faithful to §2 — and an improvement on the paper's "re-factor from
   scratch every pin" prescription.
 - **MC19 exact-seam projection.** The reduced node-only constraint matrix,
   fraction-free integer RREF, F_d truncation, and back-substitution
   ([SeamlessProjector.project](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/exact/SeamlessProjector.java#L72-L189),
-  [ExactArithmetic](ixdar-app/src/main/java/ixdar/geometry/mesh/quadlayout/seamless/exact/ExactArithmetic.java))
+  [ExactArithmetic](ixdar-app/src/main/java/ixdar/numeric/exact/ExactArithmetic.java))
   are a faithful MC19 §5.3.1 implementation; the
   `exactSeamsSphereBase` test asserts literal-zero residual.
 

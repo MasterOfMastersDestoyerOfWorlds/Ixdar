@@ -14,8 +14,8 @@ import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
-import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
-import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
+import ixdar.numeric.sparse.chol.CholeskyBackend;
+import ixdar.numeric.sparse.system.DofSystem;
 import ixdar.platform.Platforms;
 
 /**

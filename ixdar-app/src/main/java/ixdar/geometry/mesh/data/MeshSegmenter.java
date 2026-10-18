@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Random;
 
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.numeric.graph.UnionFind;
 
 /**
  * Java ports of the three legacy segmentation methods that used to live in

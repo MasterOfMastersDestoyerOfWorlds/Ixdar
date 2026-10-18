@@ -6,6 +6,8 @@ import java.util.Collections;
 import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.numeric.graph.Dijkstra;
+import ixdar.numeric.graph.ShortestPathForest;
 
 /**
  * Shortest paths over a mesh's edges, weighted by geometric edge length,

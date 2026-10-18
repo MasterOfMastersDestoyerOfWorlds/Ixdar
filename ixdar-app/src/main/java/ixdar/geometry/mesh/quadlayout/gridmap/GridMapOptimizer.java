@@ -8,12 +8,12 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
+import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.nodegraph.field.UvField;
-import ixdar.geometry.mesh.quadlayout.solver.chol.CholeskyBackend;
-import ixdar.geometry.mesh.quadlayout.solver.system.NewtonRelaxation;
+import ixdar.numeric.sparse.chol.CholeskyBackend;
+import ixdar.numeric.sparse.system.NewtonRelaxation;
 import ixdar.platform.Platforms;
 import ixdar.platform.concurrent.WorkerPool;
 

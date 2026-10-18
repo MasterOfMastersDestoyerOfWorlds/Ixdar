@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
+import ixdar.numeric.exact.ExactBarycentricOrient;
 
 /**
  * One arc's traced route refined onto the constraint mesh. No face of that mesh holds a

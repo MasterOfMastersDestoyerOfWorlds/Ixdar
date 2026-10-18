@@ -8,7 +8,7 @@ import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.embedding.ExactBarycentricOrient;
+import ixdar.numeric.exact.ExactBarycentricOrient;
 
 /**
  * Cross-checks the expansion-arithmetic orientation predicate against a

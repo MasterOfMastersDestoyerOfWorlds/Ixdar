@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.numeric.graph.Dijkstra;
+import ixdar.numeric.graph.ShortestPathForest;
 
 /**
  * Builds the rough edge path FlipOut starts from: shortest edge walks chained through a list of

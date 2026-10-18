@@ -10,8 +10,8 @@ import java.util.HashMap;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessDofSystem;
-import ixdar.geometry.mesh.quadlayout.solver.InteriorPointQp;
-import ixdar.geometry.mesh.quadlayout.solver.matrix.NormalMatrix;
+import ixdar.numeric.sparse.InteriorPointQp;
+import ixdar.numeric.sparse.matrix.NormalMatrix;
 
 /**
  * The BZK09 §5.2 feature-alignment guard on a hand-authored two-triangle seamless

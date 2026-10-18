@@ -6,6 +6,7 @@ import org.joml.Intersectionf;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.numeric.graph.Dijkstra;
 
 /**
  * Deterministic geometric pick of the vertex nearest an authored point. A near-tie is refused,

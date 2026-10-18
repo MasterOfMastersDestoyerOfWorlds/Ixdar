@@ -8,7 +8,7 @@ import java.util.List;
 import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.UnionFind;
+import ixdar.numeric.graph.UnionFind;
 
 import ixdar.nodegraph.field.Vector3Value;
 import ixdar.geometry.mesh.data.MeshVertexOffset;

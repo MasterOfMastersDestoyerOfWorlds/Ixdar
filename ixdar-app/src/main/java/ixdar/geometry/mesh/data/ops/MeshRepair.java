@@ -15,7 +15,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.TriangleBvh;
 import ixdar.geometry.mesh.data.TriangleGeometry;
-import ixdar.geometry.mesh.data.UnionFind;
+import ixdar.numeric.graph.UnionFind;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;

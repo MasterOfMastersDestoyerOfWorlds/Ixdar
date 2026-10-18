@@ -3,8 +3,8 @@ package ixdar.geometry.mesh.quadlayout.gridmap;
 import java.util.Arrays;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;
-import ixdar.geometry.mesh.quadlayout.solver.system.NewtonRelaxation;
+import ixdar.numeric.sparse.system.DofSystem;
+import ixdar.numeric.sparse.system.NewtonRelaxation;
 
 /**
  * One patch's interior as its own Newton system: the slots only this patch's
