@@ -8,13 +8,14 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.IntField;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.MeshFieldContext;
 
-@MeshNodeAnnotation(id = "input_mesh_edge_vertices")
+@MeshNodeAnnotation(id = "input_mesh_edge_vertices", category = NodeCategory.FIELD_DATA)
 public class InputMeshEdgeVerticesNode implements MeshNode {
     public static final OutputPort VERTEX_A = new OutputPort("vertex_a", PortType.INT);
     public static final OutputPort VERTEX_B = new OutputPort("vertex_b", PortType.INT);

@@ -1,6 +1,5 @@
 package ixdar.scenes;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 
 import ixdar.canvas.Canvas3D;
@@ -267,26 +266,8 @@ public abstract class Scene extends Canvas3D {
     }
 
     /**
-     * Bind automation input via reflection to avoid pulling desktop-only classes
-     * into the TeaVM compilation graph. On web, this silently does nothing.
-     *
-     * @param platform current platform whose input callbacks should be bound
-     * @param keys     keyboard handler to wire into the platform
-     * @param mouse    mouse handler to wire into the platform
-     */
-    protected static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
-        try {
-            Class<?> binder = Class.forName(
-                    String.join(".", "ixdar", "platform", "automation", "AutomationInputBinder"));
-            Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
-            bind.invoke(null, platform, keys, mouse);
-        } catch (Throwable ignored) {
-        }
-    }
-
-    /**
-     * Route raw platform input to the scene's key and mouse handlers, bypassing the reflective
-     * automation binding that silently fails under TeaVM and leaves every callback null.
+     * Route raw platform input to the scene's key and mouse handlers, bypassing the automation
+     * binding, which the browser platform has none of and so leaves every callback null.
      *
      * @param platform  active platform
      * @param keyGuy    key handler

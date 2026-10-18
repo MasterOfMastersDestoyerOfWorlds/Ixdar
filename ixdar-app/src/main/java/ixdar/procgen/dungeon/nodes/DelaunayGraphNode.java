@@ -7,6 +7,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.nodes.api.InputPort;
@@ -18,7 +19,7 @@ import ixdar.procgen.dungeon.algo.DelaunayTriangulation2D;
 import ixdar.procgen.dungeon.algo.DelaunayTriangulation3D;
 import ixdar.procgen.dungeon.algo.DungeonGrids;
 
-@MeshNodeAnnotation(id = "delaunay_graph", scopes = { "dungeon" })
+@MeshNodeAnnotation(id = "delaunay_graph", scopes = { "dungeon" }, category = NodeCategory.DUNGEON)
 public class DelaunayGraphNode implements MeshNode {
     public static final float COORDINATE_TOLERANCE = 1e-6f;
 

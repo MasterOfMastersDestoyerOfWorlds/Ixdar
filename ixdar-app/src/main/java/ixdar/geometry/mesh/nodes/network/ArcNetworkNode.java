@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -26,7 +27,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
  * evaluation order. Authored walks are counter-clockwise seen from outside,
  * interior on the left.
  */
-@MeshNodeAnnotation(id = "arc_network", desktopOnly = true)
+@MeshNodeAnnotation(id = "arc_network", desktopOnly = true, category = NodeCategory.NETWORK)
 public final class ArcNetworkNode implements MeshNode {
 
     public static final InputPort MESH = new InputPort("mesh", PortType.GEOMETRY_BUNDLE, null);

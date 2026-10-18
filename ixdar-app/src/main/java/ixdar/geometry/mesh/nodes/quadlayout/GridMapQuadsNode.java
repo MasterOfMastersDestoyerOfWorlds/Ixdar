@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
@@ -17,7 +18,7 @@ import ixdar.geometry.mesh.quadlayout.gridmap.GridMapAssembly;
  * Extracts the pure quad mesh of a relaxed global grid map (LCK21a §7), verifying the map and
  * recording the per-patch grids on it for the patch-surface step.
  */
-@MeshNodeAnnotation(id = "grid_map_quads", desktopOnly = true)
+@MeshNodeAnnotation(id = "grid_map_quads", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public class GridMapQuadsNode implements MeshNode {
 
     public static final InputPort UV = new InputPort("uv", PortType.UV_FIELD, null);

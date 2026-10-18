@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
@@ -29,7 +30,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
  * Rings a surface with a closed cubic spline through authored anchor points, traced by recursive
  * De Casteljau bisection with geodesic midpoints so the ring turns smoothly at every anchor.
  */
-@MeshNodeAnnotation(id = "spline_ring")
+@MeshNodeAnnotation(id = "spline_ring", category = NodeCategory.SELECTION)
 public class SplineRingNode implements MeshNode {
 
     public static final String DEFAULT_MARK_LABEL = "spline_ring";

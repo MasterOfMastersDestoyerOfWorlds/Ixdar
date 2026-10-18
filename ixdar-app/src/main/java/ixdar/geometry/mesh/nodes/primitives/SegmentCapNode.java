@@ -9,6 +9,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -23,7 +24,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  * <p>The innermost ring keeps a small non-zero radius rather than collapsing to a point, so no
  * degenerate face reaches Catmull-Clark.
  */
-@MeshNodeAnnotation(id = "segment_cap")
+@MeshNodeAnnotation(id = "segment_cap", category = NodeCategory.PRIMITIVES)
 public class SegmentCapNode implements MeshNode {
     public static final int MIN_SEGMENTS = 3;
     public static final float Y_TOLERANCE = 0.001f;

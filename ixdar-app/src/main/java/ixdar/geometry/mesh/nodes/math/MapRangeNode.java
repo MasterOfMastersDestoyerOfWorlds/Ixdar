@@ -7,6 +7,7 @@ import ixdar.geometry.mesh.nodes.api.FloatField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.ModeConstraint;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
@@ -22,7 +23,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
  * </ul>
  * Works with both scalar values and per-vertex FloatFields.
  */
-@MeshNodeAnnotation(id = "map_range")
+@MeshNodeAnnotation(id = "map_range", category = NodeCategory.MATH_LOGIC)
 public class MapRangeNode implements MeshNode {
     public static final String LINEAR = "LINEAR";
     public static final String SMOOTH_STEP = "SMOOTH_STEP";

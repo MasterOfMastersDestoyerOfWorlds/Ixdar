@@ -12,6 +12,7 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
@@ -49,7 +50,7 @@ import ixdar.platform.Platforms;
  *
  * <p>See also: Lyon 2021 Section 3, Eppstein 2008
  */
-@MeshNodeAnnotation(id = "motorcycle_graph", desktopOnly = true)
+@MeshNodeAnnotation(id = "motorcycle_graph", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public final class MotorcycleGraph implements MeshNode {
 
     public static final float DEFAULT_ALPHA_DEGREES = 15.0f;

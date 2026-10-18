@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.data.paths.UniqueShortestPath;
 import ixdar.geometry.mesh.nodes.api.InputPort;
@@ -24,7 +25,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
  * shortest edge paths between consecutive waypoints, and a tied segment
  * throws.
  */
-@MeshNodeAnnotation(id = "network_arc", desktopOnly = true)
+@MeshNodeAnnotation(id = "network_arc", desktopOnly = true, category = NodeCategory.NETWORK)
 public final class NetworkArc implements MeshNode {
 
     public static final int VIA_COUNT = 8;

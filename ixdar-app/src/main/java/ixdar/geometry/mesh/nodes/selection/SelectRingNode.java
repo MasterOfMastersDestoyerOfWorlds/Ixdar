@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -21,7 +22,7 @@ import ixdar.geometry.mesh.nodes.api.Vector3Value;
  * Picks the one proposed ring passing nearest a surface point, so a graph names a ring by where it
  * is rather than by the number a run happened to give it.
  */
-@MeshNodeAnnotation(id = "select_ring")
+@MeshNodeAnnotation(id = "select_ring", category = NodeCategory.SELECTION)
 public class SelectRingNode implements MeshNode {
 
     public static final String SELECTED_LABEL = "selected_ring";

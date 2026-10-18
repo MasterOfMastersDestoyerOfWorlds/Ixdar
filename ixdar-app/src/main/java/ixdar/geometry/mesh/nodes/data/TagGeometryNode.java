@@ -8,6 +8,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -20,7 +21,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
  * <p>Apply tags only once the vertex count is final: any later node that adds or removes vertices
  * invalidates the masks.
  */
-@MeshNodeAnnotation(id = "tag_geometry")
+@MeshNodeAnnotation(id = "tag_geometry", category = NodeCategory.FIELD_DATA)
 public class TagGeometryNode implements MeshNode {
     public static final String TAGS_SLOT = "_tags";
 

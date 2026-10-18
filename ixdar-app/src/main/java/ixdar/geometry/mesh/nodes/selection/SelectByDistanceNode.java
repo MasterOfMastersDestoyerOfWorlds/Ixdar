@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -27,7 +28,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * Compose with {@code boolean_math} or a modifier node's {@code generated}
  * output to refine the selection further.
  */
-@MeshNodeAnnotation(id = "select_by_distance")
+@MeshNodeAnnotation(id = "select_by_distance", category = NodeCategory.SELECTION)
 public class SelectByDistanceNode implements MeshNode {
     public static final float DEFAULT_RADIUS = 0.1f;
 

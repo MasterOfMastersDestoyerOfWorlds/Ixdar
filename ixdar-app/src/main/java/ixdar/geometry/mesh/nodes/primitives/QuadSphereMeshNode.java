@@ -5,13 +5,14 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
-@MeshNodeAnnotation(id = "sphere")
+@MeshNodeAnnotation(id = "sphere", category = NodeCategory.PRIMITIVES)
 public class QuadSphereMeshNode implements MeshNode {
     public static final InputPort SIZE = new InputPort("size", PortType.FLOAT, 1.0f, 0.001f, 100f);
     // Defines how many quads make up the circumference of the sphere

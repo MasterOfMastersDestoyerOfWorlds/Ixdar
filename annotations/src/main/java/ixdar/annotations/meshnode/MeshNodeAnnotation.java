@@ -28,6 +28,13 @@ public @interface MeshNodeAnnotation {
     boolean desktopOnly() default false;
 
     /**
+     * Catalog category the node is listed under, such as {@link NodeCategory#QUAD_LAYOUT}.
+     *
+     * @return the node's category; required, so a package move never changes it
+     */
+    NodeCategory category();
+
+    /**
      * Editor scopes in which this node is offered (e.g. {@code "mesh"} for
      * Daud's mesh-modeling editor, {@code "dungeon"} for procgen dungeons).
      *

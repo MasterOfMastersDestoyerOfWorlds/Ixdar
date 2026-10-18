@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.csg.QuadTriangulation;
 import ixdar.geometry.mesh.data.CornerUvField;
 import ixdar.geometry.mesh.data.GeometryBundle;
@@ -21,7 +22,7 @@ import ixdar.geometry.mesh.nodes.api.Vector3Value;
  * operand without a scan on disk. Projecting world coordinates onto each face's dominant plane
  * leaves the checker unbroken across any cut, so a break in it is a real interpolation error.
  */
-@MeshNodeAnnotation(id = "checker_material")
+@MeshNodeAnnotation(id = "checker_material", category = NodeCategory.FIELD_DATA)
 public class CheckerMaterialNode implements MeshNode {
 
     public static final int TEXTURE_SIZE = 64;

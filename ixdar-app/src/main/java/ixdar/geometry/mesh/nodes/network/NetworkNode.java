@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
@@ -19,7 +20,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
  * mutating the {@code net} threaded from the previous authoring statement (see
  * {@link ArcNetworkNode}).
  */
-@MeshNodeAnnotation(id = "network_node", desktopOnly = true)
+@MeshNodeAnnotation(id = "network_node", desktopOnly = true, category = NodeCategory.NETWORK)
 public final class NetworkNode implements MeshNode {
 
     public static final InputPort NET = new InputPort("net", PortType.ARC_NETWORK, null);

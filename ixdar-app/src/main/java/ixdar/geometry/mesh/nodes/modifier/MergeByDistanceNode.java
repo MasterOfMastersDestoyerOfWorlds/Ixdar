@@ -7,6 +7,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -18,7 +19,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
 import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
 
-@MeshNodeAnnotation(id = "merge_by_distance")
+@MeshNodeAnnotation(id = "merge_by_distance", category = NodeCategory.MODIFIERS)
 public class MergeByDistanceNode implements MeshNode {
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort DISTANCE = new InputPort("distance", PortType.FLOAT, 0.001f, 1e-6f, 1f);

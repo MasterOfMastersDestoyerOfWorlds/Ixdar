@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
@@ -19,7 +20,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
  * cycle splitting at the four corner nodes. Corners may repeat, sides may be
  * empty, and side arc counts pin down an ambiguous split.
  */
-@MeshNodeAnnotation(id = "network_patch", desktopOnly = true)
+@MeshNodeAnnotation(id = "network_patch", desktopOnly = true, category = NodeCategory.NETWORK)
 public final class NetworkPatch implements MeshNode {
 
     public static final int UNCONSTRAINED = -1;

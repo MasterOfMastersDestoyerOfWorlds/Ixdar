@@ -1,7 +1,6 @@
 package ixdar.scenes.main;
 
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -43,8 +42,6 @@ import ixdar.platform.Toggle;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.PointSetPath;
 import ixdar.platform.file.TextFile;
-import ixdar.platform.gl.Platform;
-import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.SceneInputFrameUpdater;
@@ -674,8 +671,7 @@ public class MainScene {
      */
     public static void activate(boolean state) {
         if (state) {
-            Platform p = Platforms.get();
-            bindAutomationIfAvailable(p, keys, mouse);
+            Canvas3D.bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         }
         canvas.activate(!state);
         active = state;
@@ -832,16 +828,6 @@ public class MainScene {
             return (Knot) first;
         }
         return smallestKnot;
-    }
-
-    private static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
-        try {
-            Class<?> binder = Class.forName(
-                    String.join(PACKAGE_SEPARATOR, "ixdar", "platform", "automation", "AutomationInputBinder"));
-            Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
-            bind.invoke(null, platform, keys, mouse);
-        } catch (Throwable ignored) {
-        }
     }
 
 }

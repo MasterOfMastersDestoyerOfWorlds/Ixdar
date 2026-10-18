@@ -43,6 +43,8 @@ import com.google.gson.Gson;
 import ixdar.platform.json.GsonJsonTree;
 import ixdar.platform.json.JsonValue;
 
+import ixdar.audio.AudioBackend;
+import ixdar.audio.AudioSystem;
 import ixdar.canvas.IxdarWindow;
 import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
@@ -53,6 +55,8 @@ import ixdar.graphics.render.model.AssimpModelRuntime;
 import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
 import ixdar.platform.Platforms;
+import ixdar.platform.automation.AutomationBackend;
+import ixdar.platform.automation.endpoints.AutomationRuntime;
 import ixdar.platform.concurrent.ThreadWorkerPool;
 import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.FileManagement;
@@ -285,6 +289,18 @@ public class LwjglPlatform implements Platform {
     @Override
     public MeshBooleanBackend meshBooleanBackend() {
         return manifoldBooleanBackend;
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public AudioBackend audio() {
+        return AudioSystem.get();
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public AutomationBackend automation() {
+        return AutomationRuntime.get();
     }
 
     /** {@inheritDoc}. */

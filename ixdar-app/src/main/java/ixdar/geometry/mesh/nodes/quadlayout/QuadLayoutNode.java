@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.graph.GroupBuilder;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
@@ -35,7 +36,7 @@ import ixdar.parsing.python.PythonParser;
  * Pulling one output runs only its stages. Stages work in place, so {@link #MOTORCYCLE} ends
  * quantized and {@link #EMBEDDED} contracted.
  */
-@MeshNodeAnnotation(id = QuadLayoutNode.TYPE, desktopOnly = true)
+@MeshNodeAnnotation(id = QuadLayoutNode.TYPE, desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public class QuadLayoutNode extends NodeGroup {
 
     public static final String TYPE = "quad_layout";

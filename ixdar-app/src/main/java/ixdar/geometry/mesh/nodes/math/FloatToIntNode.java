@@ -6,6 +6,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.ModeConstraint;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
@@ -15,7 +16,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
  * MeshNode that converts a float input to an integer using one of four
  * rounding modes (ROUND, FLOOR, CEIL, TRUNCATE).
  */
-@MeshNodeAnnotation(id = "float_to_int")
+@MeshNodeAnnotation(id = "float_to_int", category = NodeCategory.MATH_LOGIC)
 public class FloatToIntNode implements MeshNode {
     public static final String ROUND = "ROUND";
     public static final String TRUNCATE = "TRUNCATE";

@@ -1,12 +1,13 @@
 package ixdar.canvas;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.scene.SceneDrawable;
+import ixdar.audio.AudioAssets;
+import ixdar.audio.AudioBackend;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.point.PointSet;
 import ixdar.geometry.shell.DistanceMatrix;
@@ -21,6 +22,7 @@ import ixdar.graphics.render.sdf.SDFFluid;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platforms;
+import ixdar.platform.automation.AutomationBackend;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.KeyGuy;
@@ -30,25 +32,12 @@ import ixdar.scenes.main.MainScene;
 import ixdar.scenes.trade.TradeScene;
 
 public class Canvas3D extends SceneDrawable {
-    public static final String IXDAR = "ixdar";
-    public static final String AUDIO = "audio";
-    public static final String GET = "get";
-    public static final String AUDIOASSETS = "AudioAssets";
-    public static final String PLATFORM = "platform";
-    public static final String AUTOMATION = "automation";
-    public static final String ENDPOINTS = "endpoints";
-    public static final String PACKAGE_SEPARATOR = ".";
     public static final float PROJECTION_MATRIX_SCALE = 1f;
 
     public static Canvas3D instance;
 
     public static final String DEFAULT_VIEW = "MAIN";
 
-    private static Object audioSystem;
-    private static boolean audioChecked;
-
-    private static Object automationRuntime;
-    private static boolean automationChecked;
     public MenuBox menu;
     public boolean changedSize = false;
     // private SDFTexture logo;
@@ -86,106 +75,44 @@ public class Canvas3D extends SceneDrawable {
         activate(true);
         platform = Platforms.get();
         active = true;
-        Object rt = getAutomationRuntime();
-        if (rt != null) {
-            try {
-                rt.getClass().getMethod("start", Canvas3D.class).invoke(rt, this);
-            } catch (Throwable ignored) {
-            }
+        AutomationBackend automation =platform.automation();
+        if (automation != null) {
+            automation.start(this);
         }
 
         shell = new Shell();
     }
 
-    private static Object getAudioSystem() {
-        if (!audioChecked) {
-            audioChecked = true;
-            try {
-                Class<?> cls = Class.forName(
-                        String.join(PACKAGE_SEPARATOR, IXDAR, AUDIO, "AudioSystem"));
-                audioSystem = cls.getMethod(GET).invoke(null);
-            } catch (Throwable ignored) {
-            }
-        }
-        return audioSystem;
-    }
-
     /**
-     * Reflectively start looping the {@code AudioAssets.MENU_MUSIC} track via
-     * {@code AudioSystem.playMenuMusicLoop}; no-op if audio is unavailable.
+     * Start looping the {@link AudioAssets#MENU_MUSIC} track; no-op on a platform without audio.
      */
     public static void audioPlayMenuMusic() {
-        Object audio = getAudioSystem();
-        if (audio == null)
-            return;
-        try {
-            String path = (String) Class.forName(
-                    String.join(PACKAGE_SEPARATOR, IXDAR, AUDIO, AUDIOASSETS))
-                    .getField("MENU_MUSIC").get(null);
-            audio.getClass().getMethod("playMenuMusicLoop", String.class).invoke(audio, path);
-        } catch (Throwable ignored) {
+        AudioBackend audio =Platforms.get().audio();
+        if (audio != null) {
+            audio.playMenuMusicLoop(AudioAssets.MENU_MUSIC);
         }
     }
 
     /**
-     * Reflectively call {@code AudioSystem.pauseMenuMusic()}; no-op if audio is
-     * unavailable.
+     * Pause the menu music; no-op on a platform without audio.
      */
     public static void audioPauseMenuMusic() {
-        Object audio = getAudioSystem();
-        if (audio == null)
-            return;
-        try {
-            audio.getClass().getMethod("pauseMenuMusic").invoke(audio);
-        } catch (Throwable ignored) {
+        AudioBackend audio =Platforms.get().audio();
+        if (audio != null) {
+            audio.pauseMenuMusic();
         }
     }
 
     /**
-     * Reflectively play a one-shot SFX whose path is the named static field on
-     * {@code AudioAssets}; no-op if audio is unavailable or the field is missing.
+     * Play a one-shot sound effect; no-op on a platform without audio.
      *
-     * @param fieldName public static String field on
-     *                  {@code ixdar.audio.AudioAssets}
+     * @param path asset path of the effect, one of the {@link AudioAssets} constants
      */
-    public static void audioPlaySfx(String fieldName) {
-        Object audio = getAudioSystem();
-        if (audio == null)
-            return;
-        try {
-            String path = (String) Class.forName(
-                    String.join(PACKAGE_SEPARATOR, IXDAR, AUDIO, AUDIOASSETS))
-                    .getField(fieldName).get(null);
-            audio.getClass().getMethod("playSfxOnce", String.class).invoke(audio, path);
-        } catch (Throwable ignored) {
+    public static void audioPlaySfx(String path) {
+        AudioBackend audio =Platforms.get().audio();
+        if (audio != null) {
+            audio.playSfxOnce(path);
         }
-    }
-
-    /**
-     * Reflectively call {@code AudioSystem.shutdown()}; no-op if audio is
-     * unavailable.
-     */
-    public static void audioShutdown() {
-        Object audio = getAudioSystem();
-        if (audio == null)
-            return;
-        try {
-            audio.getClass().getMethod("shutdown").invoke(audio);
-        } catch (Throwable ignored) {
-        }
-    }
-
-    private static Object getAutomationRuntime() {
-        if (!automationChecked) {
-            automationChecked = true;
-            try {
-                Class<?> cls = Class.forName(
-                        String.join(PACKAGE_SEPARATOR, IXDAR, PLATFORM, AUTOMATION, ENDPOINTS, "AutomationRuntime"));
-                automationRuntime = cls.getMethod(GET).invoke(null);
-            } catch (Throwable ignored) {
-            }
-        }
-        return automationRuntime;
     }
 
     /**
@@ -238,10 +165,9 @@ public class Canvas3D extends SceneDrawable {
         gl.clearColor(Color.RED_DARK);
         gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
         gl.enable(gl.BLEND());
-        Object audio = getAudioSystem();
-        try {
-            audio.getClass().getMethod("init").invoke(audio);
-        } catch (Throwable ignored) {
+        AudioBackend audio =Platforms.get().audio();
+        if (audio != null) {
+            audio.init();
         }
         if (MenuBox.menuVisible) {
             audioPlayMenuMusic();
@@ -287,12 +213,9 @@ public class Canvas3D extends SceneDrawable {
             }
             s.flush();
         }
-        Object rt2 = getAutomationRuntime();
-        if (rt2 != null) {
-            try {
-                rt2.getClass().getMethod("processMainThreadCommands").invoke(rt2);
-            } catch (Throwable ignored) {
-            }
+        AutomationBackend automation =Platforms.get().automation();
+        if (automation != null) {
+            automation.processMainThreadCommands();
         }
         Clock.frameRendered();
     }
@@ -352,32 +275,28 @@ public class Canvas3D extends SceneDrawable {
     @Override
     public void shutdown() {
         activate(false);
-        Object rt3 = getAutomationRuntime();
-        if (rt3 != null) {
-            try {
-                rt3.getClass().getMethod("stop").invoke(rt3);
-            } catch (Throwable ignored) {
-            }
+        AutomationBackend automation =platform.automation();
+        if (automation != null) {
+            automation.stop();
         }
-        audioShutdown();
+        AudioBackend audio =platform.audio();
+        if (audio != null) {
+            audio.shutdown();
+        }
     }
 
     /**
-     * Reflectively wire the optional {@code AutomationInputBinder} into the
-     * platform
-     * and input listeners; silently no-op when the automation module is absent.
+     * Route the platform's input through the automation recorder to {@code keys} and
+     * {@code mouse}; no-op on a platform without automation.
      *
-     * @param platform host platform whose input queue to bind
+     * @param platform host platform whose input callbacks to bind
      * @param keys     keyboard listener to register
      * @param mouse    mouse listener to register
      */
-    protected static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
-        try {
-            Class<?> binder = Class.forName(
-                    String.join(PACKAGE_SEPARATOR, IXDAR, PLATFORM, AUTOMATION, "AutomationInputBinder"));
-            Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
-            bind.invoke(null, platform, keys, mouse);
-        } catch (Throwable ignored) {
+    public static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
+        AutomationBackend automation =platform.automation();
+        if (automation != null) {
+            automation.bindInput(platform, keys, mouse);
         }
     }
 

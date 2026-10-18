@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.nodes.api.InputPort;
@@ -16,7 +17,7 @@ import ixdar.procgen.dungeon.algo.DungeonGrids;
 import ixdar.procgen.dungeon.algo.GridToMesh3D;
 import ixdar.procgen.dungeon.values.CellType;
 
-@MeshNodeAnnotation(id = "dungeon_grid_to_mesh_3d", scopes = { "dungeon" })
+@MeshNodeAnnotation(id = "dungeon_grid_to_mesh_3d", scopes = { "dungeon" }, category = NodeCategory.DUNGEON)
 public class DungeonGridToMesh3DNode implements MeshNode {
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort CELL_SIZE = new InputPort("cell_size", PortType.FLOAT, 1.0f, 0.01f, 100f);

@@ -20,7 +20,7 @@ public class WebMathTransformer implements ClassHolderTransformer {
     public static final String MATH_CLASS = "java.lang.Math";
 
     private static final String FMA = "fma";
-    private static final String WEB_MATH_CLASS = "ixdar.platform.teavm.WebMath";
+    private static final String WEB_MATH_CLASS = WebMath.class.getName();
 
     /**
      * Add both {@code fma} overloads to {@code java.lang.Math}; every other class passes through.

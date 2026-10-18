@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -22,7 +23,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
  * Proposes every neck loop a skeleton suggests: branch regions, their boundaries as seed loops,
  * FlipOut tightening, and a ranked list with the weak ones dropped.
  */
-@MeshNodeAnnotation(id = "ring_candidates")
+@MeshNodeAnnotation(id = "ring_candidates", category = NodeCategory.SELECTION)
 public class RingCandidatesNode implements MeshNode {
 
     public static final float MAXIMUM_RESOLUTION = 512f;

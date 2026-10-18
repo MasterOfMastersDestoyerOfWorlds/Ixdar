@@ -7,6 +7,7 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -25,7 +26,7 @@ import ixdar.geometry.mesh.curve.MathExpressionEvaluator;
  *   deformed = curve_deform(geometry=mesh, closure=curve.closure, ...)
  * </pre>
  */
-@MeshNodeAnnotation(id = "function_curve")
+@MeshNodeAnnotation(id = "function_curve", category = NodeCategory.CURVE_OPERATIONS)
 public class FunctionCurveNode implements MeshNode {
     public static final String SIN_X_PI = "sin(x * pi)";
     public static final int DEFAULT_RESOLUTION = 32;

@@ -7,6 +7,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.ModeConstraint;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
@@ -22,7 +23,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * outputs. Consumers ask for a label at a type through {@link EdgeMarks}, e.g.
  * {@code subdivision_surface} reads float {@code "crease"}.
  */
-@MeshNodeAnnotation(id = "mark_edges")
+@MeshNodeAnnotation(id = "mark_edges", category = NodeCategory.MODIFIERS)
 public class MarkEdgesNode implements MeshNode {
     public static final String TYPE_FLOAT = "FLOAT";
     public static final String TYPE_INT = "INT";

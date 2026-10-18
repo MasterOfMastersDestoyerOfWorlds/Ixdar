@@ -10,6 +10,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -26,7 +27,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * {@code edgeLength * QUARTER_CIRCLE_RATIO * weight}, direction opposite the
  * average of other incident edge directions at each endpoint (outward bias).
  */
-@MeshNodeAnnotation(id = "assign_bezier_handles")
+@MeshNodeAnnotation(id = "assign_bezier_handles", category = NodeCategory.PATCH_SURFACE)
 public class AssignBezierHandlesNode implements MeshNode {
     public static final float MIN_LENGTH = 1e-20f;
     public static final float MIN_LENGTH_SQUARED = 1e-8f;

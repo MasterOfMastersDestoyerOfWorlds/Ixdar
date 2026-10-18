@@ -23,11 +23,12 @@ import ixdar.graphics.render.text.HyperString;
 import ixdar.graphics.render.text.HyperWord;
 import ixdar.platform.Platforms;
 import ixdar.platform.automation.AutomationApiServer;
-import ixdar.platform.automation.AutomationInputBinder;
+import ixdar.platform.automation.AutomationBackend;
 import ixdar.platform.automation.AutomationPortFile;
 import ixdar.platform.automation.AutomationRecorder;
 import ixdar.platform.automation.AutomationReplayEngine;
 import ixdar.platform.automation.endpoints.mesh.dsl.Timing;
+import ixdar.platform.gl.Platform;
 import ixdar.platform.gl.headless.HeadlessPlatform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
@@ -36,7 +37,7 @@ import ixdar.scenes.main.MainScene;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.trade.TradeScene;
 
-public class AutomationRuntime {
+public class AutomationRuntime implements AutomationBackend {
     public static final String KEY = "key";
     public static final String SCANCODE = "scancode";
     public static final String ACTION = "action";
@@ -88,6 +89,7 @@ public class AutomationRuntime {
      *
      * @param canvas3D the active render canvas; held so endpoints can drive scenes
      */
+    @Override
     public synchronized void start(Canvas3D canvas3D) {
         if (started) {
             if (canvas == null) {
@@ -116,6 +118,7 @@ public class AutomationRuntime {
      * Cancel any in-flight replay, stop the HTTP server, and release the canvas
      * reference. Idempotent.
      */
+    @Override
     public synchronized void stop() {
         if (!started) {
             return;
@@ -132,7 +135,40 @@ public class AutomationRuntime {
     }
 
     /**
-     * Shared recorder used by endpoints and {@link AutomationInputBinder}.
+     * Install platform input callbacks that tee each event into this runtime's recorder before
+     * forwarding it to the normal {@link KeyGuy}/{@link MouseTrap} handlers.
+     *
+     * @param platform platform whose key/char/mouse/scroll callbacks will be replaced
+     * @param keys keyboard handler that receives forwarded key and char events
+     * @param mouse mouse handler that receives forwarded button, move, and scroll events
+     */
+    @Override
+    public void bindInput(Platform platform, KeyGuy keys, MouseTrap mouse) {
+        platform.setKeyCallback((key, scancode, action, mods) -> {
+            recordRawKey(key, scancode, action, mods);
+            keys.keyCallback(0L, key, scancode, action, mods);
+        });
+        platform.setCharCallback(codepoint -> {
+            recordRawChar(codepoint);
+            keys.charCallback(0L, codepoint);
+        });
+        PointerDispatcher pointer = PointerDispatcher.forPlatform(platform.getPlatformID());
+        platform.setMouseButtonCallback((button, action, mods) -> {
+            recordRawMouseButton(button, action, mods, mouse.lastX, mouse.lastY);
+            pointer.mouseButton(mouse, button, action, mods);
+        });
+        platform.setCursorPosCallback((window, x, y) -> {
+            recordRawMouseMove((float) x, (float) y);
+            pointer.moveOrDrag(mouse, window, (float) x, (float) y);
+        });
+        platform.setScrollCallback((xoff, yoff) -> {
+            recordRawScroll(xoff, yoff);
+            mouse.scrollCallback(xoff, yoff);
+        });
+    }
+
+    /**
+     * Shared recorder used by endpoints and {@link #bindInput}.
      *
      * @return the runtime's {@link AutomationRecorder}
      */
@@ -254,6 +290,7 @@ public class AutomationRuntime {
      * @param payload action-specific fields; values are coerced to JSON numbers,
      *                booleans, or strings based on their runtime type
      */
+    @Override
     public void recordAbstractActionMap(
             String type,
             Map<String, Object> payload) {
@@ -527,6 +564,7 @@ public class AutomationRuntime {
      * thread; the first call also captures the render thread id so subsequent
      * {@code runOnMainThread} calls from that same thread execute inline.
      */
+    @Override
     public void processMainThreadCommands() {
         if (renderThreadId == -1) {
             renderThreadId = Thread.currentThread().getId();

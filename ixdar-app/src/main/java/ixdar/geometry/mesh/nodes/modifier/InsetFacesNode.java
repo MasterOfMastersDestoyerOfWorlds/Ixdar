@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -33,7 +34,7 @@ import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
  *
  * <p>An all-quad input stays all-quad.
  */
-@MeshNodeAnnotation(id = "inset_faces")
+@MeshNodeAnnotation(id = "inset_faces", category = NodeCategory.MODIFIERS)
 public class InsetFacesNode implements MeshNode {
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort INSET = new InputPort("inset", PortType.FLOAT, 0.1f, 0f, 1f);

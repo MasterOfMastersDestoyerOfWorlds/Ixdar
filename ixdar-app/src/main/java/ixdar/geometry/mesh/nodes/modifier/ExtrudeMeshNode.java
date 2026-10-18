@@ -18,6 +18,7 @@ import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -40,7 +41,7 @@ import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
  *       side walls are only created on boundary edges between selected and unselected faces</li>
  * </ul>
  */
-@MeshNodeAnnotation(id = "extrude_mesh")
+@MeshNodeAnnotation(id = "extrude_mesh", category = NodeCategory.MODIFIERS)
 public class ExtrudeMeshNode implements MeshNode {
     public static final float NORMAL_LENGTH_EPSILON = 1e-8f;
 

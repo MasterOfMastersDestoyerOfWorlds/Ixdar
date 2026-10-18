@@ -6,13 +6,14 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
-@MeshNodeAnnotation(id = "mesh_grid")
+@MeshNodeAnnotation(id = "mesh_grid", category = NodeCategory.PRIMITIVES)
 public class GridMeshNode implements MeshNode {
     public static final float MIN_TILE_SIZE = 1e-6f;
     public static final InputPort U_TILES = new InputPort("u_tiles", PortType.INT, 10, (float) 1, (float) 1000);

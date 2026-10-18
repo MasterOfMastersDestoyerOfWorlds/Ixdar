@@ -8,6 +8,7 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.IntField;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.ModeConstraint;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
@@ -31,7 +32,7 @@ import ixdar.platform.Platforms;
  *
  * <p>See also: NHE*19 Section 3.1
  */
-@MeshNodeAnnotation(id = "mesh_boolean", desktopOnly = true)
+@MeshNodeAnnotation(id = "mesh_boolean", desktopOnly = true, category = NodeCategory.GEOMETRY_OPERATIONS)
 public class MeshBooleanNode implements MeshNode {
     public static final String DIFFERENCE = "DIFFERENCE";
     public static final String UNION = "UNION";

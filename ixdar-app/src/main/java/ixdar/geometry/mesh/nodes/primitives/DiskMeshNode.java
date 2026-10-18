@@ -6,6 +6,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -17,7 +18,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  * interior vertex can. Guaranteed ordering: center id 0, then ring-major/angular-minor ids
  * ({@code 1 + (ring - 1) * angular_segments + angular}), angular 0 at twelve o'clock, clockwise.
  */
-@MeshNodeAnnotation(id = "mesh_disk")
+@MeshNodeAnnotation(id = "mesh_disk", category = NodeCategory.PRIMITIVES)
 public class DiskMeshNode implements MeshNode {
 
     public static final int DEFAULT_RINGS = 4;

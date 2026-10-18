@@ -9,6 +9,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -23,7 +24,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * interpolation between corresponding pairs (uniform across the span). Both rails must match
  * open vs closed topology.
  */
-@MeshNodeAnnotation(id = "birail_loft")
+@MeshNodeAnnotation(id = "birail_loft", category = NodeCategory.CURVE_OPERATIONS)
 public class BirailLoftMeshNode implements MeshNode {
     public static final int DEFAULT_U_SEGMENTS = 16;
     public static final int DEFAULT_V_SEGMENTS = 8;

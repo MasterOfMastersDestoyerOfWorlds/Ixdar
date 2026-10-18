@@ -10,6 +10,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -27,7 +28,7 @@ import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
  * <p>
  * Optionally creates intermediate interpolation rings for smoother transitions.
  */
-@MeshNodeAnnotation(id = "bridge_edge_loops")
+@MeshNodeAnnotation(id = "bridge_edge_loops", category = NodeCategory.MODIFIERS)
 public class BridgeEdgeLoopsNode implements MeshNode {
     public static final String BRIDGE_EDGE_LOOPS_TAG = "bridge_edge_loops: tag '";
     public static final String NOT_FOUND = "' not found";

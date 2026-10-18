@@ -3,11 +3,13 @@ package ixdar.platform.gl;
 import java.io.IOException;
 import java.util.function.Consumer;
 
+import ixdar.audio.AudioBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.quadlayout.solver.chol.NativeCholeskyBackend;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
+import ixdar.platform.automation.AutomationBackend;
 import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.json.JsonValue;
@@ -249,6 +251,23 @@ public interface Platform {
      * @return the platform's boolean backend
      */
     MeshBooleanBackend meshBooleanBackend();
+
+    /**
+     * Sound playback, or {@code null} when the platform has none. Naming the OpenAL implementation
+     * here rather than in the scenes is what keeps it out of the browser build.
+     *
+     * @return the platform's audio backend, or {@code null}
+     */
+    AudioBackend audio();
+
+    /**
+     * The automation HTTP server and input recorder, or {@code null} when the platform has none.
+     * Naming the implementation here rather than in the scenes and input handlers is what keeps the
+     * server out of the browser build.
+     *
+     * @return the platform's automation backend, or {@code null}
+     */
+    AutomationBackend automation();
 
     /**
      * Wall-clock time the application started.

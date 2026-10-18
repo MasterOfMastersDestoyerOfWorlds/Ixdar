@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 
 import com.google.gson.Gson;
 
+import ixdar.audio.AudioBackend;
+import ixdar.audio.AudioSystem;
 import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.quadlayout.solver.chol.DesktopCholeskyBackend;
@@ -28,6 +30,8 @@ import ixdar.graphics.render.model.AssimpModelRuntime;
 import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
 import ixdar.platform.Platforms;
+import ixdar.platform.automation.AutomationBackend;
+import ixdar.platform.automation.endpoints.AutomationRuntime;
 import ixdar.platform.concurrent.ThreadWorkerPool;
 import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.FileManagement;
@@ -291,6 +295,26 @@ public class HeadlessPlatform implements Platform {
     @Override
     public MeshBooleanBackend meshBooleanBackend() {
         return manifoldBooleanBackend;
+    }
+
+    /**
+     * Play sound through OpenAL, the same as the desktop backend; it disables itself without a device.
+     *
+     * @return the shared audio system
+     */
+    @Override
+    public AudioBackend audio() {
+        return AudioSystem.get();
+    }
+
+    /**
+     * Serve automation the same as the desktop backend: headless scenes are driven through it.
+     *
+     * @return the shared automation runtime
+     */
+    @Override
+    public AutomationBackend automation() {
+        return AutomationRuntime.get();
     }
 
     /**

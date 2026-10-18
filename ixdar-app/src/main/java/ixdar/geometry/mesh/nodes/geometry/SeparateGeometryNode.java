@@ -10,6 +10,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -24,7 +25,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * Faces where selection=true go to the "selected" output; the rest go to
  * "inverted". Both outputs are valid standalone meshes.
  */
-@MeshNodeAnnotation(id = "separate_geometry")
+@MeshNodeAnnotation(id = "separate_geometry", category = NodeCategory.GEOMETRY_OPERATIONS)
 public class SeparateGeometryNode implements MeshNode {
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);

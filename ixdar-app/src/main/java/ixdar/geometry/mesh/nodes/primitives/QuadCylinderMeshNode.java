@@ -6,6 +6,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -19,7 +20,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  * concentric quad rings converging toward the center, avoiding triangle fans
  * so the output is fully quad and subdivides cleanly.
  */
-@MeshNodeAnnotation(id = "quad_cylinder")
+@MeshNodeAnnotation(id = "quad_cylinder", category = NodeCategory.PRIMITIVES)
 public class QuadCylinderMeshNode implements MeshNode {
     public static final int MIN_SEGMENTS = 3;
     public static final float MIN_CAP_RADIUS_FRACTION = 0.05f;

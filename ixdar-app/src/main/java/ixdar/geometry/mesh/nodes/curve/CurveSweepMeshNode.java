@@ -10,6 +10,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -25,7 +26,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * The profile mesh should be a flat polygon; its face normal is aligned to the curve
  * tangent at the start, then the cross-section basis is parallel-transported along the path.
  */
-@MeshNodeAnnotation(id = "curve_sweep")
+@MeshNodeAnnotation(id = "curve_sweep", category = NodeCategory.CURVE_OPERATIONS)
 public class CurveSweepMeshNode implements MeshNode {
     public static final int MIN_FACE_VERTICES = 3;
     public static final float MIN_CLOSED_EPSILON = 1e-5f;

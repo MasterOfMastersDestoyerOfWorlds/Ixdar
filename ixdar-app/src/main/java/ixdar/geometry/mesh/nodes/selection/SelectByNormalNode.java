@@ -11,6 +11,7 @@ import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -24,7 +25,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * {@code threshold}. {@code direction} is normalized before the test, and {@code threshold}
  * defaults to 0.7, roughly 45 degrees of alignment.
  */
-@MeshNodeAnnotation(id = "select_by_normal")
+@MeshNodeAnnotation(id = "select_by_normal", category = NodeCategory.SELECTION)
 public class SelectByNormalNode implements MeshNode {
     public static final float DEFAULT_THRESHOLD = 0.7f;
     public static final float EPSILON = 1e-8f;

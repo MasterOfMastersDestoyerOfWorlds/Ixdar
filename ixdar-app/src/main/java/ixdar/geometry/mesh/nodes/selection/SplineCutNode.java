@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
@@ -25,7 +26,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
  * A bisector: an open geodesic spline whose two ends sit on walls already on the bundle, rings or
  * earlier bisectors, crossing any walls between, so every region it crosses is split along it.
  */
-@MeshNodeAnnotation(id = SplineCutNode.NODE_ID)
+@MeshNodeAnnotation(id = SplineCutNode.NODE_ID, category = NodeCategory.SELECTION)
 public class SplineCutNode implements MeshNode {
 
     public static final String NODE_ID = "spline_cut";

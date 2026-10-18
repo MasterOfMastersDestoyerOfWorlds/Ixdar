@@ -8,6 +8,7 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -22,7 +23,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * <p>Selection uses the same {@link PortType#BOOLEAN} socket as extrude, inset and crease.
  * Repeated calls for one bone name accumulate by maximum, never by sum.
  */
-@MeshNodeAnnotation(id = "set_bone_weight")
+@MeshNodeAnnotation(id = "set_bone_weight", category = NodeCategory.MODIFIERS)
 public class SetBoneWeightNode implements MeshNode {
     public static final String BONE = "bone";
     public static final String BONE_WEIGHT_PREFIX = "_bone_weight_";

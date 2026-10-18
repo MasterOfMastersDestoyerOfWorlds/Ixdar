@@ -9,12 +9,13 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.IntField;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
-@MeshNodeAnnotation(id = "field_at_index")
+@MeshNodeAnnotation(id = "field_at_index", category = NodeCategory.FIELD_DATA)
 public class FieldAtIndexNode implements MeshNode {
     public static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f, -1000f, 1000f);
     public static final InputPort INDEX = new InputPort("index", PortType.INT, 0, 0f, 1000000f);

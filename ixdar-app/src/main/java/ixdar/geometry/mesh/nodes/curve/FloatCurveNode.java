@@ -7,6 +7,7 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -19,7 +20,7 @@ import ixdar.geometry.mesh.curve.FloatCurveKernel;
  * {@link ixdar.geometry.mesh.graph.InputParameterDescriptor} lists {@code float_curve} nodes as
  * {@link ixdar.geometry.mesh.graph.InputParameterDescriptor.InputParameterKind#CURVE} parameters for UI panels.
  */
-@MeshNodeAnnotation(id = "float_curve")
+@MeshNodeAnnotation(id = "float_curve", category = NodeCategory.CURVE_OPERATIONS)
 public class FloatCurveNode implements MeshNode {
     public static final String STR_0_0_1_1 = "0,0,1,1";
     public static final InputPort POINTS = new InputPort("points", PortType.STRING, STR_0_0_1_1);

@@ -13,6 +13,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -28,7 +29,7 @@ import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
  * <p>With both loop tags set each loop is found by tag; with only the first, the target is the
  * nearest untagged loop.
  */
-@MeshNodeAnnotation(id = "adaptive_bridge_loops")
+@MeshNodeAnnotation(id = "adaptive_bridge_loops", category = NodeCategory.MODIFIERS)
 public class AdaptiveBridgeLoopsNode implements MeshNode {
     public static final String ADAPTIVE_BRIDGE_LOOPS_TAG = "adaptive_bridge_loops: tag '";
     public static final String NOT_FOUND = "' not found";

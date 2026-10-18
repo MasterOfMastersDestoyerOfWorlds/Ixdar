@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
@@ -33,7 +34,7 @@ import ixdar.platform.Platforms;
  * <p>
  * See also: Lyon 2021 Sections 4 and 5
  */
-@MeshNodeAnnotation(id = "arc_quantization", desktopOnly = true)
+@MeshNodeAnnotation(id = "arc_quantization", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public class QuantizedMeshGrid implements MeshNode {
 
     public static final InputPort GRAPH = new InputPort("graph", PortType.ARC_NETWORK, null);

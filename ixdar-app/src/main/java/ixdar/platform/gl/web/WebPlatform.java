@@ -19,6 +19,7 @@ import org.teavm.jso.dom.events.WheelEvent;
 import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.typedarrays.Uint8ClampedArray;
 
+import ixdar.audio.AudioBackend;
 import ixdar.canvas.WebLauncher;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.quadlayout.solver.chol.NativeCholeskyBackend;
@@ -26,6 +27,7 @@ import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
 import ixdar.platform.Platforms;
+import ixdar.platform.automation.AutomationBackend;
 import ixdar.platform.concurrent.InlineWorkerPool;
 import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.TextFile;
@@ -522,6 +524,31 @@ public class WebPlatform implements Platform {
     @Override
     public MeshBooleanBackend meshBooleanBackend() {
         throw new UnsupportedOperationException("Mesh booleans are desktop-only");
+    }
+
+    /**
+     * {@inheritDoc}.
+     *
+     * <p>Returning null is what keeps OpenAL out of the JavaScript output: the browser build plays
+     * no sound.
+     *
+     * @return {@code null}
+     */
+    @Override
+    public AudioBackend audio() {
+        return null;
+    }
+
+    /**
+     * {@inheritDoc}.
+     *
+     * <p>Returning null is what keeps the automation HTTP server out of the JavaScript output.
+     *
+     * @return {@code null}
+     */
+    @Override
+    public AutomationBackend automation() {
+        return null;
     }
 
     /**

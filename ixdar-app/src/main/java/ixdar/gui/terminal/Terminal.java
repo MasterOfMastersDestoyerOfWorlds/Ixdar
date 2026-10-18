@@ -1,15 +1,9 @@
 package ixdar.gui.terminal;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Supplier;
 
 import ixdar.annotations.command.TerminalOption;
@@ -24,6 +18,10 @@ import ixdar.graphics.render.color.ColorLerp;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.terminal.commands.TerminalCommand;
 import ixdar.gui.ui.Drawing;
+import ixdar.gui.ui.tools.FreeTool;
+import ixdar.gui.ui.tools.MapEditorTool;
+import ixdar.gui.ui.tools.NegativeCutMatchViewTool;
+import ixdar.gui.ui.tools.NeighborViewTool;
 import ixdar.gui.ui.tools.Tool;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.input.Keys;
@@ -43,7 +41,7 @@ public class Terminal implements PointerRegion {
     public static HashMap<Class<? extends TerminalOption>, TerminalOption> commandClassMap = new HashMap<>();
     public static ArrayList<Tool> tools;
     public static HashMap<String, Tool> toolMap = new HashMap<>();
-    public static HashMap<Class<Tool>, Tool> toolClassMap = new HashMap<>();
+    public static HashMap<Class<? extends Tool>, Tool> toolClassMap = new HashMap<>();
     public static ArrayList<PointCollection> pointCollectionList;
     public static HashMap<Class<? extends Geometry>, PointCollection> pointCollectionClassMap = new HashMap<>();
 
@@ -65,11 +63,12 @@ public class Terminal implements PointerRegion {
             }
         }
         if (tools == null) {
-            tools = new ArrayList<>();
-            loadClassType("ixdar.gui.ui.tools", tools, toolClassMap, Tool.class);
+            tools = new ArrayList<>(List.of(
+                    new FreeTool(), new MapEditorTool(), new NegativeCutMatchViewTool(), new NeighborViewTool()));
             for (Tool t : tools) {
                 toolMap.put(t.shortName(), t);
                 toolMap.put(t.fullName(), t);
+                toolClassMap.put(t.getClass(), t);
             }
         }
         if (pointCollectionList == null) {
@@ -138,76 +137,6 @@ public class Terminal implements PointerRegion {
         history = new HyperString();
         commandHistory = new ArrayList<>();
         commandHistoryIdx = -1;
-    }
-
-    /**
-     * Reflectively scan {@code packageName} for non-abstract, non-enum classes that extend
-     * {@code type}, instantiate each via its no-arg constructor, and register the instances
-     * into both {@code list} and {@code classMap}. Classes with no no-arg constructor (tools
-     * that need scene state handed in, e.g. {@code RoutePlanningTool}) are not registry
-     * -instantiable and are skipped silently.
-     *
-     * @param <E> base type implemented by every discovered class
-     * @param packageName fully-qualified package to scan (dotted form)
-     * @param list output collection to which each new instance is added
-     * @param classMap output map keyed by concrete class for class-based lookup
-     * @param type marker base class that discovered classes must extend
-     */
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    public static <E> void loadClassType(String packageName, ArrayList<E> list, Map<Class<E>, E> classMap,
-            Class<E> type) {
-        InputStream stream = ClassLoader.getSystemClassLoader().getResourceAsStream(packageName.replaceAll("[.]", "/"));
-        BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
-        List<Class> commandClasses = new ArrayList<>();
-        try {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.endsWith(".class")) {
-                    Class c = getClass(line, packageName);
-                    if (c != null) {
-                        commandClasses.add(c);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // ignore
-        }
-        for (Class c : commandClasses) {
-            if (!Modifier.isAbstract(c.getModifiers()) && !c.isEnum() && hasSuperClass(c, type)) {
-                try {
-                    E e = (E) c.getConstructor().newInstance();
-                    list.add(e);
-                    classMap.put((Class<E>) e.getClass(), e);
-                } catch (NoSuchMethodException notRegistryInstantiable) {
-                    continue;
-                } catch (InstantiationException | IllegalAccessException | IllegalArgumentException
-                        | InvocationTargetException | SecurityException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
-
-    @SuppressWarnings("rawtypes")
-    private static <E> boolean hasSuperClass(Class c, Class<E> type) {
-        Class superClass = c.getSuperclass();
-        while (superClass != null) {
-            if (superClass == type) {
-                return true;
-            }
-            superClass = superClass.getSuperclass();
-        }
-        return false;
-    }
-
-    @SuppressWarnings("rawtypes")
-    private static Class getClass(String className, String packageName) {
-        try {
-            return Class.forName(packageName + "." + className.substring(0, className.lastIndexOf('.')));
-        } catch (ClassNotFoundException e) {
-            // handle the exception
-        }
-        return null;
     }
 
     /**

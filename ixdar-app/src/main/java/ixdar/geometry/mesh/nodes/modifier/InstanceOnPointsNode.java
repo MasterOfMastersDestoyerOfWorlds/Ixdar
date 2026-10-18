@@ -11,6 +11,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -24,7 +25,7 @@ import ixdar.geometry.mesh.data.ops.MeshAppend;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
-@MeshNodeAnnotation(id = "instance_on_points")
+@MeshNodeAnnotation(id = "instance_on_points", category = NodeCategory.MODIFIERS)
 public class InstanceOnPointsNode implements MeshNode {
     public static final String INSTANCE_MESH = "_instance_mesh";
     public static final InputPort POINTS = new InputPort("points", PortType.GEOMETRY_BUNDLE, null);

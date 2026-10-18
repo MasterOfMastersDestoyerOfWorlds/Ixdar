@@ -4,7 +4,6 @@ import java.util.Set;
 
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
-import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.lang.model.element.TypeElement;
 
 import com.google.auto.service.AutoService;
@@ -12,7 +11,6 @@ import com.google.auto.service.AutoService;
 import ixdar.annotations.RegistryProcessor;
 
 @AutoService(Processor.class)
-@SupportedAnnotationTypes("ixdar.annotations.geometry.GeometryAnnotation")
 public class GeometryRegistry extends RegistryProcessor {
 
     /**

@@ -8,6 +8,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -15,7 +16,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 /**
  * Element-wise float math operations (subset used by geometry graphs).
  */
-@MeshNodeAnnotation(id = "float_math")
+@MeshNodeAnnotation(id = "float_math", category = NodeCategory.MATH_LOGIC)
 public class FloatMathNode implements MeshNode {
     public static final String ADD = "ADD";
     public static final InputPort OPERATION = new InputPort("operation", PortType.STRING, ADD);

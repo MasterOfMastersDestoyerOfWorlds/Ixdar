@@ -6,6 +6,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.ModeConstraint;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
@@ -23,7 +24,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * <p>
  * The resolution parameter controls how many line segments approximate the curve.
  */
-@MeshNodeAnnotation(id = "curve_bezier")
+@MeshNodeAnnotation(id = "curve_bezier", category = NodeCategory.CURVE_OPERATIONS)
 public class CurvePrimitiveBezierNode implements MeshNode {
     public static final String CUBIC = "CUBIC";
     public static final String QUADRATIC = "QUADRATIC";

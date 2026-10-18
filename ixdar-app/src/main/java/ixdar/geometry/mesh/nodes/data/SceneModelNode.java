@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
@@ -15,7 +16,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
  * The model the host scene loaded, as the graph's input: a scene graph starts
  * {@code model = scene_model()} and never names a mesh path, so the scene's model switch feeds it.
  */
-@MeshNodeAnnotation(id = "scene_model")
+@MeshNodeAnnotation(id = "scene_model", category = NodeCategory.FIELD_DATA)
 public class SceneModelNode implements MeshNode {
 
     public static final String BINDING = "model";

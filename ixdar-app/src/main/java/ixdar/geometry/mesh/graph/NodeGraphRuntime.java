@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import ixdar.annotations.RegistryProcessor;
 import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
@@ -329,7 +330,7 @@ public class NodeGraphRuntime {
     /**
      * The desktop-only registry, reached through {@code Class.forName} so the class name never
      * appears as a reference TeaVM can walk; in the browser the lookup fails and the map is empty.
-     * The same firewall idiom keeps {@code AudioSystem} out of the web build.
+     * The name is the generated class's own plus the processor's suffix, so a move cannot break it.
      *
      * @return desktop-only node suppliers by id; empty when the class cannot load
      */
@@ -337,7 +338,7 @@ public class NodeGraphRuntime {
     public static Map<String, Supplier<? extends MeshNode>> desktopRegistryMap() {
         try {
             Class<?> desktop = Class.forName(
-                    MeshNodeRegistry_MeshNodes.class.getName() + "Desktop");
+                    MeshNodeRegistry_MeshNodes.class.getName() + RegistryProcessor.DESKTOP_SUFFIX);
             return (Map<String, Supplier<? extends MeshNode>>) desktop.getField("MAP").get(null);
         } catch (Throwable unavailable) {
             return Map.of();

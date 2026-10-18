@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
@@ -24,7 +25,7 @@ import ixdar.platform.Platforms;
  *
  * <p>See also: LCBK19 Appendix A.3
  */
-@MeshNodeAnnotation(id = "tmesh_contract", desktopOnly = true)
+@MeshNodeAnnotation(id = "tmesh_contract", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public final class NetworkContraction implements MeshNode {
 
     public static final InputPort TMESH = new InputPort("tmesh", PortType.ARC_NETWORK, null);

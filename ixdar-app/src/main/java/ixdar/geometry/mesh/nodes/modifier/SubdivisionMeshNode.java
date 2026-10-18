@@ -10,6 +10,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -21,7 +22,7 @@ import ixdar.geometry.mesh.data.QuadMeshTopologyHelper;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
-@MeshNodeAnnotation(id = "subdivision_surface")
+@MeshNodeAnnotation(id = "subdivision_surface", category = NodeCategory.MODIFIERS)
 public class SubdivisionMeshNode implements MeshNode {
 
     public static final InputPort MESH_IN = new InputPort("mesh", PortType.GEOMETRY_BUNDLE, null);

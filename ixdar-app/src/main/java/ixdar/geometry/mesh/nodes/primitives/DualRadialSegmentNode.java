@@ -8,6 +8,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -23,7 +24,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * <p>Tangents are spatial derivatives (∂r/∂y), scaled by segment length internally, so chaining
  * end to start across differing lengths stays G1.
  */
-@MeshNodeAnnotation(id = "dual_radial_segment")
+@MeshNodeAnnotation(id = "dual_radial_segment", category = NodeCategory.PRIMITIVES)
 public class DualRadialSegmentNode implements MeshNode {
     public static final int MIN_SEGMENTS = 3;
     public static final float MIN_RADIUS = 0.001f;

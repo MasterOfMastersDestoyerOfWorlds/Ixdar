@@ -8,13 +8,14 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.api.Vector3Field;
 import ixdar.geometry.mesh.nodes.api.Vector3Value;
 
-@MeshNodeAnnotation(id = "separate_xyz")
+@MeshNodeAnnotation(id = "separate_xyz", category = NodeCategory.MATH_LOGIC)
 public class SeparateXyzNode implements MeshNode {
     public static final InputPort VECTOR = new InputPort("vector", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));
     public static final OutputPort X = new OutputPort("x", PortType.FLOAT);

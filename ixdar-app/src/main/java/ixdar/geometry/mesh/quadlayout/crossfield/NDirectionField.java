@@ -15,6 +15,7 @@ import java.util.stream.IntStream;
 import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -46,7 +47,7 @@ import ixdar.platform.Platforms;
  *
  * <p>See also: Lyon 2021 stages 1-2
  */
-@MeshNodeAnnotation(id = "cross_field", desktopOnly = true)
+@MeshNodeAnnotation(id = "cross_field", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public class NDirectionField implements MeshNode {
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);

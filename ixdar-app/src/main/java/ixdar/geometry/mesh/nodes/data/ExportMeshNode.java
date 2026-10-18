@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.CornerUvField;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.load.GltfMeshWriter;
@@ -26,7 +27,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * inline in a graph. Exists so an expensive stage such as {@code repair_mesh} runs once and every
  * later graph loads its result.
  */
-@MeshNodeAnnotation(id = "export_mesh", desktopOnly = true)
+@MeshNodeAnnotation(id = "export_mesh", desktopOnly = true, category = NodeCategory.FIELD_DATA)
 public class ExportMeshNode implements MeshNode {
 
     public static final String FORMAT_GLB = "GLB";

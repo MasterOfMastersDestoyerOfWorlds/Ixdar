@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.CornerUvField;
 import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
@@ -25,7 +26,7 @@ import ixdar.platform.Platforms;
  * resolved, shells classified, small boundary loops filled. Removes no surface beyond degenerate
  * faces and the debris shells the caller asked to drop.
  */
-@MeshNodeAnnotation(id = "repair_mesh")
+@MeshNodeAnnotation(id = "repair_mesh", category = NodeCategory.MODIFIERS)
 public class RepairMeshNode implements MeshNode {
 
     public static final int DEFAULT_MAX_HOLE_EDGES = 4096;

@@ -9,6 +9,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -17,7 +18,7 @@ import ixdar.geometry.mesh.data.GeometryBundles;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
-@MeshNodeAnnotation(id = "spherize")
+@MeshNodeAnnotation(id = "spherize", category = NodeCategory.MODIFIERS)
 public class SpherizeMeshNode implements MeshNode {
     public static final float MIN_CENTER_DISTANCE = 0.00001f;
     public static final InputPort MESH_IN = new InputPort("mesh", PortType.GEOMETRY_BUNDLE, null);

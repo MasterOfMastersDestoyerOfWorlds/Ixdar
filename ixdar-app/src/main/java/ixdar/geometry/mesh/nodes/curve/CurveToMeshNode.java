@@ -8,6 +8,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -23,7 +24,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * <p>
  * Uses parallel-transported frame for smooth orientation along the curve.
  */
-@MeshNodeAnnotation(id = "curve_to_mesh")
+@MeshNodeAnnotation(id = "curve_to_mesh", category = NodeCategory.CURVE_OPERATIONS)
 public class CurveToMeshNode implements MeshNode {
     public static final float DEFAULT_RADIUS = 0.1f;
     public static final int DEFAULT_RESOLUTION = 12;

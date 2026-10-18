@@ -11,6 +11,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -26,7 +27,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  *
  * <p>Cages without handle slots must use {@code loop_cut}.
  */
-@MeshNodeAnnotation(id = "coons_loop_cut")
+@MeshNodeAnnotation(id = "coons_loop_cut", category = NodeCategory.PATCH_SURFACE)
 public class CoonsLoopCutNode implements MeshNode {
     public static final String X = "X";
     public static final float MIN_EDGE_LENGTH = 1e-8f;

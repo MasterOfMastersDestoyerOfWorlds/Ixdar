@@ -6,6 +6,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -18,7 +19,7 @@ import ixdar.geometry.mesh.nodes.api.UvField;
  *
  * <p>See also: LCK21a Section 7
  */
-@MeshNodeAnnotation(id = "newton_solver", desktopOnly = true)
+@MeshNodeAnnotation(id = "newton_solver", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public class NewtonSolverNode implements MeshNode {
 
     public static final InputPort UV = new InputPort("uv", PortType.UV_FIELD, null);

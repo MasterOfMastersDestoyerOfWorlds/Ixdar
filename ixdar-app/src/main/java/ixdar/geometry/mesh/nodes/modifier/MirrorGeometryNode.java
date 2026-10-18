@@ -13,6 +13,7 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import org.joml.Vector4f;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -30,7 +31,7 @@ import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
  * mirrored copy, and welds seam vertices. Halves work for bilaterally
  * symmetric shapes.
  */
-@MeshNodeAnnotation(id = "mirror_geometry")
+@MeshNodeAnnotation(id = "mirror_geometry", category = NodeCategory.MODIFIERS)
 public class MirrorGeometryNode implements MeshNode {
     public static final String X = "X";
     public static final String Y = "Y";

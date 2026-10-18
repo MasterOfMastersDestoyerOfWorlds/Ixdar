@@ -6,6 +6,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -23,7 +24,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * <p>Cuts land on straight edge midpoints, so on a cage carrying Bezier handle slots the new
  * vertices sit off the curve and the handles go stale — use {@code coons_loop_cut} there.
  */
-@MeshNodeAnnotation(id = "loop_cut")
+@MeshNodeAnnotation(id = "loop_cut", category = NodeCategory.MODIFIERS)
 public class LoopCutNode implements MeshNode {
     public static final String Z = "Z";
 

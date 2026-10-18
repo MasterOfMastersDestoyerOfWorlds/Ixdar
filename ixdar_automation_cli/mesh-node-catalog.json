@@ -128,7 +128,7 @@
     },
     {
       "id": "arc_network",
-      "category": "Other",
+      "category": "Network",
       "scopes": [
         "mesh",
         "dungeon"
@@ -153,7 +153,7 @@
     },
     {
       "id": "arc_quantization",
-      "category": "Other",
+      "category": "Quad Layout",
       "scopes": [
         "mesh",
         "dungeon"
@@ -229,7 +229,7 @@
     },
     {
       "id": "astar_corridors",
-      "category": "Other",
+      "category": "Dungeon",
       "scopes": [
         "dungeon"
       ],
@@ -288,7 +288,7 @@
     },
     {
       "id": "astar_corridors_3d",
-      "category": "Other",
+      "category": "Dungeon",
       "scopes": [
         "dungeon"
       ],
@@ -1086,7 +1086,7 @@
     },
     {
       "id": "cross_field",
-      "category": "Other",
+      "category": "Quad Layout",
       "scopes": [
         "mesh",
         "dungeon"
@@ -1443,7 +1443,7 @@
     },
     {
       "id": "delaunay_graph",
-      "category": "Other",
+      "category": "Dungeon",
       "scopes": [
         "dungeon"
       ],
@@ -1612,7 +1612,7 @@
     },
     {
       "id": "dungeon_grid_to_mesh",
-      "category": "Other",
+      "category": "Dungeon",
       "scopes": [
         "dungeon"
       ],
@@ -1641,7 +1641,7 @@
     },
     {
       "id": "dungeon_grid_to_mesh_3d",
-      "category": "Other",
+      "category": "Dungeon",
       "scopes": [
         "dungeon"
       ],
@@ -2039,7 +2039,7 @@
     },
     {
       "id": "grid_map_quads",
-      "category": "Other",
+      "category": "Quad Layout",
       "scopes": [
         "mesh",
         "dungeon"
@@ -2473,7 +2473,7 @@
     },
     {
       "id": "integer_grid_map",
-      "category": "Other",
+      "category": "Quad Layout",
       "scopes": [
         "mesh",
         "dungeon"
@@ -2646,7 +2646,7 @@
     },
     {
       "id": "layout_embedding",
-      "category": "Other",
+      "category": "Quad Layout",
       "scopes": [
         "mesh",
         "dungeon"
@@ -3154,7 +3154,7 @@
     },
     {
       "id": "minimum_spanning_tree",
-      "category": "Other",
+      "category": "Dungeon",
       "scopes": [
         "dungeon"
       ],
@@ -3225,7 +3225,7 @@
     },
     {
       "id": "motorcycle_graph",
-      "category": "Other",
+      "category": "Quad Layout",
       "scopes": [
         "mesh",
         "dungeon"
@@ -3344,7 +3344,7 @@
     },
     {
       "id": "network_arc",
-      "category": "Other",
+      "category": "Network",
       "scopes": [
         "mesh",
         "dungeon"
@@ -3446,7 +3446,7 @@
     },
     {
       "id": "network_node",
-      "category": "Other",
+      "category": "Network",
       "scopes": [
         "mesh",
         "dungeon"
@@ -3500,7 +3500,7 @@
     },
     {
       "id": "network_patch",
-      "category": "Other",
+      "category": "Network",
       "scopes": [
         "mesh",
         "dungeon"
@@ -3578,7 +3578,7 @@
     },
     {
       "id": "newton_solver",
-      "category": "Other",
+      "category": "Quad Layout",
       "scopes": [
         "mesh",
         "dungeon"
@@ -3614,7 +3614,7 @@
     },
     {
       "id": "patch_surfaces",
-      "category": "Other",
+      "category": "Quad Layout",
       "scopes": [
         "mesh",
         "dungeon"
@@ -3692,7 +3692,7 @@
     },
     {
       "id": "quad_extract",
-      "category": "Other",
+      "category": "Quad Layout",
       "scopes": [
         "mesh",
         "dungeon"
@@ -3729,7 +3729,7 @@
     },
     {
       "id": "quad_layout",
-      "category": "Other",
+      "category": "Quad Layout",
       "scopes": [
         "mesh",
         "dungeon"
@@ -3827,7 +3827,7 @@
     },
     {
       "id": "random_rooms",
-      "category": "Other",
+      "category": "Dungeon",
       "scopes": [
         "dungeon"
       ],
@@ -4239,7 +4239,7 @@
     },
     {
       "id": "seamless_uv",
-      "category": "Other",
+      "category": "Quad Layout",
       "scopes": [
         "mesh",
         "dungeon"
@@ -5071,7 +5071,7 @@
     },
     {
       "id": "tmesh_contract",
-      "category": "Other",
+      "category": "Quad Layout",
       "scopes": [
         "mesh",
         "dungeon"

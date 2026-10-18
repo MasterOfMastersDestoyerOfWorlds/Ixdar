@@ -12,6 +12,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -28,7 +29,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * <p>Chain these tip-to-root, and give each bone a weight covering its own segment and all
  * descendant segments.
  */
-@MeshNodeAnnotation(id = "apply_bone")
+@MeshNodeAnnotation(id = "apply_bone", category = NodeCategory.MODIFIERS)
 public class ApplyBoneNode implements MeshNode {
     public static final String BONE = "bone";
     public static final float ROTATION_EPSILON = 1e-7f;

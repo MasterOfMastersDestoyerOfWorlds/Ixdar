@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
@@ -17,7 +18,7 @@ import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
  * The render-ready layout surfaces of an extracted grid map: every live patch's quad grid with
  * per-face patch ids, and the Coons-blend variant of the same topology.
  */
-@MeshNodeAnnotation(id = "patch_surfaces", desktopOnly = true)
+@MeshNodeAnnotation(id = "patch_surfaces", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public class PatchSurfacesNode implements MeshNode {
 
     public static final InputPort UV = new InputPort("uv", PortType.UV_FIELD, null);

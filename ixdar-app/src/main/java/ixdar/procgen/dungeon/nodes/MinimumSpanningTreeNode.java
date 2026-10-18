@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
@@ -14,7 +15,7 @@ import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.procgen.dungeon.algo.PrimMinimumSpanningTree;
 
-@MeshNodeAnnotation(id = "minimum_spanning_tree", scopes = { "dungeon" })
+@MeshNodeAnnotation(id = "minimum_spanning_tree", scopes = { "dungeon" }, category = NodeCategory.DUNGEON)
 public class MinimumSpanningTreeNode implements MeshNode {
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort EXTRA_EDGE_PROB = new InputPort(

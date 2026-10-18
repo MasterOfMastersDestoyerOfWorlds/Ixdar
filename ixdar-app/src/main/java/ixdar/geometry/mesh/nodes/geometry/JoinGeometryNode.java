@@ -7,6 +7,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -19,7 +20,7 @@ import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 
 import ixdar.geometry.mesh.nodes.modifier.SetBoneWeightNode;
 
-@MeshNodeAnnotation(id = "join_geometry")
+@MeshNodeAnnotation(id = "join_geometry", category = NodeCategory.GEOMETRY_OPERATIONS)
 public class JoinGeometryNode implements MeshNode {
     public static final InputPort A = new InputPort("a", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort B = new InputPort("b", PortType.GEOMETRY_BUNDLE, null);

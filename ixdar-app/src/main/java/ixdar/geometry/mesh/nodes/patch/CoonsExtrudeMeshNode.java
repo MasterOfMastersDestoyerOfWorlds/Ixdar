@@ -15,6 +15,7 @@ import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -31,7 +32,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * <p>Input geometry <strong>must</strong> carry bezier handle slots produced by
  * {@code assign_bezier_handles}; input without handles passes through unchanged.
  */
-@MeshNodeAnnotation(id = "coons_extrude_mesh")
+@MeshNodeAnnotation(id = "coons_extrude_mesh", category = NodeCategory.PATCH_SURFACE)
 public class CoonsExtrudeMeshNode implements MeshNode {
     public static final float MIN_NORMAL_LENGTH = 1e-8f;
 

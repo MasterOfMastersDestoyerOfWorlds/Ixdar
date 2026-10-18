@@ -12,6 +12,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -28,7 +29,7 @@ import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
  * Transforms geometry by applying scale, rotation (Euler XYZ radians), and translation.
  * Order: Scale → Rotate → Translate (standard SRT).
  */
-@MeshNodeAnnotation(id = "transform_geometry")
+@MeshNodeAnnotation(id = "transform_geometry", category = NodeCategory.TRANSFORM)
 public class TransformGeometryNode implements MeshNode {
     public static final int VECTOR_STRIDE = 3;
 

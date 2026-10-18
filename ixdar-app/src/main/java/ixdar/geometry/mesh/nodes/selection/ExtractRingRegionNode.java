@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.RingRegionExtraction;
@@ -21,7 +22,7 @@ import ixdar.platform.Platforms;
  * Takes the ring regions a selection names out of a surface as their own closed mesh, cut along
  * the rings' smooth splines and capped, ready for mesh_boolean.
  */
-@MeshNodeAnnotation(id = "extract_ring_region", desktopOnly = true)
+@MeshNodeAnnotation(id = "extract_ring_region", desktopOnly = true, category = NodeCategory.SELECTION)
 public class ExtractRingRegionNode implements MeshNode {
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,

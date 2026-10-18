@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.BranchCrossSectionRing;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
@@ -23,7 +24,7 @@ import ixdar.geometry.mesh.nodes.api.Vector3Value;
  * Cuts one ring across a limb at a fraction of its length: the skeleton branch nearest an authored
  * point supplies the cutting plane, which seeds a loop that FlipOut tightens.
  */
-@MeshNodeAnnotation(id = "ring_at_branch")
+@MeshNodeAnnotation(id = "ring_at_branch", category = NodeCategory.SELECTION)
 public class RingAtBranchNode implements MeshNode {
 
     public static final float MAXIMUM_RESOLUTION = 512f;

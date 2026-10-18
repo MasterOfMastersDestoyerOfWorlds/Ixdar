@@ -7,12 +7,13 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.api.Vector3Value;
 
-@MeshNodeAnnotation(id = "input_vector")
+@MeshNodeAnnotation(id = "input_vector", category = NodeCategory.MATH_LOGIC)
 public class InputVectorNode implements MeshNode {
     public static final InputPort X = new InputPort("x", PortType.FLOAT, 0.0f);
     public static final InputPort Y = new InputPort("y", PortType.FLOAT, 0.0f);

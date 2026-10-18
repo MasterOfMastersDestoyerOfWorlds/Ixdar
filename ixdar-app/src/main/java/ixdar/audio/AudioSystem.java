@@ -23,7 +23,7 @@ import org.lwjgl.openal.AL10;
 
 import ixdar.platform.Platforms;
 
-public class AudioSystem {
+public class AudioSystem implements AudioBackend {
     public static final String LOAD_FAIL = "LOAD_FAIL ";
     public static final String RES_AUDIO_MUSIC = "res/audio/music/";
     public static final String RES_AUDIO_SFX = "res/audio/sfx/";
@@ -66,6 +66,7 @@ public class AudioSystem {
      * Open the OpenAL device and context, allocate the menu-music source, and mark
      * the system available; idempotent and never throws (failures disable audio).
      */
+    @Override
     public synchronized void init() {
         if (initialized) {
             return;
@@ -123,6 +124,7 @@ public class AudioSystem {
      *
      * @param relativeAssetPath classpath/asset path to a WAV file
      */
+    @Override
     public synchronized void playMenuMusicLoop(String relativeAssetPath) {
         if (!ensureReady()) {
             return;
@@ -149,6 +151,7 @@ public class AudioSystem {
     /**
      * Pause the menu-music source if it is currently playing; otherwise no-op.
      */
+    @Override
     public synchronized void pauseMenuMusic() {
         if (!available || menuMusicSource < 0) {
             return;
@@ -177,6 +180,7 @@ public class AudioSystem {
      *
      * @param relativeAssetPath classpath/asset path to a WAV file
      */
+    @Override
     public synchronized void playSfxOnce(String relativeAssetPath) {
         if (!ensureReady()) {
             return;
@@ -286,6 +290,7 @@ public class AudioSystem {
      * Release every OpenAL source and buffer, destroy the context, and close the
      * device; safe to call repeatedly.
      */
+    @Override
     public synchronized void shutdown() {
         if (!initialized) {
             return;

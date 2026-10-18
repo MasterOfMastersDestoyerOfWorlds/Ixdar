@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.RingRegions;
@@ -22,7 +23,7 @@ import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
  * Splits a surface into the regions its ring mark loops enclose, labels every face with its
  * region, and selects regions by number or surface point.
  */
-@MeshNodeAnnotation(id = "ring_regions")
+@MeshNodeAnnotation(id = "ring_regions", category = NodeCategory.SELECTION)
 public class RingRegionsNode implements MeshNode {
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,

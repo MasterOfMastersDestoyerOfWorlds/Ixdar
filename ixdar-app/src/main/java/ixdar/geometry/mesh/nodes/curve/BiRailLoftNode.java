@@ -9,6 +9,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.curve.FloatCurveKernel;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
@@ -26,7 +27,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * <p>Rails are resampled to {@code x_resolution} stations by arc length and the profile to
  * {@code y_resolution} points, so the two inputs need not share a sample count.
  */
-@MeshNodeAnnotation(id = "bi_rail_loft")
+@MeshNodeAnnotation(id = "bi_rail_loft", category = NodeCategory.CURVE_OPERATIONS)
 public class BiRailLoftNode implements MeshNode {
     public static final int DEFAULT_X_RESOLUTION = 32;
     public static final int DEFAULT_Y_RESOLUTION = 16;

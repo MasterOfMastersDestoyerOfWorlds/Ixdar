@@ -9,6 +9,7 @@ import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
+import ixdar.platform.automation.AutomationBackend;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.main.PaneTypes;
 
@@ -30,9 +31,6 @@ public class MouseTrap {
     public static final int CLICK_DRAG_THRESHOLD_PX = 3;
     public static final int ZOOM_SETTLE_FRAMES = 10;
     public static ArrayList<HyperString> hyperStrings = new ArrayList<>();
-
-    private static Object automationRuntime;
-    private static boolean automationChecked;
 
     private static final HashMap<Integer, List<ClickSubscription>> CLICK_SUBSCRIPTIONS_BY_PLATFORM = new HashMap<>();
 
@@ -87,28 +85,16 @@ public class MouseTrap {
         this.canvas = canvas;
     }
 
-    private static Object getAutomationRuntime() {
-        if (!automationChecked) {
-            automationChecked = true;
-            try {
-                Class<?> cls = Class.forName(
-                        String.join(".", "ixdar", "platform", "automation", "endpoints", "AutomationRuntime"));
-                automationRuntime = cls.getMethod("get").invoke(null);
-            } catch (Throwable ignored) {}
-        }
-        return automationRuntime;
-    }
-
     static void recordAbstractAction(String action, Object... keyValues) {
-        Object rt = getAutomationRuntime();
-        if (rt == null) return;
-        try {
-            Map<String, Object> payload = new HashMap<>();
-            for (int i = 0; i < keyValues.length; i += 2) {
-                payload.put((String) keyValues[i], keyValues[i + 1]);
-            }
-            rt.getClass().getMethod("recordAbstractActionMap", String.class, Map.class).invoke(rt, action, payload);
-        } catch (Throwable ignored) {}
+        AutomationBackend automation =Platforms.get().automation();
+        if (automation == null) {
+            return;
+        }
+        Map<String, Object> payload = new HashMap<>();
+        for (int i = 0; i < keyValues.length; i += 2) {
+            payload.put((String) keyValues[i], keyValues[i + 1]);
+        }
+        automation.recordAbstractActionMap(action, payload);
     }
 
     private static List<ClickSubscription> getClickSubscriptionsForCurrentPlatform() {

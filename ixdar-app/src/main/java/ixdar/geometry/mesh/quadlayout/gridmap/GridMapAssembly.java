@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
@@ -27,7 +28,7 @@ import ixdar.platform.Platforms;
  *
  * <p>See also: LCBK19 Section 6.2
  */
-@MeshNodeAnnotation(id = "integer_grid_map", desktopOnly = true)
+@MeshNodeAnnotation(id = "integer_grid_map", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public final class GridMapAssembly implements MeshNode {
 
     public static final float DEFAULT_TARGET_EDGE_LENGTH = 1.0f;

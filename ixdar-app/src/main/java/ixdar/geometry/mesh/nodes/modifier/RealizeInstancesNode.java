@@ -7,12 +7,13 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 
-@MeshNodeAnnotation(id = "realize_instances")
+@MeshNodeAnnotation(id = "realize_instances", category = NodeCategory.MODIFIERS)
 public class RealizeInstancesNode implements MeshNode {
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final OutputPort MESH = new OutputPort("mesh", PortType.GEOMETRY_BUNDLE);

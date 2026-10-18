@@ -7,6 +7,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.ModeConstraint;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
@@ -21,7 +22,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * remapped from [{@code from_min}, {@code from_max}] to [0, 1], evaluated through the closure,
  * scaled by {@code amplitude}, and added to its {@code target_axis} coordinate.
  */
-@MeshNodeAnnotation(id = "curve_deform")
+@MeshNodeAnnotation(id = "curve_deform", category = NodeCategory.CURVE_OPERATIONS)
 public class CurveDeformNode implements MeshNode {
     public static final String Y = "Y";
     public static final String X = "X";

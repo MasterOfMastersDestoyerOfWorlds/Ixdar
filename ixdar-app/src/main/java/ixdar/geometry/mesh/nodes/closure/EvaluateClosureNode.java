@@ -8,6 +8,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -15,7 +16,7 @@ import ixdar.geometry.mesh.curve.FloatCurveKernel;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 /** Evaluates a {@link FloatCurveKernel} closure at a scalar coordinate. */
-@MeshNodeAnnotation(id = "evaluate_closure")
+@MeshNodeAnnotation(id = "evaluate_closure", category = NodeCategory.CLOSURE)
 public class EvaluateClosureNode implements MeshNode {
     public static final InputPort CLOSURE = new InputPort("closure", PortType.CLOSURE, null);
     public static final InputPort VALUE = new InputPort("value", PortType.FLOAT, 0.0f, -1000f, 1000f);

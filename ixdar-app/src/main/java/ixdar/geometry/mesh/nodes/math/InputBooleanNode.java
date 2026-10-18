@@ -7,11 +7,12 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 
-@MeshNodeAnnotation(id = "input_boolean")
+@MeshNodeAnnotation(id = "input_boolean", category = NodeCategory.MATH_LOGIC)
 public class InputBooleanNode implements MeshNode {
     public static final InputPort NAME = new InputPort("name", PortType.STRING, "");
     public static final InputPort DEFAULT = new InputPort("default", PortType.BOOLEAN, false);

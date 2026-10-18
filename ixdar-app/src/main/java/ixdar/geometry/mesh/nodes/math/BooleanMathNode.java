@@ -7,6 +7,7 @@ import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.ModeConstraint;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
@@ -16,7 +17,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
  * MeshNode that performs per-element boolean logic (AND, OR, NOT, XOR) on
  * scalar booleans or {@link BoolField} inputs, broadcasting as needed.
  */
-@MeshNodeAnnotation(id = "boolean_math")
+@MeshNodeAnnotation(id = "boolean_math", category = NodeCategory.MATH_LOGIC)
 public class BooleanMathNode implements MeshNode {
     public static final String AND = "AND";
     public static final ModeConstraint MODE_CONSTRAINT = new ModeConstraint(

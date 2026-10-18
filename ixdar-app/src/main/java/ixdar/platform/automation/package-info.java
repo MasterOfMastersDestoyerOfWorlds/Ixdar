@@ -1,8 +1,5 @@
 /**
- * The in-process HTTP automation server (loopback; a free port, published to
- * a per-process record {@code tmp/automation/<pid>.json} under the launching checkout) that
- * lets `ixdar-cli` and agents drive the editor. Routes come from the annotation-generated registry.
- * Desktop-only (`com.sun.net.httpserver`). `AutomationInputBinder` tees platform
- * input callbacks into the recorder.
+ * The loopback HTTP automation server that lets `ixdar-cli` and agents drive the editor. Desktop
+ * only: scenes reach it through `Platform.automation()`, which the browser platform answers with null.
  */
 package ixdar.platform.automation;

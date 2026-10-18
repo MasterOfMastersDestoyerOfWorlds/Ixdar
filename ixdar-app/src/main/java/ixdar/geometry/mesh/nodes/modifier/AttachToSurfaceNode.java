@@ -12,6 +12,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -29,7 +30,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  *
  * <p>The output rotation aligns a +Y tube.
  */
-@MeshNodeAnnotation(id = "attach_to_surface")
+@MeshNodeAnnotation(id = "attach_to_surface", category = NodeCategory.MODIFIERS)
 public class AttachToSurfaceNode implements MeshNode {
     public static final String ATTACH = "attach";
     public static final float MIN_INSET = 0.01f;

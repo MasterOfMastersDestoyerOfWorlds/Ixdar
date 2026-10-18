@@ -10,6 +10,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -17,7 +18,7 @@ import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
-@MeshNodeAnnotation(id = "resample_curve")
+@MeshNodeAnnotation(id = "resample_curve", category = NodeCategory.CURVE_OPERATIONS)
 public class ResampleCurveNode implements MeshNode {
     public static final float DEFAULT_SEGMENT_LENGTH = 0.1f;
     public static final float MIN_LENGTH = 1e-20f;

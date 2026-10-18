@@ -8,12 +8,13 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.api.Vector3Value;
 
-@MeshNodeAnnotation(id = "input_position")
+@MeshNodeAnnotation(id = "input_position", category = NodeCategory.FIELD_DATA)
 public class InputPositionNode implements MeshNode {
     public static final OutputPort VECTOR = new OutputPort("vector", PortType.VECTOR3);
 

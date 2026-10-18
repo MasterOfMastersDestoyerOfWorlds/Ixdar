@@ -1,6 +1,5 @@
 package ixdar.scenes.trade;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,9 +22,6 @@ import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.gui.ui.tools.Tool;
 import ixdar.canvas.Canvas3D;
 import ixdar.platform.Platforms;
-import ixdar.platform.gl.Platform;
-import ixdar.platform.input.KeyGuy;
-import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.platform.input.TradeKeyGuy;
@@ -149,8 +145,7 @@ public class TradeScene {
      */
     public void activate(boolean state) {
         if (state) {
-            Platform p = Platforms.get();
-            bindAutomationIfAvailable(p, keys, mouse);
+            Canvas3D.bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         }
         if (canvas != null) {
             canvas.activate(!state);
@@ -408,15 +403,5 @@ public class TradeScene {
         // Generate roads based on proximity - cities within 200 units get connected
         network.generateRoadsFromProximity(ROAD_PROXIMITY_THRESHOLD);
         return startNewGame(network, canvas);
-    }
-
-    private static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
-        try {
-            Class<?> binder = Class.forName(
-                    String.join(PACKAGE_SEPARATOR, "ixdar", "platform", "automation", "AutomationInputBinder"));
-            Method bind = binder.getMethod("bind", Platform.class, KeyGuy.class, MouseTrap.class);
-            bind.invoke(null, platform, keys, mouse);
-        } catch (Throwable ignored) {
-        }
     }
 }

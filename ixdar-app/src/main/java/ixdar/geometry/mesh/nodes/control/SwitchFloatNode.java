@@ -9,12 +9,13 @@ import ixdar.geometry.mesh.nodes.api.FloatField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
-@MeshNodeAnnotation(id = "switch_float")
+@MeshNodeAnnotation(id = "switch_float", category = NodeCategory.CONTROL_FLOW)
 public class SwitchFloatNode implements MeshNode {
     public static final InputPort SWITCH = new InputPort("switch", PortType.BOOLEAN, false);
     public static final InputPort FALSE_VAL = new InputPort("false", PortType.FLOAT, 0.0f, -1000f, 1000f);

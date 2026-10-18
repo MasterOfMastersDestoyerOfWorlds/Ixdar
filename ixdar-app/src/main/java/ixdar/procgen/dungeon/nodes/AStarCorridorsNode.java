@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.nodes.api.BoolField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
@@ -16,7 +17,7 @@ import ixdar.procgen.dungeon.algo.AStarCorridorPathfinder2D;
 import ixdar.procgen.dungeon.algo.DungeonGrids;
 import ixdar.procgen.dungeon.values.CellType;
 
-@MeshNodeAnnotation(id = "astar_corridors", scopes = { "dungeon" })
+@MeshNodeAnnotation(id = "astar_corridors", scopes = { "dungeon" }, category = NodeCategory.DUNGEON)
 public class AStarCorridorsNode implements MeshNode {
     public static final int DEFAULT_GRID_SIZE = 30;
 

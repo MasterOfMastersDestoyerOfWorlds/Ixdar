@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
@@ -27,7 +28,7 @@ import ixdar.platform.Platforms;
  * <p>
  * See also: LCBK19 Section 6.1
  */
-@MeshNodeAnnotation(id = "layout_embedding", desktopOnly = true)
+@MeshNodeAnnotation(id = "layout_embedding", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public final class LayoutEmbedding implements MeshNode {
 
     public static final InputPort SKELETON = new InputPort("skeleton", PortType.ARC_NETWORK, null);

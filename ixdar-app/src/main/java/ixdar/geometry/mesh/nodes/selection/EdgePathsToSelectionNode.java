@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.IntField;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -16,7 +17,7 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.graph.MeshFieldContext;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
-@MeshNodeAnnotation(id = "edge_paths_to_selection")
+@MeshNodeAnnotation(id = "edge_paths_to_selection", category = NodeCategory.SELECTION)
 public class EdgePathsToSelectionNode implements MeshNode {
     public static final InputPort START = new InputPort("start", PortType.BOOLEAN, false);
     public static final InputPort NEXT_VERTEX = new InputPort("next_vertex", PortType.INT, 0, 0f, 1000000f);

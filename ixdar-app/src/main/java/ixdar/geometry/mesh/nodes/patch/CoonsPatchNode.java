@@ -11,6 +11,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -26,7 +27,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
  * isolation (duplicate vertices on shared cube edges) so topology stays
  * manifold without resolving inter-face half-edge winding.
  */
-@MeshNodeAnnotation(id = "coons_patch")
+@MeshNodeAnnotation(id = "coons_patch", category = NodeCategory.PATCH_SURFACE)
 public class CoonsPatchNode implements MeshNode {
     public static final int MAX_SUBDIVISIONS = 6;
     public static final int MAX_OUTPUT_FACES = 600_000;

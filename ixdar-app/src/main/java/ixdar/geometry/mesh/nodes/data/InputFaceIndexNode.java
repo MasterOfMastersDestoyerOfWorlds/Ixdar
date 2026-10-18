@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.nodes.api.FloatField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -22,7 +23,7 @@ import ixdar.geometry.mesh.graph.MeshFieldContext;
  * element {@code i} returns face index {@code i}. Combine with {@code compare}
  * to select specific faces by index.
  */
-@MeshNodeAnnotation(id = "input_face_index")
+@MeshNodeAnnotation(id = "input_face_index", category = NodeCategory.FIELD_DATA)
 public class InputFaceIndexNode implements MeshNode {
     public static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 

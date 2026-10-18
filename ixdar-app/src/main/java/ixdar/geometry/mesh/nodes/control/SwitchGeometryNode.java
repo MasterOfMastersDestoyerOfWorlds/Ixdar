@@ -8,12 +8,13 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 
-@MeshNodeAnnotation(id = "switch_geometry")
+@MeshNodeAnnotation(id = "switch_geometry", category = NodeCategory.CONTROL_FLOW)
 public class SwitchGeometryNode implements MeshNode {
     public static final InputPort SWITCH = new InputPort("switch", PortType.BOOLEAN, false);
     public static final InputPort FALSE_VAL = new InputPort("false", PortType.GEOMETRY_BUNDLE, null);

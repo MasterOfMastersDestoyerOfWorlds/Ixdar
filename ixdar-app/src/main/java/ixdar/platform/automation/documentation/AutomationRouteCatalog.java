@@ -92,7 +92,8 @@ public final class AutomationRouteCatalog {
         }
         routes.sort(Comparator.comparing((Map<String, Object> entry) -> (String) entry.get(COMMAND_NAME)));
         Map<String, Object> root = new LinkedHashMap<>();
-        root.put(GENERATED_FROM, "ixdar-app/src/main/java/" + "ixdar/platform/automation/documentation/AutomationRouteCatalog" + ".java");
+        root.put(GENERATED_FROM, "ixdar-app/src/main/java/"
+                + AutomationRouteCatalog.class.getName().replace('.', '/') + ".java");
         root.put(ROUTES, routes);
         return new GsonBuilder().setPrettyPrinting().serializeNulls().create().toJson(root);
     }

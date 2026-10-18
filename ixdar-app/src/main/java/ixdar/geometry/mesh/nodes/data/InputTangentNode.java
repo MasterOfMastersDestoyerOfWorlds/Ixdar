@@ -7,6 +7,7 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -17,7 +18,7 @@ import ixdar.geometry.mesh.graph.MeshFieldContext;
 
 import org.joml.Vector3f;
 
-@MeshNodeAnnotation(id = "input_tangent")
+@MeshNodeAnnotation(id = "input_tangent", category = NodeCategory.FIELD_DATA)
 public class InputTangentNode implements MeshNode {
     public static final float MIN_TANGENT_LENGTH_SQUARED = 1e-20f;
 

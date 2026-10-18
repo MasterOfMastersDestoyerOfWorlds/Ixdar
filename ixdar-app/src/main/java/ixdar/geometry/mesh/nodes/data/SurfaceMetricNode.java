@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.SurfaceMetric;
@@ -19,7 +20,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
  * Measures a surface's intrinsic metric and connection once, so every node downstream that
  * traces geodesics or transports directions on it shares one read-only {@link SurfaceMetric}.
  */
-@MeshNodeAnnotation(id = "surface_metric")
+@MeshNodeAnnotation(id = "surface_metric", category = NodeCategory.FIELD_DATA)
 public class SurfaceMetricNode implements MeshNode {
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,

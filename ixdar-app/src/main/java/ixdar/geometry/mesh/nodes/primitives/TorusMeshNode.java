@@ -6,6 +6,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -19,7 +20,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  *
  * <p>Set triangulate to feed the quad-layout pipeline, which requires triangles.
  */
-@MeshNodeAnnotation(id = "torus")
+@MeshNodeAnnotation(id = "torus", category = NodeCategory.PRIMITIVES)
 public class TorusMeshNode implements MeshNode {
 
     public static final float DEFAULT_MAJOR_RADIUS = 1.0f;

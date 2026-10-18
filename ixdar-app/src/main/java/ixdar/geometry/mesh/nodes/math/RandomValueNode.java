@@ -7,6 +7,7 @@ import java.util.Random;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.ModeConstraint;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
@@ -18,7 +19,7 @@ import ixdar.geometry.mesh.nodes.api.Vector3Value;
  * and {@code [min, max]} range. Mode (FLOAT, INT, VECTOR) selects which
  * output port carries the result; the other output ports are explicitly null.
  */
-@MeshNodeAnnotation(id = "random_value")
+@MeshNodeAnnotation(id = "random_value", category = NodeCategory.MATH_LOGIC)
 public class RandomValueNode implements MeshNode {
     public static final String FLOAT = "FLOAT";
     public static final String INT = "INT";

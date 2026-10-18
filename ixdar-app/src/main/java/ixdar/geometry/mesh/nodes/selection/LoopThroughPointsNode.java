@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
@@ -23,7 +24,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
  * Turns a list of surface points into a ring: each point snaps to its nearest vertex, consecutive
  * points are joined by shortest edge walks, and FlipOut tightens the closed cycle.
  */
-@MeshNodeAnnotation(id = "loop_through_points")
+@MeshNodeAnnotation(id = "loop_through_points", category = NodeCategory.SELECTION)
 public class LoopThroughPointsNode implements MeshNode {
 
     public static final String DEFAULT_MARK_LABEL = "ring";

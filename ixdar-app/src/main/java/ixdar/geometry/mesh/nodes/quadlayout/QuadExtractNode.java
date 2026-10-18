@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
@@ -24,7 +25,7 @@ import ixdar.geometry.mesh.quadlayout.extraction.QuadMeshExtraction;
  *
  * <p>See also: EBC13
  */
-@MeshNodeAnnotation(id = "quad_extract", desktopOnly = true)
+@MeshNodeAnnotation(id = "quad_extract", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public class QuadExtractNode implements MeshNode {
 
     public static final InputPort UV = new InputPort("uv", PortType.UV_FIELD, null);

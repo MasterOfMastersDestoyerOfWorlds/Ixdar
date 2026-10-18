@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.nodes.api.FloatField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -22,7 +23,7 @@ import ixdar.geometry.mesh.graph.MeshFieldContext;
  * returns vertex index {@code i}. Combine with {@code compare} to select
  * specific vertices by index.
  */
-@MeshNodeAnnotation(id = "input_vertex_index")
+@MeshNodeAnnotation(id = "input_vertex_index", category = NodeCategory.FIELD_DATA)
 public class InputVertexIndexNode implements MeshNode {
     public static final OutputPort RESULT = new OutputPort("result", PortType.FLOAT);
 

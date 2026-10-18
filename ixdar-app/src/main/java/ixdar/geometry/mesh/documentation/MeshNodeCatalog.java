@@ -22,7 +22,6 @@ import ixdar.geometry.mesh.nodes.math.RandomValueNode;
 
 public final class MeshNodeCatalog {
     public static final String DESCRIPTION = "description";
-    public static final String OTHER = "Other";
     public static final String NAME = "name";
     public static final String PORTTYPE = "portType";
 
@@ -64,7 +63,7 @@ public final class MeshNodeCatalog {
 
     /**
      * Serialize a node registry to JSON, optionally filtering by scope. Each entry includes the
-     * id, package-derived category, scopes, input/output schema with socket docs, optional node
+     * id, annotated category, scopes, input/output schema with socket docs, optional node
      * description, destructive flag with consumed inputs, and (for {@link RandomValueNode})
      * the per-mode output activation map.
      *
@@ -81,12 +80,12 @@ public final class MeshNodeCatalog {
                 continue;
             }
             MeshNodeSchema schema = n.schema();
+            MeshNodeAnnotation ann = n.getClass().getAnnotation(MeshNodeAnnotation.class);
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("id", e.getKey());
-            entry.put("category", categoryFromClass(n.getClass()));
+            entry.put("category", ann.category().displayName);
             entry.put("scopes", Arrays.asList(scopes));
-            MeshNodeAnnotation ann = n.getClass().getAnnotation(MeshNodeAnnotation.class);
-            if (ann != null && ann.desktopOnly()) {
+            if (ann.desktopOnly()) {
                 entry.put("desktopOnly", true);
             }
             entry.put("inputs", serializeInputs(schema.inputs(), schema.socketDocs()));
@@ -120,27 +119,6 @@ public final class MeshNodeCatalog {
             if (s.equals(scope)) return true;
         }
         return false;
-    }
-
-    private static String categoryFromClass(Class<?> clazz) {
-        String pkg = clazz.getPackageName();
-        int lastDot = pkg.lastIndexOf('.');
-        if (lastDot < 0) return OTHER;
-        String leaf = pkg.substring(lastDot + 1);
-        return switch (leaf) {
-            case "primitives" -> "Primitives";
-            case "modifier" -> "Modifiers";
-            case "math" -> "Math & Logic";
-            case "data" -> "Field & Data";
-            case "geometry" -> "Geometry Operations";
-            case "curve" -> "Curve Operations";
-            case "control" -> "Control Flow";
-            case "closure" -> "Closure";
-            case "patch" -> "Patch & Surface";
-            case "selection" -> "Selection";
-            case "transform" -> "Transform";
-            default -> OTHER;
-        };
     }
 
     private static List<Map<String, Object>> serializeInputs(

@@ -40,7 +40,8 @@ and output share a name, the second port references the first (`new OutputPort(G
 ...)`). Document every port in `socketDocs()`; `MeshNodeRegistryTest` fails the build otherwise,
 and `CanonicalPortNames` rejects nonstandard names unless allowlisted. Desktop-only nodes set
 `desktopOnly = true` and land in a separate generated registry behind the `Class.forName`
-firewall.
+firewall. Every node declares its `category` (a `NodeCategory` constant, required) on the
+annotation; `MeshNodeCatalog` lists it under that constant's display name, whatever its package.
 
 **Evaluate a node without a graph.** `MapNodeContext` feeds inputs and captures outputs directly;
 see `GridMeshNode.triangulated` for the pattern of a static helper that evaluates its own node.
@@ -135,7 +136,7 @@ commas between test names, never `+`.
 - **ixdar.annotations.geometry**: The smallest registry: `@GeometryAnnotation` over the bare `Geometry` marker. Serves the legacy 2D CLI geometries; the real parse/serialize contract lives app-side in `PointCollection`.
 - **ixdar.annotations.meshnode**: The mesh-node annotation and its registry processor.
 - **ixdar.annotations.scene**: Scene registration: `@SceneAnnotation` over `SceneDrawable`, whose `initGL`/`paintGL` default to throwing rather than being abstract; a scene missing an override compiles and fails at first frame.
-- **ixdar.audio**: OpenAL playback for desktop: `AudioSystem` singleton with WAV caching, music loop, SFX, and volume control. Reachable only by reflection from `Canvas3D`; no compile-time dependency from the render path, which keeps OpenAL out of the web build. Observability accessors exist for automation assertions.
+- **ixdar.audio**: OpenAL playback for desktop: `AudioSystem` singleton with WAV caching, music loop, SFX, and volume control. Reached only through `Platform.audio()`, which the browser platform answers with null, so OpenAL stays out of the web build. Observability accessors exist for automation assertions.
 - **ixdar.canvas**: Bootstrap layer and root drawable. `IxdarWindow` (desktop main: GL on a dedicated render thread, GLFW polling on the main thread, headless mode via `ixdar.headless`), `WebLauncher` (TeaVM main), `Canvas3D` (base of every scene), `CanvasSceneMap` (registry plus two hand-registered ids).
 - **ixdar.common**: Container for `exceptions` and `utils`.
 - **ixdar.common.exceptions**: Exception types, dominated by the balancer family: `SegmentBalanceException` carries cut/match diagnostic state renderable as a `HyperString`; subclasses inherit it via copy constructors. Not domain-neutral; imports the TSP geometry and render packages. `InvalidMeshTopologyException` is the lone unchecked type.
@@ -208,7 +209,7 @@ commas between test names, never `+`.
 - **ixdar.parsing.glsl**: GLSL tokenizer/interpreter feeding the live shader editor; uniforms, declarations, branches, built-in constants. An interpreter for the debug UI, not a compiler; depends on the color and text render packages.
 - **ixdar.parsing.python**: Lexer and recursive-descent parser for the Python-flavored mesh DSL, producing the AST `NodeGraphRuntime` executes. Deliberately lenient: unknown characters are skipped so LLM- generated DSL stays parseable; malformed input degrades silently.
 - **ixdar.platform**: Portability root: `Platforms` is the process-global registry (`init`, `get()`, `gl()`, `switchTo` for multi-canvas web). `Toggle` is the app-wide feature-flag enum, here only because everything reaches for it.
-- **ixdar.platform.automation**: The in-process HTTP automation server (loopback; a free port, published to a per-process record `tmp/automation/<pid>.json` under the launching checkout) that lets `ixdar-cli` and agents drive the editor. Routes come from the annotation-generated registry. Desktop-only (`com.sun.net.httpserver`). `AutomationInputBinder` tees platform input callbacks into the recorder.
+- **ixdar.platform.automation**: The loopback HTTP automation server that lets `ixdar-cli` and agents drive the editor. Desktop only: scenes reach it through `Platform.automation()`, which the browser platform answers with null.
 - **ixdar.platform.automation.documentation**: `ExportAutomationRoutes` writes the route manifest JSON every compile; the checked-in `automation_routes.json` is generated output and the single source of truth for the Python CLI.
 - **ixdar.platform.automation.endpoints**: `AutomationRuntime`: the singleton owning the canvas, recorder, replay engine, and the render- thread marshalling every endpoint uses (anything touching GL goes through its callable queue). Plus `/health` and `/shutdown`.
 - **ixdar.platform.automation.endpoints.input**: Synthesized input routes (`/input/click`, `/input/key`, `/input/type`, scroll, hover) that feed the active `MouseTrap`/`KeyGuy` directly, bypassing the OS event source.

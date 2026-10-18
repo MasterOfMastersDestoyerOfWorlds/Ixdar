@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
@@ -39,7 +40,7 @@ import ixdar.platform.Platforms;
  *
  * @see CrossField
  */
-@MeshNodeAnnotation(id = "seamless_uv", desktopOnly = true)
+@MeshNodeAnnotation(id = "seamless_uv", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public final class SeamlessParameterization implements MeshNode {
 
     public static final InputPort FIELD = new InputPort("field", PortType.CROSS_FIELD, null);

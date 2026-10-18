@@ -8,6 +8,7 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -16,7 +17,7 @@ import ixdar.geometry.mesh.data.ops.MeshDeleteEdges;
 import ixdar.geometry.mesh.data.ops.MeshDeleteVertices;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
-@MeshNodeAnnotation(id = "delete_geometry")
+@MeshNodeAnnotation(id = "delete_geometry", category = NodeCategory.GEOMETRY_OPERATIONS)
 public class DeleteGeometryNode implements MeshNode {
     public static final String POINT = "POINT";
 

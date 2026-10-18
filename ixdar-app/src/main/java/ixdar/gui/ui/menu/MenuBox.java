@@ -16,9 +16,11 @@ import ixdar.graphics.render.color.ColorLerp;
 import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.sdf.SDFUnion;
 import ixdar.gui.ui.Drawing;
+import ixdar.audio.AudioAssets;
 import ixdar.canvas.Canvas3D;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
+import ixdar.platform.automation.AutomationBackend;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.PointerRegion;
@@ -35,9 +37,6 @@ public class MenuBox implements PointerRegion {
     public static Menu activeMenu;
     public static float scrollOffsetY;
     public static boolean menuVisible = true;
-
-    private static Object automationRuntime;
-    private static boolean automationChecked;
 
     private static Menu debugMenu;
     private static Menu gameMenu;
@@ -89,33 +88,6 @@ public class MenuBox implements PointerRegion {
         menuItems = activeMenu.loadMenu();
         scrollBounds = new Bounds(0, 0, 0, 0, "MENU_SCROLL");
         PointerDispatcher.current().subscribe(scrollBounds, this);
-    }
-
-    private static Object getAutomationRuntime() {
-        if (!automationChecked) {
-            automationChecked = true;
-            try {
-                Class<?> cls = Class.forName(
-                        String.join(".", "ixdar", "platform", "automation", "endpoints", "AutomationRuntime"));
-                automationRuntime = cls.getMethod("get").invoke(null);
-            } catch (Throwable ignored) {
-            }
-        }
-        return automationRuntime;
-    }
-
-    private static void recordAbstractAction(String action, Object... keyValues) {
-        Object rt = getAutomationRuntime();
-        if (rt == null)
-            return;
-        try {
-            Map<String, Object> payload = new HashMap<>();
-            for (int i = 0; i < keyValues.length; i += 2) {
-                payload.put((String) keyValues[i], keyValues[i + 1]);
-            }
-            rt.getClass().getMethod("recordAbstractActionMap", String.class, Map.class).invoke(rt, action, payload);
-        } catch (Throwable ignored) {
-        }
     }
 
     /**
@@ -237,11 +209,15 @@ public class MenuBox implements PointerRegion {
         if (clickedItem == null) {
             return;
         }
-        recordAbstractAction("menu_select",
-                "label", clickedItem.getHeading(),
-                "xNormalized", x / Platforms.get().getWindowWidth(),
-                "yNormalized", y / Platforms.get().getWindowHeight());
-        Canvas3D.audioPlaySfx("MENU_CLICK_SFX");
+        AutomationBackend automation =Platforms.get().automation();
+        if (automation != null) {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("label", clickedItem.getHeading());
+            payload.put("xNormalized", x / Platforms.get().getWindowWidth());
+            payload.put("yNormalized", y / Platforms.get().getWindowHeight());
+            automation.recordAbstractActionMap("menu_select", payload);
+        }
+        Canvas3D.audioPlaySfx(AudioAssets.MENU_CLICK_SFX);
         clickedItem.performAction();
     }
 

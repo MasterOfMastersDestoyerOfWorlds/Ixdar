@@ -8,6 +8,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -22,7 +23,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * {@code UvField}. Paths resolve
  * absolute, or relative to the working directory with an {@code ixdar-app/} retry.
  */
-@MeshNodeAnnotation(id = "load_mesh", desktopOnly = true)
+@MeshNodeAnnotation(id = "load_mesh", desktopOnly = true, category = NodeCategory.FIELD_DATA)
 public class LoadMeshNode implements MeshNode {
 
     public static final InputPort PATH = new InputPort("path", PortType.STRING, "");

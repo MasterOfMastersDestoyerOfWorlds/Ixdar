@@ -12,6 +12,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -26,7 +27,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
  * Linear face subdivision: splits each face by inserting edge midpoints and a
  * face centroid, without moving original vertices (unlike Catmull-Clark).
  */
-@MeshNodeAnnotation(id = "subdivide_mesh")
+@MeshNodeAnnotation(id = "subdivide_mesh", category = NodeCategory.MODIFIERS)
 public class SubdivideMeshNode implements MeshNode {
     public static final int MAX_FACE_COUNT = 600_000;
 

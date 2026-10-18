@@ -2,7 +2,10 @@ package ixdar.annotations;
 
 import java.io.Writer;
 import java.lang.annotation.Annotation;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -16,6 +19,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
@@ -28,6 +32,7 @@ public abstract class RegistryProcessor extends AbstractProcessor {
     private String fqcn;
     private Class<? extends Annotation> annotationClass;
     private String typeFqcn;
+    private String typeSimpleName;
     private String collectionName;
     private boolean partitionDesktopOnly;
 
@@ -63,26 +68,41 @@ public abstract class RegistryProcessor extends AbstractProcessor {
      */
     public RegistryProcessor(Class<? extends Annotation> annotationClass, Class<?> typeClass,
             String collectionName, boolean partitionDesktopOnly) {
-        this(annotationClass, typeClass.getCanonicalName(), collectionName, partitionDesktopOnly);
+        this.fqcn = this.getClass().getCanonicalName();
+        this.annotationClass = annotationClass;
+        this.typeFqcn = typeClass.getCanonicalName();
+        this.collectionName = collectionName;
+        this.partitionDesktopOnly = partitionDesktopOnly;
     }
 
     /**
-     * Configure the processor with the registered supertype named by fully
-     * qualified name, for supertypes living outside this module (the processor
-     * only ever emits the name into generated source).
+     * Configure the processor with the registered supertype named by simple name, for supertypes
+     * living outside this module; its package is read off the annotated classes' own supertypes,
+     * so moving it to another package cannot break the generated registry.
      *
      * @param annotationClass marker annotation whose {@code @interface} declares an {@code id}
-     * @param typeFqcn fully qualified name of the registered classes' common supertype
+     * @param typeSimpleName simple name of the registered classes' common supertype
      * @param collectionName suffix forming the generated registry's simple name
      * @param partitionDesktopOnly whether to honour a boolean {@code desktopOnly} element
      */
-    public RegistryProcessor(Class<? extends Annotation> annotationClass, String typeFqcn,
+    public RegistryProcessor(Class<? extends Annotation> annotationClass, String typeSimpleName,
             String collectionName, boolean partitionDesktopOnly) {
         this.fqcn = this.getClass().getCanonicalName();
         this.annotationClass = annotationClass;
-        this.typeFqcn = typeFqcn;
+        this.typeSimpleName = typeSimpleName;
         this.collectionName = collectionName;
         this.partitionDesktopOnly = partitionDesktopOnly;
+    }
+
+    /**
+     * Claim the configured annotation by its class literal, so moving the annotation cannot leave
+     * the processor silently matching nothing.
+     *
+     * @return the configured annotation's canonical name
+     */
+    @Override
+    public Set<String> getSupportedAnnotationTypes() {
+        return Set.of(annotationClass.getCanonicalName());
     }
 
     /**
@@ -121,6 +141,15 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                     continue;
                 }
                 String fqClassName = ((TypeElement) element).getQualifiedName().toString();
+                Deque<TypeMirror> supertypes = new ArrayDeque<>(List.of(element.asType()));
+                while (typeFqcn == null && !supertypes.isEmpty()) {
+                    TypeMirror type = supertypes.pop();
+                    Element supertype = processingEnv.getTypeUtils().asElement(type);
+                    if (supertype.getSimpleName().contentEquals(typeSimpleName)) {
+                        typeFqcn = ((TypeElement) supertype).getQualifiedName().toString();
+                    }
+                    supertypes.addAll(processingEnv.getTypeUtils().directSupertypes(type));
+                }
                 String id = element.getSimpleName().toString();
                 boolean desktopOnly = false;
                 String annotationName = annotationClass.getName();
@@ -151,6 +180,11 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                 } else {
                     mainEntries.put(id, fqClassName);
                 }
+            }
+            if (typeFqcn == null) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "No class annotated with "
+                        + annotationClass.getSimpleName() + " has a supertype named " + typeSimpleName);
+                return true;
             }
             String genClassName = this.getClass().getSimpleName() + GENERATED_CLASS_NAME_SEPARATOR + this.collectionName;
             writeRegistryClass(genClassName, mainEntries,

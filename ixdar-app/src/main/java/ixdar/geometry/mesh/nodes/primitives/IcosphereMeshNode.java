@@ -9,13 +9,14 @@ import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
-@MeshNodeAnnotation(id = "icosphere")
+@MeshNodeAnnotation(id = "icosphere", category = NodeCategory.PRIMITIVES)
 public class IcosphereMeshNode implements MeshNode {
     public static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 1.0f, 0.001f, 100f);
     public static final InputPort SUBDIVISIONS = new InputPort("subdivisions", PortType.INT, 0, (float) 0, (float) 6);

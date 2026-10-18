@@ -10,6 +10,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -17,7 +18,7 @@ import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 
-@MeshNodeAnnotation(id = "mesh_to_curve")
+@MeshNodeAnnotation(id = "mesh_to_curve", category = NodeCategory.CURVE_OPERATIONS)
 public class MeshToCurveNode implements MeshNode {
     public static final String ALL_EDGES = "ALL_EDGES";
     public static final int BOUNDARY_WALK_GUARD_MULTIPLIER = 8;

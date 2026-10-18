@@ -6,6 +6,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -20,7 +21,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
  * Useful as a direct rail input for {@code birail_loft} and {@code curve_sweep}
  * without needing to construct a thin mesh strip first.
  */
-@MeshNodeAnnotation(id = "circle_curve")
+@MeshNodeAnnotation(id = "circle_curve", category = NodeCategory.CURVE_OPERATIONS)
 public class CircleCurveNode implements MeshNode {
     public static final float DEFAULT_RADIUS = 0.1f;
     public static final int DEFAULT_RESOLUTION = 32;

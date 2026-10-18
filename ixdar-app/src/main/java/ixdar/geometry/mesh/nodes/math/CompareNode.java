@@ -8,6 +8,7 @@ import ixdar.geometry.mesh.nodes.api.FloatField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.ModeConstraint;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
@@ -18,7 +19,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
  * tolerance, producing a scalar boolean or per-element {@link BoolField}
  * depending on whether any input broadcasts as a field.
  */
-@MeshNodeAnnotation(id = "compare")
+@MeshNodeAnnotation(id = "compare", category = NodeCategory.MATH_LOGIC)
 public class CompareNode implements MeshNode {
     public static final String EQUAL = "EQUAL";
     public static final String LESS = "LESS";

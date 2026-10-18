@@ -6,6 +6,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.ModeConstraint;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
@@ -15,7 +16,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
  * MeshNode that performs scalar integer arithmetic: ADD, SUBTRACT, MULTIPLY,
  * DIVIDE (returns 0 on divide-by-zero), MODULO (same), POWER, MIN, MAX.
  */
-@MeshNodeAnnotation(id = "integer_math")
+@MeshNodeAnnotation(id = "integer_math", category = NodeCategory.MATH_LOGIC)
 public class IntegerMathNode implements MeshNode {
     public static final String ADD = "ADD";
     public static final String SUBTRACT = "SUBTRACT";

@@ -7,6 +7,7 @@ import ixdar.geometry.mesh.nodes.api.InputPort;
 import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -20,7 +21,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * When deduplicate is true (default), removes the duplicate point at the join
  * if the last point of curve A matches the first point of curve B.
  */
-@MeshNodeAnnotation(id = "join_curves")
+@MeshNodeAnnotation(id = "join_curves", category = NodeCategory.CURVE_OPERATIONS)
 public class JoinCurvesNode implements MeshNode {
     public static final float DEDUP_DISTANCE_SQUARED = 1e-10f;
 

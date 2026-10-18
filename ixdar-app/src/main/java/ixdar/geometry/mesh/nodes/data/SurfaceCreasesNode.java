@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.SurfaceCreases;
@@ -17,7 +18,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
  * Measures a surface's grooves once, so every crease-mode ring downstream shares one read-only
  * {@link SurfaceCreases} cost field.
  */
-@MeshNodeAnnotation(id = "surface_creases")
+@MeshNodeAnnotation(id = "surface_creases", category = NodeCategory.FIELD_DATA)
 public class SurfaceCreasesNode implements MeshNode {
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,

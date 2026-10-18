@@ -20,6 +20,7 @@ import ixdar.graphics.render.Clock;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
+import ixdar.platform.automation.AutomationBackend;
 
 public class KeyGuy extends Camera2DInputController {
     public static final String KEY = "key";
@@ -29,9 +30,6 @@ public class KeyGuy extends Camera2DInputController {
      * around an injected key to report whether anything consumed that key.
      */
     public static int keysConsumed;
-
-    private static Object automationRuntime;
-    private static boolean automationChecked;
 
     public final Set<Integer> pressedKeys = new HashSet<>();
     public Camera camera;
@@ -52,31 +50,16 @@ public class KeyGuy extends Camera2DInputController {
         this.canvas = canvas;
     }
 
-    private static Object getAutomationRuntime() {
-        if (!automationChecked) {
-            automationChecked = true;
-            try {
-                Class<?> cls = Class.forName(
-                        String.join(".", "ixdar", "platform", "automation", "endpoints", "AutomationRuntime"));
-                automationRuntime = cls.getMethod("get").invoke(null);
-            } catch (Throwable ignored) {
-            }
-        }
-        return automationRuntime;
-    }
-
     static void recordAbstractAction(String action, Object... keyValues) {
-        Object rt = getAutomationRuntime();
-        if (rt == null)
+        AutomationBackend automation =Platforms.get().automation();
+        if (automation == null) {
             return;
-        try {
-            Map<String, Object> payload = new HashMap<>();
-            for (int i = 0; i < keyValues.length; i += 2) {
-                payload.put((String) keyValues[i], keyValues[i + 1]);
-            }
-            rt.getClass().getMethod("recordAbstractActionMap", String.class, Map.class).invoke(rt, action, payload);
-        } catch (Throwable ignored) {
         }
+        Map<String, Object> payload = new HashMap<>();
+        for (int i = 0; i < keyValues.length; i += 2) {
+            payload.put((String) keyValues[i], keyValues[i + 1]);
+        }
+        automation.recordAbstractActionMap(action, payload);
     }
 
     /**

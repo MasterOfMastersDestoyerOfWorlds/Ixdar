@@ -9,6 +9,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -18,7 +19,7 @@ import ixdar.geometry.mesh.nodes.api.Vector3Field;
 import ixdar.geometry.mesh.nodes.api.Vector3Value;
 import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
-@MeshNodeAnnotation(id = "align_rotation_to_vector")
+@MeshNodeAnnotation(id = "align_rotation_to_vector", category = NodeCategory.TRANSFORM)
 public class AlignRotationToVectorNode implements MeshNode {
     public static final int QUATERNION_SIZE = 4;
     public static final float EPSILON = 1e-20f;

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.NearestVertex;
@@ -23,7 +24,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
  * {@code select_by_distance} selects a ball. A near-tie between the two
  * closest vertices throws instead of picking by id.
  */
-@MeshNodeAnnotation(id = "nearest_vertex")
+@MeshNodeAnnotation(id = "nearest_vertex", category = NodeCategory.SELECTION)
 public class NearestVertexNode implements MeshNode {
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort POINT = new InputPort("point", PortType.VECTOR3, new Vector3Value(0f, 0f, 0f));

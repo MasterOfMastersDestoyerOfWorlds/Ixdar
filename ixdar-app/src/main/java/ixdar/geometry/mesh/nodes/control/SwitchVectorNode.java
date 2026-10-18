@@ -8,6 +8,7 @@ import java.util.Map;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -17,7 +18,7 @@ import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
 
 import org.joml.Vector3f;
 
-@MeshNodeAnnotation(id = "switch_vector")
+@MeshNodeAnnotation(id = "switch_vector", category = NodeCategory.CONTROL_FLOW)
 public class SwitchVectorNode implements MeshNode {
     public static final Vector3Value ZERO = new Vector3Value(0f, 0f, 0f);
 

@@ -4,7 +4,6 @@ import java.util.Set;
 
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
-import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.lang.model.element.TypeElement;
 
 import com.google.auto.service.AutoService;
@@ -12,18 +11,17 @@ import com.google.auto.service.AutoService;
 import ixdar.annotations.RegistryProcessor;
 
 @AutoService(Processor.class)
-@SupportedAnnotationTypes("ixdar.annotations.meshnode.MeshNodeAnnotation")
 public class MeshNodeRegistry extends RegistryProcessor {
 
     /**
      * Wire the processor to discover {@link MeshNodeAnnotation}-tagged classes and emit
      * {@code MeshNodeRegistry_MeshNodes}, a map of node id to a {@code MeshNode} supplier.
-     * The supertype is named by FQN because the node SPI lives in ixdar-app.
+     * The supertype is named by simple name because the node SPI lives in ixdar-app.
      */
     public MeshNodeRegistry() {
         super(
                 MeshNodeAnnotation.class,
-                "ixdar.geometry.mesh.nodes.api.MeshNode",
+                "MeshNode",
                 "MeshNodes",
                 true);
     }

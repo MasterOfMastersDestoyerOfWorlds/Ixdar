@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
@@ -13,7 +14,7 @@ import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.procgen.dungeon.algo.RoomPlacer;
 import ixdar.procgen.dungeon.algo.RoomPlacer3D;
 
-@MeshNodeAnnotation(id = "random_rooms", scopes = { "dungeon" })
+@MeshNodeAnnotation(id = "random_rooms", scopes = { "dungeon" }, category = NodeCategory.DUNGEON)
 public class RandomRoomsNode implements MeshNode {
 
     public static final InputPort SEED = new InputPort("seed", PortType.INT, 0, 0f, 1_000_000f);

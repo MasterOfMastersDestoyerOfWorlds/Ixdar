@@ -10,6 +10,7 @@ import ixdar.geometry.mesh.nodes.api.FloatField;
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.nodes.api.NodeContext;
 import ixdar.geometry.mesh.nodes.api.OutputPort;
 import ixdar.geometry.mesh.nodes.api.PortType;
@@ -19,7 +20,7 @@ import ixdar.geometry.mesh.nodes.api.Vector3Value;
 /**
  * Element-wise vector math operations (subset).
  */
-@MeshNodeAnnotation(id = "vector_math")
+@MeshNodeAnnotation(id = "vector_math", category = NodeCategory.MATH_LOGIC)
 public class VectorMathNode implements MeshNode {
     public static final String ADD = "ADD";
     public static final String DOT_PRODUCT = "DOT_PRODUCT";
