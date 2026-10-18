@@ -16,6 +16,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.platform.Platforms;
+import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
@@ -107,23 +108,10 @@ public final class ConnectionTool implements EditTool {
         return TOOL_NAME;
     }
 
-    /** Take clicks and pick drags from the orbit and show the connection the tool holds. */
+    /** Show the connection the tool holds; clicks and pick drags arrive through the pointer callbacks. */
     @Override
     public void activate() {
         active = true;
-        if (scene.orbitMouse != null) {
-            scene.orbitMouse.toolClick = button -> pendingClick = active;
-            // A press on a pick keeps the drag for moving it rather than orbiting the camera.
-            scene.orbitMouse.toolGrab = () -> {
-                if (!active || hoveredPick < 0) {
-                    return false;
-                }
-                draggingPick = hoveredPick;
-                grabbedVertexId = pickVertexId[draggingPick];
-                return true;
-            };
-            scene.orbitMouse.toolRelease = this::releasePick;
-        }
         Platforms.get().log(LOG_PREFIX + STATUS_LINE);
         overlayStale = true;
         if (showingFills) {
@@ -138,11 +126,6 @@ public final class ConnectionTool implements EditTool {
         active = false;
         pendingClick = false;
         hoveredPick = -1;
-        if (scene.orbitMouse != null) {
-            scene.orbitMouse.toolClick = null;
-            scene.orbitMouse.toolGrab = null;
-            scene.orbitMouse.toolRelease = null;
-        }
         if (scene.surfaceRuntime() instanceof MeshOverlayRuntime overlay) {
             overlay.clearDiagnostic();
             overlay.clearMarkers();
@@ -524,6 +507,25 @@ public final class ConnectionTool implements EditTool {
         Platforms.get().log(LOG_PREFIX + lastRow);
     }
 
+    /**
+     * A press on a pick keeps the drag for moving it rather than orbiting the camera; Shift leaves
+     * the drag to the camera's pan.
+     *
+     * @param x    framebuffer x of the press, unused: the frame's surface pick moves the pick
+     * @param y    framebuffer y of the press, unused
+     * @param mods modifier-key bitmask of the press
+     * @return true when the tool took the drag
+     */
+    @Override
+    public boolean onPress(float x, float y, int mods) {
+        if (!active || hoveredPick < 0 || (mods & KeyNames.MOD_SHIFT) != 0) {
+            return false;
+        }
+        draggingPick = hoveredPick;
+        grabbedVertexId = pickVertexId[draggingPick];
+        return true;
+    }
+
     /** The drag ended: re-run the connection when the pick moved. */
     public void releasePick() {
         if (draggingPick < 0) {
@@ -535,6 +537,24 @@ public final class ConnectionTool implements EditTool {
             scene.errorToasts.show(TOOL_NAME, lastError);
         }
         overlayStale = true;
+    }
+
+    /**
+     * End a pick drag, then queue a click for the next frame, which picks the surface under the
+     * cursor first.
+     *
+     * @param x     framebuffer x of the release, unused
+     * @param y     framebuffer y of the release, unused
+     * @param click true when the press did not move
+     * @return {@code click}: every click is the tool's
+     */
+    @Override
+    public boolean onRelease(float x, float y, boolean click) {
+        releasePick();
+        if (click) {
+            pendingClick = active;
+        }
+        return click;
     }
 
     /**

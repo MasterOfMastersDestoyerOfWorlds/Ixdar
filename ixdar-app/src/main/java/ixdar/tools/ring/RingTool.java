@@ -50,6 +50,7 @@ import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.gui.ui.actions.Action;
 import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
+import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
@@ -445,18 +446,13 @@ public final class RingTool implements EditTool {
         return TOOL_NAME;
     }
 
-    /** Take clicks and anchor drags from the orbit and start the hover preview. */
+    /** Start the hover preview; clicks and anchor drags arrive through the pointer callbacks. */
     @Override
     public void activate() {
         active = true;
         lastError = "";
         // Another tool may have drawn its own anchors over the draft's since this one uploaded.
         overlayStale = true;
-        if (scene.orbitMouse != null) {
-            scene.orbitMouse.toolClick = button -> requestClick();
-            scene.orbitMouse.toolGrab = this::grabAnchor;
-            scene.orbitMouse.toolRelease = this::releaseAnchor;
-        }
         Platforms.get().log(LOG_PREFIX + STATUS_LINE);
     }
 
@@ -481,11 +477,6 @@ public final class RingTool implements EditTool {
         hoveredAnchor = -1;
         previewAnchorCount = 0;
         overlayStale = true;
-        if (scene.orbitMouse != null) {
-            scene.orbitMouse.toolClick = null;
-            scene.orbitMouse.toolGrab = null;
-            scene.orbitMouse.toolRelease = null;
-        }
         Platforms.get().log(LOG_PREFIX + "inactive with " + confirmedRings.size()
                 + " confirmed ring(s), " + unsavedRingCount() + " unsaved"
                 + (draft == null ? "" : ", the draft kept"));
@@ -1570,13 +1561,17 @@ public final class RingTool implements EditTool {
     }
 
     /**
-     * A press landed: when it is on one of the draft's authored anchors, select it and keep the
-     * drag for moving it rather than orbiting the camera.
+     * A press on one of the draft's authored anchors selects it and keeps the drag for moving it
+     * rather than orbiting the camera; Shift leaves the drag to the camera's pan.
      *
+     * @param x    framebuffer x of the press, unused: the frame's surface pick places the anchor
+     * @param y    framebuffer y of the press, unused
+     * @param mods modifier-key bitmask of the press
      * @return true when the tool took the drag
      */
-    public boolean grabAnchor() {
-        if (!active || draft == null || hoveredAnchor < 0) {
+    @Override
+    public boolean onPress(float x, float y, int mods) {
+        if (!active || draft == null || hoveredAnchor < 0 || (mods & KeyNames.MOD_SHIFT) != 0) {
             return false;
         }
         selectedAnchorVertexId = draftAuthoredVertexId[hoveredAnchor];
@@ -1607,6 +1602,24 @@ public final class RingTool implements EditTool {
             recordEdit("anchor dragged", dragBefore);
         }
         dragBefore = null;
+    }
+
+    /**
+     * End an anchor drag, then queue a click for the next frame, which acts on it once it has
+     * picked the surface under the cursor.
+     *
+     * @param x     framebuffer x of the release, unused: the frame's surface pick places the click
+     * @param y     framebuffer y of the release, unused
+     * @param click true when the press did not move
+     * @return {@code click}: every click is the tool's
+     */
+    @Override
+    public boolean onRelease(float x, float y, boolean click) {
+        releaseAnchor();
+        if (click) {
+            requestClick();
+        }
+        return click;
     }
 
     /**

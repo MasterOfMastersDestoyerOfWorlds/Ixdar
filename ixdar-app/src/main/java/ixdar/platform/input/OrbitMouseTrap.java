@@ -4,8 +4,6 @@ import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import static ixdar.platform.input.Keys.MOUSE_BUTTON_LEFT;
 
-import java.util.function.BooleanSupplier;
-
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 
@@ -31,21 +29,6 @@ public class OrbitMouseTrap extends MouseTrap {
     private static final int MOD_SHIFT = 0x0001;
     private static final float PAN_DISTANCE_FRACTION_PER_PIXEL = 0.0015f;
     private static final float ZOOM_BASE = 0.97f;
-    public ClickHandler toolClick;
-
-    /** Told of a click no {@link #toolClick} took, after the overlay strings; {@code null} for none. */
-    public ClickHandler untakenClick;
-
-    /**
-     * Asked on every left press whether a tool takes the drag that may follow, so the drag moves
-     * the tool's handle instead of orbiting; {@code null} leaves every drag to the camera.
-     */
-    public BooleanSupplier toolGrab;
-
-    /** Told when a drag {@link #toolGrab} took ends, before any click the release makes. */
-    public Runnable toolRelease;
-
-    private boolean toolDragging;
 
     private final Camera3D orbitCamera;
     private final Vector3f orbitTarget = new Vector3f();
@@ -219,22 +202,10 @@ public class OrbitMouseTrap extends MouseTrap {
         if (action == ACTION_PRESS && button == MOUSE_BUTTON_LEFT) {
             leftMouseDownPos = new Vector2f(x, y);
             panningDrag = (mods & MOD_SHIFT) != 0;
-            toolDragging = !panningDrag && toolGrab != null && toolGrab.getAsBoolean();
             mousePressed(x, y);
         } else if (action == ACTION_RELEASE && button == MOUSE_BUTTON_LEFT) {
             boolean wasClick = leftMouseDownPos != null && leftMouseDownPos.distance(x, y) <= CLICK_DRAG_THRESHOLD_PX;
-            leftMouseDownPos = null;
-            panningDrag = false;
-            if (toolDragging) {
-                toolDragging = false;
-                if (toolRelease != null) {
-                    toolRelease.run();
-                }
-            }
-            if (wasClick && toolClick != null) {
-                toolClick.onClick(button);
-                return;
-            }
+            mouseReleased();
             if (wasClick && canvas != null && canvas.camera2D != null) {
                 Camera2D overlayCamera = canvas.camera2D;
                 float overlayX = overlayCamera.getNormalizePosX(x);
@@ -243,10 +214,17 @@ public class OrbitMouseTrap extends MouseTrap {
                     hyperString.click(overlayX, overlayY);
                 }
             }
-            if (wasClick && untakenClick != null) {
-                untakenClick.onClick(button);
-            }
         }
+    }
+
+    /**
+     * End the held left press without a click of the trap's own: the next drag neither orbits nor
+     * pans until a new press. The dispatcher calls it directly when the scene's tool took the click.
+     */
+    @Override
+    public void mouseReleased() {
+        leftMouseDownPos = null;
+        panningDrag = false;
     }
 
     /**
@@ -309,10 +287,6 @@ public class OrbitMouseTrap extends MouseTrap {
         }
         float dx = x - lastX;
         float dy = y - lastY;
-        if (toolDragging) {
-            mousePos(x, y);
-            return;
-        }
         if (panningDrag) {
             panTarget(dx, dy);
         } else {
@@ -324,17 +298,6 @@ public class OrbitMouseTrap extends MouseTrap {
         }
         mousePos(x, y);
         applyOrbit();
-    }
-
-    /**
-     * A held drag is the camera's unless {@link #toolGrab} took its press, which moves the tool's
-     * handle instead of orbiting.
-     *
-     * @return true while a drag the tool did not grab is in progress
-     */
-    @Override
-    public boolean isCameraDragging() {
-        return !toolDragging && super.isCameraDragging();
     }
 
     /**

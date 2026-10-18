@@ -1,9 +1,9 @@
 package unit.mesh;
 
-import static ixdar.platform.input.Keys.MOUSE_BUTTON_LEFT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.lang.reflect.Proxy;
 
@@ -74,13 +74,15 @@ class ModelSceneDefaultToolTest {
 
     private static void assertDoubleClickFrames(String sceneId, ModelScene scene) {
         scene.initInput();
-        assertNotNull(scene.orbitMouse.untakenClick, sceneId + ": the orbit tool reads empty clicks");
+        assertSame(scene.orbitTool, scene.activeTool, sceneId + ": the orbit tool is active");
         scene.orbitMouse.setOrbit(scene.orbitMouse.getAzimuth(), scene.orbitMouse.getElevation(),
                 ZOOMED_OUT);
         assertNotEquals(scene.framedDistance, scene.orbitMouse.getDistance(), EXACT,
                 sceneId + ": zoomed away from the framed distance");
-        scene.orbitMouse.untakenClick.onClick(MOUSE_BUTTON_LEFT);
-        scene.orbitMouse.untakenClick.onClick(MOUSE_BUTTON_LEFT);
+        for (int click = 0; click < 2; click++) {
+            assertFalse(scene.activeTool.onPress(0f, 0f, 0), sceneId + ": the drag is the camera's");
+            assertFalse(scene.activeTool.onRelease(0f, 0f, true), sceneId + ": the overlay links get it too");
+        }
         assertEquals(scene.framedDistance, scene.orbitMouse.getDistance(), EXACT,
                 sceneId + ": the double-click framed the model");
     }

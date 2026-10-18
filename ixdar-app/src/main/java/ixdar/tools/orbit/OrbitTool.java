@@ -4,7 +4,6 @@ import java.util.List;
 
 import ixdar.platform.Platforms;
 import ixdar.scenes.Scene;
-import ixdar.scenes.model.ModelScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.EditTool;
 
@@ -16,15 +15,15 @@ public final class OrbitTool implements EditTool {
 
     public static final String TOOL_NAME = "orbit";
 
-    /** Scene whose mouse the tool leaves to the camera. */
-    public final ModelScene scene;
+    /** Scene whose camera the tool leaves the mouse to, and whose view a double-click frames. */
+    public final Scene scene;
 
     /**
      * Binds the tool to its scene.
      *
-     * @param scene the model scene whose camera the mouse drives
+     * @param scene the scene whose camera the mouse drives
      */
-    public OrbitTool(ModelScene scene) {
+    public OrbitTool(Scene scene) {
         this.scene = scene;
     }
 
@@ -33,29 +32,16 @@ public final class OrbitTool implements EditTool {
         return TOOL_NAME;
     }
 
-    /**
-     * Leave every drag to the camera; the tool edits nothing, so every click is on empty space and
-     * a double-click frames the whole model.
-     */
+    /** Leave every drag to the camera; the tool takes no press, so only its clicks are read. */
     @Override
     public void activate() {
-        if (scene.orbitMouse != null) {
-            scene.orbitMouse.toolClick = null;
-            scene.orbitMouse.toolGrab = null;
-            scene.orbitMouse.toolRelease = null;
-            scene.orbitMouse.untakenClick = button -> scene.emptySpaceClicked(scene.mouse.normalizedPosX,
-                    scene.mouse.normalizedPosY);
-        }
         Platforms.get().log(Scene.TOOL_LOG_PREFIX
                 + "orbit: drag orbits, Shift+drag pans, scroll zooms; nothing is edited");
     }
 
-    /** Stop reading clicks, which the next tool may take. */
+    /** Nothing to hand back: the tool holds no press and edits nothing. */
     @Override
     public void deactivate() {
-        if (scene.orbitMouse != null) {
-            scene.orbitMouse.untakenClick = null;
-        }
     }
 
     /** Nothing runs per frame; the camera moves through the orbit mouse directly. */
@@ -73,5 +59,22 @@ public final class OrbitTool implements EditTool {
     public void addControls(List<ControlHint> controls) {
         controls.add(new ControlHint("shift+drag", "pan the camera"));
         controls.add(new ControlHint(Scene.FRAME_ALL_CLICK, "frame the whole model, as F does", scene::frameAll));
+    }
+
+    /**
+     * The tool edits nothing, so every click is on empty space, and a double-click frames the
+     * whole model; the overlay text's links still get the click.
+     *
+     * @param x     framebuffer x of the release
+     * @param y     framebuffer y of the release, y up
+     * @param click true when the press did not move
+     * @return false, leaving the click to the overlay links as well
+     */
+    @Override
+    public boolean onRelease(float x, float y, boolean click) {
+        if (click) {
+            scene.emptySpaceClicked(x, y);
+        }
+        return false;
     }
 }

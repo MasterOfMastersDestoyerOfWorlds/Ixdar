@@ -120,15 +120,10 @@ public final class RingRegionTool implements EditTool {
         return TOOL_NAME;
     }
 
-    /** Take clicks from the orbit; the region layer colours the regions while the tool is on. */
+    /** Colour the regions through the region layer; clicks arrive through {@link #onRelease}. */
     @Override
     public void activate() {
         active = true;
-        if (scene.orbitMouse != null) {
-            scene.orbitMouse.toolClick = button -> requestClick(shiftHeld());
-            scene.orbitMouse.toolGrab = null;
-            scene.orbitMouse.toolRelease = null;
-        }
         Platforms.get().log(LOG_PREFIX + STATUS_LINE);
         scene.regionLayer.redraw();
     }
@@ -140,9 +135,6 @@ public final class RingRegionTool implements EditTool {
         pendingClick = false;
         pendingExtract = false;
         releaseExtraction();
-        if (scene.orbitMouse != null) {
-            scene.orbitMouse.toolClick = null;
-        }
         HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
         if (runtime != null) {
             explosion.collapse(runtime.tagOffsets);
@@ -254,13 +246,21 @@ public final class RingRegionTool implements EditTool {
     }
 
     /**
-     * Queue a click for the next frame, which picks against a fresh face buffer.
+     * Queue a click for the next frame, which picks against a fresh face buffer; Shift held adds
+     * to the selection instead of replacing it. Drags stay the camera's.
      *
-     * @param shiftHeld whether Shift was down, which adds to the selection instead of replacing it
+     * @param x     framebuffer x of the release, unused: the frame's surface pick places the click
+     * @param y     framebuffer y of the release, unused
+     * @param click true when the press did not move
+     * @return {@code click}: every click is the tool's
      */
-    public void requestClick(boolean shiftHeld) {
-        pendingClick = active;
-        pendingShift = shiftHeld;
+    @Override
+    public boolean onRelease(float x, float y, boolean click) {
+        if (click) {
+            pendingClick = active;
+            pendingShift = shiftHeld();
+        }
+        return click;
     }
 
     /**

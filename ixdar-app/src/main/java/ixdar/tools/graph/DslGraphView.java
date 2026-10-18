@@ -27,8 +27,6 @@ import ixdar.gui.ui.menu.MenuScrollBar;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.PointerDispatcher;
-import ixdar.platform.input.PointerRegion;
 import ixdar.scenes.Scene;
 import ixdar.scenes.model.ModelScene;
 import ixdar.tools.ControlHint;
@@ -39,7 +37,7 @@ import ixdar.tools.EditTool;
  * time-tinted boxes, expandable groups, bezier arrows and the critical path, on its own
  * pan-and-zoom {@link Camera2D} with scroll bars.
  */
-public class DslGraphView implements PointerRegion, EditTool {
+public class DslGraphView implements EditTool {
     public static final Palette TINT_BY_SHARE = Palettes.DSL_TIME_SHARE;
     public static final double[] TINT_SHARE_FLOOR = { 0.0, 0.02, 0.1, 0.3 };
     public static final Color BOX_BORDER = Color.BLUE_GREY;
@@ -147,8 +145,8 @@ public class DslGraphView implements PointerRegion, EditTool {
     private float pressY;
 
     /**
-     * Build the view over {@code scene}'s window and subscribe it for the pointer, which it takes
-     * only while {@link #active}.
+     * Build the view over {@code scene}'s window; the scene hands it the pointer while it is the
+     * active tool.
      *
      * @param scene scene whose window the view covers
      */
@@ -164,7 +162,6 @@ public class DslGraphView implements PointerRegion, EditTool {
         verticalBar = new MenuScrollBar(new Bounds(0, 0, 0, 0, "DSL_GRAPH_VERTICAL_BAR"), false, SCROLL_STEP_PX);
         hotspotLabel.add(new HyperString());
         hotspotLabelPosition.add(new Vector2f());
-        PointerDispatcher.current().subscribe(scene.paneBounds, this);
     }
 
     @Override
@@ -603,48 +600,18 @@ public class DslGraphView implements PointerRegion, EditTool {
     }
 
     /**
-     * The view takes the wheel while active.
-     *
-     * @return {@link #active}
-     */
-    @Override
-    public boolean claimsWheel() {
-        return active;
-    }
-
-    /**
-     * The view takes left presses while active.
-     *
-     * @return {@link #active}
-     */
-    @Override
-    public boolean claimsPointer() {
-        return active;
-    }
-
-    /**
-     * Unused: the view claims the wheel whenever it is active and scrolls through
-     * {@link #onScrollDelta}.
-     *
-     * @param scrollUp unused
-     * @param deltaSeconds unused
-     */
-    @Override
-    public void onScroll(boolean scrollUp, double deltaSeconds) {
-    }
-
-    /**
      * Scroll each bar by {@link #SCROLL_PAN_PX_PER_UNIT} per unit of its own axis, clamped to the
      * scroll range, Shift turning the wheel sideways; with Control held, zoom by
      * {@link #ZOOM_PER_SCROLL_UNIT} to the power of the vertical delta about the cursor.
      *
      * @param deltaX summed horizontal delta, positive toward the left
      * @param deltaY summed vertical delta, positive away from the user
+     * @return true: the wheel never reaches the hidden 3D camera
      */
     @Override
-    public void onScrollDelta(double deltaX, double deltaY) {
+    public boolean onScroll(double deltaX, double deltaY) {
         if (layout == null) {
-            return;
+            return true;
         }
         camera.calculateCameraTransform(camera.ps);
         if (!scene.keys.controlMask) {
@@ -653,7 +620,7 @@ public class DslGraphView implements PointerRegion, EditTool {
             horizontalBar.scrollBy((float) (-(sideways ? deltaY : deltaX) * SCROLL_PAN_PX_PER_UNIT));
             verticalBar.scrollBy((float) (-(sideways ? 0 : deltaY) * SCROLL_PAN_PX_PER_UNIT));
             panToScrollBars();
-            return;
+            return true;
         }
         float cursorX = scene.mouse.normalizedPosX;
         float cursorY = scene.mouse.normalizedPosY;
@@ -664,21 +631,24 @@ public class DslGraphView implements PointerRegion, EditTool {
         camera.calculateCameraTransform(camera.ps);
         camera.drag(cursorX - camera.pointTransformX(graphX), cursorY - camera.pointTransformY(graphY));
         resetScrollRange();
+        return true;
     }
 
     /**
      * Start a pan or a click at the press point, or, on a scroll bar, hand the press to it.
      *
-     * @param x framebuffer x of the press
-     * @param y framebuffer y of the press, y up
+     * @param x    framebuffer x of the press
+     * @param y    framebuffer y of the press, y up
+     * @param mods modifier-key bitmask, unused: every press pans or clicks the graph
+     * @return true: the graph takes every drag, so the hidden 3D camera never moves
      */
     @Override
-    public void onPress(float x, float y) {
+    public boolean onPress(float x, float y, int mods) {
         pressX = x;
         pressY = y;
         pressedBar = null;
         if (layout == null) {
-            return;
+            return true;
         }
         updateScrollBars();
         for (MenuScrollBar bar : new MenuScrollBar[] { horizontalBar, verticalBar }) {
@@ -688,6 +658,7 @@ public class DslGraphView implements PointerRegion, EditTool {
                 panToScrollBars();
             }
         }
+        return true;
     }
 
     /**
@@ -719,23 +690,25 @@ public class DslGraphView implements PointerRegion, EditTool {
      * @param x framebuffer x of the release
      * @param y framebuffer y of the release, y up
      * @param click true when the press did not move
+     * @return true: the graph took the press, so no overlay link sees it
      */
     @Override
-    public void onRelease(float x, float y, boolean click) {
+    public boolean onRelease(float x, float y, boolean click) {
         if (pressedBar != null) {
             pressedBar.release();
             pressedBar = null;
-            return;
+            return true;
         }
         if (!click || layout == null) {
-            return;
+            return true;
         }
         camera.calculateCameraTransform(camera.ps);
         int node = layout.nodeAt(camera.screenTransformX(x), camera.screenTransformY(y));
         if (node < 0) {
             scene.emptySpaceClicked(x, y);
-            return;
+            return true;
         }
         focusNode(node);
+        return true;
     }
 }

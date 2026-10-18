@@ -24,11 +24,13 @@ import ixdar.platform.Platform;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.PointerRegion;
+import ixdar.scenes.Scene;
+import ixdar.tools.ControlHint;
+import ixdar.tools.EditTool;
 
 /**
- * A left press, drag and release sent through the {@link PointerDispatcher} over a subscribed
- * region that claims the pointer reach only that region, never the orbit camera or the scene tool
- * behind it; outside it, or while it does not claim, the dispatcher hands them to the orbit.
+ * Through the {@link PointerDispatcher}, a region claiming the pointer gets the whole press; else
+ * the scene's active tool is offered it, and the orbit gets what the tool does not take.
  */
 class PointerRegionPressTest {
 
@@ -68,11 +70,7 @@ class PointerRegionPressTest {
 
     private final RecordingRegion region = new RecordingRegion();
 
-    private int toolGrabs;
-
-    private int toolClicks;
-
-    private int toolReleases;
+    private final RecordingTool tool = new RecordingTool();
 
     private OrbitMouseTrap orbit;
 
@@ -80,7 +78,7 @@ class PointerRegionPressTest {
 
     /**
      * Install a platform whose window is its framebuffer, a GL reporting {@link #leftHeld}, a
-     * right-hand region, and an orbit with a tool that grabs every press and counts what it gets.
+     * right-hand region, and an orbit driving a scene whose active tool records what it gets.
      */
     @BeforeEach
     void installRegionAndTool() {
@@ -118,13 +116,10 @@ class PointerRegionPressTest {
         pointer.subscribe(
                 new Bounds(REGION_LEFT, 0, WINDOW_WIDTH - REGION_LEFT, WINDOW_HEIGHT, "REGION"),
                 region);
-        orbit = new OrbitMouseTrap(new Camera3D(new Vector3f(), 0f, 0f, null), null);
-        orbit.toolGrab = () -> {
-            toolGrabs++;
-            return false;
+        Scene host = new Scene() {
         };
-        orbit.toolClick = button -> toolClicks++;
-        orbit.toolRelease = () -> toolReleases++;
+        host.activeTool = tool;
+        orbit = new OrbitMouseTrap(new Camera3D(new Vector3f(), 0f, 0f, null), host);
     }
 
     /**
@@ -142,7 +137,7 @@ class PointerRegionPressTest {
         float elevation = orbit.getElevation();
         pressDragRelease(INSIDE_X);
         assertEquals(List.of(PRESS, DRAG, DRAG, RELEASE_AFTER_DRAG), region.events);
-        assertEquals(0, toolGrabs + toolClicks + toolReleases, "the tool saw none of it");
+        assertEquals(List.of(), tool.events, "the tool saw none of it");
         assertEquals(azimuth, orbit.getAzimuth(), EXACT, "the orbit did not turn");
         assertEquals(elevation, orbit.getElevation(), EXACT);
         assertTrue(region.lastX < REGION_LEFT, "the drag left the region");
@@ -154,17 +149,19 @@ class PointerRegionPressTest {
     void aClickOverTheRegionIsTheRegionsClickNotTheTools() {
         click(INSIDE_X);
         assertEquals(List.of(PRESS, RELEASE_AS_CLICK), region.events);
-        assertEquals(0, toolGrabs + toolClicks + toolReleases);
+        assertEquals(List.of(), tool.events);
     }
 
     @Test
     void outsideTheRegionTheToolGetsTheClickAndTheOrbitTheDrag() {
         click(OUTSIDE_X);
-        assertEquals(1, toolGrabs, "the tool was asked whether it grabs the press");
-        assertEquals(1, toolClicks, "the tool got the click");
+        assertEquals(List.of(PRESS, RELEASE_AS_CLICK), tool.events,
+                "the tool was offered the press and got the click");
         float azimuth = orbit.getAzimuth();
         pressDragRelease(OUTSIDE_X);
         assertNotEquals(azimuth, orbit.getAzimuth(), "the drag turned the orbit");
+        assertEquals(List.of(PRESS, RELEASE_AS_CLICK, PRESS, RELEASE_AFTER_DRAG), tool.events,
+                "the tool heard the release of the orbit's drag, but none of its moves");
         assertEquals(List.of(), region.events);
     }
 
@@ -174,9 +171,22 @@ class PointerRegionPressTest {
         click(INSIDE_X);
         float azimuth = orbit.getAzimuth();
         pressDragRelease(INSIDE_X);
-        assertEquals(1, toolClicks);
+        assertEquals(List.of(PRESS, RELEASE_AS_CLICK, PRESS, RELEASE_AFTER_DRAG), tool.events);
         assertNotEquals(azimuth, orbit.getAzimuth());
         assertEquals(List.of(), region.events);
+    }
+
+    @Test
+    void aPressTheToolTakesDragsTheToolAndLeavesTheOrbitStill() {
+        tool.taking = true;
+        float azimuth = orbit.getAzimuth();
+        pressDragRelease(OUTSIDE_X);
+        assertEquals(List.of(PRESS, DRAG, DRAG, RELEASE_AFTER_DRAG), tool.events);
+        assertEquals(azimuth, orbit.getAzimuth(), EXACT, "the tool's drag did not turn the orbit");
+        assertTrue(!orbit.isCameraDragging(), "the camera never held the press");
+        click(OUTSIDE_X);
+        assertEquals(RELEASE_AS_CLICK, tool.events.get(tool.events.size() - 1),
+                "a press the tool took and did not move is a click");
     }
 
     private void click(float windowX) {
@@ -229,6 +239,55 @@ class PointerRegionPressTest {
         @Override
         public void onRelease(float x, float y, boolean click) {
             events.add(click ? RELEASE_AS_CLICK : RELEASE_AFTER_DRAG);
+        }
+    }
+
+    /**
+     * The scene's active tool, taking the presses it is offered while {@link #taking} holds, and
+     * recording every pointer callback it gets.
+     */
+    private static final class RecordingTool implements EditTool {
+
+        public final List<String> events = new ArrayList<>();
+
+        public boolean taking;
+
+        @Override
+        public String toolName() {
+            return "recording";
+        }
+
+        @Override
+        public void activate() {
+        }
+
+        @Override
+        public void deactivate() {
+        }
+
+        @Override
+        public void perFrame() {
+        }
+
+        @Override
+        public void addControls(List<ControlHint> controls) {
+        }
+
+        @Override
+        public boolean onPress(float x, float y, int mods) {
+            events.add(PRESS);
+            return taking;
+        }
+
+        @Override
+        public void onDrag(float x, float y) {
+            events.add(DRAG);
+        }
+
+        @Override
+        public boolean onRelease(float x, float y, boolean click) {
+            events.add(click ? RELEASE_AS_CLICK : RELEASE_AFTER_DRAG);
+            return click;
         }
     }
 }

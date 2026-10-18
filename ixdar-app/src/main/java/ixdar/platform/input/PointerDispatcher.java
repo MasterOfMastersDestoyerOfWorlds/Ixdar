@@ -11,10 +11,13 @@ import java.util.function.Predicate;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
+import ixdar.scenes.Scene;
+import ixdar.tools.EditTool;
 
 /**
  * Stands in front of a platform's {@link MouseTrap}: each pointer event is offered to the
- * subscribed {@link PointerRegion}s first, and only what none takes reaches the trap.
+ * subscribed {@link PointerRegion}s first, then to the active tool of the trap's {@link Scene},
+ * and only what neither takes reaches the trap.
  */
 public class PointerDispatcher {
 
@@ -40,6 +43,12 @@ public class PointerDispatcher {
 
     /** Window y of the cursor since the held press. */
     public float heldCursorWindowY;
+
+    /** The scene tool offered the current left press, told of its release; {@code null} for none. */
+    public EditTool pressTool;
+
+    /** Whether {@link #pressTool} took the press's drag, so the trap never saw the press. */
+    public boolean toolHoldsPress;
 
     /**
      * The dispatcher for one platform, created on first use.
@@ -120,9 +129,9 @@ public class PointerDispatcher {
     }
 
     /**
-     * A button event: a left press over a region that {@link PointerRegion#claimsPointer claims
-     * the pointer} is held by it, and so is its release, a click when the cursor stayed within
-     * {@link MouseTrap#CLICK_DRAG_THRESHOLD_PX}; every other event goes to the trap.
+     * A button event. A left press goes to a region under the cursor that {@link
+     * PointerRegion#claimsPointer claims the pointer}, else to the active scene tool, which may
+     * take its drag, else to the trap; the release follows the press, and the tool hears it either way.
      *
      * @param trap the platform's current trap
      * @param button button index
@@ -132,13 +141,18 @@ public class PointerDispatcher {
     public void mouseButton(MouseTrap trap, int button, int action, int mods) {
         if (button == MOUSE_BUTTON_LEFT && action == ACTION_PRESS && trap.active) {
             PointerRegion region = regionUnderCursor(trap, PointerRegion::claimsPointer);
-            if (region != null) {
+            pressTool = region == null ? activeTool(trap) : null;
+            toolHoldsPress = pressTool != null
+                    && pressTool.onPress(trap.normalizedPosX, trap.normalizedPosY, mods);
+            if (region != null || toolHoldsPress) {
                 pressHolder = region;
                 pressWindowX = trap.lastX;
                 pressWindowY = trap.lastY;
                 heldCursorWindowX = pressWindowX;
                 heldCursorWindowY = pressWindowY;
-                region.onPress(trap.normalizedPosX, trap.normalizedPosY);
+                if (region != null) {
+                    region.onPress(trap.normalizedPosX, trap.normalizedPosY);
+                }
                 return;
             }
         }
@@ -151,13 +165,31 @@ public class PointerDispatcher {
                     trap.camera.getNormalizePosY(heldCursorWindowY), click);
             return;
         }
+        if (button == MOUSE_BUTTON_LEFT && action == ACTION_RELEASE && pressTool != null) {
+            EditTool tool = pressTool;
+            pressTool = null;
+            if (toolHoldsPress) {
+                toolHoldsPress = false;
+                tool.onRelease(trap.normalizedPosX, trap.normalizedPosY, Math.hypot(trap.lastX - pressWindowX,
+                        trap.lastY - pressWindowY) <= MouseTrap.CLICK_DRAG_THRESHOLD_PX);
+                return;
+            }
+            boolean click = trap.heldPressPosition != null && trap.heldPressPosition.distance(trap.lastX,
+                    trap.lastY) <= MouseTrap.CLICK_DRAG_THRESHOLD_PX;
+            if (tool.onRelease(trap.normalizedPosX, trap.normalizedPosY, click)) {
+                // The click was the tool's: the trap ends its press without clicking overlay links.
+                trap.trackPress(button, action);
+                trap.mouseReleased();
+                return;
+            }
+        }
         trap.trackPress(button, action);
         trap.mouseButton(button, action, mods);
     }
 
     /**
-     * Cursor motion: while a region holds the press it is that region's drag, otherwise the
-     * trap's, which {@link MouseTrap#trackDrag tracks} it against its held press.
+     * Cursor motion: while a region or the scene tool holds the press it is the holder's drag,
+     * otherwise the trap's, which {@link MouseTrap#trackDrag tracks} it against its held press.
      *
      * @param trap the platform's current trap
      * @param window platform window handle (for GL mouse-state polling)
@@ -165,7 +197,7 @@ public class PointerDispatcher {
      * @param y cursor y in window pixels
      */
     public void moveOrDrag(MouseTrap trap, long window, float x, float y) {
-        if (pressHolder == null) {
+        if (pressHolder == null && !toolHoldsPress) {
             trap.trackDrag(x, y);
             trap.moveOrDrag(window, x, y);
         } else {
@@ -174,28 +206,33 @@ public class PointerDispatcher {
     }
 
     /**
-     * A move with the left button held: the held region's drag wherever the cursor now is, or
-     * the trap's drag when no region holds the press.
+     * A move with the left button held: the holding region's or scene tool's drag wherever the
+     * cursor now is, the trap's cursor following the tool's; the trap's drag when neither holds it.
      *
      * @param trap the platform's current trap
      * @param x cursor x in window pixels
      * @param y cursor y in window pixels
      */
     public void mouseDragged(MouseTrap trap, float x, float y) {
-        if (pressHolder == null) {
+        if (pressHolder == null && !toolHoldsPress) {
             trap.trackDrag(x, y);
             trap.mouseDragged(x, y);
             return;
         }
         heldCursorWindowX = x;
         heldCursorWindowY = y;
+        if (toolHoldsPress) {
+            trap.mousePos(x, y);
+            pressTool.onDrag(trap.camera.getNormalizePosX(x), trap.camera.getNormalizePosY(y));
+            return;
+        }
         pressHolder.onDrag(trap.camera.getNormalizePosX(x), trap.camera.getNormalizePosY(y));
     }
 
     /**
      * Per-frame: the queued wheel deltas, both axes, go whole to a region under the cursor that
-     * {@link PointerRegion#claimsWheel claims them}; otherwise the vertical one steps a region or
-     * reaches the trap, and the horizontal one is dropped.
+     * {@link PointerRegion#claimsWheel claims them}, else to the active scene tool if it takes
+     * them; otherwise the vertical one steps a region or reaches the trap, and the horizontal is dropped.
      *
      * @param trap trap whose frame this is
      * @param shiftMod speed multiplier, passed to the trap
@@ -205,10 +242,13 @@ public class PointerDispatcher {
         trap.queuedScrollDeltaX = 0;
         if (trap.queuedScrollDelta != 0 || deltaX != 0) {
             PointerRegion claimer = trap.active ? regionUnderCursor(trap, PointerRegion::claimsWheel) : null;
+            EditTool tool = trap.active && claimer == null ? activeTool(trap) : null;
             if (claimer != null) {
                 double deltaY = trap.queuedScrollDelta;
                 trap.queuedScrollDelta = 0;
                 claimer.onScrollDelta(deltaX, deltaY);
+            } else if (tool != null && tool.onScroll(deltaX, trap.queuedScrollDelta)) {
+                trap.queuedScrollDelta = 0;
             } else if (trap.queuedScrollDelta != 0 && !trap.usesWheel()
                     && System.currentTimeMillis() - trap.timeLastScroll <= MouseTrap.SCROLL_DECAY_MS) {
                 PointerRegion region = regionUnderCursor(trap, any -> true);
@@ -221,5 +261,15 @@ public class PointerDispatcher {
         }
         trap.trackZoomFrame();
         trap.paintUpdate(shiftMod);
+    }
+
+    /**
+     * The tool that takes what no region does: the active tool of the scene the trap drives.
+     *
+     * @param trap the platform's current trap
+     * @return that tool, or {@code null} when the trap's canvas hosts no tools
+     */
+    private static EditTool activeTool(MouseTrap trap) {
+        return trap.canvas instanceof Scene scene ? scene.activeTool : null;
     }
 }

@@ -141,7 +141,7 @@ class RingCameraDragHoverTest {
                 });
         Platforms.init(window, mouseGl);
         pointer = PointerDispatcher.forPlatform(STAND_IN_PLATFORM_ID);
-        orbit = new OrbitMouseTrap(new Camera3D(new Vector3f(), 0f, 0f, null), null);
+        orbit = new OrbitMouseTrap(new Camera3D(new Vector3f(), 0f, 0f, null), scene);
         scene.orbitMouse = orbit;
         scene.mouse = orbit;
         scene.switchTool(tool);

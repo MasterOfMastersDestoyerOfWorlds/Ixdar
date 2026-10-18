@@ -2,11 +2,13 @@ package ixdar.tools;
 
 import java.util.List;
 
+import ixdar.platform.input.KeyNames;
+import ixdar.platform.input.PointerDispatcher;
 import ixdar.scenes.Scene;
 
 /**
- * One tool a {@link Scene} hosts. Exactly one is active: it owns the scene's clicks, drags and
- * tool keys, and keeps its state when another tool takes over.
+ * One tool a {@link Scene} hosts. The one active tool owns the scene's tool keys and, through the
+ * {@link PointerDispatcher}, its pointer; it keeps its state when another takes over.
  */
 public interface EditTool {
 
@@ -75,5 +77,52 @@ public interface EditTool {
 
     /** Draw the tool's view in place of the scene's; only called while {@link #replacesView}. */
     default void drawView() {
+    }
+
+    /**
+     * A left press no UI pane took, offered to the active tool before the camera. Taking it keeps
+     * the camera still: the drag reaches {@link #onDrag} instead.
+     *
+     * @param x    framebuffer x of the press
+     * @param y    framebuffer y of the press, y up
+     * @param mods modifier-key bitmask of the press, as {@link KeyNames} spells the bits
+     * @return true to take the drag that follows; false leaves it to the camera
+     */
+    default boolean onPress(float x, float y, int mods) {
+        return false;
+    }
+
+    /**
+     * The cursor moved with a press {@link #onPress} took still held, wherever it now is.
+     *
+     * @param x framebuffer x of the cursor
+     * @param y framebuffer y of the cursor, y up
+     */
+    default void onDrag(float x, float y) {
+    }
+
+    /**
+     * The release of every press {@link #onPress} was offered, whether the tool or the camera took
+     * its drag.
+     *
+     * @param x     framebuffer x of the release
+     * @param y     framebuffer y of the release, y up
+     * @param click true when the cursor stayed within the click threshold of the press
+     * @return true when the tool acted on the click, so the overlay text's links do not
+     */
+    default boolean onRelease(float x, float y, boolean click) {
+        return false;
+    }
+
+    /**
+     * The wheel deltas summed since the last frame, offered to the active tool when no UI pane
+     * under the cursor takes them.
+     *
+     * @param deltaX summed horizontal delta, positive toward the left
+     * @param deltaY summed vertical delta, 1.0 per wheel notch, positive away from the user
+     * @return true when the tool used them; false leaves the vertical one to the camera's zoom
+     */
+    default boolean onScroll(double deltaX, double deltaY) {
+        return false;
     }
 }
