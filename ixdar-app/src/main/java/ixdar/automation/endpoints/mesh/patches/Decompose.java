@@ -14,11 +14,11 @@ import ixdar.automation.AutomationEndpoint;
 
 import ixdar.geometry.mesh.data.PatchDecomposerCLI;
 
-import ixdar.geometry.mesh.data.PatchDecomposition;
+import ixdar.geometry.mesh.data.analysis.segmentation.PatchDecomposition;
 
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 
-import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
+import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 

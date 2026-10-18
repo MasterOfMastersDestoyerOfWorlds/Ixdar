@@ -5,15 +5,15 @@ import java.util.Locale;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.BranchCrossSectionRing;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.RingCandidateExtractor;
-import ixdar.geometry.mesh.data.RingCandidates;
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.BranchCrossSectionRing;
+import ixdar.geometry.mesh.data.rings.RingCandidateExtractor;
+import ixdar.geometry.mesh.data.rings.RingCandidates;
 
 /**
  * Runs the ring proposal on a mesh file; outside the default test globs, so run it explicitly:

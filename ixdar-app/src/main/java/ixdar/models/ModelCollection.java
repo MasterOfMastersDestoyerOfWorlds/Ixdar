@@ -9,8 +9,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.platform.json.JsonValue;
 
 /**

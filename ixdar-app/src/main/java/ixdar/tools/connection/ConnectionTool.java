@@ -9,9 +9,9 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
-import ixdar.geometry.mesh.data.paths.SurfaceConnection;
+import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;

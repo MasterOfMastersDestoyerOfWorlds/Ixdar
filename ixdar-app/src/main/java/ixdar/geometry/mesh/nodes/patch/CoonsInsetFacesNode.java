@@ -18,13 +18,13 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.FieldBroadcast;
 
-import ixdar.geometry.mesh.data.CoonsHandleBuilder;
+import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
 /**
  * Curve-preserving inset for bezier Coons cages: inner vertices are placed by
  * evaluating the Coons surface at inner-corner parameters, and new edges carry

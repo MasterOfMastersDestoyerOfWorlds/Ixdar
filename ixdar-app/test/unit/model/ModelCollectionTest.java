@@ -16,7 +16,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.models.CollectionManifest;
 import ixdar.models.ModelCatalog;

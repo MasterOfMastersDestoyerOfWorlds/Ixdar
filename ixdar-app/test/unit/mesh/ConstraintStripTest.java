@@ -10,7 +10,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceStripPath;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 
 /**
  * Refining a traced passage onto the constraint mesh, where a node vertex splits the face it

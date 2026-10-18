@@ -5,11 +5,11 @@ import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.RingRegionExtraction;
-import ixdar.geometry.mesh.data.RingRegions;
-import ixdar.geometry.mesh.data.paths.SurfaceSpline;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RingRegionExtraction;
+import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;

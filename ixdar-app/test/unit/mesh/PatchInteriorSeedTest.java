@@ -15,7 +15,7 @@ import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 
 /**
  * A patch's face flood must land inside the patch, and a patch wound the other way is refused

@@ -12,7 +12,7 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.MeshFieldContext;
 
 @MeshNodeAnnotation(id = "input_mesh_edge_vertices", category = NodeCategory.FIELD_DATA)

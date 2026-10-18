@@ -5,10 +5,10 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.EdgeMarks;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.RingRegions;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.mesh.MeshNodeViewerScene;

@@ -8,7 +8,7 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * Minimum spanning tree over a graph mesh's edges, weighted by Euclidean distance between

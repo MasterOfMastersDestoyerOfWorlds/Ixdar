@@ -13,11 +13,11 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 
 /**
  * A hand-built T-mesh on a torus, carrying the configuration LCBK19 Figure 9 walks

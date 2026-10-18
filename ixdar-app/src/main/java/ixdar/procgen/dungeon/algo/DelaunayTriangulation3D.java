@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import ixdar.geometry.mesh.data.EdgeKey;
+import ixdar.geometry.mesh.data.representation.EdgeKey;
 
 /**
  * 3D Delaunay tetrahedralization over sites via incremental Bowyer-Watson, returning the

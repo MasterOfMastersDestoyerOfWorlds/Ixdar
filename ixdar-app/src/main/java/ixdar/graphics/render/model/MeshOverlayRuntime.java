@@ -7,19 +7,19 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.TriangleGeometry;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.field.UvField;
-import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
+import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
+import ixdar.geometry.mesh.data.fields.crossfield.constraint.ConstraintSource;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.graphics.cameras.Camera2D;
@@ -33,6 +33,7 @@ import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
+import ixdar.geometry.mesh.data.paths.query.SurfaceFaceLocator;
 
 /**
  * General overlays drawn over a half-edge mesh surface: points, lines, labels, fields and arcs.

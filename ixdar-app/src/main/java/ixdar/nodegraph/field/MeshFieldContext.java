@@ -1,6 +1,6 @@
 package ixdar.nodegraph.field;
 
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * Field domain backed by a mesh (vertex domain).

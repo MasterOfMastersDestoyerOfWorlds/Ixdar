@@ -5,7 +5,7 @@ import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.data.paths.NearestVertex;
+import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;

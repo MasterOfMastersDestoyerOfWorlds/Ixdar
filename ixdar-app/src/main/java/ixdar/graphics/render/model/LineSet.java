@@ -2,7 +2,7 @@ package ixdar.graphics.render.model;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * GL_LINES vertices drawn on a surface, filled front to back: per endpoint its xyz, then the

@@ -15,10 +15,10 @@ import java.util.Map;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.paths.SurfaceMetric;
+import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
+import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
+import ixdar.geometry.mesh.data.fields.crossfield.NDirectionField;
 
 /**
  * Same-field check for cross-field solver changes: records per-vertex field angles (from each

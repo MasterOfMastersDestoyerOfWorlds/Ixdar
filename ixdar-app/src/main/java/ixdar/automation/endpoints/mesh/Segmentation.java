@@ -9,8 +9,8 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
-import ixdar.geometry.mesh.data.MeshSegmenter;
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.analysis.segmentation.MeshSegmenter;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 import java.io.File;

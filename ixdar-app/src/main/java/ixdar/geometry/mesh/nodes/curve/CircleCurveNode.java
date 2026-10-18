@@ -11,8 +11,8 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.geometry.mesh.data.CurveGeometry;
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.CurveGeometry;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 
 /**
  * Circle curve primitive: generates a closed circular polyline as a CurveGeometry.

@@ -9,8 +9,8 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.EdgeKey;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 import ixdar.numeric.sparse.DirectSolver;
 import ixdar.numeric.sparse.matrix.NormalMatrix;
 import ixdar.numeric.sparse.ordering.OrderingMethod;

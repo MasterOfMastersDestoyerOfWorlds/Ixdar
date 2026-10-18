@@ -7,8 +7,8 @@ import java.nio.file.Path;
 import java.util.Locale;
 
 import ixdar.annotations.command.CommandAnnotation;
-import ixdar.geometry.mesh.data.paths.SurfaceRing;
-import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.rings.SurfaceRing;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.scenes.ring.RingScene;

@@ -6,14 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.paths.FlipGeodesics;
-import ixdar.geometry.mesh.data.paths.GeodesicSeedPath;
-import ixdar.geometry.mesh.data.paths.IntrinsicPathTracer;
-import ixdar.geometry.mesh.data.paths.IntrinsicTriangulation;
-import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
-import ixdar.geometry.mesh.data.paths.SurfaceMetric;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
+import ixdar.geometry.mesh.data.paths.geodesic.GeodesicSeedPath;
+import ixdar.geometry.mesh.data.paths.geodesic.IntrinsicPathTracer;
+import ixdar.geometry.mesh.data.paths.geodesic.IntrinsicTriangulation;
+import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.primitives.IcosphereMeshNode;
 

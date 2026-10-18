@@ -6,8 +6,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import ixdar.geometry.mesh.data.paths.RingSegmentMode;
-import ixdar.geometry.mesh.data.paths.SurfaceSpline;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
+import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 
 /**
  * What one ring tool edit can change, captured whole: the confirmed rings, the draft and the

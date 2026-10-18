@@ -15,10 +15,10 @@ import java.util.TreeMap;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.EdgeMarks;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.tools.ring.RingDslWriter;
 import ixdar.tools.ring.RingTool;

@@ -13,9 +13,9 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.MeshVertexOffset;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "set_position", category = NodeCategory.MODIFIERS)

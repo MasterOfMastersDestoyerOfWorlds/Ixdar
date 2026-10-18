@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import ixdar.geometry.mesh.data.EdgeKey;
+import ixdar.geometry.mesh.data.representation.EdgeKey;
 
 /**
  * Delaunay triangulation over planar sites via Bowyer-Watson incremental insertion, producing

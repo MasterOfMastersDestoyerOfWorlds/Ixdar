@@ -12,7 +12,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetworkRecarve;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceStripPath;
 import ixdar.geometry.mesh.quadlayout.embedding.SnappingCarve;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 
 /**
  * Contracted routes replayed by the re-carve can wiggle: enter and leave a face through one

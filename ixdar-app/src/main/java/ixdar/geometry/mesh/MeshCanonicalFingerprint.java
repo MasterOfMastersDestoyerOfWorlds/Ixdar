@@ -11,9 +11,9 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.HalfEdgeCompiledMeshData;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * Order-independent SHA-256 of triangle soup: round positions, canonicalize each triangle,

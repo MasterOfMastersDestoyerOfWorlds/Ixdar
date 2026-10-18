@@ -8,8 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.CutGraph;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessDofSystem;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;

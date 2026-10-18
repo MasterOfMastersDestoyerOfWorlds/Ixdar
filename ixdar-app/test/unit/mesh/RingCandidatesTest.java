@@ -13,12 +13,12 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.BranchCrossSectionRing;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonBranch;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.RingCandidateExtractor;
-import ixdar.geometry.mesh.data.RingCandidates;
+import ixdar.geometry.mesh.data.rings.BranchCrossSectionRing;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RingCandidateExtractor;
+import ixdar.geometry.mesh.data.rings.RingCandidates;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;

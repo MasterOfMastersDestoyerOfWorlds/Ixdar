@@ -2,7 +2,7 @@ package ixdar.procgen.dungeon.algo;
 
 import java.util.Random;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 
 /**
  * 3D analog of {@link RoomPlacer}: non-overlapping 1-cell-tall rooms at integer floor levels

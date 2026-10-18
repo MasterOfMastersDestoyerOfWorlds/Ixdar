@@ -4,8 +4,8 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.CornerUvField;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * Splits a mesh into triangles along each quad's shorter diagonal, recording which face every

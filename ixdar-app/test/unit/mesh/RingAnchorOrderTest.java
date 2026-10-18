@@ -11,16 +11,16 @@ import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
-import ixdar.geometry.mesh.data.paths.NearestVertex;
-import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
-import ixdar.geometry.mesh.data.paths.SurfaceMetric;
-import ixdar.geometry.mesh.data.paths.SurfacePathCrossings;
-import ixdar.geometry.mesh.data.paths.SurfaceSpline;
-import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
-import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
+import ixdar.geometry.mesh.data.paths.query.NearestVertex;
+import ixdar.geometry.mesh.data.paths.query.SurfacePathCrossings;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ring.RingTool;
 

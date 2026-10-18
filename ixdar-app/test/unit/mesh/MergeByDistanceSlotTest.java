@@ -9,8 +9,8 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.CornerUvField;
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.nodegraph.api.MapNodeContext;

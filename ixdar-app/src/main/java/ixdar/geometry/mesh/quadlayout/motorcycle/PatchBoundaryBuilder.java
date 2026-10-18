@@ -11,14 +11,14 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.MetOtherTraceEntry;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.PatchPort;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.MetOtherTraceEntry;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.PatchPort;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.Trace;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.TraceAxis;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.TraceSegment;
 import ixdar.platform.Platforms;
 
 /**

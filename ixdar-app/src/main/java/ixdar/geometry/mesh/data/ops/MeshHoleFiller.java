@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-import ixdar.geometry.mesh.data.EdgeKey;
+import ixdar.geometry.mesh.data.representation.EdgeKey;
 
 /**
  * Fills one boundary loop after Liepa 2003 (Filling holes in meshes, SGP): minimum-area

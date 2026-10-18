@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
 
 /**
  * LCBK19 §6.1 operator (1) on the Figure-9 torus fixture: collapsing a zero arc must remove

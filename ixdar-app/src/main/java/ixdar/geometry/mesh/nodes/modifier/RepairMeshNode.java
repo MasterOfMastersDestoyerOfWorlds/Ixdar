@@ -6,9 +6,9 @@ import java.util.Objects;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.data.CornerUvField;
-import ixdar.geometry.mesh.data.EdgeMarks;
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshHoleFiller;
 import ixdar.geometry.mesh.data.ops.MeshRepair;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;

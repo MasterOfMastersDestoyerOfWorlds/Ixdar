@@ -12,8 +12,8 @@ import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroPatchSplitOperator;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 
 /**
  * Operator (2) may raise the termination measure on its own; only the round that follows it must

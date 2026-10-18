@@ -2,7 +2,7 @@ package ixdar.nodegraph.field;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * Vertex-domain field context built from a {@link MeshTopology}.

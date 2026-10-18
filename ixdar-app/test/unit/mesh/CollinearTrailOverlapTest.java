@@ -8,9 +8,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.FaceSegmentIndex;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.FaceSegmentIndex;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.TraceAxis;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.TraceSegment;
 
 /**
  * Two hand-authored chords of one face on the same iso-line, run in opposite

@@ -11,20 +11,20 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.data.SceneModelNode;
 import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
-import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.model.ArcEdgePath;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
 
 /**
  * The carve maps T-mesh elements one-to-one onto mesh elements: distinct copy vertices per node,

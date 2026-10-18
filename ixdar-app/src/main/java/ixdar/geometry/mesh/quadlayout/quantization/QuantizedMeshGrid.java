@@ -17,12 +17,12 @@ import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.MetOtherTraceEntry;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.MetOtherTraceEntry;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.Trace;
 import ixdar.platform.Platforms;
 
 /**

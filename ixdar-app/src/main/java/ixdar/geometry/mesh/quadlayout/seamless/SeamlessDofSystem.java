@@ -10,7 +10,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.numeric.exact.ExactArithmetic;
 import ixdar.platform.Platforms;
 

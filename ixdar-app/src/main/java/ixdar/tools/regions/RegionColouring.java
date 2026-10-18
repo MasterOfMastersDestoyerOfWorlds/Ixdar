@@ -2,8 +2,8 @@ package ixdar.tools.regions;
 
 import java.util.Arrays;
 
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.RingRegions;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.render.color.Palettes;
 
 /**

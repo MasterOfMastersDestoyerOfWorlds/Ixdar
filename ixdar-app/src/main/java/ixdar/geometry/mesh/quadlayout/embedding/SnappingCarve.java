@@ -9,14 +9,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import ixdar.geometry.mesh.data.EdgeKey;
-import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.quadlayout.embedding.model.ArcEdgePath;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 import ixdar.nodegraph.field.UvField;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceSegment;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.Trace;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.TraceSegment;
 import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.platform.Platforms;
 

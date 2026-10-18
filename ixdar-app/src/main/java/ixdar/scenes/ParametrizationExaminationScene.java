@@ -4,11 +4,11 @@ import java.io.IOException;
 import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.mesh.data.load.CrossFieldLoader;
+import ixdar.geometry.mesh.data.io.CrossFieldLoader;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
-import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;

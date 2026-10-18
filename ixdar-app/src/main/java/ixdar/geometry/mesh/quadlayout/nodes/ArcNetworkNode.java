@@ -5,9 +5,9 @@ import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.GeometryBundles;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.GeometryBundles;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -15,7 +15,7 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 
 /**
  * Starts an authored network: a fresh {@link ArcNetwork} over a fresh

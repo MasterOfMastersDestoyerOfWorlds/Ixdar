@@ -15,11 +15,11 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.geometry.mesh.csg.QuadTriangulation;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.RingRegionExtraction;
-import ixdar.geometry.mesh.data.RingRegions;
-import ixdar.geometry.mesh.data.paths.SurfaceSpline;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RingRegionExtraction;
+import ixdar.geometry.mesh.data.rings.RingRegions;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.geometry.MeshBooleanNode;

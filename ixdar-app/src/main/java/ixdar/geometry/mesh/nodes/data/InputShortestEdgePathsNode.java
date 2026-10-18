@@ -16,7 +16,7 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.numeric.graph.Dijkstra;
 import ixdar.numeric.graph.ShortestPathForest;
 import ixdar.nodegraph.field.MeshFieldContext;

@@ -8,9 +8,9 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.csg.MeshBooleanResult;
-import ixdar.geometry.mesh.data.CornerUvField;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.field.IntField;

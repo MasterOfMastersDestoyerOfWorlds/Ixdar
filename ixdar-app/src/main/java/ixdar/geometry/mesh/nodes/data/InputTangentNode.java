@@ -13,7 +13,7 @@ import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.field.Vector3Field;
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.MeshFieldContext;
 
 import org.joml.Vector3f;

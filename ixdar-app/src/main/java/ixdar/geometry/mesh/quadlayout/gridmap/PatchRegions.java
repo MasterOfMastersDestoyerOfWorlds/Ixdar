@@ -10,8 +10,8 @@ import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 
 /**
  * The set of copy faces each patch occupies, flooding across only the edges no arc claims.

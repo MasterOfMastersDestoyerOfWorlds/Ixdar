@@ -9,11 +9,11 @@ import java.util.Objects;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.data.CornerUvField;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.load.GltfMeshWriter;
-import ixdar.geometry.mesh.data.load.MeshLoader;
-import ixdar.geometry.mesh.data.load.PlyMeshWriter;
+import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.io.GltfMeshWriter;
+import ixdar.geometry.mesh.data.io.MeshLoader;
+import ixdar.geometry.mesh.data.io.PlyMeshWriter;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.ModeConstraint;

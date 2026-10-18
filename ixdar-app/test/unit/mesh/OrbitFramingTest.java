@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import com.google.gson.JsonObject;
 
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.automation.endpoints.ui.Frame;
 import ixdar.automation.endpoints.ui.SelectionBounds;

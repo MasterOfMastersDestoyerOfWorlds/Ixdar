@@ -3,7 +3,7 @@ package ixdar.numeric.graph;
 import java.util.Arrays;
 import java.util.PriorityQueue;
 
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * The one shared Dijkstra core: a mesh's edge adjacency, a per-edge cost, and

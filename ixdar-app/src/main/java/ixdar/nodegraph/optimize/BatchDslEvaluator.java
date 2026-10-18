@@ -20,13 +20,13 @@ import com.google.gson.JsonParser;
 
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.MeshNodeSchema;
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.data.MeshDistance;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.analysis.MeshDistance;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 

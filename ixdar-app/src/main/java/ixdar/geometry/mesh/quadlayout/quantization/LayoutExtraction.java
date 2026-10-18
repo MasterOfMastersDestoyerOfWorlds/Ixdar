@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.FeatureEdgeSpan;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.FeatureEdgeSpan;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.Trace;
 import ixdar.platform.Platforms;
 
 /**

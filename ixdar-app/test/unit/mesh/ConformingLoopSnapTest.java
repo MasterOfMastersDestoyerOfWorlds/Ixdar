@@ -8,10 +8,10 @@ import java.util.Arrays;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.paths.ConformingLoopSnap;
-import ixdar.geometry.mesh.data.paths.TracedSurfacePath;
+import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
+import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * A closed trace on a triangle grid whose snapped vertices step out and straight back (A, B, A)

@@ -10,8 +10,8 @@ import org.joml.Vector3f;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.field.BoolField;

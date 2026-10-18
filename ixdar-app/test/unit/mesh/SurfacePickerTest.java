@@ -7,11 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.paths.GirdlingPlane;
-import ixdar.geometry.mesh.data.paths.SurfacePicker;
+import ixdar.geometry.mesh.data.paths.query.GirdlingPlane;
+import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * CRAW-28: the two pieces the ring tool's hover rests on, on hand-authored surfaces — where the

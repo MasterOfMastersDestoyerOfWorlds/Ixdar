@@ -10,10 +10,10 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
-import ixdar.geometry.mesh.data.EdgeMarks;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.paths.SurfaceRing;
-import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.SurfaceRing;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.scenes.ring.RingScene;
 

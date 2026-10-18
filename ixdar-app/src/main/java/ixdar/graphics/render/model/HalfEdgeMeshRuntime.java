@@ -14,14 +14,14 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
 
-import ixdar.geometry.mesh.data.CornerUvField;
-import ixdar.geometry.mesh.data.CornerUvSplit;
-import ixdar.geometry.mesh.data.EdgeKey;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MaterialData;
-import ixdar.geometry.mesh.data.MaterialSet;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
+import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.bundle.CornerUvSplit;
+import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.MaterialData;
+import ixdar.geometry.mesh.data.bundle.MaterialSet;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.field.IntField;
@@ -35,6 +35,8 @@ import ixdar.graphics.render.shaders.VertexBufferObject;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.GL;
+import ixdar.geometry.mesh.data.paths.query.SurfaceFaceLocator;
+import ixdar.geometry.mesh.data.representation.HalfEdgeCompiledMeshData;
 
 public class HalfEdgeMeshRuntime {
     public static final String MODEL = "model";

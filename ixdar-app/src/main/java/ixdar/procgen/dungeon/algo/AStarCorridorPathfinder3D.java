@@ -5,7 +5,7 @@ import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.Vector3Field;
 import ixdar.procgen.dungeon.values.CellType;
 

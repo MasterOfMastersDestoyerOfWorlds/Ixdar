@@ -12,24 +12,24 @@ import java.util.Locale;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.EdgeMarks;
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
-import ixdar.geometry.mesh.data.paths.FlipGeodesics;
-import ixdar.geometry.mesh.data.paths.GeodesicSeedPath;
-import ixdar.geometry.mesh.data.paths.GirdlingPlane;
-import ixdar.geometry.mesh.data.paths.IntrinsicPathTracer;
-import ixdar.geometry.mesh.data.paths.IntrinsicTriangulation;
-import ixdar.geometry.mesh.data.paths.NearestVertex;
-import ixdar.geometry.mesh.data.paths.SplineAnchorFit;
-import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
-import ixdar.geometry.mesh.data.paths.SurfaceMetric;
-import ixdar.geometry.mesh.data.paths.SurfaceRing;
-import ixdar.geometry.mesh.data.paths.SurfaceSpline;
-import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
-import ixdar.geometry.mesh.data.paths.TracedSurfacePath;
+import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
+import ixdar.geometry.mesh.data.paths.geodesic.GeodesicSeedPath;
+import ixdar.geometry.mesh.data.paths.geodesic.IntrinsicPathTracer;
+import ixdar.geometry.mesh.data.paths.geodesic.IntrinsicTriangulation;
+import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
+import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
+import ixdar.geometry.mesh.data.paths.query.GirdlingPlane;
+import ixdar.geometry.mesh.data.paths.query.NearestVertex;
+import ixdar.geometry.mesh.data.paths.spline.SplineAnchorFit;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.rings.SurfaceRing;
 
 /**
  * Times FlipOut, a ring row and the ring tool's hover frame on a full-resolution crawfish scan.

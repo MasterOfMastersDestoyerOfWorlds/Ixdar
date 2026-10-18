@@ -7,9 +7,9 @@ import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.IntIdList;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
-import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.model.PatchCorridor;
 
 /**
  * Operator (2), the non-simple zero-patch split: extends one T-joint across the patch as a new

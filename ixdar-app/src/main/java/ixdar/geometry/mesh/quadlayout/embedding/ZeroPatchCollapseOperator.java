@@ -3,8 +3,8 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 import java.util.ArrayList;
 import java.util.List;
 
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 
 /**
  * Operator (3), the simple zero-patch collapse: requires a bigon, so the

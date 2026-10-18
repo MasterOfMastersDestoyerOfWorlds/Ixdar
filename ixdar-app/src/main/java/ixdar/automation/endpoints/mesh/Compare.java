@@ -9,12 +9,12 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
-import ixdar.geometry.mesh.data.MeshDistance;
+import ixdar.geometry.mesh.data.analysis.MeshDistance;
 import ixdar.automation.AutomationEndpoint;
 
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 

@@ -10,7 +10,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.RingCandidates;
+import ixdar.geometry.mesh.data.rings.RingCandidates;
 import ixdar.tools.ring.RingTool;
 
 /**

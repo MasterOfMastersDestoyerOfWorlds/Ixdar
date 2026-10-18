@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.QuadLayout;

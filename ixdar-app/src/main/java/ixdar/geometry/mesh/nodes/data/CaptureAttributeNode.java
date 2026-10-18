@@ -13,7 +13,7 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "capture_attribute", category = NodeCategory.FIELD_DATA)

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.numeric.exact.ExactBarycentricOrient;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 
 /**
  * Joining two vertices of one source face by an edge. The strip of children the chord

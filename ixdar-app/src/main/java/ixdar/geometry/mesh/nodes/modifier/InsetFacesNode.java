@@ -18,15 +18,15 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
-import ixdar.geometry.mesh.data.CoonsHandleBuilder;
+import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
 
 /**
  * Insets selected faces: each face's vertices are lerped toward its centre to form an inner face,

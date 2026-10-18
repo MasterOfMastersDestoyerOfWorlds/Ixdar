@@ -11,7 +11,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-import ixdar.automation.AutomationRuntime;
 
 public class AutomationReplayEngine {
     public static final String RUNNING = "running";

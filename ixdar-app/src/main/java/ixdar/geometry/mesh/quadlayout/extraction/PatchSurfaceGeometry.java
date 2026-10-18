@@ -2,11 +2,11 @@ package ixdar.geometry.mesh.quadlayout.extraction;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.CoonsEvaluator;
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.patches.CoonsEvaluator;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.field.IntField;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 
 /**
  * Builders and readers for the finished layout's render geometry: each live patch's extracted

@@ -7,9 +7,9 @@ import java.util.HashMap;
 import java.util.PriorityQueue;
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
-import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.platform.Platforms;
 
 /**

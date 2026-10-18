@@ -5,9 +5,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.QuadMeshTopologyHelper;
-import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
 /**
  * Dense, uniform-face mesh backed by flat arrays. Implements

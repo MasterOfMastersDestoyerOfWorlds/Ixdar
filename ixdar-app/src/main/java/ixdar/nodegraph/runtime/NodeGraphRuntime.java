@@ -18,8 +18,8 @@ import java.util.function.Supplier;
 
 import ixdar.annotations.RegistryProcessor;
 import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.FieldContext;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;

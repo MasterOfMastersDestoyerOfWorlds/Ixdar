@@ -11,11 +11,11 @@ import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
+import ixdar.geometry.mesh.quadlayout.embedding.model.ArcEdgePath;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.Trace;
 import ixdar.nodegraph.field.UvField;
 import ixdar.platform.Platforms;
 

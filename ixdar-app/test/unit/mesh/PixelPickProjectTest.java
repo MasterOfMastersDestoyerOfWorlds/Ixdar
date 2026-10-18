@@ -13,8 +13,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.paths.SurfacePicker;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;

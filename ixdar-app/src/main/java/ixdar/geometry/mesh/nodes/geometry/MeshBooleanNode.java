@@ -16,11 +16,11 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.csg.BooleanOperation;
 import ixdar.geometry.mesh.csg.MeshBooleanResult;
 import ixdar.geometry.mesh.csg.QuadTriangulation;
-import ixdar.geometry.mesh.data.CornerUvField;
-import ixdar.geometry.mesh.data.EdgeMarks;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MaterialData;
-import ixdar.geometry.mesh.data.MaterialSet;
+import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.MaterialData;
+import ixdar.geometry.mesh.data.bundle.MaterialSet;
 import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.platform.Platforms;
 

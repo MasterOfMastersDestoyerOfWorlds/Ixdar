@@ -11,9 +11,9 @@ import java.util.Map;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.RegionExplosion;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RegionExplosion;
 
 /**
  * Exploded view on three squares in a row, each its own region, the last twice as wide: centroids

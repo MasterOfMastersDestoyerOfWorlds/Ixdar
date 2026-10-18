@@ -14,7 +14,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.field.UvField;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.numeric.exact.ExactBarycentricOrient;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
 import ixdar.platform.Platforms;
 

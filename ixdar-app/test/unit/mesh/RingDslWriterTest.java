@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.ring.RingDslWriter;

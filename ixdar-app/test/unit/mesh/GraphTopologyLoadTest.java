@@ -16,8 +16,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.syntax.PythonParser;
 

@@ -8,16 +8,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.EdgeMarks;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.paths.AuthoredSplineRing;
-import ixdar.geometry.mesh.data.paths.NearestVertex;
-import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
-import ixdar.geometry.mesh.data.paths.SurfaceMetric;
-import ixdar.geometry.mesh.data.paths.SurfaceSpline;
-import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
-import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
+import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
+import ixdar.geometry.mesh.data.paths.query.NearestVertex;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.tools.ring.RingDslWriter;
 

@@ -8,16 +8,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.paths.SurfaceMetric;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
-import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
+import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
+import ixdar.geometry.mesh.data.fields.crossfield.NDirectionField;
 
 /**
  * The cross field reads its frames and connection from the surface metric: its face-to-face

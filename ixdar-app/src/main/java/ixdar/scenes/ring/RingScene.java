@@ -7,11 +7,11 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.paths.FlipGeodesics;
-import ixdar.geometry.mesh.data.paths.SurfacePicker;
-import ixdar.geometry.mesh.data.paths.SurfaceRing;
-import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
+import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.SurfaceRing;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.gui.ui.ErrorToasts;

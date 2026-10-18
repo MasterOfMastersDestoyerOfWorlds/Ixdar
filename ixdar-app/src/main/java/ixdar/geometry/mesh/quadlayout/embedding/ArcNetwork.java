@@ -15,15 +15,15 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.IntIdList;
-import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
-import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.model.PatchCorridor;
+import ixdar.geometry.mesh.quadlayout.embedding.model.ArcEdgePath;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.FeatureEdgeSpan;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.FeatureEdgeSpan;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.Trace;
 import ixdar.platform.Platforms;
 
 /**

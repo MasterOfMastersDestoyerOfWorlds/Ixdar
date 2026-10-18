@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 
 /**
  * Makes each patch region 3-connected, as {@link PatchRectangleMap} requires, by subdividing every

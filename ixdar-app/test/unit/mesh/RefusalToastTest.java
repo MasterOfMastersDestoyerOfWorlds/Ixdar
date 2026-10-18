@@ -8,7 +8,7 @@ import java.util.List;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.gui.ui.ErrorToasts;
 import ixdar.platform.input.Keys;

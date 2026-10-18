@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.Set;
 
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedNode;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
 
 /**
  * Union-find collapse of T-mesh nodes connected by zero-quantized arcs: a path of

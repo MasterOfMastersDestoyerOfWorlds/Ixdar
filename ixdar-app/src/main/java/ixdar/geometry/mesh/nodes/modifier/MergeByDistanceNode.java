@@ -11,13 +11,13 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
-import ixdar.geometry.mesh.data.ops.SlotCarry;
+import ixdar.geometry.mesh.data.bundle.SlotCarry;
 import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
-import ixdar.geometry.mesh.data.CoonsHandleBuilder;
+import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
 
 @MeshNodeAnnotation(id = "merge_by_distance", category = NodeCategory.MODIFIERS)
 public class MergeByDistanceNode implements MeshNode {

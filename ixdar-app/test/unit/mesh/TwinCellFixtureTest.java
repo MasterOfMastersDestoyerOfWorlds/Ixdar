@@ -13,7 +13,7 @@ import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.ZeroArcCollapseOperator;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
 
 /**
  * The twin-cell fixture carries botijo's operator-830 shape: the parallel wall's far node is

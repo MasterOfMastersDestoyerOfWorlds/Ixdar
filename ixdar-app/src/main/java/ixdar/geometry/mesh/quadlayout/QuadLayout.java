@@ -1,7 +1,7 @@
 package ixdar.geometry.mesh.quadlayout;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;

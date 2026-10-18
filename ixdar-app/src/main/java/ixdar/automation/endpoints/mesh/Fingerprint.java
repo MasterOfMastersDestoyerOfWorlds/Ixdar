@@ -9,7 +9,7 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.geometry.mesh.MeshCanonicalFingerprint;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 

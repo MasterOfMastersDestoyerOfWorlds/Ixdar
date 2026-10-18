@@ -10,12 +10,12 @@ import java.io.IOException;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.CornerUvField;
-import ixdar.geometry.mesh.data.CornerUvSplit;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.load.GltfMeshParser;
-import ixdar.geometry.mesh.data.load.GltfModel;
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.bundle.CornerUvSplit;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.io.GltfMeshParser;
+import ixdar.geometry.mesh.data.io.GltfModel;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.data.LoadMeshNode;

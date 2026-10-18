@@ -1,12 +1,12 @@
 package ixdar.nodegraph.api;
 
 import ixdar.nodegraph.field.FloatCurveKernel;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.paths.SurfaceCreases;
-import ixdar.geometry.mesh.data.paths.SurfaceMetric;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
+import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.QuadLayout;
-import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.numeric.sparse.system.DofSystem;
 

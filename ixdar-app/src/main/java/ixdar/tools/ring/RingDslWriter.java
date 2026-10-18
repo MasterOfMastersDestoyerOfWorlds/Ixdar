@@ -16,9 +16,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import ixdar.geometry.mesh.data.RingCandidates;
-import ixdar.geometry.mesh.data.paths.RingSegmentMode;
-import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.rings.RingCandidates;
+import ixdar.geometry.mesh.data.rings.RingSegmentMode;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.geometry.mesh.nodes.data.SurfaceCreasesNode;

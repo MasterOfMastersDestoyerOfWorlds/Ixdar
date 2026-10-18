@@ -18,15 +18,15 @@ import java.util.Set;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.geometry.mesh.nodes.data.SceneModelNode;
 import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
-import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
+import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.platform.Platforms;
 
 /**

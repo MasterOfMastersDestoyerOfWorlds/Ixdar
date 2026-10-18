@@ -2,7 +2,7 @@ package ixdar.procgen.dungeon.algo;
 
 import java.util.Random;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 
 /**
  * Deterministic seeded random placement of non-overlapping rooms on an integer grid with a

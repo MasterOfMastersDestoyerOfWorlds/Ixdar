@@ -8,8 +8,8 @@ import java.util.TreeSet;
 
 import org.joml.Vector4f;
 
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.RingRegions;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;

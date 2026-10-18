@@ -8,7 +8,7 @@ import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.field.UvField;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.TraceAxis;
 
 /**
  * QEx-style chart walker: advance a parametric iso-line one triangle at a time,

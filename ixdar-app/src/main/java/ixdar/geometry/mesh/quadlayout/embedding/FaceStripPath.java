@@ -3,7 +3,7 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 import java.util.ArrayList;
 import java.util.List;
 
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 import ixdar.numeric.exact.ExactBarycentricOrient;
 
 /**

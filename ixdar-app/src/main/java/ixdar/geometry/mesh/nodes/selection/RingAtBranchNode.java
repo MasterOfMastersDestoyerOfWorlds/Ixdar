@@ -5,12 +5,12 @@ import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.data.BranchCrossSectionRing;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.RingBundle;
-import ixdar.geometry.mesh.data.RingCandidates;
+import ixdar.geometry.mesh.data.rings.BranchCrossSectionRing;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.RingBundle;
+import ixdar.geometry.mesh.data.rings.RingCandidates;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;

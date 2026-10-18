@@ -3,7 +3,6 @@ package ixdar.platform;
 import java.util.HashMap;
 
 import ixdar.platform.gl.GL;
-import ixdar.platform.Platform;
 
 public final class Platforms {
     public static final String PLATFORM_NOT_INITIALIZED = "Platform not initialized";

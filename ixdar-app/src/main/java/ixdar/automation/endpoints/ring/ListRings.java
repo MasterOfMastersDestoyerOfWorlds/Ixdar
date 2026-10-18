@@ -13,11 +13,11 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
-import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.RingCandidateExtractor;
-import ixdar.geometry.mesh.data.RingCandidates;
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RingCandidateExtractor;
+import ixdar.geometry.mesh.data.rings.RingCandidates;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.automation.AutomationEndpoint;
 

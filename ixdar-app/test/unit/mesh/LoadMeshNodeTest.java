@@ -9,8 +9,8 @@ import java.io.UncheckedIOException;
 import org.junit.jupiter.api.Test;
 
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.nodes.data.LoadMeshNode;
 

@@ -10,7 +10,6 @@ import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.AutomationRouteRegistry;
-import ixdar.automation.AutomationRuntime;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import java.io.IOException;
 import java.io.InputStream;

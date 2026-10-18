@@ -15,13 +15,13 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 
-import ixdar.geometry.mesh.data.CharrotGregoryPatch;
+import ixdar.geometry.mesh.data.patches.CharrotGregoryPatch;
 /**
  * Bilinearly blended Coons patch per quad face using cubic bezier boundaries
  * from {@link AssignBezierHandlesNode} slots. Each face is subdivided in

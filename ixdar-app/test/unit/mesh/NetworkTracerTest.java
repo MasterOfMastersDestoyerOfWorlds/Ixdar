@@ -8,7 +8,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.field.Vector3Value;
@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.quadlayout.nodes.NetworkNode;
 import ixdar.geometry.mesh.quadlayout.nodes.NetworkPatch;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 
 /**
  * The network authoring nodes on small hand-built networks over a flat

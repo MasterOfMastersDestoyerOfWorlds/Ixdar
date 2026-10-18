@@ -8,13 +8,13 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.CornerUvField;
-import ixdar.geometry.mesh.data.EdgeKey;
-import ixdar.geometry.mesh.data.EdgeMarks;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.TriangleBvh;
-import ixdar.geometry.mesh.data.TriangleGeometry;
+import ixdar.geometry.mesh.data.bundle.CornerUvField;
+import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.numeric.graph.UnionFind;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -22,6 +22,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.UvField;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 import ixdar.geometry.mesh.nodes.modifier.SetBoneWeightNode;
+import ixdar.geometry.mesh.data.bundle.SlotCarry;
 
 /**
  * Topological repair of a triangle mesh in the order the defects depend on each other: weld,

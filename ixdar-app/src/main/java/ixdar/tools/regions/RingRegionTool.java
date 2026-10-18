@@ -12,13 +12,13 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.EdgeKey;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.RegionExplosion;
-import ixdar.geometry.mesh.data.RingRegionExtraction;
-import ixdar.geometry.mesh.data.RingRegions;
-import ixdar.geometry.mesh.data.paths.SurfaceSpline;
-import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
+import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RegionExplosion;
+import ixdar.geometry.mesh.data.rings.RingRegionExtraction;
+import ixdar.geometry.mesh.data.rings.RingRegions;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.platform.Clock;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;

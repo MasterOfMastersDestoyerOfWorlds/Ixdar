@@ -14,9 +14,9 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.EdgeMarks;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.RingRegions;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.ring.RingTool;

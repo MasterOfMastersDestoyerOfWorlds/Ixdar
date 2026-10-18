@@ -5,17 +5,17 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import ixdar.geometry.mesh.data.MeshSkeletonComparator.DetailedBranchMatch;
+import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonComparator.DetailedBranchMatch;
 
 import ixdar.nodegraph.api.PortType;
 
 import ixdar.nodegraph.api.MeshNodeSchema;
 
 import ixdar.nodegraph.api.MeshNode;
-import ixdar.geometry.mesh.data.MeshSkeletonComparator.DetailedComparisonResult;
-import ixdar.geometry.mesh.data.MeshSkeletonComparator.JointDelta;
-import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonResult;
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonComparator.DetailedComparisonResult;
+import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonComparator.JointDelta;
+import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonResult;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 
@@ -25,10 +25,10 @@ import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
 import ixdar.nodegraph.syntax.PythonParser;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshSkeletonComparator;
-import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonComparator;
+import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 /**
  * Skeleton-to-parameter sensitivity analyzer for any DSL mesh. Builds a finite-difference Jacobian
  * by perturbing each input parameter and remeasuring joint positions, then solves by damped least

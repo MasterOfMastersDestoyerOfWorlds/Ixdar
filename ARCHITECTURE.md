@@ -163,29 +163,39 @@ commas between test names, never `+`.
 - **ixdar.geometry.knot**: The recursive knot structure (`Knot` is a circular route of knots bottoming out at points) plus undo/redo records for route planning. Fused to the 2D renderer: `Knot extends SDFCircle`, `Segment extends SDFLine`, both import `MainScene`.
 - **ixdar.geometry.mesh**: The mesh subsystem root: mesh nodes, mesh data structures, and the quad-layout pipeline. Subpackages hold the parts; this level has shared engines like subdivision and boolean backends.
 - **ixdar.geometry.mesh.csg**: CSG support code: the Manifold-backed boolean backend (FFM bindings) and quad triangulation of boolean output.
-- **ixdar.geometry.mesh.data**: Mesh-adjacent data contracts: `GeometryBundle` (mesh plus named slots), `EdgeKey` packing, `EdgeMarks`, `CurveGeometry`, decomposition and feature-detection code (Morse-Smale, crest lines, semantic patches). The conventions in ARCHITECTURE.md's constraints section are enforced from here.
-- **ixdar.geometry.mesh.data.load**: Mesh file loading (`MeshLoader` and formats). Desktop-only in practice: uses `java.nio.file`, which throws in the browser.
+- **ixdar.geometry.mesh.data**: Mesh data and the algorithms over it, one sub-package per concern. `PatchDecomposerCLI` is the one class left here: it is a developer tool and leaves with the devtools move. The conventions in ARCHITECTURE.md's constraints section are enforced from here.
+- **ixdar.geometry.mesh.data.analysis**: Mesh analysis: `MeshDistance` compares two meshes, and the sub-packages segment a surface, extract its skeleton and measure its curvature.
+- **ixdar.geometry.mesh.data.analysis.curvature**: Curvature features of a surface: principal directions, crest lines, saddle points and the axis a limb runs along.
+- **ixdar.geometry.mesh.data.analysis.segmentation**: Surface segmentation into patches: Morse-Smale and discrete-gradient decompositions, semantic patches, clustering segmenters, and the patch boundaries and colours they report.
+- **ixdar.geometry.mesh.data.analysis.skeleton**: TEASAR curve skeletons of a mesh and the comparison of a generated skeleton against a reference.
+- **ixdar.geometry.mesh.data.bundle**: `GeometryBundle`, a mesh plus named slots, and the slot payloads nodes pass along with it: edge marks, rings, curves, corner UVs and materials. `SlotCarry` copies slots across a topology change.
+- **ixdar.geometry.mesh.data.fields.crossfield**: Cross-field computation: per-face 4-direction fields, singularity detection, `NDirectionField` smoothing.
+- **ixdar.geometry.mesh.data.fields.crossfield.constraint**: Constraint sources pinning cross-field directions: boundary edges, sharp creases, principal curvature, and the gauge anchor.
+- **ixdar.geometry.mesh.data.io**: Mesh file loading (`MeshLoader` and formats). Desktop-only in practice: uses `java.nio.file`, which throws in the browser.
 - **ixdar.geometry.mesh.data.ops**: Representation-preserving mesh operations (delete vertices/edges, merge by distance, vertex offset). Each branches on the concrete mesh type and returns the input's kind.
-- **ixdar.geometry.mesh.data.representation**: The two mesh representations. `HalfEdgeMesh`: mutable topology with vertex/edge/face/half-edge adjacency, active flags for deletion without array shifts. `ArrayMesh`: dense position and index arrays for GPU submission. Engines convert between them; `MeshTopology` is the shared interface.
+- **ixdar.geometry.mesh.data.patches**: Parametric surface patches: Bezier fitting, Coons and Charrot-Gregory evaluators, their handle construction and the reconstruction error of a fit.
+- **ixdar.geometry.mesh.data.paths.geodesic**: Geodesics on a surface: the intrinsic metric and triangulation, FlipOut shortening, shortest edge paths, and tracing an intrinsic path back onto the mesh.
+- **ixdar.geometry.mesh.data.paths.query**: Spatial queries on a surface: ray picks, nearest vertices, plane cuts, path crossings, groove costs and the connection between two faces.
+- **ixdar.geometry.mesh.data.paths.spline**: Cubic splines on a surface: authored waypoints, anchor fitting and tracing a spline through its anchors with geodesic midpoints.
+- **ixdar.geometry.mesh.data.representation**: The two mesh representations, `HalfEdgeMesh` (mutable adjacency) and `ArrayMesh` (dense GPU arrays), their engines, the shared `MeshTopology` interface and the compiled form the renderer uploads, plus edge keys and triangle measurements.
+- **ixdar.geometry.mesh.data.rings**: Rings around a surface: candidate extraction, authored and cross-section rings, the regions rings cut a surface into, and the exploded view of those regions.
 - **ixdar.geometry.mesh.documentation**: DSL validation entry point: `ValidateDsl` checks .dsl files against the node schema from the command line.
 - **ixdar.geometry.mesh.nodes**: The ~95 DSL mesh nodes, organized by category subpackage. Every node follows the `GridMeshNode` shape: public static port constants with inline name literals, `socketDocs` keyed by `PORT.name`, documentation enforced by `MeshNodeRegistryTest`.
 - **ixdar.geometry.mesh.nodes.curve**: Curve nodes: primitives (circle, bezier, function), conversion to and from meshes, sweep, loft, resample, deform. Curves travel between nodes as `CurveGeometry` under `CurveGeometry.SLOT`.
 - **ixdar.geometry.mesh.nodes.data**: Data-attachment nodes: tagging geometry (`TagGeometryNode` owns the `_tags` slot), named attributes, and inputs that surface external data to a graph.
 - **ixdar.geometry.mesh.nodes.geometry**: Geometry-level operations: mesh boolean (desktop-only, Manifold FFM backend; owns the provenance slots), join, transform-level ops on whole bundles.
 - **ixdar.geometry.mesh.nodes.modifier**: Mesh modifiers: subdivide, extrude, inset, solidify, mirror, loop cut, bridge loops, instance-on- points, mark_edges. Nodes needing dense arrays coerce via `ArrayMeshEngine.fromUniformMeshTopology`.
-- **ixdar.geometry.mesh.nodes.patch**: Coons-patch nodes: patch fill, extrude and inset with bezier handle preservation (handles built by `ixdar.geometry.mesh.data.CoonsHandleBuilder`, slots owned by `AssignBezierHandlesNode`).
+- **ixdar.geometry.mesh.nodes.patch**: Coons-patch nodes: patch fill, extrude and inset with bezier handle preservation (handles built by `ixdar.geometry.mesh.data.patches.CoonsHandleBuilder`, slots owned by `AssignBezierHandlesNode`).
 - **ixdar.geometry.mesh.nodes.primitives**: Primitive generators: cube, grid, icosphere, UV sphere, cylinder, cone, disk, torus, segments. `GridMeshNode` is the reference node shape and exposes static helpers (`triangulated`, `vertexId`, `rowCoordinate`) that tests build fixture geometry with.
 - **ixdar.geometry.mesh.nodes.selection**: Selection nodes producing per-element masks consumed by modifiers.
 - **ixdar.geometry.mesh.nodes.transform**: Transform nodes: translate/rotate/scale geometry, align rotation to vector, instancing transforms.
 - **ixdar.geometry.mesh.quadlayout**: Desktop-only quad-layout pipeline, cross field to quantized quad layout (BZK09/LCBK19 lineage). Slated for integration into the node system; until then it is reached from scenes, not from DSL graphs.
-- **ixdar.geometry.mesh.quadlayout.crossfield**: Cross-field computation: per-face 4-direction fields, singularity detection, `NDirectionField` smoothing.
-- **ixdar.geometry.mesh.quadlayout.crossfield.constraint**: Constraint sources pinning cross-field directions: boundary edges, sharp creases, principal curvature, and the gauge anchor.
 - **ixdar.geometry.mesh.quadlayout.embedding**: Re-embedding of the quantized layout on a refined working copy of the mesh: arc routing, rerouting, carving, collapse operators, and arrangement diagnostics.
-- **ixdar.geometry.mesh.quadlayout.embedding.records**: Value types for the embedding: `ArcNetwork`, arcs, nodes, patches, topology with owner-arc claims per copy edge.
+- **ixdar.geometry.mesh.quadlayout.embedding.model**: Value types for the embedding: `ArcNetwork`, arcs, nodes, patches, topology with owner-arc claims per copy edge.
 - **ixdar.geometry.mesh.quadlayout.extraction**: Extraction of the final quad mesh and per-patch grids from the embedded layout, plus Coons surfaces for rendering.
 - **ixdar.geometry.mesh.quadlayout.gridmap**: Per-patch integer grid maps: rectangle parametrizations (Tutte-style), patch regions, and the grid-map optimizer (60s time budget).
 - **ixdar.geometry.mesh.quadlayout.motorcycle**: Motorcycle graph tracing over the parametrization: iso-line traces from singularities partition the surface into a T-mesh.
-- **ixdar.geometry.mesh.quadlayout.motorcycle.records**: Value types for the motorcycle graph: nodes, traces, patch boundaries.
+- **ixdar.geometry.mesh.quadlayout.motorcycle.model**: Value types for the motorcycle graph: nodes, traces, patch boundaries.
 - **ixdar.geometry.mesh.quadlayout.nodes**: Desktop-only graph nodes over the quad-layout pipeline: its stages as independent capabilities, and the arc-network authoring nodes (network, nodes, arcs, patches).
 - **ixdar.geometry.mesh.quadlayout.quantization**: Quantization of T-mesh arc lengths to integers, deciding which arcs collapse to zero.
 - **ixdar.geometry.mesh.quadlayout.seamless**: Seamless global parametrization built over the cross field: per-corner (u,v) with matched transitions across cut edges.

@@ -9,7 +9,6 @@ import com.google.gson.Gson;
 import ixdar.graphics.image.PixelImage;
 import ixdar.graphics.image.PngWriter;
 import ixdar.platform.Platforms;
-import ixdar.automation.AutomationRuntime;
 
 public class AutomationEndpoint {
     public static final Gson GSON = new Gson();

@@ -8,13 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.CornerUvField;
+import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.IntField;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.motorcycle.ChartWalker;
-import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;
+import ixdar.geometry.mesh.quadlayout.motorcycle.model.TraceAxis;
 
 /**
  * Two hand-authored triangles sharing one edge, with a level line that leaves

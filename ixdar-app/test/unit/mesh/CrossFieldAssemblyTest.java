@@ -11,13 +11,13 @@ import java.util.Set;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.paths.SurfaceMetric;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
-import ixdar.geometry.mesh.quadlayout.crossfield.SectionIntegrals;
+import ixdar.geometry.mesh.data.fields.crossfield.NDirectionField;
+import ixdar.geometry.mesh.data.fields.crossfield.SectionIntegrals;
 import ixdar.numeric.sparse.matrix.NormalMatrix;
 
 /**

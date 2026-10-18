@@ -9,7 +9,7 @@ import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
-import ixdar.geometry.mesh.data.RingRegions;
+import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.regions.RegionLayer;

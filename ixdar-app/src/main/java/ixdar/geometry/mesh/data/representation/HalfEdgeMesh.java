@@ -4,8 +4,6 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
 /**
  * Mutable half-edge mesh: separate id ranges for vertices, edges, faces, and

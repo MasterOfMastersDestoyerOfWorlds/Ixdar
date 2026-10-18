@@ -13,9 +13,9 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
-import ixdar.geometry.mesh.data.MeshSkeletonComparator;
-import ixdar.geometry.mesh.data.MeshSkeletonExtractor;
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonComparator;
+import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.automation.AutomationEndpoint;
 

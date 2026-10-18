@@ -15,11 +15,11 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
-import ixdar.geometry.mesh.data.CoonsHandleBuilder;
+import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
 /**
  * Geometry-preserving loop cut for bezier Coons cages: edges aligned with the
  * given axis are split by exact de Casteljau subdivision so new vertices land on

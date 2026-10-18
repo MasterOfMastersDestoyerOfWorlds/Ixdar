@@ -16,7 +16,14 @@ import com.google.gson.JsonObject;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.load.MeshLoader;
+import ixdar.geometry.mesh.data.analysis.curvature.CrestLineDetector;
+import ixdar.geometry.mesh.data.analysis.curvature.PrincipalDirectionField;
+import ixdar.geometry.mesh.data.analysis.segmentation.MeshSegmenter;
+import ixdar.geometry.mesh.data.analysis.segmentation.Patch;
+import ixdar.geometry.mesh.data.analysis.segmentation.PatchColors;
+import ixdar.geometry.mesh.data.analysis.segmentation.PatchDecomposition;
+import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.graphics.render.color.Color;
 

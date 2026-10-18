@@ -21,8 +21,6 @@ import ixdar.canvas.Canvas3D;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.SceneInputFrameUpdater;
-import ixdar.scenes.trade.TradeKeyGuy;
-import ixdar.scenes.trade.TradeMouseTrap;
 import ixdar.tools.knot.Tool;
 import ixdar.tools.trade.HeadquartersPickerTool;
 import ixdar.tools.trade.RoutePlanningTool;

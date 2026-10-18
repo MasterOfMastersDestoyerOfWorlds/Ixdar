@@ -6,10 +6,9 @@ import java.util.HashSet;
 import org.joml.Vector3f;
 
 import ixdar.nodegraph.field.BoolField;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.geometry.mesh.data.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;

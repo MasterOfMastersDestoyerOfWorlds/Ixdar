@@ -9,9 +9,9 @@ import ixdar.geometry.mesh.data.representation.IntIdList;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
-import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.model.PatchCorridor;
 
 /** Scratch: steps the contraction operator by operator and prints when the cover labels drift. */
 class DriftLocalizeScratchTest {

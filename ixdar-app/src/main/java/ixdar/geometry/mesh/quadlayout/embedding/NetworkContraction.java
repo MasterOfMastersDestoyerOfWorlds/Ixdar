@@ -14,7 +14,7 @@ import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.platform.Platforms;
 

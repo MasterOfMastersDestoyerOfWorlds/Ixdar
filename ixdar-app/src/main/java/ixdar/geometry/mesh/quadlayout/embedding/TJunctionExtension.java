@@ -6,10 +6,10 @@ import java.util.Deque;
 import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.ActiveIdSet;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
-import ixdar.geometry.mesh.quadlayout.embedding.records.PatchCorridor;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.model.PatchCorridor;
 
 /**
  * Extends every surviving T-junction across its patch to the matching offset on the opposite

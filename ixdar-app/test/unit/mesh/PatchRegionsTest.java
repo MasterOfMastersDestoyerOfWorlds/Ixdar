@@ -51,7 +51,7 @@ class PatchRegionsTest {
         int arcId = fixtureNet.arcs.get(0).arcId;
         for (int edgeId : fixtureNet.arcs.get(arcId).path.copyEdgePath) {
             fixtureNet.topology.ownerArcByCopyEdge[edgeId] =
-                    ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology.UNCLAIMED;
+                    ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology.UNCLAIMED;
         }
 
         assertThrows(IllegalStateException.class, () -> new PatchRegions(fixtureNet).build(),

@@ -9,8 +9,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.numeric.exact.ExactBarycentricOrient;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
+import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 import ixdar.nodegraph.field.UvField;
 import ixdar.numeric.sparse.chol.CholeskyBackend;
 import ixdar.numeric.sparse.system.NewtonRelaxation;

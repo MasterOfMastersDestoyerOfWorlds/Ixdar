@@ -10,7 +10,7 @@ import java.nio.charset.StandardCharsets;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.load.OffMeshParser;
+import ixdar.geometry.mesh.data.io.OffMeshParser;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**

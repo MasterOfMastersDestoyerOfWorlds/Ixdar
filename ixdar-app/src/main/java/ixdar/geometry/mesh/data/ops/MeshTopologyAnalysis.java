@@ -4,7 +4,7 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.numeric.graph.UnionFind;
 
 /**

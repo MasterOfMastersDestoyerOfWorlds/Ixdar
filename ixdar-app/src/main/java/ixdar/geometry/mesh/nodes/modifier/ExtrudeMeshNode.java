@@ -13,7 +13,7 @@ import org.joml.Vector3f;
 
 import java.util.Set;
 
-import ixdar.geometry.mesh.data.EdgeKey;
+import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -22,14 +22,14 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.data.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
-import ixdar.geometry.mesh.data.CoonsHandleBuilder;
+import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
 
 /**
  * Extrudes selected faces of a mesh along their normals.

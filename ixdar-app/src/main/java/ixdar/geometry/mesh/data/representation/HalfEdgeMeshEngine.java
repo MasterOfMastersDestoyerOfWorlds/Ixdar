@@ -5,10 +5,7 @@ import java.util.HashMap;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.common.exceptions.InvalidMeshTopologyException;
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 
 /**
  * Topology-mutating operations on a {@link HalfEdgeMesh}: add/remove vertices,

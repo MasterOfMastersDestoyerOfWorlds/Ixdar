@@ -14,9 +14,9 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.data.RingBundle;
-import ixdar.geometry.mesh.data.RingRegions;
+import ixdar.geometry.mesh.data.bundle.RingBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.tools.regions.RegionColouring;
 
