@@ -3,6 +3,7 @@ package unit;
 import org.junit.platform.launcher.LauncherSession;
 import org.junit.platform.launcher.LauncherSessionListener;
 
+import ixdar.platform.AutomationBackend;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.lwjgl.LwjglGL;
 import ixdar.platform.gl.lwjgl.LwjglPlatform;
@@ -21,6 +22,11 @@ public final class SuitePlatform implements LauncherSessionListener {
      */
     @Override
     public void launcherSessionOpened(LauncherSession session) {
-        Platforms.init(new LwjglPlatform(0L, null), new LwjglGL());
+        Platforms.init(new LwjglPlatform(0L) {
+            @Override
+            public AutomationBackend automation() {
+                return null;
+            }
+        }, new LwjglGL());
     }
 }

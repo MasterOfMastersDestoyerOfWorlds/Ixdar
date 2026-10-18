@@ -78,7 +78,7 @@ public class AutomationRuntime implements AutomationBackend {
      * Bind the runtime to a live render canvas and start the HTTP automation
      * server, publishing the bound port to this process's own record under the
      * checkout's {@code tmp/automation/}. Idempotent: subsequent calls only refresh
-     * the canvas reference, as the window does each time it switches scenes.
+     * the canvas reference, as {@link Scene#show} does each time a scene is shown.
      *
      * @param canvas3D the active render canvas; held so endpoints can drive scenes
      */

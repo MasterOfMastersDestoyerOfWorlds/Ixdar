@@ -49,7 +49,6 @@ import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 
 import ixdar.annotations.scene.SceneDrawable;
-import ixdar.automation.AutomationRuntime;
 import ixdar.numeric.sparse.chol.CholeskyBackend;
 import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
@@ -126,7 +125,7 @@ public class IxdarWindow {
      */
     public void runHeadless() {
         int size = Integer.getInteger(HEADLESS_SIZE_PROPERTY, HEADLESS_DEFAULT_SIZE);
-        HeadlessPlatform platform = new HeadlessPlatform(size, size, AutomationRuntime.get());
+        HeadlessPlatform platform = new HeadlessPlatform(size, size);
         platform.setPlatformID(HEADLESS_PLATFORM_ID);
         HeadlessGL gl = platform.getGL();
         gl.setPlatformID(HEADLESS_PLATFORM_ID);
@@ -140,9 +139,7 @@ public class IxdarWindow {
             throw new RuntimeException(CANVAS3D_NOT_FOUND_FOR + canvasId);
         }
         canvas = (Scene) sceneSupplier.get();
-        AutomationRuntime.get().start(canvas);
-        canvas.initGL();
-        canvas.sceneReady = true;
+        canvas.show();
         System.out.println("[headless] scene '" + canvasId + "' ready at " + size + "x" + size
                 + "; automation server up, screenshot with `ixdar-cli screenshot`");
 
@@ -196,7 +193,7 @@ public class IxdarWindow {
             throw new RuntimeException("Failed to create the GLFW window");
 
         System.out.println("Window Create Time: " + (Clock.time() - startTime));
-        Platforms.init(new LwjglPlatform(window, AutomationRuntime.get()), new LwjglGL());
+        Platforms.init(new LwjglPlatform(window), new LwjglGL());
         CholeskyBackend.preloadAsync();
 
         glfwSetWindowSizeCallback(window, (long windowID, int width, int height) -> {
@@ -260,9 +257,7 @@ public class IxdarWindow {
             throw new RuntimeException(CANVAS3D_NOT_FOUND_FOR + canvasId);
         }
         canvas = (Scene) cs.get();
-        AutomationRuntime.get().start(canvas);
-        canvas.initGL();
-        canvas.sceneReady = true;
+        canvas.show();
         if (gb != null) {
             glfwSetWindowIcon(window, gb);
         }

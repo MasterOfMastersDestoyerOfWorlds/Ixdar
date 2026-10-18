@@ -45,6 +45,7 @@ import ixdar.platform.json.JsonValue;
 
 import ixdar.audio.AudioBackend;
 import ixdar.audio.AudioSystem;
+import ixdar.automation.AutomationRuntime;
 import ixdar.canvas.IxdarWindow;
 import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
@@ -72,8 +73,6 @@ public class LwjglPlatform implements Platform {
     public static final double NANOS_PER_SECOND = 1e9;
     private static final ConcurrentLinkedQueue<Runnable> INPUT_QUEUE = new ConcurrentLinkedQueue<>();
 
-    public final AutomationBackend automation;
-
     private final long window;
     private final DesktopCholeskyBackend choleskyBackend = new DesktopCholeskyBackend();
     private final ManifoldMeshBooleanBackend manifoldBooleanBackend = new ManifoldMeshBooleanBackend();
@@ -84,12 +83,10 @@ public class LwjglPlatform implements Platform {
     /**
      * Construct a LwjglPlatform.
      *
-     * @param window     the GLFW window handle
-     * @param automation the automation server the launcher supplies, or {@code null} for none
+     * @param window the GLFW window handle
      */
-    public LwjglPlatform(long window, AutomationBackend automation) {
+    public LwjglPlatform(long window) {
         this.window = window;
-        this.automation = automation;
     }
 
     /** {@inheritDoc}. */
@@ -303,7 +300,7 @@ public class LwjglPlatform implements Platform {
     /** {@inheritDoc}. */
     @Override
     public AutomationBackend automation() {
-        return automation;
+        return AutomationRuntime.get();
     }
 
     /** {@inheritDoc}. */

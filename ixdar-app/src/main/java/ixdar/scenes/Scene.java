@@ -300,8 +300,7 @@ public abstract class Scene extends SceneDrawable {
 
     /**
      * Paint one frame, then return the scene the window shows next: this one, or the
-     * {@link #successor} it switched to, made {@link #instance}, active, initialized on its first
-     * showing and bound to the automation runtime.
+     * {@link #successor} it switched to, made {@link #instance}, active and {@link #show shown}.
      *
      * @return the scene to paint on the next frame
      */
@@ -315,15 +314,23 @@ public abstract class Scene extends SceneDrawable {
         activate(false);
         instance = next;
         next.activate(true);
-        if (!next.sceneReady) {
-            next.initGL();
-            next.sceneReady = true;
-        }
+        next.show();
+        return next;
+    }
+
+    /**
+     * Make this the scene the platform's automation runtime drives, starting its server on the
+     * first call, then build the scene on its first showing.
+     */
+    public void show() {
         AutomationBackend automation = platform.automation();
         if (automation != null) {
-            automation.start(next);
+            automation.start(this);
         }
-        return next;
+        if (!sceneReady) {
+            initGL();
+            sceneReady = true;
+        }
     }
 
     /**

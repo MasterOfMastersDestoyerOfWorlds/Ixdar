@@ -19,6 +19,7 @@ import com.google.gson.Gson;
 
 import ixdar.audio.AudioBackend;
 import ixdar.audio.AudioSystem;
+import ixdar.automation.AutomationRuntime;
 import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.numeric.sparse.chol.DesktopCholeskyBackend;
@@ -52,8 +53,6 @@ public class HeadlessPlatform implements Platform {
     public static final int DEFAULT_SIZE = 512;
     public static final double NANOS_PER_SECOND = 1e9;
 
-    public final AutomationBackend automation;
-
     private final DesktopCholeskyBackend choleskyBackend = new DesktopCholeskyBackend();
     private final ManifoldMeshBooleanBackend manifoldBooleanBackend = new ManifoldMeshBooleanBackend();
     private int platformId;
@@ -65,22 +64,20 @@ public class HeadlessPlatform implements Platform {
     private HeadlessGL gl;
 
     /**
-     * 512x512 default headless platform with no automation server.
+     * 512x512 default headless platform.
      */
     public HeadlessPlatform() {
-        this(DEFAULT_SIZE, DEFAULT_SIZE, null);
+        this(DEFAULT_SIZE, DEFAULT_SIZE);
     }
 
     /**
      * Build a headless platform sized {@code width x height}; window and
      * framebuffer dimensions are both initialized to that size.
      *
-     * @param width      window/framebuffer width in pixels
-     * @param height     window/framebuffer height in pixels
-     * @param automation the automation server the launcher supplies, or {@code null} for none
+     * @param width  window/framebuffer width in pixels
+     * @param height window/framebuffer height in pixels
      */
-    public HeadlessPlatform(int width, int height, AutomationBackend automation) {
-        this.automation = automation;
+    public HeadlessPlatform(int width, int height) {
         this.startTime = (float) (System.nanoTime() / NANOS_PER_SECOND);
         this.windowWidth = width;
         this.windowHeight = height;
@@ -311,13 +308,13 @@ public class HeadlessPlatform implements Platform {
     }
 
     /**
-     * Serve the automation server the launcher supplied: headless scenes are driven through it.
+     * Serve the shared automation runtime: headless scenes are driven through it.
      *
-     * @return the launcher's automation backend, or {@code null} when it supplied none
+     * @return the shared automation runtime
      */
     @Override
     public AutomationBackend automation() {
-        return automation;
+        return AutomationRuntime.get();
     }
 
     /**
