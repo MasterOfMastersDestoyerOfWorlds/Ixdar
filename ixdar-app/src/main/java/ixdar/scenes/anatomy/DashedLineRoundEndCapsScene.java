@@ -5,6 +5,7 @@ import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.knot.Segment;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.sdf.SDFLine;
 import ixdar.gui.ui.Drawing;
 import ixdar.scenes.Scene;
 
@@ -16,6 +17,9 @@ public class DashedLineRoundEndCapsScene extends Scene {
     public static final float END_CAP_SIZE = 10f;
     public PointND point2;
     public PointND point1;
+
+    /** The renderer the segment is drawn through. */
+    public SDFLine line;
 
     private Segment lineSegment;
 
@@ -50,8 +54,7 @@ public class DashedLineRoundEndCapsScene extends Scene {
         Knot knot1 = new Knot(point1, shell);
         Knot knot2 = new Knot(point2, shell);
         lineSegment = new Segment(knot1, knot2, distanceMatrix);
-        lineSegment.setStroke(STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, DASH_LENGTH, END_CAP_SIZE, false, true, false, camera2D);
-
+        line = new SDFLine();
     }
 
     /**
@@ -61,10 +64,11 @@ public class DashedLineRoundEndCapsScene extends Scene {
     @Override
     public void drawScene() {
         super.drawScene();
-        lineSegment.setStroke(STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true, DASH_LENGTH, END_CAP_SIZE, false, true, false, camera2D);
+        Drawing.strokeSegment(line, lineSegment, STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true,
+                DASH_LENGTH, END_CAP_SIZE, false, true, false, camera2D);
         Color startColor = Color.RED;
         Color endColor = Color.GREEN;
-        Drawing.drawGradientSegment(lineSegment, startColor, endColor, camera2D);
+        Drawing.drawGradientSegment(line, lineSegment, startColor, endColor, camera2D);
     }
 
 }

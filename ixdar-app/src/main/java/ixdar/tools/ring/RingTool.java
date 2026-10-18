@@ -19,6 +19,7 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
+import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.analysis.curvature.LimbAxis;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -55,14 +56,15 @@ import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.EditHistory;
-import ixdar.tools.EditTool;
+import ixdar.tools.Tool;
 
 /**
  * Hover to preview the ring girdling the limb under the cursor; click to turn it into a draft
  * whose authored anchors the user adds, selects, drags and deletes; Enter confirms the draft.
  * Confirming changes memory only: {@link #saveRings} alone writes the working .dsl.
  */
-public final class RingTool implements EditTool {
+@ToolAnnotation(id = RingTool.TOOL_NAME, host = RingScene.class)
+public final class RingTool implements Tool {
 
     public static final String STATUS_LINE =
             "ring tool: hover to preview, click to draft, click to add an anchor, drag or Delete "

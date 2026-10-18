@@ -6,6 +6,7 @@ import java.util.HashMap;
 import org.joml.Vector2f;
 
 import ixdar.annotations.geometry.Geometry;
+import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.knot.Segment;
 import ixdar.geometry.grid2d.Grid;
@@ -25,7 +26,10 @@ import ixdar.scenes.main.MainScene;
  * point-collection elements on the active grid by clicking. Cycles through
  * its {@link States} via the layer next/prev controls.
  */
-public class MapEditorTool extends Tool {
+@ToolAnnotation(id = MapEditorTool.TOOL_NAME, host = MainScene.class)
+public class MapEditorTool extends KnotTool {
+
+    public static final String TOOL_NAME = "mapeditor";
 
     public static ArrayList<Color> colors;
     public static Class<? extends PointCollection> currentCollectionType;
@@ -46,26 +50,29 @@ public class MapEditorTool extends Tool {
      * Build the tool: disallow toggles incompatible with editing (cut-match
      * preview, layer switching, knot-gradient/metro/displayed-knots draw),
      * and snapshot the terminal's point-collection class map.
+     *
+     * @param editor the editor the tool works on
      */
-    public MapEditorTool() {
+    public MapEditorTool(MainScene editor) {
+        super(editor);
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.CanSwitchLayer,
                 Toggle.DrawKnotGradient, Toggle.DrawMetroDiagram, Toggle.DrawDisplayedKnots };
+        layerKeysStep = "editing state";
         pointCollectionClassMap = Terminal.pointCollectionClassMap;
     }
 
     /**
-     * Reset editor state to the {@link States#Add} mode for the grid's first
+     * Start in the {@link States#Add} mode for the grid's first
      * allowable point-collection type and re-issue the on-screen instruction.
      */
     @Override
-    public void reset() {
-        super.reset();
+    public void activate() {
+        super.activate();
         state = States.Add;
         startSegment = null;
         startKP = null;
         startCP = null;
         colorLookup = null;
-        MainScene editor = MainScene.current();
         editor.updateKnotsDisplayed();
         pointCollectionClassMap = Terminal.pointCollectionClassMap;
         currentCollectionType = editor.grid.allowableTypes()[0];
@@ -78,32 +85,21 @@ public class MapEditorTool extends Tool {
      * is on) snap the resulting point to the nearest grid coordinate, caching
      * it in {@link #hoverPoint} for the next draw.
      *
-     * @param mouseX cursor x in window pixels (pre screen-offset)
-     * @param mouseY cursor y in window pixels (pre screen-offset)
+     * @param mouseX framebuffer x of the cursor
+     * @param mouseY framebuffer y of the cursor, y up
      */
     @Override
-    public void calculateHover(float mouseX, float mouseY) {
-        mouseX = mouseX - ScreenOffsetX;
-        mouseY = mouseY - ScreenOffsetY;
-        MainScene editor = MainScene.current();
+    public void onHover(float mouseX, float mouseY) {
         Camera2D camera = editor.editorCamera;
         camera.calculateCameraTransform(editor.retTup.ps);
-        float x = camera.screenTransformX(mouseX);
-        float y = camera.screenTransformY(mouseY);
+        float x = camera.screenTransformX(mouseX - editor.mainViewOffsetX);
+        float y = camera.screenTransformY(mouseY - editor.mainViewOffsetY);
         if (Toggle.SnapToGrid.value) {
             Grid grid = editor.grid;
             hoverPoint = grid.coordinateToNearestGridPoint(x, y);
             hoverPoint.x = camera.pointTransformX(hoverPoint.x);
             hoverPoint.y = camera.pointTransformY(hoverPoint.y);
         }
-    }
-
-    /**
-     * Hook called when the hover target changes; intentionally a no-op here
-     * because all hover feedback is driven from {@link #calculateHover}.
-     */
-    @Override
-    public void hoverChanged() {
     }
 
     /**
@@ -114,34 +110,22 @@ public class MapEditorTool extends Tool {
      * @param minLineThickness base line thickness in pixels
      */
     @Override
-    public void draw(Camera2D camera, float minLineThickness) {
+    public void drawOverlay(Camera2D camera, float minLineThickness) {
         if (hoverPoint != null) {
             Drawing.drawCircle(hoverPoint, ColorRGB.RED, camera, minLineThickness);
         }
     }
 
     /**
-     * Click hit-testing is handled inline by the editor states rather than
-     * via the inherited segment hit-test, so this hook is intentionally empty.
+     * Clicks are not the map editor's: its edits run through the terminal commands.
      *
-     * @param mouseX cursor x in window pixels
-     * @param mouseY cursor y in window pixels
+     * @param mouseX framebuffer x of the click
+     * @param mouseY framebuffer y of the click
+     * @return false
      */
     @Override
-    public void calculateClick(float mouseX, float mouseY) {
-
-    }
-
-    /**
-     * On any segment click, simply confirm the pending edit.
-     *
-     * @param s  hovered segment, ignored
-     * @param kp segment knot point, ignored
-     * @param cp segment cut point, ignored
-     */
-    @Override
-    public void click(Segment s, Knot kp, Knot cp) {
-        confirm();
+    public boolean onClick(float mouseX, float mouseY) {
+        return false;
     }
 
     /**
@@ -157,7 +141,7 @@ public class MapEditorTool extends Tool {
      * the user knows what this state expects next.
      */
     public void instruct() {
-        Terminal terminal = MainScene.current().terminal;
+        Terminal terminal = editor.terminal;
         switch (state) {
         case Add:
             terminal.instruct("Add a " + currentCollection.fullName() + " to the grid by clicking.");
@@ -189,6 +173,7 @@ public class MapEditorTool extends Tool {
     public void increaseViewLayer() {
         States[] states = States.values();
         state = state.ordinal() + 1 >= states.length ? states[0] : states[state.ordinal() + 1];
+        infoText = null;
     }
 
     /**
@@ -201,6 +186,7 @@ public class MapEditorTool extends Tool {
         States[] states = States.values();
         state = state.ordinal() - 1 < 0 ? states[states.length - 1]
                 : states[state.ordinal() - 1];
+        infoText = null;
     }
 
     /**
@@ -216,7 +202,7 @@ public class MapEditorTool extends Tool {
 
         h.addWord("Position:");
         if (displayKP == null) {
-            h.addWord(MainScene.current().grid.toCoordString());
+            h.addWord(editor.grid.toCoordString());
         } else {
             PointND coordPoint = (displayKP).p;
             h.addWord(coordPoint.toCoordString());
@@ -241,8 +227,8 @@ public class MapEditorTool extends Tool {
      * @return the full terminal name {@code "mapeditor"}
      */
     @Override
-    public String fullName() {
-        return "mapeditor";
+    public String toolName() {
+        return TOOL_NAME;
     }
 
     /**

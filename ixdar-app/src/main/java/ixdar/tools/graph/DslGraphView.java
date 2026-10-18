@@ -7,6 +7,7 @@ import java.util.Set;
 
 import org.joml.Vector2f;
 
+import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.tsp.points.PointND;
@@ -29,14 +30,15 @@ import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
 import ixdar.scenes.model.ModelScene;
 import ixdar.tools.ControlHint;
-import ixdar.tools.EditTool;
+import ixdar.tools.Tool;
 
 /**
  * The model scenes' graph tool: draws the node tree of the scene's graph in place of the 3D view,
  * time-tinted boxes, expandable groups, bezier arrows and the critical path, on its own
  * pan-and-zoom {@link Camera2D} with scroll bars.
  */
-public class DslGraphView implements EditTool {
+@ToolAnnotation(id = DslGraphView.TOOL_NAME, host = ModelScene.class)
+public class DslGraphView implements Tool {
     public static final Palette TINT_BY_SHARE = Palettes.DSL_TIME_SHARE;
     public static final double[] TINT_SHARE_FLOOR = { 0.0, 0.02, 0.1, 0.3 };
     public static final Color BOX_BORDER = Color.BLUE_GREY;

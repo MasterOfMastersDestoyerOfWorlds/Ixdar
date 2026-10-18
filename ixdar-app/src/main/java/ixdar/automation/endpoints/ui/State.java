@@ -125,13 +125,9 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         JsonObject trade = new JsonObject();
         if (runtime.canvas instanceof TradeScene tradeScene) {
             trade.addProperty(ACTIVE, true);
-            if (tradeScene.activeTradeTool != null) {
-                trade.addProperty(
-                        ACTIVE_TOOL,
-                        tradeScene.activeTradeTool.displayName());
-            }
-            if (tradeScene.activeTradeTool instanceof RoutePlanningTool) {
-                RoutePlanningTool routeTool = (RoutePlanningTool) tradeScene.activeTradeTool;
+            trade.addProperty(ACTIVE_TOOL, tradeScene.activeTool.displayName());
+            if (tradeScene.activeTool == tradeScene.routePlanningTool) {
+                RoutePlanningTool routeTool = tradeScene.routePlanningTool;
                 trade.addProperty(
                         "routeMode",
                         routeTool.getCurrentMode().name());

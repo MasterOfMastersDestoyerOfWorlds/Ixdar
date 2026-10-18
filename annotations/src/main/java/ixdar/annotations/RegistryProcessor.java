@@ -18,8 +18,11 @@ import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 
@@ -35,6 +38,8 @@ public abstract class RegistryProcessor extends AbstractProcessor {
     private String typeSimpleName;
     private String collectionName;
     private boolean partitionDesktopOnly;
+    private String hostSimpleName;
+    private String hostBaseFqcn;
 
     /**
      * Configure the processor to scan for {@code annotationClass} and emit a
@@ -95,6 +100,22 @@ public abstract class RegistryProcessor extends AbstractProcessor {
     }
 
     /**
+     * Configure the processor for classes built for a host: the annotation's {@code host} class
+     * element names each class's host, which its public one-argument constructor must accept, and
+     * the registry maps each id to a factory taking the host and a test of which hosts fit.
+     *
+     * @param annotationClass marker annotation declaring {@code id} and {@code host}
+     * @param typeSimpleName simple name of the registered classes' common supertype
+     * @param hostSimpleName simple name of the hosts' common supertype, the factories' argument
+     * @param collectionName suffix forming the generated registry's simple name
+     */
+    public RegistryProcessor(Class<? extends Annotation> annotationClass, String typeSimpleName,
+            String hostSimpleName, String collectionName) {
+        this(annotationClass, typeSimpleName, collectionName, false);
+        this.hostSimpleName = hostSimpleName;
+    }
+
+    /**
      * Claim the configured annotation by its class literal, so moving the annotation cannot leave
      * the processor silently matching nothing.
      *
@@ -135,6 +156,7 @@ public abstract class RegistryProcessor extends AbstractProcessor {
         try {
             Map<String, String> mainEntries = new TreeMap<>();
             Map<String, String> desktopEntries = new TreeMap<>();
+            Map<String, String> hostById = new TreeMap<>();
             Map<String, String> seenIds = new HashMap<>();
             for (Element element : roundEnv.getElementsAnnotatedWith(annotationClass)) {
                 if (element.getKind() != ElementKind.CLASS) {
@@ -152,6 +174,7 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                 }
                 String id = element.getSimpleName().toString();
                 boolean desktopOnly = false;
+                TypeMirror host = null;
                 String annotationName = annotationClass.getName();
                 for (AnnotationMirror mirror : element.getAnnotationMirrors()) {
                     if (mirror.getAnnotationType().toString().equals(annotationName)) {
@@ -165,8 +188,42 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                             if (key.equals("desktopOnly") && Boolean.TRUE.equals(val)) {
                                 desktopOnly = true;
                             }
+                            if (key.equals("host") && val instanceof TypeMirror hostType) {
+                                host = hostType;
+                            }
                         }
                     }
+                }
+                if (hostSimpleName != null && host == null) {
+                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                            annotationClass.getSimpleName() + " needs a host class", element);
+                } else if (hostSimpleName != null) {
+                    // The first host fixes the hosts' common supertype; every host must fit a
+                    // public one-argument constructor, which the generated factory calls.
+                    Types types = processingEnv.getTypeUtils();
+                    Deque<TypeMirror> hostSupertypes = new ArrayDeque<>(List.of(host));
+                    while (hostBaseFqcn == null && !hostSupertypes.isEmpty()) {
+                        TypeMirror type = hostSupertypes.pop();
+                        Element supertype = types.asElement(type);
+                        if (supertype.getSimpleName().contentEquals(hostSimpleName)) {
+                            hostBaseFqcn = ((TypeElement) supertype).getQualifiedName().toString();
+                        }
+                        hostSupertypes.addAll(types.directSupertypes(type));
+                    }
+                    boolean accepted = false;
+                    for (Element member : element.getEnclosedElements()) {
+                        if (member.getKind() == ElementKind.CONSTRUCTOR
+                                && member.getModifiers().contains(Modifier.PUBLIC)) {
+                            List<? extends VariableElement> parameters = ((ExecutableElement) member).getParameters();
+                            accepted |= parameters.size() == 1 && types.isAssignable(host, parameters.get(0).asType());
+                        }
+                    }
+                    if (!accepted) {
+                        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                                element.getSimpleName() + " needs a public constructor taking its host " + host,
+                                element);
+                    }
+                    hostById.put(id, ((TypeElement) types.asElement(host)).getQualifiedName().toString());
                 }
                 String previous = seenIds.put(id, fqClassName);
                 if (previous != null) {
@@ -187,10 +244,15 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                 return true;
             }
             String genClassName = this.getClass().getSimpleName() + GENERATED_CLASS_NAME_SEPARATOR + this.collectionName;
+            if (hostSimpleName != null && hostBaseFqcn == null) {
+                processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "No host of "
+                        + annotationClass.getSimpleName() + " has a supertype named " + hostSimpleName);
+                return true;
+            }
             writeRegistryClass(genClassName, mainEntries,
-                    partitionDesktopOnly ? desktopEntries.keySet() : null);
+                    partitionDesktopOnly ? desktopEntries.keySet() : null, hostSimpleName == null ? null : hostById);
             if (partitionDesktopOnly) {
-                writeRegistryClass(genClassName + DESKTOP_SUFFIX, desktopEntries, null);
+                writeRegistryClass(genClassName + DESKTOP_SUFFIX, desktopEntries, null, null);
             }
             generated = true;
         } catch (Exception e) {
@@ -200,26 +262,38 @@ public abstract class RegistryProcessor extends AbstractProcessor {
     }
 
     /**
-     * Emit one registry source file mapping id to constructor reference, optionally listing the ids
-     * routed to the desktop-only sibling as a plain string set safe for web reachability.
+     * Emit one registry source file mapping id to constructor reference, or, for a hosted registry,
+     * to a factory taking the host with a test of which hosts fit and the host type's name.
      *
      * @param genClassName simple name of the generated class
      * @param entries id-to-class entries the class's {@code MAP} holds
      * @param desktopOnlyIds ids emitted as {@code DESKTOP_ONLY_IDS}, or null to omit the set
+     * @param hostById id-to-host-class entries for a hosted registry, or null for suppliers
      * @throws Exception if the source file cannot be written
      */
     private void writeRegistryClass(String genClassName, Map<String, String> entries,
-            Set<String> desktopOnlyIds) throws Exception {
+            Set<String> desktopOnlyIds, Map<String, String> hostById) throws Exception {
         JavaFileObject file = processingEnv.getFiler()
                 .createSourceFile(this.getClass().getPackageName() + "." + genClassName);
         try (Writer out = file.openWriter()) {
             out.write("package " + this.getClass().getPackageName() + ";\n\n");
             out.write("import java.util.*;\n");
-            out.write("import " + typeFqcn + ";\n");
-            out.write("import java.util.function.Supplier;\n\n");
-            out.write("public final class " + genClassName + " {\n");
-            out.write("\tpublic static final Map<String, Supplier<? extends " + typeFqcn
-                    + ">> MAP = new HashMap<>();\n\n");
+            if (hostById != null) {
+                out.write("import java.util.function.Function;\n");
+                out.write("import java.util.function.Predicate;\n\n");
+                out.write("public final class " + genClassName + " {\n");
+                out.write("\tpublic static final Map<String, Function<" + hostBaseFqcn + ", ? extends "
+                        + typeFqcn + ">> MAP = new TreeMap<>();\n\n");
+                out.write("\tpublic static final Map<String, Predicate<" + hostBaseFqcn
+                        + ">> HOSTED_BY = new TreeMap<>();\n\n");
+                out.write("\tpublic static final Map<String, String> HOST_NAMES = new TreeMap<>();\n\n");
+            } else {
+                out.write("import " + typeFqcn + ";\n");
+                out.write("import java.util.function.Supplier;\n\n");
+                out.write("public final class " + genClassName + " {\n");
+                out.write("\tpublic static final Map<String, Supplier<? extends " + typeFqcn
+                        + ">> MAP = new HashMap<>();\n\n");
+            }
             if (desktopOnlyIds != null) {
                 StringBuilder ids = new StringBuilder();
                 for (String id : desktopOnlyIds) {
@@ -232,7 +306,17 @@ public abstract class RegistryProcessor extends AbstractProcessor {
             }
             out.write("\tstatic {\n");
             for (Map.Entry<String, String> entry : entries.entrySet()) {
-                out.write("\t\tMAP.put(\"" + entry.getKey() + "\", " + entry.getValue() + "::new);\n");
+                if (hostById == null) {
+                    out.write("\t\tMAP.put(\"" + entry.getKey() + "\", " + entry.getValue() + "::new);\n");
+                    continue;
+                }
+                String id = "\"" + entry.getKey() + "\"";
+                String hostFqcn = hostById.get(entry.getKey());
+                out.write("\t\tMAP.put(" + id + ", host -> new " + entry.getValue() + "((" + hostFqcn
+                        + ") host));\n");
+                out.write("\t\tHOSTED_BY.put(" + id + ", host -> host instanceof " + hostFqcn + ");\n");
+                out.write("\t\tHOST_NAMES.put(" + id + ", \""
+                        + hostFqcn.substring(hostFqcn.lastIndexOf('.') + 1) + "\");\n");
             }
             out.write("\t}\n");
             out.write("}\n");

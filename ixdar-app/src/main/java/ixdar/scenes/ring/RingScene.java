@@ -20,7 +20,7 @@ import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.tools.ControlHint;
-import ixdar.tools.EditTool;
+import ixdar.tools.Tool;
 import ixdar.tools.connection.ConnectionTool;
 import ixdar.tools.regions.RegionLayer;
 import ixdar.tools.regions.RingRegionTool;
@@ -28,7 +28,7 @@ import ixdar.tools.ring.RingTool;
 
 /**
  * The mesh editing scene: the mesh viewer hosting the orbit, ring, region-select and connection
- * {@link EditTool}s over the ring tool's rings. Ctrl+R, Ctrl+T and Ctrl+J pick a tool; Esc goes
+ * {@link Tool}s over the ring tool's rings. Ctrl+R, Ctrl+T and Ctrl+J pick a tool; Esc goes
  * to the active tool, else back to orbit.
  */
 @SceneAnnotation(id = "ring-tool")
@@ -474,7 +474,7 @@ public class RingScene extends MeshNodeViewerScene {
     /**
      * The hints every tool shares, after the tool keys and the active tool's own hints the scene
      * lists first. Ctrl+I and Esc come from the model scene, so no tool may bind either; a tool
-     * takes Esc through {@link EditTool#escapePressed} instead.
+     * takes Esc through {@link Tool#escapePressed} instead.
      */
     @Override
     public void setControls() {

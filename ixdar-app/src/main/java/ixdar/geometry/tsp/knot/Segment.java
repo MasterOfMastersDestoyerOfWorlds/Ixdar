@@ -8,14 +8,12 @@ import org.joml.Vector2f;
 
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.geometry.tsp.shell.DistanceMatrix;
-import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.sdf.SDFLine;
 import ixdar.gui.ui.actions.Action;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.scenes.main.MainScene;
 
-public class Segment extends SDFLine implements Comparable<Segment> {
+public class Segment implements Comparable<Segment> {
     public static final double HIT_TEST_WIDTH_RATIO = 0.2;
     public Knot first;
     public Knot last;
@@ -550,29 +548,6 @@ public class Segment extends SDFLine implements Comparable<Segment> {
     }
 
     /**
-     * Project the given knot's point-space coordinates through the cached
-     * camera into screen space.
-     *
-     * @param k1 endpoint knot
-     * @return screen-space {@code (x, y)} of {@code k1}
-     */
-    public Vector2f getScreenSpaceVector(Knot k1) {
-        Vector2f psV = getPointSpaceVector(k1);
-        return new Vector2f(camera.pointTransformX(psV.x), camera.pointTransformY(psV.y));
-    }
-
-    /**
-     * Apply the cached camera's point-to-screen transform to an arbitrary
-     * point-space vector.
-     *
-     * @param pointSpaceVector point-space vector to project
-     * @return screen-space vector
-     */
-    public Vector2f toScreenSpace(Vector2f pointSpaceVector) {
-        return new Vector2f(camera.pointTransformX(pointSpaceVector.x), camera.pointTransformY(pointSpaceVector.y));
-    }
-
-    /**
      * Read the point-space {@code (x, y)} of an endpoint, reaching into the
      * first flattened sub-knot when {@code k1} is a parent knot.
      *
@@ -587,47 +562,5 @@ public class Segment extends SDFLine implements Comparable<Segment> {
             p1 = (k1).p.toVector2d();
         }
         return new Vector2f(p1);
-    }
-
-    /**
-     * Configure the SDF line stroke parameters for this segment, lazily
-     * initializing the screen-space endpoints and quad on first call. The
-     * dash texture length is computed from the camera's projection of a single
-     * dash period so dashes stay screen-space consistent at any zoom.
-     *
-     * @param lineWidth stroke width in screen units
-     * @param dashed whether the line is dashed
-     * @param dashLength length of one dash period in point space
-     * @param dashRate dash duty cycle (drawn fraction of one period)
-     * @param roundCaps whether to use round line caps
-     * @param endCaps whether to draw line caps at the segment ends
-     * @param arrow whether to draw an arrowhead at the {@code last} endpoint
-     * @param camera2d camera used to project dashes and endpoints into screen space
-     */
-    @Override
-    public void setStroke(float lineWidth, boolean dashed, float dashLength, float dashRate, boolean roundCaps,
-            boolean endCaps, boolean arrow, Camera2D camera2d) {
-
-        if (uAxis == null) {
-            this.camera = camera2d;
-            super.setEndpoints(camera2d, getScreenSpaceVector(first), getScreenSpaceVector(last));
-            calculateQuad();
-        }
-        Vector2f uAxis = super.getUAxis();
-        Vector2f vAxis = super.getVAxis();
-        Vector2f basePoint = getPointSpaceVector(first);
-        Vector2f dirPoint = getPointSpaceVector(last).sub(basePoint);
-        Vector2f dashPoint = new Vector2f(dirPoint).normalize().mul(dashLength);
-
-        Vector2f baseScreen = toScreenSpace(basePoint);
-        Vector2f dashEndScreen = toScreenSpace(new Vector2f(basePoint).add(dashPoint));
-        Vector2f screenDir = dashEndScreen.sub(baseScreen);
-
-        float det = uAxis.x * vAxis.y - uAxis.y * vAxis.x;
-        float u = (screenDir.x * vAxis.y - screenDir.y * vAxis.x) / det;
-        float v = (uAxis.x * screenDir.y - uAxis.y * screenDir.x) / det;
-
-        float texLength = (float) Math.sqrt(u * u + v * v) * widthToHeightRatio;
-        super.setStroke(lineWidth, dashed, texLength, dashRate, roundCaps, endCaps, arrow);
     }
 }

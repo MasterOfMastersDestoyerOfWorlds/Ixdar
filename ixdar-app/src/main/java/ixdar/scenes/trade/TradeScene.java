@@ -12,10 +12,10 @@ import ixdar.geometry.tsp.points.PointSet;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.gui.ui.menu.MenuBox;
-import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
+import ixdar.platform.input.Keys;
 import ixdar.platform.input.PointerDispatcher;
-import ixdar.tools.knot.Tool;
+import ixdar.tools.ControlHint;
 import ixdar.tools.trade.HeadquartersPickerTool;
 import ixdar.tools.trade.RoutePlanningTool;
 
@@ -44,10 +44,9 @@ public class TradeScene extends Scene {
     public City hoveredCity = null;
     public int gold = 100;
 
-    // Tools
+    /** The default tool, active until the headquarters is placed. */
     public HeadquartersPickerTool hqPickerTool;
     public RoutePlanningTool routePlanningTool;
-    public Tool activeTradeTool;
 
     /** The cities' positions, which bound {@link #mapCamera}. */
     public PointSet cityPoints;
@@ -72,10 +71,13 @@ public class TradeScene extends Scene {
 
         mapCamera = new Camera2D(wWidth, wHeight - TOP_BAR_HEIGHT, CAMERA_ZOOM_DEFAULT, 0, 0, cityPoints);
 
-        // Create tools
-        hqPickerTool = new HeadquartersPickerTool(this, network);
-        routePlanningTool = new RoutePlanningTool(this, network);
-        activeTradeTool = hqPickerTool; // Start with HQ picker
+        hqPickerTool = new HeadquartersPickerTool(this);
+        routePlanningTool = new RoutePlanningTool(this);
+        tools.add(hqPickerTool);
+        tools.add(routePlanningTool);
+        defaultTool = hqPickerTool;
+        activeTool = hqPickerTool;
+        hqPickerTool.activate();
 
         // Create input handlers
         keys = new TradeKeyGuy(this, mapCamera);
@@ -114,10 +116,28 @@ public class TradeScene extends Scene {
     }
 
     /**
-     * The game's keys are its key handler's own, not control hints.
+     * The game's own keys after the tool's: Esc, which the tool may take first, else back to the
+     * menu. The game has no terminal, so no {@code ~} row.
      */
     @Override
     public void setControls() {
+        controls.add(new ControlHint(Keys.ESCAPE, "esc", (activeTool.escapeDescription().isEmpty() ? ""
+                : activeTool.escapeDescription() + ", else ") + "back to the menu", () -> {
+                    if (!activeTool.escapePressed()) {
+                        returnToMenu();
+                    }
+                }));
+    }
+
+    /**
+     * Frame the map: the map camera's reset.
+     *
+     * @return true
+     */
+    @Override
+    public boolean frameAll() {
+        mapCamera.reset();
+        return true;
     }
 
     /**
@@ -139,10 +159,7 @@ public class TradeScene extends Scene {
             // Draw scene - network draws cities and roads
             network.draw(mapCamera, hoveredCity);
 
-            // Draw active tool overlay
-            if (activeTradeTool != null) {
-                activeTradeTool.draw(mapCamera, DRAW_LINE_WIDTH);
-            }
+            activeTool.drawOverlay(mapCamera, DRAW_LINE_WIDTH);
 
             drawTopBar(wWidth, wHeight);
 
@@ -179,30 +196,6 @@ public class TradeScene extends Scene {
     }
 
     /**
-     * Handle city click - delegates to the active tool.
-     *
-     * @param city the city that was clicked
-     */
-    public void onCityClick(City city) {
-        if (activeTradeTool instanceof HeadquartersPickerTool) {
-            System.out.println("[TradeScene] Forwarding to HeadquartersPickerTool");
-            ((HeadquartersPickerTool) activeTradeTool).onCityClick(city);
-        } else if (activeTradeTool instanceof RoutePlanningTool) {
-            System.out.println("[TradeScene] Forwarding to RoutePlanningTool");
-            ((RoutePlanningTool) activeTradeTool).onCityClick(city);
-        }
-    }
-
-    /**
-     * Activate the route planning tool (called after HQ is placed).
-     */
-    public void activateRoutePlanningTool() {
-        activeTradeTool = routePlanningTool;
-        routePlanningTool.reset();
-        System.out.println("Route planning tool activated");
-    }
-
-    /**
      * Get the headquarters city.
      *
      * @return the headquarters city, or null if not set
@@ -212,48 +205,18 @@ public class TradeScene extends Scene {
     }
 
     /**
-     * Update the currently hovered city and tooltip.
+     * Update the hovered city, which the tools read, and its tooltip.
      *
      * @param city the city being hovered, or null if none
      */
     public void updateHoveredCity(City city) {
         if (city != hoveredCity) {
             hoveredCity = city;
-
-            // Update tool hover state
-            if (activeTradeTool instanceof HeadquartersPickerTool) {
-                ((HeadquartersPickerTool) activeTradeTool).updateHoveredCity(city);
-            } else if (activeTradeTool instanceof RoutePlanningTool) {
-                ((RoutePlanningTool) activeTradeTool).updateHoveredCity(city);
-            }
-
-            // Update tooltip
             if (hoveredCity != null) {
                 setTooltipText(hoveredCity.buildTooltip(network.headquartersCity));
             } else {
                 clearTooltipText();
             }
-        }
-    }
-
-    /**
-     * Update hovered toolbar state and tooltip for RoutePlanningTool.
-     *
-     * @param mouseX screen-space mouse x
-     * @param mouseY screen-space mouse y
-     */
-    public void updateHoveredToolbar(float mouseX, float mouseY) {
-        if (!(activeTradeTool instanceof RoutePlanningTool)) {
-            return;
-        }
-
-        RoutePlanningTool routeTool = (RoutePlanningTool) activeTradeTool;
-        routeTool.updateHoveredButton(mouseX, mouseY);
-        HyperString toolbarTip = routeTool.buildHoveredToolbarTooltip();
-        if (toolbarTip != null) {
-            setTooltipText(toolbarTip);
-        } else if (hoveredCity == null) {
-            clearTooltipText();
         }
     }
 

@@ -26,7 +26,7 @@ import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.PointerRegion;
 import ixdar.scenes.Scene;
 import ixdar.tools.ControlHint;
-import ixdar.tools.EditTool;
+import ixdar.tools.Tool;
 
 /**
  * Through the {@link PointerDispatcher}, a region claiming the pointer gets the whole press; else
@@ -246,7 +246,7 @@ class PointerRegionPressTest {
      * The scene's active tool, taking the presses it is offered while {@link #taking} holds, and
      * recording every pointer callback it gets.
      */
-    private static final class RecordingTool implements EditTool {
+    private static final class RecordingTool implements Tool {
 
         public final List<String> events = new ArrayList<>();
 

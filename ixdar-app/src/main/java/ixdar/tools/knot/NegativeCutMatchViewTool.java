@@ -3,6 +3,7 @@ package ixdar.tools.knot;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.knot.Segment;
 import ixdar.graphics.cameras.Camera2D;
@@ -17,7 +18,9 @@ import ixdar.scenes.main.MainScene;
  * cut/match swap would shorten the total length, letting the user inspect the
  * negative-cost matches available at any segment.
  */
-public class NegativeCutMatchViewTool extends Tool {
+@ToolAnnotation(id = NegativeCutMatchViewTool.TOOL_NAME, host = MainScene.class)
+public class NegativeCutMatchViewTool extends KnotTool {
+    public static final String TOOL_NAME = "negativecutmatchview";
     public static ArrayList<Color> colors;
 
     public HashMap<Long, ArrayList<Segment>> negativeSegmentMap;
@@ -27,8 +30,11 @@ public class NegativeCutMatchViewTool extends Tool {
     /**
      * Build the tool: disallow rendering toggles that would clutter the
      * overlay and seed the {@code colors} palette (blue, red).
+     *
+     * @param editor the editor the tool works on
      */
-    public NegativeCutMatchViewTool() {
+    public NegativeCutMatchViewTool(MainScene editor) {
+        super(editor);
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.DrawKnotGradient,
                 Toggle.DrawMetroDiagram, Toggle.DrawDisplayedKnots };
         colors = new ArrayList<>();
@@ -41,9 +47,14 @@ public class NegativeCutMatchViewTool extends Tool {
      * current draw layer.
      */
     @Override
-    public void reset() {
-        super.reset();
+    public void activate() {
+        super.activate();
         initSegmentMap();
+    }
+
+    /** Nothing to confirm: the tool only shows the negative matches. */
+    @Override
+    public void confirm() {
     }
 
     /**
@@ -55,8 +66,7 @@ public class NegativeCutMatchViewTool extends Tool {
      * @param minLineThickness base line thickness in pixels
      */
     @Override
-    public void draw(Camera2D camera, float minLineThickness) {
-        MainScene editor = MainScene.current();
+    public void drawOverlay(Camera2D camera, float minLineThickness) {
         if (layerCalculated != editor.knotDrawLayer) {
             initSegmentMap();
             return;
@@ -92,8 +102,8 @@ public class NegativeCutMatchViewTool extends Tool {
      * record per-direction color indices accordingly.
      */
     public void initSegmentMap() {
-        MainScene editor = MainScene.current();
         layerCalculated = editor.knotDrawLayer;
+        infoText = null;
         ArrayList<Knot> knotsDisplayed = editor.knotsDisplayed;
         negativeSegmentMap = new HashMap<>();
         colorLookup = new HashMap<>();
@@ -199,8 +209,8 @@ public class NegativeCutMatchViewTool extends Tool {
      * @return the full terminal name {@code "negativecutmatchview"}
      */
     @Override
-    public String fullName() {
-        return "negativecutmatchview";
+    public String toolName() {
+        return TOOL_NAME;
     }
 
     /**

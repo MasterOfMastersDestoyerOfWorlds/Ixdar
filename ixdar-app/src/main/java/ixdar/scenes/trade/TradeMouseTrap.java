@@ -11,7 +11,6 @@ import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.MouseButtons;
 import ixdar.platform.input.MouseTrap;
-import ixdar.tools.trade.RoutePlanningTool;
 
 /**
  * Mouse input handler for the trade game scene. Extends MouseTrap but replaces
@@ -139,32 +138,12 @@ public class TradeMouseTrap extends MouseTrap {
         if (!active)
             return;
 
-        if (tradeScene.activeTradeTool instanceof RoutePlanningTool) {
-            RoutePlanningTool routeTool = (RoutePlanningTool) tradeScene.activeTradeTool;
-            if (routeTool.onToolbarClick(x, y)) {
-                recordAbstractAction(TRADE_CITY_CLICK,
-                        BUTTON, button,
-                        XPX, x,
-                        YPX, y,
-                        TOOL, tradeScene.activeTradeTool.displayName(),
-                        CITY, "",
-                        "target", "toolbar");
-                return;
-            }
-        }
-
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
 
-        // Convert to world coordinates and check for city click
         float worldX = tradeScene.mapCamera.screenTransformX(normalizedPosX);
         float worldY = tradeScene.mapCamera.screenTransformY(normalizedPosY);
-
-        System.out
-                .println("[TradeMouseTrap] Click at screen(" + x + "," + y + ") world(" + worldX + "," + worldY + ")");
-
         City clickedCity = tradeScene.getCityAt(worldX, worldY);
-        System.out.println("[TradeMouseTrap] clickedCity: " + (clickedCity != null ? clickedCity.name : "null"));
         recordAbstractAction(TRADE_CITY_CLICK,
                 BUTTON, button,
                 XPX, x,
@@ -173,12 +152,9 @@ public class TradeMouseTrap extends MouseTrap {
                 "yCoord", normalizedPosY,
                 "xNorm", x / Math.max(MIN_WINDOW_DIMENSION, Platforms.get().getWindowWidth()),
                 "yNorm", y / Math.max(MIN_WINDOW_DIMENSION, Platforms.get().getWindowHeight()),
-                TOOL, tradeScene.activeTradeTool.displayName(),
+                TOOL, tradeScene.activeTool.displayName(),
                 CITY, clickedCity == null ? "" : clickedCity.name);
-
-        if (clickedCity != null) {
-            tradeScene.onCityClick(clickedCity);
-        }
+        tradeScene.activeTool.onClick(normalizedPosX, normalizedPosY);
     }
 
     /**
@@ -256,7 +232,7 @@ public class TradeMouseTrap extends MouseTrap {
 
         City newHover = tradeScene.getCityAt(worldX, worldY);
         tradeScene.updateHoveredCity(newHover);
-        tradeScene.updateHoveredToolbar(lastX, lastY);
+        tradeScene.activeTool.onHover(camera.getNormalizePosX(lastX), camera.getNormalizePosY(lastY));
     }
 
     /**

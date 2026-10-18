@@ -1,9 +1,14 @@
 package ixdar.gui.ui;
 
+import java.util.List;
+
 import ixdar.graphics.cameras.Camera2D;
+import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.text.HyperString;
+import ixdar.platform.Clock;
 import ixdar.platform.input.PointerRegion;
-import ixdar.tools.knot.Tool;
+import ixdar.tools.ControlHint;
+import ixdar.tools.Tool;
 
 public class InfoPane implements PointerRegion {
 
@@ -15,6 +20,9 @@ public class InfoPane implements PointerRegion {
 
     private HyperString cachedInfo;
 
+    /** The controls listing as last drawn, the pane's last block, whose last row bounds the scroll. */
+    private HyperString controlsText;
+
     /**
      * Build an empty info pane whose bottom edge sits {@code bottomEdgeY} pixels above the window's.
      *
@@ -25,25 +33,37 @@ public class InfoPane implements PointerRegion {
     }
 
     /**
-     * Render the info pane: the active tool's general info followed by
-     * its dynamic info block, both stacked from the top with the current
-     * scroll offset applied.
+     * Render the info pane stacked from the top with the scroll offset applied: the frame rate and
+     * the active tool's name, the tool's {@link Tool#info}, then the scene's controls listing.
      *
-     * @param camera 2D camera providing the pane's view bounds
-     * @param tool   the active tool, whose info is shown
+     * @param camera   2D camera providing the pane's view bounds
+     * @param tool     the active tool, whose info is shown
+     * @param controls the scene's controls, one row per key
      */
-    public void draw(Camera2D camera, Tool tool) {
+    public void draw(Camera2D camera, Tool tool, List<ControlHint> controls) {
         int row = 0;
         float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
-        HyperString toolGeneralInfo = tool.toolGeneralInfo();
+        HyperString toolGeneralInfo = new HyperString();
+        toolGeneralInfo.addWord("FPS:" + Clock.fps());
+        toolGeneralInfo.newLine();
+        toolGeneralInfo.addWord("Tool: " + tool.displayName());
+        toolGeneralInfo.wrap();
         Drawing.getDrawing().font.drawHyperStringRows(toolGeneralInfo, row, scrollOffsetY, rowHeight, camera);
         row += toolGeneralInfo.getLines();
 
         cachedInfo = tool.info();
-
         Drawing.getDrawing().font.drawHyperStringRows(cachedInfo, row, scrollOffsetY, rowHeight, camera);
         row += cachedInfo.getLines();
 
+        controlsText = new HyperString();
+        controlsText.newLine();
+        controlsText.addLine("Controls:", Color.IXDAR);
+        for (ControlHint hint : controls) {
+            controlsText.addWord(hint.key, Color.BLUE_GREY);
+            controlsText.addLine(hint.description, Color.WHITE);
+        }
+        controlsText.wrap();
+        Drawing.getDrawing().font.drawHyperStringRows(controlsText, row, scrollOffsetY, rowHeight, camera);
     }
 
     /**
@@ -57,7 +77,7 @@ public class InfoPane implements PointerRegion {
      */
     @Override
     public void onScroll(boolean scrollUp, double deltaSeconds) {
-        float menuBottom = cachedInfo != null ? cachedInfo.getLastWord().yScreenOffset : 0;
+        float menuBottom = controlsText != null ? controlsText.getLastWord().yScreenOffset : 0;
         if (scrollUp) {
             scrollOffsetY -= SCROLL_SPEED * deltaSeconds;
             if (scrollOffsetY < 0) {

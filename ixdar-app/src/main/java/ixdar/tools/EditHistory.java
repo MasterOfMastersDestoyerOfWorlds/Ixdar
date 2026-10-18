@@ -6,9 +6,9 @@ import java.util.List;
 /**
  * An undo/redo stack of whole-state snapshots: each edit is the state before it and the state
  * after it, so undoing restores the one and redoing the other. A push after an undo drops the
- * redo tail.
+ * redo tail. An edit record that undoes and redoes itself is pushed as both states.
  *
- * @param <S> the snapshot type, which the stack never looks inside
+ * @param <S> the snapshot or record type, which the stack never looks inside
  */
 public final class EditHistory<S> {
 

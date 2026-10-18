@@ -13,7 +13,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.gui.ui.menu.MenuBox;
+import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
+import ixdar.scenes.menu.MenuScene;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
@@ -40,6 +43,10 @@ class OrbitCameraKeyGuyTerminalFocusTest {
 
     private boolean terminalFocusBefore;
 
+    private boolean menuVisibleBefore;
+
+    private Scene canvasBefore;
+
     private OrbitCameraKeyGuy keyGuy;
 
     /**
@@ -49,7 +56,10 @@ class OrbitCameraKeyGuyTerminalFocusTest {
     @BeforeEach
     void bindSceneControls() {
         terminalFocusBefore = Toggle.IsTerminalFocused.value;
-        List<ControlHint> controls = new ArrayList<>();
+        menuVisibleBefore = MenuBox.menuVisible;
+        canvasBefore = Scene.instance;
+        Scene canvas = new MenuScene();
+        List<ControlHint> controls = canvas.controls;
         controls.add(new ControlHint(Keys.GRAVE, "~", TOGGLE_TERMINAL, () -> {
             fired.add(TOGGLE_TERMINAL);
             Toggle.IsTerminalFocused.value = !Toggle.IsTerminalFocused.value;
@@ -60,16 +70,19 @@ class OrbitCameraKeyGuyTerminalFocusTest {
                     () -> fired.add(label)));
         }
         OrbitMouseTrap orbit = new OrbitMouseTrap(new Camera3D(new Vector3f(), 0f, 0f, null), null);
-        keyGuy = new OrbitCameraKeyGuy(orbit, null, null, controls);
+        keyGuy = new OrbitCameraKeyGuy(orbit, null, canvas);
         keyGuy.controlRResetsTarget = false;
     }
 
     /**
-     * Put the global terminal-focus toggle back the way the suite had it.
+     * Put the global terminal-focus toggle, the menu flag and the current scene back the way the
+     * suite had them.
      */
     @AfterEach
     void restoreTerminalFocus() {
         Toggle.IsTerminalFocused.value = terminalFocusBefore;
+        MenuBox.menuVisible = menuVisibleBefore;
+        Scene.instance = canvasBefore;
     }
 
     @Test

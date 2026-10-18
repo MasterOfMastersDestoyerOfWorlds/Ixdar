@@ -36,7 +36,7 @@ import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.Scene;
 import ixdar.tools.ControlHint;
-import ixdar.tools.EditTool;
+import ixdar.tools.Tool;
 import ixdar.tools.graph.DslGraphView;
 import ixdar.tools.orbit.OrbitTool;
 
@@ -171,7 +171,7 @@ public abstract class ModelScene extends Scene {
      */
     public void initInput() {
         orbitMouse = new OrbitMouseTrap(camera, this);
-        keyGuy = new OrbitCameraKeyGuy(orbitMouse, camera, this, controls);
+        keyGuy = new OrbitCameraKeyGuy(orbitMouse, camera, this);
         keys = keyGuy;
         mouse = orbitMouse;
         orbitMouse.setTarget(meshCenter);
@@ -234,7 +234,7 @@ public abstract class ModelScene extends Scene {
      * hosted tool. Scenes with more call {@code super.updateScene()} first.
      */
     public void updateScene() {
-        for (EditTool tool : tools) {
+        for (Tool tool : tools) {
             tool.perFrame();
         }
     }

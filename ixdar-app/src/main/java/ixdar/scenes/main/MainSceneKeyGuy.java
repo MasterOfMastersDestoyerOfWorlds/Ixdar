@@ -1,31 +1,13 @@
 package ixdar.scenes.main;
 
 import ixdar.graphics.cameras.Camera;
-import ixdar.gui.terminal.Terminal;
-import ixdar.gui.terminal.commands.ChangeToolCommand;
-import ixdar.gui.terminal.commands.ColorCommand;
-import ixdar.gui.terminal.commands.ExitCommand;
-import ixdar.gui.terminal.commands.ResetCommand;
-import ixdar.gui.terminal.commands.ResetCommand.ResetOption;
-import ixdar.gui.terminal.commands.UpdateCommand;
-import ixdar.platform.input.KeyActions;
 import ixdar.platform.input.KeyGuy;
-import ixdar.tools.knot.NegativeCutMatchViewTool;
-import ixdar.tools.knot.NeighborViewTool;
-import ixdar.tools.knot.Tool;
 
 /**
- * The tour editor's key handler: the tool-switch chords, the view toggles that act on
- * {@link MainScene#tool}, Escape stepping the tool back, and left/right cycling the tool.
+ * The tour editor's key handler: a first press fires the editor's control rows, the active tool's
+ * and the tool switches, a plain key staying silent while Control is held.
  */
 public class MainSceneKeyGuy extends KeyGuy {
-
-    public static final long REPRESS_MILLIS = 360;
-
-    public long lastCyclePressTime;
-
-    /** The editor whose tool and knot layers the keys act on. */
-    public MainScene editor;
 
     /**
      * Bind the tour editor's shortcuts to its 2D camera.
@@ -35,98 +17,29 @@ public class MainSceneKeyGuy extends KeyGuy {
      */
     public MainSceneKeyGuy(MainScene editor, Camera camera) {
         super(camera, editor);
-        this.editor = editor;
+        controlSilencesPlainKeys = true;
     }
 
     /**
-     * On a first press, fire the tool-switch chords with Control held, or the view toggles while
-     * the active tool lets the main pane take keys; Escape, repeats included, steps the tool back.
+     * Fire the control row bound to a first press; a repeat fires nothing here, the held cycle
+     * keys repeat on their own interval.
      *
+     * @param key        pressed key code
+     * @param mods       modifier-key bitmask
      * @param firstPress whether the key was up before this event, {@code false} on a repeat
      */
     @Override
-    public void sceneKeyPressed(boolean firstPress) {
+    public void sceneKeyPressed(int key, int mods, boolean firstPress) {
         if (firstPress) {
-            if (controlMask) {
-                if (KeyActions.NegativeCutMatchViewTool.keyPressed(pressedKeys)) {
-                    ChangeToolCommand.run(NegativeCutMatchViewTool.class);
-                }
-                if (KeyActions.NeighborViewTool.keyPressed(pressedKeys)) {
-                    ChangeToolCommand.run(NeighborViewTool.class);
-                }
-            } else {
-                Tool tool = editor.tool;
-                if (tool != null && tool.canUseToggle(Toggle.IsMainFocused)) {
-                    if (KeyActions.ColorRandomization.keyPressed(pressedKeys)) {
-                        Terminal.runNoArgs(ColorCommand.class);
-                    }
-                    if (KeyActions.DrawCutMatch.keyPressed(pressedKeys)) {
-                        Toggle.DrawCutMatch.toggle();
-                    }
-                    if (KeyActions.DrawKnotGradient.keyPressed(pressedKeys)) {
-                        Toggle.DrawKnotGradient.toggle();
-                    }
-                    if (KeyActions.DrawMetroDiagram.keyPressed(pressedKeys)) {
-                        editor.setDrawLevelMetro();
-                    }
-                    if (KeyActions.IncreaseKnotLayer.keyPressed(pressedKeys)) {
-                        tool.increaseViewLayer();
-                    }
-                    if (KeyActions.DecreaseKnotLayer.keyPressed(pressedKeys)) {
-                        tool.decreaseViewLayer();
-                    }
-                    if (KeyActions.DrawOriginal.keyPressed(pressedKeys)) {
-                        Toggle.DrawMainPath.toggle();
-                    }
-                    if (KeyActions.DrawGridLines.keyPressed(pressedKeys)) {
-                        Toggle.DrawGridLines.toggle();
-                    }
-                    if (KeyActions.UpdateFile.keyPressed(pressedKeys)) {
-                        Terminal.runNoArgs(UpdateCommand.class);
-                    }
-                    if (KeyActions.Confirm.keyPressed(pressedKeys)) {
-                        editor.tool.confirm();
-                    }
-                    if (KeyActions.Reset.keyPressed(pressedKeys)) {
-                        ResetCommand.run(ResetOption.Camera);
-                    }
-                }
-            }
-        }
-        if (KeyActions.Back.keyPressed(pressedKeys)) {
-            Terminal.runNoArgs(ExitCommand.class);
+            handleSceneKeys(key, mods);
         }
     }
 
     /**
-     * The editor binds nothing on release: Escape and R act on the press, through the terminal
-     * commands, so the shared menu-back and camera-reset releases stay off.
+     * The editor binds nothing on release: Escape and R act on the press, so the shared
+     * menu-back and camera-reset releases stay off.
      */
     @Override
     public void sceneKeyReleased() {
-    }
-
-    /**
-     * Per-frame: the shared camera movement, then cycle the active tool on left/right, at most
-     * once per {@link #REPRESS_MILLIS} scaled down by the speed multiplier.
-     *
-     * @param shiftMod speed multiplier (typically 1 or 2)
-     */
-    @Override
-    public void paintUpdate(float shiftMod) {
-        super.paintUpdate(shiftMod);
-        if (!active || Toggle.IsTerminalFocused.value) {
-            return;
-        }
-        long timeSinceLastPress = System.currentTimeMillis() - lastCyclePressTime;
-        if (!pressedKeys.isEmpty() && timeSinceLastPress > REPRESS_MILLIS / shiftMod) {
-            lastCyclePressTime = System.currentTimeMillis();
-            if (KeyActions.CycleToolLeft.keyPressed(pressedKeys)) {
-                editor.tool.cycleLeft();
-            }
-            if (KeyActions.CycleToolRight.keyPressed(pressedKeys)) {
-                editor.tool.cycleRight();
-            }
-        }
     }
 }

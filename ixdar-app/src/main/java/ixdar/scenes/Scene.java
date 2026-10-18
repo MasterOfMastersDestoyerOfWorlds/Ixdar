@@ -37,7 +37,7 @@ import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.scenes.main.Toggle;
 import ixdar.tools.ControlHint;
-import ixdar.tools.EditTool;
+import ixdar.tools.Tool;
 
 /**
  * Base of every launchable view: the GL frame loop, input handlers, cameras, hosted tools, tooltip
@@ -106,19 +106,19 @@ public abstract class Scene extends SceneDrawable {
     public final ArrayList<ControlHint> controls = new ArrayList<>();
 
     /** Every tool the scene hosts, each run once per frame whether active or not; empty for none. */
-    public final ArrayList<EditTool> tools = new ArrayList<>();
+    public final ArrayList<Tool> tools = new ArrayList<>();
 
     /** The key hints that switch tools, as registered, each paired with {@link #switchedTools}. */
     public final ArrayList<ControlHint> toolSwitchHints = new ArrayList<>();
 
     /** The tool each of {@link #toolSwitchHints} switches to. */
-    public final ArrayList<EditTool> switchedTools = new ArrayList<>();
+    public final ArrayList<Tool> switchedTools = new ArrayList<>();
 
     /** The tool that owns clicks, drags and tool keys now, or {@code null} in a scene with none. */
-    public EditTool activeTool;
+    public Tool activeTool;
 
     /** The tool Esc returns to when the active tool leaves the key alone. */
-    public EditTool defaultTool;
+    public Tool defaultTool;
 
     /**
      * In-scene terminal opened with {@code ~}; {@code null} for scenes with no
@@ -497,7 +497,7 @@ public abstract class Scene extends SceneDrawable {
      * @param tool       the tool, run every frame from now on
      * @param switchHint the key and purpose; the hint shows the tool's name and whether it is active
      */
-    public void addToolSwitch(EditTool tool, ControlHint switchHint) {
+    public void addToolSwitch(Tool tool, ControlHint switchHint) {
         tools.add(tool);
         toolSwitchHints.add(switchHint);
         switchedTools.add(tool);
@@ -509,7 +509,7 @@ public abstract class Scene extends SceneDrawable {
      *
      * @param tool the tool to switch to
      */
-    public void switchTool(EditTool tool) {
+    public void switchTool(Tool tool) {
         if (tool == activeTool) {
             return;
         }
@@ -523,16 +523,19 @@ public abstract class Scene extends SceneDrawable {
     /**
      * Rebuild {@link #controls}: the tool switches, the active tool's hints, F for
      * {@link #frameAll} unless the tool binds F itself, then the scene's own from
-     * {@link #setControls}, left out by a tool that {@link EditTool#replacesView replaces the view}.
+     * {@link #setControls}, left out by a tool that {@link Tool#replacesView replaces the view}.
      */
     public void refreshControls() {
         controls.clear();
         for (int switchIndex = 0; switchIndex < toolSwitchHints.size(); switchIndex++) {
             ControlHint hint = toolSwitchHints.get(switchIndex);
-            EditTool tool = switchedTools.get(switchIndex);
+            Tool tool = switchedTools.get(switchIndex);
+            StringBuilder description = new StringBuilder(tool.toolName()).append(": ").append(hint.description);
+            if (tool == activeTool) {
+                description.append(ACTIVE_MARK);
+            }
             controls.add(new ControlHint(hint.keyCode, hint.controlHeld, hint.shiftHeld, hint.key,
-                    tool.toolName() + ": " + hint.description + (tool == activeTool ? ACTIVE_MARK : ""),
-                    hint.action));
+                    description.toString(), hint.action));
         }
         if (activeTool != null) {
             activeTool.addControls(controls);
@@ -551,7 +554,7 @@ public abstract class Scene extends SceneDrawable {
 
     /**
      * Frame everything the active tool shows, the same gesture in every tool, through
-     * {@link EditTool#frameAll}; a scene with a view of its own frames that when the tool does not.
+     * {@link Tool#frameAll}; a scene with a view of its own frames that when the tool does not.
      *
      * @return whether the active tool framed its own view
      */
@@ -584,7 +587,7 @@ public abstract class Scene extends SceneDrawable {
      * @param tool the tool
      * @return the label
      */
-    public String toolLabel(EditTool tool) {
+    public String toolLabel(Tool tool) {
         return tool.toolName() + (tool == activeTool ? ACTIVE_MARK : "");
     }
 

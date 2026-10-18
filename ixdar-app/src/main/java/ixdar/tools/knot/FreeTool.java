@@ -2,6 +2,7 @@ package ixdar.tools.knot;
 
 import java.util.ArrayList;
 
+import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.graphics.cameras.Camera2D;
@@ -9,14 +10,26 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.ColorText;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.text.HyperString;
-import ixdar.scenes.main.Toggle;
 import ixdar.scenes.main.MainScene;
+import ixdar.scenes.main.Toggle;
 
-public class FreeTool extends Tool {
+@ToolAnnotation(id = FreeTool.TOOL_NAME, host = MainScene.class)
+public class FreeTool extends KnotTool {
+    public static final String TOOL_NAME = "free";
     public static final String NONE_2 = "None";
 
+    /**
+     * Build the editor's default tool.
+     *
+     * @param editor the editor the tool works on
+     */
+    public FreeTool(MainScene editor) {
+        super(editor);
+        cycleKeysStep = "the shown point around its knot";
+    }
+
     @Override
-    public void draw(Camera2D camera, float minLineThickness) {
+    public void drawOverlay(Camera2D camera, float minLineThickness) {
         if (displayKP != null) {
             Drawing.drawCircle(displayKP, Color.GREY_DARK, camera, minLineThickness);
         }
@@ -24,11 +37,11 @@ public class FreeTool extends Tool {
 
     @Override
     public void cycleLeft() {
-        ArrayList<Knot> knotsDisplayed = MainScene.current().knotsDisplayed;
-        for (Knot k : knotsDisplayed) {
+        for (Knot k : editor.knotsDisplayed) {
             if (k.contains(displayKP)) {
                 selectedKP = k.getNextClockWise(displayKP);
                 displayKP = selectedKP;
+                infoText = null;
                 return;
             }
         }
@@ -36,11 +49,11 @@ public class FreeTool extends Tool {
 
     @Override
     public void cycleRight() {
-        ArrayList<Knot> knotsDisplayed = MainScene.current().knotsDisplayed;
-        for (Knot k : knotsDisplayed) {
+        for (Knot k : editor.knotsDisplayed) {
             if (k.contains(displayKP)) {
                 selectedKP = k.getNextCounterClockWise(displayKP);
                 displayKP = selectedKP;
+                infoText = null;
                 return;
             }
         }
@@ -57,10 +70,10 @@ public class FreeTool extends Tool {
         h.addWord("Point: ");
         pointInfo.addDynamicWord(() -> {
             final ColorText NONE = new ColorText(NONE_2);
-            if (MainScene.current().tool.displayKP == null) {
+            if (displayKP == null) {
                 return NONE;
             }
-            return new ColorText(((MainScene.current().tool.displayKP).p).toString());
+            return new ColorText(((displayKP).p).toString());
         });
         h.addDynamicTooltip(() -> {
             final ColorText NONE = new ColorText(NONE_2);
@@ -70,16 +83,9 @@ public class FreeTool extends Tool {
             return new ColorText(displayKP.id + "");
         }, Color.BLUE_GREY, pointInfo, () -> {
             if (displayKP != null) {
-                MainScene.current().editorCamera.centerOnPoint(MainScene.current().tool.displayKP.p);
+                editor.editorCamera.centerOnPoint(displayKP.p);
             }
         });
-        // h.newLine();
-        // h.addWord("Position:");
-        // if (displayKP == null) {
-        // h.addWord(Main.grid.toCoordString());
-        // } else {
-        // h.addWord(coordPoint.toCoordString());
-        // }
 
         h.newLine();
         h.addWord("Neighbors:");
@@ -102,16 +108,10 @@ public class FreeTool extends Tool {
 
         h.newLine();
         h.addWord("MinKnot: ");
-        Knot containingKnot = null;
-        for (Knot k : MainScene.current().knotsDisplayed) {
-            if (k.contains(displayKP)) {
-                containingKnot = k;
-            }
-        }
+        Knot containingKnot = selectedKnot();
         if (containingKnot == null) {
             h.addWord(NONE_2);
         } else {
-            MainScene editor = MainScene.current();
             Color c = editor.stickyColor;
             if (canUseToggle(Toggle.DrawKnotGradient)) {
                 c = editor.getKnotGradientColor(displayKP);
@@ -130,13 +130,15 @@ public class FreeTool extends Tool {
                 minKnotInfo.addDistance(containingKnot.s2.distance, c);
             }
             minKnotInfo.addLine("FlatID: " + containingKnot.id, c);
-            h.addTooltip(containingKnot.beforeString(displayKP.id), c, minKnotInfo, () -> MainScene.current().editorCamera.zoomToKnot(reeK));
-            h.addTooltip(pointStr, Color.BLUE_GREY, pointInfo, () -> MainScene.current().editorCamera.centerOnPoint(coordPointF));
-            h.addTooltip(containingKnot.afterString(displayKP.id), c, minKnotInfo, () -> MainScene.current().editorCamera.zoomToKnot(reeK));
+            h.addTooltip(containingKnot.beforeString(displayKP.id), c, minKnotInfo,
+                    () -> editor.editorCamera.zoomToKnot(reeK));
+            h.addTooltip(pointStr, Color.BLUE_GREY, pointInfo, () -> editor.editorCamera.centerOnPoint(coordPointF));
+            h.addTooltip(containingKnot.afterString(displayKP.id), c, minKnotInfo,
+                    () -> editor.editorCamera.zoomToKnot(reeK));
 
         }
         h.newLine();
-        ArrayList<Knot> resultKnots = MainScene.current().resultKnots;
+        ArrayList<Knot> resultKnots = editor.resultKnots;
         if (resultKnots != null && resultKnots.size() > 0) {
             h.addWord("TopKnot:");
             for (Knot topStruct : resultKnots) {
@@ -151,10 +153,14 @@ public class FreeTool extends Tool {
         return h;
     }
 
-    @Override
+    /**
+     * The displayed knot holding the shown point, which the camera reset zooms to.
+     *
+     * @return the last displayed knot containing {@link #displayKP}, or null
+     */
     public Knot selectedKnot() {
         Knot containingKnot = null;
-        for (Knot k : MainScene.current().knotsDisplayed) {
+        for (Knot k : editor.knotsDisplayed) {
             if (k.contains(displayKP)) {
                 containingKnot = k;
             }
@@ -163,18 +169,13 @@ public class FreeTool extends Tool {
     }
 
     @Override
-    public Type toolType() {
-        return Type.Free;
+    public String toolName() {
+        return TOOL_NAME;
     }
 
     @Override
     public String displayName() {
         return "Free";
-    }
-
-    @Override
-    public String fullName() {
-        return "free";
     }
 
     @Override
@@ -185,5 +186,5 @@ public class FreeTool extends Tool {
     @Override
     public String desc() {
         return "The default tool. Gives the most information about knot structure and connections";
-    };;
+    }
 }

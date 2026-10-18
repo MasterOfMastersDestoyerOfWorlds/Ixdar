@@ -10,7 +10,6 @@ import ixdar.annotations.command.OptionList;
 import ixdar.annotations.geometry.Geometry;
 import ixdar.annotations.geometry.GeometryAnnotation;
 import ixdar.gui.terminal.TerminalParseException;
-import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.geometry.tsp.input.PointCollection;
 
 /**
@@ -24,7 +23,7 @@ import ixdar.geometry.tsp.input.PointCollection;
  * @author Andrew Wollack
  *
  */
-public abstract class PointND extends SDFCircle implements Geometry, PointCollection, Cloneable {
+public abstract class PointND implements Geometry, PointCollection, Cloneable {
     public static final String PT = "pt";
     public static final String POINT = "point";
     public static final String COORD_FORMAT = "%.4f";

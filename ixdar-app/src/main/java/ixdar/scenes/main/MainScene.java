@@ -39,9 +39,17 @@ import ixdar.platform.Platforms;
 import ixdar.platform.file.FileManagement;
 import ixdar.geometry.tsp.PointSetPath;
 import ixdar.platform.file.TextFile;
+import ixdar.gui.terminal.commands.ColorCommand;
+import ixdar.gui.terminal.commands.ResetCommand;
+import ixdar.gui.terminal.commands.ResetCommand.ResetOption;
+import ixdar.gui.terminal.commands.UpdateCommand;
+import ixdar.platform.input.Keys;
 import ixdar.platform.input.PointerDispatcher;
+import ixdar.tools.ControlHint;
 import ixdar.tools.knot.FreeTool;
-import ixdar.tools.knot.Tool;
+import ixdar.tools.knot.MapEditorTool;
+import ixdar.tools.knot.NegativeCutMatchViewTool;
+import ixdar.tools.knot.NeighborViewTool;
 
 /**
  * The 2D TSP editor: a tour file's points, the knots solved from them, the active knot tool, the
@@ -76,8 +84,15 @@ public class MainScene extends Scene {
     /** The camera over the tour's points, framing the main view left of and above the panels. */
     public Camera2D editorCamera;
 
-    public FreeTool freeTool = new FreeTool();
-    public Tool tool = null;
+    /** The default tool, which Esc returns to and the camera reset reads the selected knot from. */
+    public FreeTool freeTool;
+    public MapEditorTool mapEditorTool;
+    public NegativeCutMatchViewTool negativeCutMatchViewTool;
+    public NeighborViewTool neighborViewTool;
+
+    /** Where the main view sat in the window when last drawn, which the knot tools' hit tests subtract. */
+    public float mainViewOffsetX;
+    public float mainViewOffsetY;
 
     /** The working copy of the tour that the knots are solved on. */
     public Shell tourShell;
@@ -148,14 +163,27 @@ public class MainScene extends Scene {
         editorCamera = new Camera2D(wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, CAMERA_ZOOM_DEFAULT, 0,
                 BOTTOM_PANEL_SIZE,
                 retTup.ps);
-        editorCamera.resetTarget = () -> showHoverKnot ? hoverKnot : tool == null ? null : tool.selectedKnot();
+        editorCamera.resetTarget = () -> showHoverKnot ? hoverKnot
+                : activeTool == freeTool ? freeTool.selectedKnot() : null;
 
         Toggle.setPanelFocus(PaneTypes.KnotView);
         grid = retTup.grid;
         keys = new MainSceneKeyGuy(this, editorCamera);
         mouse = new MainSceneMouseTrap(this, editorCamera);
         activate(true);
-        tool = new FreeTool();
+        freeTool = new FreeTool(this);
+        mapEditorTool = new MapEditorTool(this);
+        negativeCutMatchViewTool = new NegativeCutMatchViewTool(this);
+        neighborViewTool = new NeighborViewTool(this);
+        tools.add(freeTool);
+        tools.add(mapEditorTool);
+        addToolSwitch(negativeCutMatchViewTool, new ControlHint(Keys.N, true, "ctrl+N",
+                "hole moves of negative length", () -> switchTool(negativeCutMatchViewTool)));
+        addToolSwitch(neighborViewTool, new ControlHint(Keys.B, true, "ctrl+B",
+                "each point's two nearest neighbours", () -> switchTool(neighborViewTool)));
+        defaultTool = freeTool;
+        activeTool = freeTool;
+        freeTool.activate();
         logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, LOGO_SCALE, 0f, true);
 
         Map<String, Bounds> views = new HashMap<>();
@@ -202,7 +230,7 @@ public class MainScene extends Scene {
             }
         }
         retTup.tsp.removeAll(toRemove);
-        if (tool.canUseToggle(Toggle.Manifold)) {
+        if (activeTool.canUseToggle(Toggle.Manifold)) {
             Toggle.Manifold.value = true;
         }
         orgShell = retTup.tsp;
@@ -313,13 +341,16 @@ public class MainScene extends Scene {
      * Back from it returns where the current scene's Back would, or to the current scene itself.
      *
      * @param fileName name of the point-set file to open
+     * @return the new editor
      * @throws TerminalParseException if existing terminal commands in the file fail to parse
      * @throws IOException            if the file cannot be read
      */
-    public static void open(String fileName) throws TerminalParseException, IOException {
+    public static MainScene open(String fileName) throws TerminalParseException, IOException {
         Scene current = Scene.instance;
         Scene back = current instanceof MainScene editor ? editor.backScene : current;
-        current.switchTo(new MainScene(fileName, back));
+        MainScene opened = new MainScene(fileName, back);
+        current.switchTo(opened);
+        return opened;
     }
 
     /**
@@ -341,10 +372,53 @@ public class MainScene extends Scene {
     }
 
     /**
-     * The editor's keys are its key handler's own, not control hints.
+     * The editor's own keys after the tool's: the view toggles, which act only with the knot view
+     * focused, and Esc. The terminal is a pane here, so no {@code ~} row.
      */
     @Override
     public void setControls() {
+        controls.add(new ControlHint(Keys.C, "C", "new random knot colours",
+                Toggle.IsMainFocused.gate(() -> Terminal.runNoArgs(ColorCommand.class))));
+        controls.add(new ControlHint(Keys.B, "B", "show the cut-match", Toggle.IsMainFocused.gate(Toggle.DrawCutMatch::toggle)));
+        controls.add(new ControlHint(Keys.Y, "Y", "knot gradient colours",
+                Toggle.IsMainFocused.gate(Toggle.DrawKnotGradient::toggle)));
+        controls.add(new ControlHint(Keys.M, "M", "every layer, or the top layer again",
+                Toggle.IsMainFocused.gate(this::setDrawLevelMetro)));
+        controls.add(new ControlHint(Keys.O, "O", "the original tour", Toggle.IsMainFocused.gate(Toggle.DrawMainPath::toggle)));
+        controls.add(new ControlHint(Keys.G, "G", "grid lines", Toggle.IsMainFocused.gate(Toggle.DrawGridLines::toggle)));
+        controls.add(new ControlHint(Keys.U, "U", "write the tour back to its file",
+                Toggle.IsMainFocused.gate(() -> Terminal.runNoArgs(UpdateCommand.class))));
+        controls.add(new ControlHint(Keys.R, "R", "reset the camera, the tool and the toggles",
+                Toggle.IsMainFocused.gate(() -> ResetCommand.run(ResetOption.Camera))));
+        controls.add(new ControlHint(Keys.ESCAPE, "esc", "back to " + toolLabel(defaultTool) + ", else leave",
+                this::back));
+    }
+
+    /**
+     * Esc: the active tool's first, then back to the free tool, and from the free tool out of the
+     * editor to {@link #backScene}.
+     */
+    public void back() {
+        if (activeTool.escapePressed()) {
+            return;
+        }
+        if (activeTool == defaultTool) {
+            switchTo(backScene);
+        } else {
+            switchTool(defaultTool);
+        }
+    }
+
+    /**
+     * Frame the tour: the editor camera's reset, onto the free tool's selected knot when there is
+     * one.
+     *
+     * @return true
+     */
+    @Override
+    public boolean frameAll() {
+        editorCamera.reset();
+        return true;
     }
 
     /**
@@ -360,25 +434,26 @@ public class MainScene extends Scene {
             camera.setZIndex(camera2D);
             camera.calculateCameraTransform(retTup.ps);
 
-            if (tool.canUseToggle(Toggle.DrawGridLines)) {
+            if (activeTool.canUseToggle(Toggle.DrawGridLines)) {
                 grid.draw(camera, Drawing.MIN_THICKNESS / 2);
             }
 
-            tool.setScreenOffset(camera);
-            tool.draw(camera, Drawing.MIN_THICKNESS);
+            mainViewOffsetX = camera.ScreenOffsetX;
+            mainViewOffsetY = camera.ScreenOffsetY;
+            activeTool.drawOverlay(camera, Drawing.MIN_THICKNESS);
             if (sbe != null) {
                 Drawing.drawShell(resultShell, true, Drawing.MIN_THICKNESS, Color.PURPLE_PINK, retTup.ps, camera);
                 if (sbe.cutMatchList != null) {
                     Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS, retTup.ps, camera);
                 }
             }
-            if (tool.canUseToggle(Toggle.DrawMainPath)) {
+            if (activeTool.canUseToggle(Toggle.DrawMainPath)) {
                 Drawing.drawShell(orgShell, false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
             }
-            if (tool.canUseToggle(Toggle.DrawDisplayedKnots) && tool.canUseToggle(Toggle.DrawMetroDiagram)
+            if (activeTool.canUseToggle(Toggle.DrawDisplayedKnots) && activeTool.canUseToggle(Toggle.DrawMetroDiagram)
                     && tourShell != null) {
                 if (knotDrawLayer == totalLayers) {
-                    if (tool.canUseToggle(Toggle.DrawKnotGradient) && manifoldKnot != null) {
+                    if (activeTool.canUseToggle(Toggle.DrawKnotGradient) && manifoldKnot != null) {
                         for (Integer id : knotLayerLookup.keySet()) {
                             if (knotLayerLookup.get(id) == totalLayers) {
                                 Knot drawKnot = tourShell.pointMap.get(id);
@@ -386,7 +461,7 @@ public class MainScene extends Scene {
                                         knotGradientColors, camera, Drawing.MIN_THICKNESS);
                             }
                         }
-                    } else if (tool.canUseToggle(Toggle.DrawMetroDiagram)) {
+                    } else if (activeTool.canUseToggle(Toggle.DrawMetroDiagram)) {
                         for (Shell temp : subPaths) {
                             Drawing.drawShell(temp, true, Drawing.MIN_THICKNESS, metroColors.get(0), retTup.ps,
                                     camera);
@@ -401,10 +476,10 @@ public class MainScene extends Scene {
                         if (knotDrawLayer >= 0 && temp.priority != knotDrawLayer) {
                             continue;
                         }
-                        if (tool.canUseToggle(Toggle.DrawKnotGradient)) {
+                        if (activeTool.canUseToggle(Toggle.DrawKnotGradient)) {
                             Drawing.drawGradientPath(temp.k, lookupPairs(temp.k), colorLookup, knotGradientColors,
                                     camera, Drawing.MIN_THICKNESS);
-                        } else if (tool.canUseToggle(Toggle.DrawMetroDiagram)) {
+                        } else if (activeTool.canUseToggle(Toggle.DrawMetroDiagram)) {
                             float thickness = knotDrawLayer < 0
                                     ? Drawing.MIN_THICKNESS + Drawing.MIN_THICKNESS * (temp.priority - 1)
                                     : Drawing.MIN_THICKNESS;
@@ -428,9 +503,9 @@ public class MainScene extends Scene {
                             s2 = new Segment(s2.last, s2.first, s2.distance);
                         }
                         Color c = Color.WHITE;
-                        if (tool.canUseToggle(Toggle.DrawKnotGradient)) {
+                        if (activeTool.canUseToggle(Toggle.DrawKnotGradient)) {
                             c = getKnotGradientColor(s1.last);
-                        } else if (tool.canUseToggle(Toggle.DrawMetroDiagram)) {
+                        } else if (activeTool.canUseToggle(Toggle.DrawMetroDiagram)) {
                             c = getMetroColor(s1.last, k);
                         }
                         Drawing.drawDashedSegment(s1, c, camera);
@@ -443,7 +518,7 @@ public class MainScene extends Scene {
                 Drawing.drawScaledSegment(hoverSegment, hoverSegmentColor, Drawing.MIN_THICKNESS, camera);
             }
 
-            if (!(retTup == null) && tool.canUseToggle(Toggle.DrawNumberLabels)) {
+            if (!(retTup == null) && activeTool.canUseToggle(Toggle.DrawNumberLabels)) {
                 Drawing.drawPath(retTup.tsp, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false, true, false,
                         camera);
             }
@@ -451,7 +526,7 @@ public class MainScene extends Scene {
             logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 
             camera.updateView(VIEW_RIGHT_TOP);
-            info.draw(camera, tool);
+            info.draw(camera, activeTool, controls);
 
             camera.updateView(VIEW_BOTTOM);
             terminal.draw(camera);
@@ -476,10 +551,10 @@ public class MainScene extends Scene {
      * @return the knot's colour
      */
     public Color knotColor(Knot k) {
-        if (tool.canUseToggle(Toggle.DrawKnotGradient)) {
+        if (activeTool.canUseToggle(Toggle.DrawKnotGradient)) {
             return getKnotGradientColor(k);
         }
-        if (!tool.canUseToggle(Toggle.DrawMetroDiagram)) {
+        if (!activeTool.canUseToggle(Toggle.DrawMetroDiagram)) {
             return stickyColor;
         }
         if (k == null || knotLayerLookup.get(k.id) < 0) {

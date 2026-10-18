@@ -12,7 +12,7 @@ import ixdar.graphics.cameras.Bounds;
 import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
 import ixdar.scenes.Scene;
-import ixdar.tools.EditTool;
+import ixdar.tools.Tool;
 
 /**
  * Stands in front of a platform's {@link MouseTrap}: each pointer event is offered to the
@@ -45,7 +45,7 @@ public class PointerDispatcher {
     public float heldCursorWindowY;
 
     /** The scene tool offered the current left press, told of its release; {@code null} for none. */
-    public EditTool pressTool;
+    public Tool pressTool;
 
     /** Whether {@link #pressTool} took the press's drag, so the trap never saw the press. */
     public boolean toolHoldsPress;
@@ -166,7 +166,7 @@ public class PointerDispatcher {
             return;
         }
         if (button == MOUSE_BUTTON_LEFT && action == ACTION_RELEASE && pressTool != null) {
-            EditTool tool = pressTool;
+            Tool tool = pressTool;
             pressTool = null;
             if (toolHoldsPress) {
                 toolHoldsPress = false;
@@ -242,7 +242,7 @@ public class PointerDispatcher {
         trap.queuedScrollDeltaX = 0;
         if (trap.queuedScrollDelta != 0 || deltaX != 0) {
             PointerRegion claimer = trap.active ? regionUnderCursor(trap, PointerRegion::claimsWheel) : null;
-            EditTool tool = trap.active && claimer == null ? activeTool(trap) : null;
+            Tool tool = trap.active && claimer == null ? activeTool(trap) : null;
             if (claimer != null) {
                 double deltaY = trap.queuedScrollDelta;
                 trap.queuedScrollDelta = 0;
@@ -269,7 +269,7 @@ public class PointerDispatcher {
      * @param trap the platform's current trap
      * @return that tool, or {@code null} when the trap's canvas hosts no tools
      */
-    private static EditTool activeTool(MouseTrap trap) {
+    private static Tool activeTool(MouseTrap trap) {
         return trap.canvas == null ? null : trap.canvas.activeTool;
     }
 }

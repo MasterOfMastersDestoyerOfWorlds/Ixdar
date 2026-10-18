@@ -3,6 +3,7 @@ package ixdar.tools.knot;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.knot.Segment;
 import ixdar.graphics.cameras.Camera2D;
@@ -17,7 +18,9 @@ import ixdar.scenes.main.MainScene;
  * as dashed overlays, so the user can see the local nearest-neighbor graph at
  * the current draw layer.
  */
-public class NeighborViewTool extends Tool {
+@ToolAnnotation(id = NeighborViewTool.TOOL_NAME, host = MainScene.class)
+public class NeighborViewTool extends KnotTool {
+    public static final String TOOL_NAME = "neighborview";
     public static ArrayList<Color> colors;
 
     public int layerCalculated;
@@ -26,8 +29,11 @@ public class NeighborViewTool extends Tool {
     /**
      * Build the tool: disallow rendering toggles that would clutter the
      * neighbor overlay and seed the {@code colors} palette (green, yellow).
+     *
+     * @param editor the editor the tool works on
      */
-    public NeighborViewTool() {
+    public NeighborViewTool(MainScene editor) {
+        super(editor);
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.DrawKnotGradient,
                 Toggle.DrawMetroDiagram, Toggle.DrawDisplayedKnots };
         colors = new ArrayList<>();
@@ -40,9 +46,14 @@ public class NeighborViewTool extends Tool {
      * current draw layer.
      */
     @Override
-    public void reset() {
-        super.reset();
+    public void activate() {
+        super.activate();
         initSegmentMap();
+    }
+
+    /** Nothing to confirm: the tool only shows the neighbours. */
+    @Override
+    public void confirm() {
     }
 
     /**
@@ -54,8 +65,7 @@ public class NeighborViewTool extends Tool {
      *                         derive their thickness from {@link Drawing})
      */
     @Override
-    public void draw(Camera2D camera, float minLineThickness) {
-        MainScene editor = MainScene.current();
+    public void drawOverlay(Camera2D camera, float minLineThickness) {
         if (layerCalculated != editor.knotDrawLayer) {
             initSegmentMap();
             return;
@@ -72,7 +82,6 @@ public class NeighborViewTool extends Tool {
      * (closest neighbor) and 1 (second-closest).
      */
     public void initSegmentMap() {
-        MainScene editor = MainScene.current();
         layerCalculated = editor.knotDrawLayer;
         ArrayList<Knot> knotsDisplayed = editor.knotsDisplayed;
         colorLookup = new HashMap<>();
@@ -138,8 +147,8 @@ public class NeighborViewTool extends Tool {
      * @return the full terminal name {@code "neighborview"}
      */
     @Override
-    public String fullName() {
-        return "neighborview";
+    public String toolName() {
+        return TOOL_NAME;
     }
 
     /**

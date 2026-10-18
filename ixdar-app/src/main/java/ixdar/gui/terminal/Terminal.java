@@ -3,7 +3,6 @@ package ixdar.gui.terminal;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.function.Supplier;
 
 import ixdar.annotations.command.TerminalOption;
@@ -22,14 +21,9 @@ import ixdar.platform.file.TextFile;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.PointerRegion;
 import ixdar.scenes.model.ModelScene;
-import ixdar.tools.knot.FreeTool;
-import ixdar.tools.knot.MapEditorTool;
-import ixdar.tools.knot.NegativeCutMatchViewTool;
-import ixdar.tools.knot.NeighborViewTool;
-import ixdar.tools.knot.Tool;
 
 /**
- * The editor's interactive REPL: keeps the command/tool/point-collection registries,
+ * The editor's interactive REPL: keeps the command and point-collection registries,
  * tokenises and dispatches input lines through the matching {@link TerminalCommand},
  * and renders the scrollable history plus current prompt into a {@link HyperString}.
  */
@@ -38,9 +32,6 @@ public class Terminal implements PointerRegion {
     public static ArrayList<TerminalOption> commandList;
     public static HashMap<String, TerminalOption> commandMap = new HashMap<>();
     public static HashMap<Class<? extends TerminalOption>, TerminalOption> commandClassMap = new HashMap<>();
-    public static ArrayList<Tool> tools;
-    public static HashMap<String, Tool> toolMap = new HashMap<>();
-    public static HashMap<Class<? extends Tool>, Tool> toolClassMap = new HashMap<>();
     public static ArrayList<PointCollection> pointCollectionList;
     public static HashMap<Class<? extends Geometry>, PointCollection> pointCollectionClassMap = new HashMap<>();
 
@@ -59,15 +50,6 @@ public class Terminal implements PointerRegion {
                 commandMap.put(command.fullName(), command);
                 commandMap.put(command.shortName(), command);
                 commandClassMap.put(command.getClass(), command);
-            }
-        }
-        if (tools == null) {
-            tools = new ArrayList<>(List.of(
-                    new FreeTool(), new MapEditorTool(), new NegativeCutMatchViewTool(), new NeighborViewTool()));
-            for (Tool t : tools) {
-                toolMap.put(t.shortName(), t);
-                toolMap.put(t.fullName(), t);
-                toolClassMap.put(t.getClass(), t);
             }
         }
         if (pointCollectionList == null) {

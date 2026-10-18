@@ -2,16 +2,19 @@ package ixdar.tools.orbit;
 
 import java.util.List;
 
+import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.platform.Platforms;
 import ixdar.scenes.Scene;
+import ixdar.scenes.model.ModelScene;
 import ixdar.tools.ControlHint;
-import ixdar.tools.EditTool;
+import ixdar.tools.Tool;
 
 /**
  * The look-only tool every model scene opens with: the mouse orbits, pans and zooms the camera
  * and nothing else, so nothing a scene's other tools edit can change while it is active.
  */
-public final class OrbitTool implements EditTool {
+@ToolAnnotation(id = OrbitTool.TOOL_NAME, host = ModelScene.class)
+public final class OrbitTool implements Tool {
 
     public static final String TOOL_NAME = "orbit";
 

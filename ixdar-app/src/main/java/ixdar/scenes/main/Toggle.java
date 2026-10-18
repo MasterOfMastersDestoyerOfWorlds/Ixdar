@@ -1,6 +1,7 @@
 package ixdar.scenes.main;
 
 import ixdar.gui.ui.PaneTypes;
+import ixdar.gui.ui.actions.Action;
 
 public enum Toggle {
 
@@ -55,6 +56,21 @@ public enum Toggle {
      */
     public void toggle() {
         value = !value;
+    }
+
+    /**
+     * Wrap {@code action} so it runs only while this toggle is on, for a key that belongs to one
+     * pane.
+     *
+     * @param action the effect to gate
+     * @return an action that performs {@code action} while {@link #value} holds
+     */
+    public Action gate(Action action) {
+        return () -> {
+            if (value) {
+                action.perform();
+            }
+        };
     }
 
     /**

@@ -1,8 +1,8 @@
 package ixdar.gui.ui.actions;
 
 import ixdar.gui.terminal.TerminalParseException;
-import ixdar.gui.terminal.commands.ChangeToolCommand;
 import ixdar.gui.terminal.commands.LoadIxCommand;
+import ixdar.scenes.main.MainScene;
 import ixdar.tools.knot.MapEditorTool;
 
 /**
@@ -27,8 +27,8 @@ public class LoadMapEditor implements Action {
     @Override
     public void perform() {
         try {
-            LoadIxCommand.run(fileName);
-            ChangeToolCommand.run(MapEditorTool.class);
+            MainScene editor = LoadIxCommand.run(fileName);
+            editor.switchTool(editor.mapEditorTool);
         } catch (TerminalParseException e) {
             System.out.println(e.message);
         }

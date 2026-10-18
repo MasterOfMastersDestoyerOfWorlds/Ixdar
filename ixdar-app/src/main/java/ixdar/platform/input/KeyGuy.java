@@ -22,6 +22,7 @@ import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
 import ixdar.scenes.menu.MenuScene;
 import ixdar.platform.AutomationBackend;
+import ixdar.tools.ControlHint;
 
 public class KeyGuy extends Camera2DInputController {
     public static final String KEY = "key";
@@ -32,12 +33,23 @@ public class KeyGuy extends Camera2DInputController {
      */
     public static int keysConsumed;
 
+    public static final long REPEAT_MILLIS = 360;
+
     public final Set<Integer> pressedKeys = new HashSet<>();
     public Camera camera;
     public boolean active = true;
     public Scene canvas;
     public boolean shiftMask;
     public boolean controlMask;
+
+    /**
+     * Whether a control row that does not need Control stays silent while Control is held, as the
+     * tour editor's single-key toggles always have; otherwise it fires with Control held too.
+     */
+    public boolean controlSilencesPlainKeys;
+
+    /** When a held {@link ControlHint#repeatsWhileHeld repeating} row last fired. */
+    public long lastRepeatMillis;
 
     /**
      * Key handler shared by every scene: modifier masks, terminal forwarding, and the menu-back and
@@ -104,7 +116,7 @@ public class KeyGuy extends Camera2DInputController {
             shiftMask = true;
         }
         if (!terminalOwnsKey(key)) {
-            sceneKeyPressed(firstPress);
+            sceneKeyPressed(key, mods, firstPress);
         }
         if (Toggle.IsTerminalFocused.value && Terminal.current != null) {
             Terminal.current.keyPress(key, mods, controlMask);
@@ -117,9 +129,36 @@ public class KeyGuy extends Camera2DInputController {
      * and the modifier masks are updated and before the terminal sees the key. The shared handler
      * binds none.
      *
+     * @param key        pressed key code
+     * @param mods       modifier-key bitmask
      * @param firstPress whether the key was up before this event, {@code false} on a repeat
      */
-    public void sceneKeyPressed(boolean firstPress) {
+    public void sceneKeyPressed(int key, int mods, boolean firstPress) {
+    }
+
+    /**
+     * Fire the first of the scene's control rows bound to {@code key} with its modifiers held, or
+     * none while the focused terminal owns the key. Scenes bind keys by adding controls.
+     *
+     * @param key  pressed key code
+     * @param mods modifier-key bitmask
+     */
+    public void handleSceneKeys(int key, int mods) {
+        if (terminalOwnsKey(key)) {
+            return;
+        }
+        boolean control = (mods & KeyNames.MOD_CONTROL) != 0;
+        for (ControlHint hint : canvas.controls) {
+            boolean modifierHeld = (hint.controlHeld ? control : !(control && controlSilencesPlainKeys))
+                    && (!hint.shiftHeld || (mods & KeyNames.MOD_SHIFT) != 0);
+            if (hint.keyCode == key && hint.keyCode != ControlHint.NO_KEY && hint.action != null
+                    && modifierHeld) {
+                hint.action.perform();
+                markKeyConsumed();
+                lastRepeatMillis = System.currentTimeMillis();
+                return;
+            }
+        }
     }
 
     /**
@@ -159,8 +198,9 @@ public class KeyGuy extends Camera2DInputController {
 
     /**
      * Per-frame: skip while terminal is focused (so typing into terminal doesn't
-     * move the camera), then forward camera movement keys to
-     * {@link Camera2DInputController#apply}.
+     * move the camera), forward camera movement keys to
+     * {@link Camera2DInputController#apply}, then refire the held repeating control rows once
+     * {@link #REPEAT_MILLIS}, scaled down by the speed multiplier, has passed since a row fired.
      *
      * @param SHIFT_MOD speed multiplier (typically 1 or 2)
      */
@@ -169,6 +209,17 @@ public class KeyGuy extends Camera2DInputController {
             return;
         }
         super.apply(camera, pressedKeys, SHIFT_MOD, Clock.deltaTime());
+        long now = System.currentTimeMillis();
+        if (now - lastRepeatMillis <= REPEAT_MILLIS / SHIFT_MOD) {
+            return;
+        }
+        for (ControlHint hint : canvas.controls) {
+            if (hint.repeatsWhileHeld && pressedKeys.contains(hint.keyCode)
+                    && !(controlMask && controlSilencesPlainKeys)) {
+                lastRepeatMillis = now;
+                hint.action.perform();
+            }
+        }
     }
 
     /**

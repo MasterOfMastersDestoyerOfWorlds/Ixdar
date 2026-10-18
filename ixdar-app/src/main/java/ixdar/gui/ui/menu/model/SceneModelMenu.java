@@ -31,8 +31,6 @@ public final class SceneModelMenu implements PointerRegion {
 
     public static final String OTHER_MARKER = "  ";
 
-    public static final String KEY_SEP = "  ";
-
     public static final String VIEW_MODELS_BOX = "SCENE_MENU_MODELS";
 
     public static final String VIEW_CONTROLS_BOX = "SCENE_MENU_CONTROLS";
@@ -135,7 +133,7 @@ public final class SceneModelMenu implements PointerRegion {
     public void draw(Camera2D camera) {
         controlsBox.clearRows();
         for (ControlHint hint : scene.controls()) {
-            controlsBox.addRow(hint.key + KEY_SEP + hint.description,
+            controlsBox.addRow(hint.toString(),
                     hint.action == null ? Color.GREY_DARK : Color.BLUE_GREY, hint.action);
         }
         layout();

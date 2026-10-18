@@ -46,7 +46,7 @@ public class MainSceneMouseTrap extends MouseTrap {
     public void paneClicked(PaneTypes pane) {
         if (editor.manifoldKnot != null && editor.active) {
             if (pane == PaneTypes.KnotView) {
-                editor.tool.calculateClick(normalizedPosX, normalizedPosY);
+                editor.activeTool.onClick(normalizedPosX, normalizedPosY);
             } else if (pane == PaneTypes.Terminal) {
                 editor.terminal.calculateClick(normalizedPosX, normalizedPosY);
             }
@@ -63,9 +63,9 @@ public class MainSceneMouseTrap extends MouseTrap {
     public void paneHovered(PaneTypes pane) {
         if (editor.active) {
             if (pane == PaneTypes.KnotView) {
-                editor.tool.calculateHover(normalizedPosX, normalizedPosY);
+                editor.activeTool.onHover(normalizedPosX, normalizedPosY);
             } else {
-                editor.tool.clearHover();
+                editor.activeTool.clearHover();
             }
         }
     }
@@ -75,6 +75,6 @@ public class MainSceneMouseTrap extends MouseTrap {
      */
     @Override
     public void mouseExited() {
-        editor.tool.clearHover();
+        editor.activeTool.clearHover();
     }
 }

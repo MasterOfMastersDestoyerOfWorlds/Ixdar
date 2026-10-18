@@ -5,8 +5,6 @@ import static ixdar.platform.input.Keys.*;
 import java.util.Set;
 
 public enum KeyActions {
-    CycleToolLeft(LEFT),
-    CycleToolRight(RIGHT),
     ZoomIn(EQUAL),
     ZoomOut(MINUS),
     MoveRight(D),
@@ -14,29 +12,8 @@ public enum KeyActions {
     MoveUp(W),
     MoveDown(S),
     DoubleSpeed(LEFT_SHIFT),
-    DrawOriginal(O),
-    Confirm(ENTER),
     Back(ESCAPE),
     Reset(R),
-    UpdateFile(U),
-    IncreaseKnotLayer(RIGHT_BRACKET, UP),
-    DecreaseKnotLayer(LEFT_BRACKET, DOWN),
-    DrawGridLines(G),
-    DrawMetroDiagram(M),
-    DrawCutMatch(B),
-    DrawKnotGradient(Y),
-    ColorRandomization(C),
-    PrintScreen(true, P),
-    GenerateManifoldTests(true, G),
-    Save(true, S),
-    SaveAs(true, Q),
-    Find(true, F),
-    Compare(true, C),
-    KnotSurfaceView(true, V),
-    KnotAnimTool(true, A),
-    EditManifold(true, E),
-    NegativeCutMatchViewTool(true, N),
-    NeighborViewTool(true, B),
     ControlMask(LEFT_CONTROL, RIGHT_CONTROL),
     ShiftMask(LEFT_SHIFT, RIGHT_SHIFT);
 
@@ -56,8 +33,8 @@ public enum KeyActions {
     }
 
     /**
-     * Test whether this action is currently triggered. For control-masked actions (e.g.
-     * {@link #Save}), the {@link #ControlMask} chord must also be down. For non-control actions,
+     * Test whether this action is currently triggered. For control-masked actions, the
+     * {@link #ControlMask} chord must also be down. For non-control actions,
      * having any control key held suppresses the trigger so terminal shortcuts don't bleed into
      * single-key bindings.
      *
@@ -156,7 +133,7 @@ public enum KeyActions {
     }
 
     /**
-     * Human-readable binding label, e.g. {@code "Save => Ctrl + S"}.
+     * Human-readable binding label, e.g. {@code "Reset => R"}.
      *
      * @return the action name and its primary key (with {@code Ctrl +} prefix if control-masked)
      */

@@ -74,12 +74,13 @@ public class LoadIxCommand extends TerminalCommand {
      * editor that replaces the current scene from the next frame.
      *
      * @param fileName base name of the {@code .ix} file (without extension)
+     * @return the editor opened on the file
      * @throws TerminalParseException if reading/loading the file fails
      */
-    public static void run(String fileName) throws TerminalParseException {
+    public static MainScene run(String fileName) throws TerminalParseException {
         FileManagement.updateTestFileCache(fileName);
         try {
-            MainScene.open(fileName);
+            return MainScene.open(fileName);
         } catch (IOException e) {
             e.printStackTrace();
             throw new TerminalParseException(e.getMessage());

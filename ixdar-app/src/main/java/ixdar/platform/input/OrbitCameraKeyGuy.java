@@ -2,8 +2,6 @@ package ixdar.platform.input;
 
 import static ixdar.platform.input.Keys.ACTION_PRESS;
 
-import java.util.List;
-
 import ixdar.graphics.cameras.Camera;
 import ixdar.scenes.Scene;
 import ixdar.platform.Clock;
@@ -17,43 +15,24 @@ import ixdar.tools.ControlHint;
  */
 public class OrbitCameraKeyGuy extends KeyGuy {
 
-    public static final int MOD_SHIFT = 0x0001;
-
     public static final int MOD_CONTROL = 0x0002;
 
     public final OrbitMouseTrap orbitMouse;
-
-    /** Scene controls dispatched on key press, or {@code null} when the scene binds none. */
-    public final List<ControlHint> controls;
 
     /** Whether Ctrl+R resets the orbit centre; a scene that binds Ctrl+R itself clears it. */
     public boolean controlRResetsTarget = true;
 
     /**
-     * Wire the key handler to the orbit controller it recentres, with no scene controls.
+     * Wire the key handler to the orbit controller and the scene, firing one of the scene's
+     * controls when its {@link ControlHint#keyCode} is pressed.
      *
      * @param orbitMouse orbit controller whose centre {@code Ctrl+R} resets
      * @param camera     camera driven by this handler
-     * @param canvas     owning canvas
+     * @param canvas     owning canvas, whose controls the keys fire
      */
     public OrbitCameraKeyGuy(OrbitMouseTrap orbitMouse, Camera camera, Scene canvas) {
-        this(orbitMouse, camera, canvas, null);
-    }
-
-    /**
-     * Wire the key handler to the orbit controller and the scene's controls, firing a control's
-     * action when its {@link ControlHint#keyCode} is pressed.
-     *
-     * @param orbitMouse orbit controller whose centre {@code Ctrl+R} resets
-     * @param camera     camera driven by this handler
-     * @param canvas     owning canvas
-     * @param controls   scene controls to dispatch, or {@code null} for none
-     */
-    public OrbitCameraKeyGuy(OrbitMouseTrap orbitMouse, Camera camera, Scene canvas,
-            List<ControlHint> controls) {
         super(camera, canvas);
         this.orbitMouse = orbitMouse;
-        this.controls = controls;
     }
 
     /**
@@ -96,29 +75,5 @@ public class OrbitCameraKeyGuy extends KeyGuy {
         }
         camera.setShiftMod(shiftMod);
         applyZoom(camera, pressedKeys, Clock.deltaTime());
-    }
-
-    /**
-     * Fire the first control whose {@link ControlHint#keyCode} matches {@code key}, or none while
-     * the focused terminal owns the key. Scenes bind keys by adding controls, not by overriding
-     * this.
-     *
-     * @param key  pressed key code
-     * @param mods modifier-key bitmask
-     */
-    public void handleSceneKeys(int key, int mods) {
-        if (controls == null || terminalOwnsKey(key)) {
-            return;
-        }
-        for (ControlHint hint : controls) {
-            boolean modifierHeld = (!hint.controlHeld || (mods & MOD_CONTROL) != 0)
-                    && (!hint.shiftHeld || (mods & MOD_SHIFT) != 0);
-            if (hint.keyCode == key && hint.keyCode != ControlHint.NO_KEY && hint.action != null
-                    && modifierHeld) {
-                hint.action.perform();
-                markKeyConsumed();
-                return;
-            }
-        }
     }
 }

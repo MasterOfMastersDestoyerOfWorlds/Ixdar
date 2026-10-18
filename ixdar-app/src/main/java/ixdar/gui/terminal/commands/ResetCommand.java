@@ -71,15 +71,18 @@ public class ResetCommand extends TerminalCommand {
      * @param option which target to reset (camera, tool, toggles, or all)
      */
     public static void run(ResetOption option) {
+        MainScene editor = MainScene.current();
         switch (option) {
         case All:
-            MainScene.current().editorCamera.reset();
-            MainScene.current().tool.reset();
+            editor.editorCamera.reset();
+            editor.activeTool.deactivate();
+            editor.activeTool.activate();
             break;
         case Camera:
-            MainScene.current().editorCamera.reset();
+            editor.editorCamera.reset();
         case Tool:
-            MainScene.current().tool.reset();
+            editor.activeTool.deactivate();
+            editor.activeTool.activate();
         case Toggles:
             Toggle.resetAll();
         default:

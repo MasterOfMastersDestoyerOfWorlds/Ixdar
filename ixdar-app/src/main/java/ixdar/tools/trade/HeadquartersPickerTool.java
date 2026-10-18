@@ -1,93 +1,75 @@
 package ixdar.tools.trade;
 
+import java.util.List;
+
+import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.game.City;
 import ixdar.game.CityNetwork;
-import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.scenes.trade.TradeScene;
-import ixdar.tools.knot.Tool;
+import ixdar.tools.ControlHint;
+import ixdar.tools.Tool;
 
 /**
  * Tool for selecting the headquarters city at the start of a new trade game.
  * This is the first tool active when a new game begins.
  */
-public class HeadquartersPickerTool extends Tool {
+@ToolAnnotation(id = HeadquartersPickerTool.TOOL_NAME, host = TradeScene.class)
+public class HeadquartersPickerTool implements Tool {
+
+    public static final String TOOL_NAME = "hqpicker";
 
     private TradeScene tradeScene;
     private CityNetwork network;
-    private City hoveredCity;
 
     /**
-     * Build the picker, binding it to the trade scene it should hand control
-     * to once a city is chosen, and the city network it picks from.
+     * Build the picker over the trade scene it hands control to once a city is chosen, picking
+     * from the scene's city network.
      *
      * @param tradeScene the trade scene that owns this tool
-     * @param network    the city network whose cities are picker targets
      */
-    public HeadquartersPickerTool(TradeScene tradeScene, CityNetwork network) {
+    public HeadquartersPickerTool(TradeScene tradeScene) {
         this.tradeScene = tradeScene;
-        this.network = network;
+        this.network = tradeScene.network;
+    }
+
+    /** Nothing to set up: the scene tracks the hovered city. */
+    @Override
+    public void activate() {
+    }
+
+    /** Nothing to hand back. */
+    @Override
+    public void deactivate() {
     }
 
     /**
-     * No-op draw override: cities are rendered by the network's own draw
-     * pass, and this tool needs no extra overlay.
+     * The picker binds no keys: a click picks.
      *
-     * @param camera        the scene camera (unused)
-     * @param lineThickness base line thickness in pixels (unused)
+     * @param controls the scene's control list
      */
     @Override
-    public void draw(Camera2D camera, float lineThickness) {
-        // The cities are drawn by the network; this tool doesn't need extra drawing
+    public void addControls(List<ControlHint> controls) {
     }
 
     /**
-     * Handle a city click - sets the headquarters and transitions to route planning.
+     * Place the headquarters at the city under the click and hand over to route planning.
      *
-     * @param city the city that was clicked
+     * @param x framebuffer x of the click
+     * @param y framebuffer y of the click, y up
+     * @return true when a city was under the click
      */
-    public void onCityClick(City city) {
-        if (city != null) {
-            network.setHeadquarters(city);
-            System.out.println("Headquarters placed at: " + city.name);
-            tradeScene.activateRoutePlanningTool();
+    @Override
+    public boolean onClick(float x, float y) {
+        City city = tradeScene.getCityAt(tradeScene.mapCamera.screenTransformX(x),
+                tradeScene.mapCamera.screenTransformY(y));
+        if (city == null) {
+            return false;
         }
-    }
-
-    /**
-     * Update the hovered city for tooltip display.
-     *
-     * @param city the city being hovered, or null
-     */
-    public void updateHoveredCity(City city) {
-        this.hoveredCity = city;
-    }
-
-    /**
-     * Get the currently hovered city.
-     *
-     * @return the hovered city, or null
-     */
-    public City getHoveredCity() {
-        return hoveredCity;
-    }
-
-    /**
-     * Clear the cached hovered city so the next frame starts fresh.
-     */
-    @Override
-    public void reset() {
-        hoveredCity = null;
-    }
-
-    /**
-     * No-op: this tool commits via {@link #onCityClick(City)}, not via the
-     * generic confirm key.
-     */
-    @Override
-    public void confirm() {
-        // Nothing to confirm - clicking a city handles the action
+        network.setHeadquarters(city);
+        tradeScene.switchTool(tradeScene.routePlanningTool);
+        return true;
     }
 
     /**
@@ -96,7 +78,7 @@ public class HeadquartersPickerTool extends Tool {
      * @return the formatted info text
      */
     @Override
-    public HyperString buildInfoText() {
+    public HyperString info() {
         HyperString h = new HyperString();
         h.addWord("Select a city to place your headquarters", Color.WHITE);
         h.wrap();
@@ -120,8 +102,8 @@ public class HeadquartersPickerTool extends Tool {
      * @return the full terminal name {@code "hqpicker"}
      */
     @Override
-    public String fullName() {
-        return "hqpicker";
+    public String toolName() {
+        return TOOL_NAME;
     }
 
     /**

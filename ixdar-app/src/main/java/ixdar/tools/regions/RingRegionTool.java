@@ -12,6 +12,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RegionExplosion;
@@ -29,14 +30,15 @@ import ixdar.automation.AutomationPortFile;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
-import ixdar.tools.EditTool;
+import ixdar.tools.Tool;
 
 /**
  * The region tool of the editing scene: shows the region colours, selects regions by click and
  * Shift+click, and extracts the selection as its own closed mesh, cut along the ring splines. The
  * selection is kept as surface points.
  */
-public final class RingRegionTool implements EditTool {
+@ToolAnnotation(id = RingRegionTool.TOOL_NAME, host = RingScene.class)
+public final class RingRegionTool implements Tool {
 
     public static final String LOG_PREFIX = "[ring-regions] ";
 

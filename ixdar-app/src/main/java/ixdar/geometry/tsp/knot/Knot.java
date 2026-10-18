@@ -14,12 +14,11 @@ import ixdar.geometry.tsp.cuts.DisjointUnionSets;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.geometry.tsp.shell.Shell;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.gui.ui.actions.Action;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.scenes.main.MainScene;
 
-public class Knot extends SDFCircle {
+public class Knot {
     public static final String KNOT = "Knot[ ";
     public static final String KNOT_CLOSE = "]";
     public static final String GROW_REQUIRES_A_SINGLETON = "grow requires a singleton";

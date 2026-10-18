@@ -5,12 +5,14 @@ import java.io.File;
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.annotations.command.OptionList;
 import ixdar.annotations.command.TerminalOption;
+import ixdar.annotations.tool.ToolRegistry_Tools;
 import ixdar.geometry.tsp.input.PointCollection;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
+import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
-import ixdar.tools.knot.Tool;
-import ixdar.platform.input.KeyActions;
+import ixdar.tools.ControlHint;
+import ixdar.tools.Tool;
 
 @CommandAnnotation(id = "ls")
 public class ListCommand extends TerminalCommand {
@@ -73,8 +75,8 @@ public class ListCommand extends TerminalCommand {
             } else if (target.equals("questions")) {
 
             } else if (keyOptionAliases.contains(target)) {
-                for (KeyActions k : KeyActions.values()) {
-                    terminal.history.addLine(k.toString(), Color.GREEN);
+                for (ControlHint hint : Scene.instance.controls) {
+                    terminal.history.addLine(hint.toString(), Color.GREEN);
                 }
             } else if (commandOptionAliases.contains(target)) {
                 for (TerminalOption tc : Terminal.commandList) {
@@ -87,9 +89,20 @@ public class ListCommand extends TerminalCommand {
                     terminal.history.addLine(" - " + pc.desc(), Color.GREEN);
                 }
             } else if (toolOptionAliases.contains(target)) {
-                for (Tool t : Terminal.tools) {
-                    terminal.history.addWord(t.shortName(), Color.TEAL_DARK);
-                    terminal.history.addLine(" - " + t.desc(), Color.GREEN);
+                for (String id : ToolRegistry_Tools.MAP.keySet()) {
+                    if (!ToolRegistry_Tools.HOSTED_BY.get(id).test(Scene.instance)) {
+                        continue;
+                    }
+                    String shortName = id;
+                    String desc = "";
+                    for (Tool t : Scene.instance.tools) {
+                        if (t.toolName().equals(id)) {
+                            shortName = t.shortName();
+                            desc = t.desc();
+                        }
+                    }
+                    terminal.history.addWord(shortName, Color.TEAL_DARK);
+                    terminal.history.addLine(" - " + desc, Color.GREEN);
                 }
             } else if (toggleOptionAliases.contains(target)) {
                 for (Toggle t : Toggle.values()) {

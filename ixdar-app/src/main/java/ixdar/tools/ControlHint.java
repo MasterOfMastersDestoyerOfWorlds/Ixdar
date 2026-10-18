@@ -12,6 +12,8 @@ public final class ControlHint {
 
     public static final int NO_KEY = -1;
 
+    public static final String KEY_DESCRIPTION_GAP = "  ";
+
     /** Key code that fires {@link #action}, or {@link #NO_KEY} for a display-only row. */
     public final int keyCode;
 
@@ -34,6 +36,12 @@ public final class ControlHint {
      * so a Shift variant is listed before its plain one.
      */
     public final boolean shiftHeld;
+
+    /**
+     * Whether the key's action fires again at the key handler's repeat interval while it is held,
+     * as well as on the press.
+     */
+    public final boolean repeatsWhileHeld;
 
     /**
      * Build a key-bound, clickable control hint.
@@ -73,12 +81,7 @@ public final class ControlHint {
      */
     public ControlHint(int keyCode, boolean controlHeld, boolean shiftHeld, String key,
             String description, Action action) {
-        this.keyCode = keyCode;
-        this.controlHeld = controlHeld;
-        this.shiftHeld = shiftHeld;
-        this.key = key;
-        this.description = description;
-        this.action = action;
+        this(keyCode, controlHeld, shiftHeld, false, key, description, action);
     }
 
     /**
@@ -100,5 +103,41 @@ public final class ControlHint {
      */
     public ControlHint(String key, String description) {
         this(NO_KEY, key, description, null);
+    }
+
+    private ControlHint(int keyCode, boolean controlHeld, boolean shiftHeld, boolean repeatsWhileHeld,
+            String key, String description, Action action) {
+        this.keyCode = keyCode;
+        this.controlHeld = controlHeld;
+        this.shiftHeld = shiftHeld;
+        this.repeatsWhileHeld = repeatsWhileHeld;
+        this.key = key;
+        this.description = description;
+        this.action = action;
+    }
+
+    /**
+     * Build a key-bound hint whose action also repeats while the key is held, such as stepping
+     * through a list.
+     *
+     * @param keyCode     key code that fires {@code action}
+     * @param key         key label shown to the viewer
+     * @param description short description of the effect
+     * @param action      effect invoked on click, key press and each repeat
+     * @return the hint
+     */
+    public static ControlHint repeating(int keyCode, String key, String description, Action action) {
+        return new ControlHint(keyCode, false, false, true, key, description, action);
+    }
+
+    /**
+     * The hint as one line: the key label, {@link #KEY_DESCRIPTION_GAP}, then the description, as
+     * the controls menu and {@code ls keys} list it.
+     *
+     * @return the key label and description
+     */
+    @Override
+    public String toString() {
+        return new StringBuilder(key).append(KEY_DESCRIPTION_GAP).append(description).toString();
     }
 }

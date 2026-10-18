@@ -9,6 +9,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -20,14 +21,15 @@ import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
-import ixdar.tools.EditTool;
+import ixdar.tools.Tool;
 import ixdar.tools.ring.RingTool;
 
 /**
  * The editing scene's connection tool: two picks on the surface show the shortest path joining
  * them and the narrowest cross-section on it, the neck, which Enter makes a ring to edit.
  */
-public final class ConnectionTool implements EditTool {
+@ToolAnnotation(id = ConnectionTool.TOOL_NAME, host = RingScene.class)
+public final class ConnectionTool implements Tool {
 
     public static final String LOG_PREFIX = "[connection] ";
 

@@ -2,18 +2,23 @@ package ixdar.tools;
 
 import java.util.List;
 
+import ixdar.graphics.cameras.Camera2D;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.PointerDispatcher;
 import ixdar.scenes.Scene;
+import ixdar.scenes.main.Toggle;
 
 /**
- * One tool a {@link Scene} hosts. The one active tool owns the scene's tool keys and, through the
- * {@link PointerDispatcher}, its pointer; it keeps its state when another takes over.
+ * One tool a {@link Scene} hosts, in a 3D model scene or a 2D map. The one active tool owns the
+ * scene's tool keys and, through the {@link PointerDispatcher}, its pointer; it keeps its state
+ * when another takes over unless its {@link #activate} starts afresh.
  */
-public interface EditTool {
+public interface Tool {
 
     /**
-     * Name the tool-switch hint and the log call the tool by.
+     * Name the tool-switch hint, the log and the terminal's {@code ct} command call the tool by,
+     * the id its {@code ToolAnnotation} registers it under.
      *
      * @return a short lower-case name
      */
@@ -26,7 +31,8 @@ public interface EditTool {
     void deactivate();
 
     /** One frame, active or not; an inactive tool keeps only what must stay in step. */
-    void perFrame();
+    default void perFrame() {
+    }
 
     /**
      * Append the tool's own key and mouse hints, which the scene's key handler dispatches ahead of
@@ -35,6 +41,52 @@ public interface EditTool {
      * @param controls the scene's control list, rebuilt whenever the active tool changes
      */
     void addControls(List<ControlHint> controls);
+
+    /**
+     * The name the info pane and the trade state report show for the tool.
+     *
+     * @return a title-case name, {@link #toolName} unless the tool has a longer one
+     */
+    default String displayName() {
+        return toolName();
+    }
+
+    /**
+     * The terse alias the terminal's {@code ct} command also accepts.
+     *
+     * @return a short lower-case alias, {@link #toolName} unless the tool has a shorter one
+     */
+    default String shortName() {
+        return toolName();
+    }
+
+    /**
+     * One sentence on what the tool does, for the terminal's tool listing.
+     *
+     * @return the description, empty for a tool with none
+     */
+    default String desc() {
+        return "";
+    }
+
+    /**
+     * The info pane's tool section: what the tool has hovered and selected.
+     *
+     * @return the text, current as of the tool's last hover or selection change
+     */
+    default HyperString info() {
+        return new HyperString();
+    }
+
+    /**
+     * Whether the scene applies {@code toggle} while this tool is active.
+     *
+     * @param toggle the toggle to test
+     * @return the toggle's value, or false for a toggle the tool switches off
+     */
+    default boolean canUseToggle(Toggle toggle) {
+        return toggle.value;
+    }
 
     /**
      * The active tool's first chance at Esc with the menu closed; the scene returns to its default
@@ -77,6 +129,39 @@ public interface EditTool {
 
     /** Draw the tool's view in place of the scene's; only called while {@link #replacesView}. */
     default void drawView() {
+    }
+
+    /**
+     * Draw the tool's highlights and previews over a 2D scene's view, after the scene's map.
+     *
+     * @param camera        the scene's 2D camera, in its main view
+     * @param lineThickness the scene's base line thickness in pixels
+     */
+    default void drawOverlay(Camera2D camera, float lineThickness) {
+    }
+
+    /**
+     * The cursor moved over a 2D scene's view with no press held.
+     *
+     * @param x framebuffer x of the cursor
+     * @param y framebuffer y of the cursor, y up
+     */
+    default void onHover(float x, float y) {
+    }
+
+    /** The cursor left a 2D scene's view: drop what the hover showed. */
+    default void clearHover() {
+    }
+
+    /**
+     * A click a 2D scene's mouse handler resolved on its view, offered to the active tool.
+     *
+     * @param x framebuffer x of the click
+     * @param y framebuffer y of the click, y up
+     * @return true when the tool acted on it
+     */
+    default boolean onClick(float x, float y) {
+        return false;
     }
 
     /**

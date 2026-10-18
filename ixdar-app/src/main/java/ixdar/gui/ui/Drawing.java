@@ -38,6 +38,7 @@ public class Drawing {
     public static final int DASH_LENGTH_SEGMENT_PX = 20;
     public static final int DEFAULT_PATH_SCALE = 3;
     public static final float DASH_LENGTH_PATH_PX = 60f;
+    public static final float LINE_QUAD_HEIGHT_PER_WIDTH = 4f;
 
     public static final float MIN_THICKNESS_START = 2;
     public static final float FONT_HEIGHT_PIXELS_START = 30;
@@ -186,9 +187,10 @@ public class Drawing {
         firstCoords[0] = camera.pointTransformX(knotPoint1.x);
         firstCoords[1] = camera.pointTransformY(knotPoint1.y);
 
-        pND.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN, camera);
+        d.circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN,
+                camera);
 
-        ex1.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+        strokeSegment(ex1, lineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
         drawSegment(ex1, Color.GREEN, camera);
 
         // Draw external segment 2
@@ -200,9 +202,9 @@ public class Drawing {
         firstCoords[0] = camera.pointTransformX(knotPoint2.x);
         firstCoords[1] = camera.pointTransformY(knotPoint2.y);
 
-        pND2.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN,
+        d.circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN,
                 camera);
-        ex2.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+        strokeSegment(ex2, lineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
         drawSegment(ex2, Color.GREEN, camera);
 
         // Draw Cuts and Matches
@@ -211,7 +213,7 @@ public class Drawing {
 
                 if (cutMatch.c != null) {
                     for (Segment s : cutMatch.matchSegments) {
-                        s.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+                        strokeSegment(s, lineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
                         if (s.id == cutMatch.c.lowerMatchSegment.id || s.id == cutMatch.c.upperMatchSegment.id) {
                             drawSegment(s, Color.GREEN, camera);
                         } else {
@@ -221,7 +223,7 @@ public class Drawing {
 
                     // Draw Cuts
                     for (Segment s : cutMatch.cutSegments) {
-                        s.setStroke(2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+                        strokeSegment(s, 2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
                         if (s.id == cutMatch.c.lowerCutSegment.id || s.id == cutMatch.c.upperCutSegment.id) {
                             drawSegment(s, Color.PURPLE_PINK, camera);
                         } else {
@@ -250,7 +252,7 @@ public class Drawing {
      * @param camera    the active scene camera
      */
     public static void drawSegment(Segment segment, Color c, float thickness, Camera2D camera) {
-        segment.setStroke(thickness, false, 1f, 0f, true, false, false, camera);
+        strokeSegment(segment, thickness, false, 1f, 0f, camera);
         drawSegment(segment, c, camera);
     }
 
@@ -264,7 +266,7 @@ public class Drawing {
      * @param camera    the active scene camera
      */
     public static void drawScaledSegment(Segment segment, Color c, float thickness, Camera2D camera) {
-        segment.setStroke(thickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+        strokeSegment(segment, thickness * camera.ScaleFactor, false, 1f, 0f, camera);
         drawSegment(segment, c, camera);
     }
 
@@ -273,7 +275,7 @@ public class Drawing {
      * between explicit screen-space endpoints {@code a} and {@code b} rather than
      * the segment's own endpoints.
      *
-     * @param s         segment whose stroke params and draw method are used
+     * @param s         segment whose stroke params are used
      * @param a         first endpoint in screen pixels
      * @param b         second endpoint in screen pixels
      * @param c         stroke color
@@ -281,8 +283,51 @@ public class Drawing {
      * @param camera    the active scene camera
      */
     public static void drawScaledSegment(Segment s, Vector2f a, Vector2f b, Color c, float thickness, Camera2D camera) {
-        s.setStroke(thickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
-        s.draw(a, b, c, camera);
+        strokeSegment(s, thickness * camera.ScaleFactor, false, 1f, 0f, camera);
+        getDrawing().sdfLine.draw(a, b, c, camera);
+    }
+
+    /**
+     * Set the shared line's stroke for {@code s} with round caps and no arrow, as
+     * {@link #strokeSegment(SDFLine, Segment, float, boolean, float, float, boolean, boolean, boolean, Camera2D)}
+     * does.
+     *
+     * @param s          segment about to be drawn
+     * @param lineWidth  stroke width in screen pixels
+     * @param dashed     whether the line is dashed
+     * @param dashLength one dash period in point space
+     * @param dashRate   how fast the dashes march
+     * @param camera     camera projecting the segment
+     */
+    private static void strokeSegment(Segment s, float lineWidth, boolean dashed, float dashLength, float dashRate,
+            Camera2D camera) {
+        strokeSegment(getDrawing().sdfLine, s, lineWidth, dashed, dashLength, dashRate, true, false, false, camera);
+    }
+
+    /**
+     * Set {@code line}'s stroke for drawing {@code s}, the dash period given in point space and
+     * converted to the line quad's texture units, so dashes keep their size on screen at any zoom.
+     *
+     * @param line       the line renderer about to draw the segment
+     * @param s          segment about to be drawn
+     * @param lineWidth  stroke width in screen pixels
+     * @param dashed     whether the line is dashed
+     * @param dashLength one dash period in point space
+     * @param dashRate   how fast the dashes march
+     * @param roundCaps  whether dashes have round caps
+     * @param endCaps    whether the line ends have caps
+     * @param arrow      whether the line ends in an arrowhead
+     * @param camera     camera projecting the segment
+     */
+    public static void strokeSegment(SDFLine line, Segment s, float lineWidth, boolean dashed, float dashLength,
+            float dashRate, boolean roundCaps, boolean endCaps, boolean arrow, Camera2D camera) {
+        Vector2f base = s.getPointSpaceVector(s.first);
+        Vector2f dashEnd = s.getPointSpaceVector(s.last).sub(base).normalize().mul(dashLength).add(base);
+        float dashScreenLength = (float) Math.hypot(
+                camera.pointTransformX(dashEnd.x) - camera.pointTransformX(base.x),
+                camera.pointTransformY(dashEnd.y) - camera.pointTransformY(base.y));
+        float quadHeight = LINE_QUAD_HEIGHT_PER_WIDTH * Math.max(lineWidth, MIN_THICKNESS);
+        line.setStroke(lineWidth, dashed, dashScreenLength / quadHeight, dashRate, roundCaps, endCaps, arrow);
     }
 
     private static void drawSegment(Segment ex1, Color c, Camera2D camera) {
@@ -301,7 +346,7 @@ public class Drawing {
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.x), camera.pointTransformY(first.y));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.x), camera.pointTransformY(last.y));
 
-        ex1.draw(firstVec, lastVec, c, camera);
+        getDrawing().sdfLine.draw(firstVec, lastVec, c, camera);
     }
 
     /**
@@ -328,22 +373,22 @@ public class Drawing {
 
         Vector2f firstVec = new Vector2f(camera.pointTransformX(first.x), camera.pointTransformY(first.y));
         Vector2f lastVec = new Vector2f(camera.pointTransformX(last.x), camera.pointTransformY(last.y));
-        ex1.setStroke(Drawing.MIN_THICKNESS * camera.ScaleFactor, true, DASH_LENGTH_SEGMENT_PX * camera.ScaleFactor, 1f,
-                true,
-                false, false, camera);
-        ex1.draw(firstVec, lastVec, c, camera);
+        strokeSegment(ex1, Drawing.MIN_THICKNESS * camera.ScaleFactor, true, DASH_LENGTH_SEGMENT_PX * camera.ScaleFactor, 1f,
+                camera);
+        getDrawing().sdfLine.draw(firstVec, lastVec, c, camera);
     }
 
     /**
-     * Draw {@code s} with a linear color gradient from {@code color1} at the first
-     * endpoint to {@code color2} at the last endpoint.
+     * Draw {@code s} through {@code line}, stroked as last set, with a linear color gradient from
+     * {@code color1} at the first endpoint to {@code color2} at the last endpoint.
      *
+     * @param line   the line renderer, its stroke already set
      * @param s      segment to draw
      * @param color1 color at {@code s.first}
      * @param color2 color at {@code s.last}
      * @param camera the active scene camera
      */
-    public static void drawGradientSegment(Segment s, Color color1, Color color2, Camera2D camera) {
+    public static void drawGradientSegment(SDFLine line, Segment s, Color color1, Color color2, Camera2D camera) {
         Vector2d first;
         Vector2d last;
         if (!s.first.isSingleton()) {
@@ -363,7 +408,7 @@ public class Drawing {
 
         lastCoords[0] = camera.pointTransformX(last.x);
         lastCoords[1] = camera.pointTransformY(last.y);
-        s.draw(new Vector2f(firstCoords), new Vector2f(lastCoords), color1, color2, camera);
+        line.draw(new Vector2f(firstCoords), new Vector2f(lastCoords), color1, color2, camera);
     }
 
     /**
@@ -398,7 +443,7 @@ public class Drawing {
 
         Vector2f newLast = new Vector2f(lastCoords).sub(firstCoords).mul(length).add(firstCoords);
 
-        s.draw(firstCoords, newLast, color1, new ColorFixedLerp(color1, color2, length), camera);
+        getDrawing().sdfLine.draw(firstCoords, newLast, color1, new ColorFixedLerp(color1, color2, length), camera);
     }
 
     /**
@@ -484,7 +529,7 @@ public class Drawing {
             float x = camera.pointTransformX(p.getScreenX());
             float y = camera.pointTransformY(p.getScreenY());
             if (drawCircles) {
-                p.draw(new Vector2f(x, y), CIRCLE_RADIUS * scale, color, camera);
+                d.circle.draw(new Vector2f(x, y), CIRCLE_RADIUS * scale, color, camera);
             }
 
             if (drawLines) {
@@ -516,18 +561,18 @@ public class Drawing {
             ArrayList<Color> colors, Camera2D camera, float minLineThickness) {
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
-            s.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+            strokeSegment(s, minLineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
             if (lookUpPairs != null) {
                 Pair<Long, Long> lookUpPair = lookUpPairs.get(i);
 
                 if (colorLookup.containsKey(lookUpPair.getFirst())) {
-                    Drawing.drawGradientSegment(s, colors.get(colorLookup.get(lookUpPair.getFirst())),
+                    Drawing.drawGradientSegment(getDrawing().sdfLine, s,colors.get(colorLookup.get(lookUpPair.getFirst())),
                             colors.get(colorLookup.get(lookUpPair.getSecond())),
                             camera);
                 }
             } else {
                 if (colorLookup.containsKey((long) s.first.id)) {
-                    Drawing.drawGradientSegment(s, colors.get(colorLookup.get((long) s.first.id)),
+                    Drawing.drawGradientSegment(getDrawing().sdfLine, s,colors.get(colorLookup.get((long) s.first.id)),
                             colors.get(colorLookup.get((long) s.last.id)),
                             camera);
                 }
@@ -554,18 +599,18 @@ public class Drawing {
 
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
-            s.setStroke(minLineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+            strokeSegment(s, minLineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
             if (lookupPairs != null) {
                 Pair<Long, Long> lookUpPair = lookupPairs.get(i);
 
                 if (colorLookup.containsKey(lookUpPair.getFirst())) {
-                    Drawing.drawGradientSegment(s, colorLookup.get(lookUpPair.getFirst()),
+                    Drawing.drawGradientSegment(getDrawing().sdfLine, s,colorLookup.get(lookUpPair.getFirst()),
                             colorLookup.get(lookUpPair.getSecond()),
                             camera);
                 }
             } else {
                 if (colorLookup.containsKey((long) s.first.id)) {
-                    Drawing.drawGradientSegment(s, colorLookup.get((long) s.first.id),
+                    Drawing.drawGradientSegment(getDrawing().sdfLine, s,colorLookup.get((long) s.first.id),
                             colorLookup.get((long) s.last.id),
                             camera);
                 }
@@ -636,7 +681,7 @@ public class Drawing {
     public static void drawKnot(Knot k, Color c, float lineThickness, Camera2D camera) {
         for (int i = 0; i < k.manifoldSegments.size(); i++) {
             Segment s = k.manifoldSegments.get(i);
-            s.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
+            strokeSegment(s, lineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
             Drawing.drawSegment(s, c, camera);
         }
     }
