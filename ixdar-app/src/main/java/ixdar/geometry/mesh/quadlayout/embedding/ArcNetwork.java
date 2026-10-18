@@ -358,7 +358,7 @@ public class ArcNetwork {
         node.copyVertex = copyVertex;
         node.critical = embedding.criticalByNode[nodeId];
         node.alive = true;
-        topology.ownerNodeByCopyVertex[copyVertex] = nodeId;
+        topology.ownerNodeByCopyVertex()[copyVertex] = nodeId;
     }
 
     /**
@@ -376,7 +376,7 @@ public class ArcNetwork {
         int nodeId = nodes.size();
         nodes.add(new EmbeddedNode(nodeId, sourceNodeId, copyVertex, critical, border));
         arcEndsByNode.add(new ArrayList<>());
-        topology.ownerNodeByCopyVertex[copyVertex] = nodeId;
+        topology.ownerNodeByCopyVertex()[copyVertex] = nodeId;
         return nodeId;
     }
 
@@ -602,7 +602,7 @@ public class ArcNetwork {
                 if (wall.contains(edgeId)) {
                     continue;
                 }
-                int owner = topology.ownerArcByCopyEdge[edgeId];
+                int owner = topology.ownerArcByCopyEdge()[edgeId];
                 if (owner != EmbeddedMeshTopology.UNCLAIMED && !ownArcs.contains(owner)) {
                     return false;
                 }
@@ -828,7 +828,7 @@ public class ArcNetwork {
                 }
             }
         }
-        topology.ownerNodeByCopyVertex[discard.copyVertex] = EmbeddedMeshTopology.UNCLAIMED;
+        topology.ownerNodeByCopyVertex()[discard.copyVertex] = EmbeddedMeshTopology.UNCLAIMED;
         discard.alive = false;
         keep.critical = keep.critical || discard.critical;
         keep.border = keep.border || discard.border;
@@ -981,7 +981,7 @@ public class ArcNetwork {
         // With no real flank the point's cells vanish entirely; the cover label beside the
         // point names the enclosing cell their stale labels must resolve into.
         int enclosingPatchId = NONE;
-        if (realFlanks.isEmpty() && topology.patchByCopyFace.length > 0) {
+        if (realFlanks.isEmpty() && topology.patchCoversLabeled) {
             int pointVertex = arc.path.copyVertexPath.get(0);
             for (int spoke = 0; spoke < topology.copy.vertexEdgeCount(pointVertex)
                     && enclosingPatchId == NONE; spoke++) {
@@ -1389,10 +1389,10 @@ public class ArcNetwork {
         int firstPatch = addPatch(patch.sourcePatchId, firstSides, divider.startNodeId);
         int secondPatch = addPatch(patch.sourcePatchId, secondSides, divider.endNodeId);
         topology.aliasPatchInto(patchId, firstPatch, patches.size());
-        if (topology.patchByCopyFace.length > 0) {
+        if (topology.patchCoversLabeled) {
             IntIdList secondFaces = corridor.patchFaces(secondPatch);
             for (int index = 0; index < secondFaces.size(); index++) {
-                topology.patchByCopyFace[secondFaces.get(index)] = secondPatch;
+                topology.patchByCopyFace()[secondFaces.get(index)] = secondPatch;
             }
         }
         return new int[] { firstPatch, secondPatch };
@@ -1480,12 +1480,12 @@ public class ArcNetwork {
             int vertex = frontier.remove(frontier.size() - 1);
             for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
                 int edgeId = topology.copy.vertexEdgeAt(vertex, index);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                if (topology.ownerArcByCopyEdge()[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
                 int neighbor = topology.copy.edgeOtherVertex(edgeId, vertex);
-                if (topology.ownerArcByCopyVertex[neighbor] == EmbeddedMeshTopology.UNCLAIMED
-                        && topology.ownerNodeByCopyVertex[neighbor] == EmbeddedMeshTopology.UNCLAIMED
+                if (topology.ownerArcByCopyVertex()[neighbor] == EmbeddedMeshTopology.UNCLAIMED
+                        && topology.ownerNodeByCopyVertex()[neighbor] == EmbeddedMeshTopology.UNCLAIMED
                         && seen.add(neighbor)) {
                     frontier.add(neighbor);
                 }
@@ -1513,11 +1513,11 @@ public class ArcNetwork {
      */
     public void releaseClaims(ArcEdgePath path) {
         for (int edgeId : path.copyEdgePath) {
-            topology.ownerArcByCopyEdge[edgeId] = EmbeddedMeshTopology.UNCLAIMED;
+            topology.ownerArcByCopyEdge()[edgeId] = EmbeddedMeshTopology.UNCLAIMED;
         }
         List<Integer> vertices = path.copyVertexPath;
         for (int index = 1; index < vertices.size() - 1; index++) {
-            topology.ownerArcByCopyVertex[vertices.get(index)] = EmbeddedMeshTopology.UNCLAIMED;
+            topology.ownerArcByCopyVertex()[vertices.get(index)] = EmbeddedMeshTopology.UNCLAIMED;
         }
     }
 
@@ -1697,7 +1697,7 @@ public class ArcNetwork {
      * @return the first tear found, or {@code null} when the arrangement is coherent
      */
     public ArrangementDiagnosticException flankTearFailure(String operator) {
-        if (topology.patchByCopyFace.length == 0) {
+        if (!topology.patchCoversLabeled) {
             return null;
         }
         for (EmbeddedArc arc : arcs) {
@@ -1884,8 +1884,8 @@ public class ArcNetwork {
                 EmbeddedArc sideArc = arcs.get(sideArcId);
                 int ownedEdges = 0;
                 for (int edgeId : sideArc.path.copyEdgePath) {
-                    if (edgeId < topology.ownerArcByCopyEdge.length
-                            && topology.ownerArcByCopyEdge[edgeId] == sideArcId) {
+                    if (edgeId < topology.ownerArcByCopyEdge().length
+                            && topology.ownerArcByCopyEdge()[edgeId] == sideArcId) {
                         ownedEdges++;
                     }
                 }
@@ -1907,9 +1907,10 @@ public class ArcNetwork {
      */
     public void labelPatchCovers() {
         long startNanos = System.nanoTime();
-        int[] labels = new int[topology.sourceFaceByCopyFace.length];
+        int[] labels = new int[topology.sourceFaceByCopyFace().length];
         Arrays.fill(labels, NONE);
-        topology.patchByCopyFace = new int[0];
+        Arrays.fill(topology.patchByCopyFace(), NONE);
+        topology.patchCoversLabeled = false;
         topology.patchAliasByPatch = new int[patches.size()];
         for (int patchId = 0; patchId < patches.size(); patchId++) {
             topology.patchAliasByPatch[patchId] = patchId;
@@ -1936,7 +1937,8 @@ public class ArcNetwork {
                     overlapCount, topology.copy.faceCount());
             return;
         }
-        topology.patchByCopyFace = labels;
+        System.arraycopy(labels, 0, topology.patchByCopyFace(), 0, labels.length);
+        topology.patchCoversLabeled = true;
         Platforms.log("[contract] patch covers labeled: faces=%d of %d patches=%d | %.3fs%n",
                 labeledCount, topology.copy.faceCount(), patches.size(),
                 (System.nanoTime() - startNanos) / NANOS_PER_SECOND);
@@ -1952,7 +1954,7 @@ public class ArcNetwork {
      *                               no longer encloses it
      */
     public void relabelPatchCover(int patchId) {
-        if (topology.patchByCopyFace.length == 0 || patchId == NONE) {
+        if (!topology.patchCoversLabeled || patchId == NONE) {
             return;
         }
         int resolved = topology.resolvePatch(patchId);
@@ -1976,7 +1978,7 @@ public class ArcNetwork {
                     + pointEmbeddedArcReport(foreignArc));
         }
         for (int index = 0; index < faces.size(); index++) {
-            topology.patchByCopyFace[faces.get(index)] = resolved;
+            topology.patchByCopyFace()[faces.get(index)] = resolved;
         }
         relabelCallCount++;
         relabelFacesFlooded += faces.size();
@@ -2040,10 +2042,10 @@ public class ArcNetwork {
      * @return true when its owning node exists and is alive
      */
     private boolean ownedByLiveNode(int copyVertex) {
-        if (copyVertex >= topology.ownerNodeByCopyVertex.length) {
+        if (copyVertex >= topology.ownerNodeByCopyVertex().length) {
             return false;
         }
-        int nodeId = topology.ownerNodeByCopyVertex[copyVertex];
+        int nodeId = topology.ownerNodeByCopyVertex()[copyVertex];
         return nodeId != EmbeddedMeshTopology.UNCLAIMED && nodes.get(nodeId).alive;
     }
 
@@ -2054,10 +2056,10 @@ public class ArcNetwork {
      * @return true when its owning arc exists and is alive
      */
     private boolean ownedByLiveArc(int copyVertex) {
-        if (copyVertex >= topology.ownerArcByCopyVertex.length) {
+        if (copyVertex >= topology.ownerArcByCopyVertex().length) {
             return false;
         }
-        int arcId = topology.ownerArcByCopyVertex[copyVertex];
+        int arcId = topology.ownerArcByCopyVertex()[copyVertex];
         return arcId != EmbeddedMeshTopology.UNCLAIMED && arcs.get(arcId).alive;
     }
 
@@ -2142,7 +2144,7 @@ public class ArcNetwork {
                 continue;
             }
             for (int index = 0; index < topology.copy.vertexFaceCount(node.copyVertex); index++) {
-                int sourceFace = topology.sourceFaceByCopyFace[topology.copy.vertexFaceAt(node.copyVertex, index)];
+                int sourceFace = topology.sourceFaceByCopyFace()[topology.copy.vertexFaceAt(node.copyVertex, index)];
                 if (sourceFace == EmbeddedMeshTopology.UNCLAIMED
                         || lastNodeSeenBySourceFace[sourceFace] == node.nodeId) {
                     continue;

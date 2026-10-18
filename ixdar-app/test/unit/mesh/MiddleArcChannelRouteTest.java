@@ -57,8 +57,8 @@ class MiddleArcChannelRouteTest {
 
         int startVertex = vertex(topology, 0, LOWER_LANE_ROW);
         int endVertex = vertex(topology, COLUMNS - 1, UPPER_LANE_ROW);
-        topology.ownerNodeByCopyVertex[startVertex] = START_NODE;
-        topology.ownerNodeByCopyVertex[endVertex] = END_NODE;
+        topology.ownerNodeByCopyVertex()[startVertex] = START_NODE;
+        topology.ownerNodeByCopyVertex()[endVertex] = END_NODE;
 
         List<Integer> upperLane = new ArrayList<>();
         List<Integer> lowerLane = new ArrayList<>();
@@ -109,10 +109,10 @@ class MiddleArcChannelRouteTest {
         int endVertex = vertex(topology, SEALED_END_COLUMN, LOWER_LANE_ROW);
         int sealNodeVertex = vertex(topology, 2, LOWER_LANE_ROW);
         int sealLaneVertex = vertex(topology, 2, UPPER_LANE_ROW);
-        topology.ownerNodeByCopyVertex[startVertex] = START_NODE;
-        topology.ownerNodeByCopyVertex[endVertex] = END_NODE;
-        topology.ownerNodeByCopyVertex[sealNodeVertex] = SEAL_NODE;
-        topology.ownerArcByCopyVertex[sealLaneVertex] = UPPER_ARC;
+        topology.ownerNodeByCopyVertex()[startVertex] = START_NODE;
+        topology.ownerNodeByCopyVertex()[endVertex] = END_NODE;
+        topology.ownerNodeByCopyVertex()[sealNodeVertex] = SEAL_NODE;
+        topology.ownerArcByCopyVertex()[sealLaneVertex] = UPPER_ARC;
         topology.claimEdgeBetween(sealNodeVertex, sealLaneVertex, UPPER_ARC);
 
         ArcRerouter rerouter = new ArcRerouter(topology);
@@ -137,8 +137,8 @@ class MiddleArcChannelRouteTest {
     private void claimLane(EmbeddedMeshTopology topology, List<Integer> lane, int arcId) {
         for (int index = 1; index < lane.size(); index++) {
             topology.claimEdgeBetween(lane.get(index - 1), lane.get(index), arcId);
-            if (topology.ownerNodeByCopyVertex[lane.get(index)] == EmbeddedMeshTopology.UNCLAIMED) {
-                topology.ownerArcByCopyVertex[lane.get(index)] = arcId;
+            if (topology.ownerNodeByCopyVertex()[lane.get(index)] == EmbeddedMeshTopology.UNCLAIMED) {
+                topology.ownerArcByCopyVertex()[lane.get(index)] = arcId;
             }
         }
     }

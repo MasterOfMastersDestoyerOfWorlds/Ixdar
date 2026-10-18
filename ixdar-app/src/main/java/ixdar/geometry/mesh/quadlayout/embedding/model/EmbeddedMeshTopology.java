@@ -20,8 +20,8 @@ import ixdar.numeric.exact.ExactBarycentricOrient;
  * {@link HalfEdgeMesh}; the source is never mutated.
  *
  * <p>
- * All local remeshing must go through this class, which maintains each copy
- * face's source face and each copy edge's and vertex's owning arc or node.
+ * Provenance and ownership are layers of the copy; this class adds the barycentrics
+ * and child lists, so all remeshing goes through it.
  *
  * <p>
  * See also: LCBK19 Section 6
@@ -43,15 +43,32 @@ public final class EmbeddedMeshTopology {
      */
     public final int originalVertexBound;
 
-    /** Source active face index per raw copy face id; split children inherit. */
-    public int[] sourceFaceByCopyFace;
+    /** Face layer of {@link #copy} holding each copy face's source active face index. */
+    public final int sourceFaceLayer;
+
+    /** Face layer of {@link #copy} holding the patch covering each copy face. */
+    public final int patchLayer;
+
+    /** Edge layer of {@link #copy} holding the source active edge each copy edge lies on. */
+    public final int sourceEdgeLayer;
+
+    /** Edge layer of {@link #copy} holding the arc owning each copy edge. */
+    public final int ownerArcEdgeLayer;
+
+    /** Vertex layer of {@link #copy} holding the T-mesh node owning each copy vertex. */
+    public final int ownerNodeLayer;
 
     /**
-     * Patch id covering each raw copy face, or {@link #UNCLAIMED}; empty until the
-     * contraction labels the covers. Split children inherit, so refinement never
-     * invalidates a label.
+     * Vertex layer of {@link #copy} holding the arc owning each interior path vertex; a vertex
+     * minted on a split edge takes that edge's owner.
      */
-    public int[] patchByCopyFace = new int[0];
+    public final int ownerArcVertexLayer;
+
+    /**
+     * Whether the contraction has labeled the patch covers; until then, and after a labeling
+     * it dropped as unusable, every face reads {@link #UNCLAIMED}.
+     */
+    public boolean patchCoversLabeled;
 
     /**
      * Union-find parent per patch id, so a patch absorbed by a neighbour keeps its
@@ -60,47 +77,10 @@ public final class EmbeddedMeshTopology {
     public int[] patchAliasByPatch = new int[0];
 
     /**
-     * Generation per copy edge marking the channel a collapsing arc has vacated. Nothing claims
-     * it until the drags re-fence it, so meanwhile it stands in for the arc as the wall between
-     * its two patches. Edge-split children inherit it, since a re-route may refine along it.
-     */
-    public int[] vacatedWallStampByCopyEdge = new int[0];
-
-    /** Current generation of {@link #vacatedWallStampByCopyEdge}; zero marks none. */
-    public int vacatedWallStamp;
-
-    /**
-     * Source active edge index per raw copy edge id, or {@link #UNCLAIMED} for
-     * minted interior edges. Edge-split children inherit the parent's tag — a trace
-     * crossing the parent may cross either half.
-     */
-    public int[] sourceEdgeByCopyEdge;
-
-    /** Owning arc id per raw copy edge id, or {@link #UNCLAIMED}. */
-    public int[] ownerArcByCopyEdge;
-
-    /** Owning T-mesh node id per raw copy vertex id, or {@link #UNCLAIMED}. */
-    public int[] ownerNodeByCopyVertex;
-
-    /** Owning arc id per raw copy vertex id (interior path vertices). */
-    public int[] ownerArcByCopyVertex;
-
-    /**
-     * Memoized length per raw copy edge id, {@link Float#NaN} until computed;
-     * invalidated when an edge id is minted or reused.
-     */
-    public float[] lengthByCopyEdge;
-
-    /**
      * Copy face ids descending from each source active face, in insertion order,
      * which the child-face search relies on.
      */
     public final List<Set<Integer>> copyFacesBySourceFace;
-
-    public int faceSplitCount;
-    public int edgeSplitCount;
-    public int edgeCollapseCount;
-    public int edgeFlipCount;
 
     /** Edges a second arc tried to claim while another held them (the existing claim is kept). */
     public int claimConflictCount;
@@ -126,9 +106,6 @@ public final class EmbeddedMeshTopology {
 
     /** Barycentric triples of each copy vertex, one per registered source face. */
     private final List<double[][]> barycentricTriplesByVertex = new ArrayList<>();
-
-    /** Exclusive bound on allocated copy edge ids, advanced per adopted face. */
-    private int edgeIdBound;
 
     /**
      * Build the working copy from the source mesh's active vertices and faces.
@@ -161,8 +138,14 @@ public final class EmbeddedMeshTopology {
             }
         }
         this.copy = HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faceIndices);
+        sourceFaceLayer = copy.declareFaceLayer(UNCLAIMED);
+        patchLayer = copy.declareFaceLayer(UNCLAIMED);
+        sourceEdgeLayer = copy.declareEdgeLayer(UNCLAIMED);
+        ownerArcEdgeLayer = copy.declareEdgeLayer(UNCLAIMED);
+        ownerNodeLayer = copy.declareVertexLayer(UNCLAIMED, UNCLAIMED);
+        ownerArcVertexLayer = copy.declareVertexLayer(UNCLAIMED, ownerArcEdgeLayer);
 
-        sourceFaceByCopyFace = new int[faceCount];
+        int[] sourceFaceByCopyFace = sourceFaceByCopyFace();
         copyFacesBySourceFace = new ArrayList<>(faceCount);
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             sourceFaceByCopyFace[activeFace] = activeFace;
@@ -170,17 +153,6 @@ public final class EmbeddedMeshTopology {
             children.add(activeFace);
             copyFacesBySourceFace.add(children);
         }
-        edgeIdBound = copy.edgeCount();
-        ownerArcByCopyEdge = new int[edgeIdBound];
-        sourceEdgeByCopyEdge = new int[edgeIdBound];
-        lengthByCopyEdge = new float[edgeIdBound];
-        ownerNodeByCopyVertex = new int[vertexCount];
-        ownerArcByCopyVertex = new int[vertexCount];
-        Arrays.fill(ownerArcByCopyEdge, UNCLAIMED);
-        Arrays.fill(sourceEdgeByCopyEdge, UNCLAIMED);
-        Arrays.fill(lengthByCopyEdge, Float.NaN);
-        Arrays.fill(ownerNodeByCopyVertex, UNCLAIMED);
-        Arrays.fill(ownerArcByCopyVertex, UNCLAIMED);
 
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             for (int corner = 0; corner < CORNERS; corner++) {
@@ -189,6 +161,65 @@ public final class EmbeddedMeshTopology {
                 registerBarycentric(activeFace, copy.faceVertexAt(activeFace, corner), barycentric);
             }
         }
+    }
+
+    /**
+     * Source active face index per raw copy face id, the {@link #sourceFaceLayer} array.
+     *
+     * @return the layer, indexed by copy face id
+     */
+    public int[] sourceFaceByCopyFace() {
+        return copy.faceLayers[sourceFaceLayer];
+    }
+
+    /**
+     * Patch id covering each raw copy face, or {@link #UNCLAIMED}, the {@link #patchLayer}
+     * array; meaningful once {@link #patchCoversLabeled}.
+     *
+     * @return the layer, indexed by copy face id
+     */
+    public int[] patchByCopyFace() {
+        return copy.faceLayers[patchLayer];
+    }
+
+    /**
+     * Source active edge index per raw copy edge id, or {@link #UNCLAIMED} for a minted
+     * interior edge, the {@link #sourceEdgeLayer} array.
+     *
+     * @return the layer, indexed by copy edge id
+     */
+    public int[] sourceEdgeByCopyEdge() {
+        return copy.edgeLayers[sourceEdgeLayer];
+    }
+
+    /**
+     * Owning arc id per raw copy edge id, or {@link #UNCLAIMED}, the {@link #ownerArcEdgeLayer}
+     * array.
+     *
+     * @return the layer, indexed by copy edge id
+     */
+    public int[] ownerArcByCopyEdge() {
+        return copy.edgeLayers[ownerArcEdgeLayer];
+    }
+
+    /**
+     * Owning T-mesh node id per raw copy vertex id, or {@link #UNCLAIMED}, the
+     * {@link #ownerNodeLayer} array.
+     *
+     * @return the layer, indexed by copy vertex id
+     */
+    public int[] ownerNodeByCopyVertex() {
+        return copy.vertexLayers[ownerNodeLayer];
+    }
+
+    /**
+     * Owning arc id per raw copy vertex id, or {@link #UNCLAIMED}, the
+     * {@link #ownerArcVertexLayer} array.
+     *
+     * @return the layer, indexed by copy vertex id
+     */
+    public int[] ownerArcByCopyVertex() {
+        return copy.vertexLayers[ownerArcVertexLayer];
     }
 
     /**
@@ -288,8 +319,8 @@ public final class EmbeddedMeshTopology {
         int vertexB = copy.halfEdgeEndVertex(halfEdge);
         int faceA = copy.edgeFace(copyEdgeId, 0);
         int faceB = copy.edgeFace(copyEdgeId, 1);
-        int sourceA = faceA >= 0 ? sourceFaceByCopyFace[faceA] : UNCLAIMED;
-        int sourceB = faceB >= 0 ? sourceFaceByCopyFace[faceB] : UNCLAIMED;
+        int sourceA = faceA >= 0 ? sourceFaceByCopyFace()[faceA] : UNCLAIMED;
+        int sourceB = faceB >= 0 ? sourceFaceByCopyFace()[faceB] : UNCLAIMED;
         double[] barycentricA = interpolateBarycentric(sourceA, vertexA, vertexB, parameter);
         double[] barycentricB = sourceB == sourceA
                 ? null
@@ -300,8 +331,10 @@ public final class EmbeddedMeshTopology {
         }
         int carrier = barycentricA != null ? sourceA : sourceB;
         double[] carried = barycentricA != null ? barycentricA : barycentricB;
-        int newVertex = splitEdgeAtPoint(copyEdgeId,
+        int firstNewFace = copy.nextFaceId;
+        int newVertex = copy.splitEdge(copyEdgeId,
                 positionFromBarycentric(carrier, carried, new Vector3f()));
+        recordReplacement(new int[0], firstNewFace);
         if (barycentricA != null) {
             registerBarycentric(sourceA, newVertex, barycentricA);
         }
@@ -336,10 +369,12 @@ public final class EmbeddedMeshTopology {
      * @return the minted vertex id
      */
     public int splitFaceAtBarycentric(int copyFaceId, double[] barycentric) {
-        int sourceFace = sourceFaceByCopyFace[copyFaceId];
+        int sourceFace = sourceFaceByCopyFace()[copyFaceId];
         requireStrictlyInside(copyFaceId, sourceFace, barycentric);
-        int newVertex = splitFaceAtPoint(copyFaceId,
+        int firstNewFace = copy.nextFaceId;
+        int newVertex = copy.splitFace(copyFaceId,
                 positionFromBarycentric(sourceFace, barycentric, new Vector3f()));
+        recordReplacement(new int[] { copyFaceId }, firstNewFace);
         registerBarycentric(sourceFace, newVertex, barycentric);
         return newVertex;
     }
@@ -425,78 +460,6 @@ public final class EmbeddedMeshTopology {
     }
 
     /**
-     * Split a copy face into three around a new vertex at the given position
-     * (LCBK19 §6.1 refinement). Children inherit the parent's source face.
-     *
-     * @param copyFaceId copy face to split
-     * @param position   3D position of the new vertex
-     * @return new vertex id
-     */
-    public int splitFaceAtPoint(int copyFaceId, Vector3f position) {
-        int vertex0 = copy.faceVertexAt(copyFaceId, 0);
-        int vertex1 = copy.faceVertexAt(copyFaceId, 1);
-        int vertex2 = copy.faceVertexAt(copyFaceId, 2);
-        int sourceFace = sourceFaceByCopyFace[copyFaceId];
-        int patchId = patchLabelOf(copyFaceId);
-        retireFace(copyFaceId, sourceFace);
-        int newVertex = copy.addVertex(position);
-        adoptFace(copy.addFace(vertex0, vertex1, newVertex), sourceFace, patchId);
-        adoptFace(copy.addFace(vertex1, vertex2, newVertex), sourceFace, patchId);
-        adoptFace(copy.addFace(vertex2, vertex0, newVertex), sourceFace, patchId);
-        ensureVertexCapacity(newVertex);
-        ensureEdgeCapacity();
-        faceSplitCount++;
-        return newVertex;
-    }
-
-    /**
-     * Split a copy edge at the given position, retriangulating both incident faces
-     * (LCBK19 §6.1 refinement / lane creation). Children inherit their respective
-     * parents' source faces; the split edge's claim, if any, is transferred to both
-     * halves.
-     *
-     * @param copyEdgeId copy edge to split
-     * @param position   3D position of the new vertex
-     * @return new vertex id
-     */
-    public int splitEdgeAtPoint(int copyEdgeId, Vector3f position) {
-        int vertexB = copy.halfEdgeEndVertex(copy.edgeHalfEdge(copyEdgeId));
-        int faceA = copy.edgeFace(copyEdgeId, 0);
-        int faceB = copy.edgeFace(copyEdgeId, 1);
-        int edgeOwner = ownerArcByCopyEdge[copyEdgeId];
-        int sourceEdge = sourceEdgeByCopyEdge[copyEdgeId];
-        boolean vacatedWall = onVacatedWall(copyEdgeId);
-        int sourceA = faceA >= 0 ? sourceFaceByCopyFace[faceA] : UNCLAIMED;
-        int sourceB = faceB >= 0 ? sourceFaceByCopyFace[faceB] : UNCLAIMED;
-        int patchA = faceA >= 0 ? patchLabelOf(faceA) : UNCLAIMED;
-        int patchB = faceB >= 0 ? patchLabelOf(faceB) : UNCLAIMED;
-        int newVertex = copy.splitEdge(copyEdgeId, position);
-        int tailEdge = copy.edgeBetween(newVertex, vertexB);
-        int childFaceA = copy.edgeFace(tailEdge, 0);
-        int childFaceB = copy.edgeFace(tailEdge, 1);
-        if (childFaceA != UNCLAIMED) {
-            adoptFace(childFaceA, sourceA, patchA);
-        }
-        if (childFaceB != UNCLAIMED) {
-            adoptFace(childFaceB, sourceB, patchB);
-        }
-        ensureVertexCapacity(newVertex);
-        ensureEdgeCapacity();
-        if (edgeOwner != UNCLAIMED) {
-            ownerArcByCopyEdge[tailEdge] = edgeOwner;
-            ownerArcByCopyVertex[newVertex] = edgeOwner;
-        }
-        if (sourceEdge != UNCLAIMED) {
-            sourceEdgeByCopyEdge[tailEdge] = sourceEdge;
-        }
-        if (vacatedWall) {
-            vacatedWallStampByCopyEdge[tailEdge] = vacatedWallStamp;
-        }
-        edgeSplitCount++;
-        return newVertex;
-    }
-
-    /**
      * Flip a free untagged diagonal shared by two children of one source face,
      * replacing it with the opposite diagonal (LCBK19 §6.1 chord insertion).
      *
@@ -504,22 +467,29 @@ public final class EmbeddedMeshTopology {
      * @return the new diagonal's edge id
      */
     public int flipEdge(int copyEdgeId) {
-        int halfEdge = copy.edgeHalfEdge(copyEdgeId);
-        int vertexA = copy.halfEdgeVertex(halfEdge);
-        int vertexB = copy.halfEdgeEndVertex(halfEdge);
-        int faceA = copy.edgeFace(copyEdgeId, 0);
-        int faceB = copy.edgeFace(copyEdgeId, 1);
-        int vertexC = copy.faceOppositeCorner(faceA, vertexA, vertexB);
-        int vertexD = copy.faceOppositeCorner(faceB, vertexA, vertexB);
-        int sourceFace = sourceFaceByCopyFace[faceA];
-        int patchId = patchLabelOf(faceA);
-        retireFace(faceA, sourceFace);
-        retireFace(faceB, sourceFaceByCopyFace[faceB]);
-        adoptFace(copy.addFace(vertexA, vertexD, vertexC), sourceFace, patchId);
-        adoptFace(copy.addFace(vertexD, vertexB, vertexC), sourceFace, patchId);
-        ensureEdgeCapacity();
-        edgeFlipCount++;
-        return copy.edgeBetween(vertexC, vertexD);
+        int[] retired = { copy.edgeFace(copyEdgeId, 0), copy.edgeFace(copyEdgeId, 1) };
+        int firstNewFace = copy.nextFaceId;
+        int diagonal = copy.flipEdge(copyEdgeId);
+        recordReplacement(retired, firstNewFace);
+        return diagonal;
+    }
+
+    /**
+     * Brings the child lists in step with an operator on the copy: the retired faces leave
+     * their source face's list and every face minted since {@code firstNewFace} joins its
+     * own in id order, which is the order they were added.
+     *
+     * @param retiredFaceIds faces the operator removed
+     * @param firstNewFace   the copy's next face id before the operator ran
+     */
+    private void recordReplacement(int[] retiredFaceIds, int firstNewFace) {
+        int[] sourceFaceByCopyFace = sourceFaceByCopyFace();
+        for (int retired : retiredFaceIds) {
+            copyFacesBySourceFace.get(sourceFaceByCopyFace[retired]).remove(Integer.valueOf(retired));
+        }
+        for (int faceId = firstNewFace; faceId < copy.nextFaceId; faceId++) {
+            copyFacesBySourceFace.get(sourceFaceByCopyFace[faceId]).add(faceId);
+        }
     }
 
     /**
@@ -651,7 +621,7 @@ public final class EmbeddedMeshTopology {
     private int enteredFace(int sourceFace, int fromVertex, double[] from, double[] to) {
         for (int index = 0; index < copy.vertexFaceCount(fromVertex); index++) {
             int face = copy.vertexFaceAt(fromVertex, index);
-            if (sourceFaceByCopyFace[face] != sourceFace) {
+            if (sourceFaceByCopyFace()[face] != sourceFace) {
                 continue;
             }
             int at = 0;
@@ -685,18 +655,18 @@ public final class EmbeddedMeshTopology {
      */
     private int acrossFreeEdge(int face, int left, int right, int sourceFace) {
         int edgeId = copy.edgeBetween(left, right);
-        if (sourceEdgeByCopyEdge[edgeId] != UNCLAIMED) {
+        if (sourceEdgeByCopyEdge()[edgeId] != UNCLAIMED) {
             throw new IllegalStateException("a chord in source face " + sourceFace + " would"
                     + " cross copy edge " + edgeId + ", which lies on source edge "
-                    + sourceEdgeByCopyEdge[edgeId]);
+                    + sourceEdgeByCopyEdge()[edgeId]);
         }
-        if (ownerArcByCopyEdge[edgeId] != UNCLAIMED) {
+        if (ownerArcByCopyEdge()[edgeId] != UNCLAIMED) {
             throw new IllegalStateException("a chord in source face " + sourceFace + " would"
                     + " cross copy edge " + edgeId + ", already held by arc "
-                    + ownerArcByCopyEdge[edgeId]);
+                    + ownerArcByCopyEdge()[edgeId]);
         }
         int farSide = copy.faceAcrossEdge(face, edgeId);
-        if (farSide == UNCLAIMED || sourceFaceByCopyFace[farSide] != sourceFace) {
+        if (farSide == UNCLAIMED || sourceFaceByCopyFace()[farSide] != sourceFace) {
             throw new IllegalStateException("a chord in source face " + sourceFace + " would"
                     + " leave it across copy edge " + edgeId);
         }
@@ -740,15 +710,17 @@ public final class EmbeddedMeshTopology {
         leftSide.add(0);
         List<int[]> triangles = new EarClipping(barycentric, rightSide).build().triangles;
         triangles.addAll(new EarClipping(barycentric, leftSide).build().triangles);
-        int stripPatchId = crossedFaces.isEmpty() ? UNCLAIMED : patchLabelOf(crossedFaces.get(0));
-        for (int crossed : crossedFaces) {
-            retireFace(crossed, sourceFace);
+        int[] retired = new int[crossedFaces.size()];
+        for (int index = 0; index < retired.length; index++) {
+            retired[index] = crossedFaces.get(index);
         }
-        for (int[] triangle : triangles) {
-            adoptFace(copy.addFace(copyVertices.get(triangle[0]), copyVertices.get(triangle[1]),
-                    copyVertices.get(triangle[2])), sourceFace, stripPatchId);
+        int[] corners = new int[triangles.size() * CORNERS];
+        for (int index = 0; index < corners.length; index++) {
+            corners[index] = copyVertices.get(triangles.get(index / CORNERS)[index % CORNERS]);
         }
-        ensureEdgeCapacity();
+        int firstNewFace = copy.nextFaceId;
+        copy.replaceFaces(retired[0], retired, corners);
+        recordReplacement(retired, firstNewFace);
     }
 
     /**
@@ -778,9 +750,11 @@ public final class EmbeddedMeshTopology {
      * @param path  the arc's embedded path
      */
     public void claimPath(int arcId, ArcEdgePath path) {
+        int[] ownerArcByCopyEdge = ownerArcByCopyEdge();
         for (int edgeId : path.copyEdgePath) {
             ownerArcByCopyEdge[edgeId] = arcId;
         }
+        int[] ownerArcByCopyVertex = ownerArcByCopyVertex();
         for (int index = 1; index < path.copyVertexPath.size() - 1; index++) {
             ownerArcByCopyVertex[path.copyVertexPath.get(index)] = arcId;
         }
@@ -799,6 +773,7 @@ public final class EmbeddedMeshTopology {
         if (edgeId == UNCLAIMED) {
             return;
         }
+        int[] ownerArcByCopyEdge = ownerArcByCopyEdge();
         if (ownerArcByCopyEdge[edgeId] != UNCLAIMED && ownerArcByCopyEdge[edgeId] != arcId) {
             claimConflictCount++;
             if (firstClaimConflict == null) {
@@ -822,8 +797,8 @@ public final class EmbeddedMeshTopology {
     public String describeVertex(int copyVertex) {
         return "vertex " + copyVertex
                 + (copyVertex < originalVertexBound ? "(original" : "(minted")
-                + ",node" + ownerNodeByCopyVertex[copyVertex]
-                + ",arc" + ownerArcByCopyVertex[copyVertex] + ")";
+                + ",node" + ownerNodeByCopyVertex()[copyVertex]
+                + ",arc" + ownerArcByCopyVertex()[copyVertex] + ")";
     }
 
     /**
@@ -845,7 +820,7 @@ public final class EmbeddedMeshTopology {
             if (copyFace == UNCLAIMED) {
                 continue;
             }
-            int sourceFace = sourceFaceByCopyFace[copyFace];
+            int sourceFace = sourceFaceByCopyFace()[copyFace];
             if (barycentricOf(sourceFace, fromVertex) != null
                     && barycentricOf(sourceFace, toVertex) != null) {
                 return sourceFace;
@@ -854,98 +829,15 @@ public final class EmbeddedMeshTopology {
         return UNCLAIMED;
     }
 
-
-    /**
-     * Grow the per-edge claim array to cover all allocated edge ids.
-     */
-    private void ensureEdgeCapacity() {
-        if (edgeIdBound > ownerArcByCopyEdge.length) {
-            int oldLength = ownerArcByCopyEdge.length;
-            int newLength = Math.max(edgeIdBound, oldLength * 2);
-            ownerArcByCopyEdge = Arrays.copyOf(ownerArcByCopyEdge, newLength);
-            sourceEdgeByCopyEdge = Arrays.copyOf(sourceEdgeByCopyEdge, newLength);
-            lengthByCopyEdge = Arrays.copyOf(lengthByCopyEdge, newLength);
-            vacatedWallStampByCopyEdge = Arrays.copyOf(vacatedWallStampByCopyEdge, newLength);
-            Arrays.fill(ownerArcByCopyEdge, oldLength, newLength, UNCLAIMED);
-            Arrays.fill(sourceEdgeByCopyEdge, oldLength, newLength, UNCLAIMED);
-            Arrays.fill(lengthByCopyEdge, oldLength, newLength, Float.NaN);
-        }
-    }
-
-    /**
-     * Grow the per-vertex claim arrays to cover a new vertex id.
-     *
-     * @param vertexId newly allocated vertex id
-     */
-    private void ensureVertexCapacity(int vertexId) {
-        if (vertexId >= ownerNodeByCopyVertex.length) {
-            int oldLength = ownerNodeByCopyVertex.length;
-            int newLength = Math.max(vertexId + 1, oldLength * 2);
-            ownerNodeByCopyVertex = Arrays.copyOf(ownerNodeByCopyVertex, newLength);
-            ownerArcByCopyVertex = Arrays.copyOf(ownerArcByCopyVertex, newLength);
-            Arrays.fill(ownerNodeByCopyVertex, oldLength, newLength, UNCLAIMED);
-            Arrays.fill(ownerArcByCopyVertex, oldLength, newLength, UNCLAIMED);
-        }
-    }
-
-    /**
-     * Remove a face from the copy and from its source face's child list.
-     *
-     * @param copyFaceId copy face to remove
-     * @param sourceFace its source active face
-     */
-    private void retireFace(int copyFaceId, int sourceFace) {
-        copy.removeFaceKeepingNormals(copyFaceId);
-        if (sourceFace >= 0) {
-            copyFacesBySourceFace.get(sourceFace).remove(Integer.valueOf(copyFaceId));
-        }
-    }
-
-    /**
-     * Opens the channel a collapsing arc vacates as a wall, retiring any previous one.
-     *
-     * @param edgeIds edges of the collapsing arc's released path
-     */
-    public void openVacatedWall(List<Integer> edgeIds) {
-        if (vacatedWallStampByCopyEdge.length < ownerArcByCopyEdge.length) {
-            vacatedWallStampByCopyEdge = Arrays.copyOf(vacatedWallStampByCopyEdge,
-                    ownerArcByCopyEdge.length);
-        }
-        if (vacatedWallStamp == Integer.MAX_VALUE) {
-            Arrays.fill(vacatedWallStampByCopyEdge, 0);
-            vacatedWallStamp = 0;
-        }
-        vacatedWallStamp++;
-        for (int edgeId : edgeIds) {
-            vacatedWallStampByCopyEdge[edgeId] = vacatedWallStamp;
-        }
-    }
-
-    /**
-     * Whether a copy edge belongs to the open vacated channel.
-     *
-     * @param copyEdgeId copy edge to test
-     * @return true when the edge stands in for the collapsing arc
-     */
-    public boolean onVacatedWall(int copyEdgeId) {
-        return vacatedWallStamp != 0 && copyEdgeId < vacatedWallStampByCopyEdge.length
-                && vacatedWallStampByCopyEdge[copyEdgeId] == vacatedWallStamp;
-    }
-
-    /** Closes the vacated channel, once the drags have re-fenced it. */
-    public void closeVacatedWall() {
-        vacatedWallStamp = 0;
-    }
-
     /**
      * The patch covering a copy face, or {@link #UNCLAIMED} when the covers are
-     * unlabeled or the face lies off every patch interior.
+     * unlabeled, the face lies off every patch interior, or there is no face.
      *
-     * @param copyFaceId copy face to read
+     * @param copyFaceId copy face to read, or {@link #UNCLAIMED}
      * @return its patch id, or {@link #UNCLAIMED}
      */
     public int patchLabelOf(int copyFaceId) {
-        return copyFaceId < patchByCopyFace.length ? patchByCopyFace[copyFaceId] : UNCLAIMED;
+        return copyFaceId == UNCLAIMED ? UNCLAIMED : patchByCopyFace()[copyFaceId];
     }
 
     /**
@@ -990,58 +882,6 @@ public final class EmbeddedMeshTopology {
         if (absorbed != survivor) {
             patchAliasByPatch[absorbed] = survivor;
         }
-    }
-
-    /**
-     * Register a freshly added copy face under its source face and patch cover.
-     *
-     * @param copyFaceId newly added copy face
-     * @param sourceFace source active face it descends from
-     * @param patchId    patch cover it inherits, or {@link #UNCLAIMED}
-     */
-    private void adoptFace(int copyFaceId, int sourceFace, int patchId) {
-        if (copyFaceId >= sourceFaceByCopyFace.length) {
-            int oldLength = sourceFaceByCopyFace.length;
-            sourceFaceByCopyFace = Arrays.copyOf(sourceFaceByCopyFace,
-                    Math.max(copyFaceId + 1, oldLength * 2));
-            Arrays.fill(sourceFaceByCopyFace, oldLength, sourceFaceByCopyFace.length, UNCLAIMED);
-        }
-        sourceFaceByCopyFace[copyFaceId] = sourceFace;
-        if (patchByCopyFace.length > 0) {
-            if (copyFaceId >= patchByCopyFace.length) {
-                int oldPatchLength = patchByCopyFace.length;
-                patchByCopyFace = Arrays.copyOf(patchByCopyFace,
-                        Math.max(copyFaceId + 1, oldPatchLength * 2));
-                Arrays.fill(patchByCopyFace, oldPatchLength, patchByCopyFace.length, UNCLAIMED);
-            }
-            patchByCopyFace[copyFaceId] = patchId;
-        }
-        if (sourceFace >= 0) {
-            copyFacesBySourceFace.get(sourceFace).add(copyFaceId);
-        }
-        for (int corner = 0; corner < 3; corner++) {
-            int edgeId = copy.faceEdgeAt(copyFaceId, corner);
-            edgeIdBound = Math.max(edgeIdBound, edgeId + 1);
-            if (edgeId < lengthByCopyEdge.length) {
-                lengthByCopyEdge[edgeId] = Float.NaN;
-            }
-        }
-    }
-
-    /**
-     * Length of a copy edge, memoized: vertex positions never move once minted, so
-     * a computed length stays valid until the edge id is reused.
-     *
-     * @param copyEdgeId copy edge id
-     * @return Euclidean distance between the edge's endpoints
-     */
-    public float edgeLength(int copyEdgeId) {
-        float length = lengthByCopyEdge[copyEdgeId];
-        if (Float.isNaN(length)) {
-            length = copy.edgeLength(copyEdgeId);
-            lengthByCopyEdge[copyEdgeId] = length;
-        }
-        return length;
     }
 
 }

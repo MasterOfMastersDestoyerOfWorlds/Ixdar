@@ -559,7 +559,7 @@ public final class QuadMeshExtraction {
      */
     private int expectedPortCount(int quadVertex) {
         if (vertexKind[quadVertex] == ExtractedQuadMesh.KIND_MESH_VERTEX) {
-            int nodeId = tmesh.topology.ownerNodeByCopyVertex[anchorEntityId[quadVertex]];
+            int nodeId = tmesh.topology.ownerNodeByCopyVertex()[anchorEntityId[quadVertex]];
             if (nodeId != EmbeddedMeshTopology.UNCLAIMED && tmesh.nodes.get(nodeId).alive) {
                 return tmesh.degree(nodeId);
             }

@@ -39,17 +39,17 @@ class ArcCorridorThreadTest {
         HalfEdgeMesh grid = buildGrid();
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(grid);
         for (int row = 0; row < ROWS; row++) {
-            topology.ownerArcByCopyVertex[vertex(topology, WALL_COLUMN, row)] = CLAIM_MARKER;
+            topology.ownerArcByCopyVertex()[vertex(topology, WALL_COLUMN, row)] = CLAIM_MARKER;
         }
         for (int row = 0; row < ROWS - 1; row++) {
             if (row == GAP_ROW) {
                 continue;
             }
-            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(vertex(topology, WALL_COLUMN, row),
+            topology.ownerArcByCopyEdge()[topology.copy.edgeBetween(vertex(topology, WALL_COLUMN, row),
                     vertex(topology, WALL_COLUMN, row + 1))] = CLAIM_MARKER;
         }
-        topology.ownerArcByCopyVertex[vertex(topology, WALL_COLUMN - 1, GAP_ROW)] = CLAIM_MARKER;
-        topology.ownerArcByCopyVertex[vertex(topology, WALL_COLUMN + 1, GAP_ROW + 1)] = CLAIM_MARKER;
+        topology.ownerArcByCopyVertex()[vertex(topology, WALL_COLUMN - 1, GAP_ROW)] = CLAIM_MARKER;
+        topology.ownerArcByCopyVertex()[vertex(topology, WALL_COLUMN + 1, GAP_ROW + 1)] = CLAIM_MARKER;
 
         int startVertex = vertex(topology, 0, MIDDLE_ROW);
         int targetVertex = vertex(topology, COLUMNS - 1, MIDDLE_ROW);
@@ -102,7 +102,7 @@ class ArcCorridorThreadTest {
             }
             for (int corner = 0; corner < 3; corner++) {
                 int edgeId = copy.faceEdgeAt(face, corner);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                if (topology.ownerArcByCopyEdge()[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
                 int neighborFace = copy.faceAcrossEdge(face, edgeId);
@@ -122,10 +122,10 @@ class ArcCorridorThreadTest {
      * @return the unclaimed copy vertices
      */
     private ActiveIdSet unclaimedVertices(EmbeddedMeshTopology topology) {
-        ActiveIdSet unclaimed = new ActiveIdSet(topology.ownerArcByCopyVertex.length);
-        for (int vertex = 0; vertex < topology.ownerArcByCopyVertex.length; vertex++) {
-            if (topology.ownerArcByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED
-                    && topology.ownerNodeByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED) {
+        ActiveIdSet unclaimed = new ActiveIdSet(topology.ownerArcByCopyVertex().length);
+        for (int vertex = 0; vertex < topology.ownerArcByCopyVertex().length; vertex++) {
+            if (topology.ownerArcByCopyVertex()[vertex] == EmbeddedMeshTopology.UNCLAIMED
+                    && topology.ownerNodeByCopyVertex()[vertex] == EmbeddedMeshTopology.UNCLAIMED) {
                 unclaimed.add(vertex);
             }
         }

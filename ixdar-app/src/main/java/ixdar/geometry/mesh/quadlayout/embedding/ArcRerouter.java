@@ -286,8 +286,8 @@ public final class ArcRerouter {
             vertices.add(startCopyVertex);
         }
         routeAttemptCount++;
-        vertexIdBound = topology.ownerArcByCopyVertex.length;
-        int nodeIdBound = vertexIdBound + topology.ownerArcByCopyEdge.length;
+        vertexIdBound = topology.ownerArcByCopyVertex().length;
+        int nodeIdBound = vertexIdBound + topology.ownerArcByCopyEdge().length;
         if (stateByNode.length < nodeIdBound * NODE_STATE_STRIDE) {
             stateByNode = Arrays.copyOf(stateByNode, nodeIdBound * NODE_STATE_STRIDE);
         }
@@ -304,7 +304,7 @@ public final class ArcRerouter {
         int[] halfEdgeNexts = copy.halfEdgeNext;
         int[] halfEdgeVertices = copy.halfEdgeVertex;
         int[] halfEdgeEdges = copy.halfEdgeEdge;
-        int[] ownerArcByCopyEdge = topology.ownerArcByCopyEdge;
+        int[] ownerArcByCopyEdge = topology.ownerArcByCopyEdge();
         relax(startCopyVertex, startCopyVertex, 0, 0f, stamp);
         boolean reachedTarget = false;
         while (frontierSize > 0) {
@@ -390,7 +390,7 @@ public final class ArcRerouter {
                         || inCorner(leftFace, true) || inCorner(rightFace, true);
                 if (leavesThroughCorner && arrivesThroughCorner
                         && standable(neighbor, endCopyVertex, passThrough)) {
-                    relax(node, neighbor, headSplits, headLength + topology.edgeLength(edgeId),
+                    relax(node, neighbor, headSplits, headLength + topology.copy.edgeLength(edgeId),
                             stamp);
                 }
             }
@@ -509,8 +509,8 @@ public final class ArcRerouter {
         if (vertex == endCopyVertex || vertex == passThrough) {
             return true;
         }
-        boolean heldByNode = topology.ownerNodeByCopyVertex[vertex] != EmbeddedMeshTopology.UNCLAIMED;
-        boolean heldByArc = topology.ownerArcByCopyVertex[vertex] != EmbeddedMeshTopology.UNCLAIMED;
+        boolean heldByNode = topology.ownerNodeByCopyVertex()[vertex] != EmbeddedMeshTopology.UNCLAIMED;
+        boolean heldByArc = topology.ownerArcByCopyVertex()[vertex] != EmbeddedMeshTopology.UNCLAIMED;
         if (heldByNode || heldByArc) {
             return false;
         }
@@ -519,7 +519,7 @@ public final class ArcRerouter {
         }
         for (int index = 0; index < topology.copy.vertexEdgeCount(vertex); index++) {
             int edgeId = topology.copy.vertexEdgeAt(vertex, index);
-            if (topology.sourceEdgeByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+            if (topology.sourceEdgeByCopyEdge()[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                 return false;
             }
         }
@@ -541,8 +541,8 @@ public final class ArcRerouter {
      */
     private boolean splittable(int edgeId, int tail, int head, int endCopyVertex,
             int passThrough) {
-        boolean heldByArc = topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED;
-        boolean onSourceEdge = topology.sourceEdgeByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED;
+        boolean heldByArc = topology.ownerArcByCopyEdge()[edgeId] != EmbeddedMeshTopology.UNCLAIMED;
+        boolean onSourceEdge = topology.sourceEdgeByCopyEdge()[edgeId] != EmbeddedMeshTopology.UNCLAIMED;
         if (heldByArc || interiorOnly && onSourceEdge || !edgeInRestriction(edgeId)) {
             return false;
         }
@@ -604,7 +604,7 @@ public final class ArcRerouter {
             }
         }
         return sourceFaceStampBySourceFace.length == 0
-                || sourceFaceStampBySourceFace[topology.sourceFaceByCopyFace[faceId]] == sourceFaceStamp;
+                || sourceFaceStampBySourceFace[topology.sourceFaceByCopyFace()[faceId]] == sourceFaceStamp;
     }
 
     /**

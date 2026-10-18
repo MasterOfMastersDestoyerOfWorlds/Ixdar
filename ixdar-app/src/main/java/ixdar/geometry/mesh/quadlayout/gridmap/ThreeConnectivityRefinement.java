@@ -45,7 +45,7 @@ public final class ThreeConnectivityRefinement {
         EmbeddedMeshTopology topology = tmesh.topology;
         for (int edgeId : chordEdges()) {
             if (!topology.copy.hasEdge(edgeId)
-                    || topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                    || topology.ownerArcByCopyEdge()[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                 continue;
             }
             topology.splitEdgeAtMidpoint(edgeId);
@@ -72,7 +72,7 @@ public final class ThreeConnectivityRefinement {
         List<Integer> chords = new ArrayList<>();
         for (int edgeIndex = 0; edgeIndex < topology.copy.edgeCount(); edgeIndex++) {
             int edgeId = topology.copy.edgeIdAt(edgeIndex);
-            if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+            if (topology.ownerArcByCopyEdge()[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                 continue;
             }
             int halfEdge = topology.copy.edgeHalfEdge(edgeId);
@@ -92,7 +92,7 @@ public final class ThreeConnectivityRefinement {
      * @return true when either ownership claim is set
      */
     private boolean isBoundaryVertex(int copyVertex) {
-        return tmesh.topology.ownerArcByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED
-                || tmesh.topology.ownerNodeByCopyVertex[copyVertex] != EmbeddedMeshTopology.UNCLAIMED;
+        return tmesh.topology.ownerArcByCopyVertex()[copyVertex] != EmbeddedMeshTopology.UNCLAIMED
+                || tmesh.topology.ownerNodeByCopyVertex()[copyVertex] != EmbeddedMeshTopology.UNCLAIMED;
     }
 }

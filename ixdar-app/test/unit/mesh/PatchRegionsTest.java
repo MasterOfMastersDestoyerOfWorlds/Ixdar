@@ -50,7 +50,7 @@ class PatchRegionsTest {
         ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
         int arcId = fixtureNet.arcs.get(0).arcId;
         for (int edgeId : fixtureNet.arcs.get(arcId).path.copyEdgePath) {
-            fixtureNet.topology.ownerArcByCopyEdge[edgeId] =
+            fixtureNet.topology.ownerArcByCopyEdge()[edgeId] =
                     ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology.UNCLAIMED;
         }
 

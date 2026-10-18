@@ -98,8 +98,8 @@ class CarveFoldBackCornerTest {
         SnappingCarve carve = new SnappingCarve(topology);
         carve.nodeCount = 2;
         carve.vertexIdByNode = new int[] { R2, R3 };
-        topology.ownerNodeByCopyVertex[R2] = START_NODE;
-        topology.ownerNodeByCopyVertex[R3] = END_NODE;
+        topology.ownerNodeByCopyVertex()[R2] = START_NODE;
+        topology.ownerNodeByCopyVertex()[R3] = END_NODE;
         carve.startNodeByArc = new int[] { START_NODE };
         carve.endNodeByArc = new int[] { END_NODE };
         FaceStripPath route = foldedRoute(topology);

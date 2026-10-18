@@ -103,10 +103,9 @@ public class HalfEdgeMeshEngine {
     }
 
     /**
-     * Splits an edge of a triangle mesh in place at the given position: the edge
-     * keeps its id as the half toward its canonical start vertex, a new edge forms
-     * the other half, and each incident face is bisected by a new spoke — two new
-     * faces, no retired slots.
+     * Splits an edge of a triangle mesh in place: the edge keeps its id as the half toward its
+     * canonical start vertex, and the new half and faces inherit the layer values of what they
+     * split from.
      *
      * @param mesh   target mesh
      * @param edgeId active edge to split; each incident face must be a triangle
@@ -148,6 +147,15 @@ public class HalfEdgeMeshEngine {
         int tailEdge = createEdgePair(mesh, newVertex, vertexB);
         int tailForward = mesh.edgeHalfEdge[tailEdge];
         int tailBackward = mesh.halfEdgeTwin[tailForward];
+        for (int[] layer : mesh.edgeLayers) {
+            layer[tailEdge] = layer[edgeId];
+        }
+        for (int layer = 0; layer < mesh.vertexLayers.length; layer++) {
+            int splitEdgeLayer = mesh.vertexLayerSplitEdgeLayer[layer];
+            if (splitEdgeLayer != MeshTopology.NONE) {
+                mesh.vertexLayers[layer][newVertex] = mesh.edgeLayers[splitEdgeLayer][edgeId];
+            }
+        }
 
         if (faceA != MeshTopology.NONE) {
             int oppositeA = mesh.halfEdgeVertex[prevA];
@@ -155,6 +163,9 @@ public class HalfEdgeMeshEngine {
             int spokeForwardA = mesh.edgeHalfEdge[spokeEdgeA];
             int spokeBackwardA = mesh.halfEdgeTwin[spokeForwardA];
             int newFaceA = mesh.createFaceSlot();
+            for (int[] layer : mesh.faceLayers) {
+                layer[newFaceA] = layer[faceA];
+            }
 
             mesh.halfEdgeNext[halfEdge] = spokeForwardA;
             mesh.halfEdgePrev[spokeForwardA] = halfEdge;
@@ -208,6 +219,9 @@ public class HalfEdgeMeshEngine {
             int spokeForwardB = mesh.edgeHalfEdge[spokeEdgeB];
             int spokeBackwardB = mesh.halfEdgeTwin[spokeForwardB];
             int newFaceB = mesh.createFaceSlot();
+            for (int[] layer : mesh.faceLayers) {
+                layer[newFaceB] = layer[faceB];
+            }
 
             mesh.halfEdgeNext[nextB] = spokeBackwardB;
             mesh.halfEdgePrev[spokeBackwardB] = nextB;
@@ -261,6 +275,276 @@ public class HalfEdgeMeshEngine {
                     : mesh.vertexOutgoingHalfEdges.get(vertexB, 0);
         }
         return newVertex;
+    }
+
+    /**
+     * Splits a face into a fan of triangles around a new vertex, one per side. The face's id is
+     * retired and the fan takes fresh consecutive ids, each inheriting the face's layer values.
+     * Normals are left stale.
+     *
+     * @param mesh   target mesh
+     * @param faceId active face to split
+     * @param x      x coordinate of the new vertex
+     * @param y      y coordinate of the new vertex
+     * @param z      z coordinate of the new vertex
+     * @return id of the new vertex
+     */
+    public static int splitFace(HalfEdgeMesh mesh, int faceId, float x, float y, float z) {
+        int cornerCount = mesh.faceVertexCount(faceId);
+        int newVertex = mesh.createVertexSlot(x, y, z);
+        int[] fan = new int[cornerCount * HalfEdgeMesh.TRIANGLE_CORNERS];
+        for (int corner = 0; corner < cornerCount; corner++) {
+            fan[corner * HalfEdgeMesh.TRIANGLE_CORNERS] = mesh.faceVertexAt(faceId, corner);
+            fan[corner * HalfEdgeMesh.TRIANGLE_CORNERS + 1] = mesh.faceVertexAt(faceId,
+                    (corner + 1) % cornerCount);
+            fan[corner * HalfEdgeMesh.TRIANGLE_CORNERS + 2] = newVertex;
+        }
+        replaceFaces(mesh, faceId, new int[] { faceId }, fan);
+        return newVertex;
+    }
+
+    /**
+     * Replaces the diagonal two triangles share by their other diagonal. Both triangles retire
+     * and the two new ones take fresh ids, each inheriting the layer values of the face on the
+     * edge's canonical half-edge; the new diagonal is a fresh edge with the layers' fill.
+     * Normals are left stale.
+     *
+     * @param mesh   target mesh
+     * @param edgeId interior edge between two triangles
+     * @throws InvalidMeshTopologyException when the edge is on the boundary, a face is not a
+     *         triangle, or the opposite corners are already joined
+     * @return id of the new diagonal
+     */
+    public static int flipEdge(HalfEdgeMesh mesh, int edgeId) {
+        int halfEdge = mesh.edgeHalfEdge[edgeId];
+        int twin = mesh.halfEdgeTwin[halfEdge];
+        int faceA = mesh.halfEdgeFace[halfEdge];
+        int faceB = mesh.halfEdgeFace[twin];
+        if (faceA == MeshTopology.NONE || faceB == MeshTopology.NONE
+                || mesh.faceVertexCount(faceA) != 3 || mesh.faceVertexCount(faceB) != 3) {
+            throw new InvalidMeshTopologyException(EDGE + edgeId
+                    + " cannot be flipped: it does not join two triangles");
+        }
+        int vertexA = mesh.halfEdgeVertex[halfEdge];
+        int vertexB = mesh.halfEdgeVertex[twin];
+        int vertexC = mesh.halfEdgeVertex[mesh.halfEdgePrev[halfEdge]];
+        int vertexD = mesh.halfEdgeVertex[mesh.halfEdgePrev[twin]];
+        if (vertexC == vertexD || findHalfEdge(mesh, vertexC, vertexD) != MeshTopology.NONE) {
+            throw new InvalidMeshTopologyException(EDGE + edgeId + " cannot be flipped: its"
+                    + " opposite corners " + vertexC + AND + vertexD + " are already joined");
+        }
+        replaceFaces(mesh, faceA, new int[] { faceA, faceB },
+                new int[] { vertexA, vertexD, vertexC, vertexD, vertexB, vertexC });
+        return mesh.halfEdgeEdge[findHalfEdge(mesh, vertexC, vertexD)];
+    }
+
+    /**
+     * Collapses an edge onto its canonical start vertex, which moves and keeps its id and
+     * values; the end vertex's other faces are rebuilt on it with fresh ids, inheriting what
+     * they replace. Normals are left stale.
+     *
+     * @param mesh   target mesh
+     * @param edgeId edge to collapse; the faces on it must be triangles
+     * @param x      x coordinate of the kept vertex afterwards
+     * @param y      y coordinate of the kept vertex afterwards
+     * @param z      z coordinate of the kept vertex afterwards
+     * @throws InvalidMeshTopologyException when a face on the edge is not a triangle or the
+     *         collapse would leave the mesh non-manifold: the endpoints share a neighbour other
+     *         than the edge's opposite corners, an interior edge joins two boundary vertices, or
+     *         a face would be duplicated
+     * @return id of the kept vertex
+     */
+    public static int collapseEdge(HalfEdgeMesh mesh, int edgeId, float x, float y, float z) {
+        int halfEdge = mesh.edgeHalfEdge[edgeId];
+        int twin = mesh.halfEdgeTwin[halfEdge];
+        int kept = mesh.halfEdgeVertex[halfEdge];
+        int removed = mesh.halfEdgeVertex[twin];
+        int faceA = mesh.halfEdgeFace[halfEdge];
+        int faceB = mesh.halfEdgeFace[twin];
+        if (faceA != MeshTopology.NONE && mesh.faceVertexCount(faceA) != 3
+                || faceB != MeshTopology.NONE && mesh.faceVertexCount(faceB) != 3) {
+            throw new InvalidMeshTopologyException(EDGE + edgeId
+                    + " cannot be collapsed: a face on it is not a triangle");
+        }
+        int oppositeA = faceA == MeshTopology.NONE ? MeshTopology.NONE
+                : mesh.halfEdgeVertex[mesh.halfEdgePrev[halfEdge]];
+        int oppositeB = faceB == MeshTopology.NONE ? MeshTopology.NONE
+                : mesh.halfEdgeVertex[mesh.halfEdgePrev[twin]];
+        for (int index = 0; index < mesh.vertexEdges.size(removed); index++) {
+            int neighbourHalfEdge = mesh.edgeHalfEdge[mesh.vertexEdges.get(removed, index)];
+            int neighbour = mesh.halfEdgeVertex[neighbourHalfEdge] == removed
+                    ? mesh.halfEdgeVertex[mesh.halfEdgeTwin[neighbourHalfEdge]]
+                    : mesh.halfEdgeVertex[neighbourHalfEdge];
+            if (neighbour != kept && neighbour != oppositeA && neighbour != oppositeB
+                    && findHalfEdge(mesh, kept, neighbour) != MeshTopology.NONE) {
+                throw new InvalidMeshTopologyException(EDGE + edgeId + " cannot be collapsed:"
+                        + " its endpoints share the neighbour " + neighbour);
+            }
+        }
+        if (faceA != MeshTopology.NONE && faceB != MeshTopology.NONE
+                && mesh.isBoundaryVertex(kept) && mesh.isBoundaryVertex(removed)) {
+            throw new InvalidMeshTopologyException(EDGE + edgeId + " cannot be collapsed: it is"
+                    + " interior but joins two boundary vertices");
+        }
+        int[] fan = new int[mesh.vertexFaces.size(removed)];
+        int[] fanStarts = new int[fan.length + 1];
+        for (int index = 0; index < fan.length; index++) {
+            fan[index] = mesh.vertexFaces.get(removed, index);
+            fanStarts[index + 1] = fanStarts[index] + mesh.faceVertexCount(fan[index]);
+        }
+        int[] fanCorners = new int[fanStarts[fan.length]];
+        for (int index = 0; index < fan.length; index++) {
+            int faceId = fan[index];
+            int sharedCorners = 0;
+            for (int corner = 0; corner < mesh.faceVertexCount(faceId); corner++) {
+                int vertexId = mesh.faceVertexAt(faceId, corner);
+                fanCorners[fanStarts[index] + corner] = vertexId == removed ? kept : vertexId;
+                sharedCorners += vertexId == oppositeA || vertexId == oppositeB ? 1 : 0;
+            }
+            if (faceId != faceA && faceId != faceB && sharedCorners == 2
+                    && mesh.faceVertexCount(faceId) == 3) {
+                throw new InvalidMeshTopologyException(EDGE + edgeId + " cannot be collapsed:"
+                        + " face " + faceId + " would duplicate a face of the kept vertex");
+            }
+        }
+        recordReplacedEdges(mesh, fan);
+        for (int faceId : fan) {
+            removeFaceKeepingNormals(mesh, faceId);
+        }
+        removeVertex(mesh, removed);
+        setVector(mesh.vertexPositions, kept, x, y, z);
+        int edgeIdBound = mesh.nextEdgeId;
+        int firstFaceId = mesh.nextFaceId;
+        for (int index = 0; index < fan.length; index++) {
+            if (fan[index] == faceA || fan[index] == faceB) {
+                continue;
+            }
+            int newFace = addFace(mesh,
+                    Arrays.copyOfRange(fanCorners, fanStarts[index], fanStarts[index + 1]));
+            for (int[] layer : mesh.faceLayers) {
+                layer[newFace] = layer[fan[index]];
+            }
+        }
+        restoreReplacedEdgeLayers(mesh, edgeIdBound, firstFaceId, removed, kept);
+        return kept;
+    }
+
+    /**
+     * Replaces faces by triangles under fresh consecutive ids that inherit the parent face's
+     * layer values. Normals are left stale.
+     *
+     * @param mesh            target mesh
+     * @param parentFaceId    face whose layer values every new face inherits, retired or not
+     * @param retiredFaceIds  active faces to remove, in removal order
+     * @param triangleCorners corners of the new triangles, three per face, in creation order
+     * @throws InvalidMeshTopologyException when a new triangle is degenerate or non-manifold,
+     *         leaving the faces added before it in place
+     * @return id of the first new face; the rest follow consecutively
+     */
+    public static int replaceFaces(HalfEdgeMesh mesh, int parentFaceId, int[] retiredFaceIds,
+            int[] triangleCorners) {
+        recordReplacedEdges(mesh, retiredFaceIds);
+        for (int faceId : retiredFaceIds) {
+            removeFaceKeepingNormals(mesh, faceId);
+        }
+        int edgeIdBound = mesh.nextEdgeId;
+        int firstFaceId = mesh.nextFaceId;
+        for (int corner = 0; corner < triangleCorners.length; corner += HalfEdgeMesh.TRIANGLE_CORNERS) {
+            int faceId = addFace(mesh, triangleCorners[corner], triangleCorners[corner + 1],
+                    triangleCorners[corner + 2]);
+            for (int[] layer : mesh.faceLayers) {
+                layer[faceId] = layer[parentFaceId];
+            }
+        }
+        restoreReplacedEdgeLayers(mesh, edgeIdBound, firstFaceId, MeshTopology.NONE,
+                MeshTopology.NONE);
+        return firstFaceId;
+    }
+
+    /**
+     * Records every edge of the faces about to be replaced with its endpoints, which removal
+     * erases, so {@link #restoreReplacedEdgeLayers} can match re-created edges. Records
+     * nothing when the mesh declares no edge layer.
+     *
+     * @param mesh    target mesh
+     * @param faceIds faces about to be removed
+     */
+    private static void recordReplacedEdges(HalfEdgeMesh mesh, int[] faceIds) {
+        mesh.replacedEdgeSize = 0;
+        if (mesh.edgeLayers.length == 0) {
+            return;
+        }
+        for (int faceId : faceIds) {
+            int edgeCount = mesh.faceEdges.size(faceId);
+            if (mesh.replacedEdgeIds.length < mesh.replacedEdgeSize + edgeCount) {
+                int capacity = HalfEdgeMesh.nextCapacity(mesh.replacedEdgeIds.length,
+                        mesh.replacedEdgeSize + edgeCount);
+                mesh.replacedEdgeIds = Arrays.copyOf(mesh.replacedEdgeIds, capacity);
+                mesh.replacedEdgeStarts = Arrays.copyOf(mesh.replacedEdgeStarts, capacity);
+                mesh.replacedEdgeEnds = Arrays.copyOf(mesh.replacedEdgeEnds, capacity);
+            }
+            for (int index = 0; index < edgeCount; index++) {
+                int edgeId = mesh.faceEdges.get(faceId, index);
+                int halfEdge = mesh.edgeHalfEdge[edgeId];
+                mesh.replacedEdgeIds[mesh.replacedEdgeSize] = edgeId;
+                mesh.replacedEdgeStarts[mesh.replacedEdgeSize] = mesh.halfEdgeVertex[halfEdge];
+                mesh.replacedEdgeEnds[mesh.replacedEdgeSize] = mesh.halfEdgeVertex[mesh.halfEdgeTwin[halfEdge]];
+                mesh.replacedEdgeSize++;
+            }
+        }
+    }
+
+    /**
+     * Gives every edge created since {@code edgeIdBound} on the faces created since
+     * {@code firstFaceId} the layer values of a recorded edge joining the same two vertices,
+     * one recorded at {@code renamedVertex} counting as at {@code survivingVertex}. An exact
+     * match wins over a renamed one; an edge with no match keeps the fill.
+     *
+     * @param mesh            target mesh
+     * @param edgeIdBound     first edge id the edit created
+     * @param firstFaceId     first face id the edit created
+     * @param renamedVertex   vertex the edit merged away, or {@link MeshTopology#NONE}
+     * @param survivingVertex vertex it merged into, or {@link MeshTopology#NONE}
+     */
+    private static void restoreReplacedEdgeLayers(HalfEdgeMesh mesh, int edgeIdBound,
+            int firstFaceId, int renamedVertex, int survivingVertex) {
+        if (mesh.replacedEdgeSize == 0) {
+            return;
+        }
+        for (int faceId = firstFaceId; faceId < mesh.nextFaceId; faceId++) {
+            for (int index = 0; index < mesh.faceEdges.size(faceId); index++) {
+                int edgeId = mesh.faceEdges.get(faceId, index);
+                if (edgeId < edgeIdBound) {
+                    continue;
+                }
+                int halfEdge = mesh.edgeHalfEdge[edgeId];
+                int start = mesh.halfEdgeVertex[halfEdge];
+                int end = mesh.halfEdgeVertex[mesh.halfEdgeTwin[halfEdge]];
+                int match = MeshTopology.NONE;
+                for (int record = 0; record < mesh.replacedEdgeSize; record++) {
+                    int recordStart = mesh.replacedEdgeStarts[record];
+                    int recordEnd = mesh.replacedEdgeEnds[record];
+                    boolean exact = recordStart == start && recordEnd == end
+                            || recordStart == end && recordEnd == start;
+                    if (exact) {
+                        match = mesh.replacedEdgeIds[record];
+                        break;
+                    }
+                    recordStart = recordStart == renamedVertex ? survivingVertex : recordStart;
+                    recordEnd = recordEnd == renamedVertex ? survivingVertex : recordEnd;
+                    if (match == MeshTopology.NONE && (recordStart == start && recordEnd == end
+                            || recordStart == end && recordEnd == start)) {
+                        match = mesh.replacedEdgeIds[record];
+                    }
+                }
+                if (match != MeshTopology.NONE) {
+                    for (int[] layer : mesh.edgeLayers) {
+                        layer[edgeId] = layer[match];
+                    }
+                }
+            }
+        }
+        mesh.replacedEdgeSize = 0;
     }
 
     /**

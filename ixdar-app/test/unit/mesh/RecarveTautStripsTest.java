@@ -197,7 +197,7 @@ class RecarveTautStripsTest {
         snapping.nodeCount = vertices.length;
         snapping.vertexIdByNode = vertices.clone();
         for (int nodeId = 0; nodeId < vertices.length; nodeId++) {
-            topology.ownerNodeByCopyVertex[vertices[nodeId]] = nodeId;
+            topology.ownerNodeByCopyVertex()[vertices[nodeId]] = nodeId;
         }
         snapping.constraintVertexCount = topology.copy.vertexCount();
         snapping.constraintFaceCount = topology.copy.faceCount();

@@ -63,7 +63,7 @@ class FanCollapseFixtureTest {
 
         fixtureNet.labelPatchCovers();
 
-        assertTrue(fixtureNet.topology.patchByCopyFace.length > 0,
+        assertTrue(fixtureNet.topology.patchCoversLabeled,
                 "the sector walks must agree with the disk's winding, or the covers are dropped"
                         + " as overlapping and the drags run unrestricted");
     }

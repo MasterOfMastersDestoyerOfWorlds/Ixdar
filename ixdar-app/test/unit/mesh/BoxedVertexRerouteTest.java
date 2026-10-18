@@ -34,9 +34,9 @@ class BoxedVertexRerouteTest {
         int lowerRight = vertex(topology, 1, 0);
         int upperLeft = vertex(topology, 0, 1);
 
-        topology.ownerArcByCopyEdge[topology.copy.edgeBetween(source, target)] = FOREIGN_ARC;
-        topology.ownerArcByCopyVertex[lowerRight] = FOREIGN_ARC;
-        topology.ownerArcByCopyVertex[upperLeft] = FOREIGN_ARC;
+        topology.ownerArcByCopyEdge()[topology.copy.edgeBetween(source, target)] = FOREIGN_ARC;
+        topology.ownerArcByCopyVertex()[lowerRight] = FOREIGN_ARC;
+        topology.ownerArcByCopyVertex()[upperLeft] = FOREIGN_ARC;
 
         ArcRerouter rerouter = new ArcRerouter(topology);
         List<Integer> routed = new ArrayList<>();

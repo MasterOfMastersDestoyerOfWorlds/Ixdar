@@ -63,8 +63,8 @@ class CarveOneToOneTest {
             if (copyVertex == EmbeddedMeshTopology.UNCLAIMED) {
                 continue;
             }
-            if (topology.ownerArcByCopyVertex[copyVertex] == EmbeddedMeshTopology.UNCLAIMED
-                    && topology.ownerNodeByCopyVertex[copyVertex] == EmbeddedMeshTopology.UNCLAIMED) {
+            if (topology.ownerArcByCopyVertex()[copyVertex] == EmbeddedMeshTopology.UNCLAIMED
+                    && topology.ownerNodeByCopyVertex()[copyVertex] == EmbeddedMeshTopology.UNCLAIMED) {
                 freeSourceVertices++;
             } else {
                 claimedSourceVertices++;
@@ -89,7 +89,7 @@ class CarveOneToOneTest {
             Integer previous = nodeByVertex.put(copyVertex, nodeId);
             assertEquals(null, previous, "T-mesh nodes " + previous + " and " + nodeId
                     + " share copy vertex " + copyVertex);
-            assertEquals(nodeId, topology.ownerNodeByCopyVertex[copyVertex],
+            assertEquals(nodeId, topology.ownerNodeByCopyVertex()[copyVertex],
                     "node " + nodeId + " must own the copy vertex it was placed on");
         }
 
@@ -105,7 +105,7 @@ class CarveOneToOneTest {
                 int edgeId = topology.copy.edgeBetween(vertices.get(index - 1), vertices.get(index));
                 assertNotEquals(EmbeddedMeshTopology.UNCLAIMED, edgeId,
                         "arc " + arc.arcId + " hop " + index + " has no copy edge");
-                assertEquals(arc.arcId, topology.ownerArcByCopyEdge[edgeId],
+                assertEquals(arc.arcId, topology.ownerArcByCopyEdge()[edgeId],
                         "arc " + arc.arcId + " must own every edge of its path");
                 Integer previous = arcByEdge.put(edgeId, arc.arcId);
                 assertEquals(null, previous, "arcs " + previous + " and " + arc.arcId
@@ -115,7 +115,7 @@ class CarveOneToOneTest {
             for (int index = 1; index < vertices.size() - 1; index++) {
                 int copyVertex = vertices.get(index);
                 assertEquals(EmbeddedMeshTopology.UNCLAIMED,
-                        topology.ownerNodeByCopyVertex[copyVertex],
+                        topology.ownerNodeByCopyVertex()[copyVertex],
                         "arc " + arc.arcId + " passes through copy vertex " + copyVertex
                                 + " that a T-mesh node owns, so an arc touches a node it does not"
                                 + " end at");

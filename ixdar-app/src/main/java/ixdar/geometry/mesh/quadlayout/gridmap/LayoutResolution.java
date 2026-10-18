@@ -266,7 +266,7 @@ public final class LayoutResolution {
             if (copyFace == EmbeddedMeshTopology.UNCLAIMED) {
                 continue;
             }
-            int sourceFace = topology.sourceFaceByCopyFace[copyFace];
+            int sourceFace = topology.sourceFaceByCopyFace()[copyFace];
             if (topology.barycentricOf(sourceFace, fromVertex) != null
                     && topology.barycentricOf(sourceFace, toVertex) != null) {
                 return sourceFace;

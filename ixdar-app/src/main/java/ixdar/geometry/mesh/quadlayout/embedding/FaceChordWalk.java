@@ -115,7 +115,7 @@ public final class FaceChordWalk {
             int edgeId = topology.copy.faceEdgeAt(childFace, corner);
             double parameter = edgeParameterOf(sourceFace, edgeId, barycentric, true);
             if (Double.isNaN(parameter)
-                    || topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                    || topology.ownerArcByCopyEdge()[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                 continue;
             }
             placedByEdgeSplitCount++;
@@ -235,7 +235,7 @@ public final class FaceChordWalk {
         ArrayDeque<Integer> queue = new ArrayDeque<>();
         for (int index = 0; index < topology.copy.vertexFaceCount(targetVertex); index++) {
             int faceId = topology.copy.vertexFaceAt(targetVertex, index);
-            if (topology.sourceFaceByCopyFace[faceId] == sourceFace
+            if (topology.sourceFaceByCopyFace()[faceId] == sourceFace
                     && isCornerOf(faceId, head)) {
                 hop(arcId, pathVertices, head, targetVertex);
                 return targetVertex;
@@ -243,7 +243,7 @@ public final class FaceChordWalk {
         }
         for (int index = 0; index < topology.copy.vertexFaceCount(head); index++) {
             int faceId = topology.copy.vertexFaceAt(head, index);
-            if (topology.sourceFaceByCopyFace[faceId] == sourceFace) {
+            if (topology.sourceFaceByCopyFace()[faceId] == sourceFace) {
                 parentByFace.put(faceId, null);
                 queue.add(faceId);
             }
@@ -252,12 +252,12 @@ public final class FaceChordWalk {
             int faceId = queue.poll();
             for (int corner = 0; corner < CORNERS; corner++) {
                 int edgeId = topology.copy.faceEdgeAt(faceId, corner);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                if (topology.ownerArcByCopyEdge()[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
                 int neighborFace = topology.copy.faceAcrossEdge(faceId, edgeId);
                 if (neighborFace < 0 || parentByFace.containsKey(neighborFace)
-                        || topology.sourceFaceByCopyFace[neighborFace] != sourceFace) {
+                        || topology.sourceFaceByCopyFace()[neighborFace] != sourceFace) {
                     continue;
                 }
                 parentByFace.put(neighborFace, new int[] {faceId, edgeId});
@@ -313,30 +313,30 @@ public final class FaceChordWalk {
      */
     private String fanReport(int vertexId) {
         StringBuilder detail = new StringBuilder("\n vertex ").append(vertexId)
-                .append(" ownerNode ").append(topology.ownerNodeByCopyVertex[vertexId])
-                .append(" ownerArc ").append(topology.ownerArcByCopyVertex[vertexId]);
+                .append(" ownerNode ").append(topology.ownerNodeByCopyVertex()[vertexId])
+                .append(" ownerArc ").append(topology.ownerArcByCopyVertex()[vertexId]);
         for (int index = 0; index < topology.copy.vertexFaceCount(vertexId); index++) {
             int faceId = topology.copy.vertexFaceAt(vertexId, index);
             detail.append("\n  face ").append(faceId)
-                    .append(" source ").append(topology.sourceFaceByCopyFace[faceId])
+                    .append(" source ").append(topology.sourceFaceByCopyFace()[faceId])
                     .append(" corners");
             for (int corner = 0; corner < CORNERS; corner++) {
                 int cornerVertex = topology.copy.faceVertexAt(faceId, corner);
                 detail.append(' ').append(cornerVertex)
-                        .append("(n").append(topology.ownerNodeByCopyVertex[cornerVertex])
-                        .append(",a").append(topology.ownerArcByCopyVertex[cornerVertex])
+                        .append("(n").append(topology.ownerNodeByCopyVertex()[cornerVertex])
+                        .append(",a").append(topology.ownerArcByCopyVertex()[cornerVertex])
                         .append(')');
             }
             detail.append(" edges");
             for (int corner = 0; corner < CORNERS; corner++) {
                 int edgeId = topology.copy.faceEdgeAt(faceId, corner);
                 int halfEdge = topology.copy.edgeHalfEdge(edgeId);
-                int owner = topology.ownerArcByCopyEdge[edgeId];
+                int owner = topology.ownerArcByCopyEdge()[edgeId];
                 detail.append(' ').append(topology.copy.halfEdgeVertex(halfEdge))
                         .append('-').append(topology.copy.halfEdgeEndVertex(halfEdge))
                         .append("(a").append(owner)
                         .append(arcOrigin(owner))
-                        .append(",src").append(topology.sourceEdgeByCopyEdge[edgeId])
+                        .append(",src").append(topology.sourceEdgeByCopyEdge()[edgeId])
                         .append(')');
             }
         }
@@ -359,7 +359,7 @@ public final class FaceChordWalk {
         for (int childFace : topology.copyFacesBySourceFace.get(sourceFace)) {
             detail.append("\n  child ").append(childFace)
                     .append(reached.contains(childFace) ? " REACHED" : " unreached")
-                    .append(" src").append(topology.sourceFaceByCopyFace[childFace])
+                    .append(" src").append(topology.sourceFaceByCopyFace()[childFace])
                     .append(" corners");
             for (int corner = 0; corner < CORNERS; corner++) {
                 detail.append(' ').append(topology.copy.faceVertexAt(childFace, corner));
@@ -370,7 +370,7 @@ public final class FaceChordWalk {
                 int halfEdge = topology.copy.edgeHalfEdge(edgeId);
                 detail.append(' ').append(topology.copy.halfEdgeVertex(halfEdge))
                         .append('-').append(topology.copy.halfEdgeEndVertex(halfEdge))
-                        .append("(a").append(topology.ownerArcByCopyEdge[edgeId]).append(')');
+                        .append("(a").append(topology.ownerArcByCopyEdge()[edgeId]).append(')');
             }
         }
         return detail.toString();
@@ -461,7 +461,7 @@ public final class FaceChordWalk {
         }
         int through = Math.abs(fromArea) <= Math.abs(toArea) ? from : to;
         boolean throughBlocked = through != targetVertex
-                && (topology.ownerNodeByCopyVertex[through] != EmbeddedMeshTopology.UNCLAIMED
+                && (topology.ownerNodeByCopyVertex()[through] != EmbeddedMeshTopology.UNCLAIMED
                         || foreignVertexClaim(arcId, through)
                         || !hopIsFree(head, through));
         if (recoverable && throughBlocked) {
@@ -486,16 +486,16 @@ public final class FaceChordWalk {
      */
     private boolean flippable(int sourceFace, int exitEdge, int head,
             double[] fromBarycentric, double[] toBarycentric) {
-        if (topology.ownerArcByCopyEdge[exitEdge] != EmbeddedMeshTopology.UNCLAIMED
-                || topology.sourceEdgeByCopyEdge[exitEdge] != EmbeddedMeshTopology.UNCLAIMED) {
+        if (topology.ownerArcByCopyEdge()[exitEdge] != EmbeddedMeshTopology.UNCLAIMED
+                || topology.sourceEdgeByCopyEdge()[exitEdge] != EmbeddedMeshTopology.UNCLAIMED) {
             return false;
         }
         int halfEdge = topology.copy.edgeHalfEdge(exitEdge);
         int nearFace = topology.copy.edgeFace(exitEdge, 0);
         int farFace = topology.copy.edgeFace(exitEdge, 1);
         if (nearFace < 0 || farFace < 0
-                || topology.sourceFaceByCopyFace[nearFace] != sourceFace
-                || topology.sourceFaceByCopyFace[farFace] != sourceFace) {
+                || topology.sourceFaceByCopyFace()[nearFace] != sourceFace
+                || topology.sourceFaceByCopyFace()[farFace] != sourceFace) {
             return false;
         }
         int farVertex = topology.copy.faceOppositeCorner(
@@ -525,7 +525,7 @@ public final class FaceChordWalk {
      * @return true when a foreign arc owns the vertex
      */
     private boolean foreignVertexClaim(int arcId, int vertexId) {
-        int owner = topology.ownerArcByCopyVertex[vertexId];
+        int owner = topology.ownerArcByCopyVertex()[vertexId];
         return owner != EmbeddedMeshTopology.UNCLAIMED && owner != arcId;
     }
 
@@ -537,7 +537,7 @@ public final class FaceChordWalk {
      * @return true when a foreign arc owns the edge
      */
     private boolean foreignClaim(int arcId, int edgeId) {
-        int owner = topology.ownerArcByCopyEdge[edgeId];
+        int owner = topology.ownerArcByCopyEdge()[edgeId];
         return owner != EmbeddedMeshTopology.UNCLAIMED && owner != arcId;
     }
 
@@ -624,7 +624,7 @@ public final class FaceChordWalk {
             double[] targetBarycentric) {
         for (int index = 0; index < topology.copy.vertexFaceCount(head); index++) {
             int faceId = topology.copy.vertexFaceAt(head, index);
-            if (topology.sourceFaceByCopyFace[faceId] != sourceFace) {
+            if (topology.sourceFaceByCopyFace()[faceId] != sourceFace) {
                 continue;
             }
             int corner = cornerOf(faceId, head);
@@ -806,8 +806,8 @@ public final class FaceChordWalk {
      * @return true when the vertex is free
      */
     private boolean isFree(int vertexId) {
-        return topology.ownerNodeByCopyVertex[vertexId] == EmbeddedMeshTopology.UNCLAIMED
-                && topology.ownerArcByCopyVertex[vertexId] == EmbeddedMeshTopology.UNCLAIMED;
+        return topology.ownerNodeByCopyVertex()[vertexId] == EmbeddedMeshTopology.UNCLAIMED
+                && topology.ownerArcByCopyVertex()[vertexId] == EmbeddedMeshTopology.UNCLAIMED;
     }
 
     /**
@@ -820,7 +820,7 @@ public final class FaceChordWalk {
     private boolean hopIsFree(int from, int to) {
         int edgeId = topology.copy.edgeBetween(from, to);
         return edgeId != EmbeddedMeshTopology.UNCLAIMED
-                && topology.ownerArcByCopyEdge[edgeId] == EmbeddedMeshTopology.UNCLAIMED;
+                && topology.ownerArcByCopyEdge()[edgeId] == EmbeddedMeshTopology.UNCLAIMED;
     }
 
     /**
@@ -832,7 +832,7 @@ public final class FaceChordWalk {
      * @param edgeId child edge
      */
     private void requireUnclaimed(int arcId, int edgeId) {
-        int owner = topology.ownerArcByCopyEdge[edgeId];
+        int owner = topology.ownerArcByCopyEdge()[edgeId];
         if (owner != EmbeddedMeshTopology.UNCLAIMED && owner != arcId) {
             throw new IllegalStateException("arc " + arcId + " chord crosses copy edge " + edgeId
                     + " already claimed by arc " + owner);

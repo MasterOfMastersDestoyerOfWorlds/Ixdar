@@ -73,10 +73,10 @@ class LongDetourBeatsExtraGateTest {
         HalfEdgeMesh grid = buildGrid();
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(grid);
         for (int column = 0; column < COLUMNS; column++) {
-            topology.ownerArcByCopyVertex[vertex(topology, column, NEAR_WALL_ROW)] = NEAR_WALL_ARC;
+            topology.ownerArcByCopyVertex()[vertex(topology, column, NEAR_WALL_ROW)] = NEAR_WALL_ARC;
         }
         for (int column = 0; column < DOORWAY_COLUMN; column++) {
-            topology.ownerArcByCopyVertex[vertex(topology, column, FAR_WALL_ROW)] = FAR_WALL_ARC;
+            topology.ownerArcByCopyVertex()[vertex(topology, column, FAR_WALL_ROW)] = FAR_WALL_ARC;
         }
 
         int originalVertexCount = COLUMNS * ROWS;
@@ -87,7 +87,7 @@ class LongDetourBeatsExtraGateTest {
                 "the near wall must span every column, or the route could round its end without"
                         + " splitting anything and the test would pin nothing");
         assertEquals(EmbeddedMeshTopology.UNCLAIMED,
-                topology.ownerArcByCopyVertex[vertex(topology, DOORWAY_COLUMN, FAR_WALL_ROW)],
+                topology.ownerArcByCopyVertex()[vertex(topology, DOORWAY_COLUMN, FAR_WALL_ROW)],
                 "the far wall must leave a free doorway, or one split would not be enough and the"
                         + " near crossing would be the honest answer");
 
@@ -125,7 +125,7 @@ class LongDetourBeatsExtraGateTest {
     private int claimedRunLength(EmbeddedMeshTopology topology, int row) {
         int claimed = 0;
         while (claimed < COLUMNS
-                && topology.ownerArcByCopyVertex[vertex(topology, claimed, row)] != EmbeddedMeshTopology.UNCLAIMED) {
+                && topology.ownerArcByCopyVertex()[vertex(topology, claimed, row)] != EmbeddedMeshTopology.UNCLAIMED) {
             claimed++;
         }
         return claimed;
@@ -139,10 +139,10 @@ class LongDetourBeatsExtraGateTest {
      * @return the unclaimed copy vertices
      */
     private ActiveIdSet unclaimedVertices(EmbeddedMeshTopology topology) {
-        ActiveIdSet unclaimed = new ActiveIdSet(topology.ownerArcByCopyVertex.length);
-        for (int vertex = 0; vertex < topology.ownerArcByCopyVertex.length; vertex++) {
-            if (topology.ownerArcByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED
-                    && topology.ownerNodeByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED) {
+        ActiveIdSet unclaimed = new ActiveIdSet(topology.ownerArcByCopyVertex().length);
+        for (int vertex = 0; vertex < topology.ownerArcByCopyVertex().length; vertex++) {
+            if (topology.ownerArcByCopyVertex()[vertex] == EmbeddedMeshTopology.UNCLAIMED
+                    && topology.ownerNodeByCopyVertex()[vertex] == EmbeddedMeshTopology.UNCLAIMED) {
                 unclaimed.add(vertex);
             }
         }

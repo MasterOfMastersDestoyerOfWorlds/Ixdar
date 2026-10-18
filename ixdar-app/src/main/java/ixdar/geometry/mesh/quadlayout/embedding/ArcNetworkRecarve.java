@@ -263,7 +263,7 @@ public final class ArcNetworkRecarve {
             return null;
         }
         floodFlanks(arc);
-        int vertexBound = topology.ownerNodeByCopyVertex.length;
+        int vertexBound = topology.ownerNodeByCopyVertex().length;
         if (distanceByCopyVertex.length < vertexBound) {
             distanceByCopyVertex = new double[vertexBound];
             parentByCopyVertex = new int[vertexBound];
@@ -293,7 +293,7 @@ public final class ArcNetworkRecarve {
                         || !routeMayStep(arc.arcId, halfEdge, next, end)) {
                     continue;
                 }
-                double distance = distanceByCopyVertex[vertex] + topology.edgeLength(edge);
+                double distance = distanceByCopyVertex[vertex] + topology.copy.edgeLength(edge);
                 if (distance < distanceByCopyVertex[next]) {
                     distanceByCopyVertex[next] = distance;
                     parentByCopyVertex[next] = vertex;
@@ -322,8 +322,8 @@ public final class ArcNetworkRecarve {
     private void floodFlanks(EmbeddedArc arc) {
         EmbeddedMeshTopology topology = source.topology;
         HalfEdgeMesh copy = topology.copy;
-        if (flankStampByCopyFace.length < topology.sourceFaceByCopyFace.length) {
-            flankStampByCopyFace = new int[topology.sourceFaceByCopyFace.length];
+        if (flankStampByCopyFace.length < topology.sourceFaceByCopyFace().length) {
+            flankStampByCopyFace = new int[topology.sourceFaceByCopyFace().length];
         }
         flankStamp++;
         List<Integer> frontier = new ArrayList<>();
@@ -336,7 +336,7 @@ public final class ArcNetworkRecarve {
             int face = frontier.remove(frontier.size() - 1);
             for (int index = 0; index < copy.faceHalfEdgeCount(face); index++) {
                 int halfEdge = copy.faceHalfEdgeAt(face, index);
-                int owner = topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)];
+                int owner = topology.ownerArcByCopyEdge()[copy.halfEdgeEdge(halfEdge)];
                 if (owner == EmbeddedMeshTopology.UNCLAIMED || owner == arc.arcId) {
                     stampFlankFace(copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge)), frontier);
                 }
@@ -370,8 +370,8 @@ public final class ArcNetworkRecarve {
     private boolean routeMayStep(int arcId, int halfEdge, int next, int end) {
         EmbeddedMeshTopology topology = source.topology;
         HalfEdgeMesh copy = topology.copy;
-        int edgeOwner = topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)];
-        int vertexOwner = topology.ownerArcByCopyVertex[next];
+        int edgeOwner = topology.ownerArcByCopyEdge()[copy.halfEdgeEdge(halfEdge)];
+        int vertexOwner = topology.ownerArcByCopyVertex()[next];
         int left = copy.halfEdgeFace(halfEdge);
         int right = copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge));
         boolean inFlanks = left != EmbeddedMeshTopology.UNCLAIMED
@@ -379,7 +379,7 @@ public final class ArcNetworkRecarve {
                 || right != EmbeddedMeshTopology.UNCLAIMED
                         && flankStampByCopyFace[right] == flankStamp;
         return inFlanks && (edgeOwner == EmbeddedMeshTopology.UNCLAIMED || edgeOwner == arcId)
-                && (next == end || topology.ownerNodeByCopyVertex[next] == EmbeddedMeshTopology.UNCLAIMED
+                && (next == end || topology.ownerNodeByCopyVertex()[next] == EmbeddedMeshTopology.UNCLAIMED
                         && (vertexOwner == EmbeddedMeshTopology.UNCLAIMED || vertexOwner == arcId));
     }
 
@@ -421,7 +421,7 @@ public final class ArcNetworkRecarve {
                     fresh.copyVertexForSourceVertexId(originalMesh.halfEdgeVertex(halfEdge)),
                     fresh.copyVertexForSourceVertexId(originalMesh.halfEdgeEndVertex(halfEdge)));
             if (copyEdge != EmbeddedMeshTopology.UNCLAIMED) {
-                fresh.sourceEdgeByCopyEdge[copyEdge] = activeEdge;
+                fresh.sourceEdgeByCopyEdge()[copyEdge] = activeEdge;
             }
         }
     }
@@ -451,13 +451,13 @@ public final class ArcNetworkRecarve {
                         source.topology.barycentricOf(sourceFace, node.copyVertex).clone());
                 placedNodeVertexCount++;
             }
-            int owner = fresh.ownerNodeByCopyVertex[copyVertex];
+            int owner = fresh.ownerNodeByCopyVertex()[copyVertex];
             if (owner != EmbeddedMeshTopology.UNCLAIMED && owner != denseNodeId) {
                 throw new IllegalStateException("re-carved nodes " + owner + " and " + denseNodeId
                         + " both landed on copy vertex " + copyVertex
                         + "; one mesh vertex never owns two T-mesh nodes");
             }
-            fresh.ownerNodeByCopyVertex[copyVertex] = denseNodeId;
+            fresh.ownerNodeByCopyVertex()[copyVertex] = denseNodeId;
             snapping.vertexIdByNode[denseNodeId] = copyVertex;
         }
         snapping.constraintVertexCount = fresh.copy.vertexCount();
@@ -620,7 +620,7 @@ public final class ArcNetworkRecarve {
      * @param oldVertex interior path vertex to test
      */
     private void auditForeignNode(EmbeddedArc arc, int oldVertex) {
-        int nodeId = source.topology.ownerNodeByCopyVertex[oldVertex];
+        int nodeId = source.topology.ownerNodeByCopyVertex()[oldVertex];
         if (nodeId == EmbeddedMeshTopology.UNCLAIMED || !source.nodes.get(nodeId).alive
                 || nodeId == arc.startNodeId || nodeId == arc.endNodeId) {
             return;

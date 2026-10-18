@@ -485,7 +485,7 @@ public final class FaceStripPath {
         int edgeId = topology.copy.edgeBetween(first, second);
         int farSide = topology.copy.faceAcrossEdge(face, edgeId);
         if (farSide == EmbeddedMeshTopology.UNCLAIMED
-                || topology.sourceFaceByCopyFace[farSide] != sourceFace) {
+                || topology.sourceFaceByCopyFace()[farSide] != sourceFace) {
             throw new IllegalStateException("arc " + arcId + " leaves source face " + sourceFace
                     + " across copy edge " + edgeId + " in the middle of a passage");
         }

@@ -45,14 +45,47 @@ public class HalfEdgeMesh implements MeshTopology {
     public int[] halfEdgeVertex;
     public int[] halfEdgeFace;
     public int[] halfEdgeEdge;
+
+    /**
+     * One array per declared vertex layer, indexed by vertex id. A vertex minted on a split edge
+     * takes the value of the edge layer {@link #vertexLayerSplitEdgeLayer} names; every other new
+     * vertex takes the layer's fill, and a kept vertex keeps its value.
+     */
+    public int[][] vertexLayers = new int[0][];
+    public int[] vertexLayerFill = new int[0];
+
+    /** Edge layer each vertex layer reads on an edge split, or {@link MeshTopology#NONE}. */
+    public int[] vertexLayerSplitEdgeLayer = new int[0];
+
+    /**
+     * One array per declared edge layer, indexed by edge id. Both halves of a split edge inherit
+     * its value, an edge re-created between the same two vertices gets its old value back, and
+     * every other new edge takes the layer's fill.
+     */
+    public int[][] edgeLayers = new int[0][];
+    public int[] edgeLayerFill = new int[0];
+
+    /**
+     * One array per declared face layer, indexed by face id. Every face an operator creates
+     * inherits the value of the face it replaces or splits off from.
+     */
+    public int[][] faceLayers = new int[0][];
+    public int[] faceLayerFill = new int[0];
+
+    /** Edges of faces being replaced, kept so a re-created edge recovers its layer values. */
+    public int[] replacedEdgeIds = new int[0];
+    public int[] replacedEdgeStarts = new int[0];
+    public int[] replacedEdgeEnds = new int[0];
+    public int replacedEdgeSize;
+
+    public int nextVertexId;
+    public int nextEdgeId;
+    public int nextFaceId;
+    public int nextHalfEdgeId;
+
     boolean[] edgeActive;
     boolean[] faceActive;
     boolean[] halfEdgeActive;
-
-    int nextVertexId;
-    int nextEdgeId;
-    int nextFaceId;
-    int nextHalfEdgeId;
 
     /**
      * Creates an empty mesh with small default capacity for incremental
@@ -175,6 +208,102 @@ public class HalfEdgeMesh implements MeshTopology {
      */
     public int splitEdge(int edgeId, Vector3f position) {
         return HalfEdgeMeshEngine.splitEdge(this, edgeId, position.x, position.y, position.z);
+    }
+
+    /**
+     * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#splitFace(HalfEdgeMesh, int, float, float, float)}.
+     *
+     * @param faceId   active face to split
+     * @param position 3D position of the new vertex
+     * @return id of the new vertex
+     */
+    public int splitFace(int faceId, Vector3f position) {
+        return HalfEdgeMeshEngine.splitFace(this, faceId, position.x, position.y, position.z);
+    }
+
+    /**
+     * Convenience wrapper for {@link HalfEdgeMeshEngine#flipEdge(HalfEdgeMesh, int)}.
+     *
+     * @param edgeId interior edge between two triangles
+     * @return id of the new diagonal
+     */
+    public int flipEdge(int edgeId) {
+        return HalfEdgeMeshEngine.flipEdge(this, edgeId);
+    }
+
+    /**
+     * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#collapseEdge(HalfEdgeMesh, int, float, float, float)}.
+     *
+     * @param edgeId   edge to collapse
+     * @param position where the kept vertex ends up
+     * @return id of the kept vertex
+     */
+    public int collapseEdge(int edgeId, Vector3f position) {
+        return HalfEdgeMeshEngine.collapseEdge(this, edgeId, position.x, position.y, position.z);
+    }
+
+    /**
+     * Convenience wrapper for
+     * {@link HalfEdgeMeshEngine#replaceFaces(HalfEdgeMesh, int, int[], int[])}.
+     *
+     * @param parentFaceId     face whose layer values every new face inherits
+     * @param retiredFaceIds   active faces to remove, in removal order
+     * @param triangleCorners  corners of the new triangles, three per face, in creation order
+     * @return id of the first new face; the rest follow consecutively
+     */
+    public int replaceFaces(int parentFaceId, int[] retiredFaceIds, int[] triangleCorners) {
+        return HalfEdgeMeshEngine.replaceFaces(this, parentFaceId, retiredFaceIds, triangleCorners);
+    }
+
+    /**
+     * Adds a vertex layer, every existing vertex set to the fill.
+     *
+     * @param fill           value of a vertex the layer has no other value for
+     * @param splitEdgeLayer edge layer a vertex minted on a split edge copies, or
+     *                       {@link MeshTopology#NONE} for the fill
+     * @return the layer's index into {@link #vertexLayers}
+     */
+    public int declareVertexLayer(int fill, int splitEdgeLayer) {
+        int layer = vertexLayers.length;
+        vertexLayers = Arrays.copyOf(vertexLayers, layer + 1);
+        vertexLayers[layer] = growLayer(new int[0], vertexActive.length, fill);
+        vertexLayerFill = Arrays.copyOf(vertexLayerFill, layer + 1);
+        vertexLayerFill[layer] = fill;
+        vertexLayerSplitEdgeLayer = Arrays.copyOf(vertexLayerSplitEdgeLayer, layer + 1);
+        vertexLayerSplitEdgeLayer[layer] = splitEdgeLayer;
+        return layer;
+    }
+
+    /**
+     * Adds an edge layer, every existing edge set to the fill.
+     *
+     * @param fill value of an edge the layer has no other value for
+     * @return the layer's index into {@link #edgeLayers}
+     */
+    public int declareEdgeLayer(int fill) {
+        int layer = edgeLayers.length;
+        edgeLayers = Arrays.copyOf(edgeLayers, layer + 1);
+        edgeLayers[layer] = growLayer(new int[0], edgeActive.length, fill);
+        edgeLayerFill = Arrays.copyOf(edgeLayerFill, layer + 1);
+        edgeLayerFill[layer] = fill;
+        return layer;
+    }
+
+    /**
+     * Adds a face layer, every existing face set to the fill.
+     *
+     * @param fill value of a face the layer has no other value for
+     * @return the layer's index into {@link #faceLayers}
+     */
+    public int declareFaceLayer(int fill) {
+        int layer = faceLayers.length;
+        faceLayers = Arrays.copyOf(faceLayers, layer + 1);
+        faceLayers[layer] = growLayer(new int[0], faceActive.length, fill);
+        faceLayerFill = Arrays.copyOf(faceLayerFill, layer + 1);
+        faceLayerFill[layer] = fill;
+        return layer;
     }
 
     /**
@@ -881,6 +1010,9 @@ public class HalfEdgeMesh implements MeshTopology {
         vertexOutgoing = resizeIntArray(vertexOutgoing, nextCapacity);
         vertexPositions = resizeFloatTupleArray(vertexPositions, nextCapacity);
         vertexNormals = resizeFloatTupleArray(vertexNormals, nextCapacity);
+        for (int layer = 0; layer < vertexLayers.length; layer++) {
+            vertexLayers[layer] = growLayer(vertexLayers[layer], nextCapacity, vertexLayerFill[layer]);
+        }
     }
 
     /**
@@ -896,6 +1028,9 @@ public class HalfEdgeMesh implements MeshTopology {
         int nextCapacity = nextCapacity(edgeActive.length, requiredEdgeCount);
         edgeActive = resizeBooleanArray(edgeActive, nextCapacity);
         edgeHalfEdge = resizeIntArray(edgeHalfEdge, nextCapacity);
+        for (int layer = 0; layer < edgeLayers.length; layer++) {
+            edgeLayers[layer] = growLayer(edgeLayers[layer], nextCapacity, edgeLayerFill[layer]);
+        }
     }
 
     /**
@@ -912,6 +1047,9 @@ public class HalfEdgeMesh implements MeshTopology {
         faceActive = resizeBooleanArray(faceActive, nextCapacity);
         faceHalfEdge = resizeIntArray(faceHalfEdge, nextCapacity);
         faceNormals = resizeFloatTupleArray(faceNormals, nextCapacity);
+        for (int layer = 0; layer < faceLayers.length; layer++) {
+            faceLayers[layer] = growLayer(faceLayers[layer], nextCapacity, faceLayerFill[layer]);
+        }
     }
 
     /**
@@ -988,6 +1126,21 @@ public class HalfEdgeMesh implements MeshTopology {
         fillWithNone(resized);
         System.arraycopy(source, 0, resized, 0, source.length);
         return resized;
+    }
+
+    /**
+     * Returns a layer array of the requested length, {@code source} copied into the prefix and
+     * the rest set to the fill.
+     *
+     * @param source       layer to copy from
+     * @param nextCapacity length of the returned array
+     * @param fill         value of every slot past {@code source}
+     * @return new int array sized to {@code nextCapacity}
+     */
+    public static int[] growLayer(int[] source, int nextCapacity, int fill) {
+        int[] grown = Arrays.copyOf(source, nextCapacity);
+        Arrays.fill(grown, source.length, nextCapacity, fill);
+        return grown;
     }
 
     /**

@@ -42,14 +42,14 @@ class ArcGateRunRefinementTest {
         HalfEdgeMesh grid = buildGrid();
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(grid);
         for (int column = 0; column < COLUMNS; column++) {
-            topology.ownerArcByCopyVertex[vertex(topology, column, LOWER_ROW)] = LOWER_ARC;
-            topology.ownerArcByCopyVertex[vertex(topology, column, UPPER_ROW)] = UPPER_ARC;
+            topology.ownerArcByCopyVertex()[vertex(topology, column, LOWER_ROW)] = LOWER_ARC;
+            topology.ownerArcByCopyVertex()[vertex(topology, column, UPPER_ROW)] = UPPER_ARC;
         }
         for (int column = 0; column < COLUMNS - 1; column++) {
-            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(
+            topology.ownerArcByCopyEdge()[topology.copy.edgeBetween(
                     vertex(topology, column, LOWER_ROW),
                     vertex(topology, column + 1, LOWER_ROW))] = LOWER_ARC;
-            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(
+            topology.ownerArcByCopyEdge()[topology.copy.edgeBetween(
                     vertex(topology, column, UPPER_ROW),
                     vertex(topology, column + 1, UPPER_ROW))] = UPPER_ARC;
         }
@@ -91,11 +91,11 @@ class ArcGateRunRefinementTest {
             int lower = vertex(topology, column, LOWER_ROW);
             for (int index = 0; index < topology.copy.vertexEdgeCount(lower); index++) {
                 int edgeId = topology.copy.vertexEdgeAt(lower, index);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                if (topology.ownerArcByCopyEdge()[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
                     continue;
                 }
                 int other = topology.copy.edgeOtherVertex(edgeId, lower);
-                if (topology.ownerArcByCopyVertex[other] == UPPER_ARC) {
+                if (topology.ownerArcByCopyVertex()[other] == UPPER_ARC) {
                     gates++;
                 }
             }
@@ -111,10 +111,10 @@ class ArcGateRunRefinementTest {
      * @return the unclaimed copy vertices
      */
     private ActiveIdSet unclaimedVertices(EmbeddedMeshTopology topology) {
-        ActiveIdSet unclaimed = new ActiveIdSet(topology.ownerArcByCopyVertex.length);
-        for (int vertex = 0; vertex < topology.ownerArcByCopyVertex.length; vertex++) {
-            if (topology.ownerArcByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED
-                    && topology.ownerNodeByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED) {
+        ActiveIdSet unclaimed = new ActiveIdSet(topology.ownerArcByCopyVertex().length);
+        for (int vertex = 0; vertex < topology.ownerArcByCopyVertex().length; vertex++) {
+            if (topology.ownerArcByCopyVertex()[vertex] == EmbeddedMeshTopology.UNCLAIMED
+                    && topology.ownerNodeByCopyVertex()[vertex] == EmbeddedMeshTopology.UNCLAIMED) {
                 unclaimed.add(vertex);
             }
         }

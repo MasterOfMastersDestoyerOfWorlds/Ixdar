@@ -322,7 +322,7 @@ public class EmbeddedTMeshScene extends ModelScene {
     private void applyDragStep() {
         try {
             if (contraction.collapseArc.collapsingArcId == ArcNetwork.NONE) {
-                if (tmesh.topology.patchByCopyFace.length == 0) {
+                if (!tmesh.topology.patchCoversLabeled) {
                     tmesh.labelPatchCovers();
                 }
                 int arcId = contraction.collapseArc.shortestZeroArc();

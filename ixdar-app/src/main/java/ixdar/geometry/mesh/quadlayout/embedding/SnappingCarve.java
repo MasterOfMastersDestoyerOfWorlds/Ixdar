@@ -192,13 +192,13 @@ public final class SnappingCarve {
             int copyVertex = node.vertexId >= 0
                     ? claimSourceVertex(node)
                     : mintInside(node, chartBarycentric(node));
-            int owner = topology.ownerNodeByCopyVertex[copyVertex];
+            int owner = topology.ownerNodeByCopyVertex()[copyVertex];
             if (owner != EmbeddedMeshTopology.UNCLAIMED && owner != node.nodeId) {
                 throw new IllegalStateException("T-mesh nodes " + owner + " and " + node.nodeId
                         + " both landed on copy vertex " + copyVertex
                         + "; one mesh vertex never owns two T-mesh nodes");
             }
-            topology.ownerNodeByCopyVertex[copyVertex] = node.nodeId;
+            topology.ownerNodeByCopyVertex()[copyVertex] = node.nodeId;
             vertexIdByNode[node.nodeId] = copyVertex;
         }
         constraintVertexCount = topology.copy.vertexCount();
@@ -370,7 +370,7 @@ public final class SnappingCarve {
                     topology.sourceMesh.halfEdgeEndVertex(halfEdge));
             int copyEdge = topology.copy.edgeBetween(copyA, copyB);
             if (copyEdge != EmbeddedMeshTopology.UNCLAIMED) {
-                topology.sourceEdgeByCopyEdge[copyEdge] = activeEdge;
+                topology.sourceEdgeByCopyEdge()[copyEdge] = activeEdge;
             }
         }
         return this;
@@ -462,8 +462,8 @@ public final class SnappingCarve {
      * @return the same vertex, now claimed
      */
     private int claimPassedVertex(int arcId, int copyVertex) {
-        int nodeOwner = topology.ownerNodeByCopyVertex[copyVertex];
-        int arcOwner = topology.ownerArcByCopyVertex[copyVertex];
+        int nodeOwner = topology.ownerNodeByCopyVertex()[copyVertex];
+        int arcOwner = topology.ownerArcByCopyVertex()[copyVertex];
         if (nodeOwner != EmbeddedMeshTopology.UNCLAIMED
                 && (vertexIdByNode[startNodeByArc[arcId]] == copyVertex
                         || vertexIdByNode[endNodeByArc[arcId]] == copyVertex)) {
@@ -479,7 +479,7 @@ public final class SnappingCarve {
                     + " / arc " + arcOwner
                     + " already holds; two T-mesh elements cannot share one mesh vertex");
         }
-        topology.ownerArcByCopyVertex[copyVertex] = arcId;
+        topology.ownerArcByCopyVertex()[copyVertex] = arcId;
         cornersGrantedCount++;
         return copyVertex;
     }
@@ -512,12 +512,12 @@ public final class SnappingCarve {
         List<Integer> chosen = chosenVertexByArc.get(crossing[0]);
         if (chosen.get(crossing[1]) != EmbeddedMeshTopology.UNCLAIMED
                 || preferredCorner(crossing) != corner
-                || topology.ownerNodeByCopyVertex[corner] != EmbeddedMeshTopology.UNCLAIMED
-                || topology.ownerArcByCopyVertex[corner] != EmbeddedMeshTopology.UNCLAIMED
-                        && topology.ownerArcByCopyVertex[corner] != crossing[0]) {
+                || topology.ownerNodeByCopyVertex()[corner] != EmbeddedMeshTopology.UNCLAIMED
+                || topology.ownerArcByCopyVertex()[corner] != EmbeddedMeshTopology.UNCLAIMED
+                        && topology.ownerArcByCopyVertex()[corner] != crossing[0]) {
             return;
         }
-        topology.ownerArcByCopyVertex[corner] = crossing[0];
+        topology.ownerArcByCopyVertex()[corner] = crossing[0];
         chosen.set(crossing[1], corner);
         cornersGrantedCount++;
     }
@@ -564,7 +564,7 @@ public final class SnappingCarve {
             for (int index = 0; index < demanding.size(); index++) {
                 int[] crossing = demanding.get(index);
                 chosenVertexByArc.get(crossing[0]).set(crossing[1], lanes.get(index));
-                topology.ownerArcByCopyVertex[lanes.get(index)] = crossing[0];
+                topology.ownerArcByCopyVertex()[lanes.get(index)] = crossing[0];
             }
             lanesMintedCount += lanes.size();
             mostLanesOnAnEdge = Math.max(mostLanesOnAnEdge, lanes.size());
@@ -678,12 +678,12 @@ public final class SnappingCarve {
                 throw new IllegalStateException("arc " + arcId + " hop " + step
                         + " has no copy edge behind it, so its chord was never laid");
             }
-            topology.ownerArcByCopyEdge[edgeId] = arcId;
+            topology.ownerArcByCopyEdge()[edgeId] = arcId;
             edges.add(edgeId);
         }
         for (int index = 1; index < vertices.size() - 1; index++) {
-            if (topology.ownerNodeByCopyVertex[vertices.get(index)] == EmbeddedMeshTopology.UNCLAIMED) {
-                topology.ownerArcByCopyVertex[vertices.get(index)] = arcId;
+            if (topology.ownerNodeByCopyVertex()[vertices.get(index)] == EmbeddedMeshTopology.UNCLAIMED) {
+                topology.ownerArcByCopyVertex()[vertices.get(index)] = arcId;
             }
         }
         return new ArcEdgePath(arcId, vertices, edges);

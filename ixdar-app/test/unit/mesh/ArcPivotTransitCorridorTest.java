@@ -35,14 +35,14 @@ class ArcPivotTransitCorridorTest {
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(grid);
 
         for (int row = 0; row < ROWS; row++) {
-            topology.ownerArcByCopyVertex[vertex(topology, SEAL_COLUMN, row)] = CLAIM_MARKER;
-            topology.ownerArcByCopyVertex[vertex(topology, GATE_COLUMN, row)] = CLAIM_MARKER;
+            topology.ownerArcByCopyVertex()[vertex(topology, SEAL_COLUMN, row)] = CLAIM_MARKER;
+            topology.ownerArcByCopyVertex()[vertex(topology, GATE_COLUMN, row)] = CLAIM_MARKER;
         }
         for (int row = 0; row < ROWS - 1; row++) {
-            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(vertex(topology, SEAL_COLUMN, row),
+            topology.ownerArcByCopyEdge()[topology.copy.edgeBetween(vertex(topology, SEAL_COLUMN, row),
                     vertex(topology, SEAL_COLUMN, row + 1))] = CLAIM_MARKER;
             if (row != GAP_ROW) {
-                topology.ownerArcByCopyEdge[topology.copy.edgeBetween(vertex(topology, GATE_COLUMN, row),
+                topology.ownerArcByCopyEdge()[topology.copy.edgeBetween(vertex(topology, GATE_COLUMN, row),
                         vertex(topology, GATE_COLUMN, row + 1))] = CLAIM_MARKER;
             }
         }
@@ -74,14 +74,14 @@ class ArcPivotTransitCorridorTest {
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(grid);
 
         for (int row = 0; row < ROWS; row++) {
-            topology.ownerArcByCopyVertex[vertex(topology, SEAL_COLUMN, row)] = CLAIM_MARKER;
-            topology.ownerArcByCopyVertex[vertex(topology, GATE_COLUMN, row)] = CLAIM_MARKER;
+            topology.ownerArcByCopyVertex()[vertex(topology, SEAL_COLUMN, row)] = CLAIM_MARKER;
+            topology.ownerArcByCopyVertex()[vertex(topology, GATE_COLUMN, row)] = CLAIM_MARKER;
         }
         for (int row = 0; row < ROWS - 1; row++) {
-            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(vertex(topology, SEAL_COLUMN, row),
+            topology.ownerArcByCopyEdge()[topology.copy.edgeBetween(vertex(topology, SEAL_COLUMN, row),
                     vertex(topology, SEAL_COLUMN, row + 1))] = CLAIM_MARKER;
             if (row != GAP_ROW) {
-                topology.ownerArcByCopyEdge[topology.copy.edgeBetween(vertex(topology, GATE_COLUMN, row),
+                topology.ownerArcByCopyEdge()[topology.copy.edgeBetween(vertex(topology, GATE_COLUMN, row),
                         vertex(topology, GATE_COLUMN, row + 1))] = CLAIM_MARKER;
             }
         }
@@ -90,11 +90,11 @@ class ArcPivotTransitCorridorTest {
         int pivotVertex = vertex(topology, SEAL_COLUMN, MIDDLE_ROW);
         int targetVertex = vertex(topology, COLUMNS - 1, MIDDLE_ROW);
 
-        ActiveIdSet corridor = new ActiveIdSet(topology.ownerArcByCopyVertex.length);
+        ActiveIdSet corridor = new ActiveIdSet(topology.ownerArcByCopyVertex().length);
         for (int row = 0; row < ROWS; row++) {
             for (int column = SEAL_COLUMN + 1; column < COLUMNS; column++) {
                 int copyVertex = vertex(topology, column, row);
-                if (topology.ownerArcByCopyVertex[copyVertex] == EmbeddedMeshTopology.UNCLAIMED) {
+                if (topology.ownerArcByCopyVertex()[copyVertex] == EmbeddedMeshTopology.UNCLAIMED) {
                     corridor.add(copyVertex);
                 }
             }
@@ -119,10 +119,10 @@ class ArcPivotTransitCorridorTest {
      * @return the unclaimed copy vertices
      */
     private ActiveIdSet unclaimedVertices(EmbeddedMeshTopology topology) {
-        ActiveIdSet unclaimed = new ActiveIdSet(topology.ownerArcByCopyVertex.length);
-        for (int vertex = 0; vertex < topology.ownerArcByCopyVertex.length; vertex++) {
-            if (topology.ownerArcByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED
-                    && topology.ownerNodeByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED) {
+        ActiveIdSet unclaimed = new ActiveIdSet(topology.ownerArcByCopyVertex().length);
+        for (int vertex = 0; vertex < topology.ownerArcByCopyVertex().length; vertex++) {
+            if (topology.ownerArcByCopyVertex()[vertex] == EmbeddedMeshTopology.UNCLAIMED
+                    && topology.ownerNodeByCopyVertex()[vertex] == EmbeddedMeshTopology.UNCLAIMED) {
                 unclaimed.add(vertex);
             }
         }

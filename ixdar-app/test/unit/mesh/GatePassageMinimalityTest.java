@@ -35,14 +35,14 @@ class GatePassageMinimalityTest {
         HalfEdgeMesh grid = buildGrid();
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(grid);
         for (int column = 0; column < COLUMNS; column++) {
-            topology.ownerArcByCopyVertex[vertex(topology, column, LOWER_ROW)] = LOWER_ARC;
-            topology.ownerArcByCopyVertex[vertex(topology, column, UPPER_ROW)] = UPPER_ARC;
+            topology.ownerArcByCopyVertex()[vertex(topology, column, LOWER_ROW)] = LOWER_ARC;
+            topology.ownerArcByCopyVertex()[vertex(topology, column, UPPER_ROW)] = UPPER_ARC;
         }
         for (int column = 0; column < COLUMNS - 1; column++) {
-            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(
+            topology.ownerArcByCopyEdge()[topology.copy.edgeBetween(
                     vertex(topology, column, LOWER_ROW),
                     vertex(topology, column + 1, LOWER_ROW))] = LOWER_ARC;
-            topology.ownerArcByCopyEdge[topology.copy.edgeBetween(
+            topology.ownerArcByCopyEdge()[topology.copy.edgeBetween(
                     vertex(topology, column, UPPER_ROW),
                     vertex(topology, column + 1, UPPER_ROW))] = UPPER_ARC;
         }
@@ -81,10 +81,10 @@ class GatePassageMinimalityTest {
      * @return the unclaimed copy vertices
      */
     private ActiveIdSet unclaimedVertices(EmbeddedMeshTopology topology) {
-        ActiveIdSet unclaimed = new ActiveIdSet(topology.ownerArcByCopyVertex.length);
-        for (int vertex = 0; vertex < topology.ownerArcByCopyVertex.length; vertex++) {
-            if (topology.ownerArcByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED
-                    && topology.ownerNodeByCopyVertex[vertex] == EmbeddedMeshTopology.UNCLAIMED) {
+        ActiveIdSet unclaimed = new ActiveIdSet(topology.ownerArcByCopyVertex().length);
+        for (int vertex = 0; vertex < topology.ownerArcByCopyVertex().length; vertex++) {
+            if (topology.ownerArcByCopyVertex()[vertex] == EmbeddedMeshTopology.UNCLAIMED
+                    && topology.ownerNodeByCopyVertex()[vertex] == EmbeddedMeshTopology.UNCLAIMED) {
                 unclaimed.add(vertex);
             }
         }

@@ -156,7 +156,7 @@ public final class PatchRegions {
             component.add(faceId);
             for (int corner = 0; corner < topology.copy.faceHalfEdgeCount(faceId); corner++) {
                 int edgeId = topology.copy.faceEdgeAt(faceId, corner);
-                int owner = topology.ownerArcByCopyEdge[edgeId];
+                int owner = topology.ownerArcByCopyEdge()[edgeId];
                 if (owner != EmbeddedMeshTopology.UNCLAIMED) {
                     boundaryArcs.add(owner);
                     continue;

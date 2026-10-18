@@ -112,7 +112,7 @@ public final class PatchCorridor {
         for (int cursor = 0; cursor < faceScratch.size(); cursor++) {
             int faceId = faceScratch.get(cursor);
             for (int corner = 0; corner < copy.faceHalfEdgeCount(faceId); corner++) {
-                int ownerArcId = tmesh.topology.ownerArcByCopyEdge[copy.faceEdgeAt(faceId, corner)];
+                int ownerArcId = tmesh.topology.ownerArcByCopyEdge()[copy.faceEdgeAt(faceId, corner)];
                 if (ownerArcId != EmbeddedMeshTopology.UNCLAIMED) {
                     owners.add(ownerArcId);
                 }
@@ -137,7 +137,7 @@ public final class PatchCorridor {
      * restarts the generations when one is about to overflow.
      */
     private void growStamps() {
-        int faceIdBound = tmesh.topology.sourceFaceByCopyFace.length;
+        int faceIdBound = tmesh.topology.sourceFaceByCopyFace().length;
         if (visitStampByCopyFace.length < faceIdBound) {
             visitStampByCopyFace = Arrays.copyOf(visitStampByCopyFace, faceIdBound);
         }
@@ -185,7 +185,7 @@ public final class PatchCorridor {
         faceScratch.clear();
         visitStampByCopyFace[seed] = visitStamp;
         faceScratch.add(seed);
-        int[] ownerArcByCopyEdge = tmesh.topology.ownerArcByCopyEdge;
+        int[] ownerArcByCopyEdge = tmesh.topology.ownerArcByCopyEdge();
         int[] halfEdgeNexts = copy.halfEdgeNext;
         int[] halfEdgeEdges = copy.halfEdgeEdge;
         int[] halfEdgeTwins = copy.halfEdgeTwin;

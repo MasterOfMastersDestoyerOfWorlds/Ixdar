@@ -444,7 +444,7 @@ public final class GridMapOptimizer {
     private boolean sourceCorners(PatchRectangleMap map, int copyFace, int origin, int first,
             int second, boolean mirror) {
         double chartV = mirror ? -1.0 : 1.0;
-        int sourceFace = gridMap.tmesh.topology.sourceFaceByCopyFace[copyFace];
+        int sourceFace = gridMap.tmesh.topology.sourceFaceByCopyFace()[copyFace];
         if (sourceFace == EmbeddedMeshTopology.UNCLAIMED) {
             return false;
         }

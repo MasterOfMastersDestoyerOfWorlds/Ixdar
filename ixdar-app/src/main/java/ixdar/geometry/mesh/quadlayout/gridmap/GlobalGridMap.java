@@ -132,7 +132,7 @@ public final class GlobalGridMap implements UvField {
      */
     private ChartAtlas buildAtlas() {
         ChartAtlas built = new ChartAtlas(tmesh.patches.size(),
-                tmesh.topology.sourceFaceByCopyFace.length, tmesh.arcs.size(), true);
+                tmesh.topology.sourceFaceByCopyFace().length, tmesh.arcs.size(), true);
         for (EmbeddedPatch patch : tmesh.patches) {
             if (!patch.alive) {
                 continue;

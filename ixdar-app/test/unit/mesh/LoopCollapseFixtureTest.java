@@ -29,11 +29,12 @@ class LoopCollapseFixtureTest {
 
         fixtureNet.labelPatchCovers();
 
-        assertTrue(fixtureNet.topology.patchByCopyFace.length > 0,
+        assertTrue(fixtureNet.topology.patchCoversLabeled,
                 "the patch walks must agree with the disk's winding, or the covers are dropped"
                         + " as overlapping and the drags run unrestricted");
-        for (int face = 0; face < fixtureNet.topology.patchByCopyFace.length; face++) {
-            assertTrue(fixtureNet.topology.patchByCopyFace[face] != ArcNetwork.NONE,
+        for (int active = 0; active < fixtureNet.topology.copy.faceCount(); active++) {
+            int face = fixtureNet.topology.copy.faceIdAt(active);
+            assertTrue(fixtureNet.topology.patchByCopyFace()[face] != ArcNetwork.NONE,
                     "face " + face + " carries a label");
         }
     }

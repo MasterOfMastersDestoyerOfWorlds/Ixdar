@@ -498,7 +498,7 @@ public final class ZeroArcCollapseOperator {
      * @return true when its edge is claimed
      */
     private boolean spokeHeld(int spokeHalfEdge) {
-        return tmesh.topology.ownerArcByCopyEdge[tmesh.topology.copy.halfEdgeEdge(spokeHalfEdge)]
+        return tmesh.topology.ownerArcByCopyEdge()[tmesh.topology.copy.halfEdgeEdge(spokeHalfEdge)]
                 != EmbeddedMeshTopology.UNCLAIMED;
     }
 
@@ -522,7 +522,7 @@ public final class ZeroArcCollapseOperator {
             if (halfEdge < 0) {
                 return ArcNetwork.NONE;
             }
-            if (tmesh.topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)]
+            if (tmesh.topology.ownerArcByCopyEdge()[copy.halfEdgeEdge(halfEdge)]
                     != EmbeddedMeshTopology.UNCLAIMED) {
                 return halfEdge;
             }
@@ -727,7 +727,7 @@ public final class ZeroArcCollapseOperator {
             Set<Integer> boundaryArcs) {
         EmbeddedMeshTopology topology = tmesh.topology;
         HalfEdgeMesh copy = topology.copy;
-        int faceIdBound = topology.sourceFaceByCopyFace.length;
+        int faceIdBound = topology.sourceFaceByCopyFace().length;
         if (freeRegionStampByCopyFace.length < faceIdBound) {
             freeRegionStampByCopyFace = Arrays.copyOf(freeRegionStampByCopyFace,
                     Math.max(faceIdBound, freeRegionStampByCopyFace.length * 2));
@@ -745,8 +745,8 @@ public final class ZeroArcCollapseOperator {
             int faceId = freeRegionFaces.get(cursor);
             for (int corner = 0; corner < copy.faceHalfEdgeCount(faceId); corner++) {
                 int edgeId = copy.faceEdgeAt(faceId, corner);
-                if (topology.ownerArcByCopyEdge[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
-                    boundaryArcs.add(topology.ownerArcByCopyEdge[edgeId]);
+                if (topology.ownerArcByCopyEdge()[edgeId] != EmbeddedMeshTopology.UNCLAIMED) {
+                    boundaryArcs.add(topology.ownerArcByCopyEdge()[edgeId]);
                     continue;
                 }
                 int neighbour = copy.faceAcrossEdge(faceId, edgeId);
@@ -795,7 +795,7 @@ public final class ZeroArcCollapseOperator {
         Set<Integer> seenEnds = new HashSet<>();
         int halfEdge = startHalfEdge;
         for (int step = 0; step < rotationCap && halfEdge >= 0; step++) {
-            int owner = tmesh.topology.ownerArcByCopyEdge[copy.halfEdgeEdge(halfEdge)];
+            int owner = tmesh.topology.ownerArcByCopyEdge()[copy.halfEdgeEdge(halfEdge)];
             if (owner != EmbeddedMeshTopology.UNCLAIMED && owner != collapsingArc
                     && tmesh.arcs.get(owner).alive) {
                 List<Integer> path = tmesh.arcs.get(owner).path.copyVertexPath;

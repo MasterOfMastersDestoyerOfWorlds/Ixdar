@@ -36,11 +36,11 @@ class DriftLocalizeScratchTest {
                 tmesh.arcs.get(arcId).path.copyVertexPath);
         // The watched ids were captured from one historical run; a routing change can leave the
         // face unlabeled or unminted, which is not what this scratch is watching for.
-        if (WATCHED_FACE >= topology.patchByCopyFace.length
+        if (WATCHED_FACE >= topology.patchByCopyFace().length
                 || WATCHED_FACE >= copy.faceCount()) {
             System.out.printf("[watch %s] face %d not minted or not labeled (faces %d, labels"
                     + " %d)%n", when, WATCHED_FACE, copy.faceCount(),
-                    topology.patchByCopyFace.length);
+                    topology.patchByCopyFace().length);
             return;
         }
         System.out.printf("[watch %s] face %d label=%d vertices=%d,%d,%d%n", when, WATCHED_FACE,
@@ -53,7 +53,7 @@ class DriftLocalizeScratchTest {
                     ? copy.halfEdgeFace(copy.halfEdgeTwin(halfEdge))
                     : copy.halfEdgeFace(halfEdge);
             System.out.printf("[watch %s]   edge %d owner=%d neighbour=%d label=%d%n", when, edgeId,
-                    topology.ownerArcByCopyEdge[edgeId], neighbour,
+                    topology.ownerArcByCopyEdge()[edgeId], neighbour,
                     neighbour < 0 ? -1 : topology.patchLabelOf(neighbour));
         }
     }
