@@ -9,7 +9,7 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.common.exceptions.InvalidMeshTopologyException;
+import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 

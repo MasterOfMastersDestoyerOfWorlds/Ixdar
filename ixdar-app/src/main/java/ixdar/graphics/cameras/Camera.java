@@ -2,7 +2,7 @@ package ixdar.graphics.cameras;
 
 import org.joml.Vector2f;
 
-import ixdar.geometry.point.PointSet;
+import ixdar.geometry.tsp.points.PointSet;
 import ixdar.platform.input.PointerRegion;
 
 /**

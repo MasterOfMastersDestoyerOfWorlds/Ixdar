@@ -1,6 +1,6 @@
 /**
- * The `.ix` solution file format: `FileManagement` imports/exports point sets, TSP paths, distance
- * matrices, and grids (comments preserved), delegating raw I/O to the `Platform`. Domain file-
- * format code despite the package name. Asset repo resolves via `IXDAR_ASSET_REPO_ROOT`.
+ * File access helpers: `FileManagement` resolves solution and asset paths (the asset repo via
+ * `IXDAR_ASSET_REPO_ROOT`) and appends lines, delegating raw I/O to the `Platform`; `TextFile` is
+ * the logical file. The `.ix` format itself lives in `geometry/tsp`.
  */
 package ixdar.platform.file;

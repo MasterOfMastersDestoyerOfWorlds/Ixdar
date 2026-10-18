@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.IOException;
 
 import ixdar.annotations.command.CommandAnnotation;
-import ixdar.common.exceptions.TerminalParseException;
+import ixdar.gui.terminal.TerminalParseException;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.file.FileManagement;
 import ixdar.scenes.main.MainScene;

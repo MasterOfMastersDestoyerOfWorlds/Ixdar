@@ -3,7 +3,7 @@ package ixdar.scenes.anatomy;
 import org.joml.Vector2f;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.point.PointND;
+import ixdar.geometry.tsp.points.PointND;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFBezier;
 import ixdar.scenes.Scene;

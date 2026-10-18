@@ -6,10 +6,10 @@ import java.util.Map;
 import org.joml.Vector2d;
 import org.joml.Vector2f;
 
-import ixdar.geometry.knot.Knot;
-import ixdar.geometry.knot.Segment;
-import ixdar.geometry.point.PointND;
-import ixdar.geometry.point.PointSet;
+import ixdar.geometry.tsp.knot.Knot;
+import ixdar.geometry.tsp.knot.Segment;
+import ixdar.geometry.tsp.points.PointND;
+import ixdar.geometry.tsp.points.PointSet;
 import ixdar.platform.Clock;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;

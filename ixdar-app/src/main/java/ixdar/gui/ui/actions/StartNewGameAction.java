@@ -6,7 +6,7 @@ import java.util.Random;
 import ixdar.canvas.Canvas3D;
 import ixdar.game.City;
 import ixdar.game.CityNetwork;
-import ixdar.geometry.point.Grid.CartesianGrid;
+import ixdar.geometry.grid2d.Grid.CartesianGrid;
 import ixdar.scenes.trade.TradeScene;
 
 /**

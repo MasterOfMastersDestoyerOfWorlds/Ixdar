@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.SurfaceRing;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.geometry.point.IrregularQuadGrid;
+import ixdar.geometry.grid2d.IrregularQuadGrid;
 import ixdar.platform.Clock;
 import ixdar.gui.ui.ErrorToasts;
 import ixdar.gui.ui.menu.MenuBox;

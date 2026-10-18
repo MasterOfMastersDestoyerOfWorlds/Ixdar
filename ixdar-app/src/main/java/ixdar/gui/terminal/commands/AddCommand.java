@@ -1,8 +1,8 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
-import ixdar.common.exceptions.TerminalParseException;
-import ixdar.geometry.point.PointCollection;
+import ixdar.gui.terminal.TerminalParseException;
+import ixdar.geometry.tsp.input.PointCollection;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.file.FileManagement;
 import ixdar.scenes.main.MainScene;

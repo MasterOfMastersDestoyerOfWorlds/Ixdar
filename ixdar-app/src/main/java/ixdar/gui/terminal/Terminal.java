@@ -8,10 +8,10 @@ import java.util.function.Supplier;
 
 import ixdar.annotations.command.TerminalOption;
 import ixdar.annotations.geometry.Geometry;
-import ixdar.geometry.point.GeometryMap;
+import ixdar.geometry.tsp.input.GeometryMap;
 
 import ixdar.platform.Compat;
-import ixdar.geometry.point.PointCollection;
+import ixdar.geometry.tsp.input.PointCollection;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorLerp;

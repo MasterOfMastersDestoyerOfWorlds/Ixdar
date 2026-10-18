@@ -3,12 +3,12 @@ package ixdar.game;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import ixdar.geometry.knot.Knot;
-import ixdar.geometry.point.Grid;
-import ixdar.geometry.point.PointND;
-import ixdar.geometry.point.PointSet;
-import ixdar.geometry.shell.DistanceMatrix;
-import ixdar.geometry.shell.Shell;
+import ixdar.geometry.tsp.knot.Knot;
+import ixdar.geometry.grid2d.Grid;
+import ixdar.geometry.tsp.points.PointND;
+import ixdar.geometry.tsp.points.PointSet;
+import ixdar.geometry.tsp.shell.DistanceMatrix;
+import ixdar.geometry.tsp.shell.Shell;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.sdf.SDFLine;
 

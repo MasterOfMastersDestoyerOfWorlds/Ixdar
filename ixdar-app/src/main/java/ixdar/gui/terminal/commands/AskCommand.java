@@ -5,9 +5,9 @@ import java.util.ArrayList;
 import org.apache.commons.math3.util.Pair;
 
 import ixdar.annotations.command.CommandAnnotation;
-import ixdar.geometry.knot.Knot;
-import ixdar.geometry.knot.Segment;
-import ixdar.geometry.point.PointND;
+import ixdar.geometry.tsp.knot.Knot;
+import ixdar.geometry.tsp.knot.Segment;
+import ixdar.geometry.tsp.points.PointND;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.text.HyperString;

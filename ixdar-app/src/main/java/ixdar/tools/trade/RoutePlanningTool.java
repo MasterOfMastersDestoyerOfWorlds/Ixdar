@@ -6,12 +6,12 @@ import org.joml.Vector2f;
 
 import ixdar.game.City;
 import ixdar.game.CityNetwork;
-import ixdar.geometry.knot.GrowRecord;
-import ixdar.geometry.knot.Knot;
-import ixdar.geometry.knot.OperationRecord;
-import ixdar.geometry.knot.PipeRecord;
-import ixdar.geometry.knot.RouteOperationStack;
-import ixdar.geometry.knot.Segment;
+import ixdar.geometry.tsp.knot.GrowRecord;
+import ixdar.geometry.tsp.knot.Knot;
+import ixdar.geometry.tsp.knot.OperationRecord;
+import ixdar.geometry.tsp.knot.PipeRecord;
+import ixdar.geometry.tsp.knot.RouteOperationStack;
+import ixdar.geometry.tsp.knot.Segment;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFCircleSimple;

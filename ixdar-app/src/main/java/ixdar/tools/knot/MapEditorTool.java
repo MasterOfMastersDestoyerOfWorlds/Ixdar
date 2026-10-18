@@ -6,11 +6,11 @@ import java.util.HashMap;
 import org.joml.Vector2f;
 
 import ixdar.annotations.geometry.Geometry;
-import ixdar.geometry.knot.Knot;
-import ixdar.geometry.knot.Segment;
-import ixdar.geometry.point.Grid;
-import ixdar.geometry.point.PointCollection;
-import ixdar.geometry.point.PointND;
+import ixdar.geometry.tsp.knot.Knot;
+import ixdar.geometry.tsp.knot.Segment;
+import ixdar.geometry.grid2d.Grid;
+import ixdar.geometry.tsp.input.PointCollection;
+import ixdar.geometry.tsp.points.PointND;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorRGB;

@@ -3,10 +3,10 @@ package ixdar.gui.terminal.commands;
 import java.util.ArrayList;
 
 import ixdar.annotations.command.CommandAnnotation;
-import ixdar.geometry.shell.Range;
-import ixdar.geometry.shell.Shell;
+import ixdar.geometry.tsp.shell.Range;
+import ixdar.geometry.tsp.shell.Shell;
 import ixdar.gui.terminal.Terminal;
-import ixdar.platform.file.FileManagement;
+import ixdar.geometry.tsp.PointSetPath;
 import ixdar.scenes.main.MainScene;
 
 @CommandAnnotation(id = "sg")
@@ -83,7 +83,7 @@ public class SubGraphCommand extends TerminalCommand {
             subGraph.addAllInRange(r, MainScene.orgShell);
         }
 
-        FileManagement.rewriteSolutionFile(newPath, subGraph);
+        PointSetPath.rewriteSolutionFile(newPath, subGraph);
         return new String[] { "ld " + subGraphFileName };
     }
 }

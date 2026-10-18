@@ -2,10 +2,10 @@ package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.annotations.command.OptionList;
-import ixdar.geometry.shell.Shell;
+import ixdar.geometry.tsp.shell.Shell;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
-import ixdar.platform.file.FileManagement;
+import ixdar.geometry.tsp.PointSetPath;
 import ixdar.scenes.main.MainScene;
 
 @CommandAnnotation(id = "updt")
@@ -48,7 +48,7 @@ public class UpdateCommand extends TerminalCommand {
             double oldLength = MainScene.orgShell.getLength();
             double newLength = ans.getLength();
             if (oldLength > newLength || force) {
-                FileManagement.appendAns(MainScene.file, ans);
+                PointSetPath.appendAns(MainScene.file, ans);
                 MainScene.orgShell = ans;
                 terminal.history.addLine(oldLength + "New Shortest Tour Found", Color.TEAL_DARK);
             }

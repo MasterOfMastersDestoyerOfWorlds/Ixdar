@@ -1,11 +1,11 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
-import ixdar.common.exceptions.IdDoesNotExistException;
-import ixdar.common.exceptions.TerminalParseException;
-import ixdar.geometry.shell.Range;
+import ixdar.geometry.tsp.IdDoesNotExistException;
+import ixdar.gui.terminal.TerminalParseException;
+import ixdar.geometry.tsp.shell.Range;
 import ixdar.gui.terminal.Terminal;
-import ixdar.platform.file.FileManagement;
+import ixdar.geometry.tsp.PointSetPath;
 import ixdar.scenes.main.MainScene;
 
 @CommandAnnotation(id = "ma")
@@ -44,7 +44,7 @@ public class MoveAfterCommand extends TerminalCommand {
             Range idTarget = Range.parse(args[startIdx + 1]);
             int idDest = Integer.parseInt(args[startIdx]);
             MainScene.orgShell.moveAfter(idTarget, idDest);
-            FileManagement.rewriteSolutionFile(MainScene.file.getPath(), MainScene.orgShell);
+            PointSetPath.rewriteSolutionFile(MainScene.file.getPath(), MainScene.orgShell);
             return new String[] { "ma " + idTarget + " " };
 
         } catch (NumberFormatException e) {

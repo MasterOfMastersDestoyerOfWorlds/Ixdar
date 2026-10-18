@@ -4,8 +4,8 @@ import java.util.ArrayList;
 
 import org.apache.commons.math3.util.Pair;
 
-import ixdar.geometry.knot.Knot;
-import ixdar.geometry.knot.Segment;
+import ixdar.geometry.tsp.knot.Knot;
+import ixdar.geometry.tsp.knot.Segment;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.platform.Clock;
 import ixdar.gui.ui.text.HyperString;

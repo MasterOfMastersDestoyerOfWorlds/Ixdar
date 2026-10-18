@@ -12,18 +12,18 @@ import java.util.Random;
 import org.apache.commons.math3.util.Pair;
 
 import ixdar.canvas.Canvas3D;
-import ixdar.common.exceptions.MultipleCyclesFoundException;
-import ixdar.common.exceptions.SegmentBalanceException;
-import ixdar.common.exceptions.TerminalParseException;
+import ixdar.geometry.tsp.MultipleCyclesFoundException;
+import ixdar.geometry.tsp.SegmentBalanceException;
+import ixdar.gui.terminal.TerminalParseException;
 import ixdar.platform.Compat;
-import ixdar.geometry.knot.Knot;
-import ixdar.geometry.knot.Segment;
-import ixdar.geometry.point.Grid;
-import ixdar.geometry.point.PointND;
-import ixdar.geometry.shell.DistanceMatrix;
-import ixdar.geometry.shell.Shell;
-import ixdar.geometry.shell.ShellComparator;
-import ixdar.geometry.shell.ShellPair;
+import ixdar.geometry.tsp.knot.Knot;
+import ixdar.geometry.tsp.knot.Segment;
+import ixdar.geometry.grid2d.Grid;
+import ixdar.geometry.tsp.points.PointND;
+import ixdar.geometry.tsp.shell.DistanceMatrix;
+import ixdar.geometry.tsp.shell.Shell;
+import ixdar.geometry.tsp.shell.ShellComparator;
+import ixdar.geometry.tsp.shell.ShellPair;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.cameras.Camera2D;
@@ -39,7 +39,7 @@ import ixdar.gui.ui.PaneTypes;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.file.FileManagement;
-import ixdar.platform.file.PointSetPath;
+import ixdar.geometry.tsp.PointSetPath;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.PointerDispatcher;
@@ -147,12 +147,12 @@ public class MainScene {
         MainScene.tempFileName = tempFile.getName();
         PointND.resetIds();
         if (Compat.isBlank(fileName)) {
-            // retTup = FileManagement.importFromFile(tempFile);
+            // retTup = PointSetPath.importFromFile(tempFile);
             // terminal = new Terminal(tempFile);
         } else {
             MainScene.fileName = fileName;
             file = FileManagement.getFile(fileName);
-            retTup = FileManagement.importFromFile(file.getPath());
+            retTup = PointSetPath.importFromFile(file.getPath());
             terminal = new Terminal(file);
             Terminal.current = terminal;
         }

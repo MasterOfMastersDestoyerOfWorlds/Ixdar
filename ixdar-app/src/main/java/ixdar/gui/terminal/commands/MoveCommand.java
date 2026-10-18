@@ -1,12 +1,12 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
-import ixdar.common.exceptions.IdDoesNotExistException;
-import ixdar.common.exceptions.IdsNotConcurrentException;
-import ixdar.common.exceptions.TerminalParseException;
-import ixdar.geometry.shell.Range;
+import ixdar.geometry.tsp.IdDoesNotExistException;
+import ixdar.geometry.tsp.IdsNotConcurrentException;
+import ixdar.gui.terminal.TerminalParseException;
+import ixdar.geometry.tsp.shell.Range;
 import ixdar.gui.terminal.Terminal;
-import ixdar.platform.file.FileManagement;
+import ixdar.geometry.tsp.PointSetPath;
 import ixdar.scenes.main.MainScene;
 
 @CommandAnnotation(id = "mv")
@@ -47,7 +47,7 @@ public class MoveCommand extends TerminalCommand {
             int idDest1 = Integer.parseInt(args[startIdx + 1]);
             int idDest2 = Integer.parseInt(args[startIdx + 2]);
             MainScene.orgShell.moveBetween(idTarget, idDest1, idDest2);
-            FileManagement.rewriteSolutionFile(MainScene.file.getPath(), MainScene.orgShell);
+            PointSetPath.rewriteSolutionFile(MainScene.file.getPath(), MainScene.orgShell);
             return new String[] { "mv " + idTarget + " " };
 
         } catch (NumberFormatException e) {

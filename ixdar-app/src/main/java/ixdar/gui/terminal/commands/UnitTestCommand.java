@@ -4,7 +4,7 @@ import java.io.File;
 
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.gui.terminal.Terminal;
-import ixdar.platform.file.FileManagement;
+import ixdar.geometry.tsp.PointSetPath;
 
 @CommandAnnotation(id = "ut")
 public class UnitTestCommand extends TerminalCommand {
@@ -57,7 +57,7 @@ public class UnitTestCommand extends TerminalCommand {
             template += String.format(testItem, fileName.replace("-", "_"), fileName);
         }
         template += "}";
-        FileManagement.writeSubGraphTest(testName + ".java", template);
+        PointSetPath.writeSubGraphTest(testName + ".java", template);
         return new String[] { "cd " };
 
     }

@@ -1,0 +1,619 @@
+package ixdar.geometry.tsp.shell;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+
+import org.apache.commons.math3.complex.Complex;
+
+import java.util.Locale;
+import org.apache.commons.math3.linear.Array2DRowFieldMatrix;
+import org.apache.commons.math3.linear.Array2DRowRealMatrix;
+import org.apache.commons.math3.linear.ArrayRealVector;
+import org.apache.commons.math3.linear.DecompositionSolver;
+import org.apache.commons.math3.linear.EigenDecomposition;
+import org.apache.commons.math3.linear.FieldMatrix;
+import org.apache.commons.math3.linear.RealMatrix;
+import org.apache.commons.math3.linear.RealVector;
+import org.apache.commons.math3.linear.SingularValueDecomposition;
+
+import ixdar.geometry.tsp.points.PointND;
+import ixdar.geometry.tsp.points.PointSet;
+
+/**
+ * A class that represents the distances between all points in the pointset.
+ */
+public class DistanceMatrix {
+    public static final double EPSILON = 0.0001;
+
+    private double[][] matrix;
+    private ArrayList<PointND> points;
+    private HashMap<Integer, Integer> lookup = new HashMap<Integer, Integer>();
+    private double maxDist = 0;
+    private double minDist = Double.MAX_VALUE;
+    private double zero = 0;
+    private PointND.Double centroid;
+    private double[] centroidDist;
+    private PointND.Double nSphereCenter;
+    private double nSphereRadius = -1;
+
+    /**
+     * Creates a distance matrix that represents the distance between every point in
+     * the pointset.
+     *
+     * @param pointset points whose pairwise distances populate the matrix; iteration order
+     *                 fixes the row/column indexing and an id-to-index lookup is built alongside
+     */
+    public DistanceMatrix(PointSet pointset) {
+        matrix = new double[pointset.size()][pointset.size()];
+        points = new ArrayList<PointND>();
+        for (PointND p : pointset) {
+            points.add(p);
+        }
+        for (int i = 0; i < matrix.length; i++) {
+            lookup.put(points.get(i).getID(), i);
+            for (int j = 0; j < matrix.length; j++) {
+                double dist = points.get(i).distance(points.get(j));
+                if (dist > maxDist) {
+                    maxDist = dist;
+                }
+                if (dist < minDist) {
+                    minDist = dist;
+                }
+                matrix[i][j] = dist;
+            }
+        }
+    }
+
+    /**
+     * Build a distance matrix for {@code ps} by reusing distances cached in another matrix
+     * {@code d}. Inherits {@code zero} and {@code maxDist} from {@code d}.
+     *
+     * @param ps points to index in the new matrix
+     * @param d source matrix that already knows the pairwise distances for these points
+     */
+    public DistanceMatrix(PointSet ps, DistanceMatrix d) {
+        matrix = new double[ps.size()][ps.size()];
+        points = new ArrayList<PointND>();
+        this.zero = d.zero;
+        this.maxDist = d.maxDist;
+        for (PointND p : ps) {
+            points.add(p);
+        }
+        for (int i = 0; i < matrix.length; i++) {
+            lookup.put(points.get(i).getID(), i);
+            for (int j = 0; j < matrix.length; j++) {
+                double dist = d.getDistance(points.get(i), points.get(j));
+                matrix[i][j] = dist;
+            }
+        }
+    }
+
+    /**
+     * Cached center of the n-sphere fit through the points (set by {@link #findNSphereCenter()}).
+     *
+     * @return the n-sphere center, or {@code null} if not yet computed
+     */
+    public PointND.Double getnSphereCenter() {
+        return nSphereCenter;
+    }
+
+    /**
+     * Override the cached n-sphere center.
+     *
+     * @param nSphereCenter the new center to store
+     */
+    public void setnSphereCenter(PointND.Double nSphereCenter) {
+        this.nSphereCenter = nSphereCenter;
+    }
+
+    /**
+     * Cached radius of the n-sphere fit through the points; {@code -1} until computed.
+     *
+     * @return the n-sphere radius
+     */
+    public double getnSphereRadius() {
+        return nSphereRadius;
+    }
+
+    /**
+     * Override the cached n-sphere radius.
+     *
+     * @param nSphereRadius the new radius to store
+     */
+    public void setnSphereRadius(double nSphereRadius) {
+        this.nSphereRadius = nSphereRadius;
+    }
+
+    /**
+     * Gets the points stored in the distance matrix.
+     *
+     * @return the points stored in the distance matrix
+     */
+    public ArrayList<PointND> getPoints() {
+        return points;
+    }
+
+    /**
+     * Gets the maximum distance between any two points in the distance matrix.
+     *
+     * @return the maximum distance between any two points in the distance matrix
+     */
+    public double getMaxDist() {
+        return maxDist;
+    }
+
+    /**
+     * Re-scan every cell to refresh the cached {@code maxDist} and {@code minDist} values.
+     * Use after rows/columns change indirectly (via lookup) without rebuilding the matrix.
+     */
+    public void updateMaxDist() {
+        for (int i = 0; i < matrix.length; i++) {
+            for (int j = 0; j < matrix.length; j++) {
+                double dist = this.getDistance(points.get(i), points.get(j));
+                if (dist > maxDist) {
+                    maxDist = dist;
+                }
+                if (dist < minDist) {
+                    minDist = dist;
+                }
+            }
+        }
+    }
+
+    /**
+     * Gets the distance matrix.
+     *
+     * @return the distance matrix
+     */
+    public double[][] getMatrix() {
+        return matrix;
+    }
+
+    /**
+     * Gets the distance between i and j.
+     *
+     * @param i first point (looked up by id)
+     * @param j second point (looked up by id)
+     * @return the distance
+     */
+    public double getDistance(PointND i, PointND j) {
+        Integer ai = lookup.get(i.getID());
+        Integer aj = lookup.get(j.getID());
+        if (ai == null || aj == null) {
+            return 0.0;
+        }
+        return matrix[ai.intValue()][aj.intValue()];
+    }
+
+    /**
+     * Sum every entry in {@code p}'s row, including the diagonal {@code 0}.
+     *
+     * @param p point whose row total is computed
+     * @return the row sum, or {@code 0} when {@code p} is not in this matrix
+     */
+    public double sumDistances(PointND p) {
+        Integer idx = lookup.get(p.getID());
+        if (idx == null) {
+            return 0.0;
+        }
+        int i = idx.intValue();
+        double sum = 0.0;
+        for (int j = 0; j < matrix.length; j++) {
+            sum += matrix[i][j];
+        }
+        return sum;
+    }
+
+    /**
+     * Sum every off-diagonal entry in {@code p}'s row (i.e. distances to all other points).
+     *
+     * @param p point whose row total is computed
+     * @return the off-diagonal row sum, or {@code 0} when {@code p} is not in this matrix
+     */
+    public double sumAngles(PointND p) {
+        Integer idx = lookup.get(p.getID());
+        if (idx == null) {
+            return 0.0;
+        }
+        int i = idx.intValue();
+        double sum = 0.0;
+        for (int j = 0; j < matrix.length; j++) {
+            if (i != j) {
+                sum += matrix[i][j];
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * Adds a dummy node to the matrix with infinite distance to all points except
+     * start and end which is zero distance away.
+     *
+     * @param ID id to assign to the dummy point; values {@code < 0} leave the auto-assigned id
+     * @param first endpoint that the dummy connects to with zero distance
+     * @param last endpoint that the dummy connects to with zero distance
+     * @return A new distance matrix with the dummy node added on
+     */
+    public PointND addDummyNode(int ID, PointND first, PointND last) {
+        double[][] temp = new double[matrix.length + 1][matrix.length + 1];
+        int startIndex = points.indexOf(first);
+        int endIndex = points.indexOf(last);
+        // \\maxDist = 2*maxDist;
+        for (int i = 0; i < temp.length; i++) {
+            for (int j = 0; j < temp.length; j++) {
+                if (i == matrix.length || j == matrix.length) {
+                    if (i == startIndex || j == startIndex || i == endIndex || j == endIndex) {
+                        temp[i][j] = zero;
+                    } else if (i == j) {
+                        temp[i][j] = 0;
+                    } else {
+                        temp[i][j] = maxDist;
+                    }
+                } else {
+                    temp[i][j] = matrix[i][j];
+                }
+            }
+        }
+        zero = 2 * maxDist;
+        for (int i = 0; i < temp.length; i++) {
+            for (int j = 0; j < temp.length; j++) {
+                if (i != j) {
+                    temp[i][j] = temp[i][j] + zero;
+                }
+            }
+        }
+        maxDist = maxDist + zero;
+
+        PointND dummy = new PointND.Double();
+        if (ID >= 0) {
+            dummy.setID(ID);
+        }
+        dummy.setDummyNode();
+        points.add(dummy);
+
+        lookup.put(dummy.getID(), points.size() - 1);
+        matrix = temp;
+        return dummy;
+    }
+
+    /**
+     * Eigendecomposition of the raw distance matrix (treated as a real matrix).
+     *
+     * @return Apache Commons Math eigendecomposition of {@code matrix}
+     */
+    public EigenDecomposition getEigenvalues() {
+        RealMatrix E = new Array2DRowRealMatrix(matrix);
+        return new EigenDecomposition(E);
+    }
+
+    /**
+     *
+     * Triangulates the distance matrix and returns a set of points that have at
+     * least 2n dimensions to account for imaginary numbers where n is the number of
+     * points in the matrix.
+     *
+     * @return A Knot Set triangulated from the distance matrix that follows the
+     *         triangle property
+     */
+    public PointSet toPointSet() {
+
+        double[][] D = new double[matrix.length][matrix.length];
+        // addint the max distance so the matrix follows the triangle property
+        // https://cstheory.stackexchange.com/questions/12885/guidelines-to-reduce-general-tsp-to-triangle-tsp/14049#14049
+        for (int i = 0; i < D.length; i++) {
+            for (int j = 0; j < D.length; j++) {
+                if (i != j) {
+                    D[i][j] = matrix[i][j];
+                }
+            }
+        }
+
+        double[][] M = new double[D.length][D.length];
+        // https://math.stackexchange.com/questions/156161/finding-the-coordinates-of-points-from-distance-matrix
+        for (int i = 0; i < M.length; i++) {
+            for (int j = 0; j < M.length; j++) {
+                M[i][j] = (Math.pow(D[0][j], 2) + Math.pow(D[i][0], 2) - Math.pow(D[i][j], 2)) / 2;
+            }
+        }
+
+        // do SVD for M
+        RealMatrix E = new Array2DRowRealMatrix(M);
+        // find the eigen values of U
+        EigenDecomposition SVD = new EigenDecomposition(E);
+        double[] realE = reverseArray(SVD.getRealEigenvalues());
+        double[] imagE = reverseArray(SVD.getImagEigenvalues());
+        int numE = realE.length;
+
+        // put into a diagonal matrix
+        Complex[][] diag = new Complex[numE][numE];
+        for (int i = 0; i < numE; i++) {
+            for (int j = 0; j < numE; j++) {
+                if (i == j) {
+                    diag[i][j] = new Complex(realE[i], imagE[j]).sqrt();
+                } else {
+                    diag[i][j] = new Complex(0, 0);
+                }
+            }
+        }
+
+        FieldMatrix<Complex> S = new Array2DRowFieldMatrix<Complex>(diag);
+        FieldMatrix<Complex> V = flipMatrix(realToImag(SVD.getV()));
+        FieldMatrix<Complex> X = V.multiply(S);
+        // Convert to 2n space
+        PointSet ps = new PointSet();
+        for (int i = 0; i < X.getRowDimension(); i++) {
+
+            Complex[] row = X.getRow(i);
+            double[] coords = new double[row.length * 2];
+            for (int j = 0; j < row.length; j++) {
+                coords[j] = row[j].getReal();
+                coords[row.length + j] = row[j].getImaginary();
+            }
+            if (i < this.getPoints().size()) {
+                ps.add(new PointND.Double(this.getPoints().get(i).getID(), coords));
+            } else {
+                ps.add(new PointND.Double(coords));
+            }
+        }
+        this.checkPointSet(ps);
+
+        return ps;
+
+    }
+
+    private void checkPointSet(PointSet ps) {
+
+        for (PointND p : ps) {
+            for (PointND p2 : ps) {
+                if (!p.isCentroid() && !p.equals(p2)) {
+                    double trueDist = this.getDistance(p, p2);
+                    double converted = p.distance(p2);
+                    assert (Math.abs(converted - trueDist) < EPSILON)
+                            : "Expected: " + trueDist + " got: " + converted + "\n " + this;
+                }
+            }
+        }
+    }
+
+    /**
+     * Transforms the DistanceMatrix to a PointSet and then averages over the
+     * cooridnates to find the centroid Adds the centroid to the distance matrix.
+     *
+     * @return the centroid of the points represented in the distance matrix
+     */
+    public PointND findCentroid() {
+        PointSet ps = this.toPointSet();
+
+        return findCentroid(ps);
+    }
+
+    /**
+     * Average the supplied {@code ps} (typically the output of {@link #toPointSet()}) into a
+     * centroid, mark it as a centroid point, and cache each point's distance to it.
+     *
+     * @param ps the point set whose coordinates are averaged
+     * @return the centroid point
+     */
+    public PointND findCentroid(PointSet ps) {
+        this.centroid = new PointND.Double(ps);
+        this.centroid.setCentroid();
+        this.centroidDist = new double[matrix.length];
+        for (int i = 0; i < matrix.length; i++) {
+            Integer indexObj = lookup.get(ps.get(i).getID());
+            if (indexObj == null) {
+                continue;
+            }
+            int index = indexObj.intValue();
+            centroidDist[index] = ps.get(i).distance(centroid);
+            // System.out.println( ps.get(i).getID()+ " Dist to centroid: " +
+            // centroidDist[index]);
+        }
+
+        return centroid;
+    }
+
+    /**
+     * Triangulate the matrix to a point set via {@link #toPointSet()} then locate the
+     * surrounding n-sphere.
+     *
+     * @return the n-sphere center; also caches it in {@link #getnSphereCenter()}
+     */
+    public PointND findNSphereCenter() {
+        PointSet ps = this.toPointSet();
+        return findNSphereCenter(ps);
+
+    }
+
+    /**
+     * Solve for the center and radius of an n-sphere passing through the supplied points
+     * via SVD of the linear system described in the referenced StackOverflow posts.
+     * Caches the result in {@link #getnSphereCenter()} and {@link #getnSphereRadius()}.
+     *
+     * @param ps points lying on the desired n-sphere
+     * @return the n-sphere center
+     */
+    public PointND findNSphereCenter(PointSet ps) {
+        int numPoints = ps.size();
+        int dim = ps.getMaxDim();
+
+        // https://stackoverflow.com/questions/37449046/how-to-calculate-the-sphere-center-with-4-points
+        // https://stackoverflow.com/questions/72230142/how-to-find-the-center-and-radius-of-an-any-dimensional-sphere-giving-dims1-poi
+
+        double[][] M = new double[numPoints][dim];
+        double[] v = new double[numPoints];
+        for (int i = 0; i < numPoints; i++) {
+            for (int j = 1; j < dim; j++) {
+                M[i][j - 1] = ps.get(i).getCoord(j);
+                v[i] += Math.pow(ps.get(i).getCoord(j), 2);
+            }
+        }
+        RealMatrix A = new Array2DRowRealMatrix(M);
+
+        for (int j = 0; j < numPoints; j++) {
+            M[numPoints - 1][j] = 1;
+        }
+
+        SingularValueDecomposition svd = new SingularValueDecomposition(A);
+        DecompositionSolver ds = svd.getSolver();
+        RealVector b = new ArrayRealVector(v);
+        RealVector x = ds.solve(b);
+
+        double[] ans = new double[numPoints];
+
+        for (int i = 1; i < numPoints; i++) {
+
+            ans[i] = x.getEntry(i - 1) / 2;
+        }
+
+        this.nSphereCenter = new PointND.Double(ans);
+        this.nSphereCenter.setNSphereCenter();
+        this.nSphereRadius = this.nSphereCenter.distance(ps.get(0));
+
+        for (PointND p : ps) {
+            assert Math.abs(p.distance(nSphereCenter) - nSphereRadius) < EPSILON;
+        }
+
+        return this.nSphereCenter;
+    }
+
+    /**
+     * converts a RealMatrix to a FieldMatrix over the Complex Field.
+     *
+     * @param M the real matrix to convert
+     * @return M in the complex field
+     */
+    private static FieldMatrix<Complex> realToImag(RealMatrix M) {
+        Complex[][] C = new Complex[M.getRowDimension()][M.getColumnDimension()];
+        for (int i = 0; i < M.getRowDimension(); i++) {
+            for (int j = 0; j < M.getColumnDimension(); j++) {
+                C[i][j] = new Complex(M.getEntry(i, j), 0);
+            }
+        }
+        return new Array2DRowFieldMatrix<Complex>(C);
+
+    }
+
+    /**
+     * Flips a matrix horizontally by multiplying by I flipped horizontally.
+     *
+     * @param C the matrix to flip
+     * @return the matrix flipped horizontally
+     */
+    private static FieldMatrix<Complex> flipMatrix(FieldMatrix<Complex> C) {
+        Complex[][] result = new Complex[C.getRowDimension()][C.getColumnDimension()];
+        for (int i = 0; i < C.getRowDimension(); i++) {
+            for (int j = 0; j < C.getColumnDimension(); j++) {
+                if (j == C.getColumnDimension() - 1 - i) {
+                    result[i][j] = new Complex(1, 0);
+                } else {
+                    result[i][j] = new Complex(0, 0);
+                }
+            }
+        }
+        return C.multiply(new Array2DRowFieldMatrix<Complex>(result));
+    }
+
+    /**
+     * reverses an array of doubles so that element 0 is now last etc.
+     *
+     * @param array to reverse
+     * @return the array reversed
+     */
+    private static double[] reverseArray(double[] array) {
+        double[] result = new double[array.length];
+        for (int i = 0; i < array.length; i++) {
+            result[i] = array[array.length - 1 - i];
+        }
+        return result;
+    }
+
+    /**
+     * Multi-line debug rendering listing each row's distances to seven-decimal precision.
+     * Dummy points are tagged {@code *} instead of their numeric id.
+     *
+     * @return human-readable table of the matrix
+     */
+    @Override
+    public String toString() {
+        String str = "DistanceMatrix[\n";
+        for (int i = 0; i < matrix.length; i++) {
+            if (points.get(i).isDummyNode()) {
+                str += "*";
+            } else {
+                str += "" + points.get(i).getID();
+            }
+
+            str += "[";
+            for (int j = 0; j < matrix.length; j++) {
+                double v = matrix[i][j];
+                // Use plain fixed-point formatting to avoid DecimalFormat pattern issues under
+                // TeaVM
+                str += " " + String.format(Locale.ROOT, "%.7f", v) + " ";
+            }
+            str += "]\n";
+        }
+        str += "]";
+        return str;
+    }
+
+    /**
+     * Zero offset added by {@link #addDummyNode(int, PointND, PointND)} so that genuine
+     * (non-dummy) edges remain orderable below dummy edges in TSP-style algorithms.
+     *
+     * @return the current zero offset (initially {@code 0})
+     */
+    public double getZero() {
+        return this.zero;
+    }
+
+    /**
+     * Number of points in the matrix (the side length of the square distance array).
+     *
+     * @return the dimension of the matrix
+     */
+    public int size() {
+        return matrix.length;
+    }
+
+    /**
+     * Smallest non-self distance found in the matrix.
+     *
+     * @return the minimum off-diagonal entry
+     */
+    public double getSmallestSegmentLength() {
+        double minLength = Double.MAX_VALUE;
+        for (int i = 0; i < matrix.length; i++) {
+            for (int j = 0; j < matrix.length; j++) {
+                if (i != j) {
+                    double matrixValue = matrix[i][j];
+                    if (matrixValue < minLength) {
+                        minLength = matrixValue;
+                    }
+                }
+            }
+        }
+        return minLength;
+
+    }
+
+    /**
+     * Largest distance value present in the matrix (including the diagonal zero, though it can
+     * never exceed off-diagonal entries in practice).
+     *
+     * @return the maximum entry seen
+     */
+    public double getLargestSegmentLength() {
+        double maxLength = Double.MIN_VALUE;
+        for (int i = 0; i < matrix.length; i++) {
+            for (int j = 0; j < matrix.length; j++) {
+                double matrixValue = matrix[i][j];
+                if (matrixValue > maxLength) {
+                    maxLength = matrixValue;
+                }
+            }
+        }
+        return maxLength;
+
+    }
+
+}

@@ -1,6 +1,6 @@
 package ixdar.gui.ui.actions;
 
-import ixdar.common.exceptions.TerminalParseException;
+import ixdar.gui.terminal.TerminalParseException;
 import ixdar.gui.terminal.commands.ChangeToolCommand;
 import ixdar.gui.terminal.commands.LoadIxCommand;
 import ixdar.tools.knot.MapEditorTool;

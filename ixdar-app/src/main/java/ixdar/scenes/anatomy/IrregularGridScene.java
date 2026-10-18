@@ -4,10 +4,10 @@ import org.joml.Vector2f;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.canvas.Canvas3D;
-import ixdar.game.IrregularQuadLayoutGenerator;
-import ixdar.geometry.point.IrregularQuadGrid;
-import ixdar.geometry.point.PointND;
-import ixdar.geometry.shell.Shell;
+import ixdar.geometry.grid2d.IrregularQuadLayoutGenerator;
+import ixdar.geometry.grid2d.IrregularQuadGrid;
+import ixdar.geometry.tsp.points.PointND;
+import ixdar.geometry.tsp.shell.Shell;
 import ixdar.platform.Clock;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.Drawing;

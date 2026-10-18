@@ -5,7 +5,7 @@ import java.io.File;
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.annotations.command.OptionList;
 import ixdar.annotations.command.TerminalOption;
-import ixdar.geometry.point.PointCollection;
+import ixdar.geometry.tsp.input.PointCollection;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.scenes.main.Toggle;

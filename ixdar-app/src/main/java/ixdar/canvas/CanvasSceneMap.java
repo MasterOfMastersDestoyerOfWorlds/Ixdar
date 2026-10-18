@@ -6,7 +6,7 @@ import java.util.function.Supplier;
 
 import ixdar.annotations.scene.SceneRegistry_Scenes;
 import ixdar.annotations.scene.SceneDrawable;
-import ixdar.common.exceptions.TerminalParseException;
+import ixdar.gui.terminal.TerminalParseException;
 import ixdar.scenes.main.MainScene;
 
 public class CanvasSceneMap {

@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.function.Supplier;
 
-import ixdar.geometry.knot.Knot;
-import ixdar.geometry.knot.Segment;
+import ixdar.geometry.tsp.knot.Knot;
+import ixdar.geometry.tsp.knot.Segment;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;

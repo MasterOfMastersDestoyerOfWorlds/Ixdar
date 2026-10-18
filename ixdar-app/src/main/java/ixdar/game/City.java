@@ -6,8 +6,8 @@ import java.util.Map;
 
 import org.joml.Vector2f;
 
-import ixdar.geometry.knot.Knot;
-import ixdar.geometry.point.PointND;
+import ixdar.geometry.tsp.knot.Knot;
+import ixdar.geometry.tsp.points.PointND;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFCircleSimple;
