@@ -41,7 +41,7 @@ import ixdar.tools.Tool;
 
 /**
  * Base of every launchable view: the GL frame loop, input handlers, cameras, hosted tools, tooltip
- * and optional terminal. {@link #instance} is the scene shown or being built; {@link #switchTo}
+ * and optional terminal. {@link #instance} is the scene shown; {@link #switchTo}
  * hands the window on.
  */
 public abstract class Scene extends SceneDrawable {
@@ -140,15 +140,11 @@ public abstract class Scene extends SceneDrawable {
     public float lastEmptyClickY;
 
     /**
-     * Construct the scene as {@link #instance}, so code run while building it finds it, with input
-     * and menu music active and the shell {@link #initPoints()} seeds; GL waits for {@link #initGL()}.
+     * Construct the scene with the shell {@link #initPoints()} seeds; it becomes {@link #instance}
+     * and active only when {@link #show()}n, and GL waits for {@link #initGL()}.
      */
     public Scene() {
-        instance = this;
-        activate(true);
         platform = Platforms.get();
-        active = true;
-
         shell = new Shell();
     }
 
@@ -300,7 +296,7 @@ public abstract class Scene extends SceneDrawable {
 
     /**
      * Paint one frame, then return the scene the window shows next: this one, or the
-     * {@link #successor} it switched to, made {@link #instance}, active and {@link #show shown}.
+     * {@link #successor} it switched to, {@link #show shown} once this one is deactivated.
      *
      * @return the scene to paint on the next frame
      */
@@ -312,17 +308,18 @@ public abstract class Scene extends SceneDrawable {
         }
         successor = null;
         activate(false);
-        instance = next;
-        next.activate(true);
         next.show();
         return next;
     }
 
     /**
-     * Make this the scene the platform's automation runtime drives, starting its server on the
-     * first call, then build the scene on its first showing.
+     * Make this fully built scene the window's: {@link #instance}, {@link #activate active}, and
+     * the one the platform's automation runtime drives, starting its server on the first call;
+     * then build its GL on its first showing.
      */
     public void show() {
+        instance = this;
+        activate(true);
         AutomationBackend automation = platform.automation();
         if (automation != null) {
             automation.start(this);

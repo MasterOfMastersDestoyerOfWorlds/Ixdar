@@ -172,7 +172,6 @@ public class MainScene extends Scene {
         editorCamera.wheelZooms = false;
         mouse.camera = editorCamera;
         mouse.controller = editorCamera;
-        activate(true);
         freeTool = new FreeTool(this);
         mapEditorTool = new MapEditorTool(this);
         negativeCutMatchViewTool = new NegativeCutMatchViewTool(this);

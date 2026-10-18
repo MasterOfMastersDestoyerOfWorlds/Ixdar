@@ -108,7 +108,7 @@ public final class WebLauncher {
                 canvas3d = (Scene) cs.get();
             }
 
-            canvas3d.initGL();
+            canvas3d.show();
             canvasElements[i] = canvas;
             canvas3dScenes[i] = canvas3d;
             final int j = i;
