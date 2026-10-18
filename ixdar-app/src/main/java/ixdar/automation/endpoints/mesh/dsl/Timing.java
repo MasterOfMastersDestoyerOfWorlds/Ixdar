@@ -28,7 +28,7 @@ public class Timing extends AutomationEndpoint implements AutomationRoute {
      *
      * @param body request body (unused)
      * @throws IOException never thrown directly; declared to satisfy the route contract
-     * @return {@code {"ok": true, "total_ms", "peak_heap_mib", "nodes": [{node, type, ms,
+     * @return {@code {"ok": true, "revision", "total_ms", "peak_heap_mib", "nodes": [{node, type, ms,
      *         peak_heap_mib}, ...]}}, or an error object when no model scene is active or it has
      *         run no graph
      */
@@ -53,21 +53,20 @@ public class Timing extends AutomationEndpoint implements AutomationRoute {
     }
 
     /**
-     * The timing of a graph's node tree as JSON: total time, graph-wide peak heap, and one row
-     * per node at or above a time threshold, keyed by path.
+     * A graph's current run report as JSON: its revision, total time and peak heap from the
+     * tree's root, and one row per record at or above a time threshold, keyed by path.
      *
      * @param graph the graph whose current run is reported
      * @param minMs rows faster than this are left out
-     * @return {@code {total_ms, peak_heap_mib, nodes: [{node, type, ms, peak_heap_mib}]}}
+     * @return {@code {revision, total_ms, peak_heap_mib, nodes: [{node, type, ms, peak_heap_mib}]}}
      */
     public static JsonObject timingJson(NodeGraphRuntime graph, long minMs) {
         JsonObject timing = new JsonObject();
-        timing.addProperty("total_ms", graph.lastTotalMs());
-        double graphPeakMib = 0;
+        timing.addProperty("revision", graph.revision);
+        timing.addProperty("total_ms", graph.root.elapsedMs());
+        timing.addProperty(PEAK_HEAP_MIB, graph.root.peakHeapBytes / HeapSampler.BYTES_PER_MIB);
         JsonArray nodes = new JsonArray();
         for (GraphNodeContext record : graph.treeRecords()) {
-            double peakMib = record.peakHeapBytes / HeapSampler.BYTES_PER_MIB;
-            graphPeakMib = Math.max(graphPeakMib, peakMib);
             if (record.elapsedMs() < minMs) {
                 continue;
             }
@@ -75,10 +74,9 @@ public class Timing extends AutomationEndpoint implements AutomationRoute {
             node.addProperty("node", record.path);
             node.addProperty("type", record.type);
             node.addProperty("ms", record.elapsedMs());
-            node.addProperty(PEAK_HEAP_MIB, peakMib);
+            node.addProperty(PEAK_HEAP_MIB, record.peakHeapBytes / HeapSampler.BYTES_PER_MIB);
             nodes.add(node);
         }
-        timing.addProperty(PEAK_HEAP_MIB, graphPeakMib);
         timing.add("nodes", nodes);
         return timing;
     }
@@ -88,7 +86,7 @@ public class Timing extends AutomationEndpoint implements AutomationRoute {
         return RouteDoc.builder()
                 .description("Report per-node execution times and peak heap of the graph the active"
                         + " model scene ran last, nodes inside groups included.")
-                .responseHint("{ok, total_ms, peak_heap_mib, nodes:[{node, type, ms, peak_heap_mib}, ...]}")
+                .responseHint("{ok, revision, total_ms, peak_heap_mib, nodes:[{node, type, ms, peak_heap_mib}, ...]}")
                 .build();
     }
 }

@@ -60,7 +60,7 @@ class CrossFieldAssemblyTest {
      */
     private static void assertAssemblyMatchesReference(String source) throws Exception {
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
-        GeometryBundle bundle = (GeometryBundle) runtime.executeGraphResult(runtime.statements,
+        GeometryBundle bundle = (GeometryBundle) runtime.executeGraphResult(runtime.root.body,
                 "carrier", "geometry");
         HalfEdgeMesh mesh = HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
         NDirectionField field = new NDirectionField();

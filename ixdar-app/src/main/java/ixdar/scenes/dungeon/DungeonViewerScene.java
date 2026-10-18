@@ -145,8 +145,7 @@ public class DungeonViewerScene extends ModelScene {
         updateCurrentChoice();
 
         player = null;
-        PythonParser.ParsedNode last = run.statements.get(run.statements.size() - 1);
-        GraphNodeContext mesher = run.node(last.id);
+        GraphNodeContext mesher = run.root.children.get(run.root.children.size() - 1);
         GeometryBundle tiles = mesher.getInput(DungeonGridToMeshNode.GEOMETRY.name, GeometryBundle.class);
         if (tiles != null && DungeonGrids.isLattice(tiles)
                 && mesher.inputSources.get(DungeonGridToMeshNode.GEOMETRY.name)

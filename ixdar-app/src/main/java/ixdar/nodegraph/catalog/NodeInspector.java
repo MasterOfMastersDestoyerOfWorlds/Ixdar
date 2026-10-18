@@ -5,6 +5,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -74,18 +75,38 @@ public final class NodeInspector {
         }
         view.add("children", children);
         view.add("inputs", renderMap(new TreeMap<>(record.getInputsSnapshot()), depth));
-        JsonObject sources = new JsonObject();
-        for (Map.Entry<String, Object> source : new TreeMap<>(record.inputSources).entrySet()) {
-            sources.add(source.getKey(), source.getValue() instanceof PythonParser.NodeReference wire
-                    ? new JsonPrimitive(wire.nodeId + NodeGraphRuntime.PORT_SEPARATOR + wire.portName)
-                    : render(source.getValue(), 0));
-        }
-        view.add("input_sources", sources);
+        view.add("input_sources", renderSources(record.inputSources));
         view.add("outputs", renderMap(new TreeMap<>(record.getOutputsSnapshot()), depth));
+        if (!record.outputSources.isEmpty()) {
+            view.add("output_sources", renderSources(record.outputSources));
+        }
         if (record.node != null) {
             view.add("fields", renderFields(record.node, depth));
         }
         return view;
+    }
+
+    /**
+     * A record's sources by port, sorted: a wire as {@code path.port}, a computed output's list of
+     * wires as an array of them, a literal rendered flat.
+     *
+     * @param sources {@link GraphNodeContext#inputSources} or {@link GraphNodeContext#outputSources}
+     * @return the sources as JSON
+     */
+    private JsonObject renderSources(Map<String, Object> sources) {
+        JsonObject rendered = new JsonObject();
+        for (Map.Entry<String, Object> source : new TreeMap<>(sources).entrySet()) {
+            JsonArray wires = new JsonArray();
+            List<?> values = source.getValue() instanceof List<?> list ? list
+                    : Collections.singletonList(source.getValue());
+            for (Object value : values) {
+                wires.add(value instanceof PythonParser.NodeReference wire
+                        ? new JsonPrimitive(wire.nodeId + NodeGraphRuntime.PORT_SEPARATOR + wire.portName)
+                        : render(value, 0));
+            }
+            rendered.add(source.getKey(), source.getValue() instanceof List<?> ? wires : wires.get(0));
+        }
+        return rendered;
     }
 
     /**

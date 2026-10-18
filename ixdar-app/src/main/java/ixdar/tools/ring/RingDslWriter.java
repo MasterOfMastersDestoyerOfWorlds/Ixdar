@@ -198,7 +198,7 @@ public final class RingDslWriter {
      * @return the id, {@code ring_} followed by a two-digit number
      */
     public static String nextRingId(String dslSource, Collection<String> liveLabels) {
-        return mintRingId(NodeGraphRuntime.fromSource(dslSource).statements, dslSource, liveLabels);
+        return mintRingId(PythonParser.parse(dslSource), dslSource, liveLabels);
     }
 
     /**
@@ -307,7 +307,7 @@ public final class RingDslWriter {
         String[] lines = dslSource.split(LINE_BREAK, -1);
         int target = bindingLine(lines, id);
         PythonParser.ParsedNode replaced = null;
-        for (PythonParser.ParsedNode statement : NodeGraphRuntime.fromSource(dslSource).statements) {
+        for (PythonParser.ParsedNode statement : PythonParser.parse(dslSource)) {
             replaced = statement.id.equals(id) ? statement : replaced;
         }
         String rewiredTo = outputReference != null ? outputReference : geometryInput(replaced);
@@ -377,7 +377,7 @@ public final class RingDslWriter {
             List<String> block, String upstreamReference, String outputReference) {
         String source = dslSource;
         String anchor = null;
-        for (PythonParser.ParsedNode statement : NodeGraphRuntime.fromSource(dslSource).statements) {
+        for (PythonParser.ParsedNode statement : PythonParser.parse(dslSource)) {
             if (!blockIds.contains(statement.id)) {
                 continue;
             }
@@ -403,7 +403,7 @@ public final class RingDslWriter {
      * @return the wired source, or the source itself when every such ring is already wired
      */
     public static String wireRingInputs(String dslSource) {
-        List<PythonParser.ParsedNode> statements = NodeGraphRuntime.fromSource(dslSource).statements;
+        List<PythonParser.ParsedNode> statements = PythonParser.parse(dslSource);
         Set<String> bound = new HashSet<>();
         Map<String, String> creasesIdBySurface = new HashMap<>();
         for (PythonParser.ParsedNode statement : statements) {
@@ -728,7 +728,7 @@ public final class RingDslWriter {
      * @return the parsed statements, never empty
      */
     private static List<PythonParser.ParsedNode> upstreamStatements(String dslSource) {
-        List<PythonParser.ParsedNode> statements = NodeGraphRuntime.fromSource(dslSource).statements;
+        List<PythonParser.ParsedNode> statements = PythonParser.parse(dslSource);
         if (statements.isEmpty()) {
             throw new IllegalArgumentException(NO_UPSTREAM);
         }

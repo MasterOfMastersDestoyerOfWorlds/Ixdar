@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,8 +37,11 @@ class MeshNodeIndependenceTest {
 
     @Test
     void registeredNodesBuildOtherNodesOnlyThroughTheGroupBuilder() throws IOException {
-        Map<String, Class<? extends MeshNode>> registry =
-                new TreeMap<>(NodeGraphRuntime.annotationRegistryClasses());
+        Map<String, Class<? extends MeshNode>> registry = new TreeMap<>();
+        for (Map.Entry<String, Supplier<? extends MeshNode>> entry
+                : NodeGraphRuntime.REGISTERED_NODES.entrySet()) {
+            registry.put(entry.getKey(), entry.getValue().get().getClass());
+        }
         List<String> violations = new ArrayList<>();
         for (Map.Entry<String, Class<? extends MeshNode>> entry : registry.entrySet()) {
             Class<? extends MeshNode> nodeClass = entry.getValue();

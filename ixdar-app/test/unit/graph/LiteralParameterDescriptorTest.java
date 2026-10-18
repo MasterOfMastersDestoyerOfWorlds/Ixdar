@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
 import ixdar.nodegraph.optimize.LiteralParameterDescriptor;
-import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * The optimizer's literal discovery resolves node ports through the runtime's lookup, so a node
@@ -30,7 +30,7 @@ class LiteralParameterDescriptorTest {
         assertTrue(MeshNodeRegistry_MeshNodes.DESKTOP_ONLY_IDS.contains(DESKTOP_NODE),
                 "the fixture node lives in the desktop partition");
         List<LiteralParameterDescriptor> found = LiteralParameterDescriptor.collect(
-                NodeGraphRuntime.fromSource(GRAPH).statements);
+                PythonParser.parse(GRAPH));
         List<LiteralParameterDescriptor> desktop = found.stream()
                 .filter(descriptor -> descriptor.nodeType().equals(DESKTOP_NODE)).toList();
         assertEquals(1, desktop.size(), "found " + found);

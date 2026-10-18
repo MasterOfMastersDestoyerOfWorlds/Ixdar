@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.ring.RingDslWriter;
 
@@ -123,8 +122,7 @@ class RingDslWriterTest {
     void theWrittenStatementParsesBackUnderTheMintedRingId() {
         String appended = RingDslWriter.appendSpline(CANDIDATES, SQUARE, SQUARE_ANCHORS);
 
-        List<PythonParser.ParsedNode> statements =
-                NodeGraphRuntime.fromSource(appended).statements;
+        List<PythonParser.ParsedNode> statements = PythonParser.parse(appended);
         assertEquals(FIRST_RING, statements.get(statements.size() - 1).id,
                 "the DSL parser does not accept a ring_NN identifier");
         assertTrue(appended.contains("label=\"" + FIRST_RING + "\""), appended);
@@ -139,9 +137,8 @@ class RingDslWriterTest {
                 "a second ring saved in the same pass must not reuse the first ring's id");
 
         source = RingDslWriter.replaceSpline(source, FIRST_RING, MOVED_SQUARE, MOVED_ANCHORS);
-        int carrierStatements = NodeGraphRuntime.fromSource(CANDIDATES).statements.size();
-        List<PythonParser.ParsedNode> statements =
-                NodeGraphRuntime.fromSource(source).statements;
+        int carrierStatements = PythonParser.parse(CANDIDATES).size();
+        List<PythonParser.ParsedNode> statements = PythonParser.parse(source);
         assertEquals(2, statements.size() - carrierStatements,
                 "the save wrote a statement per ring and no more");
         assertTrue(source.contains(SurfaceWaypoints.format(MOVED_SQUARE, MOVED_ANCHORS)),
@@ -195,8 +192,7 @@ class RingDslWriterTest {
         assertEquals(source.replace("geometry=ring_00.geometry", "geometry=" + CANDIDATES_OUTPUT)
                 .replaceAll("(?m)^ring_00 = .*\\R", ""), removed,
                 "the removal changed more than the one line and its reader's input");
-        List<PythonParser.ParsedNode> statements =
-                NodeGraphRuntime.fromSource(removed).statements;
+        List<PythonParser.ParsedNode> statements = PythonParser.parse(removed);
         assertEquals(List.of("carrier", CANDIDATES_ID, SECOND_RING, THIRD_RING),
                 statements.stream().map(statement -> statement.id).toList());
         assertEquals(FOURTH_RING, RingDslWriter.nextRingId(removed),
@@ -240,11 +236,10 @@ class RingDslWriterTest {
                 block.get(1), spline.replace(CANDIDATES_OUTPUT, THIRD_RING + GEOMETRY_PORT))
                 + RingDslWriter.LINE_BREAK, frozen);
         assertTrue(block.get(0).contains("pin=true"), block.get(0));
-        PythonParser.ParsedNode loop = NodeGraphRuntime.fromSource(frozen).statements.get(1);
+        PythonParser.ParsedNode loop = PythonParser.parse(frozen).get(1);
         assertEquals("loop_through_points", loop.type);
         assertEquals(FIRST_RING, loop.arguments.get(RingDslWriter.LABEL_ARGUMENT));
-        assertEquals(null, RingDslWriter.candidatesStatement(
-                NodeGraphRuntime.fromSource(frozen).statements));
+        assertEquals(null, RingDslWriter.candidatesStatement(PythonParser.parse(frozen)));
 
         String emptied = RingDslWriter.replaceBlock(frozen, BLOCK_IDS, List.of(), UPSTREAM,
                 UPSTREAM);

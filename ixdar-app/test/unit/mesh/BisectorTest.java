@@ -131,7 +131,7 @@ class BisectorTest {
 
         assertTrue(tool.saveRings(), tool.lastError);
         String saved = new String(Files.readAllBytes(dsl), StandardCharsets.UTF_8);
-        List<PythonParser.ParsedNode> statements = NodeGraphRuntime.fromSource(saved).statements;
+        List<PythonParser.ParsedNode> statements = PythonParser.parse(saved);
         String firstId = tool.confirmedStatementIds.get(first);
         String secondId = tool.confirmedStatementIds.get(second);
         String bisectorId = tool.confirmedStatementIds.get(bisector);

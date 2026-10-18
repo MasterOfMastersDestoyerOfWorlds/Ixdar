@@ -174,11 +174,11 @@ class RingDeletionTest {
     private static GeometryBundle run(String source, MeshTopology fixture) throws Exception {
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(
                 RingDslWriter.wireRingInputs(source));
-        String last = runtime.statements.get(runtime.statements.size() - 1).id;
+        String last = runtime.root.body.get(runtime.root.body.size() - 1).id;
         Map<String, Object> overrides = new LinkedHashMap<>();
-        overrides.put(runtime.statements.get(0).id + GEOMETRY_PORT,
+        overrides.put(runtime.root.body.get(0).id + GEOMETRY_PORT,
                 GeometryBundle.ofMesh(fixture));
-        Object result = runtime.executeGraphResult(runtime.statements, last,
+        Object result = runtime.executeGraphResult(runtime.root.body, last,
                 RingDslWriter.DEFAULT_UPSTREAM_PORT, overrides);
         assertTrue(result instanceof GeometryBundle, "the graph left no bundle");
         return (GeometryBundle) result;

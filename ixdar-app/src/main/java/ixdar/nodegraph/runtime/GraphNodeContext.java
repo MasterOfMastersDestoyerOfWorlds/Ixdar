@@ -51,7 +51,10 @@ public class GraphNodeContext implements NodeContext {
      */
     public final Map<String, Object> inputSources = new LinkedHashMap<>();
 
-    /** For a group call, where each output came from, keyed and valued as {@link #inputSources}. */
+    /**
+     * For a group call, where each output came from, keyed and valued as {@link #inputSources};
+     * an output a compiled group's evaluate computed holds the list of the wired outputs' sources.
+     */
     public final Map<String, Object> outputSources = new LinkedHashMap<>();
 
     /** Body records in evaluation order. */

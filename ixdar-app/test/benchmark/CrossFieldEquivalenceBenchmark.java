@@ -16,6 +16,7 @@ import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
+import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.data.fields.crossfield.NDirectionField;
@@ -148,8 +149,10 @@ public final class CrossFieldEquivalenceBenchmark {
                 + " mismatched %d", referenceSingularities, newSingularities,
                 singularityMismatches.size()));
         report.addAll(singularityMismatches);
-        runtime.lastTimingMs().forEach((statement, milliseconds) -> report.add(
-                String.format(Locale.ROOT, "node %s %d ms", statement, milliseconds)));
+        for (GraphNodeContext record : runtime.treeRecords()) {
+            report.add(String.format(Locale.ROOT, "node %s (%s) %d ms", record.path, record.type,
+                    record.elapsedMs()));
+        }
         Files.write(Path.of(dsl + ".angles.report"), report, StandardCharsets.UTF_8);
 
         String summary = String.join(System.lineSeparator(), report);

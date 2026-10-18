@@ -167,7 +167,7 @@ class CrossFieldConnectionTest {
 
     private static HalfEdgeMesh carrier(String source) throws Exception {
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
-        GeometryBundle bundle = (GeometryBundle) runtime.executeGraphResult(runtime.statements,
+        GeometryBundle bundle = (GeometryBundle) runtime.executeGraphResult(runtime.root.body,
                 "carrier", "geometry");
         return HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
     }

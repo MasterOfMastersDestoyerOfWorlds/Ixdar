@@ -55,6 +55,7 @@ class NodeGraphTreeTest {
     private static final String FIRST_SUM = "top/first/sum";
     private static final String FIRST_SUM_B_OVERRIDE = "top/first/sum.b";
     private static final String SECOND_SUM = "top/second/sum";
+    private static final String SECOND_DOUBLED = "top/second/doubled";
     private static final String FLOAT_MATH = "float_math";
     private static final String RESULT = FloatMathNode.RESULT.name;
     private static final String OPERATION = FloatMathNode.OPERATION.name;
@@ -70,6 +71,8 @@ class NodeGraphTreeTest {
     private static final String COMPILED_TOTAL = "stats/total";
     private static final String COMPILED_PRODUCT = "stats/product";
     private static final String COMPILED_SUM_PULL = "stats.sum";
+    private static final String STATS_SUM_PULL = "s.sum";
+    private static final String READER_PULL = "r.result";
     private static final float TOLERANCE = 1e-6f;
     private static final int CUBE_CORNERS = 8;
 
@@ -81,7 +84,7 @@ class NodeGraphTreeTest {
             paths.add(record.path);
         }
         assertEquals(List.of(TOP, FIRST, FIRST_SUM, "top/first/doubled", SECOND,
-                SECOND_SUM, "top/second/doubled"), paths);
+                SECOND_SUM, SECOND_DOUBLED), paths);
 
         GraphNodeContext inner = runtime.node(SECOND_SUM);
         assertEquals(FLOAT_MATH, inner.type);
@@ -98,7 +101,8 @@ class NodeGraphTreeTest {
         assertEquals(FIRST_SUM, call.children.get(0).path);
         assertTrue(runtime.node(TOP).elapsedNanos >= call.elapsedNanos);
         assertEquals(32f, (Float) runtime.lastOutput(RESULT), TOLERANCE);
-        assertTrue(runtime.lastTimingMs().containsKey("top/second/doubled (float_math)"));
+        assertTrue(runtime.treeRecords().stream().anyMatch(record ->
+                SECOND_DOUBLED.equals(record.path) && FLOAT_MATH.equals(record.type)));
     }
 
     @Test
@@ -136,13 +140,55 @@ class NodeGraphTreeTest {
     @Test
     void pullEvaluatesOnlyWhatTheRequestedOutputDependsOn() throws Exception {
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(NAMED_OUTPUTS);
-        assertEquals(7f, (Float) runtime.pull("s.sum"), TOLERANCE);
+        assertEquals(7f, (Float) runtime.pull(STATS_SUM_PULL), TOLERANCE);
         assertNotNull(runtime.node(TOTAL));
         assertNull(runtime.node(PRODUCT), "the product output was never read");
         assertNull(runtime.node(READER));
 
         assertEquals(12f, (Float) runtime.pull("s/product.result"), TOLERANCE);
         assertNotNull(runtime.node(PRODUCT));
+    }
+
+    @Test
+    void fullRunsAndPullsReportTheRunTotalTheSameWayAndMoveTheRevision() throws Exception {
+        NodeGraphRuntime full = NodeGraphRuntime.fromSource(NAMED_OUTPUTS);
+        int created = full.revision;
+        long before = System.nanoTime();
+        full.executeGraphResult(full.root.body, READER, RESULT);
+        long fullWall = System.nanoTime() - before;
+        assertEquals(created + 2, full.revision, "the run's reset and its evaluation each count");
+        assertTotalIsTheRunsOwnTime(full, fullWall);
+
+        NodeGraphRuntime pulled = NodeGraphRuntime.fromSource(NAMED_OUTPUTS);
+        int start = pulled.revision;
+        before = System.nanoTime();
+        pulled.pull(STATS_SUM_PULL);
+        pulled.pull(STATS_SUM_PULL);
+        pulled.pull(READER_PULL);
+        long pullWall = System.nanoTime() - before;
+        assertEquals(start + 3, pulled.revision, "each pull is one revision");
+        assertTotalIsTheRunsOwnTime(pulled, pullWall);
+
+        GraphNodeContext root = pulled.root;
+        pulled.executeGraphResult(pulled.root.body, READER, RESULT);
+        assertTrue(pulled.root != root && pulled.root.elapsedNanos <= System.nanoTime() - before,
+                "a full run starts a fresh report rather than adding to the pulls'");
+    }
+
+    /**
+     * Asserts a run's total spans its top-level records and no more than the wall time its entry
+     * points took.
+     *
+     * @param runtime the runtime whose report is checked
+     * @param wallNanos wall time measured around the entry points
+     */
+    private static void assertTotalIsTheRunsOwnTime(NodeGraphRuntime runtime, long wallNanos) {
+        long topLevel = 0;
+        for (GraphNodeContext record : runtime.root.children) {
+            topLevel += record.elapsedNanos;
+        }
+        assertTrue(runtime.root.elapsedNanos >= topLevel, "the total covers every top-level record");
+        assertTrue(runtime.root.elapsedNanos <= wallNanos, "the total is not summed twice");
     }
 
     @Test
@@ -200,7 +246,7 @@ class NodeGraphTreeTest {
         assertEquals(-5f, (Float) runtime.pull("stats.difference"), TOLERANCE,
                 "the group computes its unwired output from the wired ones");
         assertNotNull(runtime.node(COMPILED_PRODUCT));
-        assertEquals(19f, (Float) runtime.pull("r.result"), TOLERANCE);
+        assertEquals(19f, (Float) runtime.pull(READER_PULL), TOLERANCE);
 
         assertSource(runtime.node(COMPILED_TOTAL), A, COMPILED_CALL, A);
         assertEquals(SumAndProductGroup.MULTIPLY,
@@ -246,8 +292,8 @@ class NodeGraphTreeTest {
     private static NodeGraphRuntime run(String source, Map<String, Object> overrides)
             throws Exception {
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
-        String last = runtime.statements.get(runtime.statements.size() - 1).id;
-        runtime.executeGraphResult(runtime.statements, last, RESULT, overrides);
+        String last = runtime.root.body.get(runtime.root.body.size() - 1).id;
+        runtime.executeGraphResult(runtime.root.body, last, RESULT, overrides);
         return runtime;
     }
 }

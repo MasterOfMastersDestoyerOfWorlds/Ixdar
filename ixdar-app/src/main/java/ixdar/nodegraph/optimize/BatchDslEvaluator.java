@@ -9,6 +9,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.joml.Vector3f;
 
@@ -63,7 +66,11 @@ public final class BatchDslEvaluator {
     public static final double ROUND_TO_ONE_DECIMAL = 10.0;
     public static final float DIAGONAL_EPSILON = 1e-8f;
 
-    private static final String[] INPUT_NODE_TYPES = {"input_float", "input_int"};
+    private static final Set<String> NUMERIC_INPUT_NODE_TYPES = NodeGraphRuntime.INPUT_NODE_TYPES.stream()
+            .filter(type -> NodeGraphRuntime.supplierFor(type).get().inputs().stream()
+                    .anyMatch(port -> NodeGraphRuntime.DEFAULT_PORT.equals(port.name)
+                            && (port.type == PortType.FLOAT || port.type == PortType.INT)))
+            .collect(Collectors.toUnmodifiableSet());
 
     /**
      * CLI dispatcher. Parses {@code args[0]} as a DSL file, then routes on {@code args[1]}:
@@ -88,8 +95,8 @@ public final class BatchDslEvaluator {
         }
 
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(Files.readString(dslPath));
-        List<PythonParser.ParsedNode> parsed = runtime.statements;
-        Map<String, Class<? extends MeshNode>> registry = NodeGraphRuntime.annotationRegistryClasses();
+        List<PythonParser.ParsedNode> parsed = runtime.root.body;
+        Map<String, Supplier<? extends MeshNode>> registry = NodeGraphRuntime.REGISTERED_NODES;
 
         switch (args[1]) {
             case "--discover" -> discover(parsed, registry);
@@ -134,10 +141,10 @@ public final class BatchDslEvaluator {
     }
 
     private static void discover(List<PythonParser.ParsedNode> parsed,
-            Map<String, Class<? extends MeshNode>> registry) {
+            Map<String, Supplier<? extends MeshNode>> registry) {
         List<Map<String, Object>> params = new ArrayList<>();
         for (PythonParser.ParsedNode node : parsed) {
-            if (!isInputParam(node.type)) continue;
+            if (!NUMERIC_INPUT_NODE_TYPES.contains(node.type)) continue;
             Map<String, Object> p = new LinkedHashMap<>();
             p.put(ID, node.id);
             p.put("type", node.type);
@@ -159,9 +166,9 @@ public final class BatchDslEvaluator {
     }
 
     private static void batch(NodeGraphRuntime runtime,
-            Map<String, Class<? extends MeshNode>> registry,
+            Map<String, Supplier<? extends MeshNode>> registry,
             Path outputDir, Path paramsJson, String refObjPath) throws IOException {
-        List<PythonParser.ParsedNode> parsed = runtime.statements;
+        List<PythonParser.ParsedNode> parsed = runtime.root.body;
         Files.createDirectories(outputDir);
 
         String paramsStr = Files.readString(paramsJson);
@@ -431,13 +438,6 @@ public final class BatchDslEvaluator {
         }
     }
 
-    private static boolean isInputParam(String type) {
-        for (String t : INPUT_NODE_TYPES) {
-            if (t.equals(type)) return true;
-        }
-        return false;
-    }
-
     private static Object numArg(PythonParser.ParsedNode node, String key) {
         Object v = node.arguments.get(key);
         if (v instanceof Number n) return n;
@@ -448,20 +448,17 @@ public final class BatchDslEvaluator {
     }
 
     private static List<String> candidatePorts(PythonParser.ParsedNode last,
-            Map<String, Class<? extends MeshNode>> registry) {
-        Class<? extends MeshNode> clazz = registry.get(last.type);
-        if (clazz != null) {
-            try {
-                MeshNode instance = clazz.getDeclaredConstructor().newInstance();
-                MeshNodeSchema schema = MeshNodeSchema.from(instance);
-                List<String> names = new ArrayList<>();
-                for (var op : schema.outputs()) {
-                    if (op.type == PortType.GEOMETRY_BUNDLE) {
-                        names.add(op.name);
-                    }
+            Map<String, Supplier<? extends MeshNode>> registry) {
+        Supplier<? extends MeshNode> supplier = registry.get(last.type);
+        if (supplier != null) {
+            MeshNodeSchema schema = MeshNodeSchema.from(supplier.get());
+            List<String> names = new ArrayList<>();
+            for (var op : schema.outputs()) {
+                if (op.type == PortType.GEOMETRY_BUNDLE) {
+                    names.add(op.name);
                 }
-                if (!names.isEmpty()) return names;
-            } catch (ReflectiveOperationException ignored) {}
+            }
+            if (!names.isEmpty()) return names;
         }
         return List.of("geometry", "mesh");
     }

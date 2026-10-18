@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -72,6 +73,8 @@ class DslGraphLayoutTest {
     private static final String SECOND = "top/second";
     private static final String STATS_TOTAL = "s/total";
     private static final String COMPILED = "stats";
+    private static final String COMPILED_TOTAL = "stats/total";
+    private static final String COMPILED_PRODUCT = "stats/product";
     private static final List<String> BOUND_A_AND_B = List.of("a = 3.0", "b = 4.0");
     private static final int DIAMOND_REFERENCES = 6;
     private static final float CHARACTER_WIDTH = 8f;
@@ -228,15 +231,43 @@ class DslGraphLayoutTest {
         runtime.pull("stats.sum");
 
         DslGraphLayout graph = new DslGraphLayout(runtime.root, Set.of(COMPILED));
-        assertArrayEquals(new String[] { "stats/total" }, graph.nodeId,
+        assertArrayEquals(new String[] { COMPILED_TOTAL }, graph.nodeId,
                 "the product was never pulled and the reader never ran");
         assertEquals(0, graph.edgeCount);
     }
 
+    @Test
+    void anOutputACompiledGroupComputesDrawsAnEdgeFromEveryWiredOutputItRead() throws Exception {
+        GroupBuilder builder = new GroupBuilder();
+        PythonParser.ParsedNode stats = builder.node(COMPILED, SumAndProductGroup::new)
+                .input(FloatMathNode.A.name, 3f).input(FloatMathNode.B.name, 4f);
+        builder.node(READER, FloatMathNode::new)
+                .input(FloatMathNode.A.name, stats.port(SumAndProductGroup.DIFFERENCE.name));
+        NodeGraphRuntime runtime = new NodeGraphRuntime(builder.statements);
+        runtime.executeGraphResult(runtime.root.body, READER, RESULT);
+
+        assertTrue(runtime.node(COMPILED).outputSources.get(SumAndProductGroup.DIFFERENCE.name)
+                instanceof List<?> computedFrom && computedFrom.size() == 2,
+                "the computed output records the two wired outputs it was computed from");
+        DslGraphLayout collapsed = new DslGraphLayout(runtime.root, Set.of());
+        assertEquals(1, collapsed.edgeCount, "collapsed, the reader reads the call's difference");
+
+        DslGraphLayout expanded = new DslGraphLayout(runtime.root, Set.of(COMPILED));
+        int reader = expanded.nodeIndex(READER);
+        Set<String> sources = new HashSet<>();
+        for (int edge = 0; edge < expanded.edgeCount; edge++) {
+            assertEquals(reader, expanded.edgeTarget[edge]);
+            assertEquals(FloatMathNode.A.name, expanded.inputPortName[expanded.edgeTargetPort[edge]]);
+            sources.add(expanded.nodeId[expanded.edgeSource[edge]]);
+        }
+        assertEquals(Set.of(COMPILED_TOTAL, COMPILED_PRODUCT), sources,
+                "expanded, the one input fans out to both body nodes behind the computed output");
+    }
+
     private static NodeGraphRuntime run(String source) throws Exception {
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
-        String last = runtime.statements.get(runtime.statements.size() - 1).id;
-        runtime.executeGraphResult(runtime.statements, last, RESULT);
+        String last = runtime.root.body.get(runtime.root.body.size() - 1).id;
+        runtime.executeGraphResult(runtime.root.body, last, RESULT);
         return runtime;
     }
 }

@@ -99,7 +99,7 @@ public final class RingAnchorOrderBenchmark {
                 new String(Files.readAllBytes(Path.of(graphPath)), StandardCharsets.UTF_8));
         PythonParser.ParsedNode ring = null;
         String surfaceNode = null;
-        for (PythonParser.ParsedNode statement : graph.statements) {
+        for (PythonParser.ParsedNode statement : graph.root.body) {
             if (SplineRingNode.DEFAULT_MARK_LABEL.equals(statement.type) && surfaceNode == null
                     && statement.arguments.get(SplineRingNode.GEOMETRY.name)
                             instanceof PythonParser.NodeReference reference) {
@@ -111,7 +111,7 @@ public final class RingAnchorOrderBenchmark {
         }
         assertNotNull(ring, "no statement " + ringLabel);
         assertNotNull(surfaceNode, "no spline_ring reads a surface");
-        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.statements,
+        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.root.body,
                 surfaceNode, GEOMETRY_PORT);
         surface = HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
         geodesics = SurfaceGeodesics.over(SurfaceMetric.of(surface));
@@ -188,7 +188,7 @@ public final class RingAnchorOrderBenchmark {
         Files.createDirectories(shapes);
         NodeGraphRuntime graph = NodeGraphRuntime.fromSource(
                 new String(Files.readAllBytes(Path.of(graphPath)), StandardCharsets.UTF_8));
-        List<PythonParser.ParsedNode> statements = graph.statements;
+        List<PythonParser.ParsedNode> statements = graph.root.body;
         GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(statements,
                 statements.get(statements.size() - 1).id, GEOMETRY_PORT);
         MeshTopology mesh = bundle.mesh();

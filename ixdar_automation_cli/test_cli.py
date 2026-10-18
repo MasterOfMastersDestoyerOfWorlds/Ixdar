@@ -1288,6 +1288,7 @@ class CliTest(unittest.TestCase):
     def test_scaffolded_scene_binds_automation_reflectively(self):
         # A direct AutomationInputBinder call drags the desktop automation stack, and gson behind
         # it, into the TeaVM web build, where they fail to link and the whole output is dropped.
+        # Scene binds automation itself when it becomes current, so the scaffold must not.
         for camera in ("2d", "3d"):
             spec = new_scene.SceneSpec(
                 name="ProbeScene",
@@ -1300,7 +1301,7 @@ class CliTest(unittest.TestCase):
             )
             source = new_scene._scene_template(spec)
             with self.subTest(camera=camera):
-                self.assertIn("bindAutomationIfAvailable(Platforms.get(), keys, mouse);", source)
+                self.assertNotIn("bindAutomationIfAvailable(", source)
                 self.assertNotIn("AutomationInputBinder.bind(", source)
                 self.assertNotIn("import ixdar.platform.automation.AutomationInputBinder;", source)
                 self.assertIn("extends Scene {", source)

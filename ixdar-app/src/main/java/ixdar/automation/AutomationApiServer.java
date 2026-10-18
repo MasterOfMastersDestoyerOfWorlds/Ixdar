@@ -6,11 +6,9 @@ import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
-import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
-import ixdar.annotations.automation.AutomationRouteRegistry;
-import ixdar.scenes.mesh.MeshNodeViewerScene;
+import ixdar.annotations.automation.AutomationRouteRegistry_AutomationRoutes;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.BindException;
@@ -39,7 +37,7 @@ public class AutomationApiServer {
 
     /**
      * Bind a new HTTP server on loopback and register every route discovered via
-     * {@link AutomationRouteMap}. A taken port falls back to a free one, so a second
+     * {@link AutomationRouteRegistry_AutomationRoutes}. A taken port falls back to a free one, so a second
      * scene never fails to start; {@link #port()} reports what was bound.
      *
      * @param runtime shared editor state passed to each route handler
@@ -114,7 +112,7 @@ public class AutomationApiServer {
 
     static void registerAll(HttpServer server, AutomationRuntime runtime) {
         Map<String, Map<String, AutomationRoute>> routesByPath = new HashMap<>();
-        for (Supplier<? extends AutomationRoute> route : AutomationRouteMap.MAP.values()) {
+        for (Supplier<? extends AutomationRoute> route : AutomationRouteRegistry_AutomationRoutes.MAP.values()) {
             AutomationRoute automationRoute = route.get();
             AutomationRouteAnnotation ann = automationRoute.getClass().getAnnotation(AutomationRouteAnnotation.class);
             if (ann == null) {

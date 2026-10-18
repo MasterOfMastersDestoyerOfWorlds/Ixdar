@@ -29,8 +29,7 @@ public record LiteralParameterDescriptor(
         float defaultValue,
         Float minValue,
         Float maxValue) {
-    private static final Set<String> INPUT_NODE_TYPES = Set.of(
-            "input_float", "input_int", "input_boolean", "float_curve");
+    private static final String FLOAT_CURVE_TYPE = "float_curve";
 
     private static final Set<String> BLOCKLISTED_NODE_TYPES = Set.of("compare");
 
@@ -46,7 +45,7 @@ public record LiteralParameterDescriptor(
     public static List<LiteralParameterDescriptor> collect(List<PythonParser.ParsedNode> nodes) {
         List<LiteralParameterDescriptor> out = new ArrayList<>();
         for (PythonParser.ParsedNode n : nodes) {
-            if (INPUT_NODE_TYPES.contains(n.type)) continue;
+            if (NodeGraphRuntime.INPUT_NODE_TYPES.contains(n.type) || FLOAT_CURVE_TYPE.equals(n.type)) continue;
             if (BLOCKLISTED_NODE_TYPES.contains(n.type)) continue;
 
             Map<String, InputPort> portMap = getPortMap(n.type);

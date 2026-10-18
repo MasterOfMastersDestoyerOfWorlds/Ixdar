@@ -69,7 +69,7 @@ public class NodeInspect extends AutomationEndpoint implements AutomationRoute {
                 result.addProperty(OK, true);
                 if (path.isEmpty()) {
                     JsonArray tree = new JsonArray();
-                    for (String line : graph.treeLines()) {
+                    for (String line : graph.treeLines(0)) {
                         tree.add(line);
                     }
                     result.add("tree", tree);
@@ -77,11 +77,11 @@ public class NodeInspect extends AutomationEndpoint implements AutomationRoute {
                 }
                 GraphNodeContext record = graph.node(path);
                 if (record == null) {
-                    boolean exists = graph.staticPaths().containsKey(path);
-                    return failure(exists
-                            ? path + " is in the graph but did not run: nothing the scene read depends on it"
-                            : "no node at path '" + path + "'; nearest: " + String.join(", ",
-                                    NodeGraphRuntime.nearest(path, graph.staticPaths().keySet())));
+                    if (graph.statementAt(path) == null) {
+                        return failure(graph.noNodeAt(path));
+                    }
+                    return failure(path + " is in the graph but did not run: nothing the scene read"
+                            + " depends on it");
                 }
                 NodeInspector inspector = new NodeInspector(depth, limit);
                 if (field.isEmpty()) {

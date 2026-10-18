@@ -516,7 +516,7 @@
       "sourceClass": "ixdar.automation.endpoints.mesh.dsl.Timing",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/Timing.java",
       "params": [],
-      "responseHint": "{ok, total_ms, peak_heap_mib, nodes:[{node, type, ms, peak_heap_mib}, ...]}"
+      "responseHint": "{ok, revision, total_ms, peak_heap_mib, nodes:[{node, type, ms, peak_heap_mib}, ...]}"
     },
     {
       "commandName": "mesh-dsl-validate",

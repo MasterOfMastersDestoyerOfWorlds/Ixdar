@@ -5,10 +5,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
 
 import ixdar.nodegraph.api.InputPort;
-
-import java.util.Set;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.MeshNodeSchema;
 import ixdar.nodegraph.api.OutputPort;
@@ -34,11 +34,11 @@ public final class GraphValidator {
      * Validate a parsed graph with no DSL function definitions in scope.
      *
      * @param parsed   parsed statement list (topological order)
-     * @param registry node type id to {@link MeshNode} class
+     * @param registry node type id to {@link MeshNode} supplier
      * @return list of human-readable error messages (empty when valid)
      */
     public static List<String> validate(List<PythonParser.ParsedNode> parsed,
-            Map<String, Class<? extends MeshNode>> registry) {
+            Map<String, Supplier<? extends MeshNode>> registry) {
         return validate(parsed, registry, Set.of());
     }
 
@@ -48,12 +48,12 @@ public final class GraphValidator {
      * runtime when its body executes).
      *
      * @param parsed        parsed statement list
-     * @param registry      node type id to class
+     * @param registry      node type id to supplier
      * @param functionNames names of DSL function definitions in scope
      * @return list of human-readable error messages (empty when valid)
      */
     public static List<String> validate(List<PythonParser.ParsedNode> parsed,
-            Map<String, Class<? extends MeshNode>> registry,
+            Map<String, Supplier<? extends MeshNode>> registry,
             Set<String> functionNames) {
         List<String> errors = new ArrayList<>();
         Map<String, PythonParser.ParsedNode> byId = new HashMap<>();
@@ -69,8 +69,8 @@ public final class GraphValidator {
                 // Function call — skip registry validation (validated at runtime)
                 continue;
             }
-            Class<? extends MeshNode> clazz = registry.get(n.type);
-            if (clazz == null) {
+            Supplier<? extends MeshNode> supplier = registry.get(n.type);
+            if (supplier == null) {
                 String msg = LINE + n.line + ": Unknown node type '" + n.type + "' for node '" + n.id + "'";
                 String suggestion = findClosestType(n.type, registry.keySet());
                 if (suggestion != null) {
@@ -79,14 +79,7 @@ public final class GraphValidator {
                 errors.add(msg);
                 continue;
             }
-            MeshNode instance;
-            try {
-                instance = clazz.getDeclaredConstructor().newInstance();
-            } catch (ReflectiveOperationException e) {
-                errors.add(LINE + n.line + ": Cannot instantiate node type '" + n.type + "': " + e.getMessage());
-                continue;
-            }
-            MeshNodeSchema schema = instance.schema();
+            MeshNodeSchema schema = supplier.get().schema();
             for (Map.Entry<String, Object> arg : n.arguments.entrySet()) {
                 String portName = arg.getKey();
                 Object val = arg.getValue();
@@ -112,11 +105,11 @@ public final class GraphValidator {
      * null at runtime, which is rarely what the author intends.
      *
      * @param parsed   parsed statement list
-     * @param registry node type id to class
+     * @param registry node type id to supplier
      * @return human-readable warning strings (empty when no random_value edges)
      */
     public static List<String> validateWithRandomValueWarnings(List<PythonParser.ParsedNode> parsed,
-            Map<String, Class<? extends MeshNode>> registry) {
+            Map<String, Supplier<? extends MeshNode>> registry) {
         List<String> warnings = new ArrayList<>();
         Map<String, PythonParser.ParsedNode> byId = new HashMap<>();
         for (PythonParser.ParsedNode n : parsed) {
@@ -143,25 +136,19 @@ public final class GraphValidator {
     }
 
     private static void validateEdge(List<String> errors, Map<String, PythonParser.ParsedNode> byId,
-            Map<String, Class<? extends MeshNode>> registry, String consumerId, int consumerLine,
+            Map<String, Supplier<? extends MeshNode>> registry, String consumerId, int consumerLine,
             PythonParser.NodeReference ref, InputPort targetInput) {
         PythonParser.ParsedNode sourceNode = byId.get(ref.nodeId);
         if (sourceNode == null) {
             errors.add(LINE + consumerLine + ": Edge to '" + consumerId + "': unknown source node '" + ref.nodeId + "'");
             return;
         }
-        Class<? extends MeshNode> sourceClass = registry.get(sourceNode.type);
-        if (sourceClass == null) {
+        Supplier<? extends MeshNode> sourceSupplier = registry.get(sourceNode.type);
+        if (sourceSupplier == null) {
             errors.add(LINE + consumerLine + ": Edge from '" + ref.nodeId + "': unknown source node type '" + sourceNode.type + "'");
             return;
         }
-        MeshNode sourceInstance;
-        try {
-            sourceInstance = sourceClass.getDeclaredConstructor().newInstance();
-        } catch (ReflectiveOperationException e) {
-            errors.add(LINE + consumerLine + ": Cannot instantiate source '" + sourceNode.type + "': " + e.getMessage());
-            return;
-        }
+        MeshNode sourceInstance = sourceSupplier.get();
         OutputPort out = findOutput(sourceInstance.schema(), ref.portName);
         if (out == null) {
             List<String> validOutputs = sourceInstance.schema().outputs().stream().map(p -> p.name).toList();

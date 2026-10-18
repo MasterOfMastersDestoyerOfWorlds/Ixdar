@@ -209,38 +209,56 @@ public final class DslGraphLayout {
             List<String> literals = new ArrayList<>();
             for (Map.Entry<String, Object> input : new TreeMap<>(record.inputSources).entrySet()) {
                 // Follow a source through expanded groups: a parameter to what the call bound it
-                // to, a group output to the body node it reads.
-                Object source = input.getValue();
-                String consumerPath = record.path;
-                Integer sourceNode = null;
-                while (source instanceof PythonParser.NodeReference reference && sourceNode == null) {
-                    GraphNodeContext sourceRecord = recordsByPath.get(reference.nodeId);
-                    if (sourceRecord == null) {
-                        break;
-                    }
-                    if (!expanded.contains(sourceRecord.path)) {
-                        GraphNodeContext shown = sourceRecord;
-                        while (shown != null && !indexByPath.containsKey(shown.path)) {
-                            shown = shown.parent;
+                // to, a group output to the body node it reads, and an output a compiled group
+                // computed to every wired output it read, so one input port may take several edges.
+                List<Object> pending = new ArrayList<>();
+                List<String> pendingConsumer = new ArrayList<>();
+                pending.add(input.getValue());
+                pendingConsumer.add(record.path);
+                Set<String> drawn = new HashSet<>();
+                int port = -1;
+                Object source = null;
+                while (!pending.isEmpty()) {
+                    Object next = pending.remove(pending.size() - 1);
+                    String consumerPath = pendingConsumer.remove(pendingConsumer.size() - 1);
+                    if (next instanceof List<?> computedFrom) {
+                        for (int wired = computedFrom.size() - 1; wired >= 0; wired--) {
+                            pending.add(computedFrom.get(wired));
+                            pendingConsumer.add(consumerPath);
                         }
-                        sourceNode = shown == null ? null : indexByPath.get(shown.path);
-                        source = sourceNode == null ? null : reference;
-                    } else if (consumerPath.startsWith(sourceRecord.path + GraphNodeContext.PATH_SEPARATOR)) {
-                        source = sourceRecord.inputSources.get(reference.portName);
-                        consumerPath = sourceRecord.path;
-                    } else {
-                        source = sourceRecord.outputSources.get(reference.portName);
+                        continue;
                     }
-                }
-                if (sourceNode != null) {
+                    GraphNodeContext sourceRecord = next instanceof PythonParser.NodeReference reference
+                            ? recordsByPath.get(reference.nodeId) : null;
+                    if (sourceRecord == null) {
+                        source = next;
+                        continue;
+                    }
+                    PythonParser.NodeReference reference = (PythonParser.NodeReference) next;
+                    if (expanded.contains(sourceRecord.path)) {
+                        boolean parameter = consumerPath.startsWith(sourceRecord.path + GraphNodeContext.PATH_SEPARATOR);
+                        pending.add(parameter ? sourceRecord.inputSources.get(reference.portName)
+                                : sourceRecord.outputSources.get(reference.portName));
+                        pendingConsumer.add(parameter ? sourceRecord.path : consumerPath);
+                        continue;
+                    }
+                    GraphNodeContext shown = sourceRecord;
+                    while (shown != null && !indexByPath.containsKey(shown.path)) {
+                        shown = shown.parent;
+                    }
+                    if (shown == null || !drawn.add(shown.path + "." + reference.portName)) {
+                        continue;
+                    }
+                    if (port < 0) {
+                        port = inputNames.size();
+                        inputNames.add(input.getKey());
+                    }
                     targets.add(node);
-                    targetPorts.add(inputNames.size());
-                    inputNames.add(input.getKey());
-                    sources.add(sourceNode);
-                    sourcePortNames.add(((PythonParser.NodeReference) source).portName);
-                    continue;
+                    targetPorts.add(port);
+                    sources.add(indexByPath.get(shown.path));
+                    sourcePortNames.add(reference.portName);
                 }
-                if (source == null) {
+                if (port >= 0 || source == null) {
                     continue;
                 }
                 Object shown = source;

@@ -101,7 +101,7 @@ public final class GrooveRingBenchmark {
                 new String(Files.readAllBytes(Path.of(graphPath)), StandardCharsets.UTF_8));
         String metricId = null;
         List<PythonParser.ParsedNode> rings = new ArrayList<>();
-        for (PythonParser.ParsedNode statement : graph.statements) {
+        for (PythonParser.ParsedNode statement : graph.root.body) {
             metricId = RingDslWriter.SURFACE_METRIC_NODE.equals(statement.type) && metricId == null
                     ? statement.id : metricId;
             if (SplineRingNode.DEFAULT_MARK_LABEL.equals(statement.type)) {
@@ -109,7 +109,7 @@ public final class GrooveRingBenchmark {
             }
         }
         assertNotNull(metricId, NO_SURFACE);
-        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.statements,
+        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.root.body,
                 metricId, GEOMETRY_PORT);
         MeshTopology surface = bundle.mesh();
         SurfaceMetric metric = (SurfaceMetric) graph.getNodeOutput(metricId,
@@ -386,12 +386,12 @@ public final class GrooveRingBenchmark {
         NodeGraphRuntime graph = NodeGraphRuntime.fromSource(
                 new String(Files.readAllBytes(Path.of(graphPath)), StandardCharsets.UTF_8));
         String metricId = null;
-        for (PythonParser.ParsedNode statement : graph.statements) {
+        for (PythonParser.ParsedNode statement : graph.root.body) {
             metricId = RingDslWriter.SURFACE_METRIC_NODE.equals(statement.type) && metricId == null
                     ? statement.id : metricId;
         }
         assertNotNull(metricId, NO_SURFACE);
-        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.statements,
+        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.root.body,
                 metricId, GEOMETRY_PORT);
         MeshTopology surface = bundle.mesh();
         SurfaceMetric metric = (SurfaceMetric) graph.getNodeOutput(metricId,

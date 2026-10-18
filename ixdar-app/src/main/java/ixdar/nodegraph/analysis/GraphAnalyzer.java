@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.MeshNodeSchema;
@@ -29,13 +30,13 @@ public final class GraphAnalyzer {
      * Analyze a parsed DSL graph: build adjacency, compute dominators, find seams.
      *
      * @param parsed           parsed node list (topological order)
-     * @param registry         node type registry (for port metadata)
+     * @param registry         node type id to supplier (for port metadata)
      * @param minSubgraphSize  minimum upstream subgraph size for a seam (default 3)
      * @return analysis bundle: edges, predecessor/successor maps, dominator tree,
      *         and detected seam nodes
      */
     public static AnalysisResult analyze(List<PythonParser.ParsedNode> parsed,
-            Map<String, Class<? extends MeshNode>> registry, int minSubgraphSize) {
+            Map<String, Supplier<? extends MeshNode>> registry, int minSubgraphSize) {
 
         // 1. Build adjacency
         Map<String, Integer> idToIndex = new LinkedHashMap<>();
@@ -80,11 +81,11 @@ public final class GraphAnalyzer {
      * Overload with default minSubgraphSize = 3.
      *
      * @param parsed   parsed node list (topological order)
-     * @param registry node type registry
+     * @param registry node type id to supplier
      * @return analysis bundle (see {@link #analyze(List, Map, int)})
      */
     public static AnalysisResult analyze(List<PythonParser.ParsedNode> parsed,
-            Map<String, Class<? extends MeshNode>> registry) {
+            Map<String, Supplier<? extends MeshNode>> registry) {
         return analyze(parsed, registry, DEFAULT_MIN_SUBGRAPH_SIZE);
     }
 
@@ -193,14 +194,14 @@ public final class GraphAnalyzer {
      * @param predecessors    predecessor adjacency
      * @param successors      successor adjacency
      * @param idom            immediate dominator map
-     * @param registry        node type registry (for output port type checks)
+     * @param registry        node type id to supplier (for output port type checks)
      * @param minSubgraphSize minimum subtree size to qualify
      * @return seam nodes whose subtrees produce GEOMETRY_BUNDLE outputs
      */
     private static List<SeamNode> findSeams(List<PythonParser.ParsedNode> parsed,
             List<String> nodeIds, Map<String, Integer> idToIndex,
             Map<String, List<String>> predecessors, Map<String, List<String>> successors,
-            Map<String, String> idom, Map<String, Class<? extends MeshNode>> registry,
+            Map<String, String> idom, Map<String, Supplier<? extends MeshNode>> registry,
             int minSubgraphSize) {
 
         // Build dominator tree children: nodeId -> list of nodes it immediately dominates
@@ -301,24 +302,19 @@ public final class GraphAnalyzer {
      * Get output port type names for a node type from the registry.
      *
      * @param nodeType DSL node type id
-     * @param registry node type registry
+     * @param registry node type id to supplier
      * @return list of {@code PortType.name()} strings, or empty when type unknown
      */
     private static List<String> getOutputPortTypes(String nodeType,
-            Map<String, Class<? extends MeshNode>> registry) {
-        Class<? extends MeshNode> clazz = registry.get(nodeType);
-        if (clazz == null) return List.of();
-        try {
-            MeshNode instance = clazz.getDeclaredConstructor().newInstance();
-            MeshNodeSchema schema = instance.schema();
-            List<String> types = new ArrayList<>();
-            for (OutputPort op : schema.outputs()) {
-                types.add(op.type.name());
-            }
-            return types;
-        } catch (ReflectiveOperationException e) {
-            return List.of();
+            Map<String, Supplier<? extends MeshNode>> registry) {
+        Supplier<? extends MeshNode> supplier = registry.get(nodeType);
+        if (supplier == null) return List.of();
+        MeshNodeSchema schema = supplier.get().schema();
+        List<String> types = new ArrayList<>();
+        for (OutputPort op : schema.outputs()) {
+            types.add(op.type.name());
         }
+        return types;
     }
 
     /** Edge from source node/port to consumer node/port. */

@@ -13,7 +13,6 @@ import com.google.gson.GsonBuilder;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
-import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
 import ixdar.nodegraph.api.MeshNodeSchema;
 import ixdar.nodegraph.api.ModeConstraint;
 import ixdar.nodegraph.api.OutputPort;
@@ -46,9 +45,7 @@ public final class MeshNodeCatalog {
      * @return JSON document with a top-level {@code "nodes"} array
      */
     public static String toJsonFromAnnotationRegistry(String scope) {
-        Map<String, Supplier<? extends MeshNode>> all = new TreeMap<>(MeshNodeRegistry_MeshNodes.MAP);
-        all.putAll(NodeGraphRuntime.DESKTOP_SUPPLIERS);
-        return toJson(all, scope);
+        return toJson(NodeGraphRuntime.REGISTERED_NODES, scope);
     }
 
     /**

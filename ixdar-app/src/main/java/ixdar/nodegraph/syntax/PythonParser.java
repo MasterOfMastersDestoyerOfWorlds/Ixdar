@@ -35,6 +35,17 @@ public class PythonParser {
         this.current = lexer.nextToken();
     }
 
+    /**
+     * The program a DSL source holds, read without a runtime: its top-level statements, the way
+     * a tool inspects or rewrites a file it is editing.
+     *
+     * @param source DSL program text
+     * @return the top-level statements in source order, function definitions left out
+     */
+    public static List<ParsedNode> parse(String source) {
+        return new PythonParser(new PythonLexer(source)).parseGraph();
+    }
+
     private void advance() {
         current = lexer.nextToken();
     }

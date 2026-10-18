@@ -91,10 +91,10 @@ public class DslGraphView implements Tool {
     /** Paths of the group calls shown as their body; kept across runs, so a reload stays open. */
     public final Set<String> expandedGroups = new HashSet<>();
 
-    /** The run, its tree root and the root's time {@link #layout} was built from. */
+    /** The runtime, its tree root and the runtime's revision {@link #layout} was built from. */
     public NodeGraphRuntime shownGraph;
     public GraphNodeContext shownRoot;
-    public long shownRootNanos;
+    public int shownRevision;
 
     /** The "hotspot k/N" label drawn above the framed hotspot's box, and its position. */
     public final ArrayList<HyperString> hotspotLabel = new ArrayList<>();
@@ -333,9 +333,9 @@ public class DslGraphView implements Tool {
     }
 
     /**
-     * Follow the scene's {@link ModelScene#graph}: when it is another run, or its tree has grown
-     * since the layout was built (a pull evaluates more of it, bumping the root's time), lay it out
-     * again; a new run also re-ranks the hotspots and frames the graph whole.
+     * Follow the scene's {@link ModelScene#graph}: when it is another run, or its revision moved
+     * since the layout was built (a pull evaluated more of it), lay it out again; a new run also
+     * re-ranks the hotspots and frames the graph whole.
      */
     public void refresh() {
         NodeGraphRuntime graph = scene.graph;
@@ -345,12 +345,12 @@ public class DslGraphView implements Tool {
             return;
         }
         boolean newRun = graph != shownGraph || graph.root != shownRoot;
-        if (!newRun && graph.root.elapsedNanos == shownRootNanos) {
+        if (!newRun && graph.revision == shownRevision) {
             return;
         }
         shownGraph = graph;
         shownRoot = graph.root;
-        shownRootNanos = graph.root.elapsedNanos;
+        shownRevision = graph.revision;
         List<GraphNodeContext> leaves = new ArrayList<>();
         for (GraphNodeContext record : graph.treeRecords()) {
             if (record.group == null && record.elapsedMs() > 0) {

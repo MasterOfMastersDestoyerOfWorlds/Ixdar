@@ -5,9 +5,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.function.Supplier;
 
+import ixdar.annotations.command.CommandRegistry_Commands;
 import ixdar.annotations.command.TerminalOption;
 import ixdar.annotations.geometry.Geometry;
-import ixdar.geometry.tsp.input.GeometryMap;
+import ixdar.annotations.geometry.GeometryRegistry_Geometries;
 
 import ixdar.platform.Compat;
 import ixdar.geometry.tsp.input.PointCollection;
@@ -44,7 +45,7 @@ public class Terminal implements PointerRegion {
     static {
         if (commandList == null) {
             commandList = new ArrayList<>();
-            for (Supplier<? extends TerminalOption> commandSupplier : CommandMap.MAP.values()) {
+            for (Supplier<? extends TerminalOption> commandSupplier : CommandRegistry_Commands.MAP.values()) {
                 TerminalOption command = commandSupplier.get();
                 commandList.add(command);
                 commandMap.put(command.fullName(), command);
@@ -54,7 +55,7 @@ public class Terminal implements PointerRegion {
         }
         if (pointCollectionList == null) {
             pointCollectionList = new ArrayList<>();
-            for (Supplier<? extends Geometry> commandSupplier : GeometryMap.MAP.values()) {
+            for (Supplier<? extends Geometry> commandSupplier : GeometryRegistry_Geometries.MAP.values()) {
                 Geometry geometry = commandSupplier.get();
                 PointCollection command = (PointCollection) commandSupplier.get();
                 pointCollectionList.add(command);

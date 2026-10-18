@@ -157,7 +157,7 @@ public class MeshBooleanScene extends ModelScene {
             return;
         }
         NodeGraphRuntime graphRuntime = NodeGraphRuntime.fromSource(dslSource);
-        List<PythonParser.ParsedNode> ast = graphRuntime.statements;
+        List<PythonParser.ParsedNode> ast = graphRuntime.root.body;
 
         Object result;
         try {

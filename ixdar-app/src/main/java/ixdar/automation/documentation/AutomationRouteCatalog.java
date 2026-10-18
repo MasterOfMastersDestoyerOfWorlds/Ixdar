@@ -12,9 +12,9 @@ import com.google.gson.GsonBuilder;
 
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
+import ixdar.annotations.automation.AutomationRouteRegistry_AutomationRoutes;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParameterDoc;
-import ixdar.automation.AutomationRouteMap;
 
 /**
  * Serializes every registered {@link AutomationRoute} — its path, method, description, parameters,
@@ -58,7 +58,7 @@ public final class AutomationRouteCatalog {
     public static String toJsonFromAnnotationRegistry() {
         List<Map<String, Object>> routes = new ArrayList<>();
         Map<String, String> commandNameOwners = new HashMap<>();
-        for (Supplier<? extends AutomationRoute> supplier : AutomationRouteMap.MAP.values()) {
+        for (Supplier<? extends AutomationRoute> supplier : AutomationRouteRegistry_AutomationRoutes.MAP.values()) {
             AutomationRoute route = supplier.get();
             AutomationRouteAnnotation ann = route.getClass().getAnnotation(AutomationRouteAnnotation.class);
             if (ann == null) {

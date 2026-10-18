@@ -380,23 +380,6 @@ public class MeshNodeViewerScene extends ModelScene {
         super.shutdown();
     }
 
-    private void logTiming(NodeGraphRuntime runtime) {
-        var timing = runtime.lastTimingMs();
-        long threshold = 1; // only log nodes that took >= 1ms
-        StringBuilder sb = new StringBuilder();
-        sb.append("[dsl-timing] total=").append(runtime.lastTotalMs()).append("ms");
-        int slow = 0;
-        for (var entry : timing.entrySet()) {
-            if (entry.getValue() >= threshold) {
-                sb.append("\n  ").append(entry.getValue()).append("ms  ").append(entry.getKey());
-                slow++;
-            }
-        }
-        if (slow == 0)
-            sb.append(" (all nodes <1ms)");
-        Platforms.get().log(sb.toString());
-    }
-
     /**
      * Vertex count of the current mesh.
      *
@@ -1064,12 +1047,11 @@ public class MeshNodeViewerScene extends ModelScene {
             throws Exception {
         NodeGraphRuntime run = NodeGraphRuntime.fromSource(dslCode);
         graph = run;
-        List<PythonParser.ParsedNode> ast = run.statements;
+        List<PythonParser.ParsedNode> program = run.root.body;
         String resolvedNode = finalNode != null && !finalNode.isEmpty() ? finalNode
-                : ast.get(ast.size() - 1).id;
-        Object result = run.executeGraphResult(ast, resolvedNode, finalPort, overrides);
+                : program.get(program.size() - 1).id;
+        Object result = run.executeGraphResult(program, resolvedNode, finalPort, overrides);
         run.logTimings(TIMING_PREFIX);
-        logTiming(run);
         return result;
     }
 

@@ -354,7 +354,7 @@ class QuadRingToolTest {
                 + RingDslWriter.LINE_BREAK + RingDslWriter.splineStatement(SAVED_LABEL,
                         measuredSurface, points, anchorCount, normal));
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(statement);
-        Object result = runtime.executeGraphResult(runtime.statements, SAVED_LABEL,
+        Object result = runtime.executeGraphResult(runtime.root.body, SAVED_LABEL,
                 RingDslWriter.DEFAULT_UPSTREAM_PORT,
                 Map.of(measuredSurface, GeometryBundle.ofMesh(quads)));
         assertTrue(result instanceof GeometryBundle, "the statement left no bundle");

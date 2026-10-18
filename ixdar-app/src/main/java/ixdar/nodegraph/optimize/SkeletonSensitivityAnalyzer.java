@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonComparator.DetailedBranchMatch;
 
 import ixdar.nodegraph.api.PortType;
@@ -81,7 +82,6 @@ public final class SkeletonSensitivityAnalyzer {
         List<String> ports = candidatePorts(parsed);
 
         NodeGraphRuntime runtime = new NodeGraphRuntime();
-        runtime.registerAllFromAnnotationRegistry();
 
         // 4. Execute baseline (all defaults)
         MeshTopology baselineMesh = executeDsl(runtime, parsed, lastNode.id, ports, Map.of());
@@ -232,7 +232,6 @@ public final class SkeletonSensitivityAnalyzer {
         List<String> ports = candidatePorts(parsed);
 
         NodeGraphRuntime runtime = new NodeGraphRuntime();
-        runtime.registerAllFromAnnotationRegistry();
 
         // Current parameter values (start at defaults)
         Map<String, Float> currentParams = new LinkedHashMap<>();
@@ -578,22 +577,16 @@ public final class SkeletonSensitivityAnalyzer {
     private static List<String> candidatePorts(List<PythonParser.ParsedNode> parsed) {
         // Try to detect output port from node schema, fall back to common names
         PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
-        Map<String, Class<? extends MeshNode>> registry =
-                NodeGraphRuntime.annotationRegistryClasses();
-        Class<? extends MeshNode> clazz = registry.get(last.type);
-        if (clazz != null) {
-            try {
-                MeshNode instance = clazz.getDeclaredConstructor().newInstance();
-                MeshNodeSchema schema =
-                        MeshNodeSchema.from(instance);
-                List<String> names = new ArrayList<>();
-                for (var op : schema.outputs()) {
-                    if (op.type == PortType.GEOMETRY_BUNDLE) {
-                        names.add(op.name);
-                    }
+        Supplier<? extends MeshNode> supplier = NodeGraphRuntime.supplierFor(last.type);
+        if (supplier != null) {
+            MeshNodeSchema schema = MeshNodeSchema.from(supplier.get());
+            List<String> names = new ArrayList<>();
+            for (var op : schema.outputs()) {
+                if (op.type == PortType.GEOMETRY_BUNDLE) {
+                    names.add(op.name);
                 }
-                if (!names.isEmpty()) return names;
-            } catch (ReflectiveOperationException ignored) {}
+            }
+            if (!names.isEmpty()) return names;
         }
         return List.of("geometry", "mesh");
     }

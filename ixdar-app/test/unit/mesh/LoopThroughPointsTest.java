@@ -149,7 +149,7 @@ class LoopThroughPointsTest {
                 RingDslWriter.append(TORUS_GRAPH, TUBE_POINTS, TUBE_POINT_COUNT, true, false);
         System.out.println("[ring] saved statement: " + saved.substring(TORUS_GRAPH.length()));
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(saved);
-        List<PythonParser.ParsedNode> statements = runtime.statements;
+        List<PythonParser.ParsedNode> statements = runtime.root.body;
         runtime.executeGraphResult(statements, statements.get(statements.size() - 1).id,
                 LoopThroughPointsNode.GEOMETRY.name);
         GeometryBundle reloaded = (GeometryBundle) runtime.lastOutput(

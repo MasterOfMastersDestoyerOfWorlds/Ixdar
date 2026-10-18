@@ -36,6 +36,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
+import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.data.SurfaceCreasesNode;
 import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
@@ -585,9 +586,8 @@ public final class RingTool implements Tool {
             return false;
         }
         NodeGraphRuntime graph = scene.graph;
-        for (PythonParser.ParsedNode statement : graph == null ? List.<PythonParser.ParsedNode>of()
-                : graph.statements) {
-            if (graph.getNodeOutput(statement.id, SurfaceCreasesNode.CREASES.name)
+        for (GraphNodeContext record : graph == null ? List.<GraphNodeContext>of() : graph.root.children) {
+            if (record.getOutput(SurfaceCreasesNode.CREASES.name)
                     instanceof SurfaceCreases built && built.sourceMesh == surface) {
                 creases = built;
                 return true;
@@ -2184,7 +2184,7 @@ public final class RingTool implements Tool {
             List<SurfaceSpline> current = currentCandidateRings();
             if (!current.equals(writtenCandidateRings)) {
                 PythonParser.ParsedNode candidates = RingDslWriter.candidatesStatement(
-                        NodeGraphRuntime.fromSource(source).statements);
+                        PythonParser.parse(source));
                 if (candidates != null) {
                     candidatesLine = RingDslWriter.statementLine(source, candidates.id);
                 }
@@ -2193,8 +2193,7 @@ public final class RingTool implements Tool {
                             + RingDslWriter.CANDIDATES_NODE
                             + " statement the proposed rings came from");
                 }
-                PythonParser.ParsedNode original = NodeGraphRuntime.fromSource(candidatesLine)
-                        .statements.get(0);
+                PythonParser.ParsedNode original = PythonParser.parse(candidatesLine).get(0);
                 String upstream = RingDslWriter.geometryInput(original);
                 boolean unedited = true;
                 for (int candidate = 0; candidate < current.size(); candidate++) {
@@ -2257,8 +2256,7 @@ public final class RingTool implements Tool {
                 String sourceLabel = confirmedSourceLabel.get(ring);
                 PythonParser.ParsedNode owner = null;
                 if (savedId[ring] == null && sourceLabel != null) {
-                    owner = RingDslWriter.labelledStatement(
-                            NodeGraphRuntime.fromSource(source).statements, sourceLabel);
+                    owner = RingDslWriter.labelledStatement(PythonParser.parse(source), sourceLabel);
                 }
                 if (deleting) {
                     String statementId = owner != null ? owner.id : savedId[ring];
@@ -2353,7 +2351,7 @@ public final class RingTool implements Tool {
             }
             // A statement written for a ring the tool no longer holds, such as one whose confirm
             // was undone after a save, goes too, so the file matches the rings in memory.
-            for (PythonParser.ParsedNode statement : NodeGraphRuntime.fromSource(source).statements) {
+            for (PythonParser.ParsedNode statement : PythonParser.parse(source)) {
                 if (orphaned.contains(statement.id)) {
                     source = RingDslWriter.remove(source, statement.id);
                     deleted++;
@@ -2506,7 +2504,7 @@ public final class RingTool implements Tool {
             return;
         }
         NodeGraphRuntime graph = scene.graph;
-        List<PythonParser.ParsedNode> statements = graph == null ? List.of() : graph.statements;
+        List<PythonParser.ParsedNode> statements = graph == null ? List.of() : graph.root.body;
         int adopted = 0;
         List<String> refused = new ArrayList<>();
         // A new graph either proposes rings itself, whose block the next freeze rewrites, or has
@@ -2751,9 +2749,8 @@ public final class RingTool implements Tool {
         }
         NodeGraphRuntime graph = scene.graph;
         SurfaceMetric metric = null;
-        for (PythonParser.ParsedNode statement : graph == null ? List.<PythonParser.ParsedNode>of()
-                : graph.statements) {
-            if (graph.getNodeOutput(statement.id, SurfaceMetricNode.METRIC.name)
+        for (GraphNodeContext record : graph == null ? List.<GraphNodeContext>of() : graph.root.children) {
+            if (record.getOutput(SurfaceMetricNode.METRIC.name)
                     instanceof SurfaceMetric measured && measured.sourceMesh == surface) {
                 metric = measured;
             }

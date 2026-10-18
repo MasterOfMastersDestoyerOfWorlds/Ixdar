@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import ixdar.nodegraph.api.CanonicalPortNames;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
-import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
@@ -91,9 +90,7 @@ class MeshNodeRegistryTest {
     }
 
     private static void forEachNode(NodeCheck check) {
-        Map<String, Supplier<? extends MeshNode>> all = new HashMap<>(MeshNodeRegistry_MeshNodes.MAP);
-        all.putAll(NodeGraphRuntime.desktopRegistryMap());
-        for (Map.Entry<String, Supplier<? extends MeshNode>> entry : all.entrySet()) {
+        for (Map.Entry<String, Supplier<? extends MeshNode>> entry : NodeGraphRuntime.REGISTERED_NODES.entrySet()) {
             check.accept(entry.getKey(), entry.getValue().get());
         }
     }

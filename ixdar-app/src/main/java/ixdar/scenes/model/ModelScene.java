@@ -367,8 +367,9 @@ public abstract class ModelScene extends Scene {
         merged.putAll(overrides);
         graph = run;
         try {
-            String last = run.statements.get(run.statements.size() - 1).id;
-            run.executeGraphResult(run.statements, last, NodeGraphRuntime.RESULT, merged);
+            List<PythonParser.ParsedNode> program = run.root.body;
+            run.executeGraphResult(program, program.get(program.size() - 1).id,
+                    NodeGraphRuntime.RESULT, merged);
         } catch (Exception failure) {
             throw new IllegalStateException("graph " + choice.dslPath + " failed", failure);
         }

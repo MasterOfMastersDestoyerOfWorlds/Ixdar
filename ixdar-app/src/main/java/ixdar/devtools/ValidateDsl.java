@@ -22,9 +22,9 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.joml.Vector3f;
-
 import java.util.Set;
+import java.util.function.Supplier;
+import org.joml.Vector3f;
 
 /**
  * CLI entry point that validates a .dsl file against the mesh node registry.
@@ -78,14 +78,14 @@ public final class ValidateDsl {
             }
         }
 
-        Map<String, Class<? extends MeshNode>> registry =
-            NodeGraphRuntime.annotationRegistryClasses();
+        Map<String, Supplier<? extends MeshNode>> registry =
+            NodeGraphRuntime.REGISTERED_NODES;
 
         NodeGraphRuntime runtime;
         List<PythonParser.ParsedNode> parsed;
         try {
             runtime = NodeGraphRuntime.fromSource(source);
-            parsed = runtime.statements;
+            parsed = runtime.root.body;
             funcDefs.putAll(runtime.functionDefs);
             funcDefs.putAll(GroupLibrary.referencedGroups(parsed, funcDefs, registry.keySet()));
             runtime.registerFunctionDefs(funcDefs);
@@ -210,37 +210,32 @@ public final class ValidateDsl {
 
     private static List<String> candidateMeshPorts(
         PythonParser.ParsedNode last,
-        Map<String, Class<? extends MeshNode>> registry
+        Map<String, Supplier<? extends MeshNode>> registry
     ) {
-        Class<? extends MeshNode> clazz = registry.get(last.type);
-        if (clazz != null) {
-            try {
-                MeshNode instance = clazz
-                    .getDeclaredConstructor()
-                    .newInstance();
-                MeshNodeSchema schema = MeshNodeSchema.from(instance);
-                List<String> names = new ArrayList<>();
-                for (OutputPort op : schema.outputs()) {
-                    if (op.type == PortType.GEOMETRY_BUNDLE) {
-                        names.add(op.name);
-                    }
+        Supplier<? extends MeshNode> supplier = registry.get(last.type);
+        if (supplier != null) {
+            MeshNodeSchema schema = MeshNodeSchema.from(supplier.get());
+            List<String> names = new ArrayList<>();
+            for (OutputPort op : schema.outputs()) {
+                if (op.type == PortType.GEOMETRY_BUNDLE) {
+                    names.add(op.name);
                 }
-                if (!names.isEmpty()) {
-                    return names;
-                }
-            } catch (ReflectiveOperationException ignored) {}
+            }
+            if (!names.isEmpty()) {
+                return names;
+            }
         }
         return List.of("geometry", "mesh");
     }
 
     private static Map<String, Object> runMeshProbe(
         NodeGraphRuntime runtime,
-        Map<String, Class<? extends MeshNode>> registry
+        Map<String, Supplier<? extends MeshNode>> registry
     ) {
         Map<String, Object> probe = new LinkedHashMap<>();
         probe.put(ATTEMPTED, true);
 
-        List<PythonParser.ParsedNode> parsed = runtime.statements;
+        List<PythonParser.ParsedNode> parsed = runtime.root.body;
         PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
         probe.put("outputNodeId", last.id);
         List<String> ports = candidateMeshPorts(last, registry);
@@ -278,7 +273,7 @@ public final class ValidateDsl {
         }
 
         // Always report execution time for observability
-        long executionMs = runtime.lastTotalMs();
+        long executionMs = runtime.root.elapsedMs();
         probe.put("executionMs", executionMs);
 
         // Performance gate: reject DSLs that take too long to evaluate
@@ -389,9 +384,9 @@ public final class ValidateDsl {
 
     private static ExportResult executeForExport(
         NodeGraphRuntime runtime,
-        Map<String, Class<? extends MeshNode>> registry
+        Map<String, Supplier<? extends MeshNode>> registry
     ) {
-        List<PythonParser.ParsedNode> parsed = runtime.statements;
+        List<PythonParser.ParsedNode> parsed = runtime.root.body;
         PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
         List<String> ports = candidateMeshPorts(last, registry);
         for (String port : ports) {

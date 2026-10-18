@@ -50,18 +50,16 @@ public class NodeGraphRuntime {
 
     public static final int MAX_GROUP_DEPTH = 32;
 
-    public static final Set<String> INPUT_NODE_TYPES = Set.of("input_float", "input_int",
-            "input_boolean");
+    public static final String DEFAULT_PORT = "default";
 
-    public static final Map<String, Class<? extends MeshNode>> REGISTRY_CLASSES;
-
-    public static final Map<String, Supplier<? extends MeshNode>> DESKTOP_SUPPLIERS = desktopRegistryMap();
+    public static final Map<String, Supplier<? extends MeshNode>> REGISTERED_NODES;
 
     public static final Map<Class<? extends MeshNode>, String> REGISTRY_IDS_BY_CLASS;
 
+    public static final Set<String> INPUT_NODE_TYPES;
+
     private static final String WAS_REFERENCED_BEFORE_IT_WAS_EVALUATED = "' was referenced before it was evaluated!";
     private static final String IN_FUNCTION = "In function '";
-    private static final String DEFAULT_PORT = "default";
     private static final String AXIS_X = "x";
     private static final String AXIS_Y = "y";
     private static final String AXIS_Z = "z";
@@ -69,27 +67,45 @@ public class NodeGraphRuntime {
     private static final String NEAREST = "; nearest: ";
     private static final String LIST_SEPARATOR = ", ";
     private static final String FUNCTION = "Function '";
+    private static final String LINE_BREAK = "\n";
 
+    // The one node lookup: the generated registry, then the desktop-only one reached through
+    // Class.forName so TeaVM never walks its name (in the browser the lookup fails and it adds
+    // nothing). The name is the generated class's own plus the processor's suffix, so a move
+    // cannot break it. Each node is instantiated once to learn its class and its inputs.
     static {
-        Map<String, Class<? extends MeshNode>> out = new HashMap<>();
+        Map<String, Supplier<? extends MeshNode>> desktop;
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Supplier<? extends MeshNode>> generated = (Map<String, Supplier<? extends MeshNode>>) Class
+                    .forName(MeshNodeRegistry_MeshNodes.class.getName() + RegistryProcessor.DESKTOP_SUFFIX)
+                    .getField("MAP").get(null);
+            desktop = generated;
+        } catch (Throwable unavailable) {
+            desktop = Map.of();
+        }
+        Map<String, Supplier<? extends MeshNode>> nodes = new HashMap<>();
         for (Map.Entry<String, Supplier<? extends MeshNode>> e : MeshNodeRegistry_MeshNodes.MAP.entrySet()) {
-            MeshNode probe = e.getValue().get();
-            out.put(e.getKey(), probe.getClass());
+            nodes.put(e.getKey(), e.getValue());
         }
-        for (Map.Entry<String, Supplier<? extends MeshNode>> e : DESKTOP_SUPPLIERS.entrySet()) {
-            MeshNode probe = e.getValue().get();
-            out.put(e.getKey(), probe.getClass());
+        for (Map.Entry<String, Supplier<? extends MeshNode>> e : desktop.entrySet()) {
+            nodes.put(e.getKey(), e.getValue());
         }
-        REGISTRY_CLASSES = Collections.unmodifiableMap(out);
         Map<Class<? extends MeshNode>, String> ids = new HashMap<>();
-        for (Map.Entry<String, Class<? extends MeshNode>> e : out.entrySet()) {
-            ids.put(e.getValue(), e.getKey());
+        Set<String> inputTypes = new HashSet<>();
+        for (Map.Entry<String, Supplier<? extends MeshNode>> e : nodes.entrySet()) {
+            MeshNode probe = e.getValue().get();
+            ids.put(probe.getClass(), e.getKey());
+            for (InputPort input : probe.inputs()) {
+                if (DEFAULT_PORT.equals(input.name)) {
+                    inputTypes.add(e.getKey());
+                }
+            }
         }
+        REGISTERED_NODES = Collections.unmodifiableMap(nodes);
         REGISTRY_IDS_BY_CLASS = Collections.unmodifiableMap(ids);
+        INPUT_NODE_TYPES = Collections.unmodifiableSet(inputTypes);
     }
-
-    /** Top-level statements of the program this runtime was parsed from, in source order. */
-    public final List<PythonParser.ParsedNode> statements;
 
     /** Failures nodes of the current run carried on past, thrown together once it has run. */
     public final List<String> deferredFailures = new ArrayList<>();
@@ -109,10 +125,17 @@ public class NodeGraphRuntime {
      */
     public final Map<String, PythonParser.FunctionDef> functionDefs = new HashMap<>();
 
-    /** Root of the node tree of the current run; its children are the evaluated top-level statements. */
+    /**
+     * The current run's report and the only view of it: its body is the program, its children the
+     * evaluated top-level records, its time the run's total and its peak heap the run's peak.
+     */
     public GraphNodeContext root = new GraphNodeContext();
 
-    private final Map<String, Class<? extends MeshNode>> nodeRegistry = new HashMap<>();
+    /**
+     * Counts changes to {@link #root}: every reset and every evaluation entry point that ran, a
+     * full run or a {@link #pull}, adds one, so a reader re-reads the tree when it moves.
+     */
+    public int revision;
 
     /** Types known to call no group (leaf nodes, types the library lacks), each looked up once. */
     private final Set<String> nonGroupTypes = new HashSet<>();
@@ -126,8 +149,14 @@ public class NodeGraphRuntime {
     /** Samples used heap while a node runs, so the peak can be attributed to that node. */
     private final HeapSampler heapSampler = new HeapSampler();
 
-    /** Nesting depth of public evaluation entry points, so the sampler starts and stops once. */
+    /**
+     * Nesting depth of public evaluation entry points, so the sampler and the run's clock start
+     * and stop once.
+     */
     private int activeEvaluations;
+
+    /** When the outermost running entry point started, in {@link System#nanoTime} units. */
+    private long evaluationStartedNanos;
 
     /**
      * Whether a group call evaluates its whole body when called, as a source-order run does; a
@@ -141,50 +170,12 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * A runtime bound to a parsed program.
+     * A runtime bound to a parsed program, held as the body of {@link #root}.
      *
      * @param statements top-level statements in source order
      */
     public NodeGraphRuntime(List<PythonParser.ParsedNode> statements) {
-        this.statements = statements;
         reset(statements);
-    }
-
-    /**
-     * Per-node timing of the current run, every node of the tree included, depth first.
-     *
-     * @return insertion-ordered map keyed by {@code "path (type)"} with milliseconds spent in
-     *         each node, children included
-     */
-    public LinkedHashMap<String, Long> lastTimingMs() {
-        LinkedHashMap<String, Long> timing = new LinkedHashMap<>();
-        for (GraphNodeContext record : treeRecords()) {
-            timing.put(timingKey(record), record.elapsedMs());
-        }
-        return timing;
-    }
-
-    /**
-     * Total wall time of the current run.
-     *
-     * @return total graph execution time in milliseconds
-     */
-    public long lastTotalMs() {
-        return root.elapsedMs();
-    }
-
-    /**
-     * Peak used heap observed while each node of the current run ran, keyed exactly like
-     * {@link #lastTimingMs}. Process-wide, so it includes whatever earlier nodes still hold.
-     *
-     * @return insertion-ordered map keyed by {@code "path (type)"} with peak used heap in bytes
-     */
-    public LinkedHashMap<String, Long> lastPeakHeapBytes() {
-        LinkedHashMap<String, Long> peaks = new LinkedHashMap<>();
-        for (GraphNodeContext record : treeRecords()) {
-            peaks.put(timingKey(record), record.peakHeapBytes);
-        }
-        return peaks;
     }
 
     /**
@@ -276,8 +267,8 @@ public class NodeGraphRuntime {
     public static NodeGraphRuntime executeResource(String dslPath, Map<String, Object> overrides) {
         try {
             NodeGraphRuntime runtime = fromResource(dslPath);
-            String last = runtime.statements.get(runtime.statements.size() - 1).id;
-            runtime.executeGraphResult(runtime.statements, last, RESULT, overrides);
+            List<PythonParser.ParsedNode> program = runtime.root.body;
+            runtime.executeGraphResult(program, program.get(program.size() - 1).id, RESULT, overrides);
             return runtime;
         } catch (Exception failure) {
             throw new IllegalStateException("graph " + dslPath + " failed", failure);
@@ -316,16 +307,6 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Registers a node implementation under the DSL id used to call it.
-     *
-     * @param type DSL id (e.g. {@code "cube"}, {@code "extrude_mesh"})
-     * @param nodeClass {@link MeshNode} class instantiated for each call site of {@code type}
-     */
-    public void registerNode(String type, Class<? extends MeshNode> nodeClass) {
-        nodeRegistry.put(type, nodeClass);
-    }
-
-    /**
      * Register DSL group definitions, merged into the runtime's group table ahead of the library.
      *
      * @param defs group name to parsed body
@@ -335,53 +316,32 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * The desktop-only registry, reached through {@code Class.forName} so the class name never
-     * appears as a reference TeaVM can walk; in the browser the lookup fails and the map is empty.
-     * The name is the generated class's own plus the processor's suffix, so a move cannot break it.
-     *
-     * @return desktop-only node suppliers by id; empty when the class cannot load
-     */
-    @SuppressWarnings("unchecked")
-    public static Map<String, Supplier<? extends MeshNode>> desktopRegistryMap() {
-        try {
-            Class<?> desktop = Class.forName(
-                    MeshNodeRegistry_MeshNodes.class.getName() + RegistryProcessor.DESKTOP_SUFFIX);
-            return (Map<String, Supplier<? extends MeshNode>>) desktop.getField("MAP").get(null);
-        } catch (Throwable unavailable) {
-            return Map.of();
-        }
-    }
-
-    /**
-     * Log the current run's total wall time, plus the time and peak heap of every node that
-     * took 100ms or more. The project's rule of thumb: most steps take under a second, and
-     * anything slow usually means a planning or correctness problem, so it must be visible.
+     * Log the current run's report: its total and peak heap, plus every node that took
+     * {@link #SLOW_NODE_MS} or more. Most steps take under a second, and a slow one usually means a
+     * planning or correctness problem, so it must be visible.
      *
      * @param prefix log prefix naming the caller, e.g. {@code "[mesh-viewer]"}
      */
     public void logTimings(String prefix) {
-        StringBuilder line = new StringBuilder(prefix).append(" graph ").append(lastTotalMs()).append("ms");
-        for (GraphNodeContext record : treeRecords()) {
-            if (record.elapsedMs() >= SLOW_NODE_MS) {
-                line.append("  ").append(timingKey(record)).append('=').append(record.elapsedMs())
-                        .append("ms/")
-                        .append(Math.round(record.peakHeapBytes / HeapSampler.BYTES_PER_MIB))
-                        .append("MiB");
-            }
-        }
-        Platforms.log(line.toString());
+        Platforms.log(prefix + " graph run report " + String.join(LINE_BREAK, treeLines(SLOW_NODE_MS)));
     }
 
     /**
-     * The node tree of the current run as indented lines: one per record with its path, type,
-     * wall time and peak heap.
+     * The current run's report as text, the one form the log and node-inspect print: a total line
+     * with the run's time, peak heap and revision, then the node tree indented by depth.
      *
-     * @return the lines, a total line first
+     * @param minMs records faster than this are left out
+     * @return the lines, the total line first
      */
-    public List<String> treeLines() {
+    public List<String> treeLines(long minMs) {
         List<String> lines = new ArrayList<>();
-        lines.add("total " + lastTotalMs() + " ms");
+        lines.add("total " + root.elapsedMs() + " ms  "
+                + Math.round(root.peakHeapBytes / HeapSampler.BYTES_PER_MIB) + " MiB  revision "
+                + revision);
         for (GraphNodeContext record : treeRecords()) {
+            if (record.elapsedMs() < minMs) {
+                continue;
+            }
             int depth = record.path.split(GraphNodeContext.PATH_SEPARATOR).length;
             lines.add("  ".repeat(depth) + record.path + "  " + record.type + "  "
                     + record.elapsedMs() + " ms  "
@@ -414,60 +374,39 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * The supplier for a node id, whichever registry holds it.
+     * The supplier for a node id in {@link #REGISTERED_NODES}.
      *
      * @param type node id to look up
-     * @return the supplier, or {@code null} when neither registry has it
+     * @return the supplier, or {@code null} when no node is registered under it
      */
     public static Supplier<? extends MeshNode> supplierFor(String type) {
-        Supplier<? extends MeshNode> supplier = MeshNodeRegistry_MeshNodes.MAP.get(type);
-        return supplier != null ? supplier : DESKTOP_SUPPLIERS.get(type);
+        return REGISTERED_NODES.get(type);
     }
 
     /**
-     * Error text for a node id absent from this runtime's registry, naming the real cause when the
-     * id exists but only in the desktop registry this build cannot load.
+     * Error text for a node id absent from {@link #REGISTERED_NODES}, naming the real cause when
+     * the id exists but only in the desktop registry this build cannot load.
      *
      * @param type the unresolvable node id
-     * @return message for the thrown {@code IllegalStateException}
+     * @return message for the thrown exception
      */
     public static String missingNodeMessage(String type) {
         if (MeshNodeRegistry_MeshNodes.DESKTOP_ONLY_IDS.contains(type)) {
             return "Mesh node '" + type + "' is desktop-only and unavailable in this build";
         }
-        return "No mesh node supplier for type: " + type;
+        return "Unknown node type: " + type;
     }
 
     /**
-     * Map of DSL id to node class from the generated {@code MeshNodeRegistry_MeshNodes.MAP}.
-     *
-     * @return unmodifiable id-to-class view, cached in {@link #REGISTRY_CLASSES}
-     */
-    public static Map<String, Class<? extends MeshNode>> annotationRegistryClasses() {
-        return REGISTRY_CLASSES;
-    }
-
-    /**
-     * Registers every {@link ixdar.annotations.meshnode.MeshNodeAnnotation} id from the generated
-     * {@code MeshNodeRegistry_MeshNodes.MAP}.
-     */
-    public void registerAllFromAnnotationRegistry() {
-        for (Map.Entry<String, Class<? extends MeshNode>> e : annotationRegistryClasses().entrySet()) {
-            registerNode(e.getKey(), e.getValue());
-        }
-    }
-
-    /**
-     * Parses DSL source into a runtime holding the parsed {@link #statements}, every
-     * registered node and the program's own function definitions.
+     * Parses DSL source into a runtime whose {@link #root} holds the parsed program, with the
+     * program's own function definitions.
      *
      * @param source DSL program text
-     * @return a runtime ready to execute its statements
+     * @return a runtime ready to execute its program
      */
     public static NodeGraphRuntime fromSource(String source) {
         PythonParser parser = new PythonParser(new PythonLexer(source));
         NodeGraphRuntime runtime = new NodeGraphRuntime(parser.parseGraph());
-        runtime.registerAllFromAnnotationRegistry();
         runtime.registerFunctionDefs(parser.functionDefs());
         return runtime;
     }
@@ -527,13 +466,11 @@ public class NodeGraphRuntime {
         setOverrides(overridesByPath == null ? Map.of() : overridesByPath);
         evaluateWholeGroups = true;
         beginEvaluation();
-        long started = System.nanoTime();
         try {
             for (int index = 0; index < parsedStatements.size(); index++) {
                 evaluateStatement(root, index);
             }
         } finally {
-            root.elapsedNanos += System.nanoTime() - started;
             endEvaluation();
         }
 
@@ -547,14 +484,11 @@ public class NodeGraphRuntime {
             }
         }
 
-        // Fallback: walk nodes in reverse order and probe common mesh port names.
-        // This handles DSLs where the output node isn't named as expected.
+        // Fallback: walk the evaluated top-level records from the last and probe common mesh
+        // port names, for graphs whose output node isn't named as expected.
         String[] probeNames = { outputPortName, MESH, GEOMETRY, RESULT };
-        for (int i = parsedStatements.size() - 1; i >= 0; i--) {
-            GraphNodeContext ctx = root.childrenById.get(parsedStatements.get(i).id);
-            if (ctx == null) {
-                continue;
-            }
+        for (int child = root.children.size() - 1; child >= 0; child--) {
+            GraphNodeContext ctx = root.children.get(child);
             for (String port : probeNames) {
                 Object out = ctx.getOutput(port);
                 if (out != null) {
@@ -571,6 +505,7 @@ public class NodeGraphRuntime {
      * @param program top-level statements the next evaluation runs
      */
     public void reset(List<PythonParser.ParsedNode> program) {
+        revision++;
         root = new GraphNodeContext();
         root.body = program;
         root.graphInputs = graphInputs;
@@ -624,11 +559,9 @@ public class NodeGraphRuntime {
     public String[] validateOverrideKey(String key) {
         int dot = key.indexOf(PORT_SEPARATOR);
         String path = dot < 0 ? key : key.substring(0, dot);
-        Map<String, PythonParser.ParsedNode> paths = staticPaths();
-        PythonParser.ParsedNode statement = paths.get(path);
+        PythonParser.ParsedNode statement = statementAt(path);
         if (statement == null) {
-            throw new IllegalArgumentException("override " + key + ": no node at path '" + path
-                    + "'" + NEAREST + String.join(LIST_SEPARATOR, nearest(path, paths.keySet())));
+            throw new IllegalArgumentException("override " + key + ": " + noNodeAt(path));
         }
         if (dot < 0) {
             if (INPUT_NODE_TYPES.contains(statement.type)) {
@@ -653,30 +586,77 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Every node path the current program can evaluate, group bodies included, with the
-     * statement at each. Walks the source, so nothing runs.
+     * The statement at a node path of the program, found by walking {@link #root}'s body and the
+     * bodies of the groups it calls, so nothing runs.
      *
-     * @return statements by path, in source order
+     * @param path {@code /}-joined call-site ids, e.g. {@code layout/field}
+     * @return the statement, the last of its id in its scope as references resolve, or
+     *         {@code null} when no statement is at the path ({@link #noNodeAt} says why)
      */
-    public Map<String, PythonParser.ParsedNode> staticPaths() {
-        Map<String, PythonParser.ParsedNode> paths = new LinkedHashMap<>();
-        collectPaths(root.body, "", 0, paths);
-        return paths;
+    public PythonParser.ParsedNode statementAt(String path) {
+        List<PythonParser.ParsedNode> body = root.body;
+        PythonParser.ParsedNode statement = null;
+        for (String segment : path.split(GraphNodeContext.PATH_SEPARATOR, -1)) {
+            int index = indexOf(body, segment, body.size());
+            if (index < 0) {
+                return null;
+            }
+            statement = body.get(index);
+            PythonParser.FunctionDef group = lookupGroup(statement);
+            body = group == null ? List.of() : group.body;
+        }
+        return statement;
     }
 
     /**
-     * Adds a scope's statements to the path map, descending into each group call.
+     * Why {@link #statementAt} found nothing at a path: the path and the real paths nearest it by
+     * Levenshtein distance.
+     *
+     * @param path the path no statement is at
+     * @return {@code no node at path '...'; nearest: ...}
+     */
+    public String noNodeAt(String path) {
+        List<String> ranked = new ArrayList<>();
+        collectPaths(root.body, "", 0, ranked);
+        Map<String, Integer> distances = new HashMap<>();
+        for (String candidate : ranked) {
+            int[] previous = new int[candidate.length() + 1];
+            int[] current = new int[candidate.length() + 1];
+            for (int column = 0; column <= candidate.length(); column++) {
+                previous[column] = column;
+            }
+            for (int row = 1; row <= path.length(); row++) {
+                current[0] = row;
+                for (int column = 1; column <= candidate.length(); column++) {
+                    int substitution = previous[column - 1]
+                            + (path.charAt(row - 1) == candidate.charAt(column - 1) ? 0 : 1);
+                    current[column] = Math.min(substitution, Math.min(previous[column], current[column - 1]) + 1);
+                }
+                int[] swap = previous;
+                previous = current;
+                current = swap;
+            }
+            distances.put(candidate, previous[candidate.length()]);
+        }
+        ranked.sort((left, right) -> Integer.compare(distances.get(left), distances.get(right)));
+        return "no node at path '" + path + "'" + NEAREST
+                + String.join(LIST_SEPARATOR, ranked.subList(0, Math.min(NEAREST_PATH_COUNT, ranked.size())));
+    }
+
+    /**
+     * Adds the path of every statement of a scope to a list, descending into each group call, for
+     * the nearest-path suggestions of {@link #noNodeAt}.
      *
      * @param body   statements of the scope
      * @param prefix path of the scope with a trailing separator, empty at the top level
      * @param depth  group nesting depth of the scope
-     * @param paths  map receiving statements by path
+     * @param paths  list receiving the paths in source order
      */
     private void collectPaths(List<PythonParser.ParsedNode> body, String prefix, int depth,
-            Map<String, PythonParser.ParsedNode> paths) {
+            List<String> paths) {
         for (PythonParser.ParsedNode statement : body) {
             String path = prefix + statement.id;
-            paths.put(path, statement);
+            paths.add(path);
             PythonParser.FunctionDef group = lookupGroup(statement);
             if (group != null && depth < MAX_GROUP_DEPTH) {
                 collectPaths(group.body, path + GraphNodeContext.PATH_SEPARATOR, depth + 1, paths);
@@ -715,40 +695,6 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * The candidates closest to a mistyped path by Levenshtein distance.
-     *
-     * @param path       the path that matched nothing
-     * @param candidates real paths
-     * @return up to {@link #NEAREST_PATH_COUNT} paths, nearest first
-     */
-    public static List<String> nearest(String path, Set<String> candidates) {
-        List<String> ranked = new ArrayList<>(candidates);
-        Map<String, Integer> distances = new HashMap<>();
-        for (String candidate : ranked) {
-            int[] previous = new int[candidate.length() + 1];
-            int[] current = new int[candidate.length() + 1];
-            for (int column = 0; column <= candidate.length(); column++) {
-                previous[column] = column;
-            }
-            for (int row = 1; row <= path.length(); row++) {
-                current[0] = row;
-                for (int column = 1; column <= candidate.length(); column++) {
-                    int substitution = previous[column - 1]
-                            + (path.charAt(row - 1) == candidate.charAt(column - 1) ? 0 : 1);
-                    current[column] = Math.min(substitution,
-                            Math.min(previous[column], current[column - 1]) + 1);
-                }
-                int[] swap = previous;
-                previous = current;
-                current = swap;
-            }
-            distances.put(candidate, previous[candidate.length()]);
-        }
-        ranked.sort((left, right) -> Integer.compare(distances.get(left), distances.get(right)));
-        return ranked.subList(0, Math.min(NEAREST_PATH_COUNT, ranked.size()));
-    }
-
-    /**
      * Evaluates only what one output depends on, keeping everything already evaluated in the
      * current run, so a scene asking for a pipeline prefix never runs the rest of it.
      *
@@ -764,25 +710,20 @@ public class NodeGraphRuntime {
         if (dot < 0 || dot < lastSegment) {
             throw new IllegalArgumentException("pull " + reference + ": expected path.port");
         }
+        String path = reference.substring(0, dot);
+        if (statementAt(path) == null) {
+            throw new IllegalArgumentException("pull " + reference + ": " + noNodeAt(path));
+        }
         evaluateWholeGroups = false;
         beginEvaluation();
-        long started = System.nanoTime();
         try {
             GraphNodeContext record = root;
-            for (String segment : reference.substring(0, dot).split(GraphNodeContext.PATH_SEPARATOR)) {
-                int index = indexOf(record.body, segment, record.body.size());
-                if (index < 0) {
-                    throw new IllegalArgumentException("pull " + reference + ": no node '" + segment
-                            + "' under " + (record.path.isEmpty() ? "the top level" : record.path)
-                            + NEAREST + String.join(LIST_SEPARATOR,nearest(reference.substring(0, dot),
-                                    staticPaths().keySet())));
-                }
-                record = evaluateStatement(record, index);
+            for (String segment : path.split(GraphNodeContext.PATH_SEPARATOR)) {
+                record = evaluateStatement(record, indexOf(record.body, segment, record.body.size()));
             }
             throwDeferredFailures();
             return readOutput(record, reference.substring(dot + 1));
         } finally {
-            root.elapsedNanos += System.nanoTime() - started;
             endEvaluation();
         }
     }
@@ -796,19 +737,30 @@ public class NodeGraphRuntime {
     private void throwDeferredFailures() {
         if (!deferredFailures.isEmpty()) {
             throw new IllegalArgumentException(deferredFailures.size()
-                    + " failure(s) in the graph:\n" + String.join("\n", deferredFailures));
+                    + " failure(s) in the graph:\n" + String.join(LINE_BREAK, deferredFailures));
         }
     }
 
+    /**
+     * Opens an evaluation entry point; the outermost starts the heap sampler and the run's clock,
+     * so a full run and a pull time the run the same way and a nested entry is not counted twice.
+     */
     private void beginEvaluation() {
         if (activeEvaluations++ == 0) {
             heapSampler.start();
+            evaluationStartedNanos = System.nanoTime();
         }
     }
 
+    /**
+     * Closes an evaluation entry point; the outermost adds its wall time to the run's total,
+     * stops the sampler and moves {@link #revision}.
+     */
     private void endEvaluation() {
         if (--activeEvaluations == 0) {
+            root.elapsedNanos += System.nanoTime() - evaluationStartedNanos;
             heapSampler.stop();
+            revision++;
         }
     }
 
@@ -894,12 +846,9 @@ public class NodeGraphRuntime {
         PythonParser.FunctionDef group = lookupGroup(statement);
         Supplier<? extends MeshNode> supplier = supplierFor(statement);
         if (group == null) {
-            String where = scope.group == null ? "" : IN_FUNCTION + scope.group.name + "': ";
-            if (statement.supplier == null && nodeRegistry.get(record.type) == null) {
-                throw new IllegalArgumentException(where + "Unknown node type: " + record.type);
-            }
             if (supplier == null) {
-                throw new IllegalStateException(missingNodeMessage(record.type));
+                String where = scope.group == null ? "" : IN_FUNCTION + scope.group.name + "': ";
+                throw new IllegalArgumentException(where + missingNodeMessage(record.type));
             }
             record.node = supplier.get();
             long started = System.nanoTime();
@@ -999,10 +948,17 @@ public class NodeGraphRuntime {
                     }
                 }
                 record.node.evaluate(record);
-                // An output the group left unset reads as null rather than evaluating again.
+                // A computed output's sources are the wired outputs it was computed from; one the
+                // group left unset reads as null rather than evaluating again.
+                List<Object> wiredSources = new ArrayList<>();
+                for (String wired : group.outputs.keySet()) {
+                    wiredSources.add(record.outputSources.get(wired));
+                }
                 for (OutputPort declared : record.node.outputs()) {
                     if (!record.hasOutput(declared.name)) {
                         record.setOutput(declared.name, null);
+                    } else if (!group.outputs.containsKey(declared.name)) {
+                        record.outputSources.put(declared.name, Collections.unmodifiableList(wiredSources));
                     }
                 }
             }
@@ -1113,9 +1069,9 @@ public class NodeGraphRuntime {
         if (group != null || nonGroupTypes.contains(type)) {
             return group;
         }
-        if (statement.supplier != null || nodeRegistry.containsKey(type)) {
-            Supplier<? extends MeshNode> supplier = supplierFor(statement);
-            if (supplier == null || !(supplier.get() instanceof NodeGroup compiled)) {
+        Supplier<? extends MeshNode> supplier = supplierFor(statement);
+        if (supplier != null) {
+            if (!(supplier.get() instanceof NodeGroup compiled)) {
                 nonGroupTypes.add(type);
                 return null;
             }
@@ -1144,10 +1100,6 @@ public class NodeGraphRuntime {
             functionDefs.putIfAbsent(def.getKey(), def.getValue());
         }
         return functionDefs.get(type);
-    }
-
-    private static String timingKey(GraphNodeContext record) {
-        return record.path + " (" + record.type + ")";
     }
 
     private static MeshTopology meshFromNodeOutputs(GraphNodeContext context) {

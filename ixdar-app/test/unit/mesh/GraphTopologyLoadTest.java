@@ -100,7 +100,7 @@ class GraphTopologyLoadTest {
         String source = new String(GraphTopologyLoadTest.class.getClassLoader().getResourceAsStream(dslPath)
                 .readAllBytes(), StandardCharsets.UTF_8);
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
-        List<PythonParser.ParsedNode> ast = runtime.statements;
+        List<PythonParser.ParsedNode> ast = runtime.root.body;
         MeshTopology mesh = runtime.executeGraphToMesh(ast, ast.get(ast.size() - 1).id, GEOMETRY_PORT);
         assertNotNull(mesh, dslPath + " produced no mesh");
         return mesh;

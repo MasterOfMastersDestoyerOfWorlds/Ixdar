@@ -53,7 +53,7 @@ public final class RingRegionsUpdateBenchmark {
         String graphPath = System.getProperty(RING_GRAPH_PROPERTY, DEFAULT_RING_GRAPH);
         NodeGraphRuntime graph = NodeGraphRuntime.fromSource(
                 new String(Files.readAllBytes(Path.of(graphPath)), StandardCharsets.UTF_8));
-        List<PythonParser.ParsedNode> statements = graph.statements;
+        List<PythonParser.ParsedNode> statements = graph.root.body;
         GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(statements,
                 statements.get(statements.size() - 1).id, GEOMETRY_PORT);
         List<String> labels = new ArrayList<>();
