@@ -71,7 +71,7 @@ public class ChangeToolCommand extends TerminalCommand {
      */
     public static void run(Tool t) {
         t.reset();
-        MainScene.tool = t;
+        MainScene.current().tool = t;
     }
 
     /**

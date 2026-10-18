@@ -50,7 +50,7 @@ public class OrbitMouseTrap extends MouseTrap {
      * @param canvas owning canvas
      */
     public OrbitMouseTrap(Camera3D camera, Scene canvas) {
-        super(null, camera, canvas);
+        super(camera, canvas);
         this.orbitCamera = camera;
         applyOrbit();
     }

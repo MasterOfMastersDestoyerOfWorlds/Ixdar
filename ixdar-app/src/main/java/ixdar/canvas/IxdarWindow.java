@@ -79,7 +79,7 @@ public class IxdarWindow {
     public static long window;
     private static final String FATAL_PREFIX = "Exception in thread \"main\" ";
 
-    private static Scene canvas;
+    private static volatile Scene canvas;
     private static String canvasId;
     private static int windowWidth;
     private static int windowHeight;
@@ -140,6 +140,7 @@ public class IxdarWindow {
             throw new RuntimeException(CANVAS3D_NOT_FOUND_FOR + canvasId);
         }
         canvas = (Scene) sceneSupplier.get();
+        AutomationRuntime.get().start(canvas);
         canvas.initGL();
         canvas.sceneReady = true;
         System.out.println("[headless] scene '" + canvasId + "' ready at " + size + "x" + size
@@ -147,7 +148,7 @@ public class IxdarWindow {
 
         try {
             while (true) {
-                canvas.paintGL();
+                canvas = canvas.paintFrame();
                 Thread.sleep(POLL_INTERVAL_MS);
             }
         } catch (InterruptedException interrupted) {
@@ -259,6 +260,7 @@ public class IxdarWindow {
             throw new RuntimeException(CANVAS3D_NOT_FOUND_FOR + canvasId);
         }
         canvas = (Scene) cs.get();
+        AutomationRuntime.get().start(canvas);
         canvas.initGL();
         canvas.sceneReady = true;
         if (gb != null) {
@@ -275,7 +277,7 @@ public class IxdarWindow {
             GL.createCapabilities();
             while (!glfwWindowShouldClose(window)) {
                 Platforms.get().processInputQueue();
-                canvas.paintGL();
+                canvas = canvas.paintFrame();
                 glfwSwapBuffers(window);
             }
         });

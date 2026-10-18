@@ -15,7 +15,7 @@ import ixdar.graphics.render.text.HyperChar;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.actions.Action;
 import ixdar.platform.input.MouseTrap;
-import ixdar.scenes.main.MainScene;
+import ixdar.scenes.Scene;
 
 public class HyperString {
     public static final int TOOLTIP_CHAR_WRAP = 30;
@@ -203,8 +203,8 @@ public class HyperString {
      */
     public void addTooltip(String word, Color c, HyperString toolTipText, Action clickAction) {
         for (String w : word.split(" ")) {
-            words.add(new HyperWord(w + " ", c, () -> MainScene.setTooltipText(toolTipText), () -> MainScene.clearTooltipText(),
-                    clickAction, font));
+            words.add(new HyperWord(w + " ", c, () -> Scene.instance.setTooltipText(toolTipText),
+                    () -> Scene.instance.clearTooltipText(), clickAction, font));
         }
     }
 
@@ -218,52 +218,58 @@ public class HyperString {
      */
     public void addDynamicTooltip(Supplier<ColorText<?>> wordAction, Color c, HyperString toolTipText,
             Action clickAction) {
-        words.add(new HyperWord(wordAction, c, () -> MainScene.setTooltipText(toolTipText), () -> MainScene.clearTooltipText(),
-                clickAction, font));
+        words.add(new HyperWord(wordAction, c, () -> Scene.instance.setTooltipText(toolTipText),
+                () -> Scene.instance.clearTooltipText(), clickAction, font));
     }
 
     /**
-     * Append a clickable word that, while hovered, highlights {@code hoverKnot}
-     * and shows a tooltip describing its identifier.
+     * Append a clickable word that, while hovered, runs {@code highlight}
+     * and shows a tooltip describing {@code hoverKnot}'s identifier.
      *
      * @param word word text
      * @param c color for the word
-     * @param hoverKnot mesh-node knot to highlight
+     * @param hoverKnot mesh-node knot the tooltip describes
+     * @param highlight action that highlights the knot when the hover starts
+     * @param clearHighlight action that drops the highlight when the hover ends
      * @param clickAction action invoked on click
      */
-    public void addHoverKnot(String word, Color c, Knot hoverKnot, Action clickAction) {
+    public void addHoverKnot(String word, Color c, Knot hoverKnot, Action highlight, Action clearHighlight,
+            Action clickAction) {
         HyperString knotText = new HyperString();
         children.add(knotText);
         knotText.addWord(hoverKnot.toString() + " FlatID: " + hoverKnot.id, c);
         knotText.setWrap(true, TOOLTIP_CHAR_WRAP);
         words.add(new HyperWord(word, c, () -> {
-            MainScene.setHoverKnot(hoverKnot);
-            MainScene.setTooltipText(knotText);
+            highlight.perform();
+            Scene.instance.setTooltipText(knotText);
         }, () -> {
-            MainScene.clearHoverKnot();
-            MainScene.clearTooltipText();
+            clearHighlight.perform();
+            Scene.instance.clearTooltipText();
         }, clickAction, font));
     }
 
     /**
-     * Append a clickable word that, while hovered, highlights {@code segment}
-     * and shows a tooltip with its distance.
+     * Append a clickable word that, while hovered, runs {@code highlight}
+     * and shows a tooltip with {@code segment}'s distance.
      *
      * @param str word text
      * @param c color for the word
-     * @param segment knot segment to highlight
+     * @param segment knot segment the tooltip describes
+     * @param highlight action that highlights the segment when the hover starts
+     * @param clearHighlight action that drops the highlight when the hover ends
      * @param clickAction action invoked on click
      */
-    public void addHoverSegment(String str, Color c, Segment segment, Action clickAction) {
+    public void addHoverSegment(String str, Color c, Segment segment, Action highlight, Action clearHighlight,
+            Action clickAction) {
         HyperString segmentInfo = new HyperString();
         children.add(segmentInfo);
         segmentInfo.addDistance(segment.distance, c);
         words.add(new HyperWord(str, c, () -> {
-            MainScene.setHoverSegment(segment, c);
-            MainScene.setTooltipText(segmentInfo);
+            highlight.perform();
+            Scene.instance.setTooltipText(segmentInfo);
         }, () -> {
-            MainScene.clearHoverSegment();
-            MainScene.clearTooltipText();
+            clearHighlight.perform();
+            Scene.instance.clearTooltipText();
         }, clickAction, font));
     }
 

@@ -123,8 +123,9 @@ public class KeyGuy extends Camera2DInputController {
     }
 
     /**
-     * Handle a key-up: Escape steps the menu back, R resets the camera, then {@code key} leaves
-     * {@link #pressedKeys} and each modifier mask holds only while one of its keys is down.
+     * Handle a key-up: the scene's release shortcuts through {@link #sceneKeyReleased}, then
+     * {@code key} leaves {@link #pressedKeys} and each modifier mask holds only while one of its
+     * keys is down.
      *
      * @param key  key code that was released
      * @param mask modifier-key bitmask
@@ -135,17 +136,25 @@ public class KeyGuy extends Camera2DInputController {
         }
         recordAbstractAction("key_release", KEY, key, "mask", mask);
         if (canvas.active && !terminalOwnsKey(key)) {
-            if (KeyActions.Back.keyPressed(pressedKeys) && canvas instanceof MenuScene menuScene
-                    && menuScene.menu != null) {
-                menuScene.menu.back();
-            }
-            if (KeyActions.Reset.keyPressed(pressedKeys)) {
-                camera.reset();
-            }
+            sceneKeyReleased();
         }
         pressedKeys.remove(key);
         controlMask = pressedKeys.contains(LEFT_CONTROL) || pressedKeys.contains(RIGHT_CONTROL);
         shiftMask = pressedKeys.contains(LEFT_SHIFT) || pressedKeys.contains(RIGHT_SHIFT);
+    }
+
+    /**
+     * Fire the release shortcuts of an active scene for a key the terminal does not own, while
+     * {@link #pressedKeys} still holds the key: Escape steps the menu back, R resets the camera.
+     */
+    public void sceneKeyReleased() {
+        if (KeyActions.Back.keyPressed(pressedKeys) && canvas instanceof MenuScene menuScene
+                && menuScene.menu != null) {
+            menuScene.menu.back();
+        }
+        if (KeyActions.Reset.keyPressed(pressedKeys)) {
+            camera.reset();
+        }
     }
 
     /**

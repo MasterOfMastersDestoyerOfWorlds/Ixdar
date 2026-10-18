@@ -44,14 +44,15 @@ public class SubGraphCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
+        MainScene editor = MainScene.current();
         ArrayList<Range> ranges = new ArrayList<>();
         for (int i = startIdx; i < args.length; i++) {
             String arg = args[i];
             try {
                 Range r = Range.parse(arg);
-                if (!MainScene.orgShell.hasPoint(r.startIdx)) {
+                if (!editor.orgShell.hasPoint(r.startIdx)) {
                     terminal.error(ARGUMENT + arg + WAS_OUT_OF_BOUNDS);
-                } else if (!MainScene.orgShell.hasPoint(r.endIdx)) {
+                } else if (!editor.orgShell.hasPoint(r.endIdx)) {
                     terminal.error(ARGUMENT + arg + WAS_OUT_OF_BOUNDS);
                 }
                 ranges.add(r);
@@ -80,7 +81,7 @@ public class SubGraphCommand extends TerminalCommand {
         String newPath = terminal.directory + PATH_SEPARATOR + subGraphFileName;
         Shell subGraph = new Shell();
         for (Range r : ranges) {
-            subGraph.addAllInRange(r, MainScene.orgShell);
+            subGraph.addAllInRange(r, editor.orgShell);
         }
 
         PointSetPath.rewriteSolutionFile(newPath, subGraph);

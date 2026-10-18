@@ -28,7 +28,6 @@ import ixdar.platform.gl.GlslSource;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.Platform;
-import ixdar.scenes.main.MainScene;
 
 public abstract class ShaderProgram {
     public static final String FONT_VS = "font.vs";
@@ -421,7 +420,7 @@ public abstract class ShaderProgram {
                 }
             }
         } catch (IOException e) {
-            MainScene.terminal.error("Could not Hot Reload: " + e.getMessage());
+            Platforms.get().log("Could not Hot Reload: " + e.getMessage());
         }
     }
 

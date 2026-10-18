@@ -11,7 +11,6 @@ import ixdar.platform.Platforms;
 import ixdar.scenes.main.Toggle;
 import ixdar.platform.AutomationBackend;
 import ixdar.scenes.Scene;
-import ixdar.scenes.main.MainScene;
 import ixdar.scenes.menu.MenuScene;
 
 import java.util.List;
@@ -66,7 +65,6 @@ public class MouseTrap {
     public long timeLastScroll;
     public double startX;
     public double startY;
-    MainScene main;
     int width;
     int height;
 
@@ -74,14 +72,12 @@ public class MouseTrap {
     Vector2f leftMouseDownPos;
 
     /**
-     * Build a mouse controller bound to a scene, camera, and canvas.
+     * Build a mouse controller bound to a camera and canvas.
      *
-     * @param main owning {@link MainScene}, or {@code null} for non-main scenes
      * @param camera camera to drive (pan, hover, zoom)
      * @param canvas owning canvas (provides platform ID)
      */
-    public MouseTrap(MainScene main, Camera camera, Scene canvas) {
-        this.main = main;
+    public MouseTrap(Camera camera, Scene canvas) {
         this.camera = camera;
         this.canvas = canvas;
     }
@@ -131,9 +127,10 @@ public class MouseTrap {
     }
 
     /**
-     * Fired on a press/release pair that didn't move far enough to count as a drag. Routes to
-     * the focused pane's tool/terminal, calls hover handlers on every {@code HyperString}, and
-     * dispatches to any subscribed click region (which short-circuits if matched).
+     * Fired on a press/release pair that didn't move far enough to count as a drag. Focuses the
+     * pane under the cursor and hands it the click through {@link #paneClicked}, calls hover
+     * handlers on every {@code HyperString}, and dispatches to any subscribed click region (which
+     * short-circuits if matched).
      *
      * @param xPos cursor x in window pixels
      * @param yPos cursor y in window pixels
@@ -146,7 +143,7 @@ public class MouseTrap {
         normalizedPosX = camera.getNormalizePosX(xPos);
         normalizedPosY = camera.getNormalizePosY(yPos);
 
-        PaneTypes inMainView = MainScene.inView(xPos, yPos);
+        PaneTypes inMainView = paneAt(xPos, yPos);
         recordAbstractAction("mouse_click",
                 "button", button,
                 "pane", inMainView.name(),
@@ -157,13 +154,7 @@ public class MouseTrap {
                 "xNorm", xPos / Math.max(MIN_WINDOW_DIMENSION, Platforms.get().getWindowWidth()),
                 "yNorm", yPos / Math.max(MIN_WINDOW_DIMENSION, Platforms.get().getWindowHeight()));
         Toggle.setPanelFocus(inMainView);
-        if (MainScene.manifoldKnot != null && MainScene.active) {
-            if (inMainView == PaneTypes.KnotView) {
-                MainScene.tool.calculateClick(normalizedPosX, normalizedPosY);
-            } else if (inMainView == PaneTypes.Terminal) {
-                MainScene.terminal.calculateClick(normalizedPosX, normalizedPosY);
-            }
-        }
+        paneClicked(inMainView);
 
         for (HyperString h : hyperStrings) {
             h.click(normalizedPosX, normalizedPosY);
@@ -195,6 +186,35 @@ public class MouseTrap {
     }
 
     /**
+     * The pane of the scene's layout under a window point; the base trap's scenes have one
+     * undivided view, so none.
+     *
+     * @param x window-space x in pixels
+     * @param y window-space y in pixels, top-down
+     * @return {@link PaneTypes#None}
+     */
+    public PaneTypes paneAt(float x, float y) {
+        return PaneTypes.None;
+    }
+
+    /**
+     * Hand a click at {@link #normalizedPosX}, {@link #normalizedPosY} to the pane it fell in,
+     * after that pane took focus; the base trap's panes take no clicks.
+     *
+     * @param pane the pane under the click, from {@link #paneAt}
+     */
+    public void paneClicked(PaneTypes pane) {
+    }
+
+    /**
+     * Hand a cursor move to the pane it is over; the base trap's panes show no hover.
+     *
+     * @param pane the pane under the cursor, from {@link #paneAt}
+     */
+    public void paneHovered(PaneTypes pane) {
+    }
+
+    /**
      * Cache the normalized press position as the drag start point.
      *
      * @param x cursor x in window pixels
@@ -219,7 +239,7 @@ public class MouseTrap {
         normalizedPosX = camera.getNormalizePosX(x);
         normalizedPosY = camera.getNormalizePosY(y);
 
-        PaneTypes inMainView = MainScene.inView((float) leftMouseDownPos.x, (float) leftMouseDownPos.y);
+        PaneTypes inMainView = paneAt((float) leftMouseDownPos.x, (float) leftMouseDownPos.y);
         if (inMainView == PaneTypes.KnotView) {
             camera.drag((float) (normalizedPosX - startX), (float) (normalizedPosY - startY));
             startX = normalizedPosX;
@@ -241,12 +261,9 @@ public class MouseTrap {
     }
 
     /**
-     * Cursor-exit hook: clears any active tool hover so stale highlights don't linger.
+     * Cursor-exit hook; default is a no-op.
      */
     public void mouseExited() {
-        if (main != null) {
-            MainScene.tool.clearHover();
-        }
     }
 
     /**
@@ -358,8 +375,8 @@ public class MouseTrap {
 
     /**
      * Move-without-drag entry point: updates normalized position and last pixel coordinates,
-     * notifies the camera, runs menu hover, runs the active tool's hover (only inside KnotView),
-     * and re-runs HyperString hover.
+     * notifies the camera, runs menu hover, hands the move to the pane under the cursor through
+     * {@link #paneHovered}, and re-runs HyperString hover.
      *
      * @param x cursor x in window pixels
      * @param y cursor y in window pixels
@@ -378,14 +395,7 @@ public class MouseTrap {
             menuScene.menu.setHover(normalizedPosX, normalizedPosY);
         }
 
-        PaneTypes inMainView = MainScene.inView(x, y);
-        if (main != null && MainScene.active) {
-            if (inMainView == PaneTypes.KnotView) {
-                MainScene.tool.calculateHover(normalizedPosX, normalizedPosY);
-            } else {
-                MainScene.tool.clearHover();
-            }
-        }
+        paneHovered(paneAt(x, y));
         updateHyperStrings();
 
         hyperStrings = new ArrayList<>();
@@ -401,7 +411,7 @@ public class MouseTrap {
         if (System.currentTimeMillis() - timeLastScroll > SCROLL_DECAY_MS) {
             queuedScrollDelta = 0;
         }
-        PaneTypes view = MainScene.inView(lastX, lastY);
+        PaneTypes view = paneAt(lastX, lastY);
 
         if (queuedScrollDelta != 0) {
             if (view != PaneTypes.None) {

@@ -65,9 +65,10 @@ public class MapEditorTool extends Tool {
         startKP = null;
         startCP = null;
         colorLookup = null;
-        MainScene.updateKnotsDisplayed();
+        MainScene editor = MainScene.current();
+        editor.updateKnotsDisplayed();
         pointCollectionClassMap = Terminal.pointCollectionClassMap;
-        currentCollectionType = MainScene.grid.allowableTypes()[0];
+        currentCollectionType = editor.grid.allowableTypes()[0];
         currentCollection = pointCollectionClassMap.get(currentCollectionType);
         instruct();
     }
@@ -84,12 +85,13 @@ public class MapEditorTool extends Tool {
     public void calculateHover(float mouseX, float mouseY) {
         mouseX = mouseX - ScreenOffsetX;
         mouseY = mouseY - ScreenOffsetY;
-        Camera2D camera = MainScene.camera;
-        camera.calculateCameraTransform(MainScene.retTup.ps);
+        MainScene editor = MainScene.current();
+        Camera2D camera = editor.editorCamera;
+        camera.calculateCameraTransform(editor.retTup.ps);
         float x = camera.screenTransformX(mouseX);
         float y = camera.screenTransformY(mouseY);
         if (Toggle.SnapToGrid.value) {
-            Grid grid = MainScene.grid;
+            Grid grid = editor.grid;
             hoverPoint = grid.coordinateToNearestGridPoint(x, y);
             hoverPoint.x = camera.pointTransformX(hoverPoint.x);
             hoverPoint.y = camera.pointTransformY(hoverPoint.y);
@@ -155,24 +157,25 @@ public class MapEditorTool extends Tool {
      * the user knows what this state expects next.
      */
     public void instruct() {
+        Terminal terminal = MainScene.current().terminal;
         switch (state) {
         case Add:
-            MainScene.terminal.instruct("Add a " + currentCollection.fullName() + " to the grid by clicking.");
+            terminal.instruct("Add a " + currentCollection.fullName() + " to the grid by clicking.");
             break;
         case Delete:
-            MainScene.terminal.instruct("Select any group and press enter to remove it from the grid.");
+            terminal.instruct("Select any group and press enter to remove it from the grid.");
             break;
         case Group:
-            MainScene.terminal.instruct("Select any number of points and groups and press enter to group them together.");
+            terminal.instruct("Select any number of points and groups and press enter to group them together.");
             break;
         case UnGroup:
-            MainScene.terminal.instruct("Select any group and press enter to ungroup them.");
+            terminal.instruct("Select any group and press enter to ungroup them.");
             break;
         case Move:
-            MainScene.terminal.instruct("Select any point or group and drag to move it.");
+            terminal.instruct("Select any point or group and drag to move it.");
             break;
         default:
-            MainScene.terminal.clearInstruct();
+            terminal.clearInstruct();
             break;
         }
     }
@@ -213,7 +216,7 @@ public class MapEditorTool extends Tool {
 
         h.addWord("Position:");
         if (displayKP == null) {
-            h.addWord(MainScene.grid.toCoordString());
+            h.addWord(MainScene.current().grid.toCoordString());
         } else {
             PointND coordPoint = (displayKP).p;
             h.addWord(coordPoint.toCoordString());

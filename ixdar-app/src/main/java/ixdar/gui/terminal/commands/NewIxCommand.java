@@ -69,21 +69,19 @@ public class NewIxCommand extends TerminalCommand {
     }
 
     /**
-     * Refresh the test-file cache for {@code fileName}, deactivate the existing canvas,
-     * run {@link MainScene#main} on the new file, then activate the scene.
+     * Refresh the test-file cache for {@code fileName}, then {@link MainScene#open} the new file
+     * in an editor that replaces the current scene from the next frame.
      *
      * @param fileName base filename for the new {@code .ix} file
      * @throws TerminalParseException if scene initialisation fails with an {@link java.io.IOException}
      */
     public static void run(String fileName) throws TerminalParseException {
         FileManagement.updateTestFileCache(fileName);
-        MainScene.canvas.activate(false);
         try {
-            MainScene.main(new String[] { fileName });
+            MainScene.open(fileName);
         } catch (IOException e) {
             throw new TerminalParseException(e.getMessage());
         }
-        MainScene.activate(true);
 
     }
 

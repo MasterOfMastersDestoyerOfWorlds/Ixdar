@@ -148,7 +148,8 @@ public final class WebLauncher {
             canvas.setWidth(w);
             canvas.setHeight(h);
             Platforms.get().setFrameBufferSize(w, h);
-            canvas3d.paintGL();
+            Scene.instance = canvas3d;
+            canvas3dScenes[i] = canvas3d.paintFrame();
         } else {
             if (gl != null) {
                 // Ensure viewport per-canvas before drawing fallback

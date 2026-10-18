@@ -5,7 +5,6 @@ import static ixdar.platform.input.Keys.ACTION_RELEASE;
 
 import org.joml.Vector2f;
 
-import ixdar.scenes.Scene;
 import ixdar.game.City;
 import ixdar.graphics.cameras.Camera;
 import ixdar.platform.Clock;
@@ -40,14 +39,14 @@ public class TradeMouseTrap extends MouseTrap {
     private boolean automationInputInProgress = false;
 
     /**
-     * Build a trade-scene mouse controller bound to the given camera and canvas.
+     * Build a trade-scene mouse controller bound to the given camera.
      *
-     * @param tradeScene owning trade scene (used for city hit-testing and tool dispatch)
+     * @param tradeScene owning trade scene (used for city hit-testing and tool dispatch), also the
+     *                   owning canvas
      * @param camera camera the controller drives
-     * @param canvas owning canvas
      */
-    public TradeMouseTrap(TradeScene tradeScene, Camera camera, Scene canvas) {
-        super(null, camera, canvas);
+    public TradeMouseTrap(TradeScene tradeScene, Camera camera) {
+        super(camera, tradeScene);
         this.tradeScene = tradeScene;
     }
 
@@ -140,14 +139,14 @@ public class TradeMouseTrap extends MouseTrap {
         if (!active)
             return;
 
-        if (tradeScene.activeTool instanceof RoutePlanningTool) {
-            RoutePlanningTool routeTool = (RoutePlanningTool) tradeScene.activeTool;
+        if (tradeScene.activeTradeTool instanceof RoutePlanningTool) {
+            RoutePlanningTool routeTool = (RoutePlanningTool) tradeScene.activeTradeTool;
             if (routeTool.onToolbarClick(x, y)) {
                 recordAbstractAction(TRADE_CITY_CLICK,
                         BUTTON, button,
                         XPX, x,
                         YPX, y,
-                        TOOL, tradeScene.activeTool.displayName(),
+                        TOOL, tradeScene.activeTradeTool.displayName(),
                         CITY, "",
                         "target", "toolbar");
                 return;
@@ -158,15 +157,14 @@ public class TradeMouseTrap extends MouseTrap {
         normalizedPosY = camera.getNormalizePosY(y);
 
         // Convert to world coordinates and check for city click
-        float worldX = TradeScene.camera.screenTransformX(normalizedPosX);
-        float worldY = TradeScene.camera.screenTransformY(normalizedPosY);
+        float worldX = tradeScene.mapCamera.screenTransformX(normalizedPosX);
+        float worldY = tradeScene.mapCamera.screenTransformY(normalizedPosY);
 
         System.out
                 .println("[TradeMouseTrap] Click at screen(" + x + "," + y + ") world(" + worldX + "," + worldY + ")");
 
         City clickedCity = tradeScene.getCityAt(worldX, worldY);
         System.out.println("[TradeMouseTrap] clickedCity: " + (clickedCity != null ? clickedCity.name : "null"));
-        System.out.println("[TradeMouseTrap] activeTool: " + tradeScene.activeTool.displayName());
         recordAbstractAction(TRADE_CITY_CLICK,
                 BUTTON, button,
                 XPX, x,
@@ -175,7 +173,7 @@ public class TradeMouseTrap extends MouseTrap {
                 "yCoord", normalizedPosY,
                 "xNorm", x / Math.max(MIN_WINDOW_DIMENSION, Platforms.get().getWindowWidth()),
                 "yNorm", y / Math.max(MIN_WINDOW_DIMENSION, Platforms.get().getWindowHeight()),
-                TOOL, tradeScene.activeTool.displayName(),
+                TOOL, tradeScene.activeTradeTool.displayName(),
                 CITY, clickedCity == null ? "" : clickedCity.name);
 
         if (clickedCity != null) {
@@ -253,8 +251,8 @@ public class TradeMouseTrap extends MouseTrap {
 
     private void updateCityHover() {
         // Convert to world coordinates
-        float worldX = TradeScene.camera.screenTransformX(normalizedPosX);
-        float worldY = TradeScene.camera.screenTransformY(normalizedPosY);
+        float worldX = tradeScene.mapCamera.screenTransformX(normalizedPosX);
+        float worldY = tradeScene.mapCamera.screenTransformY(normalizedPosY);
 
         City newHover = tradeScene.getCityAt(worldX, worldY);
         tradeScene.updateHoveredCity(newHover);

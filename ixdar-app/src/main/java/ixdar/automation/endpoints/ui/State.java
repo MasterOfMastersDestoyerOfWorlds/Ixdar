@@ -118,20 +118,20 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         root.addProperty(
                 "sceneClass",
                 runtime.canvas == null ? "" : runtime.canvas.getClass().getSimpleName());
-        String mode = TradeScene.active
+        String mode = runtime.canvas instanceof TradeScene
                 ? TRADE
-                : (MainScene.active ? "main" : "menu");
+                : (runtime.canvas instanceof MainScene ? "main" : "menu");
         root.addProperty("mode", mode);
         JsonObject trade = new JsonObject();
-        if (TradeScene.active && TradeScene.instance != null) {
+        if (runtime.canvas instanceof TradeScene tradeScene) {
             trade.addProperty(ACTIVE, true);
-            if (TradeScene.instance.activeTool != null) {
+            if (tradeScene.activeTradeTool != null) {
                 trade.addProperty(
                         ACTIVE_TOOL,
-                        TradeScene.instance.activeTool.displayName());
+                        tradeScene.activeTradeTool.displayName());
             }
-            if (TradeScene.instance.activeTool instanceof RoutePlanningTool) {
-                RoutePlanningTool routeTool = (RoutePlanningTool) TradeScene.instance.activeTool;
+            if (tradeScene.activeTradeTool instanceof RoutePlanningTool) {
+                RoutePlanningTool routeTool = (RoutePlanningTool) tradeScene.activeTradeTool;
                 trade.addProperty(
                         "routeMode",
                         routeTool.getCurrentMode().name());
@@ -160,16 +160,16 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             }
             trade.addProperty(
                     "headquartersCity",
-                    TradeScene.instance.network.headquartersCity == null
+                    tradeScene.network.headquartersCity == null
                             ? ""
-                            : TradeScene.instance.network.headquartersCity.name);
-            if (TradeScene.instance.network != null &&
-                    TradeScene.instance.network.grid != null) {
+                            : tradeScene.network.headquartersCity.name);
+            if (tradeScene.network != null &&
+                    tradeScene.network.grid != null) {
                 trade.addProperty(
                         "gridType",
-                        TradeScene.instance.network.grid.getClass().getSimpleName());
-                if (TradeScene.instance.network.grid instanceof IrregularQuadGrid) {
-                    IrregularQuadGrid irregularGrid = (IrregularQuadGrid) TradeScene.instance.network.grid;
+                        tradeScene.network.grid.getClass().getSimpleName());
+                if (tradeScene.network.grid instanceof IrregularQuadGrid) {
+                    IrregularQuadGrid irregularGrid = (IrregularQuadGrid) tradeScene.network.grid;
                     trade.addProperty("gridSeed", irregularGrid.seed());
                     trade.addProperty(
                             "gridRelaxIterations",
@@ -182,20 +182,19 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 }
             }
             JsonArray tradeCities = new JsonArray();
-            if (TradeScene.instance.network != null &&
-                    TradeScene.instance.network.cities != null &&
-                    TradeScene.camera != null) {
-                for (City city : TradeScene.instance.network.cities) {
+            if (tradeScene.network != null &&
+                    tradeScene.network.cities != null) {
+                for (City city : tradeScene.network.cities) {
                     JsonObject cityJson = new JsonObject();
                     cityJson.addProperty(NAME, city.name);
                     cityJson.addProperty("xWorld", city.getX());
                     cityJson.addProperty("yWorld", city.getY());
                     cityJson.addProperty(
                             XPX,
-                            TradeScene.camera.pointTransformX(city.getX()));
+                            tradeScene.mapCamera.pointTransformX(city.getX()));
                     cityJson.addProperty(
                             YPX,
-                            TradeScene.camera.pointTransformY(city.getY()));
+                            tradeScene.mapCamera.pointTransformY(city.getY()));
                     tradeCities.add(cityJson);
                 }
             }
@@ -490,31 +489,25 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 textElements.add(element);
             }
         }
-        if (MainScene.terminal != null) {
+        if (runtime.canvas instanceof MainScene editor) {
             textElements.add(
                     runtime.hyperStringElement(
                             "terminal",
                             REGION_BOTTOM,
-                            MainScene.terminal.getCachedInfo(),
-                            MainScene.terminal.scrollOffsetY));
-        }
-        if (MainScene.info != null) {
+                            editor.terminal.getCachedInfo(),
+                            editor.terminal.scrollOffsetY));
             textElements.add(
                     runtime.hyperStringElement(
                             "info",
                             "RIGHT_TOP",
-                            MainScene.info.getCachedInfo(),
-                            MainScene.info.scrollOffsetY));
+                            editor.info.getCachedInfo(),
+                            editor.info.scrollOffsetY));
         }
-        HyperString tooltip = MainScene.getToolTip();
-        if (tooltip != null && MainScene.isToolTipVisible()) {
+        HyperString tooltip = runtime.canvas == null ? null : runtime.canvas.toolTip;
+        if (tooltip != null && runtime.canvas.showToolTip) {
             textElements.add(
-                    runtime.hyperStringElement("tooltip", TOOLTIP, tooltip, 0));
-        }
-        HyperString tradeTooltip = TradeScene.getToolTip();
-        if (tradeTooltip != null && TradeScene.isToolTipVisible()) {
-            textElements.add(
-                    runtime.hyperStringElement("trade_tooltip", TOOLTIP, tradeTooltip, 0));
+                    runtime.hyperStringElement(runtime.canvas instanceof TradeScene ? "trade_tooltip" : "tooltip",
+                            TOOLTIP, tooltip, 0));
         }
         root.add("textElements", textElements);
 

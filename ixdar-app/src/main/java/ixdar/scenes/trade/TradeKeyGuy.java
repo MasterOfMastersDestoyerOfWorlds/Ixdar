@@ -5,7 +5,6 @@ import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import static ixdar.platform.input.Keys.ACTION_REPEAT;
 
 import ixdar.graphics.cameras.Camera;
-import ixdar.scenes.Scene;
 import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.KeyActions;
@@ -21,14 +20,14 @@ public class TradeKeyGuy extends KeyGuy {
     private TradeScene tradeScene;
 
     /**
-     * Build a trade-scene key controller bound to the given camera and canvas.
+     * Build a trade-scene key controller bound to the given camera.
      *
-     * @param tradeScene owning trade scene (used for tool dispatch and menu return)
+     * @param tradeScene owning trade scene (used for tool dispatch and menu return), also the
+     *                   owning canvas
      * @param camera camera the controller drives
-     * @param canvas owning canvas
      */
-    public TradeKeyGuy(TradeScene tradeScene, Camera camera, Scene canvas) {
-        super(camera, canvas);
+    public TradeKeyGuy(TradeScene tradeScene, Camera camera) {
+        super(camera, tradeScene);
         this.tradeScene = tradeScene;
     }
 
@@ -65,8 +64,8 @@ public class TradeKeyGuy extends KeyGuy {
         System.out.println("[TradeKeyGuy] Key pressed: " + key + " mods: " + mods);
 
         // Forward key to active tool first
-        if (tradeScene.activeTool instanceof RoutePlanningTool) {
-            RoutePlanningTool rpt = (RoutePlanningTool) tradeScene.activeTool;
+        if (tradeScene.activeTradeTool instanceof RoutePlanningTool) {
+            RoutePlanningTool rpt = (RoutePlanningTool) tradeScene.activeTradeTool;
             if (rpt.onKeyPress(key)) {
                 System.out.println("[TradeKeyGuy] Key handled by RoutePlanningTool");
                 return; // Tool handled this key

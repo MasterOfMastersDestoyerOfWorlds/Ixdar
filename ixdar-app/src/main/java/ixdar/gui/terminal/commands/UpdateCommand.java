@@ -42,14 +42,15 @@ public class UpdateCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
+        MainScene editor = MainScene.current();
         boolean force = (args.length != startIdx) && forceOptionAliases.contains(args[startIdx]);
-        if (MainScene.subPaths.size() == 1) {
-            Shell ans = MainScene.subPaths.get(0);
-            double oldLength = MainScene.orgShell.getLength();
+        if (editor.subPaths.size() == 1) {
+            Shell ans = editor.subPaths.get(0);
+            double oldLength = editor.orgShell.getLength();
             double newLength = ans.getLength();
             if (oldLength > newLength || force) {
-                PointSetPath.appendAns(MainScene.file, ans);
-                MainScene.orgShell = ans;
+                PointSetPath.appendAns(editor.file, ans);
+                editor.orgShell = ans;
                 terminal.history.addLine(oldLength + "New Shortest Tour Found", Color.TEAL_DARK);
             }
             terminal.history.addWord("Stored shortest tour length was:", Color.GREEN);

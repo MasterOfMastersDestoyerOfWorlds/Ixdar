@@ -12,7 +12,7 @@ import ixdar.platform.Platforms;
 
 /**
  * Generic 2D pan / zoom mouse handler — left-drag pans the camera, scroll zooms. Used by
- * scenes that need {@link MouseTrap}'s plumbing without {@code MainScene}-specific click logic.
+ * scenes that need {@link MouseTrap}'s plumbing with a pan-and-zoom 2D camera.
  */
 public class Scene2DMousePanTrap extends MouseTrap {
     public static final float CLICK_DRAG_THRESHOLD_PX = 3f;
@@ -27,7 +27,7 @@ public class Scene2DMousePanTrap extends MouseTrap {
      * @param canvas owning canvas (for platform-id resolution)
      */
     public Scene2DMousePanTrap(Camera camera, Scene canvas) {
-        super(null, camera, canvas);
+        super(camera, canvas);
     }
 
     /**

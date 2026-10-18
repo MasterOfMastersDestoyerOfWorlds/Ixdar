@@ -46,9 +46,10 @@ public abstract class Tool {
      * knot, advancing the segment under inspection.
      */
     public void cycleLeft() {
-        ArrayList<Knot> knotsDisplayed = MainScene.knotsDisplayed;
+        MainScene editor = MainScene.current();
+        ArrayList<Knot> knotsDisplayed = editor.knotsDisplayed;
         if (displaySegment == null) {
-            displaySegment = MainScene.manifoldKnot.manifoldSegments.get(0);
+            displaySegment = editor.manifoldKnot.manifoldSegments.get(0);
             displayKP = displaySegment.first;
             displayCP = displaySegment.last;
         } else {
@@ -77,12 +78,13 @@ public abstract class Tool {
      * direction of {@link #cycleLeft()}.
      */
     public void cycleRight() {
+        MainScene editor = MainScene.current();
         if (displaySegment == null) {
-            displaySegment = MainScene.manifoldKnot.manifoldSegments.get(0);
+            displaySegment = editor.manifoldKnot.manifoldSegments.get(0);
             displayKP = displaySegment.first;
             displayCP = displaySegment.last;
         } else {
-            ArrayList<Knot> knotsDisplayed = MainScene.knotsDisplayed;
+            ArrayList<Knot> knotsDisplayed = editor.knotsDisplayed;
             for (Knot k : knotsDisplayed) {
                 if (k.contains(displayKP)) {
                     Knot clockWise = k.getNextCounterClockWise(displayKP);
@@ -150,15 +152,16 @@ public abstract class Tool {
         displaySegment = null;
         displayKP = null;
         displayCP = null;
-        MainScene.terminal.clearInstruct();
+        MainScene.current().terminal.clearInstruct();
     }
 
     /**
      * Switch the active scene tool back to the free/default tool and reset it.
      */
     public void freeTool() {
-        MainScene.tool = MainScene.freeTool;
-        MainScene.freeTool.reset();
+        MainScene editor = MainScene.current();
+        editor.tool = editor.freeTool;
+        editor.freeTool.reset();
     }
 
     /**
@@ -224,15 +227,16 @@ public abstract class Tool {
      */
     public void calculateHover(float normalizedPosX, float normalizedPosY) {
 
-        Tool tool = MainScene.tool;
+        MainScene editor = MainScene.current();
+        Tool tool = editor.tool;
         float x = normalizedPosX - ScreenOffsetX;
         float y = normalizedPosY - ScreenOffsetY;
         if (x <= Platforms.get().getWindowWidth() && x >= 0
                 && y <= Platforms.get().getWindowHeight() && y >= 0) {
-            ArrayList<Knot> knotsDisplayed = MainScene.knotsDisplayed;
-            Camera2D camera = MainScene.camera;
+            ArrayList<Knot> knotsDisplayed = editor.knotsDisplayed;
+            Camera2D camera = editor.editorCamera;
             if (knotsDisplayed != null) {
-                camera.calculateCameraTransform(MainScene.retTup.ps);
+                camera.calculateCameraTransform(editor.retTup.ps);
                 x = camera.screenTransformX(x);
                 y = camera.screenTransformY(y);
                 double minDist = Double.MAX_VALUE;
@@ -274,13 +278,14 @@ public abstract class Tool {
      */
     public void calculateClick(float normalizedPosX, float normalizedPosY) {
 
-        Tool tool = MainScene.tool;
+        MainScene editor = MainScene.current();
+        Tool tool = editor.tool;
         float x = normalizedPosX - ScreenOffsetX;
         float y = normalizedPosY - ScreenOffsetY;
-        ArrayList<Knot> knotsDisplayed = MainScene.knotsDisplayed;
-        Camera2D camera = MainScene.camera;
+        ArrayList<Knot> knotsDisplayed = editor.knotsDisplayed;
+        Camera2D camera = editor.editorCamera;
         if (knotsDisplayed != null) {
-            camera.calculateCameraTransform(MainScene.retTup.ps);
+            camera.calculateCameraTransform(editor.retTup.ps);
             x = camera.screenTransformX(x);
             y = camera.screenTransformY(y);
             double minDist = Double.MAX_VALUE;
@@ -381,14 +386,15 @@ public abstract class Tool {
     }
 
     /**
-     * Back-navigation hook: if already on the free tool, deactivate the main
-     * scene; otherwise revert to the free tool.
+     * Back-navigation hook: if already on the free tool, leave the editor for
+     * the scene it came from; otherwise revert to the free tool.
      */
     public void back() {
-        if (MainScene.tool.toolType() == Tool.Type.Free) {
-            MainScene.activate(false);
+        MainScene editor = MainScene.current();
+        if (editor.tool.toolType() == Tool.Type.Free) {
+            editor.switchTo(editor.backScene);
         }
-        MainScene.tool.freeTool();
+        editor.tool.freeTool();
     }
 
     /**
@@ -409,18 +415,18 @@ public abstract class Tool {
      */
     public void increaseViewLayer() {
         if (canUseToggle(Toggle.CanSwitchLayer)) {
-
-            if (!canUseToggle(Toggle.CanSwitchTopLayer) && MainScene.knotDrawLayer == MainScene.totalLayers - 1) {
+            MainScene editor = MainScene.current();
+            if (!canUseToggle(Toggle.CanSwitchTopLayer) && editor.knotDrawLayer == editor.totalLayers - 1) {
                 return;
             }
-            MainScene.knotDrawLayer++;
-            if (MainScene.knotDrawLayer > MainScene.totalLayers) {
-                MainScene.knotDrawLayer = MainScene.totalLayers;
+            editor.knotDrawLayer++;
+            if (editor.knotDrawLayer > editor.totalLayers) {
+                editor.knotDrawLayer = editor.totalLayers;
             }
-            if (MainScene.knotDrawLayer < 1) {
-                MainScene.knotDrawLayer = 1;
+            if (editor.knotDrawLayer < 1) {
+                editor.knotDrawLayer = 1;
             }
-            MainScene.updateKnotsDisplayed();
+            editor.updateKnotsDisplayed();
         }
     }
 
@@ -431,16 +437,16 @@ public abstract class Tool {
      */
     public void decreaseViewLayer() {
         if (canUseToggle(Toggle.CanSwitchLayer)) {
-
-            if (MainScene.knotDrawLayer == -1) {
-                MainScene.knotDrawLayer = MainScene.totalLayers;
+            MainScene editor = MainScene.current();
+            if (editor.knotDrawLayer == -1) {
+                editor.knotDrawLayer = editor.totalLayers;
             } else {
-                MainScene.knotDrawLayer--;
-                if (MainScene.knotDrawLayer < 1) {
-                    MainScene.knotDrawLayer = 1;
+                editor.knotDrawLayer--;
+                if (editor.knotDrawLayer < 1) {
+                    editor.knotDrawLayer = 1;
                 }
             }
-            MainScene.updateKnotsDisplayed();
+            editor.updateKnotsDisplayed();
         }
     }
 

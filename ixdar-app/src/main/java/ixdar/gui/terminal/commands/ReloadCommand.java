@@ -42,9 +42,8 @@ public class ReloadCommand extends TerminalCommand {
     public String[] run(String[] args, int startIdx, Terminal terminal) {
         String fileName = terminal.loadedFile.getName();
         try {
-            MainScene.main(new String[] { fileName });
+            MainScene.open(fileName);
             FileManagement.updateTestFileCache(fileName);
-            MainScene.activate(true);
             return new String[] { "ls " };
         } catch (TerminalParseException e) {
             terminal.error(e.message);

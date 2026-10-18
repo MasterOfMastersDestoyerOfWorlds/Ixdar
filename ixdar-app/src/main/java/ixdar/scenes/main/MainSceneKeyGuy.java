@@ -1,6 +1,5 @@
 package ixdar.scenes.main;
 
-import ixdar.scenes.Scene;
 import ixdar.graphics.cameras.Camera;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.terminal.commands.ChangeToolCommand;
@@ -25,14 +24,18 @@ public class MainSceneKeyGuy extends KeyGuy {
 
     public long lastCyclePressTime;
 
+    /** The editor whose tool and knot layers the keys act on. */
+    public MainScene editor;
+
     /**
-     * Bind the tour editor's shortcuts to its 2D camera and backing canvas.
+     * Bind the tour editor's shortcuts to its 2D camera.
      *
+     * @param editor the editor the keys act on, also the owning canvas
      * @param camera camera the controller drives
-     * @param canvas backing canvas, whose menu input is suspended while the editor is active
      */
-    public MainSceneKeyGuy(Camera camera, Scene canvas) {
-        super(camera, canvas);
+    public MainSceneKeyGuy(MainScene editor, Camera camera) {
+        super(camera, editor);
+        this.editor = editor;
     }
 
     /**
@@ -52,7 +55,7 @@ public class MainSceneKeyGuy extends KeyGuy {
                     ChangeToolCommand.run(NeighborViewTool.class);
                 }
             } else {
-                Tool tool = MainScene.tool;
+                Tool tool = editor.tool;
                 if (tool != null && tool.canUseToggle(Toggle.IsMainFocused)) {
                     if (KeyActions.ColorRandomization.keyPressed(pressedKeys)) {
                         Terminal.runNoArgs(ColorCommand.class);
@@ -64,7 +67,7 @@ public class MainSceneKeyGuy extends KeyGuy {
                         Toggle.DrawKnotGradient.toggle();
                     }
                     if (KeyActions.DrawMetroDiagram.keyPressed(pressedKeys)) {
-                        MainScene.setDrawLevelMetro();
+                        editor.setDrawLevelMetro();
                     }
                     if (KeyActions.IncreaseKnotLayer.keyPressed(pressedKeys)) {
                         tool.increaseViewLayer();
@@ -82,7 +85,7 @@ public class MainSceneKeyGuy extends KeyGuy {
                         Terminal.runNoArgs(UpdateCommand.class);
                     }
                     if (KeyActions.Confirm.keyPressed(pressedKeys)) {
-                        MainScene.tool.confirm();
+                        editor.tool.confirm();
                     }
                     if (KeyActions.Reset.keyPressed(pressedKeys)) {
                         ResetCommand.run(ResetOption.Camera);
@@ -93,6 +96,14 @@ public class MainSceneKeyGuy extends KeyGuy {
         if (KeyActions.Back.keyPressed(pressedKeys)) {
             Terminal.runNoArgs(ExitCommand.class);
         }
+    }
+
+    /**
+     * The editor binds nothing on release: Escape and R act on the press, through the terminal
+     * commands, so the shared menu-back and camera-reset releases stay off.
+     */
+    @Override
+    public void sceneKeyReleased() {
     }
 
     /**
@@ -111,10 +122,10 @@ public class MainSceneKeyGuy extends KeyGuy {
         if (!pressedKeys.isEmpty() && timeSinceLastPress > REPRESS_MILLIS / shiftMod) {
             lastCyclePressTime = System.currentTimeMillis();
             if (KeyActions.CycleToolLeft.keyPressed(pressedKeys)) {
-                MainScene.tool.cycleLeft();
+                editor.tool.cycleLeft();
             }
             if (KeyActions.CycleToolRight.keyPressed(pressedKeys)) {
-                MainScene.tool.cycleRight();
+                editor.tool.cycleRight();
             }
         }
     }

@@ -2,6 +2,7 @@ package ixdar.graphics.cameras;
 
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import org.joml.Vector2d;
 import org.joml.Vector2f;
@@ -13,8 +14,6 @@ import ixdar.geometry.tsp.points.PointSet;
 import ixdar.platform.Clock;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
-import ixdar.scenes.main.MainScene;
-import ixdar.tools.knot.Tool;
 
 /**
  * Orthographic 2D camera that frames a {@link PointSet} on a screen-space
@@ -55,6 +54,9 @@ public class Camera2D implements Camera {
     public float ScreenOffsetX;
     public Bounds viewBounds;
     public double screenSpaceDistanceOverPointSpaceDistanceRatio = -1;
+
+    /** The knot {@link #reset()} frames instead of the whole point set, when it supplies one; null for none. */
+    public Supplier<Knot> resetTarget;
     private float SHIFT_MOD = 1.0f;
     private Map<String, Bounds> namedBounds;
     private Bounds mainViewBounds;
@@ -234,24 +236,16 @@ public class Camera2D implements Camera {
     }
 
     /**
-     * Reframe the camera. If a hover/selected knot is active in
-     * {@code MainScene}, zoom to it; otherwise refit the full point set into
-     * the active view bounds, choosing a scale that preserves aspect ratio.
+     * Reframe the camera. If {@link #resetTarget} supplies a knot, zoom to it; otherwise refit the
+     * full point set into the active view bounds, choosing a scale that preserves aspect ratio.
      * Also caches the screen-space-per-point-space ratio.
      */
     @Override
     public void reset() {
-        if (MainScene.tool != null) {
-            if (MainScene.showHoverKnot) {
-                zoomToKnot(MainScene.hoverKnot);
-                return;
-            }
-            Tool tool = MainScene.tool;
-            Knot selectedKnot = tool.selectedKnot();
-            if (selectedKnot != null) {
-                zoomToKnot(selectedKnot);
-                return;
-            }
+        Knot target = resetTarget == null ? null : resetTarget.get();
+        if (target != null) {
+            zoomToKnot(target);
+            return;
         }
         offsetX = 0;
         offsetY = 0;

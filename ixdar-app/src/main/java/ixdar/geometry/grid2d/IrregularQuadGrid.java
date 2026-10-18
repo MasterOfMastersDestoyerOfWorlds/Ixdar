@@ -219,10 +219,11 @@ public class IrregularQuadGrid extends Grid {
      */
     @Override
     public String toCoordString() {
+        MainScene editor = MainScene.current();
         return "X:"
-                + (int) MainScene.camera.screenTransformX(MainScene.mouse.normalizedPosX - MainScene.MAIN_VIEW_OFFSET_X)
-                + " Y:" + (int) MainScene.camera
-                        .screenTransformY(MainScene.mouse.normalizedPosY - MainScene.MAIN_VIEW_OFFSET_Y);
+                + (int) editor.editorCamera.screenTransformX(editor.mouse.normalizedPosX - MainScene.MAIN_VIEW_OFFSET_X)
+                + " Y:" + (int) editor.editorCamera
+                        .screenTransformY(editor.mouse.normalizedPosY - MainScene.MAIN_VIEW_OFFSET_Y);
     }
 
     /**

@@ -41,7 +41,7 @@ public class CommentCommand extends TerminalCommand {
         for (int i = startIdx; i < args.length; i++) {
             commentText += " " + args[i];
         }
-        FileManagement.appendComment(MainScene.file, commentText);
+        FileManagement.appendComment(MainScene.current().file, commentText);
         return new String[] {};
     }
 }

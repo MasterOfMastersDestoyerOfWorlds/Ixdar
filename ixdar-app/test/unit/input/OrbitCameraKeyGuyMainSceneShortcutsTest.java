@@ -3,7 +3,6 @@ package unit.input;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
 
@@ -19,13 +18,10 @@ import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.main.MainScene;
-import ixdar.tools.knot.FreeTool;
-import ixdar.tools.knot.Tool;
 
 /**
  * The ring scene's key handler ignores every shortcut that belongs to the tour editor
- * ({@link MainScene}): pressing one throws nothing and changes no toggle and no editor state,
- * even with the editor's tool left behind by an earlier run in the same JVM.
+ * ({@link MainScene}): pressing one throws nothing, changes no toggle and leaves no key held.
  */
 class OrbitCameraKeyGuyMainSceneShortcutsTest {
 
@@ -39,33 +35,23 @@ class OrbitCameraKeyGuyMainSceneShortcutsTest {
 
     private boolean[] togglesBefore;
 
-    private Tool toolBefore;
-
     private boolean menuVisibleBefore;
 
     private Scene canvasBefore;
 
-    private Tool editorTool;
-
-    private int knotDrawLayer;
-
     private OrbitCameraKeyGuy keyGuy;
 
     /**
-     * Leave an editor tool behind as a finished tour-editor session would, focus the main pane,
-     * and wire an orbit key handler the way the ring scene does.
+     * Focus the main pane, as a finished tour-editor session leaves it, and wire an orbit key
+     * handler the way the ring scene does.
      */
     @BeforeEach
     void wireRingHandlerAfterAnEditorSession() {
         togglesBefore = toggleValues();
-        toolBefore = MainScene.tool;
         menuVisibleBefore = MenuBox.menuVisible;
         canvasBefore = Scene.instance;
-        editorTool = new FreeTool();
-        MainScene.tool = editorTool;
         Toggle.IsMainFocused.value = true;
         Toggle.IsTerminalFocused.value = false;
-        knotDrawLayer = MainScene.knotDrawLayer;
         Scene canvas = new MenuScene();
         keyGuy = new OrbitCameraKeyGuy(new OrbitMouseTrap(canvas.camera, canvas), canvas.camera,
                 canvas);
@@ -73,14 +59,13 @@ class OrbitCameraKeyGuyMainSceneShortcutsTest {
     }
 
     /**
-     * Put the toggles, the editor tool and the menu flag back the way the suite had them.
+     * Put the toggles and the menu flag back the way the suite had them.
      */
     @AfterEach
     void restoreSharedState() {
         for (int index = 0; index < toggles.length; index++) {
             toggles[index].value = togglesBefore[index];
         }
-        MainScene.tool = toolBefore;
         MenuBox.menuVisible = menuVisibleBefore;
         Scene.instance = canvasBefore;
     }
@@ -99,8 +84,6 @@ class OrbitCameraKeyGuyMainSceneShortcutsTest {
             assertDoesNotThrow(() -> pressAndRelease(key, 0), "key code " + key);
         }
         assertArrayEquals(armed, toggleValues(), "a toggle changed");
-        assertSame(editorTool, MainScene.tool, "the editor tool was switched");
-        assertEquals(knotDrawLayer, MainScene.knotDrawLayer, "the knot layer moved");
         assertEquals(List.of(), List.copyOf(keyGuy.pressedKeys), "a key stayed held");
     }
 

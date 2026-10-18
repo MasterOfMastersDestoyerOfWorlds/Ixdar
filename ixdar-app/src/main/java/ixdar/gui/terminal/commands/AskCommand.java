@@ -51,17 +51,18 @@ public class AskCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
+        MainScene editor = MainScene.current();
         String questionName = args[startIdx];
         if (questionName.equals("dist")) {
             int id1 = Integer.parseInt(args[startIdx + 1]);
             int id2 = Integer.parseInt(args[startIdx + 2]);
-            Knot vp1 = MainScene.shell.pointMap.get(id1);
-            Knot vp2 = MainScene.shell.pointMap.get(id2);
+            Knot vp1 = editor.tourShell.pointMap.get(id1);
+            Knot vp2 = editor.tourShell.pointMap.get(id2);
             terminal.history.addLine("distance from " + id1 + " to " + id2 + " " + vp1.getSegment(vp2).distance,
                     Color.BLUE_GREY);
             return new String[] { "ask dist " + id1 + " " + id2 };
         } else if (questionName.equals("min")) {
-            Pair<PointND, Pair<PointND, PointND>> isMinima = MainScene.orgShell.isLocalMinima();
+            Pair<PointND, Pair<PointND, PointND>> isMinima = editor.orgShell.isLocalMinima();
             if (isMinima == null) {
                 terminal.history.addLine("Calculated answer is a local minima.", Color.BLUE_GREY);
             } else {
@@ -78,7 +79,7 @@ public class AskCommand extends TerminalCommand {
             if (args.length - startIdx > 2) {
                 numPrint = Integer.parseInt(args[startIdx + 2]);
             }
-            Knot vp = MainScene.shell.pointMap.get(id1);
+            Knot vp = editor.tourShell.pointMap.get(id1);
             if (vp == null) {
                 terminal.error(POINT_WITH_ID + vp + DOES_NOT_EXIST);
             } else if (numPrint > vp.sortedSegments.size()) {
@@ -92,15 +93,15 @@ public class AskCommand extends TerminalCommand {
                 terminal.history.newLine();
             }
         } else if (questionName.equals("sortedAll")) {
-            int numPrint = MainScene.shell.sortedSegments.size();
+            int numPrint = editor.tourShell.sortedSegments.size();
             if (args.length - startIdx > 1) {
                 numPrint = Integer.parseInt(args[startIdx + 1]);
             }
-            if (numPrint > MainScene.shell.sortedSegments.size()) {
+            if (numPrint > editor.tourShell.sortedSegments.size()) {
                 terminal.error(THERE_ARE_NOT + numPrint + POINTS);
             } else {
                 int i = 0;
-                for (Segment s : MainScene.shell.sortedSegments) {
+                for (Segment s : editor.tourShell.sortedSegments) {
                     HyperString seg = s.toHyperString(Color.BLUE_GREY, false, true);
                     terminal.history.addHyperString(seg);
                     terminal.history.newLine();
@@ -112,16 +113,16 @@ public class AskCommand extends TerminalCommand {
                 terminal.history.newLine();
             }
         } else if (questionName.equals("sorted")) {
-            int numPrint = MainScene.shell.pointMap.size();
+            int numPrint = editor.tourShell.pointMap.size();
             if (args.length - startIdx > 1) {
                 numPrint = Integer.parseInt(args[startIdx + 1]);
             }
-            if (numPrint > MainScene.shell.pointMap.size()) {
+            if (numPrint > editor.tourShell.pointMap.size()) {
                 terminal.error(THERE_ARE_NOT + numPrint + POINTS);
             } else {
                 ArrayList<Segment> segements = new ArrayList<>();
                 for (int i = 0; i < numPrint; i++) {
-                    Knot vp = MainScene.shell.pointMap.get(i);
+                    Knot vp = editor.tourShell.pointMap.get(i);
                     if (vp.sortedSegments.size() > 1) {
                         if (!!vp.isSingleton()) {
                             segements.add(vp.sortedSegments.get(0));
@@ -143,7 +144,7 @@ public class AskCommand extends TerminalCommand {
             if (args.length - startIdx > 2) {
                 numPrint = Integer.parseInt(args[startIdx + 2]);
             }
-            Knot vp = MainScene.shell.pointMap.get(id1);
+            Knot vp = editor.tourShell.pointMap.get(id1);
             if (vp == null) {
                 terminal.error(POINT_WITH_ID + vp + DOES_NOT_EXIST);
             }

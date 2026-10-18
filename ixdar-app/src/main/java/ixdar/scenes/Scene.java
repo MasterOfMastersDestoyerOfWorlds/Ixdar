@@ -20,9 +20,11 @@ import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.sdf.ShaderDrawable;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.gui.terminal.Terminal;
+import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.PaneTypes;
 import ixdar.gui.ui.code.ShaderCodePane;
 import ixdar.gui.ui.menu.MenuBox;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.AutomationBackend;
 import ixdar.platform.Clock;
 import ixdar.platform.Platform;
@@ -38,8 +40,9 @@ import ixdar.tools.ControlHint;
 import ixdar.tools.EditTool;
 
 /**
- * Base of every launchable view: owns the GL frame loop, the input handlers, the 2D and 3D cameras,
- * the hosted tools and the optional scene terminal. The newest constructed scene is {@link #instance}.
+ * Base of every launchable view: the GL frame loop, input handlers, cameras, hosted tools, tooltip
+ * and optional terminal. {@link #instance} is the scene shown or being built; {@link #switchTo}
+ * hands the window on.
  */
 public abstract class Scene extends SceneDrawable {
 
@@ -63,10 +66,21 @@ public abstract class Scene extends SceneDrawable {
 
     public static final String FRAME_ALL_DESCRIPTION = "frame all: back to the tool's home view";
 
+    public static final String VIEW_TOOLTIP = "TOOLTIP";
+
     public static Scene instance;
 
     public boolean changedSize = false;
     public boolean active;
+
+    /** The scene the window shows from the next frame on, handed over by {@link #switchTo}; null while this one stays. */
+    public Scene successor;
+
+    /** Tooltip body {@link #drawTooltip} draws at the cursor, or {@code null} for none. */
+    public HyperString toolTip;
+
+    /** Whether {@link #toolTip} is drawn this frame. */
+    public boolean showToolTip;
 
     /**
      * Whether {@link #initGL()} has returned, so the scene is built and safe to drive.
@@ -74,10 +88,9 @@ public abstract class Scene extends SceneDrawable {
     public volatile boolean sceneReady;
 
     public Camera3D camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f, this);
-    public MouseTrap mouse = new MouseTrap(null, camera, this);
+    public MouseTrap mouse = new MouseTrap(camera, this);
     public KeyGuy keys = new KeyGuy(camera, this);
     public Platform platform;
-    public long checkPaintTime;
     public Shell shell;
 
     public Camera2D camera2D;
@@ -127,19 +140,14 @@ public abstract class Scene extends SceneDrawable {
     public float lastEmptyClickY;
 
     /**
-     * Construct the active scene: store it as {@link #instance}, activate input and menu
-     * music, capture the current platform, start the optional automation runtime, and
-     * create the empty shell {@link #initPoints()} seeds. GL setup waits for {@link #initGL()}.
+     * Construct the scene as {@link #instance}, so code run while building it finds it, with input
+     * and menu music active and the shell {@link #initPoints()} seeds; GL waits for {@link #initGL()}.
      */
     public Scene() {
         instance = this;
         activate(true);
         platform = Platforms.get();
         active = true;
-        AutomationBackend automation = platform.automation();
-        if (automation != null) {
-            automation.start(this);
-        }
 
         shell = new Shell();
     }
@@ -281,6 +289,44 @@ public abstract class Scene extends SceneDrawable {
     }
 
     /**
+     * Hand the window to {@code next} once this frame is painted: {@link #paintFrame} then
+     * deactivates this scene and activates, initializes and binds {@code next}.
+     *
+     * @param next the scene the window shows from the next frame on
+     */
+    public void switchTo(Scene next) {
+        successor = next;
+    }
+
+    /**
+     * Paint one frame, then return the scene the window shows next: this one, or the
+     * {@link #successor} it switched to, made {@link #instance}, active, initialized on its first
+     * showing and bound to the automation runtime.
+     *
+     * @return the scene to paint on the next frame
+     */
+    public Scene paintFrame() {
+        paintGL();
+        Scene next = successor;
+        if (next == null) {
+            return this;
+        }
+        successor = null;
+        activate(false);
+        instance = next;
+        next.activate(true);
+        if (!next.sceneReady) {
+            next.initGL();
+            next.sceneReady = true;
+        }
+        AutomationBackend automation = platform.automation();
+        if (automation != null) {
+            automation.start(next);
+        }
+        return next;
+    }
+
+    /**
      * Register the bottom terminal strip view and subscribe it for scroll.
      * Subclasses that add their own panes override this and chain
      * {@code super.initPanes()}.
@@ -334,6 +380,64 @@ public abstract class Scene extends SceneDrawable {
             sceneTerminal.draw(camera2D);
         }
         camera2D.resetView();
+    }
+
+    /**
+     * Show {@code tip} as the floating tooltip from the next frame on.
+     *
+     * @param tip formatted tooltip body
+     */
+    public void setTooltipText(HyperString tip) {
+        toolTip = tip;
+        showToolTip = true;
+    }
+
+    /**
+     * Hide the floating tooltip and clear its text.
+     */
+    public void clearTooltipText() {
+        toolTip = null;
+        showToolTip = false;
+    }
+
+    /**
+     * The {@link #VIEW_TOOLTIP} view: sized to {@link #toolTip} and placed at the cursor, opening
+     * away from the window's nearer edges; empty while no tooltip is set.
+     *
+     * @return the view bounds, recalculated from the cursor on every update
+     */
+    public Bounds tooltipBounds() {
+        return new Bounds(0, 0, 0, 0, b -> {
+            int ww = (int) Platforms.get().getWindowWidth();
+            int wh = (int) Platforms.get().getWindowHeight();
+            if (toolTip == null) {
+                b.update(0, 0, 0, 0);
+                return;
+            }
+            float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
+            int isRight = mouse.normalizedPosX > ww / 2 ? 1 : 0;
+            int isTop = mouse.normalizedPosY > wh / 2 ? 1 : 0;
+            float toolTipWidth = toolTip.getWidthPixels();
+            int toolTipHeight = toolTip.getHeightPixels();
+            int x = (int) (mouse.normalizedPosX - (isRight * toolTipWidth));
+            int y = (int) mouse.normalizedPosY - (isTop * toolTipHeight);
+            b.update(x, y, (int) Math.ceil(toolTipWidth), (int) (toolTip.getLines() * rowHeight));
+        }, VIEW_TOOLTIP);
+    }
+
+    /**
+     * Draw the visible tooltip over a dark box in {@code camera}'s {@link #VIEW_TOOLTIP} view.
+     *
+     * @param camera 2D camera whose views include {@link #tooltipBounds()}
+     */
+    public void drawTooltip(Camera2D camera) {
+        if (toolTip != null && showToolTip) {
+            float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
+            toolTip.setLineOffsetFromTopRow(camera, 0, 0, rowHeight);
+            camera.updateView(VIEW_TOOLTIP);
+            new ColorBox().draw(Color.GREY_VERY_DARK, camera);
+            Drawing.getDrawing().font.drawHyperStringRows(toolTip, 0, 0, rowHeight, camera);
+        }
     }
 
     /**

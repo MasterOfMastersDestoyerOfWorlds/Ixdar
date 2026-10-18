@@ -21,7 +21,6 @@ import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.PointerRegion;
-import ixdar.scenes.main.MainScene;
 import ixdar.scenes.model.ModelScene;
 import ixdar.tools.knot.FreeTool;
 import ixdar.tools.knot.MapEditorTool;
@@ -47,7 +46,7 @@ public class Terminal implements PointerRegion {
 
     /**
      * The terminal that currently receives keyboard input and argument-less command
-     * dispatch. {@link ixdar.scenes.main.MainScene} sets this to its terminal; the model
+     * dispatch. {@code MainScene} sets this to its terminal; the model
      * scenes set it to their own, so {@code Terminal} is no longer hard-wired to MainScene.
      */
     public static Terminal current;
@@ -394,9 +393,8 @@ public class Terminal implements PointerRegion {
      */
     public static <E extends TerminalCommand> void runNoArgs(Class<E> cmd) {
         TerminalCommand tc = (TerminalCommand) commandClassMap.get(cmd);
-        Terminal target = current != null ? current : MainScene.terminal;
-        if (target != null && tc.argLength() <= 0) {
-            tc.run(new String[] {}, 0, target);
+        if (current != null && tc.argLength() <= 0) {
+            tc.run(new String[] {}, 0, current);
         }
     }
 }

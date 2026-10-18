@@ -8,6 +8,7 @@ import ixdar.annotations.scene.SceneRegistry_Scenes;
 import ixdar.annotations.scene.SceneDrawable;
 import ixdar.gui.terminal.TerminalParseException;
 import ixdar.scenes.main.MainScene;
+import ixdar.scenes.menu.MenuScene;
 
 public class CanvasSceneMap {
 
@@ -18,11 +19,10 @@ public class CanvasSceneMap {
         MAP = SceneRegistry_Scenes.MAP;
         MAP.put("ixdar-canvas", () -> {
             try {
-                MainScene.main(new String[] {"djbouti"});
+                return new MainScene("djbouti", new MenuScene());
             } catch (TerminalParseException | IOException e) {
                 throw new RuntimeException(e);
             }
-            return MainScene.canvas;
         });
     }
 }

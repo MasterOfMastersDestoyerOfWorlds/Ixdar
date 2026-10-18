@@ -55,12 +55,13 @@ public class NeighborViewTool extends Tool {
      */
     @Override
     public void draw(Camera2D camera, float minLineThickness) {
-        if (layerCalculated != MainScene.knotDrawLayer) {
+        MainScene editor = MainScene.current();
+        if (layerCalculated != editor.knotDrawLayer) {
             initSegmentMap();
             return;
         }
         for (Long segmentId : colorLookup.keySet()) {
-            Segment s = MainScene.shell.segmentLookup.get(segmentId);
+            Segment s = editor.tourShell.segmentLookup.get(segmentId);
             Drawing.drawDashedSegment(s, colors.get(colorLookup.get(segmentId)), camera);
         }
     }
@@ -71,8 +72,9 @@ public class NeighborViewTool extends Tool {
      * (closest neighbor) and 1 (second-closest).
      */
     public void initSegmentMap() {
-        layerCalculated = MainScene.knotDrawLayer;
-        ArrayList<Knot> knotsDisplayed = MainScene.knotsDisplayed;
+        MainScene editor = MainScene.current();
+        layerCalculated = editor.knotDrawLayer;
+        ArrayList<Knot> knotsDisplayed = editor.knotsDisplayed;
         colorLookup = new HashMap<>();
         for (Knot k : knotsDisplayed) {
             int i = 0;

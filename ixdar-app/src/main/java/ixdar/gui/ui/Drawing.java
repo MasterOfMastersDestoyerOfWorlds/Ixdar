@@ -27,7 +27,6 @@ import ixdar.graphics.render.text.Font;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.scenes.main.Toggle;
-import ixdar.scenes.main.MainScene;
 
 /**
  * Static helper for low-level scene-overlay draw calls (segments, circles,
@@ -572,28 +571,6 @@ public class Drawing {
                 }
             }
         }
-    }
-
-    /**
-     * Draw a single match/cut pair: cyan match segment at base thickness, and
-     * orange cut segment at twice the base thickness for emphasis.
-     *
-     * @param main          the main scene (unused; kept for symmetry)
-     * @param matchSegment  match segment to draw cyan
-     * @param cutSegment    cut segment to draw orange
-     * @param lineThickness base pixel thickness before camera scaling
-     * @param ps            point set being rendered (unused; kept for symmetry)
-     * @param camera        the active scene camera
-     */
-    public static void drawSingleCutMatch(MainScene main, Segment matchSegment,
-            Segment cutSegment, float lineThickness,
-            PointSet ps, Camera2D camera) {
-
-        matchSegment.setStroke(lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
-        Drawing.drawSegment(matchSegment, Color.TEAL, camera);
-
-        cutSegment.setStroke(2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, true, false, false, camera);
-        Drawing.drawSegment(cutSegment, Color.BROWN_DARK, camera);
     }
 
     /**

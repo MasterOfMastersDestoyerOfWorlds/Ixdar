@@ -531,8 +531,9 @@ public class Segment extends SDFLine implements Comparable<Segment> {
      */
     public HyperString toHyperString(Color color, boolean labelAsSegment, boolean labelDistance) {
         HyperString h = new HyperString();
+        MainScene editor = MainScene.current();
         Action clickAction = () -> {
-            MainScene.camera.zoomToSegment(this);
+            editor.editorCamera.zoomToSegment(this);
         };
         String str = "";
 
@@ -543,7 +544,8 @@ public class Segment extends SDFLine implements Comparable<Segment> {
         if (labelDistance) {
             str += ", " + String.format("%.2f", this.distance);
         }
-        h.addHoverSegment(str, color, this, clickAction);
+        h.addHoverSegment(str, color, this, () -> editor.setHoverSegment(this, color), editor::clearHoverSegment,
+                clickAction);
         return h;
     }
 

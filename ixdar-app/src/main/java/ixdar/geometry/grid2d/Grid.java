@@ -112,8 +112,9 @@ public abstract class Grid {
          */
         @Override
         public String toCoordString() {
-            return "X:" + (int) MainScene.camera.screenTransformX(MainScene.mouse.normalizedPosX - MainScene.MAIN_VIEW_OFFSET_X)
-                    + " Y:" + (int) MainScene.camera.screenTransformY(MainScene.mouse.normalizedPosY - MainScene.MAIN_VIEW_OFFSET_Y);
+            MainScene editor = MainScene.current();
+            return "X:" + (int) editor.editorCamera.screenTransformX(editor.mouse.normalizedPosX - MainScene.MAIN_VIEW_OFFSET_X)
+                    + " Y:" + (int) editor.editorCamera.screenTransformY(editor.mouse.normalizedPosY - MainScene.MAIN_VIEW_OFFSET_Y);
         }
 
         /**
@@ -150,11 +151,11 @@ public abstract class Grid {
          */
         @Override
         public void draw(Camera2D camera, float gridLineThickness) {
-            double[] hexCoordsTopLeft = new double[] { MainScene.camera.screenTransformX(0),
-                    MainScene.camera.screenTransformY(camera.getHeight()) };
+            double[] hexCoordsTopLeft = new double[] { camera.screenTransformX(0),
+                    camera.screenTransformY(camera.getHeight()) };
 
-            double[] hexCoordsBotRight = new double[] { MainScene.camera.screenTransformX(camera.getWidth()),
-                    MainScene.camera.screenTransformY(0) };
+            double[] hexCoordsBotRight = new double[] { camera.screenTransformX(camera.getWidth()),
+                    camera.screenTransformY(0) };
 
             double unitsPerPixel = Math.abs(hexCoordsTopLeft[0] - hexCoordsBotRight[0]) / camera.getWidth();
             int gridBucketsLogLevel = (int) (Math.log10(unitsPerPixel * GRID_SCALE_FACTOR)) - 1;
@@ -221,9 +222,10 @@ public abstract class Grid {
          */
         @Override
         public String toCoordString() {
+            MainScene editor = MainScene.current();
             double[] hexCoords = PointND.Hex.pixelToHexCoords(
-                    MainScene.camera.screenTransformX(MainScene.mouse.normalizedPosX - MainScene.MAIN_VIEW_OFFSET_X),
-                    MainScene.camera.screenTransformY(MainScene.mouse.normalizedPosY - MainScene.MAIN_VIEW_OFFSET_Y));
+                    editor.editorCamera.screenTransformX(editor.mouse.normalizedPosX - MainScene.MAIN_VIEW_OFFSET_X),
+                    editor.editorCamera.screenTransformY(editor.mouse.normalizedPosY - MainScene.MAIN_VIEW_OFFSET_Y));
             return "Q:" + (hexCoords[0]) + " R:" + (hexCoords[1]) + " S:" + (hexCoords[2]);
         }
 
@@ -258,23 +260,23 @@ public abstract class Grid {
          */
         @Override
         public void draw(Camera2D camera, float gridLineThickness) {
-            double[] hexCoordsBotLeft = PointND.Hex.pixelToHexCoords(MainScene.camera.screenTransformX(0),
-                    MainScene.camera.screenTransformY(0));
+            double[] hexCoordsBotLeft = PointND.Hex.pixelToHexCoords(camera.screenTransformX(0),
+                    camera.screenTransformY(0));
 
-            double[] hexCoordsTopLeft = PointND.Hex.pixelToHexCoords(MainScene.camera.screenTransformX(0),
-                    MainScene.camera.screenTransformY(camera.getHeight()));
+            double[] hexCoordsTopLeft = PointND.Hex.pixelToHexCoords(camera.screenTransformX(0),
+                    camera.screenTransformY(camera.getHeight()));
 
-            double[] hexCoordsTopRight = PointND.Hex.pixelToHexCoords(MainScene.camera.screenTransformX(camera.getWidth()),
-                    MainScene.camera.screenTransformY(camera.getHeight()));
+            double[] hexCoordsTopRight = PointND.Hex.pixelToHexCoords(camera.screenTransformX(camera.getWidth()),
+                    camera.screenTransformY(camera.getHeight()));
 
-            double[] hexCoordsBotRight = PointND.Hex.pixelToHexCoords(MainScene.camera.screenTransformX(camera.getWidth()),
-                    MainScene.camera.screenTransformY(0));
+            double[] hexCoordsBotRight = PointND.Hex.pixelToHexCoords(camera.screenTransformX(camera.getWidth()),
+                    camera.screenTransformY(0));
             int gridBucketsQ = (int) Math.ceil(Math.abs(hexCoordsTopLeft[0] - hexCoordsBotRight[0]));
             int gridBucketsR = (int) Math.ceil(Math.abs(hexCoordsTopLeft[1] - hexCoordsBotRight[1]));
             int gridBucketsS = (int) Math.ceil(Math.abs(hexCoordsBotLeft[2] - hexCoordsTopRight[2]));
 
-            double[] hexCoordsMidPoint = PointND.Hex.pixelToHexCoords(MainScene.camera.screenTransformX(0),
-                    MainScene.camera.screenTransformY(camera.getHeight()));
+            double[] hexCoordsMidPoint = PointND.Hex.pixelToHexCoords(camera.screenTransformX(0),
+                    camera.screenTransformY(camera.getHeight()));
 
             Vector2f leftDiagonal = PointND.Hex.getRightDownVector();
 

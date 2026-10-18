@@ -17,9 +17,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.gui.ui.actions.Action;
 import ixdar.gui.ui.text.HyperString;
-import ixdar.scenes.main.Toggle;
 import ixdar.scenes.main.MainScene;
-import ixdar.tools.knot.Tool;
 
 public class Knot extends SDFCircle {
     public static final String KNOT = "Knot[ ";
@@ -873,28 +871,25 @@ public class Knot extends SDFCircle {
      */
     public HyperString toHyperString() {
         HyperString h = new HyperString();
-        Tool tool = MainScene.tool;
-        Color c = MainScene.stickyColor;
-        if (tool.canUseToggle(Toggle.DrawKnotGradient)) {
-            c = MainScene.getKnotGradientColorFlatten((Knot) this);
-        } else if (tool.canUseToggle(Toggle.DrawMetroDiagram)) {
-            c = MainScene.getMetroColorFlatten((Knot) this);
-        }
+        MainScene editor = MainScene.current();
+        Color c = editor.knotColor(this);
         Action clickAction = () -> {
-            MainScene.setDrawLevelToKnot(this);
-            MainScene.camera.zoomToKnot(this);
+            editor.setDrawLevelToKnot(this);
+            editor.editorCamera.zoomToKnot(this);
         };
-        Knot hoverKnot = MainScene.getKnotFlatten(this);
-        h.addHoverKnot(KNOT, c, hoverKnot, clickAction);
+        Knot hoverKnot = editor.getKnotFlatten(this);
+        Action highlight = () -> editor.setHoverKnot(hoverKnot);
+        Action clearHighlight = editor::clearHoverKnot;
+        h.addHoverKnot(KNOT, c, hoverKnot, highlight, clearHighlight, clickAction);
         for (Knot vp : knotPoints) {
             if (!vp.isSingleton()) {
                 h.addHyperString(((Knot) vp).toHyperString());
             } else {
-                h.addHoverKnot(vp + " ", c, hoverKnot, clickAction);
+                h.addHoverKnot(vp + " ", c, hoverKnot, highlight, clearHighlight, clickAction);
             }
         }
 
-        h.addHoverKnot(KNOT_CLOSE, c, hoverKnot, clickAction);
+        h.addHoverKnot(KNOT_CLOSE, c, hoverKnot, highlight, clearHighlight, clickAction);
         return h;
     }
 

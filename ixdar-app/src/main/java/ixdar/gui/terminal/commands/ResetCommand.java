@@ -73,13 +73,13 @@ public class ResetCommand extends TerminalCommand {
     public static void run(ResetOption option) {
         switch (option) {
         case All:
-            MainScene.camera.reset();
-            MainScene.tool.reset();
+            MainScene.current().editorCamera.reset();
+            MainScene.current().tool.reset();
             break;
         case Camera:
-            MainScene.camera.reset();
+            MainScene.current().editorCamera.reset();
         case Tool:
-            MainScene.tool.reset();
+            MainScene.current().tool.reset();
         case Toggles:
             Toggle.resetAll();
         default:

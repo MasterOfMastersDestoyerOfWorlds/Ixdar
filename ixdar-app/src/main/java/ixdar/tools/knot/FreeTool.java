@@ -24,7 +24,7 @@ public class FreeTool extends Tool {
 
     @Override
     public void cycleLeft() {
-        ArrayList<Knot> knotsDisplayed = MainScene.knotsDisplayed;
+        ArrayList<Knot> knotsDisplayed = MainScene.current().knotsDisplayed;
         for (Knot k : knotsDisplayed) {
             if (k.contains(displayKP)) {
                 selectedKP = k.getNextClockWise(displayKP);
@@ -36,7 +36,7 @@ public class FreeTool extends Tool {
 
     @Override
     public void cycleRight() {
-        ArrayList<Knot> knotsDisplayed = MainScene.knotsDisplayed;
+        ArrayList<Knot> knotsDisplayed = MainScene.current().knotsDisplayed;
         for (Knot k : knotsDisplayed) {
             if (k.contains(displayKP)) {
                 selectedKP = k.getNextCounterClockWise(displayKP);
@@ -57,10 +57,10 @@ public class FreeTool extends Tool {
         h.addWord("Point: ");
         pointInfo.addDynamicWord(() -> {
             final ColorText NONE = new ColorText(NONE_2);
-            if (MainScene.tool.displayKP == null) {
+            if (MainScene.current().tool.displayKP == null) {
                 return NONE;
             }
-            return new ColorText(((MainScene.tool.displayKP).p).toString());
+            return new ColorText(((MainScene.current().tool.displayKP).p).toString());
         });
         h.addDynamicTooltip(() -> {
             final ColorText NONE = new ColorText(NONE_2);
@@ -70,7 +70,7 @@ public class FreeTool extends Tool {
             return new ColorText(displayKP.id + "");
         }, Color.BLUE_GREY, pointInfo, () -> {
             if (displayKP != null) {
-                MainScene.camera.centerOnPoint(MainScene.tool.displayKP.p);
+                MainScene.current().editorCamera.centerOnPoint(MainScene.current().tool.displayKP.p);
             }
         });
         // h.newLine();
@@ -103,7 +103,7 @@ public class FreeTool extends Tool {
         h.newLine();
         h.addWord("MinKnot: ");
         Knot containingKnot = null;
-        for (Knot k : MainScene.knotsDisplayed) {
+        for (Knot k : MainScene.current().knotsDisplayed) {
             if (k.contains(displayKP)) {
                 containingKnot = k;
             }
@@ -111,11 +111,12 @@ public class FreeTool extends Tool {
         if (containingKnot == null) {
             h.addWord(NONE_2);
         } else {
-            Color c = MainScene.stickyColor;
+            MainScene editor = MainScene.current();
+            Color c = editor.stickyColor;
             if (canUseToggle(Toggle.DrawKnotGradient)) {
-                c = MainScene.getKnotGradientColor(displayKP);
+                c = editor.getKnotGradientColor(displayKP);
             } else if (canUseToggle(Toggle.DrawMetroDiagram)) {
-                c = MainScene.getMetroColor(displayKP, containingKnot);
+                c = editor.getMetroColor(displayKP, containingKnot);
             }
             String pointStr = "" + displayKP.id + " ";
             final Knot reeK = containingKnot;
@@ -129,15 +130,16 @@ public class FreeTool extends Tool {
                 minKnotInfo.addDistance(containingKnot.s2.distance, c);
             }
             minKnotInfo.addLine("FlatID: " + containingKnot.id, c);
-            h.addTooltip(containingKnot.beforeString(displayKP.id), c, minKnotInfo, () -> MainScene.camera.zoomToKnot(reeK));
-            h.addTooltip(pointStr, Color.BLUE_GREY, pointInfo, () -> MainScene.camera.centerOnPoint(coordPointF));
-            h.addTooltip(containingKnot.afterString(displayKP.id), c, minKnotInfo, () -> MainScene.camera.zoomToKnot(reeK));
+            h.addTooltip(containingKnot.beforeString(displayKP.id), c, minKnotInfo, () -> MainScene.current().editorCamera.zoomToKnot(reeK));
+            h.addTooltip(pointStr, Color.BLUE_GREY, pointInfo, () -> MainScene.current().editorCamera.centerOnPoint(coordPointF));
+            h.addTooltip(containingKnot.afterString(displayKP.id), c, minKnotInfo, () -> MainScene.current().editorCamera.zoomToKnot(reeK));
 
         }
         h.newLine();
-        if (MainScene.resultKnots != null && MainScene.resultKnots.size() > 0) {
+        ArrayList<Knot> resultKnots = MainScene.current().resultKnots;
+        if (resultKnots != null && resultKnots.size() > 0) {
             h.addWord("TopKnot:");
-            for (Knot topStruct : MainScene.resultKnots) {
+            for (Knot topStruct : resultKnots) {
                 if (!topStruct.isSingleton()) {
                     h.newLine();
                     h.newLine();
@@ -152,7 +154,7 @@ public class FreeTool extends Tool {
     @Override
     public Knot selectedKnot() {
         Knot containingKnot = null;
-        for (Knot k : MainScene.knotsDisplayed) {
+        for (Knot k : MainScene.current().knotsDisplayed) {
             if (k.contains(displayKP)) {
                 containingKnot = k;
             }

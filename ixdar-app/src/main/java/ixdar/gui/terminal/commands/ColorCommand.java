@@ -41,21 +41,22 @@ public class ColorCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
+        MainScene editor = MainScene.current();
         Random colorSeed = new Random();
-        MainScene.stickyColor = Color.random(colorSeed);
-        if (MainScene.tool.canUseToggle(Toggle.DrawMetroDiagram)) {
-            MainScene.metroColors = new ArrayList<>();
-            int totalLayers = MainScene.totalLayers;
+        editor.stickyColor = Color.random(colorSeed);
+        if (editor.tool.canUseToggle(Toggle.DrawMetroDiagram)) {
+            editor.metroColors = new ArrayList<>();
+            int totalLayers = editor.totalLayers;
             float startHue = colorSeed.nextFloat();
             float step = 1.0f / ((float) totalLayers);
             for (int i = 0; i <= totalLayers; i++) {
-                MainScene.metroColors.add(Color.fullHue((startHue + step * i) % 1.0f));
+                editor.metroColors.add(Color.fullHue((startHue + step * i) % 1.0f));
             }
         }
         float startHue = colorSeed.nextFloat();
-        float step = 1.0f / ((float) MainScene.resultKnots.size());
-        for (int i = 0; i < MainScene.knotGradientColors.size(); i++) {
-            MainScene.knotGradientColors.set(i, Color.fullHue((startHue + step * i) % 1.0f));
+        float step = 1.0f / ((float) editor.resultKnots.size());
+        for (int i = 0; i < editor.knotGradientColors.size(); i++) {
+            editor.knotGradientColors.set(i, Color.fullHue((startHue + step * i) % 1.0f));
         }
         return new String[] { cmd };
     }

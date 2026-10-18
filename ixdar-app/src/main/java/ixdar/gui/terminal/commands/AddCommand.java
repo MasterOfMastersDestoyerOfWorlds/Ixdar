@@ -52,7 +52,7 @@ public class AddCommand extends TerminalCommand {
             terminal.error(e.getMessage());
         }
         if (pc != null) {
-            FileManagement.appendLine(MainScene.tempFile, pc.toFileString());
+            FileManagement.appendLine(MainScene.current().tempFile, pc.toFileString());
             return new String[] { "add " + pc.shortName() };
         }
         return null;

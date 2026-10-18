@@ -70,8 +70,8 @@ public class LoadIxCommand extends TerminalCommand {
     }
 
     /**
-     * Refresh the test-file cache for {@code fileName}, run {@link MainScene#main} on it,
-     * then activate the scene.
+     * Refresh the test-file cache for {@code fileName}, then {@link MainScene#open} it in an
+     * editor that replaces the current scene from the next frame.
      *
      * @param fileName base name of the {@code .ix} file (without extension)
      * @throws TerminalParseException if reading/loading the file fails
@@ -79,12 +79,11 @@ public class LoadIxCommand extends TerminalCommand {
     public static void run(String fileName) throws TerminalParseException {
         FileManagement.updateTestFileCache(fileName);
         try {
-            MainScene.main(new String[] { fileName });
+            MainScene.open(fileName);
         } catch (IOException e) {
             e.printStackTrace();
             throw new TerminalParseException(e.getMessage());
         }
-        MainScene.activate(true);
 
     }
 

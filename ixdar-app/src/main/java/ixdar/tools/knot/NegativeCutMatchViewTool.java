@@ -56,7 +56,8 @@ public class NegativeCutMatchViewTool extends Tool {
      */
     @Override
     public void draw(Camera2D camera, float minLineThickness) {
-        if (layerCalculated != MainScene.knotDrawLayer) {
+        MainScene editor = MainScene.current();
+        if (layerCalculated != editor.knotDrawLayer) {
             initSegmentMap();
             return;
         }
@@ -69,7 +70,7 @@ public class NegativeCutMatchViewTool extends Tool {
                     camera);
             if (matchSegments != null) {
                 for (Segment s : matchSegments) {
-                    if (!s.equals(MainScene.hoverSegment)) {
+                    if (!s.equals(editor.hoverSegment)) {
                         Drawing.drawScaledSegment(s, Color.TEAL, Drawing.MIN_THICKNESS,
                                 camera);
                     }
@@ -77,7 +78,7 @@ public class NegativeCutMatchViewTool extends Tool {
                 Drawing.drawCircle(displayKP, Color.GREEN, camera, minLineThickness);
             }
         }
-        for (Knot k : MainScene.knotsDisplayed) {
+        for (Knot k : editor.knotsDisplayed) {
             Drawing.drawGradientPath(k, lookupSegmentPairs(k), colorLookup, colors,
                     camera,
                     Drawing.MIN_THICKNESS);
@@ -91,8 +92,9 @@ public class NegativeCutMatchViewTool extends Tool {
      * record per-direction color indices accordingly.
      */
     public void initSegmentMap() {
-        layerCalculated = MainScene.knotDrawLayer;
-        ArrayList<Knot> knotsDisplayed = MainScene.knotsDisplayed;
+        MainScene editor = MainScene.current();
+        layerCalculated = editor.knotDrawLayer;
+        ArrayList<Knot> knotsDisplayed = editor.knotsDisplayed;
         negativeSegmentMap = new HashMap<>();
         colorLookup = new HashMap<>();
         for (Knot k : knotsDisplayed) {

@@ -10,42 +10,34 @@ import ixdar.game.CityNetwork;
 import ixdar.geometry.grid2d.Grid.CartesianGrid;
 import ixdar.geometry.tsp.points.PointSet;
 import ixdar.graphics.cameras.Bounds;
-import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.cameras.Camera2D;
-import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.ColorBox;
-import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.PointerDispatcher;
-import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.tools.knot.Tool;
 import ixdar.tools.trade.HeadquartersPickerTool;
 import ixdar.tools.trade.RoutePlanningTool;
 
 /**
  * The main scene for the trade game. Handles rendering cities, camera controls,
- * and player interactions.
+ * and player interactions. Swapped in by the menu through {@link #startNewGame}.
  */
-public class TradeScene {
+public class TradeScene extends Scene {
     public static final float CAMERA_ZOOM_DEFAULT = 0.9f;
     public static final String PACKAGE_SEPARATOR = ".";
     public static final float DRAW_LINE_WIDTH = 2f;
     public static final float ROAD_PROXIMITY_THRESHOLD = 200f;
 
-    public static TradeScene instance;
-    public static Camera2D camera;
-    public static boolean active = false;
-
     // View constants
     public static final String VIEW_MAIN = "MAIN";
-    public static final String VIEW_TOOLTIP = "TOOLTIP";
     public static final int TOP_BAR_HEIGHT = 40;
 
-    // Tooltip state
-    private static HyperString toolTip;
-    private static boolean showToolTip = false;
+    /** The camera over the city map, framing the window below the top bar. */
+    public Camera2D mapCamera;
+
+    /** The scene Escape returns to: the menu the game was started from. */
+    public Scene backScene;
 
     // Game state
     public CityNetwork network;
@@ -55,55 +47,41 @@ public class TradeScene {
     // Tools
     public HeadquartersPickerTool hqPickerTool;
     public RoutePlanningTool routePlanningTool;
-    public Tool activeTool;
+    public Tool activeTradeTool;
 
-    // Rendering
-    private Scene canvas;
-    private PointSet pointSet;
-
-    // Input handlers
-    private TradeKeyGuy keys;
-    private TradeMouseTrap mouse;
+    /** The cities' positions, which bound {@link #mapCamera}. */
+    public PointSet cityPoints;
 
     /**
      * Build a trade scene around {@code network}: derive the camera's
      * point set from its cities, instantiate the HQ-picker and route-
-     * planning tools, and wire input handlers.
+     * planning tools, wire input handlers and lay out the views.
      *
      * @param network city network containing cities and roads
-     * @param canvas backing 3D canvas used for input dispatch
+     * @param backScene the scene Escape returns to
      */
-    public TradeScene(CityNetwork network, Scene canvas) {
+    public TradeScene(CityNetwork network, Scene backScene) {
         this.network = network;
-        this.canvas = canvas;
-        instance = this;
+        this.backScene = backScene;
 
         // Create PointSet from the network for camera bounds
-        pointSet = network.toPointSet();
+        cityPoints = network.toPointSet();
 
         int wWidth = (int) Platforms.get().getWindowWidth();
         int wHeight = (int) Platforms.get().getWindowHeight();
 
-        camera = new Camera2D(wWidth, wHeight - TOP_BAR_HEIGHT, CAMERA_ZOOM_DEFAULT, 0, 0, pointSet);
+        mapCamera = new Camera2D(wWidth, wHeight - TOP_BAR_HEIGHT, CAMERA_ZOOM_DEFAULT, 0, 0, cityPoints);
 
         // Create tools
         hqPickerTool = new HeadquartersPickerTool(this, network);
         routePlanningTool = new RoutePlanningTool(this, network);
-        activeTool = hqPickerTool; // Start with HQ picker
+        activeTradeTool = hqPickerTool; // Start with HQ picker
 
         // Create input handlers
-        keys = new TradeKeyGuy(this, camera, canvas);
-        mouse = new TradeMouseTrap(this, camera, canvas);
+        keys = new TradeKeyGuy(this, mapCamera);
+        mouse = new TradeMouseTrap(this, mapCamera);
 
         Platforms.gl().setWindowTitle("Ixdar : Trade Game");
-    }
-
-    /**
-     * Initialize the camera views.
-     */
-    public void initViews() {
-        int wWidth = (int) Platforms.get().getWindowWidth();
-        int wHeight = (int) Platforms.get().getWindowHeight();
 
         Map<String, Bounds> views = new HashMap<>();
         views.put(VIEW_MAIN, new Bounds(0, 0, wWidth, wHeight - TOP_BAR_HEIGHT, b -> {
@@ -111,41 +89,24 @@ public class TradeScene {
             int wh = (int) Platforms.get().getWindowHeight();
             b.update(0, 0, ww, wh - TOP_BAR_HEIGHT);
         }, VIEW_MAIN));
+        views.put(VIEW_TOOLTIP, tooltipBounds());
 
-        views.put(VIEW_TOOLTIP, new Bounds(0, 0, 0, 0, b -> {
-            int ww = (int) Platforms.get().getWindowWidth();
-            int wh = (int) Platforms.get().getWindowHeight();
-            if (toolTip == null) {
-                b.update(0, 0, 0, 0);
-                return;
-            }
-            float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
-            float mouseX = mouse != null ? mouse.normalizedPosX : 0;
-            float mouseY = mouse != null ? mouse.normalizedPosY : 0;
-            int isRight = mouseX > ww / 2 ? 1 : 0;
-            int isTop = mouseY > wh / 2 ? 1 : 0;
-            float toolTipWidth = toolTip.getWidthPixels();
-            int toolTipHeight = toolTip.getHeightPixels();
-            int x = (int) (mouseX - (isRight * toolTipWidth));
-            int y = (int) mouseY - (isTop * toolTipHeight);
-            b.update(x, y, (int) Math.ceil(toolTipWidth), (int) (toolTip.getLines() * rowHeight));
-        }, VIEW_TOOLTIP));
-
-        camera.initCamera(views, VIEW_MAIN);
-        PointerDispatcher.current().subscribe(views.get(VIEW_MAIN), camera);
+        mapCamera.initCamera(views, VIEW_MAIN);
+        PointerDispatcher.current().subscribe(views.get(VIEW_MAIN), mapCamera);
     }
 
     /**
-     * Activate or deactivate this scene's input handlers.
+     * Take or release input: on activation bind the game's handlers to the platform, pause the
+     * menu music and hide the menu.
      *
-     * @param state true to take input focus, false to release it back to the canvas
+     * @param state true to take input focus, false to release it
      */
+    @Override
     public void activate(boolean state) {
         if (state) {
-            Scene.bindAutomationIfAvailable(Platforms.get(), keys, mouse);
-        }
-        if (canvas != null) {
-            canvas.activate(!state);
+            bindAutomationIfAvailable(Platforms.get(), keys, mouse);
+            audioPauseMenuMusic();
+            MenuBox.menuVisible = false;
         }
         active = state;
         keys.active = state;
@@ -153,44 +114,41 @@ public class TradeScene {
     }
 
     /**
-     * Main draw loop.
-     *
-     * @param camera3D outer 3D camera whose z-index is shared with the 2D camera
+     * The game's keys are its key handler's own, not control hints.
      */
-    public void draw(Camera camera3D) {
+    @Override
+    public void setControls() {
+    }
+
+    /**
+     * Main draw loop: the city network, the active tool's overlay, the top bar and the tooltip,
+     * sharing the frame's z-order with the window-sized 2D camera.
+     */
+    @Override
+    public void drawScene() {
         try {
             int wWidth = (int) Platforms.get().getWindowWidth();
             int wHeight = (int) Platforms.get().getWindowHeight();
 
-            // Process input
-            SceneInputFrameUpdater.update(keys, mouse);
-
             // Setup camera
-            camera.updateView(VIEW_MAIN);
-            camera.resetZIndex();
-            camera.setZIndex(camera3D);
-            camera.calculateCameraTransform(pointSet);
+            mapCamera.updateView(VIEW_MAIN);
+            mapCamera.resetZIndex();
+            mapCamera.setZIndex(camera2D);
+            mapCamera.calculateCameraTransform(cityPoints);
 
             // Draw scene - network draws cities and roads
-            network.draw(camera, hoveredCity);
+            network.draw(mapCamera, hoveredCity);
 
             // Draw active tool overlay
-            if (activeTool != null) {
-                activeTool.draw(camera, DRAW_LINE_WIDTH);
+            if (activeTradeTool != null) {
+                activeTradeTool.draw(mapCamera, DRAW_LINE_WIDTH);
             }
 
             drawTopBar(wWidth, wHeight);
 
-            // Draw tooltip
-            if (toolTip != null && showToolTip) {
-                float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
-                toolTip.setLineOffsetFromTopRow(camera, 0, 0, rowHeight);
-                camera.updateView(VIEW_TOOLTIP);
-                new ColorBox().draw(Color.GREY_VERY_DARK, camera);
-                Drawing.getDrawing().font.drawHyperStringRows(toolTip, 0, 0, rowHeight, camera);
-            }
+            drawTooltip(mapCamera);
 
-            camera3D.setZIndex(camera);
+            camera2D.setZIndex(mapCamera);
 
         } catch (Exception e) {
             for (StackTraceElement ste : e.getStackTrace()) {
@@ -226,14 +184,12 @@ public class TradeScene {
      * @param city the city that was clicked
      */
     public void onCityClick(City city) {
-        System.out.println("[TradeScene] onCityClick: " + (city != null ? city.name : "null") +
-                " activeTool=" + activeTool.displayName());
-        if (activeTool instanceof HeadquartersPickerTool) {
+        if (activeTradeTool instanceof HeadquartersPickerTool) {
             System.out.println("[TradeScene] Forwarding to HeadquartersPickerTool");
-            ((HeadquartersPickerTool) activeTool).onCityClick(city);
-        } else if (activeTool instanceof RoutePlanningTool) {
+            ((HeadquartersPickerTool) activeTradeTool).onCityClick(city);
+        } else if (activeTradeTool instanceof RoutePlanningTool) {
             System.out.println("[TradeScene] Forwarding to RoutePlanningTool");
-            ((RoutePlanningTool) activeTool).onCityClick(city);
+            ((RoutePlanningTool) activeTradeTool).onCityClick(city);
         }
     }
 
@@ -241,27 +197,9 @@ public class TradeScene {
      * Activate the route planning tool (called after HQ is placed).
      */
     public void activateRoutePlanningTool() {
-        activeTool = routePlanningTool;
+        activeTradeTool = routePlanningTool;
         routePlanningTool.reset();
         System.out.println("Route planning tool activated");
-    }
-
-    /**
-     * Keyboard input handler for this scene.
-     *
-     * @return the trade-specific key handler
-     */
-    public TradeKeyGuy getKeys() {
-        return keys;
-    }
-
-    /**
-     * Mouse input handler for this scene.
-     *
-     * @return the trade-specific mouse handler
-     */
-    public TradeMouseTrap getMouse() {
-        return mouse;
     }
 
     /**
@@ -283,10 +221,10 @@ public class TradeScene {
             hoveredCity = city;
 
             // Update tool hover state
-            if (activeTool instanceof HeadquartersPickerTool) {
-                ((HeadquartersPickerTool) activeTool).updateHoveredCity(city);
-            } else if (activeTool instanceof RoutePlanningTool) {
-                ((RoutePlanningTool) activeTool).updateHoveredCity(city);
+            if (activeTradeTool instanceof HeadquartersPickerTool) {
+                ((HeadquartersPickerTool) activeTradeTool).updateHoveredCity(city);
+            } else if (activeTradeTool instanceof RoutePlanningTool) {
+                ((RoutePlanningTool) activeTradeTool).updateHoveredCity(city);
             }
 
             // Update tooltip
@@ -305,11 +243,11 @@ public class TradeScene {
      * @param mouseY screen-space mouse y
      */
     public void updateHoveredToolbar(float mouseX, float mouseY) {
-        if (!(activeTool instanceof RoutePlanningTool)) {
+        if (!(activeTradeTool instanceof RoutePlanningTool)) {
             return;
         }
 
-        RoutePlanningTool routeTool = (RoutePlanningTool) activeTool;
+        RoutePlanningTool routeTool = (RoutePlanningTool) activeTradeTool;
         routeTool.updateHoveredButton(mouseX, mouseY);
         HyperString toolbarTip = routeTool.buildHoveredToolbarTooltip();
         if (toolbarTip != null) {
@@ -320,70 +258,23 @@ public class TradeScene {
     }
 
     /**
-     * Return to the game menu.
+     * Return to the game menu from the next frame on.
      */
     public void returnToMenu() {
-        active = false;
-        keys.active = false;
-        mouse.active = false;
-        MenuBox.menuVisible = true;
-        Scene.audioPlayMenuMusic();
-        if (canvas != null) {
-            canvas.activate(true); // Restore menu input handling
-        }
-    }
-
-    // Static tooltip methods
-
-    /**
-     * Show a floating tooltip with the given text on the next frame.
-     *
-     * @param tip formatted tooltip body
-     */
-    public static void setTooltipText(HyperString tip) {
-        toolTip = tip;
-        showToolTip = true;
+        switchTo(backScene);
     }
 
     /**
-     * Hide the floating tooltip and clear its text.
-     */
-    public static void clearTooltipText() {
-        toolTip = null;
-        showToolTip = false;
-    }
-
-    /**
-     * Current tooltip body, or {@code null} when no tooltip is set.
-     *
-     * @return the tooltip text, or null
-     */
-    public static HyperString getToolTip() {
-        return toolTip;
-    }
-
-    /**
-     * Whether the tooltip should be drawn this frame.
-     *
-     * @return true if a tooltip is set and visible
-     */
-    public static boolean isToolTipVisible() {
-        return showToolTip;
-    }
-
-    /**
-     * Start a new trade game with the given city network.
+     * Start a new trade game with the given city network, replacing {@code canvas} from the next
+     * frame on.
      *
      * @param network the city network containing cities and roads
-     * @param canvas  the 3D canvas
+     * @param canvas  the scene the game replaces, which Escape returns to
      * @return the created TradeScene
      */
     public static TradeScene startNewGame(CityNetwork network, Scene canvas) {
         TradeScene scene = new TradeScene(network, canvas);
-        scene.initViews();
-        scene.activate(true);
-        Scene.audioPauseMenuMusic();
-        MenuBox.menuVisible = false;
+        canvas.switchTo(scene);
         return scene;
     }
 

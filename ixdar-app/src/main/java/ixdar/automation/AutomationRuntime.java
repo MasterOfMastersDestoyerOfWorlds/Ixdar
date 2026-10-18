@@ -18,7 +18,6 @@ import com.google.gson.JsonObject;
 import ixdar.canvas.IxdarWindow;
 import ixdar.scenes.Scene;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.nodegraph.runtime.HeapSampler;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.gui.ui.text.HyperWord;
 import ixdar.platform.Platforms;
@@ -29,9 +28,7 @@ import ixdar.platform.gl.headless.HeadlessPlatform;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.PointerDispatcher;
-import ixdar.scenes.main.MainScene;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
-import ixdar.scenes.trade.TradeScene;
 
 public class AutomationRuntime implements AutomationBackend {
     public static final String KEY = "key";
@@ -65,7 +62,7 @@ public class AutomationRuntime implements AutomationBackend {
     public final Queue<PendingMainThreadAction> pendingMainThreadActions = new ConcurrentLinkedQueue<>();
     public AutomationApiServer server;
     public boolean started;
-    public Scene canvas;
+    public volatile Scene canvas;
     public volatile long renderThreadId = -1;
 
     /**
@@ -81,16 +78,14 @@ public class AutomationRuntime implements AutomationBackend {
      * Bind the runtime to a live render canvas and start the HTTP automation
      * server, publishing the bound port to this process's own record under the
      * checkout's {@code tmp/automation/}. Idempotent: subsequent calls only refresh
-     * the canvas reference.
+     * the canvas reference, as the window does each time it switches scenes.
      *
      * @param canvas3D the active render canvas; held so endpoints can drive scenes
      */
     @Override
     public synchronized void start(Scene canvas3D) {
         if (started) {
-            if (canvas == null) {
-                canvas = canvas3D;
-            }
+            canvas = canvas3D;
             return;
         }
         this.canvas = canvas3D;
@@ -523,34 +518,20 @@ public class AutomationRuntime implements AutomationBackend {
     }
 
     /**
-     * Resolve the keyboard handler for the currently active scene, falling back to
-     * the canvas-level handler when no scene-specific keys are wired up.
+     * Resolve the keyboard handler of the scene the window shows.
      *
      * @return active {@link KeyGuy}, or {@code null} when no canvas is bound
      */
     public KeyGuy activeKeys() {
-        if (TradeScene.active && TradeScene.instance != null) {
-            return TradeScene.instance.getKeys();
-        }
-        if (MainScene.active && MainScene.keys != null) {
-            return MainScene.keys;
-        }
         return canvas == null ? null : canvas.keys;
     }
 
     /**
-     * Resolve the mouse handler for the currently active scene, falling back to the
-     * canvas-level handler when no scene-specific mouse is wired up.
+     * Resolve the mouse handler of the scene the window shows.
      *
      * @return active {@link MouseTrap}, or {@code null} when no canvas is bound
      */
     public MouseTrap activeMouse() {
-        if (TradeScene.active && TradeScene.instance != null) {
-            return TradeScene.instance.getMouse();
-        }
-        if (MainScene.active && MainScene.mouse != null) {
-            return MainScene.mouse;
-        }
         return canvas == null ? null : canvas.mouse;
     }
 

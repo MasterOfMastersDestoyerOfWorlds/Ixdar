@@ -42,7 +42,7 @@ public class FlyCamMouseTrap extends MouseTrap {
                            BooleanSupplier captureSupplier,
                            DeltaHandler onDelta,
                            DoubleConsumer onScroll) {
-        super(null, camera, canvas);
+        super(camera, canvas);
         this.captureSupplier = captureSupplier;
         this.onDelta = onDelta;
         this.onScroll = onScroll;

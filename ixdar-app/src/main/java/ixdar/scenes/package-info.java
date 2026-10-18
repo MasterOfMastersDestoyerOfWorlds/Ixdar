@@ -1,6 +1,6 @@
 /**
  * Scene layer root: `Scene`, the base of every launchable view (frame loop, input, cameras, hosted
- * tools), and every class under this package extends it, except `MainScene` and `TradeScene`,
- * which `MenuScene` hosts until the next phase-2 ticket makes them scenes.
+ * tools, tooltip), and every class under this package extends it. A scene hands the window to
+ * another with `switchTo`, as the menu does to the TSP editor and the trade game.
  */
 package ixdar.scenes;

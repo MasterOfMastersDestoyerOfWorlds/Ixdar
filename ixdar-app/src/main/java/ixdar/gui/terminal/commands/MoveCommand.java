@@ -42,12 +42,13 @@ public class MoveCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
+        MainScene editor = MainScene.current();
         try {
             Range idTarget = Range.parse(args[startIdx]);
             int idDest1 = Integer.parseInt(args[startIdx + 1]);
             int idDest2 = Integer.parseInt(args[startIdx + 2]);
-            MainScene.orgShell.moveBetween(idTarget, idDest1, idDest2);
-            PointSetPath.rewriteSolutionFile(MainScene.file.getPath(), MainScene.orgShell);
+            editor.orgShell.moveBetween(idTarget, idDest1, idDest2);
+            PointSetPath.rewriteSolutionFile(editor.file.getPath(), editor.orgShell);
             return new String[] { "mv " + idTarget + " " };
 
         } catch (NumberFormatException e) {
