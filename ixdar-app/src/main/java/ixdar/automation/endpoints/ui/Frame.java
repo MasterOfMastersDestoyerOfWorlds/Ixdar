@@ -25,8 +25,6 @@ public class Frame extends AutomationEndpoint implements AutomationRoute {
     public static final String PADDING = "padding";
     public static final String AZIMUTH = "azimuth";
     public static final String ELEVATION = "elevation";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String DISTANCE = "distance";
     public static final String MATCHED_VERTICES = "matchedVertices";
 
@@ -51,18 +49,12 @@ public class Frame extends AutomationEndpoint implements AutomationRoute {
         float requestedElevation = hasElevation ? body.get(ELEVATION).getAsFloat() : 0f;
 
         JsonObject result = runtime.runOnMainThread(() -> {
-            JsonObject framed = new JsonObject();
             if (!(runtime.canvas instanceof MeshNodeViewerScene viewer)) {
-                framed.addProperty(OK, false);
-                framed.addProperty(ERROR, "MeshNodeViewerScene is not active");
-                return framed;
+                return failure("MeshNodeViewerScene is not active");
             }
             SelectionBounds selected = new SelectionBounds();
             if (selection == null || !selected.resolve(viewer, selection)) {
-                framed.addProperty(OK, false);
-                framed.addProperty(ERROR, selection == null ? "a point needs a radius"
-                        : selected.error);
-                return framed;
+                return failure(selection == null ? "a point needs a radius" : selected.error);
             }
             Vector3f center = new Vector3f();
             float radius = selected.sphere(center);
@@ -71,7 +63,7 @@ public class Frame extends AutomationEndpoint implements AutomationRoute {
                     hasElevation ? requestedElevation : orbit.elevation, orbit.distance);
             float distance = orbit.frame(center, radius, padding, viewer.camera.aspectRatio());
 
-            framed.addProperty(OK, true);
+            JsonObject framed = success();
             framed.addProperty(SELECTION, selected.name.isEmpty() ? selected.kind
                     : selected.kind + ":" + selected.name);
             framed.addProperty(MATCHED_VERTICES, selected.matchedVertices);

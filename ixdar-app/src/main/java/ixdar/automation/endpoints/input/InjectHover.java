@@ -22,8 +22,6 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
     public static final String PERSISTENT = "persistent";
     public static final String SETTLE = "settle";
     public static final String SETTLED = "settled";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String COMMAND = "hover";
     /**
      * {@code POST /input/hover}: move the cursor without clicking, then wait for the hover to be
@@ -54,11 +52,8 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
             try {
                 JsonObject settledResult = runtime.runOnMainThread(() -> {
                     MouseTrap mouse = runtime.activeMouse();
-                    JsonObject result = new JsonObject();
                     if (mouse == null) {
-                        result.addProperty(OK, false);
-                        result.addProperty(ERROR, "No active mouse handler");
-                        return result;
+                        return failure("No active mouse handler");
                     }
                     appliedDuringFrame[0] = Clock.framesRendered();
                     float xPos = normalized ? denormalizeX(x) : x;
@@ -81,7 +76,7 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
                     payload.addProperty("yNorm", normalizeY(yPos));
                     payload.addProperty(PERSISTENT, persistent);
                     runtime.recorder.recordAbstract(COMMAND, payload);
-                    result.addProperty(OK, true);
+                    JsonObject result = success();
                     result.add("event", payload);
                     return result;
                 });
@@ -91,16 +86,10 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
                 }
                 return settledResult;
             } catch (Exception e) {
-                JsonObject error = new JsonObject();
-                error.addProperty(OK, false);
-                error.addProperty(ERROR, e.getMessage());
-                return error;
+                return failure(e.getMessage());
             }
         } catch (Exception e) {
-            JsonObject error = new JsonObject();
-            error.addProperty(OK, false);
-            error.addProperty(ERROR, e.getMessage());
-            return error;
+            return failure(e.getMessage());
         }
     }
 

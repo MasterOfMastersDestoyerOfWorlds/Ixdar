@@ -31,10 +31,7 @@ public class Validate extends AutomationEndpoint implements AutomationRoute {
                 : null;
 
         if (dslSource.isEmpty()) {
-            JsonObject err = new JsonObject();
-            err.addProperty("ok", false);
-            err.addProperty("error", "Missing required field: dsl (DSL source text or file path)");
-            return err;
+            return failure("Missing required field: dsl (DSL source text or file path)");
         }
 
         File sourceFile = dslFile(dslSource);

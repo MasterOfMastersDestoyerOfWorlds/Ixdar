@@ -26,8 +26,6 @@ public class RunTerminalLine extends AutomationEndpoint implements AutomationRou
     public static final String SETTLE = "settle";
     public static final String RESPONSE = "response";
     public static final String SETTLED = "settled";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String COMMAND = "terminal";
 
     /**
@@ -56,11 +54,8 @@ public class RunTerminalLine extends AutomationEndpoint implements AutomationRou
             result = runtime.runOnMainThread(() -> {
                 Terminal terminal = Terminal.current;
                 KeyGuy keys = runtime.activeKeys();
-                JsonObject applied = new JsonObject();
                 if (terminal == null || keys == null) {
-                    applied.addProperty(OK, false);
-                    applied.addProperty(ERROR, "No active terminal");
-                    return applied;
+                    return failure("No active terminal");
                 }
                 appliedDuringFrame[0] = Clock.framesRendered();
                 Toggle.setPanelFocus(PaneTypes.Terminal);
@@ -80,7 +75,7 @@ public class RunTerminalLine extends AutomationEndpoint implements AutomationRou
                 JsonObject payload = new JsonObject();
                 payload.addProperty(LINE, line);
                 runtime.recordAbstractAction(COMMAND, payload);
-                applied.addProperty(OK, true);
+                JsonObject applied = success();
                 applied.addProperty(LINE, line);
                 applied.add(RESPONSE, response);
                 return applied;
@@ -111,19 +106,6 @@ public class RunTerminalLine extends AutomationEndpoint implements AutomationRou
                 keys.charCallback(0L, typed);
             }
         }
-    }
-
-    /**
-     * Build the error envelope this route answers with.
-     *
-     * @param message what went wrong
-     * @return {@code {"ok": false, "error": message}}
-     */
-    private JsonObject failure(String message) {
-        JsonObject error = new JsonObject();
-        error.addProperty(OK, false);
-        error.addProperty(ERROR, message);
-        return error;
     }
 
     @Override

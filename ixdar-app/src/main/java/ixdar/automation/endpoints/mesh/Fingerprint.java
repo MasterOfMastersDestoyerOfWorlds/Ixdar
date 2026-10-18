@@ -15,27 +15,22 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "/mesh/fingerprint", method = APIMethod.GET)
 public class Fingerprint extends AutomationEndpoint implements AutomationRoute {
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
+    public static final String ALGORITHM = "algorithm";
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
             return runtime.runOnMainThread(() -> {
-                JsonObject result = new JsonObject();
-                result.addProperty("algorithm", MeshCanonicalFingerprint.ALGORITHM_ID);
-                if (!(runtime.canvas instanceof MeshNodeViewerScene)) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "MeshNodeViewerScene is not active");
-                    return result;
-                }
-                MeshNodeViewerScene mvs = (MeshNodeViewerScene) runtime.canvas;
-                MeshTopology mesh = mvs.getMesh();
+                boolean viewerActive = runtime.canvas instanceof MeshNodeViewerScene;
+                MeshTopology mesh = viewerActive ? ((MeshNodeViewerScene) runtime.canvas).getMesh() : null;
                 if (mesh == null) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "Mesh not loaded yet");
-                    return result;
+                    JsonObject failed = failure(viewerActive ? "Mesh not loaded yet"
+                            : "MeshNodeViewerScene is not active");
+                    failed.addProperty(ALGORITHM, MeshCanonicalFingerprint.ALGORITHM_ID);
+                    return failed;
                 }
+                JsonObject result = new JsonObject();
+                result.addProperty(ALGORITHM, MeshCanonicalFingerprint.ALGORITHM_ID);
                 result.addProperty(OK, true);
                 result.addProperty("sha256", MeshCanonicalFingerprint.sha256Hex(mesh));
                 result.addProperty("vertexCount", mesh.vertexCount());
@@ -44,10 +39,7 @@ public class Fingerprint extends AutomationEndpoint implements AutomationRoute {
                 return result;
             });
         } catch (Exception e) {
-            JsonObject err = new JsonObject();
-            err.addProperty(OK, false);
-            err.addProperty(ERROR, e.getMessage() == null ? "" : e.getMessage());
-            return err;
+            return failure(e.getMessage() == null ? "" : e.getMessage());
         }
     }
 

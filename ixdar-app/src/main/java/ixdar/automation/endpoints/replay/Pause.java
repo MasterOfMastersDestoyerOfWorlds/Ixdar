@@ -12,8 +12,6 @@ import ixdar.automation.AutomationEndpoint;
 
 @AutomationRouteAnnotation(path = "replay/pause", method = APIMethod.POST)
 public class Pause extends AutomationEndpoint implements AutomationRoute {
-    public static final String OK = "ok";
-
     /**
      * {@code POST /replay/pause}: ask the replay engine to suspend before the next
      * event. No-op when no replay is running.
@@ -25,16 +23,12 @@ public class Pause extends AutomationEndpoint implements AutomationRoute {
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
-            JsonObject result = new JsonObject();
             runtime.replayEngine().pause();
-            result.addProperty(OK, true);
+            JsonObject result = success();
             result.addProperty("paused", true);
             return result;
         } catch (Exception e) {
-            JsonObject err = new JsonObject();
-            err.addProperty(OK, false);
-            err.addProperty("error", e.getMessage());
-            return err;
+            return failure(e.getMessage());
         }
     }
 

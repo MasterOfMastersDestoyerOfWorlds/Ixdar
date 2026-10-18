@@ -24,7 +24,7 @@ public class Start extends AutomationEndpoint implements AutomationRoute {
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         runtime.recorder().start();
         JsonObject result = runtime.recorder().status();
-        result.addProperty("ok", true);
+        result.addProperty(OK, true);
         return result;
     }
 

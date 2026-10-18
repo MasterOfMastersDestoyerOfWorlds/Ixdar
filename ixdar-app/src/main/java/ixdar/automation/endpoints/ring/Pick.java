@@ -27,10 +27,6 @@ import ixdar.scenes.ring.RingScene;
 @AutomationRouteAnnotation(path = "/mesh/pick", method = APIMethod.POST)
 public class Pick extends AutomationEndpoint implements AutomationRoute {
 
-    public static final String OK = "ok";
-
-    public static final String ERROR = "error";
-
     public static final String X = "x";
 
     public static final String Y = "y";
@@ -43,22 +39,17 @@ public class Pick extends AutomationEndpoint implements AutomationRoute {
         float pixelY = body.has(Y) ? body.get(Y).getAsFloat() : 0f;
         try {
             return runtime.runOnMainThread(() -> {
-                JsonObject result = new JsonObject();
                 if (!(runtime.canvas instanceof MeshNodeViewerScene viewer)) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "no mesh viewer scene is active");
-                    return result;
+                    return failure("no mesh viewer scene is active");
                 }
                 String refusal = viewer.pickRefusal();
                 if (!refusal.isEmpty()) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, refusal);
-                    return result;
+                    return failure(refusal);
                 }
                 MeshTopology surface = viewer.halfEdgeSurface();
                 SurfacePicker picker = new SurfacePicker();
                 boolean hit = viewer.pickPixel(pixelX, pixelY, picker);
-                result.addProperty(OK, true);
+                JsonObject result = success();
                 result.addProperty("hit", hit);
                 if (!hit) {
                     return result;
@@ -88,10 +79,7 @@ public class Pick extends AutomationEndpoint implements AutomationRoute {
                 return result;
             });
         } catch (Exception failure) {
-            JsonObject error = new JsonObject();
-            error.addProperty(OK, false);
-            error.addProperty(ERROR, String.valueOf(failure.getMessage()));
-            return error;
+            return failure(String.valueOf(failure.getMessage()));
         }
     }
 

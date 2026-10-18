@@ -32,8 +32,6 @@ public class InjectDrag extends AutomationEndpoint implements AutomationRoute {
     public static final String STEPS = "steps";
     public static final String SETTLE = "settle";
     public static final String HOLD = "hold";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String COMMAND = "drag";
     public static final int DEFAULT_STEPS = 8;
 
@@ -57,13 +55,10 @@ public class InjectDrag extends AutomationEndpoint implements AutomationRoute {
         int settleFrames = body.has(SETTLE) ? body.get(SETTLE).getAsInt()
                 : InputSettle.DEFAULT_FRAMES;
         int holdFrames = body.has(HOLD) ? Math.max(0, body.get(HOLD).getAsInt()) : 0;
-        JsonObject result = new JsonObject();
         try {
             if (!deliver(mouse -> mouse.mousePos(fromX, fromY), 1)
                     || !deliver(mouse -> PointerDispatcher.current().mouseButton(mouse, 0, ACTION_PRESS, 0), 1)) {
-                result.addProperty(OK, false);
-                result.addProperty(ERROR, "No active mouse handler");
-                return result;
+                return failure("No active mouse handler");
             }
             for (int step = 1; step <= steps; step++) {
                 float along = (float) step / steps;
@@ -81,14 +76,12 @@ public class InjectDrag extends AutomationEndpoint implements AutomationRoute {
             payload.addProperty(TO_Y, toY);
             payload.addProperty(STEPS, steps);
             runtime.recordAbstractAction(COMMAND, payload);
-            result.addProperty(OK, true);
+            JsonObject result = success();
             result.addProperty(STEPS, steps);
             result.addProperty("settled", true);
             return result;
         } catch (Exception failure) {
-            result.addProperty(OK, false);
-            result.addProperty(ERROR, failure.getMessage());
-            return result;
+            return failure(failure.getMessage());
         }
     }
 

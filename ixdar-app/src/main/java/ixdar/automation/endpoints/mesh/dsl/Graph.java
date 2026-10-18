@@ -21,8 +21,6 @@ import ixdar.tools.graph.DslGraphView;
 
 @AutomationRouteAnnotation(path = "mesh/dsl/graph", method = APIMethod.POST)
 public class Graph extends AutomationEndpoint implements AutomationRoute {
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String TEXT_PX = "text_px";
     public static final String TOGGLE_GROUP = "toggle_group";
     public static final String TYPE = "type";
@@ -45,18 +43,13 @@ public class Graph extends AutomationEndpoint implements AutomationRoute {
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
             return runtime.runOnMainThread(() -> {
-                JsonObject result = new JsonObject();
                 if (!(runtime.canvas instanceof ModelScene scene) || scene.graphTool == null) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "no model scene is active");
-                    return result;
+                    return failure("no model scene is active");
                 }
                 DslGraphView view = scene.graphTool;
                 view.refresh();
                 if (view.layout == null) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "no DSL graph has run in this scene");
-                    return result;
+                    return failure("no DSL graph has run in this scene");
                 }
                 String toggle = body != null && body.has(TOGGLE_GROUP) ? body.get(TOGGLE_GROUP).getAsString() : "";
                 if (!toggle.isEmpty()) {
@@ -76,7 +69,7 @@ public class Graph extends AutomationEndpoint implements AutomationRoute {
                 Camera2D camera = view.camera;
                 camera.calculateCameraTransform(camera.ps);
                 float pixelsPerUnit = camera.width / camera.rangeX;
-                result.addProperty(OK, true);
+                JsonObject result = success();
                 result.addProperty("shown", view.active);
                 result.addProperty("active_tool", scene.activeTool.toolName());
                 JsonArray hotspots = new JsonArray();
@@ -185,10 +178,7 @@ public class Graph extends AutomationEndpoint implements AutomationRoute {
                 return result;
             });
         } catch (Exception failure) {
-            JsonObject error = new JsonObject();
-            error.addProperty(OK, false);
-            error.addProperty(ERROR, String.valueOf(failure.getMessage()));
-            return error;
+            return failure(String.valueOf(failure.getMessage()));
         }
     }
 

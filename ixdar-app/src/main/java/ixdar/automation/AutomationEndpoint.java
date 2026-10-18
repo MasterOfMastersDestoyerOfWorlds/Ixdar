@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.security.MessageDigest;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 
 import ixdar.graphics.image.PixelImage;
 import ixdar.graphics.image.PngWriter;
@@ -13,7 +14,36 @@ import ixdar.platform.Platforms;
 public class AutomationEndpoint {
     public static final Gson GSON = new Gson();
 
+    public static final String OK = "ok";
+
+    public static final String ERROR = "error";
+
     protected AutomationRuntime runtime;
+
+    /**
+     * Start a successful route response; callers append their fields after {@code ok}.
+     *
+     * @return {@code {"ok": true}}
+     */
+    public static JsonObject success() {
+        JsonObject response = new JsonObject();
+        response.addProperty(OK, true);
+        return response;
+    }
+
+    /**
+     * Build the failed route response every endpoint answers with; callers may append fields after
+     * {@code error}.
+     *
+     * @param message what went wrong
+     * @return {@code {"ok": false, "error": message}}
+     */
+    public static JsonObject failure(String message) {
+        JsonObject response = new JsonObject();
+        response.addProperty(OK, false);
+        response.addProperty(ERROR, message);
+        return response;
+    }
 
     /**
      * Convert a pixel x-coordinate into a normalized {@code [0, 1]} fraction of the

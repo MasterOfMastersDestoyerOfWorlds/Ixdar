@@ -22,32 +22,28 @@ import ixdar.tools.regions.RingRegionTool;
 @AutomationRouteAnnotation(path = "/mesh/regions", method = APIMethod.GET)
 public class Regions extends AutomationEndpoint implements AutomationRoute {
 
-    public static final String OK = "ok";
-
-    public static final String ERROR = "error";
-
     public static final String REGIONS = "regions";
+
+    public static final String ACTIVE_TOOL = "activeTool";
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
             return runtime.runOnMainThread(() -> {
-                JsonObject result = new JsonObject();
                 if (!(runtime.canvas instanceof RingScene scene)) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "the ring-tool editing scene is not active");
-                    return result;
+                    return failure("the ring-tool editing scene is not active");
                 }
                 RingRegionTool tool = scene.regionTool;
                 RegionLayer layer = scene.regionLayer;
                 RingRegions regions = layer.regions;
-                result.addProperty("activeTool", scene.activeTool.toolName());
                 if (regions == null) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "no regions yet: switch the region colours on "
+                    JsonObject none = failure("no regions yet: switch the region colours on "
                             + "with G or open the " + RingRegionTool.TOOL_NAME + " with Ctrl+T");
-                    return result;
+                    none.addProperty(ACTIVE_TOOL, scene.activeTool.toolName());
+                    return none;
                 }
+                JsonObject result = new JsonObject();
+                result.addProperty(ACTIVE_TOOL, scene.activeTool.toolName());
                 result.addProperty(OK, true);
                 result.addProperty("regionCount", regions.regionCount);
                 boolean[] hidden = layer.hiddenByActiveFace;
@@ -107,10 +103,7 @@ public class Regions extends AutomationEndpoint implements AutomationRoute {
                 return result;
             });
         } catch (Exception failure) {
-            JsonObject error = new JsonObject();
-            error.addProperty(OK, false);
-            error.addProperty(ERROR, String.valueOf(failure.getMessage()));
-            return error;
+            return failure(String.valueOf(failure.getMessage()));
         }
     }
 

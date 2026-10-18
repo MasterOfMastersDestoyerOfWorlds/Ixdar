@@ -24,10 +24,6 @@ public class SeamlessDiagnosis extends AutomationEndpoint implements AutomationR
 
     public static final String HIGHLIGHT = "highlight";
 
-    public static final String OK = "ok";
-
-    public static final String ERROR = "error";
-
     public static final String SINGULAR = "singular";
 
     private static final int POSITION_COMPONENTS = 3;
@@ -37,20 +33,15 @@ public class SeamlessDiagnosis extends AutomationEndpoint implements AutomationR
         boolean highlight = body.has(HIGHLIGHT) && body.get(HIGHLIGHT).getAsBoolean();
         try {
             return runtime.runOnMainThread(() -> {
-                JsonObject result = new JsonObject();
                 if (!(runtime.canvas instanceof QuadLayoutScene)) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "QuadLayoutScene is not active");
-                    return result;
+                    return failure("QuadLayoutScene is not active");
                 }
                 QuadLayoutScene scene = (QuadLayoutScene) runtime.canvas;
                 if (scene.layout == null) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "The seamless stage has not run yet");
-                    return result;
+                    return failure("The seamless stage has not run yet");
                 }
                 SingularSystemDiagnosis diagnosis = scene.layout.seamless.singularDiagnosis;
-                result.addProperty(OK, true);
+                JsonObject result = success();
                 result.addProperty(SINGULAR, diagnosis != null);
                 if (diagnosis == null) {
                     return result;
@@ -64,10 +55,7 @@ public class SeamlessDiagnosis extends AutomationEndpoint implements AutomationR
                 return result;
             });
         } catch (Exception failure) {
-            JsonObject error = new JsonObject();
-            error.addProperty(OK, false);
-            error.addProperty(ERROR, failure.getMessage() == null ? "" : failure.getMessage());
-            return error;
+            return failure(failure.getMessage() == null ? "" : failure.getMessage());
         }
     }
 

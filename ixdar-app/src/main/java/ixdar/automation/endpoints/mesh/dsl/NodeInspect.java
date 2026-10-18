@@ -32,9 +32,6 @@ public class NodeInspect extends AutomationEndpoint implements AutomationRoute {
 
     public static final String LIMIT = "limit";
 
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
-
     public static final int DEFAULT_DEPTH = 1;
     public static final int DEFAULT_LIMIT = 20;
 
@@ -65,8 +62,7 @@ public class NodeInspect extends AutomationEndpoint implements AutomationRoute {
                 if (graph == null) {
                     return failure("the active scene has run no graph yet");
                 }
-                JsonObject result = new JsonObject();
-                result.addProperty(OK, true);
+                JsonObject result = success();
                 if (path.isEmpty()) {
                     JsonArray tree = new JsonArray();
                     for (String line : graph.treeLines(0)) {
@@ -107,13 +103,6 @@ public class NodeInspect extends AutomationEndpoint implements AutomationRoute {
 
     private static String text(JsonObject body, String key) {
         return body.has(key) && !body.get(key).isJsonNull() ? body.get(key).getAsString().trim() : "";
-    }
-
-    private static JsonObject failure(String message) {
-        JsonObject error = new JsonObject();
-        error.addProperty(OK, false);
-        error.addProperty(ERROR, message);
-        return error;
     }
 
     @Override

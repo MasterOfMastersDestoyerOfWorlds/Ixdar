@@ -22,9 +22,8 @@ public class Resume extends AutomationEndpoint implements AutomationRoute {
      * @return {@code {"ok": true, "paused": <bool>}} reflecting the post-call state
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        JsonObject result = new JsonObject();
         runtime.replayEngine().resume();
-        result.addProperty("ok", true);
+        JsonObject result = success();
         result.addProperty("paused", runtime.replayEngine().isPaused());
         return result;
 

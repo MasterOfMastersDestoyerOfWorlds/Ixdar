@@ -16,8 +16,6 @@ import ixdar.platform.input.Keys;
 @AutomationRouteAnnotation(path = "input/type", method = APIMethod.POST)
 public class InjectStringTyping extends AutomationEndpoint implements AutomationRoute {
     public static final String TEXT = "text";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String COMMAND = "type";
     /**
      * {@code POST /input/type}: synthesize a sequence of character events on the
@@ -39,11 +37,8 @@ public class InjectStringTyping extends AutomationEndpoint implements Automation
             try {
                 return runtime.runOnMainThread(() -> {
                     KeyGuy keys = runtime.activeKeys();
-                    JsonObject result = new JsonObject();
                     if (keys == null) {
-                        result.addProperty(OK, false);
-                        result.addProperty(ERROR, "No active key handler");
-                        return result;
+                        return failure("No active key handler");
                     }
                     for (int i = 0; i < text.length(); i++) {
                         char typed = text.charAt(i);
@@ -57,20 +52,13 @@ public class InjectStringTyping extends AutomationEndpoint implements Automation
                     JsonObject payload = new JsonObject();
                     payload.addProperty(TEXT, text);
                     runtime.recorder.recordAbstract(COMMAND, payload);
-                    result.addProperty(OK, true);
-                    return result;
+                    return success();
                 });
             } catch (Exception e) {
-                JsonObject error = new JsonObject();
-                error.addProperty(OK, false);
-                error.addProperty(ERROR, e.getMessage());
-                return error;
+                return failure(e.getMessage());
             }
         } catch (Exception e) {
-            JsonObject error = new JsonObject();
-            error.addProperty(OK, false);
-            error.addProperty(ERROR, e.getMessage());
-            return error;
+            return failure(e.getMessage());
         }
     }
 

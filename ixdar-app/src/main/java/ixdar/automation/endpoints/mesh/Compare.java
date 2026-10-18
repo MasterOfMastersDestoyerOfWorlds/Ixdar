@@ -28,8 +28,6 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
     public static final String DISTANCE_TYPE = "distance_type";
     public static final String SCALE = "scale";
     public static final String NORMALIZE = "normalize";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
@@ -46,28 +44,18 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
             boolean normalize = body.has(NORMALIZE) && body.get(NORMALIZE).getAsBoolean();
 
             if (referencePath.isEmpty()) {
-                JsonObject err = new JsonObject();
-                err.addProperty(OK, false);
-                err.addProperty(ERROR, "Missing required field: reference");
-                return err;
+                return failure("Missing required field: reference");
             }
 
             try {
                 return runtime.runOnMainThread(() -> {
-                    JsonObject result = new JsonObject();
-                    result.addProperty(OK, false);
-
                     if (!(runtime.canvas instanceof MeshNodeViewerScene)) {
-                        result.addProperty(
-                                ERROR,
-                                "MeshNodeViewerScene is not active");
-                        return result;
+                        return failure("MeshNodeViewerScene is not active");
                     }
                     MeshNodeViewerScene mvs = (MeshNodeViewerScene) runtime.canvas;
                     MeshTopology currentMeshTopology = mvs.getMesh();
                     if (currentMeshTopology == null) {
-                        result.addProperty(ERROR, "Mesh not loaded yet");
-                        return result;
+                        return failure("Mesh not loaded yet");
                     }
 
                     // Convert current mesh to ArrayMesh
@@ -85,15 +73,11 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                         referenceMesh = MeshLoader.load(
                                 referencePath);
                     } catch (Exception e) {
-                        result.addProperty(
-                                ERROR,
-                                "Failed to load reference mesh: " + e.getMessage());
-                        return result;
+                        return failure("Failed to load reference mesh: " + e.getMessage());
                     }
 
                     if (referenceMesh.vertexCount() == 0) {
-                        result.addProperty(ERROR, "Reference mesh is empty");
-                        return result;
+                        return failure("Reference mesh is empty");
                     }
 
                     // Normalize: center both meshes to origin, scale to unit bounding box diagonal
@@ -111,7 +95,7 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                                     referenceMesh,
                                     effectiveScale);
 
-                    result.addProperty(OK, true);
+                    JsonObject result = success();
                     result.addProperty(
                             "current_vertices",
                             currentMesh.vertexCount());
@@ -134,18 +118,10 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                     return result;
                 });
             } catch (Exception e) {
-                JsonObject err = new JsonObject();
-                err.addProperty(OK, false);
-                err.addProperty(
-                        ERROR,
-                        e.getMessage() == null ? "" : e.getMessage());
-                return err;
+                return failure(e.getMessage() == null ? "" : e.getMessage());
             }
         } catch (Exception e) {
-            JsonObject err = new JsonObject();
-            err.addProperty(OK, false);
-            err.addProperty(ERROR, e.getMessage());
-            return err;
+            return failure(e.getMessage());
         }
     }
 

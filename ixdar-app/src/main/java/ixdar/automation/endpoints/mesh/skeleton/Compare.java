@@ -30,8 +30,6 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
     public static final String GENERATED = "generated";
     public static final String REFERENCE = "reference";
     public static final String RESOLUTION = "resolution";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String USER_DIR = "user.dir";
     public static final int DEFAULT_VOXEL_RESOLUTION = 128;
     @Override
@@ -47,12 +45,7 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                     ? body.get(RESOLUTION).getAsInt()
                     : DEFAULT_VOXEL_RESOLUTION;
             if (generatedPath.isEmpty() || referencePath.isEmpty()) {
-                JsonObject err = new JsonObject();
-                err.addProperty(OK, false);
-                err.addProperty(
-                        ERROR,
-                        "Provide 'generated' and 'reference' OBJ paths");
-                return err;
+                return failure("Provide 'generated' and 'reference' OBJ paths");
             }
             // Resolve and validate generated mesh path
             File genFile = new File(generatedPath);
@@ -61,12 +54,7 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                         System.getProperty(USER_DIR),
                         generatedPath);
             if (!genFile.exists()) {
-                JsonObject err = new JsonObject();
-                err.addProperty(OK, false);
-                err.addProperty(
-                        ERROR,
-                        "Generated mesh not found: " + genFile.getAbsolutePath());
-                return err;
+                return failure("Generated mesh not found: " + genFile.getAbsolutePath());
             }
 
             // Resolve and validate reference mesh path
@@ -76,12 +64,7 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                         System.getProperty(USER_DIR),
                         referencePath);
             if (!refFile.exists()) {
-                JsonObject err = new JsonObject();
-                err.addProperty(OK, false);
-                err.addProperty(
-                        ERROR,
-                        "Reference mesh not found: " + refFile.getAbsolutePath());
-                return err;
+                return failure("Reference mesh not found: " + refFile.getAbsolutePath());
             }
 
             ArrayMesh genMesh = MeshLoader.load(genFile.getAbsolutePath());
@@ -102,10 +85,7 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
 
             return result;
         } catch (Exception e) {
-            JsonObject err = new JsonObject();
-            err.addProperty(OK, false);
-            err.addProperty(ERROR, e.getMessage());
-            return err;
+            return failure(e.getMessage());
         }
     }
 

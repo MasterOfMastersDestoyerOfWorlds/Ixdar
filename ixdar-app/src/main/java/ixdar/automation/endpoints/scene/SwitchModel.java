@@ -28,15 +28,11 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
 
     public static final String NAME = "name";
 
-    public static final String OK = "ok";
-
     public static final String OUTCOME = "outcome";
 
     public static final String LOADED = "loaded";
 
     public static final String FAILED = "failed";
-
-    public static final String ERROR = "error";
 
     public static final String MODEL = "model";
 
@@ -68,14 +64,12 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
         String name = body.has(NAME) && !body.get(NAME).isJsonNull()
                 ? body.get(NAME).getAsString().trim()
                 : "";
-        if (name.isEmpty()) {
-            return failure("a model name is required, e.g. bolt");
-        }
         ModelScene[] requestedOn = new ModelScene[1];
         int[] serial = new int[1];
         JsonObject result;
         try {
-            result = runtime.runOnMainThread(() -> {
+            result = name.isEmpty() ? failure("a model name is required, e.g. bolt")
+                    : runtime.runOnMainThread(() -> {
                 if (!(runtime.canvas instanceof ModelScene)) {
                     return failure("the active scene is not a model scene");
                 }
@@ -112,17 +106,19 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
                 scene.requestModelLoad(match.path);
                 requestedOn[0] = scene;
                 serial[0] = scene.modelLoads.requestedSerial;
-                JsonObject accepted = new JsonObject();
-                accepted.addProperty(OK, true);
+                JsonObject accepted = success();
                 accepted.addProperty(OUTCOME, LOADED);
                 accepted.addProperty(MODEL, match.displayName);
                 accepted.addProperty(PATH, match.path);
                 return accepted;
             });
         } catch (Exception requestFailure) {
-            return failure(String.valueOf(requestFailure.getMessage()));
+            result = failure(String.valueOf(requestFailure.getMessage()));
+            result.addProperty(OUTCOME, FAILED);
+            return result;
         }
         if (requestedOn[0] == null) {
+            result.addProperty(OUTCOME, FAILED);
             return result;
         }
         ModelLoadLedger loads = requestedOn[0].modelLoads;
@@ -164,19 +160,5 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
                 .responseHint("{ok, outcome: loaded|failed, model, path, seconds, error, overrides}")
                 .waitSeconds(WAIT_SECONDS)
                 .build();
-    }
-
-    /**
-     * Build the failed envelope this route answers with before any load ran.
-     *
-     * @param message what went wrong
-     * @return {@code {"ok": false, "outcome": "failed", "error": message}}
-     */
-    private static JsonObject failure(String message) {
-        JsonObject error = new JsonObject();
-        error.addProperty(OK, false);
-        error.addProperty(OUTCOME, FAILED);
-        error.addProperty(ERROR, message);
-        return error;
     }
 }

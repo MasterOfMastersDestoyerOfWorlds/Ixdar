@@ -25,8 +25,7 @@ public class Shutdown extends AutomationEndpoint implements AutomationRoute {
      * @return {@code {"ok": true, "accepted": true}}
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        JsonObject result = new JsonObject();
-        result.addProperty("ok", true);
+        JsonObject result = success();
         result.addProperty("accepted", true);
         Thread shutdownThread = new Thread(
                 () -> {

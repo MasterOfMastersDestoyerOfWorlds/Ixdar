@@ -28,10 +28,6 @@ public class Add extends AutomationEndpoint implements AutomationRoute {
 
     public static final String TIGHTEN = "tighten";
 
-    public static final String OK = "ok";
-
-    public static final String ERROR = "error";
-
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         String points = body.has(POINTS) ? body.get(POINTS).getAsString() : "";
@@ -39,7 +35,7 @@ public class Add extends AutomationEndpoint implements AutomationRoute {
         try {
             return runtime.runOnMainThread(() -> ringRow(points, tighten));
         } catch (Exception failure) {
-            return failed(failure.getMessage() == null ? failure.toString()
+            return failure(failure.getMessage() == null ? failure.toString()
                     : failure.getMessage());
         }
     }
@@ -62,11 +58,11 @@ public class Add extends AutomationEndpoint implements AutomationRoute {
 
     private JsonObject ringRow(String points, boolean tighten) {
         if (!(runtime.canvas instanceof RingScene scene)) {
-            return failed("RingScene is not active");
+            return failure("RingScene is not active");
         }
         MeshTopology mesh = scene.halfEdgeSurface();
         if (mesh == null || mesh.faceCount() == 0) {
-            return failed("no mesh is loaded to ring");
+            return failure("no mesh is loaded to ring");
         }
         float[] packed = SurfaceWaypoints.parse(points);
         int waypointCount = packed.length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
@@ -74,8 +70,7 @@ public class Add extends AutomationEndpoint implements AutomationRoute {
         scene.ringWaypointCount = waypointCount;
         SurfaceRing ring = tighten ? scene.closeRing() : seedOnly(scene, mesh);
 
-        JsonObject result = new JsonObject();
-        result.addProperty(OK, true);
+        JsonObject result = success();
         result.addProperty("waypointCount", waypointCount);
         result.addProperty(POINTS, SurfaceWaypoints.format(packed, waypointCount));
         result.addProperty("edgeCount", ring.markedEdgeCount);
@@ -96,12 +91,5 @@ public class Add extends AutomationEndpoint implements AutomationRoute {
         scene.ring = ring;
         scene.showRing(ring);
         return ring;
-    }
-
-    private static JsonObject failed(String message) {
-        JsonObject error = new JsonObject();
-        error.addProperty(OK, false);
-        error.addProperty(ERROR, message);
-        return error;
     }
 }

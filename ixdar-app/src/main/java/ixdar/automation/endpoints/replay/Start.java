@@ -16,7 +16,6 @@ import ixdar.automation.AutomationReplayEngine;
 public class Start extends AutomationEndpoint implements AutomationRoute {
     public static final String FILE = "file";
     public static final String MODE = "mode";
-    public static final String OK = "ok";
     /**
      * {@code POST /replay/start}: launch a replay from a previously saved recording.
      *
@@ -41,10 +40,7 @@ public class Start extends AutomationEndpoint implements AutomationRoute {
             result.addProperty(MODE, replayMode.name().toLowerCase());
             return result;
         } catch (Exception e) {
-            JsonObject err = new JsonObject();
-            err.addProperty(OK, false);
-            err.addProperty("error", e.getMessage());
-            return err;
+            return failure(e.getMessage());
         }
     }
 

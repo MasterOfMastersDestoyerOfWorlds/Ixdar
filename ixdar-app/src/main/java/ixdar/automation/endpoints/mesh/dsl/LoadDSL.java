@@ -23,8 +23,6 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
     public static final String NODE = "node";
     public static final String PORT = "port";
     public static final String GEOMETRY = "geometry";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String RUNNING = "running";
     public static final long WAIT_SECONDS = 1800L;
     private static final long MILLIS_PER_SECOND = 1000L;
@@ -53,21 +51,15 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
                 : GEOMETRY;
 
         if (dslName.isEmpty()) {
-            JsonObject err = new JsonObject();
-            err.addProperty(OK, false);
-            err.addProperty(ERROR, "Missing required field: name");
-            return err;
-
+            return failure("Missing required field: name");
         }
 
         synchronized (this) {
             if (runningGraph != null) {
-                JsonObject busy = new JsonObject();
-                busy.addProperty(OK, false);
-                busy.addProperty(RUNNING, runningGraph);
-                busy.addProperty(ERROR, "graph " + runningGraph + " has been running for "
+                JsonObject busy = failure("graph " + runningGraph + " has been running for "
                         + (System.currentTimeMillis() - runningSinceMillis) / MILLIS_PER_SECOND
                         + " s; this submit was not queued, run it again once that one answers");
+                busy.addProperty(RUNNING, runningGraph);
                 return busy;
             }
             runningGraph = dslName;
@@ -76,17 +68,12 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
         try {
             return runtime.runOnMainThread(() -> {
                 try {
-                    JsonObject result = new JsonObject();
                     if (!(runtime.canvas instanceof MeshNodeViewerScene)) {
-                        result.addProperty(OK, false);
-                        result.addProperty(
-                                ERROR,
-                                "MeshNodeViewerScene is not active");
-                        return result;
+                        return failure("MeshNodeViewerScene is not active");
                     }
                     MeshNodeViewerScene mvs = (MeshNodeViewerScene) runtime.canvas;
                     mvs.loadDsl(dslName, node, port);
-                    result.addProperty(OK, true);
+                    JsonObject result = success();
                     result.addProperty("dsl", dslName);
                     result.addProperty(NODE, node != null ? node : "");
                     result.addProperty(PORT, port != null ? port : GEOMETRY);
@@ -101,8 +88,6 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
                 }
             }, WAIT_SECONDS * MILLIS_PER_SECOND);
         } catch (Exception e) {
-            JsonObject err = new JsonObject();
-            err.addProperty(OK, false);
             StringBuilder msg = new StringBuilder();
             for (Throwable t = e; t != null; t = t.getCause()) {
                 if (msg.length() > 0)
@@ -112,8 +97,7 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
                         .append(": ")
                         .append(t.getMessage());
             }
-            err.addProperty(ERROR, msg.toString());
-            return err;
+            return failure(msg.toString());
         }
     }
 

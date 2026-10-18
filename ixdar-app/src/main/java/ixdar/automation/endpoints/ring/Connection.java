@@ -22,10 +22,6 @@ import ixdar.tools.connection.ConnectionTool;
 @AutomationRouteAnnotation(path = "/mesh/connection", method = APIMethod.POST)
 public class Connection extends AutomationEndpoint implements AutomationRoute {
 
-    public static final String OK = "ok";
-
-    public static final String ERROR = "error";
-
     public static final String FROM = "from";
 
     public static final String TO = "to";
@@ -46,23 +42,19 @@ public class Connection extends AutomationEndpoint implements AutomationRoute {
         boolean confirm = body.has(CONFIRM) && body.get(CONFIRM).getAsBoolean();
         try {
             return runtime.runOnMainThread(() -> {
-                JsonObject result = new JsonObject();
                 if (!(runtime.canvas instanceof RingScene scene)) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "the ring-tool editing scene is not active");
-                    return result;
+                    return failure("the ring-tool editing scene is not active");
                 }
                 if (from.length != SurfaceConnection.COORDINATES_PER_POINT
                         || to.length != SurfaceConnection.COORDINATES_PER_POINT) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "from and to each take one point, \"x,y,z\"");
-                    return result;
+                    return failure("from and to each take one point, \"x,y,z\"");
                 }
                 ConnectionTool tool = scene.connectionTool;
                 scene.switchTool(tool);
                 tool.ringsAreWalls = walls;
                 boolean found = tool.connectPoints(from, to);
                 SurfaceConnection connection = tool.connection;
+                JsonObject result = new JsonObject();
                 result.addProperty(OK, found);
                 result.addProperty("connected", connection != null && connection.connected);
                 if (connection != null && connection.connected) {
@@ -93,10 +85,7 @@ public class Connection extends AutomationEndpoint implements AutomationRoute {
                 return result;
             });
         } catch (Exception failure) {
-            JsonObject error = new JsonObject();
-            error.addProperty(OK, false);
-            error.addProperty(ERROR, String.valueOf(failure.getMessage()));
-            return error;
+            return failure(String.valueOf(failure.getMessage()));
         }
     }
 

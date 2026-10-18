@@ -33,8 +33,6 @@ public class ListRings extends AutomationEndpoint implements AutomationRoute {
 
     public static final String MIN_NECKNESS = "min_neckness";
 
-    public static final String OK = "ok";
-
     public static final int ROW_DECIMALS = 6;
 
     public static final int COORDINATES_PER_POINT = 3;
@@ -43,11 +41,8 @@ public class ListRings extends AutomationEndpoint implements AutomationRoute {
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         String path = body.has(PATH) ? body.get(PATH).getAsString() : "";
         File file = resolvePath(path);
-        JsonObject out = new JsonObject();
         if (file == null) {
-            out.addProperty(OK, false);
-            out.addProperty("error", "File not found: " + path);
-            return out;
+            return failure("File not found: " + path);
         }
         RingCandidateExtractor extractor = new RingCandidateExtractor();
         if (body.has(RESOLUTION)) {
@@ -60,7 +55,7 @@ public class ListRings extends AutomationEndpoint implements AutomationRoute {
                 MeshLoader.load(file.getAbsolutePath()));
         RingCandidates rings = extractor.extract(mesh);
 
-        out.addProperty(OK, true);
+        JsonObject out = success();
         out.addProperty(PATH, file.getAbsolutePath());
         out.addProperty(RESOLUTION, extractor.resolution);
         out.addProperty(MIN_NECKNESS, rounded(extractor.minimumNeckness));

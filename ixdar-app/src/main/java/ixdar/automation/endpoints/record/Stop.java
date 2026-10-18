@@ -30,10 +30,7 @@ public class Stop extends AutomationEndpoint implements AutomationRoute {
             String path = body.has(PATH) ? body.get(PATH).getAsString() : "";
             return runtime.recorder().stop(path);
         } catch (Exception e) {
-            JsonObject err = new JsonObject();
-            err.addProperty("ok", false);
-            err.addProperty("error", e.getMessage());
-            return err;
+            return failure(e.getMessage());
         }
     }
 

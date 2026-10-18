@@ -22,10 +22,6 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 @AutomationRouteAnnotation(path = "/mesh/project", method = APIMethod.POST)
 public class Project extends AutomationEndpoint implements AutomationRoute {
 
-    public static final String OK = "ok";
-
-    public static final String ERROR = "error";
-
     public static final String POINT = "point";
 
     @Override
@@ -34,19 +30,14 @@ public class Project extends AutomationEndpoint implements AutomationRoute {
                 : "");
         try {
             return runtime.runOnMainThread(() -> {
-                JsonObject result = new JsonObject();
                 if (!(runtime.canvas instanceof MeshNodeViewerScene viewer)) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "no mesh viewer scene is active");
-                    return result;
+                    return failure("no mesh viewer scene is active");
                 }
                 String refusal = point.length == SurfacePicker.COORDINATES_PER_POINT
                         ? viewer.pickRefusal()
                         : "point takes one point, \"x,y,z\"";
                 if (!refusal.isEmpty()) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, refusal);
-                    return result;
+                    return failure(refusal);
                 }
                 float[] pixel = new float[2];
                 SurfacePicker occluder = new SurfacePicker();
@@ -59,7 +50,7 @@ public class Project extends AutomationEndpoint implements AutomationRoute {
                         && pixel[1] < Platforms.get().getFrameBufferHeight()
                                 - MeshNodeViewerScene.PIXEL_CENTRE;
                 boolean occluded = occluder.faceId >= 0;
-                result.addProperty(OK, true);
+                JsonObject result = success();
                 result.addProperty("inFront", inFront);
                 if (!inFront) {
                     return result;
@@ -77,10 +68,7 @@ public class Project extends AutomationEndpoint implements AutomationRoute {
                 return result;
             });
         } catch (Exception failure) {
-            JsonObject error = new JsonObject();
-            error.addProperty(OK, false);
-            error.addProperty(ERROR, String.valueOf(failure.getMessage()));
-            return error;
+            return failure(String.valueOf(failure.getMessage()));
         }
     }
 

@@ -21,10 +21,8 @@ public class Cancel extends AutomationEndpoint implements AutomationRoute {
      * @return {@code {"ok": true}}
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        JsonObject result = new JsonObject();
         runtime.replayEngine().cancel();
-        result.addProperty("ok", true);
-        return result;
+        return success();
     }
 
     @Override

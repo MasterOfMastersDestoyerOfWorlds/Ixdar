@@ -26,23 +26,15 @@ public class Bisect extends AutomationEndpoint implements AutomationRoute {
 
     public static final String CONFIRM = "confirm";
 
-    public static final String OK = "ok";
-
-    public static final String ERROR = "error";
-
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         String points = body.has(POINTS) ? body.get(POINTS).getAsString() : "";
         boolean confirm = body.has(CONFIRM) && body.get(CONFIRM).getAsBoolean();
         try {
             return runtime.runOnMainThread(() -> {
-                JsonObject result = new JsonObject();
                 if (!(runtime.canvas instanceof RingScene scene) || !scene.ringTool.active
                         || scene.ringTool.geodesics == null) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "the ring tool of a ring scene is not active "
-                            + "(Ctrl+R)");
-                    return result;
+                    return failure("the ring tool of a ring scene is not active (Ctrl+R)");
                 }
                 RingTool tool = scene.ringTool;
                 float[] packed = SurfaceWaypoints.parse(points);
@@ -67,6 +59,7 @@ public class Bisect extends AutomationEndpoint implements AutomationRoute {
                 if (count < 2) {
                     tool.lastError = "a bisector takes at least two points, its two ends";
                 }
+                JsonObject result = new JsonObject();
                 result.addProperty(OK, placed);
                 result.addProperty("anchors", tool.draftAuthoredVertexId.length);
                 result.addProperty("simple", tool.draftSimple);
@@ -88,11 +81,8 @@ public class Bisect extends AutomationEndpoint implements AutomationRoute {
                 return result;
             });
         } catch (Exception failure) {
-            JsonObject error = new JsonObject();
-            error.addProperty(OK, false);
-            error.addProperty(ERROR, failure.getMessage() == null ? failure.toString()
+            return failure(failure.getMessage() == null ? failure.toString()
                     : failure.getMessage());
-            return error;
         }
     }
 

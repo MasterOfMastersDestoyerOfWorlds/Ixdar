@@ -13,7 +13,6 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "ui/projection", method = APIMethod.GET)
 public class ProjectionGet extends AutomationEndpoint implements AutomationRoute {
-    public static final String OK = "ok";
     /**
      * {@code GET /ui/projection}: report whether the active mesh-node viewer is
      * currently orthographic.
@@ -24,13 +23,10 @@ public class ProjectionGet extends AutomationEndpoint implements AutomationRoute
      *         object when {@link MeshNodeViewerScene} is not the active canvas
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        JsonObject result = new JsonObject();
         if (!(runtime.canvas instanceof MeshNodeViewerScene mvs)) {
-            result.addProperty(OK, false);
-            result.addProperty("error", "MeshNodeViewerScene is not active");
-            return result;
+            return failure("MeshNodeViewerScene is not active");
         }
-        result.addProperty(OK, true);
+        JsonObject result = success();
         result.addProperty("orthographic", mvs.isOrthographic());
         return result;
     }

@@ -26,7 +26,6 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 public class Decompose extends AutomationEndpoint implements AutomationRoute {
     public static final String PATH = "path";
     public static final String RESOLUTION = "resolution";
-    public static final String OK = "ok";
     public static final int DEFAULT_VOXEL_RESOLUTION = 128;
 
     @Override
@@ -37,10 +36,7 @@ public class Decompose extends AutomationEndpoint implements AutomationRoute {
                 : DEFAULT_VOXEL_RESOLUTION;
         File f = resolvePath(path);
         if (f == null) {
-            JsonObject err = new JsonObject();
-            err.addProperty(OK, false);
-            err.addProperty("error", "File not found: " + path);
-            return err;
+            return failure("File not found: " + path);
         }
         ArrayMesh mesh = MeshLoader.load(f.getAbsolutePath());
         PatchDecomposition decomposition = SemanticPatchDecomposer

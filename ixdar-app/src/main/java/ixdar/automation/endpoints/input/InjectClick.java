@@ -27,8 +27,6 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
     public static final String SETTLE = "settle";
     public static final String COUNT = "count";
     public static final String SETTLED = "settled";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String COMMAND = "click";
 
     /**
@@ -59,11 +57,8 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
         try {
             JsonObject result = runtime.runOnMainThread(() -> {
                 MouseTrap mouse = runtime.activeMouse();
-                JsonObject applied = new JsonObject();
                 if (mouse == null) {
-                    applied.addProperty(OK, false);
-                    applied.addProperty(ERROR, "No active mouse handler");
-                    return applied;
+                    return failure("No active mouse handler");
                 }
                 appliedDuringFrame[0] = Clock.framesRendered();
                 float xPos = normalized ? denormalizeX(x) : x;
@@ -86,7 +81,7 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                 payload.addProperty("yNorm", normalizeY(yPos));
                 payload.addProperty(BUTTON, button);
                 runtime.recordAbstractAction(COMMAND, payload);
-                applied.addProperty(OK, true);
+                JsonObject applied = success();
                 applied.add("event", payload);
                 return applied;
             });
@@ -96,10 +91,7 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
             }
             return result;
         } catch (Exception e) {
-            JsonObject error = new JsonObject();
-            error.addProperty(OK, false);
-            error.addProperty(ERROR, e.getMessage());
-            return error;
+            return failure(e.getMessage());
         }
     }
 

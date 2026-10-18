@@ -167,7 +167,7 @@ public class AutomationApiServer {
 
     private static void writeError(HttpExchange exchange, int status, String msg) throws IOException {
         JsonObject err = new JsonObject();
-        err.addProperty("error", msg);
+        err.addProperty(AutomationEndpoint.ERROR, msg);
         byte[] bytes = err.toString().getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().add(CONTENT_TYPE, APPLICATION_JSON);
         exchange.sendResponseHeaders(status, bytes.length);

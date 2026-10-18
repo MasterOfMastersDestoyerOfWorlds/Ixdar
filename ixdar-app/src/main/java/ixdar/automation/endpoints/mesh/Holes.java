@@ -20,8 +20,6 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "/mesh/holes", method = APIMethod.POST)
 public class Holes extends AutomationEndpoint implements AutomationRoute {
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String PATH = "path";
 
     public static final String EDGES = "edges";
@@ -91,8 +89,7 @@ public class Holes extends AutomationEndpoint implements AutomationRoute {
         MeshTopologyAnalysis analysis = new MeshTopologyAnalysis();
         analysis.duplicateTolerance = 0;
         analysis.analyze(mesh);
-        JsonObject result = new JsonObject();
-        result.addProperty(OK, true);
+        JsonObject result = success();
         result.addProperty("source", source);
         result.addProperty("open_loop_count", analysis.boundaryLoopCount);
         result.addProperty("unwalked_boundary_edge_count", analysis.unwalkedBoundaryEdgeCount);
@@ -128,18 +125,5 @@ public class Holes extends AutomationEndpoint implements AutomationRoute {
         }
         result.add("repair_holes", repairHoles);
         return result;
-    }
-
-    /**
-     * An error body carrying one message.
-     *
-     * @param message what went wrong
-     * @return the response payload
-     */
-    private static JsonObject failure(String message) {
-        JsonObject error = new JsonObject();
-        error.addProperty(OK, false);
-        error.addProperty(ERROR, message);
-        return error;
     }
 }

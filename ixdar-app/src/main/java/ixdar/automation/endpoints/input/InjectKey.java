@@ -27,8 +27,6 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
     public static final String KEY_CODE = "keyCode";
     public static final String CONSUMED = "consumed";
     public static final String SETTLED = "settled";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
 
     /**
      * {@code POST /input/key}: deliver a named key event to the active key handler and report
@@ -71,11 +69,8 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
         try {
             result = runtime.runOnMainThread(() -> {
                 KeyGuy keys = runtime.activeKeys();
-                JsonObject applied = new JsonObject();
                 if (keys == null) {
-                    applied.addProperty(OK, false);
-                    applied.addProperty(ERROR, "No active key handler");
-                    return applied;
+                    return failure("No active key handler");
                 }
                 appliedDuringFrame[0] = Clock.framesRendered();
                 int consumedBefore = KeyActions.keysConsumed;
@@ -86,7 +81,7 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
                 payload.addProperty(MODS, mods);
                 payload.addProperty(ACTION, action);
                 runtime.recordAbstractAction(KEY, payload);
-                applied.addProperty(OK, true);
+                JsonObject applied = success();
                 applied.addProperty(KEY, spec);
                 applied.addProperty(KEY_CODE, keyCode);
                 applied.addProperty(MODS, mods);
@@ -131,19 +126,6 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
                 keys.keyCallback(0L, modifierKeys.get(index), 0, Keys.ACTION_RELEASE, 0);
             }
         }
-    }
-
-    /**
-     * Build the error envelope this route answers with.
-     *
-     * @param message what went wrong
-     * @return {@code {"ok": false, "error": message}}
-     */
-    private JsonObject failure(String message) {
-        JsonObject error = new JsonObject();
-        error.addProperty(OK, false);
-        error.addProperty(ERROR, message);
-        return error;
     }
 
     @Override

@@ -25,8 +25,6 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 public class MultiviewScreenshot extends AutomationEndpoint implements AutomationRoute {
     public static final String PATH = "path";
     public static final String INLINE = "inline";
-    public static final String ERROR = "error";
-    public static final String OK = "ok";
     public static final float THREE_QUARTER_ELEVATION_RAD = 0.4f;
     public static final int VIEW_COUNT = 8;
     public static final int QUARTER_TURN_DIVISOR = 4;
@@ -75,16 +73,12 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             float[] saved = new float[SAVED_ORBIT_FIELDS]; // az, el, dist, viewDist
             Vector3f savedTarget = new Vector3f();
             JsonObject framing = runtime.runOnMainThread(() -> {
-                JsonObject framed = new JsonObject();
                 if (!(runtime.canvas instanceof MeshNodeViewerScene mvs)) {
-                    framed.addProperty(ERROR, "MeshNodeViewerScene is not active");
-                    return framed;
+                    return failure("MeshNodeViewerScene is not active");
                 }
                 SelectionBounds selected = new SelectionBounds();
                 if (selection == null || !selected.resolve(mvs, selection)) {
-                    framed.addProperty(ERROR, selection == null ? "a point needs a radius"
-                            : selected.error);
-                    return framed;
+                    return failure(selection == null ? "a point needs a radius" : selected.error);
                 }
                 Camera3D orbit = mvs.camera;
                 saved[0] = orbit.azimuth;
@@ -95,6 +89,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 float radius = selected.sphere(center);
                 saved[VIEW_DIST_INDEX] = orbit.frame(center, radius, padding,
                         mvs.camera.aspectRatio());
+                JsonObject framed = new JsonObject();
                 framed.addProperty(Frame.SELECTION, selected.name.isEmpty() ? selected.kind
                         : selected.kind + ":" + selected.name);
                 framed.add("center", runtime.vector3Array(center));
@@ -103,7 +98,6 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 return framed;
             });
             if (framing.has(ERROR)) {
-                framing.addProperty(OK, false);
                 return framing;
             }
 
@@ -227,10 +221,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             return result;
 
         } catch (Exception e) {
-            JsonObject err = new JsonObject();
-            err.addProperty(OK, false);
-            err.addProperty(ERROR, e.getMessage());
-            return err;
+            return failure(e.getMessage());
         }
     }
 

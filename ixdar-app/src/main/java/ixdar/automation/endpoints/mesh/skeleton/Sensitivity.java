@@ -32,8 +32,6 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
     public static final String REFERENCE = "reference";
     public static final String RESOLUTION = "resolution";
     public static final String EPSILON = "epsilon";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String DSL_2 = ".dsl";
     public static final String USER_DIR = "user.dir";
     public static final int DEFAULT_VOXEL_RESOLUTION = 128;
@@ -45,12 +43,7 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
             int resolution = body.has(RESOLUTION) ? body.get(RESOLUTION).getAsInt() : DEFAULT_VOXEL_RESOLUTION;
             float epsilon = body.has(EPSILON) ? body.get(EPSILON).getAsFloat() : 0;
             if (dslName.isEmpty() || referencePath.isEmpty()) {
-                JsonObject err = new JsonObject();
-                err.addProperty(OK, false);
-                err.addProperty(
-                        ERROR,
-                        "Provide 'dsl' name and 'reference' OBJ path");
-                return err;
+                return failure("Provide 'dsl' name and 'reference' OBJ path");
             }
             try {
                 // Resolve DSL file — try multiple locations
@@ -72,16 +65,8 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
                     }
                 }
                 if (dslPath == null) {
-                    JsonObject err = new JsonObject();
-                    err.addProperty(OK, false);
-                    err.addProperty(
-                            ERROR,
-                            "DSL file not found: " +
-                                    dslFileName +
-                                    " (searched from " +
-                                    System.getProperty(USER_DIR) +
-                                    ")");
-                    return err;
+                    return failure("DSL file not found: " + dslFileName + " (searched from "
+                            + System.getProperty(USER_DIR) + ")");
                 }
 
                 // Resolve reference mesh
@@ -91,12 +76,7 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
                             System.getProperty(USER_DIR),
                             referencePath);
                 if (!refFile.exists()) {
-                    JsonObject err = new JsonObject();
-                    err.addProperty(OK, false);
-                    err.addProperty(
-                            ERROR,
-                            "Reference mesh not found: " + refFile.getAbsolutePath());
-                    return err;
+                    return failure("Reference mesh not found: " + refFile.getAbsolutePath());
                 }
 
                 String source = Files.readString(dslPath);
@@ -109,8 +89,7 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
                                 refFile.getAbsolutePath(),
                                 resolution,
                                 epsilon);
-                JsonObject result = new JsonObject();
-                result.addProperty(OK, true);
+                JsonObject result = success();
                 result.addProperty(DSL, dslFileName);
                 result.addProperty(REFERENCE, refFile.getAbsolutePath());
                 result.addProperty(RESOLUTION, resolution);
@@ -148,16 +127,10 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
 
                 return result;
             } catch (Exception e) {
-                JsonObject err = new JsonObject();
-                err.addProperty(OK, false);
-                err.addProperty(ERROR, e.getMessage());
-                return err;
+                return failure(e.getMessage());
             }
         } catch (Exception e) {
-            JsonObject err = new JsonObject();
-            err.addProperty(OK, false);
-            err.addProperty(ERROR, e.getMessage());
-            return err;
+            return failure(e.getMessage());
         }
     }
 

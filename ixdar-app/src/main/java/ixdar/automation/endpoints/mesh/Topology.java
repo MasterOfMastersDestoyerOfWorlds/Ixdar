@@ -19,8 +19,6 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "/mesh/topology", method = APIMethod.POST)
 public class Topology extends AutomationEndpoint implements AutomationRoute {
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String PATH = "path";
     public static final String DUPLICATE_TOLERANCE = "duplicate_tolerance";
 
@@ -97,8 +95,7 @@ public class Topology extends AutomationEndpoint implements AutomationRoute {
         MeshTopologyAnalysis analysis = new MeshTopologyAnalysis();
         analysis.duplicateTolerance = tolerance;
         analysis.analyze(mesh);
-        JsonObject result = new JsonObject();
-        result.addProperty(OK, true);
+        JsonObject result = success();
         result.addProperty("source", source);
         result.addProperty("vertex_count", analysis.vertexCount);
         result.addProperty("edge_count", analysis.edgeCount);
@@ -131,18 +128,5 @@ public class Topology extends AutomationEndpoint implements AutomationRoute {
         result.add("shells", shells);
         result.addProperty("text", analysis.toText());
         return result;
-    }
-
-    /**
-     * An error body carrying one message.
-     *
-     * @param message what went wrong
-     * @return the response payload
-     */
-    private static JsonObject failure(String message) {
-        JsonObject error = new JsonObject();
-        error.addProperty(OK, false);
-        error.addProperty(ERROR, message);
-        return error;
     }
 }

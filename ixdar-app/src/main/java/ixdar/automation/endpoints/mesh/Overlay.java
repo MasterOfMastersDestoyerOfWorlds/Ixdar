@@ -16,8 +16,6 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 public class Overlay extends AutomationEndpoint implements AutomationRoute {
     public static final String PATH = "path";
     public static final String CLEAR = "clear";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String ACTION = "action";
 
     @Override
@@ -26,34 +24,23 @@ public class Overlay extends AutomationEndpoint implements AutomationRoute {
         boolean clear = body.has(CLEAR) && body.get(CLEAR).getAsBoolean();
         try {
             return runtime.runOnMainThread(() -> {
-                JsonObject result = new JsonObject();
                 if (!(runtime.canvas instanceof MeshNodeViewerScene)) {
-                    result.addProperty(OK, false);
-                    result.addProperty(
-                            ERROR,
-                            "MeshNodeViewerScene is not active");
-                    return result;
+                    return failure("MeshNodeViewerScene is not active");
                 }
                 MeshNodeViewerScene mvs = (MeshNodeViewerScene) runtime.canvas;
+                JsonObject result = success();
                 if (clear) {
                     mvs.clearOverlay();
-                    result.addProperty(OK, true);
                     result.addProperty(ACTION, "cleared");
                 } else {
                     mvs.loadOverlay(objPath);
-                    result.addProperty(OK, true);
                     result.addProperty(ACTION, "loaded");
                     result.addProperty(PATH, objPath);
                 }
                 return result;
             });
         } catch (Exception e) {
-            JsonObject err = new JsonObject();
-            err.addProperty(OK, false);
-            err.addProperty(
-                    ERROR,
-                    e.getMessage() == null ? "" : e.getMessage());
-            return err;
+            return failure(e.getMessage() == null ? "" : e.getMessage());
         }
     }
 

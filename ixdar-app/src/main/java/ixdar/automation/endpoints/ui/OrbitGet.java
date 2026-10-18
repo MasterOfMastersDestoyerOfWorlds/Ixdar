@@ -17,7 +17,6 @@ import ixdar.scenes.model.ModelScene;
 
 @AutomationRouteAnnotation(path = "ui/orbit", method = APIMethod.GET)
 public class OrbitGet extends AutomationEndpoint implements AutomationRoute {
-    public static final String OK = "ok";
     public static final String TARGET = "target";
 
     /**
@@ -31,13 +30,10 @@ public class OrbitGet extends AutomationEndpoint implements AutomationRoute {
      */
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        JsonObject result = new JsonObject();
         if (runtime.canvas == null || runtime.canvas.mouse == null) {
-            result.addProperty(OK, false);
-            result.addProperty("error", "no scene is active");
-            return result;
+            return failure("no scene is active");
         }
-        result.addProperty(OK, true);
+        JsonObject result = success();
         JsonObject pose = new JsonObject();
         Camera camera = runtime.canvas.mouse.camera;
         if (camera instanceof Camera3D camera3D) {

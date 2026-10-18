@@ -21,8 +21,6 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
     public static final String ELEVATION = "elevation";
     public static final String DISTANCE = "distance";
     public static final String TARGET = "target";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final float DEFAULT_DISTANCE = 3.5f;
     public static final int TARGET_FIELD_COUNT = 3;
     @Override
@@ -43,12 +41,7 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
             // First call: set orbit (runs at end of frame N)
             runtime.runOnMainThread(() -> {
                 if (!(runtime.canvas instanceof ModelScene modelScene)) {
-                    JsonObject err = new JsonObject();
-                    err.addProperty(OK, false);
-                    err.addProperty(
-                            ERROR,
-                            "no ModelScene is active");
-                    return err;
+                    return failure("no ModelScene is active");
                 }
                 Camera3D orbit = modelScene.camera;
                 String[] fields = target.trim().split("\\s*,\\s*");
@@ -63,8 +56,7 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
             });
             // Second call: just returns after the next frame renders with the new orbit
             return runtime.runOnMainThread(() -> {
-                JsonObject result = new JsonObject();
-                result.addProperty(OK, true);
+                JsonObject result = success();
                 result.addProperty(AZIMUTH, azimuth);
                 result.addProperty(ELEVATION, elevation);
                 result.addProperty(DISTANCE, distance);
@@ -74,10 +66,7 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
                 return result;
             });
         } catch (Exception e) {
-            JsonObject err = new JsonObject();
-            err.addProperty(OK, false);
-            err.addProperty(ERROR, e.getMessage());
-            return err;
+            return failure(e.getMessage());
         }
     }
 

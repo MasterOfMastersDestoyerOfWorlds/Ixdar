@@ -21,8 +21,6 @@ import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "/mesh/export", method = APIMethod.POST)
 public class Export extends AutomationEndpoint implements AutomationRoute {
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String PATH = "path";
     public static final String FORMAT = "format";
 
@@ -87,8 +85,7 @@ public class Export extends AutomationEndpoint implements AutomationRoute {
         MeshExport written = ExportMeshNode.FORMAT_PLY.equals(format)
                 ? PlyMeshWriter.write(bundle, file)
                 : GltfMeshWriter.write(bundle, file);
-        JsonObject result = new JsonObject();
-        result.addProperty(OK, true);
+        JsonObject result = success();
         result.addProperty(PATH, file.toAbsolutePath().toString());
         result.addProperty(FORMAT, format);
         result.addProperty("bytes", Files.size(file));
@@ -97,18 +94,5 @@ public class Export extends AutomationEndpoint implements AutomationRoute {
         result.addProperty("has_uv", written.cornerU != null);
         result.addProperty("zeroed_uv_corners", written.nonFiniteUvCount);
         return result;
-    }
-
-    /**
-     * An error body carrying one message.
-     *
-     * @param message what went wrong
-     * @return the response payload
-     */
-    private static JsonObject failure(String message) {
-        JsonObject error = new JsonObject();
-        error.addProperty(OK, false);
-        error.addProperty(ERROR, message);
-        return error;
     }
 }

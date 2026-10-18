@@ -17,9 +17,6 @@ import ixdar.scenes.model.ModelScene;
 
 @AutomationRouteAnnotation(path = "mesh/dsl/timing", method = APIMethod.GET)
 public class Timing extends AutomationEndpoint implements AutomationRoute {
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
-
     public static final String PEAK_HEAP_MIB = "peak_heap_mib";
 
     /**
@@ -33,18 +30,13 @@ public class Timing extends AutomationEndpoint implements AutomationRoute {
      *         run no graph
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        JsonObject result = new JsonObject();
         if (!(runtime.canvas instanceof ModelScene scene)) {
-            result.addProperty(OK, false);
-            result.addProperty(ERROR, "no model scene is active");
-            return result;
+            return failure("no model scene is active");
         }
         if (scene.graph == null) {
-            result.addProperty(OK, false);
-            result.addProperty(ERROR, "the active scene has run no graph yet");
-            return result;
+            return failure("the active scene has run no graph yet");
         }
-        result.addProperty(OK, true);
+        JsonObject result = success();
         JsonObject timing = timingJson(scene.graph, 0);
         for (String key : timing.keySet()) {
             result.add(key, timing.get(key));

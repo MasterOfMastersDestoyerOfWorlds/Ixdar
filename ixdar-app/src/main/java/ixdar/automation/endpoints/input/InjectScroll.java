@@ -16,8 +16,6 @@ import ixdar.input.MouseTrap;
 public class InjectScroll extends AutomationEndpoint implements AutomationRoute {
     public static final String DELTA = "delta";
     public static final String DELTA_X = "deltaX";
-    public static final String OK = "ok";
-    public static final String ERROR = "error";
     public static final String COMMAND = "scroll";
     public static final String NO_SCROLL = "0";
     /**
@@ -42,25 +40,18 @@ public class InjectScroll extends AutomationEndpoint implements AutomationRoute 
                     : 0;
             return runtime.runOnMainThread(() -> {
                 MouseTrap mouse = runtime.activeMouse();
-                JsonObject result = new JsonObject();
                 if (mouse == null) {
-                    result.addProperty(OK, false);
-                    result.addProperty(ERROR, "No active mouse handler");
-                    return result;
+                    return failure("No active mouse handler");
                 }
                 mouse.scrollCallback(deltaX, delta);
                 JsonObject payload = new JsonObject();
                 payload.addProperty(DELTA, delta);
                 payload.addProperty(DELTA_X, deltaX);
                 runtime.recorder.recordAbstract(COMMAND, payload);
-                result.addProperty(OK, true);
-                return result;
+                return success();
             });
         } catch (Exception e) {
-            JsonObject error = new JsonObject();
-            error.addProperty(OK, false);
-            error.addProperty(ERROR, e.getMessage());
-            return error;
+            return failure(e.getMessage());
         }
     }
 

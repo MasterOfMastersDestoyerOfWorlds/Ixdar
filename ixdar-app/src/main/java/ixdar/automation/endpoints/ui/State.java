@@ -325,7 +325,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                     : tool.previewSpline.anchorXyz));
             toolJson.add("previewPlaneNormal", floatArray(tool.previewPlaneNormal));
             toolJson.add("previewLimbAxis", floatArray(tool.previewLimbAxis));
-            toolJson.addProperty("error", tool.lastError);
+            toolJson.addProperty(ERROR, tool.lastError);
             toolJson.addProperty("lastRow", tool.lastRow);
             MeshTopology toolSurface = toolScene.halfEdgeSurface();
             JsonObject draft = new JsonObject();
