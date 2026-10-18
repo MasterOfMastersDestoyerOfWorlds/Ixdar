@@ -11,7 +11,7 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteDocBuilder;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.automation.AutomationEndpoint;
-import ixdar.platform.input.OrbitMouseTrap;
+import ixdar.graphics.cameras.Camera3D;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "ui/frame", method = APIMethod.POST)
@@ -44,7 +44,7 @@ public class Frame extends AutomationEndpoint implements AutomationRoute {
     public JsonObject endpointHandler(JsonObject body) throws Exception {
         String selection = selectionExpression(body);
         float padding = body.has(PADDING) ? body.get(PADDING).getAsFloat()
-                : OrbitMouseTrap.DEFAULT_FRAME_PADDING;
+                : Camera3D.DEFAULT_FRAME_PADDING;
         boolean hasAzimuth = body.has(AZIMUTH) && !body.get(AZIMUTH).isJsonNull();
         boolean hasElevation = body.has(ELEVATION) && !body.get(ELEVATION).isJsonNull();
         float requestedAzimuth = hasAzimuth ? body.get(AZIMUTH).getAsFloat() : 0f;
@@ -66,9 +66,9 @@ public class Frame extends AutomationEndpoint implements AutomationRoute {
             }
             Vector3f center = new Vector3f();
             float radius = selected.sphere(center);
-            OrbitMouseTrap orbit = viewer.getOrbitMouse();
-            orbit.setOrbit(hasAzimuth ? requestedAzimuth : orbit.getAzimuth(),
-                    hasElevation ? requestedElevation : orbit.getElevation(), orbit.getDistance());
+            Camera3D orbit = viewer.camera;
+            orbit.setOrbit(hasAzimuth ? requestedAzimuth : orbit.azimuth,
+                    hasElevation ? requestedElevation : orbit.elevation, orbit.distance);
             float distance = orbit.frame(center, radius, padding, viewer.camera.aspectRatio());
 
             framed.addProperty(OK, true);
@@ -80,9 +80,9 @@ public class Frame extends AutomationEndpoint implements AutomationRoute {
             framed.add("center", runtime.vector3Array(center));
             framed.addProperty(RADIUS, radius);
             framed.addProperty(PADDING, padding);
-            framed.addProperty(AZIMUTH, orbit.getAzimuth());
-            framed.addProperty(ELEVATION, orbit.getElevation());
-            framed.addProperty(DISTANCE, orbit.getDistance());
+            framed.addProperty(AZIMUTH, orbit.azimuth);
+            framed.addProperty(ELEVATION, orbit.elevation);
+            framed.addProperty(DISTANCE, orbit.distance);
             framed.addProperty("requestedDistance", distance);
             return framed;
         });
@@ -156,7 +156,7 @@ public class Frame extends AutomationEndpoint implements AutomationRoute {
                         "A ring by its label in the ring-tool scene: a graph ring or 'ring #N'.",
                         "ring2")
                 .param(PADDING, RouteParamType.FLOAT, false,
-                        String.valueOf(OrbitMouseTrap.DEFAULT_FRAME_PADDING),
+                        String.valueOf(Camera3D.DEFAULT_FRAME_PADDING),
                         "Margin around the selection as a fraction of its radius.", "0.25");
     }
 

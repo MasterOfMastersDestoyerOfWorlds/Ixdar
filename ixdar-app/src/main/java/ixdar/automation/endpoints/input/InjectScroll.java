@@ -10,7 +10,7 @@ import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.automation.AutomationEndpoint;
-import ixdar.platform.input.MouseTrap;
+import ixdar.input.MouseTrap;
 
 @AutomationRouteAnnotation(path = "input/scroll", method = APIMethod.POST)
 public class InjectScroll extends AutomationEndpoint implements AutomationRoute {

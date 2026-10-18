@@ -12,7 +12,7 @@ import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.automation.AutomationEndpoint;
-import ixdar.platform.input.OrbitMouseTrap;
+import ixdar.graphics.cameras.Camera3D;
 import ixdar.scenes.model.ModelScene;
 
 @AutomationRouteAnnotation(path = "ui/orbit", method = APIMethod.POST)
@@ -50,7 +50,7 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
                             "no ModelScene is active");
                     return err;
                 }
-                OrbitMouseTrap orbit = modelScene.orbitMouse;
+                Camera3D orbit = modelScene.camera;
                 String[] fields = target.trim().split("\\s*,\\s*");
                 if (fields.length == TARGET_FIELD_COUNT) {
                     orbit.setTarget(new Vector3f(
@@ -69,8 +69,7 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
                 result.addProperty(ELEVATION, elevation);
                 result.addProperty(DISTANCE, distance);
                 if (runtime.canvas instanceof ModelScene modelScene) {
-                    result.add(TARGET, runtime.vector3Array(
-                            modelScene.orbitMouse.getTarget(new Vector3f())));
+                    result.add(TARGET, runtime.vector3Array(modelScene.camera.orbitTarget));
                 }
                 return result;
             });

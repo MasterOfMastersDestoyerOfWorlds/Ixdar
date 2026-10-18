@@ -17,7 +17,6 @@ import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.gui.ui.ErrorToasts;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Tool;
@@ -152,17 +151,6 @@ public class RingScene extends MeshNodeViewerScene {
     }
 
     /**
-     * Wire the viewer's input, leaving Ctrl+R to the ring tool rather than the orbit-centre reset.
-     */
-    @Override
-    public void initInput() {
-        super.initInput();
-        if (keys instanceof OrbitCameraKeyGuy orbitKeys) {
-            orbitKeys.controlRResetsTarget = false;
-        }
-    }
-
-    /**
      * Run one frame of every tool, then bring the region colours up to date with any ring the
      * tools changed, after any pending model switch and before the mesh is drawn.
      */
@@ -207,10 +195,10 @@ public class RingScene extends MeshNodeViewerScene {
         int width = Platforms.get().getWindowWidth();
         int height = Platforms.get().getWindowHeight();
         cursorFramebufferX = width <= 0 ? 0
-                : Math.round(orbitMouse.lastX * (float) Platforms.get().getFrameBufferWidth()
+                : Math.round(mouse.lastX * (float) Platforms.get().getFrameBufferWidth()
                         / width);
         cursorFramebufferY = height <= 0 ? 0
-                : Math.round(orbitMouse.lastY * (float) Platforms.get().getFrameBufferHeight()
+                : Math.round(mouse.lastY * (float) Platforms.get().getFrameBufferHeight()
                         / height);
         int faceIndex = !cursorMissReason.isEmpty() ? -1
                 : runtime.faceIndexAtPixel(camera, cursorFramebufferX, cursorFramebufferY);

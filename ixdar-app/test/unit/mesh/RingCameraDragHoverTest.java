@@ -28,10 +28,8 @@ import ixdar.graphics.cameras.Camera3D;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.Platform;
-import ixdar.platform.input.MouseTrap;
-import ixdar.platform.input.OrbitMouseTrap;
-import ixdar.platform.input.PointerDispatcher;
-import ixdar.platform.input.Scene2DMousePanTrap;
+import ixdar.input.MouseTrap;
+import ixdar.input.PointerDispatcher;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ring.RingTool;
 
@@ -86,7 +84,9 @@ class RingCameraDragHoverTest {
 
     private RingTool tool;
 
-    private OrbitMouseTrap orbit;
+    private Camera3D camera;
+
+    private MouseTrap orbit;
 
     private PointerDispatcher pointer;
 
@@ -140,9 +140,11 @@ class RingCameraDragHoverTest {
                     }
                 });
         Platforms.init(window, mouseGl);
+        scene.platform = window;
         pointer = PointerDispatcher.forPlatform(STAND_IN_PLATFORM_ID);
-        orbit = new OrbitMouseTrap(new Camera3D(new Vector3f(), 0f, 0f, null), scene);
-        scene.orbitMouse = orbit;
+        camera = new Camera3D(new Vector3f(), 0f, 0f, null);
+        orbit = new MouseTrap(camera, scene);
+        orbit.controller = camera;
         scene.mouse = orbit;
         scene.switchTool(tool);
     }
@@ -166,10 +168,10 @@ class RingCameraDragHoverTest {
         pointer.moveOrDrag(orbit, 0L, START_X + CLICK_WOBBLE, MIDDLE_Y);
         frame();
         assertFalse(scene.cameraMoving(), "a wobble within the click threshold is no drag");
-        float azimuth = orbit.getAzimuth();
+        float azimuth = camera.azimuth;
         pointer.moveOrDrag(orbit, 0L, START_X - DRAG_STEP, MIDDLE_Y);
         frame();
-        assertNotEquals(azimuth, orbit.getAzimuth(), "the drag turned the orbit");
+        assertNotEquals(azimuth, camera.azimuth, "the drag turned the orbit");
         assertTrue(scene.cameraMoving(), "the camera drags");
         for (int still = 0; still < STILL_FRAMES; still++) {
             frame();
@@ -188,7 +190,7 @@ class RingCameraDragHoverTest {
         pointer.moveOrDrag(orbit, 0L, START_X, MIDDLE_Y);
         frame();
         assertFalse(scene.cameraMoving(), "the cursor rests");
-        float distance = orbit.getDistance();
+        float distance = camera.distance;
         for (int burst = 0; burst < WHEEL_BURST; burst++) {
             if (burst > 0) {
                 frame();
@@ -199,7 +201,7 @@ class RingCameraDragHoverTest {
             frame();
             assertTrue(scene.cameraMoving(), "the wheel zooms, burst frame " + burst);
         }
-        assertNotEquals(distance, orbit.getDistance(), "the wheel zoomed");
+        assertNotEquals(distance, camera.distance, "the wheel zoomed");
         for (int quiet = 1; quiet < MouseTrap.ZOOM_SETTLE_FRAMES; quiet++) {
             frame();
             assertTrue(scene.cameraMoving(), "the zoom settles, quiet frame " + quiet);
@@ -211,7 +213,8 @@ class RingCameraDragHoverTest {
     @Test
     void aDragOnATwoDimensionalTrapReportsADragUntilItsRelease() {
         Camera2D flat = new Camera2D(WINDOW_WIDTH, WINDOW_HEIGHT, 1f, 0, 0, null);
-        Scene2DMousePanTrap pan = new Scene2DMousePanTrap(flat, scene);
+        MouseTrap pan = new MouseTrap(flat, scene);
+        pan.controller = flat;
         pointer.moveOrDrag(pan, 0L, START_X, MIDDLE_Y);
         press(pan);
         pointer.moveOrDrag(pan, 0L, START_X + CLICK_WOBBLE, MIDDLE_Y);
@@ -249,7 +252,7 @@ class RingCameraDragHoverTest {
         pointer.moveOrDrag(orbit, 0L, START_X, MIDDLE_Y);
         press(orbit);
         assertTrue(tool.draggingAnchor, "the tool grabbed the press");
-        float azimuth = orbit.getAzimuth();
+        float azimuth = camera.azimuth;
         for (int step = 1; step <= 2; step++) {
             pointer.moveOrDrag(orbit, 0L, START_X - step * DRAG_STEP, MIDDLE_Y);
             frame();
@@ -259,7 +262,7 @@ class RingCameraDragHoverTest {
             frame();
             assertFalse(scene.cameraMoving(), "an anchor held still keeps picking");
         }
-        assertEquals(azimuth, orbit.getAzimuth(), EXACT, "the anchor drag did not turn the orbit");
+        assertEquals(azimuth, camera.azimuth, EXACT, "the anchor drag did not turn the orbit");
         release(orbit);
         assertFalse(tool.draggingAnchor, "the release ended the anchor drag");
         assertFalse(scene.cameraMoving());

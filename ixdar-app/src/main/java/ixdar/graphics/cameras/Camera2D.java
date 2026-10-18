@@ -2,6 +2,7 @@ package ixdar.graphics.cameras;
 
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import org.joml.Vector2d;
@@ -16,12 +17,11 @@ import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
 
 /**
- * Orthographic 2D camera that frames a {@link PointSet} on a screen-space
- * viewport. Holds pan/scale state, point↔screen transforms, and zoom-to-fit
- * helpers for knots, segments, and arbitrary point selections. Maintains an
- * ortho z-index counter used by ordered 2D draw calls within one frame.
+ * Orthographic 2D camera framing a {@link PointSet} on a screen-space viewport: pan and scale,
+ * point-to-screen transforms, zoom-to-fit, an ortho z-index. As a {@link CameraController} a drag
+ * starting in its main view pans it.
  */
-public class Camera2D implements Camera {
+public class Camera2D implements Camera, CameraController {
     public static final int DEFAULT_BOUND_MIN = -10;
     public static final int DEFAULT_BOUND_MAX = 10;
     public static final double MIN_SCALE = 0.1;
@@ -57,6 +57,22 @@ public class Camera2D implements Camera {
 
     /** The knot {@link #reset()} frames instead of the whole point set, when it supplies one; null for none. */
     public Supplier<Knot> resetTarget;
+
+    /**
+     * Whether the camera takes the wheel itself, zooming a notch's worth on the frame it arrives;
+     * false leaves the wheel to the panes under the cursor, the camera's own view among them.
+     */
+    public boolean wheelZooms = true;
+
+    /** Framebuffer x the held pan drag last moved the view from. */
+    public float dragStartX;
+
+    /** Framebuffer y the held pan drag last moved the view from. */
+    public float dragStartY;
+
+    /** Whether the held press started in the main view, so its drag pans. */
+    public boolean dragPans;
+
     private float SHIFT_MOD = 1.0f;
     private Map<String, Bounds> namedBounds;
     private Bounds mainViewBounds;
@@ -598,6 +614,81 @@ public class Camera2D implements Camera {
     public void drag(float d, float e) {
         PanX += d;
         PanY += e;
+    }
+
+    /**
+     * A drag pans only when its press lands in the camera's main view, tested in window pixels
+     * from the bottom as the view's bounds are laid out; a camera with no view pans from anywhere.
+     *
+     * @param x    window x of the press
+     * @param y    window y of the press
+     * @param mods modifier-key bitmask (unused)
+     */
+    @Override
+    public void pointerPressed(float x, float y, int mods) {
+        dragStartX = getNormalizePosX(x);
+        dragStartY = getNormalizePosY(y);
+        dragPans = mainViewBounds == null;
+        if (!dragPans) {
+            mainViewBounds.recalc();
+            float yFromBottom = Platforms.get().getWindowHeight() - y;
+            dragPans = x >= mainViewBounds.offsetX && x <= mainViewBounds.offsetX + mainViewBounds.viewWidth
+                    && yFromBottom >= mainViewBounds.offsetY
+                    && yFromBottom <= mainViewBounds.offsetY + mainViewBounds.viewHeight;
+        }
+    }
+
+    /**
+     * Pan by the framebuffer travel since the press or the last drag sample.
+     *
+     * @param lastX window x of the previous cursor sample (unused; the pan runs from the press)
+     * @param lastY window y of the previous cursor sample (unused)
+     * @param x     window x of the cursor
+     * @param y     window y of the cursor
+     */
+    @Override
+    public void pointerDragged(float lastX, float lastY, float x, float y) {
+        if (!dragPans) {
+            return;
+        }
+        float normalizedX = getNormalizePosX(x);
+        float normalizedY = getNormalizePosY(y);
+        drag(normalizedX - dragStartX, normalizedY - dragStartY);
+        dragStartX = normalizedX;
+        dragStartY = normalizedY;
+    }
+
+    /**
+     * Whether the wheel zooms this camera directly; see {@link #wheelZooms}.
+     *
+     * @return {@link #wheelZooms}
+     */
+    @Override
+    public boolean usesWheel() {
+        return wheelZooms;
+    }
+
+    /**
+     * Zoom by the summed delta: its sign picks the direction and its size, capped at one notch a
+     * frame, scales the step, so a trackpad zooms in proportion to the finger.
+     *
+     * @param delta summed vertical wheel delta, positive away from the user
+     */
+    @Override
+    public void wheelScrolled(double delta) {
+        double notches = Math.min(1, Math.abs(delta));
+        onScroll(delta < 0, notches * Clock.deltaTime() * SCROLL_SPEED_SCALE);
+    }
+
+    /**
+     * Move by the held movement keys and zoom by the held zoom keys.
+     *
+     * @param pressedKeys key codes held down
+     * @param shiftMod    speed multiplier
+     */
+    @Override
+    public void keysHeld(Set<Integer> pressedKeys, float shiftMod) {
+        CameraController.moveWithKeys(this, pressedKeys, shiftMod, Clock.deltaTime());
     }
 
     /**

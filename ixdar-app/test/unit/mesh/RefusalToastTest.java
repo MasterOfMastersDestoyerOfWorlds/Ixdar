@@ -12,8 +12,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.gui.ui.ErrorToasts;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.MouseTrap;
-import ixdar.platform.input.OrbitMouseTrap;
+import ixdar.input.MouseTrap;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.connection.ConnectionTool;
@@ -98,8 +97,9 @@ class RefusalToastTest {
     @Test
     void aClickWhileTheCameraMovesIsRefusedWithWhatToDo() {
         RingScene scene = sceneOn(RingAnchorOrderTest.tube(0f, RADIUS));
-        OrbitMouseTrap orbit = new OrbitMouseTrap(new Camera3D(new Vector3f(), 0f, 0f, null), null);
-        scene.orbitMouse = orbit;
+        Camera3D camera = new Camera3D(new Vector3f(), 0f, 0f, null);
+        MouseTrap orbit = new MouseTrap(camera, null);
+        orbit.controller = camera;
         scene.mouse = orbit;
 
         assertEquals(scene.pickRefusal(), scene.cursorPickRefusal(null),

@@ -124,20 +124,7 @@ def _scene_template(spec: SceneSpec) -> str:
 
 
 def _camera_controls_template(camera: str) -> str:
-    if camera == "2d":
-        return (
-            "import ixdar.gui.ui.menu.MenuBox;\n"
-            "import ixdar.platform.Platforms;\n"
-            "import ixdar.platform.input.KeyGuy;\n"
-            "import ixdar.platform.input.MouseTrap;\n"
-            "import ixdar.platform.input.Scene2DMousePanTrap;\n"
-        )
-    return (
-        "import ixdar.gui.ui.menu.MenuBox;\n"
-        "import ixdar.platform.Platforms;\n"
-        "import ixdar.platform.input.KeyGuy;\n"
-        "import ixdar.platform.input.MouseTrap;\n"
-    )
+    return "import ixdar.gui.ui.menu.MenuBox;\n"
 
 
 def _camera_methods_template(camera: str) -> str:
@@ -145,13 +132,9 @@ def _camera_methods_template(camera: str) -> str:
         return (
             "    private void initCameraControls() {\n"
             "        MenuBox.menuVisible = false;\n"
-            "        keys = new KeyGuy(camera2D, this);\n"
-            "        mouse = new Scene2DMousePanTrap(camera2D, this);\n"
-            "        // Reflective by design: calling AutomationInputBinder directly would pull the\n"
-            "        // desktop automation stack, and gson behind it, into the TeaVM web build.\n"
-            "        bindAutomationIfAvailable(Platforms.get(), keys, mouse);\n"
-            "        MouseTrap.subscribeRegion(camera2D.getBounds(),\n"
-            "                (scrollUp, deltaSeconds) -> camera2D.onScroll(scrollUp, deltaSeconds));\n"
+            "        // The 2D camera pans with a drag and zooms with the wheel and the zoom keys.\n"
+            "        mouse.camera = camera2D;\n"
+            "        mouse.controller = camera2D;\n"
             "    }\n\n"
             "    private void updateCameraControls() {\n"
             "        camera2D.updateView(DEFAULT_VIEW);\n"
@@ -162,11 +145,9 @@ def _camera_methods_template(camera: str) -> str:
     return (
         "    private void initCameraControls() {\n"
         "        MenuBox.menuVisible = false;\n"
-        "        keys = new KeyGuy(camera, this);\n"
-        "        mouse = new MouseTrap(null, camera, this);\n"
-        "        // Reflective by design: calling AutomationInputBinder directly would pull the\n"
-        "        // desktop automation stack, and gson behind it, into the TeaVM web build.\n"
-        "        bindAutomationIfAvailable(Platforms.get(), keys, mouse);\n"
+        "        // The 3D camera orbits: drag turns, shift-drag pans, the wheel zooms.\n"
+        "        mouse.controller = camera;\n"
+        "        camera.setOrbit(camera.azimuth, camera.elevation, camera.distance);\n"
         "    }\n\n"
         "    private void updateCameraControls() {\n"
         "        camera.updateViewFirstPerson();\n"

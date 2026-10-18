@@ -1,4 +1,4 @@
-package ixdar.platform.input;
+package ixdar.input;
 
 import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
@@ -7,36 +7,34 @@ import static ixdar.platform.input.Keys.LEFT_CONTROL;
 import static ixdar.platform.input.Keys.LEFT_SHIFT;
 import static ixdar.platform.input.Keys.RIGHT_CONTROL;
 import static ixdar.platform.input.Keys.RIGHT_SHIFT;
-import java.util.HashSet;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
-import java.util.Map;
-
-import ixdar.graphics.cameras.Camera;
-import ixdar.platform.Clock;
+import ixdar.graphics.cameras.CameraController;
 import ixdar.gui.terminal.Terminal;
+import ixdar.platform.AutomationBackend;
 import ixdar.platform.Platforms;
+import ixdar.platform.input.KeyActions;
+import ixdar.platform.input.KeyNames;
+import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
-import ixdar.scenes.menu.MenuScene;
-import ixdar.platform.AutomationBackend;
 import ixdar.tools.ControlHint;
 
-public class KeyGuy extends Camera2DInputController {
+/**
+ * Every scene's key handler: a first press fires the first of the scene's control rows bound to
+ * it, held keys drive the scene's camera controller, and while the terminal has focus its keys
+ * are the terminal's alone.
+ */
+public class KeyGuy {
     public static final String KEY = "key";
-
-    /**
-     * Running count of key events some binding matched. Automation samples it
-     * around an injected key to report whether anything consumed that key.
-     */
-    public static int keysConsumed;
 
     public static final long REPEAT_MILLIS = 360;
 
     public final Set<Integer> pressedKeys = new HashSet<>();
-    public Camera camera;
     public boolean active = true;
     public Scene canvas;
     public boolean shiftMask;
@@ -52,14 +50,11 @@ public class KeyGuy extends Camera2DInputController {
     public long lastRepeatMillis;
 
     /**
-     * Key handler shared by every scene: modifier masks, terminal forwarding, and the menu-back and
-     * camera-reset releases; scenes add their own shortcuts in a subclass.
+     * Key handler for a scene, firing the rows of its {@link Scene#controls}.
      *
-     * @param camera camera the controller drives
-     * @param canvas owning canvas (for platform-id resolution)
+     * @param canvas owning scene, whose controls the keys fire and whose camera they drive
      */
-    public KeyGuy(Camera camera, Scene canvas) {
-        this.camera = camera;
+    public KeyGuy(Scene canvas) {
         this.canvas = canvas;
     }
 
@@ -70,7 +65,7 @@ public class KeyGuy extends Camera2DInputController {
      * @param keyValues alternating payload keys and values
      */
     public static void recordAbstractAction(String action, Object... keyValues) {
-        AutomationBackend automation =Platforms.get().automation();
+        AutomationBackend automation = Platforms.get().automation();
         if (automation == null) {
             return;
         }
@@ -79,15 +74,6 @@ public class KeyGuy extends Camera2DInputController {
             payload.put((String) keyValues[i], keyValues[i + 1]);
         }
         automation.recordAbstractActionMap(action, payload);
-    }
-
-    /**
-     * Record that the key event being dispatched matched a binding. Called only
-     * from the dispatch primitives ({@link KeyActions#keyPressed}, a control hint,
-     * the terminal), never per binding.
-     */
-    public static void markKeyConsumed() {
-        keysConsumed++;
     }
 
     /**
@@ -115,25 +101,13 @@ public class KeyGuy extends Camera2DInputController {
         if (KeyActions.ShiftMask.keyPressed(pressedKeys)) {
             shiftMask = true;
         }
-        if (!terminalOwnsKey(key)) {
-            sceneKeyPressed(key, mods, firstPress);
+        if (firstPress) {
+            handleSceneKeys(key, mods);
         }
         if (Toggle.IsTerminalFocused.value && Terminal.current != null) {
             Terminal.current.keyPress(key, mods, controlMask);
-            markKeyConsumed();
+            KeyActions.markKeyConsumed();
         }
-    }
-
-    /**
-     * Fire the scene's own shortcuts for a key the terminal does not own, after {@link #pressedKeys}
-     * and the modifier masks are updated and before the terminal sees the key. The shared handler
-     * binds none.
-     *
-     * @param key        pressed key code
-     * @param mods       modifier-key bitmask
-     * @param firstPress whether the key was up before this event, {@code false} on a repeat
-     */
-    public void sceneKeyPressed(int key, int mods, boolean firstPress) {
     }
 
     /**
@@ -154,7 +128,7 @@ public class KeyGuy extends Camera2DInputController {
             if (hint.keyCode == key && hint.keyCode != ControlHint.NO_KEY && hint.action != null
                     && modifierHeld) {
                 hint.action.perform();
-                markKeyConsumed();
+                KeyActions.markKeyConsumed();
                 lastRepeatMillis = System.currentTimeMillis();
                 return;
             }
@@ -162,9 +136,8 @@ public class KeyGuy extends Camera2DInputController {
     }
 
     /**
-     * Handle a key-up: the scene's release shortcuts through {@link #sceneKeyReleased}, then
-     * {@code key} leaves {@link #pressedKeys} and each modifier mask holds only while one of its
-     * keys is down.
+     * Handle a key-up: {@code key} leaves {@link #pressedKeys} and each modifier mask holds only
+     * while one of its keys is down. No row fires on a release.
      *
      * @param key  key code that was released
      * @param mask modifier-key bitmask
@@ -174,43 +147,28 @@ public class KeyGuy extends Camera2DInputController {
             return;
         }
         recordAbstractAction("key_release", KEY, key, "mask", mask);
-        if (canvas.active && !terminalOwnsKey(key)) {
-            sceneKeyReleased();
-        }
         pressedKeys.remove(key);
         controlMask = pressedKeys.contains(LEFT_CONTROL) || pressedKeys.contains(RIGHT_CONTROL);
         shiftMask = pressedKeys.contains(LEFT_SHIFT) || pressedKeys.contains(RIGHT_SHIFT);
     }
 
     /**
-     * Fire the release shortcuts of an active scene for a key the terminal does not own, while
-     * {@link #pressedKeys} still holds the key: Escape steps the menu back, R resets the camera.
-     */
-    public void sceneKeyReleased() {
-        if (KeyActions.Back.keyPressed(pressedKeys) && canvas instanceof MenuScene menuScene
-                && menuScene.menu != null) {
-            menuScene.menu.back();
-        }
-        if (KeyActions.Reset.keyPressed(pressedKeys)) {
-            camera.reset();
-        }
-    }
-
-    /**
-     * Per-frame: skip while terminal is focused (so typing into terminal doesn't
-     * move the camera), forward camera movement keys to
-     * {@link Camera2DInputController#apply}, then refire the held repeating control rows once
-     * {@link #REPEAT_MILLIS}, scaled down by the speed multiplier, has passed since a row fired.
+     * Per-frame, unless the terminal has focus: the held keys drive the scene's camera controller,
+     * then the held repeating control rows refire once {@link #REPEAT_MILLIS}, scaled down by the
+     * speed multiplier, has passed since a row fired.
      *
-     * @param SHIFT_MOD speed multiplier (typically 1 or 2)
+     * @param shiftMod speed multiplier (typically 1 or 2)
      */
-    public void paintUpdate(float SHIFT_MOD) {
+    public void paintUpdate(float shiftMod) {
         if (!active || Toggle.IsTerminalFocused.value) {
             return;
         }
-        super.apply(camera, pressedKeys, SHIFT_MOD, Clock.deltaTime());
+        CameraController controller = canvas.mouse == null ? null : canvas.mouse.controller;
+        if (controller != null) {
+            controller.keysHeld(pressedKeys, shiftMod);
+        }
         long now = System.currentTimeMillis();
-        if (now - lastRepeatMillis <= REPEAT_MILLIS / SHIFT_MOD) {
+        if (now - lastRepeatMillis <= REPEAT_MILLIS / shiftMod) {
             return;
         }
         for (ControlHint hint : canvas.controls) {

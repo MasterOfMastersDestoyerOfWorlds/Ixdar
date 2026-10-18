@@ -16,7 +16,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.automation.endpoints.ui.Frame;
 import ixdar.automation.endpoints.ui.SelectionBounds;
-import ixdar.platform.input.OrbitMouseTrap;
 
 /**
  * The orbit camera's framing: a framed sphere fills the narrower view angle on any aspect and at
@@ -47,15 +46,12 @@ class OrbitFramingTest {
 
     private Camera3D camera;
 
-    private OrbitMouseTrap orbit;
-
     /**
      * A bare orbit camera, no scene or platform behind it.
      */
     @BeforeEach
     void buildOrbit() {
         camera = new Camera3D(new Vector3f(), 0f, 0f, null);
-        orbit = new OrbitMouseTrap(camera, null);
     }
 
     @Test
@@ -76,18 +72,18 @@ class OrbitFramingTest {
 
     @Test
     void framingWidensTheZoomBoundsToReachATinySphere() {
-        float distance = orbit.frame(new Vector3f(), 1e-3f, 0f, 1f);
-        assertTrue(distance < OrbitMouseTrap.DEFAULT_MIN_DISTANCE, "fit distance " + distance);
-        assertEquals(distance, orbit.getDistance(), POSITION_TOLERANCE);
+        float distance = camera.frame(new Vector3f(), 1e-3f, 0f, 1f);
+        assertTrue(distance < Camera3D.DEFAULT_MIN_DISTANCE, "fit distance " + distance);
+        assertEquals(distance, camera.distance, POSITION_TOLERANCE);
     }
 
     @Test
     void theTopAndBottomViewsLookStraightAlongTheVerticalAxis() {
         Vector3f target = new Vector3f(0.5f, 2f, -1f);
-        orbit.moveTarget(target);
+        camera.moveTarget(target);
         for (float elevation : new float[] { HALF_PI, -HALF_PI }) {
-            orbit.setOrbit(1f, elevation, ORBIT_DISTANCE);
-            assertEquals(elevation, orbit.getElevation(), ANGLE_TOLERANCE, "elevation is not clamped");
+            camera.setOrbit(1f, elevation, ORBIT_DISTANCE);
+            assertEquals(elevation, camera.elevation, ANGLE_TOLERANCE, "elevation is not clamped");
             Vector3f offset = new Vector3f(camera.position).sub(target);
             assertEquals(0f, offset.x, POSITION_TOLERANCE);
             assertEquals(Math.signum(elevation) * ORBIT_DISTANCE, offset.y, POSITION_TOLERANCE);
@@ -101,12 +97,12 @@ class OrbitFramingTest {
 
     @Test
     void theUpVectorTurnsSmoothlyAsTheCameraCrossesThePole() {
-        orbit.setOrbit(0.4f, POLE_SWEEP_START, ORBIT_DISTANCE);
+        camera.setOrbit(0.4f, POLE_SWEEP_START, ORBIT_DISTANCE);
         Vector3f previousUp = new Vector3f(camera.up);
         Vector3f previousPosition = new Vector3f(camera.position);
         for (float elevation = POLE_SWEEP_START + POLE_SWEEP_STEP; elevation <= POLE_SWEEP_END;
                 elevation += POLE_SWEEP_STEP) {
-            orbit.setOrbit(0.4f, elevation, ORBIT_DISTANCE);
+            camera.setOrbit(0.4f, elevation, ORBIT_DISTANCE);
             assertTrue(previousUp.dot(camera.up) > CONTINUOUS_UP_DOT,
                     "up flips at elevation " + elevation);
             assertTrue(previousPosition.distance(camera.position)
@@ -118,13 +114,13 @@ class OrbitFramingTest {
 
     @Test
     void theEquatorKeepsWorldUpAndElevationWrapsPastThePole() {
-        orbit.setOrbit(2f, 0f, ORBIT_DISTANCE);
+        camera.setOrbit(2f, 0f, ORBIT_DISTANCE);
         assertEquals(1f, camera.up.y, POSITION_TOLERANCE);
-        orbit.setOrbit(0f, HALF_PI + OVER_THE_POLE, ORBIT_DISTANCE);
-        assertEquals(HALF_PI + OVER_THE_POLE, orbit.getElevation(), ANGLE_TOLERANCE);
+        camera.setOrbit(0f, HALF_PI + OVER_THE_POLE, ORBIT_DISTANCE);
+        assertEquals(HALF_PI + OVER_THE_POLE, camera.elevation, ANGLE_TOLERANCE);
         assertTrue(camera.position.x < 0f, "past the pole the camera comes down the far side");
-        orbit.setOrbit(0f, (float) (2.0 * Math.PI) + OVER_THE_POLE, ORBIT_DISTANCE);
-        assertEquals(OVER_THE_POLE, orbit.getElevation(), ANGLE_TOLERANCE);
+        camera.setOrbit(0f, (float) (2.0 * Math.PI) + OVER_THE_POLE, ORBIT_DISTANCE);
+        assertEquals(OVER_THE_POLE, camera.elevation, ANGLE_TOLERANCE);
     }
 
     @Test
@@ -198,8 +194,8 @@ class OrbitFramingTest {
      */
     private void assertFramedSphereFits(Vector3f center, float radius, float padding, float aspect,
             float azimuth, float elevation) {
-        orbit.setOrbit(azimuth, elevation, orbit.getDistance());
-        orbit.frame(center, radius, padding, aspect);
+        camera.setOrbit(azimuth, elevation, camera.distance);
+        camera.frame(center, radius, padding, aspect);
         Matrix4f viewProjection = new Matrix4f()
                 .perspective((float) Math.toRadians(camera.fov), aspect, NEAR_PLANE, FAR_PLANE)
                 .mul(camera.view);

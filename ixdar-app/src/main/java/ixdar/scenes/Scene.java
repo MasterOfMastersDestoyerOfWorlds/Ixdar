@@ -30,11 +30,11 @@ import ixdar.platform.Clock;
 import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
-import ixdar.platform.input.KeyGuy;
+import ixdar.input.KeyGuy;
+import ixdar.input.MouseTrap;
+import ixdar.input.PointerDispatcher;
+import ixdar.input.SceneInputFrameUpdater;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.MouseTrap;
-import ixdar.platform.input.PointerDispatcher;
-import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.scenes.main.Toggle;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Tool;
@@ -89,7 +89,7 @@ public abstract class Scene extends SceneDrawable {
 
     public Camera3D camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f, this);
     public MouseTrap mouse = new MouseTrap(camera, this);
-    public KeyGuy keys = new KeyGuy(camera, this);
+    public KeyGuy keys = new KeyGuy(this);
     public Platform platform;
     public Shell shell;
 
@@ -451,7 +451,7 @@ public abstract class Scene extends SceneDrawable {
     public void activate(boolean state) {
         if (state) {
             Platform p = Platforms.get();
-            bindAutomationIfAvailable(p, keys, mouse);
+            bindAutomationIfAvailable(p);
             audioPlayMenuMusic();
         } else {
             audioPauseMenuMusic();
@@ -480,10 +480,14 @@ public abstract class Scene extends SceneDrawable {
     }
 
     /**
-     * Populate {@link #controls}. Base adds the orbit/scroll rows; scenes call
-     * {@code super.setControls()} then add their keyed hints.
+     * Populate {@link #controls}, the rows the key handler fires. Base adds the {@code ~} terminal
+     * toggle when the scene has a terminal; scenes add their keyed hints and call
+     * {@code super.setControls()}.
      */
     public void setControls() {
+        if (sceneTerminal == null) {
+            return;
+        }
         controls.add(
                 new ControlHint(Keys.GRAVE, "~", "toggle the terminal", () -> {
                     boolean focusTerminal = !Toggle.IsTerminalFocused.value;
@@ -582,6 +586,33 @@ public abstract class Scene extends SceneDrawable {
     }
 
     /**
+     * The cursor moved over the scene with no press dragging: the active tool hovers what is under
+     * it. Scenes with panes or a menu decide what the cursor is over.
+     *
+     * @param windowX cursor x in window pixels
+     * @param windowY cursor y in window pixels, top-down
+     */
+    public void viewHovered(float windowX, float windowY) {
+        if (activeTool != null) {
+            activeTool.onHover(mouse.normalizedPosX, mouse.normalizedPosY);
+        }
+    }
+
+    /**
+     * A click that no pane and no tool press took: the active tool's, by default. Scenes with
+     * panes or a menu route it to what it landed on.
+     *
+     * @param windowX click x in window pixels
+     * @param windowY click y in window pixels, top-down
+     * @param button  button index
+     */
+    public void viewClicked(float windowX, float windowY, int button) {
+        if (activeTool != null) {
+            activeTool.onClick(mouse.normalizedPosX, mouse.normalizedPosY);
+        }
+    }
+
+    /**
      * A tool's name as its switch hint shows it, marked when it is the active tool.
      *
      * @param tool the tool
@@ -592,17 +623,15 @@ public abstract class Scene extends SceneDrawable {
     }
 
     /**
-     * Route the platform's input through the automation recorder to {@code keys} and
-     * {@code mouse}; no-op on a platform without automation.
+     * Route the platform's input through the automation recorder to {@link #keys} and
+     * {@link #mouse}; no-op on a platform without automation.
      *
      * @param platform host platform whose input callbacks to bind
-     * @param keys     keyboard listener to register
-     * @param mouse    mouse listener to register
      */
-    public static void bindAutomationIfAvailable(Platform platform, KeyGuy keys, MouseTrap mouse) {
+    public void bindAutomationIfAvailable(Platform platform) {
         AutomationBackend automation = platform.automation();
         if (automation != null) {
-            automation.bindInput(platform, keys, mouse);
+            automation.bindInput(platform, this);
         }
     }
 

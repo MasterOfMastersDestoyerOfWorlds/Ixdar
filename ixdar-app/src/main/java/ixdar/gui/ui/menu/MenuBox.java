@@ -22,7 +22,7 @@ import ixdar.platform.Platforms;
 import ixdar.scenes.main.Toggle;
 import ixdar.platform.AutomationBackend;
 import ixdar.platform.file.FileManagement;
-import ixdar.platform.input.PointerDispatcher;
+import ixdar.input.PointerDispatcher;
 import ixdar.platform.input.PointerRegion;
 
 public class MenuBox implements PointerRegion {

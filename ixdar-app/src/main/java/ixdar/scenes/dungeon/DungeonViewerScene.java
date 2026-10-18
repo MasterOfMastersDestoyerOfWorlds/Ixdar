@@ -4,9 +4,8 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import java.util.function.DoubleConsumer;
-
 import ixdar.annotations.scene.SceneAnnotation;
+import ixdar.graphics.cameras.FlyController;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
@@ -24,10 +23,10 @@ import ixdar.procgen.dungeon.player.PlayerController;
 import ixdar.procgen.dungeon.player.PlayerSpawner;
 import ixdar.procgen.dungeon.player.SpawnPoint;
 import ixdar.procgen.dungeon.render.DebugCapsuleRuntime;
-import ixdar.procgen.dungeon.scene.DungeonKeyGuy;
-import ixdar.procgen.dungeon.scene.FlyCamMouseTrap;
+import ixdar.platform.input.Keys;
 import ixdar.procgen.dungeon.values.CellType;
 import ixdar.scenes.Scene;
+import ixdar.tools.ControlHint;
 
 /**
  * Viewer for procedural dungeons, switching with <kbd>F</kbd> between walking a collided player
@@ -72,7 +71,8 @@ public class DungeonViewerScene extends Scene {
     private PlayerController player;
     private boolean playerMode = true;
     private ViewMode viewMode = ViewMode.FIRST_PERSON;
-    private ThirdPersonCamera thirdPersonCamera;
+    private final FlyController flyController = new FlyController(camera, () -> playerMode);
+    private final ThirdPersonCamera thirdPersonCamera = new ThirdPersonCamera(camera);
     private DebugCapsuleRuntime capsuleRuntime;
 
     /**
@@ -96,25 +96,9 @@ public class DungeonViewerScene extends Scene {
         super.initGL();
         Platforms.gl().setWindowTitle("Ixdar : Dungeon Viewer");
         MenuBox.menuVisible = false;
-        keys = new DungeonKeyGuy(camera, this, () -> playerMode,
-                this::togglePlayerMode, this::toggleViewMode);
-        // Mouse-look in player mode rotates without a button press; in fly-cam mode it
-        // requires LMB-drag like a DCC tool. Third-person sends deltas to the orbit camera
-        // instead of the FPS camera, and consumes scroll for zoom.
-        FlyCamMouseTrap.DeltaHandler onDelta = (lx, ly, x, y) -> {
-            if (playerMode && viewMode == ViewMode.THIRD_PERSON && thirdPersonCamera != null) {
-                thirdPersonCamera.applyMouseDelta(x - lx, y - ly);
-            } else {
-                camera.mouseMove(lx, ly, x, y);
-            }
-        };
-        DoubleConsumer onScroll = ticks -> {
-            if (playerMode && viewMode == ViewMode.THIRD_PERSON && thirdPersonCamera != null) {
-                thirdPersonCamera.applyZoom(ticks, playerCellSize);
-            }
-        };
-        mouse = new FlyCamMouseTrap(camera, this, () -> playerMode, onDelta, onScroll);
-        bindAutomationIfAvailable(Platforms.get(), keys, mouse);
+        // Player mode captures the cursor, so every move looks; fly-cam looks on a drag.
+        mouse.controller = flyController;
+        bindAutomationIfAvailable(Platforms.get());
         bindInputDirect(Platforms.get(), keys, mouse);
         try {
             capsuleRuntime = new DebugCapsuleRuntime();
@@ -263,9 +247,10 @@ public class DungeonViewerScene extends Scene {
         playerMode = !playerMode;
         Platforms.get().log("[dungeon-viewer] mode -> " + (playerMode ? PLAYER : FLY_CAM));
         applyCursorModeForCurrentMode();
+        // Default back to first-person on (re-)entering player mode; fly-cam flies either way.
+        viewMode = ViewMode.FIRST_PERSON;
+        mouse.controller = flyController;
         if (playerMode) {
-            // Default back to first-person on (re-)entering player mode.
-            viewMode = ViewMode.FIRST_PERSON;
             spawnPlayerAtRoomZero();
         }
     }
@@ -274,16 +259,32 @@ public class DungeonViewerScene extends Scene {
     private void toggleViewMode() {
         if (!playerMode || player == null) return;
         if (viewMode == ViewMode.FIRST_PERSON) {
-            if (thirdPersonCamera == null) {
-                thirdPersonCamera = new ThirdPersonCamera();
-            }
-            thirdPersonCamera.enterFromCurrentCamera(camera, playerCellSize);
+            thirdPersonCamera.enterFromCurrentCamera(playerCellSize);
             viewMode = ViewMode.THIRD_PERSON;
+            mouse.controller = thirdPersonCamera;
         } else {
-            // Camera yaw/pitch already track the third-person azimuth/elevation, so 1P is smooth.
+            // Camera yaw/pitch are the third-person follow angles, so 1P is smooth.
             viewMode = ViewMode.FIRST_PERSON;
+            mouse.controller = flyController;
         }
         Platforms.get().log("[dungeon-viewer] view -> " + viewMode);
+    }
+
+    /**
+     * The viewer's keys: F walks the player or flies the camera, V swaps first and third person
+     * and Esc leaves player mode, both only while walking, and R resets the look.
+     */
+    @Override
+    public void setControls() {
+        controls.add(new ControlHint(Keys.F, "F", "walk the player or fly the camera", this::togglePlayerMode));
+        controls.add(new ControlHint(Keys.V, "V", "first or third person while walking", this::toggleViewMode));
+        controls.add(new ControlHint(Keys.ESCAPE, "esc", "stop walking and fly", () -> {
+            if (playerMode) {
+                togglePlayerMode();
+            }
+        }));
+        controls.add(new ControlHint(Keys.R, "R", "reset the look", camera::reset));
+        super.setControls();
     }
 
     /** Player mode = cursor captured (FPS look). Fly-cam = cursor visible (drag to rotate). */
@@ -303,11 +304,10 @@ public class DungeonViewerScene extends Scene {
         // Run the player physics (in player mode) before refreshing the view matrix.
         if (playerMode && player != null) {
             float dt = (float) Math.min(MAX_FRAME_DT, Clock.deltaTime()); // clamp to avoid huge dt on stalls
-            if (viewMode == ViewMode.THIRD_PERSON && thirdPersonCamera != null) {
+            if (viewMode == ViewMode.THIRD_PERSON) {
                 // Update camera FIRST so player.update sees the new yaw and WASD direction
                 // remains screen-relative.
-                thirdPersonCamera.update(player, playerCells,
-                        playerGridW, playerGridH, playerGridD, playerCellSize, camera);
+                thirdPersonCamera.update(player, playerCells, playerGridW, playerGridH, playerGridD);
                 player.update(dt, keys.pressedKeys, camera.yaw);
             } else {
                 player.update(dt, keys.pressedKeys, camera.yaw);

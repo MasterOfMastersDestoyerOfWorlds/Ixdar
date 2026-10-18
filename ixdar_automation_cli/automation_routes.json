@@ -349,7 +349,7 @@
       "commandName": "hover-clear",
       "path": "/input/hover/clear",
       "method": "POST",
-      "description": "Release the persistent automation hover lock on the active trade mouse handler.",
+      "description": "Release the persistent automation hover lock on the active mouse handler.",
       "sourceClass": "ixdar.automation.endpoints.input.HoverClear",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/input/HoverClear.java",
       "params": [],
@@ -1050,11 +1050,11 @@
       "commandName": "orbit-get",
       "path": "/ui/orbit",
       "method": "GET",
-      "description": "Report the active mesh viewer\u0027s current camera orbit and mesh radius.",
+      "description": "Report the active scene\u0027s camera, its pose in 3D or its pan and zoom in 2D, and a mesh viewer\u0027s orbit and mesh radius.",
       "sourceClass": "ixdar.automation.endpoints.ui.OrbitGet",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/OrbitGet.java",
       "params": [],
-      "responseHint": "{ok, azimuth, elevation, distance, target, mesh_radius?}"
+      "responseHint": "{ok, camera, azimuth?, elevation?, distance?, target?, mesh_radius?}"
     },
     {
       "commandName": "orbit-set",

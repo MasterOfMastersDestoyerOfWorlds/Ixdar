@@ -25,9 +25,9 @@ import ixdar.platform.AutomationBackend;
 import ixdar.automation.endpoints.mesh.dsl.Timing;
 import ixdar.platform.Platform;
 import ixdar.platform.gl.headless.HeadlessPlatform;
-import ixdar.platform.input.KeyGuy;
-import ixdar.platform.input.MouseTrap;
-import ixdar.platform.input.PointerDispatcher;
+import ixdar.input.KeyGuy;
+import ixdar.input.MouseTrap;
+import ixdar.input.PointerDispatcher;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 public class AutomationRuntime implements AutomationBackend {
@@ -130,11 +130,12 @@ public class AutomationRuntime implements AutomationBackend {
      * forwarding it to the normal {@link KeyGuy}/{@link MouseTrap} handlers.
      *
      * @param platform platform whose key/char/mouse/scroll callbacks will be replaced
-     * @param keys keyboard handler that receives forwarded key and char events
-     * @param mouse mouse handler that receives forwarded button, move, and scroll events
+     * @param scene scene whose key and mouse handlers, as bound now, receive the forwarded events
      */
     @Override
-    public void bindInput(Platform platform, KeyGuy keys, MouseTrap mouse) {
+    public void bindInput(Platform platform, Scene scene) {
+        KeyGuy keys = scene.keys;
+        MouseTrap mouse = scene.mouse;
         platform.setKeyCallback((key, scancode, action, mods) -> {
             recordRawKey(key, scancode, action, mods);
             keys.keyCallback(0L, key, scancode, action, mods);

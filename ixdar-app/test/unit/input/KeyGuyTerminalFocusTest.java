@@ -7,26 +7,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.joml.Vector3f;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import ixdar.graphics.cameras.Camera3D;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
 import ixdar.scenes.menu.MenuScene;
+import ixdar.input.KeyGuy;
+import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.OrbitCameraKeyGuy;
-import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.tools.ControlHint;
 
 /**
  * While the scene terminal has focus every key belongs to it: no scene control fires except the
  * terminal toggle, and once the terminal closes each control fires again.
  */
-class OrbitCameraKeyGuyTerminalFocusTest {
+class KeyGuyTerminalFocusTest {
 
     private static final String TOGGLE_TERMINAL = "toggle terminal";
 
@@ -47,7 +45,7 @@ class OrbitCameraKeyGuyTerminalFocusTest {
 
     private Scene canvasBefore;
 
-    private OrbitCameraKeyGuy keyGuy;
+    private KeyGuy keyGuy;
 
     /**
      * Bind the ring-editing scene's controls (the plain letters, Enter, Backspace, Esc, the
@@ -69,9 +67,8 @@ class OrbitCameraKeyGuyTerminalFocusTest {
             controls.add(new ControlHint(CONTROL_KEYS[index], CONTROL_HELD[index], label, label,
                     () -> fired.add(label)));
         }
-        OrbitMouseTrap orbit = new OrbitMouseTrap(new Camera3D(new Vector3f(), 0f, 0f, null), null);
-        keyGuy = new OrbitCameraKeyGuy(orbit, null, canvas);
-        keyGuy.controlRResetsTarget = false;
+        canvas.mouse.controller = canvas.camera;
+        keyGuy = new KeyGuy(canvas);
     }
 
     /**
@@ -117,7 +114,7 @@ class OrbitCameraKeyGuyTerminalFocusTest {
      */
     private void pressEveryControlKey() {
         for (int index = 0; index < CONTROL_KEYS.length; index++) {
-            press(CONTROL_KEYS[index], CONTROL_HELD[index] ? OrbitCameraKeyGuy.MOD_CONTROL : 0);
+            press(CONTROL_KEYS[index], CONTROL_HELD[index] ? KeyNames.MOD_CONTROL : 0);
         }
     }
 

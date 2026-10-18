@@ -1,8 +1,9 @@
 package ixdar.platform.input;
 
 /**
- * A screen rectangle subscribed to a {@link PointerDispatcher}, asked before the trap: while claimed, the wheel
- * or a left press, drag and release over it are its alone. Positions are framebuffer pixels, y up.
+ * A screen rectangle subscribed to the scene's pointer dispatcher, asked before the mouse handler:
+ * while claimed, the wheel or a left press, drag and release over it are its alone. Positions are
+ * framebuffer pixels, y up.
  */
 public interface PointerRegion {
 
@@ -11,9 +12,18 @@ public interface PointerRegion {
      * does not {@link #claimsWheel claim the raw delta}.
      *
      * @param scrollUp true when the wheel rolled "up" (negative delta)
-     * @param deltaSeconds frame delta in seconds, scaled by {@link MouseTrap#SCROLL_SPEED_SCALE}
+     * @param deltaSeconds frame delta in seconds, scaled by the controllers' scroll speed scale
      */
     void onScroll(boolean scrollUp, double deltaSeconds);
+
+    /**
+     * A click of any button inside bounds the region is listed under among the dispatcher's click
+     * regions; the first such region under the click takes it.
+     *
+     * @param button button index
+     */
+    default void onClick(int button) {
+    }
 
     /**
      * Whether the region takes the raw scroll delta through {@link #onScrollDelta} right now, so
@@ -70,7 +80,7 @@ public interface PointerRegion {
      *
      * @param x framebuffer x of the release
      * @param y framebuffer y of the release, y up
-     * @param click true when the cursor stayed within {@link MouseTrap#CLICK_DRAG_THRESHOLD_PX}
+     * @param click true when the cursor stayed within the mouse handler's click threshold
      *              of the press, so the press and release make a click
      */
     default void onRelease(float x, float y, boolean click) {

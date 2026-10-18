@@ -32,8 +32,6 @@ import ixdar.models.ModelLoadLedger;
 import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.OrbitCameraKeyGuy;
-import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.Scene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Tool;
@@ -91,10 +89,6 @@ public abstract class ModelScene extends Scene {
     public HalfEdgeMesh halfEdgeMesh;
 
     public HalfEdgeMeshRuntime runtime;
-
-    public OrbitMouseTrap orbitMouse;
-
-    public OrbitCameraKeyGuy keyGuy;
 
     /** The tool the scene opens with and Esc returns to, which only moves the camera. */
     public final OrbitTool orbitTool = new OrbitTool(this);
@@ -166,17 +160,14 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Wire the orbit mouse and the controls-driven key handler. Scenes needing a
-     * richer key handler (modified keys, extra bindings) override this.
+     * Hand the mouse to the camera's orbit, aimed at the mesh centre, bind the input and activate
+     * the opening tool.
      */
     public void initInput() {
-        orbitMouse = new OrbitMouseTrap(camera, this);
-        keyGuy = new OrbitCameraKeyGuy(orbitMouse, camera, this);
-        keys = keyGuy;
-        mouse = orbitMouse;
-        orbitMouse.setTarget(meshCenter);
-        orbitMouse.setOrbit(orbitAzimuth, orbitElevation, CAMERA_DISTANCE_DEFAULT);
-        bindAutomationIfAvailable(Platforms.get(), keys, mouse);
+        mouse.controller = camera;
+        camera.setTarget(meshCenter);
+        camera.setOrbit(orbitAzimuth, orbitElevation, CAMERA_DISTANCE_DEFAULT);
+        bindAutomationIfAvailable(Platforms.get());
         bindInputDirect(Platforms.get(), keys, mouse);
         activeTool.activate();
     }
@@ -542,19 +533,16 @@ public abstract class ModelScene extends Scene {
         } else {
             meshCenter.set(0f, 0f, 0f);
         }
-        if (orbitMouse == null) {
-            return;
-        }
-        orbitMouse.setTarget(meshCenter);
+        camera.setTarget(meshCenter);
         float meshRadius = target != null ? target.radius() : 0f;
-        orbitMouse.setDistanceBounds(
+        camera.setDistanceBounds(
                 Math.max(ZOOM_MIN_FLOOR, meshRadius * ZOOM_MIN_RADIUS_FRACTION),
                 Math.max(CAMERA_DISTANCE_MIN, meshRadius * ZOOM_MAX_RADIUS_MUL));
         float orbitDist = target != null
                 ? Math.max(CAMERA_DISTANCE_MIN, meshRadius * CAMERA_DISTANCE_RADIUS_MUL)
                 : CAMERA_DISTANCE_DEFAULT;
         framedDistance = orbitDist;
-        orbitMouse.setOrbit(orbitAzimuth, orbitElevation, orbitDist);
+        camera.setOrbit(orbitAzimuth, orbitElevation, orbitDist);
     }
 
     /**
@@ -566,9 +554,9 @@ public abstract class ModelScene extends Scene {
     @Override
     public boolean frameAll() {
         boolean toolFramed = super.frameAll();
-        if (!toolFramed && orbitMouse != null) {
-            orbitMouse.setTarget(meshCenter);
-            orbitMouse.setOrbit(orbitMouse.getAzimuth(), orbitMouse.getElevation(), framedDistance);
+        if (!toolFramed) {
+            camera.setTarget(meshCenter);
+            camera.setOrbit(camera.azimuth, camera.elevation, framedDistance);
         }
         return toolFramed;
     }
@@ -582,15 +570,12 @@ public abstract class ModelScene extends Scene {
      * @return whatever {@code reload} reported
      */
     public boolean preserveOrbit(BooleanSupplier reload) {
-        if (orbitMouse == null) {
-            return reload.getAsBoolean();
-        }
-        float savedAzimuth = orbitMouse.getAzimuth();
-        float savedElevation = orbitMouse.getElevation();
-        float savedZoom = orbitMouse.getDistance() / framedDistance;
+        float savedAzimuth = camera.azimuth;
+        float savedElevation = camera.elevation;
+        float savedZoom = camera.distance / framedDistance;
         boolean loaded = reload.getAsBoolean();
         if (loaded) {
-            orbitMouse.setOrbit(savedAzimuth, savedElevation, savedZoom * framedDistance);
+            camera.setOrbit(savedAzimuth, savedElevation, savedZoom * framedDistance);
         }
         return loaded;
     }
@@ -604,10 +589,10 @@ public abstract class ModelScene extends Scene {
     public float focusOrbitOn(List<float[]> clouds) {
         Vector3f centroid = new Vector3f();
         float radius = HalfEdgeMeshRuntime.cloudRadius(clouds, centroid);
-        orbitMouse.setTarget(centroid);
-        orbitMouse.setDistanceBounds(radius * FOCUS_ORBIT_MIN_MUL,
+        camera.setTarget(centroid);
+        camera.setDistanceBounds(radius * FOCUS_ORBIT_MIN_MUL,
                 Math.max(CAMERA_DISTANCE_MIN, halfEdgeMesh.radius() * CAMERA_DISTANCE_RADIUS_MUL));
-        orbitMouse.setOrbit(orbitAzimuth, orbitElevation, radius * FOCUS_ORBIT_RADIUS_MUL);
+        camera.setOrbit(orbitAzimuth, orbitElevation, radius * FOCUS_ORBIT_RADIUS_MUL);
         return radius;
     }
 
@@ -870,13 +855,22 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Populate {@link #controls}. Base adds the orbit/scroll rows, Ctrl+I for the menu and Esc to
-     * close it; scenes call {@code super.setControls()} then add their keyed hints.
+     * Populate {@link #controls}. Base adds the orbit/scroll rows, Ctrl+R to re-centre the orbit
+     * unless a tool binds it, Ctrl+I for the menu and Esc to close it; scenes call
+     * {@code super.setControls()} then add their keyed hints.
      */
     @Override
     public void setControls() {
         controls.add(new ControlHint("drag", "orbit the camera"));
         controls.add(new ControlHint("scroll", "zoom"));
+        boolean controlRBound = false;
+        for (ControlHint hint : controls) {
+            controlRBound |= hint.keyCode == Keys.R && hint.controlHeld && !hint.shiftHeld;
+        }
+        if (!controlRBound) {
+            controls.add(new ControlHint(Keys.R, true, "ctrl+R", "re-centre the orbit on the model",
+                    camera::resetTarget));
+        }
         controls.add(new ControlHint(Keys.I, true, "ctrl+I", "menu", () -> sceneModelMenu.toggle()));
         controls.add(new ControlHint(Keys.ESCAPE, "esc", escapeDescription(), this::escapePressed));
         super.setControls();

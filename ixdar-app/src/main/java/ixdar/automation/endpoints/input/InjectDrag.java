@@ -16,8 +16,8 @@ import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.Clock;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.InputSettle;
-import ixdar.platform.input.MouseTrap;
-import ixdar.platform.input.PointerDispatcher;
+import ixdar.input.MouseTrap;
+import ixdar.input.PointerDispatcher;
 
 /**
  * {@code POST /input/drag}: a left-button drag from one point to another in steps, a frame

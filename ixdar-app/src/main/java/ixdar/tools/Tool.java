@@ -5,7 +5,7 @@ import java.util.List;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.input.KeyNames;
-import ixdar.platform.input.PointerDispatcher;
+import ixdar.input.PointerDispatcher;
 import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
 

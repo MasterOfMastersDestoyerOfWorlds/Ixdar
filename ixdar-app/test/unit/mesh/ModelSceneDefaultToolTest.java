@@ -75,15 +75,14 @@ class ModelSceneDefaultToolTest {
     private static void assertDoubleClickFrames(String sceneId, ModelScene scene) {
         scene.initInput();
         assertSame(scene.orbitTool, scene.activeTool, sceneId + ": the orbit tool is active");
-        scene.orbitMouse.setOrbit(scene.orbitMouse.getAzimuth(), scene.orbitMouse.getElevation(),
-                ZOOMED_OUT);
-        assertNotEquals(scene.framedDistance, scene.orbitMouse.getDistance(), EXACT,
+        scene.camera.setOrbit(scene.camera.azimuth, scene.camera.elevation, ZOOMED_OUT);
+        assertNotEquals(scene.framedDistance, scene.camera.distance, EXACT,
                 sceneId + ": zoomed away from the framed distance");
         for (int click = 0; click < 2; click++) {
             assertFalse(scene.activeTool.onPress(0f, 0f, 0), sceneId + ": the drag is the camera's");
             assertFalse(scene.activeTool.onRelease(0f, 0f, true), sceneId + ": the overlay links get it too");
         }
-        assertEquals(scene.framedDistance, scene.orbitMouse.getDistance(), EXACT,
+        assertEquals(scene.framedDistance, scene.camera.distance, EXACT,
                 sceneId + ": the double-click framed the model");
     }
 }

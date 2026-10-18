@@ -16,12 +16,12 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.cameras.CameraController;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.Platform;
-import ixdar.platform.input.MouseTrap;
-import ixdar.platform.input.OrbitMouseTrap;
-import ixdar.platform.input.PointerDispatcher;
+import ixdar.input.MouseTrap;
+import ixdar.input.PointerDispatcher;
 import ixdar.platform.input.PointerRegion;
 
 /**
@@ -79,7 +79,9 @@ class ScrollRegionHitTest {
 
     private final TakesWheel bottomBoxHandler = new TakesWheel();
 
-    private OrbitMouseTrap orbit;
+    private Camera3D camera;
+
+    private MouseTrap orbit;
 
     private PointerDispatcher pointer;
 
@@ -113,7 +115,9 @@ class ScrollRegionHitTest {
         pointer.subscribe(
                 new Bounds(MENU_STRIP_LEFT, 0, MENU_STRIP_WIDTH, FRAMEBUFFER_HEIGHT, "STRIP"),
                 stripHandler);
-        orbit = new OrbitMouseTrap(new Camera3D(new Vector3f(), 0f, 0f, null), null);
+        camera = new Camera3D(new Vector3f(), 0f, 0f, null);
+        orbit = new MouseTrap(camera, null);
+        orbit.controller = camera;
     }
 
     /**
@@ -186,16 +190,16 @@ class ScrollRegionHitTest {
     @Test
     void aSlowTrackpadZoomOffEveryRegionMovesTheCameraByTheWheelRatePerUnit() {
         orbit.mousePos(WINDOW_X_JUST_LEFT_OF_STRIP_LEFT, WINDOW_Y_MIDDLE);
-        float start = orbit.getDistance();
+        float start = camera.distance;
         orbit.scrollCallback(TRACKPAD_DELTA);
         pointer.paintUpdate(orbit, 1f);
-        assertTrue(orbit.getDistance() < start, "one 0.05 delta zooms in");
+        assertTrue(camera.distance < start, "one 0.05 delta zooms in");
         for (int event = 1; event < TRACKPAD_EVENTS; event++) {
             orbit.scrollCallback(TRACKPAD_DELTA);
             pointer.paintUpdate(orbit, 1f);
         }
-        double perUnit = Math.pow(ZOOM_BASE, MouseTrap.SCROLL_TICKS_PER_UNIT);
-        assertEquals(start * Math.pow(perUnit, TRACKPAD_TOTAL), orbit.getDistance(), ZOOM_TOLERANCE);
+        double perUnit = Math.pow(ZOOM_BASE, CameraController.SCROLL_TICKS_PER_UNIT);
+        assertEquals(start * Math.pow(perUnit, TRACKPAD_TOTAL), camera.distance, ZOOM_TOLERANCE);
         assertEquals(0, bottomBoxHandler.deltas.size() + stripHandler.deltas.size());
     }
 
@@ -204,10 +208,10 @@ class ScrollRegionHitTest {
         stripHandler.claiming = false;
         bottomBoxHandler.claiming = false;
         orbit.mousePos(WINDOW_X_MIDDLE_OF_STRIP, WINDOW_Y_MIDDLE);
-        float start = orbit.getDistance();
+        float start = camera.distance;
         orbit.scrollCallback(TRACKPAD_DELTA);
         pointer.paintUpdate(orbit, 1f);
-        assertTrue(orbit.getDistance() < start, "the orbit zoomed");
+        assertTrue(camera.distance < start, "the orbit zoomed");
         assertEquals(0, stripHandler.steps + bottomBoxHandler.steps, "no region stepped");
     }
 

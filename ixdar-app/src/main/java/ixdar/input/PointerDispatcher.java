@@ -1,4 +1,4 @@
-package ixdar.platform.input;
+package ixdar.input;
 
 import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
@@ -9,8 +9,10 @@ import java.util.HashMap;
 import java.util.function.Predicate;
 
 import ixdar.graphics.cameras.Bounds;
+import ixdar.graphics.cameras.CameraController;
 import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
+import ixdar.platform.input.PointerRegion;
 import ixdar.scenes.Scene;
 import ixdar.tools.Tool;
 
@@ -28,6 +30,12 @@ public class PointerDispatcher {
 
     /** Subscribed regions in subscription order; earlier ones win where they overlap. */
     public final ArrayList<PointerRegion> regions = new ArrayList<>();
+
+    /** Window rectangles, y up, that hand clicks to {@link #clickRegions}, parallel to it. */
+    public final ArrayList<Bounds> clickBounds = new ArrayList<>();
+
+    /** Regions subscribed for clicks alone, in subscription order; the first under a click takes it. */
+    public final ArrayList<PointerRegion> clickRegions = new ArrayList<>();
 
     /** The region holding the current left press, or {@code null} while none does. */
     public PointerRegion pressHolder;
@@ -81,7 +89,8 @@ public class PointerDispatcher {
     }
 
     /**
-     * Drop every subscription of {@code region}, releasing its press if it holds one.
+     * Drop every subscription of {@code region}, for clicks or otherwise, releasing its press if
+     * it holds one.
      *
      * @param region region to unregister
      */
@@ -92,10 +101,17 @@ public class PointerDispatcher {
                 regionBounds.remove(index);
             }
         }
+        for (int index = clickRegions.size() - 1; index >= 0; index--) {
+            if (clickRegions.get(index) == region) {
+                clickRegions.remove(index);
+                clickBounds.remove(index);
+            }
+        }
         if (pressHolder == region) {
             pressHolder = null;
         }
     }
+
 
     /**
      * The first eligible subscribed region under the trap's cursor, each region's bounds
@@ -254,7 +270,7 @@ public class PointerDispatcher {
                 PointerRegion region = regionUnderCursor(trap, any -> true);
                 if (region != null) {
                     region.onScroll(trap.queuedScrollDelta < 0,
-                            Clock.deltaTime() * MouseTrap.SCROLL_SPEED_SCALE);
+                            Clock.deltaTime() * CameraController.SCROLL_SPEED_SCALE);
                     return;
                 }
             }

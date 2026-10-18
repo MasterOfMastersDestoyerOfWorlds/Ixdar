@@ -14,7 +14,7 @@ import ixdar.graphics.cameras.Camera2D;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.PointerDispatcher;
+import ixdar.input.PointerDispatcher;
 import ixdar.tools.ControlHint;
 import ixdar.tools.trade.HeadquartersPickerTool;
 import ixdar.tools.trade.RoutePlanningTool;
@@ -79,9 +79,8 @@ public class TradeScene extends Scene {
         activeTool = hqPickerTool;
         hqPickerTool.activate();
 
-        // Create input handlers
-        keys = new TradeKeyGuy(this, mapCamera);
-        mouse = new TradeMouseTrap(this, mapCamera);
+        mouse.camera = mapCamera;
+        mouse.controller = mapCamera;
 
         Platforms.gl().setWindowTitle("Ixdar : Trade Game");
 
@@ -106,7 +105,7 @@ public class TradeScene extends Scene {
     @Override
     public void activate(boolean state) {
         if (state) {
-            bindAutomationIfAvailable(Platforms.get(), keys, mouse);
+            bindAutomationIfAvailable(Platforms.get());
             audioPauseMenuMusic();
             MenuBox.menuVisible = false;
         }
@@ -127,6 +126,19 @@ public class TradeScene extends Scene {
                         returnToMenu();
                     }
                 }));
+    }
+
+    /**
+     * The cursor hovers the city under it, then the active tool hovers what it shows.
+     *
+     * @param windowX cursor x in window pixels
+     * @param windowY cursor y in window pixels, top-down
+     */
+    @Override
+    public void viewHovered(float windowX, float windowY) {
+        updateHoveredCity(getCityAt(mapCamera.screenTransformX(mouse.normalizedPosX),
+                mapCamera.screenTransformY(mouse.normalizedPosY)));
+        activeTool.onHover(mouse.normalizedPosX, mouse.normalizedPosY);
     }
 
     /**

@@ -12,8 +12,7 @@ import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.Clock;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.InputSettle;
-import ixdar.platform.input.MouseTrap;
-import ixdar.scenes.trade.TradeMouseTrap;
+import ixdar.input.MouseTrap;
 
 @AutomationRouteAnnotation(path = "input/hover", method = APIMethod.POST)
 public class InjectHover extends AutomationEndpoint implements AutomationRoute {
@@ -28,14 +27,14 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
     public static final String COMMAND = "hover";
     /**
      * {@code POST /input/hover}: move the cursor without clicking, then wait for the hover to be
-     * drawn. For {@link TradeMouseTrap}, optionally installs a persistent automation hover lock so
-     * subsequent real mouse motion does not dislodge the hover. Recorded as an abstract
-     * {@code "hover"} action.
+     * drawn, optionally pinning it with the mouse handler's automation hover lock so it is
+     * re-hovered every frame until real motion moves it. Recorded as an abstract {@code "hover"}
+     * action.
      *
      * @param body JSON body with {@code x}, {@code y} (floats, default 0),
      *             {@code normalized} (boolean; when true, {@code x}/{@code y} are
      *             fractions of window size), {@code persistent} (boolean,
-     *             default true) controlling whether the trade hover lock is set or
+     *             default true) controlling whether the hover lock is set or
      *             cleared, and {@code settle} (frames to wait for; default 2)
      * @throws IOException never thrown directly; declared to satisfy the route contract
      * @return {@code {"ok": true, "settled": true, "event": {xPx, yPx, xNorm, yNorm, persistent}}}
@@ -64,21 +63,16 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
                     appliedDuringFrame[0] = Clock.framesRendered();
                     float xPos = normalized ? denormalizeX(x) : x;
                     float yPos = normalized ? denormalizeY(y) : y;
-                    if (mouse instanceof TradeMouseTrap) {
-                        TradeMouseTrap tradeMouse = (TradeMouseTrap) mouse;
-                        tradeMouse.beginAutomationInput();
-                        try {
-                            if (persistent) {
-                                tradeMouse.setAutomationHoverLock(xPos, yPos);
-                            } else {
-                                tradeMouse.clearAutomationHoverLock();
-                                tradeMouse.mousePos(xPos, yPos);
-                            }
-                        } finally {
-                            tradeMouse.endAutomationInput();
+                    mouse.automationInputInProgress = true;
+                    try {
+                        if (persistent) {
+                            mouse.setAutomationHoverLock(xPos, yPos);
+                        } else {
+                            mouse.clearAutomationHoverLock();
+                            mouse.mousePos(xPos, yPos);
                         }
-                    } else {
-                        mouse.mousePos(xPos, yPos);
+                    } finally {
+                        mouse.automationInputInProgress = false;
                     }
                     JsonObject payload = new JsonObject();
                     payload.addProperty("xPx", xPos);

@@ -2,8 +2,6 @@ package ixdar.platform;
 
 import java.util.Map;
 
-import ixdar.platform.input.KeyGuy;
-import ixdar.platform.input.MouseTrap;
 import ixdar.scenes.Scene;
 
 /**
@@ -41,11 +39,11 @@ public interface AutomationBackend {
     void recordAbstractActionMap(String type, Map<String, Object> payload);
 
     /**
-     * Install platform input callbacks that record each event before forwarding it to the handlers.
+     * Install platform input callbacks that record each event before forwarding it to the scene's
+     * key and mouse handlers.
      *
      * @param platform platform whose input callbacks are replaced
-     * @param keys     keyboard handler that receives forwarded key and char events
-     * @param mouse    mouse handler that receives forwarded button, move and scroll events
+     * @param scene    scene whose key and mouse handlers receive the forwarded events
      */
-    void bindInput(Platform platform, KeyGuy keys, MouseTrap mouse);
+    void bindInput(Platform platform, Scene scene);
 }

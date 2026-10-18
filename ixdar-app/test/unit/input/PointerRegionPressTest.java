@@ -21,8 +21,8 @@ import ixdar.graphics.cameras.Camera3D;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.Platform;
-import ixdar.platform.input.OrbitMouseTrap;
-import ixdar.platform.input.PointerDispatcher;
+import ixdar.input.MouseTrap;
+import ixdar.input.PointerDispatcher;
 import ixdar.platform.input.PointerRegion;
 import ixdar.scenes.Scene;
 import ixdar.tools.ControlHint;
@@ -72,7 +72,9 @@ class PointerRegionPressTest {
 
     private final RecordingTool tool = new RecordingTool();
 
-    private OrbitMouseTrap orbit;
+    private Camera3D camera;
+
+    private MouseTrap orbit;
 
     private PointerDispatcher pointer;
 
@@ -119,7 +121,9 @@ class PointerRegionPressTest {
         Scene host = new Scene() {
         };
         host.activeTool = tool;
-        orbit = new OrbitMouseTrap(new Camera3D(new Vector3f(), 0f, 0f, null), host);
+        camera = new Camera3D(new Vector3f(), 0f, 0f, null);
+        orbit = new MouseTrap(camera, host);
+        orbit.controller = camera;
     }
 
     /**
@@ -133,13 +137,13 @@ class PointerRegionPressTest {
 
     @Test
     void aPressDragAndReleaseOverTheRegionReachOnlyTheRegion() {
-        float azimuth = orbit.getAzimuth();
-        float elevation = orbit.getElevation();
+        float azimuth = camera.azimuth;
+        float elevation = camera.elevation;
         pressDragRelease(INSIDE_X);
         assertEquals(List.of(PRESS, DRAG, DRAG, RELEASE_AFTER_DRAG), region.events);
         assertEquals(List.of(), tool.events, "the tool saw none of it");
-        assertEquals(azimuth, orbit.getAzimuth(), EXACT, "the orbit did not turn");
-        assertEquals(elevation, orbit.getElevation(), EXACT);
+        assertEquals(azimuth, camera.azimuth, EXACT, "the orbit did not turn");
+        assertEquals(elevation, camera.elevation, EXACT);
         assertTrue(region.lastX < REGION_LEFT, "the drag left the region");
         assertEquals(INSIDE_X - 2 * DRAG_STEP, region.lastX, EXACT,
                 "a drag leaving the region stays the region's");
@@ -157,9 +161,9 @@ class PointerRegionPressTest {
         click(OUTSIDE_X);
         assertEquals(List.of(PRESS, RELEASE_AS_CLICK), tool.events,
                 "the tool was offered the press and got the click");
-        float azimuth = orbit.getAzimuth();
+        float azimuth = camera.azimuth;
         pressDragRelease(OUTSIDE_X);
-        assertNotEquals(azimuth, orbit.getAzimuth(), "the drag turned the orbit");
+        assertNotEquals(azimuth, camera.azimuth, "the drag turned the orbit");
         assertEquals(List.of(PRESS, RELEASE_AS_CLICK, PRESS, RELEASE_AFTER_DRAG), tool.events,
                 "the tool heard the release of the orbit's drag, but none of its moves");
         assertEquals(List.of(), region.events);
@@ -169,20 +173,20 @@ class PointerRegionPressTest {
     void aRegionThatDoesNotClaimLeavesThePressToTheOrbitAndTool() {
         region.claiming = false;
         click(INSIDE_X);
-        float azimuth = orbit.getAzimuth();
+        float azimuth = camera.azimuth;
         pressDragRelease(INSIDE_X);
         assertEquals(List.of(PRESS, RELEASE_AS_CLICK, PRESS, RELEASE_AFTER_DRAG), tool.events);
-        assertNotEquals(azimuth, orbit.getAzimuth());
+        assertNotEquals(azimuth, camera.azimuth);
         assertEquals(List.of(), region.events);
     }
 
     @Test
     void aPressTheToolTakesDragsTheToolAndLeavesTheOrbitStill() {
         tool.taking = true;
-        float azimuth = orbit.getAzimuth();
+        float azimuth = camera.azimuth;
         pressDragRelease(OUTSIDE_X);
         assertEquals(List.of(PRESS, DRAG, DRAG, RELEASE_AFTER_DRAG), tool.events);
-        assertEquals(azimuth, orbit.getAzimuth(), EXACT, "the tool's drag did not turn the orbit");
+        assertEquals(azimuth, camera.azimuth, EXACT, "the tool's drag did not turn the orbit");
         assertTrue(!orbit.isCameraDragging(), "the camera never held the press");
         click(OUTSIDE_X);
         assertEquals(RELEASE_AS_CLICK, tool.events.get(tool.events.size() - 1),

@@ -387,10 +387,10 @@ public final class RingRegionTool implements Tool {
         int width = Platforms.get().getWindowWidth();
         int height = Platforms.get().getWindowHeight();
         int framebufferX = width <= 0 ? 0
-                : Math.round(scene.orbitMouse.lastX * (float) Platforms.get().getFrameBufferWidth()
+                : Math.round(scene.mouse.lastX * (float) Platforms.get().getFrameBufferWidth()
                         / width);
         int framebufferY = height <= 0 ? 0
-                : Math.round(scene.orbitMouse.lastY
+                : Math.round(scene.mouse.lastY
                         * (float) Platforms.get().getFrameBufferHeight() / height);
         // An extraction hides the surface and the id pass draws an exploded view assembled, so
         // either refuses the click rather than naming a region the cursor is not over.

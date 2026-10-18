@@ -44,7 +44,7 @@ import ixdar.gui.terminal.commands.ResetCommand;
 import ixdar.gui.terminal.commands.ResetCommand.ResetOption;
 import ixdar.gui.terminal.commands.UpdateCommand;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.PointerDispatcher;
+import ixdar.input.PointerDispatcher;
 import ixdar.tools.ControlHint;
 import ixdar.tools.knot.FreeTool;
 import ixdar.tools.knot.MapEditorTool;
@@ -168,8 +168,10 @@ public class MainScene extends Scene {
 
         Toggle.setPanelFocus(PaneTypes.KnotView);
         grid = retTup.grid;
-        keys = new MainSceneKeyGuy(this, editorCamera);
-        mouse = new MainSceneMouseTrap(this, editorCamera);
+        keys.controlSilencesPlainKeys = true;
+        editorCamera.wheelZooms = false;
+        mouse.camera = editorCamera;
+        mouse.controller = editorCamera;
         activate(true);
         freeTool = new FreeTool(this);
         mapEditorTool = new MapEditorTool(this);
@@ -362,7 +364,7 @@ public class MainScene extends Scene {
     @Override
     public void activate(boolean state) {
         if (state) {
-            bindAutomationIfAvailable(Platforms.get(), keys, mouse);
+            bindAutomationIfAvailable(Platforms.get());
             audioPauseMenuMusic();
             MenuBox.menuVisible = false;
         }
@@ -406,6 +408,47 @@ public class MainScene extends Scene {
             switchTo(backScene);
         } else {
             switchTool(defaultTool);
+        }
+    }
+
+    /**
+     * Once knots are solved, the active tool hovers what is under the cursor in the knot view and
+     * drops its hover anywhere else.
+     *
+     * @param windowX cursor x in window pixels
+     * @param windowY cursor y in window pixels, top-down
+     */
+    @Override
+    public void viewHovered(float windowX, float windowY) {
+        if (!active) {
+            return;
+        }
+        if (inView(windowX, windowY) == PaneTypes.KnotView) {
+            activeTool.onHover(mouse.normalizedPosX, mouse.normalizedPosY);
+        } else {
+            activeTool.clearHover();
+        }
+    }
+
+    /**
+     * A click focuses the pane it lands in; once knots are solved one in the knot view goes to the
+     * active tool and one in the terminal to the terminal.
+     *
+     * @param windowX click x in window pixels
+     * @param windowY click y in window pixels, top-down
+     * @param button  button index
+     */
+    @Override
+    public void viewClicked(float windowX, float windowY, int button) {
+        PaneTypes pane = inView(windowX, windowY);
+        Toggle.setPanelFocus(pane);
+        if (manifoldKnot == null || !active) {
+            return;
+        }
+        if (pane == PaneTypes.KnotView) {
+            activeTool.onClick(mouse.normalizedPosX, mouse.normalizedPosY);
+        } else if (pane == PaneTypes.Terminal) {
+            terminal.calculateClick(mouse.normalizedPosX, mouse.normalizedPosY);
         }
     }
 

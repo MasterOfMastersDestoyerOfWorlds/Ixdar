@@ -10,7 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import ixdar.gui.ui.menu.MenuBox;
-import ixdar.platform.input.KeyGuy;
+import ixdar.input.KeyGuy;
 import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
@@ -55,7 +55,7 @@ class ControlRowDispatchTest {
         canvas.controls.add(new ControlHint(Keys.B, true, CONTROL_B, CONTROL_B, () -> fired.add(CONTROL_B)));
         canvas.controls.add(new ControlHint(Keys.B, PLAIN_B, PLAIN_B, () -> fired.add(PLAIN_B)));
         canvas.controls.add(ControlHint.repeating(Keys.LEFT, CYCLE, CYCLE, () -> fired.add(CYCLE)));
-        keyGuy = new KeyGuy(canvas.camera, canvas);
+        keyGuy = new KeyGuy(canvas);
     }
 
     /**

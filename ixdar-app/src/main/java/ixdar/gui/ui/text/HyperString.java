@@ -11,10 +11,9 @@ import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.ColorText;
 import ixdar.graphics.render.text.Font;
-import ixdar.graphics.render.text.HyperChar;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.actions.Action;
-import ixdar.platform.input.MouseTrap;
+import ixdar.input.MouseTrap;
 import ixdar.scenes.Scene;
 
 public class HyperString {

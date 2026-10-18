@@ -10,7 +10,7 @@ import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.automation.AutomationEndpoint;
-import ixdar.platform.input.KeyGuy;
+import ixdar.input.KeyGuy;
 import ixdar.platform.input.Keys;
 
 @AutomationRouteAnnotation(path = "input/type", method = APIMethod.POST)

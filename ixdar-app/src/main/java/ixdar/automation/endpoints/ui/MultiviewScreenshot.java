@@ -18,7 +18,7 @@ import ixdar.graphics.image.PngWriter;
 import ixdar.platform.Platforms;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.AutomationPortFile;
-import ixdar.platform.input.OrbitMouseTrap;
+import ixdar.graphics.cameras.Camera3D;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "ui/multiview", method = APIMethod.POST)
@@ -47,7 +47,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
         boolean inline = body.has(INLINE) && body.get(INLINE).getAsBoolean();
         String selection = Frame.selectionExpression(body);
         float padding = body.has(Frame.PADDING) ? body.get(Frame.PADDING).getAsFloat()
-                : OrbitMouseTrap.DEFAULT_FRAME_PADDING;
+                : Camera3D.DEFAULT_FRAME_PADDING;
         try {
             float[][] views = {
                     { (float) (Math.PI / 2), 0 }, // Front
@@ -86,11 +86,11 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                             : selected.error);
                     return framed;
                 }
-                OrbitMouseTrap orbit = mvs.getOrbitMouse();
-                saved[0] = orbit.getAzimuth();
-                saved[1] = orbit.getElevation();
-                saved[2] = orbit.getDistance();
-                orbit.getTarget(savedTarget);
+                Camera3D orbit = mvs.camera;
+                saved[0] = orbit.azimuth;
+                saved[1] = orbit.elevation;
+                saved[2] = orbit.distance;
+                savedTarget.set(orbit.orbitTarget);
                 Vector3f center = new Vector3f();
                 float radius = selected.sphere(center);
                 saved[VIEW_DIST_INDEX] = orbit.frame(center, radius, padding,
@@ -120,7 +120,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 // Frame N+1 will render with new orbit via SceneInputFrameUpdater.
                 runtime.runOnMainThread(() -> {
                     if (runtime.canvas instanceof MeshNodeViewerScene mvs) {
-                        mvs.getOrbitMouse().setOrbit(az, el, dist);
+                        mvs.camera.setOrbit(az, el, dist);
                     }
                     return new JsonObject();
                 });
@@ -155,8 +155,8 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             // Restore original orbit
             runtime.runOnMainThread(() -> {
                 if (runtime.canvas instanceof MeshNodeViewerScene mvs) {
-                    mvs.getOrbitMouse().moveTarget(savedTarget);
-                    mvs.getOrbitMouse().setOrbit(saved[0], saved[1], saved[2]);
+                    mvs.camera.moveTarget(savedTarget);
+                    mvs.camera.setOrbit(saved[0], saved[1], saved[2]);
                 }
                 return new JsonObject();
             });

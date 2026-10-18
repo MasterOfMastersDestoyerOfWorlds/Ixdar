@@ -1,6 +1,8 @@
-package ixdar.platform.input;
+package ixdar.input;
 
 import java.util.ArrayList;
+
+import ixdar.platform.input.KeyActions;
 
 /**
  * Per-frame input pumping helper: resolves the shift-speed modifier and forwards

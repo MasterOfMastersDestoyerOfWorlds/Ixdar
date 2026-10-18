@@ -10,7 +10,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
-import ixdar.platform.input.OrbitMouseTrap;
+import ixdar.graphics.cameras.Camera3D;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.ring.RingScene;
 
@@ -46,7 +46,7 @@ public class SelectionBounds {
     public String error = "";
 
     /** Smallest radius {@link #sphere} reports: a point selection's radius, else a tiny floor. */
-    public float minimumRadius = OrbitMouseTrap.MINIMUM_FRAME_RADIUS;
+    public float minimumRadius = Camera3D.MINIMUM_FRAME_RADIUS;
 
     /**
      * Resolve a selection against the viewer and fill in the bounds it covers.
@@ -136,7 +136,7 @@ public class SelectionBounds {
             minimum.set(values[0], values[1], values[2]);
             if (point) {
                 maximum.set(minimum);
-                minimumRadius = Math.max(OrbitMouseTrap.MINIMUM_FRAME_RADIUS, values[MAX_X_INDEX]);
+                minimumRadius = Math.max(Camera3D.MINIMUM_FRAME_RADIUS, values[MAX_X_INDEX]);
             } else {
                 maximum.set(values[MAX_X_INDEX], values[MAX_Y_INDEX], values[MAX_Z_INDEX]);
             }

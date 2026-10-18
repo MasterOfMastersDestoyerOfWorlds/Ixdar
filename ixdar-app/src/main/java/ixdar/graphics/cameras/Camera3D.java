@@ -1,5 +1,7 @@
 package ixdar.graphics.cameras;
 
+import java.util.Set;
+
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
@@ -9,24 +11,57 @@ import ixdar.scenes.Scene;
 import ixdar.platform.Clock;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
+import ixdar.platform.input.KeyNames;
 
 /**
- * Perspective 3D first-person camera. Holds position plus yaw/pitch and
- * derives front/right/up basis vectors and a JOML look-at view matrix.
- * Supports drag-rotate, mouse-look, WASD movement, and fov-based
- * scroll zoom; many of the {@link Camera} 2D-only hooks throw
- * {@link UnsupportedOperationException}.
+ * Perspective 3D camera: a first-person position plus yaw and pitch, or an orbit round a target
+ * whose angles, distance and zoom bounds it holds. As a {@link CameraController} it orbits: drag
+ * turns, shift-drag pans the target, the wheel zooms.
  */
-public class Camera3D implements Camera {
+public class Camera3D implements Camera, CameraController {
     public static final String UNIMPLEMENTED_METHOD_SCREENTRANSFORMX = "Unimplemented method 'screenTransformX'";
     public static final String UNIMPLEMENTED_METHOD_SCREENTRANSFORMY = "Unimplemented method 'screenTransformY'";
     public static final float DEFAULT_FOV = 45f;
     public static final float WHEEL_NOTCH_SCALE = 100f;
     public static final float MAX_PITCH = 89f;
     public static final float MOUSE_SENSITIVITY = 0.1f;
+    public static final float DEFAULT_MIN_DISTANCE = 0.75f;
+    public static final float DEFAULT_MAX_DISTANCE = 40.0f;
+    public static final float DEFAULT_FRAME_PADDING = 0.15f;
+    public static final float MINIMUM_FRAME_RADIUS = 1e-4f;
+    public static final float FRAME_DISTANCE_FLOOR_FRACTION = 0.01f;
+    public static final float FRAME_DISTANCE_CEILING_MULTIPLE = 8f;
 
     private static final float DEFAULT_MOVEMENT_SPEED = 2.5f;
     private static final float ZOOM_SPEED = 1f;
+    private static final float DRAG_RADIANS_PER_PIXEL = 0.01f;
+    private static final float PAN_DISTANCE_FRACTION_PER_PIXEL = 0.0015f;
+    private static final float ORBIT_ZOOM_BASE = 0.97f;
+
+    /** The point the orbit turns round; {@link #target} follows it while orbiting. */
+    public final Vector3f orbitTarget = new Vector3f();
+
+    /** The orbit centre {@link #resetTarget} returns to, set by {@link #setTarget}. */
+    public final Vector3f homeTarget = new Vector3f();
+
+    /** Orbit angle round the target's vertical, radians. */
+    public float azimuth = (float) Math.toRadians(90.0);
+
+    /** Orbit angle above the target's equator, radians in (-pi, pi]; past +-pi/2 the camera is over a pole. */
+    public float elevation = (float) Math.toRadians(20.0);
+
+    /** Distance from the orbit target, or the third-person camera's from its pivot. */
+    public float distance = 3.5f;
+
+    /** Closest the orbit may come to its target. */
+    public float minDistance = DEFAULT_MIN_DISTANCE;
+
+    /** Farthest the orbit may go from its target. */
+    public float maxDistance = DEFAULT_MAX_DISTANCE;
+
+    /** Whether the held drag pans the orbit target rather than turning, chosen by shift at the press. */
+    public boolean panningDrag;
+
     public Vector3f position;
     public Vector3f target;
     public Vector3f right;
@@ -530,4 +565,193 @@ public class Camera3D implements Camera {
         this.updateView(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight());
     }
 
+    /**
+     * Re-centre the orbit on a new world-space point, which also becomes the home centre
+     * {@link #resetTarget} returns to, and reapply the pose.
+     *
+     * @param center new orbit centre (copied)
+     */
+    public void setTarget(Vector3f center) {
+        orbitTarget.set(center);
+        homeTarget.set(center);
+        applyOrbit();
+    }
+
+    /**
+     * Put the orbit centre back on the home point the last {@link #setTarget} recorded, undoing
+     * any shift-drag panning.
+     */
+    public void resetTarget() {
+        orbitTarget.set(homeTarget);
+        applyOrbit();
+    }
+
+    /**
+     * Aim the orbit at a point without moving the home centre.
+     *
+     * @param center new orbit centre (copied)
+     */
+    public void moveTarget(Vector3f center) {
+        orbitTarget.set(center);
+        applyOrbit();
+    }
+
+    /**
+     * Set the orbit angles and distance directly. Elevation wraps into (-pi, pi], so a larger angle
+     * carries on over the pole; distance clamps to the zoom bounds.
+     *
+     * @param azimuthRadians   horizontal angle round the target
+     * @param elevationRadians vertical angle above the equator
+     * @param orbitDistance    camera distance from the target
+     */
+    public void setOrbit(float azimuthRadians, float elevationRadians, float orbitDistance) {
+        azimuth = azimuthRadians;
+        elevation = wrapAngle(elevationRadians);
+        distance = clamp(orbitDistance, minDistance, maxDistance);
+        applyOrbit();
+    }
+
+    /**
+     * Aim at a sphere and pull back until it, grown by the padding, fills the narrower view angle,
+     * keeping the orbit angles. The zoom bounds widen to reach it, never narrow.
+     *
+     * @param center      centre of the sphere, the new orbit centre (home unchanged)
+     * @param radius      radius of the sphere, floored at {@link #MINIMUM_FRAME_RADIUS}
+     * @param padding     margin as a fraction of the radius
+     * @param aspectRatio viewport width over height
+     * @return the distance the fit asked for, before the distance clamp
+     */
+    public float frame(Vector3f center, float radius, float padding, float aspectRatio) {
+        float paddedRadius = Math.max(MINIMUM_FRAME_RADIUS, radius) * (1f + Math.max(0f, padding));
+        float halfFieldOfViewY = (float) Math.toRadians(fov) * 0.5f;
+        float halfFieldOfViewX = (float) Math.atan(Math.tan(halfFieldOfViewY) * aspectRatio);
+        float fitDistance = paddedRadius
+                / (float) Math.sin(Math.min(halfFieldOfViewY, halfFieldOfViewX));
+        minDistance = Math.min(minDistance, fitDistance * FRAME_DISTANCE_FLOOR_FRACTION);
+        maxDistance = Math.max(maxDistance, fitDistance * FRAME_DISTANCE_CEILING_MULTIPLE);
+        moveTarget(center);
+        setOrbit(azimuth, elevation, fitDistance);
+        return fitDistance;
+    }
+
+    /**
+     * Set the orbit zoom bounds, which every {@link #setOrbit} and wheel zoom clamps to.
+     *
+     * @param minDist closest the camera may sit to the orbit target
+     * @param maxDist farthest the camera may sit from the orbit target
+     */
+    public void setDistanceBounds(float minDist, float maxDist) {
+        minDistance = Math.max(0f, minDist);
+        maxDistance = Math.max(minDistance, maxDist);
+        distance = clamp(distance, minDistance, maxDistance);
+        applyOrbit();
+    }
+
+    /**
+     * A camera drag starts: shift held at the press pans the orbit centre instead of turning.
+     *
+     * @param x    window x of the press
+     * @param y    window y of the press
+     * @param mods modifier-key bitmask of the press
+     */
+    @Override
+    public void pointerPressed(float x, float y, int mods) {
+        panningDrag = (mods & KeyNames.MOD_SHIFT) != 0;
+    }
+
+    /**
+     * Turn the orbit by the cursor travel, or pan its centre on a shift-drag, and reapply the pose.
+     * Over a pole the view is upside down, so the azimuth turns the other way to follow the cursor.
+     *
+     * @param lastX window x of the previous cursor sample
+     * @param lastY window y of the previous cursor sample
+     * @param x     window x of the cursor
+     * @param y     window y of the cursor
+     */
+    @Override
+    public void pointerDragged(float lastX, float lastY, float x, float y) {
+        float dx = x - lastX;
+        float dy = y - lastY;
+        if (panningDrag) {
+            Vector3f forward = new Vector3f(orbitTarget).sub(position).normalize();
+            Vector3f screenRight = forward.cross(up, new Vector3f()).normalize();
+            Vector3f screenUp = new Vector3f(up);
+            float step = distance * PAN_DISTANCE_FRACTION_PER_PIXEL;
+            orbitTarget.add(screenRight.mul(-dx * step)).add(screenUp.mul(dy * step));
+        } else {
+            float upright = Math.cos(elevation) < 0.0 ? -1f : 1f;
+            azimuth += upright * dx * DRAG_RADIANS_PER_PIXEL;
+            elevation = wrapAngle(elevation + dy * DRAG_RADIANS_PER_PIXEL);
+        }
+        applyOrbit();
+    }
+
+    /**
+     * The wheel zooms the orbit.
+     *
+     * @return true
+     */
+    @Override
+    public boolean usesWheel() {
+        return true;
+    }
+
+    /**
+     * Zoom by {@code 0.97} to the power of {@link #SCROLL_TICKS_PER_UNIT} times the summed delta,
+     * clamped to the zoom bounds.
+     *
+     * @param delta summed vertical wheel delta, positive away from the user
+     */
+    @Override
+    public void wheelScrolled(double delta) {
+        distance = clamp(distance * (float) Math.pow(ORBIT_ZOOM_BASE, SCROLL_TICKS_PER_UNIT * delta),
+                minDistance, maxDistance);
+        applyOrbit();
+    }
+
+    /**
+     * Zoom the field of view by the held zoom keys; the orbit alone places the camera, so the
+     * movement keys do nothing.
+     *
+     * @param pressedKeys key codes held down
+     * @param shiftMod    speed multiplier
+     */
+    @Override
+    public void keysHeld(Set<Integer> pressedKeys, float shiftMod) {
+        setShiftMod(shiftMod);
+        CameraController.zoomWithKeys(this, pressedKeys, Clock.deltaTime());
+    }
+
+    /**
+     * Place the camera on the orbit sphere looking at the centre. Up is the meridian's tangent
+     * toward rising elevation, world up at the equator, never parallel to the view.
+     */
+    private void applyOrbit() {
+        float cosElevation = (float) Math.cos(elevation);
+        float sinElevation = (float) Math.sin(elevation);
+        float cosAzimuth = (float) Math.cos(azimuth);
+        float sinAzimuth = (float) Math.sin(azimuth);
+        position.set(
+                orbitTarget.x + distance * cosElevation * cosAzimuth,
+                orbitTarget.y + distance * sinElevation,
+                orbitTarget.z + distance * cosElevation * sinAzimuth);
+        target.set(orbitTarget);
+        up.set(-sinElevation * cosAzimuth, cosElevation, -sinElevation * sinAzimuth);
+        updateViewFirstPerson();
+    }
+
+    private static float clamp(float value, float min, float max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    /**
+     * An angle wrapped into (-pi, pi].
+     *
+     * @param radians any angle
+     * @return the same direction, in (-pi, pi]
+     */
+    private static float wrapAngle(float radians) {
+        double wrapped = Math.IEEEremainder(radians, 2.0 * Math.PI);
+        return (float) (wrapped <= -Math.PI ? wrapped + 2.0 * Math.PI : wrapped);
+    }
 }

@@ -29,7 +29,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`frame`](#frame) | Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it. |
 | [`health`](#health) | Liveness probe reporting server status, recording/replaying flags, and port. |
 | [`hover`](#hover) | Move the cursor without clicking, then wait for the hover to be drawn. |
-| [`hover-clear`](#hover-clear) | Release the persistent automation hover lock on the active trade mouse handler. |
+| [`hover-clear`](#hover-clear) | Release the persistent automation hover lock on the active mouse handler. |
 | [`key`](#key) | Deliver a named key event to the active key handler and report whether it was consumed. |
 | [`mesh-compare`](#mesh-compare) | Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics. |
 | [`mesh-dsl`](#mesh-dsl) | Load and execute a named DSL skill graph, making its output geometry the active mesh. |
@@ -49,7 +49,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`model`](#model) | Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took. |
 | [`multiview`](#multiview) | Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by default), and composite them into a 4x2 grid PNG. |
 | [`node-inspect`](#node-inspect) | Inspect the graph the active model scene ran: the node tree with times and peak heap, one node's inputs, outputs and fields, or a field path below it, with depth and length limits. |
-| [`orbit-get`](#orbit-get) | Report the active mesh viewer's current camera orbit and mesh radius. |
+| [`orbit-get`](#orbit-get) | Report the active scene's camera, its pose in 3D or its pan and zoom in 2D, and a mesh viewer's orbit and mesh radius. |
 | [`orbit-set`](#orbit-set) | Set the active mesh viewer's camera orbit (azimuth, elevation, distance). |
 | [`pick`](#pick) | Name the surface under a screenshot pixel: point, face, nearest vertex, normal and ring region, touching no tool and no hover. |
 | [`project`](#project) | Place a surface point in the screenshot: the pixel it lands on and whether the surface in front of it hides it, touching no tool. |
@@ -211,7 +211,7 @@ Move the cursor without clicking, then wait for the hover to be drawn.
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/HoverClear.java)
 
-Release the persistent automation hover lock on the active trade mouse handler.
+Release the persistent automation hover lock on the active mouse handler.
 
 - **Route:** `POST /input/hover/clear`
 - **Response:** `{ok}`
@@ -478,10 +478,10 @@ Inspect the graph the active model scene ran: the node tree with times and peak 
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/OrbitGet.java)
 
-Report the active mesh viewer's current camera orbit and mesh radius.
+Report the active scene's camera, its pose in 3D or its pan and zoom in 2D, and a mesh viewer's orbit and mesh radius.
 
 - **Route:** `GET /ui/orbit`
-- **Response:** `{ok, azimuth, elevation, distance, target, mesh_radius?}`
+- **Response:** `{ok, camera, azimuth?, elevation?, distance?, target?, mesh_radius?}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/orbit`
 
 ### `orbit-set`
@@ -940,7 +940,7 @@ Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
 
 ### `new-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/new_scene.py#L262)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/new_scene.py#L243)
 
 Scaffold a new Scene class, launch.json entry, and optional Maven profile.
 

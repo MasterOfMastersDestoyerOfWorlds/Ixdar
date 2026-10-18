@@ -16,7 +16,7 @@ import ixdar.gui.terminal.Terminal;
 import ixdar.scenes.main.Toggle;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.InputSettle;
-import ixdar.platform.input.KeyGuy;
+import ixdar.input.KeyGuy;
 import ixdar.platform.input.Keys;
 import ixdar.gui.ui.PaneTypes;
 

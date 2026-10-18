@@ -10,7 +10,7 @@ import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.models.ModelChoice;
 import ixdar.platform.Platforms;
-import ixdar.platform.input.PointerDispatcher;
+import ixdar.input.PointerDispatcher;
 import ixdar.platform.input.PointerRegion;
 import ixdar.scenes.model.ModelScene;
 import ixdar.tools.ControlHint;

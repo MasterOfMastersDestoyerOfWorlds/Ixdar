@@ -12,11 +12,10 @@ import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.text.HyperString;
-import ixdar.platform.Platforms;
-import ixdar.platform.input.KeyGuy;
-import ixdar.platform.input.PointerDispatcher;
-import ixdar.platform.input.Scene2DMousePanTrap;
+import ixdar.platform.input.Keys;
+import ixdar.input.PointerDispatcher;
 import ixdar.scenes.Scene;
+import ixdar.tools.ControlHint;
 
 @SceneAnnotation(id = "irregular-grid-canvas")
 public class IrregularGridScene extends Scene {
@@ -48,14 +47,22 @@ public class IrregularGridScene extends Scene {
     public void initGL() {
         super.initGL();
         MenuBox.menuVisible = false;
-        keys = new KeyGuy(camera2D, this);
-        mouse = new Scene2DMousePanTrap(camera2D, this);
-        bindAutomationIfAvailable(Platforms.get(), keys, mouse);
+        mouse.camera = camera2D;
+        mouse.controller = camera2D;
         buildGrid();
         centerCameraOnGrid();
         fpsText = new HyperString();
         PointerDispatcher.current().subscribe(camera2D.getBounds(),
                 (scrollUp, deltaSeconds) -> camera2D.onScroll(scrollUp, deltaSeconds));
+    }
+
+    /**
+     * The grid's one key: R frames the grid again.
+     */
+    @Override
+    public void setControls() {
+        controls.add(new ControlHint(Keys.R, "R", "reset the camera", camera2D::reset));
+        super.setControls();
     }
 
     /**

@@ -21,8 +21,7 @@ import ixdar.gui.ui.code.glsl.GLSLExpressionParser;
 import ixdar.gui.ui.code.glsl.GLSLParseText;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.MouseTrap;
-import ixdar.platform.input.PointerDispatcher;
+import ixdar.input.PointerDispatcher;
 import ixdar.platform.input.PointerRegion;
 
 /**
@@ -67,8 +66,8 @@ public class ShaderCodePane implements PointerRegion {
 
     /**
      * Wire this pane up, resolving the target shader from {@code shader}, then {@code provider},
-     * and registering its bounds, resize callbacks, and {@link MouseTrap}
-     * scroll and click subscriptions.
+     * and registering its bounds, resize callbacks, and its {@link PointerDispatcher} scroll
+     * subscription on the code and click subscription on the preview.
      *
      * @param parentBounds host region that the pane lays itself out within
      * @param webViews registry of named bounds keyed by view id; this pane registers itself
@@ -126,8 +125,10 @@ public class ShaderCodePane implements PointerRegion {
             return new ColorText<Float>("FPS: " + Clock.fps(), Color.TEAL);
         });
         webViews.put(paneBounds.id, paneBounds);
-        PointerDispatcher.current().subscribe(this.paneBounds, this);
-        MouseTrap.subscribeClickRegion(parentBounds, (button) -> handleParentClick(button));
+        PointerDispatcher pointer = PointerDispatcher.current();
+        pointer.subscribe(this.paneBounds, this);
+        pointer.clickBounds.add(parentBounds);
+        pointer.clickRegions.add(this);
     }
 
     private void loadCode(ShaderProgram shader, String headerTitle) {
@@ -315,7 +316,14 @@ public class ShaderCodePane implements PointerRegion {
         shaderBranchInjector.injectAndReload(idx);
     }
 
-    private void handleParentClick(int button) {
+    /**
+     * A click on the live preview beside the code: left restores the original shader and frees the
+     * crosshair, right locks the crosshair at the cursor or frees it.
+     *
+     * @param button button index
+     */
+    @Override
+    public void onClick(int button) {
         if (button == Keys.MOUSE_BUTTON_LEFT) {
             restoreOriginal();
             crosshairLocked = false;

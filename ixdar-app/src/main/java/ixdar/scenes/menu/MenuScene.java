@@ -4,7 +4,9 @@ import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.graphics.render.sdf.SDFFluid;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platforms;
+import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
+import ixdar.tools.ControlHint;
 
 /**
  * The "ixdar" main menu over its fluid backdrop. Its items switch the window to the TSP editor or
@@ -37,10 +39,41 @@ public class MenuScene extends Scene {
     }
 
     /**
-     * The menu lists no key hints: its keys (Back, the terminal) are handled by the key handler
-     * itself, not by the scene's controls.
+     * The menu's one key: Esc steps back out of a submenu.
      */
     @Override
     public void setControls() {
+        controls.add(new ControlHint(Keys.ESCAPE, "esc", "back out of the submenu", () -> {
+            if (menu != null) {
+                menu.back();
+            }
+        }));
+    }
+
+    /**
+     * The menu item under the cursor takes the hover.
+     *
+     * @param windowX cursor x in window pixels
+     * @param windowY cursor y in window pixels, top-down
+     */
+    @Override
+    public void viewHovered(float windowX, float windowY) {
+        if (menu != null) {
+            menu.setHover(mouse.normalizedPosX, mouse.normalizedPosY);
+        }
+    }
+
+    /**
+     * A click goes to the menu item under it.
+     *
+     * @param windowX click x in window pixels
+     * @param windowY click y in window pixels, top-down
+     * @param button  button index
+     */
+    @Override
+    public void viewClicked(float windowX, float windowY, int button) {
+        if (menu != null) {
+            menu.click(mouse.normalizedPosX, mouse.normalizedPosY);
+        }
     }
 }

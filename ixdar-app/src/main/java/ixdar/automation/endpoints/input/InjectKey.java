@@ -13,7 +13,8 @@ import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.Clock;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.InputSettle;
-import ixdar.platform.input.KeyGuy;
+import ixdar.input.KeyGuy;
+import ixdar.platform.input.KeyActions;
 import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.Keys;
 
@@ -77,7 +78,7 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
                     return applied;
                 }
                 appliedDuringFrame[0] = Clock.framesRendered();
-                int consumedBefore = KeyGuy.keysConsumed;
+                int consumedBefore = KeyActions.keysConsumed;
                 deliver(keys, keyCode, mods, modifierKeys, actionCode, tap);
                 JsonObject payload = new JsonObject();
                 payload.addProperty(KEY, spec);
@@ -90,7 +91,7 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
                 applied.addProperty(KEY_CODE, keyCode);
                 applied.addProperty(MODS, mods);
                 applied.addProperty(ACTION, action);
-                applied.addProperty(CONSUMED, KeyGuy.keysConsumed > consumedBefore);
+                applied.addProperty(CONSUMED, KeyActions.keysConsumed > consumedBefore);
                 return applied;
             });
         } catch (Exception e) {

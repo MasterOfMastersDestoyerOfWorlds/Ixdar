@@ -3,24 +3,20 @@ package ixdar.procgen.dungeon.camera;
 import org.joml.Vector3f;
 
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.cameras.CameraController;
 import ixdar.procgen.dungeon.player.PlayerController;
 import ixdar.procgen.dungeon.values.CellType;
 
 /**
- * Orbits the camera around a pivot above the player's body: mouse deltas drive azimuth and
- * elevation, scroll drives distance, and {@link #update} writes position, yaw and pitch back
- * into the shared {@link Camera3D} after sweeping in with {@link CameraGridSweep}.
+ * Follows the player from behind a pivot at its head. The orbit lives on the shared
+ * {@link Camera3D}: its yaw and pitch are the follow angles, its distance the requested one.
  *
- * <p>Yaw follows {@code Camera3D}'s atan2 convention, which is what
- * {@code PlayerController.update} expects.
+ * <p>Yaw follows {@code Camera3D}'s atan2 convention, which {@code PlayerController.update} expects.
  */
-public final class ThirdPersonCamera {
-    public static final double DEFAULT_AZIMUTH_DEGREES = 90.0;
-    public static final double DEFAULT_ELEVATION_DEGREES = 15.0;
+public final class ThirdPersonCamera implements CameraController {
 
-    private static final float SENSITIVITY = (float) Math.toRadians(0.1);
-    private static final float MIN_ELEVATION = (float) Math.toRadians(-80.0);
-    private static final float MAX_ELEVATION = (float) Math.toRadians(80.0);
+    private static final float SENSITIVITY_DEGREES_PER_PIXEL = 0.1f;
+    private static final float MAX_ELEVATION_DEGREES = 80f;
     private static final float ZOOM_BASE = 0.9f;
     private static final float CAMERA_RADIUS_FRAC = 0.15f;
     private static final float CAMERA_PADDING_FRAC = 0.05f;
@@ -28,120 +24,124 @@ public final class ThirdPersonCamera {
     private static final float MIN_DISTANCE_CELLS = 0.6f;
     private static final float MAX_DISTANCE_CELLS = 8.0f;
 
-    private float azimuth;     // radians; same convention as Camera3D.yaw (atan2(z, x) in radians)
-    private float elevation;   // radians; positive = look down at player from above
-    private float desiredDistance;
+    /** The camera whose yaw, pitch and distance the follow turns and zooms. */
+    public final Camera3D camera;
+
+    /** World-space size of a grid cell, which scales the distance and its bounds. */
+    public float cellSize = 1f;
 
     /**
-     * Construct an orbit camera with a default azimuth of -90 degrees, elevation of 15 degrees,
-     * and a unit-cell distance. Call {@link #enterFromCurrentCamera} before first {@link #update}
-     * to align with the existing camera state.
+     * Follow with {@code camera}; call {@link #enterFromCurrentCamera} before the first
+     * {@link #update}.
+     *
+     * @param camera the shared camera the follow writes
      */
-    public ThirdPersonCamera() {
-        this.azimuth = (float) Math.toRadians(-DEFAULT_AZIMUTH_DEGREES);
-        this.elevation = (float) Math.toRadians(DEFAULT_ELEVATION_DEGREES);
-        this.desiredDistance = 1.0f;
+    public ThirdPersonCamera(Camera3D camera) {
+        this.camera = camera;
     }
 
     /**
-     * Initialize orbit so the toggle from first- to third-person doesn't jolt the view.
+     * Start following from the first-person view without a jolt: keep the yaw, clamp the pitch to
+     * the follow's range, and stand the default distance back.
      *
-     * @param camera   first-person camera whose yaw/pitch (degrees) seeds the orbit angles
-     * @param cellSize world-space size of a grid cell, used to scale the default distance
+     * @param gridCellSize world-space size of a grid cell
      */
-    public void enterFromCurrentCamera(Camera3D camera, float cellSize) {
-        this.azimuth = (float) Math.toRadians(camera.yaw);
-        this.elevation = (float) Math.toRadians(camera.pitch);
-        this.elevation = clamp(this.elevation, MIN_ELEVATION, MAX_ELEVATION);
-        this.desiredDistance = DEFAULT_DISTANCE_CELLS * cellSize;
+    public void enterFromCurrentCamera(float gridCellSize) {
+        cellSize = gridCellSize;
+        camera.pitch = clamp(camera.pitch, -MAX_ELEVATION_DEGREES, MAX_ELEVATION_DEGREES);
+        camera.distance = DEFAULT_DISTANCE_CELLS * cellSize;
     }
 
     /**
-     * Add mouse motion to the orbit angles: {@code dxPixels} drives azimuth, {@code dyPixels}
-     * drives elevation (clamped to roughly +-80 degrees).
+     * Turn the follow by the cursor travel: across drives the yaw, down lowers the pitch, clamped
+     * to +-80 degrees.
      *
-     * @param dxPixels horizontal mouse delta in pixels
-     * @param dyPixels vertical mouse delta in pixels (positive = mouse moved down)
+     * @param lastX window x of the previous cursor sample
+     * @param lastY window y of the previous cursor sample
+     * @param x     window x of the cursor
+     * @param y     window y of the cursor
      */
-    public void applyMouseDelta(float dxPixels, float dyPixels) {
-        azimuth += dxPixels * SENSITIVITY;
-        elevation = clamp(elevation - dyPixels * SENSITIVITY, MIN_ELEVATION, MAX_ELEVATION);
+    @Override
+    public void pointerMoved(float lastX, float lastY, float x, float y) {
+        camera.yaw += (x - lastX) * SENSITIVITY_DEGREES_PER_PIXEL;
+        camera.pitch = clamp(camera.pitch - (y - lastY) * SENSITIVITY_DEGREES_PER_PIXEL,
+                -MAX_ELEVATION_DEGREES, MAX_ELEVATION_DEGREES);
     }
 
     /**
-     * Multiply the desired distance by {@code ZOOM_BASE^wheelTicks}, clamped to the configured
-     * min/max distance (in cells, scaled by {@code cellSize}).
+     * A drag turns the follow as a plain move does, the cursor being captured.
      *
-     * @param wheelTicks scroll-wheel delta, fractional from a trackpad (positive = zoom in)
-     * @param cellSize   world-space size of a grid cell, used to scale the clamp range
+     * @param lastX window x of the previous cursor sample
+     * @param lastY window y of the previous cursor sample
+     * @param x     window x of the cursor
+     * @param y     window y of the cursor
      */
-    public void applyZoom(double wheelTicks, float cellSize) {
-        if (wheelTicks == 0) return;
-        desiredDistance *= (float) Math.pow(ZOOM_BASE, wheelTicks);
-        desiredDistance = clamp(desiredDistance,
+    @Override
+    public void pointerDragged(float lastX, float lastY, float x, float y) {
+        pointerMoved(lastX, lastY, x, y);
+    }
+
+    /**
+     * The wheel zooms the follow.
+     *
+     * @return true
+     */
+    @Override
+    public boolean usesWheel() {
+        return true;
+    }
+
+    /**
+     * Scale the distance by {@code 0.9} to the power of {@link #SCROLL_TICKS_PER_UNIT} times the
+     * summed delta, clamped to 0.6 to 8 cells.
+     *
+     * @param delta summed vertical wheel delta, positive away from the user (zoom in)
+     */
+    @Override
+    public void wheelScrolled(double delta) {
+        double wheelTicks = SCROLL_TICKS_PER_UNIT * delta;
+        if (wheelTicks == 0) {
+            return;
+        }
+        camera.distance = clamp(camera.distance * (float) Math.pow(ZOOM_BASE, wheelTicks),
                 MIN_DISTANCE_CELLS * cellSize, MAX_DISTANCE_CELLS * cellSize);
     }
 
     /**
-     * Compute pivot, sweep camera against grid, write camera.position / yaw / pitch.
-     * Call BEFORE {@code player.update(...)} so the controller reads the up-to-date yaw.
+     * Place the camera behind the pivot above the player's head, swept in against the grid, and
+     * point it along the follow angles. Call before {@code player.update} so it reads the new yaw.
      *
-     * @param player   player whose head position acts as the orbit pivot
-     * @param cells    3D cell grid for the {@link CameraGridSweep} obstruction test
-     * @param gridW    grid width in cells (X)
-     * @param gridH    grid height in floors (Y)
-     * @param gridD    grid depth in cells (Z)
-     * @param cellSize world-space size of a grid cell
-     * @param camera   shared {@link Camera3D} whose position and orientation are written
+     * @param player player whose head is the pivot
+     * @param cells  3D cell grid for the {@link CameraGridSweep} obstruction test
+     * @param gridW  grid width in cells (X)
+     * @param gridH  grid height in floors (Y)
+     * @param gridD  grid depth in cells (Z)
      */
-    public void update(PlayerController player, CellType[] cells, int gridW, int gridH, int gridD,
-                       float cellSize, Camera3D camera) {
+    public void update(PlayerController player, CellType[] cells, int gridW, int gridH, int gridD) {
         Vector3f playerPos = player.position();
         Vector3f pivot = new Vector3f(playerPos.x(), playerPos.y() + player.halfHeight(), playerPos.z());
-
+        double azimuth = Math.toRadians(camera.yaw);
+        double elevation = Math.toRadians(camera.pitch);
         float cosE = (float) Math.cos(elevation);
         float sinE = (float) Math.sin(elevation);
         float cosA = (float) Math.cos(azimuth);
         float sinA = (float) Math.sin(azimuth);
-        // Camera sits OPPOSITE of the look direction. Look-from-camera-toward-pivot has the
-        // forward vector (cosA*cosE, sinE_down, sinA*cosE) — same as Camera3D's front so yaw==azimuth.
-        // So camera offset from pivot = -forward * distance. Pitch is just elevation.
+        // The camera sits opposite the look direction, Camera3D's front for this yaw and pitch.
         float fx = cosA * cosE;
         float fy = sinE;
         float fz = sinA * cosE;
-        Vector3f desired = new Vector3f(pivot.x() - fx * desiredDistance,
-                                  pivot.y() - fy * desiredDistance,
-                                  pivot.z() - fz * desiredDistance);
-
+        Vector3f desired = new Vector3f(pivot.x() - fx * camera.distance,
+                pivot.y() - fy * camera.distance,
+                pivot.z() - fz * camera.distance);
         float radius = CAMERA_RADIUS_FRAC * cellSize;
         float padding = CAMERA_PADDING_FRAC * cellSize;
-        Vector3f cam = CameraGridSweep.sweep(pivot, desired, radius, cells, gridW, gridH, gridD,
+        Vector3f swept = CameraGridSweep.sweep(pivot, desired, radius, cells, gridW, gridH, gridD,
                 cellSize, padding);
-
-        camera.position.set(cam.x(), cam.y(), cam.z());
-        camera.setOrientation((float) Math.toDegrees(azimuth), (float) Math.toDegrees(elevation));
+        camera.position.set(swept.x(), swept.y(), swept.z());
+        camera.setOrientation(camera.yaw, camera.pitch);
     }
 
-    /**
-     * Current orbit azimuth (around Y) in degrees.
-     *
-     * @return azimuth in degrees
-     */
-    public float azimuthDegrees() { return (float) Math.toDegrees(azimuth); }
-    /**
-     * Current orbit elevation (pitch) in degrees.
-     *
-     * @return elevation in degrees
-     */
-    public float elevationDegrees() { return (float) Math.toDegrees(elevation); }
-    /**
-     * Currently requested camera-to-pivot distance in world units, before grid sweeping.
-     *
-     * @return desired distance in world units
-     */
-    public float desiredDistance() { return desiredDistance; }
-
-    private static float clamp(float v, float lo, float hi) {
-        return Math.max(lo, Math.min(hi, v));
+    private static float clamp(float value, float low, float high) {
+        return Math.max(low, Math.min(high, value));
     }
 }

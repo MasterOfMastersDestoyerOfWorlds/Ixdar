@@ -12,10 +12,14 @@ public enum KeyActions {
     MoveUp(W),
     MoveDown(S),
     DoubleSpeed(LEFT_SHIFT),
-    Back(ESCAPE),
-    Reset(R),
     ControlMask(LEFT_CONTROL, RIGHT_CONTROL),
     ShiftMask(LEFT_SHIFT, RIGHT_SHIFT);
+
+    /**
+     * Running count of key events some binding matched. Automation samples it around an injected
+     * key to report whether anything consumed that key.
+     */
+    public static int keysConsumed;
 
     public final String keyBindingsFileLocation = "./src/main/resources/res/keyBindings.txt";
 
@@ -44,9 +48,17 @@ public enum KeyActions {
     public boolean keyPressed(Set<Integer> pressedKeys) {
         boolean satisfied = matches(pressedKeys);
         if (satisfied && this != ControlMask && this != ShiftMask) {
-            KeyGuy.markKeyConsumed();
+            markKeyConsumed();
         }
         return satisfied;
+    }
+
+    /**
+     * Record that the key event being dispatched matched a binding. Called only from the dispatch
+     * primitives ({@link #keyPressed}, a control row, the terminal), never per binding.
+     */
+    public static void markKeyConsumed() {
+        keysConsumed++;
     }
 
     /**

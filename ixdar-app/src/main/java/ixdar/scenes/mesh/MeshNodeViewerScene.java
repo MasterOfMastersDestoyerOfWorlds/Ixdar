@@ -34,7 +34,6 @@ import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.model.ModelScene;
 import ixdar.tools.ControlHint;
 
@@ -167,15 +166,6 @@ public class MeshNodeViewerScene extends ModelScene {
             }
         }
         Platforms.get().log(sb.toString());
-    }
-
-    /**
-     * Orbit-camera input handler driving the 3D view.
-     *
-     * @return the orbit mouse trap, or {@code null} before {@link #initGL()} runs
-     */
-    public OrbitMouseTrap getOrbitMouse() {
-        return orbitMouse;
     }
 
     /**

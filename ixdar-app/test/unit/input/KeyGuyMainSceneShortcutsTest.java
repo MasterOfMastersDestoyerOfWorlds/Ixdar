@@ -14,16 +14,16 @@ import ixdar.gui.ui.menu.MenuBox;
 import ixdar.scenes.Scene;
 import ixdar.scenes.menu.MenuScene;
 import ixdar.scenes.main.Toggle;
+import ixdar.input.KeyGuy;
+import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.OrbitCameraKeyGuy;
-import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.main.MainScene;
 
 /**
- * The ring scene's key handler ignores every shortcut that belongs to the tour editor
+ * A key handler driving an orbit camera ignores every shortcut that belongs to the tour editor
  * ({@link MainScene}): pressing one throws nothing, changes no toggle and leaves no key held.
  */
-class OrbitCameraKeyGuyMainSceneShortcutsTest {
+class KeyGuyMainSceneShortcutsTest {
 
     private static final int[] CONTROL_CHORDS = {Keys.B, Keys.N, Keys.S, Keys.Q};
 
@@ -39,23 +39,22 @@ class OrbitCameraKeyGuyMainSceneShortcutsTest {
 
     private Scene canvasBefore;
 
-    private OrbitCameraKeyGuy keyGuy;
+    private KeyGuy keyGuy;
 
     /**
-     * Focus the main pane, as a finished tour-editor session leaves it, and wire an orbit key
-     * handler the way the ring scene does.
+     * Focus the main pane, as a finished tour-editor session leaves it, and wire a key handler
+     * over a scene whose camera orbits, the way the ring scene does.
      */
     @BeforeEach
-    void wireRingHandlerAfterAnEditorSession() {
+    void wireOrbitHandlerAfterAnEditorSession() {
         togglesBefore = toggleValues();
         menuVisibleBefore = MenuBox.menuVisible;
         canvasBefore = Scene.instance;
         Toggle.IsMainFocused.value = true;
         Toggle.IsTerminalFocused.value = false;
         Scene canvas = new MenuScene();
-        keyGuy = new OrbitCameraKeyGuy(new OrbitMouseTrap(canvas.camera, canvas), canvas.camera,
-                canvas);
-        keyGuy.controlRResetsTarget = false;
+        canvas.mouse.controller = canvas.camera;
+        keyGuy = new KeyGuy(canvas);
     }
 
     /**
@@ -71,12 +70,12 @@ class OrbitCameraKeyGuyMainSceneShortcutsTest {
     }
 
     @Test
-    void everyEditorShortcutIsInertInTheRingScene() {
+    void everyEditorShortcutIsInertUnderAnOrbitCamera() {
         boolean[] armed = toggleValues();
         for (int key : CONTROL_CHORDS) {
             assertDoesNotThrow(() -> {
                 keyGuy.keyCallback(0L, Keys.LEFT_CONTROL, 0, Keys.ACTION_PRESS, 0);
-                pressAndRelease(key, OrbitCameraKeyGuy.MOD_CONTROL);
+                pressAndRelease(key, KeyNames.MOD_CONTROL);
                 keyGuy.keyCallback(0L, Keys.LEFT_CONTROL, 0, Keys.ACTION_RELEASE, 0);
             }, "ctrl + key code " + key);
         }
