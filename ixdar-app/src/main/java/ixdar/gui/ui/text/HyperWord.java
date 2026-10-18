@@ -223,13 +223,21 @@ public class HyperWord {
     }
 
     /**
-     * The plain text of this word.
+     * The plain text of this word as last drawn: a dynamic word's sub-words once a frame has
+     * supplied them, its placeholder before.
      *
-     * @return underlying character sequence as a string
+     * @return the drawn text
      */
     @Override
     public String toString() {
-        return (String) charSequence;
+        if (subWords == null) {
+            return (String) charSequence;
+        }
+        StringBuilder drawn = new StringBuilder();
+        for (HyperWord child : subWords) {
+            drawn.append(child.charSequence);
+        }
+        return drawn.toString();
     }
 
     /**
