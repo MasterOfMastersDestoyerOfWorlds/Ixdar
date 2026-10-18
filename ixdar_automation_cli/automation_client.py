@@ -352,12 +352,8 @@ class AutomationClient:
         return self.request_json("/ui/state")
 
     def mesh_fingerprint(self) -> dict:
-        """Return canonical mesh SHA-256 from the mesh viewer (GET /ui/mesh/fingerprint)."""
-        return self.request_json("/ui/mesh/fingerprint")
-
-    def load_dsl(self, name: str, node: str = "", port: str = "geometry") -> dict:
-        """Switch the mesh viewer to a different DSL file at runtime."""
-        return self.request_json("/mesh/dsl", {"name": name, "node": node, "port": port})
+        """Return canonical mesh SHA-256 from the mesh viewer (GET /mesh/fingerprint)."""
+        return self.request_json("/mesh/fingerprint")
 
     def mesh_overlay(self, path: str = "", clear: bool = False) -> dict:
         """Load or clear a reference OBJ overlay on the mesh viewer."""
@@ -372,14 +368,6 @@ class AutomationClient:
         """Capture 8-view composite (4x2 grid: front/right/back/left/top/bottom/3-4 views)."""
         return self.request_json("/ui/multiview", {"path": out_path, "inline": inline})
 
-    def set_orbit(self, azimuth: float, elevation: float, distance: float) -> dict:
-        """Set orbit camera position (radians). Waits for next frame to render."""
-        return self.request_json("/ui/orbit", {"azimuth": azimuth, "elevation": elevation, "distance": distance})
-
-    def get_orbit(self) -> dict:
-        """Get current orbit camera state."""
-        return self.request_json("/ui/orbit")
-
     def click(self, x: float, y: float, normalized: bool = False, button: int = 0) -> dict:
         return self.request_json("/input/click", {"x": x, "y": y, "normalized": normalized, "button": button})
 
@@ -388,9 +376,6 @@ class AutomationClient:
             "/input/hover",
             {"x": x, "y": y, "normalized": normalized, "persistent": persistent},
         )
-
-    def clear_hover(self) -> dict:
-        return self.request_json("/input/hover/clear", {})
 
     def key(self, key: str, action: str = "tap", settle: int = DEFAULT_SETTLE_FRAMES) -> dict:
         """Deliver a named key event, e.g. ``ESCAPE``, ``GRAVE`` or ``SHIFT+P``.
@@ -410,46 +395,6 @@ class AutomationClient:
         :return: The server response, carrying the terminal's ``response`` lines.
         """
         return self.request_json("/input/terminal", {"line": line, "settle": settle})
-
-    def set_projection(self, orthographic: bool = True) -> dict:
-        """Set projection mode: orthographic or perspective."""
-        return self.request_json("/ui/projection", {"orthographic": orthographic})
-
-    def get_projection(self) -> dict:
-        """Get current projection mode."""
-        return self.request_json("/ui/projection")
-
-    def toggle_wireframe(self) -> dict:
-        """Toggle wireframe mode by injecting a Z key press."""
-        return self.key("Z")
-
-    def mesh_skeleton(self, path: str, resolution: int = 128) -> dict:
-        """Extract skeleton from mesh OBJ via TEASAR algorithm."""
-        return self.request_json("/mesh/skeleton", {"path": path, "resolution": resolution})
-
-    def skeleton_compare(self, generated: str, reference: str, resolution: int = 128) -> dict:
-        """Compare skeletons of two meshes: extract, match branches, return errors + recommendations."""
-        return self.request_json("/mesh/skeleton/compare", {"generated": generated, "reference": reference, "resolution": resolution})
-
-    def skeleton_compare_detailed(self, generated: str, reference: str, resolution: int = 128) -> dict:
-        """Compare skeletons with per-joint 3D position deltas."""
-        return self.request_json("/mesh/skeleton/compare-detailed", {"generated": generated, "reference": reference, "resolution": resolution})
-
-    def skeleton_sensitivity(self, dsl: str, reference: str, resolution: int = 128, epsilon: float = 0) -> dict:
-        """Compute skeleton sensitivity: Jacobian of joint positions w.r.t. DSL parameters."""
-        return self.request_json("/mesh/skeleton/sensitivity", {
-            "dsl": dsl, "reference": reference, "resolution": resolution, "epsilon": epsilon
-        })
-
-    def mesh_patches_decompose(self, path: str, resolution: int = 128) -> dict:
-        """Hybrid skeleton+curvature patch decomposition of a reference mesh."""
-        return self.request_json("/mesh/patches/decompose", {"path": path, "resolution": resolution})
-
-    def mesh_segment(self, path: str, method: str = "spatial", n_clusters: int = 6) -> dict:
-        """Legacy mesh segmentation in Java: method ∈ {components, curvature, spatial}."""
-        return self.request_json("/mesh/segment", {
-            "path": path, "method": method, "n_clusters": n_clusters
-        })
 
     def shutdown(self) -> dict:
         return self.request_json("/shutdown", {})

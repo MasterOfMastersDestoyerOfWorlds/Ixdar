@@ -1,0 +1,87 @@
+package unit.mesh;
+
+import static ixdar.platform.input.Keys.MOUSE_BUTTON_LEFT;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import java.lang.reflect.Proxy;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import ixdar.platform.Platforms;
+import ixdar.platform.gl.GL;
+import ixdar.platform.gl.Platform;
+import ixdar.scenes.mesh.MeshNodeViewerScene;
+import ixdar.scenes.model.ModelScene;
+import ixdar.scenes.ring.RingScene;
+import unit.GlStandIn;
+
+/**
+ * The mesh viewer and the ring scene activate their default orbit tool as their input is wired,
+ * so a double-click on empty space frames the model before any tool switch.
+ */
+class ModelSceneDefaultToolTest {
+
+    private static final int STAND_IN_PLATFORM_ID = 7718;
+
+    private static final float ZOOMED_OUT = 12f;
+
+    private static final float EXACT = 0f;
+
+    private Platform suitePlatform;
+
+    private GL suiteGl;
+
+    /**
+     * A platform whose window takes no callbacks, paired with a GL that does nothing.
+     */
+    @BeforeEach
+    void installStandIns() {
+        suitePlatform = Platforms.get();
+        suiteGl = Platforms.gl();
+        Platform window = (Platform) Proxy.newProxyInstance(Platform.class.getClassLoader(),
+                new Class<?>[] {Platform.class}, (proxy, method, arguments) -> {
+                    if (method.getName().equals("getPlatformID")) {
+                        return STAND_IN_PLATFORM_ID;
+                    }
+                    Class<?> type = method.getReturnType();
+                    return type == int.class ? 0 : type == float.class ? 0f
+                            : type == boolean.class ? false : null;
+                });
+        Platforms.init(window, GlStandIn.create());
+    }
+
+    /**
+     * Put the suite's platform back.
+     */
+    @AfterEach
+    void restoreSuitePlatform() {
+        Platforms.init(suitePlatform, suiteGl);
+    }
+
+    @Test
+    void theMeshViewerFramesOnADoubleClickRightAfterStartup() {
+        assertDoubleClickFrames("mesh-viewer", new MeshNodeViewerScene());
+    }
+
+    @Test
+    void theRingSceneFramesOnADoubleClickRightAfterStartup() {
+        assertDoubleClickFrames("ring", new RingScene());
+    }
+
+    private static void assertDoubleClickFrames(String sceneId, ModelScene scene) {
+        scene.initInput();
+        assertNotNull(scene.orbitMouse.untakenClick, sceneId + ": the orbit tool reads empty clicks");
+        scene.orbitMouse.setOrbit(scene.orbitMouse.getAzimuth(), scene.orbitMouse.getElevation(),
+                ZOOMED_OUT);
+        assertNotEquals(scene.framedDistance, scene.orbitMouse.getDistance(), EXACT,
+                sceneId + ": zoomed away from the framed distance");
+        scene.orbitMouse.untakenClick.onClick(MOUSE_BUTTON_LEFT);
+        scene.orbitMouse.untakenClick.onClick(MOUSE_BUTTON_LEFT);
+        assertEquals(scene.framedDistance, scene.orbitMouse.getDistance(), EXACT,
+                sceneId + ": the double-click framed the model");
+    }
+}

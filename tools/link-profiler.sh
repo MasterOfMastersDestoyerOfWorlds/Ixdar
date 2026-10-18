@@ -9,11 +9,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p .profiler
+# An install under any other prefix (Homebrew's, say) keeps its library beside the asprof launcher.
+install_lib=/nonexistent
+if asprof="$(command -v asprof)"; then
+  install_lib="$(dirname "$(dirname "$(realpath "$asprof")")")/lib"
+fi
 for candidate in \
-    /opt/homebrew/lib/libasyncProfiler.dylib \
     /usr/local/lib/libasyncProfiler.dylib \
     /usr/lib/libasyncProfiler.so \
-    /usr/local/lib/libasyncProfiler.so; do
+    /usr/local/lib/libasyncProfiler.so \
+    "$install_lib/libasyncProfiler.dylib" \
+    "$install_lib/libasyncProfiler.so"; do
   if [ -f "$candidate" ]; then
     ln -sf "$candidate" .profiler/libasyncProfiler
     echo "linked .profiler/libasyncProfiler -> $candidate"

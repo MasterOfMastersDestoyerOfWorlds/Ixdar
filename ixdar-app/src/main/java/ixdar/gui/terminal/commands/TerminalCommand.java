@@ -5,7 +5,6 @@ import ixdar.annotations.command.TerminalOption;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.Platforms;
-import ixdar.platform.file.TextFile;
 
 /**
  * Base class for terminal commands: subclasses provide their {@link #fullName()},
@@ -15,28 +14,32 @@ import ixdar.platform.file.TextFile;
  */
 public abstract class TerminalCommand implements TerminalOption {
 
+    public static final String HELP_RESOURCE_FOLDER = "terminal/help";
+
     /**
      * Print the {@code -h}/{@code --help} block for {@code command} into the terminal history:
-     * the command name, its description, the contents of {@code ./src/shell/terminal/help/<fullName>.help}
-     * (or an error if that file is missing), then its usage line.
+     * the command name, its description, its {@link #HELP_RESOURCE_FOLDER} resource (or an error
+     * when it has none), then its usage line, in that order even when the platform loads
+     * asynchronously.
      *
      * @param terminal terminal whose history receives the rendered help text
      * @param command command whose help is being printed
      */
     public static void help(Terminal terminal, TerminalOption command) {
-        String commandName = command.fullName();
-        String fileLoc = "./src/shell/terminal/help/" + commandName + ".help";
-        terminal.history.addWord(commandName, Color.TEAL_DARK);
+        String helpFile = command.fullName() + ".help";
+        terminal.history.addWord(command.fullName(), Color.TEAL_DARK);
         terminal.history.addLine(command.desc(), Color.GREEN);
-        try {
-            TextFile file = Platforms.get().loadFile(fileLoc);
-            for (String line : file.getLines()) {
-                terminal.history.addLine(line, Color.GREY_DARK);
+        int platformId = Platforms.gl().getPlatformID();
+        Platforms.get().loadSourceAsync(HELP_RESOURCE_FOLDER, helpFile, platformId, text -> {
+            if (text.isEmpty()) {
+                terminal.error("no help file " + HELP_RESOURCE_FOLDER + "/" + helpFile);
+            } else {
+                for (String line : text.split("\n")) {
+                    terminal.history.addLine(line, Color.GREY_DARK);
+                }
             }
-        } catch (Exception e) {
-            terminal.error("helpfile: " + commandName + ".help not found at: " + fileLoc);
-        }
-        terminal.history.addLine(command.usage(), Color.GREEN);
+            terminal.history.addLine(command.usage(), Color.GREEN);
+        });
     }
 
     /**

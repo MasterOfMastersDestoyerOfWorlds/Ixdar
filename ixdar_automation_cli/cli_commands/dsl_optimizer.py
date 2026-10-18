@@ -22,7 +22,6 @@ import time
 from ..cli_registry import CliCommandResult, cli_command
 
 IXDAR_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-MVN = shutil.which("mvn") or "/opt/homebrew/bin/mvn"
 
 
 def _run_maven_batch(dsl_path: str, arg1: str, arg2: str = "unused", arg3: str = "unused") -> dict:
@@ -32,7 +31,7 @@ def _run_maven_batch(dsl_path: str, arg1: str, arg2: str = "unused", arg3: str =
     Batch mode: arg1=output_dir, arg2=params_json_path, arg3=ref_obj_path.
     """
     cmd = [
-        MVN, "compile", "exec:exec", "-P", "batch-dsl",
+        "mvn", "compile", "exec:exec", "-P", "batch-dsl",
         f"-Ddsl.file={dsl_path}",
         f"-Dbatch.arg1={arg1}",
         f"-Dbatch.arg2={arg2}",

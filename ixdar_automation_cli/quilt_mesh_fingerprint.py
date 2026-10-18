@@ -3,14 +3,27 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import struct
 
 ALGORITHM_ID = "ixdar-mesh-fingerprint-v1"
-POSITION_ROUND_SCALE = 1.0e5
+
+
+def float32(value: float) -> float:
+    """Round a double to the nearest IEEE single, the precision every Java step here runs in."""
+    return struct.unpack(">f", struct.pack(">f", value))[0]
+
+
+POSITION_ROUND_SCALE = float32(1.0e5)
 
 
 def round_coord(v: float) -> float:
-    return round(v * POSITION_ROUND_SCALE) / POSITION_ROUND_SCALE
+    """Java's ``Math.round(v * 1e5f) / 1e5f`` in single precision, half rounding up.
+
+    Rounding in double instead lands a different single on some coordinates, which changes the hash.
+    """
+    scaled = float32(float32(v) * POSITION_ROUND_SCALE)
+    return float32(math.floor(scaled + 0.5) / POSITION_ROUND_SCALE)
 
 
 def _corner_from_vertex(vertices: list[tuple[float, float, float]], idx: int) -> list[float]:

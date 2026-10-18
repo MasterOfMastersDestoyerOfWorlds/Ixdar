@@ -8,7 +8,6 @@ import java.util.Set;
 
 import ixdar.geometry.mesh.nodes.api.InputPort;
 import ixdar.geometry.mesh.nodes.api.MeshNode;
-import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
 import ixdar.geometry.mesh.nodes.api.PortType;
 import ixdar.geometry.mesh.nodes.api.Vector3Value;
 import ixdar.parsing.python.PythonParser;
@@ -94,7 +93,7 @@ public record LiteralParameterDescriptor(
     }
 
     private static Map<String, InputPort> getPortMap(String nodeType) {
-        var supplier = MeshNodeRegistry_MeshNodes.MAP.get(nodeType);
+        var supplier = NodeGraphRuntime.supplierFor(nodeType);
         if (supplier == null) return null;
         try {
             MeshNode node = supplier.get();

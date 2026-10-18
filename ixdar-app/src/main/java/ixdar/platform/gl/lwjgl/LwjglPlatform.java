@@ -240,6 +240,9 @@ public class LwjglPlatform implements Platform {
     public String loadSource(String folder, String filename) throws IOException {
         String path = folder + "/" + filename;
         try (InputStream in = LwjglPlatform.class.getClassLoader().getResourceAsStream(path)) {
+            if (in == null) {
+                throw new IOException("no resource " + path);
+            }
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
     }

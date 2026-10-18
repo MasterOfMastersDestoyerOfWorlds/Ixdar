@@ -1,3 +1,4 @@
+import ast
 import http.server
 import io
 import json
@@ -22,6 +23,7 @@ from ixdar_automation_cli.cli_commands import launch_entry
 from ixdar_automation_cli import png_image
 from ixdar_automation_cli import quilt_mesh_fingerprint
 from ixdar_automation_cli import run_logs
+from ixdar_automation_cli import server_routes
 from ixdar_automation_cli.cli_commands import image_commands
 from ixdar_automation_cli.cli_commands import new_scene
 from ixdar_automation_cli.cli_commands import run_scene
@@ -773,10 +775,25 @@ class CliTest(unittest.TestCase):
                     patch.object(run_scene, "ASYNC_PROFILER_CANDIDATES", (fake_library.name,)):
                 self.assertEqual(fake_library.name, run_scene.async_profiler_library())
 
+    def test_async_profiler_library_is_found_beside_the_asprof_launcher(self):
+        with tempfile.TemporaryDirectory() as prefix:
+            os.makedirs(os.path.join(prefix, "bin"))
+            os.makedirs(os.path.join(prefix, "lib"))
+            launcher = os.path.join(prefix, "bin", "asprof")
+            library = os.path.join(prefix, "lib", "libasyncProfiler.dylib")
+            for path in (launcher, library):
+                open(path, "w").close()
+            with patch.dict(os.environ, {"ASYNC_PROFILER_LIB": ""}), \
+                    patch.object(run_scene, "ASYNC_PROFILER_LIB", "/nonexistent/.profiler/lib"), \
+                    patch.object(run_scene, "ASYNC_PROFILER_CANDIDATES", ()), \
+                    patch.object(run_scene.shutil, "which", return_value=launcher):
+                self.assertEqual(os.path.realpath(library), run_scene.async_profiler_library())
+
     def test_async_profiler_library_missing_names_the_install_step(self):
         with patch.dict(os.environ, {"ASYNC_PROFILER_LIB": ""}), \
                 patch.object(run_scene, "ASYNC_PROFILER_LIB", "/nonexistent/.profiler/lib"), \
-                patch.object(run_scene, "ASYNC_PROFILER_CANDIDATES", ("/nonexistent/lib.so",)):
+                patch.object(run_scene, "ASYNC_PROFILER_CANDIDATES", ("/nonexistent/lib.so",)), \
+                patch.object(run_scene.shutil, "which", return_value=None):
             with self.assertRaises(FileNotFoundError) as failure:
                 run_scene.async_profiler_library()
             self.assertIn("ASYNC_PROFILER_LIB", str(failure.exception))
@@ -1413,7 +1430,38 @@ class CliTest(unittest.TestCase):
         self.assertIn("target", {param["cliName"] for param in server_commands["orbit-set"]["params"]})
         self.assertIn("frame", server_commands)
         frame_flags = {param["cliName"] for param in server_commands["frame"]["params"]}
-        self.assertEqual({"selection", "bounds", "padding", "azimuth", "elevation"}, frame_flags)
+        self.assertEqual({"selection", "bounds", "point", "radius", "region", "ring", "padding",
+                          "azimuth", "elevation"}, frame_flags)
+
+
+class ClientRoutesTest(unittest.TestCase):
+    def test_every_path_the_client_requests_is_a_manifest_route(self):
+        """Each literal ``request_json`` path in the client is a route, with the method it sends.
+
+        The other tests mock ``urlopen``, so a path that drifted from the Java route reaches the
+        scene as a 404 and nothing here would notice.
+        """
+        routes = {(route["path"], route["method"]) for route in server_routes.load_manifest()["routes"]}
+        with open(automation_client.__file__, encoding="utf-8") as source:
+            tree = ast.parse(source.read())
+        requested = []
+        for call in ast.walk(tree):
+            if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+                    and call.func.attr == "request_json" and call.args
+                    and isinstance(call.args[0], ast.Constant)):
+                method = "POST" if len(call.args) > 1 else "GET"
+                requested.append((call.args[0].value, method))
+        self.assertIn(("/mesh/fingerprint", "GET"), requested)
+        self.assertEqual([], [request for request in requested if request not in routes])
+
+    def test_fingerprint_rounds_a_half_way_coordinate_as_java_does(self):
+        """``0.499745`` is a single just above the half step, so Java's float rounding goes up.
+
+        Rounding the double ``0.499745`` lands on ``0.49974`` instead, and the hash of a mesh with
+        that vertex no longer matched the scene's.
+        """
+        self.assertEqual(quilt_mesh_fingerprint.float32(0.49975),
+                         quilt_mesh_fingerprint.round_coord(0.499745))
 
 
 if __name__ == "__main__":

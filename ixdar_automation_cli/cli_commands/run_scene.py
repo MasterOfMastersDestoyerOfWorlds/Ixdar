@@ -67,9 +67,10 @@ COVERAGE_HTML_DIR = os.path.join(REPO_DIR, "target", "jacoco", "html")
 ASYNC_PROFILER_LIB = os.path.join(REPO_DIR, ".profiler", "libasyncProfiler")
 # Where a system install of async-profiler puts its agent library, per platform. Checked after the
 # ASYNC_PROFILER_LIB environment variable and the per-checkout .profiler symlink, so a fresh
-# worktree profiles without running tools/link-profiler.sh first.
+# worktree profiles without running tools/link-profiler.sh first. An install under any other
+# prefix (Homebrew's, say) is found through the ``asprof`` launcher on PATH instead.
+ASYNC_PROFILER_LIBRARY_NAMES = ("libasyncProfiler.dylib", "libasyncProfiler.so")
 ASYNC_PROFILER_CANDIDATES = (
-    "/opt/homebrew/lib/libasyncProfiler.dylib",
     "/usr/local/lib/libasyncProfiler.dylib",
     "/usr/lib/libasyncProfiler.so",
     "/usr/local/lib/libasyncProfiler.so",
@@ -96,13 +97,19 @@ def async_profiler_library() -> str:
     """Resolve the async-profiler agent library.
 
     Order: the ``ASYNC_PROFILER_LIB`` environment variable, the checkout's ``.profiler`` symlink,
-    then the platform install locations in :data:`ASYNC_PROFILER_CANDIDATES`.
+    the platform install locations in :data:`ASYNC_PROFILER_CANDIDATES`, then the ``lib``
+    directory beside the real path of the ``asprof`` launcher on PATH.
 
     :return: Path to the agent library.
     :raises FileNotFoundError: When no candidate exists, with the install hint in the message.
     """
     from_env = os.environ.get("ASYNC_PROFILER_LIB", "")
-    for candidate in (from_env, ASYNC_PROFILER_LIB, *ASYNC_PROFILER_CANDIDATES):
+    asprof = shutil.which("asprof")
+    beside_asprof = ()
+    if asprof:
+        install_lib = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(asprof))), "lib")
+        beside_asprof = tuple(os.path.join(install_lib, name) for name in ASYNC_PROFILER_LIBRARY_NAMES)
+    for candidate in (from_env, ASYNC_PROFILER_LIB, *ASYNC_PROFILER_CANDIDATES, *beside_asprof):
         if candidate and os.path.exists(candidate):
             return candidate
     raise FileNotFoundError(

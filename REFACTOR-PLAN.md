@@ -205,7 +205,7 @@ is in the working tree behind it.
       `CanvasSceneMap.MAP`, proving the language server was still on the extension's bundled JRE
       21 (no `java.jdt.ls.java.home` was actually set anywhere). Resolution: the 25-built jar
       reinstalled to `~/.m2` (major version 69 verified), and `java.jdt.ls.java.home` pinned to
-      Homebrew JDK 25 (`/opt/homebrew/opt/openjdk`, the stable symlink) in USER settings, never the git-tracked workspace file (absolute mac
+      Homebrew JDK 25 (`$(brew --prefix)/opt/openjdk`, the stable symlink) in USER settings, never the git-tracked workspace file (absolute mac
       path would break Linux; each machine pins its own). Constraint rewritten in
       `ARCHITECTURE.md`. Awaiting the author's confirmation that the Run button works after a
       window reload
@@ -709,7 +709,7 @@ is in the working tree behind it.
   in USER settings (machine-specific, never tracked) points at a newer JDK. Anything the LS must
   LOAD - annotation processors above all - must be built at or below its release level, so the
   pin must stay >= the `annotations` release (25). On this machine it points at
-  `/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home`. Symptom of a mismatch:
+  `$(brew --prefix)/opt/openjdk/libexec/openjdk.jdk/Contents/Home`. Symptom of a mismatch:
   "Unable to load annotation processor factory", then null generated-map statics at run time.
 - Even with a loadable jar, JDT APT never produced the registries here; the fix that works is
   `ixdar-app/.classpath:44` pointing the IDE at Maven's `target/generated-sources/annotations`,

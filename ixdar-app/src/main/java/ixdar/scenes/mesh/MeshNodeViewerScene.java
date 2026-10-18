@@ -32,7 +32,6 @@ import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelCatalog;
@@ -235,18 +234,11 @@ public class MeshNodeViewerScene extends ModelScene {
         logState();
     }
 
+    /** Hide the main menu, then wire the orbit input and activate the default tool as every model scene does. */
     @Override
     public void initInput() {
         MenuBox.menuVisible = false;
-        orbitMouse = new OrbitMouseTrap(camera, this);
-        keyGuy = new OrbitCameraKeyGuy(orbitMouse, camera, this, controls);
-        keys = keyGuy;
-        orbitMouse.setTarget(meshCenter);
-        orbitMouse.setOrbit(CAMERA_AZIMUTH, CAMERA_ELEVATION, CAMERA_DISTANCE_DEFAULT);
-        mouse = orbitMouse;
-        bindAutomationIfAvailable(Platforms.get(), keys, mouse);
-        // Fallback: if reflection-based binding failed (TeaVM), wire callbacks directly
-        bindInputDirect(Platforms.get(), keys, mouse);
+        super.initInput();
     }
 
     /**
