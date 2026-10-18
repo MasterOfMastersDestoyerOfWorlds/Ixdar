@@ -16,7 +16,7 @@ import ixdar.geometry.mesh.data.ops.MeshRepair;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.api.MapNodeContext;
+import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.modifier.RepairMeshNode;
 
 /**

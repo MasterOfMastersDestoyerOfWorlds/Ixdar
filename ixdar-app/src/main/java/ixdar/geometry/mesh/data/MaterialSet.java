@@ -1,6 +1,6 @@
 package ixdar.geometry.mesh.data;
 
-import ixdar.geometry.mesh.nodes.api.IntField;
+import ixdar.nodegraph.field.IntField;
 
 /**
  * The materials one bundle's faces draw from, so a mesh assembled out of several textured sources

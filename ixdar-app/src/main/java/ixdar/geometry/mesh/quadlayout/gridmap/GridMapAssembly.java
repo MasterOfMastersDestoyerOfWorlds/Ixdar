@@ -6,18 +6,18 @@ import java.util.Map;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.nodes.api.InputPort;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
-import ixdar.geometry.mesh.nodes.api.NodeContext;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
-import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
+import ixdar.nodegraph.api.InputPort;
+import ixdar.nodegraph.api.MeshNode;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
+import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.extraction.ExtractedPatchGrids;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchGridExtraction;
 import ixdar.geometry.mesh.quadlayout.extraction.QuadMeshExtraction;
-import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.nodegraph.field.UvField;
 import ixdar.platform.Platforms;
 
 /**

@@ -13,7 +13,7 @@ import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
-import ixdar.parsing.glsl.GLSLParseText;
+import ixdar.gui.ui.code.glsl.GLSLParseText;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.IxBuffer;

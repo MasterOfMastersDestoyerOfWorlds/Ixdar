@@ -4,20 +4,20 @@ import java.util.Objects;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.geometry.mesh.nodes.api.InputPort;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.nodegraph.api.InputPort;
+import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.nodes.api.NodeContext;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.ops.SlotCarry;
-import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
+import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
-import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
+import ixdar.geometry.mesh.data.CoonsHandleBuilder;
 
 @MeshNodeAnnotation(id = "merge_by_distance", category = NodeCategory.MODIFIERS)
 public class MergeByDistanceNode implements MeshNode {

@@ -8,15 +8,15 @@ import java.util.Map;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.nodegraph.api.InputPort;
 
 import org.joml.Vector4f;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.nodes.api.NodeContext;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshAppend;
@@ -24,7 +24,7 @@ import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.ops.SlotCarry;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
-import ixdar.geometry.mesh.nodes.patch.CoonsHandleBuilder;
+import ixdar.geometry.mesh.data.CoonsHandleBuilder;
 
 /**
  * Mirrors geometry across a symmetry plane, reverses face winding on the

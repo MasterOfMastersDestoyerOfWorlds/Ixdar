@@ -1,19 +1,19 @@
 package ixdar.geometry.mesh.documentation;
 
 import com.google.gson.GsonBuilder;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
-import ixdar.geometry.mesh.nodes.api.MeshNodeSchema;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.nodegraph.api.MeshNode;
+import ixdar.nodegraph.api.MeshNodeSchema;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.graph.GraphValidator;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.nodegraph.analysis.GraphValidator;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 
-import ixdar.geometry.mesh.graph.GroupLibrary;
-import ixdar.parsing.python.PythonLexer;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.runtime.GroupLibrary;
+import ixdar.nodegraph.syntax.PythonLexer;
+import ixdar.nodegraph.syntax.PythonParser;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;

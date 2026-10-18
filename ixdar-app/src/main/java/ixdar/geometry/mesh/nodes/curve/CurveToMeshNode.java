@@ -5,18 +5,18 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.nodes.api.InputPort;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.nodegraph.api.InputPort;
+import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.nodes.api.NodeContext;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
-import ixdar.geometry.mesh.curve.FloatCurveKernel;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
+import ixdar.nodegraph.field.FloatCurveKernel;
 import ixdar.geometry.mesh.data.CurveGeometry;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
+import ixdar.nodegraph.field.FieldBroadcast;
 
 /**
  * Converts a curve into a tube mesh by sweeping a circular cross-section along the path.

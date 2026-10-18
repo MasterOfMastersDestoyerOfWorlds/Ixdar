@@ -17,7 +17,7 @@ import ixdar.geometry.mesh.data.load.GltfMeshParser;
 import ixdar.geometry.mesh.data.load.GltfModel;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.nodes.api.MapNodeContext;
+import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.data.LoadMeshNode;
 
 /**

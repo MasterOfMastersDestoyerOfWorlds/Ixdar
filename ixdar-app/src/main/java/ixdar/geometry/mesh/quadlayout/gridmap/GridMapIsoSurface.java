@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.nodegraph.field.UvField;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**

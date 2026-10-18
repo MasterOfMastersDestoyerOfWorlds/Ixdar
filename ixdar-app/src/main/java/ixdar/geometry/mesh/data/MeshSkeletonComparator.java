@@ -9,6 +9,7 @@ import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonJoint;
 import ixdar.geometry.mesh.data.MeshSkeletonExtractor.SkeletonResult;
 
+import ixdar.nodegraph.optimize.SkeletonSensitivityAnalyzer;
 /**
  * Compares two TEASAR skeletons (generated vs reference) and produces
  * branch-level error metrics plus DSL parameter adjustment recommendations.

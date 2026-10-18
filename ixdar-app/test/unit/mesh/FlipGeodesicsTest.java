@@ -20,7 +20,7 @@ import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.api.MapNodeContext;
+import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.primitives.IcosphereMeshNode;
 import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
 

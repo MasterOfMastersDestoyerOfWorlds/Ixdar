@@ -18,8 +18,8 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * The repo graphs coons_cube and test_bridge execute headless through the path the mesh viewer's

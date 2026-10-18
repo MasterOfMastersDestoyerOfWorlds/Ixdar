@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 
 import ixdar.graphics.render.sdf.ShaderDrawable;
 import ixdar.graphics.render.shaders.ShaderProgram;
-import ixdar.parsing.glsl.GLSLExpressionParser;
+import ixdar.gui.ui.code.glsl.GLSLExpressionParser;
 
 /**
  * Handles injection of debug preview assignments into shader source code for

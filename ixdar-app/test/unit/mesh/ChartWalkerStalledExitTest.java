@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.CornerUvField;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.nodes.api.IntField;
+import ixdar.nodegraph.field.IntField;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.motorcycle.ChartWalker;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;

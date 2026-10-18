@@ -3,7 +3,7 @@ package ixdar.procgen.dungeon.player;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.nodes.api.Vector3Field;
+import ixdar.nodegraph.field.Vector3Field;
 
 /**
  * Picks a {@link SpawnPoint} at room[0]'s center — the start room {@code RoomPlacer3D}

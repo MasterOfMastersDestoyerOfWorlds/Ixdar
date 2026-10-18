@@ -17,8 +17,8 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.RingRegions;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.ring.RingTool;
 
 /**

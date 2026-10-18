@@ -17,8 +17,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.ring.RingDslWriter;
 
 /**

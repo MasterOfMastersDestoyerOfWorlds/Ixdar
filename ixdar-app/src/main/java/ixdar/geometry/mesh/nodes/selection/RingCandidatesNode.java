@@ -12,12 +12,12 @@ import ixdar.geometry.mesh.data.RingBundle;
 import ixdar.geometry.mesh.data.RingCandidateExtractor;
 import ixdar.geometry.mesh.data.RingCandidates;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.nodes.api.BoolField;
-import ixdar.geometry.mesh.nodes.api.InputPort;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
-import ixdar.geometry.mesh.nodes.api.NodeContext;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.nodegraph.field.BoolField;
+import ixdar.nodegraph.api.InputPort;
+import ixdar.nodegraph.api.MeshNode;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
 
 /**
  * Proposes every neck loop a skeleton suggests: branch regions, their boundaries as seed loops,

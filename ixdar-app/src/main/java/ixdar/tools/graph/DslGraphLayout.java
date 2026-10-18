@@ -10,10 +10,10 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.ToDoubleFunction;
 
-import ixdar.geometry.mesh.graph.GraphNodeContext;
-import ixdar.geometry.mesh.graph.HeapSampler;
-import ixdar.geometry.mesh.nodes.api.Vector3Value;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.runtime.GraphNodeContext;
+import ixdar.nodegraph.runtime.HeapSampler;
+import ixdar.nodegraph.field.Vector3Value;
+import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * A run's node tree as a graph: a box per evaluated record, an expanded group call as its framed

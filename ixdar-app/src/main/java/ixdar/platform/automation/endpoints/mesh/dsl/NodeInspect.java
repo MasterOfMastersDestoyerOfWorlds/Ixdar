@@ -10,11 +10,12 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
-import ixdar.geometry.mesh.graph.GraphNodeContext;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.GraphNodeContext;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.scenes.model.ModelScene;
 
+import ixdar.nodegraph.catalog.NodeInspector;
 /**
  * Reads the node tree of the graph the active {@link ModelScene} ran: the whole tree, one node's
  * inputs, outputs and public fields, or a field path below a node, so a question about one trace

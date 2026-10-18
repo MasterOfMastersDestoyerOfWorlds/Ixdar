@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.tools.ring.RingDslWriter;
 import ixdar.tools.ring.RingTool;
 

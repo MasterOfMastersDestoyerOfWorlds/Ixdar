@@ -12,7 +12,7 @@ import java.util.Set;
 import ixdar.geometry.mesh.data.EdgeKey;
 import ixdar.geometry.mesh.quadlayout.embedding.records.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedMeshTopology;
-import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.nodegraph.field.UvField;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.Trace;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;

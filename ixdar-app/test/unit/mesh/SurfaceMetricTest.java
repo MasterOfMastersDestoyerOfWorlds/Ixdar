@@ -14,7 +14,7 @@ import ixdar.geometry.mesh.data.paths.IntrinsicPathTracer;
 import ixdar.geometry.mesh.data.paths.IntrinsicTriangulation;
 import ixdar.geometry.mesh.data.paths.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.SurfaceMetric;
-import ixdar.geometry.mesh.nodes.api.MapNodeContext;
+import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.primitives.IcosphereMeshNode;
 
 /**

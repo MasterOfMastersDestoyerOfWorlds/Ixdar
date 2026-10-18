@@ -3,20 +3,20 @@ package ixdar.geometry.mesh.nodes.modifier;
 import java.util.Objects;
 import java.util.List;
 
-import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.nodegraph.api.InputPort;
 
 import java.util.Map;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.nodes.api.NodeContext;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
-import ixdar.geometry.mesh.nodes.api.Vector3Value;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
+import ixdar.nodegraph.field.Vector3Value;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.MeshVertexOffset;
-import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
+import ixdar.nodegraph.field.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "set_position", category = NodeCategory.MODIFIERS)
 public class SetPositionNode implements MeshNode {

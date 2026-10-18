@@ -10,12 +10,12 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.RingRegionExtraction;
 import ixdar.geometry.mesh.data.RingRegions;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
-import ixdar.geometry.mesh.nodes.api.InputPort;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
-import ixdar.geometry.mesh.nodes.api.NodeContext;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
-import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
+import ixdar.nodegraph.api.InputPort;
+import ixdar.nodegraph.api.MeshNode;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
+import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.platform.Platforms;
 
 /**

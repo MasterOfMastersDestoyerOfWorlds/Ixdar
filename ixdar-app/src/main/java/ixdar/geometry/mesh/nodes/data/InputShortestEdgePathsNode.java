@@ -6,21 +6,21 @@ import java.util.List;
 
 import java.util.Map;
 
-import ixdar.geometry.mesh.nodes.api.BoolField;
-import ixdar.geometry.mesh.nodes.api.FloatField;
-import ixdar.geometry.mesh.nodes.api.InputPort;
-import ixdar.geometry.mesh.nodes.api.IntField;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.nodegraph.field.BoolField;
+import ixdar.nodegraph.field.FloatField;
+import ixdar.nodegraph.api.InputPort;
+import ixdar.nodegraph.field.IntField;
+import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.nodes.api.NodeContext;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.Dijkstra;
 import ixdar.geometry.mesh.data.paths.ShortestPathForest;
-import ixdar.geometry.mesh.graph.MeshFieldContext;
-import ixdar.geometry.mesh.nodes.math.FieldBroadcast;
+import ixdar.nodegraph.field.MeshFieldContext;
+import ixdar.nodegraph.field.FieldBroadcast;
 
 @MeshNodeAnnotation(id = "input_shortest_edge_paths", category = NodeCategory.FIELD_DATA)
 public class InputShortestEdgePathsNode implements MeshNode {

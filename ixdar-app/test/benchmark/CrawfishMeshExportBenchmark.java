@@ -20,8 +20,8 @@ import ixdar.geometry.mesh.data.load.GltfMeshWriter;
 import ixdar.geometry.mesh.data.load.MeshExport;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.load.PlyMeshWriter;
-import ixdar.geometry.mesh.nodes.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.nodegraph.api.MapNodeContext;
+import ixdar.nodegraph.field.UvField;
 import ixdar.geometry.mesh.nodes.modifier.RepairMeshNode;
 import ixdar.platform.Platforms;
 

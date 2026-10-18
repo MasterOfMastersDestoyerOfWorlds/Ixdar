@@ -16,9 +16,9 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
-import ixdar.geometry.mesh.data.SkeletonSensitivityAnalyzer;
-import ixdar.parsing.python.PythonLexer;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.optimize.SkeletonSensitivityAnalyzer;
+import ixdar.nodegraph.syntax.PythonLexer;
+import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.automation.AutomationEndpoint;
 
 /**

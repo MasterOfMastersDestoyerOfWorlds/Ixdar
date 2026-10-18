@@ -8,11 +8,11 @@ import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.load.CrossFieldLoader;
-import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
+import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ModelScene;

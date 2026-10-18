@@ -16,7 +16,7 @@ import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.paths.SurfaceMetric;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 

@@ -3,7 +3,7 @@ package ixdar.geometry.mesh.quadlayout.seamless;
 import java.util.Arrays;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.nodegraph.field.UvField;
 import ixdar.geometry.mesh.quadlayout.solver.SingularSystemDiagnosis;
 
 /**

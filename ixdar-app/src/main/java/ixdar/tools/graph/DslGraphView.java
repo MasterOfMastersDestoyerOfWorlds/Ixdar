@@ -8,8 +8,8 @@ import java.util.Set;
 import org.joml.Vector2f;
 
 import ixdar.canvas.Canvas3D;
-import ixdar.geometry.mesh.graph.GraphNodeContext;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.GraphNodeContext;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.point.PointSet;
 import ixdar.graphics.cameras.Bounds;

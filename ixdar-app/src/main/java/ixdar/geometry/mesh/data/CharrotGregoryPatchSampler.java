@@ -7,8 +7,6 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.nodes.patch.CharrotGregoryPatch;
-
 /**
  * N-sided generalized Coons patch sampler for cells whose boundary does not split into four
  * chains, sampled by fan-triangulating a regular n-gon domain.

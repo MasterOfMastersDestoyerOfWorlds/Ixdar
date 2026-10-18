@@ -2,18 +2,18 @@ package ixdar.geometry.mesh.nodes.data;
 
 import java.util.List;
 
-import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.nodegraph.api.InputPort;
 
 import java.util.Map;
-import ixdar.geometry.mesh.nodes.api.IntField;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.nodegraph.field.IntField;
+import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.nodes.api.NodeContext;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.graph.MeshFieldContext;
+import ixdar.nodegraph.field.MeshFieldContext;
 
 @MeshNodeAnnotation(id = "input_mesh_edge_vertices", category = NodeCategory.FIELD_DATA)
 public class InputMeshEdgeVerticesNode implements MeshNode {

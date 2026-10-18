@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.data.paths.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.tools.ring.RingDslWriter;
 
 /**

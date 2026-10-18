@@ -15,9 +15,9 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.RingBundle;
 import ixdar.geometry.mesh.data.RingRegions;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.nodes.api.BoolField;
-import ixdar.geometry.mesh.nodes.api.IntField;
-import ixdar.geometry.mesh.nodes.api.MapNodeContext;
+import ixdar.nodegraph.field.BoolField;
+import ixdar.nodegraph.field.IntField;
+import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 import ixdar.geometry.mesh.nodes.selection.RingRegionsNode;
 

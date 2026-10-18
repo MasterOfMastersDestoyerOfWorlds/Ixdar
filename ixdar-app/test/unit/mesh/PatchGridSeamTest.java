@@ -10,9 +10,9 @@ import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.data.SceneModelNode;
-import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
+import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedArc;

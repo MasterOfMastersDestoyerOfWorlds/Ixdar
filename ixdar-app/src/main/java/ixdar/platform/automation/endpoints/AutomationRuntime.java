@@ -18,7 +18,7 @@ import com.google.gson.JsonObject;
 import ixdar.canvas.Canvas3D;
 import ixdar.canvas.IxdarWindow;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.graph.HeapSampler;
+import ixdar.nodegraph.runtime.HeapSampler;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.gui.ui.text.HyperWord;
 import ixdar.platform.Platforms;

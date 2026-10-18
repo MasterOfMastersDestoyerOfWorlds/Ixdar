@@ -12,9 +12,9 @@ import java.util.List;
 import java.util.Map;
 
 import ixdar.geometry.mesh.nodes.data.LoadMeshNode;
-import ixdar.geometry.mesh.nodes.math.InputBooleanNode;
-import ixdar.parsing.python.PythonLexer;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.nodes.math.InputBooleanNode;
+import ixdar.nodegraph.syntax.PythonLexer;
+import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.json.JsonValue;
 

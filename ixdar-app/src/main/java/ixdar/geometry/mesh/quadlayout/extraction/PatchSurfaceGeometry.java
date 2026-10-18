@@ -5,7 +5,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.CoonsEvaluator;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.api.IntField;
+import ixdar.nodegraph.field.IntField;
 import ixdar.geometry.mesh.quadlayout.embedding.records.EmbeddedPatch;
 
 /**

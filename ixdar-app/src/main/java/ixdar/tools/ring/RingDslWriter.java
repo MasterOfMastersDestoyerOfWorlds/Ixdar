@@ -19,15 +19,15 @@ import java.util.function.Supplier;
 import ixdar.geometry.mesh.data.RingCandidates;
 import ixdar.geometry.mesh.data.paths.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.api.MeshNode;
 import ixdar.geometry.mesh.nodes.data.SurfaceCreasesNode;
 import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.nodes.selection.SplineCutNode;
 import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * Appends a ring to a working DSL graph as one statement carrying its surface points, so reloading

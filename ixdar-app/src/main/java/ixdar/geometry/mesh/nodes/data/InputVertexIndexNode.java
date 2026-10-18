@@ -2,19 +2,19 @@ package ixdar.geometry.mesh.nodes.data;
 
 import java.util.List;
 
-import ixdar.geometry.mesh.nodes.api.FieldContext;
+import ixdar.nodegraph.field.FieldContext;
 
 import java.util.Map;
-import ixdar.geometry.mesh.nodes.api.FloatField;
-import ixdar.geometry.mesh.nodes.api.InputPort;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.nodegraph.field.FloatField;
+import ixdar.nodegraph.api.InputPort;
+import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.nodes.api.NodeContext;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.graph.MeshFieldContext;
+import ixdar.nodegraph.field.MeshFieldContext;
 
 /**
  * Outputs a per-vertex identity index field: {@code data[i] = i}.

@@ -5,15 +5,15 @@ import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.GeometryBundle;
-import ixdar.geometry.mesh.nodes.api.BoolField;
-import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
+import ixdar.nodegraph.field.BoolField;
+import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.QuadLayout;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapIsoSurface;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ModelScene;

@@ -24,7 +24,7 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.api.IntField;
+import ixdar.nodegraph.field.IntField;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;

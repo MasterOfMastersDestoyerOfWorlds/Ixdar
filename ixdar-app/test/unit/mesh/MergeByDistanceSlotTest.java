@@ -13,7 +13,7 @@ import ixdar.geometry.mesh.data.CornerUvField;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.nodes.api.MapNodeContext;
+import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 import ixdar.geometry.mesh.nodes.modifier.MergeByDistanceNode;
 import ixdar.geometry.mesh.nodes.modifier.SetBoneWeightNode;

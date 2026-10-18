@@ -20,10 +20,10 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.RingRegionExtraction;
 import ixdar.geometry.mesh.data.RingRegions;
 import ixdar.geometry.mesh.data.paths.SurfaceSpline;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.geometry.mesh.nodes.api.MapNodeContext;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.geometry.MeshBooleanNode;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 
 /**

@@ -1,6 +1,6 @@
 package ixdar.geometry.mesh.data;
 
-import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.nodegraph.field.UvField;
 
 /**
  * A {@link UvField} backed by flat per-corner arrays, indexed {@code faceId * 3 + corner}. The

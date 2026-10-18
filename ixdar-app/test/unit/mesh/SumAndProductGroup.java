@@ -2,14 +2,14 @@ package unit.mesh;
 
 import java.util.List;
 
-import ixdar.geometry.mesh.graph.GroupBuilder;
-import ixdar.geometry.mesh.graph.NodeGroup;
-import ixdar.geometry.mesh.nodes.api.InputPort;
-import ixdar.geometry.mesh.nodes.api.NodeContext;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
-import ixdar.geometry.mesh.nodes.math.FloatMathNode;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.runtime.GroupBuilder;
+import ixdar.nodegraph.runtime.NodeGroup;
+import ixdar.nodegraph.api.InputPort;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
+import ixdar.nodegraph.nodes.math.FloatMathNode;
+import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * A compiled node group small enough to check by hand: float nodes {@code total} and

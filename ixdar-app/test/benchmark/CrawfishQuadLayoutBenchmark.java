@@ -22,10 +22,10 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.load.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.api.OutputPort;
 import ixdar.geometry.mesh.nodes.data.SceneModelNode;
-import ixdar.geometry.mesh.nodes.quadlayout.QuadLayoutNode;
+import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.crossfield.CrossField;
 import ixdar.platform.Platforms;
 

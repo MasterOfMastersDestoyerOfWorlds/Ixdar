@@ -17,11 +17,11 @@ import ixdar.geometry.mesh.data.paths.NearestVertex;
 import ixdar.geometry.mesh.data.paths.SurfaceRing;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.geometry.mesh.nodes.api.MapNodeContext;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
 import ixdar.geometry.mesh.nodes.selection.LoopThroughPointsNode;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.ring.RingDslWriter;
 
 /**

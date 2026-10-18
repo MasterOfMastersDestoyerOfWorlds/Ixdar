@@ -15,9 +15,9 @@ import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.geometry.mesh.graph.NodeGroup;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.NodeGroup;
+import ixdar.nodegraph.api.MeshNode;
 
 /**
  * No registered {@link MeshNode} builds or evaluates another one except through the group

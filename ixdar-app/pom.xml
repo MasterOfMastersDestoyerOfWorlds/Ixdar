@@ -134,7 +134,7 @@
             </goals>
             <configuration>
               <classpathScope>compile</classpathScope>
-              <mainClass>ixdar.geometry.mesh.documentation.ExportMeshNodeCatalog</mainClass>
+              <mainClass>ixdar.nodegraph.catalog.ExportMeshNodeCatalog</mainClass>
               <arguments>
                 <argument>${project.basedir}/../ixdar_automation_cli/mesh-node-catalog.json</argument>
               </arguments>
@@ -755,7 +755,7 @@
                 <argument>-XX:ErrorFile=target/hs_err_pid%p.log</argument>
                 <argument>-classpath</argument>
                 <classpath />
-                <argument>ixdar.geometry.mesh.documentation.BatchDslEvaluator</argument>
+                <argument>ixdar.nodegraph.optimize.BatchDslEvaluator</argument>
                 <argument>${dsl.file}</argument>
                 <argument>${batch.arg1}</argument>
                 <argument>${batch.arg2}</argument>

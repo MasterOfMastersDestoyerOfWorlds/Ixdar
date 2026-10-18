@@ -10,13 +10,13 @@ import java.util.function.Supplier;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.nodes.api.CanonicalPortNames;
-import ixdar.geometry.mesh.nodes.api.InputPort;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.nodegraph.api.CanonicalPortNames;
+import ixdar.nodegraph.api.InputPort;
+import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
 /**
  * The registry test the {@link MeshNode#socketDocs()} contract names: every registered node must

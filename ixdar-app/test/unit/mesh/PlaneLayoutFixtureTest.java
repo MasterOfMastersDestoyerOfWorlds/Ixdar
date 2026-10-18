@@ -7,9 +7,8 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-
 
 /**
  * The planar Figure 9 fixture must be a valid cell decomposition of a disk before anything is

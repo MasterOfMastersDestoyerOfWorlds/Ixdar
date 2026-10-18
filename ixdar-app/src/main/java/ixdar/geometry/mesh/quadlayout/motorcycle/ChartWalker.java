@@ -4,8 +4,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.api.IntField;
-import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.nodegraph.field.IntField;
+import ixdar.nodegraph.field.UvField;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.gridmap.IntegerGridMap;
 import ixdar.geometry.mesh.quadlayout.motorcycle.records.TraceAxis;

@@ -7,7 +7,7 @@ import java.util.Set;
 
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.ColorText;
-import ixdar.parsing.glsl.GLSLParseText;
+import ixdar.gui.ui.code.glsl.GLSLParseText;
 
 /**
  * Lightweight syntax colorizer for a single line of GLSL: recognises

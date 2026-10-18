@@ -7,8 +7,8 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.api.BoolField;
-import ixdar.geometry.mesh.nodes.api.IntField;
+import ixdar.nodegraph.field.BoolField;
+import ixdar.nodegraph.field.IntField;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.ConstraintSource;
 import ixdar.geometry.mesh.quadlayout.crossfield.constraint.CurvatureConstraints;
 import ixdar.geometry.mesh.quadlayout.solver.system.DofSystem;

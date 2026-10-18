@@ -11,11 +11,11 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.graph.GraphNodeContext;
-import ixdar.geometry.mesh.graph.GroupBuilder;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.geometry.mesh.nodes.math.FloatMathNode;
-import ixdar.parsing.python.PythonParser;
+import ixdar.nodegraph.runtime.GraphNodeContext;
+import ixdar.nodegraph.runtime.GroupBuilder;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.nodes.math.FloatMathNode;
+import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.graph.DslGraphLayout;
 import unit.mesh.SumAndProductGroup;
 

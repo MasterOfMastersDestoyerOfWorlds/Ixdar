@@ -2,23 +2,23 @@ package ixdar.geometry.mesh.nodes.curve;
 
 import java.util.List;
 
-import ixdar.geometry.mesh.nodes.api.InputPort;
+import ixdar.nodegraph.api.InputPort;
 
 import java.util.Map;
-import ixdar.geometry.mesh.nodes.api.MeshNode;
+import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.nodes.api.NodeContext;
-import ixdar.geometry.mesh.nodes.api.OutputPort;
-import ixdar.geometry.mesh.nodes.api.PortType;
-import ixdar.geometry.mesh.curve.FloatCurveKernel;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
+import ixdar.nodegraph.field.FloatCurveKernel;
 
 /**
  * Builds a float curve closure from comma-separated control points: {@code "x0,y0,x1,y1,..."}.
  * <p>
  * Same “user-editable input” family as {@code input_float} / {@code input_int} / {@code input_boolean}:
- * {@link ixdar.geometry.mesh.graph.InputParameterDescriptor} lists {@code float_curve} nodes as
- * {@link ixdar.geometry.mesh.graph.InputParameterDescriptor.InputParameterKind#CURVE} parameters for UI panels.
+ * {@link ixdar.nodegraph.optimize.InputParameterDescriptor} lists {@code float_curve} nodes as
+ * {@link ixdar.nodegraph.optimize.InputParameterDescriptor.InputParameterKind#CURVE} parameters for UI panels.
  */
 @MeshNodeAnnotation(id = "float_curve", category = NodeCategory.CURVE_OPERATIONS)
 public class FloatCurveNode implements MeshNode {

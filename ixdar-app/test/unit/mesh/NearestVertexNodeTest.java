@@ -9,9 +9,9 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
-import ixdar.geometry.mesh.nodes.api.BoolField;
-import ixdar.geometry.mesh.nodes.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.api.Vector3Value;
+import ixdar.nodegraph.field.BoolField;
+import ixdar.nodegraph.api.MapNodeContext;
+import ixdar.nodegraph.field.Vector3Value;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.nodes.selection.NearestVertexNode;
 

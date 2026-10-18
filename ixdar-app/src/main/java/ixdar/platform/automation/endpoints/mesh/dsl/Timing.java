@@ -9,9 +9,9 @@ import ixdar.annotations.automation.APIMethod;
 import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
-import ixdar.geometry.mesh.graph.GraphNodeContext;
-import ixdar.geometry.mesh.graph.HeapSampler;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.GraphNodeContext;
+import ixdar.nodegraph.runtime.HeapSampler;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.scenes.model.ModelScene;
 

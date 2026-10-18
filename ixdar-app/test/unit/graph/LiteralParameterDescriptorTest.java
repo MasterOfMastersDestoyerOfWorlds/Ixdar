@@ -8,8 +8,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
-import ixdar.geometry.mesh.graph.LiteralParameterDescriptor;
-import ixdar.geometry.mesh.graph.NodeGraphRuntime;
+import ixdar.nodegraph.optimize.LiteralParameterDescriptor;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
 /**
  * The optimizer's literal discovery resolves node ports through the runtime's lookup, so a node

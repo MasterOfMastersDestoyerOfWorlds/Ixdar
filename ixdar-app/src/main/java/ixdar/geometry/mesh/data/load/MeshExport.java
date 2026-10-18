@@ -9,7 +9,7 @@ import ixdar.geometry.mesh.data.CornerUvSplit;
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.nodes.api.UvField;
+import ixdar.nodegraph.field.UvField;
 
 /**
  * Flattens a bundle into what a mesh file can address: triangles carrying one position, normal and
