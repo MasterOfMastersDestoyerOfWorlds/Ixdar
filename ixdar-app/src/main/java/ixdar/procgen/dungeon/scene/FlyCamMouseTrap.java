@@ -7,7 +7,7 @@ import static ixdar.platform.input.Keys.MOUSE_BUTTON_LEFT;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleConsumer;
 
-import ixdar.canvas.Canvas3D;
+import ixdar.scenes.Scene;
 import ixdar.graphics.cameras.Camera;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.MouseTrap;
@@ -38,7 +38,7 @@ public class FlyCamMouseTrap extends MouseTrap {
      * @param onScroll        consumer for scroll-wheel ticks, fractional for a trackpad (e.g.
      *     third-person zoom); may be {@code null} to ignore scroll
      */
-    public FlyCamMouseTrap(Camera camera, Canvas3D canvas,
+    public FlyCamMouseTrap(Camera camera, Scene canvas,
                            BooleanSupplier captureSupplier,
                            DeltaHandler onDelta,
                            DoubleConsumer onScroll) {

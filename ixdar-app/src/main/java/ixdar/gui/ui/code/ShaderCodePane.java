@@ -5,7 +5,7 @@ import java.util.Map;
 
 import org.joml.Vector2f;
 
-import ixdar.canvas.Canvas3D;
+import ixdar.scenes.Scene;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.platform.Clock;
@@ -53,7 +53,7 @@ public class ShaderCodePane implements PointerRegion {
     private HyperString showCodeButton;
 
     private final ShaderDrawable uniformProvider;
-    private Canvas3D canvas;
+    private Scene canvas;
 
     private int hoverLineIndex = -1;
     private int clickedLineIndex = -1;
@@ -81,7 +81,7 @@ public class ShaderCodePane implements PointerRegion {
      */
     public ShaderCodePane(Bounds parentBounds, Map<String, Bounds> webViews, float scrollSpeed, ShaderProgram shader,
             String title,
-            ShaderDrawable provider, Camera2D camera, Canvas3D canvas) {
+            ShaderDrawable provider, Camera2D camera, Scene canvas) {
 
         this.canvas = canvas;
         parentBounds.setUpdateCallback(

@@ -38,7 +38,7 @@ float surfaceDepth(vec3 normal, vec3 rayOrigin, vec3 rayDirection, vec3 toEye,
 // centre the faces beside it are depth-tested at; on a steep face that gap is many depth steps.
 // The fragment instead takes the depth of its own surface at the pixel centre, so it ties the
 // face it lies on and the LEQUAL depth test passes it, while nearer surface still hides it.
-// Canvas3D sets filled polygons back one resolvable depth step (polygon offset units, no slope
+// Scene.initGL sets filled polygons back one resolvable depth step (polygon offset units, no slope
 // factor) so the float rounding between this depth and the rasterizer's never flips that tie.
 void main() {
     // An orthographic projection keeps w = 1 (m33 = 1): the eye looks along view-space -z from

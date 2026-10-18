@@ -5,7 +5,7 @@ import static ixdar.platform.input.Keys.ACTION_RELEASE;
 
 import org.joml.Vector2f;
 
-import ixdar.canvas.Canvas3D;
+import ixdar.scenes.Scene;
 import ixdar.game.City;
 import ixdar.graphics.cameras.Camera;
 import ixdar.platform.Clock;
@@ -46,7 +46,7 @@ public class TradeMouseTrap extends MouseTrap {
      * @param camera camera the controller drives
      * @param canvas owning canvas
      */
-    public TradeMouseTrap(TradeScene tradeScene, Camera camera, Canvas3D canvas) {
+    public TradeMouseTrap(TradeScene tradeScene, Camera camera, Scene canvas) {
         super(null, camera, canvas);
         this.tradeScene = tradeScene;
     }

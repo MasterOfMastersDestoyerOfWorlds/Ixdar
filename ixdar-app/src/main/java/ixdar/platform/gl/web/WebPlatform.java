@@ -85,8 +85,8 @@ public class WebPlatform implements Platform {
     }
 
     private void setupEventListeners(HTMLCanvasElement htmlCanvas) {
-        // For now, use the fallback callback system to avoid Canvas3D static conflicts
-        // The specific canvas3D instance will be handled during rendering
+        // For now, use the fallback callback system to avoid Scene static conflicts
+        // The specific scene instance will be handled during rendering
 
         // Mouse move
         htmlCanvas.addEventListener("mousemove", (EventListener<MouseEvent>) e -> {

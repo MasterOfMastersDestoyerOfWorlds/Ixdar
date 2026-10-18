@@ -5,7 +5,7 @@ import static ixdar.platform.input.Keys.ACTION_RELEASE;
 
 import org.joml.Vector2f;
 
-import ixdar.canvas.Canvas3D;
+import ixdar.scenes.Scene;
 import ixdar.graphics.cameras.Camera;
 import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
@@ -26,7 +26,7 @@ public class Scene2DMousePanTrap extends MouseTrap {
      * @param camera camera to pan/zoom
      * @param canvas owning canvas (for platform-id resolution)
      */
-    public Scene2DMousePanTrap(Camera camera, Canvas3D canvas) {
+    public Scene2DMousePanTrap(Camera camera, Scene canvas) {
         super(null, camera, canvas);
     }
 

@@ -11,7 +11,8 @@ import java.util.Random;
 
 import org.apache.commons.math3.util.Pair;
 
-import ixdar.canvas.Canvas3D;
+import ixdar.scenes.Scene;
+import ixdar.scenes.menu.MenuScene;
 import ixdar.geometry.tsp.MultipleCyclesFoundException;
 import ixdar.geometry.tsp.SegmentBalanceException;
 import ixdar.gui.terminal.TerminalParseException;
@@ -103,7 +104,7 @@ public class MainScene {
     public static Grid grid;
     public static int totalLayers = -1;
     public static double tourLength;
-    public static Canvas3D canvas;
+    public static Scene canvas;
 
     public static final String VIEW_MAIN = "MAIN";
     public static final String VIEW_RIGHT_TOP = "RIGHT_TOP";
@@ -133,7 +134,7 @@ public class MainScene {
      *                                to parse
      * @throws IOException            if the file cannot be read
      */
-    public MainScene(String fileName, Canvas3D canvas) throws TerminalParseException, IOException {
+    public MainScene(String fileName, Scene canvas) throws TerminalParseException, IOException {
         metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
         metroPathsLayer = new PriorityQueue<ShellPair>(new ShellComparator());
         knotLayerLookup = new HashMap<>();
@@ -190,7 +191,7 @@ public class MainScene {
      * @throws IOException            if the file cannot be read
      */
     public static void main(String[] args) throws TerminalParseException, IOException {
-        canvas = new Canvas3D();
+        canvas = new MenuScene();
         main = new MainScene(args[0], canvas);
 
         int wWidth = (int) Platforms.get().getWindowWidth();
@@ -672,7 +673,7 @@ public class MainScene {
      */
     public static void activate(boolean state) {
         if (state) {
-            Canvas3D.bindAutomationIfAvailable(Platforms.get(), keys, mouse);
+            Scene.bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         }
         canvas.activate(!state);
         active = state;

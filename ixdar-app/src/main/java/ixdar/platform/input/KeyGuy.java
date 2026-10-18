@@ -14,12 +14,13 @@ import java.util.Set;
 
 import java.util.Map;
 
-import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
 import ixdar.platform.Clock;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.Platforms;
+import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
+import ixdar.scenes.menu.MenuScene;
 import ixdar.platform.AutomationBackend;
 
 public class KeyGuy extends Camera2DInputController {
@@ -34,7 +35,7 @@ public class KeyGuy extends Camera2DInputController {
     public final Set<Integer> pressedKeys = new HashSet<>();
     public Camera camera;
     public boolean active = true;
-    public Canvas3D canvas;
+    public Scene canvas;
     public boolean shiftMask;
     public boolean controlMask;
 
@@ -45,7 +46,7 @@ public class KeyGuy extends Camera2DInputController {
      * @param camera camera the controller drives
      * @param canvas owning canvas (for platform-id resolution)
      */
-    public KeyGuy(Camera camera, Canvas3D canvas) {
+    public KeyGuy(Camera camera, Scene canvas) {
         this.camera = camera;
         this.canvas = canvas;
     }
@@ -134,8 +135,9 @@ public class KeyGuy extends Camera2DInputController {
         }
         recordAbstractAction("key_release", KEY, key, "mask", mask);
         if (canvas.active && !terminalOwnsKey(key)) {
-            if (KeyActions.Back.keyPressed(pressedKeys) && canvas.menu != null) {
-                canvas.menu.back();
+            if (KeyActions.Back.keyPressed(pressedKeys) && canvas instanceof MenuScene menuScene
+                    && menuScene.menu != null) {
+                menuScene.menu.back();
             }
             if (KeyActions.Reset.keyPressed(pressedKeys)) {
                 camera.reset();

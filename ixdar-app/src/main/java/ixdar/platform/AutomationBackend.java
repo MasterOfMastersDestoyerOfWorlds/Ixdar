@@ -2,9 +2,9 @@ package ixdar.platform;
 
 import java.util.Map;
 
-import ixdar.canvas.Canvas3D;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.MouseTrap;
+import ixdar.scenes.Scene;
 
 /**
  * The automation server and input recorder, supplied by the platform rather than referenced
@@ -20,7 +20,7 @@ public interface AutomationBackend {
      *
      * @param canvas3D the active render canvas
      */
-    void start(Canvas3D canvas3D);
+    void start(Scene canvas3D);
 
     /**
      * Cancel any replay, stop the HTTP server and release the canvas; idempotent.

@@ -30,9 +30,9 @@ import ixdar.models.ModelCollection;
 import ixdar.platform.Platforms;
 import ixdar.scenes.main.Toggle;
 import ixdar.automation.AutomationEndpoint;
-import ixdar.scenes.Scene;
 import ixdar.scenes.anatomy.IrregularGridScene;
 import ixdar.scenes.main.MainScene;
+import ixdar.scenes.menu.MenuScene;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.model.ModelScene;
 import ixdar.scenes.ring.RingScene;
@@ -463,13 +463,13 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         }
 
         JsonArray textElements = new JsonArray();
-        if (runtime.canvas instanceof Scene scene && scene.sceneTerminal != null) {
+        if (runtime.canvas != null && runtime.canvas.sceneTerminal != null) {
             textElements.add(
                     runtime.hyperStringElement(
                             "scene_terminal",
                             REGION_BOTTOM,
-                            scene.sceneTerminal.history,
-                            scene.sceneTerminal.scrollOffsetY));
+                            runtime.canvas.sceneTerminal.history,
+                            runtime.canvas.sceneTerminal.scrollOffsetY));
         }
         if (runtime.canvas instanceof ModelScene menuScene && menuScene.sceneModelMenu != null
                 && menuScene.sceneModelMenu.isVisible()) {
@@ -519,8 +519,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         root.add("textElements", textElements);
 
         JsonArray menuItems = new JsonArray();
-        if (runtime.canvas != null && runtime.canvas.menu != null) {
-            for (MenuBox.MenuItemBounds itemBounds : runtime.canvas.menu.getMenuItemBounds()) {
+        if (runtime.canvas instanceof MenuScene menuScene && menuScene.menu != null) {
+            for (MenuBox.MenuItemBounds itemBounds : menuScene.menu.getMenuItemBounds()) {
                 JsonObject menuItem = new JsonObject();
                 menuItem.addProperty(LABEL, itemBounds.label);
                 JsonObject bounds = new JsonObject();
@@ -543,8 +543,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         root.add("menuItems", menuItems);
 
         JsonArray controls = new JsonArray();
-        if (runtime.canvas instanceof Scene controlScene) {
-            for (ControlHint hint : controlScene.controls) {
+        if (runtime.canvas != null) {
+            for (ControlHint hint : runtime.canvas.controls) {
                 JsonObject control = new JsonObject();
                 control.addProperty(KEY, hint.key);
                 control.addProperty("description", hint.description);

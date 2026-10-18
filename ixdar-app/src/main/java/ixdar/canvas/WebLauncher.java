@@ -16,6 +16,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.web.WebGL;
 import ixdar.platform.gl.web.WebPlatform;
+import ixdar.scenes.Scene;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 public final class WebLauncher {
@@ -29,7 +30,7 @@ public final class WebLauncher {
     public static boolean broken = false;
 
     private static String DEFAULT_CANVAS_NAME = "ixdar-canvas";
-    private static Canvas3D[] canvas3dScenes;
+    private static Scene[] canvas3dScenes;
     private static HTMLCanvasElement[] canvasElements;
     private static WebPlatform[] webPlatforms;
     private static WebGL[] webGLs;
@@ -40,7 +41,7 @@ public final class WebLauncher {
     /**
      * TeaVM/browser entry point: for each canvas id in {@code args}, locate the
      * matching {@code <canvas>} element, build its {@link WebPlatform}/{@link WebGL},
-     * pick a {@link Canvas3D} (OBJ viewer, DSL viewer, or registered scene), and
+     * pick a {@link Scene} (OBJ viewer, DSL viewer, or registered scene), and
      * schedule the per-canvas animation tick.
      *
      * @param args canvas element ids to bind, one per scene
@@ -61,7 +62,7 @@ public final class WebLauncher {
 
         HTMLDocument document = Window.current().getDocument();
         canvasElements = new HTMLCanvasElement[args.length];
-        canvas3dScenes = new Canvas3D[args.length];
+        canvas3dScenes = new Scene[args.length];
         webPlatforms = new WebPlatform[args.length];
         webGLs = new WebGL[args.length];
         for (int i = 0; i < canvasElements.length; i++) {
@@ -84,7 +85,7 @@ public final class WebLauncher {
             canvas.setHeight(h);
             Platforms.get().setFrameBufferSize(w, h);
 
-            Canvas3D canvas3d;
+            Scene canvas3d;
             String dataObj = canvas.getAttribute("data-obj");
             String dataDsl = canvas.getAttribute("data-dsl");
             if (dataObj != null && !dataObj.isEmpty()) {
@@ -102,9 +103,9 @@ public final class WebLauncher {
             } else {
                 Supplier<? extends SceneDrawable> cs = CanvasSceneMap.MAP.get(canvasId);
                 if (cs == null) {
-                    Platforms.get().log("Canvas3D not found for " + canvasId);
+                    Platforms.get().log("Scene not found for " + canvasId);
                 }
-                canvas3d = (Canvas3D) cs.get();
+                canvas3d = (Scene) cs.get();
             }
 
             canvas3d.initGL();
@@ -120,7 +121,7 @@ public final class WebLauncher {
     private static native boolean isElementVisible(HTMLCanvasElement el);
 
     private static void tick(int i) {
-        Canvas3D canvas3d = canvas3dScenes[i];
+        Scene canvas3d = canvas3dScenes[i];
         HTMLCanvasElement canvas = canvasElements[i];
         Platforms.init(webPlatforms[i], webGLs[i]);
         GL gl = Platforms.gl();

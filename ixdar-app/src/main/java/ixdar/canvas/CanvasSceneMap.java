@@ -16,7 +16,6 @@ public class CanvasSceneMap {
     static {
 
         MAP = SceneRegistry_Scenes.MAP;
-        MAP.put("ixdar", () -> new Canvas3D());
         MAP.put("ixdar-canvas", () -> {
             try {
                 MainScene.main(new String[] {"djbouti"});

@@ -1043,7 +1043,7 @@ class CliTest(unittest.TestCase):
             {"status": "ok", "port": 47832},
             {
                 "sceneId": "ixdar",
-                "sceneClass": "Canvas3D",
+                "sceneClass": "MenuScene",
                 "mode": "main",
                 "menuVisible": False,
                 "windowWidth": 800,
@@ -1192,22 +1192,22 @@ class CliTest(unittest.TestCase):
         # A direct AutomationInputBinder call drags the desktop automation stack, and gson behind
         # it, into the TeaVM web build, where they fail to link and the whole output is dropped.
         for camera in ("2d", "3d"):
-            for base in ("Scene", "Canvas3D"):
-                spec = new_scene.SceneSpec(
-                    name="ProbeScene",
-                    scene_id="probe-scene",
-                    subfolder="ui",
-                    display_name="Probe",
-                    base=base,
-                    camera=camera,
-                    maven_profile="",
-                    dry_run=True,
-                )
-                source = new_scene._scene_template(spec)
-                with self.subTest(camera=camera, base=base):
-                    self.assertIn("bindAutomationIfAvailable(Platforms.get(), keys, mouse);", source)
-                    self.assertNotIn("AutomationInputBinder.bind(", source)
-                    self.assertNotIn("import ixdar.platform.automation.AutomationInputBinder;", source)
+            spec = new_scene.SceneSpec(
+                name="ProbeScene",
+                scene_id="probe-scene",
+                subfolder="ui",
+                display_name="Probe",
+                camera=camera,
+                maven_profile="",
+                dry_run=True,
+            )
+            source = new_scene._scene_template(spec)
+            with self.subTest(camera=camera):
+                self.assertIn("bindAutomationIfAvailable(Platforms.get(), keys, mouse);", source)
+                self.assertNotIn("AutomationInputBinder.bind(", source)
+                self.assertNotIn("import ixdar.platform.automation.AutomationInputBinder;", source)
+                self.assertIn("extends Scene {", source)
+                self.assertNotIn("SceneInputFrameUpdater", source)
 
     def test_subcommand_help_is_generated_from_docstrings(self):
         captured = io.StringIO()

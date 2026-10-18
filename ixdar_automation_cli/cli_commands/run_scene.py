@@ -357,7 +357,7 @@ def _await_scene(client: AutomationClient, process: subprocess.Popen, log_path: 
                  await_log: str, timeout: float) -> dict:
     """Wait until the scene reports ready, the log shows a marker, or the process exits.
 
-    ``sceneReady`` is what makes this honest: the automation server starts in the ``Canvas3D``
+    ``sceneReady`` is what makes this honest: the automation server starts in the ``Scene``
     constructor, so the port answers while ``initGL`` is still building the scene. Treating a healthy
     port as "ready" drives — or shuts down — a half-built scene.
 

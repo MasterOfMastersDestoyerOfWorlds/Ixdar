@@ -7,8 +7,8 @@ import static ixdar.platform.input.Keys.MOUSE_BUTTON_LEFT;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 
-import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera2D;
+import ixdar.scenes.Scene;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
@@ -49,7 +49,7 @@ public class OrbitMouseTrap extends MouseTrap {
      * @param camera 3D camera to control
      * @param canvas owning canvas
      */
-    public OrbitMouseTrap(Camera3D camera, Canvas3D canvas) {
+    public OrbitMouseTrap(Camera3D camera, Scene canvas) {
         super(null, camera, canvas);
         this.orbitCamera = camera;
         applyOrbit();

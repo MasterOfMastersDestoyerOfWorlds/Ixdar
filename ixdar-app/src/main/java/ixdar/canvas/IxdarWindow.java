@@ -57,9 +57,10 @@ import ixdar.platform.gl.headless.HeadlessGL;
 import ixdar.platform.gl.headless.HeadlessPlatform;
 import ixdar.platform.gl.lwjgl.LwjglGL;
 import ixdar.platform.gl.lwjgl.LwjglPlatform;
+import ixdar.scenes.Scene;
 
 public class IxdarWindow {
-    public static final String CANVAS3D_NOT_FOUND_FOR = "Canvas3D not found for ";
+    public static final String CANVAS3D_NOT_FOUND_FOR = "Scene not found for ";
     public static final int GL_CONTEXT_VERSION = 3;
     public static final int DEFAULT_WINDOW_SIZE = 750;
     public static final int ICON_CHANNEL_COUNT = 4;
@@ -78,7 +79,7 @@ public class IxdarWindow {
     public static long window;
     private static final String FATAL_PREFIX = "Exception in thread \"main\" ";
 
-    private static Canvas3D canvas;
+    private static Scene canvas;
     private static String canvasId;
     private static int windowWidth;
     private static int windowHeight;
@@ -138,7 +139,7 @@ public class IxdarWindow {
         if (sceneSupplier == null) {
             throw new RuntimeException(CANVAS3D_NOT_FOUND_FOR + canvasId);
         }
-        canvas = (Canvas3D) sceneSupplier.get();
+        canvas = (Scene) sceneSupplier.get();
         canvas.initGL();
         canvas.sceneReady = true;
         System.out.println("[headless] scene '" + canvasId + "' ready at " + size + "x" + size
@@ -257,7 +258,7 @@ public class IxdarWindow {
             Platforms.get().log(CANVAS3D_NOT_FOUND_FOR + canvasId);
             throw new RuntimeException(CANVAS3D_NOT_FOUND_FOR + canvasId);
         }
-        canvas = (Canvas3D) cs.get();
+        canvas = (Scene) cs.get();
         canvas.initGL();
         canvas.sceneReady = true;
         if (gb != null) {

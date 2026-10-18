@@ -940,7 +940,7 @@ Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
 
 ### `new-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/new_scene.py#L272)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/new_scene.py#L262)
 
 Scaffold a new Scene class, launch.json entry, and optional Maven profile.
 
@@ -948,7 +948,6 @@ Scaffold a new Scene class, launch.json entry, and optional Maven profile.
 - `--id` — Scene id used by IxdarWindow and the launch.json entry.
 - `--subfolder` — Package subfolder under scenes for the new class.
 - `--display-name` — Human-readable scene name.
-- `--base` — Base class to extend.
 - `--camera` — Camera mode for the scaffold.
 - `--maven-profile` — Optional Maven profile id to add.
 - `--dry-run` — Print planned changes without writing files.

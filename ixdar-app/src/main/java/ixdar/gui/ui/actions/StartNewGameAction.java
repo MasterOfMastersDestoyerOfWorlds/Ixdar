@@ -3,10 +3,10 @@ package ixdar.gui.ui.actions;
 import java.util.ArrayList;
 import java.util.Random;
 
-import ixdar.canvas.Canvas3D;
 import ixdar.game.City;
 import ixdar.game.CityNetwork;
 import ixdar.geometry.grid2d.Grid.CartesianGrid;
+import ixdar.scenes.Scene;
 import ixdar.scenes.trade.TradeScene;
 
 /**
@@ -30,7 +30,7 @@ public class StartNewGameAction implements Action {
         ArrayList<City> cities = generateRandomCities();
         CityNetwork network = new CityNetwork(cities, new CartesianGrid());
         network.generateRoadsFromProximity(ROAD_PROXIMITY_THRESHOLD);
-        TradeScene.startNewGame(network, Canvas3D.instance);
+        TradeScene.startNewGame(network, Scene.instance);
     }
 
     /**

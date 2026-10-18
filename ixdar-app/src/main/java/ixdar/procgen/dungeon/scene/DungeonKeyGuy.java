@@ -2,8 +2,8 @@ package ixdar.procgen.dungeon.scene;
 
 import java.util.function.BooleanSupplier;
 
-import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
+import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
@@ -33,7 +33,7 @@ public class DungeonKeyGuy extends KeyGuy {
      * @param togglePlayerMode action to flip between player and fly-cam modes
      * @param toggleViewMode   action to swap first / third person within player mode
      */
-    public DungeonKeyGuy(Camera camera, Canvas3D canvas,
+    public DungeonKeyGuy(Camera camera, Scene canvas,
                          BooleanSupplier inPlayerMode,
                          Runnable togglePlayerMode,
                          Runnable toggleViewMode) {

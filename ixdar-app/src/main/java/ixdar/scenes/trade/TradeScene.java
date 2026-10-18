@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-import ixdar.canvas.Canvas3D;
+import ixdar.scenes.Scene;
 import ixdar.game.City;
 import ixdar.game.CityNetwork;
 import ixdar.geometry.grid2d.Grid.CartesianGrid;
@@ -58,7 +58,7 @@ public class TradeScene {
     public Tool activeTool;
 
     // Rendering
-    private Canvas3D canvas;
+    private Scene canvas;
     private PointSet pointSet;
 
     // Input handlers
@@ -73,7 +73,7 @@ public class TradeScene {
      * @param network city network containing cities and roads
      * @param canvas backing 3D canvas used for input dispatch
      */
-    public TradeScene(CityNetwork network, Canvas3D canvas) {
+    public TradeScene(CityNetwork network, Scene canvas) {
         this.network = network;
         this.canvas = canvas;
         instance = this;
@@ -142,7 +142,7 @@ public class TradeScene {
      */
     public void activate(boolean state) {
         if (state) {
-            Canvas3D.bindAutomationIfAvailable(Platforms.get(), keys, mouse);
+            Scene.bindAutomationIfAvailable(Platforms.get(), keys, mouse);
         }
         if (canvas != null) {
             canvas.activate(!state);
@@ -327,7 +327,7 @@ public class TradeScene {
         keys.active = false;
         mouse.active = false;
         MenuBox.menuVisible = true;
-        Canvas3D.audioPlayMenuMusic();
+        Scene.audioPlayMenuMusic();
         if (canvas != null) {
             canvas.activate(true); // Restore menu input handling
         }
@@ -378,11 +378,11 @@ public class TradeScene {
      * @param canvas  the 3D canvas
      * @return the created TradeScene
      */
-    public static TradeScene startNewGame(CityNetwork network, Canvas3D canvas) {
+    public static TradeScene startNewGame(CityNetwork network, Scene canvas) {
         TradeScene scene = new TradeScene(network, canvas);
         scene.initViews();
         scene.activate(true);
-        Canvas3D.audioPauseMenuMusic();
+        Scene.audioPauseMenuMusic();
         MenuBox.menuVisible = false;
         return scene;
     }
@@ -395,7 +395,7 @@ public class TradeScene {
      * @param canvas the 3D canvas
      * @return the created TradeScene
      */
-    public static TradeScene startNewGame(ArrayList<City> cities, Canvas3D canvas) {
+    public static TradeScene startNewGame(ArrayList<City> cities, Scene canvas) {
         CityNetwork network = new CityNetwork(cities, new CartesianGrid());
         // Generate roads based on proximity - cities within 200 units get connected
         network.generateRoadsFromProximity(ROAD_PROXIMITY_THRESHOLD);

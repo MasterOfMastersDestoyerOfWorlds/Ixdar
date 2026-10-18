@@ -15,8 +15,8 @@ import org.joml.Vector3f;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
-import ixdar.canvas.Canvas3D;
 import ixdar.canvas.IxdarWindow;
+import ixdar.scenes.Scene;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.nodegraph.runtime.HeapSampler;
 import ixdar.gui.ui.text.HyperString;
@@ -65,7 +65,7 @@ public class AutomationRuntime implements AutomationBackend {
     public final Queue<PendingMainThreadAction> pendingMainThreadActions = new ConcurrentLinkedQueue<>();
     public AutomationApiServer server;
     public boolean started;
-    public Canvas3D canvas;
+    public Scene canvas;
     public volatile long renderThreadId = -1;
 
     /**
@@ -86,7 +86,7 @@ public class AutomationRuntime implements AutomationBackend {
      * @param canvas3D the active render canvas; held so endpoints can drive scenes
      */
     @Override
-    public synchronized void start(Canvas3D canvas3D) {
+    public synchronized void start(Scene canvas3D) {
         if (started) {
             if (canvas == null) {
                 canvas = canvas3D;

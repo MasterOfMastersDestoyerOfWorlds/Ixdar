@@ -2,7 +2,6 @@ package ixdar.platform.input;
 
 import org.joml.Vector2f;
 
-import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera;
 import ixdar.platform.Clock;
@@ -11,7 +10,9 @@ import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.scenes.main.Toggle;
 import ixdar.platform.AutomationBackend;
+import ixdar.scenes.Scene;
 import ixdar.scenes.main.MainScene;
+import ixdar.scenes.menu.MenuScene;
 
 import java.util.List;
 
@@ -58,7 +59,7 @@ public class MouseTrap {
     public int lastX = Integer.MIN_VALUE;
     public int lastY = Integer.MIN_VALUE;
     public Camera camera;
-    public Canvas3D canvas;
+    public Scene canvas;
     public boolean active = true;
     public float normalizedPosX;
     public float normalizedPosY;
@@ -79,7 +80,7 @@ public class MouseTrap {
      * @param camera camera to drive (pan, hover, zoom)
      * @param canvas owning canvas (provides platform ID)
      */
-    public MouseTrap(MainScene main, Camera camera, Canvas3D canvas) {
+    public MouseTrap(MainScene main, Camera camera, Scene canvas) {
         this.main = main;
         this.camera = camera;
         this.canvas = canvas;
@@ -167,9 +168,8 @@ public class MouseTrap {
         for (HyperString h : hyperStrings) {
             h.click(normalizedPosX, normalizedPosY);
         }
-        if (canvas.menu != null) {
-
-            canvas.menu.click(normalizedPosX, normalizedPosY);
+        if (canvas instanceof MenuScene menuScene && menuScene.menu != null) {
+            menuScene.menu.click(normalizedPosX, normalizedPosY);
         }
 
         // Region click subscriptions
@@ -352,7 +352,7 @@ public class MouseTrap {
      *
      * @param canvas3d new owning canvas
      */
-    public void setCanvas(Canvas3D canvas3d) {
+    public void setCanvas(Scene canvas3d) {
         this.canvas = canvas3d;
     }
 
@@ -374,9 +374,8 @@ public class MouseTrap {
         lastY = (int) y;
 
         camera.mouseMove(lastX, lastY, x, y);
-        if (canvas.menu != null && !(this.canvas == null)) {
-
-            canvas.menu.setHover(normalizedPosX, normalizedPosY);
+        if (canvas instanceof MenuScene menuScene && menuScene.menu != null) {
+            menuScene.menu.setHover(normalizedPosX, normalizedPosY);
         }
 
         PaneTypes inMainView = MainScene.inView(x, y);

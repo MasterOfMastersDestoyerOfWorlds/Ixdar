@@ -17,7 +17,7 @@ import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.sdf.SDFUnion;
 import ixdar.gui.ui.Drawing;
 import ixdar.audio.AudioAssets;
-import ixdar.canvas.Canvas3D;
+import ixdar.scenes.Scene;
 import ixdar.platform.Platforms;
 import ixdar.scenes.main.Toggle;
 import ixdar.platform.AutomationBackend;
@@ -217,7 +217,7 @@ public class MenuBox implements PointerRegion {
             payload.put("yNormalized", y / Platforms.get().getWindowHeight());
             automation.recordAbstractActionMap("menu_select", payload);
         }
-        Canvas3D.audioPlaySfx(AudioAssets.MENU_CLICK_SFX);
+        Scene.audioPlaySfx(AudioAssets.MENU_CLICK_SFX);
         clickedItem.performAction();
     }
 

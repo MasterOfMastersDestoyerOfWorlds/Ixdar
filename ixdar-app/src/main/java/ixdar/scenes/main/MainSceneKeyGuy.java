@@ -1,6 +1,6 @@
 package ixdar.scenes.main;
 
-import ixdar.canvas.Canvas3D;
+import ixdar.scenes.Scene;
 import ixdar.graphics.cameras.Camera;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.terminal.commands.ChangeToolCommand;
@@ -31,7 +31,7 @@ public class MainSceneKeyGuy extends KeyGuy {
      * @param camera camera the controller drives
      * @param canvas backing canvas, whose menu input is suspended while the editor is active
      */
-    public MainSceneKeyGuy(Camera camera, Canvas3D canvas) {
+    public MainSceneKeyGuy(Camera camera, Scene canvas) {
         super(camera, canvas);
     }
 

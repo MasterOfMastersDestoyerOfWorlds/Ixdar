@@ -3,7 +3,6 @@ package ixdar.scenes.anatomy;
 import org.joml.Vector2f;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.canvas.Canvas3D;
 import ixdar.geometry.grid2d.IrregularQuadLayoutGenerator;
 import ixdar.geometry.grid2d.IrregularQuadGrid;
 import ixdar.geometry.tsp.points.PointND;
@@ -16,11 +15,11 @@ import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.PointerDispatcher;
-import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.platform.input.Scene2DMousePanTrap;
+import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "irregular-grid-canvas")
-public class IrregularGridScene extends Canvas3D {
+public class IrregularGridScene extends Scene {
     public static final float LINE_WIDTH_SCALE = 2f;
     public static final float ANCHOR_DOT_RADIUS = 2f;
     public static final float DUAL_DOT_RADIUS = 3f;
@@ -60,14 +59,13 @@ public class IrregularGridScene extends Canvas3D {
     }
 
     /**
-     * Per-frame: pump input, draw all primal edges as gray SDF lines,
-     * draw cyan dots at primal anchors and orange dots at dual points,
-     * then overlay the FPS readout.
+     * Per-frame: draw all primal edges as gray SDF lines, draw cyan dots
+     * at primal anchors and orange dots at dual points, then overlay the
+     * FPS readout. Input is pumped once per frame by {@link #paintGL()}.
      */
     @Override
     public void drawScene() {
         camera2D.updateView(VIEW_MAIN);
-        SceneInputFrameUpdater.update(keys, mouse);
         camera2D.setZIndex(camera);
         camera2D.calculateCameraTransform(camera2D.ps);
         Drawing.getDrawing().sdfLine.setCulling(false);

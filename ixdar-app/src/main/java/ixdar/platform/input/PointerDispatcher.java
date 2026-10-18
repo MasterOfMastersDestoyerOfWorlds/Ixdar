@@ -270,6 +270,6 @@ public class PointerDispatcher {
      * @return that tool, or {@code null} when the trap's canvas hosts no tools
      */
     private static EditTool activeTool(MouseTrap trap) {
-        return trap.canvas instanceof Scene scene ? scene.activeTool : null;
+        return trap.canvas == null ? null : trap.canvas.activeTool;
     }
 }

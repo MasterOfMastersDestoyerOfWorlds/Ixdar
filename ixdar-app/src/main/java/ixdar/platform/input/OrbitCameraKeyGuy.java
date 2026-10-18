@@ -4,8 +4,8 @@ import static ixdar.platform.input.Keys.ACTION_PRESS;
 
 import java.util.List;
 
-import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
+import ixdar.scenes.Scene;
 import ixdar.platform.Clock;
 import ixdar.scenes.main.Toggle;
 import ixdar.tools.ControlHint;
@@ -36,7 +36,7 @@ public class OrbitCameraKeyGuy extends KeyGuy {
      * @param camera     camera driven by this handler
      * @param canvas     owning canvas
      */
-    public OrbitCameraKeyGuy(OrbitMouseTrap orbitMouse, Camera camera, Canvas3D canvas) {
+    public OrbitCameraKeyGuy(OrbitMouseTrap orbitMouse, Camera camera, Scene canvas) {
         this(orbitMouse, camera, canvas, null);
     }
 
@@ -49,7 +49,7 @@ public class OrbitCameraKeyGuy extends KeyGuy {
      * @param canvas     owning canvas
      * @param controls   scene controls to dispatch, or {@code null} for none
      */
-    public OrbitCameraKeyGuy(OrbitMouseTrap orbitMouse, Camera camera, Canvas3D canvas,
+    public OrbitCameraKeyGuy(OrbitMouseTrap orbitMouse, Camera camera, Scene canvas,
             List<ControlHint> controls) {
         super(camera, canvas);
         this.orbitMouse = orbitMouse;

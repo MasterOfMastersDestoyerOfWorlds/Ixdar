@@ -4,8 +4,8 @@ import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 
-import ixdar.canvas.Canvas3D;
 import ixdar.geometry.tsp.points.PointSet;
+import ixdar.scenes.Scene;
 import ixdar.platform.Clock;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
@@ -39,7 +39,7 @@ public class Camera3D implements Camera {
     public float startYaw;
     public float startPitch;
     public double fov;
-    public Canvas3D canvas;
+    public Scene canvas;
     double SHIFT_MOD;
     private float movementSpeed = DEFAULT_MOVEMENT_SPEED;
     private float zIndex;
@@ -54,7 +54,7 @@ public class Camera3D implements Camera {
      * @param pitch initial pitch in degrees (rotation around right axis)
      * @param canvas owning 3D canvas, used by host wiring
      */
-    public Camera3D(Vector3f position, float yaw, float pitch, Canvas3D canvas) {
+    public Camera3D(Vector3f position, float yaw, float pitch, Scene canvas) {
         this.position = position;
         worldUp = new Vector3f(0.0f, 1.0f, 0.0f);
         this.yaw = yaw;

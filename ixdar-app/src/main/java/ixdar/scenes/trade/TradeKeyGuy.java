@@ -4,8 +4,8 @@ import static ixdar.platform.input.Keys.ACTION_PRESS;
 import static ixdar.platform.input.Keys.ACTION_RELEASE;
 import static ixdar.platform.input.Keys.ACTION_REPEAT;
 
-import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
+import ixdar.scenes.Scene;
 import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.KeyActions;
@@ -27,7 +27,7 @@ public class TradeKeyGuy extends KeyGuy {
      * @param camera camera the controller drives
      * @param canvas owning canvas
      */
-    public TradeKeyGuy(TradeScene tradeScene, Camera camera, Canvas3D canvas) {
+    public TradeKeyGuy(TradeScene tradeScene, Camera camera, Scene canvas) {
         super(camera, canvas);
         this.tradeScene = tradeScene;
     }

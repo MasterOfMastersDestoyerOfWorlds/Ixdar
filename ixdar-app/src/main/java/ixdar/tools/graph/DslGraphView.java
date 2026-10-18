@@ -7,7 +7,6 @@ import java.util.Set;
 
 import org.joml.Vector2f;
 
-import ixdar.canvas.Canvas3D;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.tsp.points.PointND;
@@ -157,7 +156,7 @@ public class DslGraphView implements EditTool {
         bounds.add(new PointND.Double(1.0, 1.0));
         camera = new Camera2D(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(),
                 1.0f, 0.0f, 0.0f, bounds);
-        camera.initCamera(scene.webViews, Canvas3D.DEFAULT_VIEW);
+        camera.initCamera(scene.webViews, Scene.DEFAULT_VIEW);
         horizontalBar = new MenuScrollBar(new Bounds(0, 0, 0, 0, "DSL_GRAPH_HORIZONTAL_BAR"), true, SCROLL_STEP_PX);
         verticalBar = new MenuScrollBar(new Bounds(0, 0, 0, 0, "DSL_GRAPH_VERTICAL_BAR"), false, SCROLL_STEP_PX);
         hotspotLabel.add(new HyperString());
@@ -487,7 +486,7 @@ public class DslGraphView implements EditTool {
     public void draw() {
         camera.resetZIndex();
         camera.setZIndex(scene.camera);
-        camera.updateView(Canvas3D.DEFAULT_VIEW);
+        camera.updateView(Scene.DEFAULT_VIEW);
         updateScrollBars();
         if (layout != null) {
             float pixelsPerUnit = camera.width / camera.rangeX;
@@ -565,7 +564,7 @@ public class DslGraphView implements EditTool {
             }
             horizontalBar.draw(camera);
             verticalBar.draw(camera);
-            camera.updateView(Canvas3D.DEFAULT_VIEW);
+            camera.updateView(Scene.DEFAULT_VIEW);
         }
         scene.camera2D.setZIndex(camera);
     }

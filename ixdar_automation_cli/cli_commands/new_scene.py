@@ -18,7 +18,6 @@ class SceneSpec:
     scene_id: str
     subfolder: str
     display_name: str
-    base: str
     camera: str
     maven_profile: str
     dry_run: bool
@@ -30,7 +29,6 @@ def scaffold_new_scene(
     scene_id: str,
     subfolder: str,
     display_name: str,
-    base: str = "Scene",
     camera: str = "2d",
     maven_profile: str = "",
     dry_run: bool = False,
@@ -41,7 +39,6 @@ def scaffold_new_scene(
             scene_id=scene_id.strip(),
             subfolder=subfolder.strip(),
             display_name=display_name.strip(),
-            base=base.strip(),
             camera=camera.strip().lower(),
             maven_profile=maven_profile.strip(),
             dry_run=dry_run,
@@ -92,8 +89,6 @@ def _validate_spec(spec: SceneSpec) -> SceneSpec:
         raise ValueError("--id must be kebab-case, e.g. icosphere-save-point-canvas")
     if not re.fullmatch(r"[A-Za-z0-9_/]+", spec.subfolder) or ".." in spec.subfolder:
         raise ValueError("--subfolder must be a safe relative folder, e.g. ui or anatomy/experimental")
-    if spec.base not in {"Scene", "Canvas3D"}:
-        raise ValueError("--base must be one of: Scene, Canvas3D")
     if spec.camera not in {"2d", "3d"}:
         raise ValueError("--camera must be one of: 2d, 3d")
     if not spec.display_name:
@@ -105,15 +100,14 @@ def _validate_spec(spec: SceneSpec) -> SceneSpec:
 
 def _scene_template(spec: SceneSpec) -> str:
     package_name = spec.subfolder.replace("/", ".")
-    base_import = "ixdar.scenes.Scene" if spec.base == "Scene" else "ixdar.canvas.Canvas3D"
     controls_block = _camera_controls_template(spec.camera)
     return (
         f"package ixdar.scenes.{package_name};\n\n"
         f"import ixdar.annotations.scene.SceneAnnotation;\n"
-        f"import {base_import};\n"
+        f"import ixdar.scenes.Scene;\n"
         f"{controls_block}\n"
         f"@SceneAnnotation(id = \"{spec.scene_id}\")\n"
-        f"public class {spec.name} extends {spec.base} {{\n\n"
+        f"public class {spec.name} extends Scene {{\n\n"
         "    @Override\n"
         "    public void initGL() {\n"
         "        super.initGL();\n"
@@ -137,14 +131,12 @@ def _camera_controls_template(camera: str) -> str:
             "import ixdar.platform.input.KeyGuy;\n"
             "import ixdar.platform.input.MouseTrap;\n"
             "import ixdar.platform.input.Scene2DMousePanTrap;\n"
-            "import ixdar.platform.input.SceneInputFrameUpdater;\n"
         )
     return (
         "import ixdar.gui.ui.menu.MenuBox;\n"
         "import ixdar.platform.Platforms;\n"
         "import ixdar.platform.input.KeyGuy;\n"
         "import ixdar.platform.input.MouseTrap;\n"
-        "import ixdar.platform.input.SceneInputFrameUpdater;\n"
     )
 
 
@@ -163,7 +155,6 @@ def _camera_methods_template(camera: str) -> str:
             "    }\n\n"
             "    private void updateCameraControls() {\n"
             "        camera2D.updateView(DEFAULT_VIEW);\n"
-            "        SceneInputFrameUpdater.update(keys, mouse);\n"
             "        camera2D.setZIndex(camera);\n"
             "        camera2D.calculateCameraTransform(camera2D.ps);\n"
             "    }\n"
@@ -178,7 +169,6 @@ def _camera_methods_template(camera: str) -> str:
         "        bindAutomationIfAvailable(Platforms.get(), keys, mouse);\n"
         "    }\n\n"
         "    private void updateCameraControls() {\n"
-        "        SceneInputFrameUpdater.update(keys, mouse);\n"
         "        camera.updateViewFirstPerson();\n"
         "    }\n"
     )
@@ -275,7 +265,6 @@ def new_scene(
     id: str,
     subfolder: str,
     display_name: str,
-    base: Annotated[str, CliOption(choices=("Scene", "Canvas3D"))] = "Scene",
     camera: Annotated[str, CliOption(choices=("2d", "3d"))] = "2d",
     maven_profile: str = "",
     dry_run: bool = False,
@@ -286,7 +275,6 @@ def new_scene(
     :param id: Scene id used by IxdarWindow and the launch.json entry.
     :param subfolder: Package subfolder under scenes for the new class.
     :param display_name: Human-readable scene name.
-    :param base: Base class to extend.
     :param camera: Camera mode for the scaffold.
     :param maven_profile: Optional Maven profile id to add.
     :param dry_run: Print planned changes without writing files.
@@ -296,7 +284,6 @@ def new_scene(
         scene_id=id,
         subfolder=subfolder,
         display_name=display_name,
-        base=base,
         camera=camera,
         maven_profile=maven_profile,
         dry_run=dry_run,

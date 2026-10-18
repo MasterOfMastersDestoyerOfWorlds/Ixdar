@@ -11,8 +11,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import ixdar.canvas.Canvas3D;
 import ixdar.gui.ui.menu.MenuBox;
+import ixdar.scenes.Scene;
+import ixdar.scenes.menu.MenuScene;
 import ixdar.scenes.main.Toggle;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
@@ -42,7 +43,7 @@ class OrbitCameraKeyGuyMainSceneShortcutsTest {
 
     private boolean menuVisibleBefore;
 
-    private Canvas3D canvasBefore;
+    private Scene canvasBefore;
 
     private Tool editorTool;
 
@@ -59,13 +60,13 @@ class OrbitCameraKeyGuyMainSceneShortcutsTest {
         togglesBefore = toggleValues();
         toolBefore = MainScene.tool;
         menuVisibleBefore = MenuBox.menuVisible;
-        canvasBefore = Canvas3D.instance;
+        canvasBefore = Scene.instance;
         editorTool = new FreeTool();
         MainScene.tool = editorTool;
         Toggle.IsMainFocused.value = true;
         Toggle.IsTerminalFocused.value = false;
         knotDrawLayer = MainScene.knotDrawLayer;
-        Canvas3D canvas = new Canvas3D();
+        Scene canvas = new MenuScene();
         keyGuy = new OrbitCameraKeyGuy(new OrbitMouseTrap(canvas.camera, canvas), canvas.camera,
                 canvas);
         keyGuy.controlRResetsTarget = false;
@@ -81,7 +82,7 @@ class OrbitCameraKeyGuyMainSceneShortcutsTest {
         }
         MainScene.tool = toolBefore;
         MenuBox.menuVisible = menuVisibleBefore;
-        Canvas3D.instance = canvasBefore;
+        Scene.instance = canvasBefore;
     }
 
     @Test
