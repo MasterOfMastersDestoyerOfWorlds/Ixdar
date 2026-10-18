@@ -29,16 +29,15 @@ import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.AssimpModelRuntime;
 import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
+import ixdar.platform.AutomationBackend;
+import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
-import ixdar.platform.automation.AutomationBackend;
-import ixdar.platform.automation.endpoints.AutomationRuntime;
 import ixdar.platform.concurrent.ThreadWorkerPool;
 import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.IxBuffer;
-import ixdar.platform.gl.Platform;
 import ixdar.platform.gl.lwjgl.StbImageDecoder;
 import ixdar.platform.json.GsonJsonTree;
 import ixdar.platform.json.JsonValue;
@@ -53,6 +52,8 @@ public class HeadlessPlatform implements Platform {
     public static final int DEFAULT_SIZE = 512;
     public static final double NANOS_PER_SECOND = 1e9;
 
+    public final AutomationBackend automation;
+
     private final DesktopCholeskyBackend choleskyBackend = new DesktopCholeskyBackend();
     private final ManifoldMeshBooleanBackend manifoldBooleanBackend = new ManifoldMeshBooleanBackend();
     private int platformId;
@@ -64,20 +65,22 @@ public class HeadlessPlatform implements Platform {
     private HeadlessGL gl;
 
     /**
-     * 512x512 default headless platform.
+     * 512x512 default headless platform with no automation server.
      */
     public HeadlessPlatform() {
-        this(DEFAULT_SIZE, DEFAULT_SIZE);
+        this(DEFAULT_SIZE, DEFAULT_SIZE, null);
     }
 
     /**
      * Build a headless platform sized {@code width x height}; window and
      * framebuffer dimensions are both initialized to that size.
      *
-     * @param width  window/framebuffer width in pixels
-     * @param height window/framebuffer height in pixels
+     * @param width      window/framebuffer width in pixels
+     * @param height     window/framebuffer height in pixels
+     * @param automation the automation server the launcher supplies, or {@code null} for none
      */
-    public HeadlessPlatform(int width, int height) {
+    public HeadlessPlatform(int width, int height, AutomationBackend automation) {
+        this.automation = automation;
         this.startTime = (float) (System.nanoTime() / NANOS_PER_SECOND);
         this.windowWidth = width;
         this.windowHeight = height;
@@ -308,13 +311,13 @@ public class HeadlessPlatform implements Platform {
     }
 
     /**
-     * Serve automation the same as the desktop backend: headless scenes are driven through it.
+     * Serve the automation server the launcher supplied: headless scenes are driven through it.
      *
-     * @return the shared automation runtime
+     * @return the launcher's automation backend, or {@code null} when it supplied none
      */
     @Override
     public AutomationBackend automation() {
-        return AutomationRuntime.get();
+        return automation;
     }
 
     /**

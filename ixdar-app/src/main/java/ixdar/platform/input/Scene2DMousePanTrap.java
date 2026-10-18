@@ -7,7 +7,7 @@ import org.joml.Vector2f;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
 
 /**

@@ -2,7 +2,7 @@ package ixdar.graphics.render.sdf;
 
 import org.joml.Vector2f;
 
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorLerp;
 import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;

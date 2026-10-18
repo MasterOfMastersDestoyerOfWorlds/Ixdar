@@ -5,9 +5,9 @@ import java.util.HashMap;
 
 import org.joml.Vector3f;
 import org.joml.Vector4f;
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 
-import ixdar.common.utils.Compat;
+import ixdar.platform.Compat;
 
 public class ColorLerp implements Color {
     static HashMap<Color, ColorLerp> flashColors = new HashMap<>();

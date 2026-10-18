@@ -2,7 +2,7 @@ package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.gui.terminal.Terminal;
-import ixdar.platform.Toggle;
+import ixdar.scenes.main.Toggle;
 import ixdar.scenes.main.MainScene;
 
 /**

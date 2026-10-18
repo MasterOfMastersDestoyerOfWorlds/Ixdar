@@ -8,7 +8,7 @@ import org.joml.Vector2f;
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorLerp;
 import ixdar.graphics.render.sdf.ShaderDrawable;

@@ -17,7 +17,7 @@ import ixdar.gui.ui.code.glsl.GLSLParseText;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.IxBuffer;
-import ixdar.platform.gl.Platform;
+import ixdar.platform.Platform;
 
 public abstract class ShaderDrawable {
     public static final float CORNERS_PER_QUAD = 4f;

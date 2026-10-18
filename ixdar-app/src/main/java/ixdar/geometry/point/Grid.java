@@ -10,7 +10,7 @@ import ixdar.geometry.shell.Shell;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.Drawing;
-import ixdar.platform.Toggle;
+import ixdar.scenes.main.Toggle;
 import ixdar.scenes.main.MainScene;
 
 public abstract class Grid {

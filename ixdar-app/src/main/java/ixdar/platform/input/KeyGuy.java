@@ -16,11 +16,11 @@ import java.util.Map;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.Platforms;
-import ixdar.platform.Toggle;
-import ixdar.platform.automation.AutomationBackend;
+import ixdar.scenes.main.Toggle;
+import ixdar.platform.AutomationBackend;
 
 public class KeyGuy extends Camera2DInputController {
     public static final String KEY = "key";
@@ -50,7 +50,13 @@ public class KeyGuy extends Camera2DInputController {
         this.canvas = canvas;
     }
 
-    static void recordAbstractAction(String action, Object... keyValues) {
+    /**
+     * Record a high-level key action with the platform's automation backend, if it has one.
+     *
+     * @param action    action type tag
+     * @param keyValues alternating payload keys and values
+     */
+    public static void recordAbstractAction(String action, Object... keyValues) {
         AutomationBackend automation =Platforms.get().automation();
         if (automation == null) {
             return;

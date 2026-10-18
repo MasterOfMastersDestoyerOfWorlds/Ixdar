@@ -4,7 +4,7 @@ import java.util.function.BooleanSupplier;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
-import ixdar.platform.Toggle;
+import ixdar.scenes.main.Toggle;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
 

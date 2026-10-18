@@ -11,7 +11,7 @@ import org.teavm.jso.dom.html.HTMLCanvasElement;
 import org.teavm.jso.dom.html.HTMLDocument;
 
 import ixdar.annotations.scene.SceneDrawable;
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.web.WebGL;

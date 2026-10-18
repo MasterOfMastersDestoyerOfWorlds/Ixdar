@@ -6,8 +6,8 @@ import java.util.List;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
-import ixdar.graphics.render.Clock;
-import ixdar.platform.Toggle;
+import ixdar.platform.Clock;
+import ixdar.scenes.main.Toggle;
 import ixdar.tools.ControlHint;
 
 /**

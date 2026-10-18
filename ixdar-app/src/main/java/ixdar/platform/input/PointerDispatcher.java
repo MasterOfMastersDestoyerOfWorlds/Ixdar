@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.function.Predicate;
 
 import ixdar.graphics.cameras.Bounds;
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
 
 /**

@@ -152,7 +152,7 @@
                 LWJGL stack as provided, which the runtime classpath drops.
               -->
               <classpathScope>compile</classpathScope>
-              <mainClass>ixdar.platform.automation.documentation.ExportAutomationRoutes</mainClass>
+              <mainClass>ixdar.automation.documentation.ExportAutomationRoutes</mainClass>
               <arguments>
                 <argument>${project.basedir}/../ixdar_automation_cli/automation_routes.json</argument>
               </arguments>

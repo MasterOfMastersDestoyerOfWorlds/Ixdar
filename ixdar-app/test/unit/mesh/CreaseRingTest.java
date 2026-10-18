@@ -28,7 +28,7 @@ import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
-import ixdar.platform.gl.Platform;
+import ixdar.platform.Platform;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;

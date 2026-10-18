@@ -8,7 +8,7 @@ import ixdar.game.IrregularQuadLayoutGenerator;
 import ixdar.geometry.point.IrregularQuadGrid;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.shell.Shell;
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.menu.MenuBox;

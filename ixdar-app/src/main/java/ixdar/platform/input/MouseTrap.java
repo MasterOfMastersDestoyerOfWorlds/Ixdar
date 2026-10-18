@@ -5,12 +5,12 @@ import org.joml.Vector2f;
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera;
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 import ixdar.gui.ui.PaneTypes;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
-import ixdar.platform.Toggle;
-import ixdar.platform.automation.AutomationBackend;
+import ixdar.scenes.main.Toggle;
+import ixdar.platform.AutomationBackend;
 import ixdar.scenes.main.MainScene;
 
 import java.util.List;
@@ -62,12 +62,12 @@ public class MouseTrap {
     public boolean active = true;
     public float normalizedPosX;
     public float normalizedPosY;
+    public long timeLastScroll;
+    public double startX;
+    public double startY;
     MainScene main;
-    long timeLastScroll;
     int width;
     int height;
-    double startX;
-    double startY;
 
     float leftMouseDown = -1;
     Vector2f leftMouseDownPos;
@@ -85,7 +85,13 @@ public class MouseTrap {
         this.canvas = canvas;
     }
 
-    static void recordAbstractAction(String action, Object... keyValues) {
+    /**
+     * Record a high-level mouse action with the platform's automation backend, if it has one.
+     *
+     * @param action    action type tag
+     * @param keyValues alternating payload keys and values
+     */
+    public static void recordAbstractAction(String action, Object... keyValues) {
         AutomationBackend automation =Platforms.get().automation();
         if (automation == null) {
             return;

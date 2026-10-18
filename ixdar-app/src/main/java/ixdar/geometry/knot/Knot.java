@@ -8,7 +8,7 @@ import org.joml.Vector2d;
 
 import ixdar.common.exceptions.MultipleCyclesFoundException;
 import ixdar.common.exceptions.SegmentBalanceException;
-import ixdar.common.utils.Compat;
+import ixdar.platform.Compat;
 import ixdar.geometry.cuts.CutMatch;
 import ixdar.geometry.cuts.DisjointUnionSets;
 import ixdar.geometry.point.PointND;
@@ -17,7 +17,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.gui.ui.actions.Action;
 import ixdar.gui.ui.text.HyperString;
-import ixdar.platform.Toggle;
+import ixdar.scenes.main.Toggle;
 import ixdar.scenes.main.MainScene;
 import ixdar.tools.knot.Tool;
 

@@ -14,7 +14,7 @@ import java.util.List;
 import ixdar.common.exceptions.TerminalParseException;
 import ixdar.geometry.point.Arc;
 
-import ixdar.common.utils.Compat;
+import ixdar.platform.Compat;
 import ixdar.geometry.point.Circle;
 import ixdar.geometry.point.Grid;
 import ixdar.geometry.point.Ix;
@@ -25,7 +25,7 @@ import ixdar.geometry.point.Triangle;
 import ixdar.geometry.shell.DistanceMatrix;
 import ixdar.geometry.shell.Shell;
 import ixdar.platform.Platforms;
-import ixdar.platform.Toggle;
+import ixdar.scenes.main.Toggle;
 
 public class FileManagement {
     public static final String IX = ".ix";

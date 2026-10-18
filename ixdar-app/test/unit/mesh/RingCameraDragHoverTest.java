@@ -27,7 +27,7 @@ import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
-import ixdar.platform.gl.Platform;
+import ixdar.platform.Platform;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.platform.input.PointerDispatcher;

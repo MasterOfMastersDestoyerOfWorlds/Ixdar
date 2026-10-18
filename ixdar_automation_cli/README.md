@@ -33,6 +33,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`key`](#key) | Deliver a named key event to the active key handler and report whether it was consumed. |
 | [`mesh-compare`](#mesh-compare) | Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics. |
 | [`mesh-dsl`](#mesh-dsl) | Load and execute a named DSL skill graph, making its output geometry the active mesh. |
+| [`mesh-dsl-graph`](#mesh-dsl-graph) | Report the DSL graph view of the active model scene: every node's box, depth and run time, every edge, the critical path, the zoom and the scroll bars. |
 | [`mesh-dsl-timing`](#mesh-dsl-timing) | Report per-node execution times and peak heap of the graph the active model scene ran last, nodes inside groups included. |
 | [`mesh-dsl-validate`](#mesh-dsl-validate) | Validate DSL source text, or the contents of a .dsl file path, against the skill schema. |
 | [`mesh-export`](#mesh-export) | Write the active viewer mesh, with normals and per-corner UVs, to a glTF binary or ASCII PLY file. |
@@ -64,9 +65,10 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`replay-start`](#replay-start) | Launch a replay from a previously saved recording file. |
 | [`replay-status`](#replay-status) | Snapshot of the replay engine: running flag, status, current file, paused flag. |
 | [`rings add`](#rings add) | Ring the shown surface through authored points and report the ring row: centroid, length and marked edge count. |
+| [`rings bisect`](#rings bisect) | Draw a bisector in the ring scene as K and clicks do: its two ends snap onto the nearest ring or bisector, the points between steer it, and the open geodesic spline through them splits every region it crosses. |
 | [`rings-list`](#rings-list) | Rank the neck rings a mesh's skeleton proposes, most neck-like first. |
 | [`screenshot`](#screenshot) | Capture a PNG screenshot of the current framebuffer to a file. |
-| [`scroll`](#scroll) | Deliver a synthesized scroll event to the active mouse handler. |
+| [`scroll`](#scroll) | Deliver a synthesized two-axis scroll event to the active mouse handler. |
 | [`type`](#type) | Synthesize character events on the active key handler, one per character of the text. |
 | [`ui-state`](#ui-state) | Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio. |
 
@@ -111,7 +113,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 
 ### `click`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectClick.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectClick.java)
 
 Click at a point on the active mouse handler, then wait for the click to be drawn.
 
@@ -121,13 +123,14 @@ Click at a point on the active mouse handler, then wait for the click to be draw
   - `--y` (float, default `0`) — Target Y coordinate., e.g. `0.25`
   - `--normalized` (bool, default `false`) — Treat X/Y as fractions of window size rather than pixels., e.g. `true`
   - `--button` (int, default `0`) — GLFW mouse button code., e.g. `1`
+  - `--count` (int, default `1`) — Press/release pairs delivered back to back; 2 is a double-click., e.g. `2`
   - `--settle` (int, default `2`) — Frames to wait for after the click, so a screenshot needs no sleep; 0 returns at once., e.g. `0`
 - **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"x": 0.5, "y": 0.25, "normalized": true, "button": 1, "settle": 0}'`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"x": 0.5, "y": 0.25, "normalized": true, "button": 1, "count": 2, "settle": 0}'`
 
 ### `connection`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Connection.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Connection.java)
 
 Show how two surface points are joined in the editing scene's connection tool: the path and its narrowest cross-section, the neck, optionally confirmed as a ring opened in the ring tool.
 
@@ -142,7 +145,7 @@ Show how two surface points are joined in the editing scene's connection tool: t
 
 ### `drag`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectDrag.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectDrag.java)
 
 Drag with the left button from one window point to another, a frame drawn after every step.
 
@@ -160,7 +163,7 @@ Drag with the left button from one window point to another, a frame drawn after 
 
 ### `frame`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/Frame.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/Frame.java)
 
 Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it.
 
@@ -180,7 +183,7 @@ Fit the camera to a selection, a region, a ring, a point and radius or an explic
 
 ### `health`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/Health.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/Health.java)
 
 Liveness probe reporting server status, recording/replaying flags, and port.
 
@@ -190,7 +193,7 @@ Liveness probe reporting server status, recording/replaying flags, and port.
 
 ### `hover`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectHover.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectHover.java)
 
 Move the cursor without clicking, then wait for the hover to be drawn.
 
@@ -206,7 +209,7 @@ Move the cursor without clicking, then wait for the hover to be drawn.
 
 ### `hover-clear`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/HoverClear.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/HoverClear.java)
 
 Release the persistent automation hover lock on the active trade mouse handler.
 
@@ -216,7 +219,7 @@ Release the persistent automation hover lock on the active trade mouse handler.
 
 ### `key`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectKey.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectKey.java)
 
 Deliver a named key event to the active key handler and report whether it was consumed.
 
@@ -230,7 +233,7 @@ Deliver a named key event to the active key handler and report whether it was co
 
 ### `mesh-compare`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Compare.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Compare.java)
 
 Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics.
 
@@ -245,7 +248,7 @@ Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamf
 
 ### `mesh-dsl`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/LoadDSL.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/LoadDSL.java)
 
 Load and execute a named DSL skill graph, making its output geometry the active mesh.
 
@@ -257,9 +260,22 @@ Load and execute a named DSL skill graph, making its output geometry the active 
 - **Response:** `{ok, dsl, node, port, vertices, faces, timing...}; while another graph runs, {ok: false, running, error}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/dsl -d '{"name": "skeleton-decompose", "node": "output", "port": "geometry"}'`
 
+### `mesh-dsl-graph`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/Graph.java)
+
+Report the DSL graph view of the active model scene: every node's box, depth and run time, every edge, the critical path, the zoom and the scroll bars.
+
+- **Route:** `POST /mesh/dsl/graph`
+- **Flags:**
+  - `--text-px` (float, default `0`) — First zoom about the slowest node so its text is this many pixels tall; 0 leaves the zoom., e.g. `8`
+  - `--toggle-group` (string, default ``) — First expand this group call's box, or collapse the expanded group it is or sits in, as E does under the cursor., e.g. `layout`
+- **Response:** `{ok, shown, active_tool, hotspots, hotspot, hotspot_rank, node_count, edge_count, total_ms, critical_path_ms, critical_path, slowest, text_px, scale_factor, scroll:{horizontal, vertical:{content_px, visible_px, offset_px, thumb_start_px, thumb_length_px, track_px}}, home_frame, scroll_range, view_rect, whole_graph_visible, nodes:[{id, type, ms, peak_heap_mib, expandable, depth, order, box, screen}], expanded_groups:[{path, type, ms, screen}], edges:[{from, from_port, to, to_port, critical}]}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/dsl/graph -d '{"text_px": 8, "toggle_group": "layout"}'`
+
 ### `mesh-dsl-timing`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Timing.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/Timing.java)
 
 Report per-node execution times and peak heap of the graph the active model scene ran last, nodes inside groups included.
 
@@ -269,7 +285,7 @@ Report per-node execution times and peak heap of the graph the active model scen
 
 ### `mesh-dsl-validate`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Validate.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/Validate.java)
 
 Validate DSL source text, or the contents of a .dsl file path, against the skill schema.
 
@@ -282,7 +298,7 @@ Validate DSL source text, or the contents of a .dsl file path, against the skill
 
 ### `mesh-export`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Export.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Export.java)
 
 Write the active viewer mesh, with normals and per-corner UVs, to a glTF binary or ASCII PLY file.
 
@@ -295,7 +311,7 @@ Write the active viewer mesh, with normals and per-corner UVs, to a glTF binary 
 
 ### `mesh-fingerprint`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Fingerprint.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Fingerprint.java)
 
 Compute the canonical SHA-256 fingerprint of the active viewer mesh.
 
@@ -305,7 +321,7 @@ Compute the canonical SHA-256 fingerprint of the active viewer mesh.
 
 ### `mesh-holes`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Holes.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Holes.java)
 
 List every boundary loop of the mesh with its edge count, perimeter and area estimate, plus the loops repair_mesh filled and the triangles it used.
 
@@ -317,7 +333,7 @@ List every boundary loop of the mesh with its edge count, perimeter and area est
 
 ### `mesh-patches-decompose`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/patches/Decompose.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/patches/Decompose.java)
 
 Hybrid skeleton and curvature patch decomposition of a reference mesh.
 
@@ -330,7 +346,7 @@ Hybrid skeleton and curvature patch decomposition of a reference mesh.
 
 ### `mesh-seamless-diagnosis`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/SeamlessDiagnosis.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/SeamlessDiagnosis.java)
 
 Report the seamless solver's singular-system diagnosis: how the singularity was classified, the null vector's support and the mesh vertices it sits on.
 
@@ -342,7 +358,7 @@ Report the seamless solver's singular-system diagnosis: how the singularity was 
 
 ### `mesh-segmentation`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Segmentation.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Segmentation.java)
 
 Segment a mesh into labeled vertex groups by connected components, curvature, or spatial clustering.
 
@@ -356,7 +372,7 @@ Segment a mesh into labeled vertex groups by connected components, curvature, or
 
 ### `mesh-skeleton-compare`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/skeleton/Compare.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/skeleton/Compare.java)
 
 Compare TEASAR skeletons of two meshes and recommend parameter fixes.
 
@@ -370,7 +386,7 @@ Compare TEASAR skeletons of two meshes and recommend parameter fixes.
 
 ### `mesh-skeleton-compare-detailed`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/skeleton/CompareDetailed.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/skeleton/CompareDetailed.java)
 
 Detailed skeleton comparison returning per-joint 3D position deltas.
 
@@ -384,7 +400,7 @@ Detailed skeleton comparison returning per-joint 3D position deltas.
 
 ### `mesh-skeleton-sensitivity`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/skeleton/Sensitivity.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/skeleton/Sensitivity.java)
 
 Compute the Jacobian of skeleton joints w.r.t. DSL parameters.
 
@@ -399,7 +415,7 @@ Compute the Jacobian of skeleton joints w.r.t. DSL parameters.
 
 ### `mesh-topology`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Topology.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Topology.java)
 
 Report mesh topology: element counts, shells with their Euler characteristic, boundary loops, non-manifold edges and duplicate-position vertices.
 
@@ -412,7 +428,7 @@ Report mesh topology: element counts, shells with their Euler characteristic, bo
 
 ### `model`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/scene/SwitchModel.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/scene/SwitchModel.java)
 
 Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.
 
@@ -425,7 +441,7 @@ Switch the active model scene to a named model and recompute, as the terminal co
 
 ### `multiview`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/MultiviewScreenshot.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/MultiviewScreenshot.java)
 
 Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by default), and composite them into a 4x2 grid PNG.
 
@@ -445,7 +461,7 @@ Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by defaul
 
 ### `node-inspect`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/NodeInspect.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/NodeInspect.java)
 
 Inspect the graph the active model scene ran: the node tree with times and peak heap, one node's inputs, outputs and fields, or a field path below it, with depth and length limits.
 
@@ -460,7 +476,7 @@ Inspect the graph the active model scene ran: the node tree with times and peak 
 
 ### `orbit-get`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/OrbitGet.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/OrbitGet.java)
 
 Report the active mesh viewer's current camera orbit and mesh radius.
 
@@ -470,7 +486,7 @@ Report the active mesh viewer's current camera orbit and mesh radius.
 
 ### `orbit-set`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/OrbitSet.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/OrbitSet.java)
 
 Set the active mesh viewer's camera orbit (azimuth, elevation, distance).
 
@@ -485,7 +501,7 @@ Set the active mesh viewer's camera orbit (azimuth, elevation, distance).
 
 ### `pick`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Pick.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Pick.java)
 
 Name the surface under a screenshot pixel: point, face, nearest vertex, normal and ring region, touching no tool and no hover.
 
@@ -498,7 +514,7 @@ Name the surface under a screenshot pixel: point, face, nearest vertex, normal a
 
 ### `project`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Project.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Project.java)
 
 Place a surface point in the screenshot: the pixel it lands on and whether the surface in front of it hides it, touching no tool.
 
@@ -510,7 +526,7 @@ Place a surface point in the screenshot: the pixel it lands on and whether the s
 
 ### `projection-get`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/ProjectionGet.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/ProjectionGet.java)
 
 Report whether the active mesh viewer is using orthographic projection.
 
@@ -520,7 +536,7 @@ Report whether the active mesh viewer is using orthographic projection.
 
 ### `projection-set`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/ProjectionSet.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/ProjectionSet.java)
 
 Toggle the active mesh viewer between orthographic and perspective projection.
 
@@ -532,7 +548,7 @@ Toggle the active mesh viewer between orthographic and perspective projection.
 
 ### `record-start`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/record/Start.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/record/Start.java)
 
 Begin a new recording session, clearing any previously buffered events.
 
@@ -542,7 +558,7 @@ Begin a new recording session, clearing any previously buffered events.
 
 ### `record-status`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/record/Status.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/record/Status.java)
 
 Snapshot of the recorder: recording flag, event counts, start time, saved file.
 
@@ -552,7 +568,7 @@ Snapshot of the recorder: recording flag, event counts, start time, saved file.
 
 ### `record-stop`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/record/Stop.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/record/Stop.java)
 
 End the active recording session and write the captured events to disk.
 
@@ -564,7 +580,7 @@ End the active recording session and write the captured events to disk.
 
 ### `regions`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Regions.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Regions.java)
 
 Report the ring regions the editing scene's region-select tool shows: each region's faces, area and bounding rings, the problem rings, and the selection.
 
@@ -574,7 +590,7 @@ Report the ring regions the editing scene's region-select tool shows: each regio
 
 ### `replay-cancel`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Cancel.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/replay/Cancel.java)
 
 Signal the active replay to abort at the next event boundary; no-op if idle.
 
@@ -584,7 +600,7 @@ Signal the active replay to abort at the next event boundary; no-op if idle.
 
 ### `replay-pause`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Pause.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/replay/Pause.java)
 
 Suspend the replay engine before the next event; no-op when nothing is running.
 
@@ -594,7 +610,7 @@ Suspend the replay engine before the next event; no-op when nothing is running.
 
 ### `replay-resume`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Resume.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/replay/Resume.java)
 
 Clear the paused flag on the replay engine; no-op when nothing is running.
 
@@ -604,7 +620,7 @@ Clear the paused flag on the replay engine; no-op when nothing is running.
 
 ### `replay-start`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Start.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/replay/Start.java)
 
 Launch a replay from a previously saved recording file.
 
@@ -617,7 +633,7 @@ Launch a replay from a previously saved recording file.
 
 ### `replay-status`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Status.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/replay/Status.java)
 
 Snapshot of the replay engine: running flag, status, current file, paused flag.
 
@@ -627,7 +643,7 @@ Snapshot of the replay engine: running flag, status, current file, paused flag.
 
 ### `rings add`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/rings/Add.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Add.java)
 
 Ring the shown surface through authored points and report the ring row: centroid, length and marked edge count.
 
@@ -638,9 +654,22 @@ Ring the shown surface through authored points and report the ring row: centroid
 - **Response:** `{ok, waypointCount, points, edgeCount, length, seedLength, centroid:[x,y,z], fingerprint}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/rings/add -d '{"points": "1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65", "tighten": false}'`
 
+### `rings bisect`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Bisect.java)
+
+Draw a bisector in the ring scene as K and clicks do: its two ends snap onto the nearest ring or bisector, the points between steer it, and the open geodesic spline through them splits every region it crosses.
+
+- **Route:** `POST /mesh/rings/bisect`
+- **Flags:**
+  - `--points` (string, required) — Points as "x,y,z; ...": the first and last are the ends, on or beside walls; any between are steering anchors, in any order., e.g. `0.04,-0.01,-0.03; 0.05,-0.12,-0.16`
+  - `--confirm` (bool, default `false`) — Confirm the bisector as Enter does., e.g. `true`
+- **Response:** `{ok, anchors, simple, firstWall, lastWall, edges, length, fingerprint, confirmed, error, lastRow}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/rings/bisect -d '{"points": "0.04,-0.01,-0.03; 0.05,-0.12,-0.16", "confirm": true}'`
+
 ### `rings-list`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/rings/ListRings.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/ListRings.java)
 
 Rank the neck rings a mesh's skeleton proposes, most neck-like first.
 
@@ -654,7 +683,7 @@ Rank the neck rings a mesh's skeleton proposes, most neck-like first.
 
 ### `screenshot`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/Screenshot.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/Screenshot.java)
 
 Capture a PNG screenshot of the current framebuffer to a file.
 
@@ -669,19 +698,20 @@ Capture a PNG screenshot of the current framebuffer to a file.
 
 ### `scroll`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectScroll.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectScroll.java)
 
-Deliver a synthesized scroll event to the active mouse handler.
+Deliver a synthesized two-axis scroll event to the active mouse handler.
 
 - **Route:** `POST /input/scroll`
 - **Flags:**
   - `--delta` (float, default `0`) — Vertical scroll delta passed to the scroll callback., e.g. `-1.5`
+  - `--deltaX` (float, default `0`) — Horizontal scroll delta, positive toward the left as GLFW reports it., e.g. `0.5`
 - **Response:** `{ok}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/scroll -d '{"delta": -1.5}'`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/scroll -d '{"delta": -1.5, "deltaX": 0.5}'`
 
 ### `type`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectStringTyping.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectStringTyping.java)
 
 Synthesize character events on the active key handler, one per character of the text.
 
@@ -693,7 +723,7 @@ Synthesize character events on the active key handler, one per character of the 
 
 ### `ui-state`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/State.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/State.java)
 
 Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.
 
@@ -778,7 +808,7 @@ Merge JaCoCo exec files and report the code they never executed.
 
 ### `dsl-optimize`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/dsl_optimizer.py#L216)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/dsl_optimizer.py#L215)
 
 Batch-optimize mesh DSL parameters against a reference OBJ.
 
@@ -958,7 +988,7 @@ Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB over
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L735)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L742)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 

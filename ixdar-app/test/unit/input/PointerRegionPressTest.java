@@ -20,7 +20,7 @@ import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
-import ixdar.platform.gl.Platform;
+import ixdar.platform.Platform;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.PointerRegion;

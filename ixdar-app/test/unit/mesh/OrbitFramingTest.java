@@ -14,8 +14,8 @@ import com.google.gson.JsonObject;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.graphics.cameras.Camera3D;
-import ixdar.platform.automation.endpoints.ui.Frame;
-import ixdar.platform.automation.endpoints.ui.SelectionBounds;
+import ixdar.automation.endpoints.ui.Frame;
+import ixdar.automation.endpoints.ui.SelectionBounds;
 import ixdar.platform.input.OrbitMouseTrap;
 
 /**

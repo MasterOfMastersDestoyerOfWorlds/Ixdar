@@ -1,13 +1,13 @@
 {
-  "generatedFrom": "ixdar-app/src/main/java/ixdar/platform/automation/documentation/AutomationRouteCatalog.java",
+  "generatedFrom": "ixdar-app/src/main/java/ixdar/automation/documentation/AutomationRouteCatalog.java",
   "routes": [
     {
       "commandName": "click",
       "path": "/input/click",
       "method": "POST",
       "description": "Click at a point on the active mouse handler, then wait for the click to be drawn.",
-      "sourceClass": "ixdar.platform.automation.endpoints.input.InjectClick",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectClick.java",
+      "sourceClass": "ixdar.automation.endpoints.input.InjectClick",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectClick.java",
       "params": [
         {
           "name": "x",
@@ -71,8 +71,8 @@
       "path": "/mesh/connection",
       "method": "POST",
       "description": "Show how two surface points are joined in the editing scene\u0027s connection tool: the path and its narrowest cross-section, the neck, optionally confirmed as a ring opened in the ring tool.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Connection",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Connection.java",
+      "sourceClass": "ixdar.automation.endpoints.ring.Connection",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Connection.java",
       "params": [
         {
           "name": "from",
@@ -118,8 +118,8 @@
       "path": "/input/drag",
       "method": "POST",
       "description": "Drag with the left button from one window point to another, a frame drawn after every step.",
-      "sourceClass": "ixdar.platform.automation.endpoints.input.InjectDrag",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectDrag.java",
+      "sourceClass": "ixdar.automation.endpoints.input.InjectDrag",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectDrag.java",
       "params": [
         {
           "name": "fromX",
@@ -192,8 +192,8 @@
       "path": "/ui/frame",
       "method": "POST",
       "description": "Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it.",
-      "sourceClass": "ixdar.platform.automation.endpoints.ui.Frame",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/Frame.java",
+      "sourceClass": "ixdar.automation.endpoints.ui.Frame",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/Frame.java",
       "params": [
         {
           "name": "selection",
@@ -284,8 +284,8 @@
       "path": "/health",
       "method": "GET",
       "description": "Liveness probe reporting server status, recording/replaying flags, and port.",
-      "sourceClass": "ixdar.platform.automation.endpoints.Health",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/Health.java",
+      "sourceClass": "ixdar.automation.endpoints.Health",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/Health.java",
       "params": [],
       "responseHint": "{status, timestamp, recording, replaying, sceneReady, port}"
     },
@@ -294,8 +294,8 @@
       "path": "/input/hover",
       "method": "POST",
       "description": "Move the cursor without clicking, then wait for the hover to be drawn.",
-      "sourceClass": "ixdar.platform.automation.endpoints.input.InjectHover",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectHover.java",
+      "sourceClass": "ixdar.automation.endpoints.input.InjectHover",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectHover.java",
       "params": [
         {
           "name": "x",
@@ -350,8 +350,8 @@
       "path": "/input/hover/clear",
       "method": "POST",
       "description": "Release the persistent automation hover lock on the active trade mouse handler.",
-      "sourceClass": "ixdar.platform.automation.endpoints.input.HoverClear",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/HoverClear.java",
+      "sourceClass": "ixdar.automation.endpoints.input.HoverClear",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/input/HoverClear.java",
       "params": [],
       "responseHint": "{ok}"
     },
@@ -360,8 +360,8 @@
       "path": "/input/key",
       "method": "POST",
       "description": "Deliver a named key event to the active key handler and report whether it was consumed.",
-      "sourceClass": "ixdar.platform.automation.endpoints.input.InjectKey",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectKey.java",
+      "sourceClass": "ixdar.automation.endpoints.input.InjectKey",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectKey.java",
       "params": [
         {
           "name": "key",
@@ -398,8 +398,8 @@
       "path": "/mesh/compare",
       "method": "POST",
       "description": "Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Compare",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Compare.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.Compare",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Compare.java",
       "params": [
         {
           "name": "reference",
@@ -445,8 +445,8 @@
       "path": "/mesh/dsl",
       "method": "POST",
       "description": "Load and execute a named DSL skill graph, making its output geometry the active mesh.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.LoadDSL",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/LoadDSL.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.dsl.LoadDSL",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/LoadDSL.java",
       "params": [
         {
           "name": "name",
@@ -484,8 +484,8 @@
       "path": "/mesh/dsl/graph",
       "method": "POST",
       "description": "Report the DSL graph view of the active model scene: every node\u0027s box, depth and run time, every edge, the critical path, the zoom and the scroll bars.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.Graph",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Graph.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.dsl.Graph",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/Graph.java",
       "params": [
         {
           "name": "text_px",
@@ -513,8 +513,8 @@
       "path": "/mesh/dsl/timing",
       "method": "GET",
       "description": "Report per-node execution times and peak heap of the graph the active model scene ran last, nodes inside groups included.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.Timing",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Timing.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.dsl.Timing",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/Timing.java",
       "params": [],
       "responseHint": "{ok, total_ms, peak_heap_mib, nodes:[{node, type, ms, peak_heap_mib}, ...]}"
     },
@@ -523,8 +523,8 @@
       "path": "/mesh/dsl/validate",
       "method": "POST",
       "description": "Validate DSL source text, or the contents of a .dsl file path, against the skill schema.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.Validate",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Validate.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.dsl.Validate",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/Validate.java",
       "params": [
         {
           "name": "dsl",
@@ -552,8 +552,8 @@
       "path": "/mesh/export",
       "method": "POST",
       "description": "Write the active viewer mesh, with normals and per-corner UVs, to a glTF binary or ASCII PLY file.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Export",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Export.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.Export",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Export.java",
       "params": [
         {
           "name": "path",
@@ -581,8 +581,8 @@
       "path": "/mesh/fingerprint",
       "method": "GET",
       "description": "Compute the canonical SHA-256 fingerprint of the active viewer mesh.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Fingerprint",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Fingerprint.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.Fingerprint",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Fingerprint.java",
       "params": [],
       "responseHint": "{algorithm, ok, sha256, vertexCount, faceCount, triangleCount}"
     },
@@ -591,8 +591,8 @@
       "path": "/mesh/holes",
       "method": "POST",
       "description": "List every boundary loop of the mesh with its edge count, perimeter and area estimate, plus the loops repair_mesh filled and the triangles it used.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Holes",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Holes.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.Holes",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Holes.java",
       "params": [
         {
           "name": "path",
@@ -611,8 +611,8 @@
       "path": "/mesh/overlay",
       "method": "POST",
       "description": "Load an OBJ overlay onto the active viewer mesh, or clear the current overlay.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Overlay",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Overlay.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.Overlay",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Overlay.java",
       "params": [
         {
           "name": "path",
@@ -640,8 +640,8 @@
       "path": "/mesh/patches/decompose",
       "method": "POST",
       "description": "Hybrid skeleton and curvature patch decomposition of a reference mesh.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.patches.Decompose",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/patches/Decompose.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.patches.Decompose",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/patches/Decompose.java",
       "params": [
         {
           "name": "path",
@@ -669,8 +669,8 @@
       "path": "/mesh/seamless/diagnosis",
       "method": "POST",
       "description": "Report the seamless solver\u0027s singular-system diagnosis: how the singularity was classified, the null vector\u0027s support and the mesh vertices it sits on.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.SeamlessDiagnosis",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/SeamlessDiagnosis.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.SeamlessDiagnosis",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/SeamlessDiagnosis.java",
       "params": [
         {
           "name": "highlight",
@@ -689,8 +689,8 @@
       "path": "/mesh/segmentation",
       "method": "POST",
       "description": "Segment a mesh into labeled vertex groups by connected components, curvature, or spatial clustering.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Segmentation",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Segmentation.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.Segmentation",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Segmentation.java",
       "params": [
         {
           "name": "path",
@@ -727,8 +727,8 @@
       "path": "/mesh/skeleton/compare",
       "method": "POST",
       "description": "Compare TEASAR skeletons of two meshes and recommend parameter fixes.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.skeleton.Compare",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/skeleton/Compare.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.skeleton.Compare",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/skeleton/Compare.java",
       "params": [
         {
           "name": "generated",
@@ -765,8 +765,8 @@
       "path": "/mesh/skeleton/compare-detailed",
       "method": "POST",
       "description": "Detailed skeleton comparison returning per-joint 3D position deltas.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.skeleton.CompareDetailed",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/skeleton/CompareDetailed.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.skeleton.CompareDetailed",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/skeleton/CompareDetailed.java",
       "params": [
         {
           "name": "generated",
@@ -803,8 +803,8 @@
       "path": "/mesh/skeleton/sensitivity",
       "method": "POST",
       "description": "Compute the Jacobian of skeleton joints w.r.t. DSL parameters.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.skeleton.Sensitivity",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/skeleton/Sensitivity.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.skeleton.Sensitivity",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/skeleton/Sensitivity.java",
       "params": [
         {
           "name": "dsl",
@@ -850,8 +850,8 @@
       "path": "/mesh/topology",
       "method": "POST",
       "description": "Report mesh topology: element counts, shells with their Euler characteristic, boundary loops, non-manifold edges and duplicate-position vertices.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Topology",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Topology.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.Topology",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Topology.java",
       "params": [
         {
           "name": "path",
@@ -879,8 +879,8 @@
       "path": "/scene/model",
       "method": "POST",
       "description": "Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.",
-      "sourceClass": "ixdar.platform.automation.endpoints.scene.SwitchModel",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/scene/SwitchModel.java",
+      "sourceClass": "ixdar.automation.endpoints.scene.SwitchModel",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/scene/SwitchModel.java",
       "params": [
         {
           "name": "name",
@@ -910,8 +910,8 @@
       "path": "/ui/multiview",
       "method": "POST",
       "description": "Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by default), and composite them into a 4x2 grid PNG.",
-      "sourceClass": "ixdar.platform.automation.endpoints.ui.MultiviewScreenshot",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/MultiviewScreenshot.java",
+      "sourceClass": "ixdar.automation.endpoints.ui.MultiviewScreenshot",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/MultiviewScreenshot.java",
       "params": [
         {
           "name": "path",
@@ -1002,8 +1002,8 @@
       "path": "/mesh/dsl/inspect",
       "method": "POST",
       "description": "Inspect the graph the active model scene ran: the node tree with times and peak heap, one node\u0027s inputs, outputs and fields, or a field path below it, with depth and length limits.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.dsl.NodeInspect",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/NodeInspect.java",
+      "sourceClass": "ixdar.automation.endpoints.mesh.dsl.NodeInspect",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/NodeInspect.java",
       "params": [
         {
           "name": "path",
@@ -1051,8 +1051,8 @@
       "path": "/ui/orbit",
       "method": "GET",
       "description": "Report the active mesh viewer\u0027s current camera orbit and mesh radius.",
-      "sourceClass": "ixdar.platform.automation.endpoints.ui.OrbitGet",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/OrbitGet.java",
+      "sourceClass": "ixdar.automation.endpoints.ui.OrbitGet",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/OrbitGet.java",
       "params": [],
       "responseHint": "{ok, azimuth, elevation, distance, target, mesh_radius?}"
     },
@@ -1061,8 +1061,8 @@
       "path": "/ui/orbit",
       "method": "POST",
       "description": "Set the active mesh viewer\u0027s camera orbit (azimuth, elevation, distance).",
-      "sourceClass": "ixdar.platform.automation.endpoints.ui.OrbitSet",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/OrbitSet.java",
+      "sourceClass": "ixdar.automation.endpoints.ui.OrbitSet",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/OrbitSet.java",
       "params": [
         {
           "name": "azimuth",
@@ -1108,8 +1108,8 @@
       "path": "/mesh/pick",
       "method": "POST",
       "description": "Name the surface under a screenshot pixel: point, face, nearest vertex, normal and ring region, touching no tool and no hover.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Pick",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Pick.java",
+      "sourceClass": "ixdar.automation.endpoints.ring.Pick",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Pick.java",
       "params": [
         {
           "name": "x",
@@ -1137,8 +1137,8 @@
       "path": "/mesh/project",
       "method": "POST",
       "description": "Place a surface point in the screenshot: the pixel it lands on and whether the surface in front of it hides it, touching no tool.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Project",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Project.java",
+      "sourceClass": "ixdar.automation.endpoints.ring.Project",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Project.java",
       "params": [
         {
           "name": "point",
@@ -1157,8 +1157,8 @@
       "path": "/ui/projection",
       "method": "GET",
       "description": "Report whether the active mesh viewer is using orthographic projection.",
-      "sourceClass": "ixdar.platform.automation.endpoints.ui.ProjectionGet",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/ProjectionGet.java",
+      "sourceClass": "ixdar.automation.endpoints.ui.ProjectionGet",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/ProjectionGet.java",
       "params": [],
       "responseHint": "{ok, orthographic}"
     },
@@ -1167,8 +1167,8 @@
       "path": "/ui/projection",
       "method": "POST",
       "description": "Toggle the active mesh viewer between orthographic and perspective projection.",
-      "sourceClass": "ixdar.platform.automation.endpoints.ui.ProjectionSet",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/ProjectionSet.java",
+      "sourceClass": "ixdar.automation.endpoints.ui.ProjectionSet",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/ProjectionSet.java",
       "params": [
         {
           "name": "orthographic",
@@ -1187,8 +1187,8 @@
       "path": "/record/start",
       "method": "POST",
       "description": "Begin a new recording session, clearing any previously buffered events.",
-      "sourceClass": "ixdar.platform.automation.endpoints.record.Start",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/record/Start.java",
+      "sourceClass": "ixdar.automation.endpoints.record.Start",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/record/Start.java",
       "params": [],
       "responseHint": "{recording, rawEventCount, abstractActionCount, startedAtIso, lastSavedFile, ok}"
     },
@@ -1197,8 +1197,8 @@
       "path": "/record/status",
       "method": "GET",
       "description": "Snapshot of the recorder: recording flag, event counts, start time, saved file.",
-      "sourceClass": "ixdar.platform.automation.endpoints.record.Status",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/record/Status.java",
+      "sourceClass": "ixdar.automation.endpoints.record.Status",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/record/Status.java",
       "params": [],
       "responseHint": "{recording, rawEventCount, abstractActionCount, startedAtIso, lastSavedFile}"
     },
@@ -1207,8 +1207,8 @@
       "path": "/record/stop",
       "method": "POST",
       "description": "End the active recording session and write the captured events to disk.",
-      "sourceClass": "ixdar.platform.automation.endpoints.record.Stop",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/record/Stop.java",
+      "sourceClass": "ixdar.automation.endpoints.record.Stop",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/record/Stop.java",
       "params": [
         {
           "name": "path",
@@ -1227,8 +1227,8 @@
       "path": "/mesh/regions",
       "method": "GET",
       "description": "Report the ring regions the editing scene\u0027s region-select tool shows: each region\u0027s faces, area and bounding rings, the problem rings, and the selection.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.Regions",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Regions.java",
+      "sourceClass": "ixdar.automation.endpoints.ring.Regions",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Regions.java",
       "params": [],
       "responseHint": "{ok, activeTool, regionCount, regions:[{region, faces, area, boundedBy, sliver, colour, neighbours, selected, hidden}], problems, ringsSplittingNothing, visible, hiddenFaces, hiddenRings, absorbSlivers, summary, ringCount, selectedCount, select, lastRow, error}"
     },
@@ -1237,8 +1237,8 @@
       "path": "/replay/cancel",
       "method": "POST",
       "description": "Signal the active replay to abort at the next event boundary; no-op if idle.",
-      "sourceClass": "ixdar.platform.automation.endpoints.replay.Cancel",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Cancel.java",
+      "sourceClass": "ixdar.automation.endpoints.replay.Cancel",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/replay/Cancel.java",
       "params": [],
       "responseHint": "{ok}"
     },
@@ -1247,8 +1247,8 @@
       "path": "/replay/pause",
       "method": "POST",
       "description": "Suspend the replay engine before the next event; no-op when nothing is running.",
-      "sourceClass": "ixdar.platform.automation.endpoints.replay.Pause",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Pause.java",
+      "sourceClass": "ixdar.automation.endpoints.replay.Pause",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/replay/Pause.java",
       "params": [],
       "responseHint": "{ok, paused}"
     },
@@ -1257,8 +1257,8 @@
       "path": "/replay/resume",
       "method": "POST",
       "description": "Clear the paused flag on the replay engine; no-op when nothing is running.",
-      "sourceClass": "ixdar.platform.automation.endpoints.replay.Resume",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Resume.java",
+      "sourceClass": "ixdar.automation.endpoints.replay.Resume",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/replay/Resume.java",
       "params": [],
       "responseHint": "{ok, paused}"
     },
@@ -1267,8 +1267,8 @@
       "path": "/replay/start",
       "method": "POST",
       "description": "Launch a replay from a previously saved recording file.",
-      "sourceClass": "ixdar.platform.automation.endpoints.replay.Start",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Start.java",
+      "sourceClass": "ixdar.automation.endpoints.replay.Start",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/replay/Start.java",
       "params": [
         {
           "name": "file",
@@ -1296,8 +1296,8 @@
       "path": "/replay/status",
       "method": "GET",
       "description": "Snapshot of the replay engine: running flag, status, current file, paused flag.",
-      "sourceClass": "ixdar.platform.automation.endpoints.replay.Status",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/replay/Status.java",
+      "sourceClass": "ixdar.automation.endpoints.replay.Status",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/replay/Status.java",
       "params": [],
       "responseHint": "{replaying, status, file, paused}"
     },
@@ -1306,8 +1306,8 @@
       "path": "/mesh/rings/add",
       "method": "POST",
       "description": "Ring the shown surface through authored points and report the ring row: centroid, length and marked edge count.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.rings.Add",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/rings/Add.java",
+      "sourceClass": "ixdar.automation.endpoints.ring.Add",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Add.java",
       "params": [
         {
           "name": "points",
@@ -1335,8 +1335,8 @@
       "path": "/mesh/rings/bisect",
       "method": "POST",
       "description": "Draw a bisector in the ring scene as K and clicks do: its two ends snap onto the nearest ring or bisector, the points between steer it, and the open geodesic spline through them splits every region it crosses.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.rings.Bisect",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/rings/Bisect.java",
+      "sourceClass": "ixdar.automation.endpoints.ring.Bisect",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Bisect.java",
       "params": [
         {
           "name": "points",
@@ -1364,8 +1364,8 @@
       "path": "/mesh/rings/list",
       "method": "POST",
       "description": "Rank the neck rings a mesh\u0027s skeleton proposes, most neck-like first.",
-      "sourceClass": "ixdar.platform.automation.endpoints.mesh.rings.ListRings",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/rings/ListRings.java",
+      "sourceClass": "ixdar.automation.endpoints.ring.ListRings",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/ListRings.java",
       "params": [
         {
           "name": "path",
@@ -1402,8 +1402,8 @@
       "path": "/ui/screenshot",
       "method": "POST",
       "description": "Capture a PNG screenshot of the current framebuffer to a file.",
-      "sourceClass": "ixdar.platform.automation.endpoints.ui.Screenshot",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/Screenshot.java",
+      "sourceClass": "ixdar.automation.endpoints.ui.Screenshot",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/Screenshot.java",
       "params": [
         {
           "name": "path",
@@ -1449,8 +1449,8 @@
       "path": "/input/scroll",
       "method": "POST",
       "description": "Deliver a synthesized two-axis scroll event to the active mouse handler.",
-      "sourceClass": "ixdar.platform.automation.endpoints.input.InjectScroll",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectScroll.java",
+      "sourceClass": "ixdar.automation.endpoints.input.InjectScroll",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectScroll.java",
       "params": [
         {
           "name": "delta",
@@ -1478,8 +1478,8 @@
       "path": "/shutdown",
       "method": "POST",
       "description": "Acknowledge, then asynchronously close the canvas and exit the process.",
-      "sourceClass": "ixdar.platform.automation.endpoints.Shutdown",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/Shutdown.java",
+      "sourceClass": "ixdar.automation.endpoints.Shutdown",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/Shutdown.java",
       "params": [],
       "responseHint": "{ok, accepted}"
     },
@@ -1488,8 +1488,8 @@
       "path": "/input/terminal",
       "method": "POST",
       "description": "Run one line in the scene terminal and return the history lines it produced.",
-      "sourceClass": "ixdar.platform.automation.endpoints.input.RunTerminalLine",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/RunTerminalLine.java",
+      "sourceClass": "ixdar.automation.endpoints.input.RunTerminalLine",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/input/RunTerminalLine.java",
       "params": [
         {
           "name": "line",
@@ -1517,8 +1517,8 @@
       "path": "/input/type",
       "method": "POST",
       "description": "Synthesize character events on the active key handler, one per character of the text.",
-      "sourceClass": "ixdar.platform.automation.endpoints.input.InjectStringTyping",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/InjectStringTyping.java",
+      "sourceClass": "ixdar.automation.endpoints.input.InjectStringTyping",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectStringTyping.java",
       "params": [
         {
           "name": "text",
@@ -1537,8 +1537,8 @@
       "path": "/ui/state",
       "method": "GET",
       "description": "Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.",
-      "sourceClass": "ixdar.platform.automation.endpoints.ui.State",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/platform/automation/endpoints/ui/State.java",
+      "sourceClass": "ixdar.automation.endpoints.ui.State",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/State.java",
       "params": [],
       "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ring?, collection?, textElements, menuItems, controls, audio}"
     }

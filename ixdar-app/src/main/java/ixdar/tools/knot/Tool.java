@@ -7,10 +7,10 @@ import org.apache.commons.math3.util.Pair;
 import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
 import ixdar.graphics.cameras.Camera2D;
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
-import ixdar.platform.Toggle;
+import ixdar.scenes.main.Toggle;
 import ixdar.scenes.main.MainScene;
 
 public abstract class Tool {

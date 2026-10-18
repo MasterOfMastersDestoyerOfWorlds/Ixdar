@@ -8,7 +8,7 @@ import ixdar.annotations.command.TerminalOption;
 import ixdar.geometry.point.PointCollection;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
-import ixdar.platform.Toggle;
+import ixdar.scenes.main.Toggle;
 import ixdar.tools.knot.Tool;
 import ixdar.platform.input.KeyActions;
 

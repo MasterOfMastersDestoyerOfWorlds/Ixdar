@@ -54,16 +54,15 @@ import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.AssimpModelRuntime;
 import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
+import ixdar.platform.AutomationBackend;
+import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
-import ixdar.platform.automation.AutomationBackend;
-import ixdar.platform.automation.endpoints.AutomationRuntime;
 import ixdar.platform.concurrent.ThreadWorkerPool;
 import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.IxBuffer;
-import ixdar.platform.gl.Platform;
 
 public class LwjglPlatform implements Platform {
     public static final String SRC = "src/";
@@ -72,6 +71,8 @@ public class LwjglPlatform implements Platform {
 
     public static final double NANOS_PER_SECOND = 1e9;
     private static final ConcurrentLinkedQueue<Runnable> INPUT_QUEUE = new ConcurrentLinkedQueue<>();
+
+    public final AutomationBackend automation;
 
     private final long window;
     private final DesktopCholeskyBackend choleskyBackend = new DesktopCholeskyBackend();
@@ -83,10 +84,12 @@ public class LwjglPlatform implements Platform {
     /**
      * Construct a LwjglPlatform.
      *
-     * @param window constructor argument
+     * @param window     the GLFW window handle
+     * @param automation the automation server the launcher supplies, or {@code null} for none
      */
-    public LwjglPlatform(long window) {
+    public LwjglPlatform(long window, AutomationBackend automation) {
         this.window = window;
+        this.automation = automation;
     }
 
     /** {@inheritDoc}. */
@@ -300,7 +303,7 @@ public class LwjglPlatform implements Platform {
     /** {@inheritDoc}. */
     @Override
     public AutomationBackend automation() {
-        return AutomationRuntime.get();
+        return automation;
     }
 
     /** {@inheritDoc}. */

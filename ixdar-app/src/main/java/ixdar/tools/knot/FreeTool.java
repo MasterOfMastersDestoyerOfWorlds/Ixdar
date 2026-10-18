@@ -9,7 +9,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.ColorText;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.text.HyperString;
-import ixdar.platform.Toggle;
+import ixdar.scenes.main.Toggle;
 import ixdar.scenes.main.MainScene;
 
 public class FreeTool extends Tool {

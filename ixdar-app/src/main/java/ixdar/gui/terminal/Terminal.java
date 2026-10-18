@@ -10,7 +10,7 @@ import ixdar.annotations.command.TerminalOption;
 import ixdar.annotations.geometry.Geometry;
 import ixdar.geometry.point.GeometryMap;
 
-import ixdar.common.utils.Compat;
+import ixdar.platform.Compat;
 import ixdar.geometry.point.PointCollection;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;

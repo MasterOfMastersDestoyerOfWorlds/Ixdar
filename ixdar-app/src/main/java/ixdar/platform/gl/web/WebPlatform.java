@@ -27,13 +27,13 @@ import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.ModelRuntime;
 import ixdar.graphics.render.text.FontAtlasDTO;
 import ixdar.platform.Platforms;
-import ixdar.platform.automation.AutomationBackend;
+import ixdar.platform.AutomationBackend;
 import ixdar.platform.concurrent.InlineWorkerPool;
 import ixdar.platform.concurrent.WorkerPool;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.IxBuffer;
-import ixdar.platform.gl.Platform;
+import ixdar.platform.Platform;
 import ixdar.platform.input.Keys;
 import ixdar.platform.json.JsonValue;
 

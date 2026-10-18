@@ -5,7 +5,7 @@ import org.joml.Vector2f;
 
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.cameras.Camera2D;
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.SDFShader;
 import ixdar.graphics.render.shaders.ShaderProgram;

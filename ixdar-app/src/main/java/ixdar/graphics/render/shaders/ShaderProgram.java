@@ -27,7 +27,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GlslSource;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.IxBuffer;
-import ixdar.platform.gl.Platform;
+import ixdar.platform.Platform;
 import ixdar.scenes.main.MainScene;
 
 public abstract class ShaderProgram {

@@ -17,7 +17,7 @@ import ixdar.graphics.render.color.ColorRGB;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.text.HyperString;
-import ixdar.platform.Toggle;
+import ixdar.scenes.main.Toggle;
 import ixdar.scenes.main.MainScene;
 
 /**

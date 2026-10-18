@@ -3,7 +3,7 @@ package ixdar.graphics.render.color;
 import java.util.HashMap;
 import org.joml.Vector3f;
 
-import ixdar.common.utils.Compat;
+import ixdar.platform.Compat;
 import org.joml.Vector4f;
 
 public class ColorFixedLerp implements Color {

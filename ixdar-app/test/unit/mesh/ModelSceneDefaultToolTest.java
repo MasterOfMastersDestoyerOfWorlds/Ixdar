@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
-import ixdar.platform.gl.Platform;
+import ixdar.platform.Platform;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.model.ModelScene;
 import ixdar.scenes.ring.RingScene;

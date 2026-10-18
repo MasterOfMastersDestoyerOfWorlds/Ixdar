@@ -6,7 +6,7 @@ import org.joml.Vector3f;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.geometry.point.PointSet;
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
 

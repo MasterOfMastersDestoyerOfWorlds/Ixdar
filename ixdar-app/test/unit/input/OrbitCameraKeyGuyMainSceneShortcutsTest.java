@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.canvas.Canvas3D;
 import ixdar.gui.ui.menu.MenuBox;
-import ixdar.platform.Toggle;
+import ixdar.scenes.main.Toggle;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;

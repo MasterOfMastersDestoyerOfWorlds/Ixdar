@@ -6,7 +6,7 @@ import java.util.Random;
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
-import ixdar.platform.Toggle;
+import ixdar.scenes.main.Toggle;
 import ixdar.scenes.main.MainScene;
 
 @CommandAnnotation(id = "clr")

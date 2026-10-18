@@ -17,7 +17,7 @@ import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.text.HyperWord;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
-import ixdar.platform.gl.Platform;
+import ixdar.platform.Platform;
 import unit.GlStandIn;
 
 /**

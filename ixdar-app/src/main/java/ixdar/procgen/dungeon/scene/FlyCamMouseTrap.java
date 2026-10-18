@@ -15,7 +15,7 @@ import ixdar.platform.input.MouseTrap;
 /**
  * Mouse-look trap that rotates only while the left button is held, or on every cursor delta
  * when {@code captureSupplier} reports true. Capture mode expects the platform cursor in
- * {@link ixdar.platform.gl.Platform.CursorMode#CAPTURED}.
+ * {@link ixdar.platform.Platform.CursorMode#CAPTURED}.
  *
  * <p>Deltas and scroll ticks go to the caller's callbacks; no camera is touched here.
  */

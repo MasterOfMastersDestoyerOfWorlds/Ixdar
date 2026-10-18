@@ -17,7 +17,7 @@ import ixdar.geometry.mesh.data.RingRegions;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
-import ixdar.platform.gl.Platform;
+import ixdar.platform.Platform;
 import ixdar.platform.gl.headless.HeadlessBuffer;
 import ixdar.scenes.ring.RingScene;
 

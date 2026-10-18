@@ -10,7 +10,7 @@ import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.point.PointSet;
-import ixdar.graphics.render.Clock;
+import ixdar.platform.Clock;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
 import ixdar.scenes.main.MainScene;
