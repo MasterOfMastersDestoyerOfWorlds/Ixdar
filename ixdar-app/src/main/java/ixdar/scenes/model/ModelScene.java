@@ -136,11 +136,18 @@ public abstract class ModelScene extends Scene {
 
     private ModelChoice currentChoice;
 
-    /** Host the orbit tool as the active and default tool; scenes add their own tools after it. */
-    public ModelScene() {
+    /**
+     * Host the orbit tool as the default, and the DSL graph tool on ctrl+G, which toggles back to
+     * the default tool; scenes add their own tools after these.
+     */
+    @Override
+    public void setTools() {
+        super.setTools();
         tools.add(orbitTool);
         defaultTool = orbitTool;
-        activeTool = orbitTool;
+        graphTool = new DslGraphView(this);
+        addToolSwitch(graphTool, new ControlHint(Keys.G, true, "ctrl+G", "the DSL's node graph and run times",
+                () -> switchTool(activeTool == graphTool ? defaultTool : graphTool)));
     }
 
     @Override
@@ -159,8 +166,7 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Hand the mouse to the camera's orbit, aimed at the mesh centre, bind the input and activate
-     * the opening tool.
+     * Hand the mouse to the camera's orbit, aimed at the mesh centre, and bind the input.
      */
     public void initInput() {
         mouse.controller = camera;
@@ -168,7 +174,6 @@ public abstract class ModelScene extends Scene {
         camera.setOrbit(orbitAzimuth, orbitElevation, CAMERA_DISTANCE_DEFAULT);
         bindAutomationIfAvailable(Platforms.get());
         bindInputDirect(Platforms.get(), keys, mouse);
-        activeTool.activate();
     }
 
     /**
@@ -187,17 +192,13 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Add the model menu's strip to the scene's views, so the menu is drawn into it, and host the
-     * DSL graph tool on ctrl+G, which toggles back to the default tool.
+     * Add the model menu's strip to the scene's views, so the menu is drawn into it.
      */
     @Override
     public void initPanes() {
         super.initPanes();
         chromeBackground = new ColorBox();
         webViews.put(VIEW_SCENE_MENU, sceneModelMenu.strip);
-        graphTool = new DslGraphView(this);
-        addToolSwitch(graphTool, new ControlHint(Keys.G, true, "ctrl+G", "the DSL's node graph and run times",
-                () -> switchTool(activeTool == graphTool ? defaultTool : graphTool)));
     }
 
     /**

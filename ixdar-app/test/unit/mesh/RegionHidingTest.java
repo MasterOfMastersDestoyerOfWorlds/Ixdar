@@ -118,6 +118,9 @@ class RegionHidingTest {
                 return cylinder;
             }
         };
+        scene.initPoints();
+        scene.setTools();
+        scene.switchTool(scene.defaultTool);
         scene.meshRuntime = new HalfEdgeMeshRuntime();
         scene.meshRuntime.upload(cylinder);
         scene.ringMarksByLabel.put(LOW_RING,

@@ -123,7 +123,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 : (runtime.canvas instanceof MainScene ? "main" : "menu");
         root.addProperty("mode", mode);
         JsonObject trade = new JsonObject();
-        if (runtime.canvas instanceof TradeScene tradeScene) {
+        if (runtime.canvas instanceof TradeScene tradeScene && tradeScene.activeTool != null) {
             trade.addProperty(ACTIVE, true);
             trade.addProperty(ACTIVE_TOOL, tradeScene.activeTool.displayName());
             if (tradeScene.activeTool == tradeScene.routePlanningTool) {
@@ -296,7 +296,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             root.add("ring", ringJson);
         }
 
-        if (runtime.canvas instanceof RingScene toolScene) {
+        if (runtime.canvas instanceof RingScene toolScene && toolScene.activeTool != null) {
             RingTool tool = toolScene.ringTool;
             JsonObject toolJson = new JsonObject();
             toolJson.addProperty(ACTIVE, tool.active);

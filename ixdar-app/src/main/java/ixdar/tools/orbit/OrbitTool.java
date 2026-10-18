@@ -13,20 +13,20 @@ import ixdar.tools.Tool;
  * The look-only tool every model scene opens with: the mouse orbits, pans and zooms the camera
  * and nothing else, so nothing a scene's other tools edit can change while it is active.
  */
-@ToolAnnotation(id = OrbitTool.TOOL_NAME, host = ModelScene.class)
+@ToolAnnotation(id = OrbitTool.TOOL_NAME)
 public final class OrbitTool implements Tool {
 
     public static final String TOOL_NAME = "orbit";
 
     /** Scene whose camera the tool leaves the mouse to, and whose view a double-click frames. */
-    public final Scene scene;
+    public final ModelScene scene;
 
     /**
      * Binds the tool to its scene.
      *
      * @param scene the scene whose camera the mouse drives
      */
-    public OrbitTool(Scene scene) {
+    public OrbitTool(ModelScene scene) {
         this.scene = scene;
     }
 

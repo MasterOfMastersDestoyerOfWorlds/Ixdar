@@ -20,8 +20,8 @@ import ixdar.scenes.ring.RingScene;
 import unit.GlStandIn;
 
 /**
- * The mesh viewer and the ring scene activate their default orbit tool as their input is wired,
- * so a double-click on empty space frames the model before any tool switch.
+ * The mesh viewer and the ring scene host the orbit tool as their default and open on it, so a
+ * double-click on empty space frames the model before any tool switch.
  */
 class ModelSceneDefaultToolTest {
 
@@ -73,6 +73,9 @@ class ModelSceneDefaultToolTest {
     }
 
     private static void assertDoubleClickFrames(String sceneId, ModelScene scene) {
+        scene.initPoints();
+        scene.setTools();
+        scene.switchTool(scene.defaultTool);
         scene.initInput();
         assertSame(scene.orbitTool, scene.activeTool, sceneId + ": the orbit tool is active");
         scene.camera.setOrbit(scene.camera.azimuth, scene.camera.elevation, ZOOMED_OUT);

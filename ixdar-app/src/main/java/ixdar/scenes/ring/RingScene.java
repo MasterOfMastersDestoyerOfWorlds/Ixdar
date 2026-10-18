@@ -123,8 +123,10 @@ public class RingScene extends MeshNodeViewerScene {
     private final float[] anchorPixel = new float[COORDINATES_PER_POINT];
     private final Vector3f anchorPosition = new Vector3f();
 
-    /** Host the ring, region and connection tools, after the model scene's orbit tool. */
-    public RingScene() {
+    /** Host the ring, region and connection tools on ctrl+R, ctrl+T and ctrl+J, after the model scene's. */
+    @Override
+    public void setTools() {
+        super.setTools();
         addToolSwitch(ringTool, new ControlHint(Keys.R, true, "ctrl+R", "draw and edit rings",
                 () -> switchTool(ringTool)));
         addToolSwitch(regionTool, new ControlHint(Keys.T, true, "ctrl+T", RingRegionTool.TOOL_PURPOSE,

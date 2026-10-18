@@ -107,6 +107,8 @@ class MainSceneTerminalCommandTest {
         MenuScene menu = new MenuScene();
         Scene.instance = menu;
         MainScene editor = new MainScene("lines", menu);
+        editor.setTools();
+        editor.switchTool(editor.defaultTool);
         editor.terminal.run(EXIT_COMMAND);
         assertSame(menu, editor.successor, "the editor switched to its back scene");
     }

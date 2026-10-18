@@ -38,7 +38,7 @@ import ixdar.tools.Tool;
  * time-tinted boxes, expandable groups, bezier arrows and the critical path, on its own
  * pan-and-zoom {@link Camera2D} with scroll bars.
  */
-@ToolAnnotation(id = DslGraphView.TOOL_NAME, host = ModelScene.class)
+@ToolAnnotation(id = DslGraphView.TOOL_NAME)
 public class DslGraphView implements Tool {
     public static final Palette TINT_BY_SHARE = Palettes.DSL_TIME_SHARE;
     public static final double[] TINT_SHARE_FLOOR = { 0.0, 0.02, 0.1, 0.3 };

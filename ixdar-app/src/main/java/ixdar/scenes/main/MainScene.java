@@ -130,7 +130,8 @@ public class MainScene extends Scene {
 
     /**
      * Build the editor on a point-set file: parse it, lay out the main view and the panels around
-     * it, wire the input handlers and the free tool, solve the knots and seed the per-knot colours.
+     * it, wire the input handlers, build the knot tools {@link #setTools} hosts, solve the knots
+     * and seed the per-knot colours.
      *
      * @param fileName  name of the point-set file to open (blank uses the temp file only)
      * @param backScene the scene Back returns to
@@ -175,15 +176,6 @@ public class MainScene extends Scene {
         mapEditorTool = new MapEditorTool(this);
         negativeCutMatchViewTool = new NegativeCutMatchViewTool(this);
         neighborViewTool = new NeighborViewTool(this);
-        tools.add(freeTool);
-        tools.add(mapEditorTool);
-        addToolSwitch(negativeCutMatchViewTool, new ControlHint(Keys.N, true, "ctrl+N",
-                "hole moves of negative length", () -> switchTool(negativeCutMatchViewTool)));
-        addToolSwitch(neighborViewTool, new ControlHint(Keys.B, true, "ctrl+B",
-                "each point's two nearest neighbours", () -> switchTool(neighborViewTool)));
-        defaultTool = freeTool;
-        activeTool = freeTool;
-        freeTool.activate();
         logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, LOGO_SCALE, 0f, true);
 
         Map<String, Bounds> views = new HashMap<>();
@@ -230,9 +222,6 @@ public class MainScene extends Scene {
             }
         }
         retTup.tsp.removeAll(toRemove);
-        if (activeTool.canUseToggle(Toggle.Manifold)) {
-            Toggle.Manifold.value = true;
-        }
         orgShell = retTup.tsp;
 
         tourShell = orgShell.copyShallow();
@@ -360,6 +349,22 @@ public class MainScene extends Scene {
         active = state;
         mouse.active = state;
         keys.active = state;
+    }
+
+    /**
+     * Host the knot tools, the free tool as default, with ctrl+N and ctrl+B switching to the
+     * negative cut-match and neighbour views.
+     */
+    @Override
+    public void setTools() {
+        super.setTools();
+        tools.add(freeTool);
+        tools.add(mapEditorTool);
+        addToolSwitch(negativeCutMatchViewTool, new ControlHint(Keys.N, true, "ctrl+N",
+                "hole moves of negative length", () -> switchTool(negativeCutMatchViewTool)));
+        addToolSwitch(neighborViewTool, new ControlHint(Keys.B, true, "ctrl+B",
+                "each point's two nearest neighbours", () -> switchTool(neighborViewTool)));
+        defaultTool = freeTool;
     }
 
     /**

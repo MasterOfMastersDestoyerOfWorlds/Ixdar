@@ -146,6 +146,9 @@ class RingCameraDragHoverTest {
         orbit = new MouseTrap(camera, scene);
         orbit.controller = camera;
         scene.mouse = orbit;
+        scene.initPoints();
+        scene.setTools();
+        scene.switchTool(scene.defaultTool);
         scene.switchTool(tool);
     }
 

@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 
 /**
  * Marks a {@code Tool} class for the generated {@code ToolRegistry_Tools}, which builds the tool
- * for a scene of its {@link #host()} type.
+ * for its host: the scene type its one public one-argument constructor takes.
  */
 @Retention(RetentionPolicy.CLASS)
 @Target(ElementType.TYPE)
@@ -18,11 +18,4 @@ public @interface ToolAnnotation {
      * @return registry key
      */
     String id();
-
-    /**
-     * The scene type that hosts the tool, which its public one-argument constructor accepts.
-     *
-     * @return the host scene class
-     */
-    Class<?> host();
 }

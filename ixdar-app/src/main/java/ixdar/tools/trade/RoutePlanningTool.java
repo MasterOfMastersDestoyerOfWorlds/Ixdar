@@ -30,7 +30,7 @@ import ixdar.tools.Tool;
  * Grow, and Collapse operations with undo/redo. Activated after the player
  * selects their headquarters.
  */
-@ToolAnnotation(id = RoutePlanningTool.TOOL_NAME, host = TradeScene.class)
+@ToolAnnotation(id = RoutePlanningTool.TOOL_NAME)
 public class RoutePlanningTool implements Tool {
     public static final String TOOL_NAME = "routeplanning";
     public static final String P = "P";

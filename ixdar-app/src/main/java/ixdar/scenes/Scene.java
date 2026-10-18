@@ -114,7 +114,10 @@ public abstract class Scene extends SceneDrawable {
     /** The tool each of {@link #toolSwitchHints} switches to. */
     public final ArrayList<Tool> switchedTools = new ArrayList<>();
 
-    /** The tool that owns clicks, drags and tool keys now, or {@code null} in a scene with none. */
+    /**
+     * The tool that owns clicks, drags and tool keys now; {@code null} in a scene with none, and
+     * until {@link #initGL} has hosted the tools.
+     */
     public Tool activeTool;
 
     /** The tool Esc returns to when the active tool leaves the key alone. */
@@ -208,8 +211,9 @@ public abstract class Scene extends SceneDrawable {
 
     /**
      * Initialize GL state (viewport, depth and blend state, clear colour), start audio, seed the
-     * points through {@link #initPoints()}, keep the default pane framebuffer-sized and build the
-     * control hints. The window binds the GL functions before the scene is built.
+     * points through {@link #initPoints()}, keep the default pane framebuffer-sized, host the tools
+     * through {@link #setTools()}, activate the default one and build the control hints. The window
+     * binds the GL functions before the scene is built.
      */
     public void initGL() {
         GL gl = Platforms.gl();
@@ -238,6 +242,8 @@ public abstract class Scene extends SceneDrawable {
                 b -> b.update(0, 0, Platforms.get().getFrameBufferWidth(),
                         Platforms.get().getFrameBufferHeight()));
         camera2D.initCamera(webViews, DEFAULT_VIEW);
+        setTools();
+        switchTool(defaultTool);
         refreshControls();
     }
 
@@ -500,6 +506,14 @@ public abstract class Scene extends SceneDrawable {
     }
 
     /**
+     * Host the scene's tools with {@link #tools}{@code .add} and {@link #addToolSwitch}, and set the
+     * {@link #defaultTool} the scene opens on; {@link #initGL} calls it once, then activates that
+     * tool. Base hosts none; scenes call {@code super.setTools()} then add theirs.
+     */
+    public void setTools() {
+    }
+
+    /**
      * Host {@code tool} with a key that switches to it, listed before every other control.
      *
      * @param tool       the tool, run every frame from now on
@@ -513,7 +527,8 @@ public abstract class Scene extends SceneDrawable {
 
     /**
      * Make {@code tool} active: the current one hands back the mouse keeping its state, and the
-     * control hints become the new tool's. Switching to the active tool does nothing.
+     * control hints become the new tool's. Switching to the active tool does nothing, and the
+     * first switch, from no tool, has none to hand back.
      *
      * @param tool the tool to switch to
      */
@@ -521,7 +536,9 @@ public abstract class Scene extends SceneDrawable {
         if (tool == activeTool) {
             return;
         }
-        activeTool.deactivate();
+        if (activeTool != null) {
+            activeTool.deactivate();
+        }
         activeTool = tool;
         activeTool.activate();
         refreshControls();

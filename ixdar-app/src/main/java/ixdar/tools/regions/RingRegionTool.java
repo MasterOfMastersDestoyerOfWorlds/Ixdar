@@ -37,7 +37,7 @@ import ixdar.tools.Tool;
  * Shift+click, and extracts the selection as its own closed mesh, cut along the ring splines. The
  * selection is kept as surface points.
  */
-@ToolAnnotation(id = RingRegionTool.TOOL_NAME, host = RingScene.class)
+@ToolAnnotation(id = RingRegionTool.TOOL_NAME)
 public final class RingRegionTool implements Tool {
 
     public static final String LOG_PREFIX = "[ring-regions] ";

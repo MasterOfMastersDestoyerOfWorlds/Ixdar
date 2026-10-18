@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.joml.Vector3f;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -34,11 +36,15 @@ import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.selection.SplineCutNode;
 import ixdar.nodegraph.syntax.PythonParser;
+import ixdar.platform.Platform;
+import ixdar.platform.Platforms;
+import ixdar.platform.gl.GL;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.ring.RingDslWriter;
 import ixdar.tools.ring.RingTool;
+import unit.GlStandIn;
 
 /**
  * Bisectors in the ring tool on a straight tube: open geodesic splines whose ends snap onto rings
@@ -85,6 +91,27 @@ class BisectorTest {
     private static final String SECOND_WALL = "ring_b";
 
     private static final String CLICKED_ORDER = "ring_c";
+
+    private Platform suitePlatform;
+
+    private GL suiteGl;
+
+    /**
+     * Pair the suite's platform with a GL that does nothing, since the scene's graph tool builds
+     * its shapes on it as the scene hosts its tools.
+     */
+    @BeforeEach
+    void installGlStandIn() {
+        suitePlatform = Platforms.get();
+        suiteGl = Platforms.gl();
+        Platforms.init(suitePlatform, GlStandIn.create());
+    }
+
+    /** Put the suite's GL back. */
+    @AfterEach
+    void restoreSuiteGl() {
+        Platforms.init(suitePlatform, suiteGl);
+    }
 
     @Test
     void xDeletesTheSelectedPointThenTheLastUntilNoneIsLeft() {
@@ -397,6 +424,9 @@ class BisectorTest {
                 return dsl == null ? null : dsl.toString();
             }
         };
+        scene.initPoints();
+        scene.setTools();
+        scene.switchTool(scene.defaultTool);
         RingTool tool = scene.ringTool;
         tool.geodesics = SurfaceGeodesics.over(SurfaceMetric.of(tube));
         tool.active = true;

@@ -15,7 +15,7 @@ import ixdar.tools.Tool;
  * Tool for selecting the headquarters city at the start of a new trade game.
  * This is the first tool active when a new game begins.
  */
-@ToolAnnotation(id = HeadquartersPickerTool.TOOL_NAME, host = TradeScene.class)
+@ToolAnnotation(id = HeadquartersPickerTool.TOOL_NAME)
 public class HeadquartersPickerTool implements Tool {
 
     public static final String TOOL_NAME = "hqpicker";

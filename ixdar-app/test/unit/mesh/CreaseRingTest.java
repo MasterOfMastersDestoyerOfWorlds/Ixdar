@@ -301,6 +301,9 @@ class CreaseRingTest {
             }
         };
         scene.meshRuntime = new HalfEdgeMeshRuntime();
+        scene.initPoints();
+        scene.setTools();
+        scene.switchTool(scene.defaultTool);
         RingTool tool = scene.ringTool;
         tool.geodesics = SurfaceGeodesics.over(SurfaceMetric.of(tube));
         tool.active = true;

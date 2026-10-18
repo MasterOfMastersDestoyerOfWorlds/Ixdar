@@ -18,7 +18,7 @@ import ixdar.scenes.main.MainScene;
  * cut/match swap would shorten the total length, letting the user inspect the
  * negative-cost matches available at any segment.
  */
-@ToolAnnotation(id = NegativeCutMatchViewTool.TOOL_NAME, host = MainScene.class)
+@ToolAnnotation(id = NegativeCutMatchViewTool.TOOL_NAME)
 public class NegativeCutMatchViewTool extends KnotTool {
     public static final String TOOL_NAME = "negativecutmatchview";
     public static ArrayList<Color> colors;

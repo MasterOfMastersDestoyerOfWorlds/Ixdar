@@ -100,11 +100,11 @@ public abstract class RegistryProcessor extends AbstractProcessor {
     }
 
     /**
-     * Configure the processor for classes built for a host: the annotation's {@code host} class
-     * element names each class's host, which its public one-argument constructor must accept, and
-     * the registry maps each id to a factory taking the host and a test of which hosts fit.
+     * Configure the processor for classes built for a host: each class's host is the parameter type
+     * of its one public one-argument constructor, and the registry maps each id to a factory taking
+     * the host and a test of which hosts fit.
      *
-     * @param annotationClass marker annotation declaring {@code id} and {@code host}
+     * @param annotationClass marker annotation declaring {@code id}
      * @param typeSimpleName simple name of the registered classes' common supertype
      * @param hostSimpleName simple name of the hosts' common supertype, the factories' argument
      * @param collectionName suffix forming the generated registry's simple name
@@ -174,7 +174,6 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                 }
                 String id = element.getSimpleName().toString();
                 boolean desktopOnly = false;
-                TypeMirror host = null;
                 String annotationName = annotationClass.getName();
                 for (AnnotationMirror mirror : element.getAnnotationMirrors()) {
                     if (mirror.getAnnotationType().toString().equals(annotationName)) {
@@ -188,19 +187,32 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                             if (key.equals("desktopOnly") && Boolean.TRUE.equals(val)) {
                                 desktopOnly = true;
                             }
-                            if (key.equals("host") && val instanceof TypeMirror hostType) {
-                                host = hostType;
-                            }
                         }
                     }
                 }
-                if (hostSimpleName != null && host == null) {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-                            annotationClass.getSimpleName() + " needs a host class", element);
-                } else if (hostSimpleName != null) {
-                    // The first host fixes the hosts' common supertype; every host must fit a
-                    // public one-argument constructor, which the generated factory calls.
+                if (hostSimpleName != null) {
+                    // The host is the parameter of the one public one-argument constructor, which
+                    // the generated factory calls; the first host fixes the hosts' common supertype.
                     Types types = processingEnv.getTypeUtils();
+                    TypeMirror host = null;
+                    int hostConstructorCount = 0;
+                    for (Element member : element.getEnclosedElements()) {
+                        if (member.getKind() == ElementKind.CONSTRUCTOR
+                                && member.getModifiers().contains(Modifier.PUBLIC)) {
+                            List<? extends VariableElement> parameters = ((ExecutableElement) member).getParameters();
+                            if (parameters.size() == 1) {
+                                host = parameters.get(0).asType();
+                                hostConstructorCount++;
+                            }
+                        }
+                    }
+                    if (hostConstructorCount != 1) {
+                        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+                                element.getSimpleName() + " needs exactly one public one-argument constructor, "
+                                        + "taking its host scene; it has " + hostConstructorCount,
+                                element);
+                        continue;
+                    }
                     Deque<TypeMirror> hostSupertypes = new ArrayDeque<>(List.of(host));
                     while (hostBaseFqcn == null && !hostSupertypes.isEmpty()) {
                         TypeMirror type = hostSupertypes.pop();
@@ -209,19 +221,6 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                             hostBaseFqcn = ((TypeElement) supertype).getQualifiedName().toString();
                         }
                         hostSupertypes.addAll(types.directSupertypes(type));
-                    }
-                    boolean accepted = false;
-                    for (Element member : element.getEnclosedElements()) {
-                        if (member.getKind() == ElementKind.CONSTRUCTOR
-                                && member.getModifiers().contains(Modifier.PUBLIC)) {
-                            List<? extends VariableElement> parameters = ((ExecutableElement) member).getParameters();
-                            accepted |= parameters.size() == 1 && types.isAssignable(host, parameters.get(0).asType());
-                        }
-                    }
-                    if (!accepted) {
-                        processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-                                element.getSimpleName() + " needs a public constructor taking its host " + host,
-                                element);
                     }
                     hostById.put(id, ((TypeElement) types.asElement(host)).getQualifiedName().toString());
                 }

@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
@@ -17,10 +19,14 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
+import ixdar.platform.Platform;
+import ixdar.platform.Platforms;
+import ixdar.platform.gl.GL;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.ring.RingTool;
+import unit.GlStandIn;
 
 /**
  * Esc in the ring editing scene: an open ring nobody edited closes and the ring tool stays, an
@@ -39,6 +45,27 @@ class RingEscapeTest {
     private static final double ADDED_ANCHOR_DEGREES = 45.0;
 
     private static final String CONFIRMED = "draft confirmed";
+
+    private Platform suitePlatform;
+
+    private GL suiteGl;
+
+    /**
+     * Pair the suite's platform with a GL that does nothing, since the scene's graph tool builds
+     * its shapes on it as the scene hosts its tools.
+     */
+    @BeforeEach
+    void installGlStandIn() {
+        suitePlatform = Platforms.get();
+        suiteGl = Platforms.gl();
+        Platforms.init(suitePlatform, GlStandIn.create());
+    }
+
+    /** Put the suite's GL back. */
+    @AfterEach
+    void restoreSuiteGl() {
+        Platforms.init(suitePlatform, suiteGl);
+    }
 
     @Test
     public void escOnAnUneditedRingClosesItAndKeepsTheRingTool() {
@@ -121,6 +148,9 @@ class RingEscapeTest {
                 return tube;
             }
         };
+        scene.initPoints();
+        scene.setTools();
+        scene.switchTool(scene.defaultTool);
         RingTool tool = scene.ringTool;
         tool.geodesics = SurfaceGeodesics.over(SurfaceMetric.of(tube));
         float[] xyz = new float[XYZ * QUARTERS];

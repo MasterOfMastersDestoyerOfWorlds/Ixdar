@@ -28,7 +28,7 @@ import ixdar.tools.ring.RingTool;
  * The editing scene's connection tool: two picks on the surface show the shortest path joining
  * them and the narrowest cross-section on it, the neck, which Enter makes a ring to edit.
  */
-@ToolAnnotation(id = ConnectionTool.TOOL_NAME, host = RingScene.class)
+@ToolAnnotation(id = ConnectionTool.TOOL_NAME)
 public final class ConnectionTool implements Tool {
 
     public static final String LOG_PREFIX = "[connection] ";

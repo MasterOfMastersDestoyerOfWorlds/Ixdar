@@ -26,7 +26,7 @@ import ixdar.scenes.main.MainScene;
  * point-collection elements on the active grid by clicking. Cycles through
  * its {@link States} via the layer next/prev controls.
  */
-@ToolAnnotation(id = MapEditorTool.TOOL_NAME, host = MainScene.class)
+@ToolAnnotation(id = MapEditorTool.TOOL_NAME)
 public class MapEditorTool extends KnotTool {
 
     public static final String TOOL_NAME = "mapeditor";

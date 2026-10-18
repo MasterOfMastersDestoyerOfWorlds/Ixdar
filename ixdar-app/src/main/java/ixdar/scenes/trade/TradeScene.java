@@ -73,11 +73,6 @@ public class TradeScene extends Scene {
 
         hqPickerTool = new HeadquartersPickerTool(this);
         routePlanningTool = new RoutePlanningTool(this);
-        tools.add(hqPickerTool);
-        tools.add(routePlanningTool);
-        defaultTool = hqPickerTool;
-        activeTool = hqPickerTool;
-        hqPickerTool.activate();
 
         mouse.camera = mapCamera;
         mouse.controller = mapCamera;
@@ -112,6 +107,15 @@ public class TradeScene extends Scene {
         active = state;
         keys.active = state;
         mouse.active = state;
+    }
+
+    /** Host the headquarters picker, the default until the headquarters is placed, and route planning. */
+    @Override
+    public void setTools() {
+        super.setTools();
+        tools.add(hqPickerTool);
+        tools.add(routePlanningTool);
+        defaultTool = hqPickerTool;
     }
 
     /**

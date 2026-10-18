@@ -6,11 +6,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 
 import org.joml.Vector3f;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.gui.ui.ErrorToasts;
+import ixdar.platform.Platform;
+import ixdar.platform.Platforms;
+import ixdar.platform.gl.GL;
 import ixdar.platform.input.Keys;
 import ixdar.input.MouseTrap;
 import ixdar.scenes.ring.RingScene;
@@ -18,6 +23,7 @@ import ixdar.tools.ControlHint;
 import ixdar.tools.connection.ConnectionTool;
 import ixdar.tools.regions.RingRegionTool;
 import ixdar.tools.ring.RingTool;
+import unit.GlStandIn;
 
 /**
  * Refused clicks and keys in the ring editing scene raise one red toast each, saying what to do;
@@ -32,6 +38,27 @@ class RefusalToastTest {
     private static final float FRESH_OPACITY = 0.99f;
 
     private static final float AGED_OPACITY = 0.5f;
+
+    private Platform suitePlatform;
+
+    private GL suiteGl;
+
+    /**
+     * Pair the suite's platform with a GL that does nothing, since the scene's graph tool builds
+     * its shapes on it as the scene hosts its tools.
+     */
+    @BeforeEach
+    void installGlStandIn() {
+        suitePlatform = Platforms.get();
+        suiteGl = Platforms.gl();
+        Platforms.init(suitePlatform, GlStandIn.create());
+    }
+
+    /** Put the suite's GL back. */
+    @AfterEach
+    void restoreSuiteGl() {
+        Platforms.init(suitePlatform, suiteGl);
+    }
 
     @Test
     void aRefusedClickShowsOneToastAndARepeatRestartsItsFade() {
@@ -137,6 +164,9 @@ class RefusalToastTest {
                 return tube;
             }
         };
+        scene.initPoints();
+        scene.setTools();
+        scene.switchTool(scene.defaultTool);
         scene.switchTool(scene.ringTool);
         return scene;
     }

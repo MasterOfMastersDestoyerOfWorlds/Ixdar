@@ -106,6 +106,9 @@ class PixelPickProjectTest {
                 return drawnRuntime;
             }
         };
+        scene.initPoints();
+        scene.setTools();
+        scene.switchTool(scene.defaultTool);
         scene.camera.position.set(EYE);
         scene.camera.target.set(0f, 0f, 0f);
         scene.camera.view.setLookAt(EYE, scene.camera.target, new Vector3f(0f, 1f, 0f));

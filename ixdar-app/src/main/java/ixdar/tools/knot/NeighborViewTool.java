@@ -18,7 +18,7 @@ import ixdar.scenes.main.MainScene;
  * as dashed overlays, so the user can see the local nearest-neighbor graph at
  * the current draw layer.
  */
-@ToolAnnotation(id = NeighborViewTool.TOOL_NAME, host = MainScene.class)
+@ToolAnnotation(id = NeighborViewTool.TOOL_NAME)
 public class NeighborViewTool extends KnotTool {
     public static final String TOOL_NAME = "neighborview";
     public static ArrayList<Color> colors;

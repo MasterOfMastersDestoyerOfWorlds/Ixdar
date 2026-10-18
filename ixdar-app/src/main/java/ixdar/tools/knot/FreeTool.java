@@ -13,7 +13,7 @@ import ixdar.gui.ui.text.HyperString;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.main.Toggle;
 
-@ToolAnnotation(id = FreeTool.TOOL_NAME, host = MainScene.class)
+@ToolAnnotation(id = FreeTool.TOOL_NAME)
 public class FreeTool extends KnotTool {
     public static final String TOOL_NAME = "free";
     public static final String NONE_2 = "None";

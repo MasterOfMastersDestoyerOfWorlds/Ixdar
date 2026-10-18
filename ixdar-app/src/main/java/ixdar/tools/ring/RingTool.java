@@ -64,7 +64,7 @@ import ixdar.tools.Tool;
  * whose authored anchors the user adds, selects, drags and deletes; Enter confirms the draft.
  * Confirming changes memory only: {@link #saveRings} alone writes the working .dsl.
  */
-@ToolAnnotation(id = RingTool.TOOL_NAME, host = RingScene.class)
+@ToolAnnotation(id = RingTool.TOOL_NAME)
 public final class RingTool implements Tool {
 
     public static final String STATUS_LINE =
