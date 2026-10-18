@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.data;
+package ixdar.devtools;
 
 import java.io.File;
 
@@ -11,6 +11,7 @@ import java.util.List;
 
 import java.util.Arrays;
 
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -18,6 +19,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.analysis.curvature.CrestLineDetector;
 import ixdar.geometry.mesh.data.analysis.curvature.PrincipalDirectionField;
+import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.analysis.segmentation.MeshSegmenter;
 import ixdar.geometry.mesh.data.analysis.segmentation.Patch;
 import ixdar.geometry.mesh.data.analysis.segmentation.PatchColors;
@@ -66,6 +68,14 @@ public final class PatchDecomposerCLI {
                 case "segment" -> segment(args);
                 case "stats" -> stats(args);
                 case "crest-lines" -> crestLines(args);
+                case "skeleton" -> {
+                    if (args.length < 2) throw new IllegalArgumentException("skeleton requires <obj_path>");
+                    int resolution = args.length > 2 ? Integer.parseInt(args[2]) : DEFAULT_RESOLUTION;
+                    ArrayMesh mesh = MeshLoader.load(args[1]);
+                    String skeletonJson = new GsonBuilder().setPrettyPrinting().create()
+                            .toJson(MeshSkeletonExtractor.extract(mesh, resolution));
+                    System.out.println(skeletonJson);
+                }
                 default -> {
                     System.err.println("Unknown command: " + args[0]);
                     usage();
@@ -290,5 +300,6 @@ public final class PatchDecomposerCLI {
         System.err.println("  segment <method> <obj_path> [n_clusters]");
         System.err.println("  stats <obj_path>");
         System.err.println("  crest-lines <obj_path> <out_obj>");
+        System.err.println("  skeleton <obj_path> [resolution]");
     }
 }

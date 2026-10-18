@@ -32,7 +32,6 @@ import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 
-import ixdar.nodegraph.syntax.PythonLexer;
 import ixdar.nodegraph.syntax.PythonParser;
 
 /**
@@ -64,9 +63,6 @@ public final class BatchDslEvaluator {
     public static final double ROUND_TO_ONE_DECIMAL = 10.0;
     public static final float DIAGONAL_EPSILON = 1e-8f;
 
-    /** Function definitions from the parsed DSL (set during main). */
-    private static Map<String, PythonParser.FunctionDef> batchFuncDefs = Map.of();
-
     private static final String[] INPUT_NODE_TYPES = {"input_float", "input_int"};
 
     /**
@@ -91,10 +87,8 @@ public final class BatchDslEvaluator {
             System.exit(2);
         }
 
-        String source = Files.readString(dslPath);
-        PythonParser parser = new PythonParser(new PythonLexer(source));
-        List<PythonParser.ParsedNode> parsed = parser.parseGraph();
-        batchFuncDefs = parser.functionDefs();
+        NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(Files.readString(dslPath));
+        List<PythonParser.ParsedNode> parsed = runtime.statements;
         Map<String, Class<? extends MeshNode>> registry = NodeGraphRuntime.annotationRegistryClasses();
 
         switch (args[1]) {
@@ -126,7 +120,7 @@ public final class BatchDslEvaluator {
                     System.exit(2);
                 }
                 String refObjPath = (args.length >= 4 && !"unused".equals(args[3])) ? args[3] : null;
-                batch(parsed, registry, Path.of(args[1]), Path.of(args[2]), refObjPath);
+                batch(runtime, registry, Path.of(args[1]), Path.of(args[2]), refObjPath);
             }
         }
     }
@@ -164,9 +158,10 @@ public final class BatchDslEvaluator {
         System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(result));
     }
 
-    private static void batch(List<PythonParser.ParsedNode> parsed,
+    private static void batch(NodeGraphRuntime runtime,
             Map<String, Class<? extends MeshNode>> registry,
             Path outputDir, Path paramsJson, String refObjPath) throws IOException {
+        List<PythonParser.ParsedNode> parsed = runtime.statements;
         Files.createDirectories(outputDir);
 
         String paramsStr = Files.readString(paramsJson);
@@ -194,10 +189,6 @@ public final class BatchDslEvaluator {
         // Find output node
         PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
         List<String> ports = candidatePorts(last, registry);
-
-        NodeGraphRuntime runtime = new NodeGraphRuntime();
-        runtime.registerAllFromAnnotationRegistry();
-        runtime.registerFunctionDefs(batchFuncDefs);
 
         List<Map<String, Object>> results = new ArrayList<>();
 

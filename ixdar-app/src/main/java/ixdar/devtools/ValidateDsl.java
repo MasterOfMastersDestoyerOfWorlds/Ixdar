@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.documentation;
+package ixdar.devtools;
 
 import com.google.gson.GsonBuilder;
 import ixdar.nodegraph.api.MeshNode;
@@ -12,7 +12,6 @@ import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
 
 import ixdar.nodegraph.runtime.GroupLibrary;
-import ixdar.nodegraph.syntax.PythonLexer;
 import ixdar.nodegraph.syntax.PythonParser;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -31,7 +30,7 @@ import java.util.Set;
  * CLI entry point that validates a .dsl file against the mesh node registry.
  * Outputs JSON with parse errors, validation errors, and warnings.
  *
- * Usage: java ixdar.geometry.mesh.documentation.ValidateDsl {@code <dsl-path>}
+ * Usage: java ixdar.devtools.ValidateDsl {@code <dsl-path>}
  * Exit code 0 = valid, 1 = errors found, 2 = usage/IO error
  */
 public final class ValidateDsl {
@@ -82,12 +81,14 @@ public final class ValidateDsl {
         Map<String, Class<? extends MeshNode>> registry =
             NodeGraphRuntime.annotationRegistryClasses();
 
+        NodeGraphRuntime runtime;
         List<PythonParser.ParsedNode> parsed;
         try {
-            PythonParser parser = new PythonParser(new PythonLexer(source));
-            parsed = parser.parseGraph();
-            funcDefs.putAll(parser.functionDefs());
+            runtime = NodeGraphRuntime.fromSource(source);
+            parsed = runtime.statements;
+            funcDefs.putAll(runtime.functionDefs);
             funcDefs.putAll(GroupLibrary.referencedGroups(parsed, funcDefs, registry.keySet()));
+            runtime.registerFunctionDefs(funcDefs);
         } catch (RuntimeException e) {
             return Map.of(
                 VALID,
@@ -122,11 +123,7 @@ public final class ValidateDsl {
         result.put(WARNINGS, warnings);
 
         if (valid && !parsed.isEmpty()) {
-            Map<String, Object> probe = runMeshProbe(
-                parsed,
-                registry,
-                funcDefs
-            );
+            Map<String, Object> probe = runMeshProbe(runtime, registry);
             result.put(MESHPROBE, probe);
 
             if (
@@ -135,11 +132,7 @@ public final class ValidateDsl {
                 Boolean.TRUE.equals(probe.get(OK))
             ) {
                 try {
-                    ExportResult er = executeForExport(
-                        parsed,
-                        registry,
-                        funcDefs
-                    );
+                    ExportResult er = executeForExport(runtime, registry);
                     if (er != null && er.mesh != null) {
                         Path out = Path.of(exportPath);
                         if (out.getParent() != null) Files.createDirectories(
@@ -241,21 +234,17 @@ public final class ValidateDsl {
     }
 
     private static Map<String, Object> runMeshProbe(
-        List<PythonParser.ParsedNode> parsed,
-        Map<String, Class<? extends MeshNode>> registry,
-        Map<String, PythonParser.FunctionDef> funcDefs
+        NodeGraphRuntime runtime,
+        Map<String, Class<? extends MeshNode>> registry
     ) {
         Map<String, Object> probe = new LinkedHashMap<>();
         probe.put(ATTEMPTED, true);
 
+        List<PythonParser.ParsedNode> parsed = runtime.statements;
         PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
         probe.put("outputNodeId", last.id);
         List<String> ports = candidateMeshPorts(last, registry);
         probe.put("portsTried", ports);
-
-        NodeGraphRuntime runtime = new NodeGraphRuntime();
-        runtime.registerAllFromAnnotationRegistry();
-        runtime.registerFunctionDefs(funcDefs);
 
         MeshTopology mesh = null;
         String usedPort = null;
@@ -399,15 +388,12 @@ public final class ValidateDsl {
     }
 
     private static ExportResult executeForExport(
-        List<PythonParser.ParsedNode> parsed,
-        Map<String, Class<? extends MeshNode>> registry,
-        Map<String, PythonParser.FunctionDef> funcDefs
+        NodeGraphRuntime runtime,
+        Map<String, Class<? extends MeshNode>> registry
     ) {
+        List<PythonParser.ParsedNode> parsed = runtime.statements;
         PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
         List<String> ports = candidateMeshPorts(last, registry);
-        NodeGraphRuntime runtime = new NodeGraphRuntime();
-        runtime.registerAllFromAnnotationRegistry();
-        runtime.registerFunctionDefs(funcDefs);
         for (String port : ports) {
             try {
                 Object raw = runtime.executeGraphResult(parsed, last.id, port);

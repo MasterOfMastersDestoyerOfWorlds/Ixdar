@@ -1,4 +1,4 @@
-package ixdar.documentation;
+package ixdar.devtools;
 
 import java.io.IOException;
 import java.nio.file.Files;

@@ -6,9 +6,7 @@ import java.util.List;
 import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
-import ixdar.geometry.mesh.data.io.MeshLoader;
 
-import com.google.gson.GsonBuilder;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
@@ -525,24 +523,6 @@ public final class MeshSkeletonExtractor {
     private static float dist3(float[] a, float[] b) {
         float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    /**
-     * CLI test: java MeshSkeletonExtractor path/to/mesh.obj [resolution].
-     *
-     * @param args {@code args[0]} = obj path, optional {@code args[1]} = voxel resolution (default 128)
-     * @throws Exception if mesh loading fails
-     */
-    public static void main(String[] args) throws Exception {
-        if (args.length < 1) { System.err.println("Usage: MeshSkeletonExtractor <obj-path> [resolution]"); return; }
-        int res = args.length > 1 ? Integer.parseInt(args[1]) : DEFAULT_RESOLUTION;
-        long t0 = System.currentTimeMillis();
-        ArrayMesh mesh = MeshLoader.load(args[0]);
-        System.err.printf("Loaded mesh: %d verts, %d faces%n", mesh.vertexCount(), mesh.faceCount());
-        SkeletonResult result = extract(mesh, res);
-        long elapsed = System.currentTimeMillis() - t0;
-        System.err.printf("Extracted %d branches in %dms%n", result.branches.size(), elapsed);
-        System.out.println(new GsonBuilder().setPrettyPrinting().create().toJson(result));
     }
 
     // Output records

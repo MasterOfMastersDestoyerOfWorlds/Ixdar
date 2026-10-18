@@ -12,7 +12,7 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.automation.AutomationEndpoint;
 
-import ixdar.geometry.mesh.data.PatchDecomposerCLI;
+import ixdar.devtools.PatchDecomposerCLI;
 
 import ixdar.geometry.mesh.data.analysis.segmentation.PatchDecomposition;
 

@@ -103,11 +103,16 @@ public class NodeGraphRuntime {
      */
     public final Map<String, Object> overrides = new LinkedHashMap<>();
 
+    /**
+     * Groups by name: the program's own, those registered, and library or compiled groups once a
+     * run has looked them up.
+     */
+    public final Map<String, PythonParser.FunctionDef> functionDefs = new HashMap<>();
+
     /** Root of the node tree of the current run; its children are the evaluated top-level statements. */
     public GraphNodeContext root = new GraphNodeContext();
 
     private final Map<String, Class<? extends MeshNode>> nodeRegistry = new HashMap<>();
-    private final Map<String, PythonParser.FunctionDef> functionDefs = new HashMap<>();
 
     /** Types known to call no group (leaf nodes, types the library lacks), each looked up once. */
     private final Set<String> nonGroupTypes = new HashSet<>();
