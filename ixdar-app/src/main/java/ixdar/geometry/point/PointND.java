@@ -3,6 +3,7 @@ package ixdar.geometry.point;
 import java.io.Serializable;
 import java.util.ArrayList;
 
+import org.joml.Vector2d;
 import org.joml.Vector2f;
 
 import ixdar.annotations.command.OptionList;
@@ -279,14 +280,14 @@ public abstract class PointND extends SDFCircle implements Geometry, PointCollec
     /**
      * Converts the N dimensional Knot to a 2 Dimensional Knot for graphing purposes.
      *
-     * @return a {@code Point2D} that consists of the first 2 coordinates of this
+     * @return a {@code Vector2d} that consists of the first 2 coordinates of this
      *         point
      */
-    public Point2D toPoint2D() {
+    public Vector2d toVector2d() {
         if (this.isDummyNode) {
-            return new Point2D.Double(OFF_SCREEN_SENTINEL, OFF_SCREEN_SENTINEL);
+            return new Vector2d(OFF_SCREEN_SENTINEL, OFF_SCREEN_SENTINEL);
         }
-        return new Point2D.Double(this.getScreenX(), this.getScreenY());
+        return new Vector2d(this.getScreenX(), this.getScreenY());
     }
 
     /**

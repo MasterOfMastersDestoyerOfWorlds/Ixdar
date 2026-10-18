@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Random;
 
 import org.apache.commons.math3.util.Pair;
+import org.joml.Vector2d;
 import org.joml.Vector2f;
 
 import ixdar.common.exceptions.SegmentBalanceException;
@@ -12,7 +13,6 @@ import ixdar.geometry.cuts.CutMatch;
 import ixdar.geometry.cuts.CutMatchList;
 import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
-import ixdar.geometry.point.Point2D;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.point.PointSet;
 import ixdar.geometry.shell.DistanceMatrix;
@@ -55,9 +55,9 @@ public class Drawing {
     public int platformId;
 
     /**
-     * Build a Drawing for the current GL platform: instantiate the SDF line,
-     * SDF circle, and font primitives and register this instance in the
-     * per-platform map keyed by platform id.
+     * Build a Drawing for the current GL platform: instantiate the SDF line, SDF
+     * circle, and font primitives and register this instance in the per-platform
+     * map keyed by platform id.
      */
     public Drawing() {
         sdfLine = new SDFLine();
@@ -68,9 +68,9 @@ public class Drawing {
     }
 
     /**
-     * Get (or lazily create) the {@link Drawing} bound to the current GL
-     * platform. Each platform gets its own instance because GL primitives are
-     * not shareable across contexts.
+     * Get (or lazily create) the {@link Drawing} bound to the current GL platform.
+     * Each platform gets its own instance because GL primitives are not shareable
+     * across contexts.
      *
      * @return the drawing helper for the current platform
      */
@@ -83,15 +83,16 @@ public class Drawing {
     }
 
     /**
-     * Recompute the static thickness, font, and circle-radius constants based
-     * on the smallest segment in {@code d}: when that segment is shorter on
-     * screen than the default thickness, all sizes scale down proportionally
-     * so they fit; otherwise the defaults are restored.
+     * Recompute the static thickness, font, and circle-radius constants based on
+     * the smallest segment in {@code d}: when that segment is shorter on screen
+     * than the default thickness, all sizes scale down proportionally so they fit;
+     * otherwise the defaults are restored.
      *
      * @param shell  the shell being rendered (unused; kept for symmetry)
      * @param camera the active scene camera, used to convert lengths
      * @param d      distance matrix providing the smallest segment length
-     * @throws IllegalStateException if the computed minimum thickness collapses to zero
+     * @throws IllegalStateException if the computed minimum thickness collapses to
+     *                               zero
      */
     public static void initDrawingSizes(Shell shell, Camera2D camera, DistanceMatrix d) {
 
@@ -153,27 +154,27 @@ public class Drawing {
         float[] lastCoords = new float[2];
         float[] midCoords = new float[2];
 
-        Point2D first = (cut1.first).p.toPoint2D();
-        Point2D last = (cut1.last).p.toPoint2D();
+        Vector2d first = (cut1.first).p.toVector2d();
+        Vector2d last = (cut1.last).p.toVector2d();
 
-        firstCoords[0] = camera.pointTransformX((float) first.getX());
-        firstCoords[1] = camera.pointTransformY((float) first.getY());
+        firstCoords[0] = camera.pointTransformX((float) first.x);
+        firstCoords[1] = camera.pointTransformY((float) first.y);
 
-        lastCoords[0] = camera.pointTransformX((float) last.getX());
-        lastCoords[1] = camera.pointTransformY((float) last.getY());
+        lastCoords[0] = camera.pointTransformX((float) last.x);
+        lastCoords[1] = camera.pointTransformY((float) last.y);
         midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0f;
         midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0f;
         sbe.initDraw();
         d.font.drawHyperString(sbe.x1, midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, camera);
         // Draw x 2
-        first = (cut2.first).p.toPoint2D();
-        last = (cut2.last).p.toPoint2D();
+        first = (cut2.first).p.toVector2d();
+        last = (cut2.last).p.toVector2d();
 
-        firstCoords[0] = camera.pointTransformX((float) first.getX());
-        firstCoords[1] = camera.pointTransformY((float) first.getY());
+        firstCoords[0] = camera.pointTransformX((float) first.x);
+        firstCoords[1] = camera.pointTransformY((float) first.y);
 
-        lastCoords[0] = camera.pointTransformX((float) last.getX());
-        lastCoords[1] = camera.pointTransformY((float) last.getY());
+        lastCoords[0] = camera.pointTransformX((float) last.x);
+        lastCoords[1] = camera.pointTransformY((float) last.y);
         midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0f;
         midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0f;
 
@@ -181,10 +182,10 @@ public class Drawing {
         // Draw external segment 1
 
         PointND pND = (ex1.getKnotPoint(topKnot.knotPointsFlattened)).p;
-        Point2D knotPoint1 = pND.toPoint2D();
+        Vector2d knotPoint1 = pND.toVector2d();
 
-        firstCoords[0] = camera.pointTransformX(knotPoint1.getX());
-        firstCoords[1] = camera.pointTransformY(knotPoint1.getY());
+        firstCoords[0] = camera.pointTransformX(knotPoint1.x);
+        firstCoords[1] = camera.pointTransformY(knotPoint1.y);
 
         pND.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN, camera);
 
@@ -195,10 +196,10 @@ public class Drawing {
 
         PointND pND2 = (ex2.getKnotPoint(topKnot.knotPointsFlattened)).p;
 
-        Point2D knotPoint2 = pND2.toPoint2D();
+        Vector2d knotPoint2 = pND2.toVector2d();
 
-        firstCoords[0] = camera.pointTransformX(knotPoint2.getX());
-        firstCoords[1] = camera.pointTransformY(knotPoint2.getY());
+        firstCoords[0] = camera.pointTransformX(knotPoint2.x);
+        firstCoords[1] = camera.pointTransformY(knotPoint2.y);
 
         pND2.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN,
                 camera);
@@ -255,8 +256,8 @@ public class Drawing {
     }
 
     /**
-     * Stroke {@code segment} at {@code thickness * camera.ScaleFactor} pixels
-     * (so the stroke widens with zoom) and draw it in color {@code c}.
+     * Stroke {@code segment} at {@code thickness * camera.ScaleFactor} pixels (so
+     * the stroke widens with zoom) and draw it in color {@code c}.
      *
      * @param segment   segment to stroke
      * @param c         stroke color
@@ -269,9 +270,9 @@ public class Drawing {
     }
 
     /**
-     * Like {@link #drawScaledSegment(Segment, Color, float, Camera2D)} but
-     * draws between explicit screen-space endpoints {@code a} and {@code b}
-     * rather than the segment's own endpoints.
+     * Like {@link #drawScaledSegment(Segment, Color, float, Camera2D)} but draws
+     * between explicit screen-space endpoints {@code a} and {@code b} rather than
+     * the segment's own endpoints.
      *
      * @param s         segment whose stroke params and draw method are used
      * @param a         first endpoint in screen pixels
@@ -286,56 +287,57 @@ public class Drawing {
     }
 
     private static void drawSegment(Segment ex1, Color c, Camera2D camera) {
-        Point2D first;
-        Point2D last;
+        Vector2d first;
+        Vector2d last;
         if (!ex1.first.isSingleton()) {
-            first = (((Knot) ex1.first).knotPoints.get(0)).p.toPoint2D();
+            first = (((Knot) ex1.first).knotPoints.get(0)).p.toVector2d();
         } else {
-            first = (ex1.first).p.toPoint2D();
+            first = (ex1.first).p.toVector2d();
         }
         if (!ex1.last.isSingleton()) {
-            last = (((Knot) ex1.last).knotPoints.get(0)).p.toPoint2D();
+            last = (((Knot) ex1.last).knotPoints.get(0)).p.toVector2d();
         } else {
-            last = (ex1.last).p.toPoint2D();
+            last = (ex1.last).p.toVector2d();
         }
-        Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
-        Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
+        Vector2f firstVec = new Vector2f(camera.pointTransformX(first.x), camera.pointTransformY(first.y));
+        Vector2f lastVec = new Vector2f(camera.pointTransformX(last.x), camera.pointTransformY(last.y));
 
         ex1.draw(firstVec, lastVec, c, camera);
     }
 
     /**
-     * Draw {@code ex1} as a dashed line in color {@code c}. Endpoints are
-     * resolved to the first knot point of any non-singleton boundary.
+     * Draw {@code ex1} as a dashed line in color {@code c}. Endpoints are resolved
+     * to the first knot point of any non-singleton boundary.
      *
      * @param ex1    segment to draw
      * @param c      stroke color
      * @param camera the active scene camera
      */
     public static void drawDashedSegment(Segment ex1, Color c, Camera2D camera) {
-        Point2D first;
-        Point2D last;
+        Vector2d first;
+        Vector2d last;
         if (!ex1.first.isSingleton()) {
-            first = (((Knot) ex1.first).knotPoints.get(0)).p.toPoint2D();
+            first = (((Knot) ex1.first).knotPoints.get(0)).p.toVector2d();
         } else {
-            first = (ex1.first).p.toPoint2D();
+            first = (ex1.first).p.toVector2d();
         }
         if (!ex1.last.isSingleton()) {
-            last = (((Knot) ex1.last).knotPoints.get(0)).p.toPoint2D();
+            last = (((Knot) ex1.last).knotPoints.get(0)).p.toVector2d();
         } else {
-            last = (ex1.last).p.toPoint2D();
+            last = (ex1.last).p.toVector2d();
         }
 
-        Vector2f firstVec = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
-        Vector2f lastVec = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
-        ex1.setStroke(Drawing.MIN_THICKNESS * camera.ScaleFactor, true, DASH_LENGTH_SEGMENT_PX * camera.ScaleFactor, 1f, true,
+        Vector2f firstVec = new Vector2f(camera.pointTransformX(first.x), camera.pointTransformY(first.y));
+        Vector2f lastVec = new Vector2f(camera.pointTransformX(last.x), camera.pointTransformY(last.y));
+        ex1.setStroke(Drawing.MIN_THICKNESS * camera.ScaleFactor, true, DASH_LENGTH_SEGMENT_PX * camera.ScaleFactor, 1f,
+                true,
                 false, false, camera);
         ex1.draw(firstVec, lastVec, c, camera);
     }
 
     /**
-     * Draw {@code s} with a linear color gradient from {@code color1} at the
-     * first endpoint to {@code color2} at the last endpoint.
+     * Draw {@code s} with a linear color gradient from {@code color1} at the first
+     * endpoint to {@code color2} at the last endpoint.
      *
      * @param s      segment to draw
      * @param color1 color at {@code s.first}
@@ -343,25 +345,25 @@ public class Drawing {
      * @param camera the active scene camera
      */
     public static void drawGradientSegment(Segment s, Color color1, Color color2, Camera2D camera) {
-        Point2D first;
-        Point2D last;
+        Vector2d first;
+        Vector2d last;
         if (!s.first.isSingleton()) {
-            first = (((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
+            first = (((Knot) s.first).knotPoints.get(0)).p.toVector2d();
         } else {
-            first = (s.first).p.toPoint2D();
+            first = (s.first).p.toVector2d();
         }
         if (!s.last.isSingleton()) {
-            last = (((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
+            last = (((Knot) s.last).knotPoints.get(0)).p.toVector2d();
         } else {
-            last = (s.last).p.toPoint2D();
+            last = (s.last).p.toVector2d();
         }
         float[] firstCoords = new float[2];
         float[] lastCoords = new float[2];
-        firstCoords[0] = camera.pointTransformX(first.getX());
-        firstCoords[1] = camera.pointTransformY(first.getY());
+        firstCoords[0] = camera.pointTransformX(first.x);
+        firstCoords[1] = camera.pointTransformY(first.y);
 
-        lastCoords[0] = camera.pointTransformX(last.getX());
-        lastCoords[1] = camera.pointTransformY(last.getY());
+        lastCoords[0] = camera.pointTransformX(last.x);
+        lastCoords[1] = camera.pointTransformY(last.y);
         s.draw(new Vector2f(firstCoords), new Vector2f(lastCoords), color1, color2, camera);
     }
 
@@ -379,21 +381,21 @@ public class Drawing {
      */
     public static void drawGradientSegmentPartial(Segment s, Color color1, Color color2, float length,
             Camera2D camera) {
-        Point2D first;
-        Point2D last;
+        Vector2d first;
+        Vector2d last;
         if (!s.first.isSingleton()) {
-            first = (((Knot) s.first).knotPoints.get(0)).p.toPoint2D();
+            first = (((Knot) s.first).knotPoints.get(0)).p.toVector2d();
         } else {
-            first = (s.first).p.toPoint2D();
+            first = (s.first).p.toVector2d();
         }
         if (!s.last.isSingleton()) {
-            last = (((Knot) s.last).knotPoints.get(0)).p.toPoint2D();
+            last = (((Knot) s.last).knotPoints.get(0)).p.toVector2d();
         } else {
-            last = (s.last).p.toPoint2D();
+            last = (s.last).p.toVector2d();
         }
 
-        Vector2f firstCoords = new Vector2f(camera.pointTransformX(first.getX()), camera.pointTransformY(first.getY()));
-        Vector2f lastCoords = new Vector2f(camera.pointTransformX(last.getX()), camera.pointTransformY(last.getY()));
+        Vector2f firstCoords = new Vector2f(camera.pointTransformX(first.x), camera.pointTransformY(first.y));
+        Vector2f lastCoords = new Vector2f(camera.pointTransformX(last.x), camera.pointTransformY(last.y));
 
         Vector2f newLast = new Vector2f(lastCoords).sub(firstCoords).mul(length).add(firstCoords);
 
@@ -426,7 +428,8 @@ public class Drawing {
     /**
      * Draws the tsp path of the pointset ps.
      *
-     * @param shell         the path to render (each consecutive pair becomes a line segment)
+     * @param shell         the path to render (each consecutive pair becomes a line
+     *                      segment)
      * @param lineThickness base line thickness in pixels
      * @param color         stroke and label color
      * @param ps            point set being rendered
@@ -496,13 +499,14 @@ public class Drawing {
     }
 
     /**
-     * Draw each manifold segment of {@code k} as a gradient between two
-     * palette colors, indexed via {@code colorLookup}. When {@code lookUpPairs}
-     * is non-null its (firstId,lastId) entries select the lookup keys;
-     * otherwise the segment's own endpoint ids are used.
+     * Draw each manifold segment of {@code k} as a gradient between two palette
+     * colors, indexed via {@code colorLookup}. When {@code lookUpPairs} is non-null
+     * its (firstId,lastId) entries select the lookup keys; otherwise the segment's
+     * own endpoint ids are used.
      *
      * @param k                knot whose manifold segments to draw
-     * @param lookUpPairs      per-segment (first,last) key pairs, or null to fall back to segment endpoint ids
+     * @param lookUpPairs      per-segment (first,last) key pairs, or null to fall
+     *                         back to segment endpoint ids
      * @param colorLookup      maps an id to an index into {@code colors}
      * @param colors           palette indexed by {@code colorLookup} values
      * @param camera           the active scene camera
@@ -536,11 +540,12 @@ public class Drawing {
     /**
      * Variant of
      * {@link #drawGradientPath(Knot, ArrayList, HashMap, ArrayList, Camera2D, float)}
-     * where {@code colorLookup} maps directly from id to {@link Color},
-     * skipping the palette indirection.
+     * where {@code colorLookup} maps directly from id to {@link Color}, skipping
+     * the palette indirection.
      *
      * @param k                knot whose manifold segments to draw
-     * @param lookupPairs      per-segment (first,last) key pairs, or null to fall back to segment endpoint ids
+     * @param lookupPairs      per-segment (first,last) key pairs, or null to fall
+     *                         back to segment endpoint ids
      * @param colorLookup      maps an id to its endpoint color
      * @param camera           the active scene camera
      * @param minLineThickness base pixel thickness before camera scaling
@@ -611,8 +616,8 @@ public class Drawing {
     }
 
     /**
-     * Draw a circle at a screen-space point, scaled by the camera so it
-     * grows with zoom.
+     * Draw a circle at a screen-space point, scaled by the camera so it grows with
+     * zoom.
      *
      * @param cameraPoint   center in screen pixels
      * @param color         fill color
@@ -660,8 +665,8 @@ public class Drawing {
     }
 
     /**
-     * Reset the cached SDF line stroke to {@link #MIN_THICKNESS} times the
-     * camera scale, so subsequent draws share a consistent base width.
+     * Reset the cached SDF line stroke to {@link #MIN_THICKNESS} times the camera
+     * scale, so subsequent draws share a consistent base width.
      *
      * @param camera the active scene camera
      */

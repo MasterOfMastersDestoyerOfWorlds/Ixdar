@@ -3,9 +3,9 @@ package ixdar.geometry.knot;
 import java.util.ArrayList;
 
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
+import org.joml.Vector2d;
 import org.joml.Vector2f;
 
-import ixdar.geometry.point.Point2D;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.shell.DistanceMatrix;
 import ixdar.graphics.cameras.Camera2D;
@@ -578,17 +578,13 @@ public class Segment extends SDFLine implements Comparable<Segment> {
      * @return point-space coordinates of {@code k1}
      */
     public Vector2f getPointSpaceVector(Knot k1) {
-        Point2D p1;
-        float[] firstCoords = new float[2];
-
+        Vector2d p1;
         if (!k1.isSingleton()) {
-            p1 = (((Knot) k1).knotPoints.get(0)).p.toPoint2D();
+            p1 = (((Knot) k1).knotPoints.get(0)).p.toVector2d();
         } else {
-            p1 = (k1).p.toPoint2D();
+            p1 = (k1).p.toVector2d();
         }
-        firstCoords[0] = (float) p1.getX();
-        firstCoords[1] = (float) p1.getY();
-        return new Vector2f(firstCoords);
+        return new Vector2f(p1);
     }
 
     /**

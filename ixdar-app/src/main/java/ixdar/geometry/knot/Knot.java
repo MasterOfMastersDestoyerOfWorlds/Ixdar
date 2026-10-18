@@ -4,12 +4,13 @@ package ixdar.geometry.knot;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import org.joml.Vector2d;
+
 import ixdar.common.exceptions.MultipleCyclesFoundException;
 import ixdar.common.exceptions.SegmentBalanceException;
 import ixdar.common.utils.Compat;
 import ixdar.geometry.cuts.CutMatch;
 import ixdar.geometry.cuts.DisjointUnionSets;
-import ixdar.geometry.point.Point2D;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.shell.Shell;
 import ixdar.graphics.render.color.Color;
@@ -745,20 +746,20 @@ public class Knot extends SDFCircle {
         int nVerts = knotPointsFlattened.size();
         // If vertices duplicates first as last to represent closed polygon,
         // skip last.
-        Point2D lastV = (knotPointsFlattened.get(nVerts - 1)).p.toPoint2D();
-        if (lastV.equals((knotPointsFlattened.get(0)).p.toPoint2D()))
+        Vector2d lastV = (knotPointsFlattened.get(nVerts - 1)).p.toVector2d();
+        if (lastV.equals((knotPointsFlattened.get(0)).p.toVector2d()))
             nVerts -= 1;
         int iMinVertex = FindCornerVertex();
         // Orientation matrix:
         // [ 1 xa ya ]
         // O = | 1 xb yb |
         // [ 1 xc yc ]
-        Point2D a = (knotPointsFlattened.get(WrapAt(iMinVertex - 1, nVerts))).p.toPoint2D();
-        Point2D b = (knotPointsFlattened.get(iMinVertex)).p.toPoint2D();
-        Point2D c = (knotPointsFlattened.get(WrapAt(iMinVertex + 1, nVerts))).p.toPoint2D();
+        Vector2d a = (knotPointsFlattened.get(WrapAt(iMinVertex - 1, nVerts))).p.toVector2d();
+        Vector2d b = (knotPointsFlattened.get(iMinVertex)).p.toVector2d();
+        Vector2d c = (knotPointsFlattened.get(WrapAt(iMinVertex + 1, nVerts))).p.toVector2d();
         // determinant(O) = (xb*yc + xa*yb + ya*xc) - (ya*xb + yb*xc + xa*yc)
-        double detOrient = (b.getX() * c.getY() + a.getX() * b.getY() + a.getY() * c.getX())
-                - (a.getY() * b.getX() + b.getY() * c.getX() + a.getX() * c.getY());
+        double detOrient = (b.x * c.y + a.x * b.y + a.y * c.x)
+                - (a.y * b.x + b.y * c.x + a.x * c.y);
 
         // TBD: check for "==0", in which case is not defined?
         // Can that happen? Do we need to check other vertices / eliminate duplicate
@@ -775,18 +776,18 @@ public class Knot extends SDFCircle {
         double minXAtMinY = Float.MAX_VALUE;
         for (int i = 0; i < knotPointsFlattened.size(); i++) {
 
-            Point2D vert = (knotPointsFlattened.get(i)).p.toPoint2D();
-            double y = (double) vert.getY();
+            Vector2d vert = (knotPointsFlattened.get(i)).p.toVector2d();
+            double y = vert.y;
             if (y > minY)
                 continue;
             if (y == minY)
-                if (vert.getX() >= minXAtMinY)
+                if (vert.x >= minXAtMinY)
                     continue;
 
             // Minimum so far.
             iMinVertex = i;
             minY = y;
-            minXAtMinY = vert.getX();
+            minXAtMinY = vert.x;
         }
 
         return iMinVertex;

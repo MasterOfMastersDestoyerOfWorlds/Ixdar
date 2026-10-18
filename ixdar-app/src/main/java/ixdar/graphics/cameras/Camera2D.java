@@ -3,11 +3,11 @@ package ixdar.graphics.cameras;
 import java.util.ArrayList;
 import java.util.Map;
 
+import org.joml.Vector2d;
 import org.joml.Vector2f;
 
 import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
-import ixdar.geometry.point.Point2D;
 import ixdar.geometry.point.PointND;
 import ixdar.geometry.point.PointSet;
 import ixdar.graphics.render.Clock;
@@ -146,19 +146,19 @@ public class Camera2D implements Camera {
         }
         for (PointND pn : ps) {
             if (!pn.isDummyNode()) {
-                Point2D p = pn.toPoint2D();
+                Vector2d p = pn.toVector2d();
 
-                if (p.getX() < minX) {
-                    minX = (float) p.getX();
+                if (p.x < minX) {
+                    minX = (float) p.x;
                 }
-                if (p.getY() < minY) {
-                    minY = (float) p.getY();
+                if (p.y < minY) {
+                    minY = (float) p.y;
                 }
-                if (p.getX() > maxX) {
-                    maxX = (float) p.getX();
+                if (p.x > maxX) {
+                    maxX = (float) p.x;
                 }
-                if (p.getY() > maxY) {
-                    maxY = (float) p.getY();
+                if (p.y > maxY) {
+                    maxY = (float) p.y;
                 }
             }
         }
@@ -196,19 +196,19 @@ public class Camera2D implements Camera {
 
         for (PointND pn : ps) {
             if (!pn.isDummyNode()) {
-                Point2D p = pn.toPoint2D();
+                Vector2d p = pn.toVector2d();
 
-                if (p.getX() < minX) {
-                    minX = (float) p.getX();
+                if (p.x < minX) {
+                    minX = (float) p.x;
                 }
-                if (p.getY() < minY) {
-                    minY = (float) p.getY();
+                if (p.y < minY) {
+                    minY = (float) p.y;
                 }
-                if (p.getX() > maxX) {
-                    maxX = (float) p.getX();
+                if (p.x > maxX) {
+                    maxX = (float) p.x;
                 }
-                if (p.getY() > maxY) {
-                    maxY = (float) p.getY();
+                if (p.y > maxY) {
+                    maxY = (float) p.y;
                 }
             }
         }
@@ -293,8 +293,8 @@ public class Camera2D implements Camera {
         }
         PanX = offsetX;
         PanY = offsetY;
-        Point2D origin = new Point2D.Double(pointTransformX(0.0), pointTransformY(0.0));
-        Point2D p2 = new Point2D.Double(pointTransformX(1.0), pointTransformY(1.0));
+        Vector2d origin = new Vector2d(pointTransformX(0.0), pointTransformY(0.0));
+        Vector2d p2 = new Vector2d(pointTransformX(1.0), pointTransformY(1.0));
         screenSpaceDistanceOverPointSpaceDistanceRatio = origin.distance(p2) / Math.sqrt(2);
 
     }
@@ -337,19 +337,19 @@ public class Camera2D implements Camera {
         for (Knot vp : list) {
             PointND pn = (vp).p;
             if (!pn.isDummyNode()) {
-                Point2D p = pn.toPoint2D();
+                Vector2d p = pn.toVector2d();
 
-                if (p.getX() < knotMinX) {
-                    knotMinX = (float) p.getX();
+                if (p.x < knotMinX) {
+                    knotMinX = (float) p.x;
                 }
-                if (p.getY() < knotMinY) {
-                    knotMinY = (float) p.getY();
+                if (p.y < knotMinY) {
+                    knotMinY = (float) p.y;
                 }
-                if (p.getX() > knotMaxX) {
-                    knotMaxX = (float) p.getX();
+                if (p.x > knotMaxX) {
+                    knotMaxX = (float) p.x;
                 }
-                if (p.getY() > knotMaxY) {
-                    knotMaxY = (float) p.getY();
+                if (p.y > knotMaxY) {
+                    knotMaxY = (float) p.y;
                 }
             }
         }
@@ -879,8 +879,8 @@ public class Camera2D implements Camera {
     public Vector2f[] pointsToScreenSpace(PointND... points) {
         Vector2f[] result = new Vector2f[points.length];
         for (int i = 0; i < points.length; i++) {
-            Point2D p = points[i].toPoint2D();
-            result[i] = new Vector2f(pointTransformX(p.getX()), pointTransformY(p.getY()));
+            Vector2d p = points[i].toVector2d();
+            result[i] = new Vector2f(pointTransformX(p.x), pointTransformY(p.y));
         }
         return result;
     }
