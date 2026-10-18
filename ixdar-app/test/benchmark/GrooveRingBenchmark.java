@@ -35,11 +35,11 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.nodes.data.SurfaceMetricNode;
 import ixdar.nodegraph.nodes.selection.SplineRingNode;
 import ixdar.geometry.mesh.data.fields.crossfield.NDirectionField;
-import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.ring.RingDslWriter;
 import ixdar.tools.ring.RingTool;
 
@@ -100,17 +100,16 @@ public final class GrooveRingBenchmark {
         NodeGraphRuntime graph = NodeGraphRuntime.fromSource(
                 new String(Files.readAllBytes(Path.of(graphPath)), StandardCharsets.UTF_8));
         String metricId = null;
-        List<PythonParser.ParsedNode> rings = new ArrayList<>();
-        for (PythonParser.ParsedNode statement : graph.root.body) {
+        List<GraphNodeContext> rings = new ArrayList<>();
+        for (GraphNodeContext statement : graph.root.declared) {
             metricId = RingDslWriter.SURFACE_METRIC_NODE.equals(statement.type) && metricId == null
-                    ? statement.id : metricId;
+                    ? statement.nodeAssignmentId() : metricId;
             if (SplineRingNode.DEFAULT_MARK_LABEL.equals(statement.type)) {
                 rings.add(statement);
             }
         }
         assertNotNull(metricId, NO_SURFACE);
-        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.root.body,
-                metricId, GEOMETRY_PORT);
+        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(metricId, GEOMETRY_PORT);
         MeshTopology surface = bundle.mesh();
         SurfaceMetric metric = (SurfaceMetric) graph.getNodeOutput(metricId,
                 SurfaceMetricNode.METRIC.name);
@@ -241,17 +240,18 @@ public final class GrooveRingBenchmark {
         }
         List<String> rows = new ArrayList<>();
         rows.add(header.toString());
-        for (PythonParser.ParsedNode statement : rings) {
+        for (GraphNodeContext statement : rings) {
             float[] points = SurfaceWaypoints.parse(
-                    String.valueOf(statement.arguments.get(SplineRingNode.POINTS.name)));
+                    String.valueOf(statement.inputSources.get(SplineRingNode.POINTS.name)));
             float[] normal = SurfaceWaypoints.parse(
-                    String.valueOf(statement.arguments.get(SplineRingNode.NORMAL.name)));
+                    String.valueOf(statement.inputSources.get(SplineRingNode.NORMAL.name)));
             int[] anchors = SurfaceWaypoints.snap(metric.nearestVertex, points,
                     points.length / XYZ);
             AuthoredSplineRing saved = new AuthoredSplineRing(geodesics);
             if (!saved.trace(anchors, anchors.length, normal.length == XYZ ? normal : null,
                     SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
-                rows.add(statement.id + "\tthe saved ring does not trace: " + saved.failure);
+                rows.add(statement.nodeAssignmentId() + "\tthe saved ring does not trace: "
+                        + saved.failure);
                 continue;
             }
             float[] savedLine = SurfaceSpline.of(saved.tracer).polyline;
@@ -274,7 +274,7 @@ public final class GrooveRingBenchmark {
             boolean seeded = limbAxis.skeletonAxisAt(click.x, click.y, click.z, axis)
                     || limbAxis.curvatureAxisAt(faceId, axis);
             StringBuilder row = new StringBuilder(String.format(Locale.ROOT, "%s\t%.5f\t%.3f",
-                    statement.id, radius, savedValley / radius));
+                    statement.nodeAssignmentId(), radius, savedValley / radius));
             if (!girdle.find(surface, faceId, clickXyz, seeded ? axis : null)) {
                 rows.add(row.append("\tno girdling plane at the click").toString());
                 continue;
@@ -386,13 +386,12 @@ public final class GrooveRingBenchmark {
         NodeGraphRuntime graph = NodeGraphRuntime.fromSource(
                 new String(Files.readAllBytes(Path.of(graphPath)), StandardCharsets.UTF_8));
         String metricId = null;
-        for (PythonParser.ParsedNode statement : graph.root.body) {
+        for (GraphNodeContext statement : graph.root.declared) {
             metricId = RingDslWriter.SURFACE_METRIC_NODE.equals(statement.type) && metricId == null
-                    ? statement.id : metricId;
+                    ? statement.nodeAssignmentId() : metricId;
         }
         assertNotNull(metricId, NO_SURFACE);
-        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.root.body,
-                metricId, GEOMETRY_PORT);
+        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(metricId, GEOMETRY_PORT);
         MeshTopology surface = bundle.mesh();
         SurfaceMetric metric = (SurfaceMetric) graph.getNodeOutput(metricId,
                 SurfaceMetricNode.METRIC.name);

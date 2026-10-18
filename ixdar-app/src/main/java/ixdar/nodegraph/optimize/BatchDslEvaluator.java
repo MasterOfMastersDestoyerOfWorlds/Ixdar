@@ -31,10 +31,12 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.nodegraph.runtime.GroupLibrary;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 
+import ixdar.nodegraph.syntax.PythonLexer;
 import ixdar.nodegraph.syntax.PythonParser;
 
 /**
@@ -94,8 +96,9 @@ public final class BatchDslEvaluator {
             System.exit(2);
         }
 
-        NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(Files.readString(dslPath));
-        List<PythonParser.ParsedNode> parsed = runtime.root.body;
+        PythonParser parser = new PythonParser(new PythonLexer(Files.readString(dslPath)));
+        List<PythonParser.ParsedNode> parsed = parser.parseGraph();
+        NodeGraphRuntime runtime = GroupLibrary.load(parsed, parser.functionDefs());
         Map<String, Supplier<? extends MeshNode>> registry = NodeGraphRuntime.REGISTERED_NODES;
 
         switch (args[1]) {
@@ -168,7 +171,6 @@ public final class BatchDslEvaluator {
     private static void batch(NodeGraphRuntime runtime,
             Map<String, Supplier<? extends MeshNode>> registry,
             Path outputDir, Path paramsJson, String refObjPath) throws IOException {
-        List<PythonParser.ParsedNode> parsed = runtime.root.body;
         Files.createDirectories(outputDir);
 
         String paramsStr = Files.readString(paramsJson);
@@ -193,9 +195,21 @@ public final class BatchDslEvaluator {
             }
         }
 
-        // Find output node
-        PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
-        List<String> ports = candidatePorts(last, registry);
+        // Find the output node and the ports its mesh may come out of.
+        String lastId = runtime.lastId();
+        Supplier<? extends MeshNode> lastSupplier = registry.get(
+                runtime.root.declared.get(runtime.root.declared.size() - 1).type);
+        List<String> ports = new ArrayList<>();
+        if (lastSupplier != null) {
+            for (var op : MeshNodeSchema.from(lastSupplier.get()).outputs()) {
+                if (op.type == PortType.GEOMETRY_BUNDLE) {
+                    ports.add(op.name);
+                }
+            }
+        }
+        if (ports.isEmpty()) {
+            ports = List.of("geometry", "mesh");
+        }
 
         List<Map<String, Object>> results = new ArrayList<>();
 
@@ -221,7 +235,7 @@ public final class BatchDslEvaluator {
             try {
                 MeshTopology mesh = null;
                 for (String port : ports) {
-                    Object raw = runtime.executeGraphResult(parsed, last.id, port, overrides);
+                    Object raw = runtime.executeGraphResult(lastId, port, overrides);
                     if (raw instanceof GeometryBundle gb) mesh = gb.mesh();
                     if (mesh != null && mesh.vertexCount() > 0) break;
                 }
@@ -445,22 +459,6 @@ public final class BatchDslEvaluator {
             try { return Double.parseDouble(s); } catch (NumberFormatException e) { return null; }
         }
         return v;
-    }
-
-    private static List<String> candidatePorts(PythonParser.ParsedNode last,
-            Map<String, Supplier<? extends MeshNode>> registry) {
-        Supplier<? extends MeshNode> supplier = registry.get(last.type);
-        if (supplier != null) {
-            MeshNodeSchema schema = MeshNodeSchema.from(supplier.get());
-            List<String> names = new ArrayList<>();
-            for (var op : schema.outputs()) {
-                if (op.type == PortType.GEOMETRY_BUNDLE) {
-                    names.add(op.name);
-                }
-            }
-            if (!names.isEmpty()) return names;
-        }
-        return List.of("geometry", "mesh");
     }
 
     private static void writeObj(MeshTopology mesh, Path out) throws IOException {

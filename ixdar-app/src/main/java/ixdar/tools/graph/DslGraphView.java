@@ -10,6 +10,7 @@ import org.joml.Vector2f;
 import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.geometry.tsp.points.PointSet;
 import ixdar.graphics.cameras.Bounds;
@@ -353,7 +354,7 @@ public class DslGraphView implements Tool {
         shownRevision = graph.revision;
         List<GraphNodeContext> leaves = new ArrayList<>();
         for (GraphNodeContext record : graph.treeRecords()) {
-            if (record.group == null && record.elapsedMs() > 0) {
+            if (!(record.node instanceof NodeGroup) && record.elapsedMs() > 0) {
                 leaves.add(record);
             }
         }

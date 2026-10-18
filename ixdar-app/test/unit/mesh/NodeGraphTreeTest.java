@@ -16,8 +16,8 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.GroupBuilder;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.nodegraph.nodes.math.FloatMathNode;
-import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * The node tree, named group outputs, parameter defaults, path overrides, pull evaluation, input
@@ -96,7 +96,7 @@ class NodeGraphTreeTest {
 
         GraphNodeContext call = runtime.node(FIRST);
         assertEquals("inner", call.type);
-        assertNull(call.node, "a DSL group call has no node instance");
+        assertTrue(call.node instanceof NodeGroup, "a DSL group call holds its node group");
         assertEquals(2f, (Float) call.getInputValue(B), TOLERANCE, "the default binds b");
         assertEquals(FIRST_SUM, call.children.get(0).path);
         assertTrue(runtime.node(TOP).elapsedNanos >= call.elapsedNanos);
@@ -154,7 +154,7 @@ class NodeGraphTreeTest {
         NodeGraphRuntime full = NodeGraphRuntime.fromSource(NAMED_OUTPUTS);
         int created = full.revision;
         long before = System.nanoTime();
-        full.executeGraphResult(full.root.body, READER, RESULT);
+        full.executeGraphResult(READER, RESULT);
         long fullWall = System.nanoTime() - before;
         assertEquals(created + 2, full.revision, "the run's reset and its evaluation each count");
         assertTotalIsTheRunsOwnTime(full, fullWall);
@@ -170,7 +170,7 @@ class NodeGraphTreeTest {
         assertTotalIsTheRunsOwnTime(pulled, pullWall);
 
         GraphNodeContext root = pulled.root;
-        pulled.executeGraphResult(pulled.root.body, READER, RESULT);
+        pulled.executeGraphResult(READER, RESULT);
         assertTrue(pulled.root != root && pulled.root.elapsedNanos <= System.nanoTime() - before,
                 "a full run starts a fresh report rather than adding to the pulls'");
     }
@@ -219,10 +219,9 @@ class NodeGraphTreeTest {
         assertEquals(3f, (Float) named.node(STATS_CALL).inputSources.get(A), TOLERANCE);
         assertSource(named.node(READER), A, STATS_CALL, SUM);
         assertSource(named.node(READER), B, STATS_CALL, PRODUCT_PORT);
-        PythonParser.NodeReference sum = (PythonParser.NodeReference) named.node(STATS_CALL)
-                .outputSources.get(SUM);
-        assertEquals(TOTAL, sum.nodeId, "a group output's source is the inner node");
-        assertEquals(RESULT, sum.portName);
+        GraphNodeContext sum = (GraphNodeContext) named.node(STATS_CALL).outputSources.get(SUM);
+        assertEquals(TOTAL, sum.path, "a group output's source is the inner node");
+        assertEquals(RESULT, named.node(STATS_CALL).outputSourcePorts.get(SUM));
 
         NodeGraphRuntime nested = run(NESTED, Map.of(FIRST_SUM_B_OVERRIDE, 5f));
         assertSource(nested.node(SECOND), A, FIRST, RESULT);
@@ -268,32 +267,34 @@ class NodeGraphTreeTest {
      * A Java-built graph: the compiled group over two literals, and a node reading both of its
      * wired outputs.
      *
-     * @return the graph's statements
+     * @return the program
      */
-    private static List<PythonParser.ParsedNode> compiledGraph() {
-        GroupBuilder graph = new GroupBuilder();
-        PythonParser.ParsedNode stats = graph.node(COMPILED_CALL, SumAndProductGroup::new)
-                .input(A, 3f).input(B, 4f);
-        graph.node(READER, FloatMathNode::new).input(A, stats.port(SUM))
-                .input(B, stats.port(PRODUCT_PORT));
-        return graph.statements;
+    private static NodeGroup compiledGraph() {
+        return new NodeGroup() {
+            @Override
+            public void build(GroupBuilder graph) {
+                GraphNodeContext stats = graph.node(COMPILED_CALL, SumAndProductGroup::new)
+                        .input(A, 3f).input(B, 4f);
+                graph.node(READER, FloatMathNode::new).input(A, stats, SUM)
+                        .input(B, stats, PRODUCT_PORT);
+            }
+        };
     }
 
     private static void assertSource(GraphNodeContext record, String port, String path,
             String sourcePort) {
         Object source = record.inputSources.get(port);
-        assertTrue(source instanceof PythonParser.NodeReference, record.path + "." + port
+        assertTrue(source instanceof GraphNodeContext, record.path + "." + port
                 + " is wired, its source " + source);
-        PythonParser.NodeReference reference = (PythonParser.NodeReference) source;
-        assertEquals(path, reference.nodeId, record.path + "." + port + " source path");
-        assertEquals(sourcePort, reference.portName, record.path + "." + port + " source port");
+        assertEquals(path, ((GraphNodeContext) source).path, record.path + "." + port + " source path");
+        assertEquals(sourcePort, record.inputSourcePorts.get(port),
+                record.path + "." + port + " source port");
     }
 
     private static NodeGraphRuntime run(String source, Map<String, Object> overrides)
             throws Exception {
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
-        String last = runtime.root.body.get(runtime.root.body.size() - 1).id;
-        runtime.executeGraphResult(runtime.root.body, last, RESULT, overrides);
+        runtime.executeGraphResult(runtime.lastId(), RESULT, overrides);
         return runtime;
     }
 }

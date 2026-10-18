@@ -18,7 +18,6 @@ import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.ring.RingTool;
 
 /**
@@ -53,9 +52,8 @@ public final class RingRegionsUpdateBenchmark {
         String graphPath = System.getProperty(RING_GRAPH_PROPERTY, DEFAULT_RING_GRAPH);
         NodeGraphRuntime graph = NodeGraphRuntime.fromSource(
                 new String(Files.readAllBytes(Path.of(graphPath)), StandardCharsets.UTF_8));
-        List<PythonParser.ParsedNode> statements = graph.root.body;
-        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(statements,
-                statements.get(statements.size() - 1).id, GEOMETRY_PORT);
+        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.lastId(),
+                GEOMETRY_PORT);
         List<String> labels = new ArrayList<>();
         List<boolean[]> masks = new ArrayList<>();
         if (bundle.slots().get(EdgeMarks.SLOT) instanceof Map<?, ?> marks) {

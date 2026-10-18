@@ -1,10 +1,6 @@
 package ixdar.scenes;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.io.CrossFieldLoader;
@@ -12,7 +8,7 @@ import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
-import ixdar.nodegraph.syntax.PythonParser;
+import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ModelScene;
@@ -57,7 +53,7 @@ public class CrossFieldExaminationScene extends ModelScene {
     }
 
     @Override
-    public List<PythonParser.ParsedNode> sceneGraph() {
+    public NodeGroup sceneGraph() {
         return QuadLayoutNode.overSceneModel();
     }
 

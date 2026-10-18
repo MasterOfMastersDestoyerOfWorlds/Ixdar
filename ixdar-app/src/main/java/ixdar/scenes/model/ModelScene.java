@@ -17,6 +17,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
@@ -29,7 +30,6 @@ import ixdar.models.ModelCatalog;
 import ixdar.models.ModelChoice;
 import ixdar.models.ModelCollection;
 import ixdar.models.ModelLoadLedger;
-import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
@@ -362,14 +362,13 @@ public abstract class ModelScene extends Scene {
      * @return the executed runtime, for the override to read outputs from
      */
     public NodeGraphRuntime loadGraph(GraphChoice choice) {
-        NodeGraphRuntime run = NodeGraphRuntime.fromResource(choice.dslPath);
         Map<String, Object> merged = new LinkedHashMap<>(choice.overrides);
         merged.putAll(overrides);
-        graph = run;
+        NodeGraphRuntime run;
         try {
-            List<PythonParser.ParsedNode> program = run.root.body;
-            run.executeGraphResult(program, program.get(program.size() - 1).id,
-                    NodeGraphRuntime.RESULT, merged);
+            run = NodeGraphRuntime.fromResource(choice.dslPath);
+            graph = run;
+            run.executeGraphResult(run.lastId(), NodeGraphRuntime.RESULT, merged);
         } catch (Exception failure) {
             throw new IllegalStateException("graph " + choice.dslPath + " failed", failure);
         }
@@ -381,9 +380,9 @@ public abstract class ModelScene extends Scene {
      * Graph a mesh-file model runs through, built in Java, whose {@code scene_model()} node is fed
      * the loaded model; {@code null} for a scene that runs no graph over its model.
      *
-     * @return the scene graph's statements, or {@code null}
+     * @return the scene graph, or {@code null}
      */
-    public List<PythonParser.ParsedNode> sceneGraph() {
+    public NodeGroup sceneGraph() {
         return null;
     }
 

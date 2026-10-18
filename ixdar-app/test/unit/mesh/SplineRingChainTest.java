@@ -202,7 +202,7 @@ class SplineRingChainTest {
 
     private static GeometryBundle run(String source) throws Exception {
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
-        Object result = runtime.executeGraphResult(runtime.root.body, SECOND_LABEL,
+        Object result = runtime.executeGraphResult(SECOND_LABEL,
                 RingDslWriter.DEFAULT_UPSTREAM_PORT);
         assertTrue(result instanceof GeometryBundle, "the graph left no bundle");
         return (GeometryBundle) result;

@@ -18,7 +18,6 @@ import ixdar.nodegraph.nodes.geometry.MeshBooleanNode;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.models.ModelChoice;
-import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ModelScene;
@@ -157,11 +156,10 @@ public class MeshBooleanScene extends ModelScene {
             return;
         }
         NodeGraphRuntime graphRuntime = NodeGraphRuntime.fromSource(dslSource);
-        List<PythonParser.ParsedNode> ast = graphRuntime.root.body;
 
         Object result;
         try {
-            result = graphRuntime.executeGraphResult(ast, BOOLEAN_STATEMENT, GEOMETRY_PORT,
+            result = graphRuntime.executeGraphResult(BOOLEAN_STATEMENT, GEOMETRY_PORT,
                     Map.of(BOOLEAN_STATEMENT + "." + MeshBooleanNode.OPERATION.name, operation));
         } catch (Exception failure) {
             Platforms.get().log(LOG_PREFIX + DSL_NAME + " failed: " + failure.getMessage());

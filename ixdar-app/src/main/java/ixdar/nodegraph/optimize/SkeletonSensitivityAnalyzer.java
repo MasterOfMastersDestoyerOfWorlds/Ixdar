@@ -22,6 +22,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 
 import ixdar.nodegraph.optimize.InputParameterDescriptor.InputParameterKind;
 
+import ixdar.nodegraph.runtime.GroupLibrary;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
 import ixdar.nodegraph.syntax.PythonParser;
@@ -81,10 +82,10 @@ public final class SkeletonSensitivityAnalyzer {
         PythonParser.ParsedNode lastNode = parsed.get(parsed.size() - 1);
         List<String> ports = candidatePorts(parsed);
 
-        NodeGraphRuntime runtime = new NodeGraphRuntime();
+        NodeGraphRuntime runtime = GroupLibrary.load(parsed, Map.of());
 
         // 4. Execute baseline (all defaults)
-        MeshTopology baselineMesh = executeDsl(runtime, parsed, lastNode.id, ports, Map.of());
+        MeshTopology baselineMesh = executeDsl(runtime, lastNode.id, ports, Map.of());
         if (baselineMesh == null) {
             throw new IllegalStateException("Baseline DSL execution produced no mesh");
         }
@@ -138,7 +139,7 @@ public final class SkeletonSensitivityAnalyzer {
             overrides.put(param.overrideKey(), defaultVal + eps);
 
             try {
-                MeshTopology perturbedMesh = executeDsl(runtime, parsed, lastNode.id, ports, overrides);
+                MeshTopology perturbedMesh = executeDsl(runtime, lastNode.id, ports, overrides);
                 if (perturbedMesh == null) {
                     unstableParams.add(param.overrideKey());
                     continue;
@@ -194,7 +195,7 @@ public final class SkeletonSensitivityAnalyzer {
 
         // 8. Estimate projected score by applying suggested deltas
         float projectedScore = estimateProjectedScore(
-                runtime, parsed, lastNode.id, ports, params, suggestedDeltas, refSkel, resolution);
+                runtime, lastNode.id, ports, params, suggestedDeltas, refSkel, resolution);
 
         return new SensitivityResult(
                 params, jointIndices, jacobian3D,
@@ -231,7 +232,7 @@ public final class SkeletonSensitivityAnalyzer {
         PythonParser.ParsedNode lastNode = parsed.get(parsed.size() - 1);
         List<String> ports = candidatePorts(parsed);
 
-        NodeGraphRuntime runtime = new NodeGraphRuntime();
+        NodeGraphRuntime runtime = GroupLibrary.load(parsed, Map.of());
 
         // Current parameter values (start at defaults)
         Map<String, Float> currentParams = new LinkedHashMap<>();
@@ -240,7 +241,7 @@ public final class SkeletonSensitivityAnalyzer {
         }
 
         List<OptimizationStep> steps = new ArrayList<>();
-        float currentScore = evaluateScore(runtime, parsed, lastNode.id, ports, currentParams, refSkel, resolution);
+        float currentScore = evaluateScore(runtime, lastNode.id, ports, currentParams, refSkel, resolution);
         float initialScore = currentScore;
 
         steps.add(new OptimizationStep(0, currentScore, new LinkedHashMap<>(currentParams), 0));
@@ -256,7 +257,7 @@ public final class SkeletonSensitivityAnalyzer {
             }
 
             // Execute at current params
-            MeshTopology mesh = executeDsl(runtime, parsed, lastNode.id, ports, overridesBase);
+            MeshTopology mesh = executeDsl(runtime, lastNode.id, ports, overridesBase);
             if (mesh == null) break;
 
             ArrayMesh arrayMesh = ArrayMeshEngine.fromUniformMeshTopology(mesh);
@@ -292,7 +293,7 @@ public final class SkeletonSensitivityAnalyzer {
                 overrides.put(param.overrideKey(), currentVal + eps);
 
                 try {
-                    MeshTopology perturbedMesh = executeDsl(runtime, parsed, lastNode.id, ports, overrides);
+                    MeshTopology perturbedMesh = executeDsl(runtime, lastNode.id, ports, overrides);
                     if (perturbedMesh == null) continue;
 
                     ArrayMesh perturbedArrayMesh = ArrayMeshEngine.fromUniformMeshTopology(perturbedMesh);
@@ -351,7 +352,7 @@ public final class SkeletonSensitivityAnalyzer {
                     candidateParams.put(paramKey, newVal);
                 }
 
-                candidateScore = evaluateScore(runtime, parsed, lastNode.id, ports, candidateParams, refSkel, resolution);
+                candidateScore = evaluateScore(runtime, lastNode.id, ports, candidateParams, refSkel, resolution);
 
                 if (candidateScore > currentScore) break;
                 stepSize *= 0.5f;
@@ -502,10 +503,10 @@ public final class SkeletonSensitivityAnalyzer {
     // ─── Helper methods ───
 
     private static MeshTopology executeDsl(NodeGraphRuntime runtime,
-            List<PythonParser.ParsedNode> parsed, String lastNodeId,
+            String lastNodeId,
             List<String> ports, Map<String, Object> overrides) throws Exception {
         for (String port : ports) {
-            Object raw = runtime.executeGraphResult(parsed, lastNodeId, port, overrides);
+            Object raw = runtime.executeGraphResult(lastNodeId, port, overrides);
             MeshTopology mesh = null;
             if (raw instanceof GeometryBundle gb) mesh = gb.mesh();
             if (mesh != null && mesh.vertexCount() > 0) return mesh;
@@ -514,12 +515,12 @@ public final class SkeletonSensitivityAnalyzer {
     }
 
     private static float evaluateScore(NodeGraphRuntime runtime,
-            List<PythonParser.ParsedNode> parsed, String lastNodeId,
+            String lastNodeId,
             List<String> ports, Map<String, Float> paramValues,
             SkeletonResult refSkel, int resolution) {
         try {
             Map<String, Object> overrides = new HashMap<>(paramValues);
-            MeshTopology mesh = executeDsl(runtime, parsed, lastNodeId, ports, overrides);
+            MeshTopology mesh = executeDsl(runtime, lastNodeId, ports, overrides);
             if (mesh == null) return 0;
             ArrayMesh arrayMesh = ArrayMeshEngine.fromUniformMeshTopology(mesh);
             SkeletonResult skel = MeshSkeletonExtractor.extract(arrayMesh, resolution);
@@ -530,7 +531,7 @@ public final class SkeletonSensitivityAnalyzer {
     }
 
     private static float estimateProjectedScore(NodeGraphRuntime runtime,
-            List<PythonParser.ParsedNode> parsed, String lastNodeId,
+            String lastNodeId,
             List<String> ports, List<OptimizableParameter> params,
             Map<String, Float> suggestedDeltas, SkeletonResult refSkel, int resolution) {
         try {
@@ -540,7 +541,7 @@ public final class SkeletonSensitivityAnalyzer {
                 float delta = suggestedDeltas.getOrDefault(p.overrideKey(), 0f);
                 projected.put(p.overrideKey(), Math.max(p.minValue(), Math.min(p.maxValue(), base + delta)));
             }
-            return evaluateScore(runtime, parsed, lastNodeId, ports, projected, refSkel, resolution);
+            return evaluateScore(runtime, lastNodeId, ports, projected, refSkel, resolution);
         } catch (Exception e) {
             return 0;
         }

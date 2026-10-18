@@ -30,7 +30,6 @@ import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.models.ModelCatalog;
 import ixdar.models.ModelChoice;
-import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.input.Keys;
@@ -1047,10 +1046,8 @@ public class MeshNodeViewerScene extends ModelScene {
             throws Exception {
         NodeGraphRuntime run = NodeGraphRuntime.fromSource(dslCode);
         graph = run;
-        List<PythonParser.ParsedNode> program = run.root.body;
-        String resolvedNode = finalNode != null && !finalNode.isEmpty() ? finalNode
-                : program.get(program.size() - 1).id;
-        Object result = run.executeGraphResult(program, resolvedNode, finalPort, overrides);
+        String resolvedNode = finalNode != null && !finalNode.isEmpty() ? finalNode : run.lastId();
+        Object result = run.executeGraphResult(resolvedNode, finalPort, overrides);
         run.logTimings(TIMING_PREFIX);
         return result;
     }

@@ -1,7 +1,6 @@
 package ixdar.scenes;
 
 import java.io.IOException;
-import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.io.CrossFieldLoader;
@@ -13,7 +12,7 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
-import ixdar.nodegraph.syntax.PythonParser;
+import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.platform.Platforms;
 import ixdar.scenes.model.ModelScene;
 
@@ -50,7 +49,7 @@ public class ParametrizationExaminationScene extends ModelScene {
     }
 
     @Override
-    public List<PythonParser.ParsedNode> sceneGraph() {
+    public NodeGroup sceneGraph() {
         return QuadLayoutNode.overSceneModel();
     }
 

@@ -11,7 +11,9 @@ import ixdar.nodegraph.analysis.GraphValidator;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.nodes.data.TagGeometryNode;
 
+import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.GroupLibrary;
+import ixdar.nodegraph.syntax.PythonLexer;
 import ixdar.nodegraph.syntax.PythonParser;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -81,14 +83,12 @@ public final class ValidateDsl {
         Map<String, Supplier<? extends MeshNode>> registry =
             NodeGraphRuntime.REGISTERED_NODES;
 
-        NodeGraphRuntime runtime;
         List<PythonParser.ParsedNode> parsed;
         try {
-            runtime = NodeGraphRuntime.fromSource(source);
-            parsed = runtime.root.body;
-            funcDefs.putAll(runtime.functionDefs);
+            PythonParser parser = new PythonParser(new PythonLexer(source));
+            parsed = parser.parseGraph();
+            funcDefs.putAll(parser.functionDefs());
             funcDefs.putAll(GroupLibrary.referencedGroups(parsed, funcDefs, registry.keySet()));
-            runtime.registerFunctionDefs(funcDefs);
         } catch (RuntimeException e) {
             return Map.of(
                 VALID,
@@ -123,7 +123,17 @@ public final class ValidateDsl {
         result.put(WARNINGS, warnings);
 
         if (valid && !parsed.isEmpty()) {
-            Map<String, Object> probe = runMeshProbe(runtime, registry);
+            NodeGraphRuntime runtime = null;
+            Map<String, Object> probe;
+            try {
+                runtime = GroupLibrary.load(parsed, funcDefs);
+                probe = runMeshProbe(runtime, registry);
+            } catch (RuntimeException failure) {
+                probe = new LinkedHashMap<>();
+                probe.put(ATTEMPTED, true);
+                probe.put(OK, false);
+                probe.put(ERROR, "Loading the graph failed: " + failure.getMessage());
+            }
             result.put(MESHPROBE, probe);
 
             if (
@@ -209,10 +219,10 @@ public final class ValidateDsl {
     }
 
     private static List<String> candidateMeshPorts(
-        PythonParser.ParsedNode last,
+        String lastType,
         Map<String, Supplier<? extends MeshNode>> registry
     ) {
-        Supplier<? extends MeshNode> supplier = registry.get(last.type);
+        Supplier<? extends MeshNode> supplier = registry.get(lastType);
         if (supplier != null) {
             MeshNodeSchema schema = MeshNodeSchema.from(supplier.get());
             List<String> names = new ArrayList<>();
@@ -235,17 +245,17 @@ public final class ValidateDsl {
         Map<String, Object> probe = new LinkedHashMap<>();
         probe.put(ATTEMPTED, true);
 
-        List<PythonParser.ParsedNode> parsed = runtime.root.body;
-        PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
-        probe.put("outputNodeId", last.id);
-        List<String> ports = candidateMeshPorts(last, registry);
+        GraphNodeContext last = runtime.root.declared.get(runtime.root.declared.size() - 1);
+        String lastId = last.nodeAssignmentId();
+        probe.put("outputNodeId", lastId);
+        List<String> ports = candidateMeshPorts(last.type, registry);
         probe.put("portsTried", ports);
 
         MeshTopology mesh = null;
         String usedPort = null;
         for (String port : ports) {
             try {
-                mesh = runtime.executeGraphToMesh(parsed, last.id, port);
+                mesh = runtime.executeGraphToMesh(lastId, port);
             } catch (Exception e) {
                 probe.put(OK, false);
                 probe.put(OUTPUTPORT, port);
@@ -266,7 +276,7 @@ public final class ValidateDsl {
             probe.put(
                 ERROR,
                 "Last node '" +
-                    last.id +
+                    lastId +
                     "' produced no mesh with positive vertex count."
             );
             return probe;
@@ -386,12 +396,11 @@ public final class ValidateDsl {
         NodeGraphRuntime runtime,
         Map<String, Supplier<? extends MeshNode>> registry
     ) {
-        List<PythonParser.ParsedNode> parsed = runtime.root.body;
-        PythonParser.ParsedNode last = parsed.get(parsed.size() - 1);
-        List<String> ports = candidateMeshPorts(last, registry);
+        GraphNodeContext last = runtime.root.declared.get(runtime.root.declared.size() - 1);
+        List<String> ports = candidateMeshPorts(last.type, registry);
         for (String port : ports) {
             try {
-                Object raw = runtime.executeGraphResult(parsed, last.id, port);
+                Object raw = runtime.executeGraphResult(last.nodeAssignmentId(), port);
                 MeshTopology mesh = null;
                 Map<String, boolean[]> tags = null;
                 if (raw instanceof GeometryBundle gb) {

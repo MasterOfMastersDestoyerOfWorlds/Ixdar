@@ -2495,6 +2495,7 @@ public final class RingTool implements Tool {
      * loop until edited.
      *
      * @param surface the surface the graph's marks index
+     * @throws IllegalArgumentException when the graph has more than one ring_candidates node
      */
     public void adoptGraphRings(MeshTopology surface) {
         graphRingsPending = false;
@@ -2504,19 +2505,34 @@ public final class RingTool implements Tool {
             return;
         }
         NodeGraphRuntime graph = scene.graph;
-        List<PythonParser.ParsedNode> statements = graph == null ? List.of() : graph.root.body;
+        List<GraphNodeContext> statements = graph == null ? List.of() : graph.root.declared;
         int adopted = 0;
         List<String> refused = new ArrayList<>();
         // A new graph either proposes rings itself, whose block the next freeze rewrites, or has
         // none, and any frozen rings are then statements like any other.
-        boolean proposes = RingDslWriter.candidatesStatement(statements) != null;
+        int candidateStatements = 0;
+        for (GraphNodeContext statement : statements) {
+            if (RingDslWriter.CANDIDATES_NODE.equals(statement.type)) {
+                candidateStatements++;
+            }
+        }
+        if (candidateStatements > 1) {
+            throw new IllegalArgumentException("the working graph has more than one "
+                    + RingDslWriter.CANDIDATES_NODE + " statement, so a proposed ring has no one owner");
+        }
+        boolean proposes = candidateStatements == 1;
         candidateLabels.clear();
         candidateRingByLabel.clear();
         writtenCandidateRings.clear();
         candidatesLine = null;
         for (Map.Entry<String, boolean[]> entry : scene.ringMarksByLabel.entrySet()) {
             String label = entry.getKey();
-            PythonParser.ParsedNode statement = RingDslWriter.labelledStatement(statements, label);
+            GraphNodeContext statement = null;
+            for (GraphNodeContext labelled : statements) {
+                if (label.equals(labelled.inputSources.get(RingDslWriter.LABEL_ARGUMENT))) {
+                    statement = labelled;
+                }
+            }
             boolean proposed = proposes && statement == null;
             if (proposed) {
                 candidateLabels.add(label);
@@ -2529,9 +2545,9 @@ public final class RingTool implements Tool {
                 // A bisector attaches to walls adopted before it, which in graph order are its
                 // walls; from here on it names them by serial, not by label.
                 float[] points = SurfaceWaypoints.parse(
-                        String.valueOf(statement.arguments.get(SplineCutNode.POINTS.name)));
+                        String.valueOf(statement.inputSources.get(SplineCutNode.POINTS.name)));
                 String[] endLabels = String.valueOf(
-                        statement.arguments.get(SplineCutNode.ENDS.name))
+                        statement.inputSources.get(SplineCutNode.ENDS.name))
                         .split(SplineCutNode.END_SEPARATOR);
                 int[] ends = new int[endLabels.length];
                 for (int end = 0; end < ends.length; end++) {
@@ -2553,8 +2569,8 @@ public final class RingTool implements Tool {
                 confirmedAuthoredVertexId.add(anchors);
                 confirmedBaseNormal.add(new float[COORDINATES_PER_POINT]);
                 confirmedMode.add(RingSegmentMode.GEODESIC);
-                confirmedStatementIds.add(statement.id);
-                knownRingStatementIds.add(statement.id);
+                confirmedStatementIds.add(statement.nodeAssignmentId());
+                knownRingStatementIds.add(statement.nodeAssignmentId());
                 confirmedRingUnsaved.add(false);
                 confirmedSourceLabel.add(label);
                 confirmedRingDeleted.add(false);
@@ -2571,11 +2587,11 @@ public final class RingTool implements Tool {
             int[] anchors;
             if (spline) {
                 float[] points = SurfaceWaypoints.parse(
-                        String.valueOf(statement.arguments.get(SplineRingNode.POINTS.name)));
+                        String.valueOf(statement.inputSources.get(SplineRingNode.POINTS.name)));
                 float[] written = SurfaceWaypoints.parse(
-                        String.valueOf(statement.arguments.get(SplineRingNode.NORMAL.name)));
+                        String.valueOf(statement.inputSources.get(SplineRingNode.NORMAL.name)));
                 normal = written.length == COORDINATES_PER_POINT ? written : null;
-                Object mode = statement.arguments.get(SplineRingNode.MODE.name);
+                Object mode = statement.inputSources.get(SplineRingNode.MODE.name);
                 anchored.mode = RingSegmentMode.named(mode instanceof String text ? text : null);
                 if (anchored.mode == RingSegmentMode.CREASE && readyCreases(surface)) {
                     anchored.creases = creases;
@@ -2613,9 +2629,9 @@ public final class RingTool implements Tool {
             confirmedAuthoredVertexId.add(anchored.authoredVertexId);
             confirmedBaseNormal.add(normal == null ? written(anchored.planeNormal) : normal);
             confirmedMode.add(anchored.mode);
-            confirmedStatementIds.add(spline ? statement.id : null);
+            confirmedStatementIds.add(spline ? statement.nodeAssignmentId() : null);
             if (spline) {
-                knownRingStatementIds.add(statement.id);
+                knownRingStatementIds.add(statement.nodeAssignmentId());
             }
             confirmedRingUnsaved.add(false);
             confirmedSourceLabel.add(label);

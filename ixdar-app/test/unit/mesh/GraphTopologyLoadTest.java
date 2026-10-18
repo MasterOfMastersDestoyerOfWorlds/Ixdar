@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.joml.Vector3f;
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * The repo graphs coons_cube and test_bridge execute headless through the path the mesh viewer's
@@ -100,8 +98,7 @@ class GraphTopologyLoadTest {
         String source = new String(GraphTopologyLoadTest.class.getClassLoader().getResourceAsStream(dslPath)
                 .readAllBytes(), StandardCharsets.UTF_8);
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
-        List<PythonParser.ParsedNode> ast = runtime.root.body;
-        MeshTopology mesh = runtime.executeGraphToMesh(ast, ast.get(ast.size() - 1).id, GEOMETRY_PORT);
+        MeshTopology mesh = runtime.executeGraphToMesh(runtime.lastId(), GEOMETRY_PORT);
         assertNotNull(mesh, dslPath + " produced no mesh");
         return mesh;
     }

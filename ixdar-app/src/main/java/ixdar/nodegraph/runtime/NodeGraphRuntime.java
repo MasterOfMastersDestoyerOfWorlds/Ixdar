@@ -25,15 +25,13 @@ import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.nodegraph.syntax.PythonLexer;
-import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 
 import ixdar.nodegraph.field.FieldContextImpl;
-import ixdar.nodegraph.optimize.InputParameterDescriptor;
 /**
- * Executes parsed DSL graphs over registered {@link MeshNode}s and node groups, keeping every
- * evaluated node, group bodies included, in the node tree under {@link #root} by its path.
+ * Executes a program, a {@link NodeGroup} of registered {@link MeshNode}s and node groups, over a
+ * node tree it builds afresh for every run under {@link #root}: each node a record wired to the
+ * records it reads, group bodies included, found by its path.
  */
 public class NodeGraphRuntime {
     public static final String MESH = "mesh";
@@ -58,8 +56,6 @@ public class NodeGraphRuntime {
 
     public static final Set<String> INPUT_NODE_TYPES;
 
-    private static final String WAS_REFERENCED_BEFORE_IT_WAS_EVALUATED = "' was referenced before it was evaluated!";
-    private static final String IN_FUNCTION = "In function '";
     private static final String AXIS_X = "x";
     private static final String AXIS_Y = "y";
     private static final String AXIS_Z = "z";
@@ -120,14 +116,18 @@ public class NodeGraphRuntime {
     public final Map<String, Object> overrides = new LinkedHashMap<>();
 
     /**
-     * Groups by name: the program's own, those registered, and library or compiled groups once a
-     * run has looked them up.
+     * Groups by name, looked up ahead of the registry: the program's own, those its host
+     * registered, and library groups once a build has looked them up.
      */
-    public final Map<String, PythonParser.FunctionDef> functionDefs = new HashMap<>();
+    public final Map<String, Supplier<? extends MeshNode>> groups = new HashMap<>();
+
+    /** The program every run builds its node tree from. */
+    public final NodeGroup program;
 
     /**
-     * The current run's report and the only view of it: its body is the program, its children the
-     * evaluated top-level records, its time the run's total and its peak heap the run's peak.
+     * The current run's report and the only view of it: its declared records are the program's
+     * top level, its children the evaluated ones, its time the run's total and its peak heap the
+     * run's peak.
      */
     public GraphNodeContext root = new GraphNodeContext();
 
@@ -136,9 +136,6 @@ public class NodeGraphRuntime {
      * full run or a {@link #pull}, adds one, so a reader re-reads the tree when it moves.
      */
     public int revision;
-
-    /** Types known to call no group (leaf nodes, types the library lacks), each looked up once. */
-    private final Set<String> nonGroupTypes = new HashSet<>();
 
     /** Overrides by node path, then by port (or {@code port.x}). */
     private final Map<String, Map<String, Object>> overridesByPath = new HashMap<>();
@@ -164,18 +161,27 @@ public class NodeGraphRuntime {
      */
     private boolean evaluateWholeGroups = true;
 
-    /** A runtime with no program of its own; callers hand statements to the execute methods. */
-    public NodeGraphRuntime() {
-        this(List.of());
+    /**
+     * A runtime bound to a program, its node tree built.
+     *
+     * @param program the program, e.g. a scene's graph
+     * @throws IllegalArgumentException when the program names a node type nothing provides
+     */
+    public NodeGraphRuntime(NodeGroup program) {
+        this(program, Map.of());
     }
 
     /**
-     * A runtime bound to a parsed program, held as the body of {@link #root}.
+     * A runtime bound to a program that calls groups of its own, its node tree built.
      *
-     * @param statements top-level statements in source order
+     * @param program the program
+     * @param groups  groups by name, looked up ahead of the registry and the library
+     * @throws IllegalArgumentException when the program names a node type nothing provides
      */
-    public NodeGraphRuntime(List<PythonParser.ParsedNode> statements) {
-        reset(statements);
+    public NodeGraphRuntime(NodeGroup program, Map<String, Supplier<? extends MeshNode>> groups) {
+        this.program = program;
+        this.groups.putAll(groups);
+        reset();
     }
 
     /**
@@ -224,16 +230,25 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * The output a port of the final top-level statement produced in the most
-     * recent execution.
+     * The id of the program's last top-level node, the one a run reads its result from by
+     * default.
+     *
+     * @return the id, or {@code null} for an empty program
+     */
+    public String lastId() {
+        return root.declared.isEmpty() ? null
+                : root.declared.get(root.declared.size() - 1).nodeAssignmentId();
+    }
+
+    /**
+     * The output a port of the final top-level node produced in the most recent execution.
      *
      * @param outputPortName name of the output port to read
      * @return the port's value, or {@code null} when nothing ran or the port is
      *         missing
      */
     public Object lastOutput(String outputPortName) {
-        return root.body.isEmpty() ? null
-                : getNodeOutput(root.body.get(root.body.size() - 1).id, outputPortName);
+        return root.declared.isEmpty() ? null : getNodeOutput(lastId(), outputPortName);
     }
 
     /**
@@ -255,20 +270,19 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Parses and executes a graph resource and returns the executed runtime,
-     * every statement's outputs readable through {@link #getNodeOutput},
+     * Loads and executes a graph resource and returns the executed runtime,
+     * every node's outputs readable through {@link #getNodeOutput},
      * {@link #intOutput} and {@link #lastOutput}.
      *
      * @param dslPath   classpath resource or file path of the graph
      * @param overrides path overrides; see {@link #setOverrides} for the key format
-     * @throws IllegalStateException when parsing or execution fails
+     * @throws IllegalStateException when loading or execution fails
      * @return the executed runtime
      */
     public static NodeGraphRuntime executeResource(String dslPath, Map<String, Object> overrides) {
         try {
             NodeGraphRuntime runtime = fromResource(dslPath);
-            List<PythonParser.ParsedNode> program = runtime.root.body;
-            runtime.executeGraphResult(program, program.get(program.size() - 1).id, RESULT, overrides);
+            runtime.executeGraphResult(runtime.lastId(), RESULT, overrides);
             return runtime;
         } catch (Exception failure) {
             throw new IllegalStateException("graph " + dslPath + " failed", failure);
@@ -276,7 +290,7 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Parses a graph resource into a runtime without executing it.
+     * Loads a graph resource into a runtime without executing it.
      *
      * @param dslPath classpath resource (e.g. {@code dsl/fertility_quad_layout.dsl}) or file path
      * @return a runtime ready to execute or pull from
@@ -304,15 +318,6 @@ public class NodeGraphRuntime {
         } catch (IOException failure) {
             throw new IllegalArgumentException("cannot read graph " + path, failure);
         }
-    }
-
-    /**
-     * Register DSL group definitions, merged into the runtime's group table ahead of the library.
-     *
-     * @param defs group name to parsed body
-     */
-    public void registerFunctionDefs(Map<String, PythonParser.FunctionDef> defs) {
-        functionDefs.putAll(defs);
     }
 
     /**
@@ -363,17 +368,6 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * The supplier for a statement: a Java-built statement's own, else the registered one of its
-     * type.
-     *
-     * @param statement the statement
-     * @return the supplier, or {@code null} when neither exists
-     */
-    private static Supplier<? extends MeshNode> supplierFor(PythonParser.ParsedNode statement) {
-        return statement.supplier != null ? statement.supplier : supplierFor(statement.type);
-    }
-
-    /**
      * The supplier for a node id in {@link #REGISTERED_NODES}.
      *
      * @param type node id to look up
@@ -381,6 +375,28 @@ public class NodeGraphRuntime {
      */
     public static Supplier<? extends MeshNode> supplierFor(String type) {
         return REGISTERED_NODES.get(type);
+    }
+
+    /**
+     * What a node type names in this runtime: one of its {@link #groups}, else a registered node,
+     * else a library group, whose file's groups then join {@link #groups}.
+     *
+     * @param type group name or registered node id
+     * @return the supplier, or {@code null} when nothing goes by that name
+     */
+    public Supplier<? extends MeshNode> resolve(String type) {
+        Supplier<? extends MeshNode> supplier = groups.get(type);
+        if (supplier != null) {
+            return supplier;
+        }
+        supplier = supplierFor(type);
+        if (supplier != null) {
+            return supplier;
+        }
+        for (Map.Entry<String, Supplier<? extends MeshNode>> group : GroupLibrary.find(type).entrySet()) {
+            groups.putIfAbsent(group.getKey(), group.getValue());
+        }
+        return groups.get(type);
     }
 
     /**
@@ -398,77 +414,49 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Parses DSL source into a runtime whose {@link #root} holds the parsed program, with the
-     * program's own function definitions.
+     * Loads DSL source into a runtime whose program is the source's top level, calling the
+     * source's own groups.
      *
      * @param source DSL program text
+     * @throws RuntimeException when the source does not parse or names something undefined
      * @return a runtime ready to execute its program
      */
     public static NodeGraphRuntime fromSource(String source) {
-        PythonParser parser = new PythonParser(new PythonLexer(source));
-        NodeGraphRuntime runtime = new NodeGraphRuntime(parser.parseGraph());
-        runtime.registerFunctionDefs(parser.functionDefs());
-        return runtime;
-    }
-
-    /**
-     * User-editable inputs and curve parameters in a parsed graph (literal metadata for UI).
-     *
-     * @param parsedStatements top-level statements of a parsed DSL program
-     * @return descriptors for each {@code input_*} node and inline literal parameter, in source order
-     */
-    public static List<InputParameterDescriptor> collectInputParameters(List<PythonParser.ParsedNode> parsedStatements) {
-        return InputParameterDescriptor.collect(parsedStatements);
-    }
-
-    /**
-     * Runs the graph and returns the final node's {@code mesh} output (backward compatible).
-     *
-     * @param parsedStatements top-level DSL statements to execute in order
-     * @param finalOutputId id of the node whose {@code mesh} port is the graph result
-     * @throws Exception if any node fails or a referenced node isn't yet evaluated
-     * @return the final mesh topology, or {@code null} if no mesh is produced
-     */
-    public MeshTopology executeGraph(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId) throws Exception {
-        return executeGraphToMesh(parsedStatements, finalOutputId, MESH);
+        return GroupLibrary.load(source);
     }
 
     /**
      * Runs the graph and returns the final value on the given output port.
      *
-     * @param parsedStatements top-level DSL statements to execute in order
      * @param finalOutputId id of the node to read the result from
      * @param outputPortName name of the output port on {@code finalOutputId}
-     * @throws Exception if any node fails or a referenced node isn't yet evaluated
+     * @throws Exception if any node fails
      * @return the value on the requested port, or a fallback probed across common port names
      */
-    public Object executeGraphResult(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
-            String outputPortName) throws Exception {
-        return executeGraphResult(parsedStatements, finalOutputId, outputPortName, Map.of());
+    public Object executeGraphResult(String finalOutputId, String outputPortName) throws Exception {
+        return executeGraphResult(finalOutputId, outputPortName, Map.of());
     }
 
     /**
-     * Runs every statement in source order, each group call's whole body included, with path
-     * overrides applied, and reads the result port.
+     * Runs the program's top level in declaration order, each group call's whole body included,
+     * on a freshly built tree with path overrides applied, and reads the result port.
      *
-     * @param parsedStatements top-level DSL statements to execute in order
      * @param finalOutputId id of the node to read the result from
      * @param outputPortName name of the output port on {@code finalOutputId}
      * @param overridesByPath path overrides as {@link #setOverrides} takes them; may be null
      * @throws Exception if any node fails internally
-     * @throws IllegalArgumentException if an override names no real path or port, or a node type
-     *                                  isn't registered
+     * @throws IllegalArgumentException if an override names no real path or port
      * @return the value on the requested port, or a fallback probed across common port names
      */
-    public Object executeGraphResult(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
-            String outputPortName, Map<String, Object> overridesByPath) throws Exception {
-        reset(parsedStatements);
+    public Object executeGraphResult(String finalOutputId, String outputPortName,
+            Map<String, Object> overridesByPath) throws Exception {
+        reset();
         setOverrides(overridesByPath == null ? Map.of() : overridesByPath);
         evaluateWholeGroups = true;
         beginEvaluation();
         try {
-            for (int index = 0; index < parsedStatements.size(); index++) {
-                evaluateStatement(root, index);
+            for (GraphNodeContext record : root.declared) {
+                evaluate(record);
             }
         } finally {
             endEvaluation();
@@ -500,19 +488,20 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Drops the node tree and starts a fresh run of a program; overrides must be set again.
+     * Drops the node tree and builds the program's afresh for a new run, every node a new
+     * instance; overrides must be set again.
      *
-     * @param program top-level statements the next evaluation runs
+     * @throws IllegalArgumentException when the program names a node type nothing provides
      */
-    public void reset(List<PythonParser.ParsedNode> program) {
+    public void reset() {
         revision++;
         root = new GraphNodeContext();
-        root.body = program;
         root.graphInputs = graphInputs;
         deferredFailures.clear();
         meshContexts.clear();
         overrides.clear();
         overridesByPath.clear();
+        program.build(new GroupBuilder(this, root));
     }
 
     /**
@@ -549,7 +538,7 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Checks an override key against the current program without running anything.
+     * Checks an override key against the current tree without running anything.
      *
      * @param key override key, see {@link #setOverrides}
      * @throws IllegalArgumentException when the path or port does not exist, naming the nearest
@@ -559,7 +548,7 @@ public class NodeGraphRuntime {
     public String[] validateOverrideKey(String key) {
         int dot = key.indexOf(PORT_SEPARATOR);
         String path = dot < 0 ? key : key.substring(0, dot);
-        PythonParser.ParsedNode statement = statementAt(path);
+        GraphNodeContext statement = statementAt(path);
         if (statement == null) {
             throw new IllegalArgumentException("override " + key + ": " + noNodeAt(path));
         }
@@ -586,24 +575,25 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * The statement at a node path of the program, found by walking {@link #root}'s body and the
-     * bodies of the groups it calls, so nothing runs.
+     * The record declared at a node path of the current tree, evaluated or not, so nothing runs.
      *
      * @param path {@code /}-joined call-site ids, e.g. {@code layout/field}
-     * @return the statement, the last of its id in its scope as references resolve, or
-     *         {@code null} when no statement is at the path ({@link #noNodeAt} says why)
+     * @return the record, or {@code null} when no record is at the path ({@link #noNodeAt} says
+     *         why)
      */
-    public PythonParser.ParsedNode statementAt(String path) {
-        List<PythonParser.ParsedNode> body = root.body;
-        PythonParser.ParsedNode statement = null;
+    public GraphNodeContext statementAt(String path) {
+        GraphNodeContext statement = root;
         for (String segment : path.split(GraphNodeContext.PATH_SEPARATOR, -1)) {
-            int index = indexOf(body, segment, body.size());
-            if (index < 0) {
+            GraphNodeContext scope = statement;
+            statement = null;
+            for (GraphNodeContext record : scope.declared) {
+                if (record.nodeAssignmentId().equals(segment)) {
+                    statement = record;
+                }
+            }
+            if (statement == null) {
                 return null;
             }
-            statement = body.get(index);
-            PythonParser.FunctionDef group = lookupGroup(statement);
-            body = group == null ? List.of() : group.body;
         }
         return statement;
     }
@@ -612,12 +602,12 @@ public class NodeGraphRuntime {
      * Why {@link #statementAt} found nothing at a path: the path and the real paths nearest it by
      * Levenshtein distance.
      *
-     * @param path the path no statement is at
+     * @param path the path no record is at
      * @return {@code no node at path '...'; nearest: ...}
      */
     public String noNodeAt(String path) {
         List<String> ranked = new ArrayList<>();
-        collectPaths(root.body, "", 0, ranked);
+        collectPaths(root, ranked);
         Map<String, Integer> distances = new HashMap<>();
         for (String candidate : ranked) {
             int[] previous = new int[candidate.length() + 1];
@@ -644,49 +634,32 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Adds the path of every statement of a scope to a list, descending into each group call, for
-     * the nearest-path suggestions of {@link #noNodeAt}.
+     * Adds the path of every record declared below a scope to a list, depth first in declaration
+     * order, for the nearest-path suggestions of {@link #noNodeAt}.
      *
-     * @param body   statements of the scope
-     * @param prefix path of the scope with a trailing separator, empty at the top level
-     * @param depth  group nesting depth of the scope
-     * @param paths  list receiving the paths in source order
+     * @param scope the record whose body is listed
+     * @param paths list receiving the paths
      */
-    private void collectPaths(List<PythonParser.ParsedNode> body, String prefix, int depth,
-            List<String> paths) {
-        for (PythonParser.ParsedNode statement : body) {
-            String path = prefix + statement.id;
-            paths.add(path);
-            PythonParser.FunctionDef group = lookupGroup(statement);
-            if (group != null && depth < MAX_GROUP_DEPTH) {
-                collectPaths(group.body, path + GraphNodeContext.PATH_SEPARATOR, depth + 1, paths);
-            }
+    private static void collectPaths(GraphNodeContext scope, List<String> paths) {
+        for (GraphNodeContext record : scope.declared) {
+            paths.add(record.path);
+            collectPaths(record, paths);
         }
     }
 
     /**
-     * Ports an override may set on a statement: a group's parameters or a node's declared
-     * inputs, plus any argument the call passes.
+     * Ports an override may set on a record: its node's declared inputs, a group's parameters,
+     * plus any input the graph wires.
      *
-     * @param statement the statement at the override's path
+     * @param statement the record at the override's path
      * @return port names, declared order first
      */
-    private List<String> staticPorts(PythonParser.ParsedNode statement) {
+    private static List<String> staticPorts(GraphNodeContext statement) {
         List<String> ports = new ArrayList<>();
-        PythonParser.FunctionDef group = lookupGroup(statement);
-        if (group != null) {
-            for (PythonParser.FunctionParam param : group.params) {
-                ports.add(param.name);
-            }
-        } else {
-            Supplier<? extends MeshNode> supplier = supplierFor(statement);
-            if (supplier != null) {
-                for (InputPort input : supplier.get().inputs()) {
-                    ports.add(input.name);
-                }
-            }
+        for (InputPort input : statement.node.inputs()) {
+            ports.add(input.name);
         }
-        for (String argument : statement.arguments.keySet()) {
+        for (String argument : statement.inputSources.keySet()) {
             if (!ports.contains(argument)) {
                 ports.add(argument);
             }
@@ -711,26 +684,30 @@ public class NodeGraphRuntime {
             throw new IllegalArgumentException("pull " + reference + ": expected path.port");
         }
         String path = reference.substring(0, dot);
-        if (statementAt(path) == null) {
+        GraphNodeContext target = statementAt(path);
+        if (target == null) {
             throw new IllegalArgumentException("pull " + reference + ": " + noNodeAt(path));
         }
         evaluateWholeGroups = false;
         beginEvaluation();
         try {
-            GraphNodeContext record = root;
-            for (String segment : path.split(GraphNodeContext.PATH_SEPARATOR)) {
-                record = evaluateStatement(record, indexOf(record.body, segment, record.body.size()));
+            List<GraphNodeContext> calls = new ArrayList<>();
+            for (GraphNodeContext call = target; call != root; call = call.parent) {
+                calls.add(call);
+            }
+            for (int call = calls.size() - 1; call >= 0; call--) {
+                evaluate(calls.get(call));
             }
             throwDeferredFailures();
-            return readOutput(record, reference.substring(dot + 1));
+            return readOutput(target, reference.substring(dot + 1));
         } finally {
             endEvaluation();
         }
     }
 
     /**
-     * Fails the run once its statements have evaluated when any node reported a failure it
-     * carried on past ({@link GraphNodeContext#reportFailure}).
+     * Fails the run once its nodes have evaluated when any node reported a failure it carried on
+     * past ({@link GraphNodeContext#reportFailure}).
      *
      * @throws IllegalArgumentException naming every deferred failure of the current run
      */
@@ -765,36 +742,32 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Evaluates statement {@code index} of a scope once, pulling the statements its arguments
-     * reference first, and records it in the tree.
+     * Evaluates a record once, its wired sources first, and adds it to its scope's evaluated
+     * children; a group call binds its parameters and, when whole groups run, its body and outputs.
      *
-     * @param scope record whose body holds the statement
-     * @param index statement index in {@code scope.body}
+     * @param record the record, whose scope has been entered
      * @throws Exception if the node fails
-     * @return the statement's record
+     * @return the record
      */
-    private GraphNodeContext evaluateStatement(GraphNodeContext scope, int index) throws Exception {
-        PythonParser.ParsedNode statement = scope.body.get(index);
-        GraphNodeContext existing = scope.childrenById.get(statement.id);
-        if (existing != null) {
-            return existing;
+    private GraphNodeContext evaluate(GraphNodeContext record) throws Exception {
+        GraphNodeContext scope = record.parent;
+        String id = record.nodeAssignmentId();
+        if (scope.childrenById.get(id) == record) {
+            return record;
         }
-        String path = scope.path.isEmpty() ? statement.id
-                : scope.path + GraphNodeContext.PATH_SEPARATOR + statement.id;
-        Map<String, Object> pathOverrides = overridesByPath.getOrDefault(path, Map.of());
-        GraphNodeContext record = new GraphNodeContext();
+        Map<String, Object> pathOverrides = overridesByPath.getOrDefault(record.path, Map.of());
         Map<String, Object> arguments = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> argument : statement.arguments.entrySet()) {
-            if (!pathOverrides.containsKey(argument.getKey())) {
-                arguments.put(argument.getKey(), resolveValue(scope, argument.getValue(), index,
-                        record.inputSources, argument.getKey()));
+        for (Map.Entry<String, Object> wire : record.inputSources.entrySet()) {
+            if (!pathOverrides.containsKey(wire.getKey())) {
+                arguments.put(wire.getKey(), readSource(record, wire.getValue(),
+                        record.inputSourcePorts.get(wire.getKey())));
             }
         }
         // Whole-port overrides first, then vector components of the resolved (or overridden) vector.
         for (Map.Entry<String, Object> override : pathOverrides.entrySet()) {
             if (!override.getKey().contains(PORT_SEPARATOR)) {
                 arguments.put(override.getKey(), override.getValue());
-                record.inputSources.put(override.getKey(), override.getValue());
+                record.input(override.getKey(), override.getValue());
             }
         }
         for (Map.Entry<String, Object> override : pathOverrides.entrySet()) {
@@ -810,13 +783,13 @@ public class NodeGraphRuntime {
                     AXIS_Y.equals(axis) ? value : vector.y(),
                     AXIS_Z.equals(axis) ? value : vector.z());
             arguments.put(override.getKey().substring(0, dot), overridden);
-            record.inputSources.put(override.getKey().substring(0, dot), overridden);
+            record.input(override.getKey().substring(0, dot), overridden);
         }
 
         FieldContext fieldContext = null;
-        for (int earlier = index - 1; earlier >= 0 && fieldContext == null; earlier--) {
-            GraphNodeContext previous = scope.childrenById.get(scope.body.get(earlier).id);
-            if (previous == null) {
+        for (int earlier = scope.declared.indexOf(record) - 1; earlier >= 0 && fieldContext == null; earlier--) {
+            GraphNodeContext previous = scope.declared.get(earlier);
+            if (scope.childrenById.get(previous.nodeAssignmentId()) != previous) {
                 continue;
             }
             fieldContext = meshContexts.get(previous);
@@ -829,33 +802,20 @@ public class NodeGraphRuntime {
             }
         }
 
-        record.path = path;
-        record.type = statement.type;
-        record.parent = scope;
-        record.graphInputs = graphInputs;
-        record.deferredFailures = deferredFailures;
-        // The previous mesh-producing statement of the scope, as sequential execution defines it.
+        // The previous mesh-producing node of the scope, as sequential execution defines it.
         record.setFieldContext(fieldContext == null ? scope.fieldContext() : fieldContext);
-        record.setNodeAssignmentId(statement.id);
         for (Map.Entry<String, Object> resolved : arguments.entrySet()) {
             record.setInputValue(resolved.getKey(), resolved.getValue());
         }
         scope.children.add(record);
-        scope.childrenById.put(statement.id, record);
+        scope.childrenById.put(id, record);
 
-        PythonParser.FunctionDef group = lookupGroup(statement);
-        Supplier<? extends MeshNode> supplier = supplierFor(statement);
-        if (group == null) {
-            if (supplier == null) {
-                String where = scope.group == null ? "" : IN_FUNCTION + scope.group.name + "': ";
-                throw new IllegalArgumentException(where + missingNodeMessage(record.type));
-            }
-            record.node = supplier.get();
+        if (!(record.node instanceof NodeGroup group)) {
             long started = System.nanoTime();
             heapSampler.resetPeak();
             try {
                 record.node.evaluate(record);
-                AutoTagHook.applyIfApplicable(record.node, record, record.nodeAssignmentId());
+                AutoTagHook.applyIfApplicable(record.node, record, id);
             } finally {
                 record.elapsedNanos = System.nanoTime() - started;
                 record.peakHeapBytes = heapSampler.peakBytes();
@@ -867,56 +827,48 @@ public class NodeGraphRuntime {
         }
 
         // A group call: bind its parameters (defaults for omitted ones) and, when whole groups
-        // are evaluated, run its body and compute every output. A compiled group keeps its
-        // instance, which computes the outputs its body does not wire.
-        record.group = group;
-        record.body = group.body;
-        if (supplier != null && supplier.get() instanceof NodeGroup compiled) {
-            record.node = compiled;
-        }
-        for (PythonParser.FunctionParam param : group.params) {
+        // are evaluated, run its body and compute every output.
+        for (InputPort param : group.inputs()) {
             if (record.getInputValue(param.name) != null) {
                 continue;
             }
             if (param.defaultValue == null) {
-                throw new RuntimeException(FUNCTION + group.name + "' missing argument '"
+                throw new RuntimeException(FUNCTION + record.type + "' missing argument '"
                         + param.name + "'");
             }
             record.setInputValue(param.name, param.defaultValue);
-            record.inputSources.put(param.name, param.defaultValue);
+            record.input(param.name, param.defaultValue);
         }
-        if (group.body.isEmpty()) {
-            throw new RuntimeException(FUNCTION + group.name + "' has empty body");
+        if (record.declared.isEmpty()) {
+            throw new RuntimeException(FUNCTION + record.type + "' has empty body");
         }
         if (!evaluateWholeGroups) {
             return record;
         }
         long started = System.nanoTime();
         try {
-            for (int bodyIndex = 0; bodyIndex < group.body.size(); bodyIndex++) {
-                evaluateStatement(record, bodyIndex);
+            for (GraphNodeContext body : record.declared) {
+                evaluate(body);
             }
         } finally {
             record.elapsedNanos += System.nanoTime() - started;
         }
-        if (group.outputs.isEmpty()) {
+        if (record.outputWires.isEmpty()) {
             readOutput(record, RESULT);
         }
-        for (String output : group.outputs.keySet()) {
+        for (String output : record.outputWires.keySet()) {
             readOutput(record, output);
         }
-        if (record.node != null) {
-            for (OutputPort output : record.node.outputs()) {
-                readOutput(record, output.name);
-            }
+        for (OutputPort output : group.outputs()) {
+            readOutput(record, output.name);
         }
         return record;
     }
 
     /**
-     * Reads an output port of a record, computing a group call's output on first read: a named
-     * output resolves its return expression, a group without a return exposes its last body
-     * node's outputs, and a compiled group computes an unwired output from all the wired ones.
+     * Reads an output port of a record, computing a group call's output on first read: a wired
+     * output reads its source, a group wiring none exposes its last body node's outputs, and a
+     * compiled group computes an unwired output from all the wired ones.
      *
      * @param record the record to read
      * @param port   output port name
@@ -924,41 +876,48 @@ public class NodeGraphRuntime {
      * @return the port's value, or {@code null} when the record has no such port
      */
     private Object readOutput(GraphNodeContext record, String port) throws Exception {
-        PythonParser.FunctionDef group = record.group;
-        if (group == null || record.hasOutput(port)) {
+        if (!(record.node instanceof NodeGroup group) || record.hasOutput(port)) {
             return record.getOutput(port);
         }
         long started = System.nanoTime();
         try {
-            if (group.outputs.isEmpty()) {
-                GraphNodeContext last = evaluateStatement(record, group.body.size() - 1);
+            if (record.outputWires.isEmpty()) {
+                GraphNodeContext last = evaluate(record.declared.get(record.declared.size() - 1));
                 for (Map.Entry<String, Object> output : last.getOutputsSnapshot().entrySet()) {
                     record.setOutput(output.getKey(), output.getValue());
-                    record.outputSources.put(output.getKey(),
-                            new PythonParser.NodeReference(last.path, output.getKey()));
+                    record.outputSources.put(output.getKey(), last);
+                    record.outputSourcePorts.put(output.getKey(), output.getKey());
                 }
-            } else if (group.outputs.containsKey(port)) {
-                record.setOutput(port, resolveValue(record, group.outputs.get(port), group.body.size(),
-                        record.outputSources, port));
-            } else if (record.node != null) {
-                for (Map.Entry<String, Object> wired : group.outputs.entrySet()) {
+            } else if (record.outputWires.containsKey(port)) {
+                Object wire = record.outputWires.get(port);
+                String wirePort = record.outputWirePorts.get(port);
+                record.setOutput(port, readSource(record, wire, wirePort));
+                record.outputSources.put(port, wire);
+                record.outputSourcePorts.put(port, wirePort);
+            } else {
+                for (Map.Entry<String, Object> wired : record.outputWires.entrySet()) {
                     if (!record.hasOutput(wired.getKey())) {
-                        record.setOutput(wired.getKey(), resolveValue(record, wired.getValue(),
-                                group.body.size(), record.outputSources, wired.getKey()));
+                        String wirePort = record.outputWirePorts.get(wired.getKey());
+                        record.setOutput(wired.getKey(), readSource(record, wired.getValue(), wirePort));
+                        record.outputSources.put(wired.getKey(), wired.getValue());
+                        record.outputSourcePorts.put(wired.getKey(), wirePort);
                     }
                 }
-                record.node.evaluate(record);
+                group.evaluate(record);
                 // A computed output's sources are the wired outputs it was computed from; one the
                 // group left unset reads as null rather than evaluating again.
                 List<Object> wiredSources = new ArrayList<>();
-                for (String wired : group.outputs.keySet()) {
+                List<Object> wiredPorts = new ArrayList<>();
+                for (String wired : record.outputWires.keySet()) {
                     wiredSources.add(record.outputSources.get(wired));
+                    wiredPorts.add(record.outputSourcePorts.get(wired));
                 }
-                for (OutputPort declared : record.node.outputs()) {
+                for (OutputPort declared : group.outputs()) {
                     if (!record.hasOutput(declared.name)) {
                         record.setOutput(declared.name, null);
-                    } else if (!group.outputs.containsKey(declared.name)) {
+                    } else if (!record.outputWires.containsKey(declared.name)) {
                         record.outputSources.put(declared.name, Collections.unmodifiableList(wiredSources));
+                        record.outputSourcePorts.put(declared.name, Collections.unmodifiableList(wiredPorts));
                     }
                 }
             }
@@ -969,137 +928,25 @@ public class NodeGraphRuntime {
     }
 
     /**
-     * Resolves an argument in a scope and records its source: a reference pulls its source
-     * statement, a bare name in a group body reads a parameter (or an earlier body node's
-     * {@code result}), anything else is a literal.
+     * The value a wire carries to a reader: a parameter of the reader or a call enclosing it, an
+     * output of an earlier record (evaluated first), or a literal.
      *
-     * @param scope   record whose body the argument appears in
-     * @param raw     the parsed argument
-     * @param before  index of the statement holding the argument; only earlier statements resolve
-     * @param sources map receiving the source under {@code key}: a reference to the source
-     *                record's path and port (a group parameter being the group's own path and the
-     *                parameter's name), or the literal itself
-     * @param key     port name the argument binds
-     * @throws Exception if a pulled node fails
-     * @throws RuntimeException if a reference names nothing evaluated before it
-     * @return the argument's value
+     * @param reader the record reading the wire, or the group call reading its own output wire
+     * @param source the wire's source record, or a literal
+     * @param port   the source's output port, or the parameter's name
+     * @throws Exception if the source node fails
+     * @return the value
      */
-    private Object resolveValue(GraphNodeContext scope, Object raw, int before,
-            Map<String, Object> sources, String key) throws Exception {
-        if (raw instanceof PythonParser.NodeReference ref) {
-            // Below the scope itself, a level resolves only statements before the call-site
-            // statement that leads down to the scope.
-            GraphNodeContext below = null;
-            for (GraphNodeContext level = scope; level != null; below = level, level = level.parent) {
-                int bound = level == scope ? before : indexOf(level.body,
-                        below.path.substring(below.path.lastIndexOf(GraphNodeContext.PATH_SEPARATOR) + 1),
-                        level.body.size());
-                int index = indexOf(level.body, ref.nodeId, bound);
-                if (index >= 0) {
-                    GraphNodeContext source = evaluateStatement(level, index);
-                    sources.put(key, new PythonParser.NodeReference(source.path, ref.portName));
-                    return readOutput(source, ref.portName);
-                }
-                if (level.group != null && isParameter(level.group, ref.nodeId)) {
-                    // A parameter reads as result, and a geometry bundle also as geometry and mesh.
-                    sources.put(key, new PythonParser.NodeReference(level.path, ref.nodeId));
-                    Object value = level.getInputValue(ref.nodeId);
-                    boolean bundlePort = value instanceof GeometryBundle
-                            && (GEOMETRY.equals(ref.portName) || MESH.equals(ref.portName));
-                    return RESULT.equals(ref.portName) || bundlePort ? value : null;
-                }
-            }
-            String where = scope.group == null ? "" : IN_FUNCTION + scope.group.name + "': node '";
-            throw new RuntimeException((where.isEmpty() ? "Node '" : where) + ref.nodeId
-                    + WAS_REFERENCED_BEFORE_IT_WAS_EVALUATED);
+    private Object readSource(GraphNodeContext reader, Object source, String port) throws Exception {
+        if (!(source instanceof GraphNodeContext record)) {
+            return source;
         }
-        if (raw instanceof String bareId && scope.group != null) {
-            if (isParameter(scope.group, bareId)) {
-                sources.put(key, new PythonParser.NodeReference(scope.path, bareId));
-                return scope.getInputValue(bareId);
-            }
-            int index = indexOf(scope.body, bareId, before);
-            if (index >= 0) {
-                GraphNodeContext source = evaluateStatement(scope, index);
-                sources.put(key, new PythonParser.NodeReference(source.path, RESULT));
-                return source.getOutput(RESULT);
+        for (GraphNodeContext level = reader; level != null; level = level.parent) {
+            if (level == record) {
+                return record.getInputValue(port);
             }
         }
-        sources.put(key, raw);
-        return raw;
-    }
-
-    private static boolean isParameter(PythonParser.FunctionDef group, String name) {
-        for (PythonParser.FunctionParam param : group.params) {
-            if (param.name.equals(name)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Index of the last statement with an id among the first {@code bound} of a body.
-     *
-     * @param body  statements to search
-     * @param id    statement id
-     * @param bound exclusive upper index
-     * @return the index, or {@code -1}
-     */
-    private static int indexOf(List<PythonParser.ParsedNode> body, String id, int bound) {
-        for (int index = Math.min(bound, body.size()) - 1; index >= 0; index--) {
-            if (body.get(index).id.equals(id)) {
-                return index;
-            }
-        }
-        return -1;
-    }
-
-    /**
-     * The group a statement calls: a DSL group from the program, registered definitions or the
-     * library, or a compiled {@link NodeGroup}'s body, built once per run and shared by its calls.
-     * A registered or Java-built node is never looked up in the library.
-     *
-     * @param statement the statement
-     * @return the group, or {@code null} when the statement calls a leaf node
-     */
-    private PythonParser.FunctionDef lookupGroup(PythonParser.ParsedNode statement) {
-        String type = statement.type;
-        PythonParser.FunctionDef group = functionDefs.get(type);
-        if (group != null || nonGroupTypes.contains(type)) {
-            return group;
-        }
-        Supplier<? extends MeshNode> supplier = supplierFor(statement);
-        if (supplier != null) {
-            if (!(supplier.get() instanceof NodeGroup compiled)) {
-                nonGroupTypes.add(type);
-                return null;
-            }
-            GroupBuilder body = new GroupBuilder();
-            compiled.build(body);
-            List<PythonParser.FunctionParam> params = new ArrayList<>();
-            for (InputPort input : compiled.inputs()) {
-                PythonParser.FunctionParam param = new PythonParser.FunctionParam(input.name,
-                        input.type.name());
-                param.defaultValue = input.defaultValue;
-                params.add(param);
-            }
-            group = new PythonParser.FunctionDef(type, params,
-                    compiled.outputs().isEmpty() ? null : compiled.outputs().get(0).type.name(),
-                    body.statements);
-            group.outputs.putAll(body.outputs);
-            functionDefs.put(type, group);
-            return group;
-        }
-        Map<String, PythonParser.FunctionDef> library = GroupLibrary.find(type);
-        if (library.isEmpty()) {
-            nonGroupTypes.add(type);
-            return null;
-        }
-        for (Map.Entry<String, PythonParser.FunctionDef> def : library.entrySet()) {
-            functionDefs.putIfAbsent(def.getKey(), def.getValue());
-        }
-        return functionDefs.get(type);
+        return readOutput(evaluate(record), port);
     }
 
     private static MeshTopology meshFromNodeOutputs(GraphNodeContext context) {
@@ -1119,30 +966,27 @@ public class NodeGraphRuntime {
     /**
      * Returns a {@link MeshTopology} from the final port, unwrapping {@link GeometryBundle} if needed.
      *
-     * @param parsedStatements top-level DSL statements to execute in order
      * @param finalOutputId id of the node to read the mesh from
      * @param outputPortName name of the output port on {@code finalOutputId}
-     * @throws Exception if any node fails or a referenced node isn't yet evaluated
+     * @throws Exception if any node fails
      * @return mesh topology on the requested port, or {@code null} if the result isn't a mesh or bundle
      */
-    public MeshTopology executeGraphToMesh(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
-            String outputPortName) throws Exception {
-        return executeGraphToMesh(parsedStatements, finalOutputId, outputPortName, Map.of());
+    public MeshTopology executeGraphToMesh(String finalOutputId, String outputPortName) throws Exception {
+        return executeGraphToMesh(finalOutputId, outputPortName, Map.of());
     }
 
     /**
-     * Variant of {@link #executeGraphToMesh(List, String, String)} that also accepts path overrides.
+     * Variant of {@link #executeGraphToMesh(String, String)} that also accepts path overrides.
      *
-     * @param parsedStatements top-level DSL statements to execute in order
      * @param finalOutputId id of the node to read the mesh from
      * @param outputPortName name of the output port on {@code finalOutputId}
      * @param overridesByPath path overrides; see {@link #setOverrides} for the key format
-     * @throws Exception if any node fails or a referenced node isn't yet evaluated
+     * @throws Exception if any node fails
      * @return mesh topology on the requested port, or {@code null} if the result isn't a mesh or bundle
      */
-    public MeshTopology executeGraphToMesh(List<PythonParser.ParsedNode> parsedStatements, String finalOutputId,
-            String outputPortName, Map<String, Object> overridesByPath) throws Exception {
-        return meshFromValue(executeGraphResult(parsedStatements, finalOutputId, outputPortName, overridesByPath));
+    public MeshTopology executeGraphToMesh(String finalOutputId, String outputPortName,
+            Map<String, Object> overridesByPath) throws Exception {
+        return meshFromValue(executeGraphResult(finalOutputId, outputPortName, overridesByPath));
     }
 
 }

@@ -16,7 +16,6 @@ import ixdar.platform.Clock;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.models.GraphChoice;
-import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.Platform;
 import ixdar.procgen.dungeon.algo.DungeonGrids;
@@ -149,7 +148,7 @@ public class DungeonViewerScene extends ModelScene {
         GeometryBundle tiles = mesher.getInput(DungeonGridToMeshNode.GEOMETRY.name, GeometryBundle.class);
         if (tiles != null && DungeonGrids.isLattice(tiles)
                 && mesher.inputSources.get(DungeonGridToMeshNode.GEOMETRY.name)
-                        instanceof PythonParser.NodeReference tilesSource) {
+                        instanceof GraphNodeContext tilesSource) {
             int[] dims = DungeonGrids.latticeDims(tiles);
             this.playerGridW = dims[0];
             this.playerGridH = dims[1];
@@ -158,8 +157,8 @@ public class DungeonViewerScene extends ModelScene {
             Number cellSize = mesher.getInput(DungeonGridToMeshNode.CELL_SIZE.name, Number.class);
             this.playerCellSize = cellSize == null ? 1.0f : cellSize.floatValue();
             // The rooms graph the corridors were carved over carries the room centres and extents.
-            GeometryBundle rooms = run.node(tilesSource.nodeId)
-                    .getInput(AStarCorridorsNode.GEOMETRY.name, GeometryBundle.class);
+            GeometryBundle rooms = tilesSource.getInput(AStarCorridorsNode.GEOMETRY.name,
+                    GeometryBundle.class);
             this.playerRooms = rooms.mesh();
             this.playerRoomHalfExtents = DungeonGrids.halfExtents(rooms);
             float hh = playerCellSize * CAPSULE_HALF_HEIGHT_FRAC;

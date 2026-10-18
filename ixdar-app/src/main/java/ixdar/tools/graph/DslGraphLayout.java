@@ -12,8 +12,8 @@ import java.util.function.ToDoubleFunction;
 
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.HeapSampler;
+import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * A run's node tree as a graph: a box per evaluated record, an expanded group call as its framed
@@ -145,7 +145,7 @@ public final class DslGraphLayout {
         while (!stack.isEmpty()) {
             GraphNodeContext record = stack.remove(stack.size() - 1);
             recordsByPath.put(record.path, record);
-            boolean hasBody = record.group != null && !record.children.isEmpty();
+            boolean hasBody = record.node instanceof NodeGroup && !record.children.isEmpty();
             if (!hasBody || !expandedGroups.contains(record.path)) {
                 visible.add(record);
                 for (GraphNodeContext hidden : record.subtree()) {
@@ -194,7 +194,7 @@ public final class DslGraphLayout {
             nodeType[node] = record.type;
             nodeMs[node] = record.elapsedMs();
             nodePeakHeapBytes[node] = record.peakHeapBytes;
-            nodeExpandable[node] = record.group != null && !record.children.isEmpty();
+            nodeExpandable[node] = record.node instanceof NodeGroup && !record.children.isEmpty();
             indexByPath.put(record.path, node);
         }
 
@@ -212,33 +212,41 @@ public final class DslGraphLayout {
                 // to, a group output to the body node it reads, and an output a compiled group
                 // computed to every wired output it read, so one input port may take several edges.
                 List<Object> pending = new ArrayList<>();
+                List<Object> pendingPort = new ArrayList<>();
                 List<String> pendingConsumer = new ArrayList<>();
                 pending.add(input.getValue());
+                pendingPort.add(record.inputSourcePorts.get(input.getKey()));
                 pendingConsumer.add(record.path);
                 Set<String> drawn = new HashSet<>();
                 int port = -1;
                 Object source = null;
+                Object sourcePort = null;
                 while (!pending.isEmpty()) {
                     Object next = pending.remove(pending.size() - 1);
+                    Object nextPort = pendingPort.remove(pendingPort.size() - 1);
                     String consumerPath = pendingConsumer.remove(pendingConsumer.size() - 1);
                     if (next instanceof List<?> computedFrom) {
+                        List<?> computedPorts = (List<?>) nextPort;
                         for (int wired = computedFrom.size() - 1; wired >= 0; wired--) {
                             pending.add(computedFrom.get(wired));
+                            pendingPort.add(computedPorts.get(wired));
                             pendingConsumer.add(consumerPath);
                         }
                         continue;
                     }
-                    GraphNodeContext sourceRecord = next instanceof PythonParser.NodeReference reference
-                            ? recordsByPath.get(reference.nodeId) : null;
+                    GraphNodeContext sourceRecord = next instanceof GraphNodeContext wired
+                            ? recordsByPath.get(wired.path) : null;
                     if (sourceRecord == null) {
                         source = next;
+                        sourcePort = nextPort;
                         continue;
                     }
-                    PythonParser.NodeReference reference = (PythonParser.NodeReference) next;
                     if (expanded.contains(sourceRecord.path)) {
                         boolean parameter = consumerPath.startsWith(sourceRecord.path + GraphNodeContext.PATH_SEPARATOR);
-                        pending.add(parameter ? sourceRecord.inputSources.get(reference.portName)
-                                : sourceRecord.outputSources.get(reference.portName));
+                        pending.add(parameter ? sourceRecord.inputSources.get(nextPort)
+                                : sourceRecord.outputSources.get(nextPort));
+                        pendingPort.add(parameter ? sourceRecord.inputSourcePorts.get(nextPort)
+                                : sourceRecord.outputSourcePorts.get(nextPort));
                         pendingConsumer.add(parameter ? sourceRecord.path : consumerPath);
                         continue;
                     }
@@ -246,7 +254,7 @@ public final class DslGraphLayout {
                     while (shown != null && !indexByPath.containsKey(shown.path)) {
                         shown = shown.parent;
                     }
-                    if (shown == null || !drawn.add(shown.path + "." + reference.portName)) {
+                    if (shown == null || !drawn.add(shown.path + "." + nextPort)) {
                         continue;
                     }
                     if (port < 0) {
@@ -256,14 +264,14 @@ public final class DslGraphLayout {
                     targets.add(node);
                     targetPorts.add(port);
                     sources.add(indexByPath.get(shown.path));
-                    sourcePortNames.add(reference.portName);
+                    sourcePortNames.add((String) nextPort);
                 }
                 if (port >= 0 || source == null) {
                     continue;
                 }
                 Object shown = source;
-                if (source instanceof PythonParser.NodeReference unresolved) {
-                    shown = unresolved.nodeId + "." + unresolved.portName;
+                if (source instanceof GraphNodeContext unresolved) {
+                    shown = unresolved.path + "." + sourcePort;
                 } else if (source instanceof Vector3Value vector) {
                     shown = "<" + vector.x() + ", " + vector.y() + ", " + vector.z() + ">";
                 }

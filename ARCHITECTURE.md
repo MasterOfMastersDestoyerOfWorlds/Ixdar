@@ -218,7 +218,7 @@ commas between test names, never `+`.
 - **ixdar.nodegraph.catalog**: Node metadata: `MeshNodeCatalog` exports every node to the checked-in JSON each compile (sorted, byte-stable), and `NodeInspector` walks the graph a model scene ran.
 - **ixdar.nodegraph.field**: Per-element fields and their values: the typed `*Field` and `*Value` records, `FieldContext` and its mesh implementations, `FieldBroadcast` for constant-or-field inputs, and `FloatCurveKernel`.
 - **ixdar.nodegraph.nodes**: Every DSL node pack, one subpackage each; the algorithms the nodes call stay in their domains. Algorithm-as-node classes stay put until MESH-63 splits them: `NDirectionField`, `MotorcycleGraph`, `SeamlessParameterization`, `LayoutEmbedding`, `NetworkContraction`, `GridMapAssembly`, `QuantizedMeshGrid`.
-- **ixdar.nodegraph.nodes.closure**: Nodes wrapping reusable sub-graph closures defined in the DSL (`FunctionDef` support).
+- **ixdar.nodegraph.nodes.closure**: Nodes wrapping reusable sub-graph closures defined in the DSL (`def` group support).
 - **ixdar.nodegraph.nodes.control**: Graph control-flow nodes: switches and selection between inputs by index or condition.
 - **ixdar.nodegraph.nodes.curve**: Curve nodes: primitives (circle, bezier, function), conversion to and from meshes, sweep, loft, resample, deform. Curves travel between nodes as `CurveGeometry` under `CurveGeometry.SLOT`.
 - **ixdar.nodegraph.nodes.data**: Data-attachment nodes: tagging geometry (`TagGeometryNode` owns the `_tags` slot), named attributes, and inputs that surface external data to a graph.
@@ -233,8 +233,8 @@ commas between test names, never `+`.
 - **ixdar.nodegraph.nodes.selection**: Selection nodes producing per-element masks consumed by modifiers.
 - **ixdar.nodegraph.nodes.transform**: Transform nodes: translate/rotate/scale geometry, align rotation to vector, instancing transforms.
 - **ixdar.nodegraph.optimize**: DSL parameter optimisation: the optimizable parameter descriptors, `SkeletonSensitivityAnalyzer` and `BatchDslEvaluator`.
-- **ixdar.nodegraph.runtime**: Node-graph runtime: `NodeGraphRuntime` parses and executes .dsl sources against the one node lookup (`REGISTERED_NODES`, the generated registries behind the `Class.forName` desktop firewall), keeping each run as its node tree under `root` with a `revision` counter; node groups, the group library and the heap sampler.
-- **ixdar.nodegraph.syntax**: Lexer and recursive-descent parser for the Python-flavored mesh DSL, producing the AST `NodeGraphRuntime` executes. Deliberately lenient: unknown characters are skipped so LLM- generated DSL stays parseable; malformed input degrades silently.
+- **ixdar.nodegraph.runtime**: Node-graph runtime: `NodeGraphRuntime` runs a program, a `NodeGroup`, over a pre-wired node tree it builds per run under `root`; `GroupBuilder` declares the tree's records and `GroupLibrary` loads parsed DSL and the group library into node groups.
+- **ixdar.nodegraph.syntax**: Lexer and recursive-descent parser for the Python-flavored mesh DSL, producing the syntax `GroupLibrary` loads into node groups and the source tools read and rewrite. Deliberately lenient: unknown characters are skipped so LLM-generated DSL stays parseable; malformed input degrades silently.
 - **ixdar.nodegraph.syntax.expr**: `MathExpressionEvaluator`: the single-variable math expressions procedural curve nodes evaluate.
 - **ixdar.numeric**: General numerics with no stage of the pipeline in them: sparse linear algebra (`sparse`), exact predicates and integer elimination (`exact`), and graph primitives (`graph`).
 - **ixdar.numeric.exact**: Exact arithmetic: `ExactArithmetic` (fraction-free integer elimination and fixed-point doubles for the seamless constraints) and `ExactBarycentricOrient` (the filtered, sign-exact orientation predicate).

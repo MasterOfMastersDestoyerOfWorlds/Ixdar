@@ -72,8 +72,8 @@ class CoincidentAnchorSaveTest {
     @Test
     void aRingHeldOnSplitPolesSavesToPointsThatReloadTheSameRing() throws Exception {
         NodeGraphRuntime measuring = NodeGraphRuntime.fromSource(SPHERES);
-        SurfaceMetric metric = (SurfaceMetric) measuring.executeGraphResult(measuring.root.body,
-                SURFACE, METRIC);
+        SurfaceMetric metric = (SurfaceMetric) measuring.executeGraphResult(SURFACE,
+                METRIC);
         MeshTopology mesh = metric.sourceMesh;
         NearestVertex grid = metric.nearestVertex;
         int[] held = {
@@ -98,10 +98,10 @@ class CoincidentAnchorSaveTest {
                 RING, SURFACE_GEOMETRY, written, ANCHORS, MERIDIAN_NORMAL) + "\n");
         NodeGraphRuntime reloading = NodeGraphRuntime.fromSource(saved);
         GeometryBundle reloaded = (GeometryBundle) reloading.executeGraphResult(
-                reloading.root.body, RING, RingDslWriter.DEFAULT_UPSTREAM_PORT);
+                RING, RingDslWriter.DEFAULT_UPSTREAM_PORT);
 
-        String points = String.valueOf(reloading.root.body.get(reloading.root.body.size() - 1)
-                .arguments.get("points"));
+        String points = String.valueOf(reloading.node(reloading.lastId())
+                .inputSources.get("points"));
         assertArrayEquals(held, SurfaceWaypoints.snap(NearestVertex.over(reloaded.mesh()),
                 SurfaceWaypoints.parse(points), ANCHORS), "the saved points snapped elsewhere");
         assertEquals(heldFingerprint,
@@ -112,8 +112,8 @@ class CoincidentAnchorSaveTest {
     @Test
     void aRingHeldOnEitherOfTwoOverlappingFansSavesAndReloadsTheSameRing() throws Exception {
         NodeGraphRuntime measuring = NodeGraphRuntime.fromSource(NESTED);
-        SurfaceMetric metric = (SurfaceMetric) measuring.executeGraphResult(measuring.root.body,
-                SURFACE, METRIC);
+        SurfaceMetric metric = (SurfaceMetric) measuring.executeGraphResult(SURFACE,
+                METRIC);
         MeshTopology mesh = metric.sourceMesh;
         NearestVertex grid = metric.nearestVertex;
         for (float radius : new float[] { 1f, 2f }) {
@@ -140,7 +140,7 @@ class CoincidentAnchorSaveTest {
                     RING, SURFACE_GEOMETRY, written, ANCHORS, MERIDIAN_NORMAL) + "\n");
             NodeGraphRuntime reloading = NodeGraphRuntime.fromSource(saved);
             GeometryBundle reloaded = (GeometryBundle) reloading.executeGraphResult(
-                    reloading.root.body, RING, RingDslWriter.DEFAULT_UPSTREAM_PORT);
+                    RING, RingDslWriter.DEFAULT_UPSTREAM_PORT);
             assertEquals(heldFingerprint,
                     EdgeMarks.fingerprint(reloaded.mesh(), EdgeMarks.bools(reloaded, RING)),
                     "the ring on the radius-" + radius + " sphere reloaded onto other edges");
@@ -177,7 +177,7 @@ class CoincidentAnchorSaveTest {
             NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(graph[0]);
 
             IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
-                    () -> runtime.executeGraphResult(runtime.root.body, graph[1],
+                    () -> runtime.executeGraphResult(graph[1],
                             RingDslWriter.DEFAULT_UPSTREAM_PORT));
 
             String report = refused.getMessage();

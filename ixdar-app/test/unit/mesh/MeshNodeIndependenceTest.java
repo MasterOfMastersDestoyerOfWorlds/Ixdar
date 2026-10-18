@@ -29,8 +29,10 @@ class MeshNodeIndependenceTest {
 
     private static final Path MODULE_SOURCE_ROOT = Path.of("src", "main", "java");
 
+    private static final String GRAPH_RECORD = "GraphNodeContext";
+
     private static final List<String> NODE_EVALUATION_TYPES = List.of("MapNodeContext",
-            "GraphNodeContext", "NodeGraphRuntime", "supplierFor");
+            GRAPH_RECORD, "NodeGraphRuntime", "supplierFor");
 
     // A constructor reference handed straight to the builder: node("id", Other::new).
     private static final String BUILDER_NODE_CALL = "\\.node\\(\\s*[^,()]+,\\s*$";
@@ -51,6 +53,10 @@ class MeshNodeIndependenceTest {
             String node = entry.getKey() + " (" + nodeClass.getSimpleName() + ")";
             boolean group = NodeGroup.class.isAssignableFrom(nodeClass);
             for (String type : NODE_EVALUATION_TYPES) {
+                if (group && GRAPH_RECORD.equals(type)) {
+                    // A group wires the records its builder declares; the runtime evaluates them.
+                    continue;
+                }
                 // A group may name the runtime's path and port separators, never evaluate.
                 Pattern use = Pattern.compile("\\b" + type + "\\b"
                         + (group ? "(?!\\.(PORT_SEPARATOR|PATH_SEPARATOR)\\b)" : ""));

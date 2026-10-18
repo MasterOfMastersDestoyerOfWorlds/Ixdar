@@ -16,7 +16,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.models.GraphChoice;
-import ixdar.nodegraph.syntax.PythonParser;
+import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ModelScene;
@@ -116,7 +116,7 @@ public class EmbeddedTMeshScene extends ModelScene {
     }
 
     @Override
-    public List<PythonParser.ParsedNode> sceneGraph() {
+    public NodeGroup sceneGraph() {
         return QuadLayoutNode.overSceneModel();
     }
 

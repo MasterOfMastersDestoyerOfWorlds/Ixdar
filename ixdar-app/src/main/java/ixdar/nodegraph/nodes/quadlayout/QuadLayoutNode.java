@@ -6,6 +6,7 @@ import java.util.Map;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.GroupBuilder;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.runtime.NodeGroup;
@@ -26,7 +27,6 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
-import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * The quad-layout pipeline (Lyon 2021, LCBK19, LCK21a) as a compiled group of its stage nodes:
@@ -89,17 +89,19 @@ public class QuadLayoutNode extends NodeGroup {
      * The graph every quad-layout scene runs: the scene's model through one layout call, as
      * {@code model = scene_model()} then {@code layout = quad_layout(geometry=model.geometry)}.
      *
-     * @return the graph's statements
-     * @throws IllegalStateException in a build without the desktop-only nodes
+     * @return the graph, whose build fails in a build without the desktop-only nodes
      */
-    public static List<PythonParser.ParsedNode> overSceneModel() {
-        GroupBuilder graph = new GroupBuilder();
-        PythonParser.ParsedNode model = graph.node(MODEL_CALL, SceneModelNode::new);
-        // By registered id, not QuadLayoutNode::new: the scenes calling this are reachable from
-        // the web build, which must never instantiate a desktop-only node.
-        graph.node(LAYOUT_CALL, TYPE)
-                .input(GEOMETRY.name, model.port(SceneModelNode.GEOMETRY.name));
-        return graph.statements;
+    public static NodeGroup overSceneModel() {
+        return new NodeGroup() {
+            @Override
+            public void build(GroupBuilder graph) {
+                GraphNodeContext model = graph.node(MODEL_CALL, SceneModelNode::new);
+                // By registered id, not QuadLayoutNode::new: the scenes calling this are reachable
+                // from the web build, which must never instantiate a desktop-only node.
+                graph.node(LAYOUT_CALL, TYPE)
+                        .input(GEOMETRY.name, model, SceneModelNode.GEOMETRY.name);
+            }
+        };
     }
 
     @Override
@@ -148,56 +150,51 @@ public class QuadLayoutNode extends NodeGroup {
 
     @Override
     public void build(GroupBuilder group) {
-        PythonParser.NodeReference geometry = group.parameter(GEOMETRY.name);
-        PythonParser.NodeReference alphaDegrees = group.parameter(ALPHA_DEGREES.name);
-        PythonParser.ParsedNode field = group.node(FIELD.name, NDirectionField::new)
-                .input(NDirectionField.GEOMETRY.name, geometry)
-                .input(NDirectionField.CURVATURE_BIAS.name, group.parameter(CURVATURE_BIAS.name));
-        PythonParser.ParsedNode seamless = group.node(SEAMLESS.name, SeamlessParameterization::new)
-                .input(SeamlessParameterization.FIELD.name, field.port(NDirectionField.FIELD.name));
-        PythonParser.NodeReference seamlessUv = seamless.port(SeamlessParameterization.UV.name);
-        PythonParser.ParsedNode motorcycle = group.node(MOTORCYCLE.name, MotorcycleGraph::new)
-                .input(MotorcycleGraph.GEOMETRY.name, geometry)
-                .input(MotorcycleGraph.UV.name, seamlessUv)
-                .input(MotorcycleGraph.CHARTS.name, seamless.port(SeamlessParameterization.CHARTS.name))
-                .input(MotorcycleGraph.SINGULARITIES.name,
-                        field.port(NDirectionField.SINGULARITIES.name))
-                .input(MotorcycleGraph.FEATURE_EDGES.name,
-                        field.port(NDirectionField.FEATURE_EDGES.name))
-                .input(MotorcycleGraph.ALPHA_DEGREES.name, alphaDegrees);
-        PythonParser.ParsedNode quantize = group.node(QUANTIZE_NODE, QuantizedMeshGrid::new)
-                .input(QuantizedMeshGrid.GRAPH.name, motorcycle.port(MotorcycleGraph.GRAPH.name))
-                .input(QuantizedMeshGrid.ALPHA_DEGREES.name, alphaDegrees);
-        PythonParser.ParsedNode embed = group.node("embed", LayoutEmbedding::new)
-                .input(LayoutEmbedding.SKELETON.name, quantize.port(QuantizedMeshGrid.SKELETON.name))
-                .input(LayoutEmbedding.UV.name, seamlessUv);
-        PythonParser.ParsedNode contract = group.node("contract", NetworkContraction::new)
-                .input(NetworkContraction.TMESH.name, embed.port(LayoutEmbedding.TMESH.name))
+        GraphNodeContext parameters = group.scope;
+        GraphNodeContext field = group.node(FIELD.name, NDirectionField::new)
+                .input(NDirectionField.GEOMETRY.name, parameters, GEOMETRY.name)
+                .input(NDirectionField.CURVATURE_BIAS.name, parameters, CURVATURE_BIAS.name);
+        GraphNodeContext seamless = group.node(SEAMLESS.name, SeamlessParameterization::new)
+                .input(SeamlessParameterization.FIELD.name, field, NDirectionField.FIELD.name);
+        GraphNodeContext motorcycle = group.node(MOTORCYCLE.name, MotorcycleGraph::new)
+                .input(MotorcycleGraph.GEOMETRY.name, parameters, GEOMETRY.name)
+                .input(MotorcycleGraph.UV.name, seamless, SeamlessParameterization.UV.name)
+                .input(MotorcycleGraph.CHARTS.name, seamless, SeamlessParameterization.CHARTS.name)
+                .input(MotorcycleGraph.SINGULARITIES.name, field, NDirectionField.SINGULARITIES.name)
+                .input(MotorcycleGraph.FEATURE_EDGES.name, field, NDirectionField.FEATURE_EDGES.name)
+                .input(MotorcycleGraph.ALPHA_DEGREES.name, parameters, ALPHA_DEGREES.name);
+        GraphNodeContext quantize = group.node(QUANTIZE_NODE, QuantizedMeshGrid::new)
+                .input(QuantizedMeshGrid.GRAPH.name, motorcycle, MotorcycleGraph.GRAPH.name)
+                .input(QuantizedMeshGrid.ALPHA_DEGREES.name, parameters, ALPHA_DEGREES.name);
+        GraphNodeContext embed = group.node("embed", LayoutEmbedding::new)
+                .input(LayoutEmbedding.SKELETON.name, quantize, QuantizedMeshGrid.SKELETON.name)
+                .input(LayoutEmbedding.UV.name, seamless, SeamlessParameterization.UV.name);
+        GraphNodeContext contract = group.node("contract", NetworkContraction::new)
+                .input(NetworkContraction.TMESH.name, embed, LayoutEmbedding.TMESH.name)
                 .input(NetworkContraction.CONFORM.name, Boolean.FALSE);
-        PythonParser.ParsedNode assembly = group.node("assembly", GridMapAssembly::new)
-                .input(GridMapAssembly.TMESH.name, contract.port(NetworkContraction.TMESH_OUT.name))
-                .input(GridMapAssembly.UV.name, seamlessUv)
-                .input(GridMapAssembly.TARGET_EDGE_LENGTH.name,
-                        group.parameter(TARGET_EDGE_LENGTH.name));
-        PythonParser.ParsedNode relax = group.node("relax", NewtonSolverNode::new)
-                .input(NewtonSolverNode.UV.name, assembly.port(GridMapAssembly.UV_OUT.name))
-                .input(NewtonSolverNode.DOFS.name, assembly.port(GridMapAssembly.DOFS.name));
-        PythonParser.ParsedNode quads = group.node("quads", GridMapQuadsNode::new)
-                .input(GridMapQuadsNode.UV.name, relax.port(NewtonSolverNode.UV_OUT.name));
-        PythonParser.ParsedNode surfaces = group.node(SURFACES.name, PatchSurfacesNode::new)
-                .input(PatchSurfacesNode.UV.name, quads.port(GridMapQuadsNode.UV_OUT.name));
+        GraphNodeContext assembly = group.node("assembly", GridMapAssembly::new)
+                .input(GridMapAssembly.TMESH.name, contract, NetworkContraction.TMESH_OUT.name)
+                .input(GridMapAssembly.UV.name, seamless, SeamlessParameterization.UV.name)
+                .input(GridMapAssembly.TARGET_EDGE_LENGTH.name, parameters, TARGET_EDGE_LENGTH.name);
+        GraphNodeContext relax = group.node("relax", NewtonSolverNode::new)
+                .input(NewtonSolverNode.UV.name, assembly, GridMapAssembly.UV_OUT.name)
+                .input(NewtonSolverNode.DOFS.name, assembly, GridMapAssembly.DOFS.name);
+        GraphNodeContext quads = group.node("quads", GridMapQuadsNode::new)
+                .input(GridMapQuadsNode.UV.name, relax, NewtonSolverNode.UV_OUT.name);
+        GraphNodeContext surfaces = group.node(SURFACES.name, PatchSurfacesNode::new)
+                .input(PatchSurfacesNode.UV.name, quads, GridMapQuadsNode.UV_OUT.name);
 
-        group.output(QUADS.name, quads.port(GridMapQuadsNode.GEOMETRY.name));
-        group.output(UV.name, quads.port(GridMapQuadsNode.UV_OUT.name));
-        group.output(TMESH.name, contract.port(NetworkContraction.TMESH_OUT.name));
-        group.output(FIELD.name, field.port(NDirectionField.FIELD.name));
-        group.output(SINGULARITIES.name, field.port(NDirectionField.SINGULARITIES.name));
-        group.output(SEAMLESS.name, seamlessUv);
-        group.output(MOTORCYCLE.name, motorcycle.port(MotorcycleGraph.GRAPH.name));
-        group.output(SKELETON.name, quantize.port(QuantizedMeshGrid.SKELETON.name));
-        group.output(EMBEDDED.name, embed.port(LayoutEmbedding.TMESH.name));
-        group.output(SURFACES.name, surfaces.port(PatchSurfacesNode.GEOMETRY.name));
-        group.output(COONS.name, surfaces.port(PatchSurfacesNode.COONS.name));
+        group.output(QUADS.name, quads, GridMapQuadsNode.GEOMETRY.name);
+        group.output(UV.name, quads, GridMapQuadsNode.UV_OUT.name);
+        group.output(TMESH.name, contract, NetworkContraction.TMESH_OUT.name);
+        group.output(FIELD.name, field, NDirectionField.FIELD.name);
+        group.output(SINGULARITIES.name, field, NDirectionField.SINGULARITIES.name);
+        group.output(SEAMLESS.name, seamless, SeamlessParameterization.UV.name);
+        group.output(MOTORCYCLE.name, motorcycle, MotorcycleGraph.GRAPH.name);
+        group.output(SKELETON.name, quantize, QuantizedMeshGrid.SKELETON.name);
+        group.output(EMBEDDED.name, embed, LayoutEmbedding.TMESH.name);
+        group.output(SURFACES.name, surfaces, PatchSurfacesNode.GEOMETRY.name);
+        group.output(COONS.name, surfaces, PatchSurfacesNode.COONS.name);
     }
 
     /**

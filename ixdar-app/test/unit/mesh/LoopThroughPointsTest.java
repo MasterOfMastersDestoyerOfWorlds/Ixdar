@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
 
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
@@ -21,7 +20,6 @@ import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.primitives.TorusMeshNode;
 import ixdar.nodegraph.nodes.selection.LoopThroughPointsNode;
-import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.ring.RingDslWriter;
 
 /**
@@ -149,9 +147,7 @@ class LoopThroughPointsTest {
                 RingDslWriter.append(TORUS_GRAPH, TUBE_POINTS, TUBE_POINT_COUNT, true, false);
         System.out.println("[ring] saved statement: " + saved.substring(TORUS_GRAPH.length()));
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(saved);
-        List<PythonParser.ParsedNode> statements = runtime.root.body;
-        runtime.executeGraphResult(statements, statements.get(statements.size() - 1).id,
-                LoopThroughPointsNode.GEOMETRY.name);
+        runtime.executeGraphResult(runtime.lastId(), LoopThroughPointsNode.GEOMETRY.name);
         GeometryBundle reloaded = (GeometryBundle) runtime.lastOutput(
                 LoopThroughPointsNode.GEOMETRY.name);
 

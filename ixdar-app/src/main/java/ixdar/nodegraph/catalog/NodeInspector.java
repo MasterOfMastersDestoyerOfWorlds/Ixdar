@@ -21,7 +21,6 @@ import com.google.gson.JsonPrimitive;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.HeapSampler;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * Renders a node-tree record and walks field paths below it by reflection over public fields,
@@ -75,10 +74,10 @@ public final class NodeInspector {
         }
         view.add("children", children);
         view.add("inputs", renderMap(new TreeMap<>(record.getInputsSnapshot()), depth));
-        view.add("input_sources", renderSources(record.inputSources));
+        view.add("input_sources", renderSources(record.inputSources, record.inputSourcePorts));
         view.add("outputs", renderMap(new TreeMap<>(record.getOutputsSnapshot()), depth));
         if (!record.outputSources.isEmpty()) {
-            view.add("output_sources", renderSources(record.outputSources));
+            view.add("output_sources", renderSources(record.outputSources, record.outputSourcePorts));
         }
         if (record.node != null) {
             view.add("fields", renderFields(record.node, depth));
@@ -91,20 +90,25 @@ public final class NodeInspector {
      * wires as an array of them, a literal rendered flat.
      *
      * @param sources {@link GraphNodeContext#inputSources} or {@link GraphNodeContext#outputSources}
+     * @param ports   the matching source ports
      * @return the sources as JSON
      */
-    private JsonObject renderSources(Map<String, Object> sources) {
+    private JsonObject renderSources(Map<String, Object> sources, Map<String, ?> ports) {
         JsonObject rendered = new JsonObject();
         for (Map.Entry<String, Object> source : new TreeMap<>(sources).entrySet()) {
             JsonArray wires = new JsonArray();
-            List<?> values = source.getValue() instanceof List<?> list ? list
+            boolean computed = source.getValue() instanceof List<?>;
+            List<?> values = computed ? (List<?>) source.getValue()
                     : Collections.singletonList(source.getValue());
-            for (Object value : values) {
-                wires.add(value instanceof PythonParser.NodeReference wire
-                        ? new JsonPrimitive(wire.nodeId + NodeGraphRuntime.PORT_SEPARATOR + wire.portName)
-                        : render(value, 0));
+            List<?> valuePorts = computed ? (List<?>) ports.get(source.getKey())
+                    : Collections.singletonList(ports.get(source.getKey()));
+            for (int wire = 0; wire < values.size(); wire++) {
+                wires.add(values.get(wire) instanceof GraphNodeContext sourceRecord
+                        ? new JsonPrimitive(sourceRecord.path + NodeGraphRuntime.PORT_SEPARATOR
+                                + valuePorts.get(wire))
+                        : render(values.get(wire), 0));
             }
-            rendered.add(source.getKey(), source.getValue() instanceof List<?> ? wires : wires.get(0));
+            rendered.add(source.getKey(), computed ? wires : wires.get(0));
         }
         return rendered;
     }

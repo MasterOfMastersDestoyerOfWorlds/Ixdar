@@ -15,8 +15,8 @@ import org.junit.jupiter.api.Test;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.GroupBuilder;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
+import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.nodegraph.nodes.math.FloatMathNode;
-import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.graph.DslGraphLayout;
 import unit.mesh.SumAndProductGroup;
 
@@ -87,7 +87,7 @@ class DslGraphLayoutTest {
         int references = 0;
         for (GraphNodeContext record : runtime.root.children) {
             for (Object source : record.inputSources.values()) {
-                if (source instanceof PythonParser.NodeReference) {
+                if (source instanceof GraphNodeContext) {
                     references++;
                 }
             }
@@ -223,11 +223,7 @@ class DslGraphLayoutTest {
 
     @Test
     void aPulledCompiledGroupShowsOnlyTheBodyNodesThatRan() throws Exception {
-        GroupBuilder builder = new GroupBuilder();
-        PythonParser.ParsedNode stats = builder.node(COMPILED, SumAndProductGroup::new)
-                .input(FloatMathNode.A.name, 3f).input(FloatMathNode.B.name, 4f);
-        builder.node(READER, FloatMathNode::new).input(FloatMathNode.A.name, stats.port(SumAndProductGroup.SUM.name));
-        NodeGraphRuntime runtime = new NodeGraphRuntime(builder.statements);
+        NodeGraphRuntime runtime = new NodeGraphRuntime(statsAndReader(SumAndProductGroup.SUM.name));
         runtime.pull("stats.sum");
 
         DslGraphLayout graph = new DslGraphLayout(runtime.root, Set.of(COMPILED));
@@ -238,13 +234,9 @@ class DslGraphLayoutTest {
 
     @Test
     void anOutputACompiledGroupComputesDrawsAnEdgeFromEveryWiredOutputItRead() throws Exception {
-        GroupBuilder builder = new GroupBuilder();
-        PythonParser.ParsedNode stats = builder.node(COMPILED, SumAndProductGroup::new)
-                .input(FloatMathNode.A.name, 3f).input(FloatMathNode.B.name, 4f);
-        builder.node(READER, FloatMathNode::new)
-                .input(FloatMathNode.A.name, stats.port(SumAndProductGroup.DIFFERENCE.name));
-        NodeGraphRuntime runtime = new NodeGraphRuntime(builder.statements);
-        runtime.executeGraphResult(runtime.root.body, READER, RESULT);
+        NodeGraphRuntime runtime = new NodeGraphRuntime(
+                statsAndReader(SumAndProductGroup.DIFFERENCE.name));
+        runtime.executeGraphResult(READER, RESULT);
 
         assertTrue(runtime.node(COMPILED).outputSources.get(SumAndProductGroup.DIFFERENCE.name)
                 instanceof List<?> computedFrom && computedFrom.size() == 2,
@@ -264,10 +256,26 @@ class DslGraphLayoutTest {
                 "expanded, the one input fans out to both body nodes behind the computed output");
     }
 
+    /**
+     * A Java-built graph: the compiled group over two literals and a reader of one of its outputs.
+     *
+     * @param output the group output the reader's {@code a} reads
+     * @return the program
+     */
+    private static NodeGroup statsAndReader(String output) {
+        return new NodeGroup() {
+            @Override
+            public void build(GroupBuilder builder) {
+                GraphNodeContext stats = builder.node(COMPILED, SumAndProductGroup::new)
+                        .input(FloatMathNode.A.name, 3f).input(FloatMathNode.B.name, 4f);
+                builder.node(READER, FloatMathNode::new).input(FloatMathNode.A.name, stats, output);
+            }
+        };
+    }
+
     private static NodeGraphRuntime run(String source) throws Exception {
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
-        String last = runtime.root.body.get(runtime.root.body.size() - 1).id;
-        runtime.executeGraphResult(runtime.root.body, last, RESULT);
+        runtime.executeGraphResult(runtime.lastId(), RESULT);
         return runtime;
     }
 }

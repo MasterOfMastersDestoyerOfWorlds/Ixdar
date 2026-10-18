@@ -23,7 +23,6 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.geometry.MeshBooleanNode;
-import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 
 /**
@@ -60,9 +59,8 @@ public final class RingRegionExtractionBenchmark {
         String graphPath = System.getProperty(RING_GRAPH_PROPERTY, DEFAULT_RING_GRAPH);
         NodeGraphRuntime graph = NodeGraphRuntime.fromSource(
                 new String(Files.readAllBytes(Path.of(graphPath)), StandardCharsets.UTF_8));
-        List<PythonParser.ParsedNode> statements = graph.root.body;
-        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(statements,
-                statements.get(statements.size() - 1).id, GEOMETRY_PORT);
+        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.lastId(),
+                GEOMETRY_PORT);
         MeshTopology surface = bundle.mesh();
         float[] positionsBefore = positionsOf(surface);
         int[] cornersBefore = cornersOf(surface);

@@ -2,6 +2,7 @@ package unit.mesh;
 
 import java.util.List;
 
+import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.GroupBuilder;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.nodegraph.api.InputPort;
@@ -9,7 +10,6 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.nodes.math.FloatMathNode;
-import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * A compiled node group small enough to check by hand: float nodes {@code total} and
@@ -38,13 +38,13 @@ public class SumAndProductGroup extends NodeGroup {
 
     @Override
     public void build(GroupBuilder group) {
-        PythonParser.ParsedNode total = group.node(TOTAL_NODE, FloatMathNode::new)
-                .input(A.name, group.parameter(A.name)).input(B.name, group.parameter(B.name));
-        PythonParser.ParsedNode product = group.node(PRODUCT.name, FloatMathNode::new)
+        GraphNodeContext total = group.node(TOTAL_NODE, FloatMathNode::new)
+                .input(A.name, group.scope, A.name).input(B.name, group.scope, B.name);
+        GraphNodeContext product = group.node(PRODUCT.name, FloatMathNode::new)
                 .input(FloatMathNode.OPERATION.name, MULTIPLY)
-                .input(A.name, group.parameter(A.name)).input(B.name, group.parameter(B.name));
-        group.output(SUM.name, total.port(FloatMathNode.RESULT.name));
-        group.output(PRODUCT.name, product.port(FloatMathNode.RESULT.name));
+                .input(A.name, group.scope, A.name).input(B.name, group.scope, B.name);
+        group.output(SUM.name, total, FloatMathNode.RESULT.name);
+        group.output(PRODUCT.name, product, FloatMathNode.RESULT.name);
     }
 
     @Override

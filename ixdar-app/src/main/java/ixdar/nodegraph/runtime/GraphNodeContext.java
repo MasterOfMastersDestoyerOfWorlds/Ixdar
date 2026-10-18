@@ -10,7 +10,6 @@ import java.util.Map;
 import ixdar.nodegraph.field.FieldContext;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;
-import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * One evaluated node of a {@link NodeGraphRuntime} run and the {@link NodeContext} it evaluated
@@ -31,36 +30,55 @@ public class GraphNodeContext implements NodeContext {
     public String type = "graph";
 
     /**
-     * The node instance that evaluated, kept for inspection: a compiled {@link NodeGroup} for its
-     * call; {@code null} for DSL groups and the root.
+     * The node this record evaluates, built with the record: a {@link NodeGroup} for a group
+     * call, DSL or compiled; {@code null} for the root.
      */
     public MeshNode node;
 
-    /** The group this record called, or {@code null} for a leaf node. */
-    public PythonParser.FunctionDef group;
-
-    /** Statements of the scope this record opens: a group's body, or the program for the root. */
-    public List<PythonParser.ParsedNode> body = List.of();
-
-    /** The record whose scope holds this statement; {@code null} for the root. */
+    /** The record whose scope holds this one; {@code null} for the root. */
     public GraphNodeContext parent;
 
     /**
-     * Each input's source by port: a {@link PythonParser.NodeReference} of source path and port
-     * when wired (a group parameter: the group's path and its name), else the literal value.
+     * The records of the scope this record opens, a group's body or the program for the root, in
+     * declaration order and evaluated or not; {@link #children} holds the evaluated ones.
      */
-    public final Map<String, Object> inputSources = new LinkedHashMap<>();
+    public final List<GraphNodeContext> declared = new ArrayList<>();
 
     /**
-     * For a group call, where each output came from, keyed and valued as {@link #inputSources};
+     * Each input's source by port: the source record when wired, its port in
+     * {@link #inputSourcePorts} (a group parameter: the enclosing call and the parameter's name),
+     * else the literal value. Set when the graph is built; an override replaces it on evaluation.
+     */
+    public final Map<String, Object> inputSources = new HashMap<>();
+
+    /** The source port of each wired input in {@link #inputSources}. */
+    public final Map<String, String> inputSourcePorts = new HashMap<>();
+
+    /**
+     * For a group call, each output its body wires, keyed and valued as {@link #inputSources}:
+     * a body record, the call itself for a parameter, or a literal.
+     */
+    public final Map<String, Object> outputWires = new LinkedHashMap<>();
+
+    /** The source port of each wired output in {@link #outputWires}. */
+    public final Map<String, String> outputWirePorts = new LinkedHashMap<>();
+
+    /**
+     * For a group call, where each output read so far came from, valued as {@link #inputSources};
      * an output a compiled group's evaluate computed holds the list of the wired outputs' sources.
      */
     public final Map<String, Object> outputSources = new LinkedHashMap<>();
 
+    /**
+     * The source port of each wired output in {@link #outputSources}; a computed output holds
+     * the list of its sources' ports, {@code null} for a literal.
+     */
+    public final Map<String, Object> outputSourcePorts = new LinkedHashMap<>();
+
     /** Body records in evaluation order. */
     public final List<GraphNodeContext> children = new ArrayList<>();
 
-    /** Body records by statement id, the scope references resolve against. */
+    /** Evaluated body records by id. */
     public final Map<String, GraphNodeContext> childrenById = new HashMap<>();
 
     /** Wall time spent evaluating this node, children included, in nanoseconds. */
@@ -90,6 +108,34 @@ public class GraphNodeContext implements NodeContext {
             throw new IllegalArgumentException(failure);
         }
         deferredFailures.add(failure);
+    }
+
+    /**
+     * Wires an input of this record to a literal, as {@code port=value} does in DSL source.
+     *
+     * @param port    input port name
+     * @param literal the value the port takes
+     * @return this record, for chaining
+     */
+    public GraphNodeContext input(String port, Object literal) {
+        inputSources.put(port, literal);
+        inputSourcePorts.remove(port);
+        return this;
+    }
+
+    /**
+     * Wires an input of this record to an output of an earlier record, or to a parameter of a
+     * group call enclosing it, as {@code port=source.sourcePort} does in DSL source.
+     *
+     * @param port       input port name
+     * @param source     the earlier record, or the enclosing call whose parameter is read
+     * @param sourcePort output port of the source, or the parameter's name
+     * @return this record, for chaining
+     */
+    public GraphNodeContext input(String port, GraphNodeContext source, String sourcePort) {
+        inputSources.put(port, source);
+        inputSourcePorts.put(port, sourcePort);
+        return this;
     }
 
     /**

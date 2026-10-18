@@ -1,7 +1,6 @@
 /**
- * Node-graph runtime: `NodeGraphRuntime` parses and executes .dsl sources against the one node
- * lookup (`REGISTERED_NODES`, the generated registries behind the `Class.forName` desktop
- * firewall), keeping each run as its node tree under `root` with a `revision` counter; node
- * groups, the group library and the heap sampler.
+ * Node-graph runtime: `NodeGraphRuntime` runs a program, a `NodeGroup`, over a pre-wired node
+ * tree it builds per run under `root`; `GroupBuilder` declares the tree's records and
+ * `GroupLibrary` loads parsed DSL and the group library into node groups.
  */
 package ixdar.nodegraph.runtime;

@@ -27,9 +27,9 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.nodes.selection.SplineRingNode;
-import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.ring.RingTool;
 
 /**
@@ -97,28 +97,27 @@ public final class RingAnchorOrderBenchmark {
         String ringLabel = System.getProperty(RING_PROPERTY, DEFAULT_RING);
         NodeGraphRuntime graph = NodeGraphRuntime.fromSource(
                 new String(Files.readAllBytes(Path.of(graphPath)), StandardCharsets.UTF_8));
-        PythonParser.ParsedNode ring = null;
+        GraphNodeContext ring = null;
         String surfaceNode = null;
-        for (PythonParser.ParsedNode statement : graph.root.body) {
+        for (GraphNodeContext statement : graph.root.declared) {
             if (SplineRingNode.DEFAULT_MARK_LABEL.equals(statement.type) && surfaceNode == null
-                    && statement.arguments.get(SplineRingNode.GEOMETRY.name)
-                            instanceof PythonParser.NodeReference reference) {
-                surfaceNode = reference.nodeId;
+                    && statement.inputSources.get(SplineRingNode.GEOMETRY.name)
+                            instanceof GraphNodeContext reference) {
+                surfaceNode = reference.nodeAssignmentId();
             }
-            if (statement.id.equals(ringLabel)) {
+            if (statement.nodeAssignmentId().equals(ringLabel)) {
                 ring = statement;
             }
         }
         assertNotNull(ring, "no statement " + ringLabel);
         assertNotNull(surfaceNode, "no spline_ring reads a surface");
-        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.root.body,
-                surfaceNode, GEOMETRY_PORT);
+        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(surfaceNode, GEOMETRY_PORT);
         surface = HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
         geodesics = SurfaceGeodesics.over(SurfaceMetric.of(surface));
         float[] points = SurfaceWaypoints.parse(
-                String.valueOf(ring.arguments.get(SplineRingNode.POINTS.name)));
+                String.valueOf(ring.inputSources.get(SplineRingNode.POINTS.name)));
         baseNormal = SurfaceWaypoints.parse(
-                String.valueOf(ring.arguments.get(SplineRingNode.NORMAL.name)));
+                String.valueOf(ring.inputSources.get(SplineRingNode.NORMAL.name)));
         savedVertexId = SurfaceWaypoints.snap(NearestVertex.over(surface), points, points.length / XYZ);
         int anchors = savedVertexId.length;
         rows.add("run\tmode\tclicked\tring order\tsame ring as saved\tskipped adds\tloop crossings"
@@ -188,19 +187,18 @@ public final class RingAnchorOrderBenchmark {
         Files.createDirectories(shapes);
         NodeGraphRuntime graph = NodeGraphRuntime.fromSource(
                 new String(Files.readAllBytes(Path.of(graphPath)), StandardCharsets.UTF_8));
-        List<PythonParser.ParsedNode> statements = graph.root.body;
-        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(statements,
-                statements.get(statements.size() - 1).id, GEOMETRY_PORT);
+        GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(graph.lastId(),
+                GEOMETRY_PORT);
         MeshTopology mesh = bundle.mesh();
         double meanEdge = SurfaceMetric.of(mesh).meanEdgeLength;
         String graphName = Path.of(graphPath).getFileName().toString().replace(".dsl", "");
         rows.add("ring\tanchors (authored)\tmarked edges\tfingerprint\tself-crossings"
                 + "\trevisited vertices\tsnapped loop simple\tlength\tmoved from baseline (edges)");
-        for (PythonParser.ParsedNode statement : statements) {
+        for (GraphNodeContext statement : graph.root.declared) {
             if (!SplineRingNode.DEFAULT_MARK_LABEL.equals(statement.type)) {
                 continue;
             }
-            String label = String.valueOf(statement.arguments.get(SplineRingNode.LABEL.name));
+            String label = String.valueOf(statement.inputSources.get(SplineRingNode.LABEL.name));
             SurfaceSpline spline = SurfaceSpline.inBundle(bundle, label);
             boolean[] marks = EdgeMarks.bools(bundle, label);
             int points = spline.polyline.length / XYZ - 1;
