@@ -32,19 +32,22 @@ import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.color.ColorLerp;
 import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.text.Font;
-import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.Drawing;
-import ixdar.gui.ui.tools.FreeTool;
-import ixdar.gui.ui.tools.Tool;
+import ixdar.gui.ui.InfoPane;
+import ixdar.gui.ui.PaneTypes;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.PointSetPath;
 import ixdar.platform.file.TextFile;
+import ixdar.platform.input.MainSceneKeyGuy;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.SceneInputFrameUpdater;
+import ixdar.tools.knot.FreeTool;
+import ixdar.tools.knot.Tool;
 
 public class MainScene {
     public static final String KNOT_FINDING_TIME = "Knot-finding time: ";

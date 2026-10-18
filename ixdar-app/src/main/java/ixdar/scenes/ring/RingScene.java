@@ -14,15 +14,17 @@ import ixdar.geometry.mesh.data.paths.SurfaceRing;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.gui.ui.ErrorToasts;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
-import ixdar.scenes.EditTool;
-import ixdar.scenes.connection.ConnectionTool;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
-import ixdar.scenes.model.ControlHint;
-import ixdar.scenes.regions.RegionLayer;
-import ixdar.scenes.regions.RingRegionTool;
+import ixdar.tools.ControlHint;
+import ixdar.tools.EditTool;
+import ixdar.tools.connection.ConnectionTool;
+import ixdar.tools.regions.RegionLayer;
+import ixdar.tools.regions.RingRegionTool;
+import ixdar.tools.ring.RingTool;
 
 /**
  * The mesh editing scene: the mesh viewer hosting the orbit, ring, region-select and connection

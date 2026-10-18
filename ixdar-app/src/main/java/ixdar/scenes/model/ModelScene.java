@@ -22,15 +22,23 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.terminal.Terminal;
-import ixdar.gui.ui.graph.DslGraphView;
-import ixdar.gui.ui.menu.SceneModelMenu;
+import ixdar.gui.ui.menu.model.SceneModelMenu;
+import ixdar.models.CollectionManifest;
+import ixdar.models.GraphChoice;
+import ixdar.models.ModelCatalog;
+import ixdar.models.ModelChoice;
+import ixdar.models.ModelCollection;
+import ixdar.models.ModelLoadLedger;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
-import ixdar.scenes.EditTool;
 import ixdar.scenes.Scene;
+import ixdar.tools.ControlHint;
+import ixdar.tools.EditTool;
+import ixdar.tools.graph.DslGraphView;
+import ixdar.tools.orbit.OrbitTool;
 
 /**
  * Base for scenes that view a switchable model: owns the ESC model dropdown,

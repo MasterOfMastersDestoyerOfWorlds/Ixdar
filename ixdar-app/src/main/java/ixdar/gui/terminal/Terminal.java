@@ -15,19 +15,19 @@ import ixdar.geometry.point.PointCollection;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorLerp;
-import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.terminal.commands.TerminalCommand;
 import ixdar.gui.ui.Drawing;
-import ixdar.gui.ui.tools.FreeTool;
-import ixdar.gui.ui.tools.MapEditorTool;
-import ixdar.gui.ui.tools.NegativeCutMatchViewTool;
-import ixdar.gui.ui.tools.NeighborViewTool;
-import ixdar.gui.ui.tools.Tool;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.PointerRegion;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.model.ModelScene;
+import ixdar.tools.knot.FreeTool;
+import ixdar.tools.knot.MapEditorTool;
+import ixdar.tools.knot.NegativeCutMatchViewTool;
+import ixdar.tools.knot.NeighborViewTool;
+import ixdar.tools.knot.Tool;
 
 /**
  * The editor's interactive REPL: keeps the command/tool/point-collection registries,

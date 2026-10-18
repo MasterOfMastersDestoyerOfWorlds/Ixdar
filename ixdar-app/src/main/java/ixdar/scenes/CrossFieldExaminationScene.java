@@ -15,8 +15,8 @@ import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
-import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelScene;
+import ixdar.tools.ControlHint;
 
 /**
  * 3D scene for inspecting a cross field on the triangle mesh named by

@@ -6,12 +6,12 @@ import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Clock;
-import ixdar.graphics.render.text.HyperString;
+import ixdar.gui.ui.PaneTypes;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
 import ixdar.platform.automation.AutomationBackend;
 import ixdar.scenes.main.MainScene;
-import ixdar.scenes.main.PaneTypes;
 
 import java.util.List;
 

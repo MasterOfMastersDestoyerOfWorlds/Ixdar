@@ -10,15 +10,15 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.gui.ui.ErrorToasts;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.OrbitMouseTrap;
-import ixdar.scenes.connection.ConnectionTool;
-import ixdar.scenes.model.ControlHint;
-import ixdar.scenes.regions.RingRegionTool;
-import ixdar.scenes.ring.ErrorToasts;
 import ixdar.scenes.ring.RingScene;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ControlHint;
+import ixdar.tools.connection.ConnectionTool;
+import ixdar.tools.regions.RingRegionTool;
+import ixdar.tools.ring.RingTool;
 
 /**
  * Refused clicks and keys in the ring editing scene raise one red toast each, saying what to do;

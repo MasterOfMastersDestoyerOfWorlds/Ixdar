@@ -29,8 +29,8 @@ import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.color.PatchColorHash;
 import ixdar.graphics.render.shaders.MeshLineShader;
 import ixdar.graphics.render.shaders.ShaderProgram;
-import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 

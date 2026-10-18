@@ -12,10 +12,10 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
+import ixdar.models.ModelCatalog;
+import ixdar.models.ModelChoice;
+import ixdar.models.ModelLoadLedger;
 import ixdar.platform.automation.AutomationEndpoint;
-import ixdar.scenes.model.ModelCatalog;
-import ixdar.scenes.model.ModelChoice;
-import ixdar.scenes.model.ModelLoadLedger;
 import ixdar.scenes.model.ModelScene;
 
 /**

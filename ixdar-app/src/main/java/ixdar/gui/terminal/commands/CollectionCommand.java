@@ -3,7 +3,7 @@ package ixdar.gui.terminal.commands;
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
-import ixdar.scenes.model.ModelCollection;
+import ixdar.models.ModelCollection;
 import ixdar.scenes.model.ModelScene;
 
 /**

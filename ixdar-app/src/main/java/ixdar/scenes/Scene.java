@@ -9,6 +9,7 @@ import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.sdf.ShaderDrawable;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.gui.terminal.Terminal;
+import ixdar.gui.ui.PaneTypes;
 import ixdar.gui.ui.code.ShaderCodePane;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
@@ -17,8 +18,8 @@ import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.MouseTrap;
 import ixdar.platform.input.PointerDispatcher;
-import ixdar.scenes.main.PaneTypes;
-import ixdar.scenes.model.ControlHint;
+import ixdar.tools.ControlHint;
+import ixdar.tools.EditTool;
 
 public abstract class Scene extends Canvas3D {
 

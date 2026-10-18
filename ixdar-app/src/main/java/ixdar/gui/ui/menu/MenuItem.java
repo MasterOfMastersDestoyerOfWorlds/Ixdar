@@ -1,8 +1,8 @@
 package ixdar.gui.ui.menu;
 
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.actions.Action;
+import ixdar.gui.ui.text.HyperString;
 
 /**
  * One clickable row in a {@link Menu}: a heading label paired with the

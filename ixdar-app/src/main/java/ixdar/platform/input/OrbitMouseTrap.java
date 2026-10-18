@@ -12,7 +12,7 @@ import org.joml.Vector3f;
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.cameras.Camera3D;
-import ixdar.graphics.render.text.HyperString;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 
 /**

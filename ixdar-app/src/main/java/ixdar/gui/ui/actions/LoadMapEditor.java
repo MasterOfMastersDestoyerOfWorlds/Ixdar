@@ -3,7 +3,7 @@ package ixdar.gui.ui.actions;
 import ixdar.common.exceptions.TerminalParseException;
 import ixdar.gui.terminal.commands.ChangeToolCommand;
 import ixdar.gui.terminal.commands.LoadIxCommand;
-import ixdar.gui.ui.tools.MapEditorTool;
+import ixdar.tools.knot.MapEditorTool;
 
 /**
  * Menu action that opens the map editor: loads a blank ixdar file then activates

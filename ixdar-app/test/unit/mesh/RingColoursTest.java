@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.color.Palettes;
-import ixdar.scenes.regions.RegionColouring;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.regions.RegionColouring;
+import ixdar.tools.ring.RingTool;
 
 /**
  * The ring tool's colours that carry a meaning, the draft modes (red geodesic, purple crease) and

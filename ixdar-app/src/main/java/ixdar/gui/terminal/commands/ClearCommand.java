@@ -1,8 +1,8 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
-import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.terminal.Terminal;
+import ixdar.gui.ui.text.HyperString;
 
 @CommandAnnotation(id = "cl")
 public class ClearCommand extends TerminalCommand {

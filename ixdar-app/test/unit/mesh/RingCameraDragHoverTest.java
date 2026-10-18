@@ -33,7 +33,7 @@ import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.Scene2DMousePanTrap;
 import ixdar.scenes.ring.RingScene;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ring.RingTool;
 
 /**
  * The ring tool's hover pauses while the input layer moves the camera: a drag held still or moving

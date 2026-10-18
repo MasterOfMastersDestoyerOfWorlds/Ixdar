@@ -12,14 +12,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import ixdar.canvas.Canvas3D;
-import ixdar.gui.ui.tools.FreeTool;
-import ixdar.gui.ui.tools.Tool;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Toggle;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
 import ixdar.scenes.main.MainScene;
+import ixdar.tools.knot.FreeTool;
+import ixdar.tools.knot.Tool;
 
 /**
  * The ring scene's key handler ignores every shortcut that belongs to the tour editor

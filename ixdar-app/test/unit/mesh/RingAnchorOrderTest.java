@@ -22,7 +22,7 @@ import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.scenes.ring.RingScene;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ring.RingTool;
 
 /**
  * The ring tool's anchor cycle: on a flattened tube, whose two faces are closer in 3D than

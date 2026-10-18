@@ -7,9 +7,9 @@ import static ixdar.platform.input.Keys.ACTION_REPEAT;
 import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Clock;
-import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.platform.Platforms;
 import ixdar.scenes.trade.TradeScene;
+import ixdar.tools.trade.RoutePlanningTool;
 
 /**
  * Keyboard input handler for the trade game scene. Extends KeyGuy but removes

@@ -8,7 +8,7 @@ import ixdar.canvas.Canvas3D;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Clock;
 import ixdar.platform.Toggle;
-import ixdar.scenes.model.ControlHint;
+import ixdar.tools.ControlHint;
 
 /**
  * Shared key handler for orbit/mesh scenes, binding {@code Ctrl+R} to

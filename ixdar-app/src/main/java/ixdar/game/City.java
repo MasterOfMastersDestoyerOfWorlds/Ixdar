@@ -11,8 +11,8 @@ import ixdar.geometry.point.PointND;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFCircleSimple;
-import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
+import ixdar.gui.ui.text.HyperString;
 
 /**
  * Represents a city in the trade game. Cities are locations on the map where

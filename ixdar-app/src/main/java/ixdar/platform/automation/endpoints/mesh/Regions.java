@@ -11,9 +11,9 @@ import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.geometry.mesh.data.RingRegions;
 import ixdar.platform.automation.AutomationEndpoint;
-import ixdar.scenes.regions.RegionLayer;
-import ixdar.scenes.regions.RingRegionTool;
 import ixdar.scenes.ring.RingScene;
+import ixdar.tools.regions.RegionLayer;
+import ixdar.tools.regions.RingRegionTool;
 
 /**
  * Reports the ring regions the editing scene's region layer shows: the count, each region's

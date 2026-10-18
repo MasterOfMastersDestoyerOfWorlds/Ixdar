@@ -21,11 +21,12 @@ import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.point.IrregularQuadGrid;
 import ixdar.graphics.render.Clock;
-import ixdar.graphics.render.text.HyperString;
+import ixdar.gui.ui.ErrorToasts;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.menu.MenuItem;
 import ixdar.gui.ui.menu.MenuScrollBox;
-import ixdar.gui.ui.tools.RoutePlanningTool;
+import ixdar.gui.ui.text.HyperString;
+import ixdar.models.ModelCollection;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
 import ixdar.platform.automation.AutomationEndpoint;
@@ -33,13 +34,12 @@ import ixdar.scenes.Scene;
 import ixdar.scenes.anatomy.IrregularGridScene;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
-import ixdar.scenes.model.ControlHint;
-import ixdar.scenes.model.ModelCollection;
 import ixdar.scenes.model.ModelScene;
-import ixdar.scenes.ring.ErrorToasts;
 import ixdar.scenes.ring.RingScene;
-import ixdar.scenes.ring.RingTool;
 import ixdar.scenes.trade.TradeScene;
+import ixdar.tools.ControlHint;
+import ixdar.tools.ring.RingTool;
+import ixdar.tools.trade.RoutePlanningTool;
 
 @AutomationRouteAnnotation(path = "ui/state", method = APIMethod.GET)
 public class State extends AutomationEndpoint implements AutomationRoute {

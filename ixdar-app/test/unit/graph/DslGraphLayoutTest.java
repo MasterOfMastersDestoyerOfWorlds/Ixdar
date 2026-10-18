@@ -15,8 +15,8 @@ import ixdar.geometry.mesh.graph.GraphNodeContext;
 import ixdar.geometry.mesh.graph.GroupBuilder;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.math.FloatMathNode;
-import ixdar.gui.ui.graph.DslGraphLayout;
 import ixdar.parsing.python.PythonParser;
+import ixdar.tools.graph.DslGraphLayout;
 import unit.mesh.SumAndProductGroup;
 
 /**

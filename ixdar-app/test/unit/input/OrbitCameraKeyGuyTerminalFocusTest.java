@@ -17,7 +17,7 @@ import ixdar.platform.Toggle;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitCameraKeyGuy;
 import ixdar.platform.input.OrbitMouseTrap;
-import ixdar.scenes.model.ControlHint;
+import ixdar.tools.ControlHint;
 
 /**
  * While the scene terminal has focus every key belongs to it: no scene control fires except the

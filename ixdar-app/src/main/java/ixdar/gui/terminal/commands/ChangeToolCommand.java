@@ -2,8 +2,8 @@ package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.gui.terminal.Terminal;
-import ixdar.gui.ui.tools.Tool;
 import ixdar.scenes.main.MainScene;
+import ixdar.tools.knot.Tool;
 
 /**
  * Terminal command {@code ct}/{@code changetool} that swaps the active editor tool on

@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.scenes.ring.EditHistory;
+import ixdar.tools.EditHistory;
 
 /**
  * The ring tool's undo/redo stack: undo walks back one edit at a time, redo replays, and an edit

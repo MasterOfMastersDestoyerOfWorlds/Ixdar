@@ -13,7 +13,7 @@ import ixdar.geometry.mesh.data.EdgeMarks;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.scenes.ring.RingScene;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ring.RingTool;
 
 /**
  * Draws a bisector in the ring scene through points given as coordinates, as K and clicks do: the

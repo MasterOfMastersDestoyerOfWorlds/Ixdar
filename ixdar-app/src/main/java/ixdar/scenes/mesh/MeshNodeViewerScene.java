@@ -28,15 +28,15 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
+import ixdar.models.ModelCatalog;
+import ixdar.models.ModelChoice;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.OrbitMouseTrap;
-import ixdar.scenes.model.ControlHint;
-import ixdar.scenes.model.ModelCatalog;
-import ixdar.scenes.model.ModelChoice;
 import ixdar.scenes.model.ModelScene;
+import ixdar.tools.ControlHint;
 
 @SceneAnnotation(id = "mesh-viewer")
 public class MeshNodeViewerScene extends ModelScene {

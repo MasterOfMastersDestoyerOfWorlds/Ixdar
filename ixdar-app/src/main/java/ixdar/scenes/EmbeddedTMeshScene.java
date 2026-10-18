@@ -15,12 +15,12 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.models.GraphChoice;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
-import ixdar.scenes.model.ControlHint;
-import ixdar.scenes.model.GraphChoice;
 import ixdar.scenes.model.ModelScene;
+import ixdar.tools.ControlHint;
 
 /**
  * Debug view of an embedded T-mesh: arcs as edge paths, positive orange and

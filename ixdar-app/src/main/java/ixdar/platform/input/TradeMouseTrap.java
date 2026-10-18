@@ -9,9 +9,9 @@ import ixdar.canvas.Canvas3D;
 import ixdar.game.City;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.Clock;
-import ixdar.gui.ui.tools.RoutePlanningTool;
 import ixdar.platform.Platforms;
 import ixdar.scenes.trade.TradeScene;
+import ixdar.tools.trade.RoutePlanningTool;
 
 /**
  * Mouse input handler for the trade game scene. Extends MouseTrap but replaces

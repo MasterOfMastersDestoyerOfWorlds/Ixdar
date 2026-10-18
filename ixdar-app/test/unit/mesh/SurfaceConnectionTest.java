@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.paths.SurfaceConnection;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ring.RingTool;
 
 /**
  * The connection between two points on two spheres joined by a thin tube: the path runs through

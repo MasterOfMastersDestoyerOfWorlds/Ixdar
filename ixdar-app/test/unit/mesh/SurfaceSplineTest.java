@@ -26,8 +26,8 @@ import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
+import ixdar.tools.ring.RingDslWriter;
 
 /**
  * Closed splines on procedural surfaces: four anchors on a sphere's equator reproduce the great

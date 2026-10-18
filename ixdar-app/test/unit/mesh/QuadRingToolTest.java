@@ -31,10 +31,10 @@ import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
 import ixdar.geometry.mesh.nodes.selection.ExtractRingRegionNode;
-import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
 import ixdar.scenes.ring.RingScene;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ring.RingDslWriter;
+import ixdar.tools.ring.RingTool;
 
 /**
  * The ring tool on quads: the intrinsic triangulation splits every polygon inside itself, a graph

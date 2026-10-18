@@ -12,9 +12,9 @@ import ixdar.geometry.point.PointND;
 import ixdar.geometry.point.PointSet;
 import ixdar.graphics.render.Clock;
 import ixdar.graphics.render.shaders.ShaderProgram;
-import ixdar.gui.ui.tools.Tool;
 import ixdar.platform.Platforms;
 import ixdar.scenes.main.MainScene;
+import ixdar.tools.knot.Tool;
 
 /**
  * Orthographic 2D camera that frames a {@link PointSet} on a screen-space

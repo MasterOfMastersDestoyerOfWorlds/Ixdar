@@ -9,10 +9,10 @@ import java.util.Locale;
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.geometry.mesh.data.paths.SurfaceRing;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
-import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.scenes.ring.RingScene;
+import ixdar.tools.ring.RingDslWriter;
 
 /**
  * Terminal command {@code ring}/{@code rg}: author a ring on the shown surface from three or more

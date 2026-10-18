@@ -30,9 +30,9 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.Platform;
 import ixdar.platform.input.Keys;
-import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.ring.RingScene;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ControlHint;
+import ixdar.tools.ring.RingTool;
 import unit.GlStandIn;
 
 /**

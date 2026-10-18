@@ -37,11 +37,11 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
-import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
 import ixdar.geometry.mesh.quadlayout.crossfield.NDirectionField;
 import ixdar.parsing.python.PythonParser;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ring.RingDslWriter;
+import ixdar.tools.ring.RingTool;
 
 /**
  * One click at each saved ring's first anchor: how far the crease ring of every candidate crease

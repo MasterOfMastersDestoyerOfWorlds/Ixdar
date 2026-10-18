@@ -20,8 +20,8 @@ import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
 import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.nodes.primitives.IcosphereMeshNode;
-import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
+import ixdar.tools.ring.RingDslWriter;
 
 /**
  * Spline rings chained on one surface_metric mark what they mark each on a metric of its own, the

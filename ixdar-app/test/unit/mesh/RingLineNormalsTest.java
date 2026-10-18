@@ -25,7 +25,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.graphics.render.model.LineSet;
 import ixdar.graphics.render.model.SurfaceFaceLocator;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ring.RingTool;
 
 /**
  * The user's spline rings on fertility draw on the surface: every segment carries a face normal,

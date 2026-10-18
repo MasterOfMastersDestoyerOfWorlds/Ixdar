@@ -3,6 +3,7 @@ package ixdar.graphics.render.text;
 import java.util.ArrayList;
 
 import ixdar.graphics.render.color.Color;
+import ixdar.gui.ui.text.HyperWord;
 
 public class ColorText<T> {
     public ArrayList<String> text;

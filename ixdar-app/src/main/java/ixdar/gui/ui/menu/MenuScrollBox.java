@@ -5,8 +5,8 @@ import java.util.function.BooleanSupplier;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.gui.ui.actions.Action;
 import ixdar.platform.input.PointerRegion;
 

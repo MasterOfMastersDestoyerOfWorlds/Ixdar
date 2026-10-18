@@ -18,9 +18,9 @@ import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.platform.input.Keys;
-import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.ring.RingScene;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ControlHint;
+import ixdar.tools.ring.RingTool;
 
 /**
  * Esc in the ring editing scene: an open ring nobody edited closes and the ring tool stays, an

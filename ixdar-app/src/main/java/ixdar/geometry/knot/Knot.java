@@ -15,11 +15,11 @@ import ixdar.geometry.point.PointND;
 import ixdar.geometry.shell.Shell;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFCircle;
-import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.actions.Action;
-import ixdar.gui.ui.tools.Tool;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;
+import ixdar.tools.knot.Tool;
 
 public class Knot extends SDFCircle {
     public static final String KNOT = "Knot[ ";

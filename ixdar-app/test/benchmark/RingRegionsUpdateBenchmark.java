@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.RingRegions;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.parsing.python.PythonParser;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ring.RingTool;
 
 /**
  * Times deleting, adding back and moving single rings of a ring graph with

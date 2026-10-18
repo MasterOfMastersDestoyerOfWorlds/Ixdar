@@ -6,7 +6,7 @@ import ixdar.geometry.knot.Knot;
 import ixdar.geometry.knot.Segment;
 import ixdar.geometry.shell.Shell;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.text.HyperString;
+import ixdar.gui.ui.text.HyperString;
 
 /**
  * Base exception thrown when balancing a cut's match/cut segments against a

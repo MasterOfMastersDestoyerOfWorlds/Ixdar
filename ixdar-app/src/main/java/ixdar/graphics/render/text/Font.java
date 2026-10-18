@@ -14,6 +14,8 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
+import ixdar.gui.ui.text.HyperString;
+import ixdar.gui.ui.text.HyperWord;
 import ixdar.platform.Platforms;
 
 public class Font {

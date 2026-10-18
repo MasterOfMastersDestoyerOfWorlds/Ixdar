@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.data.paths.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
+import ixdar.tools.ring.RingDslWriter;
 
 /**
  * Spheres stacked pole to pole, which repair_mesh welds and splits into coincident copies: a ring

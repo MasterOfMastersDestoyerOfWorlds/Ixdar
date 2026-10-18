@@ -32,13 +32,13 @@ import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.geometry.mesh.nodes.selection.SplineCutNode;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.input.Keys;
-import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.ring.RingScene;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ControlHint;
+import ixdar.tools.ring.RingDslWriter;
+import ixdar.tools.ring.RingTool;
 
 /**
  * Bisectors in the ring tool on a straight tube: open geodesic splines whose ends snap onto rings

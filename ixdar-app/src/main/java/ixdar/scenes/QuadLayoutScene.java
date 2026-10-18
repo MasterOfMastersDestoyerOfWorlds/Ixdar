@@ -16,8 +16,8 @@ import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
-import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelScene;
+import ixdar.tools.ControlHint;
 
 /**
  * Final-output view of the quad-layout pipeline: runs the model through {@link QuadLayoutNode}

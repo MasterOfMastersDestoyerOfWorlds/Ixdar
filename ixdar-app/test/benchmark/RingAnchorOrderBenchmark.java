@@ -30,7 +30,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
 import ixdar.parsing.python.PythonParser;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ring.RingTool;
 
 /**
  * Traces one saved spline ring's anchors in shuffled orders, as one list and click by click the

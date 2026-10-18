@@ -18,7 +18,7 @@ import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.platform.automation.InputSettle;
 import ixdar.platform.input.KeyGuy;
 import ixdar.platform.input.Keys;
-import ixdar.scenes.main.PaneTypes;
+import ixdar.gui.ui.PaneTypes;
 
 @AutomationRouteAnnotation(path = "input/terminal", method = APIMethod.POST)
 public class RunTerminalLine extends AutomationEndpoint implements AutomationRoute {

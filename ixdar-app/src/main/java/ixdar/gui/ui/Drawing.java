@@ -24,7 +24,7 @@ import ixdar.graphics.render.color.ColorFixedLerp;
 import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.graphics.render.sdf.SDFLine;
 import ixdar.graphics.render.text.Font;
-import ixdar.graphics.render.text.HyperString;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.Toggle;
 import ixdar.scenes.main.MainScene;

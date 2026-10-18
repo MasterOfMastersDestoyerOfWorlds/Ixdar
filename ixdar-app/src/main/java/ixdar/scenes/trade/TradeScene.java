@@ -14,18 +14,18 @@ import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
-import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.menu.MenuBox;
-import ixdar.gui.ui.tools.HeadquartersPickerTool;
-import ixdar.gui.ui.tools.RoutePlanningTool;
-import ixdar.gui.ui.tools.Tool;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.canvas.Canvas3D;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.PointerDispatcher;
 import ixdar.platform.input.SceneInputFrameUpdater;
 import ixdar.platform.input.TradeKeyGuy;
 import ixdar.platform.input.TradeMouseTrap;
+import ixdar.tools.knot.Tool;
+import ixdar.tools.trade.HeadquartersPickerTool;
+import ixdar.tools.trade.RoutePlanningTool;
 
 /**
  * The main scene for the trade game. Handles rendering cities, camera controls,

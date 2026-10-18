@@ -18,8 +18,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.parsing.python.PythonParser;
+import ixdar.tools.ring.RingDslWriter;
 
 /**
  * The ring writer as pure text: what id a save mints, what it refuses, and what a rewrite leaves

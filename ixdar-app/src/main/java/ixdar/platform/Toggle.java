@@ -1,6 +1,6 @@
 package ixdar.platform;
 
-import ixdar.scenes.main.PaneTypes;
+import ixdar.gui.ui.PaneTypes;
 
 public enum Toggle {
 

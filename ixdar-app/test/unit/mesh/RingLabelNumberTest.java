@@ -11,7 +11,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.RingCandidates;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ring.RingTool;
 
 /**
  * A ring's number is its position in the overlay, not anything its label spells, so a

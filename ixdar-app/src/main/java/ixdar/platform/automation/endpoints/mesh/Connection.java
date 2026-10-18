@@ -12,8 +12,8 @@ import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.paths.SurfaceConnection;
 import ixdar.geometry.mesh.data.paths.SurfaceWaypoints;
 import ixdar.platform.automation.AutomationEndpoint;
-import ixdar.scenes.connection.ConnectionTool;
 import ixdar.scenes.ring.RingScene;
+import ixdar.tools.connection.ConnectionTool;
 
 /**
  * Picks two surface positions in the editing scene's connection tool, as two clicks there would,

@@ -13,10 +13,10 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.text.HyperWord;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.menu.MenuScrollBox;
-import ixdar.gui.ui.menu.SceneModelMenu;
+import ixdar.gui.ui.menu.model.SceneModelMenu;
+import ixdar.gui.ui.text.HyperWord;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.Platform;

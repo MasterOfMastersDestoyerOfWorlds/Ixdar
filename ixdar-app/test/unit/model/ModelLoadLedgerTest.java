@@ -10,7 +10,7 @@ import java.io.IOException;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.scenes.model.ModelLoadLedger;
+import ixdar.models.ModelLoadLedger;
 
 /**
  * The ledger a model switch waits on: a waiter off the render thread returns only once its switch

@@ -14,8 +14,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import ixdar.scenes.model.ModelCatalog;
-import ixdar.scenes.model.ModelChoice;
+import ixdar.models.ModelCatalog;
+import ixdar.models.ModelChoice;
 
 /**
  * The mesh-node model list over a temporary resource tree: every repo graph, nested folders

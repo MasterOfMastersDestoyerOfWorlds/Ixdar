@@ -14,8 +14,8 @@ import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
-import ixdar.scenes.model.ControlHint;
 import ixdar.scenes.model.ModelScene;
+import ixdar.tools.ControlHint;
 
 /**
  * Inspector for Lyon 2021 modified motorcycle graphs: trace iso-lines, T-mesh

@@ -11,8 +11,8 @@ import ixdar.geometry.shell.DistanceMatrix;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFLine;
-import ixdar.graphics.render.text.HyperString;
 import ixdar.gui.ui.actions.Action;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.scenes.main.MainScene;
 
 public class Segment extends SDFLine implements Comparable<Segment> {

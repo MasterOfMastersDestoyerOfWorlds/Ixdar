@@ -1,6 +1,5 @@
 /**
- * Two coexisting menu kinds: the `Menu`/`MenuBox`/`MenuItem` screen-stack system, and
- * `SceneModelMenu`, an immediate-mode ESC panel rebuilt every frame for live highlights and
- * clickable regions.
+ * The `Menu`/`MenuBox`/`MenuItem` screen-stack menu system and its scroll boxes and bars. The
+ * model scenes' immediate-mode ESC panels are in `ixdar.gui.ui.menu.model`.
  */
 package ixdar.gui.ui.menu;

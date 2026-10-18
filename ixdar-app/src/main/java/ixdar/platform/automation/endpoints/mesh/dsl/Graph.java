@@ -13,11 +13,11 @@ import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.graph.HeapSampler;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
-import ixdar.gui.ui.graph.DslGraphLayout;
-import ixdar.gui.ui.graph.DslGraphView;
 import ixdar.gui.ui.menu.MenuScrollBar;
 import ixdar.platform.automation.AutomationEndpoint;
 import ixdar.scenes.model.ModelScene;
+import ixdar.tools.graph.DslGraphLayout;
+import ixdar.tools.graph.DslGraphView;
 
 @AutomationRouteAnnotation(path = "mesh/dsl/graph", method = APIMethod.POST)
 public class Graph extends AutomationEndpoint implements AutomationRoute {

@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.RingBundle;
 import ixdar.geometry.mesh.data.RingRegions;
 import ixdar.graphics.render.color.Palettes;
-import ixdar.scenes.regions.RegionColouring;
+import ixdar.tools.regions.RegionColouring;
 
 /**
  * Incremental ring region updates on the capped cylinder of {@link RingRegionsTest}: after every

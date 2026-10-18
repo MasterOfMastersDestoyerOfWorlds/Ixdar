@@ -20,8 +20,8 @@ import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.MeshTopology;
 import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.graph.NodeGraphRuntime;
-import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
-import ixdar.scenes.ring.RingTool;
+import ixdar.tools.ring.RingDslWriter;
+import ixdar.tools.ring.RingTool;
 
 /**
  * Deleting rings the way the ring tool's save does, a spline statement removed and the proposed

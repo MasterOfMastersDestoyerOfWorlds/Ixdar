@@ -21,8 +21,8 @@ import ixdar.geometry.mesh.graph.NodeGraphRuntime;
 import ixdar.geometry.mesh.nodes.api.MapNodeContext;
 import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
 import ixdar.geometry.mesh.nodes.selection.LoopThroughPointsNode;
-import ixdar.geometry.mesh.nodes.selection.RingDslWriter;
 import ixdar.parsing.python.PythonParser;
+import ixdar.tools.ring.RingDslWriter;
 
 /**
  * Rings on a procedural torus: three tube points close and tighten to the minimal meridian, the

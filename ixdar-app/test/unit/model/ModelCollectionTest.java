@@ -18,11 +18,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 import ixdar.geometry.mesh.data.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.models.CollectionManifest;
+import ixdar.models.ModelCatalog;
+import ixdar.models.ModelCollection;
 import ixdar.platform.Platforms;
 import ixdar.platform.json.JsonValue;
-import ixdar.scenes.model.CollectionManifest;
-import ixdar.scenes.model.ModelCatalog;
-import ixdar.scenes.model.ModelCollection;
 
 /**
  * A directory of scans scans into a {@link ModelCollection} whose membership and keep flags survive

@@ -17,12 +17,12 @@ import ixdar.geometry.mesh.nodes.api.IntField;
 import ixdar.geometry.mesh.nodes.geometry.MeshBooleanNode;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
+import ixdar.models.ModelChoice;
 import ixdar.parsing.python.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
-import ixdar.scenes.model.ControlHint;
-import ixdar.scenes.model.ModelChoice;
 import ixdar.scenes.model.ModelScene;
+import ixdar.tools.ControlHint;
 
 /**
  * Booleans two checker-textured unit cubes; the checker running unbroken across cut faces shows
