@@ -1,0 +1,91 @@
+package ixdar.nodegraph.nodes.modifier;
+
+import java.util.List;
+import java.util.Map;
+
+import ixdar.nodegraph.api.InputPort;
+import ixdar.nodegraph.api.MeshNode;
+import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.GeometryBundles;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.nodegraph.field.FieldBroadcast;
+
+/**
+ * Adds edge loops along a world-space axis, splitting each quad's axis-aligned edges; faces with
+ * no aligned edge pass through unchanged.
+ *
+ * <p>Cuts land on straight edge midpoints, so on a cage carrying Bezier handle slots the new
+ * vertices sit off the curve and the handles go stale — use {@code coons_loop_cut} there.
+ */
+@MeshNodeAnnotation(id = "loop_cut", category = NodeCategory.MODIFIERS)
+public class LoopCutNode implements MeshNode {
+    public static final String Z = "Z";
+
+    public static final InputPort MESH_IN = new InputPort("mesh", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort GEOMETRY_IN = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort CUTS = new InputPort("cuts", PortType.INT, 1, 1f, 32f);
+    public static final InputPort AXIS = new InputPort("axis", PortType.STRING, Z);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY_IN.name, PortType.GEOMETRY_BUNDLE);
+
+    @Override
+    public List<InputPort> inputs() {
+        return List.of(MESH_IN, GEOMETRY_IN, CUTS, AXIS);
+    }
+
+    @Override
+    public List<OutputPort> outputs() {
+        return List.of(GEOMETRY_OUT);
+    }
+
+    @Override
+    public String description() {
+        return "Inserts edge loops along a world-space axis (X, Y, or Z), splitting aligned quad faces to add resolution where needed.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                MESH_IN.name, "Topology-only input (alternative to geometry). Used when no bundle slots need preservation.",
+                GEOMETRY_IN.name, "Geometry bundle input/output. If it carries bezier handles, de Casteljau subdivision is used and handles survive the cut.",
+                CUTS.name, "Number of new edge loops to insert, 1..32. Each cut subdivides aligned edges.",
+                AXIS.name, "World-space axis the new loops run PERPENDICULAR to — i.e. cuts=1, axis=X inserts one loop across the X direction. Accepted: X, Y, Z."
+        );
+    }
+
+    @Override
+    public void evaluate(NodeContext ctx) {
+        GeometryBundle bundle = ctx.getInput(GEOMETRY_IN.name, GeometryBundle.class);
+        MeshTopology mesh = GeometryBundles.meshPart(bundle);
+        if (mesh == null) {
+            mesh = GeometryBundles.meshPart(ctx.getInput(MESH_IN.name, GeometryBundle.class));
+        }
+        if (mesh == null || mesh.vertexCount() == 0) {
+            ctx.setOutput(GEOMETRY_IN.name, GeometryBundle.empty());
+            return;
+        }
+
+        Object cutsObj = FieldBroadcast.getInputOrDefault(ctx, CUTS.name, CUTS.defaultValue);
+        int cuts = FieldBroadcast.intScalarOrDefault(cutsObj, 1);
+
+        String axisStr = String.valueOf(ctx.getInputValue(AXIS.name));
+        if (axisStr == null || axisStr.isEmpty()) axisStr = Z;
+
+        int axisIndex = switch (axisStr.toUpperCase()) {
+            case "X" -> 0;
+            case "Y" -> 1;
+            default -> 2; // Z
+        };
+
+        ArrayMesh am = mesh instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(mesh);
+        ArrayMesh result = ArrayMeshEngine.loopCutAxis(am, cuts, axisIndex);
+
+        ctx.setOutput(GEOMETRY_IN.name, bundle != null ? bundle.withMesh(result) : GeometryBundle.ofMesh(result));
+    }
+}

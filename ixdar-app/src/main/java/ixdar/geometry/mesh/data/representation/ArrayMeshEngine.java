@@ -103,7 +103,7 @@ public final class ArrayMeshEngine {
 
     /**
      * One level of linear quad subdivision (edge midpoints + face centroids),
-     * matching {@link ixdar.geometry.mesh.nodes.modifier.SubdivideMeshNode} for
+     * matching {@link ixdar.nodegraph.nodes.modifier.SubdivideMeshNode} for
      * uniform quad meshes.
      *
      * @param src source mesh; must contain only quads

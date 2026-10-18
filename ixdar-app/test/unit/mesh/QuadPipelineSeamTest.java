@@ -15,8 +15,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.field.IntField;
-import ixdar.geometry.mesh.nodes.data.SceneModelNode;
-import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
+import ixdar.nodegraph.nodes.data.SceneModelNode;
+import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.QuadLayout;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
 

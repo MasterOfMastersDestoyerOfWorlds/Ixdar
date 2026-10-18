@@ -9,7 +9,7 @@ import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
-import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
+import ixdar.nodegraph.nodes.data.TagGeometryNode;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.scenes.ring.RingScene;

@@ -22,7 +22,7 @@ import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.geometry.MeshBooleanNode;
+import ixdar.nodegraph.nodes.geometry.MeshBooleanNode;
 import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 

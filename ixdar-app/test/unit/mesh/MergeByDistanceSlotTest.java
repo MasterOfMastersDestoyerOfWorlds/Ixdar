@@ -14,9 +14,9 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
-import ixdar.geometry.mesh.nodes.modifier.MergeByDistanceNode;
-import ixdar.geometry.mesh.nodes.modifier.SetBoneWeightNode;
+import ixdar.nodegraph.nodes.data.TagGeometryNode;
+import ixdar.nodegraph.nodes.modifier.MergeByDistanceNode;
+import ixdar.nodegraph.nodes.modifier.SetBoneWeightNode;
 
 /**
  * {@code merge_by_distance} on a hand-built strip whose two triangles nearly touch: the weld map it

@@ -10,7 +10,7 @@ import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
+import ixdar.nodegraph.nodes.data.TagGeometryNode;
 
 /**
  * Auto-tags the faces a node just generated with the DSL left-hand-side variable

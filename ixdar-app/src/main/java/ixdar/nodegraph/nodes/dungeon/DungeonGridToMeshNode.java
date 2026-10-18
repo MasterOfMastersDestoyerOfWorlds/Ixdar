@@ -1,0 +1,72 @@
+package ixdar.nodegraph.nodes.dungeon;
+
+import java.util.Objects;
+import java.util.List;
+import java.util.Map;
+
+import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.nodegraph.api.InputPort;
+import ixdar.nodegraph.api.MeshNode;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
+import ixdar.procgen.dungeon.algo.DungeonGrids;
+import ixdar.procgen.dungeon.algo.GridToMesh2D;
+import ixdar.procgen.dungeon.algo.GridToMesh3D;
+import ixdar.procgen.dungeon.values.CellType;
+
+@MeshNodeAnnotation(id = "dungeon_grid_to_mesh", scopes = { "dungeon" }, category = NodeCategory.DUNGEON)
+public class DungeonGridToMeshNode implements MeshNode {
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort CELL_SIZE = new InputPort("cell_size", PortType.FLOAT, 1.0f, 0.01f, 100f);
+    public static final OutputPort MESH = new OutputPort("mesh", PortType.GEOMETRY_BUNDLE);
+
+    @Override
+    public List<InputPort> inputs() {
+        return List.of(GEOMETRY, CELL_SIZE);
+    }
+
+    @Override
+    public List<OutputPort> outputs() {
+        return List.of(MESH);
+    }
+
+    @Override
+    public String description() {
+        return "Emits an axis-aligned hollow-room mesh from astar_corridors' tiles: floor, ceiling and "
+                + "EMPTY-bordering walls per non-empty cell. A planar quad grid gives one floor; a 3D "
+                + "point lattice gives every floor, leaving stair openings passable. Stage 5 (final) of "
+                + "the dungeon pipeline.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                GEOMETRY.name, "Tiles from astar_corridors: quad-grid geometry with a per-face 'cell_type' "
+                        + "IntField, or a point lattice with one vertex per cell center and a per-vertex "
+                        + "'cell_type' IntField.",
+                CELL_SIZE.name, "Edge length of one cell in world units.",
+                MESH.name, "Origin-centered ArrayMesh with double-sided quads and computed normals.");
+    }
+
+    @Override
+    public void evaluate(NodeContext ctx) {
+        GeometryBundle tiles = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
+        Number cs = ctx.getInput(CELL_SIZE.name, Number.class);
+        float cellSize = cs == null ? 1.0f : cs.floatValue();
+        ArrayMesh mesh;
+        if (DungeonGrids.isLattice(tiles)) {
+            int[] dims = DungeonGrids.latticeDims(tiles);
+            CellType[] cells = DungeonGrids.latticeCells(tiles, dims[0], dims[1], dims[2]);
+            mesh = GridToMesh3D.emit(dims[0], dims[1], dims[2], cells, cellSize);
+        } else {
+            int[] dims = DungeonGrids.gridDims(tiles);
+            CellType[] cells = DungeonGrids.gridCells(tiles, dims[0], dims[1]);
+            mesh = GridToMesh2D.emit(dims[0], dims[1], cells, cellSize);
+        }
+        ctx.setOutput(MESH.name, GeometryBundle.ofMesh(mesh));
+    }
+}

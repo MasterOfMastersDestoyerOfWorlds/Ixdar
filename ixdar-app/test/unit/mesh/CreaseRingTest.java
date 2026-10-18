@@ -24,7 +24,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
+import ixdar.nodegraph.nodes.selection.SplineRingNode;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;

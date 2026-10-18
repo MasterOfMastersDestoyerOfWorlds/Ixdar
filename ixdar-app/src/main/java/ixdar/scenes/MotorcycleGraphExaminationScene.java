@@ -5,7 +5,7 @@ import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.nodegraph.field.IntField;
-import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
+import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;

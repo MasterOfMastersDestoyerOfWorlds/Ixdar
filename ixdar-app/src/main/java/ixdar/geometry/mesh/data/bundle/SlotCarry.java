@@ -6,8 +6,8 @@ import java.util.Map;
 
 import ixdar.geometry.mesh.data.ops.MeshAppend;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
-import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
-import ixdar.geometry.mesh.nodes.modifier.SetBoneWeightNode;
+import ixdar.nodegraph.nodes.data.TagGeometryNode;
+import ixdar.nodegraph.nodes.modifier.SetBoneWeightNode;
 import ixdar.platform.Platforms;
 
 /**

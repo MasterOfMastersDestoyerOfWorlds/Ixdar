@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.geometry.mesh.nodes.data.SceneModelNode;
-import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
+import ixdar.nodegraph.nodes.data.SceneModelNode;
+import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;

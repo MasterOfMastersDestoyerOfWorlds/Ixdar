@@ -7,7 +7,7 @@ import ixdar.nodegraph.syntax.PythonParser;
 
 /**
  * Metadata for user-editable DSL inputs: {@code input_float}, {@code input_int}, {@code input_boolean},
- * and curve parameters {@code float_curve} (see {@link ixdar.geometry.mesh.nodes.curve.FloatCurveNode}).
+ * and curve parameters {@code float_curve} (see {@link ixdar.nodegraph.nodes.curve.FloatCurveNode}).
  */
 public record InputParameterDescriptor(
         String nodeId,

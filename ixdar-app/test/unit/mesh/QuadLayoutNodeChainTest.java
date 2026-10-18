@@ -7,9 +7,9 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
-import ixdar.geometry.mesh.nodes.data.LoadMeshNode;
-import ixdar.geometry.mesh.quadlayout.nodes.NewtonSolverNode;
-import ixdar.geometry.mesh.quadlayout.nodes.QuadExtractNode;
+import ixdar.nodegraph.nodes.data.LoadMeshNode;
+import ixdar.nodegraph.nodes.quadlayout.NewtonSolverNode;
+import ixdar.nodegraph.nodes.quadlayout.QuadExtractNode;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.data.fields.crossfield.NDirectionField;

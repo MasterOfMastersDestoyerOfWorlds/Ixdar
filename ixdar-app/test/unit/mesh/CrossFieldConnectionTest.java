@@ -15,7 +15,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
+import ixdar.nodegraph.nodes.data.SurfaceMetricNode;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.data.fields.crossfield.NDirectionField;
 

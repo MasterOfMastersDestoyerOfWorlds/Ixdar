@@ -13,7 +13,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 
-import ixdar.geometry.mesh.quadlayout.nodes.NetworkPatch;
+import ixdar.nodegraph.nodes.network.NetworkPatch;
 /**
  * Face tracing over the embedded arc graph, interior left of walk. A dart is
  * one directed arc traversal; a node's darts are ordered by their departure

@@ -19,8 +19,8 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
-import ixdar.geometry.mesh.nodes.selection.LoopThroughPointsNode;
+import ixdar.nodegraph.nodes.primitives.TorusMeshNode;
+import ixdar.nodegraph.nodes.selection.LoopThroughPointsNode;
 import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.ring.RingDslWriter;
 

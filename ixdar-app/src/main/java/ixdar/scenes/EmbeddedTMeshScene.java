@@ -8,7 +8,7 @@ import java.util.Map;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
+import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnostic;
 import ixdar.geometry.mesh.quadlayout.embedding.ArrangementDiagnosticException;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;

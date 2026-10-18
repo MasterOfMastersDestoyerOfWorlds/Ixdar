@@ -7,7 +7,7 @@ import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.io.CrossFieldLoader;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
+import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;

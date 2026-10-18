@@ -12,7 +12,7 @@ import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.nodes.data.LoadMeshNode;
+import ixdar.nodegraph.nodes.data.LoadMeshNode;
 
 /**
  * The {@code load_mesh} node loads a mesh file through its port interface and

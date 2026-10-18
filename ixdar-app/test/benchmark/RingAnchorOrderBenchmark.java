@@ -28,7 +28,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
+import ixdar.nodegraph.nodes.selection.SplineRingNode;
 import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.tools.ring.RingTool;
 

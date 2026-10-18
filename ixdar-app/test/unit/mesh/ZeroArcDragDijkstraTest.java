@@ -10,7 +10,7 @@ import java.util.List;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
+import ixdar.nodegraph.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcRerouter;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;

@@ -11,11 +11,11 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshTopologyAnalysis;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.geometry.mesh.nodes.geometry.JoinGeometryNode;
-import ixdar.geometry.mesh.nodes.primitives.CubeMeshNode;
-import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
-import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
-import ixdar.geometry.mesh.nodes.transform.TransformGeometryNode;
+import ixdar.nodegraph.nodes.geometry.JoinGeometryNode;
+import ixdar.nodegraph.nodes.primitives.CubeMeshNode;
+import ixdar.nodegraph.nodes.primitives.GridMeshNode;
+import ixdar.nodegraph.nodes.primitives.TorusMeshNode;
+import ixdar.nodegraph.nodes.transform.TransformGeometryNode;
 
 /**
  * One fixture per topology class the {@code mesh/topology} and {@code mesh/holes} routes report,

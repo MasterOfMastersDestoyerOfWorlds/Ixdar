@@ -11,7 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import ixdar.geometry.mesh.nodes.data.LoadMeshNode;
+import ixdar.nodegraph.nodes.data.LoadMeshNode;
 import ixdar.nodegraph.nodes.math.InputBooleanNode;
 import ixdar.nodegraph.syntax.PythonLexer;
 import ixdar.nodegraph.syntax.PythonParser;

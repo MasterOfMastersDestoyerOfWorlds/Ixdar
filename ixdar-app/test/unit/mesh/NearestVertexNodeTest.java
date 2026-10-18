@@ -12,8 +12,8 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
-import ixdar.geometry.mesh.nodes.selection.NearestVertexNode;
+import ixdar.nodegraph.nodes.primitives.GridMeshNode;
+import ixdar.nodegraph.nodes.selection.NearestVertexNode;
 
 /**
  * The nearest_vertex selection node on a flat grid carrier: exactly the one

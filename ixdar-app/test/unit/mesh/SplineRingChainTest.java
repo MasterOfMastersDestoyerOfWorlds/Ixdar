@@ -17,10 +17,10 @@ import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
-import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
-import ixdar.geometry.mesh.nodes.primitives.IcosphereMeshNode;
-import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
+import ixdar.nodegraph.nodes.data.SurfaceMetricNode;
+import ixdar.nodegraph.nodes.primitives.GridMeshNode;
+import ixdar.nodegraph.nodes.primitives.IcosphereMeshNode;
+import ixdar.nodegraph.nodes.selection.SplineRingNode;
 import ixdar.tools.ring.RingDslWriter;
 
 /**

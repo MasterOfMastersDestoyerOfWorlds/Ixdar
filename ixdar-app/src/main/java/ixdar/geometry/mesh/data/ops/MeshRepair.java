@@ -20,8 +20,8 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.UvField;
-import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
-import ixdar.geometry.mesh.nodes.modifier.SetBoneWeightNode;
+import ixdar.nodegraph.nodes.data.TagGeometryNode;
+import ixdar.nodegraph.nodes.modifier.SetBoneWeightNode;
 import ixdar.geometry.mesh.data.bundle.SlotCarry;
 
 /**

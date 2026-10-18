@@ -12,11 +12,11 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.geometry.mesh.quadlayout.nodes.ArcNetworkNode;
-import ixdar.geometry.mesh.quadlayout.nodes.NetworkArc;
-import ixdar.geometry.mesh.quadlayout.nodes.NetworkNode;
-import ixdar.geometry.mesh.quadlayout.nodes.NetworkPatch;
-import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
+import ixdar.nodegraph.nodes.network.ArcNetworkNode;
+import ixdar.nodegraph.nodes.network.NetworkArc;
+import ixdar.nodegraph.nodes.network.NetworkNode;
+import ixdar.nodegraph.nodes.network.NetworkPatch;
+import ixdar.nodegraph.nodes.primitives.GridMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 

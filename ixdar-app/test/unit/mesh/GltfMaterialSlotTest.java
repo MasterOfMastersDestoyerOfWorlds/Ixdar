@@ -20,8 +20,8 @@ import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.geometry.mesh.nodes.modifier.MirrorGeometryNode;
-import ixdar.geometry.mesh.nodes.transform.TransformGeometryNode;
+import ixdar.nodegraph.nodes.modifier.MirrorGeometryNode;
+import ixdar.nodegraph.nodes.transform.TransformGeometryNode;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 
 /**

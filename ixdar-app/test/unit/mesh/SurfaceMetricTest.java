@@ -15,7 +15,7 @@ import ixdar.geometry.mesh.data.paths.geodesic.IntrinsicTriangulation;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.primitives.IcosphereMeshNode;
+import ixdar.nodegraph.nodes.primitives.IcosphereMeshNode;
 
 /**
  * One surface metric shared by several geodesic users: interleaved users trace exactly what each

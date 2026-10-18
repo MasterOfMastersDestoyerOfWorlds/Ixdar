@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
+import ixdar.nodegraph.nodes.primitives.TorusMeshNode;
 
 /**
  * The torus is the substrate the quad-layout stages are tested on, so what matters here

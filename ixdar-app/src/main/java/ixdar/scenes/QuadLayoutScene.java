@@ -6,7 +6,7 @@ import java.util.List;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.nodegraph.field.BoolField;
-import ixdar.geometry.mesh.quadlayout.nodes.QuadLayoutNode;
+import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.quadlayout.QuadLayout;
 import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapIsoSurface;

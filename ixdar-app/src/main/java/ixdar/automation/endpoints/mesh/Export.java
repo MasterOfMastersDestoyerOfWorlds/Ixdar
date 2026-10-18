@@ -15,7 +15,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.GltfMeshWriter;
 import ixdar.geometry.mesh.data.io.MeshExport;
 import ixdar.geometry.mesh.data.io.PlyMeshWriter;
-import ixdar.geometry.mesh.nodes.data.ExportMeshNode;
+import ixdar.nodegraph.nodes.data.ExportMeshNode;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 

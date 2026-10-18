@@ -24,7 +24,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.primitives.IcosphereMeshNode;
+import ixdar.nodegraph.nodes.primitives.IcosphereMeshNode;
 
 /**
  * Ring proposal on procedurally built surfaces: a three-legged Y gives one ring per leg base, and a

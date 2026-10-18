@@ -32,7 +32,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.selection.SplineCutNode;
+import ixdar.nodegraph.nodes.selection.SplineCutNode;
 import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;

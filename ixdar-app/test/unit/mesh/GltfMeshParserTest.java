@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.data.io.GltfModel;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.data.LoadMeshNode;
+import ixdar.nodegraph.nodes.data.LoadMeshNode;
 
 /**
  * {@link GltfMeshParser} turns a hand-written two-triangle glTF (a unit square in the XY plane with

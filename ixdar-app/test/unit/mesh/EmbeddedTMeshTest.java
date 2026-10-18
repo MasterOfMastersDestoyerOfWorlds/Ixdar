@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
+import ixdar.nodegraph.nodes.primitives.TorusMeshNode;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 

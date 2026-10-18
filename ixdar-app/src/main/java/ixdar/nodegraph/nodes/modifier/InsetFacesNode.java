@@ -1,0 +1,666 @@
+package ixdar.nodegraph.nodes.modifier;
+
+import java.util.Objects;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.joml.Vector3f;
+
+import ixdar.nodegraph.field.BoolField;
+import ixdar.nodegraph.api.InputPort;
+import ixdar.nodegraph.api.MeshNode;
+import ixdar.annotations.meshnode.MeshNodeAnnotation;
+import ixdar.annotations.meshnode.NodeCategory;
+import ixdar.nodegraph.api.NodeContext;
+import ixdar.nodegraph.api.OutputPort;
+import ixdar.nodegraph.api.PortType;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.nodegraph.field.FieldBroadcast;
+import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
+import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
+
+/**
+ * Insets selected faces: each face's vertices are lerped toward its centre to form an inner face,
+ * and side quads bridge the original boundary to the inner boundary.
+ *
+ * <p>An all-quad input stays all-quad.
+ */
+@MeshNodeAnnotation(id = "inset_faces", category = NodeCategory.MODIFIERS)
+public class InsetFacesNode implements MeshNode {
+    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort INSET = new InputPort("inset", PortType.FLOAT, 0.1f, 0f, 1f);
+    public static final InputPort SELECTION = new InputPort("selection", PortType.BOOLEAN, true);
+    public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
+    public static final OutputPort GENERATED_OUT = new OutputPort("generated", PortType.BOOLEAN);
+
+    @Override
+    public List<InputPort> inputs() {
+        return List.of(GEOMETRY, INSET, SELECTION);
+    }
+
+    @Override
+    public List<OutputPort> outputs() {
+        return List.of(GEOMETRY_OUT, GENERATED_OUT);
+    }
+
+    @Override
+    public String description() {
+        return "Insets selected faces by creating a smaller inner face connected to the original boundary by side quads, useful for preparing faces for extrusion.";
+    }
+
+    @Override
+    public Map<String, String> socketDocs() {
+        return Map.of(
+                GEOMETRY.name, "Input/output cage. Preserves bezier handle slots via rebuild when _bezier_handle_weight is set.",
+                INSET.name, "Inset amount in [0, 1] — fraction of the way from each corner toward the face centroid. 0 = no inset; 0.5 = halfway.",
+                SELECTION.name, "Per-face BOOLEAN mask. True = face gets inset (replaced by inner quad + 4 side quads).",
+                GENERATED_OUT.name, "Per-output-face BOOLEAN: true for the newly-created inner face of each inset; false for pass-through and side quads. Thread into the selection of the next op to chain features."
+        );
+    }
+
+    @Override
+    public void evaluate(NodeContext ctx) {
+        GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
+        MeshTopology in = base.mesh();
+        if (in == null || in.vertexCount() == 0) {
+            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
+            ctx.setOutput(GENERATED_OUT.name, new BoolField(new boolean[0]));
+            return;
+        }
+
+        Object insetObj = FieldBroadcast.getInputOrDefault(ctx, INSET.name, INSET.defaultValue);
+        float inset = FieldBroadcast.floatScalarOrDefault(insetObj, 0.1f);
+
+        Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION.name, SELECTION.defaultValue);
+
+        ArrayMesh am = in instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(in);
+
+        int origFaceCount = am.faceCount();
+        boolean[] selected = new boolean[origFaceCount];
+        for (int fi = 0; fi < origFaceCount; fi++) {
+            selected[fi] = FieldBroadcast.boolAt(selObj, fi, true);
+        }
+
+        MeshTopology out = insetFaces(in, am, inset, selObj);
+
+        int outFaceCount = out == null ? 0 : out.faceCount();
+        boolean[] genMask = new boolean[outFaceCount];
+        for (int fi = 0; fi < Math.min(origFaceCount, outFaceCount); fi++) {
+            genMask[fi] = selected[fi];
+        }
+
+        GeometryBundle outBundle = base.withMesh(out);
+        if (out != null && CoonsHandleBuilder.hasHandles(base)) {
+            Object w = base.slots().get(AssignBezierHandlesNode.SLOT_WEIGHT);
+            if (w instanceof Number num) {
+                outBundle = AssignBezierHandlesNode.computeHandles(outBundle, num.floatValue());
+            } else {
+                outBundle = preserveOuterHandles(base, in, out, outBundle);
+            }
+        }
+
+        ctx.setOutput(GEOMETRY.name, outBundle);
+        ctx.setOutput(GENERATED_OUT.name, new BoolField(genMask));
+    }
+
+    /**
+     * Copies input handles onto output edges whose both endpoints are original
+     * vertex IDs (i.e. the outer boundary edges that were not replaced by
+     * inner geometry). Edges involving extruded/inset inner vertices get zero
+     * handles.
+     */
+    private static GeometryBundle preserveOuterHandles(GeometryBundle base,
+            MeshTopology inMesh, MeshTopology outMesh, GeometryBundle outBundle) {
+        float[] inHS = CoonsHandleBuilder.readHandleSlot(base,
+                AssignBezierHandlesNode.SLOT_HANDLES_START, inMesh);
+        float[] inHE = CoonsHandleBuilder.readHandleSlot(base,
+                AssignBezierHandlesNode.SLOT_HANDLES_END, inMesh);
+
+        Map<Long, float[]> inEdgeToStart = new HashMap<>();
+        Map<Long, float[]> inEdgeToEnd = new HashMap<>();
+        for (int ei = 0; ei < inMesh.edgeCount(); ei++) {
+            int eid = inMesh.edgeIdAt(ei);
+            int he = inMesh.edgeHalfEdge(eid);
+            int va = inMesh.halfEdgeVertex(he);
+            int vb = inMesh.halfEdgeEndVertex(he);
+            int o = eid * 3;
+            inEdgeToStart.put(CoonsHandleBuilder.dirPack(va, vb),
+                    new float[]{inHS[o], inHS[o + 1], inHS[o + 2]});
+            inEdgeToEnd.put(CoonsHandleBuilder.dirPack(va, vb),
+                    new float[]{inHE[o], inHE[o + 1], inHE[o + 2]});
+        }
+
+        int origVc = inMesh.vertexCount();
+        Map<Long, float[]> dh = new HashMap<>();
+        for (int ei = 0; ei < outMesh.edgeCount(); ei++) {
+            int eid = outMesh.edgeIdAt(ei);
+            int he = outMesh.edgeHalfEdge(eid);
+            int a = outMesh.halfEdgeVertex(he);
+            int b = outMesh.halfEdgeEndVertex(he);
+            if (a >= origVc || b >= origVc) continue;
+
+            long keyAB = CoonsHandleBuilder.dirPack(a, b);
+            long keyBA = CoonsHandleBuilder.dirPack(b, a);
+            float[] startAB = inEdgeToStart.get(keyAB);
+            float[] endAB = inEdgeToEnd.get(keyAB);
+            if (startAB == null) {
+                startAB = inEdgeToEnd.get(keyBA);
+                endAB = inEdgeToStart.get(keyBA);
+            }
+            if (startAB == null) continue;
+            dh.put(CoonsHandleBuilder.dirPack(a, b),
+                    new float[]{startAB[0], startAB[1], startAB[2]});
+            dh.put(CoonsHandleBuilder.dirPack(b, a),
+                    new float[]{endAB[0], endAB[1], endAB[2]});
+        }
+
+        float[][] handles = CoonsHandleBuilder.flushDirectedHandles(outMesh, dh);
+        return outBundle
+                .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_START, handles[0])
+                .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_END, handles[1]);
+    }
+
+    /**
+     * Quad-only fast path merging inner vertices along cage edges shared by two selected faces, so
+     * adjacent faces yield one connected inset region rather than two side quads across the edge.
+     *
+     * <p>Corners where three or more selected faces meet stay unmerged, keeping a face-local
+     * centroid-lerp inner vertex per face.
+     */
+    private static MeshTopology insetFacesQuadWithSharedEdgeMerge(
+            MeshTopology topology, float[] srcPos, int[] srcFaces,
+            int vertCount, int faceCount, boolean[] selected, float t) {
+
+        // Shared cage edges: both incident faces selected.
+        Set<Integer> sharedEdgeIds = new HashSet<>();
+        for (int ei = 0; ei < topology.edgeCount(); ei++) {
+            int eid = topology.edgeIdAt(ei);
+            if (topology.isBoundaryEdge(eid)) continue;
+            int he = topology.edgeHalfEdge(eid);
+            int twin = topology.halfEdgeTwin(he);
+            int f1 = topology.halfEdgeFace(he);
+            int f2 = twin >= 0 ? topology.halfEdgeFace(twin) : MeshTopology.NONE;
+            if (f1 == MeshTopology.NONE || f2 == MeshTopology.NONE) continue;
+            int fi1 = faceIndexOfId(topology, f1);
+            int fi2 = faceIndexOfId(topology, f2);
+            if (fi1 >= 0 && fi2 >= 0 && selected[fi1] && selected[fi2]) {
+                sharedEdgeIds.add(eid);
+            }
+        }
+
+        Map<Integer, List<int[]>> facesAtVertex = new HashMap<>();
+        for (int fi = 0; fi < faceCount; fi++) {
+            if (!selected[fi]) continue;
+            int fb = fi * 4;
+            for (int k = 0; k < 4; k++) {
+                int vid = srcFaces[fb + k];
+                facesAtVertex.computeIfAbsent(vid, x -> new ArrayList<>()).add(new int[]{fi, k});
+            }
+        }
+
+        Set<Integer> succeeded3PlusVids = new HashSet<>();
+        for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
+            if (entry.getValue().size() == 3
+                    && fanCompletes(topology, entry.getKey(), entry.getValue(), sharedEdgeIds)) {
+                succeeded3PlusVids.add(entry.getKey());
+            }
+        }
+        Set<Integer> fullyMergeableEdges = new HashSet<>();
+        for (int eid : sharedEdgeIds) {
+            int he = topology.edgeHalfEdge(eid);
+            int va = topology.halfEdgeVertex(he);
+            int vb = topology.halfEdgeEndVertex(he);
+            boolean aOk = succeeded3PlusVids.contains(va)
+                    || (facesAtVertex.get(va) != null && facesAtVertex.get(va).size() == 2);
+            boolean bOk = succeeded3PlusVids.contains(vb)
+                    || (facesAtVertex.get(vb) != null && facesAtVertex.get(vb).size() == 2);
+            if (aOk && bOk) fullyMergeableEdges.add(eid);
+        }
+
+        int[][] innerVerts = new int[faceCount][];
+        for (int fi = 0; fi < faceCount; fi++) {
+            if (selected[fi]) innerVerts[fi] = new int[4];
+        }
+
+        int[][][] cyanAt3Plus = new int[faceCount][][];
+        Map<Integer, int[]> centralFillPerVertex = new HashMap<>();
+
+        ArrayList<Float> extraPos = new ArrayList<>();
+        int[] nextVidBox = {vertCount};
+        Set<Long> mergedEndpoint = new HashSet<>();
+        float[] centroids = new float[faceCount * 3];
+        for (int fi = 0; fi < faceCount; fi++) {
+            if (!selected[fi]) continue;
+            int fb = fi * 4;
+            float cx = 0f, cy = 0f, cz = 0f;
+            for (int k = 0; k < 4; k++) {
+                int vid = srcFaces[fb + k];
+                cx += srcPos[vid * 3];
+                cy += srcPos[vid * 3 + 1];
+                cz += srcPos[vid * 3 + 2];
+            }
+            centroids[fi * 3] = cx * 0.25f;
+            centroids[fi * 3 + 1] = cy * 0.25f;
+            centroids[fi * 3 + 2] = cz * 0.25f;
+        }
+
+        for (Map.Entry<Integer, List<int[]>> entry : facesAtVertex.entrySet()) {
+            int denseVid = entry.getKey();
+            List<int[]> atV = entry.getValue();
+            int n = atV.size();
+
+            if (n == 3) {
+                boolean ok = allocate3PlusCornerFlat(topology, denseVid, atV,
+                        sharedEdgeIds, srcPos, t, extraPos,
+                        cyanAt3Plus, centralFillPerVertex, mergedEndpoint, nextVidBox);
+                if (ok) continue;
+            }
+
+            boolean merged = false;
+
+            if (n == 2) {
+                int[] a = atV.get(0);
+                int[] b = atV.get(1);
+                int fiA = a[0], kA = a[1];
+                int fiB = b[0], kB = b[1];
+                int fidA = topology.faceIdAt(fiA);
+                int fidB = topology.faceIdAt(fiB);
+                int eAfwd = topology.faceEdgeAt(fidA, kA);
+                int eAback = topology.faceEdgeAt(fidA, (kA + 3) % 4);
+                int eBfwd = topology.faceEdgeAt(fidB, kB);
+                int eBback = topology.faceEdgeAt(fidB, (kB + 3) % 4);
+
+                int sharedEid = -1;
+                for (int pass = 0; pass < 2 && sharedEid < 0; pass++) {
+                    int candA = (pass == 0) ? eAfwd : eAback;
+                    if (!fullyMergeableEdges.contains(candA)) continue;
+                    if (candA == eBfwd || candA == eBback) {
+                        sharedEid = candA;
+                    }
+                }
+
+                if (sharedEid >= 0) {
+                    int heS = topology.edgeHalfEdge(sharedEid);
+                    int va = topology.halfEdgeVertex(heS);
+                    int vb = topology.halfEdgeEndVertex(heS);
+                    int otherVid = (va == denseVid) ? vb : va;
+                    float px = srcPos[denseVid * 3]
+                            + (srcPos[otherVid * 3] - srcPos[denseVid * 3]) * t;
+                    float py = srcPos[denseVid * 3 + 1]
+                            + (srcPos[otherVid * 3 + 1] - srcPos[denseVid * 3 + 1]) * t;
+                    float pz = srcPos[denseVid * 3 + 2]
+                            + (srcPos[otherVid * 3 + 2] - srcPos[denseVid * 3 + 2]) * t;
+                    int newVid = nextVidBox[0]++;
+                    extraPos.add(px); extraPos.add(py); extraPos.add(pz);
+                    innerVerts[fiA][kA] = newVid;
+                    innerVerts[fiB][kB] = newVid;
+                    mergedEndpoint.add(packEdgeVertex(sharedEid, denseVid));
+                    merged = true;
+                }
+            }
+
+            if (!merged) {
+                for (int[] pair : atV) {
+                    int fi = pair[0], k = pair[1];
+                    float ox = srcPos[denseVid * 3];
+                    float oy = srcPos[denseVid * 3 + 1];
+                    float oz = srcPos[denseVid * 3 + 2];
+                    float cx = centroids[fi * 3];
+                    float cy = centroids[fi * 3 + 1];
+                    float cz = centroids[fi * 3 + 2];
+                    int newVid = nextVidBox[0]++;
+                    extraPos.add(ox + (cx - ox) * t);
+                    extraPos.add(oy + (cy - oy) * t);
+                    extraPos.add(oz + (cz - oz) * t);
+                    innerVerts[fi][k] = newVid;
+                }
+            }
+        }
+
+        Set<Integer> droppedSharedEdges = new HashSet<>();
+        for (int eid : sharedEdgeIds) {
+            int he = topology.edgeHalfEdge(eid);
+            int va = topology.halfEdgeVertex(he);
+            int vb = topology.halfEdgeEndVertex(he);
+            if (mergedEndpoint.contains(packEdgeVertex(eid, va))
+                    && mergedEndpoint.contains(packEdgeVertex(eid, vb))) {
+                droppedSharedEdges.add(eid);
+            }
+        }
+
+        int outV = vertCount + extraPos.size() / 3;
+        float[] outPos = new float[outV * 3];
+        System.arraycopy(srcPos, 0, outPos, 0, vertCount * 3);
+        for (int i = 0; i < extraPos.size(); i++) {
+            outPos[vertCount * 3 + i] = extraPos.get(i);
+        }
+
+        ArrayList<Integer> faceIdxList = new ArrayList<>();
+        ArrayList<Integer> faceVpfList = new ArrayList<>();
+
+        for (int fi = 0; fi < faceCount; fi++) {
+            if (selected[fi]) {
+                int[] iv = innerVerts[fi];
+                int[][] cyanPerCorner = cyanAt3Plus[fi];
+                int innerStart = faceIdxList.size();
+                for (int k = 0; k < 4; k++) {
+                    if (cyanPerCorner != null && cyanPerCorner[k] != null) {
+                        faceIdxList.add(cyanPerCorner[k][0]);
+                        faceIdxList.add(cyanPerCorner[k][1]);
+                    } else {
+                        faceIdxList.add(iv[k]);
+                    }
+                }
+                faceVpfList.add(faceIdxList.size() - innerStart);
+            } else {
+                int fb = fi * 4;
+                faceIdxList.add(srcFaces[fb]);
+                faceIdxList.add(srcFaces[fb + 1]);
+                faceIdxList.add(srcFaces[fb + 2]);
+                faceIdxList.add(srcFaces[fb + 3]);
+                faceVpfList.add(4);
+            }
+        }
+        for (int fi = 0; fi < faceCount; fi++) {
+            if (!selected[fi]) continue;
+            int fid = topology.faceIdAt(fi);
+            int[] iv = innerVerts[fi];
+            int[][] cyanPerCorner = cyanAt3Plus[fi];
+            int fb = fi * 4;
+            for (int k = 0; k < 4; k++) {
+                int eid = topology.faceEdgeAt(fid, k);
+                if (droppedSharedEdges.contains(eid)) continue;
+                int kNext = (k + 1) & 3;
+                int leftInner = (cyanPerCorner != null && cyanPerCorner[k] != null)
+                        ? cyanPerCorner[k][1] 
+                        : iv[k];
+                int rightInner = (cyanPerCorner != null && cyanPerCorner[kNext] != null)
+                        ? cyanPerCorner[kNext][0] 
+                        : iv[kNext];
+                faceIdxList.add(srcFaces[fb + k]);
+                faceIdxList.add(srcFaces[fb + kNext]);
+                faceIdxList.add(rightInner);
+                faceIdxList.add(leftInner);
+                faceVpfList.add(4);
+            }
+        }
+
+        for (Map.Entry<Integer, int[]> e : centralFillPerVertex.entrySet()) {
+            int[] fill = e.getValue();
+            for (int v : fill) faceIdxList.add(v);
+            faceVpfList.add(fill.length);
+        }
+
+        int[] faceIdxFlat = new int[faceIdxList.size()];
+        for (int i = 0; i < faceIdxList.size(); i++) faceIdxFlat[i] = faceIdxList.get(i);
+        int[] faceVpfArr = new int[faceVpfList.size()];
+        for (int i = 0; i < faceVpfList.size(); i++) faceVpfArr[i] = faceVpfList.get(i);
+        boolean allQuads = true;
+        for (int v : faceVpfArr) { if (v != 4) { allQuads = false; break; } }
+        if (allQuads) {
+            ArrayMesh out = new ArrayMesh(outPos, null, faceIdxFlat, 4);
+            out.computeNormals();
+            return out;
+        }
+        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(outPos, faceVpfArr, faceIdxFlat);
+        out.computeNormals();
+        return out;
+    }
+
+    /**
+     * Dry-run equivalent of the fan walk in {@link #allocate3PlusCornerFlat}.
+     * Returns whether the selected-face fan around {@code denseVid} would
+     * form a complete pairwise-shared-edge cycle, without allocating any
+     * cyan-dot verts. Used in a pre-pass so that 2-face merges can avoid
+     * partial-merge non-manifold configurations at shared edges adjacent to
+     * failed 3+ corners.
+     */
+    private static boolean fanCompletes(MeshTopology topology, int denseVid,
+                                        List<int[]> atV, Set<Integer> sharedEdgeIds) {
+        int n = atV.size();
+        int startFi = atV.get(0)[0];
+        int startK = atV.get(0)[1];
+        int curFi = startFi;
+        int curK = startK;
+        int fanLen = 1;
+        for (int step = 0; step < n; step++) {
+            int curFid = topology.faceIdAt(curFi);
+            int fwdEid = topology.faceEdgeAt(curFid, curK);
+            if (!sharedEdgeIds.contains(fwdEid)) return false;
+            int he = topology.edgeHalfEdge(fwdEid);
+            int twin = topology.halfEdgeTwin(he);
+            if (twin < 0) return false;
+            int f1 = topology.halfEdgeFace(he);
+            int f2 = topology.halfEdgeFace(twin);
+            int neighFid = (f1 == curFid) ? f2 : f1;
+            if (neighFid == MeshTopology.NONE) return false;
+            int neighFi = faceIndexOfId(topology, neighFid);
+            if (neighFi < 0) return false;
+            if (neighFi == startFi) return fanLen == n;
+            int neighK = -1;
+            int nfvc = topology.faceVertexCount(neighFid);
+            for (int k = 0; k < nfvc; k++) {
+                if (topology.faceVertexAt(neighFid, k) == denseVid) {
+                    neighK = k;
+                    break;
+                }
+            }
+            if (neighK < 0) return false;
+            if (fanLen >= n) return false;
+            fanLen++;
+            curFi = neighFi;
+            curK = neighK;
+        }
+        return fanLen == n;
+    }
+
+    /**
+     * Allocates flat-lerp inset vertices at a corner where three or more selected faces meet: one
+     * vertex per shared cage edge plus a central fill face. Returns false when the fan around the
+     * vertex is not a complete cycle, leaving the caller to fall back to face-local corners.
+     */
+    private static boolean allocate3PlusCornerFlat(MeshTopology topology,
+            int denseVid, List<int[]> atV, Set<Integer> sharedEdgeIds,
+            float[] srcPos, float t, ArrayList<Float> extraPos,
+            int[][][] cyanAt3Plus, Map<Integer, int[]> centralFillPerVertex,
+            Set<Long> mergedEndpoint, int[] nextVidBox) {
+
+        int n = atV.size();
+        int[] fiOrder = new int[n];
+        int[] kOrder = new int[n];
+        int[] sharedEdgeOrder = new int[n];
+        int startFi = atV.get(0)[0];
+        int startK = atV.get(0)[1];
+        fiOrder[0] = startFi;
+        kOrder[0] = startK;
+        int fanLen = 1;
+        int curFi = startFi;
+        int curK = startK;
+        for (int step = 0; step < n; step++) {
+            int curFid = topology.faceIdAt(curFi);
+            int fwdEid = topology.faceEdgeAt(curFid, curK);
+            if (!sharedEdgeIds.contains(fwdEid)) return false;
+            int he = topology.edgeHalfEdge(fwdEid);
+            int twin = topology.halfEdgeTwin(he);
+            if (twin < 0) return false;
+            int f1 = topology.halfEdgeFace(he);
+            int f2 = topology.halfEdgeFace(twin);
+            int neighFid = (f1 == curFid) ? f2 : f1;
+            if (neighFid == MeshTopology.NONE) return false;
+            int neighFi = faceIndexOfId(topology, neighFid);
+            if (neighFi < 0) return false;
+            sharedEdgeOrder[step] = fwdEid;
+            if (neighFi == startFi) {
+                if (fanLen != n) return false;
+                break;
+            }
+            int neighK = -1;
+            int nfvc = topology.faceVertexCount(neighFid);
+            for (int k = 0; k < nfvc; k++) {
+                if (topology.faceVertexAt(neighFid, k) == denseVid) {
+                    neighK = k;
+                    break;
+                }
+            }
+            if (neighK < 0) return false;
+            if (fanLen >= n) return false;
+            fiOrder[fanLen] = neighFi;
+            kOrder[fanLen] = neighK;
+            fanLen++;
+            curFi = neighFi;
+            curK = neighK;
+        }
+        if (fanLen != n) return false;
+
+        int[] cyanVids = new int[n];
+        for (int i = 0; i < n; i++) {
+            int eid = sharedEdgeOrder[i];
+            int he = topology.edgeHalfEdge(eid);
+            int va = topology.halfEdgeVertex(he);
+            int vb = topology.halfEdgeEndVertex(he);
+            int otherVid = (va == denseVid) ? vb : va;
+            float px = srcPos[denseVid * 3] + (srcPos[otherVid * 3] - srcPos[denseVid * 3]) * t;
+            float py = srcPos[denseVid * 3 + 1] + (srcPos[otherVid * 3 + 1] - srcPos[denseVid * 3 + 1]) * t;
+            float pz = srcPos[denseVid * 3 + 2] + (srcPos[otherVid * 3 + 2] - srcPos[denseVid * 3 + 2]) * t;
+            int newVid = nextVidBox[0]++;
+            extraPos.add(px); extraPos.add(py); extraPos.add(pz);
+            cyanVids[i] = newVid;
+        }
+        for (int i = 0; i < n; i++) {
+            int fi = fiOrder[i];
+            int k = kOrder[i];
+            int fwdCyan = cyanVids[i];
+            int backCyan = cyanVids[(i - 1 + n) % n];
+            if (cyanAt3Plus[fi] == null) cyanAt3Plus[fi] = new int[4][];
+            cyanAt3Plus[fi][k] = new int[]{backCyan, fwdCyan};
+
+            int fid = topology.faceIdAt(fi);
+            int fwdEid = topology.faceEdgeAt(fid, k);
+            int backEid = topology.faceEdgeAt(fid, (k + 3) % 4);
+            mergedEndpoint.add(packEdgeVertex(fwdEid, denseVid));
+            mergedEndpoint.add(packEdgeVertex(backEid, denseVid));
+        }
+
+        int[] fillCCW = new int[n];
+        for (int i = 0; i < n; i++) fillCCW[i] = cyanVids[n - 1 - i];
+        centralFillPerVertex.put(denseVid, fillCCW);
+        return true;
+    }
+
+    /** Linear lookup of a face's sequence index by its face id. */
+    private static int faceIndexOfId(MeshTopology m, int fid) {
+        for (int i = 0; i < m.faceCount(); i++) {
+            if (m.faceIdAt(i) == fid) return i;
+        }
+        return -1;
+    }
+
+    /** Pack a (cage edge id, dense vertex id) pair into a long for hashset keys. */
+    private static long packEdgeVertex(int eid, int denseVid) {
+        return ((long) eid << 32) | (denseVid & 0xFFFFFFFFL);
+    }
+
+    private static MeshTopology insetFaces(MeshTopology topology, ArrayMesh mesh, float inset, Object selection) {
+        int vpf = mesh.getVertsPerFace();
+        int vertCount = mesh.vertexCount();
+        int faceCount = mesh.faceCount();
+        float[] srcPos = mesh.copyPositions();
+        int[] srcFaces = mesh.copyFaceIndices();
+
+        boolean[] selected = new boolean[faceCount];
+        int selectedCount = 0;
+        for (int fi = 0; fi < faceCount; fi++) {
+            boolean sel = FieldBroadcast.boolAt(selection, fi, true);
+            selected[fi] = sel;
+            if (sel) selectedCount++;
+        }
+
+        if (selectedCount == 0 || inset <= 0f) {
+            return mesh.withPositions(srcPos, null);
+        }
+
+        if (vpf == 4) {
+            return insetFacesQuadWithSharedEdgeMerge(topology, srcPos, srcFaces,
+                    vertCount, faceCount, selected, Math.min(inset, 1f));
+        }
+
+        int newVertCount = selectedCount * vpf;
+        int sideFaceCount = selectedCount * vpf;
+
+        HalfEdgeMesh out = new HalfEdgeMesh(
+                vertCount + newVertCount,
+                0,
+                faceCount + sideFaceCount,
+                (faceCount + sideFaceCount) * vpf * 2
+        );
+
+        for (int vi = 0; vi < vertCount; vi++) {
+            out.addVertex(srcPos[vi * 3], srcPos[vi * 3 + 1], srcPos[vi * 3 + 2]);
+        }
+
+        Vector3f center = new Vector3f();
+        int[][] faceInnerVerts = new int[faceCount][];
+
+        for (int fi = 0; fi < faceCount; fi++) {
+            if (!selected[fi]) continue;
+
+            center.set(0f, 0f, 0f);
+            for (int k = 0; k < vpf; k++) {
+                int vid = srcFaces[fi * vpf + k];
+                center.add(srcPos[vid * 3], srcPos[vid * 3 + 1], srcPos[vid * 3 + 2]);
+            }
+            center.div(vpf);
+
+            int[] innerVerts = new int[vpf];
+            for (int k = 0; k < vpf; k++) {
+                int vid = srcFaces[fi * vpf + k];
+                float ox = srcPos[vid * 3];
+                float oy = srcPos[vid * 3 + 1];
+                float oz = srcPos[vid * 3 + 2];
+                float t = Math.min(inset, 1.0f);
+                float nx = ox + (center.x - ox) * t;
+                float ny = oy + (center.y - oy) * t;
+                float nz = oz + (center.z - oz) * t;
+                innerVerts[k] = out.addVertex(nx, ny, nz);
+            }
+            faceInnerVerts[fi] = innerVerts;
+        }
+
+        for (int fi = 0; fi < faceCount; fi++) {
+            if (selected[fi]) {
+                out.addFace(faceInnerVerts[fi]);
+            } else {
+                int[] vids = new int[vpf];
+                for (int k = 0; k < vpf; k++) {
+                    vids[k] = srcFaces[fi * vpf + k];
+                }
+                out.addFace(vids);
+            }
+        }
+
+        for (int fi = 0; fi < faceCount; fi++) {
+            if (!selected[fi]) continue;
+            int[] innerVerts = faceInnerVerts[fi];
+            for (int k = 0; k < vpf; k++) {
+                int next = (k + 1) % vpf;
+                int origA = srcFaces[fi * vpf + k];
+                int origB = srcFaces[fi * vpf + next];
+                int innerA = innerVerts[k];
+                int innerB = innerVerts[next];
+                out.addFace(origA, origB, innerB, innerA);
+            }
+        }
+
+        out.computeNormals();
+        return out;
+    }
+}

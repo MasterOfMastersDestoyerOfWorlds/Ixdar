@@ -21,8 +21,8 @@ import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.primitives.IcosphereMeshNode;
-import ixdar.geometry.mesh.nodes.primitives.TorusMeshNode;
+import ixdar.nodegraph.nodes.primitives.IcosphereMeshNode;
+import ixdar.nodegraph.nodes.primitives.TorusMeshNode;
 
 /**
  * FlipOut on procedurally built surfaces: a torus tube loop reaches the meridian, a sphere path

@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
+import ixdar.nodegraph.nodes.primitives.GridMeshNode;
 
 /**
  * The grid is the substrate of the planar layout fixtures, which rely on it being a disk

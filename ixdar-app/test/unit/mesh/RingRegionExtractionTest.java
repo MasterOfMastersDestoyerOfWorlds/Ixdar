@@ -18,8 +18,8 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.geometry.MeshBooleanNode;
-import ixdar.geometry.mesh.nodes.selection.ExtractRingRegionNode;
+import ixdar.nodegraph.nodes.geometry.MeshBooleanNode;
+import ixdar.nodegraph.nodes.selection.ExtractRingRegionNode;
 import ixdar.platform.Platforms;
 
 /**

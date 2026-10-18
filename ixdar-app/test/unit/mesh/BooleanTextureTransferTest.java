@@ -24,7 +24,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.geometry.MeshBooleanNode;
+import ixdar.nodegraph.nodes.geometry.MeshBooleanNode;
 import ixdar.platform.Platforms;
 
 /**

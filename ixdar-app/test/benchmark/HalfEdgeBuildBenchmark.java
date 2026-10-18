@@ -14,7 +14,7 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.modifier.RepairMeshNode;
+import ixdar.nodegraph.nodes.modifier.RepairMeshNode;
 import ixdar.platform.Platforms;
 import unit.mesh.HalfEdgeBulkBuildTest;
 

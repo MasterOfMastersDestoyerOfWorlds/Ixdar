@@ -28,7 +28,7 @@ import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.io.PlyMeshWriter;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.data.ExportMeshNode;
+import ixdar.nodegraph.nodes.data.ExportMeshNode;
 
 /**
  * {@link GltfMeshWriter} and {@link PlyMeshWriter} are the inverse of the loaders: a procedural

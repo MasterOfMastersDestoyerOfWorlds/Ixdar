@@ -17,7 +17,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.geometry.mesh.nodes.data.SceneModelNode;
+import ixdar.nodegraph.nodes.data.SceneModelNode;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;

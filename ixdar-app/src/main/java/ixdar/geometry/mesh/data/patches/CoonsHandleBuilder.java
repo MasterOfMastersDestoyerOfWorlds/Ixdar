@@ -8,8 +8,8 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.nodes.patch.AssignBezierHandlesNode;
-import ixdar.geometry.mesh.nodes.patch.CoonsPatchNode;
+import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
+import ixdar.nodegraph.nodes.patch.CoonsPatchNode;
 /**
  * Shared utilities for nodes that preserve bezier handle metadata through topology edits.
  * <p>

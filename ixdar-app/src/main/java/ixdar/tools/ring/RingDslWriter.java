@@ -21,12 +21,12 @@ import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MeshNode;
-import ixdar.geometry.mesh.nodes.data.SurfaceCreasesNode;
-import ixdar.geometry.mesh.nodes.data.SurfaceMetricNode;
+import ixdar.nodegraph.nodes.data.SurfaceCreasesNode;
+import ixdar.nodegraph.nodes.data.SurfaceMetricNode;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
-import ixdar.geometry.mesh.nodes.selection.SplineCutNode;
-import ixdar.geometry.mesh.nodes.selection.SplineRingNode;
+import ixdar.nodegraph.nodes.selection.SplineCutNode;
+import ixdar.nodegraph.nodes.selection.SplineRingNode;
 import ixdar.nodegraph.syntax.PythonParser;
 
 /**

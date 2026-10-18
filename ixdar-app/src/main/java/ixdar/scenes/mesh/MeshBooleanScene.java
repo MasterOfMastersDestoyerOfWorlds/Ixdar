@@ -14,7 +14,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.field.IntField;
-import ixdar.geometry.mesh.nodes.geometry.MeshBooleanNode;
+import ixdar.nodegraph.nodes.geometry.MeshBooleanNode;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.models.ModelChoice;

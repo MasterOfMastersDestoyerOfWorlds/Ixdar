@@ -13,7 +13,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.nodes.primitives.GridMeshNode;
+import ixdar.nodegraph.nodes.primitives.GridMeshNode;
 
 /**
  * The dense live-id set underneath {@code vertexCount()}/{@code faceIdAt()} and

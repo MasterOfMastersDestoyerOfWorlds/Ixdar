@@ -22,7 +22,7 @@ import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.io.PlyMeshWriter;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.field.UvField;
-import ixdar.geometry.mesh.nodes.modifier.RepairMeshNode;
+import ixdar.nodegraph.nodes.modifier.RepairMeshNode;
 import ixdar.platform.Platforms;
 
 /**

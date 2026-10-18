@@ -9,7 +9,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.analysis.GraphValidator;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
+import ixdar.nodegraph.nodes.data.TagGeometryNode;
 
 import ixdar.nodegraph.runtime.GroupLibrary;
 import ixdar.nodegraph.syntax.PythonParser;

@@ -18,8 +18,8 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.geometry.mesh.nodes.data.TagGeometryNode;
-import ixdar.geometry.mesh.nodes.selection.RingRegionsNode;
+import ixdar.nodegraph.nodes.data.TagGeometryNode;
+import ixdar.nodegraph.nodes.selection.RingRegionsNode;
 
 /**
  * Ring regions on a procedural capped cylinder: three horizontal rings cut it into four bands with
