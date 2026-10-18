@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
+from ..checkout import checkout_root
 from ..cli_registry import CliOption, cli_command
 
 
@@ -44,7 +45,7 @@ def scaffold_new_scene(
             dry_run=dry_run,
         )
     )
-    root = Path(__file__).resolve().parents[2]
+    root = Path(checkout_root())
     java_file = root / "ixdar-app" / "src" / "main" / "java" / "ixdar" / "scenes" / spec.subfolder / f"{spec.name}.java"
     launch_file = root / ".vscode" / "launch.json"
     pom_file = root / "ixdar-app" / "pom.xml"

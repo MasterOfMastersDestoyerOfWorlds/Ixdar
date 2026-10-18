@@ -3,25 +3,16 @@
   "tasks": [
     {
       "label": "teavm-build",
-      "type": "shell",
-      "command": "mvn -Pweb-teavm -DskipTests package",
-      "problemMatcher": [],
-      "options": {
-        "env": {
-          "PATH": "/usr/local/maven/bin:${env:PATH}"
-        }
-      }
+      "type": "process",
+      "command": "uv",
+      "args": ["run", "ixdar-cli", "teavm-build"],
+      "problemMatcher": []
     },
     {
       "label": "serve-teavm",
       "type": "shell",
       "command": "npx -y http-server target/teavm -p 8080 -c-1",
-      "problemMatcher": [],
-      "options": {
-        "env": {
-          "PATH": "/usr/local/maven/bin:${env:PATH}"
-        }
-      }
+      "problemMatcher": []
     }
   ]
 }

@@ -9,7 +9,7 @@ now live under the checkout that launched them, at ``tmp/logs/<scene>-<qualifier
 import os
 import re
 
-from .automation_client import checkout_root
+from .checkout import checkout_root
 
 LOG_DIRECTORY_RELATIVE = os.path.join("tmp", "logs")
 

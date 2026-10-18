@@ -19,7 +19,9 @@ import json
 import os
 import struct
 
-REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+from .checkout import checkout_root
+
+REPO_DIR = checkout_root()
 
 MODEL_DIR_VARIABLE = "IXDAR_MODEL_DIR"
 

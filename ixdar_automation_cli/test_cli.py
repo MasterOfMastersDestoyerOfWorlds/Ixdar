@@ -6,20 +6,27 @@ import os
 import shutil
 import subprocess
 import struct
+import sys
 import tempfile
 import threading
 import unittest
 import urllib.error
 import zlib
+from pathlib import Path
 from unittest.mock import patch
 
 from ixdar_automation_cli import automation_client
+from ixdar_automation_cli import build_state
+from ixdar_automation_cli import checkout
 from ixdar_automation_cli import collection_manifest
 from ixdar_automation_cli import ixdar_cli
 from ixdar_automation_cli import mesh_catalog
 from ixdar_automation_cli import quilt_mesh_fingerprint
 from ixdar_automation_cli.cli_commands import gen_docs
+from ixdar_automation_cli.cli_commands import install_alias
 from ixdar_automation_cli.cli_commands import launch_entry
+from ixdar_automation_cli.cli_commands import link_profiler
+from ixdar_automation_cli.cli_commands import teavm_build
 from ixdar_automation_cli import png_image
 from ixdar_automation_cli import quilt_mesh_fingerprint
 from ixdar_automation_cli import run_logs
@@ -225,7 +232,7 @@ class SceneLifecycleTest(unittest.TestCase):
             previous = os.getcwd()
             try:
                 os.chdir(os.path.join(root, "ixdar-app", "src"))
-                self.assertEqual(root, automation_client.checkout_root())
+                self.assertEqual(root, checkout.checkout_root())
             finally:
                 os.chdir(previous)
 
@@ -333,9 +340,9 @@ class SceneLifecycleTest(unittest.TestCase):
             with open(os.path.join(classes, "stale.dsl"), "w", encoding="utf-8") as handle:
                 handle.write("node loadMesh {}")
             os.utime(os.path.join(classes, "stale.dsl"), (2 ** 31, 2 ** 31))
-            with patch.object(run_scene, "RESOURCES_DIR", os.path.dirname(resources)), \
-                    patch.object(run_scene, "CLASSES_DIR", os.path.dirname(classes)):
-                copied = run_scene.sync_resources()
+            with patch.object(build_state, "RESOURCES_DIR", os.path.dirname(resources)), \
+                    patch.object(build_state, "CLASSES_DIR", os.path.dirname(classes)):
+                copied = build_state.sync_resources()
             self.assertEqual([os.path.join("dsl", "fresh.dsl")], copied)
             self.assertTrue(os.path.exists(os.path.join(classes, "fresh.dsl")))
 
@@ -358,8 +365,8 @@ class SceneLifecycleTest(unittest.TestCase):
                     handle.write("x")
                 os.utime(path, (built_at, built_at))
             if stamp:
-                with open(os.path.join(directory, run_scene.BUILD_STAMP), "w", encoding="utf-8") as handle:
-                    json.dump({"built": built_at, "inputs": run_scene.build_inputs(directory)}, handle)
+                with open(os.path.join(directory, build_state.BUILD_STAMP), "w", encoding="utf-8") as handle:
+                    json.dump({"built": built_at, "inputs": build_state.build_inputs(directory)}, handle)
 
         def touch(directory, relative):
             path = os.path.join(directory, relative)
@@ -383,87 +390,87 @@ class SceneLifecycleTest(unittest.TestCase):
         source = "ixdar-app/src/main/java/ixdar/scenes/Plain.java"
         resource = "ixdar-app/src/main/resources/dsl/fixture.dsl"
         cases = [
-            ("nothing changed", lambda d: None, run_scene.BUILD_CURRENT, "no input changed"),
-            ("resource edited", lambda d: touch(d, resource), run_scene.BUILD_RESOURCES, "fixture.dsl"),
+            ("nothing changed", lambda d: None, build_state.BUILD_CURRENT, "no input changed"),
+            ("resource edited", lambda d: touch(d, resource), build_state.BUILD_RESOURCES, "fixture.dsl"),
             ("resource added", lambda d: touch(d, "ixdar-app/src/main/resources/dsl/new.dsl"),
-             run_scene.BUILD_RESOURCES, "new.dsl"),
-            ("resource removed", lambda d: remove(d, resource), run_scene.BUILD_CLEAN, "resource removed"),
-            ("source edited", lambda d: touch(d, source), run_scene.BUILD_INCREMENTAL, "Plain.java"),
+             build_state.BUILD_RESOURCES, "new.dsl"),
+            ("resource removed", lambda d: remove(d, resource), build_state.BUILD_CLEAN, "resource removed"),
+            ("source edited", lambda d: touch(d, source), build_state.BUILD_INCREMENTAL, "Plain.java"),
             ("source replaced by an older copy", lambda d: old_copy(d, source),
-             run_scene.BUILD_INCREMENTAL, "Plain.java"),
+             build_state.BUILD_INCREMENTAL, "Plain.java"),
             ("source renamed with its mtime", lambda d: rename_keeping_mtime(
                 d, source, "ixdar-app/src/main/java/ixdar/scenes/Renamed.java"),
-             run_scene.BUILD_INCREMENTAL, "2 source(s)"),
-            ("source deleted", lambda d: remove(d, source), run_scene.BUILD_INCREMENTAL, "Plain.java"),
+             build_state.BUILD_INCREMENTAL, "2 source(s)"),
+            ("source deleted", lambda d: remove(d, source), build_state.BUILD_INCREMENTAL, "Plain.java"),
             ("annotations source edited", lambda d: touch(
                 d, "annotations/src/main/java/ixdar/annotations/scene/SceneRegistry.java"),
-             run_scene.BUILD_CLEAN, "annotations changed"),
-            ("app pom edited", lambda d: touch(d, "ixdar-app/pom.xml"), run_scene.BUILD_CLEAN,
+             build_state.BUILD_CLEAN, "annotations changed"),
+            ("app pom edited", lambda d: touch(d, "ixdar-app/pom.xml"), build_state.BUILD_CLEAN,
              "pom changed"),
             ("parent pom edited with a source", lambda d: (touch(d, source), touch(d, "pom.xml")),
-             run_scene.BUILD_CLEAN, "pom changed"),
+             build_state.BUILD_CLEAN, "pom changed"),
             ("classes deleted", lambda d: shutil.rmtree(os.path.join(d, "ixdar-app", "target", "classes")),
-             run_scene.BUILD_CLEAN, "missing"),
+             build_state.BUILD_CLEAN, "missing"),
             ("annotations classes deleted",
              lambda d: shutil.rmtree(os.path.join(d, "annotations", "target", "classes")),
-             run_scene.BUILD_CLEAN, "missing"),
+             build_state.BUILD_CLEAN, "missing"),
             ("stamp deleted by an interrupted or failed build",
-             lambda d: remove(d, run_scene.BUILD_STAMP), run_scene.BUILD_CLEAN,
+             lambda d: remove(d, build_state.BUILD_STAMP), build_state.BUILD_CLEAN,
              "no successful build recorded"),
-            ("stamp truncated", lambda d: open(os.path.join(d, run_scene.BUILD_STAMP), "w").close(),
-             run_scene.BUILD_CLEAN, "no successful build recorded"),
+            ("stamp truncated", lambda d: open(os.path.join(d, build_state.BUILD_STAMP), "w").close(),
+             build_state.BUILD_CLEAN, "no successful build recorded"),
         ]
         for name, change, mode, reason in cases:
             with self.subTest(name), tempfile.TemporaryDirectory() as directory:
                 checkout(directory)
                 change(directory)
-                decided, why = run_scene.build_decision(directory, run_scene.build_inputs(directory))
+                decided, why = build_state.build_decision(directory, build_state.build_inputs(directory))
                 self.assertEqual(mode, decided)
                 self.assertIn(reason, why)
         with tempfile.TemporaryDirectory() as directory:
             checkout(directory, stamp=False)
-            self.assertEqual((run_scene.BUILD_CLEAN, "no successful build recorded"),
-                             run_scene.build_decision(directory, run_scene.build_inputs(directory)))
+            self.assertEqual((build_state.BUILD_CLEAN, "no successful build recorded"),
+                             build_state.build_decision(directory, build_state.build_inputs(directory)))
 
     def test_ensure_build_stamps_only_a_build_that_succeeded(self):
         with tempfile.TemporaryDirectory() as directory:
-            for output in run_scene.BUILD_OUTPUTS:
+            for output in build_state.BUILD_OUTPUTS:
                 os.makedirs(os.path.join(directory, output))
-            source = os.path.join(directory, run_scene.SOURCES_INPUT, "Plain.java")
+            source = os.path.join(directory, build_state.SOURCES_INPUT, "Plain.java")
             os.makedirs(os.path.dirname(source))
             with open(source, "w", encoding="utf-8") as handle:
                 handle.write("class Plain {}")
-            stamp = os.path.join(directory, run_scene.BUILD_STAMP)
+            stamp = os.path.join(directory, build_state.BUILD_STAMP)
             classpath = os.path.join(directory, "CP")
             with open(classpath, "w", encoding="utf-8") as handle:
                 handle.write("")
             maven_calls: list[list[str]] = []
 
-            def failing_maven(args, description, pom=""):
+            def failing_maven(args, description, **options):
                 maven_calls.append(args)
                 raise RuntimeError("Building failed")
 
-            with patch.object(run_scene, "REPO_DIR", directory), \
-                    patch.object(run_scene, "CLASSPATH_FILE", classpath), \
-                    patch.object(run_scene, "_run_maven", side_effect=failing_maven):
+            with patch.object(build_state, "REPO_DIR", directory), \
+                    patch.object(build_state, "CLASSPATH_FILE", classpath), \
+                    patch.object(build_state, "run_maven", side_effect=failing_maven):
                 with self.assertRaises(RuntimeError):
-                    run_scene._ensure_build(skip_build=False)
-            self.assertEqual(["clean", "compile", "-pl", "annotations,ixdar-app"], maven_calls[0])
+                    build_state.ensure_build(skip_build=False)
+            self.assertEqual(["-q", "clean", "compile", "-pl", "annotations,ixdar-app"], maven_calls[0])
             self.assertFalse(os.path.exists(stamp))
 
-            with patch.object(run_scene, "REPO_DIR", directory), \
-                    patch.object(run_scene, "CLASSPATH_FILE", classpath), \
-                    patch.object(run_scene, "_run_maven", side_effect=lambda *a, **k: maven_calls.append(a[0])):
-                run_scene._ensure_build(skip_build=False)
+            with patch.object(build_state, "REPO_DIR", directory), \
+                    patch.object(build_state, "CLASSPATH_FILE", classpath), \
+                    patch.object(build_state, "run_maven", side_effect=lambda *a, **k: maven_calls.append(a[0])):
+                build_state.ensure_build(skip_build=False)
                 self.assertTrue(os.path.exists(stamp))
-                run_scene._ensure_build(skip_build=False)
+                build_state.ensure_build(skip_build=False)
             self.assertEqual(2, len(maven_calls), "a current tree must not run Maven")
 
     def test_run_scene_puts_the_crash_inline_and_reports_its_port(self):
         crash = ['Exception in thread "main" java.lang.IllegalStateException: no layout',
                  "\tat ixdar.scenes.QuadLayoutScene.initGL(QuadLayoutScene.java:88)"]
         with tempfile.TemporaryDirectory() as directory, \
-                patch.object(run_scene, "_ensure_build", return_value=[]), \
+                patch.object(run_scene, "ensure_build", return_value=[]), \
                 patch.object(run_scene, "_java_command", return_value=["java", "-version"]), \
                 patch.object(run_scene, "free_port", return_value=47905), \
                 patch.object(run_scene, "point_latest"), \
@@ -488,7 +495,7 @@ class SceneLifecycleTest(unittest.TestCase):
             return ["java", "-version"]
 
         with tempfile.TemporaryDirectory() as directory, \
-                patch.object(run_scene, "_ensure_build", return_value=[]), \
+                patch.object(run_scene, "ensure_build", return_value=[]), \
                 patch.object(run_scene, "_java_command", side_effect=capture), \
                 patch.object(run_scene, "free_port", return_value=47906), \
                 patch.object(run_scene, "point_latest"), \
@@ -505,7 +512,7 @@ class SceneLifecycleTest(unittest.TestCase):
 
     def test_run_scene_keep_alive_names_the_model_switch_command(self):
         with tempfile.TemporaryDirectory() as directory, \
-                patch.object(run_scene, "_ensure_build", return_value=[]), \
+                patch.object(run_scene, "ensure_build", return_value=[]), \
                 patch.object(run_scene, "_java_command", return_value=["java", "-version"]), \
                 patch.object(run_scene, "free_port", return_value=47907), \
                 patch.object(run_scene, "_mesh_summary", return_value={}), \
@@ -720,7 +727,7 @@ class RunLogsTest(unittest.TestCase):
 
     def test_run_scene_defaults_its_log_under_the_checkout_and_reports_it(self):
         with tempfile.TemporaryDirectory() as directory, \
-                patch.object(run_scene, "_ensure_build", return_value=[]), \
+                patch.object(run_scene, "ensure_build", return_value=[]), \
                 patch.object(run_scene, "_java_command", return_value=["java", "-version"]), \
                 patch.object(run_scene, "free_port", return_value=47914), \
                 patch.object(run_scene, "_terminate"), \
@@ -742,7 +749,7 @@ class RunLogsTest(unittest.TestCase):
 
     def test_launch_defaults_its_log_under_the_checkout(self):
         with tempfile.TemporaryDirectory() as directory, \
-                patch.object(launch_entry, "_ensure_build", return_value=[]), \
+                patch.object(launch_entry, "ensure_build", return_value=[]), \
                 patch.object(launch_entry, "launch_command", return_value=["java", "-version"]), \
                 patch.object(launch_entry, "free_port", return_value=47915), \
                 patch.object(launch_entry, "_terminate"), \
@@ -770,14 +777,14 @@ class CliTest(unittest.TestCase):
     def test_async_profiler_library_prefers_environment_override(self):
         with tempfile.NamedTemporaryFile(suffix=".so") as fake_library:
             with patch.dict(os.environ, {"ASYNC_PROFILER_LIB": fake_library.name}):
-                self.assertEqual(fake_library.name, run_scene.async_profiler_library())
+                self.assertEqual(fake_library.name, link_profiler.async_profiler_library())
 
     def test_async_profiler_library_falls_back_to_platform_install(self):
         with tempfile.NamedTemporaryFile(suffix=".so") as fake_library:
             with patch.dict(os.environ, {"ASYNC_PROFILER_LIB": ""}), \
-                    patch.object(run_scene, "ASYNC_PROFILER_LIB", "/nonexistent/.profiler/lib"), \
-                    patch.object(run_scene, "ASYNC_PROFILER_CANDIDATES", (fake_library.name,)):
-                self.assertEqual(fake_library.name, run_scene.async_profiler_library())
+                    patch.object(link_profiler, "ASYNC_PROFILER_LIB", "/nonexistent/.profiler/lib"), \
+                    patch.object(link_profiler, "ASYNC_PROFILER_CANDIDATES", (fake_library.name,)):
+                self.assertEqual(fake_library.name, link_profiler.async_profiler_library())
 
     def test_async_profiler_library_is_found_beside_the_asprof_launcher(self):
         with tempfile.TemporaryDirectory() as prefix:
@@ -788,19 +795,106 @@ class CliTest(unittest.TestCase):
             for path in (launcher, library):
                 open(path, "w").close()
             with patch.dict(os.environ, {"ASYNC_PROFILER_LIB": ""}), \
-                    patch.object(run_scene, "ASYNC_PROFILER_LIB", "/nonexistent/.profiler/lib"), \
-                    patch.object(run_scene, "ASYNC_PROFILER_CANDIDATES", ()), \
-                    patch.object(run_scene.shutil, "which", return_value=launcher):
-                self.assertEqual(os.path.realpath(library), run_scene.async_profiler_library())
+                    patch.object(link_profiler, "ASYNC_PROFILER_LIB", "/nonexistent/.profiler/lib"), \
+                    patch.object(link_profiler, "ASYNC_PROFILER_CANDIDATES", ()), \
+                    patch.object(link_profiler.shutil, "which", return_value=launcher):
+                self.assertEqual(os.path.realpath(library), link_profiler.async_profiler_library())
 
     def test_async_profiler_library_missing_names_the_install_step(self):
         with patch.dict(os.environ, {"ASYNC_PROFILER_LIB": ""}), \
-                patch.object(run_scene, "ASYNC_PROFILER_LIB", "/nonexistent/.profiler/lib"), \
-                patch.object(run_scene, "ASYNC_PROFILER_CANDIDATES", ("/nonexistent/lib.so",)), \
-                patch.object(run_scene.shutil, "which", return_value=None):
+                patch.object(link_profiler, "ASYNC_PROFILER_LIB", "/nonexistent/.profiler/lib"), \
+                patch.object(link_profiler, "ASYNC_PROFILER_CANDIDATES", ("/nonexistent/lib.so",)), \
+                patch.object(link_profiler.shutil, "which", return_value=None):
             with self.assertRaises(FileNotFoundError) as failure:
-                run_scene.async_profiler_library()
+                link_profiler.async_profiler_library()
             self.assertIn("ASYNC_PROFILER_LIB", str(failure.exception))
+
+    def test_link_profiler_replaces_the_link_and_prints_one_line(self):
+        with tempfile.TemporaryDirectory() as directory:
+            library = os.path.join(directory, "libasyncProfiler.so")
+            stale = os.path.join(directory, "old.so")
+            for path in (library, stale):
+                open(path, "w").close()
+            link = os.path.join(directory, ".profiler", "libasyncProfiler")
+            os.makedirs(os.path.dirname(link))
+            os.symlink(stale, link)
+            output = io.StringIO()
+            with patch.dict(os.environ, {"ASYNC_PROFILER_LIB": ""}), \
+                    patch.object(link_profiler, "ASYNC_PROFILER_LIB", link), \
+                    patch.object(link_profiler, "ASYNC_PROFILER_CANDIDATES", (library,)), \
+                    patch("sys.stdout", output):
+                self.assertEqual(0, ixdar_cli.main(["link-profiler"]))
+            self.assertEqual(f"linked .profiler/libasyncProfiler -> {library}\n", output.getvalue())
+            self.assertEqual(library, os.readlink(link))
+
+    def test_link_profiler_without_a_library_exits_1_with_the_hint_on_stderr(self):
+        with tempfile.TemporaryDirectory() as directory:
+            link = os.path.join(directory, ".profiler", "libasyncProfiler")
+            output, errors = io.StringIO(), io.StringIO()
+            with patch.dict(os.environ, {"ASYNC_PROFILER_LIB": ""}), \
+                    patch.object(link_profiler, "ASYNC_PROFILER_LIB", link), \
+                    patch.object(link_profiler, "ASYNC_PROFILER_CANDIDATES", ()), \
+                    patch.object(link_profiler.shutil, "which", return_value=None), \
+                    patch("sys.stdout", output), patch("sys.stderr", errors):
+                self.assertEqual(1, ixdar_cli.main(["link-profiler"]))
+            self.assertEqual("", output.getvalue())
+            self.assertIn("async-profiler library not found", errors.getvalue())
+            self.assertFalse(os.path.lexists(link))
+
+    def test_install_alias_writes_a_posix_wrapper_or_a_windows_cmd(self):
+        with tempfile.TemporaryDirectory() as directory:
+            local_bin = Path(directory)
+            posix = install_alias.install_alias(local_bin, Path("/repo"), windows=False)
+            windows = install_alias.install_alias(local_bin, Path("/repo"), windows=True)
+            posix_text = Path(posix["wrapper"]).read_text()
+            windows_text = Path(windows["wrapper"]).read_text()
+        self.assertTrue(posix["wrapper"].endswith(os.sep + "ixdar-cli"))
+        self.assertTrue(posix_text.startswith("#!/bin/sh\n"))
+        self.assertIn('exec uv run --project "/repo" ixdar-cli "$@"', posix_text)
+        self.assertTrue(windows["wrapper"].endswith("ixdar-cli.cmd"))
+        self.assertIn('uv run --project "/repo" ixdar-cli %*', windows_text)
+
+    def test_run_maven_streams_and_fails_with_the_exit_code_and_tail(self):
+        errors = io.StringIO()
+        script = ["-c", "print('compiling'); print('[ERROR] broken'); raise SystemExit(3)"]
+        with patch.object(checkout, "maven_executable", return_value=sys.executable), \
+                patch("sys.stderr", errors):
+            completed = checkout.run_maven(script, "Fake build", echo=True, check=False)
+            with self.assertRaisesRegex(RuntimeError, r"Fake build failed \(maven exit 3\):\ncompiling\n\[ERROR\] broken"):
+                checkout.run_maven(script, "Fake build")
+        self.assertEqual(3, completed.returncode)
+        self.assertEqual("compiling\n[ERROR] broken\n", completed.stdout)
+        self.assertIn("compiling\n[ERROR] broken\n", errors.getvalue())
+
+    def test_teavm_build_fails_on_an_error_line_even_when_maven_and_the_bundle_look_fine(self):
+        with tempfile.TemporaryDirectory() as directory:
+            classes_js = os.path.join(directory, "teavm", "classes.js")
+            os.makedirs(os.path.dirname(classes_js))
+
+            def package(args, description, **options):
+                if "package" in args:
+                    with open(classes_js, "w", encoding="utf-8") as handle:
+                        handle.write("x" * teavm_build.MIN_CLASSES_JS_BYTES)
+                    output = "[ERROR] Method java.lang.Class.getPackageName() was not found\n"
+                else:
+                    output = ""
+                return subprocess.CompletedProcess(args, 0, output, "")
+
+            with patch.object(teavm_build, "CLASSES_JS", classes_js), \
+                    patch.object(teavm_build, "BUILD_LOG", os.path.join(directory, "teavm-build.log")), \
+                    patch.object(teavm_build, "teavm_environment", return_value={}), \
+                    patch.object(teavm_build, "run_maven", side_effect=package), \
+                    patch("sys.stderr", io.StringIO()):
+                result = teavm_build.teavm_build()
+                # A build that writes no bundle must not pass on the previous run's classes.js.
+                with patch.object(teavm_build, "run_maven", side_effect=lambda args, *a, **k:
+                                  subprocess.CompletedProcess(args, 0, "", "")):
+                    leftover = teavm_build.run()
+        self.assertEqual(1, result.exit_code)
+        self.assertEqual(1, result.payload["errorCount"])
+        self.assertIn("TeaVM reported 1 [ERROR]", result.payload["verdict"])
+        self.assertFalse(leftover["ok"])
+        self.assertIn("classes.js is missing or a 0-byte stub", leftover["verdict"])
 
     def test_build_parser_registers_decorated_commands(self):
         ixdar_cli._build_parser()
@@ -815,7 +909,7 @@ class CliTest(unittest.TestCase):
         # discovery walk drops them silently rather than failing loudly.
         registry = get_registry()
         for command_name in ("install-alias", "gen-docs", "dsl-optimize", "mesh-viewer",
-                             "rebuild-krieg-web", "validate-route-ops", "new-scene"):
+                             "teavm-build", "link-profiler", "validate-route-ops", "new-scene"):
             self.assertIn(command_name, registry)
 
     def test_build_parser_registers_server_routes(self):

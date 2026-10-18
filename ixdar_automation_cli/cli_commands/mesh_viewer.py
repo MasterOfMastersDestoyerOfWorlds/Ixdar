@@ -14,9 +14,9 @@ import sys
 import time
 
 from ..automation_client import AutomationClient, live_scenes
+from ..build_state import IXDAR_APP_DIR
+from ..checkout import maven_executable
 from ..cli_registry import CliCommandResult, cli_command
-
-IXDAR_APP_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "ixdar-app"))
 
 
 def _wait_for_server(client: AutomationClient, known_pids: set, timeout: float = 60.0) -> bool:
@@ -46,7 +46,7 @@ def _wait_for_server(client: AutomationClient, known_pids: set, timeout: float =
 
 
 def _build_maven_args(dsl: str) -> list[str]:
-    cmd = ["mvn", "-P", "mesh-viewer", "-q"]
+    cmd = [maven_executable(), "-P", "mesh-viewer", "-q"]
     if dsl:
         cmd.append(f"-Dmesh.dsl={dsl}")
     return cmd

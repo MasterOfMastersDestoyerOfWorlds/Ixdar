@@ -14,14 +14,12 @@ import json
 import os
 import random
 import shutil
-import subprocess
 import sys
 import tempfile
 import time
 
+from ..checkout import run_maven
 from ..cli_registry import CliCommandResult, cli_command
-
-IXDAR_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def _run_maven_batch(dsl_path: str, arg1: str, arg2: str = "unused", arg3: str = "unused") -> dict:
@@ -30,15 +28,15 @@ def _run_maven_batch(dsl_path: str, arg1: str, arg2: str = "unused", arg3: str =
     Discover mode: arg1="--discover", arg2/arg3 ignored.
     Batch mode: arg1=output_dir, arg2=params_json_path, arg3=ref_obj_path.
     """
-    cmd = [
-        "mvn", "compile", "exec:exec", "-P", "batch-dsl",
+    maven_args = [
+        "compile", "exec:exec", "-P", "batch-dsl",
         f"-Ddsl.file={dsl_path}",
         f"-Dbatch.arg1={arg1}",
         f"-Dbatch.arg2={arg2}",
         f"-Dbatch.arg3={arg3}",
         "-pl", "ixdar-app", "-q",
     ]
-    result = subprocess.run(cmd, cwd=IXDAR_ROOT, capture_output=True, text=True, timeout=600)
+    result = run_maven(maven_args, "Running BatchDslEvaluator", check=False, timeout=600)
     stdout = result.stdout.strip()
     if not stdout:
         raise RuntimeError(f"BatchDslEvaluator produced no output. stderr: {result.stderr[-500:]}")

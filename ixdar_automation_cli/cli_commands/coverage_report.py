@@ -16,16 +16,9 @@ Usage:
 
 import os
 
+from ..build_state import CLASSES_DIR, REPO_DIR, SOURCES_DIR
 from ..cli_registry import CliCommandResult, cli_command
 from ..jacoco_coverage import DEFAULT_PACKAGE_FILTER, build_report, format_coverage
-
-REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-
-IXDAR_APP_DIR = os.path.join(REPO_DIR, "ixdar-app")
-
-CLASSES_DIR = os.path.join(IXDAR_APP_DIR, "target", "classes")
-
-SOURCES_DIR = os.path.join(IXDAR_APP_DIR, "src", "main", "java")
 
 DEFAULT_EXEC = os.path.join(REPO_DIR, "jacoco.exec")
 

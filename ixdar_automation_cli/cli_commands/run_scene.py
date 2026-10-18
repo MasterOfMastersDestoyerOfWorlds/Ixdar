@@ -14,10 +14,8 @@ Usage:
     uv run ixdar-cli run-scene --scene mesh-viewer --key ESCAPE --key SHIFT+P --screenshot out.png
 """
 
-import json
 import os
 import re
-import shutil
 import signal
 import socket
 import subprocess
@@ -31,51 +29,26 @@ from ..automation_client import (
     read_port_file,
     records_directory,
 )
+from ..build_state import (
+    ANNOTATIONS_CLASSES,
+    CLASSES_DIR,
+    CLASSPATH_FILE,
+    IXDAR_APP_DIR,
+    REPO_DIR,
+    SOURCES_DIR,
+    ensure_build,
+)
 from ..cli_registry import CliCommandResult, cli_command
 from ..jacoco_coverage import DEFAULT_PACKAGE_FILTER, agent_argument, build_report, format_coverage
 from ..mesh_catalog import MODEL_PROPERTY, mesh_size, resolve_mesh, resolve_scene_properties
 from ..run_logs import mesh_label, next_log_path, point_latest
+from .link_profiler import async_profiler_library
 from .profile_report import profile_report
 
-REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-IXDAR_APP_DIR = os.path.join(REPO_DIR, "ixdar-app")
-POM_PATH = os.path.join(IXDAR_APP_DIR, "pom.xml")
-PARENT_POM = os.path.join(REPO_DIR, "pom.xml")
-ANNOTATIONS_CLASSES = os.path.join(REPO_DIR, "annotations", "target", "classes")
-CLASSPATH_FILE = os.path.join(IXDAR_APP_DIR, "target", "CP")
-CLASSES_DIR = os.path.join(IXDAR_APP_DIR, "target", "classes")
-SOURCES_DIR = os.path.join(IXDAR_APP_DIR, "src", "main", "java")
-RESOURCES_DIR = os.path.join(IXDAR_APP_DIR, "src", "main", "resources")
-# Build inputs and outputs relative to a checkout root, so the build decision reads any checkout's
-# tree (each worktree has its own target/, hence its own stamp).
-POM_INPUTS = ("pom.xml", os.path.join("annotations", "pom.xml"), os.path.join("ixdar-app", "pom.xml"))
-ANNOTATIONS_INPUT = os.path.join("annotations", "src")
-SOURCES_INPUT = os.path.relpath(SOURCES_DIR, REPO_DIR)
-RESOURCES_INPUT = os.path.relpath(RESOURCES_DIR, REPO_DIR)
-BUILD_OUTPUTS = (os.path.relpath(CLASSES_DIR, REPO_DIR), os.path.relpath(ANNOTATIONS_CLASSES, REPO_DIR))
-# Under ixdar-app/target so any ``mvn clean`` removes it with the classes it vouches for.
-BUILD_STAMP = os.path.join("ixdar-app", "target", "ixdar-cli-build.json")
-BUILD_CURRENT = "current"
-BUILD_RESOURCES = "resources only"
-BUILD_INCREMENTAL = "incremental compile"
-BUILD_CLEAN = "clean compile"
-BUILD_REASON_NAMES = 3
 DEFAULT_PROFILE_PATH = os.path.join(REPO_DIR, "profile.html")
 DEFAULT_COVERAGE_PATH = os.path.join(REPO_DIR, "jacoco.exec")
 COVERAGE_XML_PATH = os.path.join(REPO_DIR, "target", "jacoco", "coverage.xml")
 COVERAGE_HTML_DIR = os.path.join(REPO_DIR, "target", "jacoco", "html")
-ASYNC_PROFILER_LIB = os.path.join(REPO_DIR, ".profiler", "libasyncProfiler")
-# Where a system install of async-profiler puts its agent library, per platform. Checked after the
-# ASYNC_PROFILER_LIB environment variable and the per-checkout .profiler symlink, so a fresh
-# worktree profiles without running tools/link-profiler.sh first. An install under any other
-# prefix (Homebrew's, say) is found through the ``asprof`` launcher on PATH instead.
-ASYNC_PROFILER_LIBRARY_NAMES = ("libasyncProfiler.dylib", "libasyncProfiler.so")
-ASYNC_PROFILER_CANDIDATES = (
-    "/usr/local/lib/libasyncProfiler.dylib",
-    "/usr/lib/libasyncProfiler.so",
-    "/usr/local/lib/libasyncProfiler.so",
-    "/opt/async-profiler/lib/libasyncProfiler.so",
-)
 AUTOMATION_PORT_PROPERTY = "ixdar.automation.port"
 
 
@@ -93,195 +66,9 @@ def free_port() -> int:
         return probe.getsockname()[1]
 
 
-def async_profiler_library() -> str:
-    """Resolve the async-profiler agent library.
-
-    Order: the ``ASYNC_PROFILER_LIB`` environment variable, the checkout's ``.profiler`` symlink,
-    the platform install locations in :data:`ASYNC_PROFILER_CANDIDATES`, then the ``lib``
-    directory beside the real path of the ``asprof`` launcher on PATH.
-
-    :return: Path to the agent library.
-    :raises FileNotFoundError: When no candidate exists, with the install hint in the message.
-    """
-    from_env = os.environ.get("ASYNC_PROFILER_LIB", "")
-    asprof = shutil.which("asprof")
-    beside_asprof = ()
-    if asprof:
-        install_lib = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(asprof))), "lib")
-        beside_asprof = tuple(os.path.join(install_lib, name) for name in ASYNC_PROFILER_LIBRARY_NAMES)
-    for candidate in (from_env, ASYNC_PROFILER_LIB, *ASYNC_PROFILER_CANDIDATES, *beside_asprof):
-        if candidate and os.path.exists(candidate):
-            return candidate
-    raise FileNotFoundError(
-        "async-profiler library not found; set ASYNC_PROFILER_LIB, or install it "
-        "(macOS: brew install async-profiler; Linux: place libasyncProfiler.so in /usr/lib)"
-    )
-
 # The /input/key route settles on rendered frames before it answers, so a key with no regex needs
 # no extra pause at all; this stays as an escape hatch for work the scene neither logs nor renders.
 DEFAULT_KEY_SETTLE_SECONDS = 0.0
-
-
-def _run_maven(args: list[str], description: str, pom: str = POM_PATH) -> None:
-    """Run Maven and raise on failure, so a stale build is loud rather than silent.
-
-    :param args: Maven arguments after the executable.
-    :param description: Human-readable step name for the error message.
-    :param pom: POM to build, defaulting to the app module.
-    """
-    print(f"{description}...", file=sys.stderr)
-    completed = subprocess.run(
-        ["mvn", "-q", "-f", pom, *args],
-        cwd=REPO_DIR,
-        capture_output=True,
-        text=True,
-    )
-    if completed.returncode != 0:
-        tail = (completed.stdout + completed.stderr).strip().splitlines()[-25:]
-        raise RuntimeError(f"{description} failed:\n" + "\n".join(tail))
-
-
-def sync_resources() -> list[str]:
-    """Copy every resource newer on disk than its copy in ``target/classes``.
-
-    A scene loads DSL fixtures and other resources from the classpath, so an edit under
-    ``src/main/resources`` is invisible to a ``--skip-build`` run until it is copied across —
-    the reason agents kept hand-running ``cp`` before every scene.
-
-    :return: The module-relative paths that were refreshed.
-    """
-    copied: list[str] = []
-    for directory, _subdirectories, files in os.walk(RESOURCES_DIR):
-        for filename in files:
-            source = os.path.join(directory, filename)
-            relative = os.path.relpath(source, RESOURCES_DIR)
-            target = os.path.join(CLASSES_DIR, relative)
-            if os.path.exists(target) and os.path.getmtime(target) >= os.path.getmtime(source):
-                continue
-            os.makedirs(os.path.dirname(target), exist_ok=True)
-            shutil.copy2(source, target)
-            copied.append(relative)
-    return copied
-
-
-def build_inputs(root: str) -> dict[str, int]:
-    """List every file a build reads, with its modification time.
-
-    :param root: Checkout root.
-    :return: Root-relative path to ``st_mtime_ns`` for the poms, the annotations module's sources,
-        and the app's java sources and resources.
-    """
-    inputs: dict[str, int] = {}
-    for pom in POM_INPUTS:
-        path = os.path.join(root, pom)
-        if os.path.exists(path):
-            inputs[pom] = os.stat(path).st_mtime_ns
-    for tree in (ANNOTATIONS_INPUT, SOURCES_INPUT, RESOURCES_INPUT):
-        for directory, _subdirectories, files in os.walk(os.path.join(root, tree)):
-            for filename in files:
-                path = os.path.join(directory, filename)
-                inputs[os.path.relpath(path, root)] = os.stat(path).st_mtime_ns
-    return inputs
-
-
-def _input_names(paths: list[str]) -> str:
-    """Name a few changed inputs for a one-line build reason.
-
-    :param paths: Root-relative input paths.
-    :return: Up to :data:`BUILD_REASON_NAMES` file names, then how many more there are.
-    """
-    names = ", ".join(os.path.basename(path) for path in paths[:BUILD_REASON_NAMES])
-    extra = len(paths) - BUILD_REASON_NAMES
-    return names + (f" +{extra} more" if extra > 0 else "")
-
-
-def build_decision(root: str, inputs: dict[str, int]) -> tuple[str, str]:
-    """Decide how much building a checkout needs before a launch, by comparing its inputs with the
-    ones its last successful build recorded.
-
-    Inputs are compared by exact mtime and by path, so an edit, an added file, a deleted one and a
-    rename with its old mtime all count. The stamp is deleted before each build and rewritten only
-    once it succeeds, so a failed or interrupted build leaves none and the next decision is clean.
-    A java change compiles without ``clean``: on any stale source maven-compiler-plugin 3.13
-    recompiles the whole module and deletes the outputs of removed sources, so the processors see
-    every annotated type and the registries match a clean build's (``tools/check-incremental-build.sh``).
-
-    :param root: Checkout root whose ``target/`` holds the stamp and the classes.
-    :param inputs: The checkout's current :func:`build_inputs`.
-    :return: ``(mode, reason)``; the mode is one of the ``BUILD_*`` constants.
-    """
-    try:
-        with open(os.path.join(root, BUILD_STAMP), encoding="utf-8") as handle:
-            stamp = json.load(handle)
-    except (OSError, ValueError):
-        stamp = {}
-    recorded = stamp.get("inputs")
-    if not recorded:
-        return BUILD_CLEAN, "no successful build recorded"
-    missing = [output for output in BUILD_OUTPUTS if not os.path.isdir(os.path.join(root, output))]
-    if missing:
-        return BUILD_CLEAN, f"{missing[0]} missing"
-    changed = sorted(path for path, mtime in inputs.items() if recorded.get(path) != mtime)
-    removed = sorted(path for path in recorded if path not in inputs)
-    poms = [path for path in changed + removed if path in POM_INPUTS]
-    if poms:
-        return BUILD_CLEAN, f"pom changed: {', '.join(poms)}"
-    annotations = [path for path in changed + removed if path.startswith(ANNOTATIONS_INPUT + os.sep)]
-    if annotations:
-        return BUILD_CLEAN, f"annotations changed: {_input_names(annotations)}"
-    removed_resources = [path for path in removed if path.startswith(RESOURCES_INPUT + os.sep)]
-    if removed_resources:
-        return BUILD_CLEAN, f"resource removed: {_input_names(removed_resources)}"
-    sources = sorted(path for path in changed + removed if path.startswith(SOURCES_INPUT + os.sep))
-    if sources:
-        return BUILD_INCREMENTAL, f"{len(sources)} source(s) changed: {_input_names(sources)}"
-    if changed:
-        return BUILD_RESOURCES, f"{len(changed)} resource(s) changed: {_input_names(changed)}"
-    built = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stamp.get("built", 0)))
-    return BUILD_CURRENT, f"no input changed since the last build at {built}"
-
-
-def _ensure_build(skip_build: bool) -> list[str]:
-    """Bring the checkout's classes up to date as :func:`build_decision` says, then make sure the
-    classpath file exists.
-
-    Both modules are compiled because the app's annotation processors run from the reactor's
-    ``annotations/target/classes``, which also precedes the classpath file's installed
-    ``annotations`` jar on the scene's ``-cp``; a stale one surfaces as a ``NoSuchMethodError``.
-
-    :param skip_build: Force a launch of whatever classes are on disk, current or not, after
-        copying resources newer than their ``target/classes`` copy. The classpath file is still
-        resolved when absent, since the scene cannot launch without one.
-    :return: Resources copied into ``target/classes`` instead of compiling.
-    """
-    synced: list[str] = []
-    if skip_build:
-        print("build: skipped (--skip-build)", file=sys.stderr)
-        synced = sync_resources()
-    else:
-        built = time.time()
-        inputs = build_inputs(REPO_DIR)
-        mode, reason = build_decision(REPO_DIR, inputs)
-        print(f"build: {mode} ({reason})", file=sys.stderr)
-        stamp = os.path.join(REPO_DIR, BUILD_STAMP)
-        if mode in (BUILD_INCREMENTAL, BUILD_CLEAN):
-            if os.path.exists(stamp):
-                os.remove(stamp)
-            goals = ["clean", "compile"] if mode == BUILD_CLEAN else ["compile"]
-            _run_maven([*goals, "-pl", "annotations,ixdar-app"], "Building", pom=PARENT_POM)
-        elif mode == BUILD_RESOURCES:
-            synced = sync_resources()
-        if mode != BUILD_CURRENT:
-            with open(stamp, "w", encoding="utf-8") as handle:
-                json.dump({"built": built, "mode": mode, "inputs": inputs}, handle)
-    if synced:
-        print(f"  synced {len(synced)} resource(s) into target/classes", file=sys.stderr)
-    if not os.path.exists(CLASSPATH_FILE):
-        _run_maven(
-            ["dependency:build-classpath", f"-Dmdep.outputFile={CLASSPATH_FILE}"],
-            "Refreshing classpath (CP)",
-        )
-    return synced
 
 
 def _java_command(
@@ -322,7 +109,7 @@ def _java_command(
     command.extend([
         f"-XX:ErrorFile={os.path.join(IXDAR_APP_DIR, 'target', 'hs_err_pid%p.log')}",
         "-cp",
-        f"{CLASSES_DIR}:{ANNOTATIONS_CLASSES}:{classpath}",
+        os.pathsep.join((CLASSES_DIR, ANNOTATIONS_CLASSES, classpath)),
         "ixdar.canvas.IxdarWindow",
         scene,
     ])
@@ -655,7 +442,7 @@ def run(
     point_latest(scene, log_path)
     print(f"log: {log_path}", file=sys.stderr)
 
-    synced = _ensure_build(skip_build)
+    synced = ensure_build(skip_build)
 
     port = free_port()
     base_url = f"http://{LOOPBACK_HOST}:{port}"

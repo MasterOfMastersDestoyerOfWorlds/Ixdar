@@ -14,16 +14,14 @@ factored out — so a short fragment duplicated eight times can outrank a long o
 
 import html
 import os
-import subprocess
 import xml.etree.ElementTree as ElementTree
 
-REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+from .build_state import IXDAR_APP_DIR, POM_PATH
+from .checkout import run_maven
 
-POM_PATH = os.path.join(REPO_DIR, "ixdar-app", "pom.xml")
+CPD_XML_PATH = os.path.join(IXDAR_APP_DIR, "target", "cpd.xml")
 
-CPD_XML_PATH = os.path.join(REPO_DIR, "ixdar-app", "target", "cpd.xml")
-
-CPD_HTML_PATH = os.path.join(REPO_DIR, "ixdar-app", "target", "cpd-report.html")
+CPD_HTML_PATH = os.path.join(IXDAR_APP_DIR, "target", "cpd-report.html")
 
 PMD_PLUGIN_GOAL = "org.apache.maven.plugins:maven-pmd-plugin:3.26.0:cpd"
 
@@ -39,14 +37,8 @@ def run_cpd(minimum_tokens: int = DEFAULT_MINIMUM_TOKENS) -> str:
     :return: Path to the generated ``cpd.xml``.
     :raises RuntimeError: When the PMD goal fails.
     """
-    completed = subprocess.run(
-        ["mvn", "-q", PMD_PLUGIN_GOAL, "-f", POM_PATH,
-         f"-Dcpd.minimumTokens={minimum_tokens}", "-Dformat=xml"],
-        cwd=REPO_DIR, capture_output=True, text=True,
-    )
-    if completed.returncode != 0:
-        tail = (completed.stdout + completed.stderr).strip().splitlines()[-20:]
-        raise RuntimeError("pmd:cpd failed:\n" + "\n".join(tail))
+    run_maven(["-q", PMD_PLUGIN_GOAL, "-f", POM_PATH,
+               f"-Dcpd.minimumTokens={minimum_tokens}", "-Dformat=xml"], "pmd:cpd")
     return CPD_XML_PATH
 
 

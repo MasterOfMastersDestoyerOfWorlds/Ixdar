@@ -140,7 +140,11 @@ def main(argv: list[str]) -> int:
         print(json.dumps(_with_target({"ok": False, "error": str(exc.reason)}, client)))
         return 3
 
-    print(json.dumps(_with_target(command_result.payload, client), indent=2))
+    payload = _with_target(command_result.payload, client)
+    if isinstance(payload, str):
+        print(payload, file=sys.stdout if command_result.exit_code == 0 else sys.stderr)
+    else:
+        print(json.dumps(payload, indent=2))
     return command_result.exit_code
 
 

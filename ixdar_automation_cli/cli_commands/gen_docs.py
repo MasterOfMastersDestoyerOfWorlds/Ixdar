@@ -10,8 +10,9 @@ specific route or command.
 import inspect
 from pathlib import Path
 
-from ..cli_registry import CliCommand, CliCommandResult, cli_command, get_registry
 from ..automation_client import load_manifest
+from ..checkout import checkout_root
+from ..cli_registry import CliCommand, CliCommandResult, cli_command, get_registry
 
 
 BEGIN_MARKER = "<!-- BEGIN-GENERATED: automation-cli -->"
@@ -19,7 +20,7 @@ END_MARKER = "<!-- END-GENERATED: automation-cli -->"
 BASE_URL = "http://127.0.0.1:47832"
 CONTENTS_LINK = "[↑ Contents](#contents)"
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(checkout_root()).resolve()
 CLAUDE_MD = REPO_ROOT / "CLAUDE.md"
 README_MD = REPO_ROOT / "ixdar_automation_cli" / "README.md"
 
@@ -101,7 +102,7 @@ def _claude_block(manifest: dict) -> str:
         "_Do not edit by hand; see [ixdar_automation_cli/README.md](ixdar_automation_cli/README.md)._",
         "",
         "Run any command with `ixdar-cli <command> --help`. Install the global alias with "
-        "`ixdar-cli install-alias` (or `bash tools/install-cli.sh`).",
+        "`uv run ixdar-cli install-alias`.",
         "",
         "**Server-backed commands** (generated from the automation routes manifest):",
     ]
@@ -151,11 +152,11 @@ def _readme(manifest: dict) -> str:
         "## Install the global alias",
         "",
         "```sh",
-        "bash tools/install-cli.sh      # or: uv run ixdar-cli install-alias",
+        "uv sync && uv run ixdar-cli install-alias",
         "```",
         "",
-        "Creates `~/.local/bin/ixdar-cli` wrapping `uv run --project <repo> ixdar-cli`. Ensure "
-        "`~/.local/bin` is on your `PATH`.",
+        "Creates `~/.local/bin/ixdar-cli` (`ixdar-cli.cmd` on Windows) wrapping "
+        "`uv run --project <repo> ixdar-cli`. Ensure `~/.local/bin` is on your `PATH`.",
         "",
         "## Regenerating this file",
         "",

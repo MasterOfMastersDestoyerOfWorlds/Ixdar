@@ -5,10 +5,10 @@
 ## Install the global alias
 
 ```sh
-bash tools/install-cli.sh      # or: uv run ixdar-cli install-alias
+uv sync && uv run ixdar-cli install-alias
 ```
 
-Creates `~/.local/bin/ixdar-cli` wrapping `uv run --project <repo> ixdar-cli`. Ensure `~/.local/bin` is on your `PATH`.
+Creates `~/.local/bin/ixdar-cli` (`ixdar-cli.cmd` on Windows) wrapping `uv run --project <repo> ixdar-cli`. Ensure `~/.local/bin` is on your `PATH`.
 
 ## Regenerating this file
 
@@ -39,6 +39,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`mesh-export`](#mesh-export) | Write the active viewer mesh, with normals and per-corner UVs, to a glTF binary or ASCII PLY file. |
 | [`mesh-fingerprint`](#mesh-fingerprint) | Compute the canonical SHA-256 fingerprint of the active viewer mesh. |
 | [`mesh-holes`](#mesh-holes) | List every boundary loop of the mesh with its edge count, perimeter and area estimate, plus the loops repair_mesh filled and the triangles it used. |
+| [`mesh-overlay`](#mesh-overlay) | Load an OBJ overlay onto the active viewer mesh, or clear the current overlay. |
 | [`mesh-patches-decompose`](#mesh-patches-decompose) | Hybrid skeleton and curvature patch decomposition of a reference mesh. |
 | [`mesh-seamless-diagnosis`](#mesh-seamless-diagnosis) | Report the seamless solver's singular-system diagnosis: how the singularity was classified, the null vector's support and the mesh vertices it sits on. |
 | [`mesh-segmentation`](#mesh-segmentation) | Segment a mesh into labeled vertex groups by connected components, curvature, or spatial clustering. |
@@ -69,6 +70,8 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`rings-list`](#rings-list) | Rank the neck rings a mesh's skeleton proposes, most neck-like first. |
 | [`screenshot`](#screenshot) | Capture a PNG screenshot of the current framebuffer to a file. |
 | [`scroll`](#scroll) | Deliver a synthesized two-axis scroll event to the active mouse handler. |
+| [`shutdown`](#shutdown) | Acknowledge, then asynchronously close the canvas and exit the process. |
+| [`terminal`](#terminal) | Run one line in the scene terminal and return the history lines it produced. |
 | [`type`](#type) | Synthesize character events on the active key handler, one per character of the text. |
 | [`ui-state`](#ui-state) | Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio. |
 
@@ -89,10 +92,10 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`gen-docs`](#gen-docs) | Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry. |
 | [`image-diff`](#image-diff) | Compare two PNG screenshots, reporting RMSE and how many pixels differ beyond a fuzz. |
 | [`image-stats`](#image-stats) | Report a PNG's mean, minimum and maximum channel values and whether it is a blank frame. |
-| [`install-alias`](#install-alias) | Install a global ixdar-cli wrapper into ~/.local/bin. |
+| [`install-alias`](#install-alias) | Install a global ixdar-cli wrapper into ~/.local/bin (ixdar-cli.cmd on Windows). |
 | [`launch`](#launch) | Run a .vscode/launch.json entry headless, then report its first log lines and a screenshot. |
+| [`link-profiler`](#link-profiler) | Point .profiler/libasyncProfiler at this platform's async-profiler library, in one line. |
 | [`list-meshes`](#list-meshes) | List mesh files a scene can load, with the short names run-scene resolves. |
-| [`mesh-overlay`](#mesh-overlay) | Load a reference OBJ as a semi-transparent overlay, or clear it. |
 | [`mesh-probe`](#mesh-probe) | Capture the mesh-focused automation probe bundle. |
 | [`mesh-state`](#mesh-state) | Extract the mesh viewer state from the UI snapshot. |
 | [`mesh-validate`](#mesh-validate) | Validate the current mesh viewer payload. |
@@ -101,11 +104,10 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`probe`](#probe) | Capture the core automation probe bundle. |
 | [`profile-report`](#profile-report) | Report self-time hot methods from an async-profiler HTML capture. |
 | [`quilt-mesh-compare`](#quilt-mesh-compare) | Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as Java). |
-| [`rebuild-krieg-web`](#rebuild-krieg-web) | Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB overrides path). |
 | [`run-scene`](#run-scene) | Build, launch, wait for, optionally profile and screenshot, then shut down a scene. |
-| [`shutdown`](#shutdown) | Ask the scene to exit and return only once its process is gone. |
 | [`start-new-game`](#start-new-game) | Leave the menu by clicking Start New Game. |
-| [`terminal`](#terminal) | Type a line into the scene terminal, press enter, and return the terminal's response. |
+| [`stop-scene`](#stop-scene) | Ask the scene to exit and return only once its process is gone. |
+| [`teavm-build`](#teavm-build) | Package the TeaVM web bundle on a JDK 25, failing on any TeaVM [ERROR] or a stub classes.js. |
 | [`trade-hover-scan`](#trade-hover-scan) | Scan trade cities until the requested toolbar tooltip appears. |
 | [`validate-route-ops`](#validate-route-ops) | Validate trade route operations against the running app. |
 
@@ -262,7 +264,7 @@ Load and execute a named DSL skill graph, making its output geometry the active 
 
 ### `mesh-dsl-graph`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/Graph.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Graph.java)
 
 Report the DSL graph view of the active model scene: every node's box, depth and run time, every edge, the critical path, the zoom and the scroll bars.
 
@@ -330,6 +332,19 @@ List every boundary loop of the mesh with its edge count, perimeter and area est
   - `--path` (string, default ``) — Mesh file to analyse; empty analyses the active viewer mesh., e.g. `/home/acw/crawfish/IMG_4109.glb`
 - **Response:** `{ok, source, open_loop_count, open_perimeter_total, loops:[{edges, perimeter, area, shell}, ...], repair_hole_count, repair_filled_count, repair_fill_face_count, repair_holes:[{edges, perimeter, filled, fill_faces}, ...]}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/holes -d '{"path": "/home/acw/crawfish/IMG_4109.glb"}'`
+
+### `mesh-overlay`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Overlay.java)
+
+Load an OBJ overlay onto the active viewer mesh, or clear the current overlay.
+
+- **Route:** `POST /mesh/overlay`
+- **Flags:**
+  - `--path` (string, default ``) — Path to an OBJ mesh to overlay; ignored when clearing., e.g. `~/Blends/Hand/overlay.obj`
+  - `--clear` (bool, default `false`) — Remove the existing overlay instead of loading one., e.g. `true`
+- **Response:** `{ok, action, path}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/overlay -d '{"path": "~/Blends/Hand/overlay.obj", "clear": true}'`
 
 ### `mesh-patches-decompose`
 
@@ -656,7 +671,7 @@ Ring the shown surface through authored points and report the ring row: centroid
 
 ### `rings bisect`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Bisect.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/rings/Bisect.java)
 
 Draw a bisector in the ring scene as K and clicks do: its two ends snap onto the nearest ring or bisector, the points between steer it, and the open geodesic spline through them splits every region it crosses.
 
@@ -709,6 +724,29 @@ Deliver a synthesized two-axis scroll event to the active mouse handler.
 - **Response:** `{ok}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/scroll -d '{"delta": -1.5, "deltaX": 0.5}'`
 
+### `shutdown`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/Shutdown.java)
+
+Acknowledge, then asynchronously close the canvas and exit the process.
+
+- **Route:** `POST /shutdown`
+- **Response:** `{ok, accepted}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/shutdown -d '{}'`
+
+### `terminal`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/RunTerminalLine.java)
+
+Run one line in the scene terminal and return the history lines it produced.
+
+- **Route:** `POST /input/terminal`
+- **Flags:**
+  - `--line` (string, required) — Command line to type and enter, arguments included., e.g. `rings list`
+  - `--settle` (int, default `2`) — Frames to wait for after the command runs; 0 returns at once., e.g. `0`
+- **Response:** `{ok, line, response, settled}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/terminal -d '{"line": "rings list", "settle": 0}'`
+
 ### `type`
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectStringTyping.java)
@@ -735,7 +773,7 @@ Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and 
 
 ### `assert-tooltip`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L199)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L173)
 
 Assert that the visible tooltip text contains the requested strings.
 
@@ -759,7 +797,7 @@ Extract the audio state from the UI snapshot.
 
 ### `click-scan`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L224)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L198)
 
 Click through a grid until the scene leaves the menu.
 
@@ -797,7 +835,7 @@ Mark one collection member as rejected and rewrite its manifest.
 
 ### `coverage-report`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/coverage_report.py#L35)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/coverage_report.py#L28)
 
 Merge JaCoCo exec files and report the code they never executed.
 
@@ -808,7 +846,7 @@ Merge JaCoCo exec files and report the code they never executed.
 
 ### `dsl-optimize`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/dsl_optimizer.py#L215)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/dsl_optimizer.py#L213)
 
 Batch-optimize mesh DSL parameters against a reference OBJ.
 
@@ -833,7 +871,7 @@ Report duplicated code ranked by how much repetition factoring it out would remo
 
 ### `gen-docs`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/gen_docs.py#L275)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/gen_docs.py#L273)
 
 Regenerate the CLAUDE.md command list and the CLI README from the manifest and registry.
 
@@ -861,14 +899,14 @@ Report a PNG's mean, minimum and maximum channel values and whether it is a blan
 
 ### `install-alias`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/install_alias.py#L46)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/install_alias.py#L56)
 
-Install a global ixdar-cli wrapper into ~/.local/bin.
+Install a global ixdar-cli wrapper into ~/.local/bin (ixdar-cli.cmd on Windows).
 
 
 ### `launch`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/launch_entry.py#L231)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/launch_entry.py#L228)
 
 Run a .vscode/launch.json entry headless, then report its first log lines and a screenshot.
 
@@ -881,6 +919,13 @@ Run a .vscode/launch.json entry headless, then report its first log lines and a 
 - `--skip-build` — Launch the classes on disk even if stale; by default the build state decides, as for run-scene.
 - `--keep-alive` — Leave the scene running instead of shutting it down.
 
+### `link-profiler`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/link_profiler.py#L56)
+
+Point .profiler/libasyncProfiler at this platform's async-profiler library, in one line.
+
+
 ### `list-meshes`
 
 [↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/list_meshes.py#L20)
@@ -891,18 +936,9 @@ List mesh files a scene can load, with the short names run-scene resolves.
 - `--name` — Substring filter over the mesh name.
 - `--names` — Report only the names, for picking one without reading a table.
 
-### `mesh-overlay`
-
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L183)
-
-Load a reference OBJ as a semi-transparent overlay, or clear it.
-
-- `--path` — Path to reference OBJ file to overlay.
-- `--clear` — If true, remove any existing overlay.
-
 ### `mesh-probe`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L98)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L99)
 
 Capture the mesh-focused automation probe bundle.
 
@@ -940,7 +976,7 @@ Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
 
 ### `new-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/new_scene.py#L243)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/new_scene.py#L273)
 
 Scaffold a new Scene class, launch.json entry, and optional Maven profile.
 
@@ -954,7 +990,7 @@ Scaffold a new Scene class, launch.json entry, and optional Maven profile.
 
 ### `probe`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L69)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L70)
 
 Capture the core automation probe bundle.
 
@@ -972,22 +1008,15 @@ Report self-time hot methods from an async-profiler HTML capture.
 
 ### `quilt-mesh-compare`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L144)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L134)
 
 Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as Java).
 
 - `--reference` — Path to reference OBJ, or empty to use ixdar-app/test/resources/test-meshes/quilting_cube.obj relative to the Ixdar repo root.
 
-### `rebuild-krieg-web`
-
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/rebuild_krieg_web.py#L60)
-
-Build the TeaVM web output then run Hugo for Krieg Eterna (KRIEG_ETERNA_WEB overrides path).
-
-
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L742)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L529)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
@@ -1011,35 +1040,34 @@ Build, launch, wait for, optionally profile and screenshot, then shut down a sce
 - `--keep-alive` — Leave the scene running, returning only once it reports ready.
 - `--top` — How many profile-report hot methods or partly-covered classes to report.
 
-### `shutdown`
-
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/shutdown_scene.py#L43)
-
-Ask the scene to exit and return only once its process is gone.
-
-- `--timeout` — Seconds to wait for the process to disappear.
-
 ### `start-new-game`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L252)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L226)
 
 Leave the menu by clicking Start New Game.
 
 - `--button` — Mouse button index to press.
 - `--no-fallback-scan` — Disable the fallback click scan when menu bounds are missing.
 
-### `terminal`
+### `stop-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/terminal.py#L9)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/shutdown_scene.py#L45)
 
-Type a line into the scene terminal, press enter, and return the terminal's response.
+Ask the scene to exit and return only once its process is gone.
 
-- `line` — Command line to run, arguments included, e.g. "rings list".
-- `--settle` — Frames to wait for after the command runs, so no sleep is needed.
+- `--timeout` — Seconds to wait for the process to disappear.
+
+### `teavm-build`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/teavm_build.py#L146)
+
+Package the TeaVM web bundle on a JDK 25, failing on any TeaVM [ERROR] or a stub classes.js.
+
+- `--hugo` — Then run hugo -D in Krieg Eterna's web directory (KRIEG_ETERNA_WEB overrides the sibling KriegEterna/web).
 
 ### `trade-hover-scan`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L266)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/scenario_commands.py#L240)
 
 Scan trade cities until the requested toolbar tooltip appears.
 

@@ -35,9 +35,13 @@ class CliParameter:
 
 @dataclass(frozen=True)
 class CliCommandResult:
-    """Structured command return value with an optional non-zero exit code."""
+    """Structured command return value with an optional non-zero exit code.
 
-    payload: dict
+    A ``str`` payload is printed as it is instead of as JSON, on stdout when the exit code is 0
+    and on stderr otherwise, for a command whose caller reads one line.
+    """
+
+    payload: dict | str
     exit_code: int = 0
 
 

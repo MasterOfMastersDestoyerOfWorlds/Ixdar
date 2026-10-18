@@ -23,17 +23,14 @@ import subprocess
 import sys
 from typing import Annotated
 
-from ..automation_client import LOOPBACK_HOST, AutomationClient, checkout_root
+from ..automation_client import LOOPBACK_HOST, AutomationClient
+from ..build_state import ANNOTATIONS_CLASSES, CLASSES_DIR, CLASSPATH_FILE, IXDAR_APP_DIR, ensure_build
+from ..checkout import checkout_root
 from ..cli_registry import CliCommandResult, CliOption, cli_command
 from ..run_logs import next_log_path, point_latest
 from .run_scene import (
-    ANNOTATIONS_CLASSES,
     AUTOMATION_PORT_PROPERTY,
-    CLASSES_DIR,
-    CLASSPATH_FILE,
-    IXDAR_APP_DIR,
     _await_scene,
-    _ensure_build,
     _terminate,
     crash_headline,
     free_port,
@@ -197,7 +194,7 @@ def launch_command(configuration: dict, root: str, port: int) -> list[str]:
     command.append(f"-D{AUTOMATION_PORT_PROPERTY}={port}")
     command.extend([
         "-cp",
-        f"{CLASSES_DIR}:{ANNOTATIONS_CLASSES}:{classpath}",
+        os.pathsep.join((CLASSES_DIR, ANNOTATIONS_CLASSES, classpath)),
         main_class,
     ])
     command.extend(_tokens(configuration.get("args")))
@@ -271,7 +268,7 @@ def launch(
     point_latest(scene, log_path, root)
     print(f"log: {log_path}", file=sys.stderr)
 
-    _ensure_build(skip_build)
+    ensure_build(skip_build)
     port = free_port()
     base_url = f"http://{LOOPBACK_HOST}:{port}"
     client = AutomationClient(base_url=base_url)

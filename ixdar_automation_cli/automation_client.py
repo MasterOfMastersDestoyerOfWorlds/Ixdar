@@ -7,6 +7,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from .checkout import checkout_root
 
 MANIFEST_PATH = Path(__file__).with_name("automation_routes.json")
 LOOPBACK_HOST = "127.0.0.1"
@@ -15,12 +16,9 @@ DEFAULT_RETRY_DELAY = 1.0
 DEFAULT_REQUEST_TIMEOUT = 10.0
 PROGRESS_INTERVAL = 30.0
 
-PACKAGE_REPO_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 # AutomationPortFile: every scene writes tmp/automation/<pid>.json and removes it on exit.
 RECORD_DIRECTORY_RELATIVE = os.path.join("tmp", "automation")
 RECORD_SUFFIX = ".json"
-MODULE_DIRECTORY = "ixdar-app"
-POM_FILE = "pom.xml"
 
 
 def load_manifest() -> dict:
@@ -34,37 +32,6 @@ def load_manifest() -> dict:
         return json.loads(MANIFEST_PATH.read_text())
     except (OSError, ValueError):
         return {}
-
-
-def checkout_root() -> str:
-    """The Ixdar checkout this call belongs to, so parallel worktrees never share a scene.
-
-    The working directory wins over the installed package, which is what makes a globally
-    installed CLI still talk to the worktree it is invoked from.
-
-    :return: Absolute path to the checkout root.
-    """
-    for candidate in _ancestors(os.getcwd()):
-        if (os.path.isfile(os.path.join(candidate, POM_FILE))
-                and os.path.isdir(os.path.join(candidate, MODULE_DIRECTORY))):
-            return candidate
-    return PACKAGE_REPO_DIR
-
-
-def _ancestors(directory: str) -> list[str]:
-    """The directory and each of its parents, nearest first.
-
-    :param directory: Starting directory.
-    :return: Absolute paths from ``directory`` up to the filesystem root.
-    """
-    current = os.path.abspath(directory)
-    chain = [current]
-    while True:
-        parent = os.path.dirname(current)
-        if parent == current:
-            return chain
-        current = parent
-        chain.append(current)
 
 
 def records_directory(root: str = "") -> str:

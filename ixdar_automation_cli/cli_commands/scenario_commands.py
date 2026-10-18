@@ -9,6 +9,7 @@ from ..automation_client import (
     collect_trade_tooltip_lines,
     toolbar_button_center,
 )
+from ..build_state import IXDAR_APP_DIR
 from ..cli_registry import CliCommandResult, cli_command
 from ..quilt_mesh_fingerprint import ALGORITHM_ID, sha256_hex_from_obj_path
 from ..trade_scenarios import click_until_scene_transition, start_new_game
@@ -127,18 +128,7 @@ def mesh_probe(client: AutomationClient, out: str = "") -> dict:
 
 
 def _default_quilt_reference_obj() -> str:
-    return os.path.normpath(
-        os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "..",
-            "ixdar-app",
-            "test",
-            "resources",
-            "test-meshes",
-            "quilting_cube.obj",
-        )
-    )
+    return os.path.join(IXDAR_APP_DIR, "test", "resources", "test-meshes", "quilting_cube.obj")
 
 
 @cli_command(name="quilt-mesh-compare")
