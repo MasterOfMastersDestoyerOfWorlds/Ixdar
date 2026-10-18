@@ -150,8 +150,7 @@ public abstract class ModelScene extends Scene {
 
         initInput();
         createCatalog();
-        sceneTerminal = new Terminal(terminalRoot());
-        sceneTerminal.modelScene = this;
+        sceneTerminal = new Terminal(terminalRoot(), this);
         Terminal.current = sceneTerminal;
         sceneModelMenu = new SceneModelMenu(this);
         initPanes();

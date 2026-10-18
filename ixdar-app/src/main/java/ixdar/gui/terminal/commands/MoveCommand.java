@@ -42,7 +42,10 @@ public class MoveCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        MainScene editor = MainScene.current();
+        if (!(terminal.scene instanceof MainScene editor)) {
+            terminal.error(shortName() + " is a MainScene command");
+            return null;
+        }
         try {
             Range idTarget = Range.parse(args[startIdx]);
             int idDest1 = Integer.parseInt(args[startIdx + 1]);

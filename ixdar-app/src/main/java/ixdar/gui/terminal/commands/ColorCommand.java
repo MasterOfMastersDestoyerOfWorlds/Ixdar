@@ -41,7 +41,10 @@ public class ColorCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        MainScene editor = MainScene.current();
+        if (!(terminal.scene instanceof MainScene editor)) {
+            terminal.error(shortName() + " is a MainScene command");
+            return null;
+        }
         Random colorSeed = new Random();
         editor.stickyColor = Color.random(colorSeed);
         if (editor.activeTool.canUseToggle(Toggle.DrawMetroDiagram)) {

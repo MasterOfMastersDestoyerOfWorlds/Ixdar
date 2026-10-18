@@ -88,7 +88,7 @@ public class RingCommand extends TerminalCommand {
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.modelScene instanceof RingScene scene)) {
+        if (!(terminal.scene instanceof RingScene scene)) {
             terminal.error("RingScene is not active");
             return null;
         }

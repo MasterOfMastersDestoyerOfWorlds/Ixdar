@@ -21,7 +21,7 @@ import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.input.Keys;
 import ixdar.platform.input.PointerRegion;
-import ixdar.scenes.model.ModelScene;
+import ixdar.scenes.Scene;
 
 /**
  * The editor's interactive REPL: keeps the command and point-collection registries,
@@ -70,8 +70,8 @@ public class Terminal implements PointerRegion {
     public float SCROLL_SPEED = 300f;
     public TextFile loadedFile;
 
-    /** Model scene this terminal drives, so the {@code model} command can switch models; {@code null} in MainScene. */
-    public ModelScene modelScene;
+    /** The scene this terminal belongs to, which every command typed into it runs against. */
+    public final Scene scene;
 
     ArrayList<String> commandHistory;
     String storedCommandLine;
@@ -89,8 +89,10 @@ public class Terminal implements PointerRegion {
      * parent path and its history, command line, and command-history index start empty.
      *
      * @param file currently loaded file that anchors this terminal's directory context
+     * @param scene the scene the terminal belongs to
      */
-    public Terminal(TextFile file) {
+    public Terminal(TextFile file, Scene scene) {
+        this.scene = scene;
         initState();
         this.directory = new File(file.path).getParent();
         this.loadedFile = file;
@@ -102,8 +104,10 @@ public class Terminal implements PointerRegion {
      * stays {@code null}.
      *
      * @param directory working directory this terminal's {@code cd}/{@code ls} start from
+     * @param scene the scene the terminal belongs to
      */
-    public Terminal(String directory) {
+    public Terminal(String directory, Scene scene) {
+        this.scene = scene;
         initState();
         this.directory = directory;
         this.loadedFile = null;

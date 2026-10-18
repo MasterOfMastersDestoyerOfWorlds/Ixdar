@@ -50,9 +50,10 @@ public abstract class Grid {
      * Format the cursor position under this grid's coordinate system for the
      * status readout (e.g. {@code "X:.. Y:.."} or {@code "Q:.. R:.. S:.."}).
      *
+     * @param editor the editor whose cursor and camera are read
      * @return a printable description of the current cursor coordinates
      */
-    public abstract String toCoordString();
+    public abstract String toCoordString(MainScene editor);
 
     /**
      * Whether {@code pt} is a coordinate type this grid will accept as input.
@@ -108,11 +109,11 @@ public abstract class Grid {
         /**
          * Format the cursor's world-space coordinates as {@code "X:.. Y:.."}.
          *
+         * @param editor the editor whose cursor and camera are read
          * @return Cartesian coordinate readout for the status bar
          */
         @Override
-        public String toCoordString() {
-            MainScene editor = MainScene.current();
+        public String toCoordString(MainScene editor) {
             return "X:" + (int) editor.editorCamera.screenTransformX(editor.mouse.normalizedPosX - MainScene.MAIN_VIEW_OFFSET_X)
                     + " Y:" + (int) editor.editorCamera.screenTransformY(editor.mouse.normalizedPosY - MainScene.MAIN_VIEW_OFFSET_Y);
         }
@@ -218,11 +219,11 @@ public abstract class Grid {
         /**
          * Format the cursor's hex-space coordinates as {@code "Q:.. R:.. S:.."}.
          *
+         * @param editor the editor whose cursor and camera are read
          * @return hex coordinate readout for the status bar
          */
         @Override
-        public String toCoordString() {
-            MainScene editor = MainScene.current();
+        public String toCoordString(MainScene editor) {
             double[] hexCoords = PointND.Hex.pixelToHexCoords(
                     editor.editorCamera.screenTransformX(editor.mouse.normalizedPosX - MainScene.MAIN_VIEW_OFFSET_X),
                     editor.editorCamera.screenTransformY(editor.mouse.normalizedPosY - MainScene.MAIN_VIEW_OFFSET_Y));

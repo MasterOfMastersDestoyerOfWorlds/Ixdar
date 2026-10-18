@@ -10,7 +10,7 @@ import ixdar.scenes.Scene;
 import ixdar.tools.Tool;
 
 /**
- * Terminal command {@code ct}/{@code changetool} that switches the current scene to a tool of the
+ * Terminal command {@code ct}/{@code changetool} that switches the terminal's scene to a tool of the
  * generated tool registry its scene type hosts.
  */
 @CommandAnnotation(id = "ct")
@@ -69,19 +69,19 @@ public class ChangeToolCommand extends TerminalCommand {
     }
 
     /**
-     * Switch the current scene to the registered tool the words after {@code ct} name, by id or by
+     * Switch the terminal's scene to the registered tool the words after {@code ct} name, by id or by
      * a hosted tool's short name: the scene's own instance, else one the registry builds for it.
      * A tool another scene type hosts is refused.
      *
      * @param args full tokenised command line
      * @param startIdx index of the tool name's first word in {@code args}
      * @param terminal dispatching terminal
-     * @return one {@code ct} suggestion per registered tool the current scene can host
+     * @return one {@code ct} suggestion per registered tool the terminal's scene can host
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
         String name = String.join(" ", Arrays.copyOfRange(args, startIdx, args.length));
-        Scene scene = Scene.instance;
+        Scene scene = terminal.scene;
         String toolId = name;
         for (Tool tool : scene.tools) {
             if (tool.shortName().equals(name)) {

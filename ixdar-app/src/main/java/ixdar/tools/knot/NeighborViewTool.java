@@ -106,7 +106,7 @@ public class NeighborViewTool extends KnotTool {
         HyperString h = new HyperString();
         if (displaySegment != null) {
             h.addWord("Cut: ", Color.IXDAR);
-            h.addHyperString(displaySegment.toHyperString(Color.BROWN_DARK, false));
+            h.addHyperString(displaySegment.toHyperString(editor, Color.BROWN_DARK, false));
             h.newLine();
             h.addWord("Cut Length: ");
             h.addDistance(displaySegment.distance, Color.BROWN_DARK);

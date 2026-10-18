@@ -80,8 +80,7 @@ public class ModelCommand extends TerminalCommand {
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        ModelScene scene = terminal.modelScene;
-        if (scene == null) {
+        if (!(terminal.scene instanceof ModelScene scene)) {
             terminal.error("no model scene is active");
             return null;
         }

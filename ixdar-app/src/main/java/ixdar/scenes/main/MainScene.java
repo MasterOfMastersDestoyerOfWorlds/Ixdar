@@ -149,7 +149,7 @@ public class MainScene extends Scene {
             this.fileName = fileName;
             file = FileManagement.getFile(fileName);
             retTup = PointSetPath.importFromFile(file.getPath());
-            terminal = new Terminal(file);
+            terminal = new Terminal(file, this);
             Terminal.current = terminal;
         }
         for (String comment : retTup.comments) {
@@ -329,15 +329,6 @@ public class MainScene extends Scene {
     }
 
     /**
-     * The editor the window shows; only TSP code that runs while it is shown calls this.
-     *
-     * @return the current scene, an editor
-     */
-    public static MainScene current() {
-        return (MainScene) Scene.instance;
-    }
-
-    /**
      * Open {@code fileName} in a new editor that replaces the current scene from the next frame;
      * Back from it returns where the current scene's Back would, or to the current scene itself.
      *
@@ -390,7 +381,7 @@ public class MainScene extends Scene {
         controls.add(new ControlHint(Keys.U, "U", "write the tour back to its file",
                 Toggle.IsMainFocused.gate(() -> Terminal.runNoArgs(UpdateCommand.class))));
         controls.add(new ControlHint(Keys.R, "R", "reset the camera, the tool and the toggles",
-                Toggle.IsMainFocused.gate(() -> ResetCommand.run(ResetOption.Camera))));
+                Toggle.IsMainFocused.gate(() -> ResetCommand.run(ResetOption.Camera, this))));
         controls.add(new ControlHint(Keys.ESCAPE, "esc", "back to " + toolLabel(defaultTool) + ", else leave",
                 this::back));
     }

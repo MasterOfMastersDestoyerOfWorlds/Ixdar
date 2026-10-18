@@ -51,7 +51,10 @@ public class AskCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        MainScene editor = MainScene.current();
+        if (!(terminal.scene instanceof MainScene editor)) {
+            terminal.error(shortName() + " is a MainScene command");
+            return null;
+        }
         String questionName = args[startIdx];
         if (questionName.equals("dist")) {
             int id1 = Integer.parseInt(args[startIdx + 1]);
@@ -86,7 +89,7 @@ public class AskCommand extends TerminalCommand {
                 terminal.error("Point does not have " + numPrint + " segments to display");
             } else {
                 for (int i = 0; i < numPrint; i++) {
-                    HyperString seg = vp.sortedSegments.get(i).toHyperString(Color.BLUE_GREY, false, true);
+                    HyperString seg = vp.sortedSegments.get(i).toHyperString(editor, Color.BLUE_GREY, false, true);
                     seg.addWord(SEGMENT_SEPARATOR);
                     terminal.history.addHyperString(seg);
                 }
@@ -102,7 +105,7 @@ public class AskCommand extends TerminalCommand {
             } else {
                 int i = 0;
                 for (Segment s : editor.tourShell.sortedSegments) {
-                    HyperString seg = s.toHyperString(Color.BLUE_GREY, false, true);
+                    HyperString seg = s.toHyperString(editor, Color.BLUE_GREY, false, true);
                     terminal.history.addHyperString(seg);
                     terminal.history.newLine();
                     i++;
@@ -132,7 +135,7 @@ public class AskCommand extends TerminalCommand {
                 }
                 segements.sort(null);
                 for (Segment s : segements) {
-                    HyperString seg = s.toHyperString(Color.BLUE_GREY, false, true);
+                    HyperString seg = s.toHyperString(editor, Color.BLUE_GREY, false, true);
                     terminal.history.addHyperString(seg);
                     terminal.history.newLine();
                 }
@@ -165,9 +168,9 @@ public class AskCommand extends TerminalCommand {
                     Segment segment = innerVp.sortedSegments.get(i);
                     HyperString str = null;
                     if (green.contains(segment.id)) {
-                        str = segment.toHyperString(Color.GREEN, false, true);
+                        str = segment.toHyperString(editor, Color.GREEN, false, true);
                     } else {
-                        str = segment.toHyperString(Color.BLUE_GREY, false, true);
+                        str = segment.toHyperString(editor, Color.BLUE_GREY, false, true);
                     }
                     str.addWord(SEGMENT_SEPARATOR);
                     terminal.history.addHyperString(str);

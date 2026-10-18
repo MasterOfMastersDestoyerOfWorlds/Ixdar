@@ -202,7 +202,7 @@ public class MapEditorTool extends KnotTool {
 
         h.addWord("Position:");
         if (displayKP == null) {
-            h.addWord(editor.grid.toCoordString());
+            h.addWord(editor.grid.toCoordString(editor));
         } else {
             PointND coordPoint = (displayKP).p;
             h.addWord(coordPoint.toCoordString());

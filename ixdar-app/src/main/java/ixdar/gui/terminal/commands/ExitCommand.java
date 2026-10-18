@@ -36,7 +36,11 @@ public class ExitCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        MainScene.current().back();
+        if (!(terminal.scene instanceof MainScene editor)) {
+            terminal.error(shortName() + " is a MainScene command");
+            return null;
+        }
+        editor.back();
         return new String[] { cmd };
     }
 }

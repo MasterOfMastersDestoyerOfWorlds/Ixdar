@@ -42,7 +42,10 @@ public class UpdateCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        MainScene editor = MainScene.current();
+        if (!(terminal.scene instanceof MainScene editor)) {
+            terminal.error(shortName() + " is a MainScene command");
+            return null;
+        }
         boolean force = (args.length != startIdx) && forceOptionAliases.contains(args[startIdx]);
         if (editor.subPaths.size() == 1) {
             Shell ans = editor.subPaths.get(0);

@@ -510,26 +510,27 @@ public class Segment implements Comparable<Segment> {
      * supplied color and a click handler that zooms to it. Distance label is
      * suppressed.
      *
+     * @param editor the editor whose hover highlight and camera the text drives
      * @param color label color
      * @param labelAsSegment whether to prefix the label with {@code "Segment"}
      * @return clickable hyperstring representation
      */
-    public HyperString toHyperString(Color color, boolean labelAsSegment) {
-        return toHyperString(color, labelAsSegment, false);
+    public HyperString toHyperString(MainScene editor, Color color, boolean labelAsSegment) {
+        return toHyperString(editor, color, labelAsSegment, false);
     }
 
     /**
      * Render this segment as an interactive {@link HyperString} with the
      * supplied color and a click handler that zooms to it.
      *
+     * @param editor the editor whose hover highlight and camera the text drives
      * @param color label color
      * @param labelAsSegment whether to prefix the label with {@code "Segment"}
      * @param labelDistance whether to append the segment distance to the label
      * @return clickable hyperstring representation
      */
-    public HyperString toHyperString(Color color, boolean labelAsSegment, boolean labelDistance) {
+    public HyperString toHyperString(MainScene editor, Color color, boolean labelAsSegment, boolean labelDistance) {
         HyperString h = new HyperString();
-        MainScene editor = MainScene.current();
         Action clickAction = () -> {
             editor.editorCamera.zoomToSegment(this);
         };

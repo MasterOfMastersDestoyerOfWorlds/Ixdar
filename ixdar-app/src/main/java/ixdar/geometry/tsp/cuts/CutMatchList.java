@@ -9,6 +9,7 @@ import ixdar.geometry.tsp.knot.Segment;
 import ixdar.geometry.tsp.shell.Shell;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.text.HyperString;
+import ixdar.scenes.main.MainScene;
 import ixdar.geometry.tsp.FileStringable;
 
 public class CutMatchList implements FileStringable {
@@ -557,13 +558,15 @@ public class CutMatchList implements FileStringable {
      * the segment is one of the externally supplied lower/upper match/cut
      * segments. A trailing summary block reports match count and deltas.
      *
+     * @param editor the editor whose hover highlight and camera the segment text drives
      * @param matchColor color for internal match segments
      * @param cutColor color for internal cut segments
      * @param externalColor color for the externally supplied match segments
      * @param externalCutColor color for the externally supplied cut segments
      * @return a clickable hyperstring representation
      */
-    public HyperString toHyperString(Color matchColor, Color cutColor, Color externalColor, Color externalCutColor) {
+    public HyperString toHyperString(MainScene editor, Color matchColor, Color cutColor, Color externalColor,
+            Color externalCutColor) {
         HyperString h = new HyperString();
         CutMatch cm = this.cutMatches.get(0);
         int maxSize = Math.max(cm.matchSegments.size(), cm.cutSegments.size());
@@ -574,17 +577,17 @@ public class CutMatchList implements FileStringable {
             Segment cut = i < cm.cutSegments.size() ? cm.cutSegments.get(i) : null;
             if (match != null) {
                 if (match.id == cm.c.lowerMatchSegment.id || match.id == cm.c.upperMatchSegment.id) {
-                    h.addHyperString(match.toHyperString(externalColor, false));
+                    h.addHyperString(match.toHyperString(editor,externalColor, false));
                 } else {
-                    h.addHyperString(match.toHyperString(matchColor, false));
+                    h.addHyperString(match.toHyperString(editor,matchColor, false));
                     internalMatchCount++;
                 }
             }
             if (cut != null) {
                 if (cut.id == cm.c.lowerCutSegment.id || cut.id == cm.c.upperCutSegment.id) {
-                    h.addHyperString(match.toHyperString(externalCutColor, false));
+                    h.addHyperString(match.toHyperString(editor,externalCutColor, false));
                 } else {
-                    h.addHyperString(cut.toHyperString(cutColor, false));
+                    h.addHyperString(cut.toHyperString(editor,cutColor, false));
                     internalCutCount++;
                 }
                 h.newLine();

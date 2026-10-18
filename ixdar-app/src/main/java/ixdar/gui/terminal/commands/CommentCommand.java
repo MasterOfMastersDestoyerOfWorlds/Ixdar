@@ -37,11 +37,15 @@ public class CommentCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
+        if (!(terminal.scene instanceof MainScene editor)) {
+            terminal.error(shortName() + " is a MainScene command");
+            return null;
+        }
         String commentText = "";
         for (int i = startIdx; i < args.length; i++) {
             commentText += " " + args[i];
         }
-        FileManagement.appendComment(MainScene.current().file, commentText);
+        FileManagement.appendComment(editor.file, commentText);
         return new String[] {};
     }
 }

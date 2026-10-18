@@ -9,7 +9,6 @@ import ixdar.annotations.tool.ToolRegistry_Tools;
 import ixdar.geometry.tsp.input.PointCollection;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
-import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Tool;
@@ -75,7 +74,7 @@ public class ListCommand extends TerminalCommand {
             } else if (target.equals("questions")) {
 
             } else if (keyOptionAliases.contains(target)) {
-                for (ControlHint hint : Scene.instance.controls) {
+                for (ControlHint hint : terminal.scene.controls) {
                     terminal.history.addLine(hint.toString(), Color.GREEN);
                 }
             } else if (commandOptionAliases.contains(target)) {
@@ -90,12 +89,12 @@ public class ListCommand extends TerminalCommand {
                 }
             } else if (toolOptionAliases.contains(target)) {
                 for (String id : ToolRegistry_Tools.MAP.keySet()) {
-                    if (!ToolRegistry_Tools.HOSTED_BY.get(id).test(Scene.instance)) {
+                    if (!ToolRegistry_Tools.HOSTED_BY.get(id).test(terminal.scene)) {
                         continue;
                     }
                     String shortName = id;
                     String desc = "";
-                    for (Tool t : Scene.instance.tools) {
+                    for (Tool t : terminal.scene.tools) {
                         if (t.toolName().equals(id)) {
                             shortName = t.shortName();
                             desc = t.desc();

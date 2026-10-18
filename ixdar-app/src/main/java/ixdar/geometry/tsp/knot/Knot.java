@@ -863,14 +863,14 @@ public class Knot {
 
     /**
      * Render this knot as an interactive {@link HyperString} segment using the
-     * current scene's tool/toggles to colorize children, with a click handler
+     * editor's tool/toggles to colorize children, with a click handler
      * that focuses the camera on this knot.
      *
+     * @param editor the editor whose colours the text takes and whose camera a click moves
      * @return a clickable representation suitable for the terminal/text UI
      */
-    public HyperString toHyperString() {
+    public HyperString toHyperString(MainScene editor) {
         HyperString h = new HyperString();
-        MainScene editor = MainScene.current();
         Color c = editor.knotColor(this);
         Action clickAction = () -> {
             editor.setDrawLevelToKnot(this);
@@ -882,7 +882,7 @@ public class Knot {
         h.addHoverKnot(KNOT, c, hoverKnot, highlight, clearHighlight, clickAction);
         for (Knot vp : knotPoints) {
             if (!vp.isSingleton()) {
-                h.addHyperString(((Knot) vp).toHyperString());
+                h.addHyperString(((Knot) vp).toHyperString(editor));
             } else {
                 h.addHoverKnot(vp + " ", c, hoverKnot, highlight, clearHighlight, clickAction);
             }

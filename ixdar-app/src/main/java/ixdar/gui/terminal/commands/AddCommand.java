@@ -39,6 +39,10 @@ public class AddCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
+        if (!(terminal.scene instanceof MainScene editor)) {
+            terminal.error(shortName() + " is a MainScene command");
+            return null;
+        }
         PointCollection pc = null;
         String objectName = args[startIdx];
         try {
@@ -52,7 +56,7 @@ public class AddCommand extends TerminalCommand {
             terminal.error(e.getMessage());
         }
         if (pc != null) {
-            FileManagement.appendLine(MainScene.current().tempFile, pc.toFileString());
+            FileManagement.appendLine(editor.tempFile, pc.toFileString());
             return new String[] { "add " + pc.shortName() };
         }
         return null;

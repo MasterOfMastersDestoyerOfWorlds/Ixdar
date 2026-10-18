@@ -123,10 +123,10 @@ public class FreeTool extends KnotTool {
             final PointND coordPointF = (displayKP).p;
             HyperString minKnotInfo = new HyperString();
             if (containingKnot.s1 != null && containingKnot.s2 != null) {
-                minKnotInfo.addHyperString(containingKnot.s1.toHyperString(c, false));
+                minKnotInfo.addHyperString(containingKnot.s1.toHyperString(editor, c, false));
                 minKnotInfo.addDistance(containingKnot.s1.distance, c);
                 minKnotInfo.newLine();
-                minKnotInfo.addHyperString(containingKnot.s2.toHyperString(c, false));
+                minKnotInfo.addHyperString(containingKnot.s2.toHyperString(editor, c, false));
                 minKnotInfo.addDistance(containingKnot.s2.distance, c);
             }
             minKnotInfo.addLine("FlatID: " + containingKnot.id, c);
@@ -145,7 +145,7 @@ public class FreeTool extends KnotTool {
                 if (!topStruct.isSingleton()) {
                     h.newLine();
                     h.newLine();
-                    h.addHyperString(((Knot) topStruct).toHyperString());
+                    h.addHyperString(((Knot) topStruct).toHyperString(editor));
                 }
             }
         }

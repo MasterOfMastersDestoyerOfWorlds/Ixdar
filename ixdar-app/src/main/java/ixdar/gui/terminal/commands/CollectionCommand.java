@@ -88,8 +88,7 @@ public class CollectionCommand extends TerminalCommand {
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        ModelScene scene = terminal.modelScene;
-        if (scene == null || scene.modelCollection == null) {
+        if (!(terminal.scene instanceof ModelScene scene) || scene.modelCollection == null) {
             terminal.error("no collection is open; run the scene with -Dixdar.model=<directory>");
             return null;
         }

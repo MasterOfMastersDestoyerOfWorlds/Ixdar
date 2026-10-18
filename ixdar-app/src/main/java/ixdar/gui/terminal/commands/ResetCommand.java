@@ -65,13 +65,13 @@ public class ResetCommand extends TerminalCommand {
     }
 
     /**
-     * Apply the reset action selected by {@code option} to the appropriate {@link MainScene}
-     * sub-system(s).
+     * Apply the reset action selected by {@code option} to the appropriate sub-system(s) of
+     * {@code editor}.
      *
      * @param option which target to reset (camera, tool, toggles, or all)
+     * @param editor the editor whose camera and tool are reset
      */
-    public static void run(ResetOption option) {
-        MainScene editor = MainScene.current();
+    public static void run(ResetOption option, MainScene editor) {
         switch (option) {
         case All:
             editor.editorCamera.reset();
@@ -92,7 +92,7 @@ public class ResetCommand extends TerminalCommand {
 
     /**
      * Match {@code args[startIdx]} against the aliases of every {@link ResetOption} and
-     * dispatch to {@link #run(ResetOption)} on the first hit. Reports a usage error to
+     * dispatch to {@link #run(ResetOption, MainScene)} on the first hit. Reports a usage error to
      * the terminal if no option matches.
      *
      * @param args full tokenised command line
@@ -102,6 +102,10 @@ public class ResetCommand extends TerminalCommand {
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
+        if (!(terminal.scene instanceof MainScene editor)) {
+            terminal.error(shortName() + " is a MainScene command");
+            return null;
+        }
         ResetOption option = null;
         for (ResetOption r : ResetOption.values()) {
             for (int i = 0; i < r.option.length; i++) {
@@ -118,7 +122,7 @@ public class ResetCommand extends TerminalCommand {
             terminal.error("cannot reset object: " + this.usage());
             return null;
         }
-        run(option);
+        run(option, editor);
         return null;
     }
     public enum ResetOption {

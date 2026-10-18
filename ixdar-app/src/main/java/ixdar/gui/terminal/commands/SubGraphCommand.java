@@ -44,7 +44,10 @@ public class SubGraphCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        MainScene editor = MainScene.current();
+        if (!(terminal.scene instanceof MainScene editor)) {
+            terminal.error(shortName() + " is a MainScene command");
+            return null;
+        }
         ArrayList<Range> ranges = new ArrayList<>();
         for (int i = startIdx; i < args.length; i++) {
             String arg = args[i];

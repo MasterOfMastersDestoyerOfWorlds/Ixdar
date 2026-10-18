@@ -215,11 +215,11 @@ public class IrregularQuadGrid extends Grid {
      * Format the cursor's world-space coordinates as {@code "X:.. Y:.."}, the
      * same readout as {@link CartesianGrid}.
      *
+     * @param editor the editor whose cursor and camera are read
      * @return Cartesian coordinate readout for the status bar
      */
     @Override
-    public String toCoordString() {
-        MainScene editor = MainScene.current();
+    public String toCoordString(MainScene editor) {
         return "X:"
                 + (int) editor.editorCamera.screenTransformX(editor.mouse.normalizedPosX - MainScene.MAIN_VIEW_OFFSET_X)
                 + " Y:" + (int) editor.editorCamera

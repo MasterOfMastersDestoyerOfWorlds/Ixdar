@@ -68,7 +68,7 @@ public abstract class Scene extends SceneDrawable {
 
     public static final String VIEW_TOOLTIP = "TOOLTIP";
 
-    public static Scene instance;
+    public static volatile Scene instance;
 
     public boolean changedSize = false;
     public boolean active;
