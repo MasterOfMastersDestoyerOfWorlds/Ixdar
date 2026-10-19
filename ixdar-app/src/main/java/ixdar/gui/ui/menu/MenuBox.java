@@ -21,7 +21,6 @@ import ixdar.scenes.Scene;
 import ixdar.platform.Platforms;
 import ixdar.scenes.main.Toggle;
 import ixdar.platform.AutomationBackend;
-import ixdar.platform.file.FileManagement;
 import ixdar.input.PointerDispatcher;
 import ixdar.platform.input.PointerRegion;
 
@@ -51,6 +50,7 @@ public class MenuBox implements PointerRegion {
     float alpha;
     Color outerColor;
     Color outerFlash;
+    Color disabledOuterColor;
     Color innerColor;
     ColorBox boundingBox;
     private float itemWidth;
@@ -68,15 +68,14 @@ public class MenuBox implements PointerRegion {
         innerColor = Color.BLUE_TEAL_VERY_DARK.withAlpha(alpha);
         outerColor = Color.BLUE_GREY.withAlpha(alpha);
         outerFlash = new ColorLerp(Color.BLUE_GREY, Color.BLACK_25, new byte[] { 0, 0, 0, 1 });
+        disabledOuterColor = Color.GREY_DARK.withAlpha(alpha);
         menuOuterBorder = new SDFUnion("menu_inner.png", Color.BLUE_TEAL_VERY_DARK, MENU_ALPHA, 0, -INNER_OFFSET_Y,
                 "menu_outer.png",
                 Color.BLUE_GREY, alpha, PIN_STRIPE_COUNT, 2);
         logo = new SDFTexture("decal_sdf.png", Color.IXDAR_DARK, LOGO_BORDER_DIST, 0f, true);
         boundingBox = new ColorBox();
-        String cachedFileName = FileManagement.getTestFileCache();
-
         // Create both menus and link them
-        debugMenu = new Menu.MainMenu(cachedFileName);
+        debugMenu = new Menu.MainMenu();
         gameMenu = new GameMenu(debugMenu);
 
         // Select active menu based on GameMode toggle
@@ -107,8 +106,9 @@ public class MenuBox implements PointerRegion {
 
     /**
      * Draw the logo, then (when {@link #menuVisible}) the stack of menu-item
-     * buttons centered on screen. Highlights whichever button the cursor currently
-     * hovers and updates the scroll bounds to the menu's extents.
+     * buttons centered on screen. Highlights whichever enabled button the cursor currently
+     * hovers, draws disabled buttons with a dark grey rim, and updates the scroll bounds to the
+     * menu's extents.
      *
      * @param camera the active camera used for screen-space rendering
      */
@@ -150,12 +150,14 @@ public class MenuBox implements PointerRegion {
                 minDown = downBoundX;
             if (upBoundX > maxUp)
                 maxUp = upBoundX;
-            if (hoverX > leftBoundX && hoverX < rightBoundX && hoverY > downBoundX && hoverY < upBoundX) {
-                menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, outerFlash, camera);
-            } else {
-                menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, outerColor, camera);
-
+            // A disabled row keeps a dark grey rim and does not flash under the cursor.
+            Color rim = disabledOuterColor;
+            if (menuItems.get(i).action != null) {
+                boolean hovered = hoverX > leftBoundX && hoverX < rightBoundX && hoverY > downBoundX
+                        && hoverY < upBoundX;
+                rim = hovered ? outerFlash : outerColor;
             }
+            menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, rim, camera);
             Drawing.getDrawing().font.drawHyperString(menuItems.get(i).itemString(), centerX,
                     itemCenterY + itemHeight * LABEL_Y_OFFSET_FACTOR,
                     itemHeight / 2, (Camera2D) camera);
@@ -182,8 +184,8 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Hit-test menu items against the current hover position; if one is hit, record
-     * an automation event, play the click SFX, and fire its action.
+     * Hit-test menu items against the current hover position; if an enabled one is hit,
+     * record an automation event, play the click SFX, and fire its action.
      *
      * @param x cursor x in screen pixels (used only for normalized telemetry)
      * @param y cursor y in screen pixels (used only for normalized telemetry)
@@ -206,7 +208,7 @@ public class MenuBox implements PointerRegion {
                 break;
             }
         }
-        if (clickedItem == null) {
+        if (clickedItem == null || clickedItem.action == null) {
             return;
         }
         AutomationBackend automation =Platforms.get().automation();
@@ -310,6 +312,7 @@ public class MenuBox implements PointerRegion {
             float itemCenterY = centerY - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR) - scrollOffsetY;
             MenuItemBounds item = new MenuItemBounds();
             item.label = menuItems.get(i).getHeading();
+            item.enabled = menuItems.get(i).action != null;
             item.left = centerX - itemWidth / 2f;
             item.bottom = itemCenterY - itemHeight / 2f;
             item.width = itemWidth;
@@ -323,6 +326,7 @@ public class MenuBox implements PointerRegion {
 
     public static class MenuItemBounds {
         public String label;
+        public boolean enabled;
         public float left;
         public float bottom;
         public float width;

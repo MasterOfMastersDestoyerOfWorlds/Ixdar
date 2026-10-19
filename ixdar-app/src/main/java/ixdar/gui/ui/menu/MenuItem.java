@@ -10,26 +10,26 @@ import ixdar.gui.ui.text.HyperString;
  */
 public class MenuItem {
 
+    /** What a click on the row does; null for a disabled row, which a click leaves alone. */
+    public Action action;
     String heading;
     String subHeading;
     String fileName;
-    Action action;
     HyperString label;
 
     /**
-     * Build a menu item. The {@link HyperString} label is rendered with
-     * {@code Color.BLUE_GREY}.
+     * Build a menu item, its label blue-grey when it has an action and dark grey when disabled.
      *
      * @param string the heading text shown to the user
-     * @param action the action fired by {@link #performAction()}; may be null
-     *               for placeholder rows
+     * @param action the action fired by {@link #performAction()}; null for a
+     *               disabled row
      */
     public MenuItem(String string, Action action) {
         heading = string;
         subHeading = "";
         String labelText = subHeading.isEmpty() ? heading : heading + ": " + subHeading;
         label = new HyperString();
-        label.addWord(labelText, Color.BLUE_GREY);
+        label.addWord(labelText, action == null ? Color.GREY_DARK : Color.BLUE_GREY);
         this.action = action;
     }
 

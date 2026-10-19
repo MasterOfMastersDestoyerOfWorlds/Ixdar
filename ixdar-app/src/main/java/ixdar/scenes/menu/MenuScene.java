@@ -39,6 +39,20 @@ public class MenuScene extends Scene {
     }
 
     /**
+     * Take or release input; on activation reload the shown menu screen, so a Continue reflects
+     * the file the editor just opened.
+     *
+     * @param state true to activate the menu, false to suspend it
+     */
+    @Override
+    public void activate(boolean state) {
+        super.activate(state);
+        if (state && menu != null) {
+            MenuBox.load(MenuBox.activeMenu);
+        }
+    }
+
+    /**
      * The menu's one key: Esc steps back out of a submenu.
      */
     @Override

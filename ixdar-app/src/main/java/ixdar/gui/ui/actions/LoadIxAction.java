@@ -9,7 +9,7 @@ import ixdar.gui.terminal.commands.LoadIxCommand;
  */
 public class LoadIxAction implements Action {
 
-    private String fileName;
+    public String fileName;
 
     /**
      * Bind this action to a specific .ix file to load.

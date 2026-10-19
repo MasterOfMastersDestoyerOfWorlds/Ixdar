@@ -23,9 +23,10 @@ public class FileManagement {
 
     public static final String SOLUTIONS_FOLDER = "./src/main/resources/solutions/";
 
-    public static final String TEST_FILE_CACHE_LOCATION = "./src/test/cache/cache";
+    public static final String CACHE_FOLDER = "./test/cache/";
 
-    public static final String CACHE_FOLDER = "./src/test/cache/";
+    /** The file naming the last point-set file opened, which the debug menu's Continue reopens. */
+    public static String testFileCacheLocation = CACHE_FOLDER + "cache";
 
     /**
      * Locate the IxdarAssets checkout root, preferring the JVM property
@@ -118,7 +119,7 @@ public class FileManagement {
      * @return cached path string, or {@code ""} if the cache is missing or unreadable
      */
     public static String getTestFileCache() {
-        File cache = new File(TEST_FILE_CACHE_LOCATION);
+        File cache = new File(testFileCacheLocation);
         try (BufferedReader br = new BufferedReader(new FileReader(cache))) {
             String line = br.readLine();
             br.close();
@@ -137,7 +138,7 @@ public class FileManagement {
      */
     public static void updateTestFileCache(String cachedLocation) {
         if (!Compat.isBlank(cachedLocation)) {
-            File cache = new File(TEST_FILE_CACHE_LOCATION);
+            File cache = new File(testFileCacheLocation);
             try (FileWriter fw = new FileWriter(cache)) {
                 BufferedWriter out = new BufferedWriter(fw);
                 out.write(cachedLocation);

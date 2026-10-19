@@ -8,6 +8,7 @@ import ixdar.gui.ui.actions.LoadIxAction;
 import ixdar.gui.ui.actions.LoadMapEditor;
 import ixdar.platform.file.FileManagement;
 
+import ixdar.platform.Compat;
 import ixdar.platform.Platforms;
 
 /**
@@ -36,33 +37,22 @@ public interface Menu {
     public class MainMenu implements Menu {
         public ArrayList<MenuItem> menuItems;
 
-        String cachedFileString;
-
-        MainMenu(String name) {
-            this.cachedFileString = name;
-            initMenu();
-        }
-
         /**
-         * Populate {@link #menuItems} with the four main-menu rows.
-         */
-        public void initMenu() {
-
-            menuItems = new ArrayList<>();
-            menuItems.add(new MenuItem("Continue", new LoadIxAction(cachedFileString)));
-            menuItems.add(new MenuItem("Load",
-                    new ChangeScreenAction(new LoadMenu(FileManagement.SOLUTIONS_FOLDER, this))));
-            menuItems.add(new MenuItem("Settings", null));
-            menuItems.add(new MenuItem("Map Editor", new LoadMapEditor()));
-        }
-
-        /**
-         * Return the cached list of main-menu items.
+         * Rebuild the four main-menu rows, Continue bound to the file the test-file cache names
+         * now, or disabled when it names none.
          *
          * @return the menu's items in display order
          */
         @Override
         public ArrayList<MenuItem> loadMenu() {
+            String cachedFileName = FileManagement.getTestFileCache();
+            menuItems = new ArrayList<>();
+            menuItems.add(new MenuItem("Continue",
+                    Compat.isBlank(cachedFileName) ? null : new LoadIxAction(cachedFileName)));
+            menuItems.add(new MenuItem("Load",
+                    new ChangeScreenAction(new LoadMenu(FileManagement.SOLUTIONS_FOLDER, this))));
+            menuItems.add(new MenuItem("Settings", null));
+            menuItems.add(new MenuItem("Map Editor", new LoadMapEditor()));
             return menuItems;
         }
 

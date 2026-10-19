@@ -512,6 +512,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             for (MenuBox.MenuItemBounds itemBounds : menuScene.menu.getMenuItemBounds()) {
                 JsonObject menuItem = new JsonObject();
                 menuItem.addProperty(LABEL, itemBounds.label);
+                menuItem.addProperty("enabled", itemBounds.enabled);
                 JsonObject bounds = new JsonObject();
                 bounds.addProperty(XPX, itemBounds.left);
                 bounds.addProperty(YPX, itemBounds.bottom);
