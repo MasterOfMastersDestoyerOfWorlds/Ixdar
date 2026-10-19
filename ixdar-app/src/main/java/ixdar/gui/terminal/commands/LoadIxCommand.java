@@ -106,13 +106,12 @@ public class LoadIxCommand extends TerminalCommand {
             fileName = fileName.split(IX)[0];
         }
         String firstPart = fileName.split("_")[0];
-        String dir = FileManagement.SOLUTIONS_FOLDER + firstPart + "\\";
-        File solutionsFolder = new File(dir);
-        if (!solutionsFolder.exists()) {
-            dir = terminal.directory + "/";
+        File dir = new File(FileManagement.SOLUTIONS_FOLDER, firstPart);
+        if (!dir.exists()) {
+            dir = new File(terminal.directory);
         }
-        String dirLoc = dir + fileName + IX;
-        File newDir = new File(dirLoc);
+        File newDir = new File(dir, fileName + IX);
+        String dirLoc = newDir.getPath();
         if (newDir.exists() && newDir.isFile()) {
             try {
                 run(fileName);

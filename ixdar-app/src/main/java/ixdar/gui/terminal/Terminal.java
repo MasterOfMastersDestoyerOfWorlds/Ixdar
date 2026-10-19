@@ -190,14 +190,15 @@ public class Terminal implements PointerRegion {
             return;
         }
         if (key == Keys.ENTER) {
-            history.addLine(commandLine);
-            if (!Compat.isBlank(commandLine)) {
-                commandHistory.add(0, commandLine);
-                commandHistoryIdx = -1;
-                run(commandLine);
-            }
-            scrollToCommandLine = true;
+            String entered = commandLine;
             commandLine = "";
+            scrollToCommandLine = true;
+            history.addLine(entered);
+            if (!Compat.isBlank(entered)) {
+                commandHistory.add(0, entered);
+                commandHistoryIdx = -1;
+                run(entered);
+            }
             return;
         }
         if (key == Keys.SPACE) {
@@ -238,10 +239,9 @@ public class Terminal implements PointerRegion {
     }
 
     /**
-     * Tokenise {@code commandLine}, look the leading word up in {@link #commandMap}, optionally
-     * print help when the next token is {@code -h}/{@code --help}, validate the argument count,
-     * dispatch to the resolved {@link TerminalCommand}, and capture any returned tab-completion
-     * suggestions. Errors are reported into {@link #history}.
+     * Dispatch one line to the {@link TerminalCommand} its first word names and keep the
+     * tab-completion suggestions it returns. Every failure, a thrown exception included, is
+     * printed into {@link #history}.
      *
      * @param commandLine raw user-entered command, with arguments separated by whitespace
      */
@@ -273,12 +273,17 @@ public class Terminal implements PointerRegion {
             return;
         }
 
-        String[] cmd = ((TerminalCommand) command).run(args, startIdx, this);
+        String[] cmd;
+        try {
+            cmd = ((TerminalCommand) command).run(args, startIdx, this);
+        } catch (RuntimeException thrown) {
+            error(thrown.toString());
+            return;
+        }
         if (cmd != null) {
             nextLogicalCommand = cmd;
             nextLogicalCommandIdx = 0;
         }
-
     }
 
     /**

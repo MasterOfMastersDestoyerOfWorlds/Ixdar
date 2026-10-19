@@ -1,23 +1,32 @@
 package unit.scenes;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import ixdar.gui.terminal.Terminal;
+import ixdar.gui.terminal.commands.TerminalCommand;
 import ixdar.gui.ui.text.HyperWord;
 import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
+import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.main.Toggle;
@@ -26,13 +35,22 @@ import unit.GlStandIn;
 
 /**
  * A TSP command runs against the editor that owns the terminal it is typed into, and typed into
- * another scene's terminal it prints a refusal instead of throwing.
+ * another scene's terminal it prints a refusal instead of throwing; a command that throws is
+ * printed and cleared, and the subgraph lands in the terminal's directory.
  */
 class MainSceneTerminalCommandTest {
 
     private static final int STAND_IN_PLATFORM_ID = 7719;
 
     private static final String EXIT_COMMAND = "ex";
+
+    private static final String THROWING_COMMAND = "throws";
+
+    private static final String THROWN_MESSAGE = "command failed";
+
+    private static final String LINES = "lines";
+
+    private static final String WORKING_DIRECTORY = ".";
 
     private static final int WINDOW_WIDTH = 800;
 
@@ -106,7 +124,7 @@ class MainSceneTerminalCommandTest {
     void exitTypedIntoTheEditorsTerminalLeavesForItsBackScene() throws Exception {
         MenuScene menu = new MenuScene();
         Scene.instance = menu;
-        MainScene editor = new MainScene("lines", menu);
+        MainScene editor = new MainScene(LINES, menu);
         editor.setTools();
         editor.switchTool(editor.defaultTool);
         editor.terminal.run(EXIT_COMMAND);
@@ -117,14 +135,101 @@ class MainSceneTerminalCommandTest {
     void exitTypedIntoAnotherScenesTerminalIsRefused() {
         MenuScene menu = new MenuScene();
         Scene.instance = menu;
-        Terminal terminal = new Terminal(".", menu);
+        Terminal terminal = new Terminal(WORKING_DIRECTORY, menu);
         assertDoesNotThrow(() -> terminal.run(EXIT_COMMAND));
+        String printed = printed(terminal);
+        assertTrue(printed.contains(EXIT_COMMAND + " is a MainScene command"),
+                "the refusal is printed: " + printed);
+        assertNull(menu.successor, "no scene switch");
+    }
+
+    @Test
+    void aCommandThatThrowsLeavesAnEmptyCommandLineAndPrintsItsError() {
+        MenuScene menu = new MenuScene();
+        Scene.instance = menu;
+        Terminal terminal = new Terminal(WORKING_DIRECTORY, menu);
+        Terminal.commandMap.put(THROWING_COMMAND, new TerminalCommand() {
+            @Override
+            public String fullName() {
+                return THROWING_COMMAND;
+            }
+
+            @Override
+            public String shortName() {
+                return THROWING_COMMAND;
+            }
+
+            @Override
+            public String desc() {
+                return THROWING_COMMAND;
+            }
+
+            @Override
+            public String usage() {
+                return THROWING_COMMAND;
+            }
+
+            @Override
+            public int argLength() {
+                return 0;
+            }
+
+            @Override
+            public String[] run(String[] args, int startIdx, Terminal running) {
+                throw new IllegalStateException(THROWN_MESSAGE);
+            }
+        });
+        try {
+            enter(terminal, THROWING_COMMAND);
+            enter(terminal, EXIT_COMMAND);
+        } finally {
+            Terminal.commandMap.remove(THROWING_COMMAND);
+        }
+        String printed = printed(terminal);
+        assertTrue(printed.contains("EXCEPTION: java.lang.IllegalStateException: " + THROWN_MESSAGE),
+                "the thrown exception is printed: " + printed);
+        assertTrue(printed.contains(EXIT_COMMAND + " is a MainScene command"),
+                "the next line ran on its own: " + printed);
+        assertFalse(printed.contains(THROWING_COMMAND + EXIT_COMMAND), "nothing glued: " + printed);
+    }
+
+    @Test
+    void subgraphWritesItsFileInsideTheTerminalsDirectory(@TempDir Path solutions) throws Exception {
+        MenuScene menu = new MenuScene();
+        Scene.instance = menu;
+        MainScene editor = new MainScene(LINES, menu);
+        Path linesFolder = Files.createDirectory(solutions.resolve(LINES));
+        editor.terminal.directory = linesFolder.toString();
+        editor.terminal.run("sg 1-2");
+        assertTrue(Files.isRegularFile(linesFolder.resolve(LINES + "_1-2.ix")),
+                "the subgraph is " + LINES + "/" + LINES + "_1-2.ix: " + printed(editor.terminal));
+        try (Stream<Path> written = Files.list(solutions)) {
+            assertEquals(List.of(linesFolder), written.toList(), "nothing written beside the folder");
+        }
+    }
+
+    /**
+     * Type a line into the terminal and press Enter, as the keyboard does.
+     *
+     * @param terminal terminal receiving the keys
+     * @param line     command line, without spaces
+     */
+    private static void enter(Terminal terminal, String line) {
+        terminal.type(line);
+        terminal.keyPress(Keys.ENTER, 0, false);
+    }
+
+    /**
+     * The terminal's history as one string.
+     *
+     * @param terminal terminal to read
+     * @return every history word concatenated
+     */
+    private static String printed(Terminal terminal) {
         StringBuilder printed = new StringBuilder();
         for (HyperWord word : terminal.history.words) {
             printed.append(word);
         }
-        assertTrue(printed.toString().contains(EXIT_COMMAND + " is a MainScene command"),
-                "the refusal is printed: " + printed);
-        assertNull(menu.successor, "no scene switch");
+        return printed.toString();
     }
 }

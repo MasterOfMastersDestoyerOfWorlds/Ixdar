@@ -1,5 +1,6 @@
 package ixdar.gui.terminal.commands;
 
+import java.io.File;
 import java.util.ArrayList;
 
 import ixdar.annotations.command.CommandAnnotation;
@@ -13,7 +14,6 @@ import ixdar.scenes.main.MainScene;
 public class SubGraphCommand extends TerminalCommand {
     public static final String ARGUMENT = "argument ";
     public static final String WAS_OUT_OF_BOUNDS = " was out of bounds";
-    public static final String PATH_SEPARATOR = "\\";
 
     public static String cmd = "sg";
 
@@ -53,10 +53,9 @@ public class SubGraphCommand extends TerminalCommand {
             String arg = args[i];
             try {
                 Range r = Range.parse(arg);
-                if (!editor.orgShell.hasPoint(r.startIdx)) {
+                if (!editor.orgShell.hasPoint(r.startIdx) || !editor.orgShell.hasPoint(r.endIdx)) {
                     terminal.error(ARGUMENT + arg + WAS_OUT_OF_BOUNDS);
-                } else if (!editor.orgShell.hasPoint(r.endIdx)) {
-                    terminal.error(ARGUMENT + arg + WAS_OUT_OF_BOUNDS);
+                    return null;
                 }
                 ranges.add(r);
             } catch (Exception e) {
@@ -65,13 +64,11 @@ public class SubGraphCommand extends TerminalCommand {
             }
 
         }
-        String subGraphFileName = terminal.loadedFile.getName();
-        int extension = terminal.directory.lastIndexOf(PATH_SEPARATOR) + 1;
-        if (extension == -1) {
-            extension = 0;
+        if (ranges.isEmpty()) {
+            terminal.error(usage());
+            return null;
         }
-        subGraphFileName = terminal.directory.substring(extension, terminal.directory.length()) + "_";
-
+        String subGraphFileName = new File(terminal.directory).getName() + "_";
         for (int i = 0; i < ranges.size() - 1; i++) {
             Range r = ranges.get(i);
             subGraphFileName += r.toString() + "p";
@@ -81,7 +78,7 @@ public class SubGraphCommand extends TerminalCommand {
         subGraphFileName += lastRange.toString();
 
         subGraphFileName += ".ix";
-        String newPath = terminal.directory + PATH_SEPARATOR + subGraphFileName;
+        String newPath = new File(terminal.directory, subGraphFileName).getPath();
         Shell subGraph = new Shell();
         for (Range r : ranges) {
             subGraph.addAllInRange(r, editor.orgShell);

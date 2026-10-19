@@ -45,13 +45,11 @@ public class SaveCommand extends TerminalCommand {
             newFileName = newFileName.split(IX)[0];
         }
         String firstPart = newFileName.split("_")[0];
-        String dir = FileManagement.SOLUTIONS_FOLDER + firstPart + "\\";
-        String fullPath = dir + newFileName + IX;
-        File dirFile = new File(dir);
+        File dirFile = new File(FileManagement.SOLUTIONS_FOLDER, firstPart);
         if (!dirFile.exists()) {
             dirFile.mkdir();
         }
-        File newFile = new File(fullPath);
+        File newFile = new File(dirFile, newFileName + IX);
         try {
             newFile.createNewFile();
             //FileManagement.copyFileContents(Main.tempFile, newFile);

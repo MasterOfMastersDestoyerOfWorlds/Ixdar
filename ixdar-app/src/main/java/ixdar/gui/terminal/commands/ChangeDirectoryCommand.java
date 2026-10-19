@@ -45,8 +45,8 @@ public class ChangeDirectoryCommand extends TerminalCommand {
             }
             return new String[] { LS };
         }
-        String dirLoc = terminal.directory + "/" + args[startIdx];
-        File newDir = new File(dirLoc);
+        File newDir = new File(terminal.directory, args[startIdx]);
+        String dirLoc = newDir.getPath();
         if (newDir.exists() && newDir.isDirectory()) {
             terminal.directory = dirLoc;
             return new String[] { LS };

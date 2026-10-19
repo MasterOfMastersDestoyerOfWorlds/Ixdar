@@ -98,8 +98,8 @@ public class NewIxCommand extends TerminalCommand {
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
         String fileName = args[startIdx];
-        String dirLoc = terminal.directory + "/" + fileName;
-        File newDir = new File(dirLoc);
+        File newDir = new File(terminal.directory, fileName);
+        String dirLoc = newDir.getPath();
         if (newDir.exists() && newDir.isFile()) {
             try {
                 run(fileName);
