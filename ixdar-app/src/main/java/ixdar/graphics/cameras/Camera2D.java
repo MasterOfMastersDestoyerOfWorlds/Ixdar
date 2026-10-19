@@ -617,8 +617,8 @@ public class Camera2D implements Camera, CameraController {
     }
 
     /**
-     * A drag pans only when its press lands in the camera's main view, tested in window pixels
-     * from the bottom as the view's bounds are laid out; a camera with no view pans from anywhere.
+     * A drag pans only when its press lands in the camera's main view, tested in framebuffer pixels,
+     * y up, as the view's bounds are laid out; a camera with no view pans from anywhere.
      *
      * @param x    window x of the press
      * @param y    window y of the press
@@ -631,10 +631,10 @@ public class Camera2D implements Camera, CameraController {
         dragPans = mainViewBounds == null;
         if (!dragPans) {
             mainViewBounds.recalc();
-            float yFromBottom = Platforms.get().getWindowHeight() - y;
-            dragPans = x >= mainViewBounds.offsetX && x <= mainViewBounds.offsetX + mainViewBounds.viewWidth
-                    && yFromBottom >= mainViewBounds.offsetY
-                    && yFromBottom <= mainViewBounds.offsetY + mainViewBounds.viewHeight;
+            dragPans = dragStartX >= mainViewBounds.offsetX
+                    && dragStartX <= mainViewBounds.offsetX + mainViewBounds.viewWidth
+                    && dragStartY >= mainViewBounds.offsetY
+                    && dragStartY <= mainViewBounds.offsetY + mainViewBounds.viewHeight;
         }
     }
 

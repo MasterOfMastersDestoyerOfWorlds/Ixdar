@@ -404,12 +404,12 @@ public class MouseTrap {
                 h.click(normalizedPosX, normalizedPosY);
             }
             PointerDispatcher pointer = PointerDispatcher.current();
-            float yFromBottom = Platforms.get().getWindowHeight() - y;
             for (int index = 0; index < pointer.clickRegions.size(); index++) {
                 Bounds bounds = pointer.clickBounds.get(index);
                 bounds.recalc();
-                if (x >= bounds.offsetX && x <= bounds.offsetX + bounds.viewWidth
-                        && yFromBottom >= bounds.offsetY && yFromBottom <= bounds.offsetY + bounds.viewHeight) {
+                if (normalizedPosX >= bounds.offsetX && normalizedPosX <= bounds.offsetX + bounds.viewWidth
+                        && normalizedPosY >= bounds.offsetY
+                        && normalizedPosY <= bounds.offsetY + bounds.viewHeight) {
                     pointer.clickRegions.get(index).onClick(button);
                     return;
                 }

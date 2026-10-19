@@ -31,7 +31,7 @@ public class PointerDispatcher {
     /** Subscribed regions in subscription order; earlier ones win where they overlap. */
     public final ArrayList<PointerRegion> regions = new ArrayList<>();
 
-    /** Window rectangles, y up, that hand clicks to {@link #clickRegions}, parallel to it. */
+    /** Framebuffer-pixel rectangles, y up, that hand clicks to {@link #clickRegions}, parallel to it. */
     public final ArrayList<Bounds> clickBounds = new ArrayList<>();
 
     /** Regions subscribed for clicks alone, in subscription order; the first under a click takes it. */
