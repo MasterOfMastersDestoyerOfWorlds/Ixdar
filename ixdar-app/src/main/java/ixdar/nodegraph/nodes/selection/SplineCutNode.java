@@ -14,7 +14,6 @@ import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -33,8 +32,7 @@ public class SplineCutNode implements MeshNode {
 
     public static final String END_SEPARATOR = ";";
 
-    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,
-            null);
+    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
     public static final InputPort POINTS = new InputPort("points", PortType.STRING, "");
     public static final InputPort ENDS = new InputPort("ends", PortType.STRING, "");
     public static final InputPort LABEL = new InputPort("label", PortType.STRING, NODE_ID);
@@ -99,10 +97,6 @@ public class SplineCutNode implements MeshNode {
             ctx.setOutput(GEOMETRY.name, bundle);
             ctx.setOutput(SELECTION.name, false);
             return;
-        }
-        mesh = HalfEdgeMeshEngine.fromMeshTopology(mesh);
-        if (mesh != bundle.mesh()) {
-            bundle = bundle.withMesh(mesh);
         }
         String label = ctx.getInput(LABEL.name, String.class);
         if (label == null || label.isBlank()) {

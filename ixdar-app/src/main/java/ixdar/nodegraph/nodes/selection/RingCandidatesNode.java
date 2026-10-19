@@ -11,7 +11,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.rings.RingCandidateExtractor;
 import ixdar.geometry.mesh.data.rings.RingCandidates;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -30,8 +29,7 @@ public class RingCandidatesNode implements MeshNode {
 
     public static final float MAXIMUM_NECKNESS = 8f;
 
-    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,
-            null);
+    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
     public static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT,
             MeshSkeletonExtractor.DEFAULT_RESOLUTION, 16f, MAXIMUM_RESOLUTION);
     public static final InputPort MIN_NECKNESS = new InputPort("min_neckness", PortType.FLOAT,
@@ -86,12 +84,7 @@ public class RingCandidatesNode implements MeshNode {
         if (bundle == null) {
             bundle = GeometryBundle.empty();
         }
-        MeshTopology mesh = bundle.mesh() == null || bundle.mesh().faceCount() == 0
-                ? bundle.mesh()
-                : HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
-        if (mesh != bundle.mesh()) {
-            bundle = bundle.withMesh(mesh);
-        }
+        MeshTopology mesh = bundle.mesh();
         if (mesh == null || mesh.faceCount() == 0) {
             ctx.setOutput(GEOMETRY.name, bundle);
             ctx.setOutput(SELECTION.name, false);

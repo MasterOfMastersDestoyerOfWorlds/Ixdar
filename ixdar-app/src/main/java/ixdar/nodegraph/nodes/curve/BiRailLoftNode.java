@@ -17,7 +17,7 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.nodegraph.nodes.modifier.SolidifyMeshNode;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.field.FieldBroadcast;
 
@@ -179,7 +179,7 @@ public class BiRailLoftNode implements MeshNode {
         // Solidify the open loft surface to make it watertight
         MeshTopology finalMesh;
         if (thickness > 0f) {
-            finalMesh = ArrayMeshEngine.solidifyUniformMeshTopology(mesh, thickness);
+            finalMesh = SolidifyMeshNode.solidify(mesh, thickness);
         } else {
             finalMesh = mesh;
         }

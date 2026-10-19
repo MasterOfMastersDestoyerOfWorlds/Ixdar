@@ -29,6 +29,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.SurfaceRing;
 
 /**
@@ -243,10 +244,13 @@ public final class FlipGeodesicsScanBenchmark {
     private static HalfEdgeMesh crawfishShell() throws IOException {
         String meshPath = System.getProperty(MESH_PROPERTY, DEFAULT_MESH);
         long loadStart = System.nanoTime();
-        ArrayMesh loaded = MeshLoader.load(meshPath);
+        MeshTopology loaded = MeshLoader.load(meshPath);
         System.out.printf("[flip-geodesics] loader: %d vertices, %d faces%n",
                 loaded.vertexCount(), loaded.faceCount());
-        ArrayMesh welded = MeshMergeByDistance.mergeToArrayMesh(loaded, WELD_DISTANCE);
+        MeshMergeByDistance welder = new MeshMergeByDistance();
+        welder.weldArrays(loaded, WELD_DISTANCE);
+        ArrayMesh welded = new ArrayMesh(welder.weldedPositions, null, welder.weldedFaceCorners,
+                ManifoldShell.TRIANGLE_CORNERS);
         System.out.printf("[flip-geodesics] weld: %d vertices, %d faces%n",
                 welded.vertexCount(), welded.faceCount());
         ManifoldShell shell = new ManifoldShell();

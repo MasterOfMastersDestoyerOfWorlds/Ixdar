@@ -8,7 +8,6 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -23,8 +22,7 @@ import ixdar.nodegraph.api.PortType;
 @MeshNodeAnnotation(id = "surface_metric", category = NodeCategory.FIELD_DATA)
 public class SurfaceMetricNode implements MeshNode {
 
-    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,
-            null);
+    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name,
             PortType.GEOMETRY_BUNDLE);
     public static final OutputPort METRIC = new OutputPort("metric", PortType.SURFACE_METRIC);
@@ -74,8 +72,7 @@ public class SurfaceMetricNode implements MeshNode {
             ctx.setOutput(METRIC.name, null);
             return;
         }
-        HalfEdgeMesh surface = HalfEdgeMeshEngine.fromMeshTopology(mesh);
-        ctx.setOutput(GEOMETRY.name, surface == mesh ? bundle : bundle.withMesh(surface));
-        ctx.setOutput(METRIC.name, SurfaceMetric.of(surface));
+        ctx.setOutput(GEOMETRY.name, bundle);
+        ctx.setOutput(METRIC.name, SurfaceMetric.of((HalfEdgeMesh) mesh));
     }
 }

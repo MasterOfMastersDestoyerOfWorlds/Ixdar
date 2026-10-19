@@ -4,12 +4,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 
 /**
@@ -47,33 +46,35 @@ public final class SaddlePointDetector {
      * Detect saddle vertices and grow short separator cuts along each saddle's
      * positive-curvature direction.
      *
-     * @param mesh source surface mesh
-     * @param ed edge / face dihedral table; supplies the 1-ring used for the cut walk
-     * @param pdf per-vertex principal curvatures and directions
-     * @return separator edges (as packed long keys) plus the saddle seed vertex ids
+     * @param mesh source surface mesh, read in place by vertex id
+     * @param ed edge / face dihedral table of {@code mesh}, keyed by vertex ids; supplies the
+     *           1-ring used for the cut walk
+     * @param pdf per-vertex principal curvatures and directions of {@code mesh}
+     * @return separator edges (as packed long keys of vertex ids) plus the saddle seed vertex ids
      */
-    public static SaddleSeparators detect(ArrayMesh mesh, EdgeDihedrals ed, PrincipalDirectionField pdf) {
-        int nv = mesh.vertexCount();
-        float[] positions = mesh.copyPositions();
-        int[][] ring = buildOneRing(ed, nv);
+    public static SaddleSeparators detect(MeshTopology mesh, EdgeDihedrals ed, PrincipalDirectionField pdf) {
+        int vertexIdBound = mesh.vertexIdBound();
+        float[] positions = ed.positions();
+        int[][] ring = PrincipalDirectionField.oneRings(ed, vertexIdBound);
 
         // Adaptive per-mesh thresholds on κMax and −κMin. Top 10% of each.
-        float kMaxT = percentile(pdf, /*max=*/true, KMAX_PERCENTILE);
-        float kMinT = percentile(pdf, /*max=*/false, KMIN_PERCENTILE);
+        float kMaxT = percentile(mesh, pdf, /*max=*/true, KMAX_PERCENTILE);
+        float kMinT = percentile(mesh, pdf, /*max=*/false, KMIN_PERCENTILE);
 
         // Candidate saddles: both principals above the adaptive thresholds.
-        boolean[] candidate = new boolean[nv];
-        float[] strength = new float[nv];
-        for (int v = 0; v < nv; v++) {
-            float kmax = pdf.kappaMax(v);
-            float kmin = pdf.kappaMin(v);
+        boolean[] candidate = new boolean[vertexIdBound];
+        float[] strength = new float[vertexIdBound];
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            float kmax = pdf.kappaMax(vertexId);
+            float kmin = pdf.kappaMin(vertexId);
             if (kmax > kMaxT && kmin < -kMinT) {
-                candidate[v] = true;
+                candidate[vertexId] = true;
                 // Saddle strength = limiting principal. min(|κ₁|,|κ₂|) keeps
                 // both signs informative — a vertex with one strong axis
                 // and one marginal axis scores below a vertex where both
                 // axes are strongly opposite-signed.
-                strength[v] = Math.min(kmax, -kmin);
+                strength[vertexId] = Math.min(kmax, -kmin);
             }
         }
         // NMS: only keep vertices whose saddle strength is maximal in their
@@ -81,13 +82,17 @@ public final class SaddlePointDetector {
         // bottom of one inter-tooth valley would all fire and produce
         // overlapping cuts that fragment the surrounding teeth.
         List<Integer> seeds = new ArrayList<>();
-        for (int v = 0; v < nv; v++) {
-            if (!candidate[v]) continue;
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            if (!candidate[vertexId]) continue;
             boolean peak = true;
-            for (int u : ring[v]) {
-                if (candidate[u] && strength[u] > strength[v]) { peak = false; break; }
+            for (int neighbourId : ring[vertexId]) {
+                if (candidate[neighbourId] && strength[neighbourId] > strength[vertexId]) {
+                    peak = false;
+                    break;
+                }
             }
-            if (peak) seeds.add(v);
+            if (peak) seeds.add(vertexId);
         }
 
         Set<Long> out = new HashSet<>();
@@ -145,35 +150,17 @@ public final class SaddlePointDetector {
         }
     }
 
-    private static float percentile(PrincipalDirectionField pdf, boolean max, float pct) {
-        int nv = pdf.vertexCount();
+    private static float percentile(MeshTopology mesh, PrincipalDirectionField pdf, boolean max, float pct) {
+        int nv = mesh.vertexCount();
         float[] samples = new float[nv];
-        for (int v = 0; v < nv; v++) {
-            samples[v] = max ? Math.max(pdf.kappaMax(v), 0f) : Math.max(-pdf.kappaMin(v), 0f);
+        for (int activeVertex = 0; activeVertex < nv; activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            samples[activeVertex] = max ? Math.max(pdf.kappaMax(vertexId), 0f)
+                    : Math.max(-pdf.kappaMin(vertexId), 0f);
         }
         Arrays.sort(samples);
         int idx = Math.min(nv - 1, Math.max(0, Math.round((nv - 1) * pct)));
         return samples[idx];
-    }
-
-    private static int[][] buildOneRing(EdgeDihedrals ed, int nv) {
-        List<List<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(STEPS_PER_SIDE));
-        for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
-            long key = e.getKey();
-            int u = EdgeKey.minVertex(key);
-            int v = EdgeKey.maxVertex(key);
-            tmp.get(u).add(v);
-            tmp.get(v).add(u);
-        }
-        int[][] out = new int[nv][];
-        for (int i = 0; i < nv; i++) {
-            List<Integer> list = tmp.get(i);
-            int[] arr = new int[list.size()];
-            for (int j = 0; j < list.size(); j++) arr[j] = list.get(j);
-            out[i] = arr;
-        }
-        return out;
     }
 
     /** Separator edges + seed vertex ids for diagnostic overlay. */

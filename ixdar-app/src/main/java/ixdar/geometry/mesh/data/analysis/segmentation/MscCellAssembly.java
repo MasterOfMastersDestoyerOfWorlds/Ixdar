@@ -10,7 +10,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.graphics.render.color.Color;
 
@@ -33,7 +34,7 @@ public final class MscCellAssembly {
      * @param msc Morse-Smale critical-point set
      * @return per-face labels indexed in {@code [0, faceCount)}
      */
-    public static int[] ascendingManifold(ArrayMesh mesh, float[] scalar,
+    public static int[] ascendingManifold(MeshTopology mesh, float[] scalar,
                                           MorseSmaleComplex.Result msc) {
         return ascendingManifold(mesh, scalar, msc, Collections.emptySet());
     }
@@ -49,13 +50,13 @@ public final class MscCellAssembly {
      * @param highConfidenceEdges packed (lo,hi) edge keys the walker should avoid crossing when possible
      * @return per-face labels indexed in {@code [0, faceCount)}
      */
-    public static int[] ascendingManifold(ArrayMesh mesh, float[] scalar,
+    public static int[] ascendingManifold(MeshTopology mesh, float[] scalar,
                                           MorseSmaleComplex.Result msc,
                                           Set<Long> highConfidenceEdges) {
-        int[] faceIdx = mesh.copyFaceIndices();
+        int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, null);
         int faceCount = faceIdx.length / 3;
-        int nv = mesh.vertexCount();
-        float[] positions = mesh.copyPositions();
+        int nv = mesh.vertexIdBound();
+        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
 
         // Build vertex → max-id label by walking steepest-ascent from
         // every vertex once. Faces then aggregate from their three
@@ -84,7 +85,8 @@ public final class MscCellAssembly {
         }
 
         // Vertex pass: walk each vertex to a max.
-        for (int v = 0; v < nv; v++) {
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int v = mesh.vertexIdAt(activeVertex);
             if (vertexLabel[v] >= 0) continue;
             int reached = walkUphill(v, scalar, ring, isMax, highConfidenceEdges);
             int label;
@@ -117,16 +119,17 @@ public final class MscCellAssembly {
      * golden-ratio-hue progression used elsewhere in the renderer.
      *
      * @param mesh input mesh
-     * @param faceLabels ascending-manifold labels (one per face)
-     * @param positions vertex positions packed xyz (length {@code 3 * vertexCount})
+     * @param faceLabels ascending-manifold labels, one per fan triangle
+     * @param positions xyz positions by vertex id (length {@code 3 * vertexIdBound})
      * @return decomposition with one {@link Patch} per non-empty label
      */
-    public static PatchDecomposition toPatchDecomposition(ArrayMesh mesh,
+    public static PatchDecomposition toPatchDecomposition(MeshTopology mesh,
                                                            int[] faceLabels,
                                                            float[] positions) {
-        int[] faceIdx = mesh.copyFaceIndices();
+        int[] triangleFaces = new int[mesh.triangleCount()];
+        int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, triangleFaces);
         int faceCount = faceIdx.length / 3;
-        int nv = mesh.vertexCount();
+        int nv = mesh.vertexIdBound();
         int maxLabel = 0;
         for (int l : faceLabels) if (l + 1 > maxLabel) maxLabel = l + 1;
         List<List<Integer>> facesByLabel = new ArrayList<>();
@@ -141,12 +144,11 @@ public final class MscCellAssembly {
             List<Integer> faceList = facesByLabel.get(label);
             if (faceList.isEmpty()) continue;
             boolean[] seen = new boolean[nv];
-            int[] faces = new int[faceList.size()];
+            int[] faces = SemanticPatchDecomposer.patchFaceIds(faceList, triangleFaces, faceLabels);
             float[] centroid = new float[3];
             int vertCount = 0;
-            for (int i = 0; i < faces.length; i++) {
+            for (int i = 0; i < faceList.size(); i++) {
                 int f = faceList.get(i);
-                faces[i] = f;
                 for (int k = 0; k < 3; k++) {
                     int v = faceIdx[f * 3 + k];
                     if (!seen[v]) {
@@ -169,7 +171,7 @@ public final class MscCellAssembly {
             patches.add(new Patch(patchId++, verts, faces, /*branch=*/-1,
                     centroid, /*meanCurvature=*/0f, color));
         }
-        return new PatchDecomposition(nv, patches);
+        return new PatchDecomposition(mesh.vertexCount(), patches);
     }
 
     // ---- internals ----

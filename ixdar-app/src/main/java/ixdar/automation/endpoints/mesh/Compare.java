@@ -16,10 +16,6 @@ import ixdar.automation.AutomationEndpoint;
 
 import ixdar.geometry.mesh.data.io.MeshLoader;
 
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
-
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.automation.AutomationRuntime;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(id = "MeshCompare", path = "mesh/compare", method = APIMethod.POST)
@@ -58,17 +54,10 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                         return failure("Mesh not loaded yet");
                     }
 
-                    // Convert current mesh to ArrayMesh
-                    ArrayMesh currentMesh;
-                    if (currentMeshTopology instanceof ArrayMesh) {
-                        currentMesh = (ArrayMesh) currentMeshTopology;
-                    } else {
-                        currentMesh = ArrayMeshEngine.fromUniformMeshTopology(
-                                currentMeshTopology);
-                    }
+                    MeshTopology currentMesh = currentMeshTopology;
 
                     // Load reference mesh
-                    ArrayMesh referenceMesh;
+                    MeshTopology referenceMesh;
                     try {
                         referenceMesh = MeshLoader.load(
                                 referencePath);
@@ -81,18 +70,20 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                     }
 
                     // Normalize: center both meshes to origin, scale to unit bounding box diagonal
-                    if (normalize) {
-                        AutomationRuntime.normalizeMeshPositions(currentMesh);
-                        AutomationRuntime.normalizeMeshPositions(referenceMesh);
-                    }
+                    float[] currentPositions = normalize
+                            ? MeshDistance.normalizedPositions(currentMesh)
+                            : MeshDistance.extractPositions(currentMesh);
+                    float[] referencePositions = normalize
+                            ? MeshDistance.normalizedPositions(referenceMesh)
+                            : MeshDistance.extractPositions(referenceMesh);
 
                     float effectiveScale = (Float.isNaN(scale) || scale <= 0f)
                             ? 1.0f
                             : scale;
                     MeshDistance.MeshMetrics metrics = MeshDistance
                             .computeAllMetrics(
-                                    currentMesh,
-                                    referenceMesh,
+                                    currentPositions,
+                                    referencePositions,
                                     effectiveScale);
 
                     JsonObject result = success();

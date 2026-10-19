@@ -13,6 +13,7 @@ import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.data.TagGeometryNode;
 import ixdar.nodegraph.nodes.modifier.MergeByDistanceNode;
@@ -27,7 +28,6 @@ class MergeByDistanceSlotTest {
 
     private static final float EPSILON = 1e-6f;
 
-    /** Gap between the two triangles' shared edge, closed by a weld wider than it. */
     private static final float GAP = 0.001f;
 
     private static final float WELD_DISTANCE = 0.01f;
@@ -46,7 +46,7 @@ class MergeByDistanceSlotTest {
     void weldRecordsTheVertexAndFaceMaps() {
         MeshMergeByDistance welder = new MeshMergeByDistance();
 
-        ArrayMesh welded = (ArrayMesh) welder.weld(splitStrip(), WELD_DISTANCE);
+        HalfEdgeMesh welded = welder.weld(splitStrip(), WELD_DISTANCE);
 
         assertEquals(WELDED_VERTICES, welded.vertexCount(), "the near-duplicate pairs welded");
         assertEquals(TRIANGLES, welded.faceCount(), "both triangles survive");
@@ -120,7 +120,8 @@ class MergeByDistanceSlotTest {
 
     /**
      * Two triangles that share an edge only up to {@link #GAP}, so a weld collapses six vertices
-     * into four without dropping either face.
+     * into four without dropping either face. The second walks the shared edge the other way, so
+     * the welded strip is consistently oriented and has a half-edge form.
      *
      * @return the unwelded strip
      */
@@ -133,7 +134,7 @@ class MergeByDistanceSlotTest {
             1f, 1f + GAP, 0f,
             0f, 1f, 0f,
         };
-        int[] indices = { 0, 1, 2, 3, 4, 5 };
+        int[] indices = { 0, 1, 2, 4, 3, 5 };
         ArrayMesh mesh = new ArrayMesh(positions, null, indices, CornerUvField.CORNERS_PER_FACE);
         mesh.computeNormals();
         return mesh;

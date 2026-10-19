@@ -20,7 +20,6 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;
@@ -30,7 +29,6 @@ import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.numeric.sparse.AdaptiveSolver;
 import ixdar.numeric.sparse.DirectSolver;
 import ixdar.numeric.sparse.Preconditioner;
-import ixdar.numeric.sparse.chol.CholeskyBackend;
 import ixdar.numeric.sparse.matrix.NormalMatrix;
 import ixdar.numeric.sparse.ordering.OrderingMethod;
 import ixdar.numeric.sparse.ordering.SolverPermutation;
@@ -50,7 +48,7 @@ import ixdar.platform.Platforms;
 @MeshNodeAnnotation(id = "cross_field", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
 public class NDirectionField implements MeshNode {
 
-    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
     public static final InputPort CURVATURE_BIAS = new InputPort("curvature_bias", PortType.FLOAT,
             -1f);
     public static final InputPort METRIC = new InputPort("metric", PortType.SURFACE_METRIC, null);
@@ -1364,7 +1362,7 @@ public class NDirectionField implements MeshNode {
         solve.curvatureBias = FieldBroadcast.floatScalarOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, CURVATURE_BIAS.name,
                         CURVATURE_BIAS.defaultValue), 0f);
-        HalfEdgeMesh surface = HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
+        HalfEdgeMesh surface = (HalfEdgeMesh) bundle.mesh();
         SurfaceMetric surfaceMetric = ctx.getInput(METRIC.name, SurfaceMetric.class);
         if (surfaceMetric == null) {
             surfaceMetric = SurfaceMetric.of(surface);

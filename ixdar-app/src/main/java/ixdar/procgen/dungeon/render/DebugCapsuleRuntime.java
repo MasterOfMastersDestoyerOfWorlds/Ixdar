@@ -2,14 +2,15 @@ package ixdar.procgen.dungeon.render;
 
 import org.joml.Matrix4f;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 
 /**
  * Renders a low-poly capsule for debugging the player's bounding shape in third-person mode.
- * Builds an {@link ArrayMesh} of the capsule once at the player's actual radius / halfHeight,
+ * Builds a {@link HalfEdgeMesh} of the capsule once at the player's actual radius / halfHeight,
  * then on each render writes a translation-and-rotation model matrix into the wrapped
  * {@link HalfEdgeMeshRuntime} so the mesh follows the player without per-frame mesh rebuild.
  */
@@ -46,7 +47,7 @@ public final class DebugCapsuleRuntime {
                 && Math.abs(halfHeight - builtHalfHeight) < MESH_REBUILD_EPSILON) {
             return;
         }
-        ArrayMesh mesh = buildCapsuleMesh(radius, halfHeight);
+        HalfEdgeMesh mesh = buildCapsuleMesh(radius, halfHeight);
         mesh.computeNormals();
         runtime.upload(mesh);
         builtRadius = radius;
@@ -82,7 +83,7 @@ public final class DebugCapsuleRuntime {
         runtime.dispose();
     }
 
-    private static ArrayMesh buildCapsuleMesh(float r, float h) {
+    private static HalfEdgeMesh buildCapsuleMesh(float r, float h) {
         // Vertex layout:
         //   0                          : top pole         (0, h+r, 0)
         //   1 .. LAT*LON               : top hemisphere rings 1..LAT, each LON verts
@@ -205,6 +206,6 @@ public final class DebugCapsuleRuntime {
             indices[cursor++] = botLastRing + j;
         }
 
-        return new ArrayMesh(positions, null, indices, 3);
+        return HalfEdgeMeshEngine.bulkAllocate(positions, indices, 3);
     }
 }

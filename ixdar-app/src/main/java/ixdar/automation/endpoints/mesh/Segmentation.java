@@ -11,7 +11,7 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.analysis.segmentation.MeshSegmenter;
 import ixdar.geometry.mesh.data.io.MeshLoader;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 import java.io.File;
 import java.io.IOException;
@@ -38,7 +38,7 @@ public class Segmentation extends AutomationEndpoint implements AutomationRoute 
         if (f == null) {
             return failure("File not found: " + path);
         }
-        ArrayMesh mesh = MeshLoader.load(f.getAbsolutePath());
+        MeshTopology mesh = MeshLoader.load(f.getAbsolutePath());
         Map<String, int[]> tags;
         switch (method) {
         case "components" -> tags = MeshSegmenter.segmentComponents(mesh);

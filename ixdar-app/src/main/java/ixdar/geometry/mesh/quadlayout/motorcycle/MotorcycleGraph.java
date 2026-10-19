@@ -15,7 +15,6 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.field.IntField;
@@ -55,7 +54,7 @@ public final class MotorcycleGraph implements MeshNode {
 
     public static final float DEFAULT_ALPHA_DEGREES = 15.0f;
 
-    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
     public static final InputPort UV = new InputPort("uv", PortType.UV_FIELD, null);
     public static final InputPort SINGULARITIES = new InputPort("singularities",
             PortType.INT, null);
@@ -346,7 +345,7 @@ public final class MotorcycleGraph implements MeshNode {
                 FieldBroadcast.getInputOrDefault(ctx, ALPHA_DEGREES.name, ALPHA_DEGREES.defaultValue),
                 DEFAULT_ALPHA_DEGREES);
         ChartAtlas chartsInput = (ChartAtlas) ctx.getInput(CHARTS.name, Object.class);
-        HalfEdgeMesh inputMesh = HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
+        HalfEdgeMesh inputMesh = (HalfEdgeMesh) bundle.mesh();
         MotorcycleGraph graph = new MotorcycleGraph(inputMesh, inputUv, chartsInput, cones,
                 features, (float) Math.toRadians(alphaDegrees));
         graph.build();

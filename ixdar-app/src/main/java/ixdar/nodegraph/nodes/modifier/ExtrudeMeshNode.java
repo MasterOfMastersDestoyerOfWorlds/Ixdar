@@ -2,18 +2,13 @@ package ixdar.nodegraph.nodes.modifier;
 import java.util.Objects;
 import java.util.Arrays;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import java.util.HashSet;
 import java.util.Map;
 
 import org.joml.Vector3f;
 
-import java.util.Set;
-
-import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -24,9 +19,9 @@ import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
 import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
@@ -44,6 +39,7 @@ import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
 @MeshNodeAnnotation(id = "extrude_mesh", category = NodeCategory.MODIFIERS)
 public class ExtrudeMeshNode implements MeshNode {
     public static final float NORMAL_LENGTH_EPSILON = 1e-8f;
+    public static final float FACE_NORMAL_EPSILON = 1e-20f;
 
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort OFFSET = new InputPort("offset", PortType.FLOAT, 0.1f, -10f, 10f);
@@ -98,14 +94,42 @@ public class ExtrudeMeshNode implements MeshNode {
         Object regObj = FieldBroadcast.getInputOrDefault(ctx, REGION.name, REGION.defaultValue);
         boolean region = FieldBroadcast.boolAt(regObj, 0, false);
 
-        ArrayMesh am = in instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(in);
-        am.computeNormals();
+        int[] activeVertexOfId = new int[in.vertexIdBound()];
+        float[] srcPos = new float[in.vertexCount() * 3];
+        Vector3f corner = new Vector3f();
+        for (int activeVertex = 0; activeVertex < in.vertexCount(); activeVertex++) {
+            int vertexId = in.vertexIdAt(activeVertex);
+            activeVertexOfId[vertexId] = activeVertex;
+            in.vertexPosition(vertexId, corner);
+            srcPos[activeVertex * 3] = corner.x;
+            srcPos[activeVertex * 3 + 1] = corner.y;
+            srcPos[activeVertex * 3 + 2] = corner.z;
+        }
+        float[] faceNormals = new float[in.faceCount() * 3];
+        Vector3f edgeA = new Vector3f();
+        Vector3f edgeB = new Vector3f();
+        for (int fi = 0; fi < in.faceCount(); fi++) {
+            int faceId = in.faceIdAt(fi);
+            in.vertexPosition(in.faceVertexAt(faceId, 0), corner);
+            in.vertexPosition(in.faceVertexAt(faceId, 1), edgeA).sub(corner);
+            in.vertexPosition(in.faceVertexAt(faceId, 2), edgeB).sub(corner);
+            edgeA.cross(edgeB);
+            float len = edgeA.length();
+            if (len > FACE_NORMAL_EPSILON) {
+                edgeA.mul(1.0f / len);
+            } else {
+                edgeA.set(0f, 1f, 0f);
+            }
+            faceNormals[fi * 3] = edgeA.x;
+            faceNormals[fi * 3 + 1] = edgeA.y;
+            faceNormals[fi * 3 + 2] = edgeA.z;
+        }
         MeshTopology out = region
-                ? extrudeRegion(am, offset, selObj)
-                : extrudeFacesIndividual(am, offset, selObj);
+                ? extrudeRegion(in, activeVertexOfId, srcPos, faceNormals, offset, selObj)
+                : extrudeFacesIndividual(in, activeVertexOfId, srcPos, faceNormals, offset, selObj);
         int outFaceCount = out == null ? 0 : out.faceCount();
         boolean[] genMask = new boolean[outFaceCount];
-        int origFaceCount = am.faceCount();
+        int origFaceCount = in.faceCount();
         for (int fi = 0; fi < Math.min(origFaceCount, outFaceCount); fi++) {
             genMask[fi] = extrudedFaces[fi];
         }
@@ -159,8 +183,8 @@ public class ExtrudeMeshNode implements MeshNode {
 
             boolean aNew = a >= origVc;
             boolean bNew = b >= origVc;
-            int origA = aNew ? newToOrig[a - origVc] : a;
-            int origB = bNew ? newToOrig[b - origVc] : b;
+            int origA = aNew ? newToOrig[a - origVc] : inMesh.vertexIdAt(a);
+            int origB = bNew ? newToOrig[b - origVc] : inMesh.vertexIdAt(b);
             if (origA < 0 || origB < 0 || origA == origB) {
                 continue; 
             }
@@ -192,12 +216,23 @@ public class ExtrudeMeshNode implements MeshNode {
     }
 
 
-    private MeshTopology extrudeFacesIndividual(ArrayMesh mesh, float offset, Object selection) {
-        int vpf = mesh.getVertsPerFace();
+    /**
+     * Each selected face moves off along its own normal onto fresh vertices, joined to its old
+     * boundary by one side quad per edge.
+     *
+     * @param mesh             source mesh, read in place; faces of any corner count
+     * @param activeVertexOfId active vertex index per source vertex id
+     * @param srcPos           positions by active vertex index
+     * @param faceNormals      unit normal per active face
+     * @param offset           distance to move along the negated normal
+     * @param selection        per-face selection field or scalar
+     * @return the extruded mesh: source vertices in active order, then each selected face's new
+     *         corners
+     */
+    private MeshTopology extrudeFacesIndividual(MeshTopology mesh, int[] activeVertexOfId, float[] srcPos,
+            float[] faceNormals, float offset, Object selection) {
         int vertCount = mesh.vertexCount();
         int faceCount = mesh.faceCount();
-        float[] srcPos = mesh.copyPositions();
-        int[] srcFaces = mesh.copyFaceIndices();
 
         boolean[] selected = new boolean[faceCount];
         int selectedCount = 0;
@@ -210,150 +245,86 @@ public class ExtrudeMeshNode implements MeshNode {
 
         if (selectedCount == 0 || offset == 0f) {
             extrudedFromVertex = new int[0];
-            return mesh.withPositions(srcPos, null);
+            return MeshVertexOffset.apply(mesh, null);
         }
 
-        int newVertCount = selectedCount * vpf;
-        int sideFaceCount = selectedCount * vpf;
-
-        int[] newToOrig = new int[newVertCount];
-        extrudedFromVertex = newToOrig;
-
-        if (vpf == 4) {
-            int outV = vertCount + newVertCount;
-            int outF = faceCount + sideFaceCount;
-            float[] outPos = new float[outV * 3];
-            int[] outFaces = new int[outF * 4];
-
-            System.arraycopy(srcPos, 0, outPos, 0, vertCount * 3);
-
-            Vector3f faceNormal = new Vector3f();
-            int[][] faceNewVerts = new int[faceCount][];
-            int nextVert = vertCount;
-            for (int fi = 0; fi < faceCount; fi++) {
-                if (!selected[fi]) {
-                    continue;
-                }
-                mesh.faceNormal(fi, faceNormal);
-                int[] newVerts = new int[4];
-                int fb = fi * 4;
-                for (int k = 0; k < 4; k++) {
-                    int origVid = srcFaces[fb + k];
-                    outPos[nextVert * 3] = srcPos[origVid * 3] - faceNormal.x * offset;
-                    outPos[nextVert * 3 + 1] = srcPos[origVid * 3 + 1] - faceNormal.y * offset;
-                    outPos[nextVert * 3 + 2] = srcPos[origVid * 3 + 2] - faceNormal.z * offset;
-                    newToOrig[nextVert - vertCount] = origVid;
-                    newVerts[k] = nextVert++;
-                }
-                faceNewVerts[fi] = newVerts;
-            }
-
-            int fWrite = 0;
-            for (int fi = 0; fi < faceCount; fi++) {
-                int fo = fWrite * 4;
-                if (selected[fi]) {
-                    int[] nv = faceNewVerts[fi];
-                    outFaces[fo] = nv[0];
-                    outFaces[fo + 1] = nv[1];
-                    outFaces[fo + 2] = nv[2];
-                    outFaces[fo + 3] = nv[3];
-                } else {
-                    int fb = fi * 4;
-                    outFaces[fo] = srcFaces[fb];
-                    outFaces[fo + 1] = srcFaces[fb + 1];
-                    outFaces[fo + 2] = srcFaces[fb + 2];
-                    outFaces[fo + 3] = srcFaces[fb + 3];
-                }
-                fWrite++;
-            }
-
-            for (int fi = 0; fi < faceCount; fi++) {
-                if (!selected[fi]) {
-                    continue;
-                }
-                int[] nv = faceNewVerts[fi];
-                int fb = fi * 4;
-                for (int k = 0; k < 4; k++) {
-                    int next = (k + 1) & 3;
-                    int fo = fWrite * 4;
-                    outFaces[fo] = srcFaces[fb + k];
-                    outFaces[fo + 1] = srcFaces[fb + next];
-                    outFaces[fo + 2] = nv[next];
-                    outFaces[fo + 3] = nv[k];
-                    fWrite++;
-                }
-            }
-
-            ArrayMesh out = new ArrayMesh(outPos, null, outFaces, 4);
-            out.computeNormals();
-            return out;
-        }
-
-        HalfEdgeMesh out = new HalfEdgeMesh(
-                vertCount + newVertCount, 0,
-                faceCount + sideFaceCount,
-                (faceCount + sideFaceCount) * vpf * 2);
-
-        for (int vi = 0; vi < vertCount; vi++) {
-            out.addVertex(srcPos[vi * 3], srcPos[vi * 3 + 1], srcPos[vi * 3 + 2]);
-        }
-
-        Vector3f faceNormal = new Vector3f();
-        int[][] faceNewVerts = new int[faceCount][];
-
+        int cornerCount = 0;
+        int selectedCorners = 0;
+        int[] firstNewVertex = new int[faceCount];
         for (int fi = 0; fi < faceCount; fi++) {
-            if (!selected[fi]) continue;
-            mesh.faceNormal(fi, faceNormal);
-            int[] newVerts = new int[vpf];
-            for (int k = 0; k < vpf; k++) {
-                int origVid = srcFaces[fi * vpf + k];
-                float nx = srcPos[origVid * 3] - faceNormal.x * offset;
-                float ny = srcPos[origVid * 3 + 1] - faceNormal.y * offset;
-                float nz = srcPos[origVid * 3 + 2] - faceNormal.z * offset;
-                int newVid = out.addVertex(nx, ny, nz);
-                newVerts[k] = newVid;
-                if (newVid - vertCount < newToOrig.length) {
-                    newToOrig[newVid - vertCount] = origVid;
-                }
-            }
-            faceNewVerts[fi] = newVerts;
-        }
-
-        for (int fi = 0; fi < faceCount; fi++) {
+            int corners = mesh.faceVertexCount(mesh.faceIdAt(fi));
+            cornerCount += corners;
             if (selected[fi]) {
-                out.addFace(faceNewVerts[fi]);
-            } else {
-                int[] vids = new int[vpf];
-                for (int k = 0; k < vpf; k++) {
-                    vids[k] = srcFaces[fi * vpf + k];
-                }
-                out.addFace(vids);
+                firstNewVertex[fi] = vertCount + selectedCorners;
+                selectedCorners += corners;
             }
         }
 
+        int[] newToOrig = new int[selectedCorners];
+        extrudedFromVertex = newToOrig;
+        float[] outPos = Arrays.copyOf(srcPos, (vertCount + selectedCorners) * 3);
+        int[] faceSizes = new int[faceCount + selectedCorners];
+        int[] outFaces = new int[cornerCount + selectedCorners * 4];
+        int cornerWrite = 0;
         for (int fi = 0; fi < faceCount; fi++) {
-            if (!selected[fi]) continue;
-            int[] newVerts = faceNewVerts[fi];
-            for (int k = 0; k < vpf; k++) {
-                int next = (k + 1) % vpf;
-                int origA = srcFaces[fi * vpf + k];
-                int origB = srcFaces[fi * vpf + next];
-                int newA = newVerts[k];
-                int newB = newVerts[next];
-                out.addFace(origA, origB, newB, newA);
+            int faceId = mesh.faceIdAt(fi);
+            int corners = mesh.faceVertexCount(faceId);
+            faceSizes[fi] = corners;
+            for (int k = 0; k < corners; k++) {
+                int vertexId = mesh.faceVertexAt(faceId, k);
+                int origVertex = activeVertexOfId[vertexId];
+                if (!selected[fi]) {
+                    outFaces[cornerWrite++] = origVertex;
+                    continue;
+                }
+                int newVertex = firstNewVertex[fi] + k;
+                outPos[newVertex * 3] = srcPos[origVertex * 3] - faceNormals[fi * 3] * offset;
+                outPos[newVertex * 3 + 1] = srcPos[origVertex * 3 + 1] - faceNormals[fi * 3 + 1] * offset;
+                outPos[newVertex * 3 + 2] = srcPos[origVertex * 3 + 2] - faceNormals[fi * 3 + 2] * offset;
+                newToOrig[newVertex - vertCount] = vertexId;
+                outFaces[cornerWrite++] = newVertex;
             }
         }
 
+        int faceWrite = faceCount;
+        for (int fi = 0; fi < faceCount; fi++) {
+            if (!selected[fi]) {
+                continue;
+            }
+            int faceId = mesh.faceIdAt(fi);
+            int corners = mesh.faceVertexCount(faceId);
+            for (int k = 0; k < corners; k++) {
+                int next = (k + 1) % corners;
+                faceSizes[faceWrite++] = 4;
+                outFaces[cornerWrite++] = activeVertexOfId[mesh.faceVertexAt(faceId, k)];
+                outFaces[cornerWrite++] = activeVertexOfId[mesh.faceVertexAt(faceId, next)];
+                outFaces[cornerWrite++] = firstNewVertex[fi] + next;
+                outFaces[cornerWrite++] = firstNewVertex[fi] + k;
+            }
+        }
+
+        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(outPos, faceSizes, outFaces);
         out.computeNormals();
         return out;
     }
 
-    private MeshTopology extrudeRegion(ArrayMesh mesh, float offset, Object selection) {
-        int vpf = mesh.getVertsPerFace();
+    /**
+     * The selected faces move off together: each vertex they use moves along the mean of its
+     * selected faces' normals, and side quads close only the region's boundary edges.
+     *
+     * @param mesh             source mesh, read in place; faces of any corner count
+     * @param activeVertexOfId active vertex index per source vertex id
+     * @param srcPos           positions by active vertex index
+     * @param faceNormals      unit normal per active face
+     * @param offset           distance to move along the negated normal
+     * @param selection        per-face selection field or scalar
+     * @return the extruded mesh: source vertices in active order, then one moved copy of each
+     *         vertex a selected face uses, in active order
+     */
+    private MeshTopology extrudeRegion(MeshTopology mesh, int[] activeVertexOfId, float[] srcPos,
+            float[] faceNormals, float offset, Object selection) {
         int vertCount = mesh.vertexCount();
         int faceCount = mesh.faceCount();
-        float[] srcPos = mesh.copyPositions();
-        int[] srcFaces = mesh.copyFaceIndices();
 
         boolean[] selected = new boolean[faceCount];
         int selectedCount = 0;
@@ -366,29 +337,24 @@ public class ExtrudeMeshNode implements MeshNode {
 
         if (selectedCount == 0 || offset == 0f) {
             extrudedFromVertex = new int[0];
-            return mesh.withPositions(srcPos, null);
+            return MeshVertexOffset.apply(mesh, null);
         }
 
         boolean[] vertUsedBySelected = new boolean[vertCount];
-        for (int fi = 0; fi < faceCount; fi++) {
-            if (!selected[fi]) continue;
-            for (int k = 0; k < vpf; k++) {
-                vertUsedBySelected[srcFaces[fi * vpf + k]] = true;
-            }
-        }
-
-        Vector3f faceNormal = new Vector3f();
         float[] vertNormals = new float[vertCount * 3]; // accumulated
         int[] vertNormalCount = new int[vertCount];
-
+        int cornerCount = 0;
         for (int fi = 0; fi < faceCount; fi++) {
+            int faceId = mesh.faceIdAt(fi);
+            int corners = mesh.faceVertexCount(faceId);
+            cornerCount += corners;
             if (!selected[fi]) continue;
-            mesh.faceNormal(fi, faceNormal);
-            for (int k = 0; k < vpf; k++) {
-                int vi = srcFaces[fi * vpf + k];
-                vertNormals[vi * 3] += faceNormal.x;
-                vertNormals[vi * 3 + 1] += faceNormal.y;
-                vertNormals[vi * 3 + 2] += faceNormal.z;
+            for (int k = 0; k < corners; k++) {
+                int vi = activeVertexOfId[mesh.faceVertexAt(faceId, k)];
+                vertUsedBySelected[vi] = true;
+                vertNormals[vi * 3] += faceNormals[fi * 3];
+                vertNormals[vi * 3 + 1] += faceNormals[fi * 3 + 1];
+                vertNormals[vi * 3 + 2] += faceNormals[fi * 3 + 2];
                 vertNormalCount[vi]++;
             }
         }
@@ -419,78 +385,68 @@ public class ExtrudeMeshNode implements MeshNode {
         extrudedFromVertex = newToOrig;
         for (int vi = 0; vi < vertCount; vi++) {
             if (vertNewId[vi] >= 0) {
-                newToOrig[vertNewId[vi] - vertCount] = vi;
+                newToOrig[vertNewId[vi] - vertCount] = mesh.vertexIdAt(vi);
             }
         }
 
-        long[] boundaryEdges = new long[faceCount * vpf];
-        int boundaryEdgeCount = 0;
-        Set<Long> edgeSeen = new HashSet<>();
-
-        Map<Long, List<Integer>> edgeFaces = new HashMap<>();
+        // An edge of a selected face is a region boundary when it has one face or its other face
+        // is unselected; each gets one side quad, in the direction its selected face walks it.
+        int[] activeFaceOfId = new int[mesh.faceIdBound()];
         for (int fi = 0; fi < faceCount; fi++) {
-            for (int k = 0; k < vpf; k++) {
-                int va = srcFaces[fi * vpf + k];
-                int vb = srcFaces[fi * vpf + ((k + 1) % vpf)];
-                long key = EdgeKey.undirected(va, vb);
-                edgeFaces.computeIfAbsent(key, x -> new ArrayList<>()).add(fi);
-            }
+            activeFaceOfId[mesh.faceIdAt(fi)] = fi;
         }
-
+        int[] boundaryStarts = new int[cornerCount];
+        int[] boundaryEnds = new int[cornerCount];
+        int boundaryEdgeCount = 0;
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
-            for (int k = 0; k < vpf; k++) {
-                int va = srcFaces[fi * vpf + k];
-                int vb = srcFaces[fi * vpf + ((k + 1) % vpf)];
-                long key = EdgeKey.undirected(va, vb);
-                if (edgeSeen.contains(key)) continue;
-
-                List<Integer> faces = edgeFaces.get(key);
-                boolean allSelected = true;
-                for (int f : faces) {
-                    if (!selected[f]) { allSelected = false; break; }
-                }
-                if (!allSelected || faces.size() == 1) {
-                    edgeSeen.add(key);
-                    boundaryEdges[boundaryEdgeCount++] = EdgeKey.directed(va, vb);
+            int faceId = mesh.faceIdAt(fi);
+            int corners = mesh.faceVertexCount(faceId);
+            for (int k = 0; k < corners; k++) {
+                int vertexId = mesh.faceVertexAt(faceId, k);
+                int nextVertexId = mesh.faceVertexAt(faceId, (k + 1) % corners);
+                int edgeId = mesh.edgeBetween(vertexId, nextVertexId);
+                int otherFaceId = mesh.edgeFace(edgeId, 0) == faceId ? mesh.edgeFace(edgeId, 1)
+                        : mesh.edgeFace(edgeId, 0);
+                if (otherFaceId == MeshTopology.NONE || !selected[activeFaceOfId[otherFaceId]]) {
+                    boundaryStarts[boundaryEdgeCount] = activeVertexOfId[vertexId];
+                    boundaryEnds[boundaryEdgeCount++] = activeVertexOfId[nextVertexId];
                 }
             }
         }
 
-        int sideQuadCount = boundaryEdgeCount;
-        int totalFaces = faceCount + sideQuadCount;
-
-        HalfEdgeMesh out = new HalfEdgeMesh(
-                vertCount + newVertTotal, 0,
-                totalFaces, totalFaces * vpf * 2);
-        for (int vi = 0; vi < vertCount; vi++) {
-            out.addVertex(srcPos[vi * 3], srcPos[vi * 3 + 1], srcPos[vi * 3 + 2]);
-        }
+        float[] outPos = Arrays.copyOf(srcPos, (vertCount + newVertTotal) * 3);
         for (int vi = 0; vi < vertCount; vi++) {
             if (!vertUsedBySelected[vi]) continue;
-            float nx = srcPos[vi * 3] - vertNormals[vi * 3] * offset;
-            float ny = srcPos[vi * 3 + 1] - vertNormals[vi * 3 + 1] * offset;
-            float nz = srcPos[vi * 3 + 2] - vertNormals[vi * 3 + 2] * offset;
-            out.addVertex(nx, ny, nz);
+            int o = vertNewId[vi] * 3;
+            outPos[o] = srcPos[vi * 3] - vertNormals[vi * 3] * offset;
+            outPos[o + 1] = srcPos[vi * 3 + 1] - vertNormals[vi * 3 + 1] * offset;
+            outPos[o + 2] = srcPos[vi * 3 + 2] - vertNormals[vi * 3 + 2] * offset;
         }
 
+        int[] faceSizes = new int[faceCount + boundaryEdgeCount];
+        int[] outFaces = new int[cornerCount + boundaryEdgeCount * 4];
+        int cornerWrite = 0;
         for (int fi = 0; fi < faceCount; fi++) {
-            int[] vids = new int[vpf];
-            for (int k = 0; k < vpf; k++) {
-                int origV = srcFaces[fi * vpf + k];
-                vids[k] = selected[fi] ? vertNewId[origV] : origV;
+            int faceId = mesh.faceIdAt(fi);
+            int corners = mesh.faceVertexCount(faceId);
+            faceSizes[fi] = corners;
+            for (int k = 0; k < corners; k++) {
+                int origV = activeVertexOfId[mesh.faceVertexAt(faceId, k)];
+                outFaces[cornerWrite++] = selected[fi] ? vertNewId[origV] : origV;
             }
-            out.addFace(vids);
         }
         for (int i = 0; i < boundaryEdgeCount; i++) {
-            int va = EdgeKey.minVertex(boundaryEdges[i]);
-            int vb = EdgeKey.maxVertex(boundaryEdges[i]);
-            int newA = vertNewId[va];
-            int newB = vertNewId[vb];
-            if (newA < 0 || newB < 0) continue;
-            out.addFace(va, vb, newB, newA);
+            int va = boundaryStarts[i];
+            int vb = boundaryEnds[i];
+            faceSizes[faceCount + i] = 4;
+            outFaces[cornerWrite++] = va;
+            outFaces[cornerWrite++] = vb;
+            outFaces[cornerWrite++] = vertNewId[vb];
+            outFaces[cornerWrite++] = vertNewId[va];
         }
 
+        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(outPos, faceSizes, outFaces);
         out.computeNormals();
         return out;
     }

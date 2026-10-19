@@ -1,20 +1,17 @@
 package ixdar.geometry.mesh.data.ops;
 
+import java.util.Arrays;
+
 import org.joml.Vector3f;
 
 import ixdar.nodegraph.field.BoolField;
-
-import java.util.HashMap;
-
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
- * Deletes selected vertices (where selection is true), producing a new mesh
- * (preferring {@link ArrayMesh}).
+ * Deletes selected vertices (where selection is true), producing a new {@link HalfEdgeMesh}.
  */
 public final class MeshDeleteVertices {
 
@@ -23,17 +20,17 @@ public final class MeshDeleteVertices {
 
     /**
      * Delete every vertex flagged in {@code selectionObj}, dropping faces that used any deleted vertex.
+     * Survivors keep their order, so vertex and face ids are the input's with the deleted ones removed.
      *
      * @param mesh source mesh; treated read-only
      * @param selectionObj per-vertex {@link BoolField} whose length matches {@code mesh.vertexCount()},
      *                     or a {@link Boolean} ({@code true} = delete every vertex)
      * @throws IllegalArgumentException if {@code selectionObj} is a {@link BoolField} of mismatched length
-     * @return new mesh — empty if everything was deleted, a copy of the input if nothing was selected,
-     *         an {@link ArrayMesh} when the input is one, otherwise a {@link HalfEdgeMesh}
+     * @return new mesh — empty if everything was deleted, a copy of the input if nothing was selected
      */
     public static MeshTopology delete(MeshTopology mesh, Object selectionObj) {
         if (mesh == null || mesh.vertexCount() == 0) {
-            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
+            return new HalfEdgeMesh();
         }
         int n = mesh.vertexCount();
         boolean deleteAll = false;
@@ -47,12 +44,10 @@ public final class MeshDeleteVertices {
             }
         } else if (selectionObj instanceof Boolean b) {
             deleteAll = b;
-        } else {
-            deleteAll = false;
         }
 
         if (deleteAll) {
-            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
+            return new HalfEdgeMesh();
         }
 
         boolean any = false;
@@ -66,52 +61,48 @@ public final class MeshDeleteVertices {
             return MeshVertexOffset.apply(mesh, new Vector3Value(0f, 0f, 0f));
         }
 
-        if (mesh instanceof ArrayMesh am) {
-            return ArrayMeshEngine.deleteVertices(am, del);
-        }
-
-        HashMap<Integer, Integer> oldToNew = new HashMap<>();
-        HalfEdgeMesh out = new HalfEdgeMesh();
-        Vector3f p = new Vector3f();
-        for (int i = 0; i < n; i++) {
-            if (del[i]) {
+        float[] positions = new float[n * 3];
+        int[] outVertexOfId = new int[mesh.vertexIdBound()];
+        Vector3f position = new Vector3f();
+        int survivors = 0;
+        for (int activeVertex = 0; activeVertex < n; activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            if (del[activeVertex]) {
+                outVertexOfId[vertexId] = -1;
                 continue;
             }
-            int vid = mesh.vertexIdAt(i);
-            mesh.vertexPosition(vid, p);
-            int nid = out.addVertex(p);
-            oldToNew.put(vid, nid);
+            mesh.vertexPosition(vertexId, position);
+            positions[survivors * 3] = position.x;
+            positions[survivors * 3 + 1] = position.y;
+            positions[survivors * 3 + 2] = position.z;
+            outVertexOfId[vertexId] = survivors++;
         }
-
-        for (int fi = 0; fi < mesh.faceCount(); fi++) {
-            int fid = mesh.faceIdAt(fi);
-            int fc = mesh.faceVertexCount(fid);
-            int[] nv = new int[fc];
-            boolean skip = false;
-            for (int k = 0; k < fc; k++) {
-                int ov = mesh.faceVertexAt(fid, k);
-                int ai = activeIndex(mesh, ov);
-                if (ai < 0 || del[ai]) {
-                    skip = true;
-                    break;
+        int corners = 0;
+        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
+            corners += mesh.faceVertexCount(mesh.faceIdAt(activeFace));
+        }
+        int[] faceVertices = new int[corners];
+        int[] faceSizes = new int[mesh.faceCount()];
+        int keptFaces = 0;
+        int keptCorners = 0;
+        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            int size = mesh.faceVertexCount(faceId);
+            boolean keep = true;
+            for (int corner = 0; corner < size && keep; corner++) {
+                keep = outVertexOfId[mesh.faceVertexAt(faceId, corner)] >= 0;
+            }
+            if (keep) {
+                for (int corner = 0; corner < size; corner++) {
+                    faceVertices[keptCorners + corner] = outVertexOfId[mesh.faceVertexAt(faceId, corner)];
                 }
-                nv[k] = oldToNew.get(ov);
-            }
-            if (!skip) {
-                out.addFace(nv);
+                faceSizes[keptFaces++] = size;
+                keptCorners += size;
             }
         }
+        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(Arrays.copyOf(positions, survivors * 3),
+                Arrays.copyOf(faceSizes, keptFaces), Arrays.copyOf(faceVertices, keptCorners));
         out.computeNormals();
         return out;
-    }
-
-    private static int activeIndex(MeshTopology mesh, int vertexId) {
-        int n = mesh.vertexCount();
-        for (int i = 0; i < n; i++) {
-            if (mesh.vertexIdAt(i) == vertexId) {
-                return i;
-            }
-        }
-        return -1;
     }
 }

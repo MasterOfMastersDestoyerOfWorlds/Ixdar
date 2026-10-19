@@ -7,25 +7,27 @@ import org.joml.Vector3f;
 
 
 /**
- * Dense, uniform-face mesh backed by flat arrays. Implements
- * {@link MeshTopology} without HashMap-based construction; half-edge
- * connectivity is derived from face indices into twin/edge CSR data on the
- * first topology query and shared with every {@link #withPositions} copy.
+ * The indexed form of a mesh {@link HalfEdgeMesh} cannot hold: a raw scan with non-manifold or
+ * degenerate edges, or repaired output with unoriented edges. Only the loaders and mesh repair
+ * build one. Edge connectivity is derived from the face buffer on the first topology query.
  */
 public final class ArrayMesh implements MeshTopology {
-    public static final String IS_NOT_VALID = " is not valid";
-    public static final int FLOATS_PER_GPU_VERTEX = 8;
     public static final float NORMAL_LENGTH_EPSILON = 1e-20f;
 
     private static final int FLOATS_PER_VERTEX = 3;
 
-    private final float[] positions;
+    /** Packed xyz triples, vertex id {@code i} at {@code 3 * i}; ids are dense. */
+    public final float[] positions;
+
+    /** Corners of every face end to end, {@link #vertsPerFace} per face, as vertex ids. */
+    public final int[] faceIndices;
+
+    public final int vertsPerFace;
+
     private final float[] normals;
     private final float[] faceNormals;
-    private final int[] faceIndices;
-    private final int vertsPerFace;
 
-    private final AtomicReference<Topology> topology;
+    private final AtomicReference<Topology> topology = new AtomicReference<>();
 
     private float radiusCached = Float.NaN;
     private final Vector3f boundsMin = new Vector3f();
@@ -47,11 +49,6 @@ public final class ArrayMesh implements MeshTopology {
      *                                  multiple of {@code vertsPerFace}
      */
     public ArrayMesh(float[] positions, float[] normals, int[] faceIndices, int vertsPerFace) {
-        this(positions, normals, faceIndices, vertsPerFace, new AtomicReference<>());
-    }
-
-    private ArrayMesh(float[] positions, float[] normals, int[] faceIndices, int vertsPerFace,
-            AtomicReference<Topology> topology) {
         if (positions.length % FLOATS_PER_VERTEX != 0) {
             throw new IllegalArgumentException("positions must be XYZ triples");
         }
@@ -63,229 +60,12 @@ public final class ArrayMesh implements MeshTopology {
         this.faceNormals = new float[(faceIndices.length / vertsPerFace) * FLOATS_PER_VERTEX];
         this.faceIndices = faceIndices;
         this.vertsPerFace = vertsPerFace;
-        this.topology = topology;
-    }
-
-    /**
-     * A mesh over this mesh's face buffer with new positions. It shares this mesh's topology holder,
-     * built or not, so the first edge query on either mesh builds it once for both.
-     *
-     * @param newPositions packed xyz triples, one per vertex of this mesh
-     * @param newNormals   matching xyz normals, or {@code null} to allocate zeros
-     * @return mesh with the same faces, vertex ids, edge ids and half-edge ids
-     * @throws IllegalArgumentException if {@code newPositions} has a different
-     *                                  vertex count
-     */
-    public ArrayMesh withPositions(float[] newPositions, float[] newNormals) {
-        if (newPositions.length != positions.length) {
-            throw new IllegalArgumentException("withPositions needs " + vertexCount() + " vertices, got "
-                    + newPositions.length / FLOATS_PER_VERTEX);
-        }
-        return new ArrayMesh(newPositions, newNormals, faceIndices, vertsPerFace, topology);
-    }
-
-    /**
-     * Builds a quad-only mesh from packed xyz positions and a flat quad index
-     * buffer.
-     *
-     * @param positions   packed xyz triples
-     * @param quadIndices vertex indices in groups of four
-     * @return mesh with {@code vertsPerFace = 4} and zeroed normals
-     */
-    public static ArrayMesh fromQuads(float[] positions, int[] quadIndices) {
-        return new ArrayMesh(positions, null, quadIndices, 4);
-    }
-
-    /**
-     * One linear quad-subdivision step on dense arrays (see
-     * {@link ArrayMeshEngine#subdivideQuadsOnce}).
-     *
-     * @param positions   packed xyz triples
-     * @param quadIndices flat quad index buffer
-     * @return subdivided {@link ArrayMesh}
-     */
-    public static ArrayMesh subdivideQuads(float[] positions, int[] quadIndices) {
-        return ArrayMeshEngine.subdivideQuadsOnce(fromQuads(positions, quadIndices));
-    }
-
-    /**
-     * Delegates to {@link ArrayMeshEngine#subdivideQuadsOnce(MeshTopology)}.
-     *
-     * @param src uniform-quad source mesh
-     * @return subdivided {@link ArrayMesh}
-     */
-    public static ArrayMesh subdivideQuadsOnce(ArrayMesh src) {
-        return ArrayMeshEngine.subdivideQuadsOnce(src);
-    }
-
-    /**
-     * Delegates to {@link ArrayMeshEngine#deleteVertices(ArrayMesh, boolean[])}.
-     *
-     * @param mesh source mesh
-     * @param del  per-vertex deletion mask
-     * @return mesh with selected vertices and incident faces removed
-     */
-    public static ArrayMesh deleteVertices(ArrayMesh mesh, boolean[] del) {
-        return ArrayMeshEngine.deleteVertices(mesh, del);
-    }
-
-    /**
-     * Delegates to {@link ArrayMeshEngine#deleteEdges(ArrayMesh, boolean[])}.
-     *
-     * @param mesh    source mesh
-     * @param delEdge per-edge deletion mask
-     * @return mesh with selected edges (and their faces) removed
-     */
-    public static ArrayMesh deleteEdges(ArrayMesh mesh, boolean[] delEdge) {
-        return ArrayMeshEngine.deleteEdges(mesh, delEdge);
-    }
-
-    /**
-     * Delegates to {@link ArrayMeshEngine#mergeByDistance(ArrayMesh, float)}.
-     *
-     * @param mesh     source mesh
-     * @param distance weld threshold
-     * @return mesh with near-coincident vertices welded
-     */
-    public static ArrayMesh mergeByDistance(ArrayMesh mesh, float distance) {
-        return ArrayMeshEngine.mergeByDistance(mesh, distance);
-    }
-
-    /**
-     * Delegates to {@link ArrayMeshEngine#join(ArrayMesh, ArrayMesh)}.
-     *
-     * @param a first mesh
-     * @param b second mesh
-     * @return concatenation of {@code a} and {@code b} (no welding)
-     */
-    public static ArrayMesh join(ArrayMesh a, ArrayMesh b) {
-        return ArrayMeshEngine.join(a, b);
-    }
-
-    /**
-     * Fixed face arity (e.g. 4 for quad meshes).
-     *
-     * @return number of vertices per face
-     */
-    public int getVertsPerFace() {
-        return vertsPerFace;
-    }
-
-    /**
-     * Defensive copy of the packed xyz position array.
-     *
-     * @return new array independent of internal storage
-     */
-    public float[] copyPositions() {
-        return Arrays.copyOf(positions, positions.length);
-    }
-
-    /**
-     * Defensive copy of the flat face-index buffer (groups of
-     * {@link #getVertsPerFace()}).
-     *
-     * @return new array independent of internal storage
-     */
-    public int[] copyFaceIndices() {
-        return Arrays.copyOf(faceIndices, faceIndices.length);
-    }
-
-    /**
-     * Defensive copy of the packed xyz vertex-normal array.
-     *
-     * @return new array independent of internal storage
-     */
-    public float[] copyNormals() {
-        return Arrays.copyOf(normals, normals.length);
-    }
-
-    /**
-     * Writes the position of a vertex in place; invalidates cached bounds and
-     * radius.
-     *
-     * @param vertexId vertex index
-     * @param x        new x coordinate
-     * @param y        new y coordinate
-     * @param z        new z coordinate
-     */
-    public void setVertexPosition(int vertexId, float x, float y, float z) {
-        int o = vertexId * FLOATS_PER_VERTEX;
-        positions[o] = x;
-        positions[o + 1] = y;
-        positions[o + 2] = z;
-        boundsDirty = true;
-        radiusCached = Float.NaN;
-    }
-
-    /**
-     * Builds GPU-ready interleaved vertex data and a triangulated index buffer for
-     * rendering. Each output vertex is 8 floats (xyz, normal xyz, two zero-padded
-     * slots); faces are fan-triangulated.
-     *
-     * @return compiled mesh data including bounds and bounding sphere
-     */
-    public HalfEdgeCompiledMeshData compileSurfaceData() {
-        int vCount = vertexCount();
-        int fCount = faceCount();
-        float[] vertices = new float[vCount * FLOATS_PER_GPU_VERTEX];
-        for (int i = 0; i < vCount; i++) {
-            int o = i * FLOATS_PER_VERTEX;
-            int t = i * FLOATS_PER_GPU_VERTEX;
-            vertices[t] = positions[o];
-            vertices[t + 1] = positions[o + 1];
-            vertices[t + 2] = positions[o + 2];
-            vertices[t + FLOATS_PER_VERTEX] = normals[o];
-            vertices[t + 4] = normals[o + 1];
-            vertices[t + 5] = normals[o + 2];
-            vertices[t + 6] = 0f;
-            vertices[t + 7] = 0f;
-        }
-        int triangleCount = 0;
-        for (int fi = 0; fi < fCount; fi++) {
-            triangleCount += Math.max(0, faceVertexCount(fi) - 2);
-        }
-        int[] indices = new int[triangleCount * FLOATS_PER_VERTEX];
-        int cursor = 0;
-        for (int fi = 0; fi < fCount; fi++) {
-            int n = faceVertexCount(fi);
-            if (n < FLOATS_PER_VERTEX) {
-                continue;
-            }
-            int anchor = faceVertexAt(fi, 0);
-            for (int j = 1; j < n - 1; j++) {
-                indices[cursor++] = anchor;
-                indices[cursor++] = faceVertexAt(fi, j);
-                indices[cursor++] = faceVertexAt(fi, j + 1);
-            }
-        }
-        Vector3f min = boundsMin(new Vector3f());
-        Vector3f max = boundsMax(new Vector3f());
-        Vector3f cen = center(new Vector3f());
-        float rad = radius();
-        return new HalfEdgeCompiledMeshData(vertices, indices, vCount, fCount, min, max, cen, rad);
-    }
-
-    /**
-     * Materializes this dense mesh as a fully connected {@link HalfEdgeMesh},
-     * copying positions, faces, and vertex normals.
-     *
-     * @return new half-edge mesh with the same geometry
-     */
-    public HalfEdgeMesh toHalfEdgeMesh() {
-        HalfEdgeMesh m = HalfEdgeMesh.bulkAllocate(Arrays.copyOf(positions, positions.length),
-                Arrays.copyOf(faceIndices, faceIndices.length), vertsPerFace);
-        // Fill face normals from geometry first; the source vertex normals then
-        // overwrite the derived ones so loader-supplied shading is preserved.
-        m.computeNormals();
-        int n = Math.min(normals.length, m.vertexNormals.length);
-        System.arraycopy(normals, 0, m.vertexNormals, 0, n);
-        return m;
     }
 
     /**
      * Recomputes per-face and per-vertex normals in place. Face normal is the unit
-     * cross product of the first two edges; vertex normals are the area-weighted
-     * (via accumulated face normals) sum of incident face normals, then normalized.
+     * cross product of the first two edges; vertex normals are the sum of the
+     * incident unit face normals, then normalized.
      */
     public void computeNormals() {
         int v = vertexCount();
@@ -358,6 +138,30 @@ public final class ArrayMesh implements MeshTopology {
     @Override
     public int halfEdgeCount() {
         return faceIndices.length;
+    }
+
+    /** {@inheritDoc} Ids are dense, so the bound is the count. */
+    @Override
+    public int vertexIdBound() {
+        return vertexCount();
+    }
+
+    /** {@inheritDoc} Ids are dense, so the bound is the count. */
+    @Override
+    public int edgeIdBound() {
+        return edgeCount();
+    }
+
+    /** {@inheritDoc} Ids are dense, so the bound is the count. */
+    @Override
+    public int faceIdBound() {
+        return faceCount();
+    }
+
+    /** {@inheritDoc} Ids are dense, so the bound is the count. */
+    @Override
+    public int halfEdgeIdBound() {
+        return halfEdgeCount();
     }
 
     /** {@inheritDoc} Identity mapping: vertex ids are dense indices. */
@@ -665,14 +469,14 @@ public final class ArrayMesh implements MeshTopology {
         return topology().halfEdgeTwin[halfEdgeId] == MeshTopology.NONE;
     }
 
-    /** {@inheritDoc} Bounds are recomputed lazily after vertex edits. */
+    /** {@inheritDoc} Bounds are computed lazily on first use. */
     @Override
     public Vector3f boundsMin(Vector3f dest) {
         recomputeBoundsIfNeeded();
         return dest.set(boundsMin);
     }
 
-    /** {@inheritDoc} Bounds are recomputed lazily after vertex edits. */
+    /** {@inheritDoc} Bounds are computed lazily on first use. */
     @Override
     public Vector3f boundsMax(Vector3f dest) {
         recomputeBoundsIfNeeded();
@@ -751,8 +555,8 @@ public final class ArrayMesh implements MeshTopology {
     }
 
     /**
-     * The twin, edge and adjacency arrays, built on the first call and stored in the holder this mesh
-     * shares with its {@link #withPositions} relatives. Racing first calls both build; one result wins.
+     * The twin, edge and adjacency arrays, built on the first call. Racing first calls both build;
+     * one result wins.
      *
      * @return the built topology of this mesh's face buffer
      */
@@ -767,8 +571,9 @@ public final class ArrayMesh implements MeshTopology {
     }
 
     /**
-     * Immutable half-edge connectivity of one face buffer: twins, edge ids and the per-vertex face,
-     * edge and outgoing half-edge CSR lists.
+     * Immutable connectivity of one uniform face buffer, which may be non-manifold: twins (a
+     * half-edge pairs with the first opposite one found), edge ids in order of first appearance, and
+     * the per-vertex face, edge and outgoing half-edge CSR lists.
      */
     private static final class Topology {
         public final int[] halfEdgeTwin;
@@ -783,30 +588,102 @@ public final class ArrayMesh implements MeshTopology {
         public final int[] vertexOutgoingHalfEdges;
 
         private Topology(int[] faceIndices, int vertsPerFace, int vertexCount) {
-            QuadMeshTopologyHelper helper = QuadMeshTopologyHelper.build(faceIndices, vertsPerFace, vertexCount,
-                    faceIndices.length / vertsPerFace);
-            halfEdgeTwin = helper.halfEdgeTwin;
-            halfEdgeEdge = helper.halfEdgeEdge;
-            edgeHalfEdge = helper.edgeHalfEdge;
-            edgeCount = helper.edgeCount;
-            vertexFaceOffsets = helper.vertexFaceOffsets;
-            vertexFaces = helper.vertexFaces;
-            vertexEdgeOffsets = helper.vertexEdgeOffsets;
-            vertexEdges = helper.vertexEdges;
-            int halfEdgeCount = helper.halfEdgeCount;
-            int[] outgoingCount = new int[vertexCount];
-            for (int halfEdgeId = 0; halfEdgeId < halfEdgeCount; halfEdgeId++) {
-                outgoingCount[faceIndices[halfEdgeId]]++;
-            }
+            int halfEdgeCount = faceIndices.length;
             vertexOutgoingOffsets = new int[vertexCount + 1];
-            for (int vertexId = 0; vertexId < vertexCount; vertexId++) {
-                vertexOutgoingOffsets[vertexId + 1] = vertexOutgoingOffsets[vertexId] + outgoingCount[vertexId];
+            for (int halfEdgeId = 0; halfEdgeId < halfEdgeCount; halfEdgeId++) {
+                vertexOutgoingOffsets[faceIndices[halfEdgeId] + 1]++;
             }
-            vertexOutgoingHalfEdges = new int[vertexOutgoingOffsets[vertexCount]];
+            for (int vertexId = 0; vertexId < vertexCount; vertexId++) {
+                vertexOutgoingOffsets[vertexId + 1] += vertexOutgoingOffsets[vertexId];
+            }
+            vertexOutgoingHalfEdges = new int[halfEdgeCount];
             int[] outgoingCursor = Arrays.copyOf(vertexOutgoingOffsets, vertexCount);
             for (int halfEdgeId = 0; halfEdgeId < halfEdgeCount; halfEdgeId++) {
                 vertexOutgoingHalfEdges[outgoingCursor[faceIndices[halfEdgeId]]++] = halfEdgeId;
             }
+
+            halfEdgeTwin = new int[halfEdgeCount];
+            Arrays.fill(halfEdgeTwin, MeshTopology.NONE);
+            for (int halfEdgeId = 0; halfEdgeId < halfEdgeCount; halfEdgeId++) {
+                if (halfEdgeTwin[halfEdgeId] != MeshTopology.NONE) {
+                    continue;
+                }
+                int start = faceIndices[halfEdgeId];
+                int end = faceIndices[nextInFace(halfEdgeId, vertsPerFace)];
+                for (int slot = vertexOutgoingOffsets[end]; slot < vertexOutgoingOffsets[end + 1]; slot++) {
+                    int candidate = vertexOutgoingHalfEdges[slot];
+                    if (faceIndices[nextInFace(candidate, vertsPerFace)] == start) {
+                        halfEdgeTwin[halfEdgeId] = candidate;
+                        halfEdgeTwin[candidate] = halfEdgeId;
+                        break;
+                    }
+                }
+            }
+
+            int edges = 0;
+            for (int halfEdgeId = 0; halfEdgeId < halfEdgeCount; halfEdgeId++) {
+                int twin = halfEdgeTwin[halfEdgeId];
+                if (twin == MeshTopology.NONE || halfEdgeId < twin) {
+                    edges++;
+                }
+            }
+            edgeCount = edges;
+            halfEdgeEdge = new int[halfEdgeCount];
+            edgeHalfEdge = new int[edgeCount];
+            int edgeId = 0;
+            for (int halfEdgeId = 0; halfEdgeId < halfEdgeCount; halfEdgeId++) {
+                int twin = halfEdgeTwin[halfEdgeId];
+                if (twin == MeshTopology.NONE || halfEdgeId < twin) {
+                    halfEdgeEdge[halfEdgeId] = edgeId;
+                    edgeHalfEdge[edgeId] = halfEdgeId;
+                    if (twin != MeshTopology.NONE) {
+                        halfEdgeEdge[twin] = edgeId;
+                    }
+                    edgeId++;
+                }
+            }
+
+            vertexFaceOffsets = new int[vertexCount + 1];
+            for (int corner = 0; corner < halfEdgeCount; corner++) {
+                vertexFaceOffsets[faceIndices[corner] + 1]++;
+            }
+            for (int vertexId = 0; vertexId < vertexCount; vertexId++) {
+                vertexFaceOffsets[vertexId + 1] += vertexFaceOffsets[vertexId];
+            }
+            vertexFaces = new int[halfEdgeCount];
+            int[] faceCursor = Arrays.copyOf(vertexFaceOffsets, vertexCount);
+            for (int corner = 0; corner < halfEdgeCount; corner++) {
+                vertexFaces[faceCursor[faceIndices[corner]]++] = corner / vertsPerFace;
+            }
+
+            vertexEdgeOffsets = new int[vertexCount + 1];
+            for (int edge = 0; edge < edgeCount; edge++) {
+                int halfEdgeId = edgeHalfEdge[edge];
+                vertexEdgeOffsets[faceIndices[halfEdgeId] + 1]++;
+                vertexEdgeOffsets[faceIndices[nextInFace(halfEdgeId, vertsPerFace)] + 1]++;
+            }
+            for (int vertexId = 0; vertexId < vertexCount; vertexId++) {
+                vertexEdgeOffsets[vertexId + 1] += vertexEdgeOffsets[vertexId];
+            }
+            vertexEdges = new int[vertexEdgeOffsets[vertexCount]];
+            int[] edgeCursor = Arrays.copyOf(vertexEdgeOffsets, vertexCount);
+            for (int edge = 0; edge < edgeCount; edge++) {
+                int halfEdgeId = edgeHalfEdge[edge];
+                vertexEdges[edgeCursor[faceIndices[halfEdgeId]]++] = edge;
+                vertexEdges[edgeCursor[faceIndices[nextInFace(halfEdgeId, vertsPerFace)]]++] = edge;
+            }
+        }
+
+        /**
+         * The next corner around the face that owns {@code corner}.
+         *
+         * @param corner       index into the face buffer
+         * @param vertsPerFace corners per face
+         * @return the successor corner within the same face
+         */
+        private static int nextInFace(int corner, int vertsPerFace) {
+            int base = corner - corner % vertsPerFace;
+            return base + (corner - base + 1) % vertsPerFace;
         }
     }
 }

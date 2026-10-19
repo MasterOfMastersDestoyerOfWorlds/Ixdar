@@ -4,15 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
@@ -52,30 +49,10 @@ class GraphTopologyLoadTest {
     }
 
     @Test
-    void withPositionsSharesTopologyAndEdgeIds() throws Exception {
-        ArrayMesh strip = twoQuadStrip();
-        float[] moved = strip.copyPositions();
-        for (int i = 0; i < moved.length; i++) {
-            moved[i] += 1f;
-        }
-        ArrayMesh shifted = strip.withPositions(moved, null);
-        assertNull(builtTopology(strip), "deriving a mesh builds nothing");
-
-        assertEquals(SHARED_STRIP_EDGES, shifted.edgeCount(), "the derived mesh builds on first query");
-        assertSame(builtTopology(shifted), builtTopology(strip), "one build serves both meshes");
-        for (int halfEdgeId = 0; halfEdgeId < strip.halfEdgeCount(); halfEdgeId++) {
-            assertEquals(strip.halfEdgeEdge(halfEdgeId), shifted.halfEdgeEdge(halfEdgeId), "edge id of " + halfEdgeId);
-            assertEquals(strip.halfEdgeTwin(halfEdgeId), shifted.halfEdgeTwin(halfEdgeId), "twin of " + halfEdgeId);
-        }
-        assertEquals(1f, shifted.vertexPosition(0, new Vector3f()).x, "positions are the new ones");
-        assertThrows(IllegalArgumentException.class, () -> strip.withPositions(new float[3], null));
-    }
-
-    @Test
     void meshNeverAskedForEdgesNeverBuildsThem() throws Exception {
         ArrayMesh strip = twoQuadStrip();
         strip.computeNormals();
-        strip.compileSurfaceData();
+        strip.faceVertexAt(1, 3);
         strip.radius();
         assertNull(builtTopology(strip), "faces, normals and bounds need no edges");
 
@@ -85,7 +62,7 @@ class GraphTopologyLoadTest {
 
     private static ArrayMesh twoQuadStrip() {
         float[] positions = {0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 1, 0, 1, 1, 0, 2, 1, 0};
-        return ArrayMesh.fromQuads(positions, new int[] {0, 1, 4, 3, 1, 2, 5, 4});
+        return new ArrayMesh(positions, null, new int[] {0, 1, 4, 3, 1, 2, 5, 4}, 4);
     }
 
     private static Object builtTopology(ArrayMesh mesh) throws ReflectiveOperationException {

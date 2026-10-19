@@ -8,7 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.numeric.graph.UnionFind;
 
 /**
@@ -33,17 +34,17 @@ public final class MeshSegmenter {
      * @param mesh source mesh
      * @return tag map keyed {@code component_<i>}, each value a sorted vertex-index array
      */
-    public static Map<String, int[]> segmentComponents(ArrayMesh mesh) {
-        int nv = mesh.vertexCount();
-        int[] faceIdx = mesh.copyFaceIndices();
-        int[] parent = UnionFind.singletons(nv);
+    public static Map<String, int[]> segmentComponents(MeshTopology mesh) {
+        int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, null);
+        int[] parent = UnionFind.singletons(mesh.vertexIdBound());
         for (int i = 0; i < faceIdx.length; i += 3) {
             UnionFind.union(parent, faceIdx[i], faceIdx[i + 1]);
             UnionFind.union(parent, faceIdx[i + 1], faceIdx[i + 2]);
         }
         Map<Integer, List<Integer>> byRoot = new HashMap<>();
-        for (int v = 0; v < nv; v++) {
-            byRoot.computeIfAbsent(UnionFind.find(parent, v), k -> new ArrayList<>()).add(v);
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            byRoot.computeIfAbsent(UnionFind.find(parent, vertexId), k -> new ArrayList<>()).add(vertexId);
         }
         Map<String, int[]> out = new LinkedHashMap<>();
         int i = 0;
@@ -64,16 +65,26 @@ public final class MeshSegmenter {
      * @param nClusters target cluster count for k-means
      * @return tag map keyed {@code curvature_<i>}, each value a sorted vertex-index array
      */
-    public static Map<String, int[]> segmentCurvature(ArrayMesh mesh, int nClusters) {
-        int nv = mesh.vertexCount();
-        float[] positions = mesh.copyPositions();
+    public static Map<String, int[]> segmentCurvature(MeshTopology mesh, int nClusters) {
+        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
         float[] curvature = SemanticPatchDecomposer.computeVertexCurvature(mesh);
-        float[] bounds = computeBounds(positions);
+        int[] bucket = liveVertexIds(mesh);
+        float[] bounds = computeBounds(positions, bucket);
         float posScale = 1.0f / Math.max(EPSILON, bounds[6]);
-        int[] bucket = new int[nv];
-        for (int v = 0; v < nv; v++) bucket[v] = v;
         int[] labels = kmeans(bucket, positions, curvature, bounds, posScale, nClusters);
-        return labelsToMap(labels, nv, nClusters, "curvature_");
+        Map<Integer, List<Integer>> byLabel = new LinkedHashMap<>();
+        for (int i = 0; i < bucket.length; i++) {
+            byLabel.computeIfAbsent(labels[i], kk -> new ArrayList<>()).add(bucket[i]);
+        }
+        Map<String, int[]> out = new LinkedHashMap<>();
+        for (int i = 0; i < nClusters; i++) {
+            List<Integer> verts = byLabel.get(i);
+            if (verts == null || verts.isEmpty()) continue;
+            int[] arr = verts.stream().mapToInt(Integer::intValue).toArray();
+            Arrays.sort(arr);
+            out.put("curvature_" + i, arr);
+        }
+        return out;
     }
 
     /**
@@ -84,18 +95,16 @@ public final class MeshSegmenter {
      * @param nClusters target cluster count for k-means
      * @return tag map keyed {@code spatial_<axis><sign>_<i>}, each value a sorted vertex-index array
      */
-    public static Map<String, int[]> segmentSpatial(ArrayMesh mesh, int nClusters) {
-        int nv = mesh.vertexCount();
-        float[] positions = mesh.copyPositions();
-        float[] flatCurv = new float[nv];
-        float[] bounds = computeBounds(positions);
+    public static Map<String, int[]> segmentSpatial(MeshTopology mesh, int nClusters) {
+        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        float[] flatCurv = new float[mesh.vertexIdBound()];
+        int[] bucket = liveVertexIds(mesh);
+        float[] bounds = computeBounds(positions, bucket);
         float posScale = 1.0f / Math.max(EPSILON, bounds[6]);
-        int[] bucket = new int[nv];
-        for (int v = 0; v < nv; v++) bucket[v] = v;
         int[] labels = kmeans(bucket, positions, flatCurv, bounds, posScale, nClusters);
         Map<Integer, List<Integer>> byLabel = new LinkedHashMap<>();
-        for (int v = 0; v < nv; v++) {
-            byLabel.computeIfAbsent(labels[v], k -> new ArrayList<>()).add(v);
+        for (int i = 0; i < bucket.length; i++) {
+            byLabel.computeIfAbsent(labels[i], k -> new ArrayList<>()).add(bucket[i]);
         }
         float meanX = (bounds[0] + bounds[3]) * 0.5f;
         float meanY = (bounds[1] + bounds[4]) * 0.5f;
@@ -126,10 +135,32 @@ public final class MeshSegmenter {
 
     // ---------- private helpers (lifted from the old SemanticPatchDecomposer) ----------
 
-    static float[] computeBounds(float[] positions) {
+    /**
+     * The mesh's live vertex ids in active order.
+     *
+     * @param mesh mesh to read
+     * @return one vertex id per active index
+     */
+    private static int[] liveVertexIds(MeshTopology mesh) {
+        int[] vertexIds = new int[mesh.vertexCount()];
+        for (int activeVertex = 0; activeVertex < vertexIds.length; activeVertex++) {
+            vertexIds[activeVertex] = mesh.vertexIdAt(activeVertex);
+        }
+        return vertexIds;
+    }
+
+    /**
+     * Axis-aligned bounds of the given vertices and their largest extent.
+     *
+     * @param positions xyz positions by vertex id
+     * @param vertexIds vertices to bound
+     * @return {@code [minX, minY, minZ, maxX, maxY, maxZ, extent]}
+     */
+    private static float[] computeBounds(float[] positions, int[] vertexIds) {
         float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
         float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
-        for (int i = 0; i < positions.length; i += 3) {
+        for (int vertexId : vertexIds) {
+            int i = vertexId * 3;
             float x = positions[i], y = positions[i + 1], z = positions[i + 2];
             if (x < minX) minX = x; if (y < minY) minY = y; if (z < minZ) minZ = z;
             if (x > maxX) maxX = x; if (y > maxY) maxY = y; if (z > maxZ) maxZ = z;
@@ -228,20 +259,5 @@ public final class MeshSegmenter {
         return s;
     }
 
-    private static Map<String, int[]> labelsToMap(int[] labels, int nv, int k, String prefix) {
-        Map<Integer, List<Integer>> byLabel = new LinkedHashMap<>();
-        for (int v = 0; v < nv; v++) {
-            byLabel.computeIfAbsent(labels[v], kk -> new ArrayList<>()).add(v);
-        }
-        Map<String, int[]> out = new LinkedHashMap<>();
-        for (int i = 0; i < k; i++) {
-            List<Integer> verts = byLabel.get(i);
-            if (verts == null || verts.isEmpty()) continue;
-            int[] arr = verts.stream().mapToInt(Integer::intValue).toArray();
-            Arrays.sort(arr);
-            out.put(prefix + i, arr);
-        }
-        return out;
-    }
 
 }

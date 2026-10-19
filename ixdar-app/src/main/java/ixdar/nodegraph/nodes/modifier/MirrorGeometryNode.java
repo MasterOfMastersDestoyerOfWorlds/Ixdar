@@ -122,16 +122,13 @@ public class MirrorGeometryNode implements MeshNode {
 
         // Weld seam vertices, recording how the faces moved so the corner UVs can follow.
         MeshMergeByDistance welder = new MeshMergeByDistance();
-        MeshTopology result;
+        HalfEdgeMesh result;
         if (md > 0f) {
             result = welder.weld(combined, md);
         } else {
             result = combined;
         }
-
-        if (result instanceof HalfEdgeMesh hem) {
-            hem.computeNormals();
-        }
+        result.computeNormals();
 
         // Preserve non-handle slots from input; rebuild handle slots if present.
         HashMap<String, Object> nextSlots = new HashMap<>(base.slots());

@@ -30,11 +30,8 @@ import ixdar.geometry.mesh.data.analysis.MeshDistance;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 import ixdar.geometry.mesh.data.io.MeshLoader;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.nodegraph.runtime.GroupLibrary;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 
 import ixdar.nodegraph.syntax.PythonLexer;
 import ixdar.nodegraph.syntax.PythonParser;
@@ -66,7 +63,6 @@ public final class BatchDslEvaluator {
     public static final int DEFAULT_MAX_ITERS = 10;
     public static final int DEFAULT_TARGET_SCORE = 95;
     public static final double ROUND_TO_ONE_DECIMAL = 10.0;
-    public static final float DIAGONAL_EPSILON = 1e-8f;
 
     private static final Set<String> NUMERIC_INPUT_NODE_TYPES = NodeGraphRuntime.INPUT_NODE_TYPES.stream()
             .filter(type -> NodeGraphRuntime.supplierFor(type).get().inputs().stream()
@@ -183,13 +179,12 @@ public final class BatchDslEvaluator {
 
         // Pre-process reference mesh for comparison (if provided)
         // Normalize to unit bounding-box diagonal (same as viewer normalize=true)
-        ArrayMesh normalizedRefMesh = null;
+        float[] normalizedRefPositions = null;
         if (refObjPath != null && !refObjPath.isEmpty()) {
             try {
-                normalizedRefMesh = MeshLoader.load(refObjPath);
-                normalizeArrayMesh(normalizedRefMesh);
+                normalizedRefPositions = MeshDistance.normalizedPositions(MeshLoader.load(refObjPath));
                 System.err.printf("Loaded reference mesh: %d verts (normalized)%n",
-                        normalizedRefMesh.vertexCount());
+                        normalizedRefPositions.length / 3);
             } catch (Exception e) {
                 System.err.println("Warning: could not load reference mesh: " + e.getMessage());
             }
@@ -256,12 +251,9 @@ public final class BatchDslEvaluator {
 
                     // Inline mesh comparison against reference (if available)
                     // Uses exact same path as viewer: normalize + computeAllMetrics(scale=1.0)
-                    if (normalizedRefMesh != null) {
-                        ArrayMesh genArrayMesh = ArrayMeshEngine
-                                .fromUniformMeshTopology(mesh);
-                        normalizeArrayMesh(genArrayMesh);
+                    if (normalizedRefPositions != null) {
                         MeshDistance.MeshMetrics metrics = MeshDistance.computeAllMetrics(
-                                genArrayMesh, normalizedRefMesh, 1.0f);
+                                MeshDistance.normalizedPositions(mesh), normalizedRefPositions, 1.0f);
                         row.put("similarity", Math.round(metrics.similarityScore * ROUND_TO_ONE_DECIMAL) / ROUND_TO_ONE_DECIMAL);
                         row.put("hausdorff", metrics.hausdorffDistance);
                         row.put("chamfer", metrics.chamferDistance);
@@ -422,34 +414,6 @@ public final class BatchDslEvaluator {
             }
         }
         return defaultVal;
-    }
-
-    /**
-     * Center and scale ArrayMesh to unit bounding-box diagonal (in-place).
-     * Matches the viewer's normalize=true comparison exactly.
-     */
-    private static void normalizeArrayMesh(ArrayMesh mesh) {
-        int n = mesh.vertexCount();
-        if (n == 0) return;
-        float[] pos = mesh.copyPositions();
-        float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
-        float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
-        for (int i = 0; i < n; i++) {
-            int o = i * 3;
-            if (pos[o] < minX) minX = pos[o];     if (pos[o] > maxX) maxX = pos[o];
-            if (pos[o+1] < minY) minY = pos[o+1]; if (pos[o+1] > maxY) maxY = pos[o+1];
-            if (pos[o+2] < minZ) minZ = pos[o+2]; if (pos[o+2] > maxZ) maxZ = pos[o+2];
-        }
-        float cx = (minX + maxX) * 0.5f, cy = (minY + maxY) * 0.5f, cz = (minZ + maxZ) * 0.5f;
-        float dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
-        float diagonal = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        float invDiag = diagonal > DIAGONAL_EPSILON ? 1.0f / diagonal : 1.0f;
-        for (int i = 0; i < n; i++) {
-            mesh.setVertexPosition(i,
-                    (pos[i * 3] - cx) * invDiag,
-                    (pos[i * 3 + 1] - cy) * invDiag,
-                    (pos[i * 3 + 2] - cz) * invDiag);
-        }
     }
 
     private static Object numArg(PythonParser.ParsedNode node, String key) {

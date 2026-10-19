@@ -4,11 +4,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 
 /**
@@ -41,57 +40,59 @@ public final class CrestLineDetector {
      * to return both polylines and the canonical-key edge set used by patch
      * decomposition.
      *
-     * @param mesh source triangle mesh (for vertex count, faces, positions)
-     * @param ed edge-dihedral metadata (used here to derive 1-ring neighbours)
-     * @param pdf per-vertex principal curvatures and eigenvectors
-     * @return ridge/valley polylines and the union edge set marking them
+     * @param mesh source mesh, read in place by vertex id
+     * @param ed edge-dihedral metadata of {@code mesh}, keyed by vertex ids (gives the 1-rings)
+     * @param pdf per-vertex principal curvatures and eigenvectors of {@code mesh}
+     * @return ridge/valley polylines of vertex ids and the union edge set marking them
      */
-    public static CrestLines detect(ArrayMesh mesh, EdgeDihedrals ed, PrincipalDirectionField pdf) {
-        int nv = mesh.vertexCount();
-        float[] positions = mesh.copyPositions();
+    public static CrestLines detect(MeshTopology mesh, EdgeDihedrals ed, PrincipalDirectionField pdf) {
+        int vertexIdBound = mesh.vertexIdBound();
+        float[] positions = ed.positions();
 
         // 1-ring neighbourhoods.
-        int[][] ring = buildOneRing(ed, nv);
+        int[][] ring = PrincipalDirectionField.oneRings(ed, vertexIdBound);
 
         // --- Candidate selection (adaptive thresholds) ---
-        float ridgeT = thresholdFromMedian(pdf, /*ridge=*/true) * T_RIDGE_SCALE;
-        float valleyT = thresholdFromMedian(pdf, /*ridge=*/false) * T_VALLEY_SCALE;
+        float ridgeT = thresholdFromMedian(mesh, pdf, /*ridge=*/true) * T_RIDGE_SCALE;
+        float valleyT = thresholdFromMedian(mesh, pdf, /*ridge=*/false) * T_VALLEY_SCALE;
 
-        boolean[] isRidgeCandidate = new boolean[nv];
-        boolean[] isValleyCandidate = new boolean[nv];
-        for (int v = 0; v < nv; v++) {
-            float kMax = pdf.kappaMax(v);
-            float kMin = pdf.kappaMin(v);
+        boolean[] isRidgeCandidate = new boolean[vertexIdBound];
+        boolean[] isValleyCandidate = new boolean[vertexIdBound];
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            float kMax = pdf.kappaMax(vertexId);
+            float kMin = pdf.kappaMin(vertexId);
             float mvs = kMax - kMin;
             boolean notUmbilical = (mvs * mvs) > T_MVS_SQUARED;
             if (notUmbilical) {
-                if (Math.abs(kMax) > ridgeT) isRidgeCandidate[v] = true;
-                if (-kMin > valleyT) isValleyCandidate[v] = true;
+                if (Math.abs(kMax) > ridgeT) isRidgeCandidate[vertexId] = true;
+                if (-kMin > valleyT) isValleyCandidate[vertexId] = true;
             }
         }
 
         // --- Non-maximum suppression along the eigenvector ---
-        boolean[] isRidgePoint = new boolean[nv];
-        boolean[] isValleyPoint = new boolean[nv];
+        boolean[] isRidgePoint = new boolean[vertexIdBound];
+        boolean[] isValleyPoint = new boolean[vertexIdBound];
         float[] dir = new float[3];
-        for (int v = 0; v < nv; v++) {
-            if (isRidgeCandidate[v]) {
-                pdf.dirMax(v, dir);
-                if (isLocalExtremum(v, ring[v], positions, pdf, dir, /*forRidge=*/true)) {
-                    isRidgePoint[v] = true;
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            if (isRidgeCandidate[vertexId]) {
+                pdf.dirMax(vertexId, dir);
+                if (isLocalExtremum(vertexId, ring[vertexId], positions, pdf, dir, /*forRidge=*/true)) {
+                    isRidgePoint[vertexId] = true;
                 }
             }
-            if (isValleyCandidate[v]) {
-                pdf.dirMin(v, dir);
-                if (isLocalExtremum(v, ring[v], positions, pdf, dir, /*forRidge=*/false)) {
-                    isValleyPoint[v] = true;
+            if (isValleyCandidate[vertexId]) {
+                pdf.dirMin(vertexId, dir);
+                if (isLocalExtremum(vertexId, ring[vertexId], positions, pdf, dir, /*forRidge=*/false)) {
+                    isValleyPoint[vertexId] = true;
                 }
             }
         }
 
         // --- Trace polylines + collect edges ---
-        List<int[]> ridgeLines = tracePolylines(isRidgePoint, ring, pdf, positions, /*forRidge=*/true);
-        List<int[]> valleyLines = tracePolylines(isValleyPoint, ring, pdf, positions, /*forRidge=*/false);
+        List<int[]> ridgeLines = tracePolylines(mesh, isRidgePoint, ring, pdf, positions, /*forRidge=*/true);
+        List<int[]> valleyLines = tracePolylines(mesh, isValleyPoint, ring, pdf, positions, /*forRidge=*/false);
 
         Set<Long> crestEdges = new HashSet<>();
         collectEdges(ridgeLines, crestEdges);
@@ -100,12 +101,13 @@ public final class CrestLineDetector {
         return new CrestLines(ridgeLines, valleyLines, crestEdges);
     }
 
-    /** Median of |kappaMax| (ridge) or -kappaMin (valley) across all vertices. */
-    private static float thresholdFromMedian(PrincipalDirectionField pdf, boolean ridge) {
-        int nv = pdf.vertexCount();
+    /** Median of |kappaMax| (ridge) or -kappaMin (valley) across the mesh's vertices. */
+    private static float thresholdFromMedian(MeshTopology mesh, PrincipalDirectionField pdf, boolean ridge) {
+        int nv = mesh.vertexCount();
         float[] samples = new float[nv];
-        for (int v = 0; v < nv; v++) {
-            samples[v] = ridge ? Math.abs(pdf.kappaMax(v)) : -pdf.kappaMin(v);
+        for (int activeVertex = 0; activeVertex < nv; activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            samples[activeVertex] = ridge ? Math.abs(pdf.kappaMax(vertexId)) : -pdf.kappaMin(vertexId);
         }
         Arrays.sort(samples);
         return samples[nv / 2];
@@ -145,14 +147,14 @@ public final class CrestLineDetector {
      * the current direction that is also a ridge/valley point. Terminate
      * when no aligned ridge-neighbour exists or we revisit a vertex.
      */
-    private static List<int[]> tracePolylines(boolean[] isPoint, int[][] ring,
+    private static List<int[]> tracePolylines(MeshTopology mesh, boolean[] isPoint, int[][] ring,
                                               PrincipalDirectionField pdf,
                                               float[] positions, boolean forRidge) {
-        int nv = isPoint.length;
-        boolean[] visited = new boolean[nv];
+        boolean[] visited = new boolean[isPoint.length];
         List<int[]> out = new ArrayList<>();
         float[] dir = new float[3];
-        for (int seed = 0; seed < nv; seed++) {
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int seed = mesh.vertexIdAt(activeVertex);
             if (!isPoint[seed] || visited[seed]) continue;
             // Trace in both directions from seed.
             List<Integer> forward = traceOneDirection(seed, +1, isPoint, ring, pdf, positions, visited, dir, forRidge);
@@ -236,33 +238,13 @@ public final class CrestLineDetector {
         }
     }
 
-    private static int[][] buildOneRing(EdgeDihedrals ed, int nv) {
-        List<List<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(6));
-        for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
-            long key = e.getKey();
-            int u = EdgeKey.minVertex(key);
-            int v = EdgeKey.maxVertex(key);
-            tmp.get(u).add(v);
-            tmp.get(v).add(u);
-        }
-        int[][] out = new int[nv][];
-        for (int i = 0; i < nv; i++) {
-            List<Integer> list = tmp.get(i);
-            int[] arr = new int[list.size()];
-            for (int j = 0; j < list.size(); j++) arr[j] = list.get(j);
-            out[i] = arr;
-        }
-        return out;
-    }
-
     private static long edgeKey(int u, int v) {
         return EdgeKey.undirected(u, v);
     }
 
     /** Result holder — polylines for debug/export plus edge set for patch cuts. */
     public static final class CrestLines {
-        public final List<int[]> ridgePolylines;  // each int[] is a sequence of vertex indices
+        public final List<int[]> ridgePolylines;  // each int[] is a sequence of mesh vertex ids
         public final List<int[]> valleyPolylines;
         public final Set<Long> crestEdges;
 

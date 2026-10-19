@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.tools.ring.RingDslWriter;
@@ -65,8 +64,7 @@ class RingDeletionTest {
 
     @Test
     void freezingTheProposedRingsKeepsEveryRingElementExact() throws Exception {
-        MeshTopology fixture = ArrayMeshEngine.fromUniformMeshTopology(
-                RingCandidatesTest.yJunction());
+        MeshTopology fixture = RingCandidatesTest.yJunction();
         String source = withTwoSplineRings(fixture);
         GeometryBundle saved = run(source, fixture);
 
@@ -79,8 +77,7 @@ class RingDeletionTest {
 
     @Test
     void deletingASplineRingAndAProposedRingKeepsEveryOtherRingElementExact() throws Exception {
-        MeshTopology fixture = ArrayMeshEngine.fromUniformMeshTopology(
-                RingCandidatesTest.yJunction());
+        MeshTopology fixture = RingCandidatesTest.yJunction();
         String source = withTwoSplineRings(fixture);
         GeometryBundle savedRun = run(source, fixture);
         Map<String, String> saved = fingerprints(savedRun);

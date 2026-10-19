@@ -33,7 +33,7 @@ public class BridgeEdgeLoopsNode implements MeshNode {
     public static final String BRIDGE_EDGE_LOOPS_TAG = "bridge_edge_loops: tag '";
     public static final String NOT_FOUND = "' not found";
 
-    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
     public static final InputPort LOOP_A_TAG = new InputPort("loop_a_tag", PortType.STRING, "");
     public static final InputPort LOOP_B_TAG = new InputPort("loop_b_tag", PortType.STRING, "");
     public static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 1, 1f, 32f);
@@ -100,10 +100,6 @@ public class BridgeEdgeLoopsNode implements MeshNode {
             throw new IllegalArgumentException(BRIDGE_EDGE_LOOPS_TAG + tagB + NOT_FOUND);
         }
 
-        // Convert to HalfEdgeMesh if needed for boundary walking
-        if (!(meshTopo instanceof HalfEdgeMesh)) {
-            throw new IllegalArgumentException("bridge_edge_loops: requires HalfEdgeMesh input");
-        }
         HalfEdgeMesh mesh = (HalfEdgeMesh) meshTopo;
 
         // Find boundary loops from tagged vertices

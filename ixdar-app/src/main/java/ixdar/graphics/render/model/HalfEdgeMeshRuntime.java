@@ -21,9 +21,6 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.MaterialData;
 import ixdar.geometry.mesh.data.bundle.MaterialSet;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.field.IntField;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.Texture;
@@ -36,7 +33,6 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.GL;
 import ixdar.geometry.mesh.data.paths.query.SurfaceFaceLocator;
-import ixdar.geometry.mesh.data.representation.HalfEdgeCompiledMeshData;
 
 public class HalfEdgeMeshRuntime {
     public static final String MODEL = "model";
@@ -210,7 +206,7 @@ public class HalfEdgeMeshRuntime {
      */
     public void uploadBundle(GeometryBundle bundle) {
         clearTexturedDraw();
-        if (bundle == null) {
+        if (bundle == null || bundle.mesh() == null) {
             upload(null);
             return;
         }
@@ -253,11 +249,12 @@ public class HalfEdgeMeshRuntime {
         if (uv == null) {
             return;
         }
-        // A boolean hands over a HalfEdgeMesh; the split needs dense arrays either way.
-        ArrayMesh mesh = bundle.mesh() instanceof ArrayMesh dense
-                && dense.getVertsPerFace() == CornerUvField.CORNERS_PER_FACE
-                ? dense : SemanticPatchDecomposer.toArrayMesh(bundle.mesh());
-        if (uv.faceCount() != mesh.faceCount()) {
+        // The compiled buffer holds one vertex per active vertex in active order, so its triangles
+        // index the welded vertices the split copies from; per-corner UVs need one triangle a face.
+        MeshTopology mesh = bundle.mesh();
+        int[] triangleCorners = compiledMesh.indices;
+        if (uv.faceCount() != mesh.faceCount()
+                || triangleCorners.length != mesh.faceCount() * CornerUvField.CORNERS_PER_FACE) {
             return;
         }
         // Group the faces by the material they name, so each material's faces form one contiguous
@@ -293,21 +290,15 @@ public class HalfEdgeMeshRuntime {
             materialRangeCount[range] *= CornerUvField.CORNERS_PER_FACE;
         }
 
-        float[] splitUv = new float[CornerUvSplit.maxSplitUvLength(mesh)];
-        ArrayMesh split = CornerUvSplit.split(mesh, uv, faceOrder, splitUv);
-        float[] positions = split.copyPositions();
-        float[] normals = split.copyNormals();
-        int[] indices = split.copyFaceIndices();
-        float[] interleaved = new float[split.vertexCount() * VERTEX_STRIDE];
-        for (int vertex = 0; vertex < split.vertexCount(); vertex++) {
+        float[] splitUv = new float[CornerUvSplit.maxSplitUvLength(faceCount)];
+        int[] indices = new int[triangleCorners.length];
+        int[] weldedOfSplit = new int[triangleCorners.length];
+        int splitCount = CornerUvSplit.split(triangleCorners, uv, faceOrder, splitUv, indices, weldedOfSplit);
+        float[] welded = compiledMesh.vertices;
+        float[] interleaved = new float[splitCount * VERTEX_STRIDE];
+        for (int vertex = 0; vertex < splitCount; vertex++) {
             int target = vertex * VERTEX_STRIDE;
-            int source = vertex * VEC3_SIZE;
-            interleaved[target] = positions[source];
-            interleaved[target + 1] = positions[source + 1];
-            interleaved[target + 2] = positions[source + 2];
-            interleaved[target + VEC3_SIZE] = normals[source];
-            interleaved[target + VEC3_SIZE + 1] = normals[source + 1];
-            interleaved[target + VEC3_SIZE + 2] = normals[source + 2];
+            System.arraycopy(welded, weldedOfSplit[vertex] * VERTEX_STRIDE, interleaved, target, UV_OFFSET);
             interleaved[target + UV_OFFSET] = splitUv[vertex * CornerUvSplit.COMPONENTS_PER_VERTEX];
             interleaved[target + 7] = splitUv[vertex * CornerUvSplit.COMPONENTS_PER_VERTEX + 1];
         }
@@ -395,17 +386,54 @@ public class HalfEdgeMeshRuntime {
         uploadEdgeData(mesh);
     }
 
-    private static HalfEdgeCompiledMeshData compileSurface(MeshTopology mesh) {
-        if (mesh == null) {
-            return null;
+    /**
+     * The render buffer of {@code mesh}: one interleaved vertex per active vertex in active order
+     * (position, normal, two zero pads) and its faces fan-triangulated from their first corner.
+     *
+     * @param mesh source mesh
+     * @return compiled vertices, triangle indices, bounds and bounding sphere
+     */
+    public static HalfEdgeCompiledMeshData compileSurface(MeshTopology mesh) {
+        int vertexCount = mesh.vertexCount();
+        int largestVertexId = -1;
+        for (int index = 0; index < vertexCount; index++) {
+            largestVertexId = Math.max(largestVertexId, mesh.vertexIdAt(index));
         }
-        if (mesh instanceof ArrayMesh am) {
-            return am.compileSurfaceData();
+        int[] activeIndexOfVertex = new int[largestVertexId + 1];
+        float[] vertices = new float[vertexCount * VERTEX_STRIDE];
+        Vector3f scratch = new Vector3f();
+        for (int index = 0; index < vertexCount; index++) {
+            int vertexId = mesh.vertexIdAt(index);
+            activeIndexOfVertex[vertexId] = index;
+            int target = index * VERTEX_STRIDE;
+            mesh.vertexPosition(vertexId, scratch);
+            vertices[target] = scratch.x;
+            vertices[target + 1] = scratch.y;
+            vertices[target + 2] = scratch.z;
+            mesh.vertexNormal(vertexId, scratch);
+            vertices[target + VEC3_SIZE] = scratch.x;
+            vertices[target + VEC3_SIZE + 1] = scratch.y;
+            vertices[target + VEC3_SIZE + 2] = scratch.z;
         }
-        if (mesh instanceof HalfEdgeMesh hem) {
-            return hem.compileSurfaceData();
+        int triangleCount = 0;
+        for (int index = 0; index < mesh.faceCount(); index++) {
+            triangleCount += Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(index)) - 2);
         }
-        throw new IllegalArgumentException("Unsupported mesh for rendering: " + mesh.getClass().getName());
+        int[] indices = new int[triangleCount * VEC3_SIZE];
+        int cursor = 0;
+        for (int index = 0; index < mesh.faceCount(); index++) {
+            int faceId = mesh.faceIdAt(index);
+            int corners = mesh.faceVertexCount(faceId);
+            int anchor = corners < VEC3_SIZE ? 0 : activeIndexOfVertex[mesh.faceVertexAt(faceId, 0)];
+            for (int fan = 1; fan + 1 < corners; fan++) {
+                indices[cursor++] = anchor;
+                indices[cursor++] = activeIndexOfVertex[mesh.faceVertexAt(faceId, fan)];
+                indices[cursor++] = activeIndexOfVertex[mesh.faceVertexAt(faceId, fan + 1)];
+            }
+        }
+        return new HalfEdgeCompiledMeshData(vertices, indices, vertexCount, mesh.faceCount(),
+                mesh.boundsMin(new Vector3f()), mesh.boundsMax(new Vector3f()), mesh.center(new Vector3f()),
+                mesh.radius());
     }
 
     /**

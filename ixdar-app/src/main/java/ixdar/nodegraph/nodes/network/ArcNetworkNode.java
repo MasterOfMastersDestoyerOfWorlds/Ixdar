@@ -7,8 +7,7 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.GeometryBundles;
-import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;
@@ -30,7 +29,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 @MeshNodeAnnotation(id = "arc_network", desktopOnly = true, category = NodeCategory.NETWORK)
 public final class ArcNetworkNode implements MeshNode {
 
-    public static final InputPort MESH = new InputPort("mesh", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort MESH = InputPort.manifoldGeometry("mesh");
     public static final OutputPort NET = new OutputPort("net", PortType.ARC_NETWORK);
 
     @Override
@@ -59,9 +58,8 @@ public final class ArcNetworkNode implements MeshNode {
 
     @Override
     public void evaluate(NodeContext ctx) {
-        MeshTopology mesh = GeometryBundles.meshPart(ctx.getInput(MESH.name, GeometryBundle.class));
         EmbeddedMeshTopology topology = new EmbeddedMeshTopology(
-                HalfEdgeMeshEngine.fromMeshTopology(mesh));
+                (HalfEdgeMesh) GeometryBundles.meshPart(ctx.getInput(MESH.name, GeometryBundle.class)));
         ArcNetwork net = new ArcNetwork(topology);
         ctx.setOutput(NET.name, net);
     }

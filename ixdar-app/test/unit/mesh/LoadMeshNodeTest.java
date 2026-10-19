@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.nodes.data.LoadMeshNode;
 
 /**
@@ -25,7 +25,7 @@ class LoadMeshNodeTest {
 
     @Test
     void loadsAnOffFileIntoAGeometryBundle() throws Exception {
-        ArrayMesh expected = MeshLoader.load(OFF_PATH);
+        MeshTopology expected = MeshLoader.load(OFF_PATH);
 
         LoadMeshNode node = new LoadMeshNode();
         MapNodeContext context = new MapNodeContext(node);

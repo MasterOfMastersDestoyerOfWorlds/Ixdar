@@ -12,10 +12,9 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
@@ -319,12 +318,17 @@ public abstract class ModelScene extends Scene {
      *
      * @param path mesh file path to load
      * @throws IOException if the mesh file cannot be read
+     * @throws InvalidMeshTopologyException if the file holds a mesh with no half-edge form
      */
     public void loadModel(String path) throws IOException {
         offPath = path;
-        ArrayMesh arrayMesh = MeshLoader.load(path);
-        halfEdgeMesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
-                arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
+        if (!(MeshLoader.load(path) instanceof HalfEdgeMesh loaded)) {
+            throw new InvalidMeshTopologyException(getClass().getSimpleName()
+                    + NodeGraphRuntime.NEEDS_MANIFOLD_MESH);
+        }
+        halfEdgeMesh = loaded;
+        // The scene shades with area-weighted normals, not the ones the file carried.
+        halfEdgeMesh.computeNormals();
         runtime.upload(halfEdgeMesh);
         frameLoadedModel();
         updateCurrentChoice();

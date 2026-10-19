@@ -2,12 +2,10 @@ package ixdar.geometry.mesh.data.bundle;
 
 import java.util.Arrays;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-
 /**
- * Re-splits a welded mesh so every vertex carries one UV, which is all a vertex buffer or a glTF
- * export can address. The inverse of the weld the glTF reader performs: a vertex appears once per
- * distinct UV its corners hold.
+ * Re-splits a welded triangle buffer so every vertex carries one UV, which is all a vertex buffer
+ * or a glTF export can address. The inverse of the weld the glTF reader performs: a vertex appears
+ * once per distinct UV its corners hold.
  */
 public final class CornerUvSplit {
 
@@ -15,49 +13,46 @@ public final class CornerUvSplit {
 
     public static final int COMPONENTS_PER_VERTEX = 2;
 
-    public static final int FLOATS_PER_VERTEX = 3;
-
     private CornerUvSplit() {
     }
 
     /**
      * Longest UV array {@link #split} can fill: one split vertex per corner is the worst case.
      *
-     * @param mesh welded triangle mesh
+     * @param triangleCount triangles in the welded buffer
      * @return required length of the caller's UV array
      */
-    public static int maxSplitUvLength(ArrayMesh mesh) {
-        return mesh.faceCount() * CornerUvField.CORNERS_PER_FACE * COMPONENTS_PER_VERTEX;
+    public static int maxSplitUvLength(int triangleCount) {
+        return triangleCount * CornerUvField.CORNERS_PER_FACE * COMPONENTS_PER_VERTEX;
     }
 
     /**
-     * Split every vertex whose corners disagree on a UV, keeping vertices whose corners agree, and
-     * write each split vertex's UV into {@code splitUv}. Faces come out in {@code faceOrder}, so a
-     * draw can group them by the material they name.
+     * Split every vertex whose corners disagree on a UV, keeping vertices whose corners agree. Faces
+     * come out in {@code faceOrder}, so a draw can group them by the material they name.
      *
-     * @param mesh welded triangle mesh
-     * @param uv per-corner UVs over {@code mesh}
-     * @param faceOrder faces of {@code mesh} in the order to emit them, or null for mesh order
-     * @param splitUv receives {@code (u, v)} per split vertex; at least
-     *     {@link #maxSplitUvLength} long, of which the returned mesh's vertex count is written
-     * @return the split mesh, positions and normals copied from the vertices they came from
-     * @throws IllegalArgumentException when {@code splitUv} is too short
+     * @param triangleCorners welded vertex index of every corner, three per triangle
+     * @param uv per-corner UVs over the same triangles
+     * @param faceOrder triangles in the order to emit them, or null for buffer order
+     * @param splitUv receives {@code (u, v)} per split vertex; at least {@link #maxSplitUvLength}
+     *     long
+     * @param splitCorners receives the split vertex of every emitted corner; one slot per corner
+     * @param weldedOfSplit receives the welded vertex each split vertex copies; one slot per corner
+     * @return the number of split vertices written
+     * @throws IllegalArgumentException when an output array is too short
      */
-    public static ArrayMesh split(ArrayMesh mesh, CornerUvField uv, int[] faceOrder,
-            float[] splitUv) {
-        if (splitUv == null || splitUv.length < maxSplitUvLength(mesh)) {
-            throw new IllegalArgumentException("splitUv must be at least maxSplitUvLength long");
+    public static int split(int[] triangleCorners, CornerUvField uv, int[] faceOrder, float[] splitUv,
+            int[] splitCorners, int[] weldedOfSplit) {
+        int cornerCount = triangleCorners.length;
+        if (splitUv == null || splitUv.length < cornerCount * COMPONENTS_PER_VERTEX
+                || splitCorners.length < cornerCount || weldedOfSplit.length < cornerCount) {
+            throw new IllegalArgumentException("split outputs must hold one entry per corner");
         }
-        int cornerCount = mesh.faceCount() * CornerUvField.CORNERS_PER_FACE;
-        int weldedCount = mesh.vertexCount();
-        int[] faceIndices = mesh.copyFaceIndices();
-        float[] weldedPositions = mesh.copyPositions();
-        float[] weldedNormals = mesh.copyNormals();
-
+        int weldedCount = 0;
+        for (int welded : triangleCorners) {
+            weldedCount = Math.max(weldedCount, welded + 1);
+        }
         int[] firstCopy = new int[weldedCount];
         int[] nextCopy = new int[cornerCount];
-        int[] copyWelded = new int[cornerCount];
-        int[] cornerVertex = new int[cornerCount];
         Arrays.fill(firstCopy, NO_COPY);
 
         int splitCount = 0;
@@ -66,7 +61,7 @@ public final class CornerUvSplit {
                     : faceOrder[corner / CornerUvField.CORNERS_PER_FACE]
                             * CornerUvField.CORNERS_PER_FACE
                             + corner % CornerUvField.CORNERS_PER_FACE;
-            int welded = faceIndices[source];
+            int welded = triangleCorners[source];
             float cornerU = (float) uv.cornerU[source];
             float cornerV = (float) uv.cornerV[source];
             int found = NO_COPY;
@@ -83,22 +78,12 @@ public final class CornerUvSplit {
                 found = splitCount++;
                 splitUv[found * COMPONENTS_PER_VERTEX] = cornerU;
                 splitUv[found * COMPONENTS_PER_VERTEX + 1] = cornerV;
-                copyWelded[found] = welded;
+                weldedOfSplit[found] = welded;
                 nextCopy[found] = firstCopy[welded];
                 firstCopy[welded] = found;
             }
-            cornerVertex[corner] = found;
+            splitCorners[corner] = found;
         }
-
-        float[] positions = new float[splitCount * FLOATS_PER_VERTEX];
-        float[] normals = new float[splitCount * FLOATS_PER_VERTEX];
-        for (int copy = 0; copy < splitCount; copy++) {
-            int welded = copyWelded[copy];
-            System.arraycopy(weldedPositions, welded * FLOATS_PER_VERTEX, positions,
-                    copy * FLOATS_PER_VERTEX, FLOATS_PER_VERTEX);
-            System.arraycopy(weldedNormals, welded * FLOATS_PER_VERTEX, normals,
-                    copy * FLOATS_PER_VERTEX, FLOATS_PER_VERTEX);
-        }
-        return new ArrayMesh(positions, normals, cornerVertex, CornerUvField.CORNERS_PER_FACE);
+        return splitCount;
     }
 }

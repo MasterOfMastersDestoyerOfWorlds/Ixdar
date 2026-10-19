@@ -4,8 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
@@ -41,12 +39,12 @@ public final class GeometryBundle {
     }
 
     /**
-     * Bundle holding an empty quad mesh and no slots.
+     * Bundle holding an empty mesh and no slots.
      *
-     * @return shared sentinel for "no geometry"
+     * @return a fresh "no geometry" bundle
      */
     public static GeometryBundle empty() {
-        return new GeometryBundle(ArrayMeshEngine.emptyQuads(), Map.of());
+        return new GeometryBundle(new HalfEdgeMesh(), Map.of());
     }
 
     /**
@@ -56,17 +54,6 @@ public final class GeometryBundle {
      */
     public MeshTopology mesh() {
         return mesh;
-    }
-
-    /**
-     * When the bundle holds a {@link HalfEdgeMesh} (mutable topology), returns it;
-     * otherwise null. Dense {@link ArrayMesh} bundles are not mutable via this
-     * accessor.
-     *
-     * @return wrapped half-edge mesh, or {@code null} if this is an array mesh
-     */
-    public HalfEdgeMesh mutableMesh() {
-        return mesh instanceof HalfEdgeMesh h ? h : null;
     }
 
     /**

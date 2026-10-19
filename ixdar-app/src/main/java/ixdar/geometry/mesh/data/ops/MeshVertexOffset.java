@@ -2,39 +2,33 @@ package ixdar.geometry.mesh.data.ops;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.Vector3Field;
-
-import java.util.HashMap;
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
- * Applies per-vertex offsets to a mesh, producing a new mesh (dense
- * {@link ArrayMesh} when the input is {@link ArrayMesh}, otherwise
- * {@link HalfEdgeMesh}).
+ * Applies per-vertex offsets to a mesh, producing a new {@link HalfEdgeMesh}.
  */
 public final class MeshVertexOffset {
     private MeshVertexOffset() {
     }
 
     /**
-     * Add a per-vertex or uniform offset to every vertex of {@code mesh},
-     * returning a new mesh of the same kind with normals recomputed.
+     * Add a per-vertex or uniform offset to every vertex of {@code mesh}, returning a new mesh with
+     * the input's vertex and face order and normals recomputed.
      *
-     * @param mesh source mesh; null or empty meshes pass through as an empty mesh of the appropriate kind
+     * @param mesh source mesh; null or empty meshes pass through as an empty mesh
      * @param offsetObj a {@link Vector3Field} (length must equal vertex count), a {@link Vector3Value} for a uniform offset, or anything else for a zero offset
      * @throws IllegalArgumentException if {@code offsetObj} is a {@link Vector3Field} whose length does not match {@code mesh.vertexCount()}
-     * @return new offset mesh ({@link ArrayMesh} when input is dense, otherwise {@link HalfEdgeMesh})
+     * @return new offset mesh
      */
-    public static MeshTopology apply(MeshTopology mesh, Object offsetObj) {
+    public static HalfEdgeMesh apply(MeshTopology mesh, Object offsetObj) {
         if (mesh == null || mesh.vertexCount() == 0) {
-            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
+            return new HalfEdgeMesh();
         }
         int n = mesh.vertexCount();
-        Vector3f tmp = new Vector3f();
         Vector3Field field = null;
         Vector3Value uniform = null;
         if (offsetObj instanceof Vector3Field vf) {
@@ -48,49 +42,39 @@ public final class MeshVertexOffset {
             uniform = new Vector3Value(0f, 0f, 0f);
         }
 
-        if (mesh instanceof ArrayMesh am) {
-            float[] pos = am.copyPositions();
-            for (int i = 0; i < n; i++) {
-                int o = i * 3;
-                if (field != null) {
-                    pos[o] += field.getX(i);
-                    pos[o + 1] += field.getY(i);
-                    pos[o + 2] += field.getZ(i);
-                } else {
-                    pos[o] += uniform.x();
-                    pos[o + 1] += uniform.y();
-                    pos[o + 2] += uniform.z();
-                }
-            }
-            ArrayMesh out = am.withPositions(pos, null);
-            out.computeNormals();
-            return out;
-        }
-
-        HalfEdgeMesh out = new HalfEdgeMesh();
-        HashMap<Integer, Integer> idMap = new HashMap<>();
-        for (int i = 0; i < n; i++) {
-            int vid = mesh.vertexIdAt(i);
-            mesh.vertexPosition(vid, tmp);
+        float[] positions = new float[n * 3];
+        int[] activeVertexOfId = new int[mesh.vertexIdBound()];
+        Vector3f position = new Vector3f();
+        for (int activeVertex = 0; activeVertex < n; activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            activeVertexOfId[vertexId] = activeVertex;
+            mesh.vertexPosition(vertexId, position);
+            int offset = activeVertex * 3;
             if (field != null) {
-                tmp.add(field.getX(i), field.getY(i), field.getZ(i));
+                positions[offset] = position.x + field.getX(activeVertex);
+                positions[offset + 1] = position.y + field.getY(activeVertex);
+                positions[offset + 2] = position.z + field.getZ(activeVertex);
             } else {
-                tmp.add(uniform.x(), uniform.y(), uniform.z());
+                positions[offset] = position.x + uniform.x();
+                positions[offset + 1] = position.y + uniform.y();
+                positions[offset + 2] = position.z + uniform.z();
             }
-            int nid = out.addVertex(tmp);
-            idMap.put(vid, nid);
         }
-
-        for (int fi = 0; fi < mesh.faceCount(); fi++) {
-            int fid = mesh.faceIdAt(fi);
-            int fc = mesh.faceVertexCount(fid);
-            int[] nv = new int[fc];
-            for (int k = 0; k < fc; k++) {
-                int ov = mesh.faceVertexAt(fid, k);
-                nv[k] = idMap.get(ov);
+        int[] faceSizes = new int[mesh.faceCount()];
+        int corners = 0;
+        for (int activeFace = 0; activeFace < faceSizes.length; activeFace++) {
+            faceSizes[activeFace] = mesh.faceVertexCount(mesh.faceIdAt(activeFace));
+            corners += faceSizes[activeFace];
+        }
+        int[] faceCorners = new int[corners];
+        int outCorner = 0;
+        for (int activeFace = 0; activeFace < faceSizes.length; activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            for (int corner = 0; corner < faceSizes[activeFace]; corner++) {
+                faceCorners[outCorner++] = activeVertexOfId[mesh.faceVertexAt(faceId, corner)];
             }
-            out.addFace(nv);
         }
+        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceSizes, faceCorners);
         out.computeNormals();
         return out;
     }

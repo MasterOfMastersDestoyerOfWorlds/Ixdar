@@ -20,7 +20,7 @@ import ixdar.geometry.mesh.data.io.MeshLoader;
 
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 @AutomationRouteAnnotation(path = "/mesh/patches/decompose", method = APIMethod.POST)
 public class Decompose extends AutomationEndpoint implements AutomationRoute {
@@ -38,7 +38,7 @@ public class Decompose extends AutomationEndpoint implements AutomationRoute {
         if (f == null) {
             return failure("File not found: " + path);
         }
-        ArrayMesh mesh = MeshLoader.load(f.getAbsolutePath());
+        MeshTopology mesh = MeshLoader.load(f.getAbsolutePath());
         PatchDecomposition decomposition = SemanticPatchDecomposer
                 .decompose(
                         mesh,

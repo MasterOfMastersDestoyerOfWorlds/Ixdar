@@ -376,17 +376,6 @@ public class HalfEdgeMesh implements MeshTopology {
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#compileSurfaceData(HalfEdgeMesh)}.
-     *
-     * @return GPU-ready interleaved vertex data, triangulated indices, bounds, and
-     *         bounding sphere
-     */
-    public HalfEdgeCompiledMeshData compileSurfaceData() {
-        return HalfEdgeMeshEngine.compileSurfaceData(this);
-    }
-
-    /**
-     * Convenience wrapper for
      * {@link HalfEdgeMeshEngine#buildFromIndexedMesh(float[], int[])}.
      *
      * @param positions   packed xyz triples
@@ -415,6 +404,30 @@ public class HalfEdgeMesh implements MeshTopology {
     @Override
     public int vertexCount() {
         return activeVertexIds.size();
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public int vertexIdBound() {
+        return nextVertexId;
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public int edgeIdBound() {
+        return nextEdgeId;
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public int faceIdBound() {
+        return nextFaceId;
+    }
+
+    /** {@inheritDoc}. */
+    @Override
+    public int halfEdgeIdBound() {
+        return nextHalfEdgeId;
     }
 
     /** {@inheritDoc}. */

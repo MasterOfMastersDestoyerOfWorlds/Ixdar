@@ -19,10 +19,7 @@ import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.Skeleton
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingCandidateExtractor;
 import ixdar.geometry.mesh.data.rings.RingCandidates;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.primitives.IcosphereMeshNode;
 
@@ -352,11 +349,10 @@ class RingCandidatesTest {
         ctx.setInput("radius", 1.0f);
         ctx.setInput("subdivisions", SUBDIVISIONS);
         node.evaluate(ctx);
-        ArrayMesh sphere = ArrayMeshEngine.fromUniformMeshTopology(
-                ctx.getOutput("mesh", GeometryBundle.class).mesh());
-        float[] positions = sphere.copyPositions();
-        for (int vertex = 0; vertex * COORDINATES_PER_POINT < positions.length; vertex++) {
-            int base = COORDINATES_PER_POINT * vertex;
+        HalfEdgeMesh mesh = (HalfEdgeMesh) ctx.getOutput("mesh", GeometryBundle.class).mesh();
+        float[] positions = mesh.vertexPositions;
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int base = COORDINATES_PER_POINT * mesh.vertexIdAt(activeVertex);
             float length = (float) Math.sqrt(positions[base] * positions[base]
                     + positions[base + 1] * positions[base + 1]
                     + positions[base + 2] * positions[base + 2]);
@@ -368,8 +364,6 @@ class RingCandidatesTest {
             positions[base + 1] = reach * directionY;
             positions[base + 2] = reach * directionZ;
         }
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(positions,
-                sphere.copyFaceIndices());
         mesh.computeNormals();
         return mesh;
     }

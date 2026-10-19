@@ -7,7 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.ops.MeshTopologyAnalysis;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.field.Vector3Value;
@@ -175,16 +177,20 @@ class MeshTopologyAnalysisTest {
 
     /**
      * Three unit tiles hinged around the X axis at equal angles and welded along it, the smallest
-     * mesh with an edge that three faces use.
+     * mesh with an edge that three faces use. Such a mesh has no half-edge form, so the weld is
+     * kept in the indexed form a loader gives a non-manifold file.
      *
      * @return the fan as one mesh
      */
     private static MeshTopology threeFinsOnOneEdge() {
         GeometryBundle fan = fin(0);
         for (int index = 1; index < FIN_COUNT; index++) {
-            fan = join(fan, fin(index), WELD_DISTANCE);
+            fan = join(fan, fin(index), NO_WELD);
         }
-        return fan.mesh();
+        MeshMergeByDistance welder = new MeshMergeByDistance();
+        welder.weldArrays(fan.mesh(), WELD_DISTANCE);
+        return new ArrayMesh(welder.weldedPositions, null, welder.weldedFaceCorners,
+                welder.weldedFaceSizes[0]);
     }
 
     /**

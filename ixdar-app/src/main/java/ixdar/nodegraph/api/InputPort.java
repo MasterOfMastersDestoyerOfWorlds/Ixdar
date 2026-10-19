@@ -9,6 +9,12 @@ public final class InputPort {
     public final Float maxValue;
 
     /**
+     * True for a {@link PortType#GEOMETRY_BUNDLE} port whose mesh must be a half-edge mesh; the
+     * runtime refuses any other mesh before the node evaluates, so the node may cast.
+     */
+    public final boolean needsManifoldMesh;
+
+    /**
      * Validates the port declaration: name is non-blank, type is non-null, mode constraints
      * apply only to {@link PortType#STRING} ports and require a valid default, and the
      * default value is type-compatible with {@code type}.
@@ -23,28 +29,7 @@ public final class InputPort {
      */
     public InputPort(String name, PortType type, Object defaultValue, ModeConstraint modes,
             Float minValue, Float maxValue) {
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("Input port name must not be blank");
-        }
-        if (type == null) {
-            throw new IllegalArgumentException("Input port type must not be null");
-        }
-        if (modes != null && type != PortType.STRING) {
-            throw new IllegalArgumentException("ModeConstraint only applies to STRING ports: " + name);
-        }
-        if (modes != null) {
-            if (defaultValue == null) {
-                throw new IllegalArgumentException("Mode port '" + name + "' requires a non-null default String");
-            }
-            modes.validateDefault(defaultValue);
-        }
-        type.validate(name, defaultValue);
-        this.name = name;
-        this.type = type;
-        this.defaultValue = defaultValue;
-        this.modes = modes;
-        this.minValue = minValue;
-        this.maxValue = maxValue;
+        this(name, type, defaultValue, modes, minValue, maxValue, false);
     }
 
     /**
@@ -81,5 +66,53 @@ public final class InputPort {
      */
     public InputPort(String name, PortType type, Object defaultValue, Float minValue, Float maxValue) {
         this(name, type, defaultValue, null, minValue, maxValue);
+    }
+
+    /**
+     * The one validating constructor every other declaration delegates to.
+     *
+     * @param name              port name (non-blank)
+     * @param type              port type
+     * @param defaultValue      default value, type-compatible with {@code type} (may be null)
+     * @param modes             allowed canonical modes / aliases, or null for an unconstrained port
+     * @param minValue          advisory lower bound, or null for unbounded
+     * @param maxValue          advisory upper bound, or null for unbounded
+     * @param needsManifoldMesh whether the port's mesh must have a half-edge form
+     */
+    private InputPort(String name, PortType type, Object defaultValue, ModeConstraint modes,
+            Float minValue, Float maxValue, boolean needsManifoldMesh) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Input port name must not be blank");
+        }
+        if (type == null) {
+            throw new IllegalArgumentException("Input port type must not be null");
+        }
+        if (modes != null && type != PortType.STRING) {
+            throw new IllegalArgumentException("ModeConstraint only applies to STRING ports: " + name);
+        }
+        if (modes != null) {
+            if (defaultValue == null) {
+                throw new IllegalArgumentException("Mode port '" + name + "' requires a non-null default String");
+            }
+            modes.validateDefault(defaultValue);
+        }
+        type.validate(name, defaultValue);
+        this.name = name;
+        this.type = type;
+        this.defaultValue = defaultValue;
+        this.modes = modes;
+        this.minValue = minValue;
+        this.maxValue = maxValue;
+        this.needsManifoldMesh = needsManifoldMesh;
+    }
+
+    /**
+     * A geometry input, without a default, whose mesh must have a half-edge form.
+     *
+     * @param name port name (non-blank)
+     * @return a {@link PortType#GEOMETRY_BUNDLE} port with {@link #needsManifoldMesh} set
+     */
+    public static InputPort manifoldGeometry(String name) {
+        return new InputPort(name, PortType.GEOMETRY_BUNDLE, null, null, null, null, true);
     }
 }

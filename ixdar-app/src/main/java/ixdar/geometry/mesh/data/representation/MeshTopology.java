@@ -10,6 +10,8 @@ import org.joml.Vector3f;
 public interface MeshTopology {
     int NONE = -1;
 
+    int QUAD_CORNERS = 4;
+
     /**
      * Live vertex count for this mesh.
      *
@@ -37,6 +39,38 @@ public interface MeshTopology {
      * @return number of live half-edges (0 if the implementation does not store them)
      */
     int halfEdgeCount();
+
+    /**
+     * One past the largest vertex id this mesh has issued, so an array indexed by vertex id has
+     * this length; ids of removed vertices are unused slots.
+     *
+     * @return the vertex id bound, at least {@link #vertexCount()}
+     */
+    int vertexIdBound();
+
+    /**
+     * One past the largest edge id this mesh has issued, so an array indexed by edge id has this
+     * length; ids of removed edges are unused slots.
+     *
+     * @return the edge id bound, at least {@link #edgeCount()}
+     */
+    int edgeIdBound();
+
+    /**
+     * One past the largest face id this mesh has issued, so an array indexed by face id has this
+     * length; ids of removed faces are unused slots.
+     *
+     * @return the face id bound, at least {@link #faceCount()}
+     */
+    int faceIdBound();
+
+    /**
+     * One past the largest half-edge id this mesh has issued, so an array indexed by half-edge id
+     * has this length; ids of removed half-edges are unused slots.
+     *
+     * @return the half-edge id bound, at least {@link #halfEdgeCount()}
+     */
+    int halfEdgeIdBound();
 
     /**
      * Vertex id at the given dense index in {@code [0, vertexCount())}.
@@ -456,4 +490,57 @@ public interface MeshTopology {
      * @return half-length of the bounding-box diagonal (used as a default scene scale)
      */
     float radius();
+
+    /**
+     * Number of triangles {@link #triangulate} gives: {@code n - 2} for every face of {@code n}
+     * corners.
+     *
+     * @return the triangle count over every live face
+     */
+    default int triangleCount() {
+        int triangles = 0;
+        for (int activeFace = 0; activeFace < faceCount(); activeFace++) {
+            triangles += Math.max(0, faceVertexCount(faceIdAt(activeFace)) - 2);
+        }
+        return triangles;
+    }
+
+    /**
+     * Every live face split into triangles by {@code rule}, faces in active order, each corner
+     * written as its vertex id; a triangle face under {@link TriangulationRule#FAN} is itself.
+     *
+     * @param rule           how each face is split
+     * @param faceOfTriangle receives the face id each triangle came from, at least
+     *                       {@link #triangleCount()} long, or null when not wanted
+     * @return corner vertex ids, three per triangle, {@link #triangleCount()} triangles
+     */
+    default int[] triangulate(TriangulationRule rule, int[] faceOfTriangle) {
+        int[] triangles = new int[triangleCount() * 3];
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        int cursor = 0;
+        int triangle = 0;
+        for (int activeFace = 0; activeFace < faceCount(); activeFace++) {
+            int faceId = faceIdAt(activeFace);
+            int corners = faceVertexCount(faceId);
+            int apex = 0;
+            if (rule == TriangulationRule.SHORTER_DIAGONAL && corners == QUAD_CORNERS) {
+                float firstDiagonal = vertexPosition(faceVertexAt(faceId, 0), first)
+                        .distanceSquared(vertexPosition(faceVertexAt(faceId, 2), second));
+                float secondDiagonal = vertexPosition(faceVertexAt(faceId, 1), first)
+                        .distanceSquared(vertexPosition(faceVertexAt(faceId, 3), second));
+                apex = firstDiagonal <= secondDiagonal ? 0 : 1;
+            }
+            for (int fan = 1; fan + 1 < corners; fan++) {
+                triangles[cursor++] = faceVertexAt(faceId, apex);
+                triangles[cursor++] = faceVertexAt(faceId, (apex + fan) % corners);
+                triangles[cursor++] = faceVertexAt(faceId, (apex + fan + 1) % corners);
+                if (faceOfTriangle != null) {
+                    faceOfTriangle[triangle] = faceId;
+                }
+                triangle++;
+            }
+        }
+        return triangles;
+    }
 }

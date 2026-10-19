@@ -1,15 +1,11 @@
 package ixdar.geometry.mesh.data.analysis;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
- * Computes mesh distance metrics between two ArrayMesh instances.
+ * Computes mesh distance metrics between two MeshTopology instances.
  * Supports Hausdorff distance (worst-case) and Chamfer distance (average).
  */
 public final class MeshDistance {
@@ -18,6 +14,7 @@ public final class MeshDistance {
     public static final float SIMILARITY_SCALE_RATIO = 0.2f;
     public static final float MIN_CHAMFER_SCALE = 1e-6f;
     public static final float COVERAGE_THRESHOLD_RATIO = 0.05f;
+    public static final float MIN_DIAGONAL = 1e-8f;
 
     private static final int FLOATS_PER_VERTEX = 3;
 
@@ -25,219 +22,14 @@ public final class MeshDistance {
     }
 
     /**
-     * Computes the Hausdorff distance between two meshes.
-     * The Hausdorff distance is the maximum of the minimum distances from each
-     * point in one set to the other set (bidirectional).
-     *
-     * @param meshA First mesh
-     * @param meshB Second mesh
-     * @return Hausdorff distance (Euclidean distance)
-     */
-    public static float hausdorffDistance(ArrayMesh meshA, ArrayMesh meshB) {
-        if (meshA == null || meshA.vertexCount() == 0 || meshB == null || meshB.vertexCount() == 0) {
-            return Float.MAX_VALUE;
-        }
-
-        float[] posA = meshA.copyPositions();
-        float[] posB = meshB.copyPositions();
-
-        int vA = meshA.vertexCount();
-        int vB = meshB.vertexCount();
-
-        // Compute directed Hausdorff: max over A of min distance to B
-        float maxMinDistAtoB = 0f;
-        for (int i = 0; i < vA; i++) {
-            int oA = i * FLOATS_PER_VERTEX;
-            float xA = posA[oA];
-            float yA = posA[oA + 1];
-            float zA = posA[oA + 2];
-            float minDist = Float.MAX_VALUE;
-            for (int j = 0; j < vB; j++) {
-                int oB = j * FLOATS_PER_VERTEX;
-                float dx = xA - posB[oB];
-                float dy = yA - posB[oB + 1];
-                float dz = zA - posB[oB + 2];
-                float distSq = dx * dx + dy * dy + dz * dz;
-                if (distSq < minDist) {
-                    minDist = (float) Math.sqrt(distSq);
-                }
-            }
-            if (minDist > maxMinDistAtoB) {
-                maxMinDistAtoB = minDist;
-            }
-        }
-
-        // Compute directed Hausdorff: max over B of min distance to A
-        float maxMinDistBtoA = 0f;
-        for (int j = 0; j < vB; j++) {
-            int oB = j * FLOATS_PER_VERTEX;
-            float xB = posB[oB];
-            float yB = posB[oB + 1];
-            float zB = posB[oB + 2];
-            float minDist = Float.MAX_VALUE;
-            for (int i = 0; i < vA; i++) {
-                int oA = i * FLOATS_PER_VERTEX;
-                float dx = xB - posA[oA];
-                float dy = yB - posA[oA + 1];
-                float dz = zB - posA[oA + 2];
-                float distSq = dx * dx + dy * dy + dz * dz;
-                if (distSq < minDist) {
-                    minDist = (float) Math.sqrt(distSq);
-                }
-            }
-            if (minDist > maxMinDistBtoA) {
-                maxMinDistBtoA = minDist;
-            }
-        }
-
-        // Symmetric Hausdorff distance
-        return Math.max(maxMinDistAtoB, maxMinDistBtoA);
-    }
-
-    /**
-     * Computes the Chamfer distance between two meshes.
-     * The Chamfer distance is the average of:
-     * - Mean minimum distance from A to B
-     * - Mean minimum distance from B to A
-     *
-     * @param meshA First mesh
-     * @param meshB Second mesh
-     * @return Chamfer distance (Euclidean distance)
-     */
-    public static float chamferDistance(ArrayMesh meshA, ArrayMesh meshB) {
-        if (meshA == null || meshA.vertexCount() == 0 || meshB == null || meshB.vertexCount() == 0) {
-            return Float.MAX_VALUE;
-        }
-
-        float[] posA = meshA.copyPositions();
-        float[] posB = meshB.copyPositions();
-
-        int vA = meshA.vertexCount();
-        int vB = meshB.vertexCount();
-
-        // Compute directed Chamfer: mean over A of min distance to B
-        double sumMinDistAtoB = 0.0;
-        for (int i = 0; i < vA; i++) {
-            int oA = i * FLOATS_PER_VERTEX;
-            float xA = posA[oA];
-            float yA = posA[oA + 1];
-            float zA = posA[oA + 2];
-            float minDist = Float.MAX_VALUE;
-            for (int j = 0; j < vB; j++) {
-                int oB = j * FLOATS_PER_VERTEX;
-                float dx = xA - posB[oB];
-                float dy = yA - posB[oB + 1];
-                float dz = zA - posB[oB + 2];
-                float distSq = dx * dx + dy * dy + dz * dz;
-                if (distSq < minDist) {
-                    minDist = (float) Math.sqrt(distSq);
-                }
-            }
-            sumMinDistAtoB += minDist;
-        }
-        double meanDistAtoB = sumMinDistAtoB / vA;
-
-        // Compute directed Chamfer: mean over B of min distance to A
-        double sumMinDistBtoA = 0.0;
-        for (int j = 0; j < vB; j++) {
-            int oB = j * FLOATS_PER_VERTEX;
-            float xB = posB[oB];
-            float yB = posB[oB + 1];
-            float zB = posB[oB + 2];
-            float minDist = Float.MAX_VALUE;
-            for (int i = 0; i < vA; i++) {
-                int oA = i * FLOATS_PER_VERTEX;
-                float dx = xB - posA[oA];
-                float dy = yB - posA[oA + 1];
-                float dz = zB - posA[oA + 2];
-                float distSq = dx * dx + dy * dy + dz * dz;
-                if (distSq < minDist) {
-                    minDist = (float) Math.sqrt(distSq);
-                }
-            }
-            sumMinDistBtoA += minDist;
-        }
-        double meanDistBtoA = sumMinDistBtoA / vB;
-
-        // Symmetric Chamfer distance
-        return (float) ((meanDistAtoB + meanDistBtoA) / 2.0);
-    }
-
-    /**
-     * Computes the similarity score between two meshes as a percentage (0-100%).
-     * Lower distances indicate higher similarity.
-     *
-     * The score is computed as: 100 * exp(-distance / scale)
-     * where scale is a configurable parameter that determines how quickly
-     * the score decays with distance.
-     *
-     * @param meshA First mesh
-     * @param meshB Second mesh
-     * @param distanceType Type of distance to use
-     * @param scale Characteristic scale for normalization (larger = more tolerant)
-     * @return Similarity score in range [0, 100]
-     */
-    public static float similarityScore(ArrayMesh meshA, ArrayMesh meshB, DistanceType distanceType, float scale) {
-        if (meshA == null || meshA.vertexCount() == 0 || meshB == null || meshB.vertexCount() == 0) {
-            return 0f;
-        }
-        if (scale <= 0f) {
-            scale = 1f;
-        }
-
-        float distance;
-        if (distanceType == DistanceType.HAUSDORFF) {
-            distance = hausdorffDistance(meshA, meshB);
-        } else {
-            distance = chamferDistance(meshA, meshB);
-        }
-
-        if (distance == Float.MAX_VALUE) {
-            return 0f;
-        }
-
-        // Exponential decay: score = 100 * exp(-distance / scale)
-        // At distance = 0, score = 100
-        // At distance = scale, score = 100 * exp(-1) ≈ 36.8
-        // At distance = 3*scale, score = 100 * exp(-3) ≈ 5.0
-        float score = MAX_SCORE * (float) Math.exp(-distance / scale);
-
-        // Clamp to [0, 100]
-        return Math.max(0f, Math.min(MAX_SCORE, score));
-    }
-
-    /**
-     * Computes similarity score with default scale (1.0).
-     *
-     * @param meshA First mesh
-     * @param meshB Second mesh
-     * @param distanceType Type of distance to use
-     * @return Similarity score in range [0, 100]
-     */
-    public static float similarityScore(ArrayMesh meshA, ArrayMesh meshB, DistanceType distanceType) {
-        return similarityScore(meshA, meshB, distanceType, 1.0f);
-    }
-
-    /**
-     * Computes all metrics between two meshes.
-     *
-     * @param meshA First mesh
-     * @param meshB Second mesh
-     * @return MeshMetrics containing all computed values
-     */
-    public static MeshMetrics computeAllMetrics(ArrayMesh meshA, ArrayMesh meshB) {
-        return computeAllMetrics(meshA, meshB, 1.0f);
-    }
-
-    /**
      * Computes all metrics between two meshes with custom scale.
      *
-     * @param meshA First mesh
-     * @param meshB Second mesh
+     * @param meshA packed xyz positions of the first mesh
+     * @param meshB packed xyz positions of the second mesh
      * @param scale Characteristic scale for similarity normalization
      * @return MeshMetrics containing all computed values
      */
-    public static MeshMetrics computeAllMetrics(ArrayMesh meshA, ArrayMesh meshB, float scale) {
+    public static MeshMetrics computeAllMetrics(float[] meshA, float[] meshB, float scale) {
         if (meshA == null || meshB == null) {
             return new MeshMetrics(Float.MAX_VALUE, Float.MAX_VALUE, 0f);
         }
@@ -245,9 +37,44 @@ public final class MeshDistance {
         float hausdorff = 0f;
         float chamfer = 0f;
 
-        if (meshA.vertexCount() > 0 && meshB.vertexCount() > 0) {
-            hausdorff = hausdorffDistance(meshA, meshB);
-            chamfer = chamferDistance(meshA, meshB);
+        if (meshA.length > 0 && meshB.length > 0) {
+            // Each direction's nearest-vertex distances give its Hausdorff maximum and its
+            // Chamfer mean; both metrics are symmetric over the two directions.
+            float[] directedMax = new float[2];
+            double[] directedMean = new double[2];
+            for (int direction = 0; direction < 2; direction++) {
+                float[] from = direction == 0 ? meshA : meshB;
+                float[] to = direction == 0 ? meshB : meshA;
+                int fromCount = from.length / FLOATS_PER_VERTEX;
+                int toCount = to.length / FLOATS_PER_VERTEX;
+                float maxMinDist = 0f;
+                double sumMinDist = 0.0;
+                for (int i = 0; i < fromCount; i++) {
+                    int oFrom = i * FLOATS_PER_VERTEX;
+                    float x = from[oFrom];
+                    float y = from[oFrom + 1];
+                    float z = from[oFrom + 2];
+                    float minDist = Float.MAX_VALUE;
+                    for (int j = 0; j < toCount; j++) {
+                        int oTo = j * FLOATS_PER_VERTEX;
+                        float dx = x - to[oTo];
+                        float dy = y - to[oTo + 1];
+                        float dz = z - to[oTo + 2];
+                        float distSq = dx * dx + dy * dy + dz * dz;
+                        if (distSq < minDist) {
+                            minDist = (float) Math.sqrt(distSq);
+                        }
+                    }
+                    if (minDist > maxMinDist) {
+                        maxMinDist = minDist;
+                    }
+                    sumMinDist += minDist;
+                }
+                directedMax[direction] = maxMinDist;
+                directedMean[direction] = sumMinDist / fromCount;
+            }
+            hausdorff = Math.max(directedMax[0], directedMax[1]);
+            chamfer = (float) ((directedMean[0] + directedMean[1]) / 2.0);
         }
 
         float score = 0f;
@@ -260,94 +87,48 @@ public final class MeshDistance {
     }
 
     /**
-     * Extracts all vertex positions from a mesh into a list of Vector3f.
+     * The mesh's packed positions centered on its bounding-box center and scaled to a unit
+     * bounding-box diagonal, the frame two meshes are compared in when asked to normalize.
      *
-     * @param mesh Input mesh
-     * @return List of vertex positions
+     * @param mesh mesh to read
+     * @return normalized packed xyz positions in active-vertex order
      */
-    public static List<Vector3f> extractVertices(ArrayMesh mesh) {
-        List<Vector3f> vertices = new ArrayList<>(mesh.vertexCount());
-        float[] pos = mesh.copyPositions();
-        Vector3f v = new Vector3f();
-        for (int i = 0; i < mesh.vertexCount(); i++) {
+    public static float[] normalizedPositions(MeshTopology mesh) {
+        float[] pos = extractPositions(mesh);
+        int n = mesh.vertexCount();
+        if (n == 0) {
+            return pos;
+        }
+        float minX = Float.MAX_VALUE;
+        float minY = Float.MAX_VALUE;
+        float minZ = Float.MAX_VALUE;
+        float maxX = -Float.MAX_VALUE;
+        float maxY = -Float.MAX_VALUE;
+        float maxZ = -Float.MAX_VALUE;
+        for (int i = 0; i < n; i++) {
             int o = i * FLOATS_PER_VERTEX;
-            v.set(pos[o], pos[o + 1], pos[o + 2]);
-            vertices.add(new Vector3f(v));
+            minX = Math.min(minX, pos[o]);
+            maxX = Math.max(maxX, pos[o]);
+            minY = Math.min(minY, pos[o + 1]);
+            maxY = Math.max(maxY, pos[o + 1]);
+            minZ = Math.min(minZ, pos[o + 2]);
+            maxZ = Math.max(maxZ, pos[o + 2]);
         }
-        return vertices;
-    }
-
-    /**
-     * Computes distance from a point to the nearest vertex in a mesh.
-     *
-     * @param mesh Mesh to search
-     * @param point Query point
-     * @return Minimum Euclidean distance
-     */
-    public static float pointToMeshDistance(ArrayMesh mesh, Vector3f point) {
-        if (mesh == null || mesh.vertexCount() == 0) {
-            return Float.MAX_VALUE;
-        }
-        float[] pos = mesh.copyPositions();
-        float minDist = Float.MAX_VALUE;
-        float px = point.x;
-        float py = point.y;
-        float pz = point.z;
-        for (int i = 0; i < mesh.vertexCount(); i++) {
+        float cx = (minX + maxX) * 0.5f;
+        float cy = (minY + maxY) * 0.5f;
+        float cz = (minZ + maxZ) * 0.5f;
+        float dx = maxX - minX;
+        float dy = maxY - minY;
+        float dz = maxZ - minZ;
+        float diagonal = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        float invDiag = diagonal > MIN_DIAGONAL ? 1.0f / diagonal : 1.0f;
+        for (int i = 0; i < n; i++) {
             int o = i * FLOATS_PER_VERTEX;
-            float dx = px - pos[o];
-            float dy = py - pos[o + 1];
-            float dz = pz - pos[o + 2];
-            float distSq = dx * dx + dy * dy + dz * dz;
-            if (distSq < minDist) {
-                minDist = (float) Math.sqrt(distSq);
-            }
+            pos[o] = (pos[o] - cx) * invDiag;
+            pos[o + 1] = (pos[o + 1] - cy) * invDiag;
+            pos[o + 2] = (pos[o + 2] - cz) * invDiag;
         }
-        return minDist;
-    }
-
-    /**
-     * Computes distance from a mesh to a single point (minimum distance from any
-     * vertex to the point).
-     *
-     * @param mesh Mesh to measure
-     * @param point Query point
-     * @return Minimum Euclidean distance
-     */
-    public static float meshToPointDistance(ArrayMesh mesh, Vector3f point) {
-        return pointToMeshDistance(mesh, point);
-    }
-
-    /**
-     * Computes the average pairwise distance between corresponding vertices of
-     * two meshes (requires same vertex count and ordering).
-     *
-     * @param meshA First mesh
-     * @param meshB Second mesh
-     * @return Average Euclidean distance between corresponding vertices
-     */
-    public static float averageVertexDistance(ArrayMesh meshA, ArrayMesh meshB) {
-        if (meshA == null || meshB == null) {
-            return Float.MAX_VALUE;
-        }
-        if (meshA.vertexCount() != meshB.vertexCount() || meshA.vertexCount() == 0) {
-            return Float.MAX_VALUE;
-        }
-
-        float[] posA = meshA.copyPositions();
-        float[] posB = meshB.copyPositions();
-        int v = meshA.vertexCount();
-        double sumDist = 0.0;
-
-        for (int i = 0; i < v; i++) {
-            int o = i * FLOATS_PER_VERTEX;
-            float dx = posA[o] - posB[o];
-            float dy = posA[o + 1] - posB[o + 1];
-            float dz = posA[o + 2] - posB[o + 2];
-            sumDist += Math.sqrt(dx * dx + dy * dy + dz * dz);
-        }
-
-        return (float) (sumDist / v);
+        return pos;
     }
 
     /**
@@ -483,16 +264,6 @@ public final class MeshDistance {
             if (v < threshold) count++;
         }
         return (float) count / arr.length;
-    }
-
-    /**
-     * Type of distance metric to compute.
-     */
-    public enum DistanceType {
-        /** Hausdorff distance (worst-case, symmetric). */
-        HAUSDORFF,
-        /** Chamfer distance (average, bidirectional). */
-        CHAMFER
     }
 
     /**

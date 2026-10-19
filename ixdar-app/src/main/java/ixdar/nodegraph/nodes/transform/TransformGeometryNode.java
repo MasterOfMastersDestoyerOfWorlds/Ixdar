@@ -2,7 +2,6 @@ package ixdar.nodegraph.nodes.transform;
 import java.util.Objects;
 import java.util.List;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import org.joml.Matrix4f;
@@ -20,8 +19,8 @@ import ixdar.nodegraph.field.Vector3Value;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
 
@@ -102,87 +101,41 @@ public class TransformGeometryNode implements MeshNode {
 
         // Transform mesh vertices if present
         MeshTopology mesh = base.mesh();
+        HalfEdgeMesh out = null;
+        int[] activeVertexOfId = null;
         if (mesh != null && mesh.vertexCount() > 0) {
             int n = mesh.vertexCount();
             int fc = mesh.faceCount();
 
-            // Detect uniform face vertex count and max sparse vertex ID in one pass
-            int vpf = -1;
-            boolean uniform = true;
-            int maxSparseId = -1;
-            for (int i = 0; i < n; i++) {
-                int vid = mesh.vertexIdAt(i);
-                if (vid > maxSparseId) {
-                    maxSparseId = vid;
-                }
+            // Output vertex i is the input's active vertex i; faces keep their corners.
+            float[] newPositions = new float[n * VECTOR_STRIDE];
+            activeVertexOfId = new int[mesh.vertexIdBound()];
+            for (int activeVertex = 0; activeVertex < n; activeVertex++) {
+                int vertexId = mesh.vertexIdAt(activeVertex);
+                activeVertexOfId[vertexId] = activeVertex;
+                mesh.vertexPosition(vertexId, tmp);
+                mat.transformPosition(tmp);
+                newPositions[activeVertex * VECTOR_STRIDE] = tmp.x;
+                newPositions[activeVertex * VECTOR_STRIDE + 1] = tmp.y;
+                newPositions[activeVertex * VECTOR_STRIDE + 2] = tmp.z;
             }
+            int[] faceSizes = new int[fc];
+            int cornerCount = 0;
             for (int fi = 0; fi < fc; fi++) {
-                int fid = mesh.faceIdAt(fi);
-                int fvc = mesh.faceVertexCount(fid);
-                if (vpf == -1) {
-                    vpf = fvc;
-                } else if (fvc != vpf) {
-                    uniform = false;
-                    break;
+                faceSizes[fi] = mesh.faceVertexCount(mesh.faceIdAt(fi));
+                cornerCount += faceSizes[fi];
+            }
+            int[] faceCorners = new int[cornerCount];
+            int cursor = 0;
+            for (int fi = 0; fi < fc; fi++) {
+                int faceId = mesh.faceIdAt(fi);
+                for (int k = 0; k < faceSizes[fi]; k++) {
+                    faceCorners[cursor++] = activeVertexOfId[mesh.faceVertexAt(faceId, k)];
                 }
             }
-
-            if (uniform && vpf > 0 && fc > 0) {
-                // Fast path: output ArrayMesh with primitive arrays, no HashMap/boxing
-                float[] newPositions = new float[n * VECTOR_STRIDE];
-                int[] sparseToDense = new int[maxSparseId + 1];
-                for (int i = 0; i < n; i++) {
-                    int vid = mesh.vertexIdAt(i);
-                    mesh.vertexPosition(vid, tmp);
-                    mat.transformPosition(tmp);
-                    newPositions[i * VECTOR_STRIDE] = tmp.x;
-                    newPositions[i * VECTOR_STRIDE + 1] = tmp.y;
-                    newPositions[i * VECTOR_STRIDE + 2] = tmp.z;
-                    sparseToDense[vid] = i;
-                }
-                ArrayMesh out;
-                if (mesh instanceof ArrayMesh dense) {
-                    // Dense ids map to themselves, so the faces are unchanged and the topology is shared.
-                    out = dense.withPositions(newPositions, null);
-                } else {
-                    int[] faceIndices = new int[fc * vpf];
-                    for (int fi = 0; fi < fc; fi++) {
-                        int fid = mesh.faceIdAt(fi);
-                        int base2 = fi * vpf;
-                        for (int k = 0; k < vpf; k++) {
-                            faceIndices[base2 + k] = sparseToDense[mesh.faceVertexAt(fid, k)];
-                        }
-                    }
-                    out = new ArrayMesh(newPositions, null, faceIndices, vpf);
-                }
-                out.computeNormals();
-                result = result.withMesh(out);
-            } else {
-                // Fallback: mixed-valence faces require HalfEdgeMesh
-                HalfEdgeMesh out = new HalfEdgeMesh();
-                HashMap<Integer, Integer> idMap = new HashMap<>();
-
-                for (int i = 0; i < n; i++) {
-                    int vid = mesh.vertexIdAt(i);
-                    mesh.vertexPosition(vid, tmp);
-                    mat.transformPosition(tmp);
-                    int nid = out.addVertex(tmp);
-                    idMap.put(vid, nid);
-                }
-
-                for (int fi = 0; fi < fc; fi++) {
-                    int fid = mesh.faceIdAt(fi);
-                    int fvc = mesh.faceVertexCount(fid);
-                    int[] nv = new int[fvc];
-                    for (int k = 0; k < fvc; k++) {
-                        int ov = mesh.faceVertexAt(fid, k);
-                        nv[k] = idMap.get(ov);
-                    }
-                    out.addFace(nv);
-                }
-                out.computeNormals();
-                result = result.withMesh(out);
-            }
+            out = HalfEdgeMeshEngine.bulkAllocateMixed(newPositions, faceSizes, faceCorners);
+            out.computeNormals();
+            result = result.withMesh(out);
         }
 
         // Transform bezier handle offset vectors if present. Handles are offset
@@ -192,6 +145,31 @@ public class TransformGeometryNode implements MeshNode {
         if (hasRotation || hasScale) {
             result = transformHandleSlot(result, AssignBezierHandlesNode.SLOT_HANDLES_START, mat, tmp);
             result = transformHandleSlot(result, AssignBezierHandlesNode.SLOT_HANDLES_END, mat, tmp);
+        }
+
+        // Handles are keyed by edge id, start at the tail of the edge's half-edge; the rebuilt
+        // mesh numbers and orients its edges afresh, so each pair moves to the output edge
+        // joining the same vertices, swapped when that edge runs the other way.
+        if (out != null && result.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START) instanceof float[] start
+                && result.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_END) instanceof float[] end) {
+            float[] outStart = new float[out.edgeIdBound() * VECTOR_STRIDE];
+            float[] outEnd = new float[outStart.length];
+            for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
+                int edgeId = mesh.edgeIdAt(activeEdge);
+                if ((edgeId + 1) * VECTOR_STRIDE > Math.min(start.length, end.length)) {
+                    continue;
+                }
+                int halfEdge = mesh.edgeHalfEdge(edgeId);
+                int tail = activeVertexOfId[mesh.halfEdgeVertex(halfEdge)];
+                int outEdge = out.edgeBetween(tail, activeVertexOfId[mesh.halfEdgeEndVertex(halfEdge)]);
+                boolean sameWay = out.halfEdgeVertex(out.edgeHalfEdge(outEdge)) == tail;
+                System.arraycopy(sameWay ? start : end, edgeId * VECTOR_STRIDE, outStart,
+                        outEdge * VECTOR_STRIDE, VECTOR_STRIDE);
+                System.arraycopy(sameWay ? end : start, edgeId * VECTOR_STRIDE, outEnd,
+                        outEdge * VECTOR_STRIDE, VECTOR_STRIDE);
+            }
+            result = result.withSlot(AssignBezierHandlesNode.SLOT_HANDLES_START, outStart)
+                    .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_END, outEnd);
         }
 
         // Transform curve geometry if present in slots

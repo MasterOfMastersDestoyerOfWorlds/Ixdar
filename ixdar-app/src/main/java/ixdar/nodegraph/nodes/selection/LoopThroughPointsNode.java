@@ -12,7 +12,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
 import ixdar.geometry.mesh.data.rings.SurfaceRing;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -29,8 +28,7 @@ public class LoopThroughPointsNode implements MeshNode {
 
     public static final String DEFAULT_MARK_LABEL = "ring";
 
-    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,
-            null);
+    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
     public static final InputPort POINTS = new InputPort("points", PortType.STRING, "");
     public static final InputPort TIGHTEN = new InputPort("tighten", PortType.BOOLEAN, true);
     public static final InputPort CLOSED = new InputPort("closed", PortType.BOOLEAN, true);
@@ -107,12 +105,6 @@ public class LoopThroughPointsNode implements MeshNode {
             ctx.setOutput(GEOMETRY.name, bundle);
             ctx.setOutput(SELECTION.name, false);
             return;
-        }
-        // The half-edge form ring_candidates also passes on, so a ring reading a loaded file
-        // marks the same edges as one chained after the proposed rings.
-        mesh = HalfEdgeMeshEngine.fromMeshTopology(mesh);
-        if (mesh != bundle.mesh()) {
-            bundle = bundle.withMesh(mesh);
         }
         boolean closed = !Boolean.FALSE.equals(ctx.getInput(CLOSED.name, Boolean.class));
         boolean tighten = !Boolean.FALSE.equals(ctx.getInput(TIGHTEN.name, Boolean.class));

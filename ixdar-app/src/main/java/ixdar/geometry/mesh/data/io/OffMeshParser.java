@@ -9,11 +9,11 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
- * Reads Geomview OFF meshes, ASCII and binary, into {@link ArrayMesh}. The header prefixes
+ * Reads Geomview OFF meshes, ASCII and binary, into a mesh ({@link MeshLoader#indexedMesh}). The header prefixes
  * {@code ST}, {@code C} and {@code N} announce per-vertex texture coordinates, colours and
  * normals; only positions and connectivity are kept.
  */
@@ -46,7 +46,7 @@ public final class OffMeshParser {
      *                                  parser does not read, or the binary body does not match it
      * @return parsed mesh (empty if the file has no positions); n-gon faces are fan-triangulated
      */
-    public static ArrayMesh load(byte[] content) {
+    public static MeshTopology load(byte[] content) {
         int lineStart = 0;
         int bodyStart = content.length;
         String header = "";
@@ -118,7 +118,7 @@ public final class OffMeshParser {
      * @throws RuntimeException wraps any {@link IOException} from the underlying reader
      * @return parsed mesh
      */
-    private static ArrayMesh loadAscii(String body) {
+    private static MeshTopology loadAscii(String body) {
         List<Float> positions = new ArrayList<>();
         List<int[]> faces = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new StringReader(body))) {
@@ -173,7 +173,7 @@ public final class OffMeshParser {
      * @throws IllegalArgumentException if no candidate layout reads the body
      * @return parsed mesh
      */
-    private static ArrayMesh loadBinary(byte[] content, int bodyStart, String header,
+    private static MeshTopology loadBinary(byte[] content, int bodyStart, String header,
             boolean hasNormals, boolean hasColors, boolean hasTextureCoordinates) {
         int fixedFloatsPerVertex = MeshLoader.FLOATS_PER_VERTEX
                 + (hasNormals ? MeshLoader.FLOATS_PER_VERTEX : 0)
@@ -297,9 +297,9 @@ public final class OffMeshParser {
      * @param faces     vertex indices of each face, in file order
      * @return the assembled mesh, empty when there are no positions or no faces
      */
-    private static ArrayMesh buildMesh(List<Float> positions, List<int[]> faces) {
+    private static MeshTopology buildMesh(List<Float> positions, List<int[]> faces) {
         if (positions.isEmpty()) {
-            return ArrayMeshEngine.emptyQuads();
+            return new HalfEdgeMesh();
         }
 
         float[] posArray = new float[positions.size()];
@@ -371,7 +371,7 @@ public final class OffMeshParser {
                 faceIndices[fi++] = face[2];
                 faceIndices[fi++] = face[MeshLoader.FLOATS_PER_VERTEX];
             }
-            return new ArrayMesh(posArray, normArray, faceIndices, vertsPerFace);
+            return MeshLoader.indexedMesh(posArray, normArray, faceIndices, vertsPerFace);
         }
 
         int totalTriIndices = 0;
@@ -393,8 +393,8 @@ public final class OffMeshParser {
             }
         }
         if (faceIndices.length == 0) {
-            return ArrayMeshEngine.emptyQuads();
+            return new HalfEdgeMesh();
         }
-        return new ArrayMesh(posArray, normArray, faceIndices, vertsPerFace);
+        return MeshLoader.indexedMesh(posArray, normArray, faceIndices, vertsPerFace);
     }
 }

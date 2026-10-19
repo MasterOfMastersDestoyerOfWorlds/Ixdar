@@ -8,14 +8,12 @@ import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 
 /**
- * Morse-Smale complex on a triangle mesh. Classifies vertices of a per-vertex Morse scalar as
- * maxima, minima or saddles, filters them by prominence, then traces integral arcs by steepest
- * ascent and descent from each saddle. Tracing is step-capped, so an arc may stop short of a
- * critical point.
+ * Morse-Smale complex over a mesh's triangle fan: critical vertices of a Morse scalar, filtered by
+ * prominence, and step-capped integral arcs from each saddle, all by mesh vertex id.
  */
 public final class MorseSmaleComplex {
     public static final int SCALAR_SMOOTH_ITERATIONS = 50;
@@ -40,7 +38,7 @@ public final class MorseSmaleComplex {
      *        least this fraction of the scalar's p5..p95 range
      * @return critical points, integral arcs, and the smoothed scalar field that produced them
      */
-    public static Result compute(ArrayMesh mesh, float[] scalarIn, float[] gaussKIn,
+    public static Result compute(MeshTopology mesh, float[] scalarIn, float[] gaussKIn,
                                  EdgeDihedrals ed, float prominenceFrac) {
         return compute(mesh, scalarIn, gaussKIn, ed, prominenceFrac, /*useB1Classifier=*/true);
     }
@@ -59,10 +57,10 @@ public final class MorseSmaleComplex {
      * @param useB1Classifier true for the lower-link component classifier (preferred), false for the legacy 1-ring + Gauss classifier
      * @return critical points, integral arcs, and the smoothed scalar field
      */
-    public static Result compute(ArrayMesh mesh, float[] scalarIn, float[] gaussKIn,
+    public static Result compute(MeshTopology mesh, float[] scalarIn, float[] gaussKIn,
                                  EdgeDihedrals ed, float prominenceFrac,
                                  boolean useB1Classifier) {
-        int nv = mesh.vertexCount();
+        int nv = mesh.vertexIdBound();
         int[][] ring = buildOneRing(ed, nv);
 
         // Laplacian-smooth the scalar field before classification. A raw
@@ -80,15 +78,21 @@ public final class MorseSmaleComplex {
             return computeB1(mesh, scalar, ring, orderedRing, prominenceFrac);
         }
 
-        // Scalar stats for the prominence filter.
-        float[] sortedScalar = scalar.clone();
-        Arrays.sort(sortedScalar);
-        float p5 = sortedScalar[(int) (nv * P5_FRACTION)];
-        float p95 = sortedScalar[(int) (nv * P95_FRACTION)];
-        float span = Math.max(p95 - p5, EPSILON);
+        // Scalar stats for the prominence filter, over the live vertices.
+        int liveCount = mesh.vertexCount();
+        float[] sortedScalar = new float[liveCount];
+        float[] sortedK = new float[liveCount];
+        for (int activeVertex = 0; activeVertex < liveCount; activeVertex++) {
+            sortedScalar[activeVertex] = scalar[mesh.vertexIdAt(activeVertex)];
+            sortedK[activeVertex] = gaussK[mesh.vertexIdAt(activeVertex)];
+        }
         float meanVal = 0f;
-        for (float v : scalar) meanVal += v;
-        meanVal /= nv;
+        for (float v : sortedScalar) meanVal += v;
+        meanVal /= liveCount;
+        Arrays.sort(sortedScalar);
+        float p5 = sortedScalar[(int) (liveCount * P5_FRACTION)];
+        float p95 = sortedScalar[(int) (liveCount * P95_FRACTION)];
+        float span = Math.max(p95 - p5, EPSILON);
         float maxThreshold = meanVal + prominenceFrac * span;
         float minThreshold = meanVal - prominenceFrac * span;
         // Gaussian curvature threshold for saddle. A saddle requires
@@ -96,9 +100,8 @@ public final class MorseSmaleComplex {
         // distribution — only the most strongly saddle-shaped 10% of
         // vertices qualify. Tune down (toward p5) if too few saddles,
         // up (toward p25) if too many.
-        float[] sortedK = gaussK.clone();
         Arrays.sort(sortedK);
-        float saddleGaussT = sortedK[Math.max(0, (int) (nv * P10_FRACTION))];
+        float saddleGaussT = sortedK[Math.max(0, (int) (liveCount * P10_FRACTION))];
 
         // Pass 1: raw classification via 1-ring comparison + Gaussian.
         CriticalType[] label = new CriticalType[nv];
@@ -366,17 +369,21 @@ public final class MorseSmaleComplex {
      * @param prominenceFrac fraction of the scalar's p5..p95 range used by the prominence and persistence filters
      * @return critical points, integral arcs, and the smoothed scalar field
      */
-    private static Result computeB1(ArrayMesh mesh, float[] scalar,
+    private static Result computeB1(MeshTopology mesh, float[] scalar,
                                     int[][] ring, int[][] orderedRing,
                                     float prominenceFrac) {
-        int nv = mesh.vertexCount();
+        int nv = mesh.vertexIdBound();
+        int liveCount = mesh.vertexCount();
 
         // Statistics for the prominence post-filter — used after the
         // structural classifier to drop flat-plateau false positives.
-        float[] sortedScalar = scalar.clone();
+        float[] sortedScalar = new float[liveCount];
+        for (int activeVertex = 0; activeVertex < liveCount; activeVertex++) {
+            sortedScalar[activeVertex] = scalar[mesh.vertexIdAt(activeVertex)];
+        }
         Arrays.sort(sortedScalar);
-        float p5 = sortedScalar[(int) (nv * P5_FRACTION)];
-        float p95 = sortedScalar[(int) (nv * P95_FRACTION)];
+        float p5 = sortedScalar[(int) (liveCount * P5_FRACTION)];
+        float p95 = sortedScalar[(int) (liveCount * P95_FRACTION)];
         float span = Math.max(p95 - p5, EPSILON);
 
         CriticalType[] label = new CriticalType[nv];
@@ -400,7 +407,7 @@ public final class MorseSmaleComplex {
         // Prominence filter: drop extrema whose scalar value is too
         // close to the mesh median. Real anatomical bumps stick out;
         // plateau noise extrema sit near the median.
-        float median = sortedScalar[nv / 2];
+        float median = sortedScalar[liveCount / 2];
         for (int v = 0; v < nv; v++) {
             if (label[v] == CriticalType.MAX
                     && (scalar[v] - median) < prominenceFrac * span) {
@@ -606,8 +613,8 @@ public final class MorseSmaleComplex {
      * @param nv vertex count
      * @return per-vertex cyclic ring (or {@code null} on non-manifold / boundary fans)
      */
-    private static int[][] buildOrderedOneRing(ArrayMesh mesh, EdgeDihedrals ed, int nv) {
-        int[] faceIdx = mesh.copyFaceIndices();
+    private static int[][] buildOrderedOneRing(MeshTopology mesh, EdgeDihedrals ed, int nv) {
+        int[] faceIdx = ed.triangles();
         int faceCount = faceIdx.length / 3;
 
         // Vertex → list of (faceId, vPositionInFace) inverse index.

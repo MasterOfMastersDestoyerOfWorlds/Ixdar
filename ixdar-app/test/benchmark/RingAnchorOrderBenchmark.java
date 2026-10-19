@@ -26,7 +26,6 @@ import ixdar.geometry.mesh.data.paths.query.SurfacePathCrossings;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.nodes.selection.SplineRingNode;
@@ -112,7 +111,7 @@ public final class RingAnchorOrderBenchmark {
         assertNotNull(ring, "no statement " + ringLabel);
         assertNotNull(surfaceNode, "no spline_ring reads a surface");
         GeometryBundle bundle = (GeometryBundle) graph.executeGraphResult(surfaceNode, GEOMETRY_PORT);
-        surface = HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
+        surface = bundle.mesh();
         geodesics = SurfaceGeodesics.over(SurfaceMetric.of(surface));
         float[] points = SurfaceWaypoints.parse(
                 String.valueOf(ring.inputSources.get(SplineRingNode.POINTS.name)));

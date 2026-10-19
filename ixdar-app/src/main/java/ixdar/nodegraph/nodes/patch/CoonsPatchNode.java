@@ -17,7 +17,6 @@ import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 
@@ -211,23 +210,8 @@ public class CoonsPatchNode implements MeshNode {
         int[] faceVertexCounts = new int[faceVertexCountsList.size()];
         for (int i = 0; i < faceVertexCountsList.size(); i++) faceVertexCounts[i] = faceVertexCountsList.get(i);
 
-        // If every emitted face is a quad, keep the ArrayMesh output for
-        // bitwise-compatibility with downstream consumers. Mixed output uses
-        // HalfEdgeMesh via bulkAllocateMixed since ArrayMesh requires uniform vpf.
-        MeshTopology outMesh;
-        boolean allQuads = true;
-        for (int c : faceVertexCounts) {
-            if (c != 4) { allQuads = false; break; }
-        }
-        if (allQuads) {
-            ArrayMesh am = new ArrayMesh(positions, null, faceIdxFlat, 4);
-            am.computeNormals();
-            outMesh = am;
-        } else {
-            HalfEdgeMesh hem = HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceVertexCounts, faceIdxFlat);
-            hem.computeNormals();
-            outMesh = hem;
-        }
+        HalfEdgeMesh outMesh = HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceVertexCounts, faceIdxFlat);
+        outMesh.computeNormals();
 
         HashMap<String, Object> nextSlots = new HashMap<>(base.slots());
         nextSlots.remove(AssignBezierHandlesNode.SLOT_HANDLES_START);

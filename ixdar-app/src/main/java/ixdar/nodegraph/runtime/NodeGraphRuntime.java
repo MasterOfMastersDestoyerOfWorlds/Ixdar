@@ -19,6 +19,8 @@ import java.util.function.Supplier;
 import ixdar.annotations.RegistryProcessor;
 import ixdar.annotations.meshnode.MeshNodeRegistry_MeshNodes;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.FieldContext;
 import ixdar.nodegraph.api.InputPort;
@@ -49,6 +51,9 @@ public class NodeGraphRuntime {
     public static final int MAX_GROUP_DEPTH = 32;
 
     public static final String DEFAULT_PORT = "default";
+
+    public static final String NEEDS_MANIFOLD_MESH = " needs a manifold mesh, but this one has no"
+            + " half-edge form (non-manifold, degenerate or unoriented edges); run repair_mesh on it first";
 
     public static final Map<String, Supplier<? extends MeshNode>> REGISTERED_NODES;
 
@@ -746,6 +751,8 @@ public class NodeGraphRuntime {
      * children; a group call binds its parameters and, when whole groups run, its body and outputs.
      *
      * @param record the record, whose scope has been entered
+     * @throws InvalidMeshTopologyException naming the node, before it runs, when a port that
+     *         {@link InputPort#needsManifoldMesh} holds a mesh with no half-edge form
      * @throws Exception if the node fails
      * @return the record
      */
@@ -814,6 +821,12 @@ public class NodeGraphRuntime {
             long started = System.nanoTime();
             heapSampler.resetPeak();
             try {
+                for (InputPort port : record.node.inputs()) {
+                    if (port.needsManifoldMesh && record.getInputValue(port.name) instanceof GeometryBundle bundle
+                            && bundle.mesh() != null && !(bundle.mesh() instanceof HalfEdgeMesh)) {
+                        throw new InvalidMeshTopologyException(record.type + NEEDS_MANIFOLD_MESH);
+                    }
+                }
                 record.node.evaluate(record);
                 AutoTagHook.applyIfApplicable(record.node, record, id);
             } finally {

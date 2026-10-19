@@ -20,9 +20,7 @@ import ixdar.geometry.mesh.data.paths.query.SurfaceFaceLocator;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
-import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.graphics.render.model.LineSet;
 import ixdar.tools.ring.RingTool;
@@ -46,9 +44,8 @@ class RingLineNormalsTest {
 
     @Test
     void everyRingSegmentCarriesAFaceNormalAndLiesOnTheSurface() throws Exception {
-        ArrayMesh loaded = MeshLoader.load(FERTILITY);
-        MeshTopology mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(loaded.copyPositions(),
-                loaded.copyFaceIndices());
+        HalfEdgeMesh mesh = (HalfEdgeMesh) MeshLoader.load(FERTILITY);
+        mesh.computeNormals();
         SurfaceGeodesics geodesics = SurfaceGeodesics.over(SurfaceMetric.of(mesh));
         SurfaceFaceLocator locator = new SurfaceFaceLocator(mesh);
         Matcher statement = SPLINE_RING.matcher(Files.readString(Path.of(RINGS)));

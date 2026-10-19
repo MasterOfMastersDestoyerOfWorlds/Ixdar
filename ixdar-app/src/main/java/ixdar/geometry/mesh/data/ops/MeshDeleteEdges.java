@@ -9,14 +9,11 @@ import ixdar.nodegraph.field.BoolField;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 import ixdar.nodegraph.field.Vector3Value;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
- * Deletes selected edges (and their incident faces), producing a new mesh
- * (preferring {@link ArrayMesh}). Isolated vertices left after face removal are
- * also deleted.
+ * Deletes selected edges (and their incident faces), producing a new
+ * {@link HalfEdgeMesh}. Isolated vertices left after face removal are also deleted.
  */
 public final class MeshDeleteEdges {
 
@@ -30,11 +27,11 @@ public final class MeshDeleteEdges {
      * @param mesh source mesh; treated read-only
      * @param selectionObj per-edge {@link BoolField} selection, or a {@link Boolean} ({@code true} = delete every edge)
      * @return new mesh — empty if the whole input is selected, the offset-applied input if nothing is selected,
-     *         an {@link ArrayMesh} when the input is one, otherwise a {@link HalfEdgeMesh}
+     *         otherwise a {@link HalfEdgeMesh}
      */
     public static MeshTopology delete(MeshTopology mesh, Object selectionObj) {
         if (mesh == null || mesh.edgeCount() == 0) {
-            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
+            return new HalfEdgeMesh();
         }
         int ne = mesh.edgeCount();
         boolean deleteAll = false;
@@ -49,7 +46,7 @@ public final class MeshDeleteEdges {
         }
 
         if (deleteAll) {
-            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
+            return new HalfEdgeMesh();
         }
 
         boolean any = false;
@@ -61,10 +58,6 @@ public final class MeshDeleteEdges {
         }
         if (!any) {
             return MeshVertexOffset.apply(mesh, new Vector3Value(0f, 0f, 0f));
-        }
-
-        if (mesh instanceof ArrayMesh am) {
-            return ArrayMeshEngine.deleteEdges(am, delEdge);
         }
 
         HashSet<Integer> deadEdgeIds = new HashSet<>();

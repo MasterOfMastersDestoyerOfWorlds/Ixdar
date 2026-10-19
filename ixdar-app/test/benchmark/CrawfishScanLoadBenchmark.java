@@ -112,13 +112,16 @@ public final class CrawfishScanLoadBenchmark {
         ArrayMesh welded = assertInstanceOf(ArrayMesh.class, model.bundle.mesh());
         CornerUvField uv = assertInstanceOf(CornerUvField.class,
                 model.bundle.slots().get(CornerUvField.SLOT));
-        ArrayMesh unwelded = CornerUvSplit.split(welded, uv, null,
-                new float[CornerUvSplit.maxSplitUvLength(welded)]);
+        int[] weldedCorners = welded.faceIndices;
+        int[] splitCorners = new int[weldedCorners.length];
+        int splitVertexCount = CornerUvSplit.split(weldedCorners, uv, null,
+                new float[CornerUvSplit.maxSplitUvLength(welded.faceCount())], splitCorners,
+                new int[weldedCorners.length]);
         Platforms.log("[benchmark] welded V=%d | split V=%d%n", welded.vertexCount(),
-                unwelded.vertexCount());
-        logEdgeStats("split (pre-weld)", unwelded.copyFaceIndices());
-        logEdgeStats("welded", welded.copyFaceIndices());
-        assertTrue(unwelded.vertexCount() >= welded.vertexCount(),
+                splitVertexCount);
+        logEdgeStats("split (pre-weld)", splitCorners);
+        logEdgeStats("welded", weldedCorners);
+        assertTrue(splitVertexCount >= welded.vertexCount(),
                 "splitting never merges vertices");
     }
 

@@ -12,9 +12,9 @@ import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.Skeleton
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
+import org.joml.Vector3f;
 
 /**
  * Proposes neck loops from a TEASAR skeleton: branch regions, their rims as seed loops, FlipOut
@@ -38,8 +38,6 @@ public final class RingCandidateExtractor {
     public static final int MINIMUM_COMPONENT_VERTICES = 6;
 
     public static final int COORDINATES_PER_POINT = 3;
-
-    public static final int TRIANGLE_CORNERS = 3;
 
     /** Voxel-grid resolution handed to {@link MeshSkeletonExtractor}. */
     public int resolution = MeshSkeletonExtractor.DEFAULT_RESOLUTION;
@@ -70,9 +68,6 @@ public final class RingCandidateExtractor {
     /** Surface the last run proposed rings on. */
     public MeshTopology mesh;
 
-    /** The same surface packed densely, the form the skeleton extractor takes. */
-    public ArrayMesh dense;
-
     /** Skeleton the last run's regions were grown from. */
     public SkeletonResult skeleton;
 
@@ -82,13 +77,16 @@ public final class RingCandidateExtractor {
     /** Id of the skeleton branch each region was cut from; several regions share one branch. */
     public int[] branchOfRegion = new int[0];
 
-    /** Region index per dense vertex index, after the connected-region cleanup. */
+    /**
+     * Region index per vertex id, sized by the id bound, after the connected-region cleanup; gap
+     * slots hold -1.
+     */
     public int[] regionByVertex = new int[0];
 
     /** Surface area of each region, in world units squared. */
     public float[] regionArea = new float[0];
 
-    private int[] vertexIndexByVertexId = new int[0];
+    private float[] positionByVertexId = new float[0];
     private float[] regionJointPosition = new float[0];
     private float[] regionJointRadius = new float[0];
     private int[] regionOfJoint = new int[0];
@@ -120,13 +118,11 @@ public final class RingCandidateExtractor {
         if (surface == null || surface.faceCount() == 0) {
             return rings;
         }
-        dense = ArrayMeshEngine.fromUniformMeshTopology(surface);
-        skeleton = MeshSkeletonExtractor.extract(dense, resolution, skeletonBranchBudget);
+        skeleton = MeshSkeletonExtractor.extract(surface, resolution, skeletonBranchBudget);
         buildRegionSamples();
         if (regionCount < 2) {
             return rings;
         }
-        indexVertices();
         assignVerticesToRegions();
         makeRegionsConnected();
         measureRegionAreas();
@@ -197,30 +193,25 @@ public final class RingCandidateExtractor {
         return best;
     }
 
-    private void indexVertices() {
-        int maxVertexId = 0;
-        for (int index = 0; index < mesh.vertexCount(); index++) {
-            maxVertexId = Math.max(maxVertexId, mesh.vertexIdAt(index));
-        }
-        vertexIndexByVertexId = new int[maxVertexId + 1];
-        Arrays.fill(vertexIndexByVertexId, -1);
-        for (int index = 0; index < mesh.vertexCount(); index++) {
-            vertexIndexByVertexId[mesh.vertexIdAt(index)] = index;
-        }
-    }
-
     /**
      * Labels every vertex with the region whose sampled joints it sits nearest, charging a vertex
      * outside a joint's inscribed sphere for the excess so a fat limb keeps its own surface.
      */
     private void assignVerticesToRegions() {
-        float[] positions = dense.copyPositions();
-        int vertexCount = positions.length / COORDINATES_PER_POINT;
-        regionByVertex = new int[vertexCount];
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
-            float x = positions[COORDINATES_PER_POINT * vertex];
-            float y = positions[COORDINATES_PER_POINT * vertex + 1];
-            float z = positions[COORDINATES_PER_POINT * vertex + 2];
+        int vertexIdBound = mesh.vertexIdBound();
+        positionByVertexId = new float[COORDINATES_PER_POINT * vertexIdBound];
+        regionByVertex = new int[vertexIdBound];
+        Arrays.fill(regionByVertex, -1);
+        Vector3f position = new Vector3f();
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            mesh.vertexPosition(vertexId, position);
+            positionByVertexId[COORDINATES_PER_POINT * vertexId] = position.x;
+            positionByVertexId[COORDINATES_PER_POINT * vertexId + 1] = position.y;
+            positionByVertexId[COORDINATES_PER_POINT * vertexId + 2] = position.z;
+            float x = position.x;
+            float y = position.y;
+            float z = position.z;
             float bestScore = Float.MAX_VALUE;
             int bestRegion = 0;
             for (int joint = 0; joint < regionOfJoint.length; joint++) {
@@ -234,7 +225,7 @@ public final class RingCandidateExtractor {
                     bestRegion = regionOfJoint[joint];
                 }
             }
-            regionByVertex[vertex] = bestRegion;
+            regionByVertex[vertexId] = bestRegion;
         }
     }
 
@@ -243,82 +234,89 @@ public final class RingCandidateExtractor {
      * diagram, so every region is one connected piece and its rim is a closed band.
      */
     private void makeRegionsConnected() {
-        int vertexCount = regionByVertex.length;
-        int[] componentRoot = new int[vertexCount];
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
-            componentRoot[vertex] = vertex;
+        int vertexIdBound = regionByVertex.length;
+        int vertexCount = mesh.vertexCount();
+        int[] componentRoot = new int[vertexIdBound];
+        for (int vertexId = 0; vertexId < vertexIdBound; vertexId++) {
+            componentRoot[vertexId] = vertexId;
         }
-        for (int index = 0; index < mesh.edgeCount(); index++) {
-            int halfEdge = mesh.edgeHalfEdge(mesh.edgeIdAt(index));
-            int tail = vertexIndexByVertexId[mesh.halfEdgeVertex(halfEdge)];
-            int head = vertexIndexByVertexId[mesh.halfEdgeEndVertex(halfEdge)];
-            if (tail >= 0 && head >= 0 && regionByVertex[tail] == regionByVertex[head]) {
+        for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
+            int halfEdge = mesh.edgeHalfEdge(mesh.edgeIdAt(activeEdge));
+            int tail = mesh.halfEdgeVertex(halfEdge);
+            int head = mesh.halfEdgeEndVertex(halfEdge);
+            if (regionByVertex[tail] == regionByVertex[head]) {
                 union(componentRoot, tail, head);
             }
         }
-        int[] componentSize = new int[vertexCount];
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
-            componentSize[root(componentRoot, vertex)]++;
+        int[] componentSize = new int[vertexIdBound];
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            componentSize[root(componentRoot, mesh.vertexIdAt(activeVertex))]++;
         }
         int[] largestComponentOfRegion = new int[regionCount];
         Arrays.fill(largestComponentOfRegion, -1);
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
-            int component = root(componentRoot, vertex);
-            int region = regionByVertex[vertex];
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            int component = root(componentRoot, vertexId);
+            int region = regionByVertex[vertexId];
             int held = largestComponentOfRegion[region];
             if (held < 0 || componentSize[component] > componentSize[held]) {
                 largestComponentOfRegion[region] = component;
             }
         }
-        double[] distance = new double[vertexCount];
+        double[] distance = new double[vertexIdBound];
         PriorityQueue<double[]> frontier =
                 new PriorityQueue<>(Comparator.comparingDouble(entry -> entry[0]));
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
-            if (root(componentRoot, vertex) == largestComponentOfRegion[regionByVertex[vertex]]) {
-                distance[vertex] = 0.0;
-                frontier.add(new double[] { 0.0, vertex });
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            if (root(componentRoot, vertexId)
+                    == largestComponentOfRegion[regionByVertex[vertexId]]) {
+                distance[vertexId] = 0.0;
+                frontier.add(new double[] { 0.0, vertexId });
             } else {
-                regionByVertex[vertex] = -1;
-                distance[vertex] = Double.POSITIVE_INFINITY;
+                regionByVertex[vertexId] = -1;
+                distance[vertexId] = Double.POSITIVE_INFINITY;
             }
         }
-        float[] positions = dense.copyPositions();
         while (!frontier.isEmpty()) {
             double[] entry = frontier.poll();
-            int vertex = (int) entry[1];
-            if (entry[0] > distance[vertex]) {
+            int vertexId = (int) entry[1];
+            if (entry[0] > distance[vertexId]) {
                 continue;
             }
-            int vertexId = mesh.vertexIdAt(vertex);
             int spokes = mesh.vertexEdgeCount(vertexId);
             for (int spoke = 0; spoke < spokes; spoke++) {
                 int other = neighborVertex(vertexId, spoke);
                 if (other < 0) {
                     continue;
                 }
-                double step = distanceBetween(positions, vertex, other);
-                if (distance[vertex] + step < distance[other]) {
-                    distance[other] = distance[vertex] + step;
-                    regionByVertex[other] = regionByVertex[vertex];
+                double step = distanceBetween(positionByVertexId, vertexId, other);
+                if (distance[vertexId] + step < distance[other]) {
+                    distance[other] = distance[vertexId] + step;
+                    regionByVertex[other] = regionByVertex[vertexId];
                     frontier.add(new double[] { distance[other], other });
                 }
             }
         }
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
-            if (regionByVertex[vertex] < 0) {
-                regionByVertex[vertex] = 0;
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            if (regionByVertex[vertexId] < 0) {
+                regionByVertex[vertexId] = 0;
             }
         }
     }
 
+    /**
+     * Sums each region's surface area over the faces fanned from their first corner, charging a
+     * triangle to the region its last two corners share, else to its first corner's region.
+     */
     private void measureRegionAreas() {
         regionArea = new float[regionCount];
-        int[] faces = dense.copyFaceIndices();
-        float[] positions = dense.copyPositions();
-        for (int corner = 0; corner + TRIANGLE_CORNERS <= faces.length; corner += TRIANGLE_CORNERS) {
-            int first = faces[corner];
-            int second = faces[corner + 1];
-            int third = faces[corner + 2];
+        float[] positions = positionByVertexId;
+        int[] triangles = mesh.triangulate(TriangulationRule.FAN, null);
+        for (int corner = 0; corner < triangles.length; corner += 3) {
+            int first = triangles[corner];
+            int second = triangles[corner + 1];
+            int third = triangles[corner + 2];
             int region = regionByVertex[first];
             if (regionByVertex[second] == regionByVertex[third]) {
                 region = regionByVertex[second];
@@ -363,25 +361,35 @@ public final class RingCandidateExtractor {
 
     /**
      * The connected pieces of the band of {@code region} vertices that touch any other region,
-     * each returned as its dense vertex indices in ascending order.
+     * each returned as its vertex ids in active-vertex order.
      */
     private List<int[]> rimComponents(int region) {
         currentBandStamp++;
         List<Integer> band = new ArrayList<>();
-        for (int vertex = 0; vertex < regionByVertex.length; vertex++) {
-            if (regionByVertex[vertex] != region || !touchesAnotherRegion(vertex, region)) {
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            if (regionByVertex[vertexId] != region) {
                 continue;
             }
-            bandStamp[vertex] = currentBandStamp;
-            bandIndexByVertex[vertex] = band.size();
-            band.add(vertex);
+            boolean touchesAnotherRegion = false;
+            int vertexSpokes = mesh.vertexEdgeCount(vertexId);
+            for (int spoke = 0; spoke < vertexSpokes && !touchesAnotherRegion; spoke++) {
+                int other = neighborVertex(vertexId, spoke);
+                touchesAnotherRegion = other >= 0 && regionByVertex[other] != region;
+            }
+            if (!touchesAnotherRegion) {
+                continue;
+            }
+            bandStamp[vertexId] = currentBandStamp;
+            bandIndexByVertex[vertexId] = band.size();
+            band.add(vertexId);
         }
         int[] componentRoot = new int[band.size()];
         for (int index = 0; index < componentRoot.length; index++) {
             componentRoot[index] = index;
         }
         for (int index = 0; index < band.size(); index++) {
-            int vertexId = mesh.vertexIdAt(band.get(index));
+            int vertexId = band.get(index);
             int spokes = mesh.vertexEdgeCount(vertexId);
             for (int spoke = 0; spoke < spokes; spoke++) {
                 int other = neighborVertex(vertexId, spoke);
@@ -416,23 +424,10 @@ public final class RingCandidateExtractor {
         return components;
     }
 
-    private boolean touchesAnotherRegion(int vertex, int region) {
-        int vertexId = mesh.vertexIdAt(vertex);
-        int spokes = mesh.vertexEdgeCount(vertexId);
-        for (int spoke = 0; spoke < spokes; spoke++) {
-            int other = neighborVertex(vertexId, spoke);
-            if (other >= 0 && regionByVertex[other] != region) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /** The region most of a rim component faces, which is the ring's other side. */
     private int facingRegion(int[] component, int region) {
         int[] votes = new int[regionCount];
-        for (int vertex : component) {
-            int vertexId = mesh.vertexIdAt(vertex);
+        for (int vertexId : component) {
             int spokes = mesh.vertexEdgeCount(vertexId);
             for (int spoke = 0; spoke < spokes; spoke++) {
                 int other = neighborVertex(vertexId, spoke);
@@ -526,48 +521,50 @@ public final class RingCandidateExtractor {
      * farthest from that, and the one farthest from both.
      */
     private int[] spreadWaypoints(int[] component) {
-        float[] positions = dense.copyPositions();
+        float[] positions = positionByVertexId;
         double centerX = 0.0;
         double centerY = 0.0;
         double centerZ = 0.0;
-        for (int vertex : component) {
-            centerX += positions[COORDINATES_PER_POINT * vertex];
-            centerY += positions[COORDINATES_PER_POINT * vertex + 1];
-            centerZ += positions[COORDINATES_PER_POINT * vertex + 2];
+        for (int vertexId : component) {
+            centerX += positions[COORDINATES_PER_POINT * vertexId];
+            centerY += positions[COORDINATES_PER_POINT * vertexId + 1];
+            centerZ += positions[COORDINATES_PER_POINT * vertexId + 2];
         }
         centerX /= component.length;
         centerY /= component.length;
         centerZ /= component.length;
         int first = component[0];
         double bestDistance = -1.0;
-        for (int vertex : component) {
-            double distance = distanceToPoint(positions, vertex, centerX, centerY, centerZ);
+        for (int vertexId : component) {
+            double dx = positions[COORDINATES_PER_POINT * vertexId] - centerX;
+            double dy = positions[COORDINATES_PER_POINT * vertexId + 1] - centerY;
+            double dz = positions[COORDINATES_PER_POINT * vertexId + 2] - centerZ;
+            double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
             if (distance > bestDistance) {
                 bestDistance = distance;
-                first = vertex;
+                first = vertexId;
             }
         }
         int second = component[0];
         bestDistance = -1.0;
-        for (int vertex : component) {
-            double distance = distanceBetween(positions, vertex, first);
+        for (int vertexId : component) {
+            double distance = distanceBetween(positions, vertexId, first);
             if (distance > bestDistance) {
                 bestDistance = distance;
-                second = vertex;
+                second = vertexId;
             }
         }
         int third = component[0];
         bestDistance = -1.0;
-        for (int vertex : component) {
-            double distance = Math.min(distanceBetween(positions, vertex, first),
-                    distanceBetween(positions, vertex, second));
+        for (int vertexId : component) {
+            double distance = Math.min(distanceBetween(positions, vertexId, first),
+                    distanceBetween(positions, vertexId, second));
             if (distance > bestDistance) {
                 bestDistance = distance;
-                third = vertex;
+                third = vertexId;
             }
         }
-        return new int[] {
-            mesh.vertexIdAt(first), mesh.vertexIdAt(second), mesh.vertexIdAt(third) };
+        return new int[] { first, second, third };
     }
 
     /**
@@ -699,8 +696,7 @@ public final class RingCandidateExtractor {
     }
 
     private int neighborVertex(int vertexId, int spoke) {
-        int otherId = mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, spoke), vertexId);
-        return otherId < 0 ? -1 : vertexIndexByVertexId[otherId];
+        return mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, spoke), vertexId);
     }
 
     private static double distanceBetween(float[] positions, int first, int second) {
@@ -710,14 +706,6 @@ public final class RingCandidateExtractor {
                 - positions[COORDINATES_PER_POINT * second + 1];
         double dz = positions[COORDINATES_PER_POINT * first + 2]
                 - positions[COORDINATES_PER_POINT * second + 2];
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    private static double distanceToPoint(float[] positions, int vertex, double x, double y,
-            double z) {
-        double dx = positions[COORDINATES_PER_POINT * vertex] - x;
-        double dy = positions[COORDINATES_PER_POINT * vertex + 1] - y;
-        double dz = positions[COORDINATES_PER_POINT * vertex + 2] - z;
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 

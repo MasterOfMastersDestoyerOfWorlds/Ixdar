@@ -22,6 +22,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
@@ -101,7 +102,8 @@ public final class CrawfishQuadLayoutBenchmark {
         record("repair", repairStart);
 
         long halfEdgeStart = System.nanoTime();
-        HalfEdgeMesh mesh = manifold.toHalfEdgeMesh();
+        HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(manifold.positions.clone(),
+                manifold.faceIndices.clone());
         record("toHalfEdge", halfEdgeStart);
         Platforms.log("[benchmark] %s scan V=%d F=%d, repaired V=%d E=%d F=%d, max heap %.0fMiB%n",
                 glbPath, scan.vertexCount(), scan.faceCount(), mesh.vertexCount(), mesh.edgeCount(),
@@ -275,10 +277,7 @@ public final class CrawfishQuadLayoutBenchmark {
         Platforms.log("[benchmark] repair welded %d->%d vertices (%d live), dropped %d of %d faces%n",
                 scanVertexCount, weldedCount, liveVertexCount, droppedFaceCount, scan.faceCount());
 
-        ArrayMesh repaired = new ArrayMesh(positions, new float[positions.length], faceIndices,
-                TRIANGLE_CORNERS);
-        repaired.computeNormals();
-        return repaired;
+        return new ArrayMesh(positions, null, faceIndices, TRIANGLE_CORNERS);
     }
 
     /**

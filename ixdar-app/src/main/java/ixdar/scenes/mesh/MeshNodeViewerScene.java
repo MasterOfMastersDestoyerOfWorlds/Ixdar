@@ -21,8 +21,6 @@ import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.io.ObjMeshParser;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
@@ -78,14 +76,8 @@ public class MeshNodeViewerScene extends ModelScene {
     private MeshTopology mesh;
     private GeometryBundle meshBundle;
 
-    /** Half-edge copy of a mesh-file model, built on demand for the walks edge overlays need. */
-    private MeshTopology halfEdgeSurface;
-
-    /** Model {@link #halfEdgeSurface} was built from, so a model switch rebuilds it. */
-    private MeshTopology halfEdgeSurfaceSource;
-
     private HalfEdgeMeshRuntime overlayRuntime;
-    private ArrayMesh overlayMesh;
+    private MeshTopology overlayMesh;
 
     /** File the last graph was read from, which is also the file an edit is written back into. */
     private String loadedDslFile;
@@ -302,13 +294,13 @@ public class MeshNodeViewerScene extends ModelScene {
     private void initObjViewer() {
         try {
             Platforms.get().loadSourceAsync("obj", objResource, Platforms.gl().getPlatformID(), objText -> {
-                ArrayMesh arrayMesh = ObjMeshParser.load(objText);
+                MeshTopology objMesh = ObjMeshParser.load(objText);
                 createRuntime();
-                meshRuntime.upload(arrayMesh);
+                meshRuntime.upload(objMesh);
                 meshRuntime.frameCamera(camera);
                 Platforms.get().log("[mesh-viewer] OBJ loaded: " + objResource
-                        + VERTS + arrayMesh.vertexCount() + FACES + arrayMesh.faceCount());
-                frameMesh(arrayMesh.vertexCount() > 0 ? arrayMesh : null);
+                        + VERTS + objMesh.vertexCount() + FACES + objMesh.faceCount());
+                frameMesh(objMesh.vertexCount() > 0 ? objMesh : null);
             });
         } catch (Exception e) {
             throw new IllegalStateException("Failed to load OBJ: " + objResource, e);
@@ -552,7 +544,7 @@ public class MeshNodeViewerScene extends ModelScene {
     public void loadOverlay(String objPath) {
         disposeOverlay();
         try {
-            ArrayMesh refMesh = MeshLoader.load(objPath);
+            MeshTopology refMesh = MeshLoader.load(objPath);
             overlayMesh = refMesh;
             overlayRuntime = new HalfEdgeMeshRuntime();
             overlayRuntime.upload(refMesh);
@@ -756,23 +748,13 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * The surface an edge-indexed overlay walks: the graph's own mesh, or a cached half-edge copy
-     * when a mesh file loaded as an {@link ArrayMesh} with no edge adjacency.
+     * The surface an edge-indexed overlay walks: the graph's own mesh, whose edge ids the overlays
+     * index.
      *
-     * @return the surface with edge adjacency, or {@code null} if no mesh is loaded
+     * @return the surface, or {@code null} if no mesh is loaded
      */
     public MeshTopology halfEdgeSurface() {
-        if (mesh == null || mesh.edgeCount() > 0) {
-            return mesh;
-        }
-        if (halfEdgeSurfaceSource != mesh && mesh instanceof ArrayMesh arrayMesh) {
-            halfEdgeSurfaceSource = mesh;
-            halfEdgeSurface = HalfEdgeMeshEngine.buildFromIndexedMesh(arrayMesh.copyPositions(),
-                    arrayMesh.copyFaceIndices());
-            Platforms.get().log("[mesh-viewer] half-edge copy with "
-                    + halfEdgeSurface.edgeCount() + " edges");
-        }
-        return halfEdgeSurface == null ? mesh : halfEdgeSurface;
+        return mesh;
     }
 
     /**

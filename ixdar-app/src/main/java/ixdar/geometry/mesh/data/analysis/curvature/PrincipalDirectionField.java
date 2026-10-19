@@ -4,8 +4,9 @@ import java.util.List;
 
 import java.util.ArrayList;
 
+import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 
 /**
@@ -18,6 +19,7 @@ import ixdar.geometry.mesh.data.representation.EdgeKey;
 public final class PrincipalDirectionField {
     public static final float ZERO_VECTOR_EPSILON = 1e-20f;
     public static final float MIN_WEIGHT_EPSILON = 1e-12f;
+    public static final int TYPICAL_VALENCE = 6;
 
     private final float[] kappaMax;
     private final float[] kappaMin;
@@ -36,120 +38,122 @@ public final class PrincipalDirectionField {
     }
 
     /**
-     * Maximum principal curvature at vertex {@code v}.
+     * Maximum principal curvature at a vertex.
      *
-     * @param v vertex index
+     * @param vertexId vertex id in the mesh the field was computed on
      * @return κMax (signed, in 1/length units)
      */
-    public float kappaMax(int v) { return kappaMax[v]; }
+    public float kappaMax(int vertexId) { return kappaMax[vertexId]; }
     /**
-     * Minimum principal curvature at vertex {@code v}.
+     * Minimum principal curvature at a vertex.
      *
-     * @param v vertex index
+     * @param vertexId vertex id in the mesh the field was computed on
      * @return κMin, with {@code κMin <= κMax}
      */
-    public float kappaMin(int v) { return kappaMin[v]; }
+    public float kappaMin(int vertexId) { return kappaMin[vertexId]; }
 
     /**
-     * Write {@code dirMax(v)} into {@code out} (indices 0..2).
+     * Write the direction of maximum curvature at a vertex into {@code out} (indices 0..2).
      *
-     * @param v vertex index
+     * @param vertexId vertex id in the mesh the field was computed on
      * @param out length-3 array to receive the unit tangent direction of maximum curvature
      */
-    public void dirMax(int v, float[] out) {
-        out[0] = dirMax[v * 3];
-        out[1] = dirMax[v * 3 + 1];
-        out[2] = dirMax[v * 3 + 2];
+    public void dirMax(int vertexId, float[] out) {
+        out[0] = dirMax[vertexId * 3];
+        out[1] = dirMax[vertexId * 3 + 1];
+        out[2] = dirMax[vertexId * 3 + 2];
     }
 
     /**
-     * Write {@code dirMin(v)} into {@code out} (indices 0..2).
+     * Write the direction of minimum curvature at a vertex into {@code out} (indices 0..2).
      *
-     * @param v vertex index
+     * @param vertexId vertex id in the mesh the field was computed on
      * @param out length-3 array to receive the unit tangent direction of minimum curvature
      */
-    public void dirMin(int v, float[] out) {
-        out[0] = dirMin[v * 3];
-        out[1] = dirMin[v * 3 + 1];
-        out[2] = dirMin[v * 3 + 2];
+    public void dirMin(int vertexId, float[] out) {
+        out[0] = dirMin[vertexId * 3];
+        out[1] = dirMin[vertexId * 3 + 1];
+        out[2] = dirMin[vertexId * 3 + 2];
     }
 
     /**
-     * Write the unit vertex normal at {@code v} into {@code out} (indices 0..2).
+     * Write the unit vertex normal at a vertex into {@code out} (indices 0..2).
      *
-     * @param v vertex index
+     * @param vertexId vertex id in the mesh the field was computed on
      * @param out length-3 array to receive the area-weighted vertex normal
      */
-    public void vertexNormal(int v, float[] out) {
-        out[0] = vertexNormals[v * 3];
-        out[1] = vertexNormals[v * 3 + 1];
-        out[2] = vertexNormals[v * 3 + 2];
+    public void vertexNormal(int vertexId, float[] out) {
+        out[0] = vertexNormals[vertexId * 3];
+        out[1] = vertexNormals[vertexId * 3 + 1];
+        out[2] = vertexNormals[vertexId * 3 + 2];
     }
 
     /**
-     * Number of vertices for which curvatures and directions are stored.
+     * Length of the id-indexed arrays: the vertex id bound of the mesh the field was computed
+     * on. Slots of ids the mesh does not hold read as zero.
      *
-     * @return vertex count
+     * @return vertex id bound
      */
-    public int vertexCount() { return kappaMax.length; }
+    public int vertexIdBound() { return kappaMax.length; }
 
     /**
-     * Build the field for the given mesh. Reuses face normals from the
-     * already-computed {@link EdgeDihedrals}.
+     * Build the field for the given mesh, read in place and indexed by vertex id. Faces of any
+     * size are fanned from their first corner, matching the fan triangles of {@code ed}.
      *
-     * @param mesh source surface
-     * @param ed precomputed edge / face dihedral data; supplies face normals and the edge map for 1-rings
+     * @param mesh source surface, of any polygon sizes
+     * @param ed {@link SemanticPatchDecomposer#computeEdgeDihedrals} of {@code mesh}: one face
+     *           normal per fan triangle in active-face order, and edge keys of vertex ids
      * @return populated principal-direction field for every vertex of {@code mesh}
      */
-    public static PrincipalDirectionField compute(ArrayMesh mesh, EdgeDihedrals ed) {
-        int nv = mesh.vertexCount();
-        int[] faceIdx = mesh.copyFaceIndices();
-        float[] positions = mesh.copyPositions();
-        int faceCount = faceIdx.length / 3;
+    public static PrincipalDirectionField compute(MeshTopology mesh, EdgeDihedrals ed) {
+        int vertexIdBound = mesh.vertexIdBound();
+        float[] positions = ed.positions();
 
-        // Per-vertex normal: area-weighted average of incident face normals.
-        float[] vertexNormals = new float[nv * 3];
+        // Per-vertex normal: average of the incident fan triangles' normals, triangle by triangle.
+        float[] vertexNormals = new float[vertexIdBound * 3];
         float[] faceN = ed.faceNormals();
-        for (int f = 0; f < faceCount; f++) {
-            for (int k = 0; k < 3; k++) {
-                int v = faceIdx[f * 3 + k];
-                vertexNormals[v * 3]     += faceN[f * 3];
-                vertexNormals[v * 3 + 1] += faceN[f * 3 + 1];
-                vertexNormals[v * 3 + 2] += faceN[f * 3 + 2];
-            }
+        int[] triangles = ed.triangles();
+        for (int corner = 0; corner < triangles.length; corner++) {
+            int vertexId = triangles[corner];
+            int triangle = corner / 3;
+            vertexNormals[vertexId * 3]     += faceN[triangle * 3];
+            vertexNormals[vertexId * 3 + 1] += faceN[triangle * 3 + 1];
+            vertexNormals[vertexId * 3 + 2] += faceN[triangle * 3 + 2];
         }
-        for (int v = 0; v < nv; v++) {
-            float nx = vertexNormals[v * 3];
-            float ny = vertexNormals[v * 3 + 1];
-            float nz = vertexNormals[v * 3 + 2];
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            float nx = vertexNormals[vertexId * 3];
+            float ny = vertexNormals[vertexId * 3 + 1];
+            float nz = vertexNormals[vertexId * 3 + 2];
             float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
             if (len > ZERO_VECTOR_EPSILON) {
-                vertexNormals[v * 3]     = nx / len;
-                vertexNormals[v * 3 + 1] = ny / len;
-                vertexNormals[v * 3 + 2] = nz / len;
+                vertexNormals[vertexId * 3]     = nx / len;
+                vertexNormals[vertexId * 3 + 1] = ny / len;
+                vertexNormals[vertexId * 3 + 2] = nz / len;
             }
         }
 
         // Build 1-ring vertex neighbourhoods from edge map.
-        int[][] ring = buildOneRing(mesh, ed, nv);
+        int[][] ring = oneRings(ed, vertexIdBound);
 
-        float[] kappaMax = new float[nv];
-        float[] kappaMin = new float[nv];
-        float[] dirMax = new float[nv * 3];
-        float[] dirMin = new float[nv * 3];
+        float[] kappaMax = new float[vertexIdBound];
+        float[] kappaMin = new float[vertexIdBound];
+        float[] dirMax = new float[vertexIdBound * 3];
+        float[] dirMin = new float[vertexIdBound * 3];
 
         // Temporary arrays reused across vertices.
         float[] t1 = new float[3];
         float[] t2 = new float[3];
         float[] nv_ = new float[3];
 
-        for (int v = 0; v < nv; v++) {
-            int[] neighbours = ring[v];
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            int[] neighbours = ring[vertexId];
             if (neighbours == null || neighbours.length < 2) continue;
 
-            nv_[0] = vertexNormals[v * 3];
-            nv_[1] = vertexNormals[v * 3 + 1];
-            nv_[2] = vertexNormals[v * 3 + 2];
+            nv_[0] = vertexNormals[vertexId * 3];
+            nv_[1] = vertexNormals[vertexId * 3 + 1];
+            nv_[2] = vertexNormals[vertexId * 3 + 2];
             buildTangentBasis(nv_, t1, t2);
 
             // Accumulate the 2x2 tangent-plane shape operator:
@@ -158,10 +162,10 @@ public final class PrincipalDirectionField {
             // projected into (t1, t2). Gives a 2x2 symmetric matrix.
             float m00 = 0, m01 = 0, m11 = 0;
             float wTotal = 0;
-            for (int u : neighbours) {
-                float ex = positions[u * 3]     - positions[v * 3];
-                float ey = positions[u * 3 + 1] - positions[v * 3 + 1];
-                float ez = positions[u * 3 + 2] - positions[v * 3 + 2];
+            for (int neighbourId : neighbours) {
+                float ex = positions[neighbourId * 3]     - positions[vertexId * 3];
+                float ey = positions[neighbourId * 3 + 1] - positions[vertexId * 3 + 1];
+                float ez = positions[neighbourId * 3 + 2] - positions[vertexId * 3 + 2];
                 float elen = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
                 if (elen < MIN_WEIGHT_EPSILON) continue;
                 // Tangential part of the edge (remove normal component).
@@ -173,9 +177,9 @@ public final class PrincipalDirectionField {
                 if (tlen < MIN_WEIGHT_EPSILON) continue;
                 tx /= tlen; ty /= tlen; tz /= tlen;
 
-                float nux = vertexNormals[u * 3]     - nv_[0];
-                float nuy = vertexNormals[u * 3 + 1] - nv_[1];
-                float nuz = vertexNormals[u * 3 + 2] - nv_[2];
+                float nux = vertexNormals[neighbourId * 3]     - nv_[0];
+                float nuy = vertexNormals[neighbourId * 3 + 1] - nv_[1];
+                float nuz = vertexNormals[neighbourId * 3 + 2] - nv_[2];
                 // Normal curvature along this edge ≈ -(Δn · t) / elen.
                 float kEdge = -(nux * tx + nuy * ty + nuz * tz) / elen;
 
@@ -230,16 +234,16 @@ public final class PrincipalDirectionField {
                 maxAx = ebX; maxAy = ebY;
                 minAx = eaX; minAy = eaY;
             }
-            kappaMax[v] = kmax;
-            kappaMin[v] = kmin;
+            kappaMax[vertexId] = kmax;
+            kappaMin[vertexId] = kmin;
 
             // Lift eigenvectors from (t1, t2) basis back to 3D.
-            dirMax[v * 3]     = maxAx * t1[0] + maxAy * t2[0];
-            dirMax[v * 3 + 1] = maxAx * t1[1] + maxAy * t2[1];
-            dirMax[v * 3 + 2] = maxAx * t1[2] + maxAy * t2[2];
-            dirMin[v * 3]     = minAx * t1[0] + minAy * t2[0];
-            dirMin[v * 3 + 1] = minAx * t1[1] + minAy * t2[1];
-            dirMin[v * 3 + 2] = minAx * t1[2] + minAy * t2[2];
+            dirMax[vertexId * 3]     = maxAx * t1[0] + maxAy * t2[0];
+            dirMax[vertexId * 3 + 1] = maxAx * t1[1] + maxAy * t2[1];
+            dirMax[vertexId * 3 + 2] = maxAx * t1[2] + maxAy * t2[2];
+            dirMin[vertexId * 3]     = minAx * t1[0] + minAy * t2[0];
+            dirMin[vertexId * 3 + 1] = minAx * t1[1] + minAy * t2[1];
+            dirMin[vertexId * 3 + 2] = minAx * t1[2] + minAy * t2[2];
         }
 
         return new PrincipalDirectionField(kappaMax, kappaMin, dirMax, dirMin, vertexNormals);
@@ -273,22 +277,32 @@ public final class PrincipalDirectionField {
         t2[2] = n[0] * t1[1] - n[1] * t1[0];
     }
 
-    private static int[][] buildOneRing(ArrayMesh mesh, EdgeDihedrals ed, int nv) {
-        List<List<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(6));
-        for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
-            long key = e.getKey();
-            int u = EdgeKey.minVertex(key);
-            int v = EdgeKey.maxVertex(key);
-            tmp.get(u).add(v);
-            tmp.get(v).add(u);
+    /**
+     * Each vertex's 1-ring neighbours, in the iteration order of {@code ed}'s edge map, which the
+     * curvature sums and the crest and saddle walks depend on.
+     *
+     * @param ed edge map whose keys join vertex ids
+     * @param vertexIdBound the mesh's vertex id bound, the length of the result
+     * @return neighbour vertex ids per vertex id; empty for ids the mesh does not hold
+     */
+    public static int[][] oneRings(EdgeDihedrals ed, int vertexIdBound) {
+        List<List<Integer>> neighbours = new ArrayList<>(vertexIdBound);
+        for (int vertexId = 0; vertexId < vertexIdBound; vertexId++) {
+            neighbours.add(new ArrayList<>(TYPICAL_VALENCE));
         }
-        int[][] out = new int[nv][];
-        for (int i = 0; i < nv; i++) {
-            List<Integer> list = tmp.get(i);
+        for (Map.Entry<Long, int[]> entry : ed.edgeFaces().entrySet()) {
+            long key = entry.getKey();
+            int lowerId = EdgeKey.minVertex(key);
+            int upperId = EdgeKey.maxVertex(key);
+            neighbours.get(lowerId).add(upperId);
+            neighbours.get(upperId).add(lowerId);
+        }
+        int[][] out = new int[vertexIdBound][];
+        for (int vertexId = 0; vertexId < vertexIdBound; vertexId++) {
+            List<Integer> list = neighbours.get(vertexId);
             int[] arr = new int[list.size()];
-            for (int j = 0; j < list.size(); j++) arr[j] = list.get(j);
-            out[i] = arr;
+            for (int slot = 0; slot < list.size(); slot++) arr[slot] = list.get(slot);
+            out[vertexId] = arr;
         }
         return out;
     }

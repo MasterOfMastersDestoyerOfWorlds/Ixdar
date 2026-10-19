@@ -1,10 +1,8 @@
 package ixdar.nodegraph.nodes.modifier;
 
-import java.util.HashMap;
 import java.util.List;
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
 
 import java.util.Map;
@@ -19,9 +17,8 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.GeometryBundles;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 
 /**
  * Linear face subdivision: splits each face by inserting edge midpoints and a
@@ -105,82 +102,85 @@ public class SubdivideMeshNode implements MeshNode {
             return;
         }
 
-        if (ArrayMeshEngine.isUniformQuads(mesh)) {
-            ArrayMesh am = mesh instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(mesh);
-            for (int l = 0; l < levels; l++) {
-                am = ArrayMeshEngine.subdivideQuadsOnce(am);
-            }
-            ctx.setOutput(GEOMETRY.name, GeometryBundle.ofMesh(am));
-            return;
-        }
-
-        MeshTopology current = mesh;
-        for (int l = 0; l < levels; l++) {
+        HalfEdgeMesh current = subdivideOnce(mesh);
+        for (int l = 1; l < levels; l++) {
             current = subdivideOnce(current);
         }
-        ((HalfEdgeMesh) current).computeNormals();
+        current.computeNormals();
         ctx.setOutput(GEOMETRY.name, GeometryBundle.ofMesh(current));
     }
 
+    /**
+     * One level of linear subdivision over faces of any corner count, read in place: each n-gon
+     * becomes n quads (corner, outgoing edge midpoint, centroid, incoming edge midpoint).
+     *
+     * @param src source mesh
+     * @return the all-quad mesh: source vertices in active order, then one midpoint per active
+     *         edge, then one centroid per active face; normals not computed
+     */
     private static HalfEdgeMesh subdivideOnce(MeshTopology src) {
         int srcV = src.vertexCount();
         int srcE = src.edgeCount();
         int srcF = src.faceCount();
-        int outV = srcV + srcE + srcF;
-        int outF = srcF * 4;
-        int outE = srcE * 2 + srcF * 4;
-        int outHE = outE * 2;
-
-        HalfEdgeMesh out = new HalfEdgeMesh(outV, outE, outF, outHE);
+        float[] positions = new float[(srcV + srcE + srcF) * 3];
         Vector3f p = new Vector3f();
         Vector3f q = new Vector3f();
 
-        HashMap<Integer, Integer> vertMap = new HashMap<>(srcV * 4 / 3 + 1);
-        for (int vi = 0; vi < src.vertexCount(); vi++) {
-            int vid = src.vertexIdAt(vi);
-            src.vertexPosition(vid, p);
-            int nid = out.addVertex(p);
-            vertMap.put(vid, nid);
+        int[] outputVertexOfId = new int[src.vertexIdBound()];
+        for (int activeVertex = 0; activeVertex < srcV; activeVertex++) {
+            int vertexId = src.vertexIdAt(activeVertex);
+            outputVertexOfId[vertexId] = activeVertex;
+            src.vertexPosition(vertexId, p);
+            positions[activeVertex * 3] = p.x;
+            positions[activeVertex * 3 + 1] = p.y;
+            positions[activeVertex * 3 + 2] = p.z;
         }
 
-        HashMap<Long, Integer> edgeMidMap = new HashMap<>(srcE * 4 / 3 + 1);
-        for (int ei = 0; ei < src.edgeCount(); ei++) {
-            int eid = src.edgeIdAt(ei);
-            int he = src.edgeHalfEdge(eid);
-            int va = src.halfEdgeVertex(he);
-            int vb = src.halfEdgeEndVertex(he);
-            src.vertexPosition(va, p);
-            src.vertexPosition(vb, q);
+        int[] midpointOfEdge = new int[src.edgeIdBound()];
+        for (int activeEdge = 0; activeEdge < srcE; activeEdge++) {
+            int edgeId = src.edgeIdAt(activeEdge);
+            int he = src.edgeHalfEdge(edgeId);
+            src.vertexPosition(src.halfEdgeVertex(he), p);
+            src.vertexPosition(src.halfEdgeEndVertex(he), q);
             p.add(q).mul(0.5f);
-            int mid = out.addVertex(p);
-            long key = EdgeKey.undirected(va, vb);
-            edgeMidMap.put(key, mid);
+            int midpoint = srcV + activeEdge;
+            midpointOfEdge[edgeId] = midpoint;
+            positions[midpoint * 3] = p.x;
+            positions[midpoint * 3 + 1] = p.y;
+            positions[midpoint * 3 + 2] = p.z;
         }
 
-        for (int fi = 0; fi < src.faceCount(); fi++) {
-            int fid = src.faceIdAt(fi);
-            int fc = src.faceVertexCount(fid);
+        int cornerCount = 0;
+        for (int activeFace = 0; activeFace < srcF; activeFace++) {
+            cornerCount += src.faceVertexCount(src.faceIdAt(activeFace));
+        }
+        int[] faceIndices = new int[cornerCount * 4];
+        int cursor = 0;
+        for (int activeFace = 0; activeFace < srcF; activeFace++) {
+            int faceId = src.faceIdAt(activeFace);
+            int fc = src.faceVertexCount(faceId);
             p.set(0f, 0f, 0f);
-            int[] faceVerts = new int[fc];
             for (int k = 0; k < fc; k++) {
-                faceVerts[k] = src.faceVertexAt(fid, k);
-                src.vertexPosition(faceVerts[k], q);
+                src.vertexPosition(src.faceVertexAt(faceId, k), q);
                 p.add(q);
             }
             p.mul(1f / fc);
-            int centroid = out.addVertex(p);
+            int centroid = srcV + srcE + activeFace;
+            positions[centroid * 3] = p.x;
+            positions[centroid * 3 + 1] = p.y;
+            positions[centroid * 3 + 2] = p.z;
 
             for (int k = 0; k < fc; k++) {
-                int va = faceVerts[k];
-                int vb = faceVerts[(k + 1) % fc];
-                int vc = faceVerts[(k + fc - 1) % fc];
-                int nva = vertMap.get(va);
-                int midAB = edgeMidMap.get(EdgeKey.undirected(va, vb));
-                int midCA = edgeMidMap.get(EdgeKey.undirected(vc, va));
-                out.addFace(nva, midAB, centroid, midCA);
+                int cornerVertexId = src.faceVertexAt(faceId, k);
+                int nextVertexId = src.faceVertexAt(faceId, (k + 1) % fc);
+                int previousVertexId = src.faceVertexAt(faceId, (k + fc - 1) % fc);
+                faceIndices[cursor++] = outputVertexOfId[cornerVertexId];
+                faceIndices[cursor++] = midpointOfEdge[src.edgeBetween(cornerVertexId, nextVertexId)];
+                faceIndices[cursor++] = centroid;
+                faceIndices[cursor++] = midpointOfEdge[src.edgeBetween(previousVertexId, cornerVertexId)];
             }
         }
-        return out;
+        return HalfEdgeMeshEngine.bulkAllocate(positions, faceIndices, 4);
     }
 
 }

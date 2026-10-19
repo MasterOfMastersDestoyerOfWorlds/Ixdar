@@ -32,7 +32,7 @@ public class DualRadialSegmentNode implements MeshNode {
     public static final float MIN_ELLIPSE_DENOM = 0.0001f;
 
     // Geometry input (optional — for chaining geometry between segments)
-    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
 
     // Hermite boundary conditions for X-axis radius
     public static final InputPort START_RX = new InputPort("start_rx", PortType.FLOAT, 0.5f, 0.001f, 10f);
@@ -118,10 +118,9 @@ public class DualRadialSegmentNode implements MeshNode {
         float yOffset = 0f;
         int[] topRing = null;
 
-        if (geoIn instanceof GeometryBundle gb && gb.mesh() != null && gb.mesh().vertexCount() > 0
-                && gb.mesh() instanceof HalfEdgeMesh h) {
+        if (geoIn instanceof GeometryBundle gb && gb.mesh() != null && gb.mesh().vertexCount() > 0) {
             base = gb;
-            mesh = h;
+            mesh = (HalfEdgeMesh) gb.mesh();
             yOffset = findMaxY(mesh);
             topRing = findTopRing(mesh, yOffset, segments);
         }

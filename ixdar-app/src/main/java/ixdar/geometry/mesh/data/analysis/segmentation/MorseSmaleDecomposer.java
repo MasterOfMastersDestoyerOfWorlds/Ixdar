@@ -11,7 +11,8 @@ import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.patches.CoonsReconstructionError;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 
 /**
@@ -44,7 +45,7 @@ public final class MorseSmaleDecomposer {
      * @return diagnostics whose patches/labels come from the MSC pipeline (other fields preserved from the borrow)
      */
     public static SemanticPatchDecomposer.DecompositionDiagnostics decomposeWithDiagnostics(
-            ArrayMesh mesh, int resolution) {
+            MeshTopology mesh, int resolution) {
         // Borrow the existing decomposer's diagnostics for feature edges
         // + MSC result. The semantic patch decomposition gets thrown
         // away below.
@@ -95,8 +96,21 @@ public final class MorseSmaleDecomposer {
         // be tuned with proper memory accounting / progress reporting.
         // Cranium remains as a single MSC cell for now — visible but
         // not Coons-fittable until the refinement layer lands.
-        float[] positions = mesh.copyPositions();
-        float meshExtent = computeMeshExtent(positions);
+        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        // Bounding-box diagonal over the live vertices.
+        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int i = mesh.vertexIdAt(activeVertex) * 3;
+            if (positions[i] < minX) minX = positions[i];
+            if (positions[i] > maxX) maxX = positions[i];
+            if (positions[i + 1] < minY) minY = positions[i + 1];
+            if (positions[i + 1] > maxY) maxY = positions[i + 1];
+            if (positions[i + 2] < minZ) minZ = positions[i + 2];
+            if (positions[i + 2] > maxZ) maxZ = positions[i + 2];
+        }
+        float dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
+        float meshExtent = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
 
         // Compact labels (no-op when there's no refinement, but keeps
         // the downstream code symmetric with the refinement-on path).
@@ -106,7 +120,7 @@ public final class MorseSmaleDecomposer {
 
         // Recompute patch-boundary edges from the MSC labels.
         Set<Long> patchBoundary = computePatchBoundaryEdges(
-                mesh.copyFaceIndices(), compacted);
+                mesh.triangulate(TriangulationRule.FAN, null), compacted);
 
         // Reuse the borrowed Coons error vector so SCALAR overlay still
         // works. It maps to the SEMANTIC patch layout, not the MSC one,
@@ -132,13 +146,13 @@ public final class MorseSmaleDecomposer {
 
     // ---------- B4c: Coons-error refinement ----------
 
-    private static int[] refineWithCoonsError(ArrayMesh mesh, int[] faceLabels,
+    private static int[] refineWithCoonsError(MeshTopology mesh, int[] faceLabels,
                                                int[][] adj, Set<Long> highConf,
                                                float meshExtent) {
-        int[] faceIdx = mesh.copyFaceIndices();
+        int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, null);
         int faceCount = faceIdx.length / 3;
-        float[] positions = mesh.copyPositions();
-        int nv = mesh.vertexCount();
+        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        int nv = mesh.vertexIdBound();
         float threshold = T_COONS_ERROR_FRAC * meshExtent;
 
         int[] current = faceLabels.clone();
@@ -246,21 +260,6 @@ public final class MorseSmaleDecomposer {
 
     // ---------- helpers ----------
 
-    private static float computeMeshExtent(float[] positions) {
-        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
-        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
-        for (int i = 0; i < positions.length; i += 3) {
-            if (positions[i] < minX) minX = positions[i];
-            if (positions[i] > maxX) maxX = positions[i];
-            if (positions[i + 1] < minY) minY = positions[i + 1];
-            if (positions[i + 1] > maxY) maxY = positions[i + 1];
-            if (positions[i + 2] < minZ) minZ = positions[i + 2];
-            if (positions[i + 2] > maxZ) maxZ = positions[i + 2];
-        }
-        float dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
-        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
     /**
      * Build face-face adjacency from raw faceIdx with high-confidence
      * edges severed to -1. Mirrors {@code featureCutAdjacency} in the
@@ -325,11 +324,11 @@ public final class MorseSmaleDecomposer {
      * patch layout. Mirrors the post-split Coons-error pass in
      * {@code SemanticPatchDecomposer.decomposeWithDiagnostics}.
      */
-    private static float[] recomputeCoonsError(ArrayMesh mesh, int[] labels, int[][] adj) {
-        int[] faceIdx = mesh.copyFaceIndices();
+    private static float[] recomputeCoonsError(MeshTopology mesh, int[] labels, int[][] adj) {
+        int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, null);
         int faceCount = faceIdx.length / 3;
-        int nv = mesh.vertexCount();
-        float[] positions = mesh.copyPositions();
+        int nv = mesh.vertexIdBound();
+        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
         int maxLabel = 0;
         for (int l : labels) if (l + 1 > maxLabel) maxLabel = l + 1;
         List<List<Integer>> facesByLabel = new ArrayList<>();

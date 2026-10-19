@@ -20,12 +20,12 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.platform.Platforms;
 import ixdar.platform.json.JsonValue;
 
 /**
- * Reads glTF 2.0 ({@code .glb} / {@code .gltf}) into a triangle {@link ArrayMesh}, welding
+ * Reads glTF 2.0 ({@code .glb} / {@code .gltf}) into a triangle mesh ({@link MeshLoader#indexedMesh}), welding
  * bitwise-identical positions and carrying {@code TEXCOORD_0} as a per-corner {@link CornerUvField}.
  * Plain Java over the platform's JSON parser, so the browser build reads scans too.
  */
@@ -205,7 +205,7 @@ public final class GltfMeshParser {
      * Read the geometry of a glTF file, skipping its images.
      *
      * @param path filesystem path of a {@code .glb} or {@code .gltf} file
-     * @return bundle whose mesh is a welded triangle {@link ArrayMesh}; {@link CornerUvField#SLOT} holds
+     * @return bundle whose mesh is the welded triangles; {@link CornerUvField#SLOT} holds
      *     one {@code (u, v)} per face corner and is absent when the file carried no UVs
      * @throws IOException if the file cannot be read or holds no triangles
      */
@@ -267,11 +267,8 @@ public final class GltfMeshParser {
         CornerUvField cornerUv = buildCornerUv();
         weldByPosition();
 
-        ArrayMesh mesh = new ArrayMesh(weldedPositions, weldedNormals, triangleIndices,
-                VERTICES_PER_TRIANGLE);
-        if (!anyNormals) {
-            mesh.computeNormals();
-        }
+        MeshTopology mesh = MeshLoader.indexedMesh(weldedPositions, anyNormals ? weldedNormals : null,
+                triangleIndices, VERTICES_PER_TRIANGLE);
         GltfModel model = new GltfModel();
         model.bundle = cornerUv == null
                 ? GeometryBundle.ofMesh(mesh)

@@ -17,7 +17,7 @@ import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonComparator;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.io.MeshLoader;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.automation.AutomationEndpoint;
 
 /**
@@ -67,8 +67,8 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                 return failure("Reference mesh not found: " + refFile.getAbsolutePath());
             }
 
-            ArrayMesh genMesh = MeshLoader.load(genFile.getAbsolutePath());
-            ArrayMesh refMesh = MeshLoader.load(refFile.getAbsolutePath());
+            MeshTopology genMesh = MeshLoader.load(genFile.getAbsolutePath());
+            MeshTopology refMesh = MeshLoader.load(refFile.getAbsolutePath());
 
             MeshSkeletonExtractor.SkeletonResult genSkel = MeshSkeletonExtractor.extract(genMesh, resolution);
             MeshSkeletonExtractor.SkeletonResult refSkel = MeshSkeletonExtractor.extract(refMesh, resolution);

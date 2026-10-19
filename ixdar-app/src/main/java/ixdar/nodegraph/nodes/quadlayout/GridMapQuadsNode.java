@@ -54,7 +54,7 @@ public class GridMapQuadsNode implements MeshNode {
     public void evaluate(NodeContext ctx) {
         GlobalGridMap gridMap = (GlobalGridMap) ctx.getInput(UV.name, Object.class);
         GridMapAssembly.extractQuads(gridMap);
-        ctx.setOutput(GEOMETRY.name, GeometryBundle.ofMesh(gridMap.quadMesh.toArrayMesh()));
+        ctx.setOutput(GEOMETRY.name, GeometryBundle.ofMesh(gridMap.quadMesh.toMesh()));
         ctx.setOutput(UV_OUT.name, gridMap);
     }
 }

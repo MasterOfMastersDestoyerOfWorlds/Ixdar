@@ -223,8 +223,14 @@ public final class MeshRepair {
         if (weldEpsilon <= 0 || input.mesh().vertexCount() == 0) {
             return;
         }
+        // The scan may be non-manifold, so the weld stays in its indexed form for the stages below.
         MeshMergeByDistance welder = new MeshMergeByDistance();
-        MeshTopology welded = welder.weld(input.mesh(), (float) weldEpsilon);
+        welder.weldArrays(input.mesh(), (float) weldEpsilon);
+        if (welder.weldedFaceCorners.length != welder.weldedFaceSizes.length * TRIANGLE_CORNERS) {
+            throw new IllegalArgumentException("repair_mesh needs a triangle mesh");
+        }
+        MeshTopology welded = new ArrayMesh(welder.weldedPositions, null, welder.weldedFaceCorners,
+                TRIANGLE_CORNERS);
         report.weldedVertexCount = input.mesh().vertexCount() - welded.vertexCount();
         int slitFaces = input.mesh().faceCount() - welder.sourceFace.length;
         report.degenerateFaceCount += slitFaces;
@@ -1253,22 +1259,22 @@ public final class MeshRepair {
             }
             nextFace++;
         }
-        MeshTopology repaired = report.unorientedEdgeCount > 0
-                ? new ArrayMesh(outPositions, null, outFaces, TRIANGLE_CORNERS)
-                : HalfEdgeMeshEngine.buildFromIndexedMesh(outPositions, outFaces);
         report.outputVertexCount = survivors;
         report.outputFaceCount = aliveFaces;
         report.fillFaceIndices = Arrays.copyOf(fillFaceIndices, fillFaces);
 
-        GeometryBundle bundle = input.withMesh(repaired);
+        HalfEdgeMesh oriented = report.unorientedEdgeCount > 0 ? null
+                : HalfEdgeMeshEngine.buildFromIndexedMesh(outPositions, outFaces);
+        GeometryBundle bundle = input.withMesh(oriented != null ? oriented
+                : new ArrayMesh(outPositions, null, outFaces, TRIANGLE_CORNERS));
         if (outU != null) {
             bundle = bundle.withSlot(CornerUvField.SLOT, new CornerUvField(outU, outV));
         }
         bundle = carryVertexSlots(bundle, outOriginal);
         bundle = bundle.withSlot(EdgeMarks.SLOT, Map.of());
-        if (repaired instanceof HalfEdgeMesh halfEdgeMesh) {
+        if (oriented != null) {
             bundle = EdgeMarks.with(bundle, MeshRepairReport.OPEN_BOUNDARY_LABEL,
-                    boundaryEdgeMarks(halfEdgeMesh));
+                    boundaryEdgeMarks(oriented));
         }
         output = bundle.withSlot(MeshRepairReport.SLOT, report);
     }

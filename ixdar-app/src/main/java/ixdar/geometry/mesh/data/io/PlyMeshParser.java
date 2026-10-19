@@ -5,11 +5,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
- * Reads ASCII PLY into an {@link ArrayMesh}: vertex positions, optional {@code nx/ny/nz} normals,
+ * Reads ASCII PLY into a mesh ({@link MeshLoader#indexedMesh}): vertex positions, optional {@code nx/ny/nz} normals,
  * and a face list. Faces keep their arity when every face agrees on three or four corners, and are
  * fanned into triangles otherwise.
  */
@@ -46,7 +46,7 @@ public final class PlyMeshParser {
      * @throws IOException if the document is binary PLY, which this parser does not read, or a
      *     body line is malformed
      */
-    public static ArrayMesh load(String content) throws IOException {
+    public static MeshTopology load(String content) throws IOException {
         String[] lines = content.split("\n");
         // Header: element counts, and the vertex element's property names in column order.
         List<String> vertexProperties = new ArrayList<>();
@@ -78,7 +78,7 @@ public final class PlyMeshParser {
             }
         }
         if (vertexCount == 0) {
-            return ArrayMeshEngine.emptyQuads();
+            return new HalfEdgeMesh();
         }
 
         float[] positions = new float[vertexCount * MeshLoader.FLOATS_PER_VERTEX];
@@ -122,14 +122,14 @@ public final class PlyMeshParser {
             }
         }
         if (uniform == TRIANGLE_CORNERS || uniform == QUAD_CORNERS) {
-            return new ArrayMesh(positions, normals, Arrays.copyOf(faceCorners, corners), uniform);
+            return MeshLoader.indexedMesh(positions, normals, Arrays.copyOf(faceCorners, corners), uniform);
         }
         int triangleCorners = 0;
         for (int size : faceSizes) {
             triangleCorners += size < TRIANGLE_CORNERS ? 0 : (size - 2) * TRIANGLE_CORNERS;
         }
         if (triangleCorners == 0) {
-            return ArrayMeshEngine.emptyQuads();
+            return new HalfEdgeMesh();
         }
         int[] triangles = new int[triangleCorners];
         int read = 0;
@@ -142,7 +142,7 @@ public final class PlyMeshParser {
             }
             read += size;
         }
-        return new ArrayMesh(positions, normals, triangles, TRIANGLE_CORNERS);
+        return MeshLoader.indexedMesh(positions, normals, triangles, TRIANGLE_CORNERS);
     }
 
     /**

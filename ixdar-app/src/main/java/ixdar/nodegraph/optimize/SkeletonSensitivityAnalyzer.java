@@ -17,8 +17,6 @@ import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonComparator.Detaile
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonComparator.JointDelta;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonResult;
 import ixdar.geometry.mesh.data.io.MeshLoader;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 
 import ixdar.nodegraph.optimize.InputParameterDescriptor.InputParameterKind;
 
@@ -75,7 +73,7 @@ public final class SkeletonSensitivityAnalyzer {
         }
 
         // 2. Load reference skeleton
-        ArrayMesh refMesh = MeshLoader.load(refMeshPath);
+        MeshTopology refMesh = MeshLoader.load(refMeshPath);
         SkeletonResult refSkel = MeshSkeletonExtractor.extract(refMesh, resolution);
 
         // 3. Find output node and ports (same pattern as BatchDslEvaluator)
@@ -89,8 +87,7 @@ public final class SkeletonSensitivityAnalyzer {
         if (baselineMesh == null) {
             throw new IllegalStateException("Baseline DSL execution produced no mesh");
         }
-        ArrayMesh baselineArrayMesh = ArrayMeshEngine.fromUniformMeshTopology(baselineMesh);
-        SkeletonResult baselineSkel = MeshSkeletonExtractor.extract(baselineArrayMesh, resolution);
+        SkeletonResult baselineSkel = MeshSkeletonExtractor.extract(baselineMesh, resolution);
         DetailedComparisonResult baselineComparison = MeshSkeletonComparator.compareDetailed(baselineSkel, refSkel);
 
         // 5. Flatten baseline joint positions and errors across all matched branches.
@@ -145,8 +142,7 @@ public final class SkeletonSensitivityAnalyzer {
                     continue;
                 }
 
-                ArrayMesh perturbedArrayMesh = ArrayMeshEngine.fromUniformMeshTopology(perturbedMesh);
-                SkeletonResult perturbedSkel = MeshSkeletonExtractor.extract(perturbedArrayMesh, resolution);
+                SkeletonResult perturbedSkel = MeshSkeletonExtractor.extract(perturbedMesh, resolution);
                 DetailedComparisonResult perturbedComparison =
                         MeshSkeletonComparator.compareDetailed(perturbedSkel, refSkel);
 
@@ -226,7 +222,7 @@ public final class SkeletonSensitivityAnalyzer {
 
         List<OptimizableParameter> params = collectAllParameters(parsed);
 
-        ArrayMesh refMesh = MeshLoader.load(refMeshPath);
+        MeshTopology refMesh = MeshLoader.load(refMeshPath);
         SkeletonResult refSkel = MeshSkeletonExtractor.extract(refMesh, resolution);
 
         PythonParser.ParsedNode lastNode = parsed.get(parsed.size() - 1);
@@ -260,8 +256,7 @@ public final class SkeletonSensitivityAnalyzer {
             MeshTopology mesh = executeDsl(runtime, lastNode.id, ports, overridesBase);
             if (mesh == null) break;
 
-            ArrayMesh arrayMesh = ArrayMeshEngine.fromUniformMeshTopology(mesh);
-            SkeletonResult skel = MeshSkeletonExtractor.extract(arrayMesh, resolution);
+            SkeletonResult skel = MeshSkeletonExtractor.extract(mesh, resolution);
             DetailedComparisonResult comparison = MeshSkeletonComparator.compareDetailed(skel, refSkel);
 
             // Flatten joint positions and errors, indexed by branch label
@@ -296,8 +291,7 @@ public final class SkeletonSensitivityAnalyzer {
                     MeshTopology perturbedMesh = executeDsl(runtime, lastNode.id, ports, overrides);
                     if (perturbedMesh == null) continue;
 
-                    ArrayMesh perturbedArrayMesh = ArrayMeshEngine.fromUniformMeshTopology(perturbedMesh);
-                    SkeletonResult perturbedSkel = MeshSkeletonExtractor.extract(perturbedArrayMesh, resolution);
+                    SkeletonResult perturbedSkel = MeshSkeletonExtractor.extract(perturbedMesh, resolution);
                     DetailedComparisonResult perturbedComparison =
                             MeshSkeletonComparator.compareDetailed(perturbedSkel, refSkel);
 
@@ -522,8 +516,7 @@ public final class SkeletonSensitivityAnalyzer {
             Map<String, Object> overrides = new HashMap<>(paramValues);
             MeshTopology mesh = executeDsl(runtime, lastNodeId, ports, overrides);
             if (mesh == null) return 0;
-            ArrayMesh arrayMesh = ArrayMeshEngine.fromUniformMeshTopology(mesh);
-            SkeletonResult skel = MeshSkeletonExtractor.extract(arrayMesh, resolution);
+            SkeletonResult skel = MeshSkeletonExtractor.extract(mesh, resolution);
             return MeshSkeletonComparator.compare(skel, refSkel).skeletonScore();
         } catch (Exception e) {
             return 0;

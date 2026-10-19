@@ -1,23 +1,19 @@
 package ixdar.geometry.mesh.data.ops;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
 
 import org.joml.Vector3f;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.numeric.graph.UnionFind;
 
-import ixdar.nodegraph.field.Vector3Value;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
- * Welds vertices within {@code distance} (same cluster). {@link ArrayMesh} inputs use a dense path;
- * other topologies still emit {@link HalfEdgeMesh}. An instance also records how the weld moved
- * elements, so per-vertex and per-face attributes can follow it.
+ * Welds vertices within {@code distance} (same cluster) into a {@link HalfEdgeMesh} over primitive
+ * arrays, welded vertices numbered in order of their first member. An instance also records how
+ * the weld moved elements, so per-vertex and per-face attributes can follow it.
  */
 public final class MeshMergeByDistance {
     public static final float MIN_CELL_SIZE = 1e-8f;
@@ -40,8 +36,17 @@ public final class MeshMergeByDistance {
      */
     public int[] sourceFace = new int[0];
 
+    /** Packed xyz of the welded vertices, filled by {@link #weldArrays}. */
+    public float[] weldedPositions = new float[0];
+
+    /** Corner count of each surviving face, filled by {@link #weldArrays}. */
+    public int[] weldedFaceSizes = new int[0];
+
+    /** Surviving faces' corners end to end, as welded vertex indices, filled by {@link #weldArrays}. */
+    public int[] weldedFaceCorners = new int[0];
+
     /**
-     * Build a recording welder; {@link #weld} fills its maps.
+     * Build a recording welder; {@link #weld} and {@link #weldArrays} fill its maps.
      */
     public MeshMergeByDistance() {
     }
@@ -53,23 +58,16 @@ public final class MeshMergeByDistance {
      * @param mesh source mesh; treated read-only
      * @param distance maximum Euclidean distance for two vertices to merge; values &lt;= 0 keep every
      *     vertex but still fill the maps
-     * @return welded mesh — an {@link ArrayMesh} when the input is one, otherwise a {@link HalfEdgeMesh}
+     * @throws InvalidMeshTopologyException when the welded faces have no half-edge form; a raw scan
+     *     is welded by repair_mesh instead
+     * @return welded mesh
      */
-    public MeshTopology weld(MeshTopology mesh, float distance) {
-        if (mesh == null || mesh.vertexCount() == 0) {
-            weldedVertex = new int[0];
-            sourceFace = new int[0];
-            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
-        }
-        weldedVertex = new int[mesh.vertexCount()];
-        sourceFace = new int[mesh.faceCount()];
-        for (int index = 0; index < weldedVertex.length; index++) {
-            weldedVertex[index] = index;
-        }
-        for (int face = 0; face < sourceFace.length; face++) {
-            sourceFace[face] = face;
-        }
-        return merge(mesh, distance, this);
+    public HalfEdgeMesh weld(MeshTopology mesh, float distance) {
+        weldArrays(mesh, distance);
+        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(weldedPositions, weldedFaceSizes,
+                weldedFaceCorners);
+        out.computeNormals();
+        return out;
     }
 
     /**
@@ -78,190 +76,73 @@ public final class MeshMergeByDistance {
      *
      * @param mesh source mesh; treated read-only
      * @param distance maximum Euclidean distance for two vertices to merge; values &lt;= 0 leave the mesh unchanged
-     * @return welded mesh — an {@link ArrayMesh} when the input is one, otherwise a {@link HalfEdgeMesh}
-     */
-    public static MeshTopology merge(MeshTopology mesh, float distance) {
-        return merge(mesh, distance, null);
-    }
-
-    /**
-     * The body of {@link #merge}, optionally recording the element maps into {@code record}.
-     *
-     * @param mesh source mesh; treated read-only
-     * @param distance maximum Euclidean distance for two vertices to merge
-     * @param record instance whose maps to fill, or null to weld without recording
      * @return welded mesh
      */
-    private static MeshTopology merge(MeshTopology mesh, float distance, MeshMergeByDistance record) {
-        if (mesh == null || mesh.vertexCount() == 0) {
-            return mesh instanceof ArrayMesh ? ArrayMeshEngine.emptyQuads() : new HalfEdgeMesh();
-        }
-        if (distance <= 0f) {
-            return MeshVertexOffset.apply(mesh, new Vector3Value(0f, 0f, 0f));
-        }
-        if (mesh instanceof ArrayMesh am) {
-            return mergeToArrayMesh(am, distance, record);
-        }
-
-        int n = mesh.vertexCount();
-        Vector3f[] pos = new Vector3f[n];
-        for (int i = 0; i < n; i++) {
-            int vid = mesh.vertexIdAt(i);
-            pos[i] = mesh.vertexPosition(vid, new Vector3f());
-        }
-
-        float cell = Math.max(distance, MIN_CELL_SIZE);
-        HashMap<Long, List<Integer>> grid = new HashMap<>();
-        for (int i = 0; i < n; i++) {
-            long key = key(pos[i], cell);
-            grid.computeIfAbsent(key, k -> new ArrayList<>()).add(i);
-        }
-
-        int[] parent = UnionFind.singletons(n);
-
-        for (int i = 0; i < n; i++) {
-            int gx = (int) Math.floor(pos[i].x / cell);
-            int gy = (int) Math.floor(pos[i].y / cell);
-            int gz = (int) Math.floor(pos[i].z / cell);
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dy = -1; dy <= 1; dy++) {
-                    for (int dz = -1; dz <= 1; dz++) {
-                        long nk = packCell(gx + dx, gy + dy, gz + dz);
-                        List<Integer> bucket = grid.get(nk);
-                        if (bucket == null) {
-                            continue;
-                        }
-                        for (int j : bucket) {
-                            if (j <= i) {
-                                continue;
-                            }
-                            if (pos[i].distance(pos[j]) < distance) {
-                                UnionFind.union(parent, i, j);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        int[] rootOf = new int[n];
-        for (int i = 0; i < n; i++) {
-            rootOf[i] = UnionFind.find(parent, i);
-        }
-
-        HashMap<Integer, Vector3f> sumByRoot = new HashMap<>();
-        HashMap<Integer, Integer> countByRoot = new HashMap<>();
-        for (int i = 0; i < n; i++) {
-            int r = rootOf[i];
-            sumByRoot.computeIfAbsent(r, k -> new Vector3f()).add(pos[i]);
-            countByRoot.merge(r, 1, (a, b) -> a + b);
-        }
-
-        HashMap<Integer, Integer> outVidByRoot = new HashMap<>();
-        HalfEdgeMesh out = new HalfEdgeMesh();
-        Vector3f tmp = new Vector3f();
-        for (int r : sumByRoot.keySet()) {
-            int cnt = countByRoot.get(r);
-            tmp.set(sumByRoot.get(r)).mul(1f / cnt);
-            int oid = out.addVertex(tmp);
-            outVidByRoot.put(r, oid);
-        }
-
-        HashMap<Integer, Integer> meshVidToOutVid = new HashMap<>();
-        for (int i = 0; i < n; i++) {
-            int vid = mesh.vertexIdAt(i);
-            int r = rootOf[i];
-            meshVidToOutVid.put(vid, outVidByRoot.get(r));
-            if (record != null) {
-                record.weldedVertex[i] = outVidByRoot.get(r);
-            }
-        }
-
-        int keptFaces = 0;
-        for (int fi = 0; fi < mesh.faceCount(); fi++) {
-            int fid = mesh.faceIdAt(fi);
-            int fc = mesh.faceVertexCount(fid);
-            int[] nv = new int[fc];
-            for (int k = 0; k < fc; k++) {
-                int ov = mesh.faceVertexAt(fid, k);
-                nv[k] = meshVidToOutVid.get(ov);
-            }
-            boolean dup = false;
-            for (int a = 0; a < fc; a++) {
-                for (int b = a + 1; b < fc; b++) {
-                    if (nv[a] == nv[b]) {
-                        dup = true;
-                        break;
-                    }
-                }
-            }
-            if (!dup) {
-                out.addFace(nv);
-                if (record != null) {
-                    record.sourceFace[keptFaces] = fi;
-                }
-                keptFaces++;
-            }
-        }
-        if (record != null) {
-            record.sourceFace = Arrays.copyOf(record.sourceFace, keptFaces);
-        }
-        out.computeNormals();
-        return out;
+    public static HalfEdgeMesh merge(MeshTopology mesh, float distance) {
+        return new MeshMergeByDistance().weld(mesh, distance);
     }
 
     /**
-     * Same clustering as {@link #merge(MeshTopology, float)} but emits a dense {@link ArrayMesh} (uniform faces only).
-     * Uses primitive arrays throughout — no HashMap/Integer boxing — so it stays fast under TeaVM.
+     * The weld without building a mesh: fills {@link #weldedVertex}, {@link #sourceFace} and the
+     * welded arrays, which may describe a non-manifold surface, welded vertices numbered in order
+     * of their first member.
      *
-     * @param mesh source mesh; faces must all share a common vertex count
-     * @param distance maximum Euclidean distance for two vertices to merge
-     * @throws IllegalArgumentException if {@code mesh} contains faces of differing sizes
-     * @return welded {@link ArrayMesh} with averaged positions and deduplicated faces
+     * @param mesh source mesh; treated read-only
+     * @param distance maximum Euclidean distance for two vertices to merge; values &lt;= 0 keep every
+     *     vertex and face
      */
-    public static ArrayMesh mergeToArrayMesh(MeshTopology mesh, float distance) {
-        return mergeToArrayMesh(mesh, distance, null);
-    }
-
-    /**
-     * The body of {@link #mergeToArrayMesh}, optionally recording the element maps into
-     * {@code record}.
-     *
-     * @param mesh source mesh; faces must all share a common vertex count
-     * @param distance maximum Euclidean distance for two vertices to merge
-     * @param record instance whose maps to fill, or null to weld without recording
-     * @throws IllegalArgumentException if {@code mesh} contains faces of differing sizes
-     * @return welded {@link ArrayMesh}
-     */
-    private static ArrayMesh mergeToArrayMesh(MeshTopology mesh, float distance,
-            MeshMergeByDistance record) {
-        if (mesh == null || mesh.vertexCount() == 0) {
-            return ArrayMeshEngine.emptyQuads();
+    public void weldArrays(MeshTopology mesh, float distance) {
+        int n = mesh == null ? 0 : mesh.vertexCount();
+        weldedVertex = new int[n];
+        sourceFace = new int[n == 0 ? 0 : mesh.faceCount()];
+        for (int face = 0; face < sourceFace.length; face++) {
+            sourceFace[face] = face;
         }
-        int n = mesh.vertexCount();
-
-        // Flat position array (no Vector3f[] allocation)
+        if (n == 0) {
+            weldedPositions = new float[0];
+            weldedFaceSizes = new int[0];
+            weldedFaceCorners = new int[0];
+            return;
+        }
+        int[] activeVertexOfId = new int[mesh.vertexIdBound()];
         float[] vx = new float[n];
         float[] vy = new float[n];
         float[] vz = new float[n];
-        // Map from sparse vertex id → dense index [0,n). ArrayMesh already has this identity,
-        // but HalfEdgeMesh may have gaps.
-        int maxSparseId = -1;
-        for (int i = 0; i < n; i++) {
-            int vid = mesh.vertexIdAt(i);
-            if (vid > maxSparseId) {
-                maxSparseId = vid;
-            }
-        }
-        int[] sparseToDense = new int[maxSparseId + 1];
         Vector3f tmp = new Vector3f();
         for (int i = 0; i < n; i++) {
-            int vid = mesh.vertexIdAt(i);
-            mesh.vertexPosition(vid, tmp);
+            int vertexId = mesh.vertexIdAt(i);
+            activeVertexOfId[vertexId] = i;
+            mesh.vertexPosition(vertexId, tmp);
             vx[i] = tmp.x;
             vy[i] = tmp.y;
             vz[i] = tmp.z;
-            sparseToDense[vid] = i;
+        }
+        int nf = mesh.faceCount();
+        int[] faceSizes = new int[nf];
+        int totalCorners = 0;
+        for (int fi = 0; fi < nf; fi++) {
+            faceSizes[fi] = mesh.faceVertexCount(mesh.faceIdAt(fi));
+            totalCorners += faceSizes[fi];
+        }
+        int[] faceIdx = new int[totalCorners];
+        if (distance <= 0f) {
+            weldedPositions = new float[n * 3];
+            for (int index = 0; index < n; index++) {
+                weldedVertex[index] = index;
+                weldedPositions[index * 3] = vx[index];
+                weldedPositions[index * 3 + 1] = vy[index];
+                weldedPositions[index * 3 + 2] = vz[index];
+            }
+            int cursor = 0;
+            for (int fi = 0; fi < nf; fi++) {
+                int faceId = mesh.faceIdAt(fi);
+                for (int corner = 0; corner < faceSizes[fi]; corner++) {
+                    faceIdx[cursor++] = activeVertexOfId[mesh.faceVertexAt(faceId, corner)];
+                }
+            }
+            weldedFaceSizes = faceSizes;
+            weldedFaceCorners = faceIdx;
+            return;
         }
 
         float cell = Math.max(distance, MIN_CELL_SIZE);
@@ -361,9 +242,7 @@ public final class MeshMergeByDistance {
             sumY[o] += vy[i];
             sumZ[o] += vz[i];
             count[o]++;
-            if (record != null) {
-                record.weldedVertex[i] = o;
-            }
+            weldedVertex[i] = o;
         }
 
         float[] positions = new float[outV * 3];
@@ -374,49 +253,34 @@ public final class MeshMergeByDistance {
             positions[o * 3 + 2] = sumZ[o] * inv;
         }
 
-        int nf = mesh.faceCount();
-        if (nf == 0) {
-            return new ArrayMesh(positions, null, new int[0], 4);
-        }
-        int vpf = mesh.faceVertexCount(mesh.faceIdAt(0));
-        for (int fi = 0; fi < nf; fi++) {
-            if (mesh.faceVertexCount(mesh.faceIdAt(fi)) != vpf) {
-                throw new IllegalArgumentException("mergeToArrayMesh requires uniform face size");
-            }
-        }
-        int[] faceIdx = new int[nf * vpf];
         int outF = 0;
-        int[] nv = new int[vpf];
+        int outCorners = 0;
         for (int fi = 0; fi < nf; fi++) {
-            int fid = mesh.faceIdAt(fi);
-            for (int k = 0; k < vpf; k++) {
-                int ov = mesh.faceVertexAt(fid, k);
-                int dense = sparseToDense[ov];
-                nv[k] = rootToOut[rootOf[dense]];
+            int faceId = mesh.faceIdAt(fi);
+            int size = faceSizes[fi];
+            for (int k = 0; k < size; k++) {
+                faceIdx[outCorners + k] = rootToOut[rootOf[activeVertexOfId[mesh.faceVertexAt(faceId, k)]]];
             }
             boolean dup = false;
-            for (int a = 0; a < vpf && !dup; a++) {
-                for (int b = a + 1; b < vpf; b++) {
-                    if (nv[a] == nv[b]) {
+            for (int a = 0; a < size && !dup; a++) {
+                for (int b = a + 1; b < size; b++) {
+                    if (faceIdx[outCorners + a] == faceIdx[outCorners + b]) {
                         dup = true;
                         break;
                     }
                 }
             }
             if (!dup) {
-                System.arraycopy(nv, 0, faceIdx, outF * vpf, vpf);
-                if (record != null) {
-                    record.sourceFace[outF] = fi;
-                }
+                faceSizes[outF] = size;
+                sourceFace[outF] = fi;
                 outF++;
+                outCorners += size;
             }
         }
-        if (record != null) {
-            record.sourceFace = Arrays.copyOf(record.sourceFace, outF);
-        }
-        ArrayMesh out = new ArrayMesh(positions, null, Arrays.copyOf(faceIdx, outF * vpf), vpf);
-        out.computeNormals();
-        return out;
+        sourceFace = Arrays.copyOf(sourceFace, outF);
+        weldedPositions = positions;
+        weldedFaceSizes = Arrays.copyOf(faceSizes, outF);
+        weldedFaceCorners = Arrays.copyOf(faceIdx, outCorners);
     }
 
     /**
@@ -449,12 +313,4 @@ public final class MeshMergeByDistance {
                 | (((long) gridY & CELL_COORD_MASK) << CELL_COORD_BITS)
                 | (((long) gridZ & CELL_COORD_MASK) << Z_AXIS_SHIFT);
     }
-
-    private static long key(Vector3f p, float cell) {
-        int gx = (int) Math.floor(p.x / cell);
-        int gy = (int) Math.floor(p.y / cell);
-        int gz = (int) Math.floor(p.z / cell);
-        return packCell(gx, gy, gz);
-    }
-
 }

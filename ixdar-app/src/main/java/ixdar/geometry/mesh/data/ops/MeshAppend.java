@@ -7,13 +7,11 @@ import org.joml.Vector4f;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 import java.util.HashMap;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 
 /**
- * Appends meshes into a single {@link HalfEdgeMesh}, or joins two
- * {@link ArrayMesh} meshes without half-edge allocation.
+ * Appends meshes into a single {@link HalfEdgeMesh}.
  */
 public final class MeshAppend {
 
@@ -60,22 +58,50 @@ public final class MeshAppend {
     }
 
     /**
-     * Concatenate two meshes. Two {@link ArrayMesh} inputs sharing
-     * verts-per-face go through the dense engine; everything else falls back to
-     * a {@link HalfEdgeMesh} append with normals recomputed.
+     * Concatenate two meshes without welding: {@code a}'s vertices and faces, then {@code b}'s,
+     * each in active order, with normals recomputed.
      *
-     * @param a first mesh
-     * @param b second mesh
-     * @return combined mesh (an {@link ArrayMesh} on the dense fast path, otherwise a {@link HalfEdgeMesh})
+     * @param a first mesh, or null
+     * @param b second mesh, or null
+     * @return combined mesh
      */
     public static MeshTopology join(MeshTopology a, MeshTopology b) {
-        if (a instanceof ArrayMesh aa && b instanceof ArrayMesh ab && aa.getVertsPerFace() == ab.getVertsPerFace()) {
-            return ArrayMeshEngine.join(aa, ab);
+        MeshTopology first = a == null ? new HalfEdgeMesh() : a;
+        MeshTopology second = b == null ? new HalfEdgeMesh() : b;
+        MeshTopology[] parts = { first, second };
+        int corners = 0;
+        for (MeshTopology part : parts) {
+            for (int activeFace = 0; activeFace < part.faceCount(); activeFace++) {
+                corners += part.faceVertexCount(part.faceIdAt(activeFace));
+            }
         }
-        HalfEdgeMesh out = new HalfEdgeMesh();
-        Matrix4f id = new Matrix4f();
-        append(out, a, id);
-        append(out, b, id);
+        float[] positions = new float[(first.vertexCount() + second.vertexCount()) * 3];
+        int[] faceSizes = new int[first.faceCount() + second.faceCount()];
+        int[] faceCorners = new int[corners];
+        Vector3f position = new Vector3f();
+        int outVertex = 0;
+        int outFace = 0;
+        int outCorner = 0;
+        for (MeshTopology part : parts) {
+            int[] outVertexOfId = new int[part.vertexIdBound()];
+            for (int activeVertex = 0; activeVertex < part.vertexCount(); activeVertex++) {
+                int vertexId = part.vertexIdAt(activeVertex);
+                part.vertexPosition(vertexId, position);
+                positions[outVertex * 3] = position.x;
+                positions[outVertex * 3 + 1] = position.y;
+                positions[outVertex * 3 + 2] = position.z;
+                outVertexOfId[vertexId] = outVertex++;
+            }
+            for (int activeFace = 0; activeFace < part.faceCount(); activeFace++) {
+                int faceId = part.faceIdAt(activeFace);
+                int size = part.faceVertexCount(faceId);
+                for (int corner = 0; corner < size; corner++) {
+                    faceCorners[outCorner++] = outVertexOfId[part.faceVertexAt(faceId, corner)];
+                }
+                faceSizes[outFace++] = size;
+            }
+        }
+        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceSizes, faceCorners);
         if (out.vertexCount() > 0) {
             out.computeNormals();
         }

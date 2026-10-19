@@ -12,9 +12,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.io.MeshLoader;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
@@ -42,9 +40,8 @@ class CarveOneToOneTest {
     @Test
     void carveMapsTMeshElementsOntoMeshElementsOneToOne() throws Exception {
         String offPath = System.getProperty(OFF_PROPERTY, DEFAULT_OFF);
-        ArrayMesh arrayMesh = MeshLoader.load(offPath);
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
-                arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
+        HalfEdgeMesh mesh = (HalfEdgeMesh) MeshLoader.load(offPath);
+        mesh.computeNormals();
 
         NodeGraphRuntime layout = new NodeGraphRuntime(QuadLayoutNode.overSceneModel());
         layout.graphInputs.put(SceneModelNode.BINDING, GeometryBundle.ofMesh(mesh));

@@ -30,7 +30,7 @@ public class SegmentCapNode implements MeshNode {
     public static final float Y_TOLERANCE = 0.001f;
     public static final float MIN_RING_SCALE = 0.05f;
 
-    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
     public static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 12, (float) 3, (float) 128);
     public static final InputPort CAP_RINGS = new InputPort("cap_rings", PortType.INT, 2, (float) 0, (float) 16);
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
@@ -62,11 +62,11 @@ public class SegmentCapNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
-        HalfEdgeMesh mesh = base.mesh() instanceof HalfEdgeMesh h ? h : null;
-        if (mesh == null || mesh.vertexCount() == 0) {
+        if (base.mesh() == null || base.mesh().vertexCount() == 0) {
             ctx.setOutput(GEOMETRY.name, base);
             return;
         }
+        HalfEdgeMesh mesh = (HalfEdgeMesh) base.mesh();
 
         int segments = Math.max(MIN_SEGMENTS, intInput(ctx, SEGMENTS.name, 12));
         int capRings = Math.max(1, intInput(ctx, CAP_RINGS.name, 2));

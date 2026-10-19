@@ -2,7 +2,8 @@ package ixdar.geometry.mesh.quadlayout.extraction;
 
 import java.util.Arrays;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 
 /**
  * The quad mesh extracted from the relaxed integer grid map: one vertex per
@@ -76,14 +77,16 @@ public final class ExtractedQuadMesh {
     }
 
     /**
-     * The extracted quads as a dense mesh, positions and corner indices trimmed
-     * to the emitted counts.
+     * The extracted quads as a half-edge mesh, positions and corner indices trimmed
+     * to the emitted counts and kept in emission order.
      *
-     * @return the packed quad mesh
+     * @return the quad mesh, normals computed
      */
-    public ArrayMesh toArrayMesh() {
-        return ArrayMesh.fromQuads(
+    public HalfEdgeMesh toMesh() {
+        HalfEdgeMesh mesh = HalfEdgeMeshEngine.bulkAllocate(
                 Arrays.copyOf(positions, quadVertexCount * POSITION_FLOATS),
-                Arrays.copyOf(quadCorner, quadCount * QUAD_CORNERS));
+                Arrays.copyOf(quadCorner, quadCount * QUAD_CORNERS), QUAD_CORNERS);
+        mesh.computeNormals();
+        return mesh;
     }
 }

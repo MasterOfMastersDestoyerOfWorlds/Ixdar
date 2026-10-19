@@ -11,9 +11,14 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.bundle.MaterialData;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
- * Loads OBJ, PLY, OFF and glTF mesh files into ArrayMesh format.
+ * Loads OBJ, PLY, OFF and glTF mesh files into a {@link HalfEdgeMesh}, or an {@link ArrayMesh} when
+ * the file's faces have no half-edge form.
  * Supports vertex positions and optional normals; glTF also carries texture coordinates.
  */
 public final class MeshLoader {
@@ -48,14 +53,44 @@ public final class MeshLoader {
      * @throws IOException              if file cannot be read or parsed
      * @throws IllegalArgumentException if {@code path} is null/empty or has an
      *                                  unsupported extension
-     * @return ArrayMesh containing the loaded geometry
+     * @return the loaded geometry, as {@link #indexedMesh} builds it
      */
-    public static ArrayMesh load(String path) throws IOException {
+    public static MeshTopology load(String path) throws IOException {
         String lower = path == null ? "" : path.toLowerCase();
         if (isGltf(lower)) {
-            return (ArrayMesh) loadGltfGeometry(resolve(path)).mesh();
+            return loadGltfGeometry(resolve(path)).mesh();
         }
-        return (ArrayMesh) loadBundle(path).mesh();
+        return loadBundle(path).mesh();
+    }
+
+    /**
+     * The mesh a file's flat arrays describe: a {@link HalfEdgeMesh} keeping the file's vertex and
+     * face order, or an {@link ArrayMesh} over the arrays when the faces have no half-edge form.
+     *
+     * @param positions    packed xyz triples
+     * @param normals      packed vertex normals matching {@code positions}, or {@code null} to compute
+     *                     them from the faces
+     * @param faceIndices  vertex indices grouped by {@code vertsPerFace}
+     * @param vertsPerFace corners per face
+     * @return the half-edge mesh, else the indexed mesh of a non-manifold or degenerate file
+     */
+    public static MeshTopology indexedMesh(float[] positions, float[] normals, int[] faceIndices,
+            int vertsPerFace) {
+        try {
+            HalfEdgeMesh mesh = HalfEdgeMeshEngine.bulkAllocate(positions, faceIndices, vertsPerFace);
+            mesh.computeNormals();
+            if (normals != null) {
+                System.arraycopy(normals, 0, mesh.vertexNormals, 0, Math.min(normals.length,
+                        mesh.vertexNormals.length));
+            }
+            return mesh;
+        } catch (InvalidMeshTopologyException noHalfEdgeForm) {
+            ArrayMesh mesh = new ArrayMesh(positions, normals, faceIndices, vertsPerFace);
+            if (normals == null) {
+                mesh.computeNormals();
+            }
+            return mesh;
+        }
     }
 
     /**
@@ -68,7 +103,7 @@ public final class MeshLoader {
      * @throws IOException              if file cannot be read or parsed
      * @throws IllegalArgumentException if {@code path} is null/empty or has an
      *                                  unsupported extension
-     * @return bundle wrapping the loaded {@link ArrayMesh}
+     * @return bundle wrapping the loaded mesh
      */
     public static GeometryBundle loadBundle(String path) throws IOException {
         if (path == null || path.isEmpty()) {

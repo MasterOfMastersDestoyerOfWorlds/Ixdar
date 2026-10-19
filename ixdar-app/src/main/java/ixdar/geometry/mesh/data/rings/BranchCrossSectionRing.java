@@ -11,7 +11,6 @@ import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
 import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.paths.query.PlaneSurfaceLoop;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -84,8 +83,7 @@ public final class BranchCrossSectionRing {
         if (surface == null || surface.faceCount() == 0) {
             return rings;
         }
-        skeleton = MeshSkeletonExtractor.extract(
-                ArrayMeshEngine.fromUniformMeshTopology(surface), resolution, skeletonBranchBudget);
+        skeleton = MeshSkeletonExtractor.extract(surface, resolution, skeletonBranchBudget);
         branch = nearestBranch(branchPoint);
         if (branch < 0) {
             return rings;

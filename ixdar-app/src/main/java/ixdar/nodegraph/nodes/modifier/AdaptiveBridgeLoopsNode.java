@@ -35,7 +35,7 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
     public static final String NOT_FOUND = "' not found";
     public static final float ARC_LENGTH_EPSILON = 1e-8f;
 
-    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
+    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
     public static final InputPort LOOP_A_TAG = new InputPort("loop_a_tag", PortType.STRING, "");
     public static final InputPort LOOP_B_TAG = new InputPort("loop_b_tag", PortType.STRING, "");
     public static final InputPort SEGMENTS = new InputPort("segments", PortType.INT, 1, 1f, 32f);
@@ -89,9 +89,6 @@ public class AdaptiveBridgeLoopsNode implements MeshNode {
         Number twistIn = ctx.getInput(TWIST.name, Number.class);
         int twist = twistIn == null ? 0 : twistIn.intValue();
 
-        if (!(meshTopo instanceof HalfEdgeMesh)) {
-            throw new IllegalArgumentException("adaptive_bridge_loops: requires HalfEdgeMesh input");
-        }
         HalfEdgeMesh mesh = (HalfEdgeMesh) meshTopo;
 
         Map<String, boolean[]> tags = TagGeometryNode.getTags(base);

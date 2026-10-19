@@ -14,12 +14,13 @@ import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingCandidateExtractor;
 import ixdar.geometry.mesh.data.rings.RingCandidates;
 import ixdar.geometry.mesh.data.io.MeshLoader;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.automation.AutomationEndpoint;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
 /**
  * Ranked neck-ring rows for a mesh file, sorted by descending neckness.
@@ -44,6 +45,10 @@ public class ListRings extends AutomationEndpoint implements AutomationRoute {
         if (file == null) {
             return failure("File not found: " + path);
         }
+        MeshTopology mesh = MeshLoader.load(file.getAbsolutePath());
+        if (!(mesh instanceof HalfEdgeMesh)) {
+            return failure("rings list of " + path + NodeGraphRuntime.NEEDS_MANIFOLD_MESH);
+        }
         RingCandidateExtractor extractor = new RingCandidateExtractor();
         if (body.has(RESOLUTION)) {
             extractor.resolution = body.get(RESOLUTION).getAsInt();
@@ -51,8 +56,6 @@ public class ListRings extends AutomationEndpoint implements AutomationRoute {
         if (body.has(MIN_NECKNESS)) {
             extractor.minimumNeckness = body.get(MIN_NECKNESS).getAsFloat();
         }
-        MeshTopology mesh = HalfEdgeMeshEngine.fromMeshTopology(
-                MeshLoader.load(file.getAbsolutePath()));
         RingCandidates rings = extractor.extract(mesh);
 
         JsonObject out = success();

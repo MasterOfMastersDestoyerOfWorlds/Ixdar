@@ -9,7 +9,6 @@ import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.BranchCrossSectionRing;
 import ixdar.geometry.mesh.data.rings.RingCandidateExtractor;
@@ -28,32 +27,23 @@ import ixdar.geometry.mesh.data.rings.RingCandidates;
  */
 public final class RingCandidatesScanBenchmark {
 
-    /** Input-file entry point: the mesh rings are proposed on. */
     private static final String MESH_PROPERTY = "benchmark.ringMesh";
 
-    /** Entry point for the skeleton's voxel resolution. */
     private static final String RESOLUTION_PROPERTY = "benchmark.ringResolution";
 
-    /** Entry point for the neckness threshold. */
     private static final String NECKNESS_PROPERTY = "benchmark.ringNeckness";
 
-    /** Entry point for the skeleton's branch-extraction budget. */
     private static final String BUDGET_PROPERTY = "benchmark.ringBudget";
 
-    /** Entry point for a branch cut to report as well: {@code x,y,z,t}. */
     private static final String BRANCH_CUT_PROPERTY = "benchmark.ringAtBranch";
 
-    /** Mesh used when the property is absent. */
     private static final String DEFAULT_MESH =
             "test/resources/quadlayout/figure_8/fertility_in_tri.off";
 
-    /** Weld radius applied to a scan before anything else. */
     private static final float WELD_DISTANCE = 1e-6f;
 
-    /** Nanoseconds in a millisecond. */
     private static final double NANOS_PER_MILLI = 1e6;
 
-    /** Coordinates per point in a packed position array. */
     private static final int COORDINATES_PER_POINT = 3;
 
     /**
@@ -204,14 +194,22 @@ public final class RingCandidatesScanBenchmark {
      *
      * @param meshPath file to load
      * @throws IOException when the file cannot be read
+     * @throws IllegalStateException when a file other than a scan loads without a half-edge form
      * @return a surface the intrinsic triangulation accepts
      */
     private static MeshTopology load(String meshPath) throws IOException {
-        ArrayMesh loaded = MeshLoader.load(meshPath);
+        MeshTopology loaded = MeshLoader.load(meshPath);
         if (!meshPath.toLowerCase(Locale.ROOT).endsWith(".glb")) {
-            return HalfEdgeMeshEngine.fromMeshTopology(loaded);
+            if (!(loaded instanceof HalfEdgeMesh)) {
+                throw new IllegalStateException(meshPath + " has no half-edge form; only a .glb scan is"
+                        + " welded and reduced to its largest manifold shell");
+            }
+            return loaded;
         }
-        ArrayMesh welded = MeshMergeByDistance.mergeToArrayMesh(loaded, WELD_DISTANCE);
+        MeshMergeByDistance welder = new MeshMergeByDistance();
+        welder.weldArrays(loaded, WELD_DISTANCE);
+        ArrayMesh welded = new ArrayMesh(welder.weldedPositions, null, welder.weldedFaceCorners,
+                ManifoldShell.TRIANGLE_CORNERS);
         ManifoldShell shell = new ManifoldShell();
         HalfEdgeMesh mesh = shell.of(welded);
         System.out.printf("[rings] scan cleanup: %d loaded vertices -> %d welded, %d faces -> %d "

@@ -6,7 +6,7 @@ import java.util.Map;
 
 import java.util.List;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * Ascending/descending V-path face labelling over a {@link DiscreteGradient}. Each face is
@@ -31,7 +31,7 @@ public final class DiscreteGradientCells {
      * @return per-face cell ids (negative for orphans), the per-label triangle ids
      *         of ascending/descending criticals, and orphan count
      */
-    public static Result assemble(ArrayMesh mesh, float[] scalar) {
+    public static Result assemble(MeshTopology mesh, float[] scalar) {
         DiscreteGradient.Result asc = DiscreteGradient.compute(mesh, scalar);
         // Negate scalar with simulation-of-simplicity preservation.
         float[] neg = new float[scalar.length];

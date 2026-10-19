@@ -1,10 +1,11 @@
 package ixdar.procgen.dungeon.algo;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.procgen.dungeon.values.CellType;
 
 /**
- * Converts a 2D tile grid into an {@link ArrayMesh} of <em>hollow</em> rooms: each non-empty
+ * Converts a 2D tile grid into an {@link HalfEdgeMesh} of <em>hollow</em> rooms: each non-empty
  * cell gets a floor, a ceiling, and a wall on every side facing an EMPTY cell or the grid
  * edge, leaving ROOM/HALLWAY transitions open.
  *
@@ -24,9 +25,9 @@ public final class GridToMesh2D {
      * @param height   grid height in cells
      * @param cells    row-major cell types (rooms / hallways from earlier pipeline stages)
      * @param cellSize world-space size of a single grid cell
-     * @return a fresh {@link ArrayMesh} with positions, quad indices, and computed normals
+     * @return a fresh {@link HalfEdgeMesh} with positions, quad indices, and computed normals
      */
-    public static ArrayMesh emit(int width, int height, CellType[] cells, float cellSize) {
+    public static HalfEdgeMesh emit(int width, int height, CellType[] cells, float cellSize) {
         // Each visible boundary emits TWO quads (inward + outward winding) so the dungeon is
         // visible both when the camera is inside a room and when it's flying over from above.
         // Doubles vertex/face count but keeps the renderer happy without touching shaders or
@@ -88,7 +89,7 @@ public final class GridToMesh2D {
                 }
             }
         }
-        ArrayMesh mesh = ArrayMesh.fromQuads(positions, quads);
+        HalfEdgeMesh mesh = HalfEdgeMeshEngine.bulkAllocate(positions, quads, 4);
         mesh.computeNormals();
         return mesh;
     }

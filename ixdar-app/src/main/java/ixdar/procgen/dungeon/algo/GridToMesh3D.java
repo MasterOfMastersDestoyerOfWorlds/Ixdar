@@ -1,6 +1,7 @@
 package ixdar.procgen.dungeon.algo;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.procgen.dungeon.values.CellType;
 
 /**
@@ -24,9 +25,9 @@ public final class GridToMesh3D {
      * @param depth    grid depth in cells (Z)
      * @param cells    cell types indexed {@code x + width * (z + depth * y)}
      * @param cellSize world-space size of a single grid cell
-     * @return a fresh {@link ArrayMesh} with positions, quad indices, and computed normals
+     * @return a fresh {@link HalfEdgeMesh} with positions, quad indices, and computed normals
      */
-    public static ArrayMesh emit(int width, int height, int depth, CellType[] cells, float cellSize) {
+    public static HalfEdgeMesh emit(int width, int height, int depth, CellType[] cells, float cellSize) {
         // Each visible boundary emits TWO quads (inward + outward) — see GridToMesh2D for why.
         int faces = countFaces(width, height, depth, cells) * 2;
         float[] positions = new float[faces * 4 * 3];
@@ -90,7 +91,7 @@ public final class GridToMesh3D {
                 }
             }
         }
-        ArrayMesh mesh = ArrayMesh.fromQuads(positions, quads);
+        HalfEdgeMesh mesh = HalfEdgeMeshEngine.bulkAllocate(positions, quads, 4);
         mesh.computeNormals();
         return mesh;
     }

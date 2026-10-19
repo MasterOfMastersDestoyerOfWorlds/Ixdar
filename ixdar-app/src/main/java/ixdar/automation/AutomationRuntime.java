@@ -17,7 +17,6 @@ import com.google.gson.JsonObject;
 
 import ixdar.canvas.IxdarWindow;
 import ixdar.scenes.Scene;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.gui.ui.text.HyperWord;
 import ixdar.platform.Platforms;
@@ -51,8 +50,6 @@ public class AutomationRuntime implements AutomationBackend {
     public static final String XNORM = "xNorm";
     public static final String YNORM = "yNorm";
     public static final int DEFAULT_AUTOMATION_PORT = 47832;
-    public static final int VERTEX_STRIDE_FLOATS = 3;
-    public static final float MIN_DIAGONAL_EPSILON = 1e-8f;
 
     public static final long MAIN_THREAD_WAIT_MS = 60000L;
     public static final AutomationRuntime INSTANCE = new AutomationRuntime();
@@ -298,56 +295,6 @@ public class AutomationRuntime implements AutomationBackend {
             }
         }
         recorder.recordAbstract(type, json);
-    }
-
-    /**
-     * Centers a mesh to the origin and scales it so its bounding box diagonal is
-     * 1.0. Modifies vertex positions in place.
-     *
-     * @param mesh mesh whose vertex positions are translated and uniformly scaled
-     *             in place
-     */
-    public static void normalizeMeshPositions(
-            ArrayMesh mesh) {
-        int n = mesh.vertexCount();
-        if (n == 0)
-            return;
-
-        float[] pos = mesh.copyPositions();
-        float minX = Float.MAX_VALUE,
-                minY = Float.MAX_VALUE,
-                minZ = Float.MAX_VALUE;
-        float maxX = -Float.MAX_VALUE,
-                maxY = -Float.MAX_VALUE,
-                maxZ = -Float.MAX_VALUE;
-
-        for (int i = 0; i < n; i++) {
-            int o = i * VERTEX_STRIDE_FLOATS;
-            minX = Math.min(minX, pos[o]);
-            maxX = Math.max(maxX, pos[o]);
-            minY = Math.min(minY, pos[o + 1]);
-            maxY = Math.max(maxY, pos[o + 1]);
-            minZ = Math.min(minZ, pos[o + 2]);
-            maxZ = Math.max(maxZ, pos[o + 2]);
-        }
-
-        float cx = (minX + maxX) * 0.5f;
-        float cy = (minY + maxY) * 0.5f;
-        float cz = (minZ + maxZ) * 0.5f;
-
-        float dx = maxX - minX,
-                dy = maxY - minY,
-                dz = maxZ - minZ;
-        float diagonal = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        float invDiag = diagonal > MIN_DIAGONAL_EPSILON ? 1.0f / diagonal : 1.0f;
-
-        for (int i = 0; i < n; i++) {
-            mesh.setVertexPosition(
-                    i,
-                    (pos[i * VERTEX_STRIDE_FLOATS] - cx) * invDiag,
-                    (pos[i * VERTEX_STRIDE_FLOATS + 1] - cy) * invDiag,
-                    (pos[i * VERTEX_STRIDE_FLOATS + 2] - cz) * invDiag);
-        }
     }
 
     /**

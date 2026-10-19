@@ -11,7 +11,6 @@ import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.rings.RingCandidates;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -29,8 +28,7 @@ public class RingAtBranchNode implements MeshNode {
 
     public static final float MAXIMUM_RESOLUTION = 512f;
 
-    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,
-            null);
+    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
     public static final InputPort BRANCH = new InputPort("branch", PortType.VECTOR3,
             new Vector3Value(0f, 0f, 0f));
     public static final InputPort PARAMETER = new InputPort("t", PortType.FLOAT, 0.5f, 0f, 1f);
@@ -85,12 +83,7 @@ public class RingAtBranchNode implements MeshNode {
         if (bundle == null) {
             bundle = GeometryBundle.empty();
         }
-        MeshTopology mesh = bundle.mesh() == null || bundle.mesh().faceCount() == 0
-                ? bundle.mesh()
-                : HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
-        if (mesh != bundle.mesh()) {
-            bundle = bundle.withMesh(mesh);
-        }
+        MeshTopology mesh = bundle.mesh();
         Vector3Value branchPoint = ctx.getInput(BRANCH.name, Vector3Value.class);
         if (mesh == null || mesh.faceCount() == 0 || branchPoint == null) {
             ctx.setOutput(GEOMETRY.name, bundle);

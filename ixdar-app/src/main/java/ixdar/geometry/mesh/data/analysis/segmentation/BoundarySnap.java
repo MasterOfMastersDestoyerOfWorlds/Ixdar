@@ -11,7 +11,8 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 
 /**
@@ -48,15 +49,15 @@ public final class BoundarySnap {
      * @param crestEdges edges on a detected crest line (highest priority)
      * @return relabeled face labels (length equals face count)
      */
-    public static int[] snap(ArrayMesh mesh,
+    public static int[] snap(MeshTopology mesh,
                               int[] faceLabels,
                               Set<Long> highConfidenceEdges,
                               Set<Long> dihedralEdges,
                               Set<Long> principalEdges,
                               Set<Long> crestEdges) {
-        int[] faceIdx = mesh.copyFaceIndices();
-        int nv = mesh.vertexCount();
-        float[] positions = mesh.copyPositions();
+        int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, null);
+        int nv = mesh.vertexIdBound();
+        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
 
         int[][] ring = buildOneRing(faceIdx, nv);
         Map<Long, int[]> edgeFaces = buildEdgeFaceMap(faceIdx);

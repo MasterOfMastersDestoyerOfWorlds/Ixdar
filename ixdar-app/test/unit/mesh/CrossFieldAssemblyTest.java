@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.data.fields.crossfield.NDirectionField;
 import ixdar.geometry.mesh.data.fields.crossfield.SectionIntegrals;
@@ -62,7 +61,7 @@ class CrossFieldAssemblyTest {
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
         GeometryBundle bundle = (GeometryBundle) runtime.executeGraphResult("carrier",
                 "geometry");
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
+        HalfEdgeMesh mesh = (HalfEdgeMesh) bundle.mesh();
         NDirectionField field = new NDirectionField();
         field.curvatureBias = CURVATURE_BIAS;
         field.build(mesh, SurfaceMetric.of(mesh));

@@ -20,8 +20,7 @@ import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.FieldBroadcast;
@@ -82,15 +81,13 @@ public class InsetFacesNode implements MeshNode {
 
         Object selObj = FieldBroadcast.getInputOrDefault(ctx, SELECTION.name, SELECTION.defaultValue);
 
-        ArrayMesh am = in instanceof ArrayMesh m ? m : ArrayMeshEngine.fromUniformMeshTopology(in);
-
-        int origFaceCount = am.faceCount();
+        int origFaceCount = in.faceCount();
         boolean[] selected = new boolean[origFaceCount];
         for (int fi = 0; fi < origFaceCount; fi++) {
             selected[fi] = FieldBroadcast.boolAt(selObj, fi, true);
         }
 
-        MeshTopology out = insetFaces(in, am, inset, selObj);
+        MeshTopology out = insetFaces(in, inset, selObj);
 
         int outFaceCount = out == null ? 0 : out.faceCount();
         boolean[] genMask = new boolean[outFaceCount];
@@ -148,8 +145,10 @@ public class InsetFacesNode implements MeshNode {
             int b = outMesh.halfEdgeEndVertex(he);
             if (a >= origVc || b >= origVc) continue;
 
-            long keyAB = CoonsHandleBuilder.dirPack(a, b);
-            long keyBA = CoonsHandleBuilder.dirPack(b, a);
+            int vertexIdA = inMesh.vertexIdAt(a);
+            int vertexIdB = inMesh.vertexIdAt(b);
+            long keyAB = CoonsHandleBuilder.dirPack(vertexIdA, vertexIdB);
+            long keyBA = CoonsHandleBuilder.dirPack(vertexIdB, vertexIdA);
             float[] startAB = inEdgeToStart.get(keyAB);
             float[] endAB = inEdgeToEnd.get(keyAB);
             if (startAB == null) {
@@ -177,7 +176,7 @@ public class InsetFacesNode implements MeshNode {
      * centroid-lerp inner vertex per face.
      */
     private static MeshTopology insetFacesQuadWithSharedEdgeMerge(
-            MeshTopology topology, float[] srcPos, int[] srcFaces,
+            MeshTopology topology, float[] srcPos, int[] activeVertexOfId,
             int vertCount, int faceCount, boolean[] selected, float t) {
 
         // Shared cage edges: both incident faces selected.
@@ -200,9 +199,9 @@ public class InsetFacesNode implements MeshNode {
         Map<Integer, List<int[]>> facesAtVertex = new HashMap<>();
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
-            int fb = fi * 4;
+            int fid = topology.faceIdAt(fi);
             for (int k = 0; k < 4; k++) {
-                int vid = srcFaces[fb + k];
+                int vid = topology.faceVertexAt(fid, k);
                 facesAtVertex.computeIfAbsent(vid, x -> new ArrayList<>()).add(new int[]{fi, k});
             }
         }
@@ -240,10 +239,10 @@ public class InsetFacesNode implements MeshNode {
         float[] centroids = new float[faceCount * 3];
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
-            int fb = fi * 4;
+            int fid = topology.faceIdAt(fi);
             float cx = 0f, cy = 0f, cz = 0f;
             for (int k = 0; k < 4; k++) {
-                int vid = srcFaces[fb + k];
+                int vid = topology.faceVertexAt(fid, k);
                 cx += srcPos[vid * 3];
                 cy += srcPos[vid * 3 + 1];
                 cz += srcPos[vid * 3 + 2];
@@ -339,7 +338,10 @@ public class InsetFacesNode implements MeshNode {
 
         int outV = vertCount + extraPos.size() / 3;
         float[] outPos = new float[outV * 3];
-        System.arraycopy(srcPos, 0, outPos, 0, vertCount * 3);
+        for (int activeVertex = 0; activeVertex < vertCount; activeVertex++) {
+            int vertexId = topology.vertexIdAt(activeVertex);
+            System.arraycopy(srcPos, vertexId * 3, outPos, activeVertex * 3, 3);
+        }
         for (int i = 0; i < extraPos.size(); i++) {
             outPos[vertCount * 3 + i] = extraPos.get(i);
         }
@@ -362,11 +364,10 @@ public class InsetFacesNode implements MeshNode {
                 }
                 faceVpfList.add(faceIdxList.size() - innerStart);
             } else {
-                int fb = fi * 4;
-                faceIdxList.add(srcFaces[fb]);
-                faceIdxList.add(srcFaces[fb + 1]);
-                faceIdxList.add(srcFaces[fb + 2]);
-                faceIdxList.add(srcFaces[fb + 3]);
+                int fid = topology.faceIdAt(fi);
+                for (int k = 0; k < 4; k++) {
+                    faceIdxList.add(activeVertexOfId[topology.faceVertexAt(fid, k)]);
+                }
                 faceVpfList.add(4);
             }
         }
@@ -375,7 +376,6 @@ public class InsetFacesNode implements MeshNode {
             int fid = topology.faceIdAt(fi);
             int[] iv = innerVerts[fi];
             int[][] cyanPerCorner = cyanAt3Plus[fi];
-            int fb = fi * 4;
             for (int k = 0; k < 4; k++) {
                 int eid = topology.faceEdgeAt(fid, k);
                 if (droppedSharedEdges.contains(eid)) continue;
@@ -386,8 +386,8 @@ public class InsetFacesNode implements MeshNode {
                 int rightInner = (cyanPerCorner != null && cyanPerCorner[kNext] != null)
                         ? cyanPerCorner[kNext][0] 
                         : iv[kNext];
-                faceIdxList.add(srcFaces[fb + k]);
-                faceIdxList.add(srcFaces[fb + kNext]);
+                faceIdxList.add(activeVertexOfId[topology.faceVertexAt(fid, k)]);
+                faceIdxList.add(activeVertexOfId[topology.faceVertexAt(fid, kNext)]);
                 faceIdxList.add(rightInner);
                 faceIdxList.add(leftInner);
                 faceVpfList.add(4);
@@ -404,13 +404,6 @@ public class InsetFacesNode implements MeshNode {
         for (int i = 0; i < faceIdxList.size(); i++) faceIdxFlat[i] = faceIdxList.get(i);
         int[] faceVpfArr = new int[faceVpfList.size()];
         for (int i = 0; i < faceVpfList.size(); i++) faceVpfArr[i] = faceVpfList.get(i);
-        boolean allQuads = true;
-        for (int v : faceVpfArr) { if (v != 4) { allQuads = false; break; } }
-        if (allQuads) {
-            ArrayMesh out = new ArrayMesh(outPos, null, faceIdxFlat, 4);
-            out.computeNormals();
-            return out;
-        }
         HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(outPos, faceVpfArr, faceIdxFlat);
         out.computeNormals();
         return out;
@@ -569,12 +562,27 @@ public class InsetFacesNode implements MeshNode {
         return ((long) eid << 32) | (denseVid & 0xFFFFFFFFL);
     }
 
-    private static MeshTopology insetFaces(MeshTopology topology, ArrayMesh mesh, float inset, Object selection) {
-        int vpf = mesh.getVertsPerFace();
-        int vertCount = mesh.vertexCount();
-        int faceCount = mesh.faceCount();
-        float[] srcPos = mesh.copyPositions();
-        int[] srcFaces = mesh.copyFaceIndices();
+    private static MeshTopology insetFaces(MeshTopology topology, float inset, Object selection) {
+        int vertCount = topology.vertexCount();
+        int faceCount = topology.faceCount();
+        int vpf = faceCount == 0 ? 4 : topology.faceVertexCount(topology.faceIdAt(0));
+        for (int fi = 0; fi < faceCount; fi++) {
+            if (topology.faceVertexCount(topology.faceIdAt(fi)) != vpf) {
+                throw new IllegalArgumentException("inset_faces: faces must have uniform vertex count");
+            }
+        }
+        // Positions by vertex id (gap slots unused); output vertex i is the source's active vertex i.
+        float[] srcPos = new float[topology.vertexIdBound() * 3];
+        int[] activeVertexOfId = new int[topology.vertexIdBound()];
+        Vector3f position = new Vector3f();
+        for (int activeVertex = 0; activeVertex < vertCount; activeVertex++) {
+            int vertexId = topology.vertexIdAt(activeVertex);
+            activeVertexOfId[vertexId] = activeVertex;
+            topology.vertexPosition(vertexId, position);
+            srcPos[vertexId * 3] = position.x;
+            srcPos[vertexId * 3 + 1] = position.y;
+            srcPos[vertexId * 3 + 2] = position.z;
+        }
 
         boolean[] selected = new boolean[faceCount];
         int selectedCount = 0;
@@ -585,11 +593,11 @@ public class InsetFacesNode implements MeshNode {
         }
 
         if (selectedCount == 0 || inset <= 0f) {
-            return mesh.withPositions(srcPos, null);
+            return MeshVertexOffset.apply(topology, null);
         }
 
         if (vpf == 4) {
-            return insetFacesQuadWithSharedEdgeMerge(topology, srcPos, srcFaces,
+            return insetFacesQuadWithSharedEdgeMerge(topology, srcPos, activeVertexOfId,
                     vertCount, faceCount, selected, Math.min(inset, 1f));
         }
 
@@ -604,7 +612,8 @@ public class InsetFacesNode implements MeshNode {
         );
 
         for (int vi = 0; vi < vertCount; vi++) {
-            out.addVertex(srcPos[vi * 3], srcPos[vi * 3 + 1], srcPos[vi * 3 + 2]);
+            int vertexId = topology.vertexIdAt(vi);
+            out.addVertex(srcPos[vertexId * 3], srcPos[vertexId * 3 + 1], srcPos[vertexId * 3 + 2]);
         }
 
         Vector3f center = new Vector3f();
@@ -612,17 +621,18 @@ public class InsetFacesNode implements MeshNode {
 
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
+            int fid = topology.faceIdAt(fi);
 
             center.set(0f, 0f, 0f);
             for (int k = 0; k < vpf; k++) {
-                int vid = srcFaces[fi * vpf + k];
+                int vid = topology.faceVertexAt(fid, k);
                 center.add(srcPos[vid * 3], srcPos[vid * 3 + 1], srcPos[vid * 3 + 2]);
             }
             center.div(vpf);
 
             int[] innerVerts = new int[vpf];
             for (int k = 0; k < vpf; k++) {
-                int vid = srcFaces[fi * vpf + k];
+                int vid = topology.faceVertexAt(fid, k);
                 float ox = srcPos[vid * 3];
                 float oy = srcPos[vid * 3 + 1];
                 float oz = srcPos[vid * 3 + 2];
@@ -639,9 +649,10 @@ public class InsetFacesNode implements MeshNode {
             if (selected[fi]) {
                 out.addFace(faceInnerVerts[fi]);
             } else {
+                int fid = topology.faceIdAt(fi);
                 int[] vids = new int[vpf];
                 for (int k = 0; k < vpf; k++) {
-                    vids[k] = srcFaces[fi * vpf + k];
+                    vids[k] = activeVertexOfId[topology.faceVertexAt(fid, k)];
                 }
                 out.addFace(vids);
             }
@@ -650,10 +661,11 @@ public class InsetFacesNode implements MeshNode {
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
             int[] innerVerts = faceInnerVerts[fi];
+            int fid = topology.faceIdAt(fi);
             for (int k = 0; k < vpf; k++) {
                 int next = (k + 1) % vpf;
-                int origA = srcFaces[fi * vpf + k];
-                int origB = srcFaces[fi * vpf + next];
+                int origA = activeVertexOfId[topology.faceVertexAt(fid, k)];
+                int origB = activeVertexOfId[topology.faceVertexAt(fid, next)];
                 int innerA = innerVerts[k];
                 int innerB = innerVerts[next];
                 out.addFace(origA, origB, innerB, innerA);

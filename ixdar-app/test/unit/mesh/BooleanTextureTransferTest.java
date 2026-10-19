@@ -20,8 +20,8 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.MaterialData;
 import ixdar.geometry.mesh.data.bundle.MaterialSet;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.geometry.MeshBooleanNode;
@@ -34,30 +34,22 @@ import ixdar.platform.Platforms;
  */
 public class BooleanTextureTransferTest {
 
-    /** Half a unit cube's edge. */
     private static final float HALF = 0.5f;
 
-    /** Shift from a coordinate to its UV, putting the origin cube's UVs in {@code [0, 1]}. */
     private static final double UV_ORIGIN = 0.5;
 
-    /** Corners per triangle, and equally coordinates per vertex. */
     private static final int THREE = 3;
 
-    /** Vertices in a quad. */
     private static final int QUAD_CORNERS = 4;
 
-    /** Tolerance for recognising an input cube's corner after a float round trip. */
     private static final double POSITION_TOLERANCE = 1e-6;
 
-    /** The ticket's bound on the UV interpolation error at an intersection vertex. */
     private static final double UV_TOLERANCE = 1e-4;
 
-    /** Side of the test materials' base-colour images. */
     private static final int MATERIAL_SIZE = 2;
 
     private static final int SIX = 6;
 
-    /** Label of the edge marks an operand carries into the boolean. */
     private static final String STALE_MARK_LABEL = "open_boundary";
 
     /**
@@ -305,8 +297,7 @@ public class BooleanTextureTransferTest {
             cornerU[corner] = split.positions[vertex] + UV_ORIGIN;
             cornerV[corner] = split.positions[vertex + 1] + UV_ORIGIN;
         }
-        ArrayMesh mesh = new ArrayMesh(split.positions, new float[split.positions.length],
-                split.triangles, THREE);
+        HalfEdgeMesh mesh = HalfEdgeMeshEngine.bulkAllocate(split.positions, split.triangles, THREE);
         mesh.computeNormals();
         return GeometryBundle.ofMesh(mesh)
                 .withSlot(CornerUvField.SLOT, new CornerUvField(cornerU, cornerV))
@@ -359,7 +350,7 @@ public class BooleanTextureTransferTest {
             1, 2, SIX, 5,
             0, QUAD_CORNERS, 7, THREE,
         };
-        ArrayMesh cube = ArrayMesh.fromQuads(positions, quads);
+        HalfEdgeMesh cube = HalfEdgeMeshEngine.bulkAllocate(positions, quads, QUAD_CORNERS);
         cube.computeNormals();
         return GeometryBundle.ofMesh(cube);
     }

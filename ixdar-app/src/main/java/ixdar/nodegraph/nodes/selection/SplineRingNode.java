@@ -18,7 +18,6 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -35,8 +34,7 @@ public class SplineRingNode implements MeshNode {
 
     public static final String DEFAULT_MARK_LABEL = "spline_ring";
 
-    public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE,
-            null);
+    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
     public static final InputPort POINTS = new InputPort("points", PortType.STRING, "");
     public static final InputPort NORMAL = new InputPort("normal", PortType.STRING, "");
     public static final InputPort LABEL = new InputPort("label", PortType.STRING,
@@ -128,12 +126,7 @@ public class SplineRingNode implements MeshNode {
             ctx.setOutput(SELECTION.name, false);
             return;
         }
-        // The half-edge form ring_candidates also passes on, so a ring reading a loaded file
-        // marks the same edges as one chained after the proposed rings.
-        HalfEdgeMesh surface = HalfEdgeMeshEngine.fromMeshTopology(mesh);
-        if (surface != mesh) {
-            bundle = bundle.withMesh(surface);
-        }
+        HalfEdgeMesh surface = (HalfEdgeMesh) mesh;
         String label = ctx.getInput(LABEL.name, String.class);
         if (label == null || label.isBlank()) {
             label = DEFAULT_MARK_LABEL;

@@ -9,7 +9,8 @@ import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 
 /**
@@ -30,13 +31,14 @@ public final class DiscreteGradient {
      * scalar via the Robins-Wood-Sheppard process-lower-star algorithm.
      *
      * @param mesh source triangle mesh
-     * @param scalar per-vertex scalar value (length must be {@code mesh.vertexCount()})
-     * @return pairing, dimensions, and connectivity tables; unpaired cells are critical
+     * @param scalar scalar by vertex id (length {@code mesh.vertexIdBound()})
+     * @return pairing, dimensions, and connectivity tables over the mesh's fan triangles; unpaired
+     *         cells are critical, and an unused vertex id is an isolated unpaired 0-cell
      */
-    public static Result compute(ArrayMesh mesh, float[] scalar) {
-        int[] faceIdx = mesh.copyFaceIndices();
+    public static Result compute(MeshTopology mesh, float[] scalar) {
+        int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, null);
         int faceCount = faceIdx.length / 3;
-        int nv = mesh.vertexCount();
+        int nv = mesh.vertexIdBound();
 
         // ----- Enumerate edges + build connectivity -----
         Map<Long, Integer> edgeIdByKey = new HashMap<>();

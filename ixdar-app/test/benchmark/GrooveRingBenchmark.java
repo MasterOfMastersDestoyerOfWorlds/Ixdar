@@ -33,8 +33,8 @@ import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.nodes.data.SurfaceMetricNode;
@@ -124,9 +124,33 @@ public final class GrooveRingBenchmark {
         Map<String, SurfaceCreases> candidates = new LinkedHashMap<>();
         long start = System.nanoTime();
         candidates.put(CHOSEN, SurfaceCreases.of(surface));
-        ArrayMesh dense = SemanticPatchDecomposer.toArrayMesh(surface);
-        int[] triangles = dense.copyFaceIndices();
-        float[] positions = dense.copyPositions();
+        // The copy numbers vertices by active index and fans each face from its first corner.
+        int[] activeVertexOfId = new int[surface.vertexIdBound()];
+        float[] positions = new float[surface.vertexCount() * XYZ];
+        Vector3f position = new Vector3f();
+        for (int activeVertex = 0; activeVertex < surface.vertexCount(); activeVertex++) {
+            int vertexId = surface.vertexIdAt(activeVertex);
+            activeVertexOfId[vertexId] = activeVertex;
+            surface.vertexPosition(vertexId, position);
+            positions[XYZ * activeVertex] = position.x;
+            positions[XYZ * activeVertex + 1] = position.y;
+            positions[XYZ * activeVertex + 2] = position.z;
+        }
+        int triangleCount = 0;
+        for (int activeFace = 0; activeFace < surface.faceCount(); activeFace++) {
+            triangleCount += Math.max(0, surface.faceVertexCount(surface.faceIdAt(activeFace)) - 2);
+        }
+        int[] triangles = new int[triangleCount * XYZ];
+        int cursor = 0;
+        for (int activeFace = 0; activeFace < surface.faceCount(); activeFace++) {
+            int faceId = surface.faceIdAt(activeFace);
+            int firstCorner = activeVertexOfId[surface.faceVertexAt(faceId, 0)];
+            for (int fan = 1; fan + 1 < surface.faceVertexCount(faceId); fan++) {
+                triangles[cursor++] = firstCorner;
+                triangles[cursor++] = activeVertexOfId[surface.faceVertexAt(faceId, fan)];
+                triangles[cursor++] = activeVertexOfId[surface.faceVertexAt(faceId, fan + 1)];
+            }
+        }
         double signedVolume = 0.0;
         for (int corner = 0; corner < triangles.length; corner += XYZ) {
             Vector3f first = new Vector3f(positions[XYZ * triangles[corner]],
@@ -144,7 +168,7 @@ public final class GrooveRingBenchmark {
             triangles[corner + 1] = triangles[corner + 2];
             triangles[corner + 2] = swap;
         }
-        ArrayMesh inward = new ArrayMesh(positions, null, triangles, XYZ);
+        HalfEdgeMesh inward = HalfEdgeMeshEngine.buildFromIndexedMesh(positions, triangles);
         SemanticPatchDecomposer.EdgeDihedrals dihedrals =
                 SemanticPatchDecomposer.computeEdgeDihedrals(inward);
         PrincipalDirectionField curvature = PrincipalDirectionField.compute(inward, dihedrals);

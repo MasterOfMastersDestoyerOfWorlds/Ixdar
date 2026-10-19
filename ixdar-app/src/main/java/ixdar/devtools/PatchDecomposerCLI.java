@@ -26,7 +26,7 @@ import ixdar.geometry.mesh.data.analysis.segmentation.PatchColors;
 import ixdar.geometry.mesh.data.analysis.segmentation.PatchDecomposition;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.io.MeshLoader;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.render.color.Color;
 
 /**
@@ -71,7 +71,7 @@ public final class PatchDecomposerCLI {
                 case "skeleton" -> {
                     if (args.length < 2) throw new IllegalArgumentException("skeleton requires <obj_path>");
                     int resolution = args.length > 2 ? Integer.parseInt(args[2]) : DEFAULT_RESOLUTION;
-                    ArrayMesh mesh = MeshLoader.load(args[1]);
+                    MeshTopology mesh = MeshLoader.load(args[1]);
                     String skeletonJson = new GsonBuilder().setPrettyPrinting().create()
                             .toJson(MeshSkeletonExtractor.extract(mesh, resolution));
                     System.out.println(skeletonJson);
@@ -95,7 +95,7 @@ public final class PatchDecomposerCLI {
         if (args.length < 2) throw new IllegalArgumentException("decompose requires <obj_path>");
         String path = args[1];
         int resolution = args.length > 2 ? Integer.parseInt(args[2]) : DEFAULT_RESOLUTION;
-        ArrayMesh mesh = MeshLoader.load(path);
+        MeshTopology mesh = MeshLoader.load(path);
         PatchDecomposition d = SemanticPatchDecomposer.decompose(mesh, resolution);
         System.out.println(decompositionToJson(d));
     }
@@ -105,7 +105,7 @@ public final class PatchDecomposerCLI {
         String method = args[1];
         String path = args[2];
         int nClusters = args.length > 3 ? Integer.parseInt(args[3]) : DEFAULT_CLUSTER_COUNT;
-        ArrayMesh mesh = MeshLoader.load(path);
+        MeshTopology mesh = MeshLoader.load(path);
         Map<String, int[]> tags = switch (method) {
             case "components" -> MeshSegmenter.segmentComponents(mesh);
             case "curvature" -> MeshSegmenter.segmentCurvature(mesh, nClusters);
@@ -178,7 +178,7 @@ public final class PatchDecomposerCLI {
 
     private static void stats(String[] args) throws Exception {
         if (args.length < 2) throw new IllegalArgumentException("stats requires <obj_path>");
-        ArrayMesh mesh = MeshLoader.load(args[1]);
+        MeshTopology mesh = MeshLoader.load(args[1]);
         SemanticPatchDecomposer.EdgeDihedrals ed = SemanticPatchDecomposer.computeEdgeDihedrals(mesh);
         int n = ed.dihedralByEdge().size();
         float[] ds = new float[n];
@@ -197,21 +197,33 @@ public final class PatchDecomposerCLI {
             pct.addProperty(P + p, ds[Math.min(n - 1, (int) (n * (p / PERCENT_SCALE)))]);
         }
         res.add("dihedral_percentiles_rad", pct);
-        // Angle-defect: approximate per-vertex Gaussian curvature.
-        float[] defect = new float[mesh.vertexCount()];
-        Arrays.fill(defect, (float) (2 * Math.PI));
-        int[] faceIdx = mesh.copyFaceIndices();
-        float[] positions = mesh.copyPositions();
-        int faceCount = faceIdx.length / 3;
-        for (int f = 0; f < faceCount; f++) {
-            int v0 = faceIdx[f * 3];
-            int v1 = faceIdx[f * 3 + 1];
-            int v2 = faceIdx[f * 3 + 2];
-            defect[v0] -= triAngle(positions, v0, v1, v2);
-            defect[v1] -= triAngle(positions, v1, v2, v0);
-            defect[v2] -= triAngle(positions, v2, v0, v1);
+        // Angle-defect: approximate per-vertex Gaussian curvature, 2 pi minus each corner angle.
+        float[] defectByVertexId = new float[mesh.vertexIdBound()];
+        float[] positionByVertexId = new float[3 * mesh.vertexIdBound()];
+        Vector3f position = new Vector3f();
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            defectByVertexId[vertexId] = (float) (2 * Math.PI);
+            mesh.vertexPosition(vertexId, position);
+            positionByVertexId[3 * vertexId] = position.x;
+            positionByVertexId[3 * vertexId + 1] = position.y;
+            positionByVertexId[3 * vertexId + 2] = position.z;
         }
-        float[] dd = defect.clone();
+        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            int corners = mesh.faceVertexCount(faceId);
+            for (int corner = 0; corner < corners; corner++) {
+                int vertexId = mesh.faceVertexAt(faceId, corner);
+                int nextVertexId = mesh.faceVertexAt(faceId, (corner + 1) % corners);
+                int previousVertexId = mesh.faceVertexAt(faceId, (corner + corners - 1) % corners);
+                defectByVertexId[vertexId] -=
+                        triAngle(positionByVertexId, vertexId, nextVertexId, previousVertexId);
+            }
+        }
+        float[] dd = new float[mesh.vertexCount()];
+        for (int activeVertex = 0; activeVertex < dd.length; activeVertex++) {
+            dd[activeVertex] = defectByVertexId[mesh.vertexIdAt(activeVertex)];
+        }
         Arrays.sort(dd);
         JsonObject defectPct = new JsonObject();
         for (int p : pcts) {
@@ -247,7 +259,7 @@ public final class PatchDecomposerCLI {
         if (args.length < 3) throw new IllegalArgumentException("crest-lines requires <obj_path> <out_obj>");
         String path = args[1];
         String outPath = args[2];
-        ArrayMesh mesh = MeshLoader.load(path);
+        MeshTopology mesh = MeshLoader.load(path);
         SemanticPatchDecomposer.EdgeDihedrals ed = SemanticPatchDecomposer.computeEdgeDihedrals(mesh);
         PrincipalDirectionField pdf = PrincipalDirectionField.compute(mesh, ed);
         CrestLineDetector.CrestLines crest = CrestLineDetector.detect(mesh, ed, pdf);
@@ -261,15 +273,19 @@ public final class PatchDecomposerCLI {
             w.write("# ridge polylines: " + crest.ridgePolylines.size()
                     + "  valley polylines: " + crest.valleyPolylines.size() + N);
             w.write("# object 'ridges' then 'valleys'\n");
-            // Vertex positions from the source mesh (indices preserved).
-            float[] positions = mesh.copyPositions();
-            for (int i = 0; i < positions.length; i += 3) {
-                w.write("v " + positions[i] + " " + positions[i + 1] + " " + positions[i + 2] + N);
+            // Every active vertex in active order; the polylines' vertex ids map to these 1-based rows.
+            int[] objIndexByVertexId = new int[mesh.vertexIdBound()];
+            Vector3f position = new Vector3f();
+            for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+                int vertexId = mesh.vertexIdAt(activeVertex);
+                objIndexByVertexId[vertexId] = activeVertex + 1;
+                mesh.vertexPosition(vertexId, position);
+                w.write("v " + position.x + " " + position.y + " " + position.z + N);
             }
             w.write("o ridges\n");
-            writePolylines(w, crest.ridgePolylines);
+            writePolylines(w, crest.ridgePolylines, objIndexByVertexId);
             w.write("o valleys\n");
-            writePolylines(w, crest.valleyPolylines);
+            writePolylines(w, crest.valleyPolylines, objIndexByVertexId);
         }
 
         JsonObject res = new JsonObject();
@@ -283,12 +299,20 @@ public final class PatchDecomposerCLI {
         System.out.println(res);
     }
 
-    private static void writePolylines(BufferedWriter w, List<int[]> lines) throws Exception {
+    /**
+     * Writes each polyline of two or more vertices as one OBJ {@code l} primitive.
+     *
+     * @param w                  the OBJ being written
+     * @param lines              polylines as vertex ids of the source mesh
+     * @param objIndexByVertexId the 1-based OBJ vertex row of each vertex id
+     * @throws Exception when the write fails
+     */
+    private static void writePolylines(BufferedWriter w, List<int[]> lines, int[] objIndexByVertexId)
+            throws Exception {
         for (int[] line : lines) {
             if (line.length < 2) continue;
-            // OBJ line primitives are 1-indexed.
             StringBuilder sb = new StringBuilder("l");
-            for (int v : line) sb.append(" ").append(v + 1);
+            for (int vertexId : line) sb.append(" ").append(objIndexByVertexId[vertexId]);
             sb.append(N);
             w.write(sb.toString());
         }

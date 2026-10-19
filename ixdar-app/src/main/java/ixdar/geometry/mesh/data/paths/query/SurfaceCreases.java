@@ -6,7 +6,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.analysis.curvature.PrincipalDirectionField;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -15,8 +15,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
  * points hugs the groove joining them. Never written after it is built.
  */
 public final class SurfaceCreases {
-
-    public static final int COORDINATES_PER_POINT = 3;
 
     // The valley signal is diffused over a disc of this many mean edges before it is ranked, so
     // scan noise at the edge scale averages out while a groove a few edges wide survives.
@@ -133,39 +131,34 @@ public final class SurfaceCreases {
      */
     public static SurfaceCreases of(MeshTopology mesh) {
         long start = System.nanoTime();
-        ArrayMesh dense = SemanticPatchDecomposer.toArrayMesh(mesh);
-        PrincipalDirectionField curvature = PrincipalDirectionField.compute(dense,
-                SemanticPatchDecomposer.computeEdgeDihedrals(dense));
+        EdgeDihedrals dihedrals = SemanticPatchDecomposer.computeEdgeDihedrals(mesh);
+        PrincipalDirectionField curvature = PrincipalDirectionField.compute(mesh, dihedrals);
         // The estimate counts bending away from the normal as negative, so with outward normals
-        // a groove is the positive maximum curvature; a surface wound inward, whose triangles
+        // a groove is the positive maximum curvature; a surface wound inward, whose fan triangles
         // enclose a negative signed volume, is read with the signs swapped.
-        int[] triangles = dense.copyFaceIndices();
-        float[] positions = dense.copyPositions();
+        float[] positions = dihedrals.positions();
+        int[] triangles = dihedrals.triangles();
         double signedVolume = 0.0;
-        for (int corner = 0; corner < triangles.length; corner += COORDINATES_PER_POINT) {
-            int first = COORDINATES_PER_POINT * triangles[corner];
-            int second = COORDINATES_PER_POINT * triangles[corner + 1];
-            int third = COORDINATES_PER_POINT * triangles[corner + 2];
+        for (int corner = 0; corner < triangles.length; corner += 3) {
+            int first = triangles[corner] * 3;
+            int second = triangles[corner + 1] * 3;
+            int third = triangles[corner + 2] * 3;
             signedVolume += positions[first] * (positions[second + 1] * positions[third + 2]
                     - positions[second + 2] * positions[third + 1])
                     + positions[first + 1] * (positions[second + 2] * positions[third]
-                            - positions[second] * positions[third + 2])
+                    - positions[second] * positions[third + 2])
                     + positions[first + 2] * (positions[second] * positions[third + 1]
-                            - positions[second + 1] * positions[third]);
+                    - positions[second + 1] * positions[third]);
         }
         boolean outward = signedVolume >= 0.0;
-        int vertexIdBound = 0;
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            vertexIdBound = Math.max(vertexIdBound, mesh.vertexIdAt(activeVertex) + 1);
-        }
-        float[] signal = new float[vertexIdBound];
+        float[] signal = new float[mesh.vertexIdBound()];
         float[] magnitude = new float[mesh.vertexCount()];
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
-            signal[vertexId] = outward ? curvature.kappaMax(activeVertex)
-                    : -curvature.kappaMin(activeVertex);
-            magnitude[activeVertex] = Math.max(Math.abs(curvature.kappaMax(activeVertex)),
-                    Math.abs(curvature.kappaMin(activeVertex)));
+            signal[vertexId] = outward ? curvature.kappaMax(vertexId)
+                    : -curvature.kappaMin(vertexId);
+            magnitude[activeVertex] = Math.max(Math.abs(curvature.kappaMax(vertexId)),
+                    Math.abs(curvature.kappaMin(vertexId)));
         }
         Arrays.sort(magnitude);
         SurfaceCreases creases = new SurfaceCreases(mesh, signal,

@@ -11,7 +11,8 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 
 @MeshNodeAnnotation(id = "cube", category = NodeCategory.PRIMITIVES)
 public class CubeMeshNode implements MeshNode {
@@ -59,7 +60,7 @@ public class CubeMeshNode implements MeshNode {
                 1, 2, 6, 5,   // Right (+X)
                 0, 4, 7, 3,   // Left  (-X)
         };
-        ArrayMesh mesh = ArrayMesh.fromQuads(positions, quads);
+        HalfEdgeMesh mesh = HalfEdgeMeshEngine.bulkAllocate(positions, quads, 4);
         mesh.computeNormals();
         ctx.setOutput(MESH.name, GeometryBundle.ofMesh(mesh));
     }

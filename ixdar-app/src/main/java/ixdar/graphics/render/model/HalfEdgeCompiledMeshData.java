@@ -1,4 +1,4 @@
-package ixdar.geometry.mesh.data.representation;
+package ixdar.graphics.render.model;
 
 import org.joml.Vector3f;
 
@@ -13,14 +13,14 @@ public class HalfEdgeCompiledMeshData {
     public final float radius;
 
     /**
-     * GPU-ready surface data compiled from a half-edge mesh: an interleaved
+     * GPU-ready surface data compiled from a mesh: an interleaved
      * float buffer of position/normal/UV vertices, a triangle index buffer,
      * and bounding-volume metadata (axis-aligned box plus sphere).
      *
      * @param vertices interleaved {@code (px, py, pz, nx, ny, nz, u, v)} per vertex
      * @param indices triangle indices into {@code vertices}
      * @param vertexCount number of unique vertices represented in {@code vertices}
-     * @param faceCount number of triangles ({@code indices.length / 3})
+     * @param faceCount number of source faces
      * @param minBounds world-space axis-aligned bounding-box minimum
      * @param maxBounds world-space axis-aligned bounding-box maximum
      * @param center world-space bounding-sphere center

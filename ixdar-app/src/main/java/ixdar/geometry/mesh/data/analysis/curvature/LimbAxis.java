@@ -5,8 +5,7 @@ import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonResult;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -39,7 +38,7 @@ public final class LimbAxis {
     /** Wall time the last {@link #cacheFor} spent, in milliseconds. */
     public double buildMillis;
 
-    private ArrayMesh dense;
+    private MeshTopology dense;
     private int[] denseIndexByVertexId = new int[0];
 
     /**
@@ -61,19 +60,19 @@ public final class LimbAxis {
             buildMillis = 0.0;
             return;
         }
-        // The skeleton and the curvature read a dense mesh of one face size, so a mixed polygon
-        // mesh goes in split into triangles, its vertices in the same active order.
+        // A mesh of one face size is read in place, each face fanned from its first corner; a
+        // mixed polygon mesh goes in split along each quad's shorter diagonal, its vertices in
+        // active order, so the split's vertex ids are the surface's active indices.
         boolean uniform = true;
         int corners = mesh.faceVertexCount(mesh.faceIdAt(0));
         for (int activeFace = 1; uniform && activeFace < mesh.faceCount(); activeFace++) {
             uniform = mesh.faceVertexCount(mesh.faceIdAt(activeFace)) == corners;
         }
         if (uniform) {
-            dense = ArrayMeshEngine.fromUniformMeshTopology(mesh);
+            dense = mesh;
         } else {
             QuadTriangulation split = new QuadTriangulation(mesh).build();
-            dense = new ArrayMesh(split.positions, null, split.triangles,
-                    QuadTriangulation.THREE);
+            dense = HalfEdgeMeshEngine.buildFromIndexedMesh(split.positions, split.triangles);
         }
         SkeletonResult extracted =
                 MeshSkeletonExtractor.extract(dense, resolution, skeletonBranchBudget);
@@ -177,7 +176,7 @@ public final class LimbAxis {
             return;
         }
         int denseIndex = denseIndexByVertexId[vertexId];
-        if (denseIndex < 0 || denseIndex >= curvature.vertexCount()) {
+        if (denseIndex < 0 || denseIndex >= curvature.vertexIdBound()) {
             return;
         }
         curvature.dirMin(denseIndex, sample);
@@ -189,16 +188,13 @@ public final class LimbAxis {
     }
 
     private int[] denseIndexMap() {
-        int ceiling = 0;
-        for (int index = 0; index < surface.vertexCount(); index++) {
-            ceiling = Math.max(ceiling, surface.vertexIdAt(index) + 1);
-        }
-        int[] map = new int[ceiling];
+        int[] map = new int[surface.vertexIdBound()];
         for (int index = 0; index < map.length; index++) {
             map[index] = -1;
         }
         for (int index = 0; index < surface.vertexCount(); index++) {
-            map[surface.vertexIdAt(index)] = index;
+            int vertexId = surface.vertexIdAt(index);
+            map[vertexId] = dense == surface ? vertexId : index;
         }
         return map;
     }

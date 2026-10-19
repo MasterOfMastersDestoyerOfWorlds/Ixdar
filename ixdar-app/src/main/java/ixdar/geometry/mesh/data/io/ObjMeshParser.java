@@ -8,12 +8,12 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
-import ixdar.geometry.mesh.data.representation.ArrayMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 public final class ObjMeshParser {
     /**
-     * Load an OBJ file into ArrayMesh.
+     * Load an OBJ file into a triangle mesh ({@link MeshLoader#indexedMesh}).
      * Supports vertex positions (v x y z) and normals (vn x y z).
      * Generates face normals if not provided.
      *
@@ -21,7 +21,7 @@ public final class ObjMeshParser {
      * @throws RuntimeException wraps any {@link IOException} from the underlying reader
      * @return parsed mesh (empty if the file has no positions)
      */
-    public static ArrayMesh load(String content) {
+    public static MeshTopology load(String content) {
 
         List<Float> positions = new ArrayList<>();
         List<Float> normals = new ArrayList<>();
@@ -77,7 +77,7 @@ public final class ObjMeshParser {
         }
 
         if (positions.isEmpty()) {
-            return ArrayMeshEngine.emptyQuads();
+            return new HalfEdgeMesh();
         }
 
         // Convert face data to flat arrays — count triangulated indices
@@ -172,12 +172,8 @@ public final class ObjMeshParser {
         }
 
         if (faceIndices.length == 0) {
-            return ArrayMeshEngine.emptyQuads();
+            return new HalfEdgeMesh();
         }
-
-        // Determine vertsPerFace (assume triangles)
-        int vertsPerFace = MeshLoader.FLOATS_PER_VERTEX;
-
-        return new ArrayMesh(posArray, normArray, faceIndices, vertsPerFace);
+        return MeshLoader.indexedMesh(posArray, normArray, faceIndices, MeshLoader.FLOATS_PER_VERTEX);
     }
 }

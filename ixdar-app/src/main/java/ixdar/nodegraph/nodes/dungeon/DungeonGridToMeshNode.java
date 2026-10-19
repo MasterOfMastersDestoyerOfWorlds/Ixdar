@@ -7,7 +7,7 @@ import java.util.Map;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;
@@ -49,7 +49,7 @@ public class DungeonGridToMeshNode implements MeshNode {
                         + "IntField, or a point lattice with one vertex per cell center and a per-vertex "
                         + "'cell_type' IntField.",
                 CELL_SIZE.name, "Edge length of one cell in world units.",
-                MESH.name, "Origin-centered ArrayMesh with double-sided quads and computed normals.");
+                MESH.name, "Origin-centered mesh with double-sided quads and computed normals.");
     }
 
     @Override
@@ -57,7 +57,7 @@ public class DungeonGridToMeshNode implements MeshNode {
         GeometryBundle tiles = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         Number cs = ctx.getInput(CELL_SIZE.name, Number.class);
         float cellSize = cs == null ? 1.0f : cs.floatValue();
-        ArrayMesh mesh;
+        HalfEdgeMesh mesh;
         if (DungeonGrids.isLattice(tiles)) {
             int[] dims = DungeonGrids.latticeDims(tiles);
             CellType[] cells = DungeonGrids.latticeCells(tiles, dims[0], dims[1], dims[2]);

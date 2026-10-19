@@ -7,11 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
+import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.io.OffMeshParser;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * {@link OffMeshParser} reads the same unit square, as two triangles, from an ASCII OFF, from a
@@ -37,7 +39,6 @@ class OffMeshParserTest {
 
     private static final float EPSILON = 1e-6f;
 
-    /** Per-vertex normal every binary fixture writes, so a wrong stride shows up as a position. */
     private static final float[] UP_NORMAL = { 0f, 0f, 1f };
 
     private static final float[] RGBA = { 0.25f, 0.5f, 0.75f, 1f };
@@ -51,11 +52,11 @@ class OffMeshParserTest {
         String text = "OFF\n4 2 5\n"
                 + "0 0 0\n1 0 0\n1 1 0\n0 1 0\n"
                 + "3 0 1 2\n3 0 2 3\n";
-        ArrayMesh mesh = OffMeshParser.load(text.getBytes(StandardCharsets.UTF_8));
+        MeshTopology mesh = OffMeshParser.load(text.getBytes(StandardCharsets.UTF_8));
 
-        assertEquals(3, mesh.getVertsPerFace());
-        assertArrayEquals(SQUARE_POSITIONS, mesh.copyPositions(), EPSILON);
-        assertArrayEquals(SQUARE_INDICES, mesh.copyFaceIndices());
+        assertEquals(3, mesh.faceVertexCount(mesh.faceIdAt(0)));
+        assertArrayEquals(SQUARE_POSITIONS, positionsOf(mesh), EPSILON);
+        assertArrayEquals(SQUARE_INDICES, cornersOf(mesh));
     }
 
     @Test
@@ -67,30 +68,30 @@ class OffMeshParserTest {
                 + "0 1 0 0 0 1 0.25 0.5 0.75 1\n"
                 + "3 0 1 2 0.25 0.5 0.75 1\n"
                 + "3 0 2 3 0.25 0.5 0.75 1\n";
-        ArrayMesh mesh = OffMeshParser.load(text.getBytes(StandardCharsets.UTF_8));
+        MeshTopology mesh = OffMeshParser.load(text.getBytes(StandardCharsets.UTF_8));
 
-        assertArrayEquals(SQUARE_POSITIONS, mesh.copyPositions(), EPSILON);
-        assertArrayEquals(SQUARE_INDICES, mesh.copyFaceIndices());
+        assertArrayEquals(SQUARE_POSITIONS, positionsOf(mesh), EPSILON);
+        assertArrayEquals(SQUARE_INDICES, cornersOf(mesh));
     }
 
     @Test
     void binaryBigEndianSquareParses() {
         byte[] file = binarySquare(BIG_ENDIAN_HEADER, true, RGBA);
-        ArrayMesh mesh = OffMeshParser.load(file);
+        MeshTopology mesh = OffMeshParser.load(file);
 
-        assertEquals(3, mesh.getVertsPerFace());
-        assertArrayEquals(SQUARE_POSITIONS, mesh.copyPositions(), EPSILON);
-        assertArrayEquals(SQUARE_INDICES, mesh.copyFaceIndices());
+        assertEquals(3, mesh.faceVertexCount(mesh.faceIdAt(0)));
+        assertArrayEquals(SQUARE_POSITIONS, positionsOf(mesh), EPSILON);
+        assertArrayEquals(SQUARE_INDICES, cornersOf(mesh));
     }
 
     /** The layout {@code figure_8/block_in_tri.off} uses: little-endian words, RGB vertex colours. */
     @Test
     void binaryLittleEndianThreeComponentColorSquareParses() {
         byte[] file = binarySquare("C N OFF BINARY", false, RGB);
-        ArrayMesh mesh = OffMeshParser.load(file);
+        MeshTopology mesh = OffMeshParser.load(file);
 
-        assertArrayEquals(SQUARE_POSITIONS, mesh.copyPositions(), EPSILON);
-        assertArrayEquals(SQUARE_INDICES, mesh.copyFaceIndices());
+        assertArrayEquals(SQUARE_POSITIONS, positionsOf(mesh), EPSILON);
+        assertArrayEquals(SQUARE_INDICES, cornersOf(mesh));
     }
 
     @Test
@@ -176,5 +177,41 @@ class OffMeshParserTest {
      */
     private static void writeFloat(ByteArrayOutputStream bytes, float value, boolean bigEndian) {
         writeWord(bytes, Float.floatToIntBits(value), bigEndian);
+    }
+
+    /**
+     * The mesh's positions in active-vertex order, read in place.
+     *
+     * @param mesh parsed mesh
+     * @return xyz triples, one per vertex
+     */
+    private static float[] positionsOf(MeshTopology mesh) {
+        float[] positions = new float[mesh.vertexCount() * 3];
+        Vector3f position = new Vector3f();
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            mesh.vertexPosition(mesh.vertexIdAt(activeVertex), position);
+            positions[activeVertex * 3] = position.x;
+            positions[activeVertex * 3 + 1] = position.y;
+            positions[activeVertex * 3 + 2] = position.z;
+        }
+        return positions;
+    }
+
+    /**
+     * Every face's corner vertex ids end to end, in active-face order.
+     *
+     * @param mesh parsed mesh
+     * @return the corners of every face
+     */
+    private static int[] cornersOf(MeshTopology mesh) {
+        int[] corners = new int[mesh.halfEdgeCount()];
+        int cursor = 0;
+        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            for (int corner = 0; corner < mesh.faceVertexCount(faceId); corner++) {
+                corners[cursor++] = mesh.faceVertexAt(faceId, corner);
+            }
+        }
+        return Arrays.copyOf(corners, cursor);
     }
 }

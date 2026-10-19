@@ -7,7 +7,8 @@ import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
  * TEASAR-based skeleton extraction from a triangle mesh.
@@ -89,7 +90,7 @@ public final class MeshSkeletonExtractor {
      * @param resolution voxel-grid resolution along the longest bounding-box axis
      * @return skeleton result with branches, branch points, and root position in world space
      */
-    public static SkeletonResult extract(ArrayMesh mesh, int resolution) {
+    public static SkeletonResult extract(MeshTopology mesh, int resolution) {
         return extract(mesh, resolution, DEFAULT_BRANCH_BUDGET);
     }
 
@@ -102,7 +103,7 @@ public final class MeshSkeletonExtractor {
      *                     {@link #DEFAULT_BRANCH_BUDGET} for why this exceeds the branch count
      * @return skeleton result with branches, branch points, and root position in world space
      */
-    public static SkeletonResult extract(ArrayMesh mesh, int resolution, int branchBudget) {
+    public static SkeletonResult extract(MeshTopology mesh, int resolution, int branchBudget) {
         Vector3f bmin = mesh.boundsMin(new Vector3f());
         Vector3f bmax = mesh.boundsMax(new Vector3f());
         float extX = bmax.x - bmin.x, extY = bmax.y - bmin.y, extZ = bmax.z - bmin.z;
@@ -126,49 +127,55 @@ public final class MeshSkeletonExtractor {
 
     // ───────── Step 1: Voxelize via X-axis scanline ─────────
 
-    private void voxelizeScanline(ArrayMesh mesh) {
-        float[] pos = mesh.copyPositions();
-        int[] fi = mesh.copyFaceIndices();
-        int vpf = mesh.getVertsPerFace();
+    private void voxelizeScanline(MeshTopology mesh) {
+        float[] pos = new float[mesh.vertexIdBound() * MIN_PATH_LENGTH];
+        Vector3f position = new Vector3f();
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            mesh.vertexPosition(vertexId, position);
+            pos[vertexId * MIN_PATH_LENGTH] = position.x;
+            pos[vertexId * MIN_PATH_LENGTH + 1] = position.y;
+            pos[vertexId * MIN_PATH_LENGTH + 2] = position.z;
+        }
 
         // Collect X-axis crossing values per (iy, iz) column
         @SuppressWarnings("unchecked")
         ArrayList<Float>[] crossings = new ArrayList[ry * rz];
 
-        for (int f = 0; f < fi.length; f += vpf) {
-            // Fan triangulation for quads/ngons
-            for (int t = 1; t + 1 < vpf; t++) {
-                int i0 = fi[f] * MIN_PATH_LENGTH, i1 = fi[f + t] * MIN_PATH_LENGTH, i2 = fi[f + t + 1] * MIN_PATH_LENGTH;
-                float ay = pos[i0 + 1], az = pos[i0 + 2];
-                float by = pos[i1 + 1], bz = pos[i1 + 2];
-                float cy = pos[i2 + 1], cz = pos[i2 + 2];
+        int[] triangles = mesh.triangulate(TriangulationRule.FAN, null);
+        for (int triangleCorner = 0; triangleCorner < triangles.length; triangleCorner += 3) {
+            int i0 = triangles[triangleCorner] * MIN_PATH_LENGTH;
+            int i1 = triangles[triangleCorner + 1] * MIN_PATH_LENGTH;
+            int i2 = triangles[triangleCorner + 2] * MIN_PATH_LENGTH;
+            float ay = pos[i0 + 1], az = pos[i0 + 2];
+            float by = pos[i1 + 1], bz = pos[i1 + 2];
+            float cy = pos[i2 + 1], cz = pos[i2 + 2];
 
-                // YZ bounding box in voxel space
-                int iyMin = Math.max(0, (int) Math.floor((Math.min(ay, Math.min(by, cy)) - oy) / vs));
-                int iyMax = Math.min(ry - 1, (int) Math.floor((Math.max(ay, Math.max(by, cy)) - oy) / vs));
-                int izMin = Math.max(0, (int) Math.floor((Math.min(az, Math.min(bz, cz)) - oz) / vs));
-                int izMax = Math.min(rz - 1, (int) Math.floor((Math.max(az, Math.max(bz, cz)) - oz) / vs));
+            // YZ bounding box in voxel space
+            int iyMin = Math.max(0, (int) Math.floor((Math.min(ay, Math.min(by, cy)) - oy) / vs));
+            int iyMax = Math.min(ry - 1, (int) Math.floor((Math.max(ay, Math.max(by, cy)) - oy) / vs));
+            int izMin = Math.max(0, (int) Math.floor((Math.min(az, Math.min(bz, cz)) - oz) / vs));
+            int izMax = Math.min(rz - 1, (int) Math.floor((Math.max(az, Math.max(bz, cz)) - oz) / vs));
 
-                // 2x2 solve: ray at (rayY, rayZ) in +X → triangle barycentric
-                float e1y = by - ay, e1z = bz - az;
-                float e2y = cy - ay, e2z = cz - az;
-                float det = e1y * e2z - e1z * e2y;
-                if (Math.abs(det) < DET_EPSILON) continue;
-                float invDet = 1.0f / det;
+            // 2x2 solve: ray at (rayY, rayZ) in +X → triangle barycentric
+            float e1y = by - ay, e1z = bz - az;
+            float e2y = cy - ay, e2z = cz - az;
+            float det = e1y * e2z - e1z * e2y;
+            if (Math.abs(det) < DET_EPSILON) continue;
+            float invDet = 1.0f / det;
 
-                for (int iy = iyMin; iy <= iyMax; iy++) {
-                    float rayY = oy + (iy + 0.5f) * vs;
-                    for (int iz = izMin; iz <= izMax; iz++) {
-                        float rayZ = oz + (iz + 0.5f) * vs;
-                        float dy = rayY - ay, dz = rayZ - az;
-                        float u = (dy * e2z - dz * e2y) * invDet;
-                        float v = (e1y * dz - e1z * dy) * invDet;
-                        if (u >= 0 && v >= 0 && u + v <= 1.0f) {
-                            float xHit = (1 - u - v) * pos[i0] + u * pos[i1] + v * pos[i2];
-                            int col = iy * rz + iz;
-                            if (crossings[col] == null) crossings[col] = new ArrayList<>();
-                            crossings[col].add(xHit);
-                        }
+            for (int iy = iyMin; iy <= iyMax; iy++) {
+                float rayY = oy + (iy + 0.5f) * vs;
+                for (int iz = izMin; iz <= izMax; iz++) {
+                    float rayZ = oz + (iz + 0.5f) * vs;
+                    float dy = rayY - ay, dz = rayZ - az;
+                    float u = (dy * e2z - dz * e2y) * invDet;
+                    float v = (e1y * dz - e1z * dy) * invDet;
+                    if (u >= 0 && v >= 0 && u + v <= 1.0f) {
+                        float xHit = (1 - u - v) * pos[i0] + u * pos[i1] + v * pos[i2];
+                        int col = iy * rz + iz;
+                        if (crossings[col] == null) crossings[col] = new ArrayList<>();
+                        crossings[col].add(xHit);
                     }
                 }
             }

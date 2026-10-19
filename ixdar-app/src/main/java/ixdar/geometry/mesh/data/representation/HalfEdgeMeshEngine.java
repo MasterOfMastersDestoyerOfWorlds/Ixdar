@@ -1,22 +1,20 @@
 package ixdar.geometry.mesh.data.representation;
 
 import java.util.Arrays;
-import java.util.HashMap;
 
 import org.joml.Vector3f;
 
 
 /**
  * Topology-mutating operations on a {@link HalfEdgeMesh}: add/remove vertices,
- * edges, and faces; bulk allocation from indexed buffers; quad subdivision; and
- * triangulated GPU compilation. All editing keeps the half-edge invariants
- * (twin/next/prev, edge↔half-edge, face↔half-edge) consistent.
+ * edges, and faces; bulk allocation from indexed buffers; and quad subdivision.
+ * All editing keeps the half-edge invariants (twin/next/prev, edge↔half-edge,
+ * face↔half-edge) consistent.
  */
 public class HalfEdgeMeshEngine {
     public static final String EDGE = "Edge ";
     public static final String POSITION_DATA_MUST_BE_XYZ_TRIPLES = "Position data must be XYZ triples";
     public static final String AND = " and ";
-    public static final int FLOATS_PER_GPU_VERTEX = 8;
 
     /**
      * Allocates a new vertex slot at the given world-space position.
@@ -644,25 +642,6 @@ public class HalfEdgeMeshEngine {
     }
 
     /**
-     * The half-edge form of any mesh representation, the counterpart of
-     * {@link ArrayMeshEngine#fromUniformMeshTopology}.
-     *
-     * @param mesh mesh in either representation
-     * @throws IllegalArgumentException if {@code mesh} is null or an unknown representation
-     * @return the mesh itself when already half-edge, otherwise a converted copy
-     */
-    public static HalfEdgeMesh fromMeshTopology(MeshTopology mesh) {
-        if (mesh instanceof HalfEdgeMesh halfEdgeMesh) {
-            return halfEdgeMesh;
-        }
-        if (mesh instanceof ArrayMesh arrayMesh) {
-            return arrayMesh.toHalfEdgeMesh();
-        }
-        throw new IllegalArgumentException("No half-edge conversion for "
-                + (mesh == null ? "null" : mesh.getClass().getSimpleName()));
-    }
-
-    /**
      * Builds a triangle {@link HalfEdgeMesh} from packed positions and a flat triangle
      * index buffer, computing normals.
      *
@@ -968,159 +947,6 @@ public class HalfEdgeMeshEngine {
         mesh.faceVertices.pack(faceStarts, Arrays.copyOf(faceIndices, cornerCount));
         mesh.faceEdges.pack(faceStarts, faceEdgeIds);
         return mesh;
-    }
-
-    /**
-     * One level of linear quad subdivision (edge midpoints + face centroids).
-     * Matches ArrayMeshEngine.subdivideQuadsOnce for uniform quad meshes.
-     *
-     * @param src source mesh; must contain only quads (or be empty)
-     * @throws IllegalArgumentException if any face is not a quad
-     * @throws IllegalStateException if a required edge midpoint is missing during face emission
-     * @return new subdivided {@link HalfEdgeMesh} with normals computed
-     */
-    public static HalfEdgeMesh subdivideQuadsOnce(HalfEdgeMesh src) {
-        if (src == null || src.vertexCount() == 0) {
-            return new HalfEdgeMesh();
-        }
-        if (src.faceVertexCount(src.faceIdAt(0)) != 4) {
-            throw new IllegalArgumentException("subdivideQuadsOnce requires all faces to be quads");
-        }
-
-        int srcV = src.vertexCount();
-        int srcE = src.edgeCount();
-        int srcF = src.faceCount();
-        int outV = srcV + srcE + srcF;
-        int outF = srcF * 4;
-
-        HalfEdgeMesh out = new HalfEdgeMesh(outV, srcE * 4, outF, srcE * 4);
-
-        // Copy original vertex positions
-        for (int i = 0; i < srcV; i++) {
-            int vid = src.vertexIdAt(i);
-            Vector3f vp = src.vertexPosition(vid, new Vector3f());
-            out.createVertexSlot(vp.x, vp.y, vp.z);
-        }
-
-        // Create edge midpoints
-        HashMap<Long, Integer> edgeMidMap = new HashMap<>(srcE * 4 / 3 + 1);
-        for (int ei = 0; ei < srcE; ei++) {
-            int eid = src.edgeIdAt(ei);
-            int he = src.edgeHalfEdge(eid);
-            int va = src.halfEdgeVertex(he);
-            int vb = src.halfEdgeEndVertex(he);
-            Vector3f p0 = src.vertexPosition(va, new Vector3f());
-            Vector3f p1 = src.vertexPosition(vb, new Vector3f());
-            Vector3f mid = new Vector3f().add(p0).add(p1).mul(0.5f);
-            int midIdx = srcV + ei;
-            out.createVertexSlot(mid.x, mid.y, mid.z);
-            edgeMidMap.put(EdgeKey.undirected(va, vb), midIdx);
-        }
-
-        // Create face centroids
-        Vector3f p = new Vector3f();
-        for (int fi = 0; fi < srcF; fi++) {
-            int fid = src.faceIdAt(fi);
-            p.set(0f, 0f, 0f);
-            for (int k = 0; k < 4; k++) {
-                int vidx = src.faceVertexAt(fid, k);
-                Vector3f vp = src.vertexPosition(vidx, new Vector3f());
-                p.add(vp);
-            }
-            p.mul(0.25f);
-            out.createVertexSlot(p.x, p.y, p.z);
-        }
-
-        for (int fi = 0; fi < srcF; fi++) {
-            int fid = src.faceIdAt(fi);
-            int[] faceVerts = new int[4];
-            for (int k = 0; k < 4; k++) {
-                faceVerts[k] = src.faceVertexAt(fid, k);
-            }
-            int centroid = srcV + srcE + fi;
-            for (int k = 0; k < 4; k++) {
-                int va = faceVerts[k];
-                int vb = faceVerts[(k + 1) % 4];
-                int vc = faceVerts[(k + 3) % 4];
-                int nva = va;
-                Integer midAB = edgeMidMap.get(EdgeKey.undirected(va, vb));
-                Integer midCA = edgeMidMap.get(EdgeKey.undirected(vc, va));
-                if (midAB == null || midCA == null) {
-                    throw new IllegalStateException("missing edge midpoint");
-                }
-                out.addFace(nva, midAB, centroid, midCA);
-            }
-        }
-
-        out.computeNormals();
-        return out;
-    }
-
-
-    /**
-     * Builds GPU-ready interleaved vertex data and a triangulated index buffer
-     * for rendering. Each output vertex is 8 floats (xyz + normal xyz + two zero
-     * pads) and faces with &gt; 3 vertices are fan-triangulated. Inactive vertex
-     * slots are filtered out.
-     *
-     * @param mesh source mesh
-     * @return compiled mesh data including bounds and bounding sphere
-     */
-    public static HalfEdgeCompiledMeshData compileSurfaceData(HalfEdgeMesh mesh) {
-        int[] vertexRemap = new int[mesh.vertexActive.length];
-        Arrays.fill(vertexRemap, MeshTopology.NONE);
-        float[] vertices = new float[mesh.vertexCount() * FLOATS_PER_GPU_VERTEX];
-
-        for (int i = 0; i < mesh.vertexCount(); i++) {
-            int vertexId = mesh.vertexIdAt(i);
-            vertexRemap[vertexId] = i;
-            int sourceOffset = mesh.vertexOffset(vertexId);
-            int targetOffset = i * FLOATS_PER_GPU_VERTEX;
-            vertices[targetOffset] = mesh.vertexPositions[sourceOffset];
-            vertices[targetOffset + 1] = mesh.vertexPositions[sourceOffset + 1];
-            vertices[targetOffset + 2] = mesh.vertexPositions[sourceOffset + 2];
-            vertices[targetOffset + 3] = mesh.vertexNormals[sourceOffset];
-            vertices[targetOffset + 4] = mesh.vertexNormals[sourceOffset + 1];
-            vertices[targetOffset + 5] = mesh.vertexNormals[sourceOffset + 2];
-            vertices[targetOffset + 6] = 0f;
-            vertices[targetOffset + 7] = 0f;
-        }
-
-        int triangleCount = 0;
-        for (int i = 0; i < mesh.faceCount(); i++) {
-            int faceId = mesh.faceIdAt(i);
-            triangleCount += Math.max(0, mesh.faceVertexCount(faceId) - 2);
-        }
-
-        int[] indices = new int[triangleCount * 3];
-        int indexCursor = 0;
-        for (int i = 0; i < mesh.faceCount(); i++) {
-            int faceId = mesh.faceIdAt(i);
-            int faceVertexCount = mesh.faceVertexCount(faceId);
-            if (faceVertexCount < 3) {
-                continue;
-            }
-            int anchor = vertexRemap[mesh.faceVertexAt(faceId, 0)];
-            for (int j = 1; j < faceVertexCount - 1; j++) {
-                indices[indexCursor++] = anchor;
-                indices[indexCursor++] = vertexRemap[mesh.faceVertexAt(faceId, j)];
-                indices[indexCursor++] = vertexRemap[mesh.faceVertexAt(faceId, j + 1)];
-            }
-        }
-
-        Vector3f minBounds = mesh.boundsMin(new Vector3f());
-        Vector3f maxBounds = mesh.boundsMax(new Vector3f());
-        Vector3f center = mesh.center(new Vector3f());
-        float radius = mesh.radius();
-        return new HalfEdgeCompiledMeshData(
-                vertices,
-                indices,
-                mesh.vertexCount(),
-                mesh.faceCount(),
-                minBounds,
-                maxBounds,
-                center,
-                radius);
     }
 
     static int addFaceInternal(HalfEdgeMesh mesh, int[] vertexIds, boolean recomputeNormals) {

@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.csg.BooleanOperation;
 import ixdar.geometry.mesh.csg.MeshBooleanResult;
 import ixdar.geometry.mesh.csg.QuadTriangulation;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.platform.Platforms;
 
 /**
@@ -21,22 +21,14 @@ import ixdar.platform.Platforms;
  */
 public class MeshBooleanProvenanceTest {
 
-    /** Faces on a cube, so a source face id must fall below this. */
     private static final int CUBE_FACE_COUNT = 6;
 
-    /** Overlap of the two cubes is the corner octant, an eighth of a unit cube. */
     private static final double OVERLAP_VOLUME = 0.125;
 
-    /** Volume tolerance, loose enough for float positions round-tripping through the kernel. */
     private static final double VOLUME_TOLERANCE = 1e-5;
 
-    /**
-     * Untouched triangles per cube in the union: the three quads facing away from the other cube,
-     * two triangles each.
-     */
     private static final int UNTOUCHED_TRIANGLES_PER_CUBE = 6;
 
-    /** Tolerance for a centroid lying on an axis-aligned quad's plane after float round trips. */
     private static final double PLANE_TOLERANCE = 1e-6;
 
     private static final float HALF = 0.5f;
@@ -78,8 +70,8 @@ public class MeshBooleanProvenanceTest {
      */
     @Test
     public void unionFacesCarryTheirOriginatingCubeAndQuad() {
-        ArrayMesh meshA = unitCube(0f);
-        ArrayMesh meshB = unitCube(HALF);
+        HalfEdgeMesh meshA = unitCube(0f);
+        HalfEdgeMesh meshB = unitCube(HALF);
         QuadTriangulation cubeA = new QuadTriangulation(meshA).build();
         QuadTriangulation cubeB = new QuadTriangulation(meshB).build();
         MeshBooleanResult union = boolean3d(cubeA, cubeB, BooleanOperation.UNION);
@@ -104,8 +96,8 @@ public class MeshBooleanProvenanceTest {
      */
     @Test
     public void differenceAndIntersectionReportConsistentOrigins() {
-        ArrayMesh meshA = unitCube(0f);
-        ArrayMesh meshB = unitCube(HALF);
+        HalfEdgeMesh meshA = unitCube(0f);
+        HalfEdgeMesh meshB = unitCube(HALF);
         QuadTriangulation cubeA = new QuadTriangulation(meshA).build();
         QuadTriangulation cubeB = new QuadTriangulation(meshB).build();
 
@@ -167,8 +159,8 @@ public class MeshBooleanProvenanceTest {
      * @param meshA first operand's quad mesh
      * @param meshB second operand's quad mesh
      */
-    private static void assertFacesLieOnTheirSourceQuads(MeshBooleanResult result, ArrayMesh meshA,
-            ArrayMesh meshB) {
+    private static void assertFacesLieOnTheirSourceQuads(MeshBooleanResult result, HalfEdgeMesh meshA,
+            HalfEdgeMesh meshB) {
         Vector3f corner = new Vector3f();
         Vector3f centroid = new Vector3f();
         Vector3f quadCorner = new Vector3f();
@@ -182,7 +174,7 @@ public class MeshBooleanProvenanceTest {
             }
             centroid.div(THREE);
 
-            ArrayMesh source = result.faceSourceOperand[activeFace] == MeshBooleanResult.ORIGIN_A
+            HalfEdgeMesh source = result.faceSourceOperand[activeFace] == MeshBooleanResult.ORIGIN_A
                     ? meshA : meshB;
             int quadId = source.faceIdAt(result.faceSourceQuad[activeFace]);
             source.vertexPosition(source.faceVertexAt(quadId, 0), quadCorner);
@@ -253,7 +245,7 @@ public class MeshBooleanProvenanceTest {
      * @param offset amount added to each coordinate, so {@code 0.5} puts a corner on the origin cube's centre
      * @return the cube as a six-quad mesh
      */
-    private static ArrayMesh unitCube(float offset) {
+    private static HalfEdgeMesh unitCube(float offset) {
         float low = -HALF + offset;
         float high = HALF + offset;
         float[] positions = {
@@ -268,7 +260,7 @@ public class MeshBooleanProvenanceTest {
             1, 2, SIX, 5,
             0, 4, 7, THREE,
         };
-        ArrayMesh cube = ArrayMesh.fromQuads(positions, quads);
+        HalfEdgeMesh cube = HalfEdgeMeshEngine.bulkAllocate(positions, quads, QUAD_CORNERS);
         cube.computeNormals();
         return cube;
     }

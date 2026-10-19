@@ -12,7 +12,6 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.data.SurfaceMetricNode;
@@ -169,6 +168,6 @@ class CrossFieldConnectionTest {
         NodeGraphRuntime runtime = NodeGraphRuntime.fromSource(source);
         GeometryBundle bundle = (GeometryBundle) runtime.executeGraphResult("carrier",
                 "geometry");
-        return HalfEdgeMeshEngine.fromMeshTopology(bundle.mesh());
+        return (HalfEdgeMesh) bundle.mesh();
     }
 }

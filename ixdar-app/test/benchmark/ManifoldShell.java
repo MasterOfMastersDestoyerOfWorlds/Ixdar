@@ -6,21 +6,16 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
  * The largest connected manifold piece of a raw scan, for benchmarks that need a half-edge mesh
- * before the repair stage (CRAW-26) exists.
- *
- * <p>
- * A scan keeps faces that reuse a directed edge or give an edge three neighbours; those are
- * dropped greedily in face order, then only the biggest surviving component is kept.
+ * without the repair stage. Faces that would make an edge non-manifold are dropped in face order.
  */
 public final class ManifoldShell {
 
-    /** Corners of a triangle, which is also the stride of a packed xyz position. */
     public static final int TRIANGLE_CORNERS = 3;
 
     /** Faces of the welded input, before anything was dropped. */
@@ -42,8 +37,8 @@ public final class ManifoldShell {
      * @return the manifold surface, with this object's counters filled in
      */
     public HalfEdgeMesh of(ArrayMesh welded) {
-        float[] positions = welded.copyPositions();
-        int[] faces = welded.copyFaceIndices();
+        float[] positions = welded.positions;
+        int[] faces = welded.faceIndices;
         inputFaceCount = faces.length / TRIANGLE_CORNERS;
         Set<Long> usedDirectedEdges = new HashSet<>();
         Map<Long, Integer> undirectedEdgeUses = new HashMap<>();

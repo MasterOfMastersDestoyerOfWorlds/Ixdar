@@ -1575,7 +1575,7 @@
         {
           "name": "mesh",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Origin-centered ArrayMesh with double-sided quads and computed normals."
+          "description": "Origin-centered mesh with double-sided quads and computed normals."
         }
       ],
       "description": "Emits an axis-aligned hollow-room mesh from astar_corridors\u0027 tiles: floor, ceiling and EMPTY-bordering walls per non-empty cell. A planar quad grid gives one floor; a 3D point lattice gives every floor, leaving stair openings passable. Stage 5 (final) of the dungeon pipeline."
@@ -4509,7 +4509,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input/output. Flat (or near-flat) quad surface becomes a closed shell wrapped in a GeometryBundle.",
+          "description": "Input/output. Flat (or near-flat) polygon surface becomes a closed shell wrapped in a GeometryBundle.",
           "defaultValue": null
         },
         {
@@ -4523,10 +4523,10 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input/output. Flat (or near-flat) quad surface becomes a closed shell wrapped in a GeometryBundle."
+          "description": "Input/output. Flat (or near-flat) polygon surface becomes a closed shell wrapped in a GeometryBundle."
         }
       ],
-      "description": "Gives thickness to a flat uniform-quad mesh by duplicating and offsetting it along normals, creating a watertight shell."
+      "description": "Gives thickness to an open polygon mesh by duplicating and offsetting it along vertex normals, with side walls on its boundary edges, creating a watertight shell."
     },
     {
       "id": "sphere",

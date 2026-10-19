@@ -7,7 +7,6 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.bundle.CornerUvSplit;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.UvField;
 
@@ -23,6 +22,8 @@ public final class MeshExport {
     public static final int CORNERS_PER_TRIANGLE = 3;
 
     public static final int UV_COMPONENTS = 2;
+
+    public static final float NORMAL_LENGTH_EPSILON = 1e-20f;
 
     /** Positions of the exported vertices, {@link #vertexCount()} triples. */
     public float[] positions = new float[0];
@@ -173,8 +174,40 @@ public final class MeshExport {
             anyNormal = normals[slot] != 0;
         }
         if (!anyNormal && triangleCount() > 0) {
-            new ArrayMesh(positions, normals, triangleIndices, CORNERS_PER_TRIANGLE)
-                    .computeNormals();
+            // Each vertex takes the normalized sum of its triangles' unit normals.
+            Vector3f corner0 = new Vector3f();
+            Vector3f edgeA = new Vector3f();
+            Vector3f edgeB = new Vector3f();
+            for (int triangle = 0; triangle < triangleCount(); triangle++) {
+                int first = triangle * CORNERS_PER_TRIANGLE;
+                int offset0 = triangleIndices[first] * FLOATS_PER_VERTEX;
+                int offsetA = triangleIndices[first + 1] * FLOATS_PER_VERTEX;
+                int offsetB = triangleIndices[first + 2] * FLOATS_PER_VERTEX;
+                corner0.set(positions[offset0], positions[offset0 + 1], positions[offset0 + 2]);
+                edgeA.set(positions[offsetA], positions[offsetA + 1], positions[offsetA + 2]).sub(corner0);
+                edgeB.set(positions[offsetB], positions[offsetB + 1], positions[offsetB + 2]).sub(corner0);
+                edgeA.cross(edgeB);
+                float length = edgeA.length();
+                if (length > NORMAL_LENGTH_EPSILON) {
+                    edgeA.mul(1.0f / length);
+                } else {
+                    edgeA.set(0f, 1f, 0f);
+                }
+                for (int corner = first; corner < first + CORNERS_PER_TRIANGLE; corner++) {
+                    int offset = triangleIndices[corner] * FLOATS_PER_VERTEX;
+                    normals[offset] += edgeA.x;
+                    normals[offset + 1] += edgeA.y;
+                    normals[offset + 2] += edgeA.z;
+                }
+            }
+            for (int offset = 0; offset < normals.length; offset += FLOATS_PER_VERTEX) {
+                float inverse = 1.0f / Math.max(NORMAL_LENGTH_EPSILON, (float) Math.sqrt(
+                        normals[offset] * normals[offset] + normals[offset + 1] * normals[offset + 1]
+                                + normals[offset + 2] * normals[offset + 2]));
+                normals[offset] *= inverse;
+                normals[offset + 1] *= inverse;
+                normals[offset + 2] *= inverse;
+            }
         }
 
         // Number the vertices that share a bitwise-identical position 0, 1, ... in vertex order,
@@ -216,18 +249,27 @@ public final class MeshExport {
         }
         // Give every corner UV a vertex of its own, duplicating the positions and normals the
         // seam shares, so a per-vertex file format can hold the field.
-        ArrayMesh dense = new ArrayMesh(positions, normals, triangleIndices, CORNERS_PER_TRIANGLE);
-        float[] splitUv = new float[CornerUvSplit.maxSplitUvLength(dense)];
+        float[] splitUv = new float[CornerUvSplit.maxSplitUvLength(triangleCount())];
+        int[] splitCorners = new int[triangleIndices.length];
+        int[] weldedOfSplit = new int[triangleIndices.length];
         // Mesh face order, so split corner i is still dense corner i for the weld keys below.
-        ArrayMesh split = CornerUvSplit.split(dense, new CornerUvField(cornerU, cornerV), null,
-                splitUv);
+        int splitCount = CornerUvSplit.split(triangleIndices, new CornerUvField(cornerU, cornerV), null,
+                splitUv, splitCorners, weldedOfSplit);
         int[] denseCorners = triangleIndices;
-        positions = split.copyPositions();
-        normals = split.copyNormals();
-        triangleIndices = split.copyFaceIndices();
-        vertexUv = Arrays.copyOf(splitUv, split.vertexCount() * UV_COMPONENTS);
+        float[] splitPositions = new float[splitCount * FLOATS_PER_VERTEX];
+        float[] splitNormals = new float[splitCount * FLOATS_PER_VERTEX];
+        for (int copy = 0; copy < splitCount; copy++) {
+            System.arraycopy(positions, weldedOfSplit[copy] * FLOATS_PER_VERTEX, splitPositions,
+                    copy * FLOATS_PER_VERTEX, FLOATS_PER_VERTEX);
+            System.arraycopy(normals, weldedOfSplit[copy] * FLOATS_PER_VERTEX, splitNormals,
+                    copy * FLOATS_PER_VERTEX, FLOATS_PER_VERTEX);
+        }
+        positions = splitPositions;
+        normals = splitNormals;
+        triangleIndices = splitCorners;
+        vertexUv = Arrays.copyOf(splitUv, splitCount * UV_COMPONENTS);
         if (weldKey != null) {
-            float[] splitKey = new float[split.vertexCount()];
+            float[] splitKey = new float[splitCount];
             for (int corner = 0; corner < triangleIndices.length; corner++) {
                 splitKey[triangleIndices[corner]] = weldKey[denseCorners[corner]];
             }

@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.field.IntField;
@@ -93,7 +92,7 @@ class DungeonChainTest {
         assertTrue(roomCells > 0, "rooms are painted into the grid");
         assertTrue(hallwayCells > 0, "corridors are carved into the grid");
 
-        ArrayMesh mesh = (ArrayMesh) ((GeometryBundle) runtime.getNodeOutput(DUNGEON, NodeGraphRuntime.MESH)).mesh();
+        MeshTopology mesh = ((GeometryBundle) runtime.getNodeOutput(DUNGEON, NodeGraphRuntime.MESH)).mesh();
         assertNotNull(mesh, "dungeon_grid_to_mesh publishes the final mesh from the grid");
         assertTrue(mesh.vertexCount() > 0, MESH_HAS_VERTICES);
         assertTrue(mesh.faceCount() > 0, MESH_HAS_FACES);
@@ -142,7 +141,7 @@ class DungeonChainTest {
         assertTrue(roomCells > 0, "rooms are painted into the lattice");
         assertTrue(hallwayCells > 0, "corridors are carved into the lattice");
 
-        ArrayMesh mesh = (ArrayMesh) ((GeometryBundle) runtime.getNodeOutput(DUNGEON, NodeGraphRuntime.MESH)).mesh();
+        MeshTopology mesh = ((GeometryBundle) runtime.getNodeOutput(DUNGEON, NodeGraphRuntime.MESH)).mesh();
         assertNotNull(mesh, "dungeon_grid_to_mesh publishes the final mesh from the lattice");
         assertTrue(mesh.vertexCount() > 0, MESH_HAS_VERTICES);
         assertTrue(mesh.faceCount() > 0, MESH_HAS_FACES);

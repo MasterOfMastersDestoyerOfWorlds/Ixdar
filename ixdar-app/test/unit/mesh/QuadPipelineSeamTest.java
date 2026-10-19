@@ -10,9 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
@@ -105,8 +103,8 @@ class QuadPipelineSeamTest {
      * @throws Exception propagated from the loader
      */
     private HalfEdgeMesh loadMesh(String offPath) throws Exception {
-        ArrayMesh arrayMesh = MeshLoader.load(offPath);
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(
-                arrayMesh.copyPositions(), arrayMesh.copyFaceIndices());
+        HalfEdgeMesh mesh = (HalfEdgeMesh) MeshLoader.load(offPath);
+        mesh.computeNormals();
+        return mesh;
     }
 }

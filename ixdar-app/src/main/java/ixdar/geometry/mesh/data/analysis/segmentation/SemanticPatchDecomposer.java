@@ -15,6 +15,8 @@ import java.util.Set;
 
 import java.util.Random;
 
+import org.joml.Vector3f;
+
 import ixdar.geometry.mesh.data.analysis.curvature.CrestLineDetector;
 import ixdar.geometry.mesh.data.analysis.curvature.PrincipalDirectionField;
 import ixdar.geometry.mesh.data.analysis.curvature.SaddlePointDetector;
@@ -23,14 +25,12 @@ import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.Skeleton
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonResult;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.patches.CoonsReconstructionError;
-import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
 
-import org.joml.Vector3f;
 
 /**
  * Feature-edge + concavity patch decomposer.
@@ -103,106 +103,32 @@ public final class SemanticPatchDecomposer {
     private SemanticPatchDecomposer() {}
 
     /**
-     * Overload that accepts any {@link MeshTopology} (e.g. a DSL-produced
-     * {@link HalfEdgeMesh}) and converts to an {@link ArrayMesh} of flat
-     * triangles before running the main decomposer. Fan-triangulates any
-     * n-gon face.
+     * Run the full skeleton + curvature pipeline and return only the patch result. Any mesh is
+     * accepted; the pipeline reads it in place through its {@link TriangulationRule#FAN} triangles.
      *
-     * @param mesh source topology (any {@link MeshTopology}); converted to triangles when not already an {@link ArrayMesh}
+     * @param mesh source mesh, or null
      * @param resolution TEASAR voxel resolution forwarded to skeleton extraction
-     * @return decomposition; empty when {@code mesh} is null
+     * @return patch decomposition (vertex and face ids of {@code mesh} per patch, palette
+     *         colours); empty when {@code mesh} is null
      */
     public static PatchDecomposition decompose(MeshTopology mesh, int resolution) {
         if (mesh == null) return new PatchDecomposition(0, List.of());
-        if (mesh instanceof ArrayMesh am) return decompose(am, resolution);
-        return decompose(toArrayMesh(mesh), resolution);
-    }
-
-    /**
-     * Build an {@link ArrayMesh} from any {@link MeshTopology}. Uses only the
-     * interface API — works on {@link HalfEdgeMesh}, {@link ArrayMesh},
-     * and any future MeshTopology implementation.
-     *
-     * @param mesh source topology
-     * @return triangle {@link ArrayMesh}; n-gons are fan-triangulated
-     */
-    public static ArrayMesh toArrayMesh(MeshTopology mesh) {
-        int nv = mesh.vertexCount();
-        int nf = mesh.faceCount();
-        float[] positions = new float[nv * 3];
-        float[] normals = new float[nv * 3];
-        // Build id → compact-index mapping via vertexIdAt.
-        int[] idToIndex = new int[nv > 0 ? maxVertexId(mesh) + 1 : 1];
-        Arrays.fill(idToIndex, -1);
-        Vector3f v = new Vector3f();
-        for (int i = 0; i < nv; i++) {
-            int id = mesh.vertexIdAt(i);
-            idToIndex[id] = i;
-            mesh.vertexPosition(id, v);
-            positions[i * 3] = v.x;
-            positions[i * 3 + 1] = v.y;
-            positions[i * 3 + 2] = v.z;
-            mesh.vertexNormal(id, v);
-            normals[i * 3] = v.x;
-            normals[i * 3 + 1] = v.y;
-            normals[i * 3 + 2] = v.z;
-        }
-        // Walk faces, fan-triangulate.
-        int triIndexCount = 0;
-        for (int i = 0; i < nf; i++) {
-            int fid = mesh.faceIdAt(i);
-            int fv = mesh.faceVertexCount(fid);
-            if (fv >= 3) triIndexCount += (fv - 2) * 3;
-        }
-        int[] faceIndices = new int[triIndexCount];
-        int cursor = 0;
-        for (int i = 0; i < nf; i++) {
-            int fid = mesh.faceIdAt(i);
-            int fv = mesh.faceVertexCount(fid);
-            if (fv < 3) continue;
-            int v0 = idToIndex[mesh.faceVertexAt(fid, 0)];
-            for (int k = 1; k + 1 < fv; k++) {
-                faceIndices[cursor++] = v0;
-                faceIndices[cursor++] = idToIndex[mesh.faceVertexAt(fid, k)];
-                faceIndices[cursor++] = idToIndex[mesh.faceVertexAt(fid, k + 1)];
-            }
-        }
-        return new ArrayMesh(positions, normals, faceIndices, 3);
-    }
-
-    private static int maxVertexId(MeshTopology mesh) {
-        int max = -1;
-        int nv = mesh.vertexCount();
-        for (int i = 0; i < nv; i++) {
-            int id = mesh.vertexIdAt(i);
-            if (id > max) max = id;
-        }
-        return max;
-    }
-
-    /**
-     * Run the full skeleton + curvature pipeline and return only the patch result.
-     *
-     * @param mesh triangle mesh
-     * @param resolution TEASAR voxel resolution
-     * @return patch decomposition (per-vertex/face patch ids and palette colours)
-     */
-    public static PatchDecomposition decompose(ArrayMesh mesh, int resolution) {
         return decomposeWithDiagnostics(mesh, resolution).decomposition();
     }
 
     /**
-     * Same as {@link #decompose(ArrayMesh, int)} but also exposes per-stage diagnostics
+     * Same as {@link #decompose(MeshTopology, int)} but also exposes per-stage diagnostics
      * (feature edge sets, Morse-Smale complex, principal-curvature field, etc.) for the
      * overlay renderers.
      *
-     * @param mesh triangle mesh
+     * @param mesh any mesh; per-vertex arrays are indexed by vertex id, per-face ones by
+     *             {@link TriangulationRule#FAN} triangle
      * @param resolution TEASAR voxel resolution
      * @return decomposition plus diagnostic intermediates
      */
-    public static DecompositionDiagnostics decomposeWithDiagnostics(ArrayMesh mesh, int resolution) {
-        int nv = mesh.vertexCount();
-        if (nv == 0) {
+    public static DecompositionDiagnostics decomposeWithDiagnostics(MeshTopology mesh, int resolution) {
+        int nv = mesh.vertexIdBound();
+        if (mesh.vertexCount() == 0) {
             PatchDecomposition empty = new PatchDecomposition(0, List.of());
             return new DecompositionDiagnostics(empty, new int[0],
                     Collections.emptySet(), Collections.emptySet(),
@@ -211,16 +137,15 @@ public final class SemanticPatchDecomposer {
                     new float[0], 0f, null);
         }
 
-        int[] faceIdx = mesh.copyFaceIndices();
+        // Step 2 first: the dihedral map also carries the in-place triangle fan every stage reads.
+        EdgeDihedrals ed = computeEdgeDihedrals(mesh);
+        int[] faceIdx = ed.triangles();
         int faceCount = faceIdx.length / 3;
-        float[] positions = mesh.copyPositions();
+        float[] positions = ed.positions();
 
         // Step 1: skeleton partition.
         SkeletonResult skel = MeshSkeletonExtractor.extract(mesh, resolution);
         int[] vertexBranchId = assignByNearestBranch(mesh, skel);
-
-        // Step 2: per-edge dihedral map + principal-curvature features.
-        EdgeDihedrals ed = computeEdgeDihedrals(mesh);
 
         // Per-vertex principal curvatures (Meyer 2003 cotangent Laplacian for
         // H, angle-defect over barycentric area for K, then κ₁,₂ = H ± √(H² - K)).
@@ -230,8 +155,26 @@ public final class SemanticPatchDecomposer {
         // whose individual edge dihedrals fall below T_FEATURE_RAD but whose
         // aggregate bending at the vertex is significant — notably tooth
         // crown ridges and inter-tooth valleys.
-        float meshExtent = computeMeshExtent(positions);
-        float[] barycentricArea = computeBarycentricAreas(mesh, positions, faceIdx);
+        // Largest axis span over the live vertices.
+        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int i = mesh.vertexIdAt(activeVertex) * 3;
+            float x = positions[i], y = positions[i + 1], z = positions[i + 2];
+            if (x < minX) minX = x; if (y < minY) minY = y; if (z < minZ) minZ = z;
+            if (x > maxX) maxX = x; if (y > maxY) maxY = y; if (z > maxZ) maxZ = z;
+        }
+        float meshExtent = Math.max(maxX - minX, Math.max(maxY - minY, maxZ - minZ));
+        // Per-vertex barycentric area, a third of the incident triangle areas: normalizes the
+        // cotangent-Laplacian H and the angle-defect K so both have units of 1/length.
+        float[] barycentricArea = new float[nv];
+        for (int f = 0; f < faceCount; f++) {
+            int a = faceIdx[f * 3], b = faceIdx[f * 3 + 1], c = faceIdx[f * 3 + 2];
+            float tri = (float) triangleArea(positions, a, b, c);
+            barycentricArea[a] += tri / 3f;
+            barycentricArea[b] += tri / 3f;
+            barycentricArea[c] += tri / 3f;
+        }
         float[] meanH = computeMeanCurvature(mesh, positions, faceIdx, ed, barycentricArea);
         float[] gaussK = computeGaussianCurvature(mesh, positions, faceIdx, barycentricArea);
         float[][] principal = computePrincipalCurvatures(meanH, gaussK);
@@ -242,8 +185,8 @@ public final class SemanticPatchDecomposer {
         // flooding the face with spurious feature cuts that fragment region
         // growing into chaos. Use p95 of the per-vertex |κ₁| / −κ₂
         // distributions so we only promote genuine top-tail curvature.
-        float ridgeT = percentileAbs(kappa1, PRINCIPAL_CURVATURE_PERCENTILE, /*positive=*/true);
-        float valleyT = percentileAbs(kappa2, PRINCIPAL_CURVATURE_PERCENTILE, /*positive=*/false);
+        float ridgeT = percentileAbs(mesh, kappa1, PRINCIPAL_CURVATURE_PERCENTILE, /*positive=*/true);
+        float valleyT = percentileAbs(mesh, kappa2, PRINCIPAL_CURVATURE_PERCENTILE, /*positive=*/false);
         // Safety floor so a mostly-flat mesh doesn't lose the signal.
         float floor = T_PRINCIPAL * (1f / meshExtent);
         ridgeT = Math.max(ridgeT, floor);
@@ -489,15 +432,14 @@ public final class SemanticPatchDecomposer {
             if (faceList.isEmpty()) continue;
 
             boolean[] seenVert = new boolean[nv];
-            int[] faces = new int[faceList.size()];
+            int[] faces = patchFaceIds(faceList, ed.triangleFaces(), splitPatchId);
             float[] centroid = new float[3];
             float curvSum = 0f;
             int curvSamples = 0;
             int vertCount = 0;
             int branchSample = -1;
-            for (int i = 0; i < faces.length; i++) {
+            for (int i = 0; i < faceList.size(); i++) {
                 int f = faceList.get(i);
-                faces[i] = f;
                 if (branchSample == -1) branchSample = faceBranches[f];
                 for (int k = 0; k < 3; k++) {
                     int v = faceIdx[f * 3 + k];
@@ -532,7 +474,7 @@ public final class SemanticPatchDecomposer {
                     color));
         }
 
-        PatchDecomposition decomposition = new PatchDecomposition(nv, out);
+        PatchDecomposition decomposition = new PatchDecomposition(mesh.vertexCount(), out);
 
         // Patch-boundary edges: any edge whose two adjacent faces end up in
         // different final patches. Compared against the three feature-edge
@@ -597,10 +539,8 @@ public final class SemanticPatchDecomposer {
 
     // ---------- Step 1: nearest-branch vertex assignment ----------
 
-    private static int[] assignByNearestBranch(ArrayMesh mesh, SkeletonResult skel) {
-        int nv = mesh.vertexCount();
-        float[] positions = mesh.copyPositions();
-        int[] out = new int[nv];
+    private static int[] assignByNearestBranch(MeshTopology mesh, SkeletonResult skel) {
+        int[] out = new int[mesh.vertexIdBound()];
         if (skel.branches().isEmpty()) {
             Arrays.fill(out, 0);
             return out;
@@ -624,10 +564,13 @@ public final class SemanticPatchDecomposer {
                 idx++;
             }
         }
-        for (int v = 0; v < nv; v++) {
-            float px = positions[v * 3];
-            float py = positions[v * 3 + 1];
-            float pz = positions[v * 3 + 2];
+        Vector3f position = new Vector3f();
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            mesh.vertexPosition(vertexId, position);
+            float px = position.x;
+            float py = position.y;
+            float pz = position.z;
             int bestBranch = jb[0];
             float bestScore = Float.MAX_VALUE;
             for (int k = 0; k < totalJoints; k++) {
@@ -642,22 +585,94 @@ public final class SemanticPatchDecomposer {
                     bestBranch = jb[k];
                 }
             }
-            out[v] = bestBranch;
+            out[vertexId] = bestBranch;
         }
         return out;
     }
 
     /**
-     * Build the per-edge / per-face structures used by curvature and feature-edge
-     * detection: face normals, the edge → incident-faces map, and the edge dihedral angle.
+     * Vertex positions read in place and indexed by vertex id: vertex {@code vertexId} sits at
+     * {@code 3 * vertexId}, and the slots of ids the mesh no longer uses stay zero.
      *
-     * @param mesh triangle mesh
+     * @param mesh mesh to read
+     * @return a new array of {@code 3 * mesh.vertexIdBound()} floats
+     */
+    public static float[] positionsById(MeshTopology mesh) {
+        float[] positions = new float[mesh.vertexIdBound() * 3];
+        Vector3f position = new Vector3f();
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            mesh.vertexPosition(vertexId, position);
+            positions[vertexId * 3] = position.x;
+            positions[vertexId * 3 + 1] = position.y;
+            positions[vertexId * 3 + 2] = position.z;
+        }
+        return positions;
+    }
+
+    /**
+     * A patch's fan triangles as the face ids they came from, each face once. A face whose fan
+     * triangles landed in several patches belongs to the patch holding most of them, the lowest
+     * patch id on a tie, so every face is in exactly one patch.
+     *
+     * @param triangles       the patch's fan triangles in ascending order
+     * @param triangleFaces   face id per fan triangle, as {@link MeshTopology#triangulate} reports
+     *                        them (a face's triangles are consecutive)
+     * @param patchOfTriangle patch id per fan triangle, negative for a triangle in no patch
+     * @return the face ids this patch owns
+     */
+    public static int[] patchFaceIds(List<Integer> triangles, int[] triangleFaces,
+            int[] patchOfTriangle) {
+        int[] faceIds = new int[triangles.size()];
+        int count = 0;
+        int previousFace = MeshTopology.NONE;
+        for (int triangle : triangles) {
+            int faceId = triangleFaces[triangle];
+            if (faceId == previousFace) {
+                continue;
+            }
+            previousFace = faceId;
+            int first = triangle;
+            while (first > 0 && triangleFaces[first - 1] == faceId) {
+                first--;
+            }
+            int end = triangle + 1;
+            while (end < triangleFaces.length && triangleFaces[end] == faceId) {
+                end++;
+            }
+            int owner = MeshTopology.NONE;
+            int ownerVotes = 0;
+            for (int candidate = first; candidate < end; candidate++) {
+                int patch = patchOfTriangle[candidate];
+                int votes = 0;
+                for (int other = first; other < end; other++) {
+                    votes += patchOfTriangle[other] == patch ? 1 : 0;
+                }
+                if (patch >= 0 && (votes > ownerVotes || votes == ownerVotes && patch < owner)) {
+                    owner = patch;
+                    ownerVotes = votes;
+                }
+            }
+            if (owner == patchOfTriangle[triangle]) {
+                faceIds[count++] = faceId;
+            }
+        }
+        return Arrays.copyOf(faceIds, count);
+    }
+
+    /**
+     * Build the per-edge / per-face structures used by curvature and feature-edge detection over
+     * the mesh's in-place triangle fan: face normals, the edge → incident-triangles map, and the
+     * edge dihedral angle, keyed by vertex id.
+     *
+     * @param mesh any mesh
      * @return {@link EdgeDihedrals} bundle
      */
-    public static EdgeDihedrals computeEdgeDihedrals(ArrayMesh mesh) {
-        int[] faceIdx = mesh.copyFaceIndices();
+    public static EdgeDihedrals computeEdgeDihedrals(MeshTopology mesh) {
+        int[] triangleFaces = new int[mesh.triangleCount()];
+        int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, triangleFaces);
         int faceCount = faceIdx.length / 3;
-        float[] positions = mesh.copyPositions();
+        float[] positions = positionsById(mesh);
         float[] faceN = new float[faceCount * 3];
         for (int f = 0; f < faceCount; f++) {
             int a = faceIdx[f * 3] * 3;
@@ -706,15 +721,15 @@ public final class SemanticPatchDecomposer {
             float dihedral = (float) Math.acos(dot);
             dihedrals.put(e.getKey(), dihedral);
         }
-        return new EdgeDihedrals(edgeFaces, dihedrals, faceN);
+        return new EdgeDihedrals(edgeFaces, dihedrals, faceN, positions, faceIdx, triangleFaces);
     }
 
     /**
      * Average dihedral angle per vertex, computed from a precomputed {@link EdgeDihedrals}.
      *
      * @param ed precomputed edge / dihedral data
-     * @param vertexCount mesh vertex count (defines the output length)
-     * @return per-vertex mean dihedral, zero for vertices with no incident interior edge
+     * @param vertexCount output length: the mesh's {@link MeshTopology#vertexIdBound()}
+     * @return mean dihedral by vertex id, zero for vertices with no incident interior edge
      */
     public static float[] vertexCurvatureFrom(EdgeDihedrals ed, int vertexCount) {
         float[] accum = new float[vertexCount];
@@ -740,11 +755,11 @@ public final class SemanticPatchDecomposer {
      * Backward-compatible entry point: produces per-vertex mean dihedral,
      * same shape and values as the pre-refactor computeVertexCurvature.
      *
-     * @param mesh triangle mesh
-     * @return per-vertex mean dihedral angle (length {@code mesh.vertexCount()})
+     * @param mesh any mesh
+     * @return mean dihedral angle by vertex id (length {@code mesh.vertexIdBound()})
      */
-    public static float[] computeVertexCurvature(ArrayMesh mesh) {
-        return vertexCurvatureFrom(computeEdgeDihedrals(mesh), mesh.vertexCount());
+    public static float[] computeVertexCurvature(MeshTopology mesh) {
+        return vertexCurvatureFrom(computeEdgeDihedrals(mesh), mesh.vertexIdBound());
     }
 
     // ---------- Step 3: concavity detection ----------
@@ -755,13 +770,13 @@ public final class SemanticPatchDecomposer {
      * Strongly negative K marks a concave saddle/bowl vertex; strongly
      * positive marks a sharp convex point.
      *
-     * @param mesh triangle mesh (used only for vertex count)
-     * @param positions packed XYZ vertex positions
-     * @param faceIdx flat triangle index buffer
-     * @return per-vertex angle defect (signed, in radians)
+     * @param mesh mesh (used only for its vertex id bound)
+     * @param positions XYZ vertex positions by vertex id
+     * @param faceIdx flat triangle index buffer of vertex ids
+     * @return angle defect by vertex id (signed, in radians)
      */
-    private static float[] computeAngleDefect(ArrayMesh mesh, float[] positions, int[] faceIdx) {
-        int nv = mesh.vertexCount();
+    private static float[] computeAngleDefect(MeshTopology mesh, float[] positions, int[] faceIdx) {
+        int nv = mesh.vertexIdBound();
         int faceCount = faceIdx.length / 3;
         float[] defect = new float[nv];
         Arrays.fill(defect, (float) (2 * Math.PI));
@@ -811,41 +826,6 @@ public final class SemanticPatchDecomposer {
         return values[idx];
     }
 
-    private static float computeMeshExtent(float[] positions) {
-        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
-        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
-        for (int i = 0; i < positions.length; i += 3) {
-            float x = positions[i], y = positions[i + 1], z = positions[i + 2];
-            if (x < minX) minX = x; if (y < minY) minY = y; if (z < minZ) minZ = z;
-            if (x > maxX) maxX = x; if (y > maxY) maxY = y; if (z > maxZ) maxZ = z;
-        }
-        return Math.max(maxX - minX, Math.max(maxY - minY, maxZ - minZ));
-    }
-
-    /**
-     * Per-vertex barycentric area: ⅓ · (sum of incident triangle areas). Used
-     * to normalize the cotangent Laplacian mean curvature and the angle-defect
-     * Gaussian curvature so both have units of 1/length.
-     *
-     * @param mesh triangle mesh (used only for vertex count)
-     * @param positions packed XYZ vertex positions
-     * @param faceIdx flat triangle index buffer
-     * @return per-vertex barycentric area
-     */
-    private static float[] computeBarycentricAreas(ArrayMesh mesh, float[] positions, int[] faceIdx) {
-        int nv = mesh.vertexCount();
-        int faceCount = faceIdx.length / 3;
-        float[] A = new float[nv];
-        for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f * 3], b = faceIdx[f * 3 + 1], c = faceIdx[f * 3 + 2];
-            float tri = (float) triangleArea(positions, a, b, c);
-            A[a] += tri / 3f;
-            A[b] += tri / 3f;
-            A[c] += tri / 3f;
-        }
-        return A;
-    }
-
     /**
      * Cotangent-Laplacian mean curvature, signed positive where the curvature vector runs along the
      * outward normal and negative where it opposes it. A boundary edge contributes only one
@@ -861,9 +841,9 @@ public final class SemanticPatchDecomposer {
      * @return signed per-vertex mean curvature {@code H} in 1/length units
      */
     private static float[] computeMeanCurvature(
-            ArrayMesh mesh, float[] positions, int[] faceIdx,
+            MeshTopology mesh, float[] positions, int[] faceIdx,
             EdgeDihedrals ed, float[] barycentricArea) {
-        int nv = mesh.vertexCount();
+        int nv = mesh.vertexIdBound();
         int faceCount = faceIdx.length / 3;
         // Per-vertex mean-curvature vector components.
         float[] hx = new float[nv];
@@ -886,7 +866,25 @@ public final class SemanticPatchDecomposer {
         }
         // Normalize by 1/(2 A_v) and compute signed magnitude via dot with
         // vertex normal (we reuse face normals averaged per vertex).
-        float[] vertexNormals = averageFaceNormalsPerVertex(mesh, faceIdx, ed.faceNormals());
+        float[] faceNormals = ed.faceNormals();
+        float[] vertexNormals = new float[nv * 3];
+        for (int f = 0; f < faceCount; f++) {
+            for (int k = 0; k < 3; k++) {
+                int v = faceIdx[f * 3 + k];
+                vertexNormals[v * 3]     += faceNormals[f * 3];
+                vertexNormals[v * 3 + 1] += faceNormals[f * 3 + 1];
+                vertexNormals[v * 3 + 2] += faceNormals[f * 3 + 2];
+            }
+        }
+        for (int v = 0; v < nv; v++) {
+            float nx = vertexNormals[v * 3], ny = vertexNormals[v * 3 + 1], nz = vertexNormals[v * 3 + 2];
+            float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+            if (len > VECTOR_LENGTH_EPSILON) {
+                vertexNormals[v * 3]     = nx / len;
+                vertexNormals[v * 3 + 1] = ny / len;
+                vertexNormals[v * 3 + 2] = nz / len;
+            }
+        }
         float[] meanH = new float[nv];
         for (int v = 0; v < nv; v++) {
             float Av = Math.max(barycentricArea[v], MIN_BARYCENTRIC_AREA);
@@ -933,30 +931,6 @@ public final class SemanticPatchDecomposer {
         return dot / crossLen;
     }
 
-    private static float[] averageFaceNormalsPerVertex(ArrayMesh mesh, int[] faceIdx, float[] faceNormals) {
-        int nv = mesh.vertexCount();
-        int faceCount = faceIdx.length / 3;
-        float[] out = new float[nv * 3];
-        for (int f = 0; f < faceCount; f++) {
-            for (int k = 0; k < 3; k++) {
-                int v = faceIdx[f * 3 + k];
-                out[v * 3]     += faceNormals[f * 3];
-                out[v * 3 + 1] += faceNormals[f * 3 + 1];
-                out[v * 3 + 2] += faceNormals[f * 3 + 2];
-            }
-        }
-        for (int v = 0; v < nv; v++) {
-            float nx = out[v * 3], ny = out[v * 3 + 1], nz = out[v * 3 + 2];
-            float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (len > VECTOR_LENGTH_EPSILON) {
-                out[v * 3]     = nx / len;
-                out[v * 3 + 1] = ny / len;
-                out[v * 3 + 2] = nz / len;
-            }
-        }
-        return out;
-    }
-
     /**
      * Per-vertex Gaussian curvature K = (2π - Σθ)/A_v, using the same
      * barycentric area normalization as mean curvature so the κ₁,₂ formula
@@ -969,9 +943,9 @@ public final class SemanticPatchDecomposer {
      * @return per-vertex Gaussian curvature {@code K} in 1/length^2 units
      */
     private static float[] computeGaussianCurvature(
-            ArrayMesh mesh, float[] positions, int[] faceIdx, float[] barycentricArea) {
+            MeshTopology mesh, float[] positions, int[] faceIdx, float[] barycentricArea) {
         float[] defect = computeAngleDefect(mesh, positions, faceIdx);
-        int nv = mesh.vertexCount();
+        int nv = mesh.vertexIdBound();
         float[] K = new float[nv];
         for (int v = 0; v < nv; v++) {
             float Av = Math.max(barycentricArea[v], MIN_BARYCENTRIC_AREA);
@@ -1034,19 +1008,21 @@ public final class SemanticPatchDecomposer {
      * Percentile over either the positive side ({@code positive=true}, for
      * {@code |κ₁|} / ridge magnitude) or the negated values ({@code
      * positive=false}, for {@code −κ₂} / valley depth) of a per-vertex
-     * curvature array. Used to derive mesh-adaptive thresholds.
+     * curvature array over the mesh's live vertices. Used to derive mesh-adaptive thresholds.
      *
-     * @param values per-vertex curvature array
+     * @param mesh mesh whose live vertex ids select the samples
+     * @param values curvature by vertex id
      * @param pct percentile in [0, 1]
      * @param positive {@code true} to take {@code max(value, 0)}, {@code false} to take {@code max(-value, 0)}
      * @return value at the requested percentile, 0 for an empty input
      */
-    private static float percentileAbs(float[] values, float pct, boolean positive) {
-        int n = values.length;
+    private static float percentileAbs(MeshTopology mesh, float[] values, float pct, boolean positive) {
+        int n = mesh.vertexCount();
         if (n == 0) return 0f;
         float[] copy = new float[n];
         for (int i = 0; i < n; i++) {
-            copy[i] = positive ? Math.max(values[i], 0f) : Math.max(-values[i], 0f);
+            float value = values[mesh.vertexIdAt(i)];
+            copy[i] = positive ? Math.max(value, 0f) : Math.max(-value, 0f);
         }
         Arrays.sort(copy);
         int idx = Math.min(n - 1, Math.max(0, Math.round((n - 1) * pct)));
@@ -1067,7 +1043,7 @@ public final class SemanticPatchDecomposer {
      * @return per-vertex component id, or {@code -1} for vertices not in any kept component
      */
     private static int[] concavityVertexComponents(
-            float[] defect, ArrayMesh mesh, int[] faceIdx, int faceCount,
+            float[] defect, MeshTopology mesh, int[] faceIdx, int faceCount,
             int vertexCount, int[][] faceAdj) {
         // Build vertex → vertex adjacency (undirected) from triangle edges.
         boolean[] isSeed = new boolean[vertexCount];
@@ -1817,10 +1793,9 @@ public final class SemanticPatchDecomposer {
     }
 
     /**
-     * Per-stage edge sets and the final face-to-patch mapping, for diagnosis. Edges are keyed by
-     * {@link #edgeKey(int, int)}. The dihedral, principal and crest sets are the per-source
-     * detections; {@code unionFeatureEdges} is what {@code featureCutAdjacency} cuts on, and
-     * {@code patchBoundaryEdges} is where adjacent faces ended in different patches.
+     * Per-source feature edge sets, the cut set and patch boundaries (vertex-id {@link #edgeKey}s),
+     * the patch of each {@link TriangulationRule#FAN} triangle, and Coons error by vertex id, for
+     * diagnosis.
      */
     public static record DecompositionDiagnostics(
             PatchDecomposition decomposition,
@@ -1852,12 +1827,15 @@ public final class SemanticPatchDecomposer {
     // ---------- Step 2: edge dihedrals + vertex curvature ----------
 
     /**
-     * Per-edge dihedral angle and the pair of faces incident to each edge,
-     * plus per-face normals. Shared input to feature detection, vertex
-     * curvature, and face adjacency.
+     * Edge dihedrals, incident triangles and triangle normals over the mesh's
+     * {@link TriangulationRule#FAN} triangles in active-face order: edges keyed by
+     * {@link EdgeKey#undirected} of vertex ids, positions by vertex id, each triangle's face id.
      */
     public static record EdgeDihedrals(
             Map<Long, int[]> edgeFaces,
             Map<Long, Float> dihedralByEdge,
-            float[] faceNormals) {}
+            float[] faceNormals,
+            float[] positions,
+            int[] triangles,
+            int[] triangleFaces) {}
 }
