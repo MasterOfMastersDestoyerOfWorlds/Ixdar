@@ -84,11 +84,8 @@ public class RoutePlanningTool implements Tool {
     private City selectedCityA;
     private City selectedCityB;
 
-    
-    private Knot currentRoute;
 
-    
-    private Knot currentViewKnot; 
+    private Knot currentViewKnot;
     private ArrayList<Knot> hierarchyPath = new ArrayList<>(); 
 
 
@@ -129,7 +126,7 @@ public class RoutePlanningTool implements Tool {
     @Override
     public void drawOverlay(Camera2D camera, float lineThickness) {
         City hoveredCity = tradeScene.hoveredCity;
-        
+        Knot currentRoute = getCurrentRoute();
         if (currentRoute != null) {
             drawKnot(camera, currentRoute, ROUTE_COLOR);
         }
@@ -364,7 +361,7 @@ public class RoutePlanningTool implements Tool {
     }
 
     private void handleIdleClick(City city) {
-        syncRouteReference();
+        Knot currentRoute = getCurrentRoute();
         switch (currentMode) {
         case PIPE:
             
@@ -460,8 +457,8 @@ public class RoutePlanningTool implements Tool {
     }
 
     private void computeDefaultPipeEdges() {
-        
-        if (currentRoute == null) {
+
+        if (getCurrentRoute() == null) {
             selectedEdgeA = null;
             selectedEdgeB = null;
             return;
@@ -473,6 +470,7 @@ public class RoutePlanningTool implements Tool {
     }
 
     private void computeDefaultGrowEdge() {
+        Knot currentRoute = getCurrentRoute();
         if (currentRoute == null || selectedCityB == null) {
             selectedEdgeA = null;
             return;
@@ -559,7 +557,7 @@ public class RoutePlanningTool implements Tool {
             network.initTradeRoutes();
         }
 
-        
+        Knot currentRoute = getCurrentRoute();
         if (currentRoute != null && selectedCityA == null && selectedCityB != null) {
             Knot knotB = network.getKnotForCity(selectedCityB);
             if (knotB != null && knotB.isSingleton()) {
@@ -592,11 +590,8 @@ public class RoutePlanningTool implements Tool {
             System.out.println("Creating initial route: " + selectedCityA.name + " <-> " + selectedCityB.name);
 
             PipeRecord record = Knot.pipeSimple(knotA, knotB);
-            currentRoute = record.resultKnot;
-            setCurrentRoute(currentRoute);
-
             history.push(record.getDescription(), record, record);
-            System.out.println("Route created! Loop has " + currentRoute.manifoldSegments.size() + SEGMENTS);
+            viewRoute();
         } else {
             
             System.out.println("Piping " + selectedCityB.name + " to route");
@@ -613,15 +608,15 @@ public class RoutePlanningTool implements Tool {
                 
                 PipeRecord record = Knot.pipe(currentRoute, knotB, selectedEdgeA, selectedEdgeB);
                 if (record != null) {
-                    currentRoute = record.resultKnot;
-                    setCurrentRoute(currentRoute);
                     history.push(record.getDescription(), record, record);
+                    viewRoute();
                 }
             }
         }
     }
 
     private void executeGrow() {
+        Knot currentRoute = getCurrentRoute();
         if (currentRoute == null || selectedCityB == null) {
             return;
         }
@@ -655,7 +650,7 @@ public class RoutePlanningTool implements Tool {
     }
 
     private void executeCollapse() {
-        if (currentRoute == null || selectedCityA == null || selectedCityB == null) {
+        if (getCurrentRoute() == null || selectedCityA == null || selectedCityB == null) {
             return;
         }
 
@@ -667,29 +662,27 @@ public class RoutePlanningTool implements Tool {
     }
 
     /**
-     * Undo the most recent route operation if the operation stack permits,
-     * resyncing the live route reference around the change.
+     * Undo the most recent route operation if the operation stack permits, then view the route
+     * the operation before it left.
      */
     public void undo() {
-        syncRouteReference();
         OperationRecord record = history.undo();
         if (record != null) {
             record.undo();
-            syncRouteReference();
+            viewRoute();
             System.out.println("Undo: " + record.getDescription());
         }
     }
 
     /**
-     * Redo the most recently undone route operation if the operation stack
-     * permits, resyncing the live route reference around the change.
+     * Redo the most recently undone route operation if the operation stack permits, then view the
+     * route it leaves.
      */
     public void redo() {
-        syncRouteReference();
         OperationRecord record = history.redo();
         if (record != null) {
             record.redo();
-            syncRouteReference();
+            viewRoute();
             System.out.println("Redo: " + record.getDescription());
         }
     }
@@ -760,14 +753,15 @@ public class RoutePlanningTool implements Tool {
     }
 
     /**
-     * Set the root route and initialize view at top level.
-     *
-     * @param route the root route knot
+     * View the route the history leaves at its top level; with no route left, drop the
+     * operation in progress, whose selection named its cities.
      */
-    public void setCurrentRoute(Knot route) {
-        this.currentRoute = route;
-        this.currentViewKnot = route;
+    private void viewRoute() {
+        currentViewKnot = getCurrentRoute();
         rebuildHierarchyPath();
+        if (currentViewKnot == null) {
+            resetOperation();
+        }
     }
 
     /**
@@ -881,20 +875,6 @@ public class RoutePlanningTool implements Tool {
         selectedCityA = null;
         selectedCityB = null;
         state = OperationState.IDLE;
-    }
-
-    private void syncRouteReference() {
-        if (currentRoute == null) {
-            return;
-        }
-        boolean routeCleared = currentRoute.manifoldSegments == null || currentRoute.manifoldSegments.isEmpty();
-        boolean routeMissingPoints = currentRoute.knotPoints == null || currentRoute.knotPoints.isEmpty();
-        if (routeCleared && routeMissingPoints) {
-            currentRoute = null;
-            currentViewKnot = null;
-            hierarchyPath.clear();
-            resetOperation();
-        }
     }
 
     
@@ -1107,12 +1087,13 @@ public class RoutePlanningTool implements Tool {
     }
 
     /**
-     * Get the current route.
+     * The route the last applied operation left, read off the history so undo and redo cannot
+     * leave it stale.
      *
-     * @return the current route knot, or null
+     * @return the current route knot, or null when no operation is applied
      */
     public Knot getCurrentRoute() {
-        return currentRoute;
+        return history.undoDepth == 0 ? null : history.statesAfter.get(history.undoDepth - 1).route();
     }
 
     /**
@@ -1163,7 +1144,7 @@ public class RoutePlanningTool implements Tool {
         HyperString h = new HyperString();
 
         
-        if (currentRoute != null && !hierarchyPath.isEmpty()) {
+        if (getCurrentRoute() != null && !hierarchyPath.isEmpty()) {
             h.addWord("Route: ", Color.GREY_DARK);
             h.addWord(getHierarchyPathString(), Color.YELLOW);
             if (canNavigateUp()) {
@@ -1182,7 +1163,7 @@ public class RoutePlanningTool implements Tool {
         case IDLE:
             switch (currentMode) {
             case PIPE:
-                if (currentRoute == null) {
+                if (getCurrentRoute() == null) {
                     h.addWord("Click HQ to start a route", Color.WHITE);
                 } else {
                     h.addWord("Click a city to pipe", Color.WHITE);

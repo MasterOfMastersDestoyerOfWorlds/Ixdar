@@ -17,6 +17,13 @@ public abstract class OperationRecord {
     public abstract void redo();
 
     /**
+     * The route knot this operation built or edited, the route while it is the last one applied.
+     *
+     * @return the knot holding the operation's segments
+     */
+    public abstract Knot route();
+
+    /**
      * Get a human-readable description of this operation.
      *
      * @return description string for UI display

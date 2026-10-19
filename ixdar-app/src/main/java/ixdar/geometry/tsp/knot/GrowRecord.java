@@ -128,6 +128,16 @@ public class GrowRecord extends OperationRecord {
         modifiedKnot.maxMatches++;
     }
 
+    /**
+     * The knot the point was grown into.
+     *
+     * @return the modified knot
+     */
+    @Override
+    public Knot route() {
+        return modifiedKnot;
+    }
+
     @Override
     public String getDescription() {
         if (insertedPoint != null) {

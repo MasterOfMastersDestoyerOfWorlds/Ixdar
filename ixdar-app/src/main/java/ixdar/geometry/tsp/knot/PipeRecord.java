@@ -252,6 +252,16 @@ public class PipeRecord extends OperationRecord {
         resultKnot.sortedSegments.sort(null);
     }
 
+    /**
+     * The knot the pipe made or added to.
+     *
+     * @return the result knot
+     */
+    @Override
+    public Knot route() {
+        return resultKnot;
+    }
+
     @Override
     public String getDescription() {
         switch (type) {

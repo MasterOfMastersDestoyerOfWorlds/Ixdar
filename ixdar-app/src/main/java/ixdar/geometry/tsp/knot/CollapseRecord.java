@@ -181,6 +181,16 @@ public class CollapseRecord extends OperationRecord {
         return null;
     }
 
+    /**
+     * The knot holding both ends of the collapse, where its direct connection lives.
+     *
+     * @return the common parent of the start and end knots, or null if they share none
+     */
+    @Override
+    public Knot route() {
+        return findCommonParent(startKnot, endKnot);
+    }
+
     @Override
     public String getDescription() {
         int numKnots = pathKnots.size();
