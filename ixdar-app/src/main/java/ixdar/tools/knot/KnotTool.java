@@ -17,7 +17,7 @@ import ixdar.tools.ControlHint;
 import ixdar.tools.Tool;
 
 /**
- * Base of the tour editor's four knot tools: the segment and endpoints a tool shows and has
+ * Base of the knot editor's four knot tools: the segment and endpoints a tool shows and has
  * selected. It sits here, not on {@link MainScene}, because each tool resets it on activation and
  * moves it its own way.
  */

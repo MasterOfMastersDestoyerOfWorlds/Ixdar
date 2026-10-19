@@ -51,7 +51,7 @@ public class ResetCommand extends TerminalCommand {
      */
     @Override
     public String usage() {
-        return "usage: rst|reset camera|tool|all";
+        return "usage: rst|reset camera|tool|toggles|all";
     }
 
     /**
@@ -65,26 +65,34 @@ public class ResetCommand extends TerminalCommand {
     }
 
     /**
-     * Apply the reset action selected by {@code option} to the appropriate sub-system(s) of
-     * {@code editor}.
+     * Reset the sub-system {@code option} names: the camera, the active tool's selection, the
+     * toggles, or all three with the default tool made active again.
      *
      * @param option which target to reset (camera, tool, toggles, or all)
-     * @param editor the editor whose camera and tool are reset
+     * @param editor the editor whose camera, tool or toggles are reset
      */
     public static void run(ResetOption option, MainScene editor) {
         switch (option) {
         case All:
             editor.editorCamera.reset();
-            editor.activeTool.deactivate();
-            editor.activeTool.activate();
+            if (editor.activeTool == editor.defaultTool) {
+                editor.activeTool.deactivate();
+                editor.activeTool.activate();
+            } else {
+                editor.switchTool(editor.defaultTool);
+            }
+            Toggle.resetAll();
             break;
         case Camera:
             editor.editorCamera.reset();
+            break;
         case Tool:
             editor.activeTool.deactivate();
             editor.activeTool.activate();
+            break;
         case Toggles:
             Toggle.resetAll();
+            break;
         default:
             break;
         }

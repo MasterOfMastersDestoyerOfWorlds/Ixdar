@@ -20,7 +20,7 @@ import ixdar.platform.input.Keys;
 import ixdar.scenes.main.MainScene;
 
 /**
- * A key handler driving an orbit camera ignores every shortcut that belongs to the tour editor
+ * A key handler driving an orbit camera ignores every shortcut that belongs to the knot editor
  * ({@link MainScene}): pressing one throws nothing, changes no toggle and leaves no key held.
  */
 class KeyGuyMainSceneShortcutsTest {

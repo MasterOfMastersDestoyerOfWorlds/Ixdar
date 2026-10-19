@@ -19,7 +19,7 @@ import ixdar.scenes.menu.MenuScene;
 import ixdar.tools.ControlHint;
 
 /**
- * The key handler fires a scene's control rows the way the tour editor's keys always fired: a
+ * The key handler fires a scene's control rows the way the knot editor's keys always fired: a
  * plain row stays silent under Control in every scene, a Control row needs Control, and
  * a repeating row refires while held once the repeat interval has passed.
  */

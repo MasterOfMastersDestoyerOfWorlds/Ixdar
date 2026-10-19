@@ -385,7 +385,7 @@ public class MainScene extends Scene {
         controls.add(new ControlHint(Keys.U, "U", "write the tour back to its file",
                 Toggle.IsMainFocused.gate(() -> Terminal.runNoArgs(UpdateCommand.class))));
         controls.add(new ControlHint(Keys.R, "R", "reset the camera, the tool and the toggles",
-                Toggle.IsMainFocused.gate(() -> ResetCommand.run(ResetOption.Camera, this))));
+                Toggle.IsMainFocused.gate(() -> ResetCommand.run(ResetOption.All, this))));
         controls.add(new ControlHint(Keys.ESCAPE, "esc", "back to " + toolLabel(defaultTool) + ", else leave",
                 this::back));
     }

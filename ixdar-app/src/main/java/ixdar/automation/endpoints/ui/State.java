@@ -457,6 +457,17 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             root.add("collection", collection);
         }
 
+        if (runtime.canvas instanceof MainScene editor && editor.activeTool != null) {
+            JsonObject knotEditor = new JsonObject();
+            knotEditor.addProperty(ACTIVE_TOOL, editor.activeTool.toolName());
+            JsonObject toggles = new JsonObject();
+            for (Toggle toggle : Toggle.values()) {
+                toggles.addProperty(toggle.shortName, toggle.value);
+            }
+            knotEditor.add("toggles", toggles);
+            root.add("knotEditor", knotEditor);
+        }
+
         JsonArray textElements = new JsonArray();
         if (runtime.canvas != null && runtime.canvas.sceneTerminal != null) {
             textElements.add(
@@ -591,7 +602,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 .description("Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.")
                 .responseHint("{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, "
                         + "menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, "
-                        + "mode, trade, irregularGrid?, mesh?, ring?, collection?, textElements, menuItems, "
+                        + "mode, trade, irregularGrid?, mesh?, ring?, collection?, knotEditor?, textElements, menuItems, "
                         + "controls, audio}")
                 .build();
     }
