@@ -1,6 +1,5 @@
 package ixdar.graphics.render.model;
 
-import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -12,7 +11,6 @@ import java.util.Map;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
-import org.lwjgl.BufferUtils;
 
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.bundle.CornerUvSplit;
@@ -27,8 +25,6 @@ import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.MeshLineShader;
 import ixdar.graphics.render.shaders.ShaderProgram;
-import ixdar.graphics.render.shaders.VertexArrayObject;
-import ixdar.graphics.render.shaders.VertexBufferObject;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.GL;
@@ -77,6 +73,9 @@ public class HalfEdgeMeshRuntime {
 
     public static final int PICK_ID_MASK = 0xFFFFFF;
 
+    public static final VertexLayout FACE_PICK_LAYOUT =
+            new VertexLayout(new int[] {0, 1}, new int[] {COORDINATES_PER_VERTEX, COORDINATES_PER_VERTEX});
+
     /** Draws every overlay line: discards fragments on surface facing away from the camera. */
     public final MeshLineShader lineShader;
 
@@ -85,6 +84,15 @@ public class HalfEdgeMeshRuntime {
 
     /** Finds the faces under free-form lines on {@link #surfaceMesh}; built on first use. */
     public SurfaceFaceLocator surfaceFaceLocator;
+
+    /** The welded surface: position, normal and two pads per vertex, fan-triangulated faces. */
+    public final VertexBuffer surface = new VertexBuffer();
+
+    /** The textured draw's UV-split vertices, faces grouped into one index range per material. */
+    public final VertexBuffer textured = new VertexBuffer();
+
+    /** The face-id draw: every shown face's corners with its id as a colour, unindexed. */
+    public final VertexBuffer facePick = new VertexBuffer();
 
     /** Every mesh edge as a surface line, for the wireframe. */
     public final VertexBuffer edgeLines = new VertexBuffer();
@@ -106,7 +114,6 @@ public class HalfEdgeMeshRuntime {
     private final ShaderProgram meshScalarShader;
     private final Matrix4f modelMatrix = new Matrix4f();
     private final Matrix4f tagModelMatrix = new Matrix4f();
-    private final Matrix4f projectionMatrix = new Matrix4f();
     private final Vector4f edgeColor = Color.RED.toVector4f();
     private final Vector3f lightDir = new Vector3f(0.4f, -1.0f, 0.25f);
     private final Vector3f emissiveColor = Color.BLUE_GREY.toVector3f();
@@ -114,11 +121,7 @@ public class HalfEdgeMeshRuntime {
     private final Vector3f maxBounds = new Vector3f();
     private final Vector3f center = new Vector3f();
 
-    private IntBuffer indexBuffer;
     private HalfEdgeCompiledMeshData compiledMesh;
-    private final VertexArrayObject meshVao;
-    private final VertexBufferObject meshVbo;
-    private int ebo;
     private List<FeatureEdgeRange> featureEdgeRanges = List.of();
     private int scalarVbo;
     private boolean scalarUploaded = false;
@@ -133,23 +136,14 @@ public class HalfEdgeMeshRuntime {
     private Texture[] materialTextures = new Texture[0];
     private int[] materialRangeStart = new int[0];
     private int[] materialRangeCount = new int[0];
-    private final VertexArrayObject texturedVao;
-    private final VertexBufferObject texturedVbo;
-    private int texturedEbo;
-    private int texturedIndexCount;
 
     private final ShaderProgram meshPickShader;
-    private final VertexArrayObject pickVao;
-    private final VertexBufferObject pickPositionVbo;
-    private final VertexBufferObject pickIdVbo;
-    private int pickVertexCount;
     private int pickFaceCount;
-    private final Vector4f projectedPoint = new Vector4f();
 
     /**
-     * Build the runtime: allocate the mesh shader programs (lit, unlit, scalar, line), the
-     * shared VAO/VBO, and the buffer names for triangles and the per-vertex scalar attribute. No
-     * mesh is uploaded yet — call {@link #upload(MeshTopology)}.
+     * Build the runtime: allocate the mesh shader programs (lit, unlit, scalar, line, pick) and
+     * the buffer name for the per-vertex scalar attribute. No mesh is uploaded yet — call
+     * {@link #upload(MeshTopology)}.
      */
     public HalfEdgeMeshRuntime() {
         this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
@@ -160,18 +154,9 @@ public class HalfEdgeMeshRuntime {
         this.meshUnlitShader.init();
         this.meshScalarShader.init();
         this.lineShader.init();
-        this.meshVao = new VertexArrayObject();
-        this.meshVbo = new VertexBufferObject();
-        this.ebo = Platforms.gl().genBuffers();
         this.scalarVbo = Platforms.gl().genBuffers();
-        this.texturedVao = new VertexArrayObject();
-        this.texturedVbo = new VertexBufferObject();
-        this.texturedEbo = Platforms.gl().genBuffers();
         this.meshPickShader = ShaderProgram.ShaderType.MeshPick.getShader();
         this.meshPickShader.init();
-        this.pickVao = new VertexArrayObject();
-        this.pickPositionVbo = new VertexBufferObject();
-        this.pickIdVbo = new VertexBufferObject();
     }
 
     /**
@@ -303,22 +288,8 @@ public class HalfEdgeMeshRuntime {
             interleaved[target + 7] = splitUv[vertex * CornerUvSplit.COMPONENTS_PER_VERTEX + 1];
         }
 
-        GL gl = Platforms.gl();
-        texturedVao.bind();
-        texturedVbo.bind(gl.ARRAY_BUFFER());
-        texturedVbo.uploadData(gl.ARRAY_BUFFER(), interleaved, gl.STATIC_DRAW());
-        gl.vertexAttribPointer(0, VEC3_SIZE, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, 0);
-        gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(1, VEC3_SIZE, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, VEC3_SIZE * Float.BYTES);
-        gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, UV_OFFSET * Float.BYTES);
-        gl.enableVertexAttribArray(2);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), texturedEbo);
-        IntBuffer uploadBuffer = BufferUtils.createIntBuffer(indices.length);
-        uploadBuffer.put(indices).flip();
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), uploadBuffer, gl.STATIC_DRAW());
-        texturedIndexCount = indices.length;
-        meshVao.bind();
+        textured.upload(VertexLayout.POSITION_NORMAL_UV, interleaved, indices);
+        Platforms.gl().bindVertexArray(surface.vao);
     }
 
     /** Release the base-color textures and the split geometry the textured draw uses. */
@@ -331,7 +302,7 @@ public class HalfEdgeMeshRuntime {
         materialTextures = new Texture[0];
         materialRangeStart = new int[0];
         materialRangeCount = new int[0];
-        texturedIndexCount = 0;
+        textured.delete();
     }
 
     /**
@@ -353,7 +324,7 @@ public class HalfEdgeMeshRuntime {
      * @return true once {@link #uploadBundle(GeometryBundle)} found a material and a UV field
      */
     public boolean hasTexturedDraw() {
-        if (texturedIndexCount == 0) {
+        if (textured.indexCount == 0) {
             return false;
         }
         for (Texture texture : materialTextures) {
@@ -456,32 +427,6 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * Near plane for a camera, scaled to its distance from its target.
-     *
-     * <p>A fixed near plane leaves the model's whole depth extent in a sliver of the depth range,
-     * starving it of precision when zoomed out.
-     *
-     * @param camera active camera
-     * @return the near plane distance
-     */
-    protected float nearPlaneFor(Camera3D camera) {
-        float distance = camera.position.distance(camera.target);
-        return Math.max(NEAR_PLANE_FLOOR, distance * NEAR_PLANE_DISTANCE_FRACTION);
-    }
-
-    /**
-     * Far plane for a camera, placed just beyond the model rather than at a fixed distance.
-     *
-     * @param camera active camera
-     * @param extent the model's full extent, such as its bounding-box diagonal
-     * @return the far plane distance
-     */
-    protected float farPlaneFor(Camera3D camera, float extent) {
-        float distance = camera.position.distance(camera.target);
-        return distance + Math.max(extent, NEAR_PLANE_FLOOR) * FAR_PLANE_EXTENT_MUL;
-    }
-
-    /**
      * Render the current mesh: builds the projection matrix
      * (perspective or orthographic per {@link #isOrthographic()}), picks the
      * shader for the active {@link ShaderMode}, draws either as a single
@@ -517,7 +462,7 @@ public class HalfEdgeMeshRuntime {
         }
         active.setMat4(MODEL, modelMatrix);
         active.setMat4(VIEW, camera.view);
-        active.setMat4(PROJECTION, projectionMatrix);
+        active.setMat4(PROJECTION, camera.projection);
         active.setVec4(SOLIDCOLOR, solidColor);
 
         boolean sampleTexture = samplesTexture(shaderMode, hasTexturedDraw());
@@ -536,8 +481,7 @@ public class HalfEdgeMeshRuntime {
             // The textured draw has its own UV-split vertices, so it ignores the welded mesh's tag
             // ranges: the texture is what colours the surface. One draw per material, since each
             // carries its own image; faces naming no material fall back to the solid colour.
-            texturedVao.bind();
-            Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), texturedEbo);
+            Platforms.gl().bindVertexArray(textured.vao);
             for (int range = 0; range < materialRangeCount.length; range++) {
                 if (materialRangeCount[range] == 0) {
                     continue;
@@ -559,8 +503,7 @@ public class HalfEdgeMeshRuntime {
             return;
         }
 
-        meshVao.bind();
-        Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), ebo);
+        Platforms.gl().bindVertexArray(surface.vao);
 
         if (tagRanges.isEmpty()) {
             // Untagged mesh — one draw call with the current solidColor.
@@ -595,36 +538,36 @@ public class HalfEdgeMeshRuntime {
     }
 
     /**
-     * Rebuild {@link #projectionMatrix} for a camera, perspective or orthographic per
-     * {@link #isOrthographic()}, with the near and far planes the model's size asks for.
+     * Rebuild the camera's projection for the surface pass, its far plane fitted to the mesh's
+     * bounding-sphere diameter.
      *
      * @param camera active camera
      */
-    private void updateProjection(Camera3D camera) {
-        float aspect = camera.aspectRatio();
-        float near = nearPlaneFor(camera);
-        float far = farPlaneFor(camera, compiledMesh == null ? 1f : compiledMesh.radius * 2f);
-        if (orthographic) {
-            float dist = camera.position.distance(camera.target);
-            float halfH = dist * (float) Math.tan(Math.toRadians(camera.fov / 2.0));
-            float halfW = halfH * aspect;
-            projectionMatrix.identity().ortho(-halfW, halfW, -halfH, halfH, near, far);
-        } else {
-            projectionMatrix.identity().perspective(
-                    (float) Math.toRadians((float) camera.fov), aspect, near, far);
-        }
+    public void updateProjection(Camera3D camera) {
+        updateProjection(camera, compiledMesh == null ? 1f : compiledMesh.radius * 2f);
     }
 
     /**
-     * Release every GPU buffer owned by this runtime (face EBO, edge EBO,
-     * feature-edge EBO, scalar VBO, plus the shared VAO/VBO). Safe to call
-     * once after the last render pass; subsequent draw calls are no-ops.
+     * Rebuild the camera's projection, perspective or orthographic per {@link #isOrthographic()}.
+     * The near plane scales with the camera's distance, since a fixed one leaves the model's depth
+     * in a sliver of the depth range when zoomed out; the far plane lies just past the model.
+     *
+     * @param camera active camera
+     * @param extent the model's full extent the far plane clears
+     */
+    public void updateProjection(Camera3D camera, float extent) {
+        float distance = camera.position.distance(camera.target);
+        camera.updateProjection(orthographic,
+                Math.max(NEAR_PLANE_FLOOR, distance * NEAR_PLANE_DISTANCE_FRACTION),
+                distance + Math.max(extent, NEAR_PLANE_FLOOR) * FAR_PLANE_EXTENT_MUL);
+    }
+
+    /**
+     * Release every GPU buffer owned by this runtime (surface, textured, face-pick, edge and
+     * feature-edge buffers and the scalar VBO). Safe to call once after the last render pass;
+     * subsequent draw calls are no-ops.
      */
     public void dispose() {
-        if (ebo != 0) {
-            Platforms.gl().deleteBuffers(ebo);
-            ebo = 0;
-        }
         edgeLines.delete();
         featureEdgeLines.delete();
         if (scalarVbo != 0) {
@@ -632,18 +575,8 @@ public class HalfEdgeMeshRuntime {
             scalarVbo = 0;
         }
         clearTexturedDraw();
-        if (texturedEbo != 0) {
-            Platforms.gl().deleteBuffers(texturedEbo);
-            texturedEbo = 0;
-        }
-        texturedVbo.delete();
-        texturedVao.delete();
-        pickPositionVbo.delete();
-        pickIdVbo.delete();
-        pickVao.delete();
-        pickVertexCount = 0;
-        meshVbo.delete();
-        meshVao.delete();
+        facePick.delete();
+        surface.delete();
     }
 
     /**
@@ -754,7 +687,7 @@ public class HalfEdgeMeshRuntime {
             this.scalarMax = max;
         }
         GL gl = Platforms.gl();
-        meshVao.bind();
+        gl.bindVertexArray(surface.vao);
         gl.bindBuffer(gl.ARRAY_BUFFER(), scalarVbo);
         float[] copy;
         if (values.length == compiledMesh.vertexCount) {
@@ -803,16 +736,9 @@ public class HalfEdgeMeshRuntime {
      *                           the face count leaves out none
      */
     public void uploadFacePickBuffer(MeshTopology mesh, boolean[] hiddenByActiveFace) {
-        pickVertexCount = 0;
         pickFaceCount = 0;
         if (mesh == null || mesh.faceCount() == 0) {
-            GL empty = Platforms.gl();
-            pickVao.bind();
-            pickPositionVbo.bind(empty.ARRAY_BUFFER());
-            pickPositionVbo.uploadData(empty.ARRAY_BUFFER(), new float[0], empty.STATIC_DRAW());
-            pickIdVbo.bind(empty.ARRAY_BUFFER());
-            pickIdVbo.uploadData(empty.ARRAY_BUFFER(), new float[0], empty.STATIC_DRAW());
-            meshVao.bind();
+            facePick.delete();
             return;
         }
         boolean[] hidden = hiddenByActiveFace.length == mesh.faceCount() ? hiddenByActiveFace
@@ -822,11 +748,11 @@ public class HalfEdgeMeshRuntime {
             triangles += hidden[index] ? 0
                     : Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(index)) - 2);
         }
-        float[] positions = new float[COORDINATES_PER_VERTEX * 3 * triangles];
-        float[] ids = new float[COORDINATES_PER_VERTEX * 3 * triangles];
+        // Interleaved per corner: position, then the face's id as a colour.
+        float[] corners = new float[FACE_PICK_LAYOUT.floatsPerVertex * 3 * triangles];
         pickFaceCount = mesh.faceCount();
         Vector3f corner = new Vector3f();
-        int vertex = 0;
+        int cursor = 0;
         for (int index = 0; index < mesh.faceCount(); index++) {
             if (hidden[index]) {
                 continue;
@@ -840,30 +766,17 @@ public class HalfEdgeMeshRuntime {
                 for (int step = 0; step < 3; step++) {
                     int slot = step == 0 ? 0 : fan - 2 + step;
                     mesh.vertexPosition(mesh.faceVertexAt(faceId, slot), corner);
-                    positions[COORDINATES_PER_VERTEX * vertex] = corner.x;
-                    positions[COORDINATES_PER_VERTEX * vertex + 1] = corner.y;
-                    positions[COORDINATES_PER_VERTEX * vertex + 2] = corner.z;
-                    ids[COORDINATES_PER_VERTEX * vertex] = red;
-                    ids[COORDINATES_PER_VERTEX * vertex + 1] = green;
-                    ids[COORDINATES_PER_VERTEX * vertex + 2] = blue;
-                    vertex++;
+                    corners[cursor++] = corner.x;
+                    corners[cursor++] = corner.y;
+                    corners[cursor++] = corner.z;
+                    corners[cursor++] = red;
+                    corners[cursor++] = green;
+                    corners[cursor++] = blue;
                 }
             }
         }
-        GL gl = Platforms.gl();
-        pickVao.bind();
-        pickPositionVbo.bind(gl.ARRAY_BUFFER());
-        pickPositionVbo.uploadData(gl.ARRAY_BUFFER(), positions, gl.STATIC_DRAW());
-        gl.vertexAttribPointer(0, COORDINATES_PER_VERTEX, gl.FLOAT(), false,
-                COORDINATES_PER_VERTEX * Float.BYTES, 0);
-        gl.enableVertexAttribArray(0);
-        pickIdVbo.bind(gl.ARRAY_BUFFER());
-        pickIdVbo.uploadData(gl.ARRAY_BUFFER(), ids, gl.STATIC_DRAW());
-        gl.vertexAttribPointer(1, COORDINATES_PER_VERTEX, gl.FLOAT(), false,
-                COORDINATES_PER_VERTEX * Float.BYTES, 0);
-        gl.enableVertexAttribArray(1);
-        meshVao.bind();
-        pickVertexCount = vertex;
+        facePick.upload(FACE_PICK_LAYOUT, corners, null);
+        Platforms.gl().bindVertexArray(surface.vao);
     }
 
     /**
@@ -886,7 +799,7 @@ public class HalfEdgeMeshRuntime {
      * @return the face's active index, or {@code -1} when the pixel shows no surface
      */
     public int faceIndexAtPixel(Camera3D camera, int framebufferX, int framebufferY) {
-        if (pickVertexCount == 0 || meshPickShader.ID < 0) {
+        if (facePick.vertexCount == 0 || meshPickShader.ID < 0) {
             return -1;
         }
         int height = Platforms.get().getFrameBufferHeight();
@@ -906,7 +819,7 @@ public class HalfEdgeMeshRuntime {
         Matrix4f pickProjection = new Matrix4f()
                 .scaling(width, height, 1f)
                 .translate(-cursorNdcX, -cursorNdcY, 0f)
-                .mul(projectionMatrix);
+                .mul(camera.projection);
         gl.clearColor(Color.BLACK);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         gl.viewport(framebufferX, bottomY, 1, 1);
@@ -914,14 +827,14 @@ public class HalfEdgeMeshRuntime {
         meshPickShader.setMat4(MODEL, modelMatrix);
         meshPickShader.setMat4(VIEW, camera.view);
         meshPickShader.setMat4(PROJECTION, pickProjection);
-        pickVao.bind();
-        gl.drawArrays(gl.TRIANGLES(), 0, pickVertexCount);
+        gl.bindVertexArray(facePick.vao);
+        gl.drawArrays(gl.TRIANGLES(), 0, facePick.vertexCount);
         int[] pixel = gl.readPixels(framebufferX, bottomY, 1, 1, gl.RGBA(),
                 gl.UNSIGNED_BYTE(), 0);
         gl.viewport(0, 0, width, height);
         gl.clearColor(Color.GREY_VERY_DARK);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
-        meshVao.bind();
+        gl.bindVertexArray(surface.vao);
         int code = pixel.length == 0 ? 0 : pixel[0] & PICK_ID_MASK;
         int faceIndex = code - 1;
         if (faceIndex < 0 || faceIndex >= pickFaceCount) {
@@ -943,28 +856,8 @@ public class HalfEdgeMeshRuntime {
      */
     public boolean rayThroughPixel(Camera3D camera, float framebufferX, float framebufferY,
             float[] origin, float[] direction) {
-        int width = Platforms.get().getFrameBufferWidth();
-        int height = Platforms.get().getFrameBufferHeight();
-        if (width <= 0 || height <= 0) {
-            return false;
-        }
         updateProjection(camera);
-        Matrix4f inverse = new Matrix4f(projectionMatrix).mul(camera.view).mul(modelMatrix)
-                .invert();
-        float normalisedX = 2f * (framebufferX + 0.5f) / width - 1f;
-        float normalisedY = 1f - 2f * (framebufferY + 0.5f) / height;
-        Vector4f near = inverse.transform(new Vector4f(normalisedX, normalisedY, -1f, 1f));
-        Vector4f far = inverse.transform(new Vector4f(normalisedX, normalisedY, 1f, 1f));
-        if (near.w == 0f || far.w == 0f) {
-            return false;
-        }
-        origin[0] = near.x / near.w;
-        origin[1] = near.y / near.w;
-        origin[2] = near.z / near.w;
-        direction[0] = far.x / far.w - origin[0];
-        direction[1] = far.y / far.w - origin[1];
-        direction[2] = far.z / far.w - origin[2];
-        return true;
+        return camera.rayThroughPixel(modelMatrix, framebufferX, framebufferY, origin, direction);
     }
 
     /**
@@ -980,30 +873,15 @@ public class HalfEdgeMeshRuntime {
      * @return true when the point projects in front of the camera
      */
     public boolean projectToPixels(Camera3D camera, float x, float y, float z, float[] pixelDest) {
-        int width = Platforms.get().getFrameBufferWidth();
-        int height = Platforms.get().getFrameBufferHeight();
-        if (width <= 0 || height <= 0) {
-            return false;
-        }
         updateProjection(camera);
-        projectedPoint.set(x, y, z, 1f);
-        modelMatrix.transform(projectedPoint);
-        camera.view.transform(projectedPoint);
-        projectionMatrix.transform(projectedPoint);
-        if (projectedPoint.w <= 0f) {
-            return false;
-        }
-        pixelDest[0] = (projectedPoint.x / projectedPoint.w * 0.5f + 0.5f) * width;
-        pixelDest[1] = (0.5f - projectedPoint.y / projectedPoint.w * 0.5f) * height;
-        pixelDest[2] = projectedPoint.z / projectedPoint.w * 0.5f + 0.5f;
-        return true;
+        return camera.projectToPixels(modelMatrix, x, y, z, pixelDest);
     }
 
     private void renderFeatureEdgeOverlay(Camera3D camera) {
         if (featureEdgeRanges.isEmpty() || lineShader.ID < 0 || featureEdgeLines.vao == 0) {
             return;
         }
-        lineShader.use(camera.view, projectionMatrix, modelMatrix);
+        lineShader.use(camera.view, camera.projection, modelMatrix);
         GL gl = Platforms.gl();
         gl.bindVertexArray(featureEdgeLines.vao);
         gl.lineWidth(FEATURE_EDGE_LINE_WIDTH);
@@ -1011,7 +889,7 @@ public class HalfEdgeMeshRuntime {
             lineShader.setVec4(SOLIDCOLOR, r.color());
             gl.drawArrays(gl.LINES(), r.indexStart(), r.indexCount());
         }
-        meshVao.bind();
+        gl.bindVertexArray(surface.vao);
     }
 
     /**
@@ -1025,13 +903,13 @@ public class HalfEdgeMeshRuntime {
         if (lineShader.ID < 0 || edgeLines.vao == 0) {
             return;
         }
-        lineShader.use(camera.view, projectionMatrix, modelMatrix);
+        lineShader.use(camera.view, camera.projection, modelMatrix);
         lineShader.setVec4(SOLIDCOLOR, edgeColor);
         GL gl = Platforms.gl();
         gl.bindVertexArray(edgeLines.vao);
         gl.lineWidth(EDGE_LINE_WIDTH);
         gl.drawArrays(gl.LINES(), 0, edgeLines.vertexCount);
-        meshVao.bind();
+        gl.bindVertexArray(surface.vao);
     }
 
     /**
@@ -1202,7 +1080,7 @@ public class HalfEdgeMeshRuntime {
             ranges.add(new TagRange("", untaggedColor, start, count));
         }
         tagRanges = List.copyOf(ranges);
-        uploadIndexBuffer(newIndices, Platforms.gl().DYNAMIC_DRAW());
+        surface.uploadIndices(newIndices, Platforms.gl().DYNAMIC_DRAW());
     }
 
     /**
@@ -1268,7 +1146,7 @@ public class HalfEdgeMeshRuntime {
             }
         }
         tagRanges = List.copyOf(ranges);
-        uploadIndexBuffer(newIndices, Platforms.gl().DYNAMIC_DRAW());
+        surface.uploadIndices(newIndices, Platforms.gl().DYNAMIC_DRAW());
     }
 
     /**
@@ -1292,7 +1170,7 @@ public class HalfEdgeMeshRuntime {
     public void clearTags() {
         tagRanges = List.of();
         if (compiledMesh != null && compiledMesh.indices.length > 0) {
-            uploadIndexBuffer(compiledMesh.indices, Platforms.gl().DYNAMIC_DRAW());
+            surface.uploadIndices(compiledMesh.indices, Platforms.gl().DYNAMIC_DRAW());
         }
     }
 
@@ -1357,16 +1235,6 @@ public class HalfEdgeMeshRuntime {
         return h;
     }
 
-    private void uploadIndexBuffer(int[] indices, int usage) {
-        GL gl = Platforms.gl();
-        meshVao.bind();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), ebo);
-        IntBuffer uploadBuffer = ensureIndexBufferCapacity(indices.length);
-        uploadBuffer.clear();
-        uploadBuffer.put(indices).flip();
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), uploadBuffer, usage);
-    }
-
     /**
      * Whether the wireframe overlay pass is enabled.
      *
@@ -1412,33 +1280,12 @@ public class HalfEdgeMeshRuntime {
             return;
         }
 
-        GL gl = Platforms.gl();
-        meshVao.bind();
-        meshVbo.bind(gl.ARRAY_BUFFER());
-        meshVbo.uploadData(gl.ARRAY_BUFFER(), compiledMesh.vertices, usage);
-        gl.vertexAttribPointer(0, VEC3_SIZE, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, 0);
-        gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(1, VEC3_SIZE, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, VEC3_SIZE * Float.BYTES);
-        gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(2, 2, gl.FLOAT(), false, VERTEX_STRIDE * Float.BYTES, UV_OFFSET * Float.BYTES);
-        gl.enableVertexAttribArray(2);
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), ebo);
-        IntBuffer uploadBuffer = ensureIndexBufferCapacity(compiledMesh.indices.length);
-        uploadBuffer.clear();
-        uploadBuffer.put(compiledMesh.indices).flip();
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), uploadBuffer, usage);
+        surface.upload(VertexLayout.POSITION_NORMAL_UV, compiledMesh.vertices, compiledMesh.indices,
+                usage);
 
         minBounds.set(compiledMesh.minBounds);
         maxBounds.set(compiledMesh.maxBounds);
         center.set(compiledMesh.center);
-    }
-
-    private IntBuffer ensureIndexBufferCapacity(int requiredCapacity) {
-        if (indexBuffer == null || indexBuffer.capacity() < requiredCapacity) {
-            indexBuffer = BufferUtils.createIntBuffer(requiredCapacity);
-        }
-        return indexBuffer;
     }
 
     /**

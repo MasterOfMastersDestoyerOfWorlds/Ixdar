@@ -1,15 +1,10 @@
 package ixdar.graphics.render.model;
 
 import ixdar.graphics.render.Texture;
-import ixdar.graphics.render.shaders.VertexArrayObject;
-import ixdar.graphics.render.shaders.VertexBufferObject;
 import org.joml.Vector3f;
 
 public class ModelHandle {
-    public final VertexArrayObject vao;
-    public final VertexBufferObject vbo;
-    public final int ebo;
-    public final int indexCount;
+    public final VertexBuffer buffer;
     public final int vertexCount;
     public final int triangleCount;
     public final boolean hasTexCoords;
@@ -18,37 +13,26 @@ public class ModelHandle {
     public final float radius;
 
     /**
-     * GPU-resident handle for a renderable model: bound VAO/VBO/EBO triple
-     * plus the optional diffuse texture and bounding-sphere metadata. The
-     * triangle count is derived from {@code indexCount / 3}; {@code center}
-     * is defensively copied.
+     * GPU-resident handle for a renderable model: its indexed vertex buffer plus the optional
+     * diffuse texture and bounding-sphere metadata. {@code center} is defensively copied.
      *
-     * @param vao vertex-array object binding the attribute layout
-     * @param vbo vertex-buffer object holding interleaved vertex data
-     * @param ebo element-buffer name (raw GL handle) for indexed draws
-     * @param indexCount number of indices in the EBO
-     * @param vertexCount number of unique vertices in the VBO
-     * @param hasTexCoords {@code true} when the VBO interleaves UVs
+     * @param buffer uploaded vertices and triangle indices
+     * @param vertexCount number of unique vertices in the buffer
+     * @param hasTexCoords {@code true} when the vertices carry real UVs
      * @param texture diffuse texture, or {@code null} for untextured models
      * @param center world-space bounding-sphere center (copied)
      * @param radius world-space bounding-sphere radius
      */
     public ModelHandle(
-            VertexArrayObject vao,
-            VertexBufferObject vbo,
-            int ebo,
-            int indexCount,
+            VertexBuffer buffer,
             int vertexCount,
             boolean hasTexCoords,
             Texture texture,
             Vector3f center,
             float radius) {
-        this.vao = vao;
-        this.vbo = vbo;
-        this.ebo = ebo;
-        this.indexCount = indexCount;
+        this.buffer = buffer;
         this.vertexCount = vertexCount;
-        this.triangleCount = indexCount / 3;
+        this.triangleCount = buffer.indexCount / 3;
         this.hasTexCoords = hasTexCoords;
         this.texture = texture;
         this.center = new Vector3f(center);

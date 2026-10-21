@@ -625,7 +625,7 @@ public class LwjglGL implements GL {
     }
 
     @Override
-    public void bufferData(int target, IntBuffer data, int usage) {
+    public void bufferData(int target, int[] data, int usage) {
         glBufferData(target, data, usage);
     }
 

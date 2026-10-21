@@ -6,6 +6,9 @@ package ixdar.graphics.render.model;
  */
 public final class VertexLayout {
 
+    public static final VertexLayout POSITION_NORMAL_UV =
+            new VertexLayout(new int[] {0, 1, 2}, new int[] {3, 3, 2});
+
     public final int[] locations;
     public final int[] sizes;
     public final int floatsPerVertex;

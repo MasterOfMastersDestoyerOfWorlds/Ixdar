@@ -52,10 +52,9 @@ public class MeshShader extends ShaderProgram {
      *
      * @param framebufferWidth viewport width in pixels (unused)
      * @param framebufferHeight viewport height in pixels (unused)
-     * @param scale DPI scale hint (unused)
      */
     @Override
-    public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float scale) {
+    public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight) {
         // The model scene sets projection per-frame from Camera3D.
     }
 }

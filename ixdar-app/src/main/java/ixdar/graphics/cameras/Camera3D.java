@@ -5,9 +5,9 @@ import java.util.Set;
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import ixdar.geometry.tsp.points.PointSet;
-import ixdar.scenes.Scene;
 import ixdar.platform.Clock;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
@@ -62,6 +62,12 @@ public class Camera3D implements Camera, CameraController {
     /** Whether the held drag pans the orbit target rather than turning, chosen by shift at the press. */
     public boolean panningDrag;
 
+    /**
+     * The projection every 3D pass draws with, rebuilt by {@link #updateProjection}; a runtime that
+     * draws, picks or projects a point calls that first with its own clip planes.
+     */
+    public final Matrix4f projection = new Matrix4f();
+
     public Vector3f position;
     public Vector3f target;
     public Vector3f right;
@@ -74,7 +80,6 @@ public class Camera3D implements Camera, CameraController {
     public float startYaw;
     public float startPitch;
     public double fov;
-    public Scene canvas;
     double SHIFT_MOD;
     private float movementSpeed = DEFAULT_MOVEMENT_SPEED;
     private float zIndex;
@@ -87,9 +92,8 @@ public class Camera3D implements Camera, CameraController {
      * @param position world-space camera position
      * @param yaw initial yaw in degrees (rotation around world up)
      * @param pitch initial pitch in degrees (rotation around right axis)
-     * @param canvas owning 3D canvas, used by host wiring
      */
-    public Camera3D(Vector3f position, float yaw, float pitch, Scene canvas) {
+    public Camera3D(Vector3f position, float yaw, float pitch) {
         this.position = position;
         worldUp = new Vector3f(0.0f, 1.0f, 0.0f);
         this.yaw = yaw;
@@ -105,7 +109,6 @@ public class Camera3D implements Camera, CameraController {
         view = new Matrix4f().lookAt(position, target, up);
 
         fov = DEFAULT_FOV;
-        this.canvas = canvas;
     }
 
     /**
@@ -476,6 +479,91 @@ public class Camera3D implements Camera, CameraController {
     }
 
     /**
+     * Rebuild {@link #projection} over the framebuffer's aspect: perspective at {@link #fov}, or
+     * orthographic as tall as the perspective view is at the target's distance.
+     *
+     * @param orthographic whether the projection is orthographic
+     * @param near         near clip plane distance
+     * @param far          far clip plane distance
+     * @return {@link #projection}
+     */
+    public Matrix4f updateProjection(boolean orthographic, float near, float far) {
+        float aspect = aspectRatio();
+        if (orthographic) {
+            float halfHeight = position.distance(target) * (float) Math.tan(Math.toRadians(fov / 2.0));
+            float halfWidth = halfHeight * aspect;
+            return projection.identity().ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, near, far);
+        }
+        return projection.identity().perspective((float) Math.toRadians((float) fov), aspect, near, far);
+    }
+
+    /**
+     * Project a model-space point through {@code model}, {@link #view} and {@link #projection} onto
+     * the framebuffer, where a 2D pass can mark it and test it against the depth buffer.
+     *
+     * @param model     model matrix of the surface the point belongs to
+     * @param x         model-space x
+     * @param y         model-space y
+     * @param z         model-space z
+     * @param pixelDest receives framebuffer x from the left, y from the top, and the window-space
+     *                  depth in {@code [0, 1]} the point would write
+     * @return true when the framebuffer has a size and the point lies in front of the camera
+     */
+    public boolean projectToPixels(Matrix4f model, float x, float y, float z, float[] pixelDest) {
+        int width = Platforms.get().getFrameBufferWidth();
+        int height = Platforms.get().getFrameBufferHeight();
+        if (width <= 0 || height <= 0) {
+            return false;
+        }
+        Vector4f point = new Vector4f(x, y, z, 1f);
+        model.transform(point);
+        view.transform(point);
+        projection.transform(point);
+        if (point.w <= 0f) {
+            return false;
+        }
+        pixelDest[0] = (point.x / point.w * 0.5f + 0.5f) * width;
+        pixelDest[1] = (0.5f - point.y / point.w * 0.5f) * height;
+        pixelDest[2] = point.z / point.w * 0.5f + 0.5f;
+        return true;
+    }
+
+    /**
+     * The model-space ray a framebuffer pixel looks along, from the near plane to the far plane of
+     * {@link #projection}.
+     *
+     * @param model        model matrix of the surface the ray is cast at
+     * @param framebufferX pixel x, measured from the left, a whole number the pixel's centre
+     * @param framebufferY pixel y, measured from the top, a whole number the pixel's centre
+     * @param origin       receives the ray origin, packed xyz
+     * @param direction    receives the ray direction, packed xyz, not normalised
+     * @return true when the framebuffer has a size
+     */
+    public boolean rayThroughPixel(Matrix4f model, float framebufferX, float framebufferY,
+            float[] origin, float[] direction) {
+        int width = Platforms.get().getFrameBufferWidth();
+        int height = Platforms.get().getFrameBufferHeight();
+        if (width <= 0 || height <= 0) {
+            return false;
+        }
+        Matrix4f inverse = new Matrix4f(projection).mul(view).mul(model).invert();
+        float normalisedX = 2f * (framebufferX + 0.5f) / width - 1f;
+        float normalisedY = 1f - 2f * (framebufferY + 0.5f) / height;
+        Vector4f near = inverse.transform(new Vector4f(normalisedX, normalisedY, -1f, 1f));
+        Vector4f far = inverse.transform(new Vector4f(normalisedX, normalisedY, 1f, 1f));
+        if (near.w == 0f || far.w == 0f) {
+            return false;
+        }
+        origin[0] = near.x / near.w;
+        origin[1] = near.y / near.w;
+        origin[2] = near.z / near.w;
+        direction[0] = far.x / far.w - origin[0];
+        direction[1] = far.y / far.w - origin[1];
+        direction[2] = far.z / far.w - origin[2];
+        return true;
+    }
+
+    /**
      * {@inheritDoc}.
      *
      * @return zero (3D viewport originates at the framebuffer corner)
@@ -538,8 +626,8 @@ public class Camera3D implements Camera, CameraController {
     }
 
     /**
-     * Resize the GL viewport and rebuild perspective projection matrices on
-     * every shader.
+     * Resize the GL viewport and give every shader its screen projection for the new size; the 3D
+     * projection is {@link #updateProjection}'s.
      *
      * @param x viewport lower-left x
      * @param y viewport lower-left y
@@ -553,7 +641,7 @@ public class Camera3D implements Camera, CameraController {
             if (s.ID < 0) {
                 continue;
             }
-            s.updateProjectionMatrix(width, height, ZOOM_SPEED);
+            s.updateProjectionMatrix(width, height);
         }
     }
 

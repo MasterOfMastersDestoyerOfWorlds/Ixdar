@@ -1,9 +1,5 @@
 package ixdar.graphics.render.model;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.IntBuffer;
-
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 
@@ -20,13 +16,26 @@ public final class VertexBuffer {
     public int indexCount;
 
     /**
-     * Replace the buffer contents; an empty vertex array just frees the old buffers.
+     * Replace the buffer contents as static data; an empty vertex array just frees the old buffers.
      *
      * @param layout   attribute format of {@code vertices}
      * @param vertices interleaved vertex floats
      * @param indices  element indices, or {@code null} for a non-indexed buffer
      */
     public void upload(VertexLayout layout, float[] vertices, int[] indices) {
+        upload(layout, vertices, indices, Platforms.gl().STATIC_DRAW());
+    }
+
+    /**
+     * Replace the buffer contents; an empty vertex array just frees the old buffers.
+     *
+     * @param layout   attribute format of {@code vertices}
+     * @param vertices interleaved vertex floats
+     * @param indices  element indices, or {@code null} for a non-indexed buffer
+     * @param usage    GL usage hint for both buffers, such as {@code DYNAMIC_DRAW} for geometry
+     *                 replaced every frame
+     */
+    public void upload(VertexLayout layout, float[] vertices, int[] indices, int usage) {
         delete();
         if (vertices.length == 0) {
             return;
@@ -36,7 +45,7 @@ public final class VertexBuffer {
         vbo = gl.genBuffers();
         gl.bindVertexArray(vao);
         gl.bindBuffer(gl.ARRAY_BUFFER(), vbo);
-        gl.bufferData(gl.ARRAY_BUFFER(), vertices, gl.STATIC_DRAW());
+        gl.bufferData(gl.ARRAY_BUFFER(), vertices, usage);
         int strideBytes = layout.floatsPerVertex * Float.BYTES;
         int offset = 0;
         for (int attribute = 0; attribute < layout.locations.length; attribute++) {
@@ -51,10 +60,27 @@ public final class VertexBuffer {
         }
         ebo = gl.genBuffers();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), ebo);
-        IntBuffer elements = ByteBuffer.allocateDirect(indices.length * Integer.BYTES).order(ByteOrder.nativeOrder())
-                .asIntBuffer();
-        elements.put(indices).flip();
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), elements, gl.STATIC_DRAW());
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), indices, usage);
+        indexCount = indices.length;
+    }
+
+    /**
+     * Replace only the element indices, keeping the vertices and attribute format.
+     *
+     * @param indices element indices into the uploaded vertices
+     * @param usage   GL usage hint
+     */
+    public void uploadIndices(int[] indices, int usage) {
+        if (vao == 0) {
+            return;
+        }
+        GL gl = Platforms.gl();
+        gl.bindVertexArray(vao);
+        if (ebo == 0) {
+            ebo = gl.genBuffers();
+        }
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), ebo);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), indices, usage);
         indexCount = indices.length;
     }
 

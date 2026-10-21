@@ -664,10 +664,10 @@ public interface GL {
      * Upload integer data (typically index data) to the buffer bound at {@code target}.
      *
      * @param target buffer target
-     * @param data integer values from current position to limit
+     * @param data integer values
      * @param usage usage hint
      */
-    void bufferData(int target, IntBuffer data, int usage);
+    void bufferData(int target, int[] data, int usage);
 
     /**
      * Delete a buffer object.

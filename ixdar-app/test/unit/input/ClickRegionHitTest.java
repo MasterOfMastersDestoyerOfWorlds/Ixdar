@@ -103,7 +103,7 @@ class ClickRegionHitTest {
         pointer.clickRegions.add(bottomBox);
         pointer.clickBounds.add(new Bounds(0, 0, PREVIEW_WIDTH, FRAMEBUFFER_HEIGHT, "PREVIEW"));
         pointer.clickRegions.add(preview);
-        trap = new MouseTrap(new Camera3D(new Vector3f(), 0f, 0f, null), null);
+        trap = new MouseTrap(new Camera3D(new Vector3f(), 0f, 0f), null);
     }
 
     /**

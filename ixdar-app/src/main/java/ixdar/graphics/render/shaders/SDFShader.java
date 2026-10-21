@@ -64,7 +64,7 @@ public class SDFShader extends ShaderProgram {
         Matrix4f view = new Matrix4f();
         setMat4("view", view);
 
-        updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(), 1f);
+        updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight());
     }
 
     /**
@@ -74,25 +74,15 @@ public class SDFShader extends ShaderProgram {
      *
      * @param framebufferWidth viewport width in pixels
      * @param framebufferHeight viewport height in pixels
-     * @param scale DPI scale hint (unused)
      */
     @Override
-    public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float scale) {
+    public void updateProjectionMatrix(int framebufferWidth, int framebufferHeight) {
         if (framebufferWidth <= 0 || framebufferHeight <= 0) {
             return;
         }
         use();
-        Matrix4f projection = new Matrix4f();
-        float left = 0f, right = framebufferWidth, bottom = 0f, top = framebufferHeight;
-        float near = ORTHO_NEAR, far = ORTHO_FAR;
-        projection.m00(2f / (right - left));
-        projection.m11(2f / (top - bottom));
-        projection.m22(-2f / (far - near));
-        projection.m33(1f);
-        projection.m30(-(right + left) / (right - left));
-        projection.m31(-(top + bottom) / (top - bottom));
-        projection.m32(-(far + near) / (far - near));
-        setMat4("projection", projection);
+        setMat4("projection", new Matrix4f().setOrtho(0f, framebufferWidth, 0f, framebufferHeight,
+                ORTHO_NEAR, ORTHO_FAR));
     }
 
 }

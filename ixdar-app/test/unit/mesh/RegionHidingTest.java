@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Proxy;
-import java.nio.IntBuffer;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -97,8 +96,8 @@ class RegionHidingTest {
                     if ("bufferData".equals(method.getName())) {
                         if (arguments[1] instanceof float[] floats) {
                             lastFloatUpload = floats.clone();
-                        } else if (arguments[1] instanceof IntBuffer indices) {
-                            lastIndexUploadLength = indices.remaining();
+                        } else if (arguments[1] instanceof int[] indices) {
+                            lastIndexUploadLength = indices.length;
                         }
                     }
                     Class<?> type = method.getReturnType();
@@ -200,11 +199,16 @@ class RegionHidingTest {
      */
     private Set<Integer> pickedFaces() {
         Set<Integer> faces = new TreeSet<>();
-        for (int vertex = 0; vertex + XYZ <= lastFloatUpload.length; vertex += XYZ) {
+        if (scene.meshRuntime.facePick.vertexCount == 0) {
+            return faces;
+        }
+        // Each pick vertex is its position, then its face's id as three colour channels.
+        int stride = HalfEdgeMeshRuntime.FACE_PICK_LAYOUT.floatsPerVertex;
+        for (int vertex = 0; vertex + stride <= lastFloatUpload.length; vertex += stride) {
             int code = 0;
             for (int channel = 0; channel < XYZ; channel++) {
                 code = (code << BITS_PER_CHANNEL)
-                        | Math.round(lastFloatUpload[vertex + channel] * CHANNEL_MAX);
+                        | Math.round(lastFloatUpload[vertex + XYZ + channel] * CHANNEL_MAX);
             }
             faces.add(code - 1);
         }

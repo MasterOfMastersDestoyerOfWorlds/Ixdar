@@ -124,7 +124,7 @@ class RefusalToastTest {
     @Test
     void aClickWhileTheCameraMovesIsRefusedWithWhatToDo() {
         RingScene scene = sceneOn(RingAnchorOrderTest.tube(0f, RADIUS));
-        Camera3D camera = new Camera3D(new Vector3f(), 0f, 0f, null);
+        Camera3D camera = new Camera3D(new Vector3f(), 0f, 0f);
         MouseTrap orbit = new MouseTrap(camera, null);
         orbit.controller = camera;
         scene.mouse = orbit;

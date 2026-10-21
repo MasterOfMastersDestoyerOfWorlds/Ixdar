@@ -871,7 +871,7 @@ public class Camera2D implements Camera, CameraController {
             if (s.ID < 0) {
                 continue;
             }
-            s.updateProjectionMatrix(width, height, 1f);
+            s.updateProjectionMatrix(width, height);
         }
     }
 

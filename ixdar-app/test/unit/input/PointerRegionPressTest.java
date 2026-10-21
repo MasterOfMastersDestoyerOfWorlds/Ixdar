@@ -121,7 +121,7 @@ class PointerRegionPressTest {
         Scene host = new Scene() {
         };
         host.activeTool = tool;
-        camera = new Camera3D(new Vector3f(), 0f, 0f, null);
+        camera = new Camera3D(new Vector3f(), 0f, 0f);
         orbit = new MouseTrap(camera, host);
         orbit.controller = camera;
     }

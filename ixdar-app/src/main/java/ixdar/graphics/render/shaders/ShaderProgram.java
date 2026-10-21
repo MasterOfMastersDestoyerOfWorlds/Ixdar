@@ -449,8 +449,7 @@ public abstract class ShaderProgram {
             init();
             resetPersistentAllocations();
             reapplyUniforms();
-            updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(),
-                    1f);
+            updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight());
             return true;
         } else {
             gl.deleteProgram(ID);
@@ -838,9 +837,8 @@ public abstract class ShaderProgram {
      *
      * @param framebufferWidth  viewport width in pixels
      * @param framebufferHeight viewport height in pixels
-     * @param f                 DPI/zoom scale hint
      */
-    public abstract void updateProjectionMatrix(int framebufferWidth, int framebufferHeight, float f);
+    public abstract void updateProjectionMatrix(int framebufferWidth, int framebufferHeight);
 
     /**
      * Allocate the staging vertex buffer (when {@code useBuffer} is on), size the

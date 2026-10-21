@@ -115,7 +115,7 @@ class ScrollRegionHitTest {
         pointer.subscribe(
                 new Bounds(MENU_STRIP_LEFT, 0, MENU_STRIP_WIDTH, FRAMEBUFFER_HEIGHT, "STRIP"),
                 stripHandler);
-        camera = new Camera3D(new Vector3f(), 0f, 0f, null);
+        camera = new Camera3D(new Vector3f(), 0f, 0f);
         orbit = new MouseTrap(camera, null);
         orbit.controller = camera;
     }

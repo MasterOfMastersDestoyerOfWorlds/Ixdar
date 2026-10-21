@@ -46,7 +46,6 @@ import ixdar.tools.Tool;
  */
 public abstract class Scene extends SceneDrawable {
 
-    public static final float PROJECTION_MATRIX_SCALE = 1f;
 
     public static final String DEFAULT_VIEW = "MAIN";
 
@@ -87,7 +86,7 @@ public abstract class Scene extends SceneDrawable {
      */
     public volatile boolean sceneReady;
 
-    public Camera3D camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f, this);
+    public Camera3D camera = new Camera3D(new Vector3f(0, 0, 3.0f), -90.0f, 0.0f);
     public MouseTrap mouse = new MouseTrap(camera, this);
     public KeyGuy keys = new KeyGuy(this);
     public Platform platform;
@@ -275,8 +274,7 @@ public abstract class Scene extends SceneDrawable {
             if (s.ID < 0) {
                 continue;
             }
-            s.updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(),
-                    PROJECTION_MATRIX_SCALE);
+            s.updateProjectionMatrix(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight());
             s.hotReload();
         }
         for (ShaderProgram s : shaders) {

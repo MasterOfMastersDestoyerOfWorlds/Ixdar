@@ -51,7 +51,7 @@ class OrbitFramingTest {
      */
     @BeforeEach
     void buildOrbit() {
-        camera = new Camera3D(new Vector3f(), 0f, 0f, null);
+        camera = new Camera3D(new Vector3f(), 0f, 0f);
     }
 
     @Test

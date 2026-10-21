@@ -132,7 +132,7 @@ class PaneScrollBoxTest {
         terminal.draw(camera);
         pointer = PointerDispatcher.current();
         pointer.subscribe(terminal.scrollBox.bounds, terminal.scrollBox);
-        orbitCamera = new Camera3D(new Vector3f(), 0f, 0f, null);
+        orbitCamera = new Camera3D(new Vector3f(), 0f, 0f);
         trap = new MouseTrap(orbitCamera, null);
         trap.controller = orbitCamera;
         trap.active = true;

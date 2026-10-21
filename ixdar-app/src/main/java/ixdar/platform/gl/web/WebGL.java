@@ -700,10 +700,10 @@ public class WebGL implements GL {
 
     /** {@inheritDoc}. */
     @Override
-    public void bufferData(int target, IntBuffer data, int usage) {
-        Int32Array arr = Int32Array.create(data.remaining());
-        for (int i = 0, j = data.position(); j < data.limit(); i++, j++) {
-            arr.set(i, data.get(j));
+    public void bufferData(int target, int[] data, int usage) {
+        Int32Array arr = Int32Array.create(data.length);
+        for (int i = 0; i < data.length; i++) {
+            arr.set(i, data[i]);
         }
         gl.bufferData(target, arr, usage);
     }

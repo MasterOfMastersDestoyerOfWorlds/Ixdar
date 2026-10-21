@@ -1,26 +1,18 @@
 package ixdar.graphics.render.model;
 
-import java.nio.IntBuffer;
-
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.lwjgl.BufferUtils;
 
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
-import ixdar.graphics.render.shaders.VertexArrayObject;
-import ixdar.graphics.render.shaders.VertexBufferObject;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.file.FileManagement;
 
 public class AssimpModelRuntime implements ModelRuntime {
     public static final String USETEXTURE = "useTexture";
-    public static final int VEC3_SIZE = 3;
-    public static final int VERTEX_STRIDE = 8;
-    public static final int UV_OFFSET = 6;
     public static final int CHECKER_TEXTURE_SIZE = 256;
     public static final int CHECKER_CELL_SIZE = 16;
     public static final float FRAME_DISTANCE_MULTIPLIER = 2.4f;
@@ -64,34 +56,12 @@ public class AssimpModelRuntime implements ModelRuntime {
         String absoluteModelPath = FileManagement.resolveAssetPath(modelFileName);
         ImportedModelData imported = importer.importFromFile(absoluteModelPath);
 
-        VertexArrayObject vao = new VertexArrayObject();
-        VertexBufferObject vbo = new VertexBufferObject();
-        vao.bind();
-        vbo.bind(Platforms.gl().ARRAY_BUFFER());
-        vbo.uploadData(Platforms.gl().ARRAY_BUFFER(), imported.vertices, Platforms.gl().STATIC_DRAW());
-
-        int ebo = Platforms.gl().genBuffers();
-        Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), ebo);
-        IntBuffer indexBuffer = BufferUtils.createIntBuffer(imported.indices.length);
-        indexBuffer.put(imported.indices).flip();
-        Platforms.gl().bufferData(Platforms.gl().ELEMENT_ARRAY_BUFFER(), indexBuffer, Platforms.gl().STATIC_DRAW());
-
-        // Configure attributes for this VAO with mesh shader layout.
-        vao.bind();
-        vbo.bind(Platforms.gl().ARRAY_BUFFER());
-        Platforms.gl().vertexAttribPointer(0, VEC3_SIZE, Platforms.gl().FLOAT(), false, VERTEX_STRIDE * Float.BYTES, 0);
-        Platforms.gl().enableVertexAttribArray(0);
-        Platforms.gl().vertexAttribPointer(1, VEC3_SIZE, Platforms.gl().FLOAT(), false, VERTEX_STRIDE * Float.BYTES, VEC3_SIZE * Float.BYTES);
-        Platforms.gl().enableVertexAttribArray(1);
-        Platforms.gl().vertexAttribPointer(2, 2, Platforms.gl().FLOAT(), false, VERTEX_STRIDE * Float.BYTES, UV_OFFSET * Float.BYTES);
-        Platforms.gl().enableVertexAttribArray(2);
+        VertexBuffer buffer = new VertexBuffer();
+        buffer.upload(VertexLayout.POSITION_NORMAL_UV, imported.vertices, imported.indices);
 
         Texture checkerTexture = createCheckerTexture(CHECKER_TEXTURE_SIZE, CHECKER_TEXTURE_SIZE, CHECKER_CELL_SIZE);
         return new ModelHandle(
-                vao,
-                vbo,
-                ebo,
-                imported.indices.length,
+                buffer,
                 imported.vertexCount,
                 imported.hasTexCoords,
                 checkerTexture,
@@ -127,14 +97,9 @@ public class AssimpModelRuntime implements ModelRuntime {
      */
     @Override
     public void render(ModelHandle handle, Camera3D camera) {
-        int width = Platforms.get().getFrameBufferWidth();
-        int height = Platforms.get().getFrameBufferHeight();
-        float aspect = width <= 0 || height <= 0 ? 1f : ((float) width / (float) height);
-
         camera.updateViewFirstPerson();
-        Matrix4f projection = new Matrix4f()
-                .perspective((float) Math.toRadians((float) camera.fov), aspect, NEAR_PLANE,
-                        Math.max(MIN_FAR_PLANE, handle.radius * FAR_PLANE_RADIUS_MULTIPLIER));
+        Matrix4f projection = camera.updateProjection(false, NEAR_PLANE,
+                Math.max(MIN_FAR_PLANE, handle.radius * FAR_PLANE_RADIUS_MULTIPLIER));
 
         meshShader.use();
         meshShader.setMat4("model", modelMatrix);
@@ -149,9 +114,9 @@ public class AssimpModelRuntime implements ModelRuntime {
             meshShader.setBool(USETEXTURE, false);
         }
 
-        handle.vao.bind();
-        Platforms.gl().bindBuffer(Platforms.gl().ELEMENT_ARRAY_BUFFER(), handle.ebo);
-        Platforms.gl().drawElements(Platforms.gl().TRIANGLES(), handle.indexCount, Platforms.gl().UNSIGNED_INT(), 0);
+        Platforms.gl().bindVertexArray(handle.buffer.vao);
+        Platforms.gl().drawElements(Platforms.gl().TRIANGLES(), handle.buffer.indexCount,
+                Platforms.gl().UNSIGNED_INT(), 0);
     }
 
     /**
@@ -168,9 +133,7 @@ public class AssimpModelRuntime implements ModelRuntime {
         if (handle.texture != null) {
             handle.texture.delete();
         }
-        Platforms.gl().deleteBuffers(handle.ebo);
-        handle.vbo.delete();
-        handle.vao.delete();
+        handle.buffer.delete();
     }
 
     private Texture createCheckerTexture(int width, int height, int cellSize) {

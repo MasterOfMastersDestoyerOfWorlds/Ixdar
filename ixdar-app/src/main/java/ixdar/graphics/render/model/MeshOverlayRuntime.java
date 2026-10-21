@@ -66,7 +66,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private static final float CONSTRAINT_NORMAL_LIFT = 0.25f;
     private static final float DEFAULT_LINE_HALF_WIDTH = 1.0f;
     private static final float SPHERE_RADIUS_FRACTION_OF_BBOX = 0.005f;
-    private static final float ASPECT_FALLBACK = 1f;
     private static final float LAYOUT_LINE_WIDTH = 2.5f;
     private static final float HIGHLIGHT_LINE_WIDTH = 5f;
     private static final float DEFAULT_GL_LINE_WIDTH = 1f;
@@ -222,7 +221,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private Color[] lineGroupColors = new Color[0];
 
     private final Matrix4f model = new Matrix4f();
-    private final Matrix4f localProjection = new Matrix4f();
     private final float[] labelPixel = new float[LABEL_PIXEL_VALUES];
     private final Vector3f labelPoint = new Vector3f();
     private final Vector4f labelView = new Vector4f();
@@ -902,7 +900,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
                 && !drawCopyWireframe && !drawLineGroups && !drawMarkers) {
             return;
         }
-        setupOverlayProjection(camera);
+        updateOverlayProjection(camera);
         if (drawCopyWireframe) {
             drawLines(camera, copyWireframe, 0, copyWireframe.vertexCount, COLOR_COPY_WIREFRAME,
                     DEFAULT_GL_LINE_WIDTH);
@@ -957,7 +955,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             // flat disc behind the surface it marks.
             GL gl = Platforms.gl();
             gl.disable(gl.POLYGON_OFFSET_FILL());
-            anchorShader.use(camera.view, localProjection, model.identity());
+            anchorShader.use(camera.view, camera.projection, model.identity());
             gl.bindVertexArray(anchorDiscs.vao);
             gl.drawArrays(gl.TRIANGLES(), 0, anchorDiscs.vertexCount);
             gl.enable(gl.POLYGON_OFFSET_FILL());
@@ -999,7 +997,11 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
      * @param camera active 3D camera
      */
     public void renderHighlights(Camera3D camera) {
-        if ((!showDiagnostic && !showPatchClouds) || sphere.vao == 0 || !beginUnlit(camera)) {
+        if ((!showDiagnostic && !showPatchClouds) || sphere.vao == 0) {
+            return;
+        }
+        updateOverlayProjection(camera);
+        if (!beginUnlit(camera)) {
             return;
         }
         if (showPatchClouds) {
@@ -1039,6 +1041,9 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         GL gl = Platforms.gl();
         int width = Platforms.get().getFrameBufferWidth();
         int height = Platforms.get().getFrameBufferHeight();
+        // Depths read back through the overlay's planes: LABEL_LIFT_TIE is tuned against them.
+        updateOverlayProjection(camera);
+        inverseProjection.set(camera.projection).invert();
         for (int label = 0; label < labelText.length; label++) {
             String text = labelText[label];
             if (text == null || text.isEmpty() || 3 * label + 2 >= labelXyz.length) {
@@ -1061,7 +1066,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             // Compare eye distances, not window depths: a fixed window-depth slack spans more of
             // the model the further the camera backs off, letting labels through nearer limbs.
             labelSurface.set(0f, 0f, 2f * gl.readDepth(pixelX, pixelFromBottom) - 1f, 1f);
-            inverseProjection.set(localProjection).invert().transform(labelSurface);
+            inverseProjection.transform(labelSurface);
             labelView.set(labelPoint, 1f);
             camera.view.transform(labelView);
             if (-labelView.z > -labelSurface.z / labelSurface.w + LABEL_LIFT_TIE * lift) {
@@ -1322,26 +1327,15 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         }
     }
 
-    private void setupOverlayProjection(Camera3D camera) {
-        int width = Platforms.get().getFrameBufferWidth();
-        int height = Platforms.get().getFrameBufferHeight();
-        float aspect = (width <= 0 || height <= 0) ? ASPECT_FALLBACK
-                : ((float) width / (float) height);
-        Vector3f bMin = getBoundingBoxMin();
-        Vector3f bMax = getBoundingBoxMax();
-        float diag = bMax.distance(bMin);
-        float near = nearPlaneFor(camera);
-        float far = farPlaneFor(camera, diag);
-        if (isOrthographic()) {
-            float halfHeight = camera.position.distance(camera.target)
-                    * (float) Math.tan(Math.toRadians(camera.fov / 2.0));
-            float halfWidth = halfHeight * aspect;
-            localProjection.identity()
-                    .ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, near, far);
-            return;
-        }
-        localProjection.identity().perspective(
-                (float) Math.toRadians((float) camera.fov), aspect, near, far);
+    /**
+     * Rebuild the camera's projection for the overlay passes, its far plane clearing the
+     * bounding-box diagonal rather than the surface pass's sphere diameter: the farther plane
+     * draws the same point nearer, which keeps lines lying on the surface in front of it.
+     *
+     * @param camera active camera
+     */
+    private void updateOverlayProjection(Camera3D camera) {
+        updateProjection(camera, getBoundingBoxMax().distance(getBoundingBoxMin()));
     }
 
     private boolean beginUnlit(Camera3D camera) {
@@ -1350,7 +1344,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         }
         unlitShader.use();
         unlitShader.setMat4(VIEW, camera.view);
-        unlitShader.setMat4(PROJECTION, localProjection);
+        unlitShader.setMat4(PROJECTION, camera.projection);
         model.identity();
         unlitShader.setMat4(MODEL, model);
         return true;
@@ -1362,7 +1356,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         }
         crossFieldShader.use();
         crossFieldShader.setMat4(VIEW, camera.view);
-        crossFieldShader.setMat4(PROJECTION, localProjection);
+        crossFieldShader.setMat4(PROJECTION, camera.projection);
         model.identity();
         crossFieldShader.setMat4(MODEL, model);
         crossFieldShader.setFloat(LINE_HALF_WIDTH, lineHalfWidth);
@@ -1377,7 +1371,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         }
         shader.use();
         shader.setMat4(VIEW, camera.view);
-        shader.setMat4(PROJECTION, localProjection);
+        shader.setMat4(PROJECTION, camera.projection);
         model.identity();
         shader.setMat4(MODEL, model);
         shader.setVec4(BASE_COLOR, baseColor);
@@ -1405,7 +1399,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             return;
         }
         GL gl = Platforms.gl();
-        lineShader.use(camera.view, localProjection, model.identity());
+        lineShader.use(camera.view, camera.projection, model.identity());
         lineShader.setVec4(SOLIDCOLOR, color);
         gl.lineWidth(width);
         gl.bindVertexArray(buffer.vao);
