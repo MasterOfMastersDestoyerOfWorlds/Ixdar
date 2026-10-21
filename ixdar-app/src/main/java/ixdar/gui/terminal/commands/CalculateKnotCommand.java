@@ -1,9 +1,10 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.gui.terminal.Terminal;
 
-@CommandAnnotation(id = "ck")
+@CommandAnnotation(id = "ck", acts = Subsystem.KNOT)
 public class CalculateKnotCommand extends TerminalCommand {
 
     public static String cmd = "ck";

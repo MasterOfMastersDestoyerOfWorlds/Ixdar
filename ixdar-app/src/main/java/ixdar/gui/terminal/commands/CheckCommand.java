@@ -3,10 +3,11 @@ package ixdar.gui.terminal.commands;
 import java.io.File;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 
-@CommandAnnotation(id = "chk")
+@CommandAnnotation(id = "chk", acts = Subsystem.TERMINAL)
 public class CheckCommand extends TerminalCommand {
 
     public static String cmd = "chk";

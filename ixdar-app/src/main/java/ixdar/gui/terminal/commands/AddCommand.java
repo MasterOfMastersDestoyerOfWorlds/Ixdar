@@ -1,13 +1,14 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.gui.terminal.TerminalParseException;
+import ixdar.geometry.tsp.PointSetPath;
 import ixdar.geometry.tsp.input.PointCollection;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.file.FileManagement;
-import ixdar.scenes.main.MainScene;
 
-@CommandAnnotation(id = "add")
+@CommandAnnotation(id = "add", acts = {Subsystem.FILES, Subsystem.KNOT})
 public class AddCommand extends TerminalCommand {
 
     public static String cmd = "add";
@@ -39,10 +40,7 @@ public class AddCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof MainScene editor)) {
-            terminal.error(shortName() + " is a MainScene command");
-            return null;
-        }
+        PointSetPath pointSetPath = terminal.dataset(Subsystem.KNOT);
         PointCollection pc = null;
         String objectName = args[startIdx];
         try {
@@ -56,7 +54,7 @@ public class AddCommand extends TerminalCommand {
             terminal.error(e.getMessage());
         }
         if (pc != null) {
-            FileManagement.appendLine(editor.tempFile, pc.toFileString());
+            FileManagement.appendLine(pointSetPath.tempFile, pc.toFileString());
             return new String[] { "add " + pc.shortName() };
         }
         return null;

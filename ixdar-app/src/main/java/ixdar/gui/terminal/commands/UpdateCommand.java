@@ -2,13 +2,13 @@ package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.annotations.command.OptionList;
+import ixdar.annotations.command.Subsystem;
 import ixdar.geometry.tsp.shell.Shell;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.geometry.tsp.PointSetPath;
-import ixdar.scenes.main.MainScene;
 
-@CommandAnnotation(id = "updt")
+@CommandAnnotation(id = "updt", acts = Subsystem.KNOT)
 public class UpdateCommand extends TerminalCommand {
 
     public static String cmd = "updt";
@@ -42,18 +42,15 @@ public class UpdateCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof MainScene editor)) {
-            terminal.error(shortName() + " is a MainScene command");
-            return null;
-        }
+        PointSetPath pointSetPath = terminal.dataset(Subsystem.KNOT);
         boolean force = (args.length != startIdx) && forceOptionAliases.contains(args[startIdx]);
-        if (editor.subPaths.size() == 1) {
-            Shell ans = editor.subPaths.get(0);
-            double oldLength = editor.orgShell.getLength();
+        if (pointSetPath.subPaths.size() == 1) {
+            Shell ans = pointSetPath.subPaths.get(0);
+            double oldLength = pointSetPath.tsp.getLength();
             double newLength = ans.getLength();
             if (oldLength > newLength || force) {
-                PointSetPath.appendAns(editor.file, ans);
-                editor.orgShell = ans;
+                PointSetPath.appendAns(pointSetPath.file, ans);
+                pointSetPath.tsp = ans;
                 terminal.history.addLine(oldLength + "New Shortest Tour Found", Color.TEAL_DARK);
             }
             terminal.history.addWord("Stored shortest tour length was:", Color.GREEN);

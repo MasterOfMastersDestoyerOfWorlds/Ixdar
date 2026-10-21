@@ -3,12 +3,13 @@ package ixdar.gui.terminal.commands;
 import java.io.IOException;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.gui.terminal.TerminalParseException;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.file.FileManagement;
 import ixdar.scenes.main.MainScene;
 
-@CommandAnnotation(id = "rld")
+@CommandAnnotation(id = "rld", acts = Subsystem.FILES)
 public class ReloadCommand extends TerminalCommand {
 
     public static String cmd = "rld";

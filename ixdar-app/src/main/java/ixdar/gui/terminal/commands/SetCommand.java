@@ -3,8 +3,11 @@ package ixdar.gui.terminal.commands;
 import java.util.Map;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
+import ixdar.models.ModelChoice;
+import ixdar.models.ModelCollection;
 import ixdar.scenes.model.ModelScene;
 
 /**
@@ -13,7 +16,7 @@ import ixdar.scenes.model.ModelScene;
  * them. An empty value clears a key. Automation sets the same overrides through
  * {@code ixdar-cli model <name> --set}.
  */
-@CommandAnnotation(id = "set")
+@CommandAnnotation(id = "set", acts = Subsystem.MODEL)
 public class SetCommand extends TerminalCommand {
 
     /** Command word: {@code "set"}. */
@@ -70,21 +73,18 @@ public class SetCommand extends TerminalCommand {
     }
 
     /**
-     * Sets each {@code path.port=value} on the terminal's model scene, checked against the graph
-     * the current model runs, then reloads the current model; lists the overrides when given none.
+     * Sets each {@code path.port=value} on the scene's models, checked against the graph the
+     * current model runs, then reloads the current model; lists the overrides when given none.
      *
      * @param args     full tokenised command line
      * @param startIdx index of the first assignment in {@code args}
-     * @param terminal dispatching terminal (holds the active {@link ModelScene})
+     * @param terminal dispatching terminal, whose scene shows the models
      * @return {@code null}; the command offers no follow-up suggestions
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof ModelScene scene)) {
-            terminal.error("no model scene is active");
-            return null;
-        }
-        Map<String, Object> overrides = scene.modelCollection.overrides;
+        ModelCollection models = terminal.dataset(Subsystem.MODEL);
+        Map<String, Object> overrides = models.overrides;
         if (startIdx >= args.length) {
             for (Map.Entry<String, Object> override : overrides.entrySet()) {
                 terminal.history.addLine(override.getKey() + "=" + override.getValue(), Color.TEAL_DARK);
@@ -100,19 +100,24 @@ public class SetCommand extends TerminalCommand {
                 terminal.error("expected path.port=value, got " + args[index]);
                 return null;
             }
+            String key = args[index].substring(0, equals);
             String value = args[index].substring(equals + 1);
+            if (value.isBlank()) {
+                overrides.remove(key);
+                continue;
+            }
             try {
-                scene.setOverride(args[index].substring(0, equals),
-                        value.isBlank() ? null : ModelScene.parseOverrideValue(value), null);
+                models.validateOverrideKey.accept(key);
             } catch (IllegalArgumentException invalid) {
                 terminal.error(invalid.getMessage());
                 return null;
             }
+            overrides.put(key, ModelScene.parseOverrideValue(value));
         }
-        if (scene.currentModel() != null) {
-            scene.requestModelLoad(scene.currentModel());
-            terminal.history.addLine("rerunning " + scene.currentModel().displayName,
-                    Color.TEAL_DARK);
+        ModelChoice current = models.current();
+        if (current != null) {
+            models.requestLoad.accept(current);
+            terminal.history.addLine("rerunning " + current.displayName, Color.TEAL_DARK);
         }
         return null;
     }

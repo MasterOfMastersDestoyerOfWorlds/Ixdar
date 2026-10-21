@@ -4,10 +4,11 @@ import java.io.File;
 import java.io.IOException;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.file.FileManagement;
 
-@CommandAnnotation(id = "sv")
+@CommandAnnotation(id = "sv", acts = Subsystem.FILES)
 public class SaveCommand extends TerminalCommand {
     public static final String IX = ".ix";
 

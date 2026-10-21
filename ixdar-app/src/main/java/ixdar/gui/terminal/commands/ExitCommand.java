@@ -1,10 +1,11 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.gui.terminal.Terminal;
-import ixdar.scenes.main.MainScene;
+import ixdar.scenes.Scene;
 
-@CommandAnnotation(id = "ex")
+@CommandAnnotation(id = "ex", acts = Subsystem.VIEW)
 public class ExitCommand extends TerminalCommand {
 
     public static String cmd = "ex";
@@ -34,13 +35,18 @@ public class ExitCommand extends TerminalCommand {
         return 0;
     }
 
+    /**
+     * Press the view's Esc: leave the active tool, or the view itself from its default tool.
+     *
+     * @param args tokenised command line, unused
+     * @param startIdx index of the first argument, unused
+     * @param terminal terminal whose view is left
+     * @return {@code ex} again for tab-completion
+     */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof MainScene editor)) {
-            terminal.error(shortName() + " is a MainScene command");
-            return null;
-        }
-        editor.back();
+        Scene view = terminal.dataset(Subsystem.VIEW);
+        view.escapePressed();
         return new String[] { cmd };
     }
 }

@@ -57,11 +57,15 @@ public class MenuScene extends Scene {
      */
     @Override
     public void setControls() {
-        controls.add(new ControlHint(Keys.ESCAPE, "esc", "back out of the submenu", () -> {
-            if (menu != null) {
-                menu.back();
-            }
-        }));
+        controls.add(new ControlHint(Keys.ESCAPE, "esc", "back out of the submenu", this::escapePressed));
+    }
+
+    /** Esc steps back out of a submenu. */
+    @Override
+    public void escapePressed() {
+        if (menu != null) {
+            menu.back();
+        }
     }
 
     /**

@@ -3,9 +3,10 @@ package ixdar.gui.terminal.commands;
 import java.io.File;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.gui.terminal.Terminal;
 
-@CommandAnnotation(id = "cd")
+@CommandAnnotation(id = "cd", acts = Subsystem.TERMINAL)
 public class ChangeDirectoryCommand extends TerminalCommand {
     public static final String LS = "ls";
 

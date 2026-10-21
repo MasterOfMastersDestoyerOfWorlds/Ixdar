@@ -5,15 +5,16 @@ import java.util.ArrayList;
 import org.apache.commons.math3.util.Pair;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
+import ixdar.geometry.tsp.PointSetPath;
 import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.knot.Segment;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.text.HyperString;
-import ixdar.scenes.main.MainScene;
 
-@CommandAnnotation(id = "ask")
+@CommandAnnotation(id = "ask", acts = Subsystem.KNOT)
 public class AskCommand extends TerminalCommand {
     public static final String POINT_WITH_ID = "Point with id: ";
     public static final String DOES_NOT_EXIST = " does not exist.";
@@ -51,21 +52,18 @@ public class AskCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof MainScene editor)) {
-            terminal.error(shortName() + " is a MainScene command");
-            return null;
-        }
+        PointSetPath pointSetPath = terminal.dataset(Subsystem.KNOT);
         String questionName = args[startIdx];
         if (questionName.equals("dist")) {
             int id1 = Integer.parseInt(args[startIdx + 1]);
             int id2 = Integer.parseInt(args[startIdx + 2]);
-            Knot vp1 = editor.tourShell.pointMap.get(id1);
-            Knot vp2 = editor.tourShell.pointMap.get(id2);
+            Knot vp1 = pointSetPath.tourShell.pointMap.get(id1);
+            Knot vp2 = pointSetPath.tourShell.pointMap.get(id2);
             terminal.history.addLine("distance from " + id1 + " to " + id2 + " " + vp1.getSegment(vp2).distance,
                     Color.BLUE_GREY);
             return new String[] { "ask dist " + id1 + " " + id2 };
         } else if (questionName.equals("min")) {
-            Pair<PointND, Pair<PointND, PointND>> isMinima = editor.orgShell.isLocalMinima();
+            Pair<PointND, Pair<PointND, PointND>> isMinima = pointSetPath.tsp.isLocalMinima();
             if (isMinima == null) {
                 terminal.history.addLine("Calculated answer is a local minima.", Color.BLUE_GREY);
             } else {
@@ -82,30 +80,30 @@ public class AskCommand extends TerminalCommand {
             if (args.length - startIdx > 2) {
                 numPrint = Integer.parseInt(args[startIdx + 2]);
             }
-            Knot vp = editor.tourShell.pointMap.get(id1);
+            Knot vp = pointSetPath.tourShell.pointMap.get(id1);
             if (vp == null) {
                 terminal.error(POINT_WITH_ID + vp + DOES_NOT_EXIST);
             } else if (numPrint > vp.sortedSegments.size()) {
                 terminal.error("Point does not have " + numPrint + " segments to display");
             } else {
                 for (int i = 0; i < numPrint; i++) {
-                    HyperString seg = vp.sortedSegments.get(i).toHyperString(editor, Color.BLUE_GREY, false, true);
+                    HyperString seg = vp.sortedSegments.get(i).toHyperString(pointSetPath, Color.BLUE_GREY, false, true);
                     seg.addWord(SEGMENT_SEPARATOR);
                     terminal.history.addHyperString(seg);
                 }
                 terminal.history.newLine();
             }
         } else if (questionName.equals("sortedAll")) {
-            int numPrint = editor.tourShell.sortedSegments.size();
+            int numPrint = pointSetPath.tourShell.sortedSegments.size();
             if (args.length - startIdx > 1) {
                 numPrint = Integer.parseInt(args[startIdx + 1]);
             }
-            if (numPrint > editor.tourShell.sortedSegments.size()) {
+            if (numPrint > pointSetPath.tourShell.sortedSegments.size()) {
                 terminal.error(THERE_ARE_NOT + numPrint + POINTS);
             } else {
                 int i = 0;
-                for (Segment s : editor.tourShell.sortedSegments) {
-                    HyperString seg = s.toHyperString(editor, Color.BLUE_GREY, false, true);
+                for (Segment s : pointSetPath.tourShell.sortedSegments) {
+                    HyperString seg = s.toHyperString(pointSetPath, Color.BLUE_GREY, false, true);
                     terminal.history.addHyperString(seg);
                     terminal.history.newLine();
                     i++;
@@ -116,16 +114,16 @@ public class AskCommand extends TerminalCommand {
                 terminal.history.newLine();
             }
         } else if (questionName.equals("sorted")) {
-            int numPrint = editor.tourShell.pointMap.size();
+            int numPrint = pointSetPath.tourShell.pointMap.size();
             if (args.length - startIdx > 1) {
                 numPrint = Integer.parseInt(args[startIdx + 1]);
             }
-            if (numPrint > editor.tourShell.pointMap.size()) {
+            if (numPrint > pointSetPath.tourShell.pointMap.size()) {
                 terminal.error(THERE_ARE_NOT + numPrint + POINTS);
             } else {
                 ArrayList<Segment> segements = new ArrayList<>();
                 for (int i = 0; i < numPrint; i++) {
-                    Knot vp = editor.tourShell.pointMap.get(i);
+                    Knot vp = pointSetPath.tourShell.pointMap.get(i);
                     if (vp.sortedSegments.size() > 1) {
                         if (!!vp.isSingleton()) {
                             segements.add(vp.sortedSegments.get(0));
@@ -135,7 +133,7 @@ public class AskCommand extends TerminalCommand {
                 }
                 segements.sort(null);
                 for (Segment s : segements) {
-                    HyperString seg = s.toHyperString(editor, Color.BLUE_GREY, false, true);
+                    HyperString seg = s.toHyperString(pointSetPath, Color.BLUE_GREY, false, true);
                     terminal.history.addHyperString(seg);
                     terminal.history.newLine();
                 }
@@ -147,7 +145,7 @@ public class AskCommand extends TerminalCommand {
             if (args.length - startIdx > 2) {
                 numPrint = Integer.parseInt(args[startIdx + 2]);
             }
-            Knot vp = editor.tourShell.pointMap.get(id1);
+            Knot vp = pointSetPath.tourShell.pointMap.get(id1);
             if (vp == null) {
                 terminal.error(POINT_WITH_ID + vp + DOES_NOT_EXIST);
             }
@@ -168,9 +166,9 @@ public class AskCommand extends TerminalCommand {
                     Segment segment = innerVp.sortedSegments.get(i);
                     HyperString str = null;
                     if (green.contains(segment.id)) {
-                        str = segment.toHyperString(editor, Color.GREEN, false, true);
+                        str = segment.toHyperString(pointSetPath, Color.GREEN, false, true);
                     } else {
-                        str = segment.toHyperString(editor, Color.BLUE_GREY, false, true);
+                        str = segment.toHyperString(pointSetPath, Color.BLUE_GREY, false, true);
                     }
                     str.addWord(SEGMENT_SEPARATOR);
                     terminal.history.addHyperString(str);

@@ -3,17 +3,19 @@ package ixdar.gui.terminal.commands;
 import java.io.File;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.annotations.command.OptionList;
 import ixdar.annotations.command.TerminalOption;
 import ixdar.annotations.tool.ToolRegistry_Tools;
 import ixdar.geometry.tsp.input.PointCollection;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
+import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Tool;
 
-@CommandAnnotation(id = "ls")
+@CommandAnnotation(id = "ls", acts = {Subsystem.TERMINAL, Subsystem.VIEW})
 public class ListCommand extends TerminalCommand {
     public static String cmd = "ls";
 
@@ -69,16 +71,20 @@ public class ListCommand extends TerminalCommand {
             return new String[] { "cd " };
         } else {
             String target = args[startIdx];
+            Scene view = terminal.dataset(Subsystem.VIEW);
             if (target.equals("values")) {
 
             } else if (target.equals("questions")) {
 
             } else if (keyOptionAliases.contains(target)) {
-                for (ControlHint hint : terminal.scene.controls) {
+                for (ControlHint hint : view.controls) {
                     terminal.history.addLine(hint.toString(), Color.GREEN);
                 }
             } else if (commandOptionAliases.contains(target)) {
                 for (TerminalOption tc : Terminal.commandList) {
+                    if (terminal.refusal(tc) != null) {
+                        continue;
+                    }
                     terminal.history.addWord(tc.shortName(), Color.TEAL_DARK);
                     terminal.history.addLine(" - " + tc.desc(), Color.GREEN);
                 }
@@ -89,12 +95,12 @@ public class ListCommand extends TerminalCommand {
                 }
             } else if (toolOptionAliases.contains(target)) {
                 for (String id : ToolRegistry_Tools.MAP.keySet()) {
-                    if (!ToolRegistry_Tools.HOSTED_BY.get(id).test(terminal.scene)) {
+                    if (!ToolRegistry_Tools.HOSTED_BY.get(id).test(view)) {
                         continue;
                     }
                     String shortName = id;
                     String desc = "";
-                    for (Tool t : terminal.scene.tools) {
+                    for (Tool t : view.tools) {
                         if (t.toolName().equals(id)) {
                             shortName = t.shortName();
                             desc = t.desc();

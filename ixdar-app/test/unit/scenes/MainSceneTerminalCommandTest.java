@@ -12,6 +12,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -45,6 +46,16 @@ class MainSceneTerminalCommandTest {
     private static final int STAND_IN_PLATFORM_ID = 7719;
 
     private static final String EXIT_COMMAND = "ex";
+
+    private static final String KNOT_COMMAND = "ck";
+
+    private static final String MOVE_COMMAND = "mv";
+
+    private static final String RESET_CAMERA = "rst camera";
+
+    private static final String LIST_COMMANDS = "ls commands";
+
+    private static final String KNOT_REFUSAL = " acts on a knot; this scene shows none";
 
     private static final String THROWING_COMMAND = "throws";
 
@@ -134,15 +145,63 @@ class MainSceneTerminalCommandTest {
     }
 
     @Test
-    void exitTypedIntoAnotherScenesTerminalIsRefused() {
+    void aKnotCommandTypedIntoAnotherScenesTerminalIsRefusedByTheTerminal() {
         MenuScene menu = new MenuScene();
         Scene.instance = menu;
         Terminal terminal = new Terminal(WORKING_DIRECTORY, menu);
-        assertDoesNotThrow(() -> terminal.run(EXIT_COMMAND));
+        assertDoesNotThrow(() -> terminal.run("mv 1 2 3"));
         String printed = printed(terminal);
-        assertTrue(printed.contains(EXIT_COMMAND + " is a MainScene command"),
-                "the refusal is printed: " + printed);
+        assertTrue(printed.contains(MOVE_COMMAND + KNOT_REFUSAL), "the refusal is printed: " + printed);
         assertNull(menu.successor, "no scene switch");
+    }
+
+    @Test
+    void viewCommandsRunInASceneWithoutAKnot() {
+        MenuScene menu = new MenuScene();
+        Scene.instance = menu;
+        Terminal terminal = new Terminal(WORKING_DIRECTORY, menu);
+        terminal.run(RESET_CAMERA);
+        terminal.run(EXIT_COMMAND);
+        String printed = printed(terminal);
+        assertFalse(printed.contains("EXCEPTION"), "rst and ex run on the menu's view: " + printed);
+        assertNull(menu.successor, "the menu's Esc with no submenu open stays");
+    }
+
+    @Test
+    void listCommandsNamesOnlyWhatTheScenesDataSupports() throws Exception {
+        MenuScene menu = new MenuScene();
+        Scene.instance = menu;
+        Terminal menuTerminal = new Terminal(WORKING_DIRECTORY, menu);
+        menuTerminal.run(LIST_COMMANDS);
+        MainScene editor = new MainScene(LINES, menu);
+        editor.terminal.run(LIST_COMMANDS);
+        List<String> menuWords = words(menuTerminal);
+        List<String> editorWords = words(editor.terminal);
+        assertTrue(menuWords.contains("ct") && !menuWords.contains(MOVE_COMMAND) && !menuWords.contains("xp"),
+                "the menu lists view commands only: " + menuWords);
+        assertTrue(editorWords.contains(MOVE_COMMAND) && editorWords.contains("clr") && !editorWords.contains("ml"),
+                "the editor lists its knot commands and no model ones: " + editorWords);
+    }
+
+    @Test
+    void askLinksHoverAndFocusThroughTheEditorsCallbacks() throws Exception {
+        MenuScene menu = new MenuScene();
+        Scene.instance = menu;
+        MainScene editor = new MainScene(LINES, menu);
+        editor.setTools();
+        editor.switchTool(editor.defaultTool);
+        editor.terminal.run("ask closest 0 1");
+        HyperWord link = null;
+        for (HyperWord word : editor.terminal.history.words) {
+            if (link == null && word.toString().startsWith("[")) {
+                link = word;
+            }
+        }
+        assertNotNull(link, "ask printed a hoverable segment: " + printed(editor.terminal));
+        link.hoverAction.perform();
+        assertTrue(editor.showHoverSegment, "hovering the link highlights its segment in the editor");
+        link.clearHover.perform();
+        assertFalse(editor.showHoverSegment, "leaving the link drops the highlight");
     }
 
     @Test
@@ -183,16 +242,16 @@ class MainSceneTerminalCommandTest {
         });
         try {
             enter(terminal, THROWING_COMMAND);
-            enter(terminal, EXIT_COMMAND);
+            enter(terminal, KNOT_COMMAND);
         } finally {
             Terminal.commandMap.remove(THROWING_COMMAND);
         }
         String printed = printed(terminal);
         assertTrue(printed.contains("EXCEPTION: java.lang.IllegalStateException: " + THROWN_MESSAGE),
                 "the thrown exception is printed: " + printed);
-        assertTrue(printed.contains(EXIT_COMMAND + " is a MainScene command"),
+        assertTrue(printed.contains(KNOT_COMMAND + KNOT_REFUSAL),
                 "the next line ran on its own: " + printed);
-        assertFalse(printed.contains(THROWING_COMMAND + EXIT_COMMAND), "nothing glued: " + printed);
+        assertFalse(printed.contains(THROWING_COMMAND + KNOT_COMMAND), "nothing glued: " + printed);
     }
 
     @Test
@@ -235,6 +294,20 @@ class MainSceneTerminalCommandTest {
         return printed.toString();
     }
 
+    /**
+     * The terminal's history word by word, trimmed.
+     *
+     * @param terminal terminal to read
+     * @return each history word's text
+     */
+    private static List<String> words(Terminal terminal) {
+        List<String> words = new ArrayList<>();
+        for (HyperWord word : terminal.history.words) {
+            words.add(word.toString().trim());
+        }
+        return words;
+    }
+
     @Test
     void theResetRowReturnsToTheFreeToolAndResetsTheToggles() throws Exception {
         MainScene editor = editorInNeighborViewWithCutMatchAndGradientOff();
@@ -254,7 +327,7 @@ class MainSceneTerminalCommandTest {
     @Test
     void resetCameraTypedIntoTheTerminalLeavesTheToolAndTheToggles() throws Exception {
         MainScene editor = editorInNeighborViewWithCutMatchAndGradientOff();
-        editor.terminal.run("rst camera");
+        editor.terminal.run(RESET_CAMERA);
         assertSame(editor.neighborViewTool, editor.activeTool, "the tool is unchanged");
         assertFalse(Toggle.DrawCutMatch.value, "the cut-match toggle is unchanged");
         assertFalse(Toggle.DrawKnotGradient.value, "the gradient toggle is unchanged");

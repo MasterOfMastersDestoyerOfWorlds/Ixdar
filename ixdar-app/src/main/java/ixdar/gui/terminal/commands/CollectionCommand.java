@@ -1,10 +1,13 @@
 package ixdar.gui.terminal.commands;
 
+import java.io.IOException;
+
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
+import ixdar.models.CollectionManifest;
 import ixdar.models.ModelCollection;
-import ixdar.scenes.model.ModelScene;
 
 /**
  * Terminal command {@code collection}/{@code cn}: browse the open collection from the prompt.
@@ -12,7 +15,7 @@ import ixdar.scenes.model.ModelScene;
  * way {@code ]} and {@code [} do, and {@code keep}/{@code reject} set the current member's flag
  * and rewrite the manifest.
  */
-@CommandAnnotation(id = "cn")
+@CommandAnnotation(id = "cn", acts = Subsystem.MODEL)
 public class CollectionCommand extends TerminalCommand {
 
     /** Short alias for the command: {@code "cn"}. */
@@ -79,30 +82,42 @@ public class CollectionCommand extends TerminalCommand {
     }
 
     /**
-     * Apply the subcommand at {@code args[startIdx]} to the terminal's active model scene.
+     * Apply the subcommand at {@code args[startIdx]} to the scene's open collection of scans.
      *
      * @param args full tokenised command line
      * @param startIdx index of the subcommand in {@code args}
-     * @param terminal dispatching terminal (holds the active {@link ModelScene})
+     * @param terminal dispatching terminal, whose scene shows the models
      * @return {@code null}; the command offers no follow-up suggestions
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof ModelScene scene) || !scene.modelCollection.hasManifest()) {
+        ModelCollection collection = terminal.dataset(Subsystem.MODEL);
+        if (!collection.hasManifest()) {
             terminal.error("no collection is open; run the scene with -Dixdar.model=<directory>");
             return null;
         }
-        ModelCollection collection = scene.modelCollection;
         String subcommand = args[startIdx].toLowerCase();
         switch (subcommand) {
             case LIST -> printMembers(collection, terminal);
-            case NEXT -> scene.nextMember();
-            case PREV -> scene.prevMember();
-            case KEEP -> setKeep(scene, terminal, true);
-            case REJECT -> setKeep(scene, terminal, false);
+            case NEXT -> loadMember(collection, collection.next());
+            case PREV -> loadMember(collection, collection.prev());
+            case KEEP -> setKeep(collection, terminal, true);
+            case REJECT -> setKeep(collection, terminal, false);
             default -> terminal.error(usage());
         }
         return null;
+    }
+
+    /**
+     * Ask the scene to load the member the cursor moved to.
+     *
+     * @param collection collection whose cursor moved
+     * @param member member index under the cursor, or {@code -1} for an empty collection
+     */
+    private static void loadMember(ModelCollection collection, int member) {
+        if (member >= 0) {
+            collection.requestLoad.accept(collection.members[member]);
+        }
     }
 
     /**
@@ -131,19 +146,24 @@ public class CollectionCommand extends TerminalCommand {
     /**
      * Set the current member's keep flag and rewrite the manifest.
      *
-     * @param scene scene holding the collection
+     * @param collection open collection of scans
      * @param terminal terminal receiving the confirmation
      * @param keep {@code true} to keep the member, {@code false} to reject it
      */
-    private void setKeep(ModelScene scene, Terminal terminal, boolean keep) {
-        int member = scene.currentMemberIndex();
+    private void setKeep(ModelCollection collection, Terminal terminal, boolean keep) {
+        int member = collection.index();
         if (member < 0) {
             terminal.error("the collection has no members");
             return;
         }
-        ModelCollection collection = scene.modelCollection;
         if (collection.memberKeep[member] != keep) {
-            scene.toggleKeepCurrentMember();
+            collection.memberKeep[member] = keep;
+            try {
+                CollectionManifest.write(collection);
+            } catch (IOException failure) {
+                terminal.error("collection manifest write failed for " + collection.manifestPath
+                        + ": " + failure.getMessage());
+            }
         }
         terminal.history.addLine(collection.members[member].displayName
                 + (collection.memberKeep[member] ? " kept" : " rejected"), Color.TEAL_DARK);

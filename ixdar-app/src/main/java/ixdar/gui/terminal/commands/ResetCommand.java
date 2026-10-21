@@ -1,15 +1,16 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.gui.terminal.Terminal;
+import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
-import ixdar.scenes.main.MainScene;
 
 /**
- * Terminal command {@code rst}/{@code reset} that resets a sub-system on {@link MainScene}
- * (camera, current tool, toggles, or all of them) to its initial state.
+ * Terminal command {@code rst}/{@code reset} that resets a sub-system of the view (camera,
+ * current tool, toggles, or all of them) to its initial state.
  */
-@CommandAnnotation(id = "rst")
+@CommandAnnotation(id = "rst", acts = Subsystem.VIEW)
 public class ResetCommand extends TerminalCommand {
 
     public static String cmd = "rst";
@@ -65,30 +66,32 @@ public class ResetCommand extends TerminalCommand {
     }
 
     /**
-     * Reset the sub-system {@code option} names: the camera, the active tool's selection, the
-     * toggles, or all three with the default tool made active again.
+     * Reset the sub-system {@code option} names: the camera framing everything, the active tool's
+     * selection, the toggles, or all three with the default tool made active again.
      *
      * @param option which target to reset (camera, tool, toggles, or all)
-     * @param editor the editor whose camera, tool or toggles are reset
+     * @param view the view whose camera, tool or toggles are reset
      */
-    public static void run(ResetOption option, MainScene editor) {
+    public static void run(ResetOption option, Scene view) {
         switch (option) {
         case All:
-            editor.editorCamera.reset();
-            if (editor.activeTool == editor.defaultTool) {
-                editor.activeTool.deactivate();
-                editor.activeTool.activate();
-            } else {
-                editor.switchTool(editor.defaultTool);
+            view.frameAll();
+            if (view.activeTool != view.defaultTool) {
+                view.switchTool(view.defaultTool);
+            } else if (view.activeTool != null) {
+                view.activeTool.deactivate();
+                view.activeTool.activate();
             }
             Toggle.resetAll();
             break;
         case Camera:
-            editor.editorCamera.reset();
+            view.frameAll();
             break;
         case Tool:
-            editor.activeTool.deactivate();
-            editor.activeTool.activate();
+            if (view.activeTool != null) {
+                view.activeTool.deactivate();
+                view.activeTool.activate();
+            }
             break;
         case Toggles:
             Toggle.resetAll();
@@ -100,7 +103,7 @@ public class ResetCommand extends TerminalCommand {
 
     /**
      * Match {@code args[startIdx]} against the aliases of every {@link ResetOption} and
-     * dispatch to {@link #run(ResetOption, MainScene)} on the first hit. Reports a usage error to
+     * dispatch to {@link #run(ResetOption, Scene)} on the first hit. Reports a usage error to
      * the terminal if no option matches.
      *
      * @param args full tokenised command line
@@ -110,10 +113,6 @@ public class ResetCommand extends TerminalCommand {
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof MainScene editor)) {
-            terminal.error(shortName() + " is a MainScene command");
-            return null;
-        }
         ResetOption option = null;
         for (ResetOption r : ResetOption.values()) {
             for (int i = 0; i < r.option.length; i++) {
@@ -130,7 +129,7 @@ public class ResetCommand extends TerminalCommand {
             terminal.error("cannot reset object: " + this.usage());
             return null;
         }
-        run(option, editor);
+        run(option, terminal.dataset(Subsystem.VIEW));
         return null;
     }
     public enum ResetOption {

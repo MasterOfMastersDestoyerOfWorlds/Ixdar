@@ -1,11 +1,12 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
+import ixdar.geometry.tsp.PointSetPath;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.file.FileManagement;
-import ixdar.scenes.main.MainScene;
 
-@CommandAnnotation(id = "cmt")
+@CommandAnnotation(id = "cmt", acts = {Subsystem.FILES, Subsystem.KNOT})
 public class CommentCommand extends TerminalCommand {
 
     public static String cmd = "cmt";
@@ -37,15 +38,12 @@ public class CommentCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof MainScene editor)) {
-            terminal.error(shortName() + " is a MainScene command");
-            return null;
-        }
+        PointSetPath pointSetPath = terminal.dataset(Subsystem.KNOT);
         String commentText = "";
         for (int i = startIdx; i < args.length; i++) {
             commentText += " " + args[i];
         }
-        FileManagement.appendComment(editor.file, commentText);
+        FileManagement.appendComment(pointSetPath.file, commentText);
         return new String[] {};
     }
 }

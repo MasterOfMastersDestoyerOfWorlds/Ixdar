@@ -6,12 +6,12 @@ import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
 import org.joml.Vector2d;
 import org.joml.Vector2f;
 
+import ixdar.geometry.tsp.PointSetPath;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.geometry.tsp.shell.DistanceMatrix;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.actions.Action;
 import ixdar.gui.ui.text.HyperString;
-import ixdar.scenes.main.MainScene;
 
 public class Segment implements Comparable<Segment> {
     public static final double HIT_TEST_WIDTH_RATIO = 0.2;
@@ -510,30 +510,29 @@ public class Segment implements Comparable<Segment> {
      * supplied color and a click handler that zooms to it. Distance label is
      * suppressed.
      *
-     * @param editor the editor whose hover highlight and camera the text drives
+     * @param pointSetPath the point set the segment joins, carrying the view's hover and focus callbacks
      * @param color label color
      * @param labelAsSegment whether to prefix the label with {@code "Segment"}
      * @return clickable hyperstring representation
      */
-    public HyperString toHyperString(MainScene editor, Color color, boolean labelAsSegment) {
-        return toHyperString(editor, color, labelAsSegment, false);
+    public HyperString toHyperString(PointSetPath pointSetPath, Color color, boolean labelAsSegment) {
+        return toHyperString(pointSetPath, color, labelAsSegment, false);
     }
 
     /**
      * Render this segment as an interactive {@link HyperString} with the
      * supplied color and a click handler that zooms to it.
      *
-     * @param editor the editor whose hover highlight and camera the text drives
+     * @param pointSetPath the point set the segment joins, carrying the view's hover and focus callbacks
      * @param color label color
      * @param labelAsSegment whether to prefix the label with {@code "Segment"}
      * @param labelDistance whether to append the segment distance to the label
      * @return clickable hyperstring representation
      */
-    public HyperString toHyperString(MainScene editor, Color color, boolean labelAsSegment, boolean labelDistance) {
+    public HyperString toHyperString(PointSetPath pointSetPath, Color color, boolean labelAsSegment,
+            boolean labelDistance) {
         HyperString h = new HyperString();
-        Action clickAction = () -> {
-            editor.editorCamera.zoomToSegment(this);
-        };
+        Action clickAction = () -> pointSetPath.focusSegment.accept(this);
         String str = "";
 
         if (labelAsSegment) {
@@ -543,7 +542,8 @@ public class Segment implements Comparable<Segment> {
         if (labelDistance) {
             str += ", " + String.format("%.2f", this.distance);
         }
-        h.addHoverSegment(str, color, this, () -> editor.setHoverSegment(this, color), editor::clearHoverSegment,
+        h.addHoverSegment(str, color, this, () -> pointSetPath.hoverSegment.accept(this, color),
+                pointSetPath.clearHoverSegment,
                 clickAction);
         return h;
     }

@@ -3,10 +3,11 @@ package ixdar.gui.terminal.commands;
 import java.io.File;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.gui.terminal.Terminal;
 import ixdar.geometry.tsp.PointSetPath;
 
-@CommandAnnotation(id = "ut")
+@CommandAnnotation(id = "ut", acts = Subsystem.FILES)
 public class UnitTestCommand extends TerminalCommand {
 
     public static String cmd = "ut";

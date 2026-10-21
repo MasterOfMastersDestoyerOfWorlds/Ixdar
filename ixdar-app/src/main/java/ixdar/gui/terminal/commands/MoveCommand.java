@@ -1,15 +1,15 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.geometry.tsp.IdDoesNotExistException;
 import ixdar.geometry.tsp.IdsNotConcurrentException;
 import ixdar.gui.terminal.TerminalParseException;
 import ixdar.geometry.tsp.shell.Range;
 import ixdar.gui.terminal.Terminal;
 import ixdar.geometry.tsp.PointSetPath;
-import ixdar.scenes.main.MainScene;
 
-@CommandAnnotation(id = "mv")
+@CommandAnnotation(id = "mv", acts = Subsystem.KNOT)
 public class MoveCommand extends TerminalCommand {
     public static final int REQUIRED_ARG_COUNT = 3;
 
@@ -42,16 +42,13 @@ public class MoveCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof MainScene editor)) {
-            terminal.error(shortName() + " is a MainScene command");
-            return null;
-        }
+        PointSetPath pointSetPath = terminal.dataset(Subsystem.KNOT);
         try {
             Range idTarget = Range.parse(args[startIdx]);
             int idDest1 = Integer.parseInt(args[startIdx + 1]);
             int idDest2 = Integer.parseInt(args[startIdx + 2]);
-            editor.orgShell.moveBetween(idTarget, idDest1, idDest2);
-            PointSetPath.rewriteSolutionFile(editor.file.getPath(), editor.orgShell);
+            pointSetPath.tsp.moveBetween(idTarget, idDest1, idDest2);
+            PointSetPath.rewriteSolutionFile(pointSetPath.file.getPath(), pointSetPath.tsp);
             return new String[] { "mv " + idTarget + " " };
 
         } catch (NumberFormatException e) {

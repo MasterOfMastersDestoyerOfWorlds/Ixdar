@@ -11,6 +11,7 @@ import java.util.Random;
 
 import org.apache.commons.math3.util.Pair;
 
+import ixdar.annotations.command.Subsystem;
 import ixdar.scenes.Scene;
 import ixdar.geometry.tsp.MultipleCyclesFoundException;
 import ixdar.geometry.tsp.SegmentBalanceException;
@@ -74,8 +75,6 @@ public class MainScene extends Scene {
     public static final int MAIN_VIEW_OFFSET_X = 0;
     public static final int MAIN_VIEW_OFFSET_Y = BOTTOM_PANEL_SIZE;
 
-    public TextFile file;
-    public TextFile tempFile;
     public String fileName;
 
     /** The scene Back returns to once the free tool has nothing to step back from. */
@@ -94,13 +93,9 @@ public class MainScene extends Scene {
     public float mainViewOffsetX;
     public float mainViewOffsetY;
 
-    /** The working copy of the tour that the knots are solved on. */
-    public Shell tourShell;
-    public PointSetPath retTup;
-    public Shell orgShell;
-    public ArrayList<Shell> subPaths = new ArrayList<>();
+    /** The knot this editor shows: the point set, its tour and the knots solved from it. */
+    public PointSetPath pointSetPath;
     public Shell resultShell;
-    public ArrayList<Knot> resultKnots;
     public SegmentBalanceException sbe;
 
     public Knot manifoldKnot;
@@ -109,10 +104,7 @@ public class MainScene extends Scene {
     public PriorityQueue<ShellPair> metroPathsHeight = new PriorityQueue<ShellPair>(new ShellComparator());
     public ArrayList<Knot> knotsDisplayed = new ArrayList<>();
 
-    public Color stickyColor;
-    public ArrayList<Color> metroColors = new ArrayList<>();
     public HashMap<Integer, Integer> knotLayerLookup = new HashMap<>();
-    public ArrayList<Color> knotGradientColors = new ArrayList<>();
     public HashMap<Long, Integer> colorLookup = new HashMap<>();
     public Knot hoverKnot;
     public boolean showHoverKnot;
@@ -123,8 +115,6 @@ public class MainScene extends Scene {
     public Terminal terminal;
     public InfoPane info = new InfoPane(VIEW_RIGHT_TOP, () -> active);
     public Grid grid;
-    public int totalLayers = -1;
-    public double tourLength;
     public SDFTexture logo;
     public Font font;
 
@@ -141,19 +131,20 @@ public class MainScene extends Scene {
      */
     public MainScene(String fileName, Scene backScene) throws TerminalParseException, IOException {
         this.backScene = backScene;
-        tempFile = FileManagement.getTempFile(fileName);
         PointND.resetIds();
         if (Compat.isBlank(fileName)) {
-            // retTup = PointSetPath.importFromFile(tempFile);
+            // pointSetPath = PointSetPath.importFromFile(tempFile);
             // terminal = new Terminal(tempFile);
         } else {
             this.fileName = fileName;
-            file = FileManagement.getFile(fileName);
-            retTup = PointSetPath.importFromFile(file.getPath());
+            TextFile file = FileManagement.getFile(fileName);
+            pointSetPath = PointSetPath.importFromFile(file.getPath());
+            pointSetPath.file = file;
             terminal = new Terminal(file, this);
             Terminal.current = terminal;
         }
-        for (String comment : retTup.comments) {
+        pointSetPath.tempFile = FileManagement.getTempFile(fileName);
+        for (String comment : pointSetPath.comments) {
             terminal.history.addLine(comment, Color.BLUE_GREY);
         }
 
@@ -163,12 +154,12 @@ public class MainScene extends Scene {
         int wHeight = Platforms.get().getFrameBufferHeight();
         editorCamera = new Camera2D(wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, CAMERA_ZOOM_DEFAULT, 0,
                 BOTTOM_PANEL_SIZE,
-                retTup.ps);
+                pointSetPath.ps);
         editorCamera.resetTarget = () -> showHoverKnot ? hoverKnot
                 : activeTool == freeTool ? freeTool.selectedKnot() : null;
 
         Toggle.setPanelFocus(PaneTypes.KnotView);
-        grid = retTup.grid;
+        grid = pointSetPath.grid;
         editorCamera.wheelZooms = false;
         mouse.camera = editorCamera;
         mouse.controller = editorCamera;
@@ -212,34 +203,34 @@ public class MainScene extends Scene {
         pointer.subscribe(rightTop, info.scrollBox);
         pointer.subscribe(bottom, terminal.scrollBox);
         pointer.subscribe(views.get(VIEW_MAIN), editorCamera);
-        DistanceMatrix d = retTup.d;
-        if (retTup.d == null) {
-            d = new DistanceMatrix(retTup.ps);
-            retTup.d = d;
+        DistanceMatrix d = pointSetPath.d;
+        if (pointSetPath.d == null) {
+            d = new DistanceMatrix(pointSetPath.ps);
+            pointSetPath.d = d;
         }
         ArrayList<PointND> toRemove = new ArrayList<>();
-        for (PointND p : retTup.tsp) {
+        for (PointND p : pointSetPath.tsp) {
             if (p == null) {
                 toRemove.add(p);
             }
         }
-        retTup.tsp.removeAll(toRemove);
-        orgShell = retTup.tsp;
+        pointSetPath.tsp.removeAll(toRemove);
+        Shell orgShell = pointSetPath.tsp;
 
-        tourShell = orgShell.copyShallow();
+        Shell tourShell = orgShell.copyShallow();
+        pointSetPath.tourShell = tourShell;
 
         tourShell.knotName = fileName;
 
         Collections.shuffle(tourShell);
         long startTimeKnotFinding = System.currentTimeMillis();
+        ArrayList<Knot> resultKnots = pointSetPath.resultKnots;
         if (Toggle.CalculateKnot.value) {
             try {
-                resultKnots = new ArrayList<>(tourShell.slowSolve(tourShell, d, MAX_SOLVE_ATTEMPTS));
+                resultKnots.addAll(tourShell.slowSolve(tourShell, d, MAX_SOLVE_ATTEMPTS));
             } catch (MultipleCyclesFoundException e) {
                 e.printStackTrace();
             }
-        } else {
-            resultKnots = new ArrayList<>();
         }
 
         long endTimeKnotFinding = System.currentTimeMillis() - startTimeKnotFinding;
@@ -256,7 +247,7 @@ public class MainScene extends Scene {
         }
 
         tourShell.buff.flush();
-        retTup.grid.init();
+        pointSetPath.grid.init();
         Random colorSeed = new Random();
 
         int numKnots = flatKnots.size();
@@ -264,7 +255,7 @@ public class MainScene extends Scene {
         float step = 1.0f / ((float) numKnots);
         int i = 0;
         for (Knot k : flatKnots) {
-            knotGradientColors.add(Color.fullHue((startHue + step * i) % 1.0f));
+            pointSetPath.knotGradientColors.add(Color.fullHue((startHue + step * i) % 1.0f));
             colorLookup.put((long) k.id, i);
             for (Knot vp : k.knotPoints) {
                 if (vp.isSingleton()) {
@@ -274,14 +265,15 @@ public class MainScene extends Scene {
             i++;
         }
 
-        knotDrawLayer = totalLayers;
-        totalLayers = -1;
+        knotDrawLayer = pointSetPath.totalLayers;
+        int totalLayers = -1;
         for (Knot k : flatKnots) {
             int height = k.getHeight();
             if (height > totalLayers) {
                 totalLayers = height;
             }
         }
+        pointSetPath.totalLayers = totalLayers;
         for (Knot k : flatKnots) {
             int heightNum = k.getHeight();
             int layerNum = totalLayers - heightNum + 1;
@@ -300,11 +292,12 @@ public class MainScene extends Scene {
         float startHueM = colorSeed.nextFloat();
         float stepM = 1.0f / ((float) totalLayers);
         for (int j = 0; j <= totalLayers; j++) {
-            metroColors.add(Color.fullHue((startHueM + stepM * j) % 1.0f));
+            pointSetPath.metroColors.add(Color.fullHue((startHueM + stepM * j) % 1.0f));
         }
 
         Drawing.initDrawingSizes(tourShell, editorCamera, d);
-        tourLength = tourShell.getLength();
+        double tourLength = tourShell.getLength();
+        pointSetPath.tourLength = tourLength;
         System.out.println(resultKnots);
         System.out.println(KNOT_FINDING_TIME + knotFindingSeconds);
         System.out.println("N " + tourShell.size());
@@ -314,8 +307,16 @@ public class MainScene extends Scene {
         System.out.println("Calculated Length: " + tourLength);
         System.out.println("===============================================");
 
-        stickyColor = Color.TEAL;
-
+        pointSetPath.knotColor = this::knotColor;
+        pointSetPath.focusKnot = knot -> {
+            setDrawLevelToKnot(knot);
+            editorCamera.zoomToKnot(knot);
+        };
+        pointSetPath.hoverKnot = this::setHoverKnot;
+        pointSetPath.clearHoverKnot = this::clearHoverKnot;
+        pointSetPath.focusSegment = editorCamera::zoomToSegment;
+        pointSetPath.hoverSegment = this::setHoverSegment;
+        pointSetPath.clearHoverSegment = this::clearHoverSegment;
     }
 
     /**
@@ -389,14 +390,15 @@ public class MainScene extends Scene {
         controls.add(new ControlHint(Keys.R, "R", "reset the camera, the tool and the toggles",
                 Toggle.IsMainFocused.gate(() -> ResetCommand.run(ResetOption.All, this))));
         controls.add(new ControlHint(Keys.ESCAPE, "esc", "back to " + toolLabel(defaultTool) + ", else leave",
-                this::back));
+                this::escapePressed));
     }
 
     /**
      * Esc: the active tool's first, then back to the free tool, and from the free tool out of the
      * editor to {@link #backScene}.
      */
-    public void back() {
+    @Override
+    public void escapePressed() {
         if (activeTool.escapePressed()) {
             return;
         }
@@ -479,7 +481,7 @@ public class MainScene extends Scene {
             Camera2D camera = editorCamera;
             camera.updateView(VIEW_MAIN);
             camera.setZIndex(camera2D);
-            camera.calculateCameraTransform(retTup.ps);
+            camera.calculateCameraTransform(pointSetPath.ps);
 
             if (activeTool.canUseToggle(Toggle.DrawGridLines)) {
                 grid.draw(camera, Drawing.MIN_THICKNESS / 2);
@@ -489,28 +491,29 @@ public class MainScene extends Scene {
             mainViewOffsetY = camera.ScreenOffsetY;
             activeTool.drawOverlay(camera, Drawing.MIN_THICKNESS);
             if (sbe != null) {
-                Drawing.drawShell(resultShell, true, Drawing.MIN_THICKNESS, Color.PURPLE_PINK, retTup.ps, camera);
+                Drawing.drawShell(resultShell, true, Drawing.MIN_THICKNESS, Color.PURPLE_PINK, pointSetPath.ps, camera);
                 if (sbe.cutMatchList != null) {
-                    Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS, retTup.ps, camera);
+                    Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS, pointSetPath.ps, camera);
                 }
             }
+            PointSetPath shown = pointSetPath;
             if (activeTool.canUseToggle(Toggle.DrawMainPath)) {
-                Drawing.drawShell(orgShell, false, Drawing.MIN_THICKNESS, Color.BLUE, retTup.ps, camera);
+                Drawing.drawShell(shown.tsp, false, Drawing.MIN_THICKNESS, Color.BLUE, shown.ps, camera);
             }
             if (activeTool.canUseToggle(Toggle.DrawDisplayedKnots) && activeTool.canUseToggle(Toggle.DrawMetroDiagram)
-                    && tourShell != null) {
-                if (knotDrawLayer == totalLayers) {
+                    && shown.tourShell != null) {
+                if (knotDrawLayer == shown.totalLayers) {
                     if (activeTool.canUseToggle(Toggle.DrawKnotGradient) && manifoldKnot != null) {
                         for (Integer id : knotLayerLookup.keySet()) {
-                            if (knotLayerLookup.get(id) == totalLayers) {
-                                Knot drawKnot = tourShell.pointMap.get(id);
+                            if (knotLayerLookup.get(id) == shown.totalLayers) {
+                                Knot drawKnot = shown.tourShell.pointMap.get(id);
                                 Drawing.drawGradientPath(drawKnot, lookupPairs(drawKnot), colorLookup,
-                                        knotGradientColors, camera, Drawing.MIN_THICKNESS);
+                                        shown.knotGradientColors, camera, Drawing.MIN_THICKNESS);
                             }
                         }
                     } else if (activeTool.canUseToggle(Toggle.DrawMetroDiagram)) {
-                        for (Shell temp : subPaths) {
-                            Drawing.drawShell(temp, true, Drawing.MIN_THICKNESS, metroColors.get(0), retTup.ps,
+                        for (Shell temp : shown.subPaths) {
+                            Drawing.drawShell(temp, true, Drawing.MIN_THICKNESS, shown.metroColors.get(0), shown.ps,
                                     camera);
                         }
                     }
@@ -524,14 +527,14 @@ public class MainScene extends Scene {
                             continue;
                         }
                         if (activeTool.canUseToggle(Toggle.DrawKnotGradient)) {
-                            Drawing.drawGradientPath(temp.k, lookupPairs(temp.k), colorLookup, knotGradientColors,
+                            Drawing.drawGradientPath(temp.k, lookupPairs(temp.k), colorLookup, shown.knotGradientColors,
                                     camera, Drawing.MIN_THICKNESS);
                         } else if (activeTool.canUseToggle(Toggle.DrawMetroDiagram)) {
                             float thickness = knotDrawLayer < 0
                                     ? Drawing.MIN_THICKNESS + Drawing.MIN_THICKNESS * (temp.priority - 1)
                                     : Drawing.MIN_THICKNESS;
-                            Drawing.drawShell(temp.shell, true, thickness, metroColors.get(temp.priority),
-                                    retTup.ps, camera);
+                            Drawing.drawShell(temp.shell, true, thickness, shown.metroColors.get(temp.priority),
+                                    shown.ps, camera);
                         }
                     }
                     metroPathsLayer = newQueue;
@@ -565,8 +568,8 @@ public class MainScene extends Scene {
                 Drawing.drawScaledSegment(hoverSegment, hoverSegmentColor, Drawing.MIN_THICKNESS, camera);
             }
 
-            if (!(retTup == null) && activeTool.canUseToggle(Toggle.DrawNumberLabels)) {
-                Drawing.drawPath(retTup.tsp, Drawing.MIN_THICKNESS, Color.RED, retTup.ps, false, false, true, false,
+            if (!(pointSetPath == null) && activeTool.canUseToggle(Toggle.DrawNumberLabels)) {
+                Drawing.drawPath(pointSetPath.tsp, Drawing.MIN_THICKNESS, Color.RED, pointSetPath.ps, false, false, true, false,
                         camera);
             }
             camera.updateView(VIEW_RIGHT_BOTTOM);
@@ -602,12 +605,12 @@ public class MainScene extends Scene {
             return getKnotGradientColor(k);
         }
         if (!activeTool.canUseToggle(Toggle.DrawMetroDiagram)) {
-            return stickyColor;
+            return pointSetPath.stickyColor;
         }
         if (k == null || knotLayerLookup.get(k.id) < 0) {
             return Color.IXDAR;
         }
-        return metroColors.get(knotLayerLookup.get(k.id));
+        return pointSetPath.metroColors.get(knotLayerLookup.get(k.id));
     }
 
     /**
@@ -622,7 +625,7 @@ public class MainScene extends Scene {
         if (smallestKnot == null) {
             return Color.IXDAR;
         }
-        return knotGradientColors.get(colorLookup.get((long) smallestKnot.id));
+        return pointSetPath.knotGradientColors.get(colorLookup.get((long) smallestKnot.id));
     }
 
     /**
@@ -637,9 +640,9 @@ public class MainScene extends Scene {
     public Color getMetroColor(Knot displayPoint, Knot k) {
         if (knotDrawLayer < 0) {
             Knot smallestKnot = k;
-            return metroColors.get(knotLayerLookup.get(smallestKnot.id));
+            return pointSetPath.metroColors.get(knotLayerLookup.get(smallestKnot.id));
         } else {
-            return metroColors.get(knotLayerLookup.get(k.id));
+            return pointSetPath.metroColors.get(knotLayerLookup.get(k.id));
         }
     }
 
@@ -758,9 +761,9 @@ public class MainScene extends Scene {
      * @param k knot whose layer becomes the new draw layer
      */
     public void setDrawLevelToKnot(Knot k) {
-        Knot smallestKnot = tourShell.pointMap.get(k.id);
+        Knot smallestKnot = pointSetPath.tourShell.pointMap.get(k.id);
         if (smallestKnot == null) {
-            knotDrawLayer = totalLayers;
+            knotDrawLayer = pointSetPath.totalLayers;
         } else {
             knotDrawLayer = knotLayerLookup.get(smallestKnot.id);
         }
@@ -775,25 +778,20 @@ public class MainScene extends Scene {
         if (knotDrawLayer != -1) {
             knotDrawLayer = -1;
         } else {
-            knotDrawLayer = totalLayers;
+            knotDrawLayer = pointSetPath.totalLayers;
         }
         updateKnotsDisplayed();
     }
 
     /**
-     * Return {@code k} unchanged, or the first result knot when {@code k} is null —
-     * used as a safe default for color/layer lookups.
+     * The editor shows its knot besides the view.
      *
-     * @param k candidate knot (may be null)
-     * @return {@code k} or the first {@link #resultKnots} entry when null
+     * @param subsystem a scene-held subsystem
+     * @return {@link #pointSetPath} for {@link Subsystem#KNOT}, else what every scene shows
      */
-    public Knot getKnotFlatten(Knot k) {
-        Knot smallestKnot = k;
-        if (smallestKnot == null) {
-            Knot first = resultKnots.get(0);
-            return (Knot) first;
-        }
-        return smallestKnot;
+    @Override
+    public Object dataset(Subsystem subsystem) {
+        return subsystem == Subsystem.KNOT ? pointSetPath : super.dataset(subsystem);
     }
 
 }

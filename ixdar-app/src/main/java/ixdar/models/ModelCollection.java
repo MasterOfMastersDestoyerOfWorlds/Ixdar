@@ -8,6 +8,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
@@ -66,6 +68,21 @@ public final class ModelCollection {
      * switches and can be set before the first run.
      */
     public final Map<String, Object> overrides = new LinkedHashMap<>();
+
+    /** The models the showing scene can switch to; the scene supplies it and {@link #open} carries it. */
+    public Supplier<List<ModelChoice>> offered = List::of;
+
+    /**
+     * Asks the showing scene to load a model on its next frame; the scene supplies it and
+     * {@link #open} carries it.
+     */
+    public Consumer<ModelChoice> requestLoad = choice -> { };
+
+    /**
+     * Checks an override key against the graph the current model runs, throwing
+     * {@link IllegalArgumentException} for a path or port it lacks; the scene supplies it.
+     */
+    public Consumer<String> validateOverrideKey = key -> { };
 
     private int index;
 
@@ -199,7 +216,8 @@ public final class ModelCollection {
     }
 
     /**
-     * The collection that holds {@code choice} next, carrying {@link #overrides} across: this one
+     * The collection that holds {@code choice} next, carrying {@link #overrides} and the scene's
+     * callbacks across: this one
      * with its cursor moved when {@code choice} is a member of these scans, the directory's scans
      * for a collection choice, else {@code choice} opened alone: one member, no directory and no
      * manifest.
@@ -216,6 +234,9 @@ public final class ModelCollection {
                 : new ModelCollection(choice.displayName, null, null, new ModelChoice[] {choice},
                         new JsonValue[1]);
         next.overrides.putAll(overrides);
+        next.offered = offered;
+        next.requestLoad = requestLoad;
+        next.validateOverrideKey = validateOverrideKey;
         return next;
     }
 

@@ -15,17 +15,14 @@ import org.joml.Vector3f;
 import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.rings.RegionExplosion;
 import ixdar.geometry.mesh.data.rings.RingRegionExtraction;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.platform.Clock;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.platform.Platforms;
-import ixdar.scenes.main.Toggle;
 import ixdar.automation.AutomationPortFile;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
@@ -97,9 +94,6 @@ public final class RingRegionTool implements Tool {
     /** Where the last extraction was exported, or empty. */
     public String exportedPath = "";
 
-    /** Exploded view of the region layer's regions, re-measured when they are rebuilt. */
-    public final RegionExplosion explosion = new RegionExplosion(RingRegionTool::regionTag);
-
     private int selectedRevision = -1;
 
     private boolean pendingExtract;
@@ -137,10 +131,6 @@ public final class RingRegionTool implements Tool {
         pendingClick = false;
         pendingExtract = false;
         releaseExtraction();
-        HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
-        if (runtime != null) {
-            explosion.collapse(runtime.tagOffsets);
-        }
         scene.regionLayer.redraw();
     }
 
@@ -154,22 +144,13 @@ public final class RingRegionTool implements Tool {
         controls.add(new ControlHint(Keys.O, "O", "extracted: open cut / capped",
                 this::toggleOpenCut));
         controls.add(new ControlHint(Keys.X, "X", "explode / collapse regions",
-                explosion::toggle));
+                scene.regionLayer.explosion::toggle));
         controls.add(new ControlHint(Keys.H, false, true, "shift+H", "hide selected regions",
                 () -> scene.regionLayer.hideSelection(false)));
         controls.add(new ControlHint(Keys.I, false, true, "shift+I",
                 "isolate selected regions (hide the rest)",
                 () -> scene.regionLayer.hideSelection(true)));
         controls.add(new ControlHint("hold , / .", "explode less / more"));
-    }
-
-    /**
-     * The {@code explode} command: animate the exploded view to an amount and hold it there.
-     *
-     * @param amount 0 assembled to 1 fully exploded; clamped into that range
-     */
-    public void explodeTo(float amount) {
-        explosion.animateTo(amount);
     }
 
     /** E: drop a shown extraction, else extract the selection on the next frame. */
@@ -289,12 +270,7 @@ public final class RingRegionTool implements Tool {
             selectedRevision = scene.regionLayer.revision;
             releaseExtraction();
             reselect();
-            explosion.measure(surface, regions.regionByActiveFace, regions.regionCount);
         }
-        boolean keysFree = scene.keys != null && !Toggle.IsTerminalFocused.value;
-        int heldDirection = (keysFree && scene.keys.pressedKeys.contains(Keys.PERIOD) ? 1 : 0)
-                - (keysFree && scene.keys.pressedKeys.contains(Keys.COMMA) ? 1 : 0);
-        explosion.step((float) Clock.deltaTime(), heldDirection, runtime.tagOffsets);
         if (pendingExtract) {
             pendingExtract = false;
             if (selectedCount() == 0) {

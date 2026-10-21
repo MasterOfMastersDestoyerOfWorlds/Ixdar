@@ -296,7 +296,7 @@ public abstract class KnotTool implements Tool {
      */
     public Segment segmentAt(float viewX, float viewY) {
         Camera2D camera = editor.editorCamera;
-        camera.calculateCameraTransform(editor.retTup.ps);
+        camera.calculateCameraTransform(editor.pointSetPath.ps);
         pointX = camera.screenTransformX(viewX);
         pointY = camera.screenTransformY(viewY);
         double minDist = Double.MAX_VALUE;
@@ -362,12 +362,12 @@ public abstract class KnotTool implements Tool {
      */
     public void increaseViewLayer() {
         if (canUseToggle(Toggle.CanSwitchLayer)) {
-            if (!canUseToggle(Toggle.CanSwitchTopLayer) && editor.knotDrawLayer == editor.totalLayers - 1) {
+            if (!canUseToggle(Toggle.CanSwitchTopLayer) && editor.knotDrawLayer == editor.pointSetPath.totalLayers - 1) {
                 return;
             }
             editor.knotDrawLayer++;
-            if (editor.knotDrawLayer > editor.totalLayers) {
-                editor.knotDrawLayer = editor.totalLayers;
+            if (editor.knotDrawLayer > editor.pointSetPath.totalLayers) {
+                editor.knotDrawLayer = editor.pointSetPath.totalLayers;
             }
             if (editor.knotDrawLayer < 1) {
                 editor.knotDrawLayer = 1;
@@ -385,7 +385,7 @@ public abstract class KnotTool implements Tool {
     public void decreaseViewLayer() {
         if (canUseToggle(Toggle.CanSwitchLayer)) {
             if (editor.knotDrawLayer == -1) {
-                editor.knotDrawLayer = editor.totalLayers;
+                editor.knotDrawLayer = editor.pointSetPath.totalLayers;
             } else {
                 editor.knotDrawLayer--;
                 if (editor.knotDrawLayer < 1) {

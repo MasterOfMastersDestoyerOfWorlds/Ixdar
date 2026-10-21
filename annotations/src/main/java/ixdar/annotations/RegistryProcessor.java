@@ -6,6 +6,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -21,6 +22,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
@@ -31,6 +33,13 @@ public abstract class RegistryProcessor extends AbstractProcessor {
 
     private static final String GENERATED_CLASS_NAME_SEPARATOR = "_";
 
+    /**
+     * An enum-array element of the annotation, such as {@code acts}, emitted as a second map from
+     * id to its values named after it in capitals ({@code ACTS}); {@code null} for none.
+     */
+    public String tagElement;
+
+    private String tagComponentFqcn;
     private boolean generated;
     private String fqcn;
     private Class<? extends Annotation> annotationClass;
@@ -157,6 +166,7 @@ public abstract class RegistryProcessor extends AbstractProcessor {
             Map<String, String> mainEntries = new TreeMap<>();
             Map<String, String> desktopEntries = new TreeMap<>();
             Map<String, String> hostById = new TreeMap<>();
+            Map<String, String> tagById = new TreeMap<>();
             Map<String, String> seenIds = new HashMap<>();
             for (Element element : roundEnv.getElementsAnnotatedWith(annotationClass)) {
                 if (element.getKind() != ElementKind.CLASS) {
@@ -173,6 +183,7 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                     supertypes.addAll(processingEnv.getTypeUtils().directSupertypes(type));
                 }
                 String id = element.getSimpleName().toString();
+                String tagValues = null;
                 boolean desktopOnly = false;
                 String annotationName = annotationClass.getName();
                 for (AnnotationMirror mirror : element.getAnnotationMirrors()) {
@@ -186,6 +197,19 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                             }
                             if (key.equals("desktopOnly") && Boolean.TRUE.equals(val)) {
                                 desktopOnly = true;
+                            }
+                            if (key.equals(tagElement)) {
+                                tagComponentFqcn = ((ArrayType) entry.getKey().getReturnType())
+                                        .getComponentType().toString();
+                                StringBuilder constants = new StringBuilder();
+                                for (Object value : (List<?>) val) {
+                                    VariableElement constant = (VariableElement) ((AnnotationValue) value).getValue();
+                                    if (constants.length() > 0) {
+                                        constants.append(", ");
+                                    }
+                                    constants.append(tagComponentFqcn).append('.').append(constant.getSimpleName());
+                                }
+                                tagValues = constants.toString();
                             }
                         }
                     }
@@ -231,6 +255,9 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                                     + "; set a distinct id() on the annotation so neither is silently dropped.",
                             element);
                 }
+                if (tagValues != null) {
+                    tagById.put(id, tagValues);
+                }
                 if (partitionDesktopOnly && desktopOnly) {
                     desktopEntries.put(id, fqClassName);
                 } else {
@@ -249,9 +276,10 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                 return true;
             }
             writeRegistryClass(genClassName, mainEntries,
-                    partitionDesktopOnly ? desktopEntries.keySet() : null, hostSimpleName == null ? null : hostById);
+                    partitionDesktopOnly ? desktopEntries.keySet() : null, hostSimpleName == null ? null : hostById,
+                    tagElement == null ? null : tagById);
             if (partitionDesktopOnly) {
-                writeRegistryClass(genClassName + DESKTOP_SUFFIX, desktopEntries, null, null);
+                writeRegistryClass(genClassName + DESKTOP_SUFFIX, desktopEntries, null, null, null);
             }
             generated = true;
         } catch (Exception e) {
@@ -268,10 +296,12 @@ public abstract class RegistryProcessor extends AbstractProcessor {
      * @param entries id-to-class entries the class's {@code MAP} holds
      * @param desktopOnlyIds ids emitted as {@code DESKTOP_ONLY_IDS}, or null to omit the set
      * @param hostById id-to-host-class entries for a hosted registry, or null for suppliers
+     * @param tagById id-to-{@link #tagElement}-constants entries, or null to omit that map
      * @throws Exception if the source file cannot be written
      */
     private void writeRegistryClass(String genClassName, Map<String, String> entries,
-            Set<String> desktopOnlyIds, Map<String, String> hostById) throws Exception {
+            Set<String> desktopOnlyIds, Map<String, String> hostById, Map<String, String> tagById)
+            throws Exception {
         JavaFileObject file = processingEnv.getFiler()
                 .createSourceFile(this.getClass().getPackageName() + "." + genClassName);
         try (Writer out = file.openWriter()) {
@@ -303,7 +333,18 @@ public abstract class RegistryProcessor extends AbstractProcessor {
                 }
                 out.write("\tpublic static final Set<String> DESKTOP_ONLY_IDS = Set.of(" + ids + ");\n\n");
             }
+            String tagMap = tagElement == null ? null : tagElement.toUpperCase(Locale.ROOT);
+            if (tagById != null) {
+                out.write("\tpublic static final Map<String, " + tagComponentFqcn + "[]> " + tagMap
+                        + " = new HashMap<>();\n\n");
+            }
             out.write("\tstatic {\n");
+            if (tagById != null) {
+                for (Map.Entry<String, String> entry : tagById.entrySet()) {
+                    out.write("\t\t" + tagMap + ".put(\"" + entry.getKey() + "\", new " + tagComponentFqcn
+                            + "[] {" + entry.getValue() + "});\n");
+                }
+            }
             for (Map.Entry<String, String> entry : entries.entrySet()) {
                 if (hostById == null) {
                     out.write("\t\tMAP.put(\"" + entry.getKey() + "\", " + entry.getValue() + "::new);\n");

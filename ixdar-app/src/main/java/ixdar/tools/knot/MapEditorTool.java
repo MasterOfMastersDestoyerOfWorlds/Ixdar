@@ -91,7 +91,7 @@ public class MapEditorTool extends KnotTool {
     @Override
     public void onHover(float mouseX, float mouseY) {
         Camera2D camera = editor.editorCamera;
-        camera.calculateCameraTransform(editor.retTup.ps);
+        camera.calculateCameraTransform(editor.pointSetPath.ps);
         float x = camera.screenTransformX(mouseX - editor.mainViewOffsetX);
         float y = camera.screenTransformY(mouseY - editor.mainViewOffsetY);
         if (Toggle.SnapToGrid.value) {

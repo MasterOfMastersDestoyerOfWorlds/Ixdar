@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.gui.terminal.TerminalParseException;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.file.FileManagement;
@@ -13,7 +14,7 @@ import ixdar.scenes.main.MainScene;
  * Terminal command {@code ld}/{@code loadix} that loads an existing {@code .ix} file
  * into {@link MainScene} and starts its calculations.
  */
-@CommandAnnotation(id = "ld")
+@CommandAnnotation(id = "ld", acts = Subsystem.FILES)
 public class LoadIxCommand extends TerminalCommand {
     public static final String IX = ".ix";
 

@@ -1,15 +1,16 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
-import ixdar.scenes.ring.RingScene;
+import ixdar.tools.regions.RegionLayer;
 
 /**
- * Terminal command {@code explode}/{@code xp}: switch the editing scene to the region tool and
- * animate its exploded view to an exact amount, the scripted form of the X key.
+ * Terminal command {@code explode}/{@code xp}: animate the ring regions' exploded view to an exact
+ * amount, the scripted form of the region tool's X key.
  */
-@CommandAnnotation(id = "xp")
+@CommandAnnotation(id = "xp", acts = Subsystem.RINGS)
 public class ExplodeCommand extends TerminalCommand {
 
     public static String cmd = "xp";
@@ -65,19 +66,17 @@ public class ExplodeCommand extends TerminalCommand {
     }
 
     /**
-     * Show the region tool and send its exploded view toward {@code args[startIdx]}.
+     * Send the ring regions' exploded view toward {@code args[startIdx]}, in whichever tool is
+     * active.
      *
      * @param args     full tokenised command line
      * @param startIdx index of the amount in {@code args}
-     * @param terminal dispatching terminal (holds the active {@link RingScene})
+     * @param terminal dispatching terminal, whose scene shows the ring regions
      * @return {@code null}; the command offers no follow-up suggestions
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof RingScene scene)) {
-            terminal.error("RingScene is not active");
-            return null;
-        }
+        RegionLayer regions = terminal.dataset(Subsystem.RINGS);
         float amount;
         try {
             amount = Float.parseFloat(args[startIdx]);
@@ -85,9 +84,8 @@ public class ExplodeCommand extends TerminalCommand {
             terminal.error(usage());
             return null;
         }
-        scene.switchTool(scene.regionTool);
-        scene.regionTool.explodeTo(amount);
-        terminal.history.addLine("exploding the regions to " + scene.regionTool.explosion.target,
+        regions.explosion.animateTo(amount);
+        terminal.history.addLine("exploding the regions to " + regions.explosion.target,
                 Color.TEAL_DARK);
         return null;
     }

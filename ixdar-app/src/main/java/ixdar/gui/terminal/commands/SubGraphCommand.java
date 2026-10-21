@@ -4,13 +4,13 @@ import java.io.File;
 import java.util.ArrayList;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.geometry.tsp.shell.Range;
 import ixdar.geometry.tsp.shell.Shell;
 import ixdar.gui.terminal.Terminal;
 import ixdar.geometry.tsp.PointSetPath;
-import ixdar.scenes.main.MainScene;
 
-@CommandAnnotation(id = "sg")
+@CommandAnnotation(id = "sg", acts = Subsystem.KNOT)
 public class SubGraphCommand extends TerminalCommand {
     public static final String ARGUMENT = "argument ";
     public static final String WAS_OUT_OF_BOUNDS = " was out of bounds";
@@ -44,16 +44,13 @@ public class SubGraphCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof MainScene editor)) {
-            terminal.error(shortName() + " is a MainScene command");
-            return null;
-        }
+        PointSetPath pointSetPath = terminal.dataset(Subsystem.KNOT);
         ArrayList<Range> ranges = new ArrayList<>();
         for (int i = startIdx; i < args.length; i++) {
             String arg = args[i];
             try {
                 Range r = Range.parse(arg);
-                if (!editor.orgShell.hasPoint(r.startIdx) || !editor.orgShell.hasPoint(r.endIdx)) {
+                if (!pointSetPath.tsp.hasPoint(r.startIdx) || !pointSetPath.tsp.hasPoint(r.endIdx)) {
                     terminal.error(ARGUMENT + arg + WAS_OUT_OF_BOUNDS);
                     return null;
                 }
@@ -81,7 +78,7 @@ public class SubGraphCommand extends TerminalCommand {
         String newPath = new File(terminal.directory, subGraphFileName).getPath();
         Shell subGraph = new Shell();
         for (Range r : ranges) {
-            subGraph.addAllInRange(r, editor.orgShell);
+            subGraph.addAllInRange(r, pointSetPath.tsp);
         }
 
         PointSetPath.rewriteSolutionFile(newPath, subGraph);

@@ -7,6 +7,7 @@ import java.util.HashMap;
 import org.joml.Vector2d;
 
 import ixdar.geometry.tsp.MultipleCyclesFoundException;
+import ixdar.geometry.tsp.PointSetPath;
 import ixdar.geometry.tsp.SegmentBalanceException;
 import ixdar.platform.Compat;
 import ixdar.geometry.tsp.cuts.CutMatch;
@@ -16,7 +17,6 @@ import ixdar.geometry.tsp.shell.Shell;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.actions.Action;
 import ixdar.gui.ui.text.HyperString;
-import ixdar.scenes.main.MainScene;
 
 public class Knot {
     public static final String KNOT = "Knot[ ";
@@ -862,33 +862,28 @@ public class Knot {
     }
 
     /**
-     * Render this knot as an interactive {@link HyperString} segment using the
-     * editor's tool/toggles to colorize children, with a click handler
-     * that focuses the camera on this knot.
+     * Render this knot as an interactive {@link HyperString} segment coloured, focused and
+     * highlighted through the callbacks the showing view put on {@code knot}.
      *
-     * @param editor the editor whose colours the text takes and whose camera a click moves
+     * @param pointSetPath the point set this knot was solved from, carrying the view's callbacks
      * @return a clickable representation suitable for the terminal/text UI
      */
-    public HyperString toHyperString(MainScene editor) {
+    public HyperString toHyperString(PointSetPath pointSetPath) {
         HyperString h = new HyperString();
-        Color c = editor.knotColor(this);
-        Action clickAction = () -> {
-            editor.setDrawLevelToKnot(this);
-            editor.editorCamera.zoomToKnot(this);
-        };
-        Knot hoverKnot = editor.getKnotFlatten(this);
-        Action highlight = () -> editor.setHoverKnot(hoverKnot);
-        Action clearHighlight = editor::clearHoverKnot;
-        h.addHoverKnot(KNOT, c, hoverKnot, highlight, clearHighlight, clickAction);
+        Color c = pointSetPath.knotColor.apply(this);
+        Action clickAction = () -> pointSetPath.focusKnot.accept(this);
+        Action highlight = () -> pointSetPath.hoverKnot.accept(this);
+        Action clearHighlight = pointSetPath.clearHoverKnot;
+        h.addHoverKnot(KNOT, c, this, highlight, clearHighlight, clickAction);
         for (Knot vp : knotPoints) {
             if (!vp.isSingleton()) {
-                h.addHyperString(((Knot) vp).toHyperString(editor));
+                h.addHyperString(vp.toHyperString(pointSetPath));
             } else {
-                h.addHoverKnot(vp + " ", c, hoverKnot, highlight, clearHighlight, clickAction);
+                h.addHoverKnot(vp + " ", c, this, highlight, clearHighlight, clickAction);
             }
         }
 
-        h.addHoverKnot(KNOT_CLOSE, c, hoverKnot, highlight, clearHighlight, clickAction);
+        h.addHoverKnot(KNOT_CLOSE, c, this, highlight, clearHighlight, clickAction);
         return h;
     }
 

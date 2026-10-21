@@ -8,6 +8,7 @@ import java.util.function.BooleanSupplier;
 
 import org.joml.Vector3f;
 
+import ixdar.annotations.command.Subsystem;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -124,6 +125,16 @@ public abstract class ModelScene extends Scene {
      * framed rather than viewed from the last model's distance.
      */
     public float framedDistance = CAMERA_DISTANCE_DEFAULT;
+
+    /**
+     * Hand {@link #modelCollection} the scene's model list, its loader and its override check,
+     * which the terminal's model commands reach the scene through.
+     */
+    public ModelScene() {
+        modelCollection.offered = this::availableModels;
+        modelCollection.requestLoad = this::requestModelLoad;
+        modelCollection.validateOverrideKey = key -> graphFor(null).validateOverrideKey(key);
+    }
 
     /**
      * Host the orbit tool as the default, and the DSL graph tool on ctrl+G, which toggles back to
@@ -654,21 +665,6 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Resolve {@code token} against {@link #availableModels()} (exact display name first, then a
-     * case-insensitive substring of display name or path) and request that model's load.
-     *
-     * @param token model display name, part of one, or a path
-     * @return the model whose load was requested, or {@code null} when nothing matches
-     */
-    public ModelChoice requestModel(String token) {
-        ModelChoice match = ModelCatalog.resolve(availableModels(), token);
-        if (match != null) {
-            requestModelLoad(match);
-        }
-        return match;
-    }
-
-    /**
      * Open a directory of scans as the scene's collection, the overrides carried over: its members
      * replace the model catalog and its manifest is (re)written, so membership is recorded before
      * anything is merged.
@@ -763,9 +759,21 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
+     * A model scene shows its models besides the view.
+     *
+     * @param subsystem a scene-held subsystem
+     * @return {@link #modelCollection} for {@link Subsystem#MODEL}, else what every scene shows
+     */
+    @Override
+    public Object dataset(Subsystem subsystem) {
+        return subsystem == Subsystem.MODEL ? modelCollection : super.dataset(subsystem);
+    }
+
+    /**
      * Escape closes an open model menu, else goes to the active tool, else returns to the default
      * tool.
      */
+    @Override
     public void escapePressed() {
         if (sceneModelMenu != null && sceneModelMenu.isVisible()) {
             sceneModelMenu.toggle();

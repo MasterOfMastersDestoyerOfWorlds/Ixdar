@@ -6,10 +6,10 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.annotations.command.Subsystem;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
 import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
-import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.SurfaceRing;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
@@ -72,13 +72,13 @@ public class RingScene extends MeshNodeViewerScene {
     /** Why the tools refused the last clicks and keys, shown at the top left until they fade. */
     public final ErrorToasts errorToasts = new ErrorToasts(this);
 
-    /** Surface points the {@code ring} command has collected, packed xyz. */
+    /** Surface points the {@code rings add} route traced last, packed xyz. */
     public float[] ringWaypointsXyz = new float[0];
 
     /** Waypoints held in the front of {@link #ringWaypointsXyz}. */
     public int ringWaypointCount;
 
-    /** Ring the last {@code ring close} produced, or {@code null} before one is closed. */
+    /** Ring the {@code rings add} route traced last, or {@code null} before one. */
     public SurfaceRing ring;
 
     /** The ring-labelled masks the graph left, drawn thick and numbered rather than as edges. */
@@ -232,8 +232,8 @@ public class RingScene extends MeshNodeViewerScene {
         if (regionTool.showingExtraction) {
             return "the region tool shows an extraction; E returns to the surface";
         }
-        if (regionTool.explosion.exploded()) {
-            return "collapse the region tool's exploded view (X) to pick the surface";
+        if (regionLayer.explosion.exploded()) {
+            return "collapse the exploded view (X in the region tool, or xp 0) to pick the surface";
         }
         return super.pickRefusal();
     }
@@ -400,29 +400,6 @@ public class RingScene extends MeshNodeViewerScene {
     }
 
     /**
-     * Record one more ring waypoint at an authored surface position.
-     *
-     * @param x waypoint x
-     * @param y waypoint y
-     * @param z waypoint z
-     * @return the number of waypoints collected so far
-     */
-    public int addRingWaypoint(float x, float y, float z) {
-        int coordinates = SurfaceWaypoints.COORDINATES_PER_WAYPOINT * (ringWaypointCount + 1);
-        if (ringWaypointsXyz.length < coordinates) {
-            float[] grown = new float[Math.max(coordinates, 2 * ringWaypointsXyz.length)];
-            System.arraycopy(ringWaypointsXyz, 0, grown, 0, ringWaypointsXyz.length);
-            ringWaypointsXyz = grown;
-        }
-        int base = SurfaceWaypoints.COORDINATES_PER_WAYPOINT * ringWaypointCount;
-        ringWaypointsXyz[base] = x;
-        ringWaypointsXyz[base + 1] = y;
-        ringWaypointsXyz[base + 2] = z;
-        ringWaypointCount++;
-        return ringWaypointCount;
-    }
-
-    /**
      * Close the collected waypoints into a tightened ring and show it over the mesh.
      *
      * @throws IllegalStateException    when no mesh is loaded to ring
@@ -438,15 +415,6 @@ public class RingScene extends MeshNodeViewerScene {
                 FlipGeodesics.UNBOUNDED_ITERATIONS);
         showRing(ring);
         return ring;
-    }
-
-    /**
-     * Forget the collected waypoints and the closed ring, leaving the mesh as it was.
-     */
-    public void clearRing() {
-        ringWaypointCount = 0;
-        ring = null;
-        showRing(null);
     }
 
     /**
@@ -478,7 +446,7 @@ public class RingScene extends MeshNodeViewerScene {
                 () -> showRingNumbers = !showRingNumbers));
         // H flips the visibility that applies now: the exploded view's, or the assembled one.
         controls.add(new ControlHint(Keys.H, "H", "show / hide rings", () -> {
-            if (regionTool.explosion.exploded()) {
+            if (regionLayer.explosion.exploded()) {
                 showRingsExploded = !showRingsExploded;
             } else {
                 showRings = !showRings;
@@ -489,11 +457,22 @@ public class RingScene extends MeshNodeViewerScene {
 
     /**
      * Whether the ring lines and numbers are drawn this frame: the exploded view's own setting
-     * while the region tool is exploded, else the viewer's.
+     * while the regions are exploded, else the viewer's.
      *
      * @return true when the rings are drawn
      */
     public boolean ringsShown() {
-        return regionTool.explosion.exploded() ? showRingsExploded : showRings;
+        return regionLayer.explosion.exploded() ? showRingsExploded : showRings;
+    }
+
+    /**
+     * The ring scene shows its ring regions besides the model and the view.
+     *
+     * @param subsystem a scene-held subsystem
+     * @return {@link #regionLayer} for {@link Subsystem#RINGS}, else what the model scene shows
+     */
+    @Override
+    public Object dataset(Subsystem subsystem) {
+        return subsystem == Subsystem.RINGS ? regionLayer : super.dataset(subsystem);
     }
 }

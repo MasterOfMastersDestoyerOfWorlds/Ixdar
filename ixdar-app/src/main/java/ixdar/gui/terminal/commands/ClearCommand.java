@@ -1,10 +1,11 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.text.HyperString;
 
-@CommandAnnotation(id = "cl")
+@CommandAnnotation(id = "cl", acts = Subsystem.TERMINAL)
 public class ClearCommand extends TerminalCommand {
 
     public static String cmd = "cl";

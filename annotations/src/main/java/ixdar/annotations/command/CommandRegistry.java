@@ -15,13 +15,15 @@ public class CommandRegistry extends RegistryProcessor {
 
     /**
      * Wire the processor to discover {@link CommandAnnotation}-tagged classes and emit
-     * {@code CommandRegistry_Commands}, a map of command id to a {@link TerminalOption} supplier.
+     * {@code CommandRegistry_Commands}, a map of command id to a {@link TerminalOption} supplier,
+     * and its {@code ACTS} map of command id to the {@link Subsystem}s it acts on.
      */
     public CommandRegistry() {
         super(
                 CommandAnnotation.class,
                 TerminalOption.class,
                 "Commands");
+        tagElement = "acts";
     }
 
     /**

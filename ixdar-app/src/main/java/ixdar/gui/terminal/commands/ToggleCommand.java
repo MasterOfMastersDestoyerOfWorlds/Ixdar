@@ -1,11 +1,12 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.scenes.main.Toggle;
 
-@CommandAnnotation(id = "tgl")
+@CommandAnnotation(id = "tgl", acts = Subsystem.TOGGLES)
 public class ToggleCommand extends TerminalCommand {
 
     public static String cmd = "tgl";

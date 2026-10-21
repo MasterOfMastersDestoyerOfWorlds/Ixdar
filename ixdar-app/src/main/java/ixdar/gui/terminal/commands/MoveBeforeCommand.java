@@ -1,14 +1,14 @@
 package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.geometry.tsp.IdDoesNotExistException;
 import ixdar.gui.terminal.TerminalParseException;
 import ixdar.geometry.tsp.shell.Range;
 import ixdar.gui.terminal.Terminal;
 import ixdar.geometry.tsp.PointSetPath;
-import ixdar.scenes.main.MainScene;
 
-@CommandAnnotation(id = "mb")
+@CommandAnnotation(id = "mb", acts = Subsystem.KNOT)
 public class MoveBeforeCommand extends TerminalCommand {
 
     public static String cmd = "mb";
@@ -40,15 +40,12 @@ public class MoveBeforeCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof MainScene editor)) {
-            terminal.error(shortName() + " is a MainScene command");
-            return null;
-        }
+        PointSetPath pointSetPath = terminal.dataset(Subsystem.KNOT);
         try {
             Range idTarget = Range.parse(args[startIdx + 1]);
             int idDest = Integer.parseInt(args[startIdx]);
-            editor.orgShell.moveBefore(idTarget, idDest);
-            PointSetPath.rewriteSolutionFile(editor.file.getPath(), editor.orgShell);
+            pointSetPath.tsp.moveBefore(idTarget, idDest);
+            PointSetPath.rewriteSolutionFile(pointSetPath.file.getPath(), pointSetPath.tsp);
             return new String[] { "mb " + idTarget + " " };
 
         } catch (NumberFormatException e) {

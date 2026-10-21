@@ -3,9 +3,11 @@ package ixdar.gui.terminal;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import ixdar.annotations.command.CommandRegistry_Commands;
+import ixdar.annotations.command.Subsystem;
 import ixdar.annotations.command.TerminalOption;
 import ixdar.annotations.geometry.Geometry;
 import ixdar.annotations.geometry.GeometryRegistry_Geometries;
@@ -36,6 +38,9 @@ public class Terminal {
     public static ArrayList<TerminalOption> commandList;
     public static HashMap<String, TerminalOption> commandMap = new HashMap<>();
     public static HashMap<Class<? extends TerminalOption>, TerminalOption> commandClassMap = new HashMap<>();
+
+    /** The subsystems each registered command acts on, from its {@code @CommandAnnotation}. */
+    public static HashMap<TerminalOption, Subsystem[]> commandActs = new HashMap<>();
     public static ArrayList<PointCollection> pointCollectionList;
     public static HashMap<Class<? extends Geometry>, PointCollection> pointCollectionClassMap = new HashMap<>();
 
@@ -48,8 +53,10 @@ public class Terminal {
     static {
         if (commandList == null) {
             commandList = new ArrayList<>();
-            for (Supplier<? extends TerminalOption> commandSupplier : CommandRegistry_Commands.MAP.values()) {
-                TerminalOption command = commandSupplier.get();
+            for (Map.Entry<String, Supplier<? extends TerminalOption>> registered : CommandRegistry_Commands.MAP
+                    .entrySet()) {
+                TerminalOption command = registered.getValue().get();
+                commandActs.put(command, CommandRegistry_Commands.ACTS.get(registered.getKey()));
                 commandList.add(command);
                 commandMap.put(command.fullName(), command);
                 commandMap.put(command.shortName(), command);
@@ -269,6 +276,11 @@ public class Terminal {
             history.addLine("exception: not enough args: " + command.usage(), Color.RED);
             return;
         }
+        String refusal = refusal(command);
+        if (refusal != null) {
+            error(refusal);
+            return;
+        }
 
         String[] cmd;
         try {
@@ -339,8 +351,43 @@ public class Terminal {
      */
     public static <E extends TerminalCommand> void runNoArgs(Class<E> cmd) {
         TerminalCommand tc = (TerminalCommand) commandClassMap.get(cmd);
-        if (current != null && tc.argLength() <= 0) {
-            tc.run(new String[] {}, 0, current);
+        if (current == null || tc.argLength() > 0) {
+            return;
         }
+        String refusal = current.refusal(tc);
+        if (refusal != null) {
+            current.error(refusal);
+            return;
+        }
+        tc.run(new String[] {}, 0, current);
+    }
+
+    /**
+     * Why {@code command} cannot run against this terminal's scene: the first subsystem it acts on
+     * that the scene shows no data for. The one place a command is refused for its scene.
+     *
+     * @param command command about to run
+     * @return the refusal, or {@code null} when the scene shows everything the command acts on
+     */
+    public String refusal(TerminalOption command) {
+        for (Subsystem subsystem : commandActs.getOrDefault(command, new Subsystem[0])) {
+            if (!subsystem.sceneFree && scene.dataset(subsystem) == null) {
+                return command.shortName() + " acts on " + subsystem.noun + "; this scene shows none";
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The data this terminal's scene shows for {@code subsystem}, typed as the command expects;
+     * the terminal has refused any command whose subsystems the scene lacks before it runs.
+     *
+     * @param <T> the subsystem's data type
+     * @param subsystem subsystem the asking command lists in its {@code acts}
+     * @return the scene's data for it
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T dataset(Subsystem subsystem) {
+        return (T) scene.dataset(subsystem);
     }
 }

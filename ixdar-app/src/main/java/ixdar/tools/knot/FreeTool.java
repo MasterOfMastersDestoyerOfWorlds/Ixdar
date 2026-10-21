@@ -112,7 +112,7 @@ public class FreeTool extends KnotTool {
         if (containingKnot == null) {
             h.addWord(NONE_2);
         } else {
-            Color c = editor.stickyColor;
+            Color c = editor.pointSetPath.stickyColor;
             if (canUseToggle(Toggle.DrawKnotGradient)) {
                 c = editor.getKnotGradientColor(displayKP);
             } else if (canUseToggle(Toggle.DrawMetroDiagram)) {
@@ -123,10 +123,10 @@ public class FreeTool extends KnotTool {
             final PointND coordPointF = (displayKP).p;
             HyperString minKnotInfo = new HyperString();
             if (containingKnot.s1 != null && containingKnot.s2 != null) {
-                minKnotInfo.addHyperString(containingKnot.s1.toHyperString(editor, c, false));
+                minKnotInfo.addHyperString(containingKnot.s1.toHyperString(editor.pointSetPath, c, false));
                 minKnotInfo.addDistance(containingKnot.s1.distance, c);
                 minKnotInfo.newLine();
-                minKnotInfo.addHyperString(containingKnot.s2.toHyperString(editor, c, false));
+                minKnotInfo.addHyperString(containingKnot.s2.toHyperString(editor.pointSetPath, c, false));
                 minKnotInfo.addDistance(containingKnot.s2.distance, c);
             }
             minKnotInfo.addLine("FlatID: " + containingKnot.id, c);
@@ -138,14 +138,14 @@ public class FreeTool extends KnotTool {
 
         }
         h.newLine();
-        ArrayList<Knot> resultKnots = editor.resultKnots;
+        ArrayList<Knot> resultKnots = editor.pointSetPath.resultKnots;
         if (resultKnots != null && resultKnots.size() > 0) {
             h.addWord("TopKnot:");
             for (Knot topStruct : resultKnots) {
                 if (!topStruct.isSingleton()) {
                     h.newLine();
                     h.newLine();
-                    h.addHyperString(((Knot) topStruct).toHyperString(editor));
+                    h.addHyperString(((Knot) topStruct).toHyperString(editor.pointSetPath));
                 }
             }
         }

@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.joml.Vector3f;
 
+import ixdar.annotations.command.Subsystem;
 import ixdar.annotations.scene.SceneDrawable;
 import ixdar.audio.AudioAssets;
 import ixdar.audio.AudioBackend;
@@ -600,6 +601,30 @@ public abstract class Scene extends SceneDrawable {
      */
     public boolean frameAll() {
         return activeTool != null && activeTool.frameAll();
+    }
+
+    /**
+     * Esc, from the key or the terminal's {@code ex}: the active tool's own first, else back to the
+     * default tool. Scenes that lead somewhere from their default tool override it.
+     */
+    public void escapePressed() {
+        if (activeTool == null || activeTool.escapePressed()) {
+            return;
+        }
+        if (activeTool != defaultTool) {
+            switchTool(defaultTool);
+        }
+    }
+
+    /**
+     * What this scene shows for a subsystem, the one link between a scene and the terminal
+     * commands: the scene itself for {@link Subsystem#VIEW}, nothing else unless a scene shows more.
+     *
+     * @param subsystem a scene-held subsystem
+     * @return the subsystem's data, or {@code null} when the scene shows none
+     */
+    public Object dataset(Subsystem subsystem) {
+        return subsystem == Subsystem.VIEW ? this : null;
     }
 
     /**

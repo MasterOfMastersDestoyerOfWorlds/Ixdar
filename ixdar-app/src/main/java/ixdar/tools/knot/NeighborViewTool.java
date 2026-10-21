@@ -71,7 +71,7 @@ public class NeighborViewTool extends KnotTool {
             return;
         }
         for (Long segmentId : colorLookup.keySet()) {
-            Segment s = editor.tourShell.segmentLookup.get(segmentId);
+            Segment s = editor.pointSetPath.tourShell.segmentLookup.get(segmentId);
             Drawing.drawDashedSegment(s, colors.get(colorLookup.get(segmentId)), camera);
         }
     }
@@ -106,7 +106,7 @@ public class NeighborViewTool extends KnotTool {
         HyperString h = new HyperString();
         if (displaySegment != null) {
             h.addWord("Cut: ", Color.IXDAR);
-            h.addHyperString(displaySegment.toHyperString(editor, Color.BROWN_DARK, false));
+            h.addHyperString(displaySegment.toHyperString(editor.pointSetPath, Color.BROWN_DARK, false));
             h.newLine();
             h.addWord("Cut Length: ");
             h.addDistance(displaySegment.distance, Color.BROWN_DARK);

@@ -9,6 +9,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import ixdar.geometry.grid2d.Grid;
 import ixdar.geometry.tsp.input.Arc;
@@ -16,11 +19,15 @@ import ixdar.geometry.tsp.input.Circle;
 import ixdar.geometry.tsp.input.Ix;
 import ixdar.geometry.tsp.input.Line;
 import ixdar.geometry.tsp.input.Triangle;
+import ixdar.geometry.tsp.knot.Knot;
+import ixdar.geometry.tsp.knot.Segment;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.geometry.tsp.points.PointSet;
 import ixdar.geometry.tsp.shell.DistanceMatrix;
 import ixdar.geometry.tsp.shell.Shell;
+import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.TerminalParseException;
+import ixdar.gui.ui.actions.Action;
 import ixdar.platform.Platforms;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.TextFile;
@@ -38,10 +45,63 @@ public class PointSetPath {
     public static final String SUBGRAPH_UNIT_TEST_FOLDER = "./test/unit/subgraphs/";
 
     public PointSet ps;
+
+    /** The answer tour stored in the file, which the move commands edit and write back. */
     public Shell tsp;
     public DistanceMatrix d;
     public ArrayList<String> comments;
     public Grid grid;
+
+    /** The {@code .ix} file the point set was read from, {@code null} for one not read from a file. */
+    public TextFile file;
+
+    /** The scratch file {@code add} appends points to. */
+    public TextFile tempFile;
+
+    /** The working copy of {@link #tsp}, shuffled, that the knots are solved on. */
+    public Shell tourShell;
+
+    /** The knots solved from {@link #tourShell}, the top of the multi-level knot. */
+    public ArrayList<Knot> resultKnots = new ArrayList<>();
+
+    /** Single tours read off the knot, a candidate answer when there is exactly one. */
+    public ArrayList<Shell> subPaths = new ArrayList<>();
+
+    /** Height of the tallest solved knot, {@code -1} before any is solved. */
+    public int totalLayers = -1;
+
+    /** Length of {@link #tourShell} once solved. */
+    public double tourLength;
+
+    /** The colour knots are drawn in when neither the gradient nor the metro diagram is on. */
+    public Color stickyColor = Color.TEAL;
+
+    /** One colour per knot layer, the metro diagram's. */
+    public ArrayList<Color> metroColors = new ArrayList<>();
+
+    /** One colour per solved knot, the gradient's. */
+    public ArrayList<Color> knotGradientColors = new ArrayList<>();
+
+    /** The colour the showing view draws a knot in; the view supplies it. */
+    public Function<Knot, Color> knotColor = knot -> Color.IXDAR;
+
+    /** Brings a knot into the showing view, its layer and its camera; the view supplies it. */
+    public Consumer<Knot> focusKnot = knot -> { };
+
+    /** Highlights a knot in the showing view; the view supplies it. */
+    public Consumer<Knot> hoverKnot = knot -> { };
+
+    /** Drops the knot highlight; the view supplies it. */
+    public Action clearHoverKnot = () -> { };
+
+    /** Brings a segment into the showing view's camera; the view supplies it. */
+    public Consumer<Segment> focusSegment = segment -> { };
+
+    /** Highlights a segment in a colour in the showing view; the view supplies it. */
+    public BiConsumer<Segment, Color> hoverSegment = (segment, color) -> { };
+
+    /** Drops the segment highlight; the view supplies it. */
+    public Action clearHoverSegment = () -> { };
 
     /**
      * Initializes the path and pointset variables.

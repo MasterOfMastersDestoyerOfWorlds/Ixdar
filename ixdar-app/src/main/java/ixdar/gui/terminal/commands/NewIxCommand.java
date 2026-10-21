@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.gui.terminal.TerminalParseException;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.file.FileManagement;
@@ -13,7 +14,7 @@ import ixdar.scenes.main.MainScene;
  * Terminal command {@code nw}/{@code newix} that creates a new blank {@code .ix} file
  * (no points, fresh directory) and activates it on {@link MainScene}.
  */
-@CommandAnnotation(id = "nw")
+@CommandAnnotation(id = "nw", acts = Subsystem.FILES)
 public class NewIxCommand extends TerminalCommand {
 
     public static String cmd = "nw";

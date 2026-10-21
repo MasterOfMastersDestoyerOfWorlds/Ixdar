@@ -158,7 +158,7 @@ public class NegativeCutMatchViewTool extends KnotTool {
         HyperString h = new HyperString();
         if (displaySegment != null) {
             h.addWord("Cut: ", Color.IXDAR);
-            h.addHyperString(displaySegment.toHyperString(editor, Color.BROWN_DARK, false));
+            h.addHyperString(displaySegment.toHyperString(editor.pointSetPath, Color.BROWN_DARK, false));
             h.newLine();
             h.addWord("Cut Length: ");
             h.addDistance(displaySegment.distance, Color.BROWN_DARK);
@@ -172,7 +172,7 @@ public class NegativeCutMatchViewTool extends KnotTool {
             h.addWord("Negative Matches:");
             h.newLine();
             for (Segment s : matchSegments) {
-                h.addHyperString(s.toHyperString(editor, Color.TEAL, false));
+                h.addHyperString(s.toHyperString(editor.pointSetPath, Color.TEAL, false));
                 h.addDistance(s.distance - displaySegment.distance, Color.RED);
                 h.newLine();
             }

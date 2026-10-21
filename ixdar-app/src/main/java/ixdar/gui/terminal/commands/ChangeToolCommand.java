@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 import ixdar.annotations.command.CommandAnnotation;
+import ixdar.annotations.command.Subsystem;
 import ixdar.annotations.tool.ToolRegistry_Tools;
 import ixdar.gui.terminal.Terminal;
 import ixdar.scenes.Scene;
@@ -13,7 +14,7 @@ import ixdar.tools.Tool;
  * Terminal command {@code ct}/{@code changetool} that switches the terminal's scene to a tool of the
  * generated tool registry its scene type hosts.
  */
-@CommandAnnotation(id = "ct")
+@CommandAnnotation(id = "ct", acts = Subsystem.VIEW)
 public class ChangeToolCommand extends TerminalCommand {
 
     public static String cmd = "ct";
@@ -81,7 +82,7 @@ public class ChangeToolCommand extends TerminalCommand {
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
         String name = String.join(" ", Arrays.copyOfRange(args, startIdx, args.length));
-        Scene scene = terminal.scene;
+        Scene scene = terminal.dataset(Subsystem.VIEW);
         String toolId = name;
         for (Tool tool : scene.tools) {
             if (tool.shortName().equals(name)) {

@@ -9,11 +9,15 @@ import java.util.TreeSet;
 import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RegionExplosion;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
+import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
+import ixdar.platform.input.Keys;
+import ixdar.scenes.main.Toggle;
 import ixdar.scenes.ring.RingScene;
 
 /**
@@ -64,6 +68,12 @@ public final class RegionLayer {
 
     /** Live labels of the rings left undrawn because every region they bound is hidden. */
     public Set<String> hiddenRingLabels = Set.of();
+
+    /**
+     * Exploded view of {@link #regions}, shown in every tool and re-measured when they are
+     * rebuilt; X in the region tool and the terminal's {@code xp} set it.
+     */
+    public final RegionExplosion explosion = new RegionExplosion(RingRegionTool::regionTag);
 
     private boolean hiddenStale;
 
@@ -167,8 +177,9 @@ public final class RegionLayer {
         }
         boolean coloured = visible || scene.activeTool == scene.regionTool
                 || scene.ringTool.bisecting;
+        boolean exploding = explosion.target > 0f || explosion.exploded();
         if (runtime == null || surface == null || surface.faceCount() == 0
-                || !coloured && hiddenByActiveFace.length == 0) {
+                || !coloured && hiddenByActiveFace.length == 0 && !exploding) {
             if (shown && runtime != null) {
                 runtime.clearTags();
                 runtime.setShaderMode(shaderModeBefore);
@@ -202,6 +213,7 @@ public final class RegionLayer {
             builtRingRevision = scene.ringTool.ringRevision;
             builtAbsorbing = absorbSlivers;
             revision++;
+            explosion.measure(surface, regions.regionByActiveFace, regions.regionCount);
             Map<String, String> notes = new TreeMap<>();
             for (int ring = 0; ring < regions.ringLabels.length; ring++) {
                 if (regions.ringSplitsNothing[ring]) {
@@ -240,6 +252,12 @@ public final class RegionLayer {
             hiddenRingLabels = hiddenRings;
         }
         scene.ringTool.markRings(ringNoteByLabel, hiddenRingLabels);
+        // Holding , or . nudges the explosion only in the region tool, which lists those keys.
+        boolean keysFree = scene.activeTool == scene.regionTool && scene.keys != null
+                && !Toggle.IsTerminalFocused.value;
+        int heldDirection = (keysFree && scene.keys.pressedKeys.contains(Keys.PERIOD) ? 1 : 0)
+                - (keysFree && scene.keys.pressedKeys.contains(Keys.COMMA) ? 1 : 0);
+        explosion.step((float) Clock.deltaTime(), heldDirection, runtime.tagOffsets);
         if (!overlayStale) {
             return;
         }
