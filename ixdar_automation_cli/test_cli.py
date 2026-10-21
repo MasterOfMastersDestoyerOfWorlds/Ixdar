@@ -963,7 +963,8 @@ class CliTest(unittest.TestCase):
         self.assertTrue(request.full_url.endswith("/mesh/rings/add"))
         body = json.loads(request.data.decode("utf-8"))
         self.assertEqual("1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65", body["points"])
-        self.assertTrue(body["tighten"])
+        # The ring is confirmed into the ring tool; the old FlipOut tighten switch is gone.
+        self.assertNotIn("tighten", body)
 
     def test_a_post_the_scene_is_still_working_on_is_sent_once(self):
         # A real server slower than the client's timeout: the CRAW-55 15-minute graph, shrunk.

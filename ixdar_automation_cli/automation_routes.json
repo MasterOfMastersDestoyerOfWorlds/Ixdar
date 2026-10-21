@@ -1305,7 +1305,7 @@
       "commandName": "rings add",
       "path": "/mesh/rings/add",
       "method": "POST",
-      "description": "Ring the shown surface through authored points and report the ring row: centroid, length and marked edge count.",
+      "description": "Confirm a ring through authored surface points in the ring tool, as clicking them and pressing Enter does: regions count it and Ctrl+S saves it.",
       "sourceClass": "ixdar.automation.endpoints.ring.Add",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Add.java",
       "params": [
@@ -1315,20 +1315,11 @@
           "type": "string",
           "required": true,
           "default": "",
-          "help": "Surface points as \"x,y,z; x,y,z; ...\"; three or more bound a loop.",
+          "help": "Surface points as \"x,y,z; x,y,z; ...\", three or more around the part; past the third each goes where it adds least.",
           "example": "1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65"
-        },
-        {
-          "name": "tighten",
-          "cliName": "tighten",
-          "type": "bool",
-          "required": false,
-          "default": "true",
-          "help": "Tighten the closed walk into a geodesic with FlipOut.",
-          "example": "false"
         }
       ],
-      "responseHint": "{ok, waypointCount, points, edgeCount, length, seedLength, centroid:[x,y,z], fingerprint}"
+      "responseHint": "{ok, ring, label, pointCount, authoredAnchors, edgeCount, length, centroid:[x,y,z], unsavedRings, fingerprint, lastRow} or {ok:false, error}"
     },
     {
       "commandName": "rings bisect",

@@ -11,29 +11,58 @@ import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
-import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.rings.SurfaceRing;
+import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.scenes.ring.RingScene;
+import ixdar.tools.ring.RingTool;
 
 /**
- * Adds a ring to the shown surface through authored coordinates, so an agent can loop a limb from
- * skeleton or patch positions with no click and no picking.
+ * Confirms a ring through authored surface points in the editing scene's ring tool, as clicking
+ * them and pressing Enter would, so an agent can ring a groove with no click and no picking.
  */
 @AutomationRouteAnnotation(path = "/mesh/rings/add", method = APIMethod.POST)
 public class Add extends AutomationEndpoint implements AutomationRoute {
 
     public static final String POINTS = "points";
 
-    public static final String TIGHTEN = "tighten";
+    public static final String AUTHORED_POINTS = "authored points";
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
-        String points = body.has(POINTS) ? body.get(POINTS).getAsString() : "";
-        boolean tighten = !body.has(TIGHTEN) || body.get(TIGHTEN).getAsBoolean();
+        float[] packed = SurfaceWaypoints.parse(body.has(POINTS) ? body.get(POINTS).getAsString()
+                : "");
+        int pointCount = packed.length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
         try {
-            return runtime.runOnMainThread(() -> ringRow(points, tighten));
+            return runtime.runOnMainThread(() -> {
+                if (!(runtime.canvas instanceof RingScene scene)) {
+                    return failure("the ring-tool editing scene is not active");
+                }
+                RingTool tool = scene.ringTool;
+                scene.switchTool(tool);
+                int ring = tool.confirmPoints(packed, pointCount, AUTHORED_POINTS);
+                if (ring < 0) {
+                    return failure(tool.lastError);
+                }
+                SurfaceSpline spline = tool.confirmedRings.get(ring);
+                JsonObject result = success();
+                result.addProperty("ring", tool.drawnRingNumber(ring));
+                result.addProperty("label", tool.liveLabel(ring));
+                result.addProperty("pointCount", pointCount);
+                result.addProperty("authoredAnchors", spline.authoredCount());
+                result.addProperty("edgeCount", spline.marks.markedEdgeCount);
+                result.addProperty("length", spline.path.length);
+                JsonArray centroid = new JsonArray();
+                for (double coordinate : spline.path.centroid) {
+                    centroid.add((float) coordinate);
+                }
+                result.add("centroid", centroid);
+                result.addProperty("unsavedRings", tool.unsavedRingCount());
+                result.addProperty("fingerprint", EdgeMarks.fingerprint(scene.halfEdgeSurface(),
+                        spline.marks.markedByEdgeId));
+                result.addProperty("lastRow", tool.lastRow);
+                return result;
+            });
         } catch (Exception failure) {
             return failure(failure.getMessage() == null ? failure.toString()
                     : failure.getMessage());
@@ -44,52 +73,16 @@ public class Add extends AutomationEndpoint implements AutomationRoute {
     public RouteDoc describe() {
         return RouteDoc.builder()
                 .commandName("rings add")
-                .description("Ring the shown surface through authored points and report the ring "
-                        + "row: centroid, length and marked edge count.")
+                .description("Confirm a ring through authored surface points in the ring tool, as "
+                        + "clicking them and pressing Enter does: regions count it and Ctrl+S "
+                        + "saves it.")
                 .param(POINTS, RouteParamType.STRING, true, "",
-                        "Surface points as \"x,y,z; x,y,z; ...\"; three or more bound a loop.",
+                        "Surface points as \"x,y,z; x,y,z; ...\", three or more around the part; "
+                                + "past the third each goes where it adds least.",
                         "1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65")
-                .param(TIGHTEN, RouteParamType.BOOL, false, "true",
-                        "Tighten the closed walk into a geodesic with FlipOut.", "false")
-                .responseHint("{ok, waypointCount, points, edgeCount, length, seedLength, "
-                        + "centroid:[x,y,z], fingerprint}")
+                .responseHint("{ok, ring, label, pointCount, authoredAnchors, edgeCount, length, "
+                        + "centroid:[x,y,z], unsavedRings, fingerprint, lastRow} or {ok:false, "
+                        + "error}")
                 .build();
-    }
-
-    private JsonObject ringRow(String points, boolean tighten) {
-        if (!(runtime.canvas instanceof RingScene scene)) {
-            return failure("RingScene is not active");
-        }
-        MeshTopology mesh = scene.halfEdgeSurface();
-        if (mesh == null || mesh.faceCount() == 0) {
-            return failure("no mesh is loaded to ring");
-        }
-        float[] packed = SurfaceWaypoints.parse(points);
-        int waypointCount = packed.length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
-        scene.ringWaypointsXyz = packed;
-        scene.ringWaypointCount = waypointCount;
-        SurfaceRing ring = tighten ? scene.closeRing() : seedOnly(scene, mesh);
-
-        JsonObject result = success();
-        result.addProperty("waypointCount", waypointCount);
-        result.addProperty(POINTS, SurfaceWaypoints.format(packed, waypointCount));
-        result.addProperty("edgeCount", ring.marks.markedEdgeCount);
-        result.addProperty("length", ring.path.length);
-        result.addProperty("seedLength", ring.seed.length);
-        JsonArray centroid = new JsonArray();
-        for (double coordinate : ring.path.centroid) {
-            centroid.add((float) coordinate);
-        }
-        result.add("centroid", centroid);
-        result.addProperty("fingerprint", EdgeMarks.fingerprint(mesh, ring.marks.markedByEdgeId));
-        return result;
-    }
-
-    private static SurfaceRing seedOnly(RingScene scene, MeshTopology mesh) {
-        SurfaceRing ring = SurfaceRing.through(mesh, scene.ringWaypointsXyz,
-                scene.ringWaypointCount, true, 0, 0);
-        scene.ring = ring;
-        scene.showRing(ring);
-        return ring;
     }
 }
