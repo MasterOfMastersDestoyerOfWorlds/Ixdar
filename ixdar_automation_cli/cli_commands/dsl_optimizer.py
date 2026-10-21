@@ -14,33 +14,35 @@ import json
 import os
 import random
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
 
-from ..checkout import run_maven
+from ..build_state import IXDAR_APP_DIR, ensure_build, launch_classpath
 from ..cli_registry import CliCommandResult, cli_command
 
 
-def _run_maven_batch(dsl_path: str, arg1: str, arg2: str = "unused", arg3: str = "unused") -> dict:
-    """Run BatchDslEvaluator via Maven. Returns parsed JSON output.
+def _run_batch(dsl_path: str, arg1: str, arg2: str = "unused", arg3: str = "unused") -> dict:
+    """Run BatchDslEvaluator on this checkout's classes. Returns parsed JSON output.
 
     Discover mode: arg1="--discover", arg2/arg3 ignored.
     Batch mode: arg1=output_dir, arg2=params_json_path, arg3=ref_obj_path.
     """
-    maven_args = [
-        "compile", "exec:exec", "-P", "batch-dsl",
-        f"-Ddsl.file={dsl_path}",
-        f"-Dbatch.arg1={arg1}",
-        f"-Dbatch.arg2={arg2}",
-        f"-Dbatch.arg3={arg3}",
-        "-pl", "ixdar-app", "-q",
+    ensure_build(skip_build=False)
+    command = [
+        "java",
+        f"-XX:ErrorFile={os.path.join(IXDAR_APP_DIR, 'target', 'hs_err_pid%p.log')}",
+        "-cp", launch_classpath(),
+        "ixdar.nodegraph.optimize.BatchDslEvaluator",
+        dsl_path, arg1, arg2, arg3,
     ]
-    result = run_maven(maven_args, "Running BatchDslEvaluator", check=False, timeout=600)
+    print("Running BatchDslEvaluator", file=sys.stderr)
+    result = subprocess.run(command, cwd=IXDAR_APP_DIR, capture_output=True, text=True, timeout=600)
     stdout = result.stdout.strip()
     if not stdout:
         raise RuntimeError(f"BatchDslEvaluator produced no output. stderr: {result.stderr[-500:]}")
-    # Maven may emit compilation messages before JSON — find the first '{'
+    # The evaluator may log before its JSON — find the first '{'
     idx = stdout.find("{")
     if idx < 0:
         raise RuntimeError(f"No JSON in output: {stdout[:200]}")
@@ -49,7 +51,7 @@ def _run_maven_batch(dsl_path: str, arg1: str, arg2: str = "unused", arg3: str =
 
 def _discover(dsl_path: str) -> list[dict]:
     """Get parameter space from DSL file."""
-    result = _run_maven_batch(dsl_path, "--discover")
+    result = _run_batch(dsl_path, "--discover")
     return result.get("parameters", [])
 
 
@@ -131,7 +133,7 @@ def optimize(dsl_path: str, ref_path: str, samples: int = 100, rounds: int = 1, 
         try:
             # Batch evaluate + compare (all in Java, single JVM)
             t0 = time.time()
-            batch_result = _run_maven_batch(dsl_path, output_dir, params_json_path, ref_path)
+            batch_result = _run_batch(dsl_path, output_dir, params_json_path, ref_path)
             total_time = time.time() - t0
 
             eval_results = batch_result.get("results", [])

@@ -14,8 +14,7 @@ import sys
 import time
 
 from ..automation_client import AutomationClient, live_scenes
-from ..build_state import IXDAR_APP_DIR
-from ..checkout import maven_executable
+from ..build_state import IXDAR_APP_DIR, ensure_build, launch_classpath
 from ..cli_registry import CliCommandResult, cli_command
 
 
@@ -45,11 +44,26 @@ def _wait_for_server(client: AutomationClient, known_pids: set, timeout: float =
     return False
 
 
-def _build_maven_args(dsl: str) -> list[str]:
-    cmd = [maven_executable(), "-P", "mesh-viewer", "-q"]
+def _java_command(dsl: str) -> list[str]:
+    """Assemble the JVM command line for a windowed mesh viewer on this checkout's classes.
+
+    :param dsl: Model passed as ``ixdar.model``, or empty for the viewer's default.
+    :return: The full argv.
+    """
+    command = ["java", "-enableassertions"]
+    if sys.platform == "darwin":
+        # GLFW refuses to initialise unless main() is on the process's first thread.
+        command.append("-XstartOnFirstThread")
     if dsl:
-        cmd.append(f"-Dmesh.dsl={dsl}")
-    return cmd
+        command.append(f"-Dixdar.model={dsl}")
+    command.extend([
+        f"-XX:ErrorFile={os.path.join(IXDAR_APP_DIR, 'target', 'hs_err_pid%p.log')}",
+        "-cp",
+        launch_classpath(),
+        "ixdar.canvas.IxdarWindow",
+        "mesh-viewer",
+    ])
+    return command
 
 
 def run(
@@ -79,13 +93,11 @@ def run(
     proc = None
 
     if not no_launch:
+        ensure_build(skip_build=False)
         known_pids = {record["pid"] for record in live_scenes()}
-        maven_cmd = _build_maven_args(dsl)
-        print(f"Starting mesh-viewer: {' '.join(maven_cmd)}", file=sys.stderr)
-        print(f"  working dir: {IXDAR_APP_DIR}", file=sys.stderr)
-
+        print(f"Starting mesh-viewer (model: {dsl or 'default'})", file=sys.stderr)
         proc = subprocess.Popen(
-            maven_cmd,
+            _java_command(dsl),
             cwd=IXDAR_APP_DIR,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,

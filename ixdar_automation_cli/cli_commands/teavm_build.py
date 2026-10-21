@@ -11,10 +11,9 @@ so TeaVM reports "Output file built with errors", writes a ~36-byte stub ``class
 Maven succeed when a method it cannot compile is reachable; that once masked a broken web build
 for an unknown stretch. So any ``[ERROR]`` line fails the run, every one is repeated after the
 build output where a tail sees it, a missing or stub ``classes.js`` fails it too, and the run ends
-with one summary line. The annotations module is installed into ``~/.m2`` first because
-maven-compiler-plugin resolves the ``annotationProcessorPaths`` entry ``IXDAR:annotations`` from
-the repository, never from the reactor, so ``-am`` alone would run whatever stale processor jar
-was installed last.
+with one summary line. The whole reactor is packaged, never ``-pl``: maven-compiler-plugin 3.13
+resolves the ``annotationProcessorPaths`` entry ``IXDAR:annotations`` from the reactor, and a
+module left out would come from the ``~/.m2`` every worktree shares.
 
 Maven's output streams to stderr, so the CLI's JSON stdout stays valid. ``--hugo`` then runs
 ``hugo -D`` in Krieg Eterna's web directory, the sibling ``KriegEterna/web`` checkout unless
@@ -86,19 +85,11 @@ def run(hugo: bool = False) -> dict:
         os.remove(CLASSES_JS)
 
     with open(BUILD_LOG, "w", encoding="utf-8") as log:
-        install = run_maven(["-q", "install", "-pl", "annotations", "-DskipTests"],
-                            f"{LOG_PREFIX} Installing IXDAR:annotations into ~/.m2 (annotation processor path)",
+        package = run_maven(["package", "-P", "web-teavm", "-DskipTests"],
+                            f"{LOG_PREFIX} Packaging the TeaVM bundle",
                             echo=True, check=False, env=environment)
-        log.write(install.stdout)
-        status = install.returncode
-        if status == 0:
-            package = run_maven(["package", "-pl", "ixdar-app", "-am", "-P", "web-teavm", "-DskipTests"],
-                                f"{LOG_PREFIX} Packaging the TeaVM bundle",
-                                echo=True, check=False, env=environment)
-            log.write(package.stdout)
-            status = package.returncode
-        else:
-            print(f"{LOG_PREFIX} annotations install failed; skipping the web build", file=sys.stderr)
+        log.write(package.stdout)
+        status = package.returncode
 
     with open(BUILD_LOG, encoding="utf-8", errors="replace") as log:
         errors = [line.rstrip() for line in log if ERROR_MARKER in line]

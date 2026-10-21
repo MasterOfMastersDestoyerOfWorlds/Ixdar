@@ -20,7 +20,6 @@ class SceneSpec:
     subfolder: str
     display_name: str
     camera: str
-    maven_profile: str
     dry_run: bool
 
 
@@ -31,7 +30,6 @@ def scaffold_new_scene(
     subfolder: str,
     display_name: str,
     camera: str = "2d",
-    maven_profile: str = "",
     dry_run: bool = False,
 ) -> dict:
     spec = _validate_spec(
@@ -41,19 +39,16 @@ def scaffold_new_scene(
             subfolder=subfolder.strip(),
             display_name=display_name.strip(),
             camera=camera.strip().lower(),
-            maven_profile=maven_profile.strip(),
             dry_run=dry_run,
         )
     )
     root = Path(checkout_root())
     java_file = root / "ixdar-app" / "src" / "main" / "java" / "ixdar" / "scenes" / spec.subfolder / f"{spec.name}.java"
     launch_file = root / ".vscode" / "launch.json"
-    pom_file = root / "ixdar-app" / "pom.xml"
 
     java_text = _scene_template(spec)
     launch_name = display_name
     launch_changed, launch_reason = _upsert_launch_json(launch_file, launch_name, spec.scene_id, dry_run=spec.dry_run)
-    pom_changed, pom_reason = _upsert_maven_profile(pom_file, spec.maven_profile, spec.scene_id, dry_run=spec.dry_run)
 
     file_reason = "already_exists"
     if not java_file.exists():
@@ -74,12 +69,6 @@ def scaffold_new_scene(
             "status": launch_reason,
             "changed": launch_changed,
         },
-        "mavenProfile": {
-            "id": spec.maven_profile,
-            "path": str(pom_file.relative_to(root)),
-            "status": pom_reason,
-            "changed": pom_changed,
-        },
     }
 
 
@@ -94,8 +83,6 @@ def _validate_spec(spec: SceneSpec) -> SceneSpec:
         raise ValueError("--camera must be one of: 2d, 3d")
     if not spec.display_name:
         raise ValueError("--display-name cannot be empty")
-    if spec.maven_profile and not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", spec.maven_profile):
-        raise ValueError("--maven-profile must be kebab-case")
     return spec
 
 
@@ -189,58 +176,6 @@ def _upsert_launch_json(launch_file: Path, launch_name: str, scene_id: str, *, d
     return True, "created"
 
 
-def _upsert_maven_profile(pom_file: Path, profile_id: str, scene_id: str, *, dry_run: bool) -> tuple[bool, str]:
-    if not profile_id:
-        return False, "skipped"
-    pom = pom_file.read_text(encoding="utf-8")
-    if f"<id>{profile_id}</id>" in pom:
-        return False, "already_exists"
-    profile_xml = (
-        "    <profile>\n"
-        f"      <id>{profile_id}</id>\n"
-        "      <properties>\n"
-        "        <maven.test.skip>true</maven.test.skip>\n"
-        "      </properties>\n"
-        "      <build>\n"
-        "        <defaultGoal>compile exec:exec</defaultGoal>\n"
-        "        <plugins>\n"
-        "          <plugin>\n"
-        "            <groupId>org.codehaus.mojo</groupId>\n"
-        "            <artifactId>exec-maven-plugin</artifactId>\n"
-        "            <version>3.6.2</version>\n"
-        "            <configuration>\n"
-        "              <executable>java</executable>\n"
-        "              <workingDirectory>${project.basedir}</workingDirectory>\n"
-        "              <arguments>\n"
-        "                <argument>-enableassertions</argument>\n"
-        "                <argument>-Dsun.awt.noerasebackground=true</argument>\n"
-        "                <argument>-Dorg.lwjgl.util.DebugLoader=true</argument>\n"
-        "                <argument>-XX:ErrorFile=target/hs_err_pid%p.log</argument>\n"
-        "                <argument>-classpath</argument>\n"
-        "                <classpath />\n"
-        "                <argument>ixdar.canvas.IxdarWindow</argument>\n"
-        f"                <argument>{scene_id}</argument>\n"
-        "              </arguments>\n"
-        "            </configuration>\n"
-        "          </plugin>\n"
-        "        </plugins>\n"
-        "      </build>\n"
-        "    </profile>\n"
-    )
-
-    marker = "<id>native</id>"
-    native_idx = pom.find(marker)
-    if native_idx < 0:
-        raise ValueError("Could not find native profile anchor in pom.xml")
-    profile_start = pom.rfind("    <profile>", 0, native_idx)
-    if profile_start < 0:
-        raise ValueError("Could not find profile insertion point in pom.xml")
-    new_pom = pom[:profile_start] + profile_xml + pom[profile_start:]
-    if not dry_run:
-        pom_file.write_text(new_pom, encoding="utf-8")
-    return True, "created"
-
-
 @cli_command(name="new-scene")
 def new_scene(
     name: str,
@@ -248,17 +183,15 @@ def new_scene(
     subfolder: str,
     display_name: str,
     camera: Annotated[str, CliOption(choices=("2d", "3d"))] = "2d",
-    maven_profile: str = "",
     dry_run: bool = False,
 ) -> dict:
-    """Scaffold a new Scene class, launch.json entry, and optional Maven profile.
+    """Scaffold a new Scene class and its launch.json entry.
 
     :param name: Scene class name.
     :param id: Scene id used by IxdarWindow and the launch.json entry.
     :param subfolder: Package subfolder under scenes for the new class.
     :param display_name: Human-readable scene name.
     :param camera: Camera mode for the scaffold.
-    :param maven_profile: Optional Maven profile id to add.
     :param dry_run: Print planned changes without writing files.
     """
     return scaffold_new_scene(
@@ -267,6 +200,5 @@ def new_scene(
         subfolder=subfolder,
         display_name=display_name,
         camera=camera,
-        maven_profile=maven_profile,
         dry_run=dry_run,
     )

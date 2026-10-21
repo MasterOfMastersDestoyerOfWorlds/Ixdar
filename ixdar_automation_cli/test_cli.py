@@ -455,7 +455,7 @@ class SceneLifecycleTest(unittest.TestCase):
                     patch.object(build_state, "run_maven", side_effect=failing_maven):
                 with self.assertRaises(RuntimeError):
                     build_state.ensure_build(skip_build=False)
-            self.assertEqual(["-q", "clean", "compile", "-pl", "annotations,ixdar-app"], maven_calls[0])
+            self.assertEqual(["-q", "clean", "compile"], maven_calls[0])
             self.assertFalse(os.path.exists(stamp))
 
             with patch.object(build_state, "REPO_DIR", directory), \
@@ -1296,7 +1296,6 @@ class CliTest(unittest.TestCase):
                 subfolder="ui",
                 display_name="Probe",
                 camera=camera,
-                maven_profile="",
                 dry_run=True,
             )
             source = new_scene._scene_template(spec)

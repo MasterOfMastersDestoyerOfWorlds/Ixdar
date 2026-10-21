@@ -146,9 +146,9 @@ def ensure_build(skip_build: bool) -> list[str]:
     """Bring the checkout's classes up to date as :func:`build_decision` says, then make sure the
     classpath file exists.
 
-    Both modules are compiled because the app's annotation processors run from the reactor's
-    ``annotations/target/classes``, which also precedes the classpath file's installed
-    ``annotations`` jar on the scene's ``-cp``; a stale one surfaces as a ``NoSuchMethodError``.
+    Both modules are compiled, always as the whole reactor: the app's annotation processors and the
+    classpath file ixdar-app's compile writes both resolve ``annotations`` to this checkout's
+    ``annotations/target/classes``, never to a jar in the local repository other worktrees share.
 
     :param skip_build: Force a launch of whatever classes are on disk, current or not, after
         copying resources newer than their ``target/classes`` copy. The classpath file is still
@@ -170,7 +170,7 @@ def ensure_build(skip_build: bool) -> list[str]:
             if os.path.exists(stamp):
                 os.remove(stamp)
             goals = ["clean", "compile"] if mode == BUILD_CLEAN else ["compile"]
-            run_maven(["-q", *goals, "-pl", "annotations,ixdar-app"], "Building", cwd=REPO_DIR)
+            run_maven(["-q", *goals], "Building", cwd=REPO_DIR)
         elif mode == BUILD_RESOURCES:
             synced = sync_resources()
         if mode != BUILD_CURRENT:
@@ -179,7 +179,20 @@ def ensure_build(skip_build: bool) -> list[str]:
     if synced:
         print(f"  synced {len(synced)} resource(s) into target/classes", file=sys.stderr)
     if not os.path.exists(CLASSPATH_FILE):
-        run_maven(["-q", "-f", POM_PATH, "dependency:build-classpath",
-                   f"-Dmdep.outputFile={CLASSPATH_FILE}"],
-                  "Refreshing classpath (CP)", cwd=REPO_DIR)
+        # ixdar-app's compile writes target/CP inside the reactor (see its pom), so a missing one
+        # is a whole-reactor compile, never a build of the module alone.
+        run_maven(["-q", "compile"], "Refreshing classpath (CP)", cwd=REPO_DIR)
     return synced
+
+
+def launch_classpath() -> str:
+    """The ``-cp`` value for a JVM launched on this checkout's classes, after :func:`ensure_build`.
+
+    Both modules' ``target/classes`` come first, ahead of the dependency classpath ixdar-app's
+    compile wrote to :data:`CLASSPATH_FILE`.
+
+    :return: The classpath, joined with the platform separator.
+    """
+    with open(CLASSPATH_FILE, encoding="utf-8") as handle:
+        dependencies = handle.read().strip()
+    return os.pathsep.join((CLASSES_DIR, ANNOTATIONS_CLASSES, dependencies))

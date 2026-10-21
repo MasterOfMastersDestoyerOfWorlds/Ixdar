@@ -12,8 +12,7 @@ uv run ixdar-cli new-scene \
   --id example-canvas \
   --subfolder anatomy \
   --display-name "Example Scene" \
-  --camera 2d \
-  --maven-profile example-scene
+  --camera 2d
 ```
 
 ### Parameters
@@ -23,19 +22,17 @@ uv run ixdar-cli new-scene \
 - `--subfolder` (required): subfolder under `ixdar-app/src/main/java/ixdar/scenes/`, for example `anatomy` or `ui/experimental`
 - `--display-name` (required): VS Code launch config name
 - `--camera` (optional): `2d` or `3d` (default: `2d`)
-- `--maven-profile` (optional): kebab-case profile id to add to `ixdar-app/pom.xml`
 - `--dry-run` (optional): preview changes without writing files
 
 ### Generated Outputs
 
 - Scene class at `ixdar-app/src/main/java/ixdar/scenes/<subfolder>/<Name>.java`
 - Launch config in `.vscode/launch.json`
-- Optional Maven profile in `ixdar-app/pom.xml` when `--maven-profile` is provided
 
 ## Validation
 
 - `mvn -DskipTests compile`
-- Launch with VS Code config or `mvn -P <profile-id>`
+- Launch with the VS Code config or `uv run ixdar-cli run-scene --scene <id>`
 - Confirm no startup errors and expected scene state
 
 ## Notes

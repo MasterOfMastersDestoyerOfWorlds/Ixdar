@@ -30,13 +30,12 @@ from ..automation_client import (
     records_directory,
 )
 from ..build_state import (
-    ANNOTATIONS_CLASSES,
     CLASSES_DIR,
-    CLASSPATH_FILE,
     IXDAR_APP_DIR,
     REPO_DIR,
     SOURCES_DIR,
     ensure_build,
+    launch_classpath,
 )
 from ..cli_registry import CliCommandResult, cli_command
 from ..jacoco_coverage import DEFAULT_PACKAGE_FILTER, agent_argument, build_report, format_coverage
@@ -92,8 +91,6 @@ def _java_command(
     :param coverage_path: JaCoCo ``.exec`` output path, or empty to run without coverage.
     :return: The full argv.
     """
-    with open(CLASSPATH_FILE, encoding="utf-8") as handle:
-        classpath = handle.read().strip()
     command = ["java", "-Dixdar.headless=true"]
     if sys.platform == "darwin":
         # GLFW refuses to initialise unless main() is on the process's first thread, and the JVM
@@ -109,7 +106,7 @@ def _java_command(
     command.extend([
         f"-XX:ErrorFile={os.path.join(IXDAR_APP_DIR, 'target', 'hs_err_pid%p.log')}",
         "-cp",
-        os.pathsep.join((CLASSES_DIR, ANNOTATIONS_CLASSES, classpath)),
+        launch_classpath(),
         "ixdar.canvas.IxdarWindow",
         scene,
     ])

@@ -100,7 +100,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`mesh-state`](#mesh-state) | Extract the mesh viewer state from the UI snapshot. |
 | [`mesh-validate`](#mesh-validate) | Validate the current mesh viewer payload. |
 | [`mesh-viewer`](#mesh-viewer) | Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot. |
-| [`new-scene`](#new-scene) | Scaffold a new Scene class, launch.json entry, and optional Maven profile. |
+| [`new-scene`](#new-scene) | Scaffold a new Scene class and its launch.json entry. |
 | [`probe`](#probe) | Capture the core automation probe bundle. |
 | [`profile-report`](#profile-report) | Report self-time hot methods from an async-profiler HTML capture. |
 | [`quilt-mesh-compare`](#quilt-mesh-compare) | Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as Java). |
@@ -264,7 +264,7 @@ Load and execute a named DSL skill graph, making its output geometry the active 
 
 ### `mesh-dsl-graph`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/dsl/Graph.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/Graph.java)
 
 Report the DSL graph view of the active model scene: every node's box, depth and run time, every edge, the critical path, the zoom and the scroll bars.
 
@@ -282,7 +282,7 @@ Report the DSL graph view of the active model scene: every node's box, depth and
 Report per-node execution times and peak heap of the graph the active model scene ran last, nodes inside groups included.
 
 - **Route:** `GET /mesh/dsl/timing`
-- **Response:** `{ok, total_ms, peak_heap_mib, nodes:[{node, type, ms, peak_heap_mib}, ...]}`
+- **Response:** `{ok, revision, total_ms, peak_heap_mib, nodes:[{node, type, ms, peak_heap_mib}, ...]}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/mesh/dsl/timing`
 
 ### `mesh-dsl-validate`
@@ -335,7 +335,7 @@ List every boundary loop of the mesh with its edge count, perimeter and area est
 
 ### `mesh-overlay`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/Overlay.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Overlay.java)
 
 Load an OBJ overlay onto the active viewer mesh, or clear the current overlay.
 
@@ -671,7 +671,7 @@ Ring the shown surface through authored points and report the ring row: centroid
 
 ### `rings bisect`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/mesh/rings/Bisect.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Bisect.java)
 
 Draw a bisector in the ring scene as K and clicks do: its two ends snap onto the nearest ring or bisector, the points between steer it, and the open geodesic spline through them splits every region it crosses.
 
@@ -726,7 +726,7 @@ Deliver a synthesized two-axis scroll event to the active mouse handler.
 
 ### `shutdown`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/Shutdown.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/Shutdown.java)
 
 Acknowledge, then asynchronously close the canvas and exit the process.
 
@@ -736,7 +736,7 @@ Acknowledge, then asynchronously close the canvas and exit the process.
 
 ### `terminal`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/platform/automation/endpoints/input/RunTerminalLine.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/RunTerminalLine.java)
 
 Run one line in the scene terminal and return the history lines it produced.
 
@@ -766,7 +766,7 @@ Synthesize character events on the active key handler, one per character of the 
 Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.
 
 - **Route:** `GET /ui/state`
-- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ring?, collection?, textElements, menuItems, controls, audio}`
+- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ring?, collection?, knotEditor?, textElements, menuItems, controls, audio}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/state`
 
 ## CLI commands
@@ -846,7 +846,7 @@ Merge JaCoCo exec files and report the code they never executed.
 
 ### `dsl-optimize`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/dsl_optimizer.py#L213)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/dsl_optimizer.py#L215)
 
 Batch-optimize mesh DSL parameters against a reference OBJ.
 
@@ -963,7 +963,7 @@ Validate the current mesh viewer payload.
 
 ### `mesh-viewer`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/mesh_viewer.py#L155)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/mesh_viewer.py#L167)
 
 Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
 
@@ -976,16 +976,15 @@ Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
 
 ### `new-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/new_scene.py#L273)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/new_scene.py#L179)
 
-Scaffold a new Scene class, launch.json entry, and optional Maven profile.
+Scaffold a new Scene class and its launch.json entry.
 
 - `--name` — Scene class name.
 - `--id` — Scene id used by IxdarWindow and the launch.json entry.
 - `--subfolder` — Package subfolder under scenes for the new class.
 - `--display-name` — Human-readable scene name.
 - `--camera` — Camera mode for the scaffold.
-- `--maven-profile` — Optional Maven profile id to add.
 - `--dry-run` — Print planned changes without writing files.
 
 ### `probe`
@@ -1016,7 +1015,7 @@ Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as 
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L529)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L526)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
@@ -1059,7 +1058,7 @@ Ask the scene to exit and return only once its process is gone.
 
 ### `teavm-build`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/teavm_build.py#L146)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/teavm_build.py#L137)
 
 Package the TeaVM web bundle on a JDK 25, failing on any TeaVM [ERROR] or a stub classes.js.
 
