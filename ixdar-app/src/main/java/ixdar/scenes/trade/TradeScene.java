@@ -77,7 +77,7 @@ public class TradeScene extends Scene {
         mouse.camera = mapCamera;
         mouse.controller = mapCamera;
 
-        Platforms.gl().setWindowTitle("Ixdar : Trade Game");
+        Platforms.get().setTitle("Ixdar : Trade Game");
 
         Map<String, Bounds> views = new HashMap<>();
         views.put(VIEW_MAIN, new Bounds(0, 0, wWidth, wHeight - TOP_BAR_HEIGHT, b -> {

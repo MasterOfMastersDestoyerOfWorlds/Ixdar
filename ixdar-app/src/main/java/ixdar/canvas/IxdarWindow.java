@@ -23,7 +23,6 @@ import static org.lwjgl.glfw.GLFW.glfwSetWindowIcon;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowPos;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowSizeCallback;
 import static org.lwjgl.glfw.GLFW.glfwSetWindowShouldClose;
-import static org.lwjgl.glfw.GLFW.glfwSetWindowTitle;
 import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 import static org.lwjgl.glfw.GLFW.glfwSwapInterval;
 import static org.lwjgl.glfw.GLFW.glfwTerminate;
@@ -52,7 +51,6 @@ import ixdar.annotations.scene.SceneDrawable;
 import ixdar.numeric.sparse.chol.CholeskyBackend;
 import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
-import ixdar.platform.gl.headless.HeadlessGL;
 import ixdar.platform.gl.headless.HeadlessPlatform;
 import ixdar.platform.gl.lwjgl.LwjglGL;
 import ixdar.platform.gl.lwjgl.LwjglPlatform;
@@ -115,11 +113,8 @@ public class IxdarWindow {
     }
 
     /**
-     * Run the selected scene against an off-screen GL context with no visible window.
-     *
-     * <p>{@link HeadlessGL} still opens a hidden GLFW window, so a graphical session or an X
-     * server must exist. Everything runs on the calling thread, and the loop only ends when the
-     * automation {@code /shutdown} endpoint calls {@link System#exit}.
+     * Run the selected scene on the calling thread in a hidden GLFW window, which still needs a
+     * graphical session; only the automation {@code /shutdown} endpoint ends the loop.
      *
      * @throws RuntimeException when no scene is registered for the requested canvas id
      */
@@ -127,7 +122,7 @@ public class IxdarWindow {
         int size = Integer.getInteger(HEADLESS_SIZE_PROPERTY, HEADLESS_DEFAULT_SIZE);
         HeadlessPlatform platform = new HeadlessPlatform(size, size);
         platform.setPlatformID(HEADLESS_PLATFORM_ID);
-        HeadlessGL gl = platform.getGL();
+        LwjglGL gl = platform.getGL();
         gl.setPlatformID(HEADLESS_PLATFORM_ID);
         Platforms.init(platform, gl);
         CholeskyBackend.preloadAsync();
@@ -309,15 +304,6 @@ public class IxdarWindow {
      */
     public static String getCanvasId() {
         return canvasId;
-    }
-
-    /**
-     * Set the GLFW window title.
-     *
-     * @param title new title shown in the OS window chrome
-     */
-    public static void setTitle(String title) {
-        glfwSetWindowTitle(window, title);
     }
 
     /**

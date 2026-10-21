@@ -596,13 +596,6 @@ public interface GL {
     int DEPTH_TEST();
 
     /**
-     * Set the platform window title (desktop) or document/tab title (web).
-     *
-     * @param string new title
-     */
-    void setWindowTitle(String string);
-
-    /**
      * Generate one VAO (LWJGL-style alias for {@link #genVertexArray()}).
      *
      * @return VAO ID

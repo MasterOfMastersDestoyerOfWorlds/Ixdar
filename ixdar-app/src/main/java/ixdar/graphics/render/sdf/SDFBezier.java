@@ -2,6 +2,7 @@ package ixdar.graphics.render.sdf;
 
 import org.joml.Vector2f;
 
+import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
@@ -12,12 +13,6 @@ public class SDFBezier extends ShaderDrawable {
 
     public ShaderProgram bezierShader;
     public float lineWidth;
-    public float dashLength;
-    public boolean dashed;
-    public boolean roundCaps;
-    public float dashRate;
-    public boolean endCaps;
-    public boolean culling = true;
     public Vector2f pA;
     public Vector2f pControl;
     public Vector2f pB;
@@ -28,13 +23,33 @@ public class SDFBezier extends ShaderDrawable {
 
     /**
      * Build a Bezier SDF drawable, wiring the {@code BezierSDF} shader
-     * program so {@link ShaderDrawable#draw(ixdar.graphics.cameras.Camera)}
+     * program so {@link ShaderDrawable#draw(Camera)}
      * uses it.
      */
     public SDFBezier() {
         super();
         bezierShader = ShaderType.BezierSDF.getShader();
         shader = bezierShader;
+    }
+
+    /**
+     * Draw the quadratic curve from {@code pA} to {@code pB} bent toward {@code pControl}, a
+     * {@link #lineWidth} stroke graded from {@code c} at {@code pA} to {@code c2} at {@code pB}.
+     *
+     * @param pA start point in world coordinates
+     * @param pControl control point in world coordinates
+     * @param pB end point in world coordinates
+     * @param c color at the start
+     * @param c2 color at the end
+     * @param camera camera providing transform and z-index
+     */
+    public void draw(Vector2f pA, Vector2f pControl, Vector2f pB, Color c, Color c2, Camera camera) {
+        this.pA = pA;
+        this.pControl = pControl;
+        this.pB = pB;
+        this.c = c;
+        this.c2 = c2;
+        draw(camera);
     }
 
     /**

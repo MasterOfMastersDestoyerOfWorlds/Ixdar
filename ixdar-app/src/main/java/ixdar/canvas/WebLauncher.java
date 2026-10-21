@@ -160,15 +160,6 @@ public final class WebLauncher {
         Window.requestAnimationFrame(ts -> tick(i));
     }
 
-    /**
-     * Set the host browser document title.
-     *
-     * @param string new value for {@code document.title}
-     */
-    public static void setTitle(String string) {
-        Window.current().getDocument().setTitle(string);
-    }
-
     private static void drawFallbackTriangle(GL gl, int i) {
         String vs = PRECISION_MEDIUMP_FLOAT_N
                 + "attribute vec2 a_pos;\n"

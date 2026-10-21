@@ -3,70 +3,81 @@ package ixdar.graphics.render.sdf;
 import org.joml.Vector2f;
 
 import ixdar.graphics.cameras.Camera;
-import ixdar.platform.Clock;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 
+/**
+ * An anti-aliased filled disc drawn by the {@code CircleSDF} shader, optionally with a border band
+ * of its own colour along the inside of its edge. Distances are measured in radii.
+ */
 public class SDFCircle extends ShaderDrawable {
-    public static final String POINTA = "pointA";
-    public static final float DEFAULT_BORDER_THICKNESS = 0.15f;
-    public static final int BORDER_SPIN_RATE = 20;
-    public static final float DEFAULT_EDGE_DIST = 0.35f;
-    public static final int EDGE_SHARPNESS_SCALE = 8;
+    public static final float DEFAULT_EDGE_SHARPNESS = 0.5f;
 
-    private float borderThickness;
-    private Vector2f pA;
+    public final Vector2f circleCenter = new Vector2f();
+    public float radius;
+    public float edgeDist = 1f;
+    public float edgeSharpness = DEFAULT_EDGE_SHARPNESS;
+    public float borderThickness;
+    public Color borderColor = Color.TRANSPARENT;
 
     /**
-     * Build an SDF circle bound to the {@code CircleSDF} shader, with a
-     * default border thickness of 0.15 (in normalized SDF units).
+     * Bind the circle SDF shader.
      */
     public SDFCircle() {
         shader = ShaderType.CircleSDF.getShader();
-        this.borderThickness = DEFAULT_BORDER_THICKNESS;
     }
 
     /**
-     * Draw a circle of {@code circleRadius} centered on {@code pA}. The
-     * underlying SDF shader rasterizes inside a square quad sized to enclose
-     * the full circle.
+     * Draw a disc of {@code radius} around {@code center} filled with {@code c}.
      *
-     * @param pA world-space center of the circle, also passed as the
-     *           {@code pointA} uniform
-     * @param circleRadius half-side of the bounding quad and effective radius
-     * @param c border color (the SDF shader interprets this as
-     *          {@code borderColor})
-     * @param camera camera supplying transform and z-index
+     * @param center circle center in world coordinates
+     * @param radius circle radius in world units
+     * @param c fill color
+     * @param camera camera providing transform and z-index
      */
-    public void draw(Vector2f pA, float circleRadius, Color c, Camera camera) {
+    public void draw(Vector2f center, float radius, Color c, Camera camera) {
+        draw(center, radius, c, c, camera);
+    }
 
-        this.pA = pA;
-        this.c = c;
-        topRight = new Vector2f(pA).add(circleRadius, circleRadius);
-        bottomRight = new Vector2f(pA).add(circleRadius, -circleRadius);
-        topLeft = new Vector2f(pA).add(-circleRadius, circleRadius);
-        bottomLeft = new Vector2f(pA).add(-circleRadius, -circleRadius);
+    /**
+     * Draw a disc of {@code radius} around {@code center}, its outer {@link #borderThickness}
+     * radii in {@code border} and the rest in {@code fill}.
+     *
+     * @param center circle center in world coordinates
+     * @param radius circle radius in world units
+     * @param fill fill color
+     * @param border border band color, also blended into the anti-aliased rim
+     * @param camera camera providing transform and z-index
+     */
+    public void draw(Vector2f center, float radius, Color fill, Color border, Camera camera) {
+        this.circleCenter.set(center);
+        this.radius = radius;
+        this.c = fill;
+        this.borderColor = border;
         draw(camera);
     }
 
     /**
-     * Push circle-specific uniforms: border thickness/color, the SDF center,
-     * a time-driven {@code phase} for the border animation, edge-distance
-     * and edge-sharpness terms scaled by the camera, and the quad extents.
+     * Build the bounding quad as the axis-aligned square around the circle.
+     */
+    @Override
+    public void calculateQuad() {
+        topRight = new Vector2f(circleCenter).add(radius, radius);
+        bottomRight = new Vector2f(circleCenter).add(radius, -radius);
+        topLeft = new Vector2f(circleCenter).add(-radius, radius);
+        bottomLeft = new Vector2f(circleCenter).add(-radius, -radius);
+    }
+
+    /**
+     * Push the center, radius, zoom-adjusted edge sharpness and border band uniforms.
      */
     @Override
     protected void setUniforms() {
-        shader.setFloat("borderThickness", borderThickness);
-        shader.setVec4("borderColor", c.toVector4f());
-        shader.setVec2(POINTA, pA);
-        shader.setFloat("phase", Clock.spin(BORDER_SPIN_RATE));
-        float edgeDist = DEFAULT_EDGE_DIST;
+        shader.setVec2("pointA", circleCenter);
+        shader.setFloat("radius", radius);
         shader.setFloat("edgeDist", edgeDist);
-        shader.setFloat("edgeSharpness", edgeDist / (EDGE_SHARPNESS_SCALE * edgeDist * camera.getScaleFactor()));
-
-        shader.setVec2(POINTA, pA);
-        shader.setFloat("width", width);
-        shader.setFloat("height", height);
+        shader.setFloat("edgeSharpness", edgeSharpness / camera.getScaleFactor());
+        shader.setFloat("borderThickness", borderThickness);
+        shader.setVec4("borderColor", borderColor.toVector4f());
     }
-
 }

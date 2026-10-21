@@ -10,7 +10,7 @@ import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.sdf.SDFCircleSimple;
+import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.text.HyperString;
 
@@ -25,7 +25,7 @@ public class City {
     public static final float CITY_RADIUS = 20f;
     public static final float CLICK_RADIUS = 20f;
 
-    private static SDFCircleSimple cityCircle = new SDFCircleSimple();
+    private static SDFCircle cityCircle = new SDFCircle();
 
     public String id;
     public String name;

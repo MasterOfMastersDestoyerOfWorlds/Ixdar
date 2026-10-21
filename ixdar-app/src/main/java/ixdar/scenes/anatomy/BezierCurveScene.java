@@ -62,15 +62,10 @@ public class BezierCurveScene extends Scene {
     public void drawScene() {
         super.drawScene();
 
-        float cx = camera2D.getBounds().viewWidth;
-        float cy = camera2D.getBounds().viewHeight;
         Vector2f[] screenSpaceVectors = camera2D.pointsToScreenSpace(point1, control, point2);
-        bezier.pA = screenSpaceVectors[0];
-        bezier.pControl = screenSpaceVectors[1];
-        bezier.pB = screenSpaceVectors[2];
         bezier.lineWidth = STROKE_WIDTH_PIXELS;
-        bezier.c2 = Color.GREEN;
-        bezier.draw(0f, 0f, cx, cy, Color.RED, camera2D);
+        bezier.draw(screenSpaceVectors[0], screenSpaceVectors[1], screenSpaceVectors[2], Color.RED, Color.GREEN,
+                camera2D);
     }
 
 }

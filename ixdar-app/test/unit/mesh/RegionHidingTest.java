@@ -18,7 +18,7 @@ import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.Platform;
-import ixdar.platform.gl.headless.HeadlessBuffer;
+import ixdar.platform.gl.lwjgl.DefaultBuffer;
 import ixdar.scenes.ring.RingScene;
 
 /**
@@ -83,7 +83,7 @@ class RegionHidingTest {
                         case GET_PLATFORM_ID:
                             return STAND_IN_PLATFORM_ID;
                         case "allocateFloats":
-                            return new HeadlessBuffer((Integer) arguments[0]);
+                            return new DefaultBuffer((Integer) arguments[0]);
                         default:
                             return method.getReturnType() == int.class ? 0
                                     : method.getReturnType() == String.class ? "" : null;

@@ -1,8 +1,23 @@
 package ixdar.platform.gl.lwjgl;
 
+import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MAJOR;
+import static org.lwjgl.glfw.GLFW.GLFW_CONTEXT_VERSION_MINOR;
+import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
 import static org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
+import static org.lwjgl.glfw.GLFW.GLFW_OPENGL_CORE_PROFILE;
+import static org.lwjgl.glfw.GLFW.GLFW_OPENGL_FORWARD_COMPAT;
+import static org.lwjgl.glfw.GLFW.GLFW_OPENGL_PROFILE;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
+import static org.lwjgl.glfw.GLFW.GLFW_RESIZABLE;
+import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
+import static org.lwjgl.glfw.GLFW.GLFW_VISIBLE;
+import static org.lwjgl.glfw.GLFW.glfwCreateWindow;
+import static org.lwjgl.glfw.GLFW.glfwDestroyWindow;
 import static org.lwjgl.glfw.GLFW.glfwGetMouseButton;
+import static org.lwjgl.glfw.GLFW.glfwInit;
+import static org.lwjgl.glfw.GLFW.glfwMakeContextCurrent;
+import static org.lwjgl.glfw.GLFW.glfwTerminate;
+import static org.lwjgl.glfw.GLFW.glfwWindowHint;
 import static org.lwjgl.opengl.GL11.GL_BLEND;
 import static org.lwjgl.opengl.GL11.GL_COLOR_BUFFER_BIT;
 import static org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT;
@@ -53,7 +68,6 @@ import static org.lwjgl.opengl.GL20.GL_COMPILE_STATUS;
 import static org.lwjgl.opengl.GL20.GL_FLOAT_VEC2;
 import static org.lwjgl.opengl.GL20.GL_FLOAT_VEC4;
 import static org.lwjgl.opengl.GL20.GL_FRAGMENT_SHADER;
-import static org.lwjgl.opengl.GL20.GL_INFO_LOG_LENGTH;
 import static org.lwjgl.opengl.GL20.GL_LINK_STATUS;
 import static org.lwjgl.opengl.GL20.GL_SAMPLER_2D;
 import static org.lwjgl.opengl.GL20.GL_VERTEX_SHADER;
@@ -61,6 +75,8 @@ import static org.lwjgl.opengl.GL20.glAttachShader;
 import static org.lwjgl.opengl.GL20.glCompileShader;
 import static org.lwjgl.opengl.GL20.glCreateProgram;
 import static org.lwjgl.opengl.GL20.glCreateShader;
+import static org.lwjgl.opengl.GL20.glDeleteProgram;
+import static org.lwjgl.opengl.GL20.glDeleteShader;
 import static org.lwjgl.opengl.GL20.glDetachShader;
 import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
 import static org.lwjgl.opengl.GL20.glGetActiveUniform;
@@ -86,6 +102,7 @@ import static org.lwjgl.opengl.GL30.glBindVertexArray;
 import static org.lwjgl.opengl.GL30.glDeleteVertexArrays;
 import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 import static org.lwjgl.opengl.GL30.glGenerateMipmap;
+import static org.lwjgl.system.MemoryUtil.NULL;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -95,26 +112,83 @@ import java.util.ArrayList;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 import org.lwjgl.BufferUtils;
+import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
-import ixdar.canvas.IxdarWindow;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.input.MouseButtons;
 
+/**
+ * The desktop OpenGL 3.3 core backend over LWJGL. It draws into the context current on the calling
+ * thread: the window's, or, for headless runs, the hidden window it creates itself.
+ */
 public class LwjglGL implements GL {
     public static final int RGBA_BYTES_PER_PIXEL = 4;
     public static final int BYTE_MASK = 0xFF;
+    public static final int ALPHA_SHIFT = 24;
     public static final int RED_SHIFT = 16;
     public static final int MAT4_FLOATS = 16;
     public static final int GREEN_SHIFT = 8;
+    public static final int ALPHA_BYTE_OFFSET = 3;
+    public static final int GL_VERSION_MAJOR = 3;
+    public static final int GL_VERSION_MINOR = 3;
 
     private static int staticId = 0;
+
+    /** The hidden window this GL created for an offscreen context, or {@code NULL} when it has none. */
+    public long offscreenWindow = NULL;
+
     private int id = staticId++;
     private final ArrayList<ShaderProgram> shaders = new ArrayList<>();
+
+    /**
+     * Draw into the context a window has already made current on the drawing thread.
+     */
+    public LwjglGL() {
+    }
+
+    /**
+     * Create a hidden {@code width x height} GLFW window and make its OpenGL 3.3 core context
+     * current, for rendering with no visible window.
+     *
+     * @param width offscreen framebuffer width in pixels
+     * @param height offscreen framebuffer height in pixels
+     * @throws RuntimeException if GLFW or the hidden window cannot be created
+     */
+    public LwjglGL(int width, int height) {
+        GLFWErrorCallback.createPrint(System.err).set();
+        if (!glfwInit()) {
+            throw new RuntimeException("Failed to initialize GLFW");
+        }
+        glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, GL_VERSION_MAJOR);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, GL_VERSION_MINOR);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+        offscreenWindow = glfwCreateWindow(width, height, "Headless Render", NULL, NULL);
+        if (offscreenWindow == NULL) {
+            glfwTerminate();
+            throw new RuntimeException("Failed to create headless window");
+        }
+        glfwMakeContextCurrent(offscreenWindow);
+        createCapabilities();
+    }
+
+    /**
+     * Destroy the hidden window, if this GL created one, and terminate GLFW.
+     */
+    public void shutdown() {
+        if (offscreenWindow != NULL) {
+            glfwDestroyWindow(offscreenWindow);
+            offscreenWindow = NULL;
+        }
+        glfwTerminate();
+    }
 
     @Override
     public ArrayList<ShaderProgram> getShaders() {
@@ -202,11 +276,13 @@ public class LwjglGL implements GL {
 
     @Override
     public void deleteShader(int shader) {
-        /* glDeleteShader(shader); */ }
+        glDeleteShader(shader);
+    }
 
     @Override
     public void deleteProgram(int program) {
-        /* glDeleteProgram(program); */ }
+        glDeleteProgram(program);
+    }
 
     @Override
     public int genBuffer() {
@@ -431,6 +507,9 @@ public class LwjglGL implements GL {
 
     @Override
     public boolean getMouseButton(long window, MouseButtons mouseButton) {
+        if (offscreenWindow != NULL) {
+            return false;
+        }
         int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
         return state == GLFW_PRESS;
     }
@@ -503,11 +582,6 @@ public class LwjglGL implements GL {
     @Override
     public int DEPTH_BUFFER_BIT() {
         return GL_DEPTH_BUFFER_BIT;
-    }
-
-    @Override
-    public void setWindowTitle(String string) {
-        IxdarWindow.setTitle(string);
     }
 
     @Override
@@ -607,7 +681,7 @@ public class LwjglGL implements GL {
 
     @Override
     public void getActiveUniforms(int shader, IntBuffer success) {
-        glGetProgramiv(shader, GL_INFO_LOG_LENGTH, success);
+        glGetProgramiv(shader, GL_ACTIVE_UNIFORMS, success);
     }
 
     @Override
@@ -630,14 +704,13 @@ public class LwjglGL implements GL {
         ByteBuffer frameBuffer = MemoryUtil.memAlloc(width * height * RGBA_BYTES_PER_PIXEL);
         glReadPixels(i, j, width, height, rgba, unsigned_BYTE, frameBuffer);
         int[] pixels = new int[width * height];
-        // convert RGB data in ByteBuffer to integer array
-        int bindex;
         for (int k = 0; k < pixels.length; k++) {
-            bindex = k * RGBA_BYTES_PER_PIXEL;
+            int bindex = k * RGBA_BYTES_PER_PIXEL;
             int r = frameBuffer.get(bindex) & BYTE_MASK;
             int g = frameBuffer.get(bindex + 1) & BYTE_MASK;
             int b = frameBuffer.get(bindex + 2) & BYTE_MASK;
-            pixels[k] = (r << RED_SHIFT) | (g << GREEN_SHIFT) | b;
+            int a = frameBuffer.get(bindex + ALPHA_BYTE_OFFSET) & BYTE_MASK;
+            pixels[k] = (a << ALPHA_SHIFT) | (r << RED_SHIFT) | (g << GREEN_SHIFT) | b;
         }
         MemoryUtil.memFree(frameBuffer);
         return pixels;

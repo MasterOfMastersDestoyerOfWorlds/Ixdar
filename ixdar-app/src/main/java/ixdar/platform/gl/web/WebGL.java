@@ -25,7 +25,6 @@ import org.teavm.jso.webgl.WebGLShader;
 import org.teavm.jso.webgl.WebGLTexture;
 import org.teavm.jso.webgl.WebGLUniformLocation;
 
-import ixdar.canvas.WebLauncher;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.gl.GL;
@@ -640,12 +639,6 @@ public class WebGL implements GL {
     @Override
     public int DEPTH_BUFFER_BIT() {
         return WebGLRenderingContext.DEPTH_BUFFER_BIT;
-    }
-
-    /** {@inheritDoc}. */
-    @Override
-    public void setWindowTitle(String string) {
-        WebLauncher.setTitle(string);
     }
 
     /** {@inheritDoc}. */

@@ -98,7 +98,9 @@ public class LwjglPlatform implements Platform {
     /** {@inheritDoc}. */
     @Override
     public void setTitle(String title) {
-        glfwSetWindowTitle(window, title);
+        if (window != 0) {
+            glfwSetWindowTitle(window, title);
+        }
     }
 
     /** {@inheritDoc}. */

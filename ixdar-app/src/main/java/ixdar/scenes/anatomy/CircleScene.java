@@ -4,13 +4,13 @@ import org.joml.Vector2f;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.sdf.SDFCircleSimple;
+import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.scenes.Scene;
 
 @SceneAnnotation(id = "circle-canvas")
 public class CircleScene extends Scene {
 
-    private SDFCircleSimple circle;
+    private SDFCircle circle;
 
     /**
      * Anatomy demo for a single SDF circle filling the viewport.
@@ -20,13 +20,13 @@ public class CircleScene extends Scene {
     }
 
     /**
-     * Allocate the simple circle SDF drawable and attach the code pane
+     * Allocate the circle SDF drawable and attach the code pane
      * bound to its shader.
      */
     @Override
     public void initGL() {
         super.initGL();
-        circle = new SDFCircleSimple();
+        circle = new SDFCircle();
         initCodePane("Circle SDF", circle.getShader(), circle);
     }
 

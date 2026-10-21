@@ -23,7 +23,6 @@ public abstract class ShaderDrawable {
     public static final float CORNERS_PER_QUAD = 4f;
     public static final float EPSILON = 0.00001f;
     public static final int VERTEX_STRIDE_RGBA_UV = 9;
-    public static final int VERTEX_STRIDE_RGBA = 7;
 
     private static final HashMap<Class<?>, Long> INSTANCE_COUNTERS_BY_CLASS = new HashMap<>();
 
@@ -57,8 +56,9 @@ public abstract class ShaderDrawable {
 
     protected Vector2f vAxis;
 
-    private boolean geometryDirty = true;
-    private boolean colorDirty = true;
+    /** Vertex color and depth of the last geometry upload; either changing forces a re-upload. */
+    private Vector4f uploadedColor;
+    private float uploadedZ;
 
     private final Map<Long, ShaderProgram.Allocation> allocationById = new HashMap<>();
     private final Map<Long, Quad> prevQuadById = new HashMap<>();
@@ -98,7 +98,7 @@ public abstract class ShaderDrawable {
     /**
      * Bind shader, recompute the quad, derive width/height/center/uv axes,
      * push uniforms, and (re)upload geometry into the persistent VBO slice
-     * if the quad or color changed.
+     * if the quad, color or depth changed.
      *
      * @param camera camera providing transform and z-index
      */
@@ -127,19 +127,33 @@ public abstract class ShaderDrawable {
         setUniforms();
 
         ShaderProgram.Allocation alloc = ensureAllocation(drawingId);
-        if (isGeometryDirty(drawingId) || alloc.isDirty() || colorDirty) {
-            uploadGeometry(alloc);
-            colorDirty = false;
-
-        } else {
-
-            ShaderProgram.Allocation a = allocationById.get(drawingId);
-            if (a == null || a.isDirty() || geometryDirty || colorDirty) {
-                uploadGeometry(alloc);
-                geometryDirty = false;
-                colorDirty = false;
-            }
+        Vector4f color = c.toVector4f();
+        float z = camera != null ? camera.getZIndex() : 0f;
+        if (!isGeometryDirty(drawingId) && !alloc.isDirty() && color.equals(uploadedColor) && z == uploadedZ) {
+            return;
         }
+        int floatsNeeded = VERTEX_STRIDE_RGBA_UV * Quad.VERTEX_COUNT;
+        if (geometryBuf == null || geometryBuf.capacity() < floatsNeeded) {
+            geometryBuf = platform.allocateFloats(floatsNeeded);
+        } else {
+            geometryBuf.clear();
+        }
+        IxBuffer buf = geometryBuf;
+        shader.uniformMap.put(ShaderProgram.VERTEXCOLOR, color);
+        float r = color.x, g = color.y, b = color.z, a = color.w;
+
+        buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(0f);
+        buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(1f);
+        buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(1f);
+
+        buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(0f);
+        buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(1f);
+        buf.put(bottomRight.x).put(bottomRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(0f);
+
+        buf.flip();
+        shader.uploadAllocation(alloc, buf, Quad.VERTEX_COUNT);
+        uploadedColor = color;
+        uploadedZ = z;
     }
 
     /**
@@ -341,9 +355,6 @@ public abstract class ShaderDrawable {
     }
 
     private boolean isGeometryDirty(Long id) {
-        if (id == null) {
-            return geometryDirty;
-        }
         Quad newQuad = new Quad(bottomLeft, bottomRight, topRight, topLeft, texWidth, texHeight, widthToHeightRatio);
         Quad old = prevQuadById.get(id);
         boolean changed = (old == null) || !sameQuad(old, newQuad);
@@ -366,47 +377,6 @@ public abstract class ShaderDrawable {
         return a.bottomLeft.distance(b.bottomLeft) <= eps && a.bottomRight.distance(b.bottomRight) <= eps
                 && a.topRight.distance(b.topRight) <= eps
                 && a.topLeft.distance(b.topLeft) <= eps;
-    }
-
-    private void uploadGeometry(ShaderProgram.Allocation target) {
-
-        int stride = shader.getStrideFloats();
-        if (stride <= 0)
-            stride = VERTEX_STRIDE_RGBA_UV;
-        int floatsNeeded = stride * Quad.VERTEX_COUNT;
-        if (geometryBuf == null || geometryBuf.capacity() < floatsNeeded) {
-            geometryBuf = platform.allocateFloats(floatsNeeded);
-        } else {
-            geometryBuf.clear();
-        }
-        IxBuffer buf = geometryBuf;
-        Vector4f color = c.toVector4f();
-        shader.uniformMap.put("vertexColor", color);
-        float r = color.x, g = color.y, b = color.z, a = color.w;
-        float z = camera != null ? camera.getZIndex() : 0f;
-
-        if (stride == VERTEX_STRIDE_RGBA_UV) {
-
-            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(0f);
-            buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(1f);
-            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(1f);
-
-            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a).put(0f).put(0f);
-            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(1f);
-            buf.put(bottomRight.x).put(bottomRight.y).put(z).put(r).put(g).put(b).put(a).put(1f).put(0f);
-        } else if (stride == VERTEX_STRIDE_RGBA) {
-
-            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a);
-            buf.put(topLeft.x).put(topLeft.y).put(z).put(r).put(g).put(b).put(a);
-            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a);
-
-            buf.put(bottomLeft.x).put(bottomLeft.y).put(z).put(r).put(g).put(b).put(a);
-            buf.put(topRight.x).put(topRight.y).put(z).put(r).put(g).put(b).put(a);
-            buf.put(bottomRight.x).put(bottomRight.y).put(z).put(r).put(g).put(b).put(a);
-        }
-
-        buf.flip();
-        shader.uploadAllocation(target, buf, Quad.VERTEX_COUNT);
     }
 
     /**

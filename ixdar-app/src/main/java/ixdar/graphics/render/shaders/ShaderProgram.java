@@ -49,7 +49,6 @@ public abstract class ShaderProgram {
     public static final int INT_BYTES = 4;
     public static final int SDF_VERTEX_STRIDE_FLOATS = 9;
     public static final int VERTICES_PER_QUAD = 6;
-    public static final int COLOR_VERTEX_STRIDE_FLOATS = 7;
 
     public final static float ORTHO_FAR = 1000f;
     public final static float ORTHO_NEAR = -ORTHO_FAR;
@@ -509,16 +508,10 @@ public abstract class ShaderProgram {
      * @return platform-appropriate source array
      */
     private CharSequence[] buildPlatformFragmentSource(String src) {
-        String body = gl.usesWebGlsl() ? src : GlslSource.adaptEs300SharedForDesktopCore330(src);
-        try {
-            String platformName = Platforms.get().getClass().getName();
-            boolean isWeb = platformName != null && platformName.toLowerCase().contains("web");
-            if (isWeb) {
-                return new CharSequence[] { body };
-            }
-        } catch (Exception ignore) {
+        if (gl.usesWebGlsl()) {
+            return new CharSequence[] { src };
         }
-        return new CharSequence[] { body + NUL_TERMINATOR };
+        return new CharSequence[] { GlslSource.adaptEs300SharedForDesktopCore330(src) + NUL_TERMINATOR };
     }
 
     private CharSequence[] normalizeSharedGlslForBackend(CharSequence[] raw) {
@@ -841,136 +834,6 @@ public abstract class ShaderProgram {
     }
 
     /**
-     * Stage two triangles forming a flat-color rectangle (7-float vertex:
-     * pos+color, no uv).
-     *
-     * @param x1     bottom-left x
-     * @param y1     bottom-left y
-     * @param x2     top-right x
-     * @param y2     top-right y
-     * @param zIndex depth value written to gl_Position.z
-     * @param c      fill color
-     */
-    public void drawColorRegion(float x1, float y1, float x2, float y2, float zIndex, Color c) {
-        if (verteciesBuff.remaining() < COLOR_VERTEX_STRIDE_FLOATS * VERTICES_PER_QUAD) {
-            /* We need more space in the buffer, so flush it */
-            flush();
-        }
-
-        Vector4f color = c.toVector4f();
-        uniformMap.put(VERTEXCOLOR, color);
-        float r = color.x;
-        float g = color.y;
-        float b = color.z;
-        float a = color.w;
-
-        verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a);
-        verteciesBuff.put(x1).put(y2).put(zIndex).put(r).put(g).put(b).put(a);
-        verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a);
-
-        verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a);
-        verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a);
-        verteciesBuff.put(x2).put(y1).put(zIndex).put(r).put(g).put(b).put(a);
-
-        numVertices += VERTICES_PER_QUAD;
-    }
-
-    /**
-     * Stage two triangles forming an arbitrary quadrilateral with SDF texture
-     * coordinates (used for line/arrow strokes whose quads aren't axis-aligned).
-     *
-     * @param x1     first vertex x
-     * @param y1     first vertex y
-     * @param x2     second vertex x
-     * @param y2     second vertex y
-     * @param x3     third vertex x
-     * @param y3     third vertex y
-     * @param x4     fourth vertex x
-     * @param y4     fourth vertex y
-     * @param zIndex depth value written to gl_Position.z
-     * @param s1     left u
-     * @param t1     bottom v
-     * @param s2     right u
-     * @param t2     top v
-     * @param c      tint color
-     */
-    public void drawSDFRegion(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
-            float zIndex, float s1, float t1, float s2, float t2, Color c) {
-        if (verteciesBuff.remaining() < SDF_VERTEX_STRIDE_FLOATS * VERTICES_PER_QUAD) {
-            /* We need more space in the buffer, so flush it */
-            flush();
-        }
-
-        Vector4f color = c.toVector4f();
-        uniformMap.put(VERTEXCOLOR, color);
-        float r = color.x;
-        float g = color.y;
-        float b = color.z;
-        float a = color.w;
-
-        verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t1);
-        verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
-        verteciesBuff.put(x3).put(y3).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
-
-        verteciesBuff.put(x3).put(y3).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
-        verteciesBuff.put(x4).put(y4).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t2);
-        verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
-
-        numVertices += VERTICES_PER_QUAD;
-    }
-
-    /**
-     * Stage two triangles for an SDF quad with a linear gradient: the first
-     * triangle gets {@code c}, the second gets {@code c2} (the GPU interpolates
-     * per-vertex colors).
-     *
-     * @param x1     first vertex x
-     * @param y1     first vertex y
-     * @param x2     second vertex x
-     * @param y2     second vertex y
-     * @param x3     third vertex x
-     * @param y3     third vertex y
-     * @param x4     fourth vertex x
-     * @param y4     fourth vertex y
-     * @param zIndex depth value written to gl_Position.z
-     * @param s1     left u
-     * @param t1     bottom v
-     * @param s2     right u
-     * @param t2     top v
-     * @param c      color at the start of the gradient
-     * @param c2     color at the end of the gradient
-     */
-    public void drawSDFLinearGradient(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4,
-            float zIndex, float s1, float t1, float s2, float t2, Color c, Color c2) {
-        if (verteciesBuff.remaining() < SDF_VERTEX_STRIDE_FLOATS * VERTICES_PER_QUAD) {
-            /* We need more space in the buffer, so flush it */
-            flush();
-        }
-
-        Vector4f color = c.toVector4f();
-        uniformMap.put(VERTEXCOLOR, color);
-        float r = color.x;
-        float g = color.y;
-        float b = color.z;
-        float a = color.w;
-
-        verteciesBuff.put(x1).put(y1).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t1);
-        verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
-        verteciesBuff.put(x3).put(y3).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
-
-        color = c2.toVector4f();
-        r = color.x;
-        g = color.y;
-        b = color.z;
-        a = color.w;
-        verteciesBuff.put(x3).put(y3).put(zIndex).put(r).put(g).put(b).put(a).put(s1).put(t2);
-        verteciesBuff.put(x4).put(y4).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t2);
-        verteciesBuff.put(x2).put(y2).put(zIndex).put(r).put(g).put(b).put(a).put(s2).put(t1);
-
-        numVertices += VERTICES_PER_QUAD;
-    }
-
-    /**
      * Build and upload this program's projection matrix.
      *
      * @param framebufferWidth  viewport width in pixels
@@ -1237,15 +1100,11 @@ public abstract class ShaderProgram {
 
         CircleSDF(SDFShader.class, FONT_VS, "sdf_circle.fs"),
 
-        CircleSDFSimple(SDFShader.class, FONT_VS, "sdf_circle_simple.fs"),
-
         RoundedRectSDF(SDFShader.class, FONT_VS, "sdf_rounded_rect.fs"),
 
         UnionSDF(SDFShader.class, FONT_VS, "sdf_union.fs"),
 
         Fluid(SDFShader.class, FONT_VS, "sdf_fluid.fs"),
-
-        Color(ColorShader.class, "color.vs", "color.fs"),
 
         Mesh(MeshShader.class, MESH_VS, "mesh.fs"),
 
@@ -1293,8 +1152,6 @@ public abstract class ShaderProgram {
             try {
                 if (shaderClass.equals(SDFShader.class)) {
                     shader = new SDFShader(vertexShaderLocation, fragmentShaderLocation);
-                } else if (shaderClass.equals(ColorShader.class)) {
-                    shader = new ColorShader(vertexShaderLocation, fragmentShaderLocation);
                 } else if (shaderClass.equals(MeshLineShader.class)) {
                     shader = new MeshLineShader(vertexShaderLocation, fragmentShaderLocation);
                 } else if (shaderClass.equals(MeshShader.class)) {

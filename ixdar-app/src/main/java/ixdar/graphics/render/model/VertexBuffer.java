@@ -1,8 +1,8 @@
 package ixdar.graphics.render.model;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.IntBuffer;
-
-import org.lwjgl.BufferUtils;
 
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
@@ -51,7 +51,8 @@ public final class VertexBuffer {
         }
         ebo = gl.genBuffers();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), ebo);
-        IntBuffer elements = BufferUtils.createIntBuffer(indices.length);
+        IntBuffer elements = ByteBuffer.allocateDirect(indices.length * Integer.BYTES).order(ByteOrder.nativeOrder())
+                .asIntBuffer();
         elements.put(indices).flip();
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER(), elements, gl.STATIC_DRAW());
         indexCount = indices.length;

@@ -81,20 +81,6 @@ public class SDFTexture extends ShaderDrawable {
     }
 
     /**
-     * Draw the full MSDF texture into the given rectangle.
-     *
-     * @param drawX bottom-left x in world coordinates
-     * @param drawY bottom-left y in world coordinates
-     * @param width quad width in world units
-     * @param height quad height in world units
-     * @param c tint color
-     * @param camera camera providing transform and z-index
-     */
-    public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
-        draw(drawX, drawY, width, height, c, 0L, camera);
-    }
-
-    /**
      * Draw the full MSDF texture into the given rectangle. No-op if the
      * texture is still loading.
      *
@@ -103,18 +89,14 @@ public class SDFTexture extends ShaderDrawable {
      * @param width quad width in world units
      * @param height quad height in world units
      * @param c tint color
-     * @param id legacy allocation id (currently unused)
      * @param camera camera providing transform and z-index
      */
-    public void draw(float drawX, float drawY, float width, float height, Color c, long id, Camera camera) {
+    @Override
+    public void draw(float drawX, float drawY, float width, float height, Color c, Camera camera) {
         if (texture == null) {
             return;
         }
-        setup(camera);
-        shader.drawTextureRegion(getTexture(), drawX, drawY, drawX + width, drawY + height, camera.getZIndex(), 0, 0,
-                texture.width,
-                texture.height, c);
-        cleanup(camera);
+        super.draw(drawX, drawY, width, height, c, camera);
     }
 
     /**
@@ -188,47 +170,6 @@ public class SDFTexture extends ShaderDrawable {
      */
     public void setBaseEdgeSharpness(float sharpness) {
         this.baseEdgeSharpness = sharpness;
-    }
-
-    /**
-     * Draw a sub-region of the atlas into the given rectangle.
-     *
-     * @param drawX destination x in world coordinates
-     * @param drawY destination y in world coordinates
-     * @param width destination width in world units
-     * @param height destination height in world units
-     * @param regX source x in atlas pixels
-     * @param regY source y in atlas pixels
-     * @param regWidth source width in atlas pixels
-     * @param regHeight source height in atlas pixels
-     * @param c tint color
-     * @param camera camera providing transform and z-index
-     */
-    public void drawRegion(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
-            int regHeight, Color c, Camera camera) {
-        drawRegion(drawX, drawY, width, height, regX, regY, regWidth, regHeight, c, 0L, camera);
-    }
-
-    /**
-     * Draw a sub-region of the atlas with explicit shader setup/cleanup.
-     *
-     * @param drawX destination x in world coordinates
-     * @param drawY destination y in world coordinates
-     * @param width destination width in world units
-     * @param height destination height in world units
-     * @param regX source x in atlas pixels
-     * @param regY source y in atlas pixels
-     * @param regWidth source width in atlas pixels
-     * @param regHeight source height in atlas pixels
-     * @param c tint color
-     * @param id legacy allocation id (currently unused)
-     * @param camera camera providing transform and z-index
-     */
-    public void drawRegion(float drawX, float drawY, float width, float height, int regX, int regY, int regWidth,
-            int regHeight, Color c, long id, Camera camera) {
-        setup(camera);
-        drawRegionNoSetup(drawX, drawY, width, height, regX, regY, regWidth, regHeight, c, camera);
-        cleanup(camera);
     }
 
     /**

@@ -23,7 +23,7 @@ public class ModelLoadScene extends Scene {
             model = modelRuntime.loadFromAssetRepo(MODEL_FILE_NAME);
             modelRuntime.frameCamera(model, camera);
             String assetPath = FileManagement.resolveAssetPath(MODEL_FILE_NAME);
-            Platforms.gl().setWindowTitle("Ixdar : Model Load Test (ASSIMP)");
+            Platforms.get().setTitle("Ixdar : Model Load Test (ASSIMP)");
             Platforms.get().log("[ModelLoadScene] Loaded " + MODEL_FILE_NAME + " via ASSIMP"
                     + " vertices=" + model.vertexCount
                     + " triangles=" + model.triangleCount

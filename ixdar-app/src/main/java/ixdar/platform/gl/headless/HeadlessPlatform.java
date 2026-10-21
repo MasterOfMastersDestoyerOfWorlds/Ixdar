@@ -24,8 +24,6 @@ import ixdar.geometry.mesh.csg.ManifoldMeshBooleanBackend;
 import ixdar.geometry.mesh.csg.MeshBooleanBackend;
 import ixdar.numeric.sparse.chol.DesktopCholeskyBackend;
 import ixdar.numeric.sparse.chol.NativeCholeskyBackend;
-import ixdar.graphics.image.PixelImage;
-import ixdar.graphics.image.PngWriter;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.model.AssimpModelRuntime;
 import ixdar.graphics.render.model.ModelRuntime;
@@ -39,6 +37,8 @@ import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.IxBuffer;
+import ixdar.platform.gl.lwjgl.DefaultBuffer;
+import ixdar.platform.gl.lwjgl.LwjglGL;
 import ixdar.platform.gl.lwjgl.StbImageDecoder;
 import ixdar.platform.json.GsonJsonTree;
 import ixdar.platform.json.JsonValue;
@@ -61,7 +61,7 @@ public class HeadlessPlatform implements Platform {
     private int windowHeight = 600;
     private int frameBufferWidth = 800;
     private int frameBufferHeight = 600;
-    private HeadlessGL gl;
+    private LwjglGL gl;
 
     /**
      * 512x512 default headless platform.
@@ -83,13 +83,13 @@ public class HeadlessPlatform implements Platform {
         this.windowHeight = height;
         this.frameBufferWidth = width;
         this.frameBufferHeight = height;
-        this.gl = new HeadlessGL(width, height);
+        this.gl = new LwjglGL(width, height);
     }
 
     /** {@inheritDoc}. */
     @Override
     public IxBuffer allocateFloats(int capacity) {
-        return new HeadlessBuffer(capacity);
+        return new DefaultBuffer(capacity);
     }
 
     /** No-op: headless has no window decoration. */
@@ -466,47 +466,10 @@ public class HeadlessPlatform implements Platform {
     /**
      * Access this platform's headless GL implementation.
      *
-     * @return the {@link HeadlessGL} created at construction
+     * @return the offscreen {@link LwjglGL} created at construction
      */
-    public HeadlessGL getGL() {
+    public LwjglGL getGL() {
         return gl;
-    }
-
-    /**
-     * Read the framebuffer back via {@link HeadlessGL#readPixels} and write the
-     * result to a PNG file (Y-flipping from GL's bottom-left origin to AWT's
-     * top-left).
-     *
-     * @param outputPath PNG output path (parent dirs are created)
-     * @throws IOException if GL is not initialized or PNG encoding fails
-     */
-    public void screenshot(String outputPath) throws IOException {
-        if (gl == null) {
-            throw new IOException("HeadlessGL not initialized");
-        }
-
-        HeadlessGL headlessGL = gl;
-        int width = headlessGL.getWidth();
-        int height = headlessGL.getHeight();
-
-        // Read pixels from framebuffer
-        int[] pixels = headlessGL.readPixels(
-                0, 0, width, height,
-                headlessGL.RGBA(),
-                headlessGL.UNSIGNED_BYTE(),
-                0);
-
-        // GL's origin is the bottom row, PixelImage's is the top, so the copy flips Y.
-        PixelImage image = new PixelImage(width, height);
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                image.set(x, height - 1 - y, pixels[y * width + x]);
-            }
-        }
-
-        PngWriter.write(image, new File(outputPath));
-
-        log("[HeadlessPlatform] Screenshot saved: " + outputPath);
     }
 
     /**

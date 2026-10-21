@@ -19,7 +19,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.sdf.SDFBezier;
-import ixdar.graphics.render.sdf.SDFCircleSimple;
+import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.graphics.render.sdf.SDFLine;
 import ixdar.graphics.render.sdf.SDFRoundedRect;
 import ixdar.graphics.render.text.Font;
@@ -134,7 +134,7 @@ public class DslGraphView implements Tool {
     public final SDFRoundedRect box = new SDFRoundedRect();
     public final SDFBezier curve = new SDFBezier();
     public final SDFLine line = new SDFLine();
-    public final SDFCircleSimple port = new SDFCircleSimple();
+    public final SDFCircle port = new SDFCircle();
 
     /** One single-line string per {@link DslGraphLayout#textString}, in its role's color. */
     public final ArrayList<HyperString> texts = new ArrayList<>();
@@ -590,15 +590,8 @@ public class DslGraphView implements Tool {
         float tangent = (to.x - from.x) * CURVE_TANGENT_SHARE;
         Vector2f middle = new Vector2f(from).add(to).mul(0.5f);
         curve.lineWidth = width;
-        curve.c2 = color;
-        curve.pA = from;
-        curve.pControl = new Vector2f(from.x + tangent, from.y);
-        curve.pB = middle;
-        curve.draw(0, 0, 0, 0, color, camera);
-        curve.pA = middle;
-        curve.pControl = new Vector2f(to.x - tangent, to.y);
-        curve.pB = to;
-        curve.draw(0, 0, 0, 0, color, camera);
+        curve.draw(from, new Vector2f(from.x + tangent, from.y), middle, color, color, camera);
+        curve.draw(middle, new Vector2f(to.x - tangent, to.y), to, color, color, camera);
     }
 
     /**

@@ -19,6 +19,7 @@ public class SDFRoundedRect extends ShaderDrawable {
     public float cornerRadius;
     public float borderWidth;
     public Color borderColor = Color.TRANSPARENT;
+    public float edgeSharpness = EDGE_SHARPNESS_PX;
 
     /**
      * Bind the rounded-rectangle SDF shader.
@@ -63,6 +64,6 @@ public class SDFRoundedRect extends ShaderDrawable {
         shader.setFloat("borderWidth", borderWidth);
         shader.setVec4("fillColor", c.toVector4f());
         shader.setVec4("borderColor", borderColor.toVector4f());
-        shader.setFloat("edgeSharpness", EDGE_SHARPNESS_PX);
+        shader.setFloat("edgeSharpness", edgeSharpness);
     }
 }

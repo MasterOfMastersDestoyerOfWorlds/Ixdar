@@ -157,7 +157,7 @@ public class MainScene extends Scene {
             terminal.history.addLine(comment, Color.BLUE_GREY);
         }
 
-        Platforms.gl().setWindowTitle("Ixdar : " + fileName);
+        Platforms.get().setTitle("Ixdar : " + fileName);
 
         int wWidth = (int) Platforms.get().getWindowWidth();
         int wHeight = (int) Platforms.get().getWindowHeight();

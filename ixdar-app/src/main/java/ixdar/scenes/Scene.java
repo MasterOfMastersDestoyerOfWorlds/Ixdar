@@ -137,6 +137,9 @@ public abstract class Scene extends SceneDrawable {
      */
     public ColorBox chromeBackground;
 
+    /** Dark box behind the tooltip, built on its first draw on the render thread. */
+    public ColorBox tooltipBackground;
+
     /** When and where the last {@link #emptySpaceClicked} click fell, 0 once it made a double-click. */
     public long lastEmptyClickMillis;
     public float lastEmptyClickX;
@@ -445,7 +448,10 @@ public abstract class Scene extends SceneDrawable {
             float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
             toolTip.setLineOffsetFromTopRow(camera, 0, 0, rowHeight);
             camera.updateView(VIEW_TOOLTIP);
-            new ColorBox().draw(Color.GREY_VERY_DARK, camera);
+            if (tooltipBackground == null) {
+                tooltipBackground = new ColorBox();
+            }
+            tooltipBackground.draw(Color.GREY_VERY_DARK, camera);
             Drawing.getDrawing().font.drawHyperStringRows(toolTip, 0, 0, rowHeight, camera);
         }
     }

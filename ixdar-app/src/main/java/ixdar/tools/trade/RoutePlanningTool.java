@@ -15,7 +15,7 @@ import ixdar.geometry.tsp.knot.PipeRecord;
 import ixdar.geometry.tsp.knot.Segment;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.sdf.SDFCircleSimple;
+import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.graphics.render.sdf.SDFLine;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
@@ -93,8 +93,8 @@ public class RoutePlanningTool implements Tool {
 
     
     private SDFLine routeLine = new SDFLine();
-    private SDFCircleSimple buttonCircle = new SDFCircleSimple();
-    private SDFCircleSimple highlightCircle = new SDFCircleSimple();
+    private SDFCircle buttonCircle = new SDFCircle();
+    private SDFCircle highlightCircle = new SDFCircle();
 
     
     private int hoveredButton = -1; 

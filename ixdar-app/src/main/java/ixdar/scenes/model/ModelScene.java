@@ -152,7 +152,7 @@ public abstract class ModelScene extends Scene {
     @Override
     public void initGL() {
         super.initGL();
-        Platforms.gl().setWindowTitle(windowTitle());
+        Platforms.get().setTitle(windowTitle());
 
         initInput();
         createCatalog();
