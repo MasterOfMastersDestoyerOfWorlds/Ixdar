@@ -225,7 +225,7 @@ class PointerRegionPressTest {
         }
 
         @Override
-        public boolean claimsPointer() {
+        public boolean claimsPointer(float x, float y) {
             return claiming;
         }
 

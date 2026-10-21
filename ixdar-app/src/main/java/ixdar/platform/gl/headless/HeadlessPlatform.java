@@ -67,23 +67,24 @@ public class HeadlessPlatform implements Platform {
      * 512x512 default headless platform.
      */
     public HeadlessPlatform() {
-        this(DEFAULT_SIZE, DEFAULT_SIZE);
+        this(DEFAULT_SIZE, DEFAULT_SIZE, 1f);
     }
 
     /**
-     * Build a headless platform sized {@code width x height}; window and
-     * framebuffer dimensions are both initialized to that size.
+     * Build a headless platform with a {@code width x height} window whose framebuffer is
+     * {@code scale} times larger, as a desktop at that display scale gives one.
      *
-     * @param width  window/framebuffer width in pixels
-     * @param height window/framebuffer height in pixels
+     * @param width  window width in pixels
+     * @param height window height in pixels
+     * @param scale  framebuffer pixels per window pixel
      */
-    public HeadlessPlatform(int width, int height) {
+    public HeadlessPlatform(int width, int height, float scale) {
         this.startTime = (float) (System.nanoTime() / NANOS_PER_SECOND);
         this.windowWidth = width;
         this.windowHeight = height;
-        this.frameBufferWidth = width;
-        this.frameBufferHeight = height;
-        this.gl = new LwjglGL(width, height);
+        this.frameBufferWidth = Math.round(width * scale);
+        this.frameBufferHeight = Math.round(height * scale);
+        this.gl = new LwjglGL(frameBufferWidth, frameBufferHeight);
     }
 
     /** {@inheritDoc}. */

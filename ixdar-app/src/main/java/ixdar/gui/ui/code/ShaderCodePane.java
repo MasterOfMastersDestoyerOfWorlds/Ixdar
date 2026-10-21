@@ -16,6 +16,7 @@ import ixdar.graphics.render.sdf.ShaderDrawable.Quad;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.graphics.render.text.ColorText;
 import ixdar.gui.ui.Drawing;
+import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.gui.ui.code.glsl.GLSLExpressionParser;
 import ixdar.gui.ui.code.glsl.GLSLParseText;
@@ -36,11 +37,14 @@ public class ShaderCodePane implements PointerRegion {
     // private ExpressionParser expressionParser;
 
     public static final String DEFAULT_VIEW_RIGHT = "RIGHT_CODE";
-    public Bounds paneBounds;
+
+    /**
+     * The box the code lines scroll in, the right half of the framebuffer while the code is shown;
+     * its bounds are the pane's view.
+     */
+    public final MenuScrollBox codeBox;
 
     private final HyperString codeText;
-    private float scrollOffsetY;
-    private final float scrollSpeed;
     private final ArrayList<String> displayedLines = new ArrayList<>();
     private final ArrayList<GLSLParseText> cachedSuffixes = new ArrayList<>();
     private float lastMouseX = Float.NaN;
@@ -66,19 +70,18 @@ public class ShaderCodePane implements PointerRegion {
 
     /**
      * Wire this pane up, resolving the target shader from {@code shader}, then {@code provider},
-     * and registering its bounds, resize callbacks, and its {@link PointerDispatcher} scroll
-     * subscription on the code and click subscription on the preview.
+     * and registering its bounds, resize callbacks, and its {@link PointerDispatcher} subscription
+     * of the code box and click subscription on the preview.
      *
      * @param parentBounds host region that the pane lays itself out within
      * @param webViews registry of named bounds keyed by view id; this pane registers itself
-     * @param scrollSpeed pixels-per-second factor applied during {@link #onScroll}
      * @param shader explicit shader to introspect, or {@code null} to fall back to {@code provider}
      * @param title human-readable label (defaults to {@code "Shader"} when {@code null})
      * @param provider runtime uniform/quad supplier used by mouse-driven evaluation
      * @param camera 2D camera whose views are refreshed when the pane resizes
      * @param canvas 3D canvas whose mouse state drives the live preview
      */
-    public ShaderCodePane(Bounds parentBounds, Map<String, Bounds> webViews, float scrollSpeed, ShaderProgram shader,
+    public ShaderCodePane(Bounds parentBounds, Map<String, Bounds> webViews, ShaderProgram shader,
             String title,
             ShaderDrawable provider, Camera2D camera, Scene canvas) {
 
@@ -88,19 +91,20 @@ public class ShaderCodePane implements PointerRegion {
                         showCode ? Platforms.get().getFrameBufferWidth() / 2 : Platforms.get().getFrameBufferWidth(),
                         Platforms.get().getFrameBufferHeight()));
         this.parentBounds = parentBounds;
-        this.scrollSpeed = scrollSpeed;
         this.codeText = new HyperString();
         this.targetShader = shader != null ? shader : provider.getShader();
         this.title = title != null ? title : "Shader";
         this.uniformProvider = provider;
         showCode = true;
-        paneBounds = new Bounds(Platforms.get().getFrameBufferWidth() / 2, 0, 0, Platforms.get().getFrameBufferHeight(),
-                b -> b.update(
-                        Platforms.get().getFrameBufferWidth() / 2,
-                        0,
-                        showCode ? Platforms.get().getFrameBufferWidth() / 2f : 0f,
-                        Platforms.get().getFrameBufferHeight()),
-                DEFAULT_VIEW_RIGHT);
+        codeBox = new MenuScrollBox(DEFAULT_VIEW_RIGHT, () -> showCode && canvas.active);
+        codeBox.text = codeText;
+        Bounds paneBounds = codeBox.bounds;
+        paneBounds.setUpdateCallback(b -> b.update(
+                Platforms.get().getFrameBufferWidth() / 2,
+                0,
+                showCode ? Platforms.get().getFrameBufferWidth() / 2f : 0f,
+                Platforms.get().getFrameBufferHeight()));
+        paneBounds.recalc();
 
         showCodeButton = new HyperString();
         showCodeButton.addDynamicWordClick(() -> {
@@ -126,7 +130,7 @@ public class ShaderCodePane implements PointerRegion {
         });
         webViews.put(paneBounds.id, paneBounds);
         PointerDispatcher pointer = PointerDispatcher.current();
-        pointer.subscribe(this.paneBounds, this);
+        pointer.subscribe(paneBounds, codeBox);
         pointer.clickBounds.add(parentBounds);
         pointer.clickRegions.add(this);
     }
@@ -292,9 +296,10 @@ public class ShaderCodePane implements PointerRegion {
             loadCode(this.targetShader, this.title);
             loaded = true;
         }
-        camera.updateView(paneBounds.id);
+        if (showCode) {
+            codeBox.draw(camera);
+        }
         Drawing d = Drawing.getDrawing();
-        d.font.drawHyperStringRows(codeText, 0, scrollOffsetY, Drawing.FONT_HEIGHT_PIXELS, camera);
         camera.updateView(parentBounds.id);
         d.font.drawHyperStringRows(showCodeButton, 0, 0, Drawing.FONT_HEIGHT_PIXELS, camera);
 
@@ -351,34 +356,13 @@ public class ShaderCodePane implements PointerRegion {
     }
 
     /**
-     * Adjust {@link #scrollOffsetY} in response to a scroll-wheel tick: scroll up clamps
-     * at zero, scroll down only advances while the cached last-word is still off-screen.
+     * Unused: the pane is subscribed for clicks on the preview alone, and the code scrolls in
+     * {@link #codeBox}.
      *
-     * @param scrollUp {@code true} when scrolling upward (towards earlier code)
-     * @param deltaSeconds frame delta used to scale {@link #scrollSpeed}
+     * @param scrollUp unused
+     * @param deltaSeconds unused
      */
     @Override
     public void onScroll(boolean scrollUp, double deltaSeconds) {
-        if (scrollUp) {
-            scrollOffsetY -= scrollSpeed * (float) deltaSeconds;
-            if (scrollOffsetY < 0) {
-                scrollOffsetY = 0;
-            }
-        } else {
-            float bottom = codeText.getLastWord().yScreenOffset;
-            if (bottom < 0) {
-                scrollOffsetY += scrollSpeed * (float) deltaSeconds;
-            }
-        }
-    }
-
-    /**
-     * Bounds of the pane's drawing region (the right-hand half of the framebuffer when
-     * code is shown, zero width when hidden).
-     *
-     * @return the pane's {@link Bounds} instance
-     */
-    public Bounds getBounds() {
-        return paneBounds;
     }
 }

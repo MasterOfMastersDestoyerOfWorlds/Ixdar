@@ -48,12 +48,14 @@ public interface PointerRegion {
     }
 
     /**
-     * Whether a left press over the region is its own right now, so the press, its drag and its
-     * release reach only {@link #onPress}, {@link #onDrag} and {@link #onRelease}.
+     * Whether a left press at a point over the region is its own right now, so the press, its drag
+     * and its release reach only {@link #onPress}, {@link #onDrag} and {@link #onRelease}.
      *
+     * @param x framebuffer x of the press
+     * @param y framebuffer y of the press, y up
      * @return false unless the region opts in
      */
-    default boolean claimsPointer() {
+    default boolean claimsPointer(float x, float y) {
         return false;
     }
 

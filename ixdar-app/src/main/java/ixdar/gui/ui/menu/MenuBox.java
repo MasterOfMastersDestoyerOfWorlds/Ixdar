@@ -32,14 +32,19 @@ public class MenuBox implements PointerRegion {
     public static final float ITEM_WIDTH_SCALE = 0.91f;
     public static final float ITEM_SPACING_FACTOR = 1.5f;
     public static final float LABEL_Y_OFFSET_FACTOR = 0.075f;
+    public static final String VIEW_MENU_SCROLL = "MENU_SCROLL";
+    public static final MenuScrollBar ITEM_COLUMN_SCROLL_BAR = new MenuScrollBar(
+            new Bounds(0, 0, 0, 0, VIEW_MENU_SCROLL), false, MenuScrollBox.PIXELS_PER_SCROLL_UNIT);
     public static ArrayList<MenuItem> menuItems;
     public static Menu activeMenu;
-    public static float scrollOffsetY;
     public static boolean menuVisible = true;
 
     private static Menu debugMenu;
     private static Menu gameMenu;
-    public float SCROLL_SPEED = 10f;
+
+    /** The scene the menu is drawn in; the menu takes input only while it is active. */
+    public final Scene owner;
+
     public SDFTexture logo;
 
     SDFUnion menuOuterBorder;
@@ -55,14 +60,16 @@ public class MenuBox implements PointerRegion {
     ColorBox boundingBox;
     private float itemWidth;
     private float itemHeight;
-    private Bounds scrollBounds;
 
     /**
      * Build the menu-box widget: load button textures, create the debug and game
-     * menus, pick the active one based on {@code Toggle.GameMode}, and subscribe to
-     * scroll input so the user can scroll long menus.
+     * menus, pick the active one based on {@code Toggle.GameMode}, and subscribe the item
+     * column's scroll bar so the user can scroll long menus.
+     *
+     * @param owner the scene the menu is drawn in
      */
-    public MenuBox() {
+    public MenuBox(Scene owner) {
+        this.owner = owner;
         alpha = MENU_ALPHA;
 
         innerColor = Color.BLUE_TEAL_VERY_DARK.withAlpha(alpha);
@@ -85,8 +92,7 @@ public class MenuBox implements PointerRegion {
             activeMenu = debugMenu;
         }
         menuItems = activeMenu.loadMenu();
-        scrollBounds = new Bounds(0, 0, 0, 0, "MENU_SCROLL");
-        PointerDispatcher.current().subscribe(scrollBounds, this);
+        PointerDispatcher.current().subscribe(ITEM_COLUMN_SCROLL_BAR.bounds, this);
     }
 
     /**
@@ -105,10 +111,10 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Draw the logo, then (when {@link #menuVisible}) the stack of menu-item
-     * buttons centered on screen. Highlights whichever enabled button the cursor currently
-     * hovers, draws disabled buttons with a dark grey rim, and updates the scroll bounds to the
-     * menu's extents.
+     * Draw the logo, then (when {@link #menuVisible}) the stack of menu-item buttons centered on
+     * screen, scrolled up by {@link #ITEM_COLUMN_SCROLL_BAR}, and that bar beside them while they
+     * overflow the screen's lower half. Highlights the enabled button the cursor hovers; disabled
+     * buttons keep a dark grey rim.
      *
      * @param camera the active camera used for screen-space rendering
      */
@@ -129,27 +135,19 @@ public class MenuBox implements PointerRegion {
         }
         itemHeight = menuOuterBorder.outerTexture.height * scale / 2;
         itemWidth = menuOuterBorder.outerTexture.width * scale * ITEM_WIDTH_SCALE;
-
-        // Track menu extents to update scroll bounds each frame
-        float minLeft = Float.MAX_VALUE;
-        float maxRight = Float.MIN_VALUE;
-        float minDown = Float.MAX_VALUE;
-        float maxUp = Float.MIN_VALUE;
+        MenuScrollBar bar = ITEM_COLUMN_SCROLL_BAR;
+        float columnLeft = centerX - itemWidth / 2;
+        float barRight = centerX + menuOuterBorder.outerTexture.width * scale / 2 + MenuScrollBar.WIDTH_PIXELS;
+        bar.bounds.update(columnLeft, 0, barRight - columnLeft, centerY);
+        bar.contentLength = itemHeight * menuItems.size() * ITEM_SPACING_FACTOR;
+        bar.visibleLength = centerY;
+        bar.scrollBy(0);
         for (int i = 0; i < menuItems.size(); i++) {
-            float itemCenterY = centerY - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR) - scrollOffsetY;
+            float itemCenterY = centerY - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR) + bar.scrollOffset;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = itemCenterY + itemHeight / 2;
             float downBoundX = itemCenterY - itemHeight / 2;
-
-            if (leftBoundX < minLeft)
-                minLeft = leftBoundX;
-            if (rightBoundX > maxRight)
-                maxRight = rightBoundX;
-            if (downBoundX < minDown)
-                minDown = downBoundX;
-            if (upBoundX > maxUp)
-                maxUp = upBoundX;
             // A disabled row keeps a dark grey rim and does not flash under the cursor.
             Color rim = disabledOuterColor;
             if (menuItems.get(i).action != null) {
@@ -162,12 +160,9 @@ public class MenuBox implements PointerRegion {
                     itemCenterY + itemHeight * LABEL_Y_OFFSET_FACTOR,
                     itemHeight / 2, (Camera2D) camera);
         }
-        if (menuItems.size() > 0) {
-            float width = Math.max(0, maxRight - minLeft);
-            float height = Math.max(0, maxUp - minDown);
-            scrollBounds.update(minLeft, Math.max(0, minDown), width, height);
-        } else {
-            scrollBounds.update(0, 0, 0, 0);
+        if (bar.isNeeded()) {
+            bar.draw((Camera2D) camera);
+            ((Camera2D) camera).resetView();
         }
     }
 
@@ -198,7 +193,7 @@ public class MenuBox implements PointerRegion {
         for (int i = 0; i < menuItems.size(); i++) {
             float centerX = Platforms.get().getFrameBufferWidth() / 2;
             float centerY = Platforms.get().getFrameBufferHeight() / 2 - itemHeight
-                    - (itemHeight * i * ITEM_SPACING_FACTOR) - scrollOffsetY;
+                    - (itemHeight * i * ITEM_SPACING_FACTOR) + ITEM_COLUMN_SCROLL_BAR.scrollOffset;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = centerY + itemHeight / 2;
@@ -230,7 +225,7 @@ public class MenuBox implements PointerRegion {
      * @param parent the menu to display
      */
     public static void load(Menu parent) {
-        scrollOffsetY = 0;
+        ITEM_COLUMN_SCROLL_BAR.scrollOffset = 0;
         activeMenu = parent;
         menuItems = parent.loadMenu();
     }
@@ -244,33 +239,82 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Scroll the menu list up or down. Clamps so the top item never goes below its
-     * starting position and the bottom item never scrolls past the screen floor; if
-     * the whole menu fits on screen, scrolling is disabled.
+     * Unused: the menu claims the wheel and scrolls through {@link #onScrollDelta}.
      *
-     * @param scrollUp     true if the wheel ticked up, false for down
-     * @param deltaSeconds time since the last frame, used to scale scroll speed
+     * @param scrollUp     unused
+     * @param deltaSeconds unused
      */
+    @Override
     public void onScroll(boolean scrollUp, double deltaSeconds) {
-        float menuBottom = Platforms.get().getFrameBufferHeight() / 2
-                - (itemHeight * menuItems.size() * ITEM_SPACING_FACTOR);
+    }
 
-        if (menuBottom > 0) {
-            scrollOffsetY = 0;
-            return;
-        }
-        if (scrollUp) {
-            scrollOffsetY += SCROLL_SPEED * deltaSeconds;
-            if (scrollOffsetY > 0) {
-                scrollOffsetY = 0;
-            }
-        } else {
-            scrollOffsetY -= SCROLL_SPEED * deltaSeconds;
-            float centerY = menuBottom - scrollOffsetY;
-            if (!(centerY < 0)) {
-                scrollOffsetY = centerY + scrollOffsetY;
-            }
-        }
+    /**
+     * The shown menu of the active scene takes the wheel over its item column.
+     *
+     * @return whether the menu is shown in the active scene
+     */
+    @Override
+    public boolean claimsWheel() {
+        return menuVisible && owner.active;
+    }
+
+    /**
+     * Scroll the items as a {@link MenuScrollBox} does, {@link MenuScrollBox#PIXELS_PER_SCROLL_UNIT}
+     * per unit of delta, clamped so the first item starts at the top and the last stops at the
+     * bottom; a delta below zero (wheel toward the user) moves on to later items.
+     *
+     * @param deltaX raw horizontal delta, ignored
+     * @param deltaY raw vertical delta, 1.0 per wheel notch
+     */
+    @Override
+    public void onScrollDelta(double deltaX, double deltaY) {
+        ITEM_COLUMN_SCROLL_BAR.scrollBy((float) (-deltaY * MenuScrollBox.PIXELS_PER_SCROLL_UNIT));
+    }
+
+    /**
+     * Presses on the shown bar are the menu's; a press on an item is left to the scene's click.
+     *
+     * @param x framebuffer x of the press
+     * @param y framebuffer y of the press, y up
+     * @return whether the press lands on a needed bar of the shown menu
+     */
+    @Override
+    public boolean claimsPointer(float x, float y) {
+        return claimsWheel() && ITEM_COLUMN_SCROLL_BAR.isNeeded() && ITEM_COLUMN_SCROLL_BAR.contains(x, y);
+    }
+
+    /**
+     * Step, page or grab the bar where the press lands.
+     *
+     * @param x framebuffer x of the press
+     * @param y framebuffer y of the press, y up
+     */
+    @Override
+    public void onPress(float x, float y) {
+        ITEM_COLUMN_SCROLL_BAR.press(x, y);
+    }
+
+    /**
+     * Move a grabbed thumb.
+     *
+     * @param x framebuffer x of the cursor
+     * @param y framebuffer y of the cursor, y up
+     */
+    @Override
+    public void onDrag(float x, float y) {
+        ITEM_COLUMN_SCROLL_BAR.dragTo(x, y);
+    }
+
+    /**
+     * Let go of the thumb.
+     *
+     * @param x unused
+     * @param y unused
+     * @param click unused
+     */
+    @Override
+    public void onRelease(float x, float y, boolean click) {
+        ITEM_COLUMN_SCROLL_BAR.release();
     }
 
     /**
@@ -309,7 +353,8 @@ public class MenuBox implements PointerRegion {
         float centerX = Platforms.get().getFrameBufferWidth() / 2f;
         float centerY = Platforms.get().getFrameBufferHeight() / 2f;
         for (int i = 0; i < menuItems.size(); i++) {
-            float itemCenterY = centerY - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR) - scrollOffsetY;
+            float itemCenterY = centerY - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR)
+                    + ITEM_COLUMN_SCROLL_BAR.scrollOffset;
             MenuItemBounds item = new MenuItemBounds();
             item.label = menuItems.get(i).getHeading();
             item.enabled = menuItems.get(i).action != null;

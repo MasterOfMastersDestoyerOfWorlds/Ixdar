@@ -121,7 +121,7 @@ public class MainScene extends Scene {
     public boolean showHoverSegment;
     public ColorLerp hoverSegmentColor;
     public Terminal terminal;
-    public InfoPane info = new InfoPane(BOTTOM_PANEL_SIZE);
+    public InfoPane info = new InfoPane(VIEW_RIGHT_TOP, () -> active);
     public Grid grid;
     public int totalLayers = -1;
     public double tourLength;
@@ -159,8 +159,8 @@ public class MainScene extends Scene {
 
         Platforms.get().setTitle("Ixdar : " + fileName);
 
-        int wWidth = (int) Platforms.get().getWindowWidth();
-        int wHeight = (int) Platforms.get().getWindowHeight();
+        int wWidth = Platforms.get().getFrameBufferWidth();
+        int wHeight = Platforms.get().getFrameBufferHeight();
         editorCamera = new Camera2D(wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, CAMERA_ZOOM_DEFAULT, 0,
                 BOTTOM_PANEL_SIZE,
                 retTup.ps);
@@ -181,34 +181,36 @@ public class MainScene extends Scene {
         Map<String, Bounds> views = new HashMap<>();
         views.put(VIEW_MAIN,
                 new Bounds(0, BOTTOM_PANEL_SIZE, wWidth - RIGHT_PANEL_SIZE, wHeight - BOTTOM_PANEL_SIZE, b -> {
-                    int ww = (int) Platforms.get().getWindowWidth();
-                    int wh = (int) Platforms.get().getWindowHeight();
+                    int ww = Platforms.get().getFrameBufferWidth();
+                    int wh = Platforms.get().getFrameBufferHeight();
                     b.update(0, BOTTOM_PANEL_SIZE, ww - RIGHT_PANEL_SIZE, wh - BOTTOM_PANEL_SIZE);
                 }, VIEW_MAIN));
         views.put(VIEW_RIGHT_BOTTOM,
                 new Bounds(wWidth - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, b -> {
-                    int ww = (int) Platforms.get().getWindowWidth();
+                    int ww = Platforms.get().getFrameBufferWidth();
                     b.update(ww - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
                 }, VIEW_RIGHT_BOTTOM));
-        views.put(VIEW_RIGHT_TOP, new Bounds(wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE,
-                wHeight - BOTTOM_PANEL_SIZE, b -> {
-                    int ww = (int) Platforms.get().getWindowWidth();
-                    int wh = (int) Platforms.get().getWindowHeight();
-                    b.update(ww - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE, wh - BOTTOM_PANEL_SIZE);
-                }, VIEW_RIGHT_TOP));
-        views.put(VIEW_BOTTOM, new Bounds(0, 0, wWidth - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, b -> {
-            int ww = (int) Platforms.get().getWindowWidth();
+        Bounds rightTop = info.scrollBox.bounds;
+        rightTop.setUpdateCallback(b -> {
+            int ww = Platforms.get().getFrameBufferWidth();
+            int wh = Platforms.get().getFrameBufferHeight();
+            b.update(ww - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE, wh - BOTTOM_PANEL_SIZE);
+        });
+        rightTop.recalc();
+        views.put(VIEW_RIGHT_TOP, rightTop);
+        Bounds bottom = terminal.scrollBox.bounds;
+        bottom.setUpdateCallback(b -> {
+            int ww = Platforms.get().getFrameBufferWidth();
             b.update(0, 0, ww - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
-        }, VIEW_BOTTOM));
+        });
+        bottom.recalc();
+        views.put(VIEW_BOTTOM, bottom);
         views.put(VIEW_TOOLTIP, tooltipBounds());
 
         editorCamera.initCamera(views, VIEW_MAIN);
-        // Subscribe scroll regions for Info and Terminal panels
-        Bounds rightTop = views.get(VIEW_RIGHT_TOP);
-        Bounds bottom = views.get(VIEW_BOTTOM);
         PointerDispatcher pointer = PointerDispatcher.current();
-        pointer.subscribe(rightTop, info);
-        pointer.subscribe(bottom, terminal);
+        pointer.subscribe(rightTop, info.scrollBox);
+        pointer.subscribe(bottom, terminal.scrollBox);
         pointer.subscribe(views.get(VIEW_MAIN), editorCamera);
         DistanceMatrix d = retTup.d;
         if (retTup.d == null) {
@@ -417,7 +419,7 @@ public class MainScene extends Scene {
         if (!active) {
             return;
         }
-        if (inView(windowX, windowY) == PaneTypes.KnotView) {
+        if (inView(mouse.normalizedPosX, mouse.normalizedPosY) == PaneTypes.KnotView) {
             activeTool.onHover(mouse.normalizedPosX, mouse.normalizedPosY);
         } else {
             activeTool.clearHover();
@@ -425,8 +427,8 @@ public class MainScene extends Scene {
     }
 
     /**
-     * A click focuses the pane it lands in; once knots are solved one in the knot view goes to the
-     * active tool and one in the terminal to the terminal.
+     * A click the terminal and info boxes do not take focuses the pane it lands in; once knots are
+     * solved one in the knot view goes to the active tool.
      *
      * @param windowX click x in window pixels
      * @param windowY click y in window pixels, top-down
@@ -434,15 +436,13 @@ public class MainScene extends Scene {
      */
     @Override
     public void viewClicked(float windowX, float windowY, int button) {
-        PaneTypes pane = inView(windowX, windowY);
+        PaneTypes pane = inView(mouse.normalizedPosX, mouse.normalizedPosY);
         Toggle.setPanelFocus(pane);
         if (manifoldKnot == null || !active) {
             return;
         }
         if (pane == PaneTypes.KnotView) {
             activeTool.onClick(mouse.normalizedPosX, mouse.normalizedPosY);
-        } else if (pane == PaneTypes.Terminal) {
-            terminal.calculateClick(mouse.normalizedPosX, mouse.normalizedPosY);
         }
     }
 
@@ -456,6 +456,16 @@ public class MainScene extends Scene {
     public boolean frameAll() {
         editorCamera.reset();
         return true;
+    }
+
+    /**
+     * The editor's terminal is a pane, drawn whichever pane has focus while the editor is active.
+     *
+     * @return whether the editor is active
+     */
+    @Override
+    public boolean terminalShown() {
+        return active;
     }
 
     /**
@@ -715,21 +725,20 @@ public class MainScene extends Scene {
     }
 
     /**
-     * Classify the screen-space point {@code (x, y)} into one of the four panes
-     * (knot view, terminal, info, logo) of the editor laid out in the current window.
+     * Classify the framebuffer point {@code (x, y)} into one of the four panes
+     * (knot view, terminal, info, logo) of the editor laid out in the current framebuffer.
      *
-     * @param x window-space x in pixels
-     * @param y window-space y in pixels (top-down; flipped internally)
+     * @param x framebuffer x in pixels
+     * @param y framebuffer y in pixels, y up
      * @return the {@link PaneTypes} containing the point, or {@link PaneTypes#None}
      */
     public static PaneTypes inView(float x, float y) {
-        int mainViewWidth = (int) Platforms.get().getWindowWidth() - RIGHT_PANEL_SIZE;
-        int mainViewHeight = (int) Platforms.get().getWindowHeight() - BOTTOM_PANEL_SIZE;
+        int mainViewWidth = Platforms.get().getFrameBufferWidth() - RIGHT_PANEL_SIZE;
+        int mainViewHeight = Platforms.get().getFrameBufferHeight() - BOTTOM_PANEL_SIZE;
         boolean inMainViewRightBound = x < mainViewWidth + MAIN_VIEW_OFFSET_X;
         boolean inMainViewLeftBound = x > MAIN_VIEW_OFFSET_X;
-        float invY = Platforms.get().getWindowHeight() - y;
-        boolean inMainViewLowerBound = invY > MAIN_VIEW_OFFSET_Y;
-        boolean inMainViewUpperBound = invY < mainViewHeight + MAIN_VIEW_OFFSET_Y;
+        boolean inMainViewLowerBound = y > MAIN_VIEW_OFFSET_Y;
+        boolean inMainViewUpperBound = y < mainViewHeight + MAIN_VIEW_OFFSET_Y;
         if (inMainViewLeftBound && inMainViewRightBound && inMainViewLowerBound && inMainViewUpperBound) {
             return PaneTypes.KnotView;
         } else if (!inMainViewLowerBound && !inMainViewRightBound) {

@@ -101,7 +101,6 @@ public abstract class Scene extends SceneDrawable {
     public PointSet pointSet;
 
     public ShaderCodePane codePane;
-    public float SCROLL_SPEED = 10f;
 
     public final ArrayList<ControlHint> controls = new ArrayList<>();
 
@@ -340,18 +339,27 @@ public abstract class Scene extends SceneDrawable {
     }
 
     /**
-     * Register the bottom terminal strip view and subscribe it for scroll.
-     * Subclasses that add their own panes override this and chain
+     * Lay the terminal's scroll box out as the bottom terminal strip view and subscribe it for the
+     * wheel and the presses on it. Subclasses that add their own panes override this and chain
      * {@code super.initPanes()}.
      */
     public void initPanes() {
-        webViews.put(VIEW_SCENE_TERMINAL, new Bounds(
-                0, 0,
-                Platforms.get().getFrameBufferWidth(), TERMINAL_PANEL_HEIGHT,
-                bounds -> bounds.update(0, 0,
-                        Platforms.get().getFrameBufferWidth(), TERMINAL_PANEL_HEIGHT),
-                VIEW_SCENE_TERMINAL));
-        PointerDispatcher.current().subscribe(webViews.get(VIEW_SCENE_TERMINAL), sceneTerminal);
+        Bounds terminalBounds = sceneTerminal.scrollBox.bounds;
+        terminalBounds.setUpdateCallback(bounds -> bounds.update(0, 0,
+                Platforms.get().getFrameBufferWidth(), TERMINAL_PANEL_HEIGHT));
+        terminalBounds.recalc();
+        webViews.put(VIEW_SCENE_TERMINAL, terminalBounds);
+        PointerDispatcher.current().subscribe(terminalBounds, sceneTerminal.scrollBox);
+    }
+
+    /**
+     * Whether the scene's terminal is on screen, so its box takes the wheel; the strip shows while
+     * the scene is active and the terminal has focus.
+     *
+     * @return whether the terminal is drawn this frame
+     */
+    public boolean terminalShown() {
+        return active && Toggle.IsTerminalFocused.value;
     }
 
     /**
@@ -364,7 +372,7 @@ public abstract class Scene extends SceneDrawable {
      * @param provider drawable bound to the same shader (used for live preview)
      */
     public void initCodePane(String title, ShaderProgram shader, ShaderDrawable provider) {
-        codePane = new ShaderCodePane(paneBounds, webViews, SCROLL_SPEED, shader, title, provider, camera2D, this);
+        codePane = new ShaderCodePane(paneBounds, webViews, shader, title, provider, camera2D, this);
         camera2D.initCamera(webViews, DEFAULT_VIEW);
     }
 
@@ -387,7 +395,7 @@ public abstract class Scene extends SceneDrawable {
         if (codePane != null) {
             codePane.draw(camera2D);
         }
-        if (sceneTerminal != null && Toggle.IsTerminalFocused.value) {
+        if (sceneTerminal != null && terminalShown()) {
             camera2D.updateView(VIEW_SCENE_TERMINAL);
             chromeBackground.draw(Color.GREY_VERY_DARK, camera2D);
             sceneTerminal.draw(camera2D);
@@ -421,8 +429,8 @@ public abstract class Scene extends SceneDrawable {
      */
     public Bounds tooltipBounds() {
         return new Bounds(0, 0, 0, 0, b -> {
-            int ww = (int) Platforms.get().getWindowWidth();
-            int wh = (int) Platforms.get().getWindowHeight();
+            int ww = Platforms.get().getFrameBufferWidth();
+            int wh = Platforms.get().getFrameBufferHeight();
             if (toolTip == null) {
                 b.update(0, 0, 0, 0);
                 return;

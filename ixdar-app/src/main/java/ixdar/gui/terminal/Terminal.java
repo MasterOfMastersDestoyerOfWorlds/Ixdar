@@ -16,19 +16,22 @@ import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorLerp;
 import ixdar.gui.terminal.commands.TerminalCommand;
-import ixdar.gui.ui.Drawing;
+import ixdar.gui.ui.PaneTypes;
+import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.input.Keys;
-import ixdar.platform.input.PointerRegion;
 import ixdar.scenes.Scene;
+import ixdar.scenes.main.Toggle;
 
 /**
  * The editor's interactive REPL: keeps the command and point-collection registries,
  * tokenises and dispatches input lines through the matching {@link TerminalCommand},
  * and renders the scrollable history plus current prompt into a {@link HyperString}.
  */
-public class Terminal implements PointerRegion {
+public class Terminal {
+
+    public static final String VIEW_TERMINAL = "TERMINAL";
 
     public static ArrayList<TerminalOption> commandList;
     public static HashMap<String, TerminalOption> commandMap = new HashMap<>();
@@ -66,12 +69,16 @@ public class Terminal implements PointerRegion {
     public HyperString history;
     public String directory;
 
-    public float scrollOffsetY = 0;
-    public float SCROLL_SPEED = 300f;
     public TextFile loadedFile;
 
     /** The scene this terminal belongs to, which every command typed into it runs against. */
     public final Scene scene;
+
+    /**
+     * The box the history and prompt scroll in, holding them as last drawn; the scene lays its
+     * bounds out as the terminal's view and subscribes it, and a click in it focuses the terminal.
+     */
+    public final MenuScrollBox scrollBox;
 
     ArrayList<String> commandHistory;
     String storedCommandLine;
@@ -80,9 +87,7 @@ public class Terminal implements PointerRegion {
     String commandLineInstruct;
     ColorLerp instructColor = ColorLerp.flashColor(Color.BLUE_GREY, 3);
     String[] nextLogicalCommand;
-    boolean scrollToCommandLine;
     private int nextLogicalCommandIdx;
-    private HyperString cachedInfo;
 
     /**
      * Build a terminal bound to {@code file}: its working directory becomes the file's
@@ -93,6 +98,8 @@ public class Terminal implements PointerRegion {
      */
     public Terminal(TextFile file, Scene scene) {
         this.scene = scene;
+        this.scrollBox = new MenuScrollBox(VIEW_TERMINAL, () -> scene.terminalShown(),
+                () -> Toggle.setPanelFocus(PaneTypes.Terminal));
         initState();
         this.directory = new File(file.path).getParent();
         this.loadedFile = file;
@@ -108,6 +115,8 @@ public class Terminal implements PointerRegion {
      */
     public Terminal(String directory, Scene scene) {
         this.scene = scene;
+        this.scrollBox = new MenuScrollBox(VIEW_TERMINAL, () -> scene.terminalShown(),
+                () -> Toggle.setPanelFocus(PaneTypes.Terminal));
         initState();
         this.directory = directory;
         this.loadedFile = null;
@@ -119,21 +128,9 @@ public class Terminal implements PointerRegion {
         commandLineInstruct = "";
         nextLogicalCommand = new String[] {};
         nextLogicalCommandIdx = 0;
-        scrollToCommandLine = false;
         history = new HyperString();
         commandHistory = new ArrayList<>();
         commandHistoryIdx = -1;
-    }
-
-    /**
-     * Click hook for the terminal's pane. Currently a no-op — the terminal does not yet
-     * react to direct clicks within its drawn region.
-     *
-     * @param normalizedPosX normalised x coordinate of the click
-     * @param normalizedPosY normalised y coordinate of the click
-     */
-    public void calculateClick(float normalizedPosX, float normalizedPosY) {
-
     }
 
     /**
@@ -192,7 +189,7 @@ public class Terminal implements PointerRegion {
         if (key == Keys.ENTER) {
             String entered = commandLine;
             commandLine = "";
-            scrollToCommandLine = true;
+            scrollBox.scrollToEndPending = true;
             history.addLine(entered);
             if (!Compat.isBlank(entered)) {
                 commandHistory.add(0, entered);
@@ -287,16 +284,12 @@ public class Terminal implements PointerRegion {
     }
 
     /**
-     * Render the terminal: build a {@link HyperString} from {@link #history} plus the current
-     * command line (or its instruction placeholder if empty), draw it through the font system,
-     * and snap the scroll offset so the prompt is visible whenever {@code scrollToCommandLine}
-     * was set.
+     * Render the terminal in {@link #scrollBox}: {@link #history} plus the current command line
+     * (or its instruction placeholder if empty), scrolled to the prompt after each Enter.
      *
-     * @param camera 2D camera supplying the view transform
+     * @param camera 2D camera whose view is moved to the box
      */
     public void draw(Camera2D camera) {
-        int row = 0;
-        float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
         HyperString commandHyperString = new HyperString();
         commandHyperString.addHyperString(history);
         commandHyperString.newLine();
@@ -306,37 +299,8 @@ public class Terminal implements PointerRegion {
             commandHyperString.addWord(commandLine);
         }
         commandHyperString.wrap();
-        cachedInfo = commandHyperString;
-        Drawing.getDrawing().font.drawHyperStringRows(commandHyperString, row, scrollOffsetY, rowHeight, camera);
-        if (scrollToCommandLine) {
-            scrollToCommandLine = false;
-            scrollOffsetY -= cachedInfo.getLastWord().yScreenOffset;
-        }
-
-    }
-
-    /**
-     * Adjust {@link #scrollOffsetY} in response to a scroll-wheel tick, clamping at the top
-     * (offset never below zero) and at the bottom (when the cached last-word position is on
-     * or above the visible row).
-     *
-     * @param scrollUp {@code true} when scrolling upward (towards earlier history)
-     * @param deltaSeconds frame delta used to scale {@link #SCROLL_SPEED}
-     */
-    @Override
-    public void onScroll(boolean scrollUp, double deltaSeconds) {
-        float menuBottom = cachedInfo != null ? cachedInfo.getLastWord().yScreenOffset : 0;
-        if (scrollUp) {
-            scrollOffsetY -= SCROLL_SPEED * deltaSeconds;
-            if (scrollOffsetY < 0) {
-                scrollOffsetY = 0;
-            }
-        } else if (menuBottom < 0) {
-            scrollOffsetY += SCROLL_SPEED * deltaSeconds;
-            if (cachedInfo != null && menuBottom > cachedInfo.getLastWord().rowHeight) {
-                scrollOffsetY -= SCROLL_SPEED * deltaSeconds;
-            }
-        }
+        scrollBox.text = commandHyperString;
+        scrollBox.draw(camera);
     }
 
     /**
@@ -353,16 +317,6 @@ public class Terminal implements PointerRegion {
      */
     public void clearInstruct() {
         this.commandLineInstruct = "";
-    }
-
-    /**
-     * The {@link HyperString} most recently composed by {@link #draw(Camera2D)} (history plus
-     * current command line), used by scroll bookkeeping.
-     *
-     * @return cached snapshot, or {@code null} before the first draw
-     */
-    public HyperString getCachedInfo() {
-        return cachedInfo;
     }
 
     /**

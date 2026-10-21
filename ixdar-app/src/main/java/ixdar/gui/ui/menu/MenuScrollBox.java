@@ -11,15 +11,22 @@ import ixdar.gui.ui.actions.Action;
 import ixdar.platform.input.PointerRegion;
 
 /**
- * One independently scrolling box of a menu: rows of one wrapping {@link HyperString}, clipped to
- * a framebuffer rectangle that, while the menu is shown, takes the wheel and pointer over it.
+ * One independently scrolling box of rows, the one scroll every menu and text pane uses: one
+ * wrapping {@link HyperString}, clipped to a framebuffer rectangle that, while its owner is shown,
+ * takes the wheel and the presses over it.
  */
 public final class MenuScrollBox implements PointerRegion {
 
     public static final float PIXELS_PER_SCROLL_UNIT = 90f;
 
-    /** The box's rectangle in framebuffer pixels, y up; the owning menu lays it out. */
+    /** The box's rectangle in framebuffer pixels, y up; the owner lays it out. */
     public final Bounds bounds;
+
+    /**
+     * Run on every click in the box before the clicked word's action, such as focusing the pane
+     * the box is; {@code null} for none.
+     */
+    public final Runnable clicked;
 
     /** This frame's rows, one line each; {@code null} before the first {@link #clearRows()}. */
     public HyperString text;
@@ -33,19 +40,37 @@ public final class MenuScrollBox implements PointerRegion {
      */
     public final MenuScrollBar scrollBar;
 
+    /**
+     * Whether the next {@link #layout} scrolls so the last row sits at the bottom of the box, or
+     * leaves the scroll at the top when every row fits; layout clears it.
+     */
+    public boolean scrollToEndPending;
+
     private final BooleanSupplier shown;
 
     private int rowToCentre = -1;
 
     /**
-     * An empty box that scrolls only while {@code shown} holds.
+     * An empty box that scrolls only while {@code shown} holds and runs nothing extra on a click.
      *
      * @param id view id of the box's bounds
      * @param shown whether the owning menu is on screen
      */
     public MenuScrollBox(String id, BooleanSupplier shown) {
+        this(id, shown, null);
+    }
+
+    /**
+     * An empty box that scrolls only while {@code shown} holds.
+     *
+     * @param id view id of the box's bounds
+     * @param shown whether the owner is on screen
+     * @param clicked run on every click in the box, see {@link #clicked}
+     */
+    public MenuScrollBox(String id, BooleanSupplier shown, Runnable clicked) {
         this.bounds = new Bounds(0, 0, 0, 0, id);
         this.shown = shown;
+        this.clicked = clicked;
         this.scrollBar = new MenuScrollBar(bounds, false, Drawing.FONT_HEIGHT_PIXELS);
     }
 
@@ -74,13 +99,13 @@ public final class MenuScrollBox implements PointerRegion {
     }
 
     /**
-     * Set the camera's view to the box, let the text wrap to its width and count the rows used;
-     * rows that overflow wrap again to the width left of the {@link #scrollBar}. Then apply a
-     * pending {@link #centreRow} and clamp the scroll to those rows.
+     * Fit the box to the current window, wrap the text to its width (less the
+     * {@link #scrollBar} when the rows overflow), then apply a pending scroll and clamp it.
      *
      * @param camera 2D camera whose view is set to the box's text and left there
      */
     public void layout(Camera2D camera) {
+        bounds.recalc();
         float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
         layoutRows(camera, bounds.viewWidth);
         if (scrollBar.isNeeded()) {
@@ -94,7 +119,11 @@ public final class MenuScrollBox implements PointerRegion {
             int ownRows = text.setLineOffsetFromTopRow(camera, firstRow, 0, rowHeight, rowToCentre);
             scrollBar.scrollOffset = (firstRow + ownRows / 2f) * rowHeight - bounds.viewHeight / 2;
         }
+        if (scrollToEndPending) {
+            scrollBar.scrollOffset = scrollBar.maximumScrollOffset();
+        }
         rowToCentre = -1;
+        scrollToEndPending = false;
         scrollBar.scrollBy(0);
     }
 
@@ -187,12 +216,14 @@ public final class MenuScrollBox implements PointerRegion {
     }
 
     /**
-     * A shown box takes presses over it, so they reach its rows and bar and nothing under the menu.
+     * A shown box takes presses over it, so they reach its rows and bar and nothing under it.
      *
-     * @return whether the owning menu is shown
+     * @param x framebuffer x of the press
+     * @param y framebuffer y of the press, y up
+     * @return whether the owner is shown
      */
     @Override
-    public boolean claimsPointer() {
+    public boolean claimsPointer(float x, float y) {
         return shown.getAsBoolean();
     }
 
@@ -220,7 +251,8 @@ public final class MenuScrollBox implements PointerRegion {
     }
 
     /**
-     * Let go of the thumb and, for a click, run the action of the row word under the cursor.
+     * Let go of the thumb and, for a click, run {@link #clicked} and then the action of the word
+     * under the cursor.
      *
      * @param x framebuffer x of the release
      * @param y framebuffer y of the release, y up
@@ -229,6 +261,9 @@ public final class MenuScrollBox implements PointerRegion {
     @Override
     public void onRelease(float x, float y, boolean click) {
         scrollBar.release();
+        if (click && clicked != null) {
+            clicked.run();
+        }
         if (click && text != null) {
             text.click(x, y);
         }

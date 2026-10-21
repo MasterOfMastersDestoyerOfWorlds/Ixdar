@@ -156,7 +156,8 @@ public class PointerDispatcher {
      */
     public void mouseButton(MouseTrap trap, int button, int action, int mods) {
         if (button == MOUSE_BUTTON_LEFT && action == ACTION_PRESS && trap.active) {
-            PointerRegion region = regionUnderCursor(trap, PointerRegion::claimsPointer);
+            PointerRegion region = regionUnderCursor(trap,
+                    under -> under.claimsPointer(trap.normalizedPosX, trap.normalizedPosY));
             pressTool = region == null ? activeTool(trap) : null;
             toolHoldsPress = pressTool != null
                     && pressTool.onPress(trap.normalizedPosX, trap.normalizedPosY, mods);

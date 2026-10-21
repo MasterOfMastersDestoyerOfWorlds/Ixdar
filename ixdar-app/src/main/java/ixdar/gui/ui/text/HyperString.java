@@ -600,23 +600,21 @@ public class HyperString {
     }
 
     /**
-     * Append every word from {@code h} to this string (newlines preserved).
+     * Append every word from {@code h} to this string, newlines preserved and a dynamic word kept
+     * dynamic.
      *
      * @param h source string
      */
     public void addHyperString(HyperString h) {
         for (HyperWord w : h.words) {
-            this.addWord(w);
+            if (w.newLine) {
+                this.newLine();
+            } else if (w.wordAction != null) {
+                this.addDynamicWord(w.wordAction, w.color, w.hoverAction, w.clearHover, w.clickAction);
+            } else {
+                this.addWord(w.charSequence.toString(), w.color, w.hoverAction, w.clearHover, w.clickAction);
+            }
         }
-    }
-
-    private void addWord(HyperWord w) {
-        if (w.newLine) {
-            this.newLine();
-        } else {
-            this.addWord((String) w.charSequence, w.color, w.hoverAction, w.clearHover, w.clickAction);
-        }
-
     }
 
     /**

@@ -24,12 +24,14 @@ import ixdar.platform.Clock;
 import ixdar.gui.ui.ErrorToasts;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.menu.MenuItem;
+import ixdar.gui.ui.menu.MenuScrollBar;
 import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.models.ModelCollection;
 import ixdar.platform.Platforms;
 import ixdar.scenes.main.Toggle;
 import ixdar.automation.AutomationEndpoint;
+import ixdar.automation.AutomationRuntime;
 import ixdar.scenes.anatomy.IrregularGridScene;
 import ixdar.scenes.main.MainScene;
 import ixdar.scenes.menu.MenuScene;
@@ -79,6 +81,46 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     public static final String MINIMUM_INTERIOR_ANGLE = "minimumInteriorAngleDegrees";
 
     public static final String SOURCE = "source";
+
+    public static final String SCROLL_OFFSET_Y = "scrollOffsetY";
+
+    /**
+     * A scroll box's text element: its text, scroll and bar, the box's framebuffer rectangle, y up,
+     * and the rows its text took.
+     *
+     * @param runtime runtime that serialises the text
+     * @param type element type tag
+     * @param region named layout region of the box
+     * @param text text to report, the box's own or what it is built from
+     * @param box the box
+     * @return the element
+     */
+    private static JsonObject scrollBoxElement(AutomationRuntime runtime, String type, String region,
+            HyperString text, MenuScrollBox box) {
+        JsonObject element = runtime.hyperStringElement(type, region, text, box.scrollBar.scrollOffset);
+        element.addProperty("drawnScrollOffsetY", box.drawnScrollOffsetY());
+        element.addProperty("rowsUsed", box.rowsUsed);
+        addScrollBar(element, box.scrollBar);
+        return element;
+    }
+
+    /**
+     * Add a scroll bar's limit, its rectangle in framebuffer pixels, y up, and its thumb to
+     * {@code element}.
+     *
+     * @param element JSON object to add to
+     * @param bar the bar
+     */
+    private static void addScrollBar(JsonObject element, MenuScrollBar bar) {
+        element.addProperty("maximumScrollOffsetY", bar.maximumScrollOffset());
+        element.addProperty(XPX, bar.bounds.offsetX);
+        element.addProperty(YPX, bar.bounds.offsetY);
+        element.addProperty("width", bar.bounds.viewWidth);
+        element.addProperty("height", bar.bounds.viewHeight);
+        element.addProperty("scrollBarShown", bar.isNeeded());
+        element.addProperty("scrollBarThumbStart", bar.thumbStart());
+        element.addProperty("scrollBarThumbLength", bar.thumbLength());
+    }
 
     /**
      * Serialise a packed coordinate triple as a JSON array.
@@ -470,45 +512,25 @@ public class State extends AutomationEndpoint implements AutomationRoute {
 
         JsonArray textElements = new JsonArray();
         if (runtime.canvas != null && runtime.canvas.sceneTerminal != null) {
-            textElements.add(
-                    runtime.hyperStringElement(
-                            "scene_terminal",
-                            REGION_BOTTOM,
-                            runtime.canvas.sceneTerminal.history,
-                            runtime.canvas.sceneTerminal.scrollOffsetY));
+            textElements.add(scrollBoxElement(runtime, "scene_terminal", REGION_BOTTOM,
+                    runtime.canvas.sceneTerminal.history, runtime.canvas.sceneTerminal.scrollBox));
         }
         if (runtime.canvas instanceof ModelScene menuScene && menuScene.sceneModelMenu != null
                 && menuScene.sceneModelMenu.isVisible()) {
             for (MenuScrollBox box : new MenuScrollBox[] {menuScene.sceneModelMenu.modelsBox,
                     menuScene.sceneModelMenu.controlsBox}) {
-                JsonObject element = runtime.hyperStringElement("scene_menu_box", box.bounds.id,
-                        box.text, box.scrollBar.scrollOffset);
-                element.addProperty("maximumScrollOffsetY", box.scrollBar.maximumScrollOffset());
-                element.addProperty("drawnScrollOffsetY", box.drawnScrollOffsetY());
-                element.addProperty(XPX, box.bounds.offsetX);
-                element.addProperty(YPX, box.bounds.offsetY);
-                element.addProperty("width", box.bounds.viewWidth);
-                element.addProperty("height", box.bounds.viewHeight);
-                element.addProperty("rowsUsed", box.rowsUsed);
-                element.addProperty("scrollBarShown", box.scrollBar.isNeeded());
-                element.addProperty("scrollBarThumbStart", box.scrollBar.thumbStart());
-                element.addProperty("scrollBarThumbLength", box.scrollBar.thumbLength());
-                textElements.add(element);
+                textElements.add(scrollBoxElement(runtime, "scene_menu_box", box.bounds.id, box.text, box));
             }
         }
         if (runtime.canvas instanceof MainScene editor) {
-            textElements.add(
-                    runtime.hyperStringElement(
-                            "terminal",
-                            REGION_BOTTOM,
-                            editor.terminal.getCachedInfo(),
-                            editor.terminal.scrollOffsetY));
-            textElements.add(
-                    runtime.hyperStringElement(
-                            "info",
-                            "RIGHT_TOP",
-                            editor.info.getCachedInfo(),
-                            editor.info.scrollOffsetY));
+            textElements.add(scrollBoxElement(runtime, "terminal", REGION_BOTTOM, editor.terminal.scrollBox.text,
+                    editor.terminal.scrollBox));
+            textElements.add(scrollBoxElement(runtime, "info", MainScene.VIEW_RIGHT_TOP, editor.info.scrollBox.text,
+                    editor.info.scrollBox));
+        }
+        if (runtime.canvas != null && runtime.canvas.codePane != null) {
+            MenuScrollBox codeBox = runtime.canvas.codePane.codeBox;
+            textElements.add(scrollBoxElement(runtime, "code_pane", codeBox.bounds.id, codeBox.text, codeBox));
         }
         HyperString tooltip = runtime.canvas == null ? null : runtime.canvas.toolTip;
         if (tooltip != null && runtime.canvas.showToolTip) {
@@ -542,6 +564,12 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             }
         }
         root.add("menuItems", menuItems);
+        if (runtime.canvas instanceof MenuScene) {
+            JsonObject menuScroll = new JsonObject();
+            menuScroll.addProperty(SCROLL_OFFSET_Y, MenuBox.ITEM_COLUMN_SCROLL_BAR.scrollOffset);
+            addScrollBar(menuScroll, MenuBox.ITEM_COLUMN_SCROLL_BAR);
+            root.add("menuScroll", menuScroll);
+        }
 
         JsonArray controls = new JsonArray();
         if (runtime.canvas != null) {

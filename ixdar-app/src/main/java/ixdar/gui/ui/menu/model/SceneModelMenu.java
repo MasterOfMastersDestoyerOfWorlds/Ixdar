@@ -213,10 +213,12 @@ public final class SceneModelMenu implements PointerRegion {
      * The open menu takes presses over its whole strip, titles included, so nothing under it, the
      * orbit or a scene tool, sees them; a closed menu takes none.
      *
+     * @param x framebuffer x of the press, unused
+     * @param y framebuffer y of the press, unused
      * @return whether the menu is shown
      */
     @Override
-    public boolean claimsPointer() {
+    public boolean claimsPointer(float x, float y) {
         return visible;
     }
 

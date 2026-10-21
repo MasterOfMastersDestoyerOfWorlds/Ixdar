@@ -66,8 +66,8 @@ public class TradeScene extends Scene {
         // Create PointSet from the network for camera bounds
         cityPoints = network.toPointSet();
 
-        int wWidth = (int) Platforms.get().getWindowWidth();
-        int wHeight = (int) Platforms.get().getWindowHeight();
+        int wWidth = Platforms.get().getFrameBufferWidth();
+        int wHeight = Platforms.get().getFrameBufferHeight();
 
         mapCamera = new Camera2D(wWidth, wHeight - TOP_BAR_HEIGHT, CAMERA_ZOOM_DEFAULT, 0, 0, cityPoints);
 
@@ -81,8 +81,8 @@ public class TradeScene extends Scene {
 
         Map<String, Bounds> views = new HashMap<>();
         views.put(VIEW_MAIN, new Bounds(0, 0, wWidth, wHeight - TOP_BAR_HEIGHT, b -> {
-            int ww = (int) Platforms.get().getWindowWidth();
-            int wh = (int) Platforms.get().getWindowHeight();
+            int ww = Platforms.get().getFrameBufferWidth();
+            int wh = Platforms.get().getFrameBufferHeight();
             b.update(0, 0, ww, wh - TOP_BAR_HEIGHT);
         }, VIEW_MAIN));
         views.put(VIEW_TOOLTIP, tooltipBounds());
@@ -163,8 +163,8 @@ public class TradeScene extends Scene {
     @Override
     public void drawScene() {
         try {
-            int wWidth = (int) Platforms.get().getWindowWidth();
-            int wHeight = (int) Platforms.get().getWindowHeight();
+            int wWidth = Platforms.get().getFrameBufferWidth();
+            int wHeight = Platforms.get().getFrameBufferHeight();
 
             // Setup camera
             mapCamera.updateView(VIEW_MAIN);
@@ -193,8 +193,8 @@ public class TradeScene extends Scene {
     /**
      * Draw the top bar HUD (placeholder for TRADE-11).
      *
-     * @param wWidth current window width in pixels
-     * @param wHeight current window height in pixels
+     * @param wWidth current framebuffer width in pixels
+     * @param wHeight current framebuffer height in pixels
      */
     private void drawTopBar(int wWidth, int wHeight) {
         // TODO: Implement in TRADE-11

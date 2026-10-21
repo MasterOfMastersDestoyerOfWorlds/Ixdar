@@ -28,7 +28,7 @@ public class MenuScene extends Scene {
     @Override
     public void drawScene() {
         if (menu == null) {
-            menu = new MenuBox();
+            menu = new MenuBox(this);
             fluid = new SDFFluid();
         }
         if (MenuBox.menuVisible) {

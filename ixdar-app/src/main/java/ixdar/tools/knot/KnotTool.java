@@ -246,8 +246,8 @@ public abstract class KnotTool implements Tool {
     public void onHover(float x, float y) {
         float viewX = x - editor.mainViewOffsetX;
         float viewY = y - editor.mainViewOffsetY;
-        if (viewX > Platforms.get().getWindowWidth() || viewX < 0
-                || viewY > Platforms.get().getWindowHeight() || viewY < 0) {
+        if (viewX > Platforms.get().getFrameBufferWidth() || viewX < 0
+                || viewY > Platforms.get().getFrameBufferHeight() || viewY < 0) {
             clearHover();
             return;
         }

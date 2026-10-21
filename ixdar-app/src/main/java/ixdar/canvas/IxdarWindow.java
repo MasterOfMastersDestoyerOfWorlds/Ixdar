@@ -69,6 +69,10 @@ public class IxdarWindow {
 
     public static final int HEADLESS_DEFAULT_SIZE = 1024;
 
+    public static final String HEADLESS_SCALE_PROPERTY = "ixdar.headless.scale";
+
+    public static final String HEADLESS_DEFAULT_DISPLAY_SCALE = "1.25";
+
     public static final int HEADLESS_PLATFORM_ID = 1;
 
     public static float startTime;
@@ -113,21 +117,23 @@ public class IxdarWindow {
     }
 
     /**
-     * Run the selected scene on the calling thread in a hidden GLFW window, which still needs a
-     * graphical session; only the automation {@code /shutdown} endpoint ends the loop.
+     * Run the selected scene off screen, its framebuffer {@link #HEADLESS_SCALE_PROPERTY} times
+     * its window as on a scaled desktop, until the automation {@code /shutdown} endpoint exits.
+     *
+     * <p>{@link HeadlessGL} still opens a hidden GLFW window, so a graphical session must exist.
      *
      * @throws RuntimeException when no scene is registered for the requested canvas id
      */
     public void runHeadless() {
         int size = Integer.getInteger(HEADLESS_SIZE_PROPERTY, HEADLESS_DEFAULT_SIZE);
-        HeadlessPlatform platform = new HeadlessPlatform(size, size);
+        float scale = Float.parseFloat(System.getProperty(HEADLESS_SCALE_PROPERTY, HEADLESS_DEFAULT_DISPLAY_SCALE));
+        HeadlessPlatform platform = new HeadlessPlatform(size, size, scale);
         platform.setPlatformID(HEADLESS_PLATFORM_ID);
         LwjglGL gl = platform.getGL();
         gl.setPlatformID(HEADLESS_PLATFORM_ID);
         Platforms.init(platform, gl);
         CholeskyBackend.preloadAsync();
         gl.enable(gl.DEPTH_TEST());
-        platform.setFrameBufferSize(size, size);
 
         Supplier<? extends SceneDrawable> sceneSupplier = CanvasSceneMap.MAP.get(canvasId);
         if (sceneSupplier == null) {

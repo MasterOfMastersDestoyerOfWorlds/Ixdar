@@ -142,7 +142,7 @@ class MenuScrollBarTest {
         MenuScrollBox box = overflowingBox();
         MenuScrollBar bar = box.scrollBar;
         float grabY = HEIGHT - bar.thumbStart() - bar.thumbLength() / 2;
-        assertTrue(box.claimsPointer());
+        assertTrue(box.claimsPointer(BAR_X, grabY));
         box.onPress(BAR_X, grabY);
         assertEquals(0, bar.scrollOffset, EPSILON, "grabbing the thumb does not scroll");
         box.onDrag(BAR_X, grabY - (TRACK - THUMB) / 2);
@@ -164,7 +164,7 @@ class MenuScrollBarTest {
         hidden.bounds.update(0, 0, BOX_WIDTH, HEIGHT);
         hidden.scrollBar.contentLength = CONTENT_ROWS * ROW;
         hidden.scrollBar.visibleLength = HEIGHT;
-        assertFalse(hidden.claimsPointer());
+        assertFalse(hidden.claimsPointer(BAR_X, HEIGHT / 2));
     }
 
     @Test

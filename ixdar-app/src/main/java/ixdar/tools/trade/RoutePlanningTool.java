@@ -278,7 +278,7 @@ public class RoutePlanningTool implements Tool {
     }
 
     private void drawToolbar(Camera2D camera) {
-        float wWidth = Platforms.get().getWindowWidth();
+        float wWidth = Platforms.get().getFrameBufferWidth();
 
         
         float toolbarY = TOOLBAR_HEIGHT / 2;
@@ -881,14 +881,14 @@ public class RoutePlanningTool implements Tool {
 
     /**
      * Hover the toolbar button under the cursor and show its tooltip, else leave the city's or
-     * none. The toolbar is laid out in window pixels, so it reads the scene's window cursor.
+     * none.
      *
      * @param x framebuffer x of the cursor
      * @param y framebuffer y of the cursor, y up
      */
     @Override
     public void onHover(float x, float y) {
-        updateHoveredButton(tradeScene.mouse.lastX, tradeScene.mouse.lastY);
+        updateHoveredButton(x, y);
         HyperString toolbarTip = buildHoveredToolbarTooltip();
         if (toolbarTip != null) {
             tradeScene.setTooltipText(toolbarTip);
@@ -906,7 +906,7 @@ public class RoutePlanningTool implements Tool {
      */
     @Override
     public boolean onClick(float x, float y) {
-        if (onToolbarClick(tradeScene.mouse.lastX, tradeScene.mouse.lastY)) {
+        if (onToolbarClick(x, y)) {
             return true;
         }
         City city = tradeScene.getCityAt(tradeScene.mapCamera.screenTransformX(x),
@@ -921,19 +921,14 @@ public class RoutePlanningTool implements Tool {
     /**
      * Update hovered button based on mouse position.
      *
-     * @param mouseX mouse X in screen coordinates
-     * @param mouseY mouse Y in screen coordinates
+     * @param mouseX framebuffer x of the cursor
+     * @param mouseYOpenGL framebuffer y of the cursor, y up
      */
-    public void updateHoveredButton(float mouseX, float mouseY) {
-        float wWidth = Platforms.get().getWindowWidth();
-        float wHeight = Platforms.get().getWindowHeight();
-        
-        float toolbarY = TOOLBAR_HEIGHT / 2; 
+    public void updateHoveredButton(float mouseX, float mouseYOpenGL) {
+        float wWidth = Platforms.get().getFrameBufferWidth();
+
+        float toolbarY = TOOLBAR_HEIGHT / 2;
         float startX = wWidth / 2 - (UNDO_BUTTON_INDEX * BUTTON_SIZE + 2 * BUTTON_PADDING) / 2;
-
-
-
-        float mouseYOpenGL = wHeight - mouseY;
 
         hoveredButton = -1;
 
@@ -1006,8 +1001,8 @@ public class RoutePlanningTool implements Tool {
     /**
      * Handle toolbar button click.
      *
-     * @param mouseX mouse X in screen coordinates
-     * @param mouseY mouse Y in screen coordinates
+     * @param mouseX framebuffer x of the click
+     * @param mouseY framebuffer y of the click, y up
      * @return true if a button was clicked
      */
     public boolean onToolbarClick(float mouseX, float mouseY) {
