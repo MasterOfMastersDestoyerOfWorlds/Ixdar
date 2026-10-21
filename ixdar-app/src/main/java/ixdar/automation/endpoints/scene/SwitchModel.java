@@ -98,12 +98,12 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
                     try {
                         scene.setOverride(assignment.substring(0, equals).trim(),
                                 value.isBlank() ? null : ModelScene.parseOverrideValue(value),
-                                match.path);
+                                match);
                     } catch (IllegalArgumentException invalid) {
                         return failure(invalid.getMessage());
                     }
                 }
-                scene.requestModelLoad(match.path);
+                scene.requestModelLoad(match);
                 requestedOn[0] = scene;
                 serial[0] = scene.modelLoads.requestedSerial;
                 JsonObject accepted = success();
@@ -137,7 +137,8 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
             result.addProperty(ERROR, error);
         }
         JsonObject overrides = new JsonObject();
-        for (Map.Entry<String, Object> override : requestedOn[0].overrides.entrySet()) {
+        for (Map.Entry<String, Object> override
+                : requestedOn[0].modelCollection.overrides.entrySet()) {
             overrides.addProperty(override.getKey(), String.valueOf(override.getValue()));
         }
         result.add(OVERRIDES, overrides);

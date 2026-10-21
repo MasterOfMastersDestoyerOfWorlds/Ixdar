@@ -1,7 +1,6 @@
 package ixdar.scenes.dungeon;
 
 import java.io.IOException;
-import java.util.Map;
 
 import org.joml.Vector3f;
 
@@ -15,7 +14,7 @@ import ixdar.nodegraph.field.Vector3Field;
 import ixdar.platform.Clock;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
-import ixdar.models.GraphChoice;
+import ixdar.models.ModelChoice;
 import ixdar.platform.Platforms;
 import ixdar.platform.Platform;
 import ixdar.procgen.dungeon.algo.DungeonGrids;
@@ -75,8 +74,8 @@ public class DungeonViewerScene extends ModelScene {
 
     /** Registers the planar and the layered dungeon graphs for the model menu. */
     public DungeonViewerScene() {
-        registerGraph(new GraphChoice(PLANAR_DUNGEON, "dsl/dungeon_2d.dsl", Map.of()));
-        registerGraph(new GraphChoice(LAYERED_DUNGEON, "dsl/dungeon_3d.dsl", Map.of()));
+        registerGraph(new ModelChoice(PLANAR_DUNGEON, "dsl/dungeon_2d.dsl", ModelChoice.Kind.DSL));
+        registerGraph(new ModelChoice(LAYERED_DUNGEON, "dsl/dungeon_3d.dsl", ModelChoice.Kind.DSL));
     }
 
     @Override
@@ -87,12 +86,12 @@ public class DungeonViewerScene extends ModelScene {
     /**
      * The dungeon {@code -Dixdar.model} names, else the planar dungeon.
      *
-     * @return the initial model's {@code graph:} token, or the requested path
+     * @return the initial model
      */
     @Override
-    public String resolveInitialModel() {
+    public ModelChoice resolveInitialModel() {
         String requested = System.getProperty(COMMON_MODEL_PROPERTY);
-        return requested == null || requested.isBlank() ? GRAPH_PREFIX + PLANAR_DUNGEON
+        return requested == null || requested.isBlank() ? graphs.get(0)
                 : super.resolveInitialModel();
     }
 
@@ -133,15 +132,14 @@ public class DungeonViewerScene extends ModelScene {
      * @return the executed runtime
      */
     @Override
-    public NodeGraphRuntime loadGraph(GraphChoice choice) {
+    public NodeGraphRuntime loadGraph(ModelChoice choice) {
         NodeGraphRuntime run = super.loadGraph(choice);
         if (!(run.lastOutput(DungeonGridToMeshNode.MESH.name) instanceof GeometryBundle dungeon)) {
-            throw new IllegalStateException("dungeon graph " + choice.dslPath + " ends in no mesh");
+            throw new IllegalStateException("dungeon graph " + choice.path + " ends in no mesh");
         }
         this.mesh = dungeon.mesh();
         runtime.upload(mesh);
         frameMesh(mesh);
-        updateCurrentChoice();
 
         player = null;
         GraphNodeContext mesher = run.root.children.get(run.root.children.size() - 1);

@@ -88,7 +88,7 @@ public class CollectionCommand extends TerminalCommand {
      */
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
-        if (!(terminal.scene instanceof ModelScene scene) || scene.modelCollection == null) {
+        if (!(terminal.scene instanceof ModelScene scene) || !scene.modelCollection.hasManifest()) {
             terminal.error("no collection is open; run the scene with -Dixdar.model=<directory>");
             return null;
         }
@@ -121,7 +121,7 @@ public class CollectionCommand extends TerminalCommand {
             boolean keep = collection.memberKeep[member];
             String settings = ModelCollection.settingsSummary(collection.memberSettings[member]);
             String row = (member == current ? "> " : "  ")
-                    + (keep ? "[x] " : "[ ] ") + collection.memberNames[member]
+                    + (keep ? "[x] " : "[ ] ") + collection.members[member].displayName
                     + "  " + collection.countSummary(member)
                     + (settings.isEmpty() ? "" : "  " + settings);
             terminal.history.addLine(row, keep ? Color.GREEN_TEAL_LIGHT : Color.GREY_DARK);
@@ -145,7 +145,7 @@ public class CollectionCommand extends TerminalCommand {
         if (collection.memberKeep[member] != keep) {
             scene.toggleKeepCurrentMember();
         }
-        terminal.history.addLine(collection.memberNames[member]
+        terminal.history.addLine(collection.members[member].displayName
                 + (collection.memberKeep[member] ? " kept" : " rejected"), Color.TEAL_DARK);
     }
 }

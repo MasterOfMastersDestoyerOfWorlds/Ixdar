@@ -40,14 +40,14 @@ public final class SceneCollectionMenu {
     }
 
     /**
-     * Append the section's rows to a menu box under construction. Nothing is appended when no
-     * collection is open, so a scene pointed at a single mesh sees the menu it always had.
+     * Append the section's rows to a menu box under construction. Nothing is appended for a model
+     * opened alone, so a scene pointed at a single mesh sees the menu it always had.
      *
      * @param box scroll box whose rows are being built this frame
      */
     public void append(MenuScrollBox box) {
         ModelCollection collection = scene.modelCollection;
-        if (collection == null) {
+        if (!collection.hasManifest()) {
             return;
         }
         box.addRow(COLLECTION_HEADER + " " + collection.name, Color.YELLOW_ORANGE, null);
@@ -65,7 +65,7 @@ public final class SceneCollectionMenu {
             boolean keep = collection.memberKeep[member];
             String row = (isCurrent ? CURRENT_MARKER : OTHER_MARKER)
                     + (keep ? KEPT_MARKER : REJECTED_MARKER)
-                    + collection.memberNames[member] + "  " + collection.countSummary(member);
+                    + collection.members[member].displayName + "  " + collection.countSummary(member);
             String settings = ModelCollection.settingsSummary(collection.memberSettings[member]);
             if (shared.isEmpty() && !settings.isEmpty()) {
                 row = row + "  " + settings;

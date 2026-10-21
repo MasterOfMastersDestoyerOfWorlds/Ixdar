@@ -84,11 +84,12 @@ public class SetCommand extends TerminalCommand {
             terminal.error("no model scene is active");
             return null;
         }
+        Map<String, Object> overrides = scene.modelCollection.overrides;
         if (startIdx >= args.length) {
-            for (Map.Entry<String, Object> override : scene.overrides.entrySet()) {
+            for (Map.Entry<String, Object> override : overrides.entrySet()) {
                 terminal.history.addLine(override.getKey() + "=" + override.getValue(), Color.TEAL_DARK);
             }
-            if (scene.overrides.isEmpty()) {
+            if (overrides.isEmpty()) {
                 terminal.history.addLine("no overrides", Color.TEAL_DARK);
             }
             return null;
@@ -109,7 +110,7 @@ public class SetCommand extends TerminalCommand {
             }
         }
         if (scene.currentModel() != null) {
-            scene.requestModelLoad(scene.currentModel().path);
+            scene.requestModelLoad(scene.currentModel());
             terminal.history.addLine("rerunning " + scene.currentModel().displayName,
                     Color.TEAL_DARK);
         }

@@ -15,7 +15,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
-import ixdar.models.GraphChoice;
+import ixdar.models.ModelChoice;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
@@ -79,28 +79,28 @@ public class EmbeddedTMeshScene extends ModelScene {
      */
     public EmbeddedTMeshScene() {
         super();
-        registerGraph(new GraphChoice("Fan collapse",
-                "dsl/fixtures/fan_collapse.dsl", Map.of()));
-        registerGraph(new GraphChoice("Sliver pinch",
-                "dsl/fixtures/sliver_pinch.dsl", Map.of()));
-        registerGraph(new GraphChoice("Merged-cell slot",
-                "dsl/fixtures/merged_cell_slot.dsl", Map.of()));
-        registerGraph(new GraphChoice("Pinched cover",
-                "dsl/fixtures/pinched_cover.dsl", Map.of()));
-        registerGraph(new GraphChoice("Twin cell",
-                "dsl/fixtures/twin_cell.dsl", Map.of()));
-        registerGraph(new GraphChoice("Loop collapse",
-                "dsl/fixtures/loop_collapse.dsl", Map.of()));
-        registerGraph(new GraphChoice("Torus layout",
-                "dsl/fixtures/torus_layout.dsl", Map.of()));
-        registerGraph(new GraphChoice("Stacked zero row torus",
-                "dsl/fixtures/stacked_zero_row_torus.dsl", Map.of()));
-        registerGraph(new GraphChoice("Scaled torus x" + DENSE_FIXTURE_SCALE,
-                "dsl/fixtures/scaled_torus.dsl", Map.of(
+        registerGraph(new ModelChoice("Fan collapse",
+                "dsl/fixtures/fan_collapse.dsl", ModelChoice.Kind.DSL));
+        registerGraph(new ModelChoice("Sliver pinch",
+                "dsl/fixtures/sliver_pinch.dsl", ModelChoice.Kind.DSL));
+        registerGraph(new ModelChoice("Merged-cell slot",
+                "dsl/fixtures/merged_cell_slot.dsl", ModelChoice.Kind.DSL));
+        registerGraph(new ModelChoice("Pinched cover",
+                "dsl/fixtures/pinched_cover.dsl", ModelChoice.Kind.DSL));
+        registerGraph(new ModelChoice("Twin cell",
+                "dsl/fixtures/twin_cell.dsl", ModelChoice.Kind.DSL));
+        registerGraph(new ModelChoice("Loop collapse",
+                "dsl/fixtures/loop_collapse.dsl", ModelChoice.Kind.DSL));
+        registerGraph(new ModelChoice("Torus layout",
+                "dsl/fixtures/torus_layout.dsl", ModelChoice.Kind.DSL));
+        registerGraph(new ModelChoice("Stacked zero row torus",
+                "dsl/fixtures/stacked_zero_row_torus.dsl", ModelChoice.Kind.DSL));
+        registerGraph(new ModelChoice("Scaled torus x" + DENSE_FIXTURE_SCALE,
+                "dsl/fixtures/scaled_torus.dsl", ModelChoice.Kind.DSL, null, Map.of(
                         "carrier.major_segments", 12 * DENSE_FIXTURE_SCALE,
                         "carrier.minor_segments", 8 * DENSE_FIXTURE_SCALE)));
-        registerGraph(new GraphChoice("Plane layout",
-                "dsl/fixtures/plane_layout.dsl", Map.of()));
+        registerGraph(new ModelChoice("Plane layout",
+                "dsl/fixtures/plane_layout.dsl", ModelChoice.Kind.DSL));
     }
 
     @Override
@@ -145,13 +145,12 @@ public class EmbeddedTMeshScene extends ModelScene {
      * @return the executed runtime
      */
     @Override
-    public NodeGraphRuntime loadGraph(GraphChoice choice) {
+    public NodeGraphRuntime loadGraph(ModelChoice choice) {
         NodeGraphRuntime run = super.loadGraph(choice);
         tmesh = (ArcNetwork) run.lastOutput("net");
         halfEdgeMesh = tmesh.topology.copy;
         runtime.upload(halfEdgeMesh);
         frameLoadedModel();
-        updateCurrentChoice();
         contraction = new NetworkContraction(tmesh);
         contractOpsSinceLoad = 0;
         quadRuntime.setEmbeddedTMesh(tmesh);
@@ -224,7 +223,7 @@ public class EmbeddedTMeshScene extends ModelScene {
         }
         if (pendingReset) {
             pendingReset = false;
-            requestModelLoad(currentModel().path);
+            requestModelLoad(currentModel());
         }
         if (pendingRewind) {
             pendingRewind = false;
@@ -413,7 +412,7 @@ public class EmbeddedTMeshScene extends ModelScene {
         }
         boolean reloaded = preserveOrbit(() -> {
             try {
-                loadModelOrGraph(currentModel().path);
+                loadModelOrGraph(currentModel());
                 return true;
             } catch (IOException failure) {
                 Platforms.get().log("[rewind] reload failed: " + failure.getMessage());

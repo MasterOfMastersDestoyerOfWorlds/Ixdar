@@ -81,8 +81,8 @@ public class MotorcycleGraphExaminationScene extends ModelScene {
         quadRuntime.showNodes = true;
         quadRuntime.showCrossField = false;
         quadRuntime.showFullIsoGrid = false;
-        float alphaDegrees = overrides.get(QuadLayoutNode.ALPHA_DEGREES_OVERRIDE) instanceof Number alpha
-                ? alpha.floatValue() : MotorcycleGraph.DEFAULT_ALPHA_DEGREES;
+        float alphaDegrees = modelCollection.overrides.get(QuadLayoutNode.ALPHA_DEGREES_OVERRIDE)
+                instanceof Number alpha ? alpha.floatValue() : MotorcycleGraph.DEFAULT_ALPHA_DEGREES;
         String hudLine = String.format("[mcg-exam] α=%.0f° traces=%d arcs=%d nodes=%d",
                 alphaDegrees, motorcycle.traces.size(), motorcycle.arcs.size(),
                 motorcycle.nodes.size());

@@ -1345,6 +1345,21 @@ class CliTest(unittest.TestCase):
             rescanned = collection_manifest.scan_directory(directory)
             self.assertFalse(rescanned["members"][1]["keep"])
 
+    def test_collection_manifest_lists_a_dsl_graph_as_a_member(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with open(os.path.join(directory, "alpha.gltf"), "w", encoding="utf-8") as handle:
+                handle.write("{}")
+            with open(os.path.join(directory, "bravo.dsl"), "w", encoding="utf-8") as handle:
+                handle.write("carrier = torus()\n")
+            collection_manifest.set_keep(directory, "bravo", False)
+            rescanned = collection_manifest.scan_directory(directory)
+            self.assertEqual(["alpha", "bravo"],
+                             [member["name"] for member in rescanned["members"]],
+                             "the graph is a member and the collection.dsl beside it is not")
+            self.assertEqual([True, False], [member["keep"] for member in rescanned["members"]])
+            reloaded = collection_manifest.read_manifest(rescanned["manifest"])
+            self.assertEqual(os.path.join(directory, "bravo.dsl"), reloaded["members"][1]["path"])
+
     def test_collection_manifest_rewrite_is_byte_stable(self):
         with tempfile.TemporaryDirectory() as directory:
             for stem in ("alpha", "bravo"):

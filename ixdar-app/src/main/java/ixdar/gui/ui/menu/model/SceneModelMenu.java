@@ -142,7 +142,7 @@ public final class SceneModelMenu implements PointerRegion {
         modelsBox.clearRows();
         int currentModelRow = -1;
         collectionSection.append(modelsBox);
-        if (scene.modelCollection == null) {
+        if (!scene.modelCollection.hasManifest()) {
             ModelChoice current = scene.currentModel();
             String currentPath = current == null ? null : current.path;
             List<ModelChoice> choices = scene.availableModels();
@@ -154,7 +154,7 @@ public final class SceneModelMenu implements PointerRegion {
                 int row = modelsBox.addRow(
                         (isCurrent ? CURRENT_MARKER : OTHER_MARKER) + choice.displayName,
                         isCurrent ? Color.GREEN_TEAL_LIGHT : Color.TEAL_DARK,
-                        () -> scene.requestModelLoad(choice.path));
+                        () -> scene.requestModelLoad(choice));
                 if (isCurrent) {
                     currentModelRow = row;
                 }
@@ -177,7 +177,7 @@ public final class SceneModelMenu implements PointerRegion {
         betweenBoxes.addWordClick(RECOMPUTE_LABEL, Color.TEAL_BLUE_LIGHT, () -> {
             ModelChoice reload = scene.currentModel();
             if (reload != null) {
-                scene.requestModelLoad(reload.path);
+                scene.requestModelLoad(reload);
             }
         });
         betweenBoxes.newLine();

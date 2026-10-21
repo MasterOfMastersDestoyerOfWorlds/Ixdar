@@ -471,7 +471,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             root.add("errorToasts", toastRows);
         }
 
-        if (runtime.canvas instanceof ModelScene modelScene && modelScene.modelCollection != null) {
+        if (runtime.canvas instanceof ModelScene modelScene
+                && modelScene.modelCollection.hasManifest()) {
             ModelCollection modelCollection = modelScene.modelCollection;
             JsonObject collection = new JsonObject();
             collection.addProperty(NAME, modelCollection.name);
@@ -482,12 +483,13 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             collection.addProperty("memberIndex", modelCollection.index());
             int currentMember = modelCollection.index();
             collection.addProperty("member",
-                    currentMember < 0 ? "" : modelCollection.memberNames[currentMember]);
+                    currentMember < 0 ? "" : modelCollection.members[currentMember].displayName);
             JsonArray collectionMembers = new JsonArray();
             for (int member = 0; member < modelCollection.memberCount(); member++) {
                 JsonObject memberJson = new JsonObject();
-                memberJson.addProperty(NAME, modelCollection.memberNames[member]);
-                memberJson.addProperty("path", modelCollection.memberPaths[member]);
+                memberJson.addProperty(NAME, modelCollection.members[member].displayName);
+                memberJson.addProperty("path", modelCollection.members[member].path);
+                memberJson.addProperty("kind", modelCollection.members[member].kind.name());
                 memberJson.addProperty("keep", modelCollection.memberKeep[member]);
                 memberJson.addProperty(VERTEXCOUNT, modelCollection.memberVertexCount[member]);
                 memberJson.addProperty("triangleCount",

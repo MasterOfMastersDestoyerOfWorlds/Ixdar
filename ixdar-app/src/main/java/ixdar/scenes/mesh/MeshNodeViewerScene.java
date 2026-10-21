@@ -82,10 +82,6 @@ public class MeshNodeViewerScene extends ModelScene {
     /** File the last graph was read from, which is also the file an edit is written back into. */
     private String loadedDslFile;
 
-    // VIEW-7: catalog + per-mesh decomposition cache + overlay state
-    private String currentModelKey;
-    private String currentModelDisplayName = "(initial)";
-
     private SemanticPatchDecomposer.DecompositionDiagnostics cachedDiagnostics;
     private boolean patchOverlayEnabled = false;
     private HalfEdgeMeshRuntime.ShaderMode shaderMode = HalfEdgeMeshRuntime.ShaderMode.LAMBERT;
@@ -130,7 +126,8 @@ public class MeshNodeViewerScene extends ModelScene {
      */
     private void logState() {
         StringBuilder sb = new StringBuilder("[mesh-viewer] STATE ");
-        sb.append("model=").append(currentModelDisplayName);
+        ModelChoice current = currentModel();
+        sb.append("model=").append(current == null ? "(initial)" : current.displayName);
         sb.append(PATCHES).append(patchOverlayEnabled ? ON : OFF);
         sb.append("  shader=").append(shaderMode.name());
         sb.append("  texture=").append(hasTexturedDraw() ? ON : OFF);
@@ -146,13 +143,13 @@ public class MeshNodeViewerScene extends ModelScene {
             sb.append("  [").append(modelCatalog.index() + 1)
                     .append('/').append(modelCatalog.choices.size()).append(']');
         }
-        if (modelCollection != null) {
+        if (modelCollection.hasManifest()) {
             sb.append("  collection=").append(modelCollection.name)
                     .append(" kept=").append(modelCollection.keptCount())
                     .append('/').append(modelCollection.memberCount());
             int member = currentMemberIndex();
             if (member >= 0) {
-                sb.append("  member=").append(modelCollection.memberNames[member])
+                sb.append("  member=").append(modelCollection.members[member].displayName)
                         .append(modelCollection.memberKeep[member] ? " KEEP" : " REJECT");
             }
         }
@@ -199,8 +196,7 @@ public class MeshNodeViewerScene extends ModelScene {
         ModelChoice launched = dslResource == null ? null : modelCatalog.select(
                 modelCatalog.indexOfFile(ModelCatalog.packagedGraph(dslResource).path));
         if (launched != null) {
-            currentModelKey = launched.path;
-            currentModelDisplayName = launched.displayName;
+            modelCollection = modelCollection.open(launched);
         }
         int catalogSize = modelCatalog.choices.size();
         Platforms.get().log(
@@ -332,19 +328,15 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Load a requested switch through the catalog entry whose path it names, which is how
-     * this viewer loads DSL graphs, mesh files and collections alike.
+     * Load a requested switch through {@link #loadModelEntry}, which is how this viewer loads DSL
+     * graphs, mesh files and collections alike, moving the catalog cursor onto it when listed.
      *
-     * @param path catalog path of the requested model
-     * @throws IOException when the catalog has no entry for {@code path}
+     * @param choice the requested model
      */
     @Override
-    public void loadModelOrGraph(String path) throws IOException {
-        int index = modelCatalog == null ? -1 : modelCatalog.indexOfPath(path);
-        if (index < 0) {
-            throw new IOException("no catalog entry for " + path);
-        }
-        loadModelEntry(modelCatalog.select(index));
+    public void loadModelOrGraph(ModelChoice choice) {
+        modelCatalog.select(modelCatalog.indexOfPath(choice.path));
+        loadModelEntry(choice);
     }
 
     /**
@@ -871,19 +863,18 @@ public class MeshNodeViewerScene extends ModelScene {
      * The graph a model runs: a {@code .dsl} model is its own graph; a mesh file runs none, so an
      * override is checked against the graph that ran last.
      *
-     * @param modelPath catalog path of the model, or {@code null} for the current one
+     * @param model the model, or {@code null} for the current one
      * @throws IllegalArgumentException when the model runs no graph or its file cannot be read
      * @return the parsed graph, not executed
      */
     @Override
-    public NodeGraphRuntime graphFor(String modelPath) {
-        String path = modelPath != null ? modelPath : currentModelKey;
-        if (path != null && path.endsWith(DSL)) {
+    public NodeGraphRuntime graphFor(ModelChoice model) {
+        ModelChoice choice = model != null ? model : currentModel();
+        if (choice != null && choice.kind == ModelChoice.Kind.DSL) {
             try {
-                return NodeGraphRuntime.fromSource(
-                        new ModelChoice(path, path, ModelChoice.Kind.DSL).readSource());
+                return NodeGraphRuntime.fromSource(choice.readSource());
             } catch (IOException unreadable) {
-                throw new IllegalArgumentException("cannot read graph " + path, unreadable);
+                throw new IllegalArgumentException("cannot read graph " + choice.path, unreadable);
             }
         }
         if (graph != null) {
@@ -915,17 +906,6 @@ public class MeshNodeViewerScene extends ModelScene {
         }
         loadedDslFile = null;
         graph.loadPackagedSource(onLoaded);
-    }
-
-    // ==================== VIEW-7 model switching + patch overlay
-    // ====================
-
-    @Override
-    public ModelChoice currentModel() {
-        if (currentModelKey == null || currentModelKey.isEmpty()) {
-            return null;
-        }
-        return new ModelChoice(currentModelDisplayName, currentModelKey);
     }
 
     @Override
@@ -977,8 +957,7 @@ public class MeshNodeViewerScene extends ModelScene {
         // Invalidate any cached decomposition — the mesh is changing.
         cachedDiagnostics = null;
         patchOverlayEnabled = false;
-        currentModelKey = entry.path;
-        currentModelDisplayName = entry.displayName;
+        modelCollection = modelCollection.open(entry);
         Platforms.get().log("[mesh-viewer] loading " + entry.displayName);
         preserveOrbit(() -> {
             switch (entry.kind) {
@@ -1004,6 +983,7 @@ public class MeshNodeViewerScene extends ModelScene {
             uploadGraphOutput(executeViewerGraph(dslCode, DEFAULT_DSL_FINAL_NODE,
                     DEFAULT_DSL_FINAL_PORT));
             if (mesh != null) {
+                noteMemberLoaded(absolutePath, mesh.vertexCount(), mesh.faceCount());
                 Platforms.get().log("[mesh-viewer] dsl loaded: " + file + VERTS + mesh.vertexCount()
                         + FACES + mesh.faceCount());
             }
@@ -1015,8 +995,8 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Executes a viewer graph with the scene's overrides as the scene's {@link #graph}, logs its
-     * timing, and returns the value on the chosen output.
+     * Executes a viewer graph as the scene's {@link #graph} with the overrides the collection gives
+     * the current model, logs its timing, and returns the value on the chosen output.
      *
      * @param dslCode   graph source
      * @param finalNode id of the node whose output is shown, or empty for the last statement
@@ -1029,7 +1009,9 @@ public class MeshNodeViewerScene extends ModelScene {
         NodeGraphRuntime run = NodeGraphRuntime.fromSource(dslCode);
         graph = run;
         String resolvedNode = finalNode != null && !finalNode.isEmpty() ? finalNode : run.lastId();
-        Object result = run.executeGraphResult(resolvedNode, finalPort, overrides);
+        ModelChoice current = currentModel();
+        Object result = run.executeGraphResult(resolvedNode, finalPort, current == null
+                ? modelCollection.overrides : modelCollection.overridesFor(current));
         run.logTimings(TIMING_PREFIX);
         return result;
     }
@@ -1043,10 +1025,8 @@ public class MeshNodeViewerScene extends ModelScene {
      */
     private void loadMeshFileFromAbsolutePath(String absolutePath) {
         try {
-            boolean cached = modelCollection != null && modelCollection.isBundleCached(absolutePath);
-            GeometryBundle bundle = modelCollection == null
-                    ? MeshLoader.loadBundle(absolutePath)
-                    : modelCollection.loadBundle(absolutePath);
+            boolean cached = modelCollection.isBundleCached(absolutePath);
+            GeometryBundle bundle = modelCollection.loadBundle(absolutePath);
             disposeMeshRuntime();
             meshBundle = bundle;
             mesh = bundle.mesh();

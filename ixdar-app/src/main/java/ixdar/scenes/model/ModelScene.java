@@ -3,9 +3,7 @@ package ixdar.scenes.model;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.BooleanSupplier;
 
 import org.joml.Vector3f;
@@ -24,12 +22,12 @@ import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.menu.model.SceneModelMenu;
 import ixdar.models.CollectionManifest;
-import ixdar.models.GraphChoice;
 import ixdar.models.ModelCatalog;
 import ixdar.models.ModelChoice;
 import ixdar.models.ModelCollection;
 import ixdar.models.ModelLoadLedger;
 import ixdar.platform.Platforms;
+import ixdar.platform.json.JsonValue;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
 import ixdar.tools.ControlHint;
@@ -40,7 +38,7 @@ import ixdar.tools.orbit.OrbitTool;
 /**
  * Base for scenes that view a switchable model: owns the ESC model dropdown,
  * the shared orbit input, and the load-a-model plumbing, with {@code initGL}
- * built from overridable hooks. {@link #requestModelLoad(String)} only records
+ * built from overridable hooks. {@link #requestModelLoad(ModelChoice)} only records
  * the switch — {@link #applyPendingModel} applies it on the render thread,
  * never in the key/mouse callback.
  */
@@ -49,8 +47,6 @@ public abstract class ModelScene extends Scene {
     public static final String COMMON_MODEL_PROPERTY = "ixdar.model";
 
     public static final String DEFAULT_OFF = "test/resources/quadlayout/figure_8/botijo_in_tri.off";
-
-    public static final String GRAPH_PREFIX = "graph:";
 
     public static final String VIEW_SCENE_MENU = "SCENE_MENU";
 
@@ -75,13 +71,17 @@ public abstract class ModelScene extends Scene {
     /** Model menu of this scene's models. */
     public SceneModelMenu sceneModelMenu;
 
-    /** Authored graphs registered for the model menu, in registration order. */
-    public final List<GraphChoice> graphs = new ArrayList<>();
+    /** Authored graphs registered for the model menu, each of kind DSL, in registration order. */
+    public final List<ModelChoice> graphs = new ArrayList<>();
 
     public ModelCatalog modelCatalog;
 
-    /** Open collection when the scene was pointed at a directory of scans, else {@code null}. */
-    public ModelCollection modelCollection;
+    /**
+     * The models the scene has open and the overrides it runs them with: a directory of scans, or
+     * the requested model opened alone; empty before the first request.
+     */
+    public ModelCollection modelCollection = new ModelCollection("", null, null,
+            new ModelChoice[0], new JsonValue[0]);
 
     public String offPath;
 
@@ -96,10 +96,9 @@ public abstract class ModelScene extends Scene {
     public DslGraphView graphTool;
 
     /**
-     * Model path requested by the model menu or {@code model} command, applied on the
-     * render thread.
+     * Model requested by the model menu or {@code model} command, applied on the render thread.
      */
-    public volatile String pendingModelPath;
+    public volatile ModelChoice pendingModel;
 
     /** Serial and outcome of every requested model switch, read by automation waiting on one. */
     public final ModelLoadLedger modelLoads = new ModelLoadLedger();
@@ -109,13 +108,6 @@ public abstract class ModelScene extends Scene {
      * node-inspect and the timing route read; {@code null} before any graph ran.
      */
     public NodeGraphRuntime graph;
-
-    /**
-     * Overrides by path ({@code layout/field.curvature_bias}) the scene applies to every graph it
-     * runs; they survive model switches and are set through {@code ixdar-cli model --set} or the
-     * terminal's {@code set}.
-     */
-    public final Map<String, Object> overrides = new LinkedHashMap<>();
 
     /** Center of the loaded mesh, used as the orbit target. */
     public final Vector3f meshCenter = new Vector3f();
@@ -132,8 +124,6 @@ public abstract class ModelScene extends Scene {
      * framed rather than viewed from the last model's distance.
      */
     public float framedDistance = CAMERA_DISTANCE_DEFAULT;
-
-    private ModelChoice currentChoice;
 
     /**
      * Host the orbit tool as the default, and the DSL graph tool on ctrl+G, which toggles back to
@@ -182,11 +172,11 @@ public abstract class ModelScene extends Scene {
      */
     public void initModel() {
         runtime = createRuntime();
-        offPath = resolveInitialModel();
+        ModelChoice initial = resolveInitialModel();
         try {
-            loadModelOrGraph(offPath);
+            loadModelOrGraph(initial);
         } catch (Exception ex) {
-            reportFailedLoad(offPath, ex);
+            reportFailedLoad(initial.path, ex);
         }
     }
 
@@ -296,19 +286,17 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Resolve the initial model: {@code -Dixdar.model} (display-name token or path)
-     * through {@link #availableModels()}, registered graphs included, else
-     * {@link #DEFAULT_OFF}. Scenes with a different default override this.
+     * Resolve the initial model: {@code -Dixdar.model} (display-name token or path), else
+     * {@link #DEFAULT_OFF}, through {@link #availableModels()}, registered graphs included; a token
+     * no model matches is a mesh file path. Scenes with a different default override this.
      *
-     * @return the initial model path or {@code graph:} token
+     * @return the initial model
      */
-    public String resolveInitialModel() {
+    public ModelChoice resolveInitialModel() {
         String common = System.getProperty(COMMON_MODEL_PROPERTY);
-        if (common != null && !common.isBlank()) {
-            ModelChoice match = ModelCatalog.resolve(availableModels(), common);
-            return match != null ? match.path : common;
-        }
-        return DEFAULT_OFF;
+        String token = common != null && !common.isBlank() ? common : DEFAULT_OFF;
+        ModelChoice match = ModelCatalog.resolve(availableModels(), token);
+        return match != null ? match : new ModelChoice(token, token);
     }
 
     /**
@@ -331,52 +319,45 @@ public abstract class ModelScene extends Scene {
         halfEdgeMesh.computeNormals();
         runtime.upload(halfEdgeMesh);
         frameLoadedModel();
-        updateCurrentChoice();
     }
 
     /**
-     * Dispatch a loader token: a {@link #GRAPH_PREFIX} token loads the registered graph of
-     * that display name through {@link #loadGraph}, anything else goes through
-     * {@link #loadModel}. A graph token must never enter a scene's file pipeline, which is why
-     * the split happens here and not inside {@code loadModel} overrides.
+     * Open {@code choice} in {@link #modelCollection}, then load it by kind: a graph through
+     * {@link #loadGraph}, a mesh file through {@link #loadModel}. A graph must never enter a scene's
+     * file pipeline, which is why the split happens here and not inside {@code loadModel} overrides.
      *
-     * @param path loader token: a mesh file path or {@code graph:<display name>}
-     * @throws IOException if a mesh file cannot be read or no graph matches the token
+     * @param choice the requested model
+     * @throws IOException if a mesh file cannot be read
      */
-    public void loadModelOrGraph(String path) throws IOException {
-        if (path != null && path.startsWith(GRAPH_PREFIX)) {
-            String displayName = path.substring(GRAPH_PREFIX.length());
-            for (GraphChoice choice : graphs) {
-                if (choice.displayName.equals(displayName)) {
-                    loadGraph(choice);
-                    return;
-                }
-            }
-            throw new IOException("no registered graph named " + displayName);
+    public void loadModelOrGraph(ModelChoice choice) throws IOException {
+        modelCollection = modelCollection.open(choice);
+        if (choice.kind == ModelChoice.Kind.DSL) {
+            loadGraph(choice);
+        } else {
+            loadModel(choice.path);
         }
-        loadModel(path);
     }
 
     /**
-     * Execute a registered graph fresh as {@link #graph}, the scene's overrides replacing the
-     * choice's key by key. Scenes showing its product override this and call it first.
+     * Execute a graph fresh as {@link #graph} with the overrides {@link #modelCollection} gives it:
+     * its own literal ones, then the collection's. Scenes showing its product override this and
+     * call it first.
      *
-     * @param choice registered graph to execute
+     * @param choice graph to execute, a classpath resource or a file
      * @throws IllegalStateException when an override is invalid or a node fails
      * @return the executed runtime, for the override to read outputs from
      */
-    public NodeGraphRuntime loadGraph(GraphChoice choice) {
-        Map<String, Object> merged = new LinkedHashMap<>(choice.overrides);
-        merged.putAll(overrides);
+    public NodeGraphRuntime loadGraph(ModelChoice choice) {
         NodeGraphRuntime run;
         try {
-            run = NodeGraphRuntime.fromResource(choice.dslPath);
+            run = NodeGraphRuntime.fromResource(choice.path);
             graph = run;
-            run.executeGraphResult(run.lastId(), NodeGraphRuntime.RESULT, merged);
+            run.executeGraphResult(run.lastId(), NodeGraphRuntime.RESULT,
+                    modelCollection.overridesFor(choice));
         } catch (Exception failure) {
-            throw new IllegalStateException("graph " + choice.dslPath + " failed", failure);
+            throw new IllegalStateException("graph " + choice.path + " failed", failure);
         }
-        offPath = GRAPH_PREFIX + choice.displayName;
+        offPath = choice.path;
         return run;
     }
 
@@ -391,7 +372,7 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Starts a run of the scene graph over {@link #halfEdgeMesh} with the scene's overrides and
+     * Starts a run of the scene graph over {@link #halfEdgeMesh} with the collection's overrides and
      * makes it {@link #graph}. Nothing evaluates until the scene reads an output through
      * {@link #sceneOutput}, which runs only what that output depends on.
      *
@@ -402,7 +383,7 @@ public abstract class ModelScene extends Scene {
         NodeGraphRuntime run = new NodeGraphRuntime(sceneGraph());
         run.graphInputs.put(SceneModelNode.BINDING, GeometryBundle.ofMesh(halfEdgeMesh));
         graph = run;
-        run.setOverrides(overrides);
+        run.setOverrides(modelCollection.overrides);
         return run;
     }
 
@@ -427,39 +408,35 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Sets, or with a {@code null} value clears, a scene override by path. The key is checked
-     * against the graph the given model runs, so a typo fails here and not on the next load.
+     * Sets, or with a {@code null} value clears, an override on {@link #modelCollection} by path.
+     * The key is checked against the graph the given model runs, so a typo fails here and not on
+     * the next load.
      *
-     * @param key       override key, e.g. {@code layout/field.curvature_bias}
-     * @param value     the port's value, or {@code null} to clear the key
-     * @param modelPath loader token of the model the override is meant for
+     * @param key   override key, e.g. {@code layout/field.curvature_bias}
+     * @param value the port's value, or {@code null} to clear the key
+     * @param model the model the override is meant for, or {@code null} for the current one
      * @throws IllegalArgumentException when the key names no path or port of that graph
      */
-    public void setOverride(String key, Object value, String modelPath) {
+    public void setOverride(String key, Object value, ModelChoice model) {
         if (value == null) {
-            overrides.remove(key);
+            modelCollection.overrides.remove(key);
             return;
         }
-        graphFor(modelPath).validateOverrideKey(key);
-        overrides.put(key, value);
+        graphFor(model).validateOverrideKey(key);
+        modelCollection.overrides.put(key, value);
     }
 
     /**
-     * The parsed graph a model runs: its registered graph for a {@link #GRAPH_PREFIX} token, else
-     * the scene graph.
+     * The parsed graph a model runs: the model itself when it is a graph, else the scene graph.
      *
-     * @param modelPath loader token, or {@code null} for the current model
+     * @param model the model, or {@code null} for the current one
      * @throws IllegalArgumentException when the model runs no graph
      * @return the parsed graph, not executed
      */
-    public NodeGraphRuntime graphFor(String modelPath) {
-        String path = modelPath != null ? modelPath : offPath;
-        if (path != null && path.startsWith(GRAPH_PREFIX)) {
-            for (GraphChoice choice : graphs) {
-                if (path.equals(GRAPH_PREFIX + choice.displayName)) {
-                    return NodeGraphRuntime.fromResource(choice.dslPath);
-                }
-            }
+    public NodeGraphRuntime graphFor(ModelChoice model) {
+        ModelChoice choice = model != null ? model : currentModel();
+        if (choice != null && choice.kind == ModelChoice.Kind.DSL) {
+            return NodeGraphRuntime.fromResource(choice.path);
         }
         if (sceneGraph() != null) {
             return new NodeGraphRuntime(sceneGraph());
@@ -480,9 +457,10 @@ public abstract class ModelScene extends Scene {
      * @return the new value
      */
     public float stepOverride(String key, float delta, float floor, float fallback) {
-        float current = overrides.get(key) instanceof Number number ? number.floatValue() : fallback;
+        float current = modelCollection.overrides.get(key) instanceof Number number
+                ? number.floatValue() : fallback;
         float next = Math.max(floor, current + delta);
-        overrides.put(key, next);
+        modelCollection.overrides.put(key, next);
         return next;
     }
 
@@ -509,9 +487,9 @@ public abstract class ModelScene extends Scene {
      * Registers an authored graph for the model menu; subclasses call this from their
      * constructor the way they add {@code ControlHint} rows.
      *
-     * @param choice graph to list and load by display name
+     * @param choice graph of kind DSL, with the literal overrides it runs with, to list and load
      */
-    public void registerGraph(GraphChoice choice) {
+    public void registerGraph(ModelChoice choice) {
         graphs.add(choice);
     }
 
@@ -605,20 +583,20 @@ public abstract class ModelScene extends Scene {
      * failure rather than propagating it, and record the outcome in {@link #modelLoads}.
      */
     public void applyPendingModel() {
-        if (pendingModelPath == null) {
+        if (pendingModel == null) {
             return;
         }
-        String path = pendingModelPath;
+        ModelChoice choice = pendingModel;
         int serial = modelLoads.requestedSerial;
-        pendingModelPath = null;
+        pendingModel = null;
         long started = System.nanoTime();
         Exception failure = null;
         try {
-            loadModelOrGraph(path);
-            Platforms.get().log(" loaded " + path);
+            loadModelOrGraph(choice);
+            Platforms.get().log(" loaded " + choice.path);
         } catch (Exception ex) {
             failure = ex;
-            reportFailedLoad(path, ex);
+            reportFailedLoad(choice.path, ex);
         }
         modelLoads.finish(serial, failure, started);
     }
@@ -644,22 +622,6 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Match {@link #offPath} against the models list, graphs included, to set the highlighted
-     * current model. Scenes that track the current model differently override
-     * {@link #currentModel()} instead.
-     */
-    public void updateCurrentChoice() {
-        currentChoice = null;
-        for (ModelChoice choice : availableModels()) {
-            if (choice.path.equals(offPath)) {
-                currentChoice = choice;
-                return;
-            }
-        }
-        currentChoice = new ModelChoice(offPath, offPath);
-    }
-
-    /**
      * Models this scene can switch between, in display order: the catalog's files followed by
      * the registered graphs.
      *
@@ -667,31 +629,27 @@ public abstract class ModelScene extends Scene {
      */
     public List<ModelChoice> availableModels() {
         List<ModelChoice> choices = new ArrayList<>(modelCatalog.choices);
-        for (GraphChoice choice : graphs) {
-            choices.add(new ModelChoice(choice.displayName,
-                    GRAPH_PREFIX + choice.displayName));
-        }
+        choices.addAll(graphs);
         return choices;
     }
 
     /**
-     * The model currently loaded.
+     * The model the scene last opened: the member under {@link #modelCollection}'s cursor.
      *
-     * @return the current choice, or {@code null} if none is loaded
+     * @return the current choice, or {@code null} before the first load
      */
     public ModelChoice currentModel() {
-        return currentChoice;
+        return modelCollection.current();
     }
 
     /**
-     * Request that the scene load {@code path} and recompute, applied on the next
+     * Request that the scene load {@code choice} and recompute, applied on the next
      * frame. Render thread only; the switch's serial is {@link ModelLoadLedger#requestedSerial}.
      *
-     * @param path loader argument (see {@link ModelChoice#path}) of the model to
-     *             load
+     * @param choice the model to load
      */
-    public void requestModelLoad(String path) {
-        pendingModelPath = path;
+    public void requestModelLoad(ModelChoice choice) {
+        pendingModel = choice;
         modelLoads.request();
     }
 
@@ -705,19 +663,20 @@ public abstract class ModelScene extends Scene {
     public ModelChoice requestModel(String token) {
         ModelChoice match = ModelCatalog.resolve(availableModels(), token);
         if (match != null) {
-            requestModelLoad(match.path);
+            requestModelLoad(match);
         }
         return match;
     }
 
     /**
-     * Open a directory of scans as the scene's collection: its members replace the model catalog
-     * and its manifest is (re)written, so membership is recorded before anything is merged.
+     * Open a directory of scans as the scene's collection, the overrides carried over: its members
+     * replace the model catalog and its manifest is (re)written, so membership is recorded before
+     * anything is merged.
      *
      * @param directory choice naming the directory of scans
      */
     public void openCollection(ModelChoice directory) {
-        modelCollection = directory.openCollection();
+        modelCollection = modelCollection.open(directory);
         modelCatalog = ModelCatalog.ofCollection(modelCollection);
         writeCollectionManifest();
     }
@@ -727,7 +686,7 @@ public abstract class ModelScene extends Scene {
      * than thrown: a read-only scan directory must not take the scene down mid-frame.
      */
     public void writeCollectionManifest() {
-        if (modelCollection == null) {
+        if (!modelCollection.hasManifest()) {
             return;
         }
         try {
@@ -741,10 +700,11 @@ public abstract class ModelScene extends Scene {
     /**
      * The collection member under the cursor.
      *
-     * @return the current member index, or {@code -1} when no collection is open or it is empty
+     * @return the current member index, or {@code -1} when no collection of scans is open or it is
+     *     empty
      */
     public int currentMemberIndex() {
-        return modelCollection == null ? -1 : modelCollection.index();
+        return modelCollection.hasManifest() ? modelCollection.index() : -1;
     }
 
     /**
@@ -756,9 +716,6 @@ public abstract class ModelScene extends Scene {
      * @param triangleCount triangles of the parsed mesh
      */
     public void noteMemberLoaded(String memberPath, int vertexCount, int triangleCount) {
-        if (modelCollection == null) {
-            return;
-        }
         int member = modelCollection.selectPath(memberPath);
         if (member >= 0) {
             modelCollection.memberVertexCount[member] = vertexCount;
@@ -770,14 +727,14 @@ public abstract class ModelScene extends Scene {
      * Step the collection cursor forward and request that member.
      */
     public void nextMember() {
-        loadMember(modelCollection == null ? -1 : modelCollection.next());
+        loadMember(modelCollection.next());
     }
 
     /**
      * Step the collection cursor back and request that member.
      */
     public void prevMember() {
-        loadMember(modelCollection == null ? -1 : modelCollection.prev());
+        loadMember(modelCollection.prev());
     }
 
     /**
@@ -790,7 +747,7 @@ public abstract class ModelScene extends Scene {
         }
         modelCollection.memberKeep[member] = !modelCollection.memberKeep[member];
         writeCollectionManifest();
-        Platforms.get().log(" " + modelCollection.memberNames[member]
+        Platforms.get().log(" " + modelCollection.members[member].displayName
                 + (modelCollection.memberKeep[member] ? " kept" : " rejected"));
     }
 
@@ -800,8 +757,8 @@ public abstract class ModelScene extends Scene {
      * @param member member index to load, or {@code -1} to do nothing
      */
     public void loadMember(int member) {
-        if (member >= 0 && modelCollection != null) {
-            requestModelLoad(modelCollection.memberPaths[member]);
+        if (member >= 0) {
+            requestModelLoad(modelCollection.members[member]);
         }
     }
 

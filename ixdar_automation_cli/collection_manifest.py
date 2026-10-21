@@ -1,9 +1,10 @@
 """Read and write a model collection's ``collection.dsl``.
 
-A collection is a directory of scans treated as one group: every mesh file directly inside it is a
-member named by its file stem, and the manifest beside them records membership plus a keep/reject
-decision per member. The format is the mesh DSL, one ``input_boolean`` keep flag and one
-``load_mesh`` per member, both groups sorted by member name — the same bytes Java's
+A collection is a directory of scans treated as one group: every mesh file and ``.dsl`` graph
+directly inside it (the manifest aside) is a member named by its file stem, and the manifest beside
+them records membership plus a keep/reject decision per member. The format is the mesh DSL, one
+``input_boolean`` keep flag and one ``load_mesh`` naming each member's file, both groups sorted by
+member name — the same bytes Java's
 ``CollectionManifest`` writes, so the CLI and the scene can hand the file back and forth.
 
 The ``*.settings.json`` sidecars beside the scans are Trellis metadata: read here, never written.
@@ -15,6 +16,8 @@ import os
 from .mesh_catalog import MESH_EXTENSIONS, MODEL_DIR_VARIABLE
 
 MANIFEST_NAME = "collection.dsl"
+
+DSL_EXTENSION = ".dsl"
 
 MANIFEST_FALLBACK_DIR = "collections"
 
@@ -221,7 +224,8 @@ def scan_directory(directory: str) -> dict:
     for filename in sorted(os.listdir(absolute)):
         path = os.path.join(absolute, filename)
         stem, extension = os.path.splitext(filename)
-        if not os.path.isfile(path) or extension.lower() not in MESH_EXTENSIONS:
+        is_graph = extension == DSL_EXTENSION and filename != MANIFEST_NAME
+        if not os.path.isfile(path) or not (extension.lower() in MESH_EXTENSIONS or is_graph):
             continue
         members.append({
             "name": stem,

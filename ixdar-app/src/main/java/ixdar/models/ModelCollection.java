@@ -14,9 +14,8 @@ import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.platform.json.JsonValue;
 
 /**
- * A directory of scans treated as one named group: its members held as parallel arrays sorted by
- * name, a cursor for browsing them, the {@code collection.dsl} manifest recording membership and
- * keep/reject, and a bounded cache of the members parsed so far.
+ * The models a scene has open and the overrides it runs them with: a directory of scans with its
+ * {@code collection.dsl} manifest, or one model opened alone. Members are parallel arrays.
  */
 public final class ModelCollection {
 
@@ -30,20 +29,17 @@ public final class ModelCollection {
 
     public static final String UNKNOWN_COUNT = "?";
 
-    /** Collection name: the scanned directory's own name. */
+    /** Collection name: the scanned directory's own name, or the lone model's display name. */
     public final String name;
 
-    /** Directory the members were scanned from. */
+    /** Directory the members were scanned from, {@code null} for a model opened alone. */
     public final Path directory;
 
-    /** Where {@link CollectionManifest} reads and writes this collection's manifest. */
+    /** Where {@link CollectionManifest} keeps the manifest, {@code null} for a model opened alone. */
     public final Path manifestPath;
 
-    /** Member names, the mesh files' stems, sorted; the index into every other member array. */
-    public final String[] memberNames;
-
-    /** Absolute mesh path per member. */
-    public final String[] memberPaths;
+    /** The members, sorted by display name (a scan's file stem); the index into every array. */
+    public final ModelChoice[] members;
 
     /** Parsed {@code *.settings.json} sidecar per member, {@code null} when there is none. */
     public final JsonValue[] memberSettings;
@@ -64,34 +60,70 @@ public final class ModelCollection {
      */
     public final Map<String, GeometryBundle> parsedBundles = new LinkedHashMap<>();
 
+    /**
+     * Overrides by path ({@code layout/field.curvature_bias}) applied to every graph the scene runs
+     * over these members; {@link #open} carries them to the next collection, so they survive model
+     * switches and can be set before the first run.
+     */
+    public final Map<String, Object> overrides = new LinkedHashMap<>();
+
     private int index;
 
     /**
-     * Bind a scanned directory to its members and manifest location.
+     * Bind members to their collection and manifest location.
      *
      * @param name collection name, normally the directory's own name
-     * @param directory directory the members were scanned from
-     * @param manifestPath file the manifest is read from and written to
-     * @param memberNames member names in sorted order
-     * @param memberPaths absolute mesh path of each member, in the same order
+     * @param directory directory the members were scanned from, {@code null} for none
+     * @param manifestPath file the manifest is read from and written to, {@code null} for none
+     * @param members members in sorted order
      * @param memberSettings parsed sidecar of each member, {@code null} entries where absent
      */
-    public ModelCollection(String name, Path directory, Path manifestPath, String[] memberNames,
-            String[] memberPaths, JsonValue[] memberSettings) {
+    public ModelCollection(String name, Path directory, Path manifestPath, ModelChoice[] members,
+            JsonValue[] memberSettings) {
         this.name = name;
         this.directory = directory;
         this.manifestPath = manifestPath;
-        this.memberNames = memberNames;
-        this.memberPaths = memberPaths;
+        this.members = members;
         this.memberSettings = memberSettings;
-        this.memberKeep = new boolean[memberNames.length];
-        this.memberVertexCount = new int[memberNames.length];
-        this.memberTriangleCount = new int[memberNames.length];
-        for (int member = 0; member < memberNames.length; member++) {
+        this.memberKeep = new boolean[members.length];
+        this.memberVertexCount = new int[members.length];
+        this.memberTriangleCount = new int[members.length];
+        for (int member = 0; member < members.length; member++) {
             memberKeep[member] = true;
             memberVertexCount[member] = UNCOUNTED;
             memberTriangleCount[member] = UNCOUNTED;
         }
+    }
+
+    /**
+     * Scanned files as members, each named by its stem: a {@code .dsl} file is a graph member, any
+     * other a mesh file. Keep flags come from {@code keepFlags}; a member it never names is kept.
+     *
+     * @param name collection name
+     * @param directory directory the files came from
+     * @param manifestPath file the manifest is read from and written to
+     * @param files member files, sorted by stem
+     * @param keepFlags keep flag by member name, as a manifest records them
+     * @return the collection
+     */
+    public static ModelCollection scanned(String name, Path directory, Path manifestPath,
+            List<Path> files, Map<String, Boolean> keepFlags) {
+        ModelChoice[] members = new ModelChoice[files.size()];
+        JsonValue[] settings = new JsonValue[files.size()];
+        for (int member = 0; member < files.size(); member++) {
+            Path file = files.get(member);
+            ModelChoice.Kind kind = file.getFileName().toString().endsWith(ModelCatalog.DSL_EXTENSION)
+                    ? ModelChoice.Kind.DSL : ModelChoice.Kind.MESH_FILE;
+            members[member] = new ModelChoice(CollectionManifest.stemOf(file), file.toString(), kind);
+            settings[member] = CollectionManifest.settingsBesideMember(file);
+        }
+        ModelCollection collection =
+                new ModelCollection(name, directory, manifestPath, members, settings);
+        for (int member = 0; member < members.length; member++) {
+            Boolean keep = keepFlags.get(members[member].displayName);
+            collection.memberKeep[member] = keep == null || keep;
+        }
+        return collection;
     }
 
     /**
@@ -145,7 +177,59 @@ public final class ModelCollection {
      * @return member count
      */
     public int memberCount() {
-        return memberNames.length;
+        return members.length;
+    }
+
+    /**
+     * Whether this is a collection of scans that keeps a manifest, rather than a model opened alone.
+     *
+     * @return {@code true} when {@link #manifestPath} is set
+     */
+    public boolean hasManifest() {
+        return manifestPath != null;
+    }
+
+    /**
+     * The member under the cursor: the model the scene has requested.
+     *
+     * @return the current member, or {@code null} when the collection is empty
+     */
+    public ModelChoice current() {
+        return memberCount() == 0 ? null : members[index];
+    }
+
+    /**
+     * The collection that holds {@code choice} next, carrying {@link #overrides} across: this one
+     * with its cursor moved when {@code choice} is a member of these scans, the directory's scans
+     * for a collection choice, else {@code choice} opened alone: one member, no directory and no
+     * manifest.
+     *
+     * @param choice model to open
+     * @return the collection now holding the requested model
+     */
+    public ModelCollection open(ModelChoice choice) {
+        if (hasManifest() && selectPath(choice.path) >= 0) {
+            return this;
+        }
+        ModelCollection next = choice.kind == ModelChoice.Kind.COLLECTION
+                ? choice.openCollection()
+                : new ModelCollection(choice.displayName, null, null, new ModelChoice[] {choice},
+                        new JsonValue[1]);
+        next.overrides.putAll(overrides);
+        return next;
+    }
+
+    /**
+     * The overrides a graph member runs with: its own literal overrides, then this collection's,
+     * which replace them key by key.
+     *
+     * @param choice the graph being run
+     * @return the merged overrides, a fresh map
+     */
+    public Map<String, Object> overridesFor(ModelChoice choice) {
+        Map<String, Object> merged = new LinkedHashMap<>(choice.overrides);
+        merged.putAll(overrides);
+        return merged;
     }
 
     /**
@@ -307,7 +391,7 @@ public final class ModelCollection {
      */
     public int indexOfPath(String memberPath) {
         for (int member = 0; member < memberCount(); member++) {
-            if (memberPaths[member].equals(memberPath)) {
+            if (members[member].path.equals(memberPath)) {
                 return member;
             }
         }
@@ -322,7 +406,7 @@ public final class ModelCollection {
      */
     public int indexOfName(String memberName) {
         for (int member = 0; member < memberCount(); member++) {
-            if (memberNames[member].equals(memberName)) {
+            if (members[member].displayName.equals(memberName)) {
                 return member;
             }
         }

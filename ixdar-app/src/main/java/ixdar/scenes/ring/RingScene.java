@@ -319,8 +319,8 @@ public class RingScene extends MeshNodeViewerScene {
      */
     @Override
     public void applyPendingModel() {
-        if (pendingModelPath != null) {
-            ringTool.discardConfirmedRings("loading " + pendingModelPath);
+        if (pendingModel != null) {
+            ringTool.discardConfirmedRings("loading " + pendingModel.path);
         }
         super.applyPendingModel();
     }

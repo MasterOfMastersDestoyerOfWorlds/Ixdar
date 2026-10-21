@@ -4,14 +4,15 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import ixdar.platform.Platforms;
 
 /**
- * One selectable model in a scene's model list: a human-facing {@link #displayName} shown in the
- * model menu and terminal, paired with the {@link #path} handed to the scene's loader. A choice knows
- * where it lives on disk, how to read its source and which file an edit is saved into.
+ * One selectable model, the only kind there is: a catalog entry, a graph a scene registers and a
+ * collection member alike. It pairs the {@link #displayName} the menu and terminal show with the
+ * {@link #path} the scene loads, and knows how to read its source and where an edit is saved.
  */
 public final class ModelChoice {
 
@@ -26,6 +27,9 @@ public final class ModelChoice {
 
     /** Graph's path below the packaged {@code dsl} resource folder, or {@code null} for none. */
     public final String resourceName;
+
+    /** Per-node literal overrides ({@code "nodeId.argName"} keys) a graph runs with; may be empty. */
+    public final Map<String, Object> overrides;
 
     /**
      * Bind a display name to a mesh-file path.
@@ -57,10 +61,26 @@ public final class ModelChoice {
      * @param resourceName graph's path below the packaged {@code dsl} folder, or {@code null}
      */
     public ModelChoice(String displayName, String path, Kind kind, String resourceName) {
+        this(displayName, path, kind, resourceName, Map.of());
+    }
+
+    /**
+     * Bind a display name to a graph and the literal overrides it always runs with, as a scene
+     * registers a hand-authored fixture at a scale of its own.
+     *
+     * @param displayName label shown to the viewer
+     * @param path loader argument: a classpath resource or file path of the graph
+     * @param kind whether the path names a mesh file, a DSL graph or a collection directory
+     * @param resourceName graph's path below the packaged {@code dsl} folder, or {@code null}
+     * @param overrides per-node literal overrides, which the collection's overrides replace by key
+     */
+    public ModelChoice(String displayName, String path, Kind kind, String resourceName,
+            Map<String, Object> overrides) {
         this.displayName = displayName;
         this.path = path;
         this.kind = kind;
         this.resourceName = resourceName;
+        this.overrides = overrides;
     }
 
     /**
@@ -125,7 +145,7 @@ public final class ModelChoice {
 
     /** How a scene should load a choice's path. */
     public enum Kind {
-        /** A mesh file for {@code MeshLoader}, or a {@code graph:} token. */
+        /** A mesh file for {@code MeshLoader}. */
         MESH_FILE,
         /** A DSL graph to parse and execute. */
         DSL,

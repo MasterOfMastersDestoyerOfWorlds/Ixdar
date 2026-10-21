@@ -20,8 +20,8 @@ import ixdar.platform.json.JsonValue;
 
 /**
  * Reads and writes a collection's {@code collection.dsl}: one {@code input_boolean} keep flag and
- * one {@code load_mesh} per member, sorted by member name so the same collection always renders to
- * the same bytes.
+ * one {@code load_mesh} naming the member's file per member, a {@code .dsl} graph member included,
+ * sorted by member name so the same collection always renders to the same bytes.
  */
 public final class CollectionManifest {
 
@@ -55,7 +55,7 @@ public final class CollectionManifest {
         for (int member = 0; member < order.length; member++) {
             order[member] = member;
         }
-        Arrays.sort(order, Comparator.comparing(member -> collection.memberNames[member]));
+        Arrays.sort(order, Comparator.comparing(member -> collection.members[member].displayName));
 
         StringBuilder text = new StringBuilder();
         text.append("# Ixdar model collection \"").append(collection.name).append('"')
@@ -66,15 +66,16 @@ public final class CollectionManifest {
                 .append(NEWLINE);
         text.append(NEWLINE);
         for (int member : order) {
-            text.append(keepStatementId(collection.memberNames[member])).append(" = ")
+            String memberName = collection.members[member].displayName;
+            text.append(keepStatementId(memberName)).append(" = ")
                     .append(INPUT_BOOLEAN).append("(name=\"").append(KEEP_PREFIX)
-                    .append(collection.memberNames[member]).append("\", default=")
+                    .append(memberName).append("\", default=")
                     .append(collection.memberKeep[member]).append(')').append(NEWLINE);
         }
         text.append(NEWLINE);
         for (int member : order) {
-            text.append(memberStatementId(collection.memberNames[member])).append(" = ")
-                    .append(LOAD_MESH).append("(path=\"").append(collection.memberPaths[member])
+            text.append(memberStatementId(collection.members[member].displayName)).append(" = ")
+                    .append(LOAD_MESH).append("(path=\"").append(collection.members[member].path)
                     .append("\")").append(NEWLINE);
         }
         return text.toString();
@@ -164,23 +165,7 @@ public final class CollectionManifest {
         Path nameSource = manifestParent == null ? directory : manifestParent;
         Path fileName = nameSource.getFileName();
         String name = fileName == null ? ModelCollection.MANIFEST_FALLBACK_DIR : fileName.toString();
-
-        String[] names = new String[files.size()];
-        String[] paths = new String[files.size()];
-        JsonValue[] settings = new JsonValue[files.size()];
-        for (int member = 0; member < files.size(); member++) {
-            Path file = files.get(member);
-            names[member] = stemOf(file);
-            paths[member] = file.toString();
-            settings[member] = settingsBesideMember(file);
-        }
-        ModelCollection collection = new ModelCollection(name, directory,
-                manifest.toAbsolutePath(), names, paths, settings);
-        for (int member = 0; member < collection.memberCount(); member++) {
-            Boolean keep = flags.get(names[member]);
-            collection.memberKeep[member] = keep == null || keep;
-        }
-        return collection;
+        return ModelCollection.scanned(name, directory, manifest.toAbsolutePath(), files, flags);
     }
 
     /**

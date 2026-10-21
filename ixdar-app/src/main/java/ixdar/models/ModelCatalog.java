@@ -7,12 +7,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import ixdar.geometry.mesh.data.io.MeshLoader;
-import ixdar.platform.json.JsonValue;
 
 /**
  * A scene's list of selectable models, scanned from a directory: the quad-layout input meshes
@@ -165,10 +163,9 @@ public final class ModelCatalog {
     }
 
     /**
-     * Scan a directory of scans as one named collection: every mesh file directly inside it becomes
-     * a member named by its file stem, sorted, carrying the settings of its {@code *.settings.json}
-     * sidecar. Keep flags come from the directory's manifest when one exists; a member the manifest
-     * never mentioned starts out kept.
+     * Scan a directory of scans as one named collection: every mesh file and {@code .dsl} graph
+     * directly inside it, the manifest aside, is a member named by its stem, sorted, with its
+     * sidecar settings and the keep flag its manifest records.
      *
      * @param directory directory of scans
      * @return the collection, with no members when the directory is absent or unreadable
@@ -179,33 +176,22 @@ public final class ModelCatalog {
         if (Files.isDirectory(absolute)) {
             try (Stream<Path> stream = Files.list(absolute)) {
                 stream.filter(Files::isRegularFile)
-                    .filter(path -> MeshLoader.isSupported(path.getFileName().toString()))
+                    .filter(path -> {
+                        String fileName = path.getFileName().toString();
+                        return MeshLoader.isSupported(fileName) || (fileName.endsWith(DSL_EXTENSION)
+                                && !fileName.equals(ModelCollection.MANIFEST_NAME));
+                    })
                     .forEach(files::add);
             } catch (IOException ignored) {
                 files.clear();
             }
         }
         files.sort(Comparator.comparing(CollectionManifest::stemOf));
-        String[] names = new String[files.size()];
-        String[] paths = new String[files.size()];
-        JsonValue[] settings = new JsonValue[files.size()];
-        for (int member = 0; member < files.size(); member++) {
-            Path file = files.get(member);
-            names[member] = CollectionManifest.stemOf(file);
-            paths[member] = file.toAbsolutePath().toString();
-            settings[member] = CollectionManifest.settingsBesideMember(file);
-        }
         Path manifest = ModelCollection.manifestFor(absolute);
         Path fileName = absolute.getFileName();
         String name = fileName == null ? ModelCollection.MANIFEST_FALLBACK_DIR : fileName.toString();
-        ModelCollection collection =
-                new ModelCollection(name, absolute, manifest, names, paths, settings);
-        Map<String, Boolean> flags = CollectionManifest.keepFlags(manifest);
-        for (int member = 0; member < collection.memberCount(); member++) {
-            Boolean keep = flags.get(collection.memberNames[member]);
-            collection.memberKeep[member] = keep == null || keep;
-        }
-        return collection;
+        return ModelCollection.scanned(name, absolute, manifest, files,
+                CollectionManifest.keepFlags(manifest));
     }
 
     /**
@@ -216,12 +202,8 @@ public final class ModelCatalog {
      * @return a catalog rooted at the collection's directory
      */
     public static ModelCatalog ofCollection(ModelCollection collection) {
-        List<ModelChoice> found = new ArrayList<>();
-        for (int member = 0; member < collection.memberCount(); member++) {
-            found.add(new ModelChoice(collection.memberNames[member],
-                    collection.memberPaths[member]));
-        }
-        return new ModelCatalog(collection.directory, sorted(found));
+        return new ModelCatalog(collection.directory,
+                sorted(new ArrayList<>(List.of(collection.members))));
     }
 
     /**
