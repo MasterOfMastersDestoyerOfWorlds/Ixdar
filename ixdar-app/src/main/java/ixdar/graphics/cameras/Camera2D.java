@@ -26,6 +26,7 @@ public class Camera2D implements Camera, CameraController {
     public static final int DEFAULT_BOUND_MAX = 10;
     public static final double MIN_SCALE = 0.1;
     public static final float WHEEL_NOTCH_SCALE = 100f;
+    public static final String UNNAMED_VIEW = "CAMERA_2D";
 
     public float ZOOM_SPEED = 1f;
     public float PAN_SPEED = 300f;
@@ -105,7 +106,7 @@ public class Camera2D implements Camera, CameraController {
         this.ScaleFactor = ScaleFactor;
         this.ScreenOffsetX = ScreenOffsetX;
         this.ScreenOffsetY = ScreenOffsetY;
-        this.viewBounds = new Bounds(ScreenOffsetX, ScreenOffsetY, Width, Height, "CAMERA_2D");
+        this.viewBounds = new Bounds(ScreenOffsetX, ScreenOffsetY, Width, Height, UNNAMED_VIEW);
         this.ps = ps;
         zIndex = 0;
 
@@ -865,7 +866,22 @@ public class Camera2D implements Camera, CameraController {
      */
     @Override
     public void updateView(int x, int y, int width, int height) {
+        updateView(UNNAMED_VIEW, x, y, width, height);
+    }
+
+    /**
+     * Resize the GL viewport to a rectangle as {@link #updateView(int, int, int, int)} does, naming
+     * it: the {@link #viewBounds} id says which view the text laid out next is drawn in.
+     *
+     * @param id view id, such as the id of the pane or box the rectangle is
+     * @param x viewport lower-left x
+     * @param y viewport lower-left y
+     * @param width viewport width
+     * @param height viewport height
+     */
+    public void updateView(String id, int x, int y, int width, int height) {
         this.updateViewBounds(x, y, width, height);
+        viewBounds.id = id;
         Platforms.gl().viewport(x, y, width, height);
         for (ShaderProgram s : Platforms.gl().getShaders()) {
             if (s.ID < 0) {
@@ -888,6 +904,7 @@ public class Camera2D implements Camera, CameraController {
         Bounds b = boundsMap.get(active);
         if (b != null) {
             this.viewBounds.update(b);
+            this.viewBounds.id = active;
             this.updateSize(b.viewWidth, b.viewHeight);
             this.ScreenOffsetX = b.offsetX;
             this.ScreenOffsetY = b.offsetY;
@@ -911,7 +928,7 @@ public class Camera2D implements Camera, CameraController {
             return;
         }
         b.recalc();
-        this.updateView((int) b.offsetX, (int) b.offsetY, (int) b.viewWidth, (int) b.viewHeight);
+        this.updateView(key, (int) b.offsetX, (int) b.offsetY, (int) b.viewWidth, (int) b.viewHeight);
     }
 
     /**

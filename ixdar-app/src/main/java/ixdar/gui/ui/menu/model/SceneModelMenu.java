@@ -246,7 +246,7 @@ public final class SceneModelMenu implements PointerRegion {
      */
     private void drawFixedRows(HyperString rows, float bottomY, int rowCount, Camera2D camera) {
         float rowHeight = Drawing.FONT_HEIGHT_PIXELS;
-        camera.updateView(Platforms.get().getFrameBufferWidth() - ModelScene.MENU_PANEL_WIDTH,
+        camera.updateView(strip.id, Platforms.get().getFrameBufferWidth() - ModelScene.MENU_PANEL_WIDTH,
                 (int) bottomY, ModelScene.MENU_PANEL_WIDTH, (int) (rowCount * rowHeight));
         Drawing.getDrawing().font.drawHyperStringRows(rows, 0, 0, rowHeight, camera);
     }

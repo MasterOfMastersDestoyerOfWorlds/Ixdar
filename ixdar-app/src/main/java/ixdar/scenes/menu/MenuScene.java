@@ -82,16 +82,14 @@ public class MenuScene extends Scene {
     }
 
     /**
-     * A click goes to the menu item under it.
+     * A click off the menu's buttons does nothing: the menu, a pointer region, takes the clicks on
+     * its buttons itself.
      *
-     * @param windowX click x in window pixels
-     * @param windowY click y in window pixels, top-down
-     * @param button  button index
+     * @param windowX unused
+     * @param windowY unused
+     * @param button  unused
      */
     @Override
     public void viewClicked(float windowX, float windowY, int button) {
-        if (menu != null) {
-            menu.click(mouse.normalizedPosX, mouse.normalizedPosY);
-        }
     }
 }

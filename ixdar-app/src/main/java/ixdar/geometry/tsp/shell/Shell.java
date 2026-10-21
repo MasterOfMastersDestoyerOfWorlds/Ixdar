@@ -1026,8 +1026,7 @@ public class Shell extends LinkedList<PointND> {
             HyperString number = new HyperString();
             HyperString pointInfo = new HyperString();
             pointInfo.addWord(p.toString());
-            number.addTooltip(p.getID() + "", c, pointInfo, () -> {
-            });
+            number.addTooltip(p.getID() + "", c, pointInfo, null);
             number.debug = true;
             number.setData(p);
             hyperStrings.add(number);

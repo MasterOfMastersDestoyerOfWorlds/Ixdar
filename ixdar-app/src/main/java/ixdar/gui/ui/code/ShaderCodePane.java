@@ -176,10 +176,7 @@ public class ShaderCodePane implements PointerRegion {
                                 hoverLineIndex = -1;
                         },
                         // click: only inject for assignments
-                        () -> {
-                            if (isAssignment)
-                                onLineClicked(idx);
-                        });
+                        isAssignment ? () -> onLineClicked(idx) : null);
                 // click targets for this line: gap and suffix, only if assignment
                 if (isAssignment) {
                     codeText.addWord("  ", Color.WHITE, () -> {

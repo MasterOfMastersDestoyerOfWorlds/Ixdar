@@ -68,8 +68,7 @@ public class HyperString {
         for (String w : word.split(" ")) {
             addWord(w + " ", defaultColor, () -> {
             }, () -> {
-            }, () -> {
-            });
+            }, null);
         }
     }
 
@@ -83,8 +82,7 @@ public class HyperString {
         for (String w : word.split(" ")) {
             addWord(w + " ", c, () -> {
             }, () -> {
-            }, () -> {
-            });
+            }, null);
         }
     }
 
@@ -140,8 +138,7 @@ public class HyperString {
     public void addDynamicWord(Supplier<ColorText<?>> wordAction) {
         words.add(new HyperWord(wordAction, defaultColor, () -> {
         }, () -> {
-        }, () -> {
-        }, font));
+        }, null, font));
     }
 
     /**
@@ -153,8 +150,7 @@ public class HyperString {
     public void addDynamicWord(Supplier<ColorText<?>> wordAction, Color c) {
         words.add(new HyperWord(wordAction, c, () -> {
         }, () -> {
-        }, () -> {
-        }, font));
+        }, null, font));
     }
 
     /**
@@ -656,10 +652,12 @@ public class HyperString {
 
     /**
      * Register this string with {@link MouseTrap} so it receives hover/click
-     * dispatch this frame.
+     * dispatch this frame, once however many times it is drawn.
      */
     public void draw() {
-        MouseTrap.hyperStrings.add(this);
+        if (!MouseTrap.hyperStrings.contains(this)) {
+            MouseTrap.hyperStrings.add(this);
+        }
     }
 
     /**

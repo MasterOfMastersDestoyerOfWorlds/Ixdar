@@ -15,6 +15,7 @@ import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.Clock;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.InputSettle;
+import ixdar.automation.endpoints.ui.DrawnWords;
 import ixdar.input.MouseTrap;
 import ixdar.input.PointerDispatcher;
 
@@ -32,9 +33,11 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
     /**
      * {@code POST /input/click}: move the cursor to a target position, issue a press/release pair
      * on the active mouse handler, then wait for the click to be drawn. Recorded as an abstract
-     * {@code "click"} action.
+     * {@code "click"} action. Given a {@code label}, the target is that drawn label's pixel.
      *
-     * @param body JSON body with {@code x}, {@code y} (floats, default 0),
+     * @param body JSON body with {@code label} (drawn text to click instead of a point, with
+     *             {@code within} and {@code index} narrowing it, see
+     *             {@link DrawnWords#labelTarget}), {@code x}, {@code y} (floats, default 0),
      *             {@code normalized} (boolean; when true, {@code x}/{@code y} are
      *             treated as fractions of window size), {@code button}
      *             (GLFW button code, default 0), {@code count} (press/release pairs
@@ -42,9 +45,13 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
      *             (frames to wait for after the click; default 2)
      * @throws IOException never thrown directly; declared to satisfy the route contract
      * @return {@code {"ok": true, "settled": true, "event": {xPx, yPx, xNorm, yNorm, button}}} on
-     *         success, or an error object when no mouse handler is active
+     *         success, or an error object when no mouse handler is active or the label refuses
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
+        String label = body.has(DrawnWords.LABEL) ? body.get(DrawnWords.LABEL).getAsString() : "";
+        String within = body.has(DrawnWords.WITHIN) ? body.get(DrawnWords.WITHIN).getAsString() : "";
+        int index = body.has(DrawnWords.INDEX) ? body.get(DrawnWords.INDEX).getAsInt()
+                : DrawnWords.NO_INDEX;
         float x = body.has(X) ? body.get(X).getAsFloat() : 0f;
         float y = body.has(Y) ? body.get(Y).getAsFloat() : 0f;
         boolean normalized = body.has(NORMALIZED) && body.get(NORMALIZED).getAsBoolean();
@@ -60,9 +67,14 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                 if (mouse == null) {
                     return failure("No active mouse handler");
                 }
+                JsonObject target = label.isEmpty() ? null
+                        : DrawnWords.labelTarget(label, within, index);
+                if (target != null && !target.get(OK).getAsBoolean()) {
+                    return target;
+                }
                 appliedDuringFrame[0] = Clock.framesRendered();
-                float xPos = normalized ? denormalizeX(x) : x;
-                float yPos = normalized ? denormalizeY(y) : y;
+                float xPos = target != null ? target.get(X).getAsFloat() : normalized ? denormalizeX(x) : x;
+                float yPos = target != null ? target.get(Y).getAsFloat() : normalized ? denormalizeY(y) : y;
                 mouse.automationInputInProgress = true;
                 try {
                     mouse.mousePos(xPos, yPos);
@@ -80,6 +92,10 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                 payload.addProperty("xNorm", normalizeX(xPos));
                 payload.addProperty("yNorm", normalizeY(yPos));
                 payload.addProperty(BUTTON, button);
+                if (target != null) {
+                    payload.addProperty(DrawnWords.LABEL, target.get(DrawnWords.LABEL).getAsString());
+                    payload.addProperty(DrawnWords.VIEW, target.get(DrawnWords.VIEW).getAsString());
+                }
                 runtime.recordAbstractAction(COMMAND, payload);
                 JsonObject applied = success();
                 applied.add("event", payload);
@@ -99,7 +115,17 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
     public RouteDoc describe() {
         return RouteDoc.builder()
                 .commandName(COMMAND)
-                .description("Click at a point on the active mouse handler, then wait for the click to be drawn.")
+                .description("Click at a point, or on a drawn label by its text, on the active mouse "
+                        + "handler, then wait for the click to be drawn.")
+                .param(DrawnWords.LABEL, RouteParamType.STRING, false, "",
+                        "Click the one visible clickable drawn label with this text instead of x/y; "
+                                + "refuses, listing candidates, when absent, out of view or ambiguous.",
+                        "Start New Game")
+                .param(DrawnWords.WITHIN, RouteParamType.STRING, false, "",
+                        "Only labels drawn in this view id, as words lists them.", "TERMINAL")
+                .param(DrawnWords.INDEX, RouteParamType.INT, false, String.valueOf(DrawnWords.NO_INDEX),
+                        "Which of several visible clickable label matches, in drawing order.",
+                        String.valueOf(1))
                 .param(X, RouteParamType.FLOAT, false, String.valueOf(0),
                         "Target X coordinate.", "0.5")
                 .param(Y, RouteParamType.FLOAT, false, String.valueOf(0),
@@ -112,7 +138,8 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                         "Press/release pairs delivered back to back; 2 is a double-click.", "2")
                 .param(SETTLE, RouteParamType.INT, false, String.valueOf(InputSettle.DEFAULT_FRAMES),
                         "Frames to wait for after the click, so a screenshot needs no sleep; 0 returns at once.", "0")
-                .responseHint("{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}")
+                .responseHint("{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, label?, view?}}, "
+                        + "or {ok:false, error, candidates} when a label refuses")
                 .build();
     }
 }

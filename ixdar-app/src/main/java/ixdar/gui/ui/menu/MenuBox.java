@@ -33,6 +33,7 @@ public class MenuBox implements PointerRegion {
     public static final float ITEM_SPACING_FACTOR = 1.5f;
     public static final float LABEL_Y_OFFSET_FACTOR = 0.075f;
     public static final String VIEW_MENU_SCROLL = "MENU_SCROLL";
+    public static final String VIEW_MENU_ITEMS = "MENU_ITEMS";
     public static final MenuScrollBar ITEM_COLUMN_SCROLL_BAR = new MenuScrollBar(
             new Bounds(0, 0, 0, 0, VIEW_MENU_SCROLL), false, MenuScrollBox.PIXELS_PER_SCROLL_UNIT);
     public static ArrayList<MenuItem> menuItems;
@@ -44,6 +45,12 @@ public class MenuBox implements PointerRegion {
 
     /** The scene the menu is drawn in; the menu takes input only while it is active. */
     public final Scene owner;
+
+    /**
+     * The item column, its scroll bar included, from the bottom of the framebuffer to the top: the
+     * region in which the shown menu takes the wheel and the presses on its buttons and bar.
+     */
+    public final Bounds itemColumn = new Bounds(0, 0, 0, 0, VIEW_MENU_ITEMS);
 
     public SDFTexture logo;
 
@@ -63,8 +70,8 @@ public class MenuBox implements PointerRegion {
 
     /**
      * Build the menu-box widget: load button textures, create the debug and game
-     * menus, pick the active one based on {@code Toggle.GameMode}, and subscribe the item
-     * column's scroll bar so the user can scroll long menus.
+     * menus, pick the active one based on {@code Toggle.GameMode}, and subscribe the
+     * {@link #itemColumn} so the menu takes the wheel and the clicks on its buttons.
      *
      * @param owner the scene the menu is drawn in
      */
@@ -92,7 +99,7 @@ public class MenuBox implements PointerRegion {
             activeMenu = debugMenu;
         }
         menuItems = activeMenu.loadMenu();
-        PointerDispatcher.current().subscribe(ITEM_COLUMN_SCROLL_BAR.bounds, this);
+        PointerDispatcher.current().subscribe(itemColumn, this);
     }
 
     /**
@@ -139,6 +146,7 @@ public class MenuBox implements PointerRegion {
         float columnLeft = centerX - itemWidth / 2;
         float barRight = centerX + menuOuterBorder.outerTexture.width * scale / 2 + MenuScrollBar.WIDTH_PIXELS;
         bar.bounds.update(columnLeft, 0, barRight - columnLeft, centerY);
+        itemColumn.update(columnLeft, 0, barRight - columnLeft, Platforms.get().getFrameBufferHeight());
         bar.contentLength = itemHeight * menuItems.size() * ITEM_SPACING_FACTOR;
         bar.visibleLength = centerY;
         bar.scrollBy(0);
@@ -179,43 +187,23 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Hit-test menu items against the current hover position; if an enabled one is hit,
-     * record an automation event, play the click SFX, and fire its action.
+     * The item whose button, padding included, holds a framebuffer point, enabled or not.
      *
-     * @param x cursor x in screen pixels (used only for normalized telemetry)
-     * @param y cursor y in screen pixels (used only for normalized telemetry)
+     * @param x framebuffer x
+     * @param y framebuffer y, y up
+     * @return that item, or {@code null} when the point is on no button
      */
-    public void click(float x, float y) {
-        if (!menuVisible) {
-            return;
-        }
-        MenuItem clickedItem = null;
+    private MenuItem itemAt(float x, float y) {
+        float centerX = Platforms.get().getFrameBufferWidth() / 2;
         for (int i = 0; i < menuItems.size(); i++) {
-            float centerX = Platforms.get().getFrameBufferWidth() / 2;
             float centerY = Platforms.get().getFrameBufferHeight() / 2 - itemHeight
                     - (itemHeight * i * ITEM_SPACING_FACTOR) + ITEM_COLUMN_SCROLL_BAR.scrollOffset;
-            float leftBoundX = centerX - itemWidth / 2;
-            float rightBoundX = centerX + itemWidth / 2;
-            float upBoundX = centerY + itemHeight / 2;
-            float downBoundX = centerY - itemHeight / 2;
-            if (hoverX > leftBoundX && hoverX < rightBoundX && hoverY > downBoundX && hoverY < upBoundX) {
-                clickedItem = menuItems.get(i);
-                break;
+            if (x > centerX - itemWidth / 2 && x < centerX + itemWidth / 2 && y > centerY - itemHeight / 2
+                    && y < centerY + itemHeight / 2) {
+                return menuItems.get(i);
             }
         }
-        if (clickedItem == null || clickedItem.action == null) {
-            return;
-        }
-        AutomationBackend automation =Platforms.get().automation();
-        if (automation != null) {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("label", clickedItem.getHeading());
-            payload.put("xNormalized", x / Platforms.get().getWindowWidth());
-            payload.put("yNormalized", y / Platforms.get().getWindowHeight());
-            automation.recordAbstractActionMap("menu_select", payload);
-        }
-        Scene.audioPlaySfx(AudioAssets.MENU_CLICK_SFX);
-        clickedItem.performAction();
+        return null;
     }
 
     /**
@@ -272,15 +260,17 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Presses on the shown bar are the menu's; a press on an item is left to the scene's click.
+     * Presses on the shown menu's buttons and needed bar are the menu's, so a click on a button's
+     * label reaches no other handler.
      *
      * @param x framebuffer x of the press
      * @param y framebuffer y of the press, y up
-     * @return whether the press lands on a needed bar of the shown menu
+     * @return whether the press lands on a button or a needed bar of the shown menu
      */
     @Override
     public boolean claimsPointer(float x, float y) {
-        return claimsWheel() && ITEM_COLUMN_SCROLL_BAR.isNeeded() && ITEM_COLUMN_SCROLL_BAR.contains(x, y);
+        return claimsWheel() && (itemAt(x, y) != null
+                || ITEM_COLUMN_SCROLL_BAR.isNeeded() && ITEM_COLUMN_SCROLL_BAR.contains(x, y));
     }
 
     /**
@@ -306,15 +296,30 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Let go of the thumb.
+     * Let go of the thumb and, for a click on an enabled button, record an automation event, play
+     * the click SFX and run the button's action, the one path a menu action runs by.
      *
-     * @param x unused
-     * @param y unused
-     * @param click unused
+     * @param x framebuffer x of the release
+     * @param y framebuffer y of the release, y up
+     * @param click whether the press and release make a click
      */
     @Override
     public void onRelease(float x, float y, boolean click) {
         ITEM_COLUMN_SCROLL_BAR.release();
+        MenuItem clickedItem = click ? itemAt(x, y) : null;
+        if (clickedItem == null || clickedItem.action == null) {
+            return;
+        }
+        AutomationBackend automation = Platforms.get().automation();
+        if (automation != null) {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("label", clickedItem.getHeading());
+            payload.put("xNormalized", x / Platforms.get().getFrameBufferWidth());
+            payload.put("yNormalized", 1 - y / Platforms.get().getFrameBufferHeight());
+            automation.recordAbstractActionMap("menu_select", payload);
+        }
+        Scene.audioPlaySfx(AudioAssets.MENU_CLICK_SFX);
+        clickedItem.performAction();
     }
 
     /**

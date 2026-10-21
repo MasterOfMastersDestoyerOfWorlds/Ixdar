@@ -20,7 +20,10 @@ public class HyperWord {
     public Supplier<ColorText<?>> wordAction;
     public boolean isDynamic = false;
     public Action hoverAction;
+    /** What a click on the word does; {@code null} for a word a click leaves alone. */
     public Action clickAction;
+    /** Whether a click on the word does something: whether it was built with a {@link #clickAction}. */
+    public boolean clickable;
     public boolean newLine = false;
     public float yScreenOffset;
     public float xScreenOffset;
@@ -45,7 +48,7 @@ public class HyperWord {
      * @param c word color
      * @param hoverAction action invoked while hovered
      * @param clearHover action invoked when hover leaves
-     * @param clickAction action invoked on click ({@code null} -> no-op)
+     * @param clickAction action invoked on click, {@code null} for none
      * @param font font owning the glyphs
      */
     public HyperWord(String word, Color c, Action hoverAction, Action clearHover, Action clickAction, Font font) {
@@ -56,12 +59,8 @@ public class HyperWord {
         this.hoverAction = hoverAction;
         this.clearHover = clearHover;
         this.width = Drawing.getDrawing().font.getWidth(charSequence);
-        if (clickAction != null) {
-            this.clickAction = clickAction;
-        } else {
-            this.clickAction = () -> {
-            };
-        }
+        this.clickAction = clickAction;
+        clickable = clickAction != null;
         viewBounds = new Bounds(0, 0, 0, 0, WORD_BOUNDS_ID);
     }
 
@@ -88,7 +87,7 @@ public class HyperWord {
      * @param c default color
      * @param hoverAction action invoked while hovered
      * @param clearHover action invoked when hover leaves
-     * @param clickAction action invoked on click ({@code null} -> no-op)
+     * @param clickAction action invoked on click, {@code null} for none
      * @param font font owning future re-measurements
      */
     public HyperWord(Supplier<ColorText<?>> wordAction, Color c, Action hoverAction, Action clearHover,
@@ -102,12 +101,8 @@ public class HyperWord {
         this.wordAction = wordAction;
         this.hoverAction = hoverAction;
         this.clearHover = clearHover;
-        if (clickAction != null) {
-            this.clickAction = clickAction;
-        } else {
-            this.clickAction = () -> {
-            };
-        }
+        this.clickAction = clickAction;
+        clickable = clickAction != null;
         viewBounds = new Bounds(0, 0, 0, 0, WORD_BOUNDS_ID);
         isDynamic = true;
     }
@@ -123,7 +118,8 @@ public class HyperWord {
 
     /**
      * Cache the world and screen positions of this word, its drawn size and the containing view
-     * rectangle. The hit-test rectangle is exactly the drawn one.
+     * rectangle, whose id names the view the word is drawn in. The hit-test rectangle is exactly
+     * the drawn one.
      *
      * @param x world-space x of the bottom-left
      * @param y world-space y of the bottom-left
@@ -141,6 +137,7 @@ public class HyperWord {
         this.yScreenOffset = yScreen;
         this.drawnWidth = drawnWidth;
         this.viewBounds.update(viewBounds);
+        this.viewBounds.id = viewBounds.id;
         this.rowHeight = height;
     }
 
@@ -241,7 +238,7 @@ public class HyperWord {
     }
 
     /**
-     * Fire {@link #clickAction} when the cursor is inside this word and the
+     * Fire {@link #clickAction}, if any, when the cursor is inside this word and the
      * containing view bounds; recurses into dynamic sub-words.
      *
      * @param normalizedPosX cursor x in screen-normalized coordinates
@@ -253,8 +250,9 @@ public class HyperWord {
                 child.click(normalizedPosX, normalizedPosY);
             }
         }
-        if (!newLine && normalizedPosX > xScreenOffset && normalizedPosX < xScreenOffset + drawnWidth &&
-                normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight
+        if (clickAction != null && !newLine && normalizedPosX > xScreenOffset
+                && normalizedPosX < xScreenOffset + drawnWidth
+                && normalizedPosY > yScreenOffset && normalizedPosY < yScreenOffset + rowHeight
                 && viewBounds.contains(normalizedPosX, normalizedPosY)) {
             clickAction.perform();
         }

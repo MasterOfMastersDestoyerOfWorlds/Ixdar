@@ -23,7 +23,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 
 | Command | Description |
 | --- | --- |
-| [`click`](#click) | Click at a point on the active mouse handler, then wait for the click to be drawn. |
+| [`click`](#click) | Click at a point, or on a drawn label by its text, on the active mouse handler, then wait for the click to be drawn. |
 | [`connection`](#connection) | Show how two surface points are joined in the editing scene's connection tool: the path and its narrowest cross-section, the neck, optionally confirmed as a ring opened in the ring tool. |
 | [`drag`](#drag) | Drag with the left button from one window point to another, a frame drawn after every step. |
 | [`frame`](#frame) | Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it. |
@@ -74,6 +74,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`terminal`](#terminal) | Run one line in the scene terminal and return the history lines it produced. |
 | [`type`](#type) | Synthesize character events on the active key handler, one per character of the text. |
 | [`ui-state`](#ui-state) | Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio. |
+| [`words`](#words) | List the words the last frame drew and the labels they make: text, rectangle in framebuffer and window pixels, clickable, visible, culled and owning view; a visible label's click pixel is what click --label clicks. |
 
 **CLI commands**
 
@@ -117,18 +118,21 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectClick.java)
 
-Click at a point on the active mouse handler, then wait for the click to be drawn.
+Click at a point, or on a drawn label by its text, on the active mouse handler, then wait for the click to be drawn.
 
 - **Route:** `POST /input/click`
 - **Flags:**
+  - `--label` (string, default ``) — Click the one visible clickable drawn label with this text instead of x/y; refuses, listing candidates, when absent, out of view or ambiguous., e.g. `Start New Game`
+  - `--within` (string, default ``) — Only labels drawn in this view id, as words lists them., e.g. `TERMINAL`
+  - `--index` (int, default `-1`) — Which of several visible clickable label matches, in drawing order., e.g. `1`
   - `--x` (float, default `0`) — Target X coordinate., e.g. `0.5`
   - `--y` (float, default `0`) — Target Y coordinate., e.g. `0.25`
   - `--normalized` (bool, default `false`) — Treat X/Y as fractions of window size rather than pixels., e.g. `true`
   - `--button` (int, default `0`) — GLFW mouse button code., e.g. `1`
   - `--count` (int, default `1`) — Press/release pairs delivered back to back; 2 is a double-click., e.g. `2`
   - `--settle` (int, default `2`) — Frames to wait for after the click, so a screenshot needs no sleep; 0 returns at once., e.g. `0`
-- **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"x": 0.5, "y": 0.25, "normalized": true, "button": 1, "count": 2, "settle": 0}'`
+- **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, label?, view?}}, or {ok:false, error, candidates} when a label refuses`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"label": "Start New Game", "within": "TERMINAL", "index": 1, "x": 0.5, "y": 0.25, "normalized": true, "button": 1, "count": 2, "settle": 0}'`
 
 ### `connection`
 
@@ -768,6 +772,20 @@ Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and 
 - **Route:** `GET /ui/state`
 - **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ring?, collection?, knotEditor?, textElements, menuItems, controls, audio}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/state`
+
+### `words`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/DrawnWords.java)
+
+List the words the last frame drew and the labels they make: text, rectangle in framebuffer and window pixels, clickable, visible, culled and owning view; a visible label's click pixel is what click --label clicks.
+
+- **Route:** `POST /ui/words`
+- **Flags:**
+  - `--within` (string, default ``) — Only the words and labels drawn in this view id., e.g. `SCENE_MENU_MODELS`
+  - `--label` (string, default ``) — Instead of the listing, the label click --label would click for this text., e.g. `Recompute`
+  - `--index` (int, default `-1`) — Which of several visible clickable matches the label picks, in drawing order., e.g. `1`
+- **Response:** `{ok, window, framebuffer, words:[{text, view, clickable, culled, visible, label, framebuffer:{x,y,width,height}, window:{x,y,width,height}}], labels:[{id, text, view, clickable, visible, framebuffer, click:{x,y}}]}; framebuffer rectangles are y up, window ones y down; with label {ok, x, y, label, view, match} or {ok:false, error, candidates}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/words -d '{"within": "SCENE_MENU_MODELS", "label": "Recompute", "index": 1}'`
 
 ## CLI commands
 

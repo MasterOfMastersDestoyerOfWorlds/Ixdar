@@ -18,7 +18,8 @@ public class MenuItem {
     HyperString label;
 
     /**
-     * Build a menu item, its label blue-grey when it has an action and dark grey when disabled.
+     * Build a menu item, its label blue-grey when it has an action and dark grey when disabled. The
+     * label's words carry the action, though the {@link MenuBox} runs it for a click on the button.
      *
      * @param string the heading text shown to the user
      * @param action the action fired by {@link #performAction()}; null for a
@@ -29,7 +30,7 @@ public class MenuItem {
         subHeading = "";
         String labelText = subHeading.isEmpty() ? heading : heading + ": " + subHeading;
         label = new HyperString();
-        label.addWord(labelText, action == null ? Color.GREY_DARK : Color.BLUE_GREY);
+        label.addWordClick(labelText, action == null ? Color.GREY_DARK : Color.BLUE_GREY, action);
         this.action = action;
     }
 

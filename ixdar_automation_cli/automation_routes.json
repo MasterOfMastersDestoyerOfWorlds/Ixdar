@@ -5,10 +5,37 @@
       "commandName": "click",
       "path": "/input/click",
       "method": "POST",
-      "description": "Click at a point on the active mouse handler, then wait for the click to be drawn.",
+      "description": "Click at a point, or on a drawn label by its text, on the active mouse handler, then wait for the click to be drawn.",
       "sourceClass": "ixdar.automation.endpoints.input.InjectClick",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectClick.java",
       "params": [
+        {
+          "name": "label",
+          "cliName": "label",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Click the one visible clickable drawn label with this text instead of x/y; refuses, listing candidates, when absent, out of view or ambiguous.",
+          "example": "Start New Game"
+        },
+        {
+          "name": "within",
+          "cliName": "within",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Only labels drawn in this view id, as words lists them.",
+          "example": "TERMINAL"
+        },
+        {
+          "name": "index",
+          "cliName": "index",
+          "type": "int",
+          "required": false,
+          "default": "-1",
+          "help": "Which of several visible clickable label matches, in drawing order.",
+          "example": "1"
+        },
         {
           "name": "x",
           "cliName": "x",
@@ -64,7 +91,7 @@
           "example": "0"
         }
       ],
-      "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, button}}"
+      "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, label?, view?}}, or {ok:false, error, candidates} when a label refuses"
     },
     {
       "commandName": "connection",
@@ -1532,6 +1559,44 @@
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/State.java",
       "params": [],
       "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ring?, collection?, knotEditor?, textElements, menuItems, controls, audio}"
+    },
+    {
+      "commandName": "words",
+      "path": "/ui/words",
+      "method": "POST",
+      "description": "List the words the last frame drew and the labels they make: text, rectangle in framebuffer and window pixels, clickable, visible, culled and owning view; a visible label\u0027s click pixel is what click --label clicks.",
+      "sourceClass": "ixdar.automation.endpoints.ui.DrawnWords",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/DrawnWords.java",
+      "params": [
+        {
+          "name": "within",
+          "cliName": "within",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Only the words and labels drawn in this view id.",
+          "example": "SCENE_MENU_MODELS"
+        },
+        {
+          "name": "label",
+          "cliName": "label",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Instead of the listing, the label click --label would click for this text.",
+          "example": "Recompute"
+        },
+        {
+          "name": "index",
+          "cliName": "index",
+          "type": "int",
+          "required": false,
+          "default": "-1",
+          "help": "Which of several visible clickable matches the label picks, in drawing order.",
+          "example": "1"
+        }
+      ],
+      "responseHint": "{ok, window, framebuffer, words:[{text, view, clickable, culled, visible, label, framebuffer:{x,y,width,height}, window:{x,y,width,height}}], labels:[{id, text, view, clickable, visible, framebuffer, click:{x,y}}]}; framebuffer rectangles are y up, window ones y down; with label {ok, x, y, label, view, match} or {ok:false, error, candidates}"
     }
   ]
 }

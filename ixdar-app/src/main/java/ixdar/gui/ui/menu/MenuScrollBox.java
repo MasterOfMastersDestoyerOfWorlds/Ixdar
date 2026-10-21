@@ -135,7 +135,7 @@ public final class MenuScrollBox implements PointerRegion {
      * @param width pixels the rows may take
      */
     private void layoutRows(Camera2D camera, float width) {
-        camera.updateView((int) bounds.offsetX, (int) bounds.offsetY, (int) width,
+        camera.updateView(bounds.id, (int) bounds.offsetX, (int) bounds.offsetY, (int) width,
                 (int) bounds.viewHeight);
         rowsUsed = text.words.isEmpty() ? 0
                 : text.setLineOffsetFromTopRow(camera, 0, 0, Drawing.FONT_HEIGHT_PIXELS);
