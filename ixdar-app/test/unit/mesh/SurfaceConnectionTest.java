@@ -8,7 +8,7 @@ import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.tools.ring.RingTool;
 
@@ -82,7 +82,7 @@ class SurfaceConnectionTest {
                 cursor = triangle(faces, cursor, low + step, high + nextStep, high + step);
             }
         }
-        MeshTopology dumbbell = HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        MeshTopology dumbbell = HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces);
 
         SurfaceConnection connection = new SurfaceConnection(dumbbell);
         int south = connection.nearestActiveFace(0f, 0f, -POLE);

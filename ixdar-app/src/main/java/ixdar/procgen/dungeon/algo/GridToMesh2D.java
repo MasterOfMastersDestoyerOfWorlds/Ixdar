@@ -1,7 +1,7 @@
 package ixdar.procgen.dungeon.algo;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.procgen.dungeon.values.CellType;
 
 /**
@@ -89,7 +89,7 @@ public final class GridToMesh2D {
                 }
             }
         }
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.bulkAllocate(positions, quads, 4);
+        HalfEdgeMesh mesh = HalfEdgeMeshOps.bulkAllocate(positions, quads, 4);
         mesh.computeNormals();
         return mesh;
     }

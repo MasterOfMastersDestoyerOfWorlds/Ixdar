@@ -16,7 +16,7 @@ import ixdar.geometry.mesh.data.rings.RingRegionExtraction;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.geometry.MeshBooleanNode;
 import ixdar.nodegraph.nodes.selection.ExtractRingRegionNode;
@@ -336,7 +336,7 @@ class RingRegionExtractionTest {
             cursor = put(triangles, cursor, bottomCentre, next, segment);
             cursor = put(triangles, cursor, topCentre, topRow + segment, topRow + next);
         }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, triangles);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles);
     }
 
     private static int put(int[] triangles, int cursor, int first, int second, int third) {

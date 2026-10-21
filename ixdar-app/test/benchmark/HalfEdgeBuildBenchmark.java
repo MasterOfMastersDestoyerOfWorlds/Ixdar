@@ -17,7 +17,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeCompiledMeshData;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
@@ -28,7 +28,7 @@ import ixdar.platform.Platforms;
 import unit.mesh.HalfEdgeBulkBuildTest;
 
 /**
- * Warm wall time of {@link HalfEdgeMeshEngine#buildFromIndexedMesh} on fertility and on one
+ * Warm wall time of {@link HalfEdgeMeshOps#buildFromIndexedMesh} on fertility and on one
  * repaired full-resolution crawfish scan (MESH-52), each checked id for id against the
  * face-at-a-time build, and the two mesh representations side by side on the largest models
  * (MESH-60). Pick the scan with {@code -Dbenchmark.glb}.
@@ -124,7 +124,7 @@ public final class HalfEdgeBuildBenchmark {
         for (int run = 0; run < WARMUP_BUILDS + TIMED_BUILDS; run++) {
             built = null;
             long start = System.nanoTime();
-            built = HalfEdgeMeshEngine.buildFromIndexedMesh(positions, triangles);
+            built = HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles);
             long elapsed = System.nanoTime() - start;
             if (run >= WARMUP_BUILDS) {
                 times[run - WARMUP_BUILDS] = elapsed;

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.paths.query.GirdlingPlane;
 import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -247,7 +247,7 @@ public class SurfacePickerTest {
                 faces[corner++] = DIAMOND_SIDES * row + next;
             }
         }
-        HalfEdgeMesh diamond = HalfEdgeMeshEngine.bulkAllocate(positions, faces, QUAD_CORNERS);
+        HalfEdgeMesh diamond = HalfEdgeMeshOps.bulkAllocate(positions, faces, QUAD_CORNERS);
         diamond.computeNormals();
         return diamond;
     }
@@ -270,7 +270,7 @@ public class SurfacePickerTest {
             3, 7, 6, 3, 6, 2,
             0, 4, 7, 0, 7, 3,
             1, 2, 6, 1, 6, 5 };
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces);
     }
 
     /**
@@ -307,6 +307,6 @@ public class SurfacePickerTest {
                 faces[corner++] = ahead;
             }
         }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces);
     }
 }

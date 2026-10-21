@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.data.paths.query.SurfacePathCrossings;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.scenes.ring.RingScene;
@@ -279,6 +279,6 @@ class RingAnchorOrderTest {
                 faces[corner++] = ahead;
             }
         }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces);
     }
 }

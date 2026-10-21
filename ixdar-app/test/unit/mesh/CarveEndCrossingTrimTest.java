@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceStripPath;
 import ixdar.geometry.mesh.quadlayout.embedding.SnappingCarve;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
@@ -176,7 +176,7 @@ class CarveEndCrossingTrimTest {
     private EmbeddedMeshTopology triangle() {
         float[] positions = { 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f };
         int[] faceIndices = { 0, 1, 2 };
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faceIndices);
+        HalfEdgeMesh mesh = HalfEdgeMeshOps.buildFromIndexedMesh(positions, faceIndices);
         return new EmbeddedMeshTopology(mesh);
     }
 }

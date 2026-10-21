@@ -21,7 +21,7 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
@@ -486,7 +486,7 @@ public class CoonsInsetFacesNode implements MeshNode {
         for (int v : faceVpfArr) { if (v != 4) { allQuads = false; break; } }
         HalfEdgeMesh outMesh = allQuads
                 ? HalfEdgeMesh.bulkAllocate(positions, faceIdxFlat, 4)
-                : HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceVpfArr, faceIdxFlat);
+                : HalfEdgeMeshOps.bulkAllocateMixed(positions, faceVpfArr, faceIdxFlat);
         outMesh.computeNormals();
 
         outGenerated = new boolean[generatedList.size()];

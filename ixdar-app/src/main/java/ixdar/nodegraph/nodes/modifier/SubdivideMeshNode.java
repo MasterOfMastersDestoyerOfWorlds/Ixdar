@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.GeometryBundles;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 
 /**
  * Linear face subdivision: splits each face by inserting edge midpoints and a
@@ -180,7 +180,7 @@ public class SubdivideMeshNode implements MeshNode {
                 faceIndices[cursor++] = midpointOfEdge[src.edgeBetween(previousVertexId, cornerVertexId)];
             }
         }
-        return HalfEdgeMeshEngine.bulkAllocate(positions, faceIndices, 4);
+        return HalfEdgeMeshOps.bulkAllocate(positions, faceIndices, 4);
     }
 
 }

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.field.IntField;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.motorcycle.ChartWalker;
@@ -124,7 +124,7 @@ class ChartWalkerStalledExitTest {
             1f, 3f, 0f,
         };
         int[] faceIndices = { 0, 1, 2, 1, 0, 3 };
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faceIndices);
+        HalfEdgeMesh mesh = HalfEdgeMeshOps.buildFromIndexedMesh(positions, faceIndices);
         double[] cornerU = { 1.0, -1.0, -1.0, -1.0, 1.0, 1.0 };
         double[] cornerV = { 1.0, 2.0, 0.0, 2.0, 1.0, 3.0 };
         CornerUvField uv = new CornerUvField(cornerU, cornerV);

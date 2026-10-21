@@ -8,7 +8,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 import java.util.HashMap;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 
 /**
  * Appends meshes into a single {@link HalfEdgeMesh}.
@@ -101,7 +101,7 @@ public final class MeshAppend {
                 faceSizes[outFace++] = size;
             }
         }
-        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceSizes, faceCorners);
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions, faceSizes, faceCorners);
         if (out.vertexCount() > 0) {
             out.computeNormals();
         }

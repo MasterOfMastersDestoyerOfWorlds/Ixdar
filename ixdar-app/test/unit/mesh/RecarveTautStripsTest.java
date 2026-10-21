@@ -8,7 +8,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetworkRecarve;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceStripPath;
 import ixdar.geometry.mesh.quadlayout.embedding.SnappingCarve;
@@ -302,7 +302,7 @@ class RecarveTautStripsTest {
         for (int index = 0; index < faces.size(); index++) {
             faceIndices[index] = faces.get(index);
         }
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faceIndices);
+        HalfEdgeMesh mesh = HalfEdgeMeshOps.buildFromIndexedMesh(positions, faceIndices);
         return new EmbeddedMeshTopology(mesh);
     }
 }

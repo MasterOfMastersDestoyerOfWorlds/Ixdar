@@ -21,7 +21,7 @@ import ixdar.geometry.mesh.data.bundle.MaterialData;
 import ixdar.geometry.mesh.data.bundle.MaterialSet;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.geometry.MeshBooleanNode;
@@ -297,7 +297,7 @@ public class BooleanTextureTransferTest {
             cornerU[corner] = split.positions[vertex] + UV_ORIGIN;
             cornerV[corner] = split.positions[vertex + 1] + UV_ORIGIN;
         }
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.bulkAllocate(split.positions, split.triangles, THREE);
+        HalfEdgeMesh mesh = HalfEdgeMeshOps.bulkAllocate(split.positions, split.triangles, THREE);
         mesh.computeNormals();
         return GeometryBundle.ofMesh(mesh)
                 .withSlot(CornerUvField.SLOT, new CornerUvField(cornerU, cornerV))
@@ -350,7 +350,7 @@ public class BooleanTextureTransferTest {
             1, 2, SIX, 5,
             0, QUAD_CORNERS, 7, THREE,
         };
-        HalfEdgeMesh cube = HalfEdgeMeshEngine.bulkAllocate(positions, quads, QUAD_CORNERS);
+        HalfEdgeMesh cube = HalfEdgeMeshOps.bulkAllocate(positions, quads, QUAD_CORNERS);
         cube.computeNormals();
         return GeometryBundle.ofMesh(cube);
     }

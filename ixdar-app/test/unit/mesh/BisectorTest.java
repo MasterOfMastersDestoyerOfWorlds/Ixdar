@@ -31,7 +31,7 @@ import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.selection.SplineCutNode;
@@ -464,6 +464,6 @@ class BisectorTest {
                 faces[corner++] = vertex(row, next);
             }
         }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces);
     }
 }

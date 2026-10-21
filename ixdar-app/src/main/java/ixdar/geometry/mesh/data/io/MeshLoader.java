@@ -12,7 +12,7 @@ import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.bundle.MaterialData;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
@@ -77,7 +77,7 @@ public final class MeshLoader {
     public static MeshTopology indexedMesh(float[] positions, float[] normals, int[] faceIndices,
             int vertsPerFace) {
         try {
-            HalfEdgeMesh mesh = HalfEdgeMeshEngine.bulkAllocate(positions, faceIndices, vertsPerFace);
+            HalfEdgeMesh mesh = HalfEdgeMeshOps.bulkAllocate(positions, faceIndices, vertsPerFace);
             mesh.computeNormals();
             if (normals != null) {
                 System.arraycopy(normals, 0, mesh.vertexNormals, 0, Math.min(normals.length,

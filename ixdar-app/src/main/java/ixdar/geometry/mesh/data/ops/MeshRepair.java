@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.numeric.graph.UnionFind;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.field.UvField;
 import ixdar.nodegraph.nodes.data.TagGeometryNode;
 import ixdar.nodegraph.nodes.modifier.SetBoneWeightNode;
@@ -1264,7 +1264,7 @@ public final class MeshRepair {
         report.fillFaceIndices = Arrays.copyOf(fillFaceIndices, fillFaces);
 
         HalfEdgeMesh oriented = report.unorientedEdgeCount > 0 ? null
-                : HalfEdgeMeshEngine.buildFromIndexedMesh(outPositions, outFaces);
+                : HalfEdgeMeshOps.buildFromIndexedMesh(outPositions, outFaces);
         GeometryBundle bundle = input.withMesh(oriented != null ? oriented
                 : new ArrayMesh(outPositions, null, outFaces, TRIANGLE_CORNERS));
         if (outU != null) {

@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 
 /**
@@ -107,7 +107,7 @@ public final class ManifoldShell {
         }
         keptFaceCount = outFaceCorners / TRIANGLE_CORNERS;
         keptVertexCount = outVertexCount;
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(
+        return HalfEdgeMeshOps.buildFromIndexedMesh(
                 Arrays.copyOf(outPositions, TRIANGLE_CORNERS * outVertexCount),
                 Arrays.copyOf(outFaces, outFaceCorners));
     }

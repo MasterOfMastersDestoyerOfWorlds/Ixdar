@@ -13,7 +13,7 @@ import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
@@ -266,7 +266,7 @@ public class HalfEdgeMeshOperatorsTest {
         for (int active = 0; active < mesh.faceCount(); active++) {
             assertNotEquals(FACE_FILL, mesh.faceLayers[faceLayer][mesh.faceIdAt(active)]);
         }
-        HalfEdgeMeshEngine.computeNormals(mesh);
+        HalfEdgeMeshOps.computeNormals(mesh);
     }
 
     /**
@@ -457,6 +457,6 @@ public class HalfEdgeMeshOperatorsTest {
      * @return the mesh
      */
     private static HalfEdgeMesh mesh(float[] positions, int[] triangles) {
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, triangles);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles);
     }
 }

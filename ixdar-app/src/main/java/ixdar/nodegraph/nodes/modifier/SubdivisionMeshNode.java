@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.GeometryBundles;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 
 @MeshNodeAnnotation(id = "subdivision_surface", category = NodeCategory.MODIFIERS)
 public class SubdivisionMeshNode implements MeshNode {
@@ -340,7 +340,7 @@ public class SubdivisionMeshNode implements MeshNode {
         // --- Propagate crease weights (decrement by 1) ---
         // A child edge joins a parent's edge point, nf + appearance, to a vertex point, at or
         // past nf + ne, and inherits max(0, parent_weight - 1).
-        HalfEdgeMesh subdivided = HalfEdgeMeshEngine.bulkAllocate(newPositions, newQuads, 4);
+        HalfEdgeMesh subdivided = HalfEdgeMeshOps.bulkAllocate(newPositions, newQuads, 4);
         float[] newCreaseWeights = null;
         if (creaseWeights != null) {
             boolean hasCreases = false;

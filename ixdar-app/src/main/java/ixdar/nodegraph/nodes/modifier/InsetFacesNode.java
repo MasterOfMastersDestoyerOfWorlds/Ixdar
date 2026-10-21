@@ -22,7 +22,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
 import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
@@ -404,7 +404,7 @@ public class InsetFacesNode implements MeshNode {
         for (int i = 0; i < faceIdxList.size(); i++) faceIdxFlat[i] = faceIdxList.get(i);
         int[] faceVpfArr = new int[faceVpfList.size()];
         for (int i = 0; i < faceVpfList.size(); i++) faceVpfArr[i] = faceVpfList.get(i);
-        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(outPos, faceVpfArr, faceIdxFlat);
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(outPos, faceVpfArr, faceIdxFlat);
         out.computeNormals();
         return out;
     }

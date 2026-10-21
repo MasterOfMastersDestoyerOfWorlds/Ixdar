@@ -5,7 +5,7 @@ import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonResult;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -72,7 +72,7 @@ public final class LimbAxis {
             dense = mesh;
         } else {
             QuadTriangulation split = new QuadTriangulation(mesh).build();
-            dense = HalfEdgeMeshEngine.buildFromIndexedMesh(split.positions, split.triangles);
+            dense = HalfEdgeMeshOps.buildFromIndexedMesh(split.positions, split.triangles);
         }
         SkeletonResult extracted =
                 MeshSkeletonExtractor.extract(dense, resolution, skeletonBranchBudget);

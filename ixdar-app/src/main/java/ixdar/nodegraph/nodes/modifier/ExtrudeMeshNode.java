@@ -21,7 +21,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
 import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
@@ -303,7 +303,7 @@ public class ExtrudeMeshNode implements MeshNode {
             }
         }
 
-        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(outPos, faceSizes, outFaces);
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(outPos, faceSizes, outFaces);
         out.computeNormals();
         return out;
     }
@@ -446,7 +446,7 @@ public class ExtrudeMeshNode implements MeshNode {
             outFaces[cornerWrite++] = vertNewId[va];
         }
 
-        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(outPos, faceSizes, outFaces);
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(outPos, faceSizes, outFaces);
         out.computeNormals();
         return out;
     }

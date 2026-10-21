@@ -34,7 +34,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.nodes.data.SurfaceMetricNode;
@@ -168,7 +168,7 @@ public final class GrooveRingBenchmark {
             triangles[corner + 1] = triangles[corner + 2];
             triangles[corner + 2] = swap;
         }
-        HalfEdgeMesh inward = HalfEdgeMeshEngine.buildFromIndexedMesh(positions, triangles);
+        HalfEdgeMesh inward = HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles);
         SemanticPatchDecomposer.EdgeDihedrals dihedrals =
                 SemanticPatchDecomposer.computeEdgeDihedrals(inward);
         PrincipalDirectionField curvature = PrincipalDirectionField.compute(inward, dihedrals);

@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -769,7 +769,7 @@ public final class RingRegionExtraction {
             problems.add("no region is selected, so nothing was extracted");
             return this;
         }
-        openMesh = HalfEdgeMeshEngine.buildFromIndexedMesh(
+        openMesh = HalfEdgeMeshOps.buildFromIndexedMesh(
                 Arrays.copyOf(keptPositions, XYZ * keptVertices),
                 Arrays.copyOf(keptTriangles, keptCorners));
 

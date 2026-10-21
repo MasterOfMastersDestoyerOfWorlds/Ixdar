@@ -15,7 +15,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.rings.SurfaceRing;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.primitives.TorusMeshNode;
@@ -317,7 +317,7 @@ class LoopThroughPointsTest {
                 faces[corner++] = ahead;
             }
         }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces);
     }
 
     private static MeshTopology torus() {

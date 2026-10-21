@@ -3,7 +3,7 @@ package ixdar.procgen.dungeon.render;
 import org.joml.Matrix4f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
@@ -206,6 +206,6 @@ public final class DebugCapsuleRuntime {
             indices[cursor++] = botLastRing + j;
         }
 
-        return HalfEdgeMeshEngine.bulkAllocate(positions, indices, 3);
+        return HalfEdgeMeshOps.bulkAllocate(positions, indices, 3);
     }
 }

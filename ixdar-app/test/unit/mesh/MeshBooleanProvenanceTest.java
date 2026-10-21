@@ -10,7 +10,7 @@ import ixdar.geometry.mesh.csg.BooleanOperation;
 import ixdar.geometry.mesh.csg.MeshBooleanResult;
 import ixdar.geometry.mesh.csg.QuadTriangulation;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.platform.Platforms;
 
 /**
@@ -260,7 +260,7 @@ public class MeshBooleanProvenanceTest {
             1, 2, SIX, 5,
             0, 4, 7, THREE,
         };
-        HalfEdgeMesh cube = HalfEdgeMeshEngine.bulkAllocate(positions, quads, QUAD_CORNERS);
+        HalfEdgeMesh cube = HalfEdgeMeshOps.bulkAllocate(positions, quads, QUAD_CORNERS);
         cube.computeNormals();
         return cube;
     }

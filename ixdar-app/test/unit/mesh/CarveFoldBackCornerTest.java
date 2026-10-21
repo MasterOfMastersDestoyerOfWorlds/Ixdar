@@ -8,7 +8,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceStripPath;
 import ixdar.geometry.mesh.quadlayout.embedding.SnappingCarve;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
@@ -217,6 +217,6 @@ class CarveFoldBackCornerTest {
         for (int index = 0; index < FACES.length; index++) {
             System.arraycopy(FACES[index], 0, faceIndices, index * COORDINATES, COORDINATES);
         }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faceIndices);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faceIndices);
     }
 }

@@ -20,7 +20,7 @@ import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
 
@@ -133,7 +133,7 @@ public class TransformGeometryNode implements MeshNode {
                     faceCorners[cursor++] = activeVertexOfId[mesh.faceVertexAt(faceId, k)];
                 }
             }
-            out = HalfEdgeMeshEngine.bulkAllocateMixed(newPositions, faceSizes, faceCorners);
+            out = HalfEdgeMeshOps.bulkAllocateMixed(newPositions, faceSizes, faceCorners);
             out.computeNormals();
             result = result.withMesh(out);
         }

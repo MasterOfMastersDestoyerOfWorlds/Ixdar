@@ -3,7 +3,7 @@ package ixdar.geometry.mesh.data.ops;
 import java.util.Arrays;
 
 import org.joml.Vector3f;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.numeric.graph.UnionFind;
@@ -64,7 +64,7 @@ public final class MeshMergeByDistance {
      */
     public HalfEdgeMesh weld(MeshTopology mesh, float distance) {
         weldArrays(mesh, distance);
-        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(weldedPositions, weldedFaceSizes,
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(weldedPositions, weldedFaceSizes,
                 weldedFaceCorners);
         out.computeNormals();
         return out;

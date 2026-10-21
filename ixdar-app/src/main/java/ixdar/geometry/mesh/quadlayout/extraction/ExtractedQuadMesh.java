@@ -3,7 +3,7 @@ package ixdar.geometry.mesh.quadlayout.extraction;
 import java.util.Arrays;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 
 /**
  * The quad mesh extracted from the relaxed integer grid map: one vertex per
@@ -83,7 +83,7 @@ public final class ExtractedQuadMesh {
      * @return the quad mesh, normals computed
      */
     public HalfEdgeMesh toMesh() {
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.bulkAllocate(
+        HalfEdgeMesh mesh = HalfEdgeMeshOps.bulkAllocate(
                 Arrays.copyOf(positions, quadVertexCount * POSITION_FLOATS),
                 Arrays.copyOf(quadCorner, quadCount * QUAD_CORNERS), QUAD_CORNERS);
         mesh.computeNormals();

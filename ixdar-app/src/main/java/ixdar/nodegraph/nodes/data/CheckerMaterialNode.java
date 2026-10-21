@@ -10,7 +10,7 @@ import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.MaterialData;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.nodegraph.api.NodeContext;
@@ -86,7 +86,7 @@ public class CheckerMaterialNode implements MeshNode {
                 : (Vector3Value) COLOR.defaultValue;
 
         QuadTriangulation triangulated = new QuadTriangulation(base.mesh()).build();
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(triangulated.positions,
+        HalfEdgeMesh mesh = HalfEdgeMeshOps.buildFromIndexedMesh(triangulated.positions,
                 triangulated.triangles);
 
         int cornerCount = triangulated.triangles.length;

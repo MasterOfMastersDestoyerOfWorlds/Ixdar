@@ -17,7 +17,7 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.FieldBroadcast;
 
@@ -164,7 +164,7 @@ public class SolidifyMeshNode implements MeshNode {
                 }
             }
         }
-        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceSizes, faceIndices);
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions, faceSizes, faceIndices);
         out.computeNormals();
         return out;
     }

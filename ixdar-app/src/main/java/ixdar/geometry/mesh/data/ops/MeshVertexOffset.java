@@ -3,7 +3,7 @@ package ixdar.geometry.mesh.data.ops;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.Vector3Field;
 import ixdar.nodegraph.field.Vector3Value;
@@ -74,7 +74,7 @@ public final class MeshVertexOffset {
                 faceCorners[outCorner++] = activeVertexOfId[mesh.faceVertexAt(faceId, corner)];
             }
         }
-        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceSizes, faceCorners);
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions, faceSizes, faceCorners);
         out.computeNormals();
         return out;
     }

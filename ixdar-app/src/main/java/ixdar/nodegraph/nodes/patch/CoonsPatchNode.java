@@ -18,7 +18,7 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 
 import ixdar.geometry.mesh.data.patches.CharrotGregoryPatch;
 /**
@@ -102,7 +102,7 @@ public class CoonsPatchNode implements MeshNode {
         // Grow-able output buffers. A typical subdivided voyage cage fits in
         // the default ArrayList capacity; non-quad n-gons produce triangles
         // rather than quads so the output mesh is mixed-vpf (handled via
-        // HalfEdgeMeshEngine.bulkAllocateMixed).
+        // HalfEdgeMeshOps.bulkAllocateMixed).
         ArrayList<Float> positionsList = new ArrayList<>();
         ArrayList<Integer> faceIndicesList = new ArrayList<>();
         ArrayList<Integer> faceVertexCountsList = new ArrayList<>();
@@ -210,7 +210,7 @@ public class CoonsPatchNode implements MeshNode {
         int[] faceVertexCounts = new int[faceVertexCountsList.size()];
         for (int i = 0; i < faceVertexCountsList.size(); i++) faceVertexCounts[i] = faceVertexCountsList.get(i);
 
-        HalfEdgeMesh outMesh = HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceVertexCounts, faceIdxFlat);
+        HalfEdgeMesh outMesh = HalfEdgeMeshOps.bulkAllocateMixed(positions, faceVertexCounts, faceIdxFlat);
         outMesh.computeNormals();
 
         HashMap<String, Object> nextSlots = new HashMap<>(base.slots());

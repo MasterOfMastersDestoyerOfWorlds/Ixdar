@@ -22,7 +22,7 @@ import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.selection.SplineRingNode;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
@@ -357,7 +357,7 @@ class CreaseRingTest {
                 faces[corner++] = overAhead;
             }
         }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces);
     }
 
     private static void press(List<ControlHint> controls, int keyCode) {

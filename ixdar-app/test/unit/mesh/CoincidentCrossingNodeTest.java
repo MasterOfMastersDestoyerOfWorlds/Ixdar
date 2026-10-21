@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.quadlayout.embedding.ChartBarycentric;
 
 /**
@@ -197,7 +197,7 @@ class CoincidentCrossingNodeTest {
             -45f, 10.2f, 0f,
         };
         int[] faceIndices = { 0, 1, 2, 0, 2, 3 };
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faceIndices);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faceIndices);
     }
 
     /**

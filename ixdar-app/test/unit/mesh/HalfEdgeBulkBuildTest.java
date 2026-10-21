@@ -11,11 +11,11 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 
 /**
- * The bulk builders ({@link HalfEdgeMeshEngine#buildFromIndexedMesh},
- * {@link HalfEdgeMeshEngine#bulkAllocate}, {@link HalfEdgeMeshEngine#bulkAllocateMixed}) must hand
+ * The bulk builders ({@link HalfEdgeMeshOps#buildFromIndexedMesh},
+ * {@link HalfEdgeMeshOps#bulkAllocate}, {@link HalfEdgeMeshOps#bulkAllocateMixed}) must hand
  * back exactly the mesh that adding the same faces one at a time through
  * {@link HalfEdgeMesh#addFace} builds: the same vertex, edge, face and half-edge ids, the same
  * links and the same adjacency order.
@@ -40,7 +40,7 @@ public class HalfEdgeBulkBuildTest {
         HalfEdgeMesh reference = incrementalBuild(positions, triangles, 3);
         reference.computeNormals();
         assertNull(firstTopologyDifference(reference,
-                HalfEdgeMeshEngine.buildFromIndexedMesh(positions, triangles)));
+                HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles)));
     }
 
     /**
@@ -74,7 +74,7 @@ public class HalfEdgeBulkBuildTest {
         HalfEdgeMesh reference = incrementalBuild(positions, triangles, 3);
         reference.computeNormals();
         assertNull(firstTopologyDifference(reference,
-                HalfEdgeMeshEngine.buildFromIndexedMesh(positions, triangles)));
+                HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles)));
     }
 
     /** A quad torus through the uniform-arity bulk path. */
@@ -83,7 +83,7 @@ public class HalfEdgeBulkBuildTest {
         float[] positions = torusPositions();
         int[] quads = torusFaces(false);
         assertNull(firstTopologyDifference(incrementalBuild(positions, quads, QUAD_CORNERS),
-                HalfEdgeMeshEngine.bulkAllocate(positions, quads, QUAD_CORNERS)));
+                HalfEdgeMeshOps.bulkAllocate(positions, quads, QUAD_CORNERS)));
     }
 
     /** Quads and triangles mixed on an open grid, through the mixed-arity bulk path. */
@@ -128,7 +128,7 @@ public class HalfEdgeBulkBuildTest {
             cursor += count;
         }
         assertNull(firstTopologyDifference(reference,
-                HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceVertexCounts, faceIndices)));
+                HalfEdgeMeshOps.bulkAllocateMixed(positions, faceVertexCounts, faceIndices)));
     }
 
     /**
@@ -140,7 +140,7 @@ public class HalfEdgeBulkBuildTest {
         float[] positions = {0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1};
         int[] triangles = {0, 1, 2, 1, 0, 3, 0, 1, 4, 1, 0, 5};
         InvalidMeshTopologyException failure = assertThrows(InvalidMeshTopologyException.class,
-                () -> HalfEdgeMeshEngine.buildFromIndexedMesh(positions, triangles));
+                () -> HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles));
         assertTrue(failure.getMessage().startsWith("2 non-manifold"), failure.getMessage());
         assertTrue(failure.getMessage().endsWith(" 0->1 1->0"), failure.getMessage());
     }

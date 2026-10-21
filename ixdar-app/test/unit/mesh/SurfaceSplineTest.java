@@ -24,7 +24,7 @@ import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.selection.SplineRingNode;
 import ixdar.tools.ring.RingDslWriter;
@@ -237,7 +237,7 @@ class SurfaceSplineTest {
             faces[corner++] = 1 + SPHERE_SIDES * (interiorRings - 1) + side;
             faces[corner++] = 1 + SPHERE_SIDES * (interiorRings - 1) + next;
         }
-        MeshTopology mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        MeshTopology mesh = HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces);
         assertNotNull(mesh);
         return mesh;
     }
@@ -277,7 +277,7 @@ class SurfaceSplineTest {
                 faces[corner++] = ahead;
             }
         }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faces);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces);
     }
 
     @Test

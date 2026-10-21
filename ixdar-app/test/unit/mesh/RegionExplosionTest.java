@@ -11,7 +11,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RegionExplosion;
 
@@ -177,6 +177,6 @@ class RegionExplosionTest {
             int[] squareTriangles = { base, base + 1, base + 2, base, base + 2, base + 3 };
             System.arraycopy(squareTriangles, 0, triangles, 3 * 2 * square, squareTriangles.length);
         }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, triangles);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles);
     }
 }

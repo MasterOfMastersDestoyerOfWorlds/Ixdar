@@ -11,7 +11,7 @@ import java.util.Set;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.quadlayout.embedding.EarClipping;
 import ixdar.numeric.exact.ExactBarycentricOrient;
 
@@ -137,7 +137,7 @@ public final class EmbeddedMeshTopology {
                         .get(sourceMesh.faceVertexAt(sourceFaceId, corner));
             }
         }
-        this.copy = HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faceIndices);
+        this.copy = HalfEdgeMeshOps.buildFromIndexedMesh(positions, faceIndices);
         sourceFaceLayer = copy.declareFaceLayer(UNCLAIMED);
         patchLayer = copy.declareFaceLayer(UNCLAIMED);
         sourceEdgeLayer = copy.declareEdgeLayer(UNCLAIMED);

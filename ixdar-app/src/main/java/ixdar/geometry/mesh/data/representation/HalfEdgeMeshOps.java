@@ -11,7 +11,7 @@ import org.joml.Vector3f;
  * All editing keeps the half-edge invariants (twin/next/prev, edge↔half-edge,
  * face↔half-edge) consistent.
  */
-public class HalfEdgeMeshEngine {
+public class HalfEdgeMeshOps {
     public static final String EDGE = "Edge ";
     public static final String POSITION_DATA_MUST_BE_XYZ_TRIPLES = "Position data must be XYZ triples";
     public static final String AND = " and ";

@@ -14,7 +14,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.rings.RingRegions;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.api.MapNodeContext;
@@ -140,7 +140,7 @@ class RingRegionsTest {
                         major * tube + nextMinor);
             }
         }
-        MeshTopology torus = HalfEdgeMeshEngine.buildFromIndexedMesh(positions, triangles);
+        MeshTopology torus = HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles);
         int[] ringColumns = { 2, 6 };
         boolean[][] marks = new boolean[2][RingBundle.edgeIdCeiling(torus)];
         for (int ring = 0; ring < 2; ring++) {
@@ -199,7 +199,7 @@ class RingRegionsTest {
             cursor = put(triangles, cursor, bottomCentre, next, segment);
             cursor = put(triangles, cursor, topCentre, topRow + segment, topRow + next);
         }
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, triangles);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles);
     }
 
     private static int put(int[] triangles, int cursor, int first, int second, int third) {

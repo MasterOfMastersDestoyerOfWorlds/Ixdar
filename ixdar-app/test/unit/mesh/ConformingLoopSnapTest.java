@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -50,7 +50,7 @@ class ConformingLoopSnapTest {
                 cursor += pair.length;
             }
         }
-        MeshTopology grid = HalfEdgeMeshEngine.buildFromIndexedMesh(gridPositions, triangles);
+        MeshTopology grid = HalfEdgeMeshOps.buildFromIndexedMesh(gridPositions, triangles);
 
         int[][] travel = new int[CENTRE_SQUARE_LOOP_COLUMN_ROWS.length + 2][];
         cursor = 0;

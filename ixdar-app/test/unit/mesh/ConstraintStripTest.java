@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.geometry.mesh.quadlayout.embedding.FaceStripPath;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
@@ -211,7 +211,7 @@ class ConstraintStripTest {
     private EmbeddedMeshTopology triangle() {
         float[] positions = { 0.0f, 0.0f, 0.0f, EDGE_LENGTH, 0.0f, 0.0f,
             0.0f, EDGE_LENGTH, 0.0f };
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.buildFromIndexedMesh(positions,
+        HalfEdgeMesh mesh = HalfEdgeMeshOps.buildFromIndexedMesh(positions,
             new int[] { 0, 1, 2 });
         return new EmbeddedMeshTopology(mesh);
     }

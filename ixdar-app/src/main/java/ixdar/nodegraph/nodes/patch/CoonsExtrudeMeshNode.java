@@ -22,7 +22,7 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
@@ -596,7 +596,7 @@ public class CoonsExtrudeMeshNode implements MeshNode {
         if (allQuads) {
             return HalfEdgeMesh.bulkAllocate(positions, faceIdxFlat, 4);
         }
-        return HalfEdgeMeshEngine.bulkAllocateMixed(positions, faceVpfArr, faceIdxFlat);
+        return HalfEdgeMeshOps.bulkAllocateMixed(positions, faceVpfArr, faceIdxFlat);
     }
 
     /** Builds the output mesh for REGION mode: side walls only on boundary edges. */

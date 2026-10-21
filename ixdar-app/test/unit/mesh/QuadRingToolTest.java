@@ -26,7 +26,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.data.SurfaceMetricNode;
@@ -103,7 +103,7 @@ class QuadRingToolTest {
                 corners[cursor++] = gridVertexId(column, row + 1);
             }
         }
-        HalfEdgeMesh grid = HalfEdgeMeshEngine.bulkAllocateMixed(positions, cornerCounts, corners);
+        HalfEdgeMesh grid = HalfEdgeMeshOps.bulkAllocateMixed(positions, cornerCounts, corners);
         SurfaceMetric metric = SurfaceMetric.of(grid);
         assertCoversEveryPolygon(grid, metric);
         assertEquals(grid.edgeCount() + grid.faceCount(), metric.edgeLength.length,
@@ -160,7 +160,7 @@ class QuadRingToolTest {
     @Test
     void aQuadSplitsOnItsShorterDiagonal() {
         float[] rhombus = { 0f, 0f, 0f, 2f, 0f, 0f, 3f, 1f, 0f, 1f, 1f, 0f };
-        MeshTopology quad = HalfEdgeMeshEngine.bulkAllocateMixed(rhombus,
+        MeshTopology quad = HalfEdgeMeshOps.bulkAllocateMixed(rhombus,
                 new int[] { QUAD_CORNERS }, new int[] { 0, 1, 2, 3 });
         SurfaceMetric metric = SurfaceMetric.of(quad);
 
@@ -499,7 +499,7 @@ class QuadRingToolTest {
             corners[cursor++] = SIDE_ROWS * SEGMENTS_AROUND + segment;
         }
         cornerCounts[face] = SEGMENTS_AROUND;
-        HalfEdgeMesh mesh = HalfEdgeMeshEngine.bulkAllocateMixed(positions, cornerCounts, corners);
+        HalfEdgeMesh mesh = HalfEdgeMeshOps.bulkAllocateMixed(positions, cornerCounts, corners);
         mesh.computeNormals();
         return mesh;
     }

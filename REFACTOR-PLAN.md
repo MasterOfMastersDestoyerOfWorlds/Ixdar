@@ -343,7 +343,7 @@ is in the working tree behind it.
         flipped_triangles + injective), `MotorcycleGraphNode` (`motorcycle_graph`: uv +
         alpha_degrees(15) -> graph + node/arc/patch counts; javadoc names the planned quad-mesh
         tracing input mode for QuadMixer). Coercion lives on the engine per the 3.3 convention:
-        `HalfEdgeMeshEngine.fromMeshTopology` (counterpart of
+        `HalfEdgeMeshOps.fromMeshTopology` (counterpart of
         `ArrayMeshEngine.fromUniformMeshTopology`; pass-through, ArrayMesh.toHalfEdgeMesh, else
         throw) - the one-method `QuadLayoutNodes` holder was deleted per author. All desktopOnly.
         Diagnostic port names (singularity_count, flipped_triangles, injective) registered as

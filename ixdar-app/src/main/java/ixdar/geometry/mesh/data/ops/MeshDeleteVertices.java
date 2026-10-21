@@ -7,7 +7,7 @@ import org.joml.Vector3f;
 import ixdar.nodegraph.field.BoolField;
 import ixdar.nodegraph.field.Vector3Value;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMeshEngine;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -100,7 +100,7 @@ public final class MeshDeleteVertices {
                 keptCorners += size;
             }
         }
-        HalfEdgeMesh out = HalfEdgeMeshEngine.bulkAllocateMixed(Arrays.copyOf(positions, survivors * 3),
+        HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(Arrays.copyOf(positions, survivors * 3),
                 Arrays.copyOf(faceSizes, keptFaces), Arrays.copyOf(faceVertices, keptCorners));
         out.computeNormals();
         return out;

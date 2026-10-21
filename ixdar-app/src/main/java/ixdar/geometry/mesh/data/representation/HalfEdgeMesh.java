@@ -9,7 +9,7 @@ import org.joml.Vector3f;
  * Mutable half-edge mesh: separate id ranges for vertices, edges, faces, and
  * half-edges, each with an active flag and per-id parallel arrays plus
  * {@link IntIdTable} adjacency. Editing methods delegate to
- * {@link HalfEdgeMeshEngine}.
+ * {@link HalfEdgeMeshOps}.
  */
 public class HalfEdgeMesh implements MeshTopology {
     public static final String IS_NOT_ACTIVE = " is not active";
@@ -154,7 +154,7 @@ public class HalfEdgeMesh implements MeshTopology {
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#addVertex(HalfEdgeMesh, float, float, float)}.
+     * {@link HalfEdgeMeshOps#addVertex(HalfEdgeMesh, float, float, float)}.
      *
      * @param x x coordinate
      * @param y y coordinate
@@ -162,7 +162,7 @@ public class HalfEdgeMesh implements MeshTopology {
      * @return id of the newly created vertex
      */
     public int addVertex(float x, float y, float z) {
-        return HalfEdgeMeshEngine.addVertex(this, x, y, z);
+        return HalfEdgeMeshOps.addVertex(this, x, y, z);
     }
 
     /**
@@ -177,14 +177,14 @@ public class HalfEdgeMesh implements MeshTopology {
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#addEdge(HalfEdgeMesh, int, int)}.
+     * {@link HalfEdgeMeshOps#addEdge(HalfEdgeMesh, int, int)}.
      *
      * @param startVertexId active vertex on one end
      * @param endVertexId   active vertex on the other end
      * @return id of the newly created edge
      */
     public int addEdge(int startVertexId, int endVertexId) {
-        return HalfEdgeMeshEngine.addEdge(this, startVertexId, endVertexId);
+        return HalfEdgeMeshOps.addEdge(this, startVertexId, endVertexId);
     }
 
     /**
@@ -195,58 +195,58 @@ public class HalfEdgeMesh implements MeshTopology {
      * @return id of the newly created face
      */
     public int addFace(int... vertexIds) {
-        return HalfEdgeMeshEngine.addFace(this, vertexIds);
+        return HalfEdgeMeshOps.addFace(this, vertexIds);
     }
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#splitEdge(HalfEdgeMesh, int, float, float, float)}.
+     * {@link HalfEdgeMeshOps#splitEdge(HalfEdgeMesh, int, float, float, float)}.
      *
      * @param edgeId   active edge to split; each incident face must be a triangle
      * @param position 3D position of the split point
      * @return id of the newly created vertex on the split point
      */
     public int splitEdge(int edgeId, Vector3f position) {
-        return HalfEdgeMeshEngine.splitEdge(this, edgeId, position.x, position.y, position.z);
+        return HalfEdgeMeshOps.splitEdge(this, edgeId, position.x, position.y, position.z);
     }
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#splitFace(HalfEdgeMesh, int, float, float, float)}.
+     * {@link HalfEdgeMeshOps#splitFace(HalfEdgeMesh, int, float, float, float)}.
      *
      * @param faceId   active face to split
      * @param position 3D position of the new vertex
      * @return id of the new vertex
      */
     public int splitFace(int faceId, Vector3f position) {
-        return HalfEdgeMeshEngine.splitFace(this, faceId, position.x, position.y, position.z);
+        return HalfEdgeMeshOps.splitFace(this, faceId, position.x, position.y, position.z);
     }
 
     /**
-     * Convenience wrapper for {@link HalfEdgeMeshEngine#flipEdge(HalfEdgeMesh, int)}.
+     * Convenience wrapper for {@link HalfEdgeMeshOps#flipEdge(HalfEdgeMesh, int)}.
      *
      * @param edgeId interior edge between two triangles
      * @return id of the new diagonal
      */
     public int flipEdge(int edgeId) {
-        return HalfEdgeMeshEngine.flipEdge(this, edgeId);
+        return HalfEdgeMeshOps.flipEdge(this, edgeId);
     }
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#collapseEdge(HalfEdgeMesh, int, float, float, float)}.
+     * {@link HalfEdgeMeshOps#collapseEdge(HalfEdgeMesh, int, float, float, float)}.
      *
      * @param edgeId   edge to collapse
      * @param position where the kept vertex ends up
      * @return id of the kept vertex
      */
     public int collapseEdge(int edgeId, Vector3f position) {
-        return HalfEdgeMeshEngine.collapseEdge(this, edgeId, position.x, position.y, position.z);
+        return HalfEdgeMeshOps.collapseEdge(this, edgeId, position.x, position.y, position.z);
     }
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#replaceFaces(HalfEdgeMesh, int, int[], int[])}.
+     * {@link HalfEdgeMeshOps#replaceFaces(HalfEdgeMesh, int, int[], int[])}.
      *
      * @param parentFaceId     face whose layer values every new face inherits
      * @param retiredFaceIds   active faces to remove, in removal order
@@ -254,7 +254,7 @@ public class HalfEdgeMesh implements MeshTopology {
      * @return id of the first new face; the rest follow consecutively
      */
     public int replaceFaces(int parentFaceId, int[] retiredFaceIds, int[] triangleCorners) {
-        return HalfEdgeMeshEngine.replaceFaces(this, parentFaceId, retiredFaceIds, triangleCorners);
+        return HalfEdgeMeshOps.replaceFaces(this, parentFaceId, retiredFaceIds, triangleCorners);
     }
 
     /**
@@ -328,62 +328,62 @@ public class HalfEdgeMesh implements MeshTopology {
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#removeFace(HalfEdgeMesh, int)}.
+     * {@link HalfEdgeMeshOps#removeFace(HalfEdgeMesh, int)}.
      *
      * @param faceId active face id to remove
      */
     public void removeFace(int faceId) {
-        HalfEdgeMeshEngine.removeFace(this, faceId);
+        HalfEdgeMeshOps.removeFace(this, faceId);
     }
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#removeFaceKeepingNormals(HalfEdgeMesh, int)}.
+     * {@link HalfEdgeMeshOps#removeFaceKeepingNormals(HalfEdgeMesh, int)}.
      *
      * @param faceId active face id to remove
      */
     public void removeFaceKeepingNormals(int faceId) {
-        HalfEdgeMeshEngine.removeFaceKeepingNormals(this, faceId);
+        HalfEdgeMeshOps.removeFaceKeepingNormals(this, faceId);
     }
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#removeEdge(HalfEdgeMesh, int)}.
+     * {@link HalfEdgeMeshOps#removeEdge(HalfEdgeMesh, int)}.
      *
      * @param edgeId active edge id with no incident faces
      */
     public void removeEdge(int edgeId) {
-        HalfEdgeMeshEngine.removeEdge(this, edgeId);
+        HalfEdgeMeshOps.removeEdge(this, edgeId);
     }
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#removeVertex(HalfEdgeMesh, int)}.
+     * {@link HalfEdgeMeshOps#removeVertex(HalfEdgeMesh, int)}.
      *
      * @param vertexId active vertex id with no incident topology
      */
     public void removeVertex(int vertexId) {
-        HalfEdgeMeshEngine.removeVertex(this, vertexId);
+        HalfEdgeMeshOps.removeVertex(this, vertexId);
     }
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#computeNormals(HalfEdgeMesh)}.
+     * {@link HalfEdgeMeshOps#computeNormals(HalfEdgeMesh)}.
      */
     public void computeNormals() {
-        HalfEdgeMeshEngine.computeNormals(this);
+        HalfEdgeMeshOps.computeNormals(this);
     }
 
     /**
      * Convenience wrapper for
-     * {@link HalfEdgeMeshEngine#buildFromIndexedMesh(float[], int[])}.
+     * {@link HalfEdgeMeshOps#buildFromIndexedMesh(float[], int[])}.
      *
      * @param positions   packed xyz triples
      * @param faceIndices triangle vertex indices in groups of three
      * @return populated half-edge mesh with normals computed
      */
     public static HalfEdgeMesh buildFromIndexedMesh(float[] positions, int[] faceIndices) {
-        return HalfEdgeMeshEngine.buildFromIndexedMesh(positions, faceIndices);
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, faceIndices);
     }
 
     /**
@@ -397,7 +397,7 @@ public class HalfEdgeMesh implements MeshTopology {
      * @return populated half-edge mesh; normals are not computed
      */
     public static HalfEdgeMesh bulkAllocate(float[] positions, int[] faceIndices, int vertsPerFace) {
-        return HalfEdgeMeshEngine.bulkAllocate(positions, faceIndices, vertsPerFace);
+        return HalfEdgeMeshOps.bulkAllocate(positions, faceIndices, vertsPerFace);
     }
 
     /** {@inheritDoc}. */
