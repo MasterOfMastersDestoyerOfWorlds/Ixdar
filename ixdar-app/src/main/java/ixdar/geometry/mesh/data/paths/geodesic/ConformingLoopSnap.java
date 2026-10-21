@@ -6,6 +6,7 @@ import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -135,6 +136,19 @@ public final class ConformingLoopSnap {
             }
         }
         return marks;
+    }
+
+    /**
+     * The edge loop nearest a traced path, its mask from {@link #snap} with the gaps that snap
+     * left open.
+     *
+     * @param mesh source mesh the trace was taken on
+     * @param path traced polyline with its per-point vertex, edge or face correspondence
+     * @return the snapped edges
+     */
+    public EdgeMarks edgeLoop(MeshTopology mesh, TracedSurfacePath path) {
+        boolean[] marks = snap(mesh, path);
+        return new EdgeMarks(marks, unresolvedGaps);
     }
 
     private void prepareVisitBuffers(MeshTopology mesh) {

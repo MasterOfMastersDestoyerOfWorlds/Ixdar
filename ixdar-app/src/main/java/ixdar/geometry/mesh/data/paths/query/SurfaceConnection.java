@@ -5,6 +5,7 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
+import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -323,9 +324,10 @@ public final class SurfaceConnection {
                     Arrays.copyOfRange(sampleAlong, base, base + COORDINATES_PER_POINT))) {
                 continue;
             }
+            TracedSurfacePath girth = girdle.cut.path;
             boolean crossesWall = false;
-            for (int step = 0; step < girdle.cut.stepCount && !crossesWall; step++) {
-                crossesWall = wall(girdle.cut.edgeId[step]);
+            for (int step = 0; step < girth.pointCount && !crossesWall; step++) {
+                crossesWall = wall(girth.edgeId[step]);
             }
             if (crossesWall) {
                 girthsCrossingWalls++;
@@ -335,9 +337,9 @@ public final class SurfaceConnection {
             // (one around a spine beside the path). Within a face the loop is the plane's only
             // chord, so a path span changing side inside a loop face crosses the loop.
             loopStamp++;
-            for (int step = 0; step < girdle.cut.stepCount; step++) {
+            for (int step = 0; step < girth.pointCount; step++) {
                 for (int side = 0; side < 2; side++) {
-                    int faceId = mesh.edgeFace(girdle.cut.edgeId[step], side);
+                    int faceId = mesh.edgeFace(girth.edgeId[step], side);
                     if (faceId >= 0) {
                         loopFaceStamp[activeFaceByFaceId[faceId]] = loopStamp;
                     }
@@ -360,8 +362,8 @@ public final class SurfaceConnection {
             if (crossings % 2 == 0) {
                 continue;
             }
-            widestGirth = Math.max(widestGirth, girdle.length);
-            sampleGirth[kept] = girdle.length;
+            widestGirth = Math.max(widestGirth, girth.length);
+            sampleGirth[kept] = girth.length;
             samplePathIndex[kept++] = index;
         }
         // The neck is the narrowest cross-section that the path widens away from on both sides
@@ -394,7 +396,7 @@ public final class SurfaceConnection {
                 && girdle.find(mesh, mesh.faceIdAt(pathActiveFace[narrowestPathIndex]),
                         narrowestPoint, neckAlong);
         if (snapped) {
-            narrowestMarkedByEdgeId = snap.snap(mesh, girdle.cut.asTracedPath(mesh));
+            narrowestMarkedByEdgeId = snap.snap(mesh, girdle.cut.path);
             snapped = snap.unresolvedGaps == 0;
         }
         girthMillis = (System.nanoTime() - start) / NANOS_PER_MILLI;

@@ -39,16 +39,10 @@ public final class GirdlingPlane {
     /** Normal of the plane the last search settled on, packed xyz. */
     public final float[] normal = new float[COORDINATES_PER_POINT];
 
-    /** The cut itself, packed xyz, closed by its last-to-first span. */
-    public float[] polyline = new float[0];
-
-    /** Mesh edges the cut crosses. */
-    public int edgeCount;
-
-    /** Euclidean length of the cut. */
-    public double length;
-
-    /** The walk the last search settled on, whose crossings carry the edges the cut runs over. */
+    /**
+     * The walk the last search settled on: its {@link PlaneSurfaceLoop#path} is the cut, one point
+     * per mesh edge it crosses, or null when the search found none.
+     */
     public final PlaneSurfaceLoop cut = new PlaneSurfaceLoop();
 
     private final Vector3f surfaceNormal = new Vector3f();
@@ -68,9 +62,7 @@ public final class GirdlingPlane {
      * @return true when a closed cut was found
      */
     public boolean find(MeshTopology mesh, int faceId, float[] point, float[] seedAxis) {
-        polyline = new float[0];
-        edgeCount = 0;
-        length = 0.0;
+        cut.path = null;
         if (mesh == null || faceId < 0 || !mesh.hasFace(faceId)) {
             return false;
         }
@@ -117,11 +109,9 @@ public final class GirdlingPlane {
         }
         if (!found || walkAt(mesh, faceId, point, bestAngle, true, Double.POSITIVE_INFINITY)
                 == Double.POSITIVE_INFINITY) {
+            cut.path = null;
             return false;
         }
-        polyline = cut.polyline;
-        edgeCount = cut.stepCount;
-        length = cut.length;
         return true;
     }
 
@@ -158,6 +148,6 @@ public final class GirdlingPlane {
         if (startEdgeId < 0 || !cut.walk(mesh, point, normal, startEdgeId)) {
             return Double.POSITIVE_INFINITY;
         }
-        return cut.length;
+        return cut.path.length;
     }
 }

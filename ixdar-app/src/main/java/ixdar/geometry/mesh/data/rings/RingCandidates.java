@@ -1,24 +1,16 @@
 package ixdar.geometry.mesh.data.rings;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
 
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonJoint;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonResult;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
-import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
+import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 
 /**
- * Neck loops proposed on a surface, one entry per ring in every array: the tightened polyline, the
+ * Neck loops proposed on a surface, one entry per ring in every array: the tightened loop, the
  * mesh edges nearest it, and the measurements that rank it.
  *
  * <p>
@@ -32,34 +24,17 @@ public final class RingCandidates {
 
     public static final int COORDINATES_PER_POINT = 3;
 
-    public static final int CYCLE_VERTEX_DEGREE = 2;
-
-    /** Number of rings; every array below holds this many entries (or a multiple of it). */
+    /** Number of rings; every array below holds this many entries. */
     public int ringCount;
 
-    /** First point index of each ring in {@link #polylinePoint}; length {@code ringCount + 1}. */
-    public int[] polylineOffset = new int[] { 0 };
+    /** Each ring's closed loop on the surface, measured: its length, centroid and mean radius. */
+    public TracedSurfacePath[] path = new TracedSurfacePath[0];
 
-    /** Packed xyz of every ring's tightened loop, in travel order, first point repeated to close. */
-    public float[] polylinePoint = new float[0];
+    /** The conforming mesh edge cycle nearest each ring's loop. */
+    public EdgeMarks[] marks = new EdgeMarks[0];
 
-    /** First entry of each ring in {@link #markedEdgeId}; length {@code ringCount + 1}. */
-    public int[] markedEdgeOffset = new int[] { 0 };
-
-    /** Ascending mesh edge ids of the conforming edge cycle nearest each tightened loop. */
-    public int[] markedEdgeId = new int[0];
-
-    /** Packed xyz of each ring's centroid, the mean of its polyline points. */
-    public float[] centroid = new float[0];
-
-    /** Length of each tightened loop, in world units. */
-    public float[] length = new float[0];
-
-    /** Length of the seed the loop was tightened from, always at least {@link #length}. */
-    public float[] seedLength = new float[0];
-
-    /** Mean distance from a ring's centroid to its polyline points. */
-    public float[] meanRadius = new float[0];
+    /** Length of the seed each loop was tightened from, always at least the loop's own. */
+    public double[] seedLength = new double[0];
 
     /** Id of the skeleton branch the vertex region on one side of each ring belongs to. */
     public int[] branchOnOneSide = new int[0];
@@ -114,80 +89,6 @@ public final class RingCandidates {
     public int rejectedNotGirdling;
 
     /**
-     * Adjacency of a marked edge set, keyed by mesh vertex id, each entry listing the vertices
-     * that set joins it to.
-     *
-     * @param mesh    surface the edge ids belong to
-     * @param edgeIds mesh edge ids of one ring's conforming cycle
-     * @return the neighbour lists, empty when no edge is marked
-     */
-    private static Map<Integer, List<Integer>> markedAdjacency(MeshTopology mesh, int[] edgeIds) {
-        Map<Integer, List<Integer>> neighbors = new HashMap<>();
-        for (int edgeId : edgeIds) {
-            int halfEdge = mesh.edgeHalfEdge(edgeId);
-            int tail = mesh.halfEdgeVertex(halfEdge);
-            int head = mesh.halfEdgeEndVertex(halfEdge);
-            if (tail < 0 || head < 0) {
-                continue;
-            }
-            neighbors.computeIfAbsent(tail, key -> new ArrayList<>()).add(head);
-            neighbors.computeIfAbsent(head, key -> new ArrayList<>()).add(tail);
-        }
-        return neighbors;
-    }
-
-    /**
-     * Connected pieces a marked edge set falls into, read as a graph on the vertices it touches.
-     *
-     * @param mesh    surface the edge ids belong to
-     * @param edgeIds mesh edge ids of one ring's conforming cycle
-     * @return the number of connected components, 0 when no edge is marked
-     */
-    public static int markedEdgeComponents(MeshTopology mesh, int[] edgeIds) {
-        Map<Integer, List<Integer>> neighbors = markedAdjacency(mesh, edgeIds);
-        Set<Integer> seen = new HashSet<>();
-        int components = 0;
-        for (int start : neighbors.keySet()) {
-            if (!seen.add(start)) {
-                continue;
-            }
-            components++;
-            Deque<Integer> pending = new ArrayDeque<>();
-            pending.push(start);
-            while (!pending.isEmpty()) {
-                for (int next : neighbors.get(pending.pop())) {
-                    if (seen.add(next)) {
-                        pending.push(next);
-                    }
-                }
-            }
-        }
-        return components;
-    }
-
-    /**
-     * Whether a marked edge set is one simple closed cycle on the mesh: every vertex it touches
-     * carries exactly two of its edges, and the whole set is connected. A loop that doubled back
-     * marks each retraced edge once, so it fails on the degree-one ends it leaves behind.
-     *
-     * @param mesh    surface the edge ids belong to
-     * @param edgeIds mesh edge ids of one ring's conforming cycle
-     * @return true when the edges girdle the surface as a single closed loop
-     */
-    public static boolean marksOneClosedCycle(MeshTopology mesh, int[] edgeIds) {
-        Map<Integer, List<Integer>> neighbors = markedAdjacency(mesh, edgeIds);
-        if (neighbors.isEmpty()) {
-            return false;
-        }
-        for (List<Integer> spokes : neighbors.values()) {
-            if (spokes.size() != CYCLE_VERTEX_DEGREE) {
-                return false;
-            }
-        }
-        return markedEdgeComponents(mesh, edgeIds) == 1;
-    }
-
-    /**
      * Radius of the skeleton joint nearest a point: the TEASAR distance from boundary, which
      * measures the tube the surface encloses rather than the loop drawn on it.
      *
@@ -239,31 +140,20 @@ public final class RingCandidates {
     }
 
     /**
-     * Mesh edge ids of one ring's conforming cycle, copied out of the shared packed array.
-     *
-     * @param ring ring index in {@code [0, ringCount)}
-     * @return the ascending edge ids of that ring alone
-     */
-    public int[] edgeIdsOf(int ring) {
-        return Arrays.copyOfRange(markedEdgeId, markedEdgeOffset[ring], markedEdgeOffset[ring + 1]);
-    }
-
-    /**
-     * Per-edge-id mask of one ring's conforming edge cycle.
+     * Per-edge-id mask of one ring's conforming edge cycle, sized for the surface it is stored on.
      *
      * @param ring          ring index in {@code [0, ringCount)}
      * @param edgeIdCeiling one past the largest mesh edge id, the length of the returned mask
      * @return a fresh mask, true on every edge of that ring's cycle
      */
     public boolean[] edgeMarks(int ring, int edgeIdCeiling) {
-        boolean[] marks = new boolean[edgeIdCeiling];
-        for (int entry = markedEdgeOffset[ring]; entry < markedEdgeOffset[ring + 1]; entry++) {
-            int edgeId = markedEdgeId[entry];
+        boolean[] mask = new boolean[edgeIdCeiling];
+        for (int edgeId : marks[ring].markedEdgeIds) {
             if (edgeId < edgeIdCeiling) {
-                marks[edgeId] = true;
+                mask[edgeId] = true;
             }
         }
-        return marks;
+        return mask;
     }
 
     /**
@@ -273,13 +163,15 @@ public final class RingCandidates {
      * @return a fresh mask, true on every edge of every ring
      */
     public boolean[] unionEdgeMarks(int edgeIdCeiling) {
-        boolean[] marks = new boolean[edgeIdCeiling];
-        for (int edgeId : markedEdgeId) {
-            if (edgeId < edgeIdCeiling) {
-                marks[edgeId] = true;
+        boolean[] mask = new boolean[edgeIdCeiling];
+        for (int ring = 0; ring < ringCount; ring++) {
+            for (int edgeId : marks[ring].markedEdgeIds) {
+                if (edgeId < edgeIdCeiling) {
+                    mask[edgeId] = true;
+                }
             }
         }
-        return marks;
+        return mask;
     }
 
     /**
@@ -288,40 +180,21 @@ public final class RingCandidates {
      * @return curve geometry with {@link #ringCount} polylines, in ring order
      */
     public CurveGeometry curves() {
-        int[] offsets = new int[ringCount + 1];
-        int pointTotal = 0;
-        for (int ring = 0; ring < ringCount; ring++) {
-            offsets[ring] = pointTotal;
-            pointTotal += ringPointCount(ring) + 1;
-        }
-        offsets[ringCount] = pointTotal;
-        float[] packed = new float[COORDINATES_PER_POINT * Math.max(1, pointTotal)];
-        int target = 0;
-        for (int ring = 0; ring < ringCount; ring++) {
-            int points = ringPointCount(ring);
-            for (int step = 0; step <= points; step++) {
-                int source = COORDINATES_PER_POINT
-                        * (polylineOffset[ring] + step % Math.max(1, points));
-                packed[target] = polylinePoint[source];
-                packed[target + 1] = polylinePoint[source + 1];
-                packed[target + 2] = polylinePoint[source + 2];
-                target += COORDINATES_PER_POINT;
-            }
-        }
         if (ringCount == 0) {
             return CurveGeometry.singlePolyline(new float[0]);
         }
+        float[][] drawn = new float[ringCount][];
+        int[] offsets = new int[ringCount + 1];
+        for (int ring = 0; ring < ringCount; ring++) {
+            drawn[ring] = path[ring].drawnPolyline(path[ring].positions);
+            offsets[ring + 1] = offsets[ring] + drawn[ring].length / COORDINATES_PER_POINT;
+        }
+        float[] packed = new float[COORDINATES_PER_POINT * Math.max(1, offsets[ringCount])];
+        for (int ring = 0; ring < ringCount; ring++) {
+            System.arraycopy(drawn[ring], 0, packed, COORDINATES_PER_POINT * offsets[ring],
+                    drawn[ring].length);
+        }
         return new CurveGeometry(packed, offsets);
-    }
-
-    /**
-     * Points in one ring's polyline.
-     *
-     * @param ring ring index in {@code [0, ringCount)}
-     * @return number of points stored for that ring
-     */
-    public int ringPointCount(int ring) {
-        return polylineOffset[ring + 1] - polylineOffset[ring];
     }
 
     /**
@@ -330,17 +203,18 @@ public final class RingCandidates {
      * @param x point x
      * @param y point y
      * @param z point z
-     * @return ring index of the nearest polyline point, or -1 when there are no rings
+     * @return ring index of the nearest loop point, or -1 when there are no rings
      */
     public int nearestRing(float x, float y, float z) {
         int best = -1;
         double bestSquared = Double.POSITIVE_INFINITY;
         for (int ring = 0; ring < ringCount; ring++) {
-            for (int point = polylineOffset[ring]; point < polylineOffset[ring + 1]; point++) {
+            double[] xyz = path[ring].positions;
+            for (int point = 0; point < path[ring].pointCount; point++) {
                 int base = COORDINATES_PER_POINT * point;
-                double dx = polylinePoint[base] - x;
-                double dy = polylinePoint[base + 1] - y;
-                double dz = polylinePoint[base + 2] - z;
+                double dx = xyz[base] - x;
+                double dy = xyz[base + 1] - y;
+                double dz = xyz[base + 2] - z;
                 double squared = dx * dx + dy * dy + dz * dz;
                 if (squared < bestSquared) {
                     bestSquared = squared;
@@ -355,27 +229,15 @@ public final class RingCandidates {
      * A copy holding one ring, so a picked ring travels the graph as an ordinary candidate set.
      *
      * @param ring ring index in {@code [0, ringCount)}
-     * @return a fresh single-ring value; counters are carried over unchanged
+     * @return a fresh single-ring value sharing that ring's path and marks; counters are carried
+     *         over unchanged
      */
     public RingCandidates single(int ring) {
         RingCandidates one = new RingCandidates();
         one.ringCount = 1;
-        int points = ringPointCount(ring);
-        one.polylineOffset = new int[] { 0, points };
-        one.polylinePoint = new float[COORDINATES_PER_POINT * points];
-        System.arraycopy(polylinePoint, COORDINATES_PER_POINT * polylineOffset[ring],
-                one.polylinePoint, 0, one.polylinePoint.length);
-        int edges = markedEdgeOffset[ring + 1] - markedEdgeOffset[ring];
-        one.markedEdgeOffset = new int[] { 0, edges };
-        one.markedEdgeId = new int[edges];
-        System.arraycopy(markedEdgeId, markedEdgeOffset[ring], one.markedEdgeId, 0, edges);
-        one.centroid = new float[] {
-            centroid[COORDINATES_PER_POINT * ring],
-            centroid[COORDINATES_PER_POINT * ring + 1],
-            centroid[COORDINATES_PER_POINT * ring + 2] };
-        one.length = new float[] { length[ring] };
-        one.seedLength = new float[] { seedLength[ring] };
-        one.meanRadius = new float[] { meanRadius[ring] };
+        one.path = new TracedSurfacePath[] { path[ring] };
+        one.marks = new EdgeMarks[] { marks[ring] };
+        one.seedLength = new double[] { seedLength[ring] };
         one.branchOnOneSide = new int[] { branchOnOneSide[ring] };
         one.branchOnOtherSide = new int[] { branchOnOtherSide[ring] };
         one.regionOnOneSide = new int[] { regionOnOneSide[ring] };

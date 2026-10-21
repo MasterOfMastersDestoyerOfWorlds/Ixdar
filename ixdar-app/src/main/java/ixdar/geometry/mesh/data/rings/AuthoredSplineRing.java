@@ -7,6 +7,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
+import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.paths.query.PlaneSurfaceLoop;
 import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.paths.query.SurfacePathCrossings;
@@ -97,7 +98,7 @@ public final class AuthoredSplineRing {
     private final double[] spread = new double[PLANE_FIT_MATRIX_ENTRIES];
     private final double[] eigenvectors = new double[PLANE_FIT_MATRIX_ENTRIES];
     private int[] referenceVertexId = new int[0];
-    private float[] cycleXyz = new float[0];
+    private double[] cycleXyz = new double[0];
     private int[] spanLabel = new int[0];
     private boolean cycleDoublesBack;
     private int referencePoints;
@@ -162,7 +163,8 @@ public final class AuthoredSplineRing {
         if (mode == RingSegmentMode.GEODESIC) {
             if (distinctCount <= PLANE_STARTED_ANCHORS) {
                 int loopPoints = planeLoopReference(mesh);
-                return loopPoints > 0 && fitAndTrace(mesh, cut.polyline, loopPoints, finalDepth);
+                return loopPoints > 0
+                        && fitAndTrace(mesh, cut.path.positions, loopPoints, finalDepth);
             }
             // Geodesic spans when they make a simple ring that passes through every anchor.
             // Where the anchors leave a stretch of the girdle uncovered a geodesic cuts back the
@@ -176,7 +178,7 @@ public final class AuthoredSplineRing {
                 return true;
             }
             int loopPoints = planeLoopReference(mesh);
-            if (loopPoints > 0 && fitAndTrace(mesh, cut.polyline, loopPoints, finalDepth)
+            if (loopPoints > 0 && fitAndTrace(mesh, cut.path.positions, loopPoints, finalDepth)
                     && simple && authoredVertexId.length == distinctCount) {
                 int start = 0;
                 while (authoredVertexId[start] != distinct[0]) {
@@ -211,10 +213,11 @@ public final class AuthoredSplineRing {
         double[] centre = new double[COORDINATES_PER_POINT];
         for (int point = 0; point < loopPoints; point++) {
             for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                centre[axis] += cut.polyline[COORDINATES_PER_POINT * point + axis] / loopPoints;
+                centre[axis] += cut.path.positions[COORDINATES_PER_POINT * point + axis]
+                        / loopPoints;
             }
         }
-        double band = CREASE_BAND_OF_RADIUS * SplineAnchorFit.meanRadiusOf(cut.polyline,
+        double band = CREASE_BAND_OF_RADIUS * SplineAnchorFit.meanRadiusOf(cut.path.positions,
                 loopPoints);
         for (int anchor = 0; anchor < distinctCount; anchor++) {
             mesh.vertexPosition(distinct[anchor], position);
@@ -408,7 +411,7 @@ public final class AuthoredSplineRing {
             referenceVertexId = new int[points];
         }
         if (cycleXyz.length < COORDINATES_PER_POINT * points) {
-            cycleXyz = new float[COORDINATES_PER_POINT * points];
+            cycleXyz = new double[COORDINATES_PER_POINT * points];
         }
         // The paths lie on two sheets, so the walk may come back to a vertex it passed on the
         // other sheet; the loop between the two visits is erased as the walk is laid down, unless
@@ -480,7 +483,7 @@ public final class AuthoredSplineRing {
                         : mesh.halfEdgeEndVertex(halfEdge);
                 for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
                     cycleXyz[COORDINATES_PER_POINT * points + axis] =
-                            (float) geodesics.tracedXyz[COORDINATES_PER_POINT * step + axis];
+                            geodesics.tracedXyz[COORDINATES_PER_POINT * step + axis];
                 }
                 points++;
             }
@@ -563,13 +566,14 @@ public final class AuthoredSplineRing {
             failure = "the plane through the anchors cuts no closed loop";
             return -1;
         }
-        int points = cut.stepCount;
+        TracedSurfacePath loop = cut.path;
+        int points = loop.pointCount;
         if (referenceVertexId.length < points) {
             referenceVertexId = new int[points];
         }
         for (int step = 0; step < points; step++) {
-            int halfEdge = mesh.edgeHalfEdge(cut.edgeId[step]);
-            referenceVertexId[step] = cut.crossingFraction[step] <= 0.5
+            int halfEdge = mesh.edgeHalfEdge(loop.edgeId[step]);
+            referenceVertexId[step] = loop.fraction[step] <= 0.5
                     ? mesh.halfEdgeVertex(halfEdge)
                     : mesh.halfEdgeEndVertex(halfEdge);
         }
@@ -577,16 +581,16 @@ public final class AuthoredSplineRing {
             mesh.vertexPosition(distinct[anchor], position);
             double nearest = Double.POSITIVE_INFINITY;
             for (int step = 0; step < points; step++) {
-                double dx = cut.polyline[COORDINATES_PER_POINT * step] - position.x;
-                double dy = cut.polyline[COORDINATES_PER_POINT * step + 1] - position.y;
-                double dz = cut.polyline[COORDINATES_PER_POINT * step + 2] - position.z;
+                double dx = loop.positions[COORDINATES_PER_POINT * step] - position.x;
+                double dy = loop.positions[COORDINATES_PER_POINT * step + 1] - position.y;
+                double dz = loop.positions[COORDINATES_PER_POINT * step + 2] - position.z;
                 double squared = dx * dx + dy * dy + dz * dz;
                 if (squared < nearest) {
                     nearest = squared;
                     fit.authoredPoint[anchor] = step;
                 }
             }
-            fit.authoredAllowance[anchor] = SurfaceSpline.distanceToPolyline(cut.polyline,
+            fit.authoredAllowance[anchor] = SurfaceSpline.distanceToPolyline(loop.positions,
                     points, position.x, position.y, position.z);
         }
         return points;
@@ -598,7 +602,7 @@ public final class AuthoredSplineRing {
      *
      * @return true when a spline was traced
      */
-    private boolean fitAndTrace(MeshTopology mesh, float[] reference, int points,
+    private boolean fitAndTrace(MeshTopology mesh, double[] reference, int points,
             int finalDepth) {
         simple = false;
         authoredVertexId = new int[0];

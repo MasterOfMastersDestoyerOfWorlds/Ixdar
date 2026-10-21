@@ -103,7 +103,7 @@ public final class LineSet {
      * @param fromPoint  index of the point the step leaves
      * @param toPoint    index of the point the step reaches
      */
-    public void pathStep(MeshTopology mesh, float[] packedXyz, int[] vertexId, int[] edgeId,
+    public void pathStep(MeshTopology mesh, double[] packedXyz, int[] vertexId, int[] edgeId,
             int[] faceId, int fromPoint, int toPoint) {
         int fromVertex = vertexId[fromPoint];
         int toVertex = vertexId[toPoint];
@@ -111,9 +111,10 @@ public final class LineSet {
             vertexStep(mesh, fromVertex, toVertex);
             return;
         }
-        start.set(packedXyz[3 * fromPoint], packedXyz[3 * fromPoint + 1],
-                packedXyz[3 * fromPoint + 2]);
-        end.set(packedXyz[3 * toPoint], packedXyz[3 * toPoint + 1], packedXyz[3 * toPoint + 2]);
+        start.set((float) packedXyz[3 * fromPoint], (float) packedXyz[3 * fromPoint + 1],
+                (float) packedXyz[3 * fromPoint + 2]);
+        end.set((float) packedXyz[3 * toPoint], (float) packedXyz[3 * toPoint + 1],
+                (float) packedXyz[3 * toPoint + 2]);
         int fromInside = faceId[fromPoint];
         int toInside = faceId[toPoint];
         int fromFaces = fromVertex >= 0 ? mesh.vertexFaceCount(fromVertex)

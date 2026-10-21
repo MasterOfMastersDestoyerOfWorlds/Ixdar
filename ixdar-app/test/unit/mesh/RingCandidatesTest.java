@@ -76,10 +76,9 @@ class RingCandidatesTest {
         for (int ring = 0; ring < rings.ringCount; ring++) {
             System.out.printf("[y] ring %d length=%.4f neckness=%.3f skeletonRadius=%.4f "
                     + "centroid=%.3f,%.3f,%.3f branches=%d|%d regions=%d|%d%n", ring,
-                    rings.length[ring], rings.neckness[ring], rings.skeletonRadius[ring],
-                    rings.centroid[COORDINATES_PER_POINT * ring],
-                    rings.centroid[COORDINATES_PER_POINT * ring + 1],
-                    rings.centroid[COORDINATES_PER_POINT * ring + 2],
+                    rings.path[ring].length, rings.neckness[ring], rings.skeletonRadius[ring],
+                    rings.path[ring].centroid[0], rings.path[ring].centroid[1],
+                    rings.path[ring].centroid[2],
                     rings.branchOnOneSide[ring], rings.branchOnOtherSide[ring],
                     rings.regionOnOneSide[ring], rings.regionOnOtherSide[ring]);
         }
@@ -90,8 +89,8 @@ class RingCandidatesTest {
         for (int ring = 0; ring < rings.ringCount; ring++) {
             assertTrue(rings.neckness[ring] >= RingCandidateExtractor.DEFAULT_MINIMUM_NECKNESS,
                     "ring " + ring + " scored " + rings.neckness[ring] + ", below the threshold");
-            assertTrue(rings.length[ring] < 2.0 * legGirth,
-                    "ring " + ring + " is " + rings.length[ring] + " long, more than twice the "
+            assertTrue(rings.path[ring].length < 2.0 * legGirth,
+                    "ring " + ring + " is " + rings.path[ring].length + " long, more than twice the "
                             + legGirth + " girth of a leg");
         }
         for (float[] direction : LEG_DIRECTIONS) {
@@ -110,18 +109,13 @@ class RingCandidatesTest {
 
         assertTrue(rings.ringCount > 0, "the Y proposed no ring to check the loop shape of");
         for (int ring = 0; ring < rings.ringCount; ring++) {
-            int[] edgeIds = rings.edgeIdsOf(ring);
+            int[] edgeIds = rings.marks[ring].markedEdgeIds;
             assertEquals(edgeIds.length, cycleWalkLength(mesh, edgeIds),
                     "ring " + ring + "'s " + edgeIds.length + " marked edges are not one closed "
                             + "cycle; a loop that doubled back marks a path, not a girdle");
-            int points = rings.ringPointCount(ring);
+            int points = rings.path[ring].pointCount;
             assertTrue(points > 1, "ring " + ring + " has a polyline of " + points + " points");
-            int first = COORDINATES_PER_POINT * rings.polylineOffset[ring];
-            int last = COORDINATES_PER_POINT * (rings.polylineOffset[ring] + points - 1);
-            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                assertEquals(rings.polylinePoint[first + axis], rings.polylinePoint[last + axis],
-                        0f, "ring " + ring + "'s polyline does not close on its first point");
-            }
+            assertTrue(rings.path[ring].closed, "ring " + ring + "'s path is not closed");
         }
     }
 
@@ -171,9 +165,9 @@ class RingCandidatesTest {
         assertEquals(1, waist.ringCount, "the dumbbell's waist cut produced no ring to score");
         assertEquals(1, tube.ringCount, "the plain tube's cut produced no ring to score");
         System.out.printf("[neckness] waist length=%.4f skeletonRadius=%.4f neckness=%.3f; "
-                + "tube length=%.4f skeletonRadius=%.4f neckness=%.3f%n", waist.length[0],
-                waist.skeletonRadius[0], waist.neckness[0], tube.length[0], tube.skeletonRadius[0],
-                tube.neckness[0]);
+                + "tube length=%.4f skeletonRadius=%.4f neckness=%.3f%n", waist.path[0].length,
+                waist.skeletonRadius[0], waist.neckness[0], tube.path[0].length,
+                tube.skeletonRadius[0], tube.neckness[0]);
 
         assertTrue(Math.abs(tube.neckness[0] - 1f) < PLAIN_TUBE_TOLERANCE,
                 "a plain tube's cross-section scored " + tube.neckness[0]
@@ -196,8 +190,12 @@ class RingCandidatesTest {
 
         assertEquals(left.ringCount, right.ringCount, "the two runs proposed different ring counts");
         assertArrayEquals(left.neckness, right.neckness, 0f, "the two runs ranked differently");
-        assertArrayEquals(left.centroid, right.centroid, 0f, "the two runs placed rings apart");
-        assertArrayEquals(left.markedEdgeId, right.markedEdgeId, "the two runs marked other edges");
+        for (int ring = 0; ring < left.ringCount; ring++) {
+            assertArrayEquals(left.path[ring].centroid, right.path[ring].centroid, 0.0,
+                    "the two runs placed rings apart");
+            assertArrayEquals(left.marks[ring].markedEdgeIds, right.marks[ring].markedEdgeIds,
+                    "the two runs marked other edges");
+        }
     }
 
     @Test
@@ -213,19 +211,22 @@ class RingCandidatesTest {
                 cutter.planePoint[2], cutter.localSkeletonRadius, rings.ringCount);
         assertEquals(1, rings.ringCount, "cutting the dumbbell's branch produced no ring");
         System.out.printf("[dumbbell] ring length=%.4f planar=%.4f tightened=%b neckness=%.3f "
-                + "centroid=%.3f,%.3f,%.3f edges=%d%n", rings.length[0], rings.seedLength[0],
-                cutter.tightened, rings.neckness[0], rings.centroid[0], rings.centroid[1],
-                rings.centroid[2], rings.markedEdgeOffset[1]);
+                + "centroid=%.3f,%.3f,%.3f edges=%d%n", rings.path[0].length, rings.seedLength[0],
+                cutter.tightened, rings.neckness[0], rings.path[0].centroid[0],
+                rings.path[0].centroid[1], rings.path[0].centroid[2],
+                rings.marks[0].markedEdgeCount);
         if (cutter.tightenedRing != null) {
             System.out.printf("[dumbbell] tightening seed=%.4f tight=%.4f gaps=%d edges=%d%n",
-                    cutter.tightenedRing.seedLength, cutter.tightenedRing.length,
-                    cutter.tightenedRing.unresolvedGaps, cutter.tightenedRing.markedEdgeIds.length);
+                    cutter.tightenedRing.seed.length, cutter.tightenedRing.path.length,
+                    cutter.tightenedRing.marks.unresolvedGaps,
+                    cutter.tightenedRing.marks.markedEdgeCount);
         }
         double waistGirth = 2.0 * Math.PI * WAIST_RADIUS;
-        assertTrue(Math.abs(rings.length[0] - waistGirth) < 0.25 * waistGirth,
-                "the tightened ring is " + rings.length[0] + ", not the waist girth " + waistGirth);
-        assertTrue(Math.abs(rings.centroid[0]) < BALL_OFFSET / 2f,
-                "the ring settled at x=" + rings.centroid[0] + ", away from the waist at x=0");
+        double length = rings.path[0].length;
+        assertTrue(Math.abs(length - waistGirth) < 0.25 * waistGirth,
+                "the tightened ring is " + length + ", not the waist girth " + waistGirth);
+        assertTrue(Math.abs(rings.path[0].centroid[0]) < BALL_OFFSET / 2f, "the ring settled at x="
+                + rings.path[0].centroid[0] + ", away from the waist at x=0");
     }
 
     @Test
@@ -248,9 +249,9 @@ class RingCandidatesTest {
      */
     private static int ringOnLeg(RingCandidates rings, float[] direction) {
         for (int ring = 0; ring < rings.ringCount; ring++) {
-            float x = rings.centroid[COORDINATES_PER_POINT * ring];
-            float y = rings.centroid[COORDINATES_PER_POINT * ring + 1];
-            float z = rings.centroid[COORDINATES_PER_POINT * ring + 2];
+            float x = (float) rings.path[ring].centroid[0];
+            float y = (float) rings.path[ring].centroid[1];
+            float z = (float) rings.path[ring].centroid[2];
             float along = x * direction[0] + y * direction[1] + z * direction[2];
             float acrossX = x - along * direction[0];
             float acrossY = y - along * direction[1];
@@ -279,7 +280,7 @@ class RingCandidatesTest {
             neighbors.computeIfAbsent(head, key -> new ArrayList<>()).add(tail);
         }
         for (List<Integer> spokes : neighbors.values()) {
-            if (spokes.size() != RingCandidates.CYCLE_VERTEX_DEGREE) {
+            if (spokes.size() != RingCandidateExtractor.CYCLE_VERTEX_DEGREE) {
                 return -1;
             }
         }

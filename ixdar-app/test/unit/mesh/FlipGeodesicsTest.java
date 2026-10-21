@@ -124,17 +124,17 @@ class FlipGeodesicsTest {
 
         int[] tightened = flipper.shorten(intrinsic, seed, true,
                 FlipGeodesics.UNBOUNDED_ITERATIONS);
-        TracedSurfacePath traced = tracer.trace(intrinsic, tightened, true);
+        TracedSurfacePath traced = tracer.trace(intrinsic, tightened, true).measure();
 
         System.out.println("[trace] points=" + traced.pointCount + " polyline="
-                + traced.polylineLength() + " intrinsic=" + flipper.pathLength());
+                + traced.length + " intrinsic=" + flipper.pathLength());
         assertTrue(traced.pointCount > tightened.length,
                 "the trace crossed no original edges: " + traced.pointCount + " points for "
                         + tightened.length + " intrinsic edges");
-        double relativeError = Math.abs(traced.polylineLength() - flipper.pathLength())
+        double relativeError = Math.abs(traced.length - flipper.pathLength())
                 / flipper.pathLength();
         assertTrue(relativeError < 1e-6,
-                "the traced polyline is " + traced.polylineLength()
+                "the traced polyline is " + traced.length
                         + " but the intrinsic loop is " + flipper.pathLength());
     }
 

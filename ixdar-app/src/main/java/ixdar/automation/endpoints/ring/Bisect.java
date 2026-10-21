@@ -68,10 +68,10 @@ public class Bisect extends AutomationEndpoint implements AutomationRoute {
                             tool.liveLabel(tool.ringOfSerial(tool.draftBisectorEnds[0])));
                     result.addProperty("lastWall",
                             tool.liveLabel(tool.ringOfSerial(tool.draftBisectorEnds[1])));
-                    result.addProperty("edges", tool.draft.markedEdgeCount);
-                    result.addProperty("length", tool.draft.length);
+                    result.addProperty("edges", tool.draft.marks.markedEdgeCount);
+                    result.addProperty("length", tool.draft.path.length);
                     result.addProperty("fingerprint", EdgeMarks.fingerprint(
-                            scene.halfEdgeSurface(), tool.draft.markedByEdgeId));
+                            scene.halfEdgeSurface(), tool.draft.marks.markedByEdgeId));
                 }
                 if (placed && confirm) {
                     result.addProperty("confirmed", tool.confirmDraft());

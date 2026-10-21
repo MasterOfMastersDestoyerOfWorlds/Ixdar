@@ -23,28 +23,11 @@ public final class PlaneSurfaceLoop {
     public static final int INITIAL_CROSSINGS = 256;
 
     /**
-     * Mesh edge ids the walk crossed, in travel order. It is a buffer the walks share and grow, so
-     * only its first {@link #stepCount} entries belong to the last walk.
+     * The loop the last walk closed, measured: one point per crossed mesh edge in travel order,
+     * its fraction along {@code edgeHalfEdge}'s tail-to-head. Null when the last walk did not
+     * return to the edge it started from.
      */
-    public int[] edgeId = new int[0];
-
-    /** Where on each crossed edge the plane cut it, along {@code edgeHalfEdge}'s tail-to-head. */
-    public double[] crossingFraction = new double[0];
-
-    /**
-     * Crossing points in travel order, packed xyz, left open at the seam. Shared and grown like
-     * {@link #edgeId}, so it holds {@link #stepCount} points however long the array is.
-     */
-    public float[] polyline = new float[0];
-
-    /** Crossings the last walk recorded. */
-    public int stepCount;
-
-    /** Whether the walk returned to the edge it started from. */
-    public boolean closed;
-
-    /** Euclidean length of the closed polyline, the seam span included. */
-    public double length;
+    public TracedSurfacePath path;
 
     /**
      * Length a walk may reach before it is abandoned. A search over cutting planes sets this to
@@ -53,6 +36,9 @@ public final class PlaneSurfaceLoop {
      */
     public double maximumLength = Double.POSITIVE_INFINITY;
 
+    private int[] crossedEdgeId = new int[0];
+    private double[] crossedFraction = new double[0];
+    private double[] crossedXyz = new double[0];
     private final Vector3f tailPosition = new Vector3f();
     private final Vector3f headPosition = new Vector3f();
     private float[] planePoint = new float[COORDINATES_PER_POINT];
@@ -65,14 +51,13 @@ public final class PlaneSurfaceLoop {
      * @param point       a point the plane passes through, packed xyz
      * @param normal      the plane's unit normal, packed xyz
      * @param startEdgeId an edge whose endpoints the plane separates
-     * @return true when the walk closed back onto {@code startEdgeId}
+     * @return true when the walk closed back onto {@code startEdgeId} within
+     *         {@link #maximumLength}
      */
     public boolean walk(MeshTopology mesh, float[] point, float[] normal, int startEdgeId) {
         planePoint = point;
         planeNormal = normal;
-        stepCount = 0;
-        closed = false;
-        length = 0.0;
+        path = null;
         if (mesh == null || startEdgeId < 0 || !mesh.hasEdge(startEdgeId)
                 || crossingOn(mesh, startEdgeId) < 0.0) {
             return false;
@@ -80,35 +65,35 @@ public final class PlaneSurfaceLoop {
         int capacity = Math.min(MAXIMUM_STEPS, Math.max(mesh.edgeCount(), 1));
         int currentEdgeId = startEdgeId;
         int currentFaceId = mesh.halfEdgeFace(mesh.edgeHalfEdge(startEdgeId));
-        double previousX = 0.0;
-        double previousY = 0.0;
-        double previousZ = 0.0;
+        int stepCount = 0;
+        double walked = 0.0;
         for (int step = 0; step < capacity; step++) {
             if (currentFaceId < 0) {
                 return false;
             }
             double along = crossingOn(mesh, currentEdgeId);
-            double pointX = tailPosition.x + along * (headPosition.x - tailPosition.x);
-            double pointY = tailPosition.y + along * (headPosition.y - tailPosition.y);
-            double pointZ = tailPosition.z + along * (headPosition.z - tailPosition.z);
+            if (stepCount == crossedEdgeId.length) {
+                int grown = Math.min(capacity,
+                        Math.max(INITIAL_CROSSINGS, 2 * crossedEdgeId.length));
+                crossedEdgeId = Arrays.copyOf(crossedEdgeId, grown);
+                crossedFraction = Arrays.copyOf(crossedFraction, grown);
+                crossedXyz = Arrays.copyOf(crossedXyz, COORDINATES_PER_POINT * grown);
+            }
+            int base = COORDINATES_PER_POINT * stepCount;
+            crossedXyz[base] = tailPosition.x + along * (headPosition.x - tailPosition.x);
+            crossedXyz[base + 1] = tailPosition.y + along * (headPosition.y - tailPosition.y);
+            crossedXyz[base + 2] = tailPosition.z + along * (headPosition.z - tailPosition.z);
             if (stepCount > 0) {
-                length += Math.sqrt((pointX - previousX) * (pointX - previousX)
-                        + (pointY - previousY) * (pointY - previousY)
-                        + (pointZ - previousZ) * (pointZ - previousZ));
-                if (length > maximumLength) {
+                double dx = crossedXyz[base] - crossedXyz[base - COORDINATES_PER_POINT];
+                double dy = crossedXyz[base + 1] - crossedXyz[base - COORDINATES_PER_POINT + 1];
+                double dz = crossedXyz[base + 2] - crossedXyz[base - COORDINATES_PER_POINT + 2];
+                walked += Math.sqrt(dx * dx + dy * dy + dz * dz);
+                if (walked > maximumLength) {
                     return false;
                 }
             }
-            previousX = pointX;
-            previousY = pointY;
-            previousZ = pointZ;
-            if (stepCount == edgeId.length) {
-                int grown = Math.min(capacity, Math.max(INITIAL_CROSSINGS, 2 * edgeId.length));
-                edgeId = Arrays.copyOf(edgeId, grown);
-                crossingFraction = Arrays.copyOf(crossingFraction, grown);
-            }
-            edgeId[stepCount] = currentEdgeId;
-            crossingFraction[stepCount] = along;
+            crossedEdgeId[stepCount] = currentEdgeId;
+            crossedFraction[stepCount] = along;
             stepCount++;
             int nextEdgeId = -1;
             for (int side = 0; side < mesh.faceEdgeCount(currentFaceId); side++) {
@@ -124,9 +109,13 @@ public final class PlaneSurfaceLoop {
             currentFaceId = faceAcross(mesh, nextEdgeId, currentFaceId);
             currentEdgeId = nextEdgeId;
             if (currentEdgeId == startEdgeId) {
-                closed = true;
-                measure(mesh);
-                return length <= maximumLength;
+                int[] noVertex = new int[stepCount];
+                Arrays.fill(noVertex, -1);
+                path = new TracedSurfacePath(
+                        Arrays.copyOf(crossedXyz, COORDINATES_PER_POINT * stepCount), noVertex,
+                        Arrays.copyOf(crossedEdgeId, stepCount),
+                        Arrays.copyOf(crossedFraction, stepCount), stepCount, true).measure();
+                return path.length <= maximumLength;
             }
         }
         return false;
@@ -186,61 +175,6 @@ public final class PlaneSurfaceLoop {
             }
         }
         return nearest;
-    }
-
-    /**
-     * The crossings of the last walk as a traced surface path, the shape the conforming snap and
-     * the ring measurements consume.
-     *
-     * @param mesh surface the walk ran on
-     * @return the closed path, or null when the last walk did not close
-     */
-    public TracedSurfacePath asTracedPath(MeshTopology mesh) {
-        if (!closed) {
-            return null;
-        }
-        double[] positions = new double[COORDINATES_PER_POINT * stepCount];
-        int[] vertexId = new int[stepCount];
-        int[] pathEdgeId = new int[stepCount];
-        double[] fraction = new double[stepCount];
-        for (int step = 0; step < stepCount; step++) {
-            int halfEdge = mesh.edgeHalfEdge(edgeId[step]);
-            mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), tailPosition);
-            mesh.vertexPosition(mesh.halfEdgeEndVertex(halfEdge), headPosition);
-            double along = crossingFraction[step];
-            positions[COORDINATES_PER_POINT * step] =
-                    tailPosition.x + along * (headPosition.x - tailPosition.x);
-            positions[COORDINATES_PER_POINT * step + 1] =
-                    tailPosition.y + along * (headPosition.y - tailPosition.y);
-            positions[COORDINATES_PER_POINT * step + 2] =
-                    tailPosition.z + along * (headPosition.z - tailPosition.z);
-            vertexId[step] = -1;
-            pathEdgeId[step] = edgeId[step];
-            fraction[step] = along;
-        }
-        return new TracedSurfacePath(positions, vertexId, pathEdgeId, fraction, stepCount, true);
-    }
-
-    private void measure(MeshTopology mesh) {
-        if (polyline.length < COORDINATES_PER_POINT * stepCount) {
-            polyline = new float[COORDINATES_PER_POINT * stepCount];
-        }
-        for (int step = 0; step < stepCount; step++) {
-            int halfEdge = mesh.edgeHalfEdge(edgeId[step]);
-            mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), tailPosition);
-            mesh.vertexPosition(mesh.halfEdgeEndVertex(halfEdge), headPosition);
-            double along = crossingFraction[step];
-            polyline[COORDINATES_PER_POINT * step] =
-                    (float) (tailPosition.x + along * (headPosition.x - tailPosition.x));
-            polyline[COORDINATES_PER_POINT * step + 1] =
-                    (float) (tailPosition.y + along * (headPosition.y - tailPosition.y));
-            polyline[COORDINATES_PER_POINT * step + 2] =
-                    (float) (tailPosition.z + along * (headPosition.z - tailPosition.z));
-        }
-        double seamX = polyline[0] - polyline[COORDINATES_PER_POINT * (stepCount - 1)];
-        double seamY = polyline[1] - polyline[COORDINATES_PER_POINT * (stepCount - 1) + 1];
-        double seamZ = polyline[2] - polyline[COORDINATES_PER_POINT * (stepCount - 1) + 2];
-        length += Math.sqrt(seamX * seamX + seamY * seamY + seamZ * seamZ);
     }
 
     /**

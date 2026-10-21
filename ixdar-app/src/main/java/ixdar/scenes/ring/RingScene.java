@@ -394,8 +394,8 @@ public class RingScene extends MeshNodeViewerScene {
             return;
         }
         Map<String, boolean[]> marksByLabel = new LinkedHashMap<>();
-        marksByLabel.put(RING_SEED_LABEL, closedRing.seedMarkedByEdgeId);
-        marksByLabel.put(RING_TIGHTENED_LABEL, closedRing.markedByEdgeId);
+        marksByLabel.put(RING_SEED_LABEL, closedRing.seedMarks.markedByEdgeId);
+        marksByLabel.put(RING_TIGHTENED_LABEL, closedRing.marks.markedByEdgeId);
         showEdgeMarks(marksByLabel);
     }
 

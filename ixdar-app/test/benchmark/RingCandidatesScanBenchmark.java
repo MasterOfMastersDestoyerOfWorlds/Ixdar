@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
+import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -126,67 +127,31 @@ public final class RingCandidatesScanBenchmark {
      * @return the formatted row
      */
     private static String row(MeshTopology mesh, RingCandidates rings, int ring) {
-        int[] edgeIds = rings.edgeIdsOf(ring);
+        int[] edgeIds = rings.marks[ring].markedEdgeIds;
+        TracedSurfacePath path = rings.path[ring];
+        double diameter = 0.0;
+        double[] xyz = path.positions;
+        for (int here = 0; here < path.pointCount; here++) {
+            for (int there = here + 1; there < path.pointCount; there++) {
+                double dx = xyz[COORDINATES_PER_POINT * there] - xyz[COORDINATES_PER_POINT * here];
+                double dy = xyz[COORDINATES_PER_POINT * there + 1]
+                        - xyz[COORDINATES_PER_POINT * here + 1];
+                double dz = xyz[COORDINATES_PER_POINT * there + 2]
+                        - xyz[COORDINATES_PER_POINT * here + 2];
+                diameter = Math.max(diameter, Math.sqrt(dx * dx + dy * dy + dz * dz));
+            }
+        }
         return String.format(Locale.ROOT,
                 "[rings] %2d neckness=%.3f length=%.5f skeletonRadius=%.5f centroid=%.4f,%.4f,%.4f "
-                        + "branches=%d|%d regions=%d|%d area=%.4f|%.4f edges=%d closingSpan=%.5f "
-                        + "cycle=%b parts=%d lengthOverDiameter=%.2f",
-                ring, rings.neckness[ring], rings.length[ring], rings.skeletonRadius[ring],
-                rings.centroid[COORDINATES_PER_POINT * ring],
-                rings.centroid[COORDINATES_PER_POINT * ring + 1],
-                rings.centroid[COORDINATES_PER_POINT * ring + 2],
+                        + "branches=%d|%d regions=%d|%d area=%.4f|%.4f edges=%d "
+                        + "cycle=%b lengthOverDiameter=%.2f",
+                ring, rings.neckness[ring], path.length, rings.skeletonRadius[ring],
+                path.centroid[0], path.centroid[1], path.centroid[2],
                 rings.branchOnOneSide[ring], rings.branchOnOtherSide[ring],
                 rings.regionOnOneSide[ring], rings.regionOnOtherSide[ring],
                 rings.areaOnOneSide[ring], rings.areaOnOtherSide[ring], edgeIds.length,
-                closingSpan(rings, ring), RingCandidates.marksOneClosedCycle(mesh, edgeIds),
-                RingCandidates.markedEdgeComponents(mesh, edgeIds),
-                rings.length[ring] / Math.max(1e-9, polylineDiameter(rings, ring)));
-    }
-
-    /**
-     * Distance from a ring's last polyline point back to its first, zero when the stored loop
-     * already repeats its first point at the end.
-     *
-     * @param rings candidates to read
-     * @param ring  ring index
-     * @return the length of the span left open between the polyline's two ends
-     */
-    private static double closingSpan(RingCandidates rings, int ring) {
-        int points = rings.ringPointCount(ring);
-        if (points < 2) {
-            return 0.0;
-        }
-        int first = COORDINATES_PER_POINT * rings.polylineOffset[ring];
-        int last = COORDINATES_PER_POINT * (rings.polylineOffset[ring] + points - 1);
-        double dx = rings.polylinePoint[last] - rings.polylinePoint[first];
-        double dy = rings.polylinePoint[last + 1] - rings.polylinePoint[first + 1];
-        double dz = rings.polylinePoint[last + 2] - rings.polylinePoint[first + 2];
-        return Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    /**
-     * Largest straight-line distance between two points of a ring's polyline.
-     *
-     * @param rings candidates to read
-     * @param ring  ring index
-     * @return the diameter of the point set, in world units
-     */
-    private static double polylineDiameter(RingCandidates rings, int ring) {
-        int from = rings.polylineOffset[ring];
-        int to = rings.polylineOffset[ring + 1];
-        double widest = 0.0;
-        for (int here = from; here < to; here++) {
-            for (int there = here + 1; there < to; there++) {
-                double dx = rings.polylinePoint[COORDINATES_PER_POINT * there]
-                        - rings.polylinePoint[COORDINATES_PER_POINT * here];
-                double dy = rings.polylinePoint[COORDINATES_PER_POINT * there + 1]
-                        - rings.polylinePoint[COORDINATES_PER_POINT * here + 1];
-                double dz = rings.polylinePoint[COORDINATES_PER_POINT * there + 2]
-                        - rings.polylinePoint[COORDINATES_PER_POINT * here + 2];
-                widest = Math.max(widest, Math.sqrt(dx * dx + dy * dy + dz * dz));
-            }
-        }
-        return widest;
+                RingCandidateExtractor.marksOneClosedCycle(mesh, edgeIds),
+                path.length / Math.max(1e-9, diameter));
     }
 
     /**

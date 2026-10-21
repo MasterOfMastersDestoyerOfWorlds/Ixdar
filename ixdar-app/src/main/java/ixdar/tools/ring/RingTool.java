@@ -704,7 +704,7 @@ public final class RingTool implements Tool {
         for (Map.Entry<String, SurfaceSpline> ring : liveRingSplines().entrySet()) {
             marks.put(ring.getKey(), ring.getValue() == null
                     ? scene.ringMarksByLabel.get(ring.getKey())
-                    : ring.getValue().markedByEdgeId);
+                    : ring.getValue().marks.markedByEdgeId);
         }
         return marks;
     }
@@ -730,7 +730,7 @@ public final class RingTool implements Tool {
             splines.put(liveLabel(ring), confirmedRings.get(ring));
         }
         if (bisecting && draft != null && draftBisectorEnds != null && draftSourceRing < 0
-                && draftSimple && draft.markedEdgeCount > 0) {
+                && draftSimple && draft.marks.markedEdgeCount > 0) {
             splines.put(BISECTOR_DRAFT_LABEL, draft);
         }
         return splines;
@@ -825,10 +825,12 @@ public final class RingTool implements Tool {
                         && target != bisectorStartVertexId;
                 previewSpline = !previewValid ? null : SurfaceSpline.bisector(geodesics,
                         new int[] { bisectorStartVertexId, target },
-                        confirmedRings.get(startRing).markedByEdgeId,
-                        endRing < 0 ? new boolean[0] : confirmedRings.get(endRing).markedByEdgeId);
-                previewSimple = previewValid && endRing >= 0 && previewSpline.markedEdgeCount > 0
-                        && bisectorCrossings.isSimple(surface, previewSpline.surfacePath());
+                        confirmedRings.get(startRing).marks.markedByEdgeId,
+                        endRing < 0 ? new boolean[0]
+                                : confirmedRings.get(endRing).marks.markedByEdgeId);
+                previewSimple = previewValid && endRing >= 0
+                        && previewSpline.marks.markedEdgeCount > 0
+                        && bisectorCrossings.isSimple(surface, previewSpline.path);
                 previewedFace = faceId;
                 System.arraycopy(hitPoint, 0, previewedHit, 0, COORDINATES_PER_POINT);
                 previewMillis = (System.nanoTime() - start) / 1e6;
@@ -1087,7 +1089,7 @@ public final class RingTool implements Tool {
                 if (confirmedRingDeleted.get(ring) || ring == draftSourceRing && draft != null) {
                     continue;
                 }
-                for (int edgeId : confirmedRings.get(ring).markedEdgeIds) {
+                for (int edgeId : confirmedRings.get(ring).marks.markedEdgeIds) {
                     int halfEdge = surface.edgeHalfEdge(edgeId);
                     for (int end : new int[] { surface.halfEdgeVertex(halfEdge),
                         surface.halfEdgeEndVertex(halfEdge) }) {
@@ -1152,7 +1154,7 @@ public final class RingTool implements Tool {
             int ring = ringOfSerial(ends[end]);
             int anchor = end == 0 ? 0 : anchors.length - 1;
             marks[end] = ring < 0 || confirmedRingDeleted.get(ring) ? null
-                    : confirmedRings.get(ring).markedByEdgeId;
+                    : confirmedRings.get(ring).marks.markedByEdgeId;
             boolean onWall = false;
             for (int spoke = 0; marks[end] != null
                     && spoke < surface.vertexEdgeCount(anchors[anchor]); spoke++) {
@@ -1242,9 +1244,9 @@ public final class RingTool implements Tool {
                 grown[before + 1] = vertexId;
                 System.arraycopy(held, before + 1, grown, before + 2, held.length - before - 1);
                 SurfaceSpline traced = tracedBisector(grown, draftBisectorEnds);
-                if (traced != null && traced.markedEdgeCount > 0
-                        && (shortest == null || traced.length < shortest.length)
-                        && bisectorCrossings.isSimple(geodesics.mesh, traced.surfacePath())) {
+                if (traced != null && traced.marks.markedEdgeCount > 0
+                        && (shortest == null || traced.path.length < shortest.path.length)
+                        && bisectorCrossings.isSimple(geodesics.mesh, traced.path)) {
                     shortest = traced;
                     kept = grown;
                 }
@@ -1545,7 +1547,7 @@ public final class RingTool implements Tool {
                 confirmedRings.size(), draft == null ? "no draft"
                         : "draft with " + draftAuthoredVertexId.length + " authored anchor(s)");
         Platforms.get().log(LOG_PREFIX + lastRow + (draft == null ? "" : ", draft fingerprint "
-                + EdgeMarks.fingerprint(scene.halfEdgeSurface(), draft.markedByEdgeId)));
+                + EdgeMarks.fingerprint(scene.halfEdgeSurface(), draft.marks.markedByEdgeId)));
         return true;
     }
 
@@ -1644,7 +1646,7 @@ public final class RingTool implements Tool {
                     crossing[2]);
             return false;
         }
-        if (draftBisectorEnds != null && draft.markedEdgeCount == 0) {
+        if (draftBisectorEnds != null && draft.marks.markedEdgeCount == 0) {
             lastError = "refused: " + BISECTOR_WALLS_NOTHING;
             return false;
         }
@@ -1680,9 +1682,9 @@ public final class RingTool implements Tool {
                 }
                 int[] anchors = confirmedAuthoredVertexId.get(other).clone();
                 SurfaceSpline followed = tracedBisector(anchors, ends);
-                lastError = followed != null && followed.markedEdgeCount == 0
+                lastError = followed != null && followed.marks.markedEdgeCount == 0
                         ? BISECTOR_WALLS_NOTHING : lastError;
-                if (followed == null || followed.markedEdgeCount == 0) {
+                if (followed == null || followed.marks.markedEdgeCount == 0) {
                     lastError = "bisector " + liveLabel(other) + " keeps its old shape: "
                             + lastError;
                     continue;
@@ -1714,12 +1716,13 @@ public final class RingTool implements Tool {
                         + "centroid %.5f,%.5f,%.5f, sharpest corner %.1f deg, %.0f ms, %s",
                 bisector ? "bisector" : RING_LABEL_PREFIX, drawnRingNumber(ring),
                 spline.authoredCount(),
-                spline.anchorCount - spline.authoredCount(), spline.markedEdgeCount, spline.length,
-                spline.centroidX, spline.centroidY, spline.centroidZ,
-                spline.minimumInteriorAngleDegrees, (System.nanoTime() - start) / 1e6,
+                spline.anchorCount - spline.authoredCount(), spline.marks.markedEdgeCount,
+                spline.path.length, spline.path.centroid[0], spline.path.centroid[1],
+                spline.path.centroid[2], spline.minimumInteriorAngleDegrees,
+                (System.nanoTime() - start) / 1e6,
                 confirmedRingUnsaved.get(ring) ? "unsaved" : "saved");
         Platforms.get().log(LOG_PREFIX + lastRow + ", fingerprint "
-                + EdgeMarks.fingerprint(scene.halfEdgeSurface(), spline.markedByEdgeId));
+                + EdgeMarks.fingerprint(scene.halfEdgeSurface(), spline.marks.markedByEdgeId));
         invalidateRings();
         return true;
     }
@@ -1868,7 +1871,7 @@ public final class RingTool implements Tool {
             if (bisector == null) {
                 return false;
             }
-            boolean simple = bisectorCrossings.isSimple(geodesics.mesh, bisector.surfacePath());
+            boolean simple = bisectorCrossings.isSimple(geodesics.mesh, bisector.path);
             if (keepSimple && draftSimple && draft != null && !simple) {
                 float[] at = bisectorCrossings.firstCrossingXyz;
                 lastError = String.format(Locale.ROOT, "refused: the bisector would cross itself "
@@ -1940,12 +1943,12 @@ public final class RingTool implements Tool {
                         + liveLabel(ringOfSerial(draftBisectorEnds[0])) + " to "
                         + liveLabel(ringOfSerial(draftBisectorEnds[1])) : draftMode.label,
                 authoredAnchors, draft.anchorCount - authoredAnchors,
-                draft.markedEdgeCount, draft.length, draft.minimumInteriorAngleDegrees,
+                draft.marks.markedEdgeCount, draft.path.length, draft.minimumInteriorAngleDegrees,
                 draftMillis, simple ? "" : String.format(Locale.ROOT,
                         ", crosses itself near %.4f,%.4f,%.4f", crossing[0], crossing[1],
                         crossing[2]));
         Platforms.get().log(LOG_PREFIX + lastRow + ", fingerprint "
-                + EdgeMarks.fingerprint(scene.halfEdgeSurface(), draft.markedByEdgeId));
+                + EdgeMarks.fingerprint(scene.halfEdgeSurface(), draft.marks.markedByEdgeId));
     }
 
     /**
@@ -1975,10 +1978,9 @@ public final class RingTool implements Tool {
             if (confirmedRingDeleted.get(ring)) {
                 continue;
             }
-            float[] polyline = confirmedRings.get(ring).polyline;
-            double distance = SurfaceSpline.distanceToPolyline(polyline,
-                    polyline.length / COORDINATES_PER_POINT, hitPoint[0], hitPoint[1],
-                    hitPoint[2]);
+            TracedSurfacePath path = confirmedRings.get(ring).path;
+            double distance = SurfaceSpline.distanceToPolyline(path.positions, path.pointCount,
+                    hitPoint[0], hitPoint[1], hitPoint[2]);
             if (distance < nearestDistance) {
                 nearestDistance = distance;
                 nearest = ring;
@@ -2009,7 +2011,7 @@ public final class RingTool implements Tool {
         if (!girdle.find(surface, faceId, hitPoint, seeded ? limbDirection : null)) {
             return false;
         }
-        previewGirdleEdgeCount = girdle.cut.stepCount;
+        previewGirdleEdgeCount = girdle.cut.path.pointCount;
         System.arraycopy(written(girdle.normal), 0, previewPlaneNormal, 0, COORDINATES_PER_POINT);
         if (previewRing == null || previewRing.tracer.geodesics != geodesics) {
             previewRing = new AuthoredSplineRing(geodesics);
@@ -2033,7 +2035,7 @@ public final class RingTool implements Tool {
         previewAnchorCapReached = previewRing.fit.anchorCapReached;
         previewAnchorCount = previewRing.tracer.anchorCount;
         previewSpline = SurfaceSpline.unsnapped(previewRing.tracer);
-        previewLength = previewSpline.length;
+        previewLength = previewSpline.path.length;
         // A ring crossing itself is not offered, as the click refuses to draft one.
         return previewAnchorCount >= SurfaceSplineTracer.MINIMUM_ANCHORS && previewRing.simple;
     }
@@ -2143,6 +2145,22 @@ public final class RingTool implements Tool {
     }
 
     /**
+     * Packed xyz of a vertex loop, the reference a fit runs against and the path a ring authored
+     * as an edge mask follows.
+     */
+    private double[] loopPositionsOf(int[] loop) {
+        double[] xyz = new double[COORDINATES_PER_POINT * loop.length];
+        MeshTopology surface = scene.halfEdgeSurface();
+        for (int point = 0; surface != null && point < loop.length; point++) {
+            surface.vertexPosition(loop[point], scratchPosition);
+            xyz[COORDINATES_PER_POINT * point] = scratchPosition.x;
+            xyz[COORDINATES_PER_POINT * point + 1] = scratchPosition.y;
+            xyz[COORDINATES_PER_POINT * point + 2] = scratchPosition.z;
+        }
+        return xyz;
+    }
+
+    /**
      * Write every unsaved ring to the working .dsl in confirm order, appending a
      * {@code spline_ring} statement of its authored anchors and base normal for a ring never
      * saved and rewriting in place the statement of one edited since.
@@ -2219,7 +2237,8 @@ public final class RingTool implements Tool {
                         continue;
                     }
                     if (ring == candidateRingByLabel.get(label)) {
-                        int[] loop = orderedLoop(scene.halfEdgeSurface(), ring.markedByEdgeId);
+                        int[] loop = orderedLoop(scene.halfEdgeSurface(),
+                                ring.marks.markedByEdgeId);
                         if (loop.length == 0) {
                             throw new IllegalArgumentException("proposed ring " + label
                                     + " is not one closed edge loop, so it cannot be frozen");
@@ -2559,9 +2578,9 @@ public final class RingTool implements Tool {
                 lastError = "it needs two points and two end walls";
                 SurfaceSpline bisector = ends.length == 2 && anchors.length >= 2
                         ? tracedBisector(anchors, ends) : null;
-                lastError = bisector != null && bisector.markedEdgeCount == 0
+                lastError = bisector != null && bisector.marks.markedEdgeCount == 0
                         ? BISECTOR_WALLS_NOTHING : lastError;
-                if (bisector == null || bisector.markedEdgeCount == 0) {
+                if (bisector == null || bisector.marks.markedEdgeCount == 0) {
                     refused.add(label + ": " + lastError);
                     continue;
                 }
@@ -2615,15 +2634,9 @@ public final class RingTool implements Tool {
                 double[] noFraction = new double[loop.length];
                 Arrays.fill(noEdge, -1);
                 Arrays.fill(noFraction, -1.0);
-                float[] loopXyz = positionsOf(loop);
-                double[] loopPositions = new double[loopXyz.length];
-                for (int coordinate = 0; coordinate < loopXyz.length; coordinate++) {
-                    loopPositions[coordinate] = loopXyz[coordinate];
-                }
-                traced.followPath(surface, new TracedSurfacePath(loopPositions, loop, noEdge,
-                        noFraction, loop.length, true));
-                traced.markedByEdgeId = entry.getValue();
-                traced.markedEdgeCount = loop.length;
+                traced.path = new TracedSurfacePath(loopPositionsOf(loop), loop, noEdge,
+                        noFraction, loop.length, true).measure();
+                traced.marks = new EdgeMarks(entry.getValue(), 0);
             }
             confirmedRings.add(traced);
             confirmedAuthoredVertexId.add(anchored.authoredVertexId);
@@ -2668,7 +2681,7 @@ public final class RingTool implements Tool {
             lastError = name + " is not one closed edge loop";
             return new int[0];
         }
-        if (!ring.fit.fit(positionsOf(loop), loop.length, loop, 0)) {
+        if (!ring.fit.fit(loopPositionsOf(loop), loop.length, loop, 0)) {
             lastError = "no anchors fit " + name;
             return new int[0];
         }
@@ -2724,7 +2737,7 @@ public final class RingTool implements Tool {
         int ring = confirmedRings.size() - 1;
         lastRow = String.format(Locale.ROOT, "ring %d from %s: %d authored anchors, %d edges, "
                 + "length %.5f, unsaved", drawnRingNumber(ring), what, spline.authoredCount(),
-                spline.markedEdgeCount, spline.length);
+                spline.marks.markedEdgeCount, spline.path.length);
         Platforms.get().log(LOG_PREFIX + lastRow);
         return ring;
     }
@@ -2806,8 +2819,7 @@ public final class RingTool implements Tool {
         uploadedSelected = selectedAnchorVertexId;
         int rings = drawnRingColors.length;
         uploadedSnap = previewAuthoredVertexId;
-        boolean drawingEditing = editing != null
-                && editing.polyline.length >= 2 * COORDINATES_PER_POINT;
+        boolean drawingEditing = editing != null && editing.path.pointCount >= 2;
         LineSet edited = drawingEditing ? splineLines(scene.halfEdgeSurface(), editing)
                 : new LineSet(0);
         LineSet lines = new LineSet(
@@ -2823,7 +2835,8 @@ public final class RingTool implements Tool {
         // colour of the mode the draft runs in: red geodesic, purple crease; a bisector magenta,
         // or black while it crosses itself or, previewed, ends off a wall.
         boolean bisector = draft != null ? draftBisectorEnds != null : bisecting;
-        boolean valid = draft != null ? draftSimple && draft.markedEdgeCount > 0 : previewSimple;
+        boolean valid = draft != null ? draftSimple && draft.marks.markedEdgeCount > 0
+                : previewSimple;
         if (drawingEditing) {
             groupStart[rings + 1] = groupStart[rings] + edited.vertexCount() / 2;
             groupColor[rings] = bisector ? (valid ? BISECTOR_DRAFT_COLOR : CROSSING_BISECTOR_COLOR)
@@ -2944,7 +2957,8 @@ public final class RingTool implements Tool {
             boolean hidden = ring == draftSourceRing && draft != null
                     || confirmedRingDeleted.get(ring) || hiddenRingLabels.contains(liveLabel);
             SurfaceSpline spline = confirmedRings.get(ring);
-            perRing.add(hidden ? new float[0] : closedPolylineSegments(spline.surfacePolyline));
+            perRing.add(hidden ? new float[0] : closedPolylineSegments(
+                    spline.path.drawnPolyline(spline.path.surfacePositions)));
             perRingLines.add(hidden ? new LineSet(0) : splineLines(surface, spline));
             perRingLiveLabel.add(liveLabel);
         }
@@ -3045,18 +3059,19 @@ public final class RingTool implements Tool {
      * over the face both points bound and carries that face's normal, so the far side drops out.
      *
      * @param mesh   the surface the spline's vertex and edge ids index, or {@code null}
-     * @param spline the spline whose {@link SurfaceSpline#surfacePolyline} is drawn
+     * @param spline the spline whose path's surface positions are drawn
      * @return the closed loop's segments, empty without a surface
      */
     public static LineSet splineLines(MeshTopology mesh, SurfaceSpline spline) {
-        int points = spline.surfacePolyline.length / COORDINATES_PER_POINT;
-        if (mesh == null || points < 2) {
+        TracedSurfacePath path = spline.path;
+        int spans = path.closed ? path.pointCount : path.pointCount - 1;
+        if (mesh == null || spans < 1) {
             return new LineSet(0);
         }
-        LineSet lines = new LineSet(points - 1);
-        for (int point = 0; point + 1 < points; point++) {
-            lines.pathStep(mesh, spline.surfacePolyline, spline.pointVertexId,
-                    spline.pointEdgeId, spline.pointFaceId, point, point + 1);
+        LineSet lines = new LineSet(spans);
+        for (int point = 0; point < spans; point++) {
+            lines.pathStep(mesh, path.surfacePositions, path.vertexId, path.edgeId, path.faceId,
+                    point, (point + 1) % path.pointCount);
         }
         return lines;
     }

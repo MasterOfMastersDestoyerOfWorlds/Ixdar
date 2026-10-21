@@ -1,5 +1,6 @@
 package ixdar.geometry.mesh.data.rings;
 
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
 import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.GeodesicSeedPath;
@@ -17,44 +18,17 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
  */
 public final class SurfaceRing {
 
-    /** Packed xyz of the tightened polyline; a closed ring repeats its first point at the end. */
-    public float[] polyline = new float[0];
+    /** The tightened geodesic, measured; closed when the walk returned to its first waypoint. */
+    public TracedSurfacePath path;
 
-    /** Packed xyz of the untightened seed walk, in the same form as {@link #polyline}. */
-    public float[] seedPolyline = new float[0];
+    /** The untightened seed walk, measured; its length is always at least {@link #path}'s. */
+    public TracedSurfacePath seed;
 
-    /** Edge-id-indexed mask, true on every mesh edge of the cycle nearest the tightened path. */
-    public boolean[] markedByEdgeId = new boolean[0];
+    /** The mesh edges {@link ConformingLoopSnap} puts nearest the tightened path. */
+    public EdgeMarks marks = EdgeMarks.NONE;
 
-    /** Edge-id-indexed mask, true on every mesh edge the seed walk runs along. */
-    public boolean[] seedMarkedByEdgeId = new boolean[0];
-
-    /** Ascending mesh edge ids of the cycle nearest the tightened path. */
-    public int[] markedEdgeIds = new int[0];
-
-    /** Mesh edges marked by {@link #markedByEdgeId}. */
-    public int markedEdgeCount;
-
-    /** Gaps {@link ConformingLoopSnap} could not close on the tightened path. */
-    public int unresolvedGaps;
-
-    /** Mean distance from the centroid to the tightened polyline's points. */
-    public double meanRadius;
-
-    /** Euclidean length of the tightened polyline. */
-    public double length;
-
-    /** Euclidean length of the seed walk, always at least {@link #length}. */
-    public double seedLength;
-
-    /** Length-weighted centroid x of the tightened ring, the position a joint would sit at. */
-    public float centroidX;
-
-    /** Length-weighted centroid y of the tightened ring. */
-    public float centroidY;
-
-    /** Length-weighted centroid z of the tightened ring. */
-    public float centroidZ;
+    /** The mesh edges the seed walk runs along. */
+    public EdgeMarks seedMarks = EdgeMarks.NONE;
 
     /** Mesh vertex ids the waypoints snapped to, in waypoint order. */
     public int[] waypointVertexIds = new int[0];
@@ -67,9 +41,6 @@ public final class SurfaceRing {
 
     /** Leading waypoints held fixed while the rest of the ring straightened. */
     public int pinnedWaypointCount;
-
-    /** Whether the walk closed back onto its first waypoint. */
-    public boolean closed;
 
     private SurfaceRing() {
     }
@@ -126,13 +97,12 @@ public final class SurfaceRing {
         } catch (IllegalArgumentException unreachableWaypoint) {
             return null;
         }
-        return ring.markedEdgeCount == 0 || ring.polyline.length == 0 ? null : ring;
+        return ring.marks.markedEdgeCount == 0 || ring.path.pointCount == 0 ? null : ring;
     }
 
     private static SurfaceRing build(MeshTopology mesh, int[] waypointVertexIds, boolean closed,
             int pinned, int iterations) {
         SurfaceRing ring = new SurfaceRing();
-        ring.closed = closed;
         ring.waypointVertexIds = waypointVertexIds;
         ring.pinnedWaypointCount = Math.min(Math.max(0, pinned), waypointVertexIds.length);
 
@@ -140,10 +110,8 @@ public final class SurfaceRing {
         IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(metric);
         IntrinsicPathTracer tracer = IntrinsicPathTracer.over(metric);
         int[] seed = GeodesicSeedPath.throughVertices(intrinsic, ring.waypointVertexIds, closed);
-        TracedSurfacePath seedTrace = tracer.trace(intrinsic, seed, closed);
-        ring.seedPolyline = closedPolyline(seedTrace);
-        ring.seedLength = seedTrace.polylineLength();
-        ring.seedMarkedByEdgeId = new ConformingLoopSnap().snap(mesh, seedTrace);
+        ring.seed = tracer.trace(intrinsic, seed, closed).measure();
+        ring.seedMarks = new ConformingLoopSnap().edgeLoop(mesh, ring.seed);
 
         FlipGeodesics flipper = new FlipGeodesics();
         if (ring.pinnedWaypointCount > 0) {
@@ -154,24 +122,9 @@ public final class SurfaceRing {
             }
         }
         int[] tightened = flipper.shorten(intrinsic, seed, closed, iterations);
-        TracedSurfacePath trace = tracer.trace(intrinsic, tightened, closed);
-        ring.polyline = closedPolyline(trace);
-        ring.length = trace.polylineLength();
-        ConformingLoopSnap tightSnap = new ConformingLoopSnap();
-        ring.markedByEdgeId = tightSnap.snap(mesh, trace);
-        ring.unresolvedGaps = tightSnap.unresolvedGaps;
-        for (boolean marked : ring.markedByEdgeId) {
-            if (marked) {
-                ring.markedEdgeCount++;
-            }
-        }
-        ring.markedEdgeIds = new int[ring.markedEdgeCount];
-        int next = 0;
-        for (int edgeId = 0; edgeId < ring.markedByEdgeId.length; edgeId++) {
-            if (ring.markedByEdgeId[edgeId]) {
-                ring.markedEdgeIds[next++] = edgeId;
-            }
-        }
+        TracedSurfacePath trace = tracer.trace(intrinsic, tightened, closed).measure();
+        ring.path = trace;
+        ring.marks = new ConformingLoopSnap().edgeLoop(mesh, trace);
         int corners = 0;
         for (int point = 0; point < trace.pointCount; point++) {
             if (trace.vertexId[point] >= 0) {
@@ -185,65 +138,6 @@ public final class SurfaceRing {
                 ring.pathVertexIds[corner++] = trace.vertexId[point];
             }
         }
-        ring.setCentroid(trace);
-        ring.setMeanRadius();
         return ring;
-    }
-
-    private static float[] closedPolyline(TracedSurfacePath traced) {
-        int pointCount = traced.closed ? traced.pointCount + 1 : traced.pointCount;
-        float[] packed = new float[SurfaceWaypoints.COORDINATES_PER_WAYPOINT * pointCount];
-        for (int point = 0; point < pointCount; point++) {
-            int source = SurfaceWaypoints.COORDINATES_PER_WAYPOINT
-                    * (point % Math.max(1, traced.pointCount));
-            int target = SurfaceWaypoints.COORDINATES_PER_WAYPOINT * point;
-            packed[target] = (float) traced.positions[source];
-            packed[target + 1] = (float) traced.positions[source + 1];
-            packed[target + 2] = (float) traced.positions[source + 2];
-        }
-        return packed;
-    }
-
-    private void setCentroid(TracedSurfacePath traced) {
-        double weightedX = 0.0;
-        double weightedY = 0.0;
-        double weightedZ = 0.0;
-        double totalWeight = 0.0;
-        int spans = traced.closed ? traced.pointCount : traced.pointCount - 1;
-        for (int span = 0; span < spans; span++) {
-            int here = SurfaceWaypoints.COORDINATES_PER_WAYPOINT * span;
-            int there = SurfaceWaypoints.COORDINATES_PER_WAYPOINT
-                    * ((span + 1) % traced.pointCount);
-            double dx = traced.positions[there] - traced.positions[here];
-            double dy = traced.positions[there + 1] - traced.positions[here + 1];
-            double dz = traced.positions[there + 2] - traced.positions[here + 2];
-            double weight = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            weightedX += weight * 0.5 * (traced.positions[here] + traced.positions[there]);
-            weightedY += weight * 0.5 * (traced.positions[here + 1] + traced.positions[there + 1]);
-            weightedZ += weight * 0.5 * (traced.positions[here + 2] + traced.positions[there + 2]);
-            totalWeight += weight;
-        }
-        if (totalWeight <= 0.0) {
-            return;
-        }
-        centroidX = (float) (weightedX / totalWeight);
-        centroidY = (float) (weightedY / totalWeight);
-        centroidZ = (float) (weightedZ / totalWeight);
-    }
-
-    private void setMeanRadius() {
-        int points = polyline.length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
-        if (points == 0) {
-            return;
-        }
-        double radiusSum = 0.0;
-        for (int point = 0; point < points; point++) {
-            int base = SurfaceWaypoints.COORDINATES_PER_WAYPOINT * point;
-            double dx = polyline[base] - centroidX;
-            double dy = polyline[base + 1] - centroidY;
-            double dz = polyline[base + 2] - centroidZ;
-            radiusSum += Math.sqrt(dx * dx + dy * dy + dz * dz);
-        }
-        meanRadius = radiusSum / points;
     }
 }

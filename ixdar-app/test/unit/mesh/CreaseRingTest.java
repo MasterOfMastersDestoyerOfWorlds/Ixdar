@@ -98,12 +98,12 @@ class CreaseRingTest {
         assertEquals(1.0, Math.abs(AXIS[0] * crease.planeNormal[0]
                 + AXIS[1] * crease.planeNormal[1] + AXIS[2] * crease.planeNormal[2]), PLANE_SLACK,
                 "the crease ring left the click's girdling plane");
-        double creaseOff = meanOffNotch(SurfaceSpline.of(crease.tracer).polyline);
+        double creaseOff = meanOffNotch(SurfaceSpline.of(crease.tracer));
 
         AuthoredSplineRing geodesic = new AuthoredSplineRing(geodesics);
         assertTrue(geodesic.trace(new int[] { clicked }, 1, AXIS,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), geodesic.failure);
-        double geodesicOff = meanOffNotch(SurfaceSpline.of(geodesic.tracer).polyline);
+        double geodesicOff = meanOffNotch(SurfaceSpline.of(geodesic.tracer));
 
         String measured = String.format(Locale.ROOT, "crease ring %.4f, geodesic ring %.4f off "
                 + "the notch on average", creaseOff, geodesicOff);
@@ -167,8 +167,8 @@ class CreaseRingTest {
         boolean[] marks = EdgeMarks.bools(
                 ctx.getOutput(SplineRingNode.GEOMETRY.name, GeometryBundle.class),
                 SplineRingNode.DEFAULT_MARK_LABEL);
-        assertArrayEquals(live.markedByEdgeId, marks, "the crease statement reloaded another "
-                + "edge cycle; live " + EdgeMarks.fingerprint(tube, live.markedByEdgeId)
+        assertArrayEquals(live.marks.markedByEdgeId, marks, "the crease statement reloaded "
+                + "another edge cycle; live " + EdgeMarks.fingerprint(tube, live.marks.markedByEdgeId)
                 + " reloaded " + EdgeMarks.fingerprint(tube, marks));
     }
 
@@ -190,7 +190,7 @@ class CreaseRingTest {
             tool.perFrame();
             assertTrue(tool.previewValid, "no hover preview in crease mode: " + tool.lastError);
             // The hover previews the crease ring itself, anchored at the cursor.
-            assertTrue(meanOffNotch(tool.previewSpline.polyline) < IN_NOTCH,
+            assertTrue(meanOffNotch(tool.previewSpline) < IN_NOTCH,
                     "the crease-mode preview left the notch");
             assertEquals(hovered, tool.previewAuthoredVertexId);
 
@@ -203,7 +203,7 @@ class CreaseRingTest {
             assertArrayEquals(tool.previewPlaneNormal, tool.draftBaseNormal,
                     "the click drafted on another plane than the hover");
             assertEquals(RingSegmentMode.CREASE, tool.draftMode);
-            assertTrue(meanOffNotch(tool.draft.polyline) < IN_NOTCH,
+            assertTrue(meanOffNotch(tool.draft) < IN_NOTCH,
                     "the drafted ring left the notch");
             SurfaceSpline groove = tool.draft;
             press(controls, Keys.T);
@@ -211,7 +211,7 @@ class CreaseRingTest {
             assertEquals(RingSegmentMode.GEODESIC, tool.newDraftMode, "T left the next mode");
             press(controls, Keys.T);
             assertEquals(RingSegmentMode.CREASE, tool.draftMode, tool.lastError);
-            assertArrayEquals(groove.markedByEdgeId, tool.draft.markedByEdgeId,
+            assertArrayEquals(groove.marks.markedByEdgeId, tool.draft.marks.markedByEdgeId,
                     "switching the mode back did not restore the groove ring");
 
             assertTrue(tool.confirmDraft(), tool.lastError);
@@ -219,7 +219,7 @@ class CreaseRingTest {
             assertEquals(RingSegmentMode.CREASE, tool.newDraftMode, "confirm lost the mode");
             assertTrue(tool.reopenRing(0), tool.lastError);
             assertEquals(RingSegmentMode.CREASE, tool.draftMode, "re-open lost the ring's mode");
-            assertArrayEquals(groove.markedByEdgeId, tool.draft.markedByEdgeId);
+            assertArrayEquals(groove.marks.markedByEdgeId, tool.draft.marks.markedByEdgeId);
             assertTrue(tool.undo(), tool.lastError);
             assertTrue(tool.undo(), tool.lastError);
             assertEquals(RingSegmentMode.CREASE, tool.draftMode, "undo lost the draft's mode");
@@ -319,7 +319,7 @@ class CreaseRingTest {
         crease.creases = SurfaceCreases.of(tube);
         assertTrue(crease.trace(new int[] { vertexAt(TUBE_RINGS / 2, CLICK_SIDE) }, 1, AXIS,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), crease.failure);
-        assertTrue(meanOffNotch(SurfaceSpline.of(crease.tracer).polyline) > IN_NOTCH,
+        assertTrue(meanOffNotch(SurfaceSpline.of(crease.tracer)) > IN_NOTCH,
                 "the crease ring followed the ridge");
     }
 
@@ -374,9 +374,10 @@ class CreaseRingTest {
         return TUBE_SIDES * ring + side;
     }
 
-    /** Mean distance along the tube from each polyline point to the notch's centre line. */
-    private static double meanOffNotch(float[] polyline) {
-        int points = polyline.length / XYZ;
+    /** Mean distance along the tube from each traced point to the notch's centre line. */
+    private static double meanOffNotch(SurfaceSpline spline) {
+        double[] polyline = spline.path.positions;
+        int points = spline.path.pointCount;
         double total = 0.0;
         for (int point = 0; point < points; point++) {
             double angle = Math.atan2(polyline[XYZ * point + 2], polyline[XYZ * point + 1]);

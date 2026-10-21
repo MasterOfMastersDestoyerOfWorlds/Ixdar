@@ -73,15 +73,15 @@ public class Add extends AutomationEndpoint implements AutomationRoute {
         JsonObject result = success();
         result.addProperty("waypointCount", waypointCount);
         result.addProperty(POINTS, SurfaceWaypoints.format(packed, waypointCount));
-        result.addProperty("edgeCount", ring.markedEdgeCount);
-        result.addProperty("length", ring.length);
-        result.addProperty("seedLength", ring.seedLength);
+        result.addProperty("edgeCount", ring.marks.markedEdgeCount);
+        result.addProperty("length", ring.path.length);
+        result.addProperty("seedLength", ring.seed.length);
         JsonArray centroid = new JsonArray();
-        centroid.add(ring.centroidX);
-        centroid.add(ring.centroidY);
-        centroid.add(ring.centroidZ);
+        for (double coordinate : ring.path.centroid) {
+            centroid.add((float) coordinate);
+        }
         result.add("centroid", centroid);
-        result.addProperty("fingerprint", EdgeMarks.fingerprint(mesh, ring.markedByEdgeId));
+        result.addProperty("fingerprint", EdgeMarks.fingerprint(mesh, ring.marks.markedByEdgeId));
         return result;
     }
 

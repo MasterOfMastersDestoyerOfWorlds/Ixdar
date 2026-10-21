@@ -80,14 +80,18 @@ public final class RingRegionExtractionBenchmark {
             for (int other = ring + 1; other < splines.length; other++) {
                 SurfaceSpline first = splines[ring];
                 SurfaceSpline second = splines[other];
-                double gap = new Vector3f(first.centroidX, first.centroidY, first.centroidZ)
-                        .distance(second.centroidX, second.centroidY, second.centroidZ);
+                double[] firstCentroid = first.path.centroid;
+                double[] secondCentroid = second.path.centroid;
+                double dx = firstCentroid[0] - secondCentroid[0];
+                double dy = firstCentroid[1] - secondCentroid[1];
+                double dz = firstCentroid[2] - secondCentroid[2];
+                double gap = Math.sqrt(dx * dx + dy * dy + dz * dz);
                 if (gap < NEAR_DUPLICATE_CENTROID_SHARE_OF_RADIUS * 0.5
-                        * (first.meanRadius + second.meanRadius)) {
+                        * (first.path.meanRadius + second.path.meanRadius)) {
                     System.out.printf(Locale.ROOT, "[extract] near-duplicate rings %s and %s: "
                             + "centroids %.3f apart, radii %.3f and %.3f%n",
                             regions.ringLabels[ring], regions.ringLabels[other], gap,
-                            first.meanRadius, second.meanRadius);
+                            first.path.meanRadius, second.path.meanRadius);
                 }
             }
         }

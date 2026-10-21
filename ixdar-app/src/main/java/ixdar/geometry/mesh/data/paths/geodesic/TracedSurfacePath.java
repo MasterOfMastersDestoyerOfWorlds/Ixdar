@@ -11,6 +11,8 @@ import java.util.Arrays;
  */
 public final class TracedSurfacePath {
 
+    public static final int COORDINATES_PER_POINT = 3;
+
     /** Packed xyz of every point, in travel order. */
     public double[] positions;
 
@@ -40,6 +42,15 @@ public final class TracedSurfacePath {
 
     /** Whether the last point joins back to the first. */
     public boolean closed;
+
+    /** Euclidean length of the polyline, a closed path's closing span included. */
+    public double length;
+
+    /** Mean distance from {@link #centroid} to the points; set by {@link #measure}. */
+    public double meanRadius;
+
+    /** Length-weighted centroid xyz, where a joint on the path would sit; set by {@link #measure}. */
+    public final double[] centroid = new double[COORDINATES_PER_POINT];
 
     /**
      * Wraps already-packed trace arrays of a path with no inside-face points, its positions on the
@@ -90,33 +101,56 @@ public final class TracedSurfacePath {
     }
 
     /**
-     * Summed straight-line length of the polyline, closing the loop when the path is closed.
+     * Sets {@link #length}, {@link #centroid} and {@link #meanRadius} from {@link #positions},
+     * spans weighting the centroid by their length; a path of no length keeps the origin.
      *
-     * @return the polyline's Euclidean length
+     * @return this path, measured
      */
-    public double polylineLength() {
-        double total = 0.0;
+    public TracedSurfacePath measure() {
+        length = 0.0;
+        meanRadius = 0.0;
+        double[] weighted = new double[COORDINATES_PER_POINT];
         int spans = closed ? pointCount : pointCount - 1;
-        for (int index = 0; index < spans; index++) {
-            int here = 3 * index;
-            int there = 3 * ((index + 1) % pointCount);
+        for (int span = 0; span < spans; span++) {
+            int here = COORDINATES_PER_POINT * span;
+            int there = COORDINATES_PER_POINT * ((span + 1) % pointCount);
             double dx = positions[there] - positions[here];
             double dy = positions[there + 1] - positions[here + 1];
             double dz = positions[there + 2] - positions[here + 2];
-            total += Math.sqrt(dx * dx + dy * dy + dz * dz);
+            double weight = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+                weighted[axis] += weight * 0.5 * (positions[here + axis] + positions[there + axis]);
+            }
+            length += weight;
         }
-        return total;
+        for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+            centroid[axis] = length <= 0.0 ? 0.0 : weighted[axis] / length;
+        }
+        for (int point = 0; point < pointCount; point++) {
+            int base = COORDINATES_PER_POINT * point;
+            double dx = positions[base] - centroid[0];
+            double dy = positions[base + 1] - centroid[1];
+            double dz = positions[base + 2] - centroid[2];
+            meanRadius += Math.sqrt(dx * dx + dy * dy + dz * dz) / pointCount;
+        }
+        return this;
     }
 
     /**
-     * The polyline as packed single-precision xyz, the form curve geometry consumes.
+     * Packed single-precision xyz of the points, a closed path's first point repeated at the end,
+     * the form curve geometry and the GL overlays draw.
      *
-     * @return a fresh {@code float[]} of {@code 3 * pointCount} coordinates
+     * @param packedXyz {@link #positions} or {@link #surfacePositions}
+     * @return a fresh {@code float[]}
      */
-    public float[] packedFloatPositions() {
-        float[] packed = new float[3 * pointCount];
-        for (int index = 0; index < packed.length; index++) {
-            packed[index] = (float) positions[index];
+    public float[] drawnPolyline(double[] packedXyz) {
+        int drawn = closed && pointCount > 0 ? pointCount + 1 : pointCount;
+        float[] packed = new float[COORDINATES_PER_POINT * drawn];
+        for (int point = 0; point < drawn; point++) {
+            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+                packed[COORDINATES_PER_POINT * point + axis] =
+                        (float) packedXyz[COORDINATES_PER_POINT * (point % pointCount) + axis];
+            }
         }
         return packed;
     }

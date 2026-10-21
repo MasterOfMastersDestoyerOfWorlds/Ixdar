@@ -137,18 +137,18 @@ public class SplineCutNode implements MeshNode {
         }
         SurfaceSpline bisector = SurfaceSpline.bisector(SurfaceGeodesics.over(metric), anchors,
                 walls[0], walls[1]);
-        if (bisector.markedEdgeCount == 0) {
+        if (bisector.marks.markedEdgeCount == 0) {
             throw new IllegalArgumentException(NODE_ID + " " + label + ": its snapped path does "
                     + "not join its two ends");
         }
-        GeometryBundle out = bundle.withSlot(CurveGeometry.SLOT,
-                CurveGeometry.singlePolyline(bisector.polyline));
-        ctx.setOutput(GEOMETRY.name, EdgeMarks.with(out, label, bisector.markedByEdgeId));
+        GeometryBundle out = bundle.withSlot(CurveGeometry.SLOT, CurveGeometry.singlePolyline(
+                bisector.path.drawnPolyline(bisector.path.positions)));
+        boolean[] marks = bisector.marks.markedByEdgeId;
+        ctx.setOutput(GEOMETRY.name, EdgeMarks.with(out, label, marks));
         boolean[] selection = new boolean[mesh.edgeCount()];
         for (int activeEdge = 0; activeEdge < selection.length; activeEdge++) {
             int edgeId = mesh.edgeIdAt(activeEdge);
-            selection[activeEdge] = edgeId < bisector.markedByEdgeId.length
-                    && bisector.markedByEdgeId[edgeId];
+            selection[activeEdge] = edgeId < marks.length && marks[edgeId];
         }
         ctx.setOutput(SELECTION.name, new BoolField(selection));
     }

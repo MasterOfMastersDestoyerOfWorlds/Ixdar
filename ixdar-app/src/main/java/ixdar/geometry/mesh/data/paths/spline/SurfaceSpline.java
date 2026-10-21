@@ -6,18 +6,18 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
-import ixdar.geometry.mesh.data.paths.query.SurfacePathCrossings;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingAttachment;
 
 /**
- * A cubic spline on a surface, a closed ring or an open bisector: its anchors, its traced polyline and
+ * A cubic spline on a surface, a closed ring or an open bisector: its anchors, its traced path and
  * the mesh edges nearest it. Each anchor's two tangent handles are collinear, so it turns smoothly.
  */
 public final class SurfaceSpline {
@@ -45,61 +45,16 @@ public final class SurfaceSpline {
     /** Surface the spline lies on, which every point and edge id here indexes; null before. */
     public MeshTopology mesh;
 
-    /** Packed xyz of the traced spline; a closed one repeats its first point at the end. */
-    public float[] polyline = new float[0];
-
-    /** Whether the spline is an open bisector from its first anchor to its last, not a ring. */
-    public boolean open;
-
-    /** Mesh vertex each {@link #polyline} point sits on, or -1 elsewhere. */
-    public int[] pointVertexId = new int[0];
-
-    /** Mesh edge each {@link #polyline} point crosses, or -1 elsewhere. */
-    public int[] pointEdgeId = new int[0];
-
     /**
-     * Mesh face each {@link #polyline} point lies strictly inside, or -1 elsewhere: where the
-     * trace crossed an intrinsic split of a quad or larger polygon. Its place is in
-     * {@link #surfacePolyline}.
+     * The traced spline, measured: its positions are the Euclidean cubic, off the surface, and its
+     * surface positions the vertex, geodesic edge crossing or in-face point each stands for.
+     * Consecutive points share a face. Open for a bisector from its first anchor to its last.
      */
-    public int[] pointFaceId = new int[0];
+    public TracedSurfacePath path = new TracedSurfacePath(new double[0], new int[0], new int[0],
+            new double[0], 0, true);
 
-    /** The trace's crossing parameter along {@link #pointEdgeId}, or -1 off an edge. */
-    public double[] pointFraction = new double[0];
-
-    /**
-     * Packed xyz of the surface point each {@link #polyline} point stands for: its vertex, where
-     * the trace's geodesic crosses its edge, or its place inside its face. Consecutive points
-     * share a face; the polyline itself is the Euclidean cubic, off the surface.
-     */
-    public float[] surfacePolyline = new float[0];
-
-    /** Edge-id-indexed mask, true on every mesh edge of the cycle nearest the spline. */
-    public boolean[] markedByEdgeId = new boolean[0];
-
-    /** Ascending mesh edge ids of that cycle. */
-    public int[] markedEdgeIds = new int[0];
-
-    /** Mesh edges marked by {@link #markedByEdgeId}. */
-    public int markedEdgeCount;
-
-    /** Gaps {@link ConformingLoopSnap} could not close. */
-    public int unresolvedGaps;
-
-    /** Euclidean length of the traced spline. */
-    public double length;
-
-    /** Mean distance from the centroid to the traced points. */
-    public double meanRadius;
-
-    /** Length-weighted centroid x, the position a joint would sit at. */
-    public float centroidX;
-
-    /** Length-weighted centroid y. */
-    public float centroidY;
-
-    /** Length-weighted centroid z. */
-    public float centroidZ;
+    /** The mesh edges nearest the spline: a cycle for a ring, the walled run for a bisector. */
+    public EdgeMarks marks = EdgeMarks.NONE;
 
     /** Smallest interior angle of the traced polyline, in degrees; 180 is perfectly straight. */
     public double minimumInteriorAngleDegrees = 180.0;
@@ -113,8 +68,8 @@ public final class SurfaceSpline {
     /** Shortest polyline span the interior angles were measured across. */
     public double smallestMeasuredSpan;
 
-    /** Packed xyz of the polyline point {@link #minimumInteriorAngleDegrees} was measured at. */
-    public final float[] sharpestCornerXyz = new float[COORDINATES_PER_POINT];
+    /** Packed xyz of the path point {@link #minimumInteriorAngleDegrees} was measured at. */
+    public final double[] sharpestCornerXyz = new double[COORDINATES_PER_POINT];
 
     private SurfaceSpline() {
     }
@@ -149,10 +104,8 @@ public final class SurfaceSpline {
      */
     public static SurfaceSpline of(SurfaceSplineTracer tracer) {
         SurfaceSpline spline = unsnapped(tracer);
-        ConformingLoopSnap snap = new ConformingLoopSnap();
-        boolean[] marks = snap.snap(tracer.geodesics.mesh, tracer.tracedRing());
-        spline.unresolvedGaps = snap.unresolvedGaps;
-        spline.measure(marks, tracer.geodesics.metric.meanEdgeLength);
+        spline.marks = new ConformingLoopSnap().edgeLoop(tracer.geodesics.mesh, spline.path);
+        spline.measureCorners(tracer.geodesics.metric.meanEdgeLength);
         return spline;
     }
 
@@ -178,10 +131,11 @@ public final class SurfaceSpline {
         SurfaceSpline spline = unsnapped(tracer);
         boolean[] marks = new boolean[RingBundle.edgeIdCeiling(mesh)];
         boolean[] snapped = new boolean[0];
+        int unresolvedGaps = 0;
         if (traced) {
             ConformingLoopSnap snap = new ConformingLoopSnap();
-            snapped = snap.snap(mesh, tracer.tracedRing());
-            spline.unresolvedGaps = snap.unresolvedGaps;
+            snapped = snap.snap(mesh, spline.path);
+            unresolvedGaps = snap.unresolvedGaps;
         }
         // The walk runs over the snapped edges' own vertices, sorted so a vertex finds its slot
         // by binary search, which keeps its arrays the size of the path, not of the mesh.
@@ -262,38 +216,14 @@ public final class SurfaceSpline {
         for (int step = runFrom; step < runTo; step++) {
             marks[mesh.edgeBetween(queue[step], queue[step + 1])] = true;
         }
-        spline.measure(marks, geodesics.metric.meanEdgeLength);
+        spline.marks = new EdgeMarks(marks, unresolvedGaps);
+        spline.measureCorners(geodesics.metric.meanEdgeLength);
         return spline;
     }
 
     /**
-     * Take an edge mask as this spline's walls and measure the traced points: centroid, mean
-     * radius and sharpest corner.
-     */
-    private void measure(boolean[] marks, double meanEdgeLength) {
-        markedByEdgeId = marks;
-        markedEdgeCount = 0;
-        for (boolean marked : marks) {
-            if (marked) {
-                markedEdgeCount++;
-            }
-        }
-        markedEdgeIds = new int[markedEdgeCount];
-        int next = 0;
-        for (int edgeId = 0; edgeId < marks.length; edgeId++) {
-            if (marks[edgeId]) {
-                markedEdgeIds[next++] = edgeId;
-            }
-        }
-        smallestMeasuredSpan = SMALLEST_MEASURED_SPAN_IN_EDGES * meanEdgeLength;
-        setCentroid();
-        setMeanRadius();
-        setMinimumInteriorAngle();
-    }
-
-    /**
-     * The drawn parts of a traced tracer only, its anchors in both classes, closed polyline and
-     * length, without the edge-cycle snap and measures a hover frame has no use for.
+     * The drawn parts of a traced tracer only, its anchors in both classes and its measured path,
+     * without the edge-cycle snap and corner measure a hover frame has no use for.
      *
      * @param tracer tracer whose segments are up to date
      * @return the spline with no edge marks
@@ -317,61 +247,9 @@ public final class SurfaceSpline {
             spline.traceDepth = Math.max(spline.traceDepth, tracer.segmentDepth[segment]);
         }
         spline.geodesicCount = tracer.geodesics.geodesicCount;
-
-        TracedSurfacePath traced = tracer.tracedRing();
-        spline.followPath(mesh, traced);
-        spline.length = traced.polylineLength();
+        spline.mesh = mesh;
+        spline.path = tracer.tracedRing().measure();
         return spline;
-    }
-
-    /**
-     * Take a traced path as this spline's points: {@link #polyline} and the per-point vertex, edge
-     * or face it lies on, a closed path's first point repeated at the end, and their surface
-     * positions.
-     *
-     * @param mesh   surface the path's vertex, edge and face ids index
-     * @param traced path whose points each sit on a vertex, cross an edge or lie in a face
-     */
-    public void followPath(MeshTopology mesh, TracedSurfacePath traced) {
-        this.mesh = mesh;
-        open = !traced.closed;
-        int pointCount = traced.pointCount == 0 || open ? traced.pointCount
-                : traced.pointCount + 1;
-        polyline = new float[COORDINATES_PER_POINT * pointCount];
-        surfacePolyline = new float[COORDINATES_PER_POINT * pointCount];
-        pointVertexId = new int[pointCount];
-        pointEdgeId = new int[pointCount];
-        pointFaceId = new int[pointCount];
-        pointFraction = new double[pointCount];
-        Vector3f point = new Vector3f();
-        Vector3f head = new Vector3f();
-        for (int target = 0; target < pointCount; target++) {
-            int source = target % traced.pointCount;
-            int base = COORDINATES_PER_POINT * target;
-            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                polyline[base + axis] =
-                        (float) traced.positions[COORDINATES_PER_POINT * source + axis];
-            }
-            pointVertexId[target] = traced.vertexId[source];
-            pointEdgeId[target] = traced.edgeId[source];
-            pointFaceId[target] = traced.faceId[source];
-            pointFraction[target] = traced.fraction[source];
-            if (traced.vertexId[source] >= 0) {
-                mesh.vertexPosition(traced.vertexId[source], point);
-            } else if (traced.faceId[source] >= 0) {
-                int surface = COORDINATES_PER_POINT * source;
-                point.set(traced.surfacePositions[surface], traced.surfacePositions[surface + 1],
-                        traced.surfacePositions[surface + 2]);
-            } else {
-                int halfEdge = mesh.edgeHalfEdge(traced.edgeId[source]);
-                mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), point);
-                mesh.vertexPosition(mesh.halfEdgeEndVertex(halfEdge), head);
-                point.lerp(head, (float) traced.fraction[source]);
-            }
-            surfacePolyline[base] = point.x;
-            surfacePolyline[base + 1] = point.y;
-            surfacePolyline[base + 2] = point.z;
-        }
     }
 
     /**
@@ -413,22 +291,6 @@ public final class SurfaceSpline {
     }
 
     /**
-     * The spline's path on the surface as one trace, its points on the vertices, edges and faces
-     * they lie on, the form {@link SurfacePathCrossings} reads.
-     *
-     * @return the path, closed without the repeated first point unless the spline is open
-     */
-    public TracedSurfacePath surfacePath() {
-        int points = open ? pointVertexId.length : Math.max(0, pointVertexId.length - 1);
-        double[] xyz = new double[COORDINATES_PER_POINT * points];
-        for (int coordinate = 0; coordinate < xyz.length; coordinate++) {
-            xyz[coordinate] = surfacePolyline[coordinate];
-        }
-        return new TracedSurfacePath(xyz, xyz, pointVertexId, pointEdgeId, pointFaceId,
-                pointFraction, points, !open);
-    }
-
-    /**
      * How many of the anchors the user placed, the ones a save writes.
      *
      * @return the authored anchors among {@link #anchorAuthored}
@@ -439,26 +301,6 @@ public final class SurfaceSpline {
             authored += anchorAuthored[anchor] ? 1 : 0;
         }
         return authored;
-    }
-
-    /**
-     * The largest distance from a point of this spline to a reference polyline, the measure the
-     * anchor fit drives down.
-     *
-     * @param referenceXyz packed xyz of the polyline to compare against, treated as closed
-     * @param pointCount   points to read from the front of {@code referenceXyz}
-     * @return the largest distance, or zero when either curve is empty
-     */
-    public double largestDeviationFrom(float[] referenceXyz, int pointCount) {
-        double worst = 0.0;
-        int points = polyline.length / COORDINATES_PER_POINT;
-        for (int point = 0; point < points; point++) {
-            worst = Math.max(worst, distanceToPolyline(referenceXyz, pointCount,
-                    polyline[COORDINATES_PER_POINT * point],
-                    polyline[COORDINATES_PER_POINT * point + 1],
-                    polyline[COORDINATES_PER_POINT * point + 2]));
-        }
-        return worst;
     }
 
     /**
@@ -473,8 +315,8 @@ public final class SurfaceSpline {
      * @param z          point z
      * @return the shortest distance, or infinity when the polyline is empty
      */
-    public static double distanceToPolyline(float[] packedXyz, int pointCount, float x, float y,
-            float z) {
+    public static double distanceToPolyline(double[] packedXyz, int pointCount, double x,
+            double y, double z) {
         double best = Double.POSITIVE_INFINITY;
         for (int point = 0; point < pointCount; point++) {
             best = Math.min(best, spanDistanceSquared(packedXyz, pointCount, point, x, y, z, best));
@@ -495,8 +337,8 @@ public final class SurfaceSpline {
      * @param bound      squared distance past which the span is not measured
      * @return the squared distance, or positive infinity when the span was culled
      */
-    public static double spanDistanceSquared(float[] packedXyz, int pointCount, int point,
-            float x, float y, float z, double bound) {
+    public static double spanDistanceSquared(double[] packedXyz, int pointCount, int point,
+            double x, double y, double z, double bound) {
         int here = COORDINATES_PER_POINT * point;
         int there = COORDINATES_PER_POINT * ((point + 1) % pointCount);
         double gapX = axisGap(x, packedXyz[here], packedXyz[there]);
@@ -529,57 +371,18 @@ public final class SurfaceSpline {
         return at > high ? at - high : 0.0;
     }
 
-    private void setCentroid() {
-        int points = polyline.length / COORDINATES_PER_POINT;
-        double weightedX = 0.0;
-        double weightedY = 0.0;
-        double weightedZ = 0.0;
-        double totalWeight = 0.0;
-        for (int span = 0; span + 1 < points; span++) {
-            int here = COORDINATES_PER_POINT * span;
-            int there = COORDINATES_PER_POINT * (span + 1);
-            double dx = polyline[there] - polyline[here];
-            double dy = polyline[there + 1] - polyline[here + 1];
-            double dz = polyline[there + 2] - polyline[here + 2];
-            double weight = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            weightedX += weight * 0.5 * (polyline[here] + polyline[there]);
-            weightedY += weight * 0.5 * (polyline[here + 1] + polyline[there + 1]);
-            weightedZ += weight * 0.5 * (polyline[here + 2] + polyline[there + 2]);
-            totalWeight += weight;
-        }
-        if (totalWeight <= 0.0) {
-            return;
-        }
-        centroidX = (float) (weightedX / totalWeight);
-        centroidY = (float) (weightedY / totalWeight);
-        centroidZ = (float) (weightedZ / totalWeight);
-    }
-
-    private void setMeanRadius() {
-        int points = polyline.length / COORDINATES_PER_POINT;
-        if (points == 0) {
-            return;
-        }
-        double radiusSum = 0.0;
-        for (int point = 0; point < points; point++) {
-            int base = COORDINATES_PER_POINT * point;
-            double dx = polyline[base] - centroidX;
-            double dy = polyline[base + 1] - centroidY;
-            double dz = polyline[base + 2] - centroidZ;
-            radiusSum += Math.sqrt(dx * dx + dy * dy + dz * dz);
-        }
-        meanRadius = radiusSum / points;
-    }
-
     /**
-     * The sharpest turn anywhere on the traced polyline. Points closer together than a whisker of
-     * the ring are skipped, so a pair of coincident edge crossings does not read as a corner.
+     * The sharpest turn anywhere on the traced polyline, its first point standing in for a closed
+     * path's last. Points closer together than a whisker of the ring are skipped, so a pair of
+     * coincident edge crossings does not read as a corner.
      */
-    private void setMinimumInteriorAngle() {
-        int points = polyline.length / COORDINATES_PER_POINT - 1;
+    private void measureCorners(double meanEdgeLength) {
+        smallestMeasuredSpan = SMALLEST_MEASURED_SPAN_IN_EDGES * meanEdgeLength;
+        int points = path.closed ? path.pointCount : path.pointCount - 1;
         if (points < COORDINATES_PER_POINT) {
             return;
         }
+        double[] xyz = path.positions;
         double floor = smallestMeasuredSpan;
         for (int point = 0; point < points; point++) {
             int previous = stepBack(point, points, floor);
@@ -588,12 +391,12 @@ public final class SurfaceSpline {
                 continue;
             }
             int here = COORDINATES_PER_POINT * point;
-            double backX = polyline[COORDINATES_PER_POINT * previous] - polyline[here];
-            double backY = polyline[COORDINATES_PER_POINT * previous + 1] - polyline[here + 1];
-            double backZ = polyline[COORDINATES_PER_POINT * previous + 2] - polyline[here + 2];
-            double aheadX = polyline[COORDINATES_PER_POINT * following] - polyline[here];
-            double aheadY = polyline[COORDINATES_PER_POINT * following + 1] - polyline[here + 1];
-            double aheadZ = polyline[COORDINATES_PER_POINT * following + 2] - polyline[here + 2];
+            double backX = xyz[COORDINATES_PER_POINT * previous] - xyz[here];
+            double backY = xyz[COORDINATES_PER_POINT * previous + 1] - xyz[here + 1];
+            double backZ = xyz[COORDINATES_PER_POINT * previous + 2] - xyz[here + 2];
+            double aheadX = xyz[COORDINATES_PER_POINT * following] - xyz[here];
+            double aheadY = xyz[COORDINATES_PER_POINT * following + 1] - xyz[here + 1];
+            double aheadZ = xyz[COORDINATES_PER_POINT * following + 2] - xyz[here + 2];
             double backLength = Math.sqrt(backX * backX + backY * backY + backZ * backZ);
             double aheadLength = Math.sqrt(aheadX * aheadX + aheadY * aheadY + aheadZ * aheadZ);
             if (backLength <= 0.0 || aheadLength <= 0.0) {
@@ -604,9 +407,7 @@ public final class SurfaceSpline {
             double angle = Math.toDegrees(Math.acos(Math.max(-1.0, Math.min(1.0, cosine))));
             if (angle < minimumInteriorAngleDegrees) {
                 minimumInteriorAngleDegrees = angle;
-                sharpestCornerXyz[0] = polyline[here];
-                sharpestCornerXyz[1] = polyline[here + 1];
-                sharpestCornerXyz[2] = polyline[here + 2];
+                System.arraycopy(xyz, here, sharpestCornerXyz, 0, COORDINATES_PER_POINT);
             }
         }
     }
@@ -632,12 +433,12 @@ public final class SurfaceSpline {
     }
 
     private double separation(int firstPoint, int secondPoint) {
-        double dx = polyline[COORDINATES_PER_POINT * firstPoint]
-                - polyline[COORDINATES_PER_POINT * secondPoint];
-        double dy = polyline[COORDINATES_PER_POINT * firstPoint + 1]
-                - polyline[COORDINATES_PER_POINT * secondPoint + 1];
-        double dz = polyline[COORDINATES_PER_POINT * firstPoint + 2]
-                - polyline[COORDINATES_PER_POINT * secondPoint + 2];
+        double[] xyz = path.positions;
+        double dx = xyz[COORDINATES_PER_POINT * firstPoint] - xyz[COORDINATES_PER_POINT * secondPoint];
+        double dy = xyz[COORDINATES_PER_POINT * firstPoint + 1]
+                - xyz[COORDINATES_PER_POINT * secondPoint + 1];
+        double dz = xyz[COORDINATES_PER_POINT * firstPoint + 2]
+                - xyz[COORDINATES_PER_POINT * secondPoint + 2];
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 }

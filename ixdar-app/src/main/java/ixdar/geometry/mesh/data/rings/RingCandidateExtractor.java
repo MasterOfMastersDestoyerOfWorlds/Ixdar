@@ -1,16 +1,24 @@
 package ixdar.geometry.mesh.data.rings;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.Set;
 
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonJoint;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonResult;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
+import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
@@ -38,6 +46,8 @@ public final class RingCandidateExtractor {
     public static final int MINIMUM_COMPONENT_VERTICES = 6;
 
     public static final int COORDINATES_PER_POINT = 3;
+
+    public static final int CYCLE_VERTEX_DEGREE = 2;
 
     /** Voxel-grid resolution handed to {@link MeshSkeletonExtractor}. */
     public int resolution = MeshSkeletonExtractor.DEFAULT_RESOLUTION;
@@ -93,12 +103,7 @@ public final class RingCandidateExtractor {
     private int[] bandIndexByVertex = new int[0];
     private int[] bandStamp = new int[0];
     private int currentBandStamp;
-    private final List<float[]> candidatePolyline = new ArrayList<>();
-    private final List<int[]> candidateEdgeIds = new ArrayList<>();
-    private float[] candidateCentroid = new float[0];
-    private float[] candidateLength = new float[0];
-    private float[] candidateSeedLength = new float[0];
-    private float[] candidateMeanRadius = new float[0];
+    private final List<SurfaceRing> candidateRing = new ArrayList<>();
     private int[] candidateRegionOnOneSide = new int[0];
     private int[] candidateRegionOnOtherSide = new int[0];
     private float[] candidateSkeletonRadius = new float[0];
@@ -112,8 +117,7 @@ public final class RingCandidateExtractor {
      */
     public RingCandidates extract(MeshTopology surface) {
         mesh = surface;
-        candidatePolyline.clear();
-        candidateEdgeIds.clear();
+        candidateRing.clear();
         RingCandidates rings = new RingCandidates();
         if (surface == null || surface.faceCount() == 0) {
             return rings;
@@ -455,32 +459,35 @@ public final class RingCandidateExtractor {
     private void considerCandidate(RingCandidates rings, int[] component, int region, int facing) {
         SurfaceRing ring = SurfaceRing.tightenedOrNull(mesh, spreadWaypoints(component), true, 0,
                 FlipGeodesics.UNBOUNDED_ITERATIONS);
-        if (ring == null || ring.unresolvedGaps > 0) {
+        if (ring == null || ring.marks.unresolvedGaps > 0) {
             rings.rejectedUnclosed++;
             return;
         }
-        if (!RingCandidates.marksOneClosedCycle(mesh, ring.markedEdgeIds)) {
+        if (!marksOneClosedCycle(mesh, ring.marks.markedEdgeIds)) {
             rings.rejectedNotGirdling++;
             return;
         }
-        if (ring.markedEdgeIds.length < MINIMUM_RING_EDGES) {
+        if (ring.marks.markedEdgeCount < MINIMUM_RING_EDGES) {
             rings.rejectedCollapsed++;
             return;
         }
-        if (ring.length > ring.seedLength) {
+        double length = ring.path.length;
+        if (length > ring.seed.length) {
             rings.rejectedGrown++;
             return;
         }
-        float inscribedRadius = (float) NearestVertex.distanceToNearest(mesh, ring.centroidX,
-                ring.centroidY, ring.centroidZ);
-        if (ring.length <= 0.0
-                || 2.0 * Math.PI * inscribedRadius > collapsedCircularity * ring.length) {
+        float centroidX = (float) ring.path.centroid[0];
+        float centroidY = (float) ring.path.centroid[1];
+        float centroidZ = (float) ring.path.centroid[2];
+        float inscribedRadius = (float) NearestVertex.distanceToNearest(mesh, centroidX, centroidY,
+                centroidZ);
+        if (length <= 0.0 || 2.0 * Math.PI * inscribedRadius > collapsedCircularity * length) {
             rings.rejectedCollapsed++;
             return;
         }
-        float radius = RingCandidates.skeletonRadiusNear(skeleton, ring.centroidX, ring.centroidY,
-                ring.centroidZ);
-        float neckness = RingCandidates.neckness(radius, ring.length);
+        float radius = RingCandidates.skeletonRadiusNear(skeleton, centroidX, centroidY,
+                centroidZ);
+        float neckness = RingCandidates.neckness(radius, length);
         if (repeatsAcceptedRing(ring)) {
             rings.rejectedMerged++;
             return;
@@ -489,31 +496,60 @@ public final class RingCandidateExtractor {
             rings.rejectedBelowThreshold++;
             return;
         }
-        int candidate = candidatePolyline.size();
-        candidatePolyline.add(ring.polyline);
-        candidateEdgeIds.add(ring.markedEdgeIds);
-        growCandidateArrays(candidate + 1);
-        candidateCentroid[COORDINATES_PER_POINT * candidate] = ring.centroidX;
-        candidateCentroid[COORDINATES_PER_POINT * candidate + 1] = ring.centroidY;
-        candidateCentroid[COORDINATES_PER_POINT * candidate + 2] = ring.centroidZ;
-        candidateLength[candidate] = (float) ring.length;
-        candidateSeedLength[candidate] = (float) ring.seedLength;
-        candidateMeanRadius[candidate] = (float) ring.meanRadius;
+        int candidate = candidateRing.size();
+        candidateRing.add(ring);
+        candidateRegionOnOneSide = Arrays.copyOf(candidateRegionOnOneSide, candidate + 1);
+        candidateRegionOnOtherSide = Arrays.copyOf(candidateRegionOnOtherSide, candidate + 1);
+        candidateSkeletonRadius = Arrays.copyOf(candidateSkeletonRadius, candidate + 1);
+        candidateNeckness = Arrays.copyOf(candidateNeckness, candidate + 1);
         candidateRegionOnOneSide[candidate] = region;
         candidateRegionOnOtherSide[candidate] = facing;
         candidateSkeletonRadius[candidate] = radius;
         candidateNeckness[candidate] = neckness;
     }
 
-    private void growCandidateArrays(int count) {
-        candidateCentroid = Arrays.copyOf(candidateCentroid, COORDINATES_PER_POINT * count);
-        candidateLength = Arrays.copyOf(candidateLength, count);
-        candidateSeedLength = Arrays.copyOf(candidateSeedLength, count);
-        candidateMeanRadius = Arrays.copyOf(candidateMeanRadius, count);
-        candidateRegionOnOneSide = Arrays.copyOf(candidateRegionOnOneSide, count);
-        candidateRegionOnOtherSide = Arrays.copyOf(candidateRegionOnOtherSide, count);
-        candidateSkeletonRadius = Arrays.copyOf(candidateSkeletonRadius, count);
-        candidateNeckness = Arrays.copyOf(candidateNeckness, count);
+    /**
+     * Whether a marked edge set is one simple closed cycle on the mesh: every vertex it touches
+     * carries exactly two of its edges, and the whole set is connected. A loop that doubled back
+     * marks each retraced edge once, so it fails on the degree-one ends it leaves behind.
+     *
+     * @param mesh    surface the edge ids belong to
+     * @param edgeIds mesh edge ids of one ring's conforming cycle
+     * @return true when the edges girdle the surface as a single closed loop
+     */
+    public static boolean marksOneClosedCycle(MeshTopology mesh, int[] edgeIds) {
+        Map<Integer, List<Integer>> neighbors = new HashMap<>();
+        for (int edgeId : edgeIds) {
+            int halfEdge = mesh.edgeHalfEdge(edgeId);
+            int tail = mesh.halfEdgeVertex(halfEdge);
+            int head = mesh.halfEdgeEndVertex(halfEdge);
+            if (tail < 0 || head < 0) {
+                continue;
+            }
+            neighbors.computeIfAbsent(tail, key -> new ArrayList<>()).add(head);
+            neighbors.computeIfAbsent(head, key -> new ArrayList<>()).add(tail);
+        }
+        if (neighbors.isEmpty()) {
+            return false;
+        }
+        for (List<Integer> spokes : neighbors.values()) {
+            if (spokes.size() != CYCLE_VERTEX_DEGREE) {
+                return false;
+            }
+        }
+        Set<Integer> seen = new HashSet<>();
+        Deque<Integer> pending = new ArrayDeque<>();
+        int start = neighbors.keySet().iterator().next();
+        seen.add(start);
+        pending.push(start);
+        while (!pending.isEmpty()) {
+            for (int next : neighbors.get(pending.pop())) {
+                if (seen.add(next)) {
+                    pending.push(next);
+                }
+            }
+        }
+        return seen.size() == neighbors.size();
     }
 
     /**
@@ -575,9 +611,9 @@ public final class RingCandidateExtractor {
      * @return true when an accepted ring already cuts the same place
      */
     private boolean repeatsAcceptedRing(SurfaceRing ring) {
-        int[] edgeIds = ring.markedEdgeIds;
-        for (int accepted = 0; accepted < candidateEdgeIds.size(); accepted++) {
-            int[] acceptedEdges = candidateEdgeIds.get(accepted);
+        int[] edgeIds = ring.marks.markedEdgeIds;
+        for (SurfaceRing acceptedRing : candidateRing) {
+            int[] acceptedEdges = acceptedRing.marks.markedEdgeIds;
             int shared = 0;
             int here = 0;
             int there = 0;
@@ -595,17 +631,15 @@ public final class RingCandidateExtractor {
             if (shared > MERGE_OVERLAP_FRACTION * Math.min(edgeIds.length, acceptedEdges.length)) {
                 return true;
             }
-            double lengthGap = Math.abs(ring.length - candidateLength[accepted]);
-            double centroidX = ring.centroidX - candidateCentroid[COORDINATES_PER_POINT * accepted];
-            double centroidY =
-                    ring.centroidY - candidateCentroid[COORDINATES_PER_POINT * accepted + 1];
-            double centroidZ =
-                    ring.centroidZ - candidateCentroid[COORDINATES_PER_POINT * accepted + 2];
+            TracedSurfacePath accepted = acceptedRing.path;
+            double lengthGap = Math.abs(ring.path.length - accepted.length);
+            double centroidX = ring.path.centroid[0] - accepted.centroid[0];
+            double centroidY = ring.path.centroid[1] - accepted.centroid[1];
+            double centroidZ = ring.path.centroid[2] - accepted.centroid[2];
             double centroidGap =
                     centroidX * centroidX + centroidY * centroidY + centroidZ * centroidZ;
-            if (lengthGap < MERGE_LENGTH_TOLERANCE * candidateLength[accepted]
-                    && Math.sqrt(centroidGap)
-                            < mergeDistanceInRadii * candidateMeanRadius[accepted]) {
+            if (lengthGap < MERGE_LENGTH_TOLERANCE * accepted.length
+                    && Math.sqrt(centroidGap) < mergeDistanceInRadii * accepted.meanRadius) {
                 return true;
             }
         }
@@ -617,7 +651,7 @@ public final class RingCandidateExtractor {
      * so row order does not depend on the order the rims happened to be walked.
      */
     private RingCandidates pack(RingCandidates rings) {
-        int count = candidatePolyline.size();
+        int count = candidateRing.size();
         Integer[] order = new Integer[count];
         for (int index = 0; index < count; index++) {
             order[index] = index;
@@ -628,24 +662,21 @@ public final class RingCandidateExtractor {
             if (byNeckness != 0) {
                 return byNeckness;
             }
+            TracedSurfacePath left = candidateRing.get(leftIndex).path;
+            TracedSurfacePath right = candidateRing.get(rightIndex).path;
             for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                int byAxis = Float.compare(
-                        candidateCentroid[COORDINATES_PER_POINT * leftIndex + axis],
-                        candidateCentroid[COORDINATES_PER_POINT * rightIndex + axis]);
+                int byAxis = Double.compare(left.centroid[axis], right.centroid[axis]);
                 if (byAxis != 0) {
                     return byAxis;
                 }
             }
-            return Float.compare(candidateLength[leftIndex], candidateLength[rightIndex]);
+            return Double.compare(left.length, right.length);
         });
 
         rings.ringCount = count;
-        rings.polylineOffset = new int[count + 1];
-        rings.markedEdgeOffset = new int[count + 1];
-        rings.centroid = new float[COORDINATES_PER_POINT * count];
-        rings.length = new float[count];
-        rings.seedLength = new float[count];
-        rings.meanRadius = new float[count];
+        rings.path = new TracedSurfacePath[count];
+        rings.marks = new EdgeMarks[count];
+        rings.seedLength = new double[count];
         rings.branchOnOneSide = new int[count];
         rings.branchOnOtherSide = new int[count];
         rings.regionOnOneSide = new int[count];
@@ -654,31 +685,12 @@ public final class RingCandidateExtractor {
         rings.areaOnOtherSide = new float[count];
         rings.skeletonRadius = new float[count];
         rings.neckness = new float[count];
-        int pointTotal = 0;
-        int edgeTotal = 0;
-        for (int ring = 0; ring < count; ring++) {
-            pointTotal += candidatePolyline.get(order[ring]).length / COORDINATES_PER_POINT;
-            edgeTotal += candidateEdgeIds.get(order[ring]).length;
-        }
-        rings.polylinePoint = new float[COORDINATES_PER_POINT * pointTotal];
-        rings.markedEdgeId = new int[edgeTotal];
-        int pointFill = 0;
-        int edgeFill = 0;
         for (int ring = 0; ring < count; ring++) {
             int candidate = order[ring];
-            float[] polyline = candidatePolyline.get(candidate);
-            int[] edgeIds = candidateEdgeIds.get(candidate);
-            rings.polylineOffset[ring] = pointFill / COORDINATES_PER_POINT;
-            rings.markedEdgeOffset[ring] = edgeFill;
-            System.arraycopy(polyline, 0, rings.polylinePoint, pointFill, polyline.length);
-            System.arraycopy(edgeIds, 0, rings.markedEdgeId, edgeFill, edgeIds.length);
-            pointFill += polyline.length;
-            edgeFill += edgeIds.length;
-            System.arraycopy(candidateCentroid, COORDINATES_PER_POINT * candidate, rings.centroid,
-                    COORDINATES_PER_POINT * ring, COORDINATES_PER_POINT);
-            rings.length[ring] = candidateLength[candidate];
-            rings.seedLength[ring] = candidateSeedLength[candidate];
-            rings.meanRadius[ring] = candidateMeanRadius[candidate];
+            SurfaceRing accepted = candidateRing.get(candidate);
+            rings.path[ring] = accepted.path;
+            rings.marks[ring] = accepted.marks;
+            rings.seedLength[ring] = accepted.seed.length;
             int regionOnOneSide = candidateRegionOnOneSide[candidate];
             int regionOnOtherSide = candidateRegionOnOtherSide[candidate];
             rings.branchOnOneSide[ring] = branchOfRegion[regionOnOneSide];
@@ -690,8 +702,6 @@ public final class RingCandidateExtractor {
             rings.skeletonRadius[ring] = candidateSkeletonRadius[candidate];
             rings.neckness[ring] = candidateNeckness[candidate];
         }
-        rings.polylineOffset[count] = pointFill / COORDINATES_PER_POINT;
-        rings.markedEdgeOffset[count] = edgeFill;
         return rings;
     }
 

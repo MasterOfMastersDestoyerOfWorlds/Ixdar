@@ -21,6 +21,7 @@ import ixdar.geometry.mesh.data.paths.query.PlaneSurfaceLoop;
 import ixdar.geometry.mesh.data.paths.spline.SplineAnchorFit;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
+import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
@@ -93,13 +94,14 @@ class SurfaceSplineTest {
                 SurfaceSpline.through(sphere, anchors, SplineAnchorFit.STARTING_ANCHORS);
 
         double greatCircle = 2.0 * Math.PI * SPHERE_RADIUS;
-        assertTrue(Math.abs(spline.length - greatCircle) <= GREAT_CIRCLE_TOLERANCE * greatCircle,
-                "traced length " + spline.length + " is not within "
+        double length = spline.path.length;
+        assertTrue(Math.abs(length - greatCircle) <= GREAT_CIRCLE_TOLERANCE * greatCircle,
+                "traced length " + length + " is not within "
                         + 100.0 * GREAT_CIRCLE_TOLERANCE + "% of the great circle " + greatCircle);
         assertTrue(spline.minimumInteriorAngleDegrees > SMOOTHEST_CORNER_DEGREES,
                 "sharpest corner " + spline.minimumInteriorAngleDegrees + " degrees");
-        assertTrue(spline.markedEdgeCount > 0, "the spline snapped to no edge cycle");
-        assertEquals(0, spline.unresolvedGaps);
+        assertTrue(spline.marks.markedEdgeCount > 0, "the spline snapped to no edge cycle");
+        assertEquals(0, spline.marks.unresolvedGaps);
     }
 
     @Test
@@ -130,14 +132,15 @@ class SurfaceSplineTest {
         assertTrue(spline.minimumInteriorAngleDegrees > SMOOTHEST_CORNER_DEGREES,
                 "sharpest corner " + spline.minimumInteriorAngleDegrees + " degrees");
         double nearest = Double.POSITIVE_INFINITY;
-        for (int point = 0; point * COORDINATES < spline.polyline.length; point++) {
-            double dx = spline.polyline[COORDINATES * point] - ordered[COORDINATES];
-            double dy = spline.polyline[COORDINATES * point + 1] - ordered[COORDINATES + 1];
-            double dz = spline.polyline[COORDINATES * point + 2] - ordered[COORDINATES + 2];
+        double[] traced = spline.path.positions;
+        for (int point = 0; point < spline.path.pointCount; point++) {
+            double dx = traced[COORDINATES * point] - ordered[COORDINATES];
+            double dy = traced[COORDINATES * point + 1] - ordered[COORDINATES + 1];
+            double dz = traced[COORDINATES * point + 2] - ordered[COORDINATES + 2];
             nearest = Math.min(nearest, Math.sqrt(dx * dx + dy * dy + dz * dz));
         }
         assertTrue(nearest < 1e-3, "the spline missed its own anchor by " + nearest);
-        assertTrue(spline.length > 2.0 * Math.PI * SPHERE_RADIUS,
+        assertTrue(spline.path.length > 2.0 * Math.PI * SPHERE_RADIUS,
                 "bending the ring off the equator should not shorten it");
     }
 
@@ -174,17 +177,18 @@ class SurfaceSplineTest {
         int startEdgeId = cut.nearestCrossingEdge(mesh, point, normal);
         assertTrue(startEdgeId >= 0, "the plane missed the tube");
         assertTrue(cut.walk(mesh, point, normal, startEdgeId), "the cut did not close");
-        int[] nearestVertexId = new int[cut.stepCount];
-        for (int step = 0; step < cut.stepCount; step++) {
-            int halfEdge = mesh.edgeHalfEdge(cut.edgeId[step]);
-            nearestVertexId[step] = cut.crossingFraction[step] <= 0.5
+        TracedSurfacePath loop = cut.path;
+        int[] nearestVertexId = new int[loop.pointCount];
+        for (int step = 0; step < loop.pointCount; step++) {
+            int halfEdge = mesh.edgeHalfEdge(loop.edgeId[step]);
+            nearestVertexId[step] = loop.fraction[step] <= 0.5
                     ? mesh.halfEdgeVertex(halfEdge)
                     : mesh.halfEdgeEndVertex(halfEdge);
         }
         SplineAnchorFit fit =
                 new SplineAnchorFit(new SurfaceSplineTracer(
                         SurfaceGeodesics.over(SurfaceMetric.of(mesh))));
-        assertTrue(fit.fit(cut.polyline, cut.stepCount, nearestVertexId, 0), "the fit failed");
+        assertTrue(fit.fit(loop.positions, loop.pointCount, nearestVertexId, 0), "the fit failed");
         return fit;
     }
 
@@ -308,9 +312,9 @@ class SurfaceSplineTest {
         assertTrue(live.anchorCount > live.authoredCount(),
                 "the fit added no supporting anchor, so the reload proves nothing about re-fitting");
         boolean[] marks = EdgeMarks.bools(reloaded, SplineRingNode.DEFAULT_MARK_LABEL);
-        assertArrayEquals(live.markedByEdgeId, marks,
+        assertArrayEquals(live.marks.markedByEdgeId, marks,
                 "the spline_ring statement reloaded a different edge cycle than the live ring; "
-                        + "live " + EdgeMarks.fingerprint(tube, live.markedByEdgeId)
+                        + "live " + EdgeMarks.fingerprint(tube, live.marks.markedByEdgeId)
                         + " reloaded " + EdgeMarks.fingerprint(tube, marks));
     }
 
@@ -326,9 +330,9 @@ class SurfaceSplineTest {
 
         assertEquals(2, spline.authoredCount());
         float[] anchorXyz = positionsOf(tube, authored, authored.length);
-        int points = spline.polyline.length / COORDINATES;
+        int points = spline.path.pointCount;
         for (int anchor = 0; anchor < authored.length; anchor++) {
-            double miss = SurfaceSpline.distanceToPolyline(spline.polyline, points,
+            double miss = SurfaceSpline.distanceToPolyline(spline.path.positions, points,
                     anchorXyz[COORDINATES * anchor], anchorXyz[COORDINATES * anchor + 1],
                     anchorXyz[COORDINATES * anchor + 2]);
             assertTrue(miss <= ring.tracer.geodesics.metric.meanEdgeLength, "authored anchor " + anchor
@@ -353,11 +357,11 @@ class SurfaceSplineTest {
         SurfaceSpline after = SurfaceSpline.of(ring.tracer);
 
         assertEquals(1, before.authoredCount());
-        assertFalse(Arrays.equals(before.markedByEdgeId, bent.markedByEdgeId),
+        assertFalse(Arrays.equals(before.marks.markedByEdgeId, bent.marks.markedByEdgeId),
                 "the second anchor did not move the ring");
         assertArrayEquals(before.anchorVertexId, after.anchorVertexId);
-        assertArrayEquals(before.polyline, after.polyline);
-        assertArrayEquals(before.markedByEdgeId, after.markedByEdgeId);
+        assertArrayEquals(before.path.positions, after.path.positions);
+        assertArrayEquals(before.marks.markedByEdgeId, after.marks.markedByEdgeId);
     }
 
     @Test

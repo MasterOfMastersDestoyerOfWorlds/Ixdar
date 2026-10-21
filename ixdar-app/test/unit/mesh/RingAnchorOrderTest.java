@@ -136,7 +136,7 @@ class RingAnchorOrderTest {
                         || canonicalCycle(kept).equals(canonicalCycle(before)), "click " + click
                                 + " reordered " + Arrays.toString(before) + " into "
                                 + Arrays.toString(after));
-                assertTrue(crossings.isSimple(tube, tool.draft.surfacePath()),
+                assertTrue(crossings.isSimple(tube, tool.draft.path),
                         "order " + Arrays.toString(order) + ", click " + click + ": " + tool.lastRow);
             }
             assertEquals(0, pendingCount, "order " + Arrays.toString(order) + " left clicks "

@@ -121,8 +121,9 @@ public final class FlipGeodesicsScanBenchmark {
         System.out.printf(
                 "[ring] leg row: %d edges, length %.5f (seed %.5f), centroid %.5f, %.5f, %.5f, "
                         + "fingerprint %s%n",
-                ring.markedEdgeCount, ring.length, ring.seedLength, ring.centroidX, ring.centroidY,
-                ring.centroidZ, EdgeMarks.fingerprint(mesh, ring.markedByEdgeId));
+                ring.marks.markedEdgeCount, ring.path.length, ring.seed.length,
+                ring.path.centroid[0], ring.path.centroid[1], ring.path.centroid[2],
+                EdgeMarks.fingerprint(mesh, ring.marks.markedByEdgeId));
     }
 
     /**
@@ -182,20 +183,21 @@ public final class FlipGeodesicsScanBenchmark {
                 return;
             }
             double cutMillis = (System.nanoTime() - start) / NANOS_PER_MILLI;
-            if (girdleVertexId.length < girdle.cut.stepCount) {
-                girdleVertexId = new int[girdle.cut.stepCount];
+            TracedSurfacePath cut = girdle.cut.path;
+            if (girdleVertexId.length < cut.pointCount) {
+                girdleVertexId = new int[cut.pointCount];
             }
             int firstStep = 0;
             double nearest = Double.POSITIVE_INFINITY;
-            for (int step = 0; step < girdle.cut.stepCount; step++) {
-                int halfEdge = mesh.edgeHalfEdge(girdle.cut.edgeId[step]);
-                girdleVertexId[step] = girdle.cut.crossingFraction[step] <= HALF
+            for (int step = 0; step < cut.pointCount; step++) {
+                int halfEdge = mesh.edgeHalfEdge(cut.edgeId[step]);
+                girdleVertexId[step] = cut.fraction[step] <= HALF
                         ? mesh.halfEdgeVertex(halfEdge)
                         : mesh.halfEdgeEndVertex(halfEdge);
                 int base = POSITION_STRIDE * step;
-                double dx = girdle.polyline[base] - hitPoint[0];
-                double dy = girdle.polyline[base + 1] - hitPoint[1];
-                double dz = girdle.polyline[base + 2] - hitPoint[2];
+                double dx = cut.positions[base] - hitPoint[0];
+                double dy = cut.positions[base + 1] - hitPoint[1];
+                double dz = cut.positions[base + 2] - hitPoint[2];
                 if (dx * dx + dy * dy + dz * dz < nearest) {
                     nearest = dx * dx + dy * dy + dz * dz;
                     firstStep = step;
@@ -205,7 +207,7 @@ public final class FlipGeodesicsScanBenchmark {
             tracer.maximumDepth = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH - 1;
             SplineAnchorFit fit = new SplineAnchorFit(tracer);
             boolean fitted =
-                    fit.fit(girdle.polyline, girdle.cut.stepCount, girdleVertexId, firstStep);
+                    fit.fit(cut.positions, cut.pointCount, girdleVertexId, firstStep);
             double millis = (System.nanoTime() - start) / NANOS_PER_MILLI;
             assertTrue(fitted, "the anchor fit failed at hover point " + name);
 
@@ -213,8 +215,9 @@ public final class FlipGeodesicsScanBenchmark {
             String ring = String.format(Locale.ROOT,
                     "%d-edge cut, %d anchors, %d ring edges, length %.9f, deviation %.9f, "
                             + "fingerprint %s",
-                    girdle.cut.stepCount, fit.anchorCount, spline.markedEdgeCount, spline.length,
-                    fit.deviation, EdgeMarks.fingerprint(mesh, spline.markedByEdgeId));
+                    cut.pointCount, fit.anchorCount, spline.marks.markedEdgeCount,
+                    spline.path.length, fit.deviation,
+                    EdgeMarks.fingerprint(mesh, spline.marks.markedByEdgeId));
             System.out.printf("[hover] %s round %d: %.2f ms (cut %.2f, fit %.2f), %d geodesics, "
                     + "%s%n", name, round, millis, cutMillis, millis - cutMillis,
                     geodesics.geodesicCount - geodesicsBefore, ring);

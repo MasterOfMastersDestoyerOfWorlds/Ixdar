@@ -91,7 +91,7 @@ class CoincidentAnchorSaveTest {
         assertTrue(ring.trace(held, ANCHORS, MERIDIAN_NORMAL,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);
         String heldFingerprint =
-                EdgeMarks.fingerprint(mesh, SurfaceSpline.of(ring.tracer).markedByEdgeId);
+                EdgeMarks.fingerprint(mesh, SurfaceSpline.of(ring.tracer).marks.markedByEdgeId);
 
         float[] written = SurfaceWaypoints.resolvingPoints(grid, held, ANCHORS);
         String saved = RingDslWriter.wireRingInputs(SPHERES + RingDslWriter.splineStatement(
@@ -129,7 +129,7 @@ class CoincidentAnchorSaveTest {
             assertTrue(ring.trace(held, ANCHORS, MERIDIAN_NORMAL,
                     SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);
             String heldFingerprint =
-                    EdgeMarks.fingerprint(mesh, SurfaceSpline.of(ring.tracer).markedByEdgeId);
+                    EdgeMarks.fingerprint(mesh, SurfaceSpline.of(ring.tracer).marks.markedByEdgeId);
 
             float[] written = SurfaceWaypoints.resolvingPoints(grid, held, ANCHORS);
             IllegalStateException alone = assertThrows(IllegalStateException.class,

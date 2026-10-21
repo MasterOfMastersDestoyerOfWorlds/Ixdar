@@ -77,32 +77,21 @@ class LoopThroughPointsTest {
         SurfaceRing ring = SurfaceRing.through(torus, TUBE_POINTS, TUBE_POINT_COUNT, true, 0, -1);
 
         double analytic = 2.0 * Math.PI * MINOR_RADIUS;
-        System.out.println("[ring] seed=" + ring.seedLength + " tightened=" + ring.length
-                + " analytic=" + analytic + " edges=" + ring.markedEdgeCount
-                + " centroid=(" + ring.centroidX + ", " + ring.centroidY + ", "
-                + ring.centroidZ + ")");
-        assertTrue(Math.abs(ring.length - analytic) / analytic < 0.01,
-                "ring length " + ring.length + " is not within 1% of the analytic meridian "
+        double[] centroid = ring.path.centroid;
+        assertTrue(Math.abs(ring.path.length - analytic) / analytic < 0.01,
+                "ring length " + ring.path.length + " is not within 1% of the analytic meridian "
                         + analytic);
-        assertTrue(ring.seedLength > ring.length,
-                "the seed walk " + ring.seedLength + " should be longer than the geodesic "
-                        + ring.length);
-        assertTrue(ring.markedEdgeCount >= MINOR_SEGMENTS,
+        assertTrue(ring.seed.length > ring.path.length,
+                "the seed walk " + ring.seed.length + " should be longer than the geodesic "
+                        + ring.path.length);
+        assertTrue(ring.marks.markedEdgeCount >= MINOR_SEGMENTS,
                 "a meridian should mark at least one edge per tube segment, marked "
-                        + ring.markedEdgeCount);
-        int coordinates = SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
-        assertArrayEquals(
-                new float[] {
-                    ring.polyline[0], ring.polyline[1], ring.polyline[2] },
-                new float[] {
-                    ring.polyline[ring.polyline.length - coordinates],
-                    ring.polyline[ring.polyline.length - coordinates + 1],
-                    ring.polyline[ring.polyline.length - coordinates + 2] },
-                0.0f, "the ring polyline does not close on its first point");
-        assertTrue(Math.abs(ring.centroidX * ring.centroidX + ring.centroidZ * ring.centroidZ
+                        + ring.marks.markedEdgeCount);
+        assertTrue(ring.path.closed, "the ring path does not close on its first point");
+        assertTrue(Math.abs(centroid[0] * centroid[0] + centroid[2] * centroid[2]
                 - MAJOR_RADIUS * MAJOR_RADIUS) < 0.01,
                 "the ring centroid should sit on the torus centre line, not at "
-                        + ring.centroidX + ", " + ring.centroidZ);
+                        + centroid[0] + ", " + centroid[2]);
     }
 
     @Test
@@ -118,11 +107,11 @@ class LoopThroughPointsTest {
         SurfaceRing reordered =
                 SurfaceRing.through(torus, rotated, TUBE_POINT_COUNT, true, 0, -1);
 
-        assertEquals(EdgeMarks.fingerprint(torus, authored.markedByEdgeId),
-                EdgeMarks.fingerprint(torus, reordered.markedByEdgeId),
+        assertEquals(EdgeMarks.fingerprint(torus, authored.marks.markedByEdgeId),
+                EdgeMarks.fingerprint(torus, reordered.marks.markedByEdgeId),
                 "rotating the point list moved the ring");
-        assertEquals(authored.markedEdgeCount, reordered.markedEdgeCount);
-        assertEquals(authored.length, reordered.length, 1e-9);
+        assertEquals(authored.marks.markedEdgeCount, reordered.marks.markedEdgeCount);
+        assertEquals(authored.path.length, reordered.path.length, 1e-9);
     }
 
     @Test
@@ -152,9 +141,9 @@ class LoopThroughPointsTest {
                 LoopThroughPointsNode.GEOMETRY.name);
 
         boolean[] marks = EdgeMarks.bools(reloaded, RingDslWriter.nextRingId(TORUS_GRAPH));
-        assertArrayEquals(live.markedByEdgeId, marks,
+        assertArrayEquals(live.marks.markedByEdgeId, marks,
                 "the reloaded ring marks different edges than the live one");
-        assertEquals(EdgeMarks.fingerprint(torus, live.markedByEdgeId),
+        assertEquals(EdgeMarks.fingerprint(torus, live.marks.markedByEdgeId),
                 EdgeMarks.fingerprint(reloaded.mesh(), marks));
         assertEquals(saved,
                 RingDslWriter.append(TORUS_GRAPH, TUBE_POINTS, TUBE_POINT_COUNT, true, false),
@@ -170,16 +159,15 @@ class LoopThroughPointsTest {
         SurfaceRing pinned =
                 SurfaceRing.through(tube, points, PINNED_WAYPOINTS, true, PINNED_WAYPOINTS, -1);
 
-        System.out.println("[pin] free centroid x=" + free.centroidX + " length=" + free.length
-                + "; pinned centroid x=" + pinned.centroidX + " length=" + pinned.length);
-        assertTrue(Math.abs(free.centroidX) < 0.2f,
-                "the unpinned ring should slide to the waist at x = 0, not sit at "
-                        + free.centroidX);
-        assertTrue(Math.abs(pinned.centroidX - PIN_X) < 0.1f,
-                "the pinned ring left its pin at x = " + PIN_X + " for " + pinned.centroidX);
-        assertTrue(pinned.length > free.length,
-                "the pinned ring " + pinned.length + " should be longer than the waist geodesic "
-                        + free.length);
+        double freeX = free.path.centroid[0];
+        double pinnedX = pinned.path.centroid[0];
+        assertTrue(Math.abs(freeX) < 0.2f,
+                "the unpinned ring should slide to the waist at x = 0, not sit at " + freeX);
+        assertTrue(Math.abs(pinnedX - PIN_X) < 0.1f,
+                "the pinned ring left its pin at x = " + PIN_X + " for " + pinnedX);
+        assertTrue(pinned.path.length > free.path.length,
+                "the pinned ring " + pinned.path.length
+                        + " should be longer than the waist geodesic " + free.path.length);
         for (int waypoint = 0; waypoint < PINNED_WAYPOINTS; waypoint++) {
             assertTrue(passesThrough(pinned, tube, pinned.waypointVertexIds[waypoint]),
                     "the pinned ring dropped waypoint " + waypoint);
@@ -207,7 +195,7 @@ class LoopThroughPointsTest {
         System.out.println("[pin] reloaded " + EdgeMarks.fingerprint(tube, marks) + " from "
                 + PINNED_WAYPOINTS + " waypoints written as \"" + SurfaceWaypoints.format(written,
                 PINNED_WAYPOINTS) + "\"");
-        assertArrayEquals(live.markedByEdgeId, marks,
+        assertArrayEquals(live.marks.markedByEdgeId, marks,
                 "the pinned statement reloaded a different ring than the live one");
     }
 
@@ -240,12 +228,14 @@ class LoopThroughPointsTest {
     private static float[] onRingWaypoints(MeshTopology mesh, SurfaceRing ring,
             int waypointCount) {
         int coordinates = SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
-        int loopPoints = ring.polyline.length / coordinates - 1;
+        int loopPoints = ring.path.pointCount;
         float[] sampled = new float[coordinates * waypointCount];
         for (int waypoint = 0; waypoint < waypointCount; waypoint++) {
             int point = (int) Math.round((double) loopPoints * waypoint / waypointCount);
-            System.arraycopy(ring.polyline, coordinates * (point % loopPoints), sampled,
-                    coordinates * waypoint, coordinates);
+            for (int axis = 0; axis < coordinates; axis++) {
+                sampled[coordinates * waypoint + axis] =
+                        (float) ring.path.positions[coordinates * (point % loopPoints) + axis];
+            }
         }
         int[] vertexIds = SurfaceWaypoints.snap(NearestVertex.over(mesh), sampled, waypointCount);
         float[] chosen = new float[coordinates * waypointCount];

@@ -1,12 +1,12 @@
 package ixdar.geometry.mesh.data.rings;
 
-import java.util.Arrays;
 import java.util.List;
 
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonJoint;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonResult;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
 import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
@@ -61,10 +61,7 @@ public final class BranchCrossSectionRing {
 
     private final ConformingLoopSnap snap = new ConformingLoopSnap();
     private TracedSurfacePath planarPath;
-    private float[] planarPolyline = new float[0];
-    private int[] planarEdgeId = new int[0];
-    private double planarLength;
-    private int[] planarVertexCycle = new int[0];
+    private EdgeMarks planarMarks = EdgeMarks.NONE;
 
     /**
      * Cuts {@code surface} across the branch nearest {@code branchPoint}, at {@code parameter} of
@@ -96,9 +93,10 @@ public final class BranchCrossSectionRing {
         }
         tightenedRing = SurfaceRing.tightenedOrNull(surface, spreadWaypoints(), true, 0,
                 FlipGeodesics.UNBOUNDED_ITERATIONS);
-        tightened = tightenedRing != null && tightenedRing.length <= planarLength
-                && tightenedRing.length >= MINIMUM_TIGHTENED_FRACTION * planarLength
-                && RingCandidates.marksOneClosedCycle(surface, tightenedRing.markedEdgeIds);
+        tightened = tightenedRing != null && tightenedRing.path.length <= planarPath.length
+                && tightenedRing.path.length >= MINIMUM_TIGHTENED_FRACTION * planarPath.length
+                && RingCandidateExtractor.marksOneClosedCycle(surface,
+                        tightenedRing.marks.markedEdgeIds);
         return fill(rings);
     }
 
@@ -179,28 +177,12 @@ public final class BranchCrossSectionRing {
      * conforming edge cycle so the plane's cut is EdgeMarks-compatible on its own.
      */
     private boolean buildPlanarPath(PlaneSurfaceLoop cut) {
-        if (cut.stepCount < WAYPOINTS) {
+        if (cut.path.pointCount < WAYPOINTS) {
             return false;
         }
-        planarPath = cut.asTracedPath(mesh);
-        planarPolyline = planarPath.packedFloatPositions();
-        planarLength = planarPath.polylineLength();
-        boolean[] marksByEdgeId = snap.snap(mesh, planarPath);
-        planarVertexCycle = Arrays.copyOf(snap.vertexCycle, snap.vertexCycleLength);
-        int marked = 0;
-        for (boolean mark : marksByEdgeId) {
-            if (mark) {
-                marked++;
-            }
-        }
-        planarEdgeId = new int[marked];
-        int next = 0;
-        for (int candidate = 0; candidate < marksByEdgeId.length; candidate++) {
-            if (marksByEdgeId[candidate]) {
-                planarEdgeId[next++] = candidate;
-            }
-        }
-        return marked > 0;
+        planarPath = cut.path;
+        planarMarks = snap.edgeLoop(mesh, planarPath);
+        return planarMarks.markedEdgeCount > 0;
     }
 
     /**
@@ -216,7 +198,7 @@ public final class BranchCrossSectionRing {
         }
         int taken = 0;
         for (int share = 0; share < WAYPOINTS; share++) {
-            double target = planarLength * share / WAYPOINTS;
+            double target = planarPath.length * share / WAYPOINTS;
             int nearest = 0;
             double bestGap = Double.POSITIVE_INFINITY;
             for (int point = 0; point < planarPath.pointCount; point++) {
@@ -256,34 +238,12 @@ public final class BranchCrossSectionRing {
     }
 
     private RingCandidates fill(RingCandidates rings) {
-        float[] polyline = tightened ? tightenedRing.polyline : planarPolyline;
-        int[] edgeIds = tightened ? tightenedRing.markedEdgeIds : planarEdgeId;
-        double length = tightened ? tightenedRing.length : planarLength;
+        TracedSurfacePath loop = tightened ? tightenedRing.path : planarPath;
         rings.ringCount = 1;
         rings.boundariesExamined = 1;
-        rings.polylineOffset = new int[] { 0, polyline.length / COORDINATES_PER_POINT };
-        rings.polylinePoint = polyline;
-        rings.markedEdgeOffset = new int[] { 0, edgeIds.length };
-        rings.markedEdgeId = edgeIds;
-        rings.centroid = new float[COORDINATES_PER_POINT];
-        double meanRadius = 0.0;
-        int points = polyline.length / COORDINATES_PER_POINT;
-        for (int point = 0; point < points; point++) {
-            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                rings.centroid[axis] += polyline[COORDINATES_PER_POINT * point + axis] / points;
-            }
-        }
-        for (int point = 0; point < points; point++) {
-            double sum = 0.0;
-            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                double step = polyline[COORDINATES_PER_POINT * point + axis] - rings.centroid[axis];
-                sum += step * step;
-            }
-            meanRadius += Math.sqrt(sum) / points;
-        }
-        rings.length = new float[] { (float) length };
-        rings.seedLength = new float[] { (float) planarLength };
-        rings.meanRadius = new float[] { (float) meanRadius };
+        rings.path = new TracedSurfacePath[] { loop };
+        rings.marks = new EdgeMarks[] { tightened ? tightenedRing.marks : planarMarks };
+        rings.seedLength = new double[] { planarPath.length };
         rings.branchOnOneSide = new int[] { branch };
         rings.branchOnOtherSide = new int[] { branch };
         rings.regionOnOneSide = new int[] { -1 };
@@ -291,7 +251,7 @@ public final class BranchCrossSectionRing {
         rings.areaOnOneSide = new float[] { 0f };
         rings.areaOnOtherSide = new float[] { 0f };
         rings.skeletonRadius = new float[] { localSkeletonRadius };
-        rings.neckness = new float[] { RingCandidates.neckness(localSkeletonRadius, length) };
+        rings.neckness = new float[] { RingCandidates.neckness(localSkeletonRadius, loop.length) };
         return rings;
     }
 

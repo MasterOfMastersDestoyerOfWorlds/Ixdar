@@ -183,7 +183,7 @@ class QuadRingToolTest {
         assertNotNull(tool.geodesics, "the geodesic engine was refused on the quad cylinder");
         assertSame(surface, tool.geodesics.mesh);
         assertEquals(1, tool.confirmedRings.size(), tool.lastRow);
-        assertEquals(SEGMENTS_AROUND, tool.confirmedRings.get(0).markedEdgeCount);
+        assertEquals(SEGMENTS_AROUND, tool.confirmedRings.get(0).marks.markedEdgeCount);
         float[] anchors = tool.positionsOf(tool.confirmedAuthoredVertexId.get(0));
         assertTrue(anchors.length >= RingTool.COORDINATES_PER_POINT);
         for (int anchor = 2; anchor < anchors.length; anchor += RingTool.COORDINATES_PER_POINT) {
@@ -263,8 +263,8 @@ class QuadRingToolTest {
         assertNotNull(spline, "spline_ring left no spline the cut can follow");
         assertSame(ringed.mesh(), spline.mesh);
         int insidePoints = 0;
-        for (int point = 0; point < spline.pointFaceId.length; point++) {
-            int faceId = spline.pointFaceId[point];
+        for (int point = 0; point < spline.path.pointCount; point++) {
+            int faceId = spline.path.faceId[point];
             insidePoints += faceId >= 0 ? 1 : 0;
             assertTrue(faceId < 0 || spline.mesh.faceVertexCount(faceId) > TRIANGLE_CORNERS,
                     "a point inside face " + faceId + ", which is no polygon");
@@ -344,8 +344,8 @@ class QuadRingToolTest {
         assertTrue(edited.trace(SurfaceWaypoints.snap(NearestVertex.over(surface), points, anchorCount), anchorCount,
                 normal, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), edited.failure);
         SurfaceSpline held = SurfaceSpline.of(edited.tracer);
-        assertEquals(0, held.unresolvedGaps);
-        assertClosedLoopOfQuadEdges(quads, held.markedByEdgeId, "the tool's ring");
+        assertEquals(0, held.marks.unresolvedGaps);
+        assertClosedLoopOfQuadEdges(quads, held.marks.markedByEdgeId, "the tool's ring");
 
         String measuredSurface = RingDslWriter.METRIC_STATEMENT_ID + "."
                 + RingDslWriter.DEFAULT_UPSTREAM_PORT;
@@ -373,11 +373,11 @@ class QuadRingToolTest {
                 .get(EdgeMarks.SLOT)).get(SAVED_LABEL);
         assertNotNull(written, statement);
         assertClosedLoopOfQuadEdges(reloaded, written, "the saved ring");
-        assertEquals(EdgeMarks.fingerprint(surface, held.markedByEdgeId),
+        assertEquals(EdgeMarks.fingerprint(surface, held.marks.markedByEdgeId),
                 EdgeMarks.fingerprint(reloaded, written),
                 "the saved ring reloaded onto different edges: " + statement);
-        assertEquals(EdgeMarks.fingerprint(surface, held.markedByEdgeId),
-                EdgeMarks.fingerprint(quads, held.markedByEdgeId),
+        assertEquals(EdgeMarks.fingerprint(surface, held.marks.markedByEdgeId),
+                EdgeMarks.fingerprint(quads, held.marks.markedByEdgeId),
                 "the fingerprint depends on the mesh it is measured on");
         return written;
     }

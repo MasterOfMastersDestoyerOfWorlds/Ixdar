@@ -16,6 +16,7 @@ import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.ops.MeshHoleFiller;
 import ixdar.geometry.mesh.data.ops.MeshRepair;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
+import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -126,7 +127,7 @@ public final class RingRegionExtraction {
 
     /**
      * Largest distance from an open-boundary vertex on a spline cut to that spline on the
-     * surface, its {@link SurfaceSpline#surfacePolyline}, the curve the ring tool draws.
+     * surface, its path's surface positions, the curve the ring tool draws.
      */
     public double boundaryToSplineDistance;
 
@@ -214,7 +215,7 @@ public final class RingRegionExtraction {
         Vector3f tail = new Vector3f();
         Vector3f head = new Vector3f();
 
-        // Gather every spline crossing; the polyline repeats its first point, so skip the last.
+        // Gather every spline crossing.
         int edgeIdCeiling = RingBundle.edgeIdCeiling(mesh);
         int[] crossingEdge = new int[0];
         double[] crossingFraction = new double[0];
@@ -225,14 +226,14 @@ public final class RingRegionExtraction {
             if (!cutsAlongSpline(ring)) {
                 continue;
             }
-            SurfaceSpline spline = splineByRing[ring];
-            int points = spline.pointVertexId.length - 1;
+            TracedSurfacePath path = splineByRing[ring].path;
+            int points = path.pointCount;
             crossingOfPoint[ring] = new int[points];
             for (int point = 0; point < points; point++) {
                 crossingOfPoint[ring][point] = MeshTopology.NONE;
-                insidePointCount += spline.pointFaceId[point] >= 0 ? 1 : 0;
-                int edgeId = spline.pointEdgeId[point];
-                if (spline.pointVertexId[point] >= 0 || edgeId < 0 || !mesh.hasEdge(edgeId)) {
+                insidePointCount += path.faceId[point] >= 0 ? 1 : 0;
+                int edgeId = path.edgeId[point];
+                if (path.vertexId[point] >= 0 || edgeId < 0 || !mesh.hasEdge(edgeId)) {
                     continue;
                 }
                 if (crossingCount == crossingEdge.length) {
@@ -240,7 +241,7 @@ public final class RingRegionExtraction {
                     crossingFraction = Arrays.copyOf(crossingFraction, crossingEdge.length);
                 }
                 crossingEdge[crossingCount] = edgeId;
-                crossingFraction[crossingCount] = spline.pointFraction[point];
+                crossingFraction[crossingCount] = path.fraction[point];
                 crossingOfPoint[ring][point] = crossingCount++;
             }
         }
@@ -315,17 +316,17 @@ public final class RingRegionExtraction {
             if (crossingOfPoint[ring] == null || insidePointCount == 0) {
                 continue;
             }
-            SurfaceSpline spline = splineByRing[ring];
+            TracedSurfacePath path = splineByRing[ring].path;
             insideVertexOfPoint[ring] = new int[crossingOfPoint[ring].length];
             Arrays.fill(insideVertexOfPoint[ring], MeshTopology.NONE);
             for (int point = 0; point < insideVertexOfPoint[ring].length; point++) {
-                int faceId = spline.pointFaceId[point];
-                if (spline.pointVertexId[point] >= 0 || faceId < 0 || !mesh.hasFace(faceId)) {
+                int faceId = path.faceId[point];
+                if (path.vertexId[point] >= 0 || faceId < 0 || !mesh.hasFace(faceId)) {
                     continue;
                 }
-                head.set(spline.surfacePolyline[XYZ * point],
-                        spline.surfacePolyline[XYZ * point + 1],
-                        spline.surfacePolyline[XYZ * point + 2]);
+                head.set((float) path.surfacePositions[XYZ * point],
+                        (float) path.surfacePositions[XYZ * point + 1],
+                        (float) path.surfacePositions[XYZ * point + 2]);
                 int vertex = MeshTopology.NONE;
                 double nearest = snapFraction * meanEdgeLength;
                 for (int corner = 0; corner < mesh.faceVertexCount(faceId); corner++) {
@@ -361,12 +362,12 @@ public final class RingRegionExtraction {
             if (crossingOfPoint[ring] == null) {
                 continue;
             }
-            SurfaceSpline spline = splineByRing[ring];
+            int[] splineVertexId = splineByRing[ring].path.vertexId;
             int[] path = new int[crossingOfPoint[ring].length];
             int length = 0;
             for (int point = 0; point < path.length; point++) {
-                int vertex = spline.pointVertexId[point] >= 0
-                        ? activeVertexByVertexId[spline.pointVertexId[point]]
+                int vertex = splineVertexId[point] >= 0
+                        ? activeVertexByVertexId[splineVertexId[point]]
                         : crossingOfPoint[ring][point] >= 0
                                 ? crossingVertex[crossingOfPoint[ring][point]]
                         : insideVertexOfPoint[ring] != null
@@ -798,11 +799,11 @@ public final class RingRegionExtraction {
                 if (!onRingByCutVertex[ring][vertex]) {
                     continue;
                 }
-                SurfaceSpline spline = splineByRing[ring];
+                TracedSurfacePath path = splineByRing[ring].path;
                 toSpline = Math.min(toSpline, SurfaceSpline.distanceToPolyline(
-                        spline.surfacePolyline, spline.surfacePolyline.length / XYZ, x, y, z));
-                toCubic = Math.min(toCubic, SurfaceSpline.distanceToPolyline(spline.polyline,
-                        spline.polyline.length / XYZ, x, y, z));
+                        path.surfacePositions, path.pointCount, x, y, z));
+                toCubic = Math.min(toCubic, SurfaceSpline.distanceToPolyline(path.positions,
+                        path.pointCount, x, y, z));
             }
             if (toSpline == Double.POSITIVE_INFINITY) {
                 continue;
@@ -821,7 +822,7 @@ public final class RingRegionExtraction {
             if (!bounding[ring] || cutPathByRing[ring] == null) {
                 continue;
             }
-            SurfaceSpline spline = splineByRing[ring];
+            TracedSurfacePath path = splineByRing[ring].path;
             boolean[] marks = regions.ringMarksByEdgeId[ring];
             for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
                 int edgeId = mesh.edgeIdAt(activeEdge);
@@ -830,8 +831,8 @@ public final class RingRegionExtraction {
                 }
                 mesh.vertexPosition(mesh.halfEdgeVertex(mesh.edgeHalfEdge(edgeId)), tail);
                 snappedLoopToSplineDistance = Math.max(snappedLoopToSplineDistance,
-                        SurfaceSpline.distanceToPolyline(spline.surfacePolyline,
-                                spline.surfacePolyline.length / XYZ, tail.x, tail.y, tail.z));
+                        SurfaceSpline.distanceToPolyline(path.surfacePositions, path.pointCount,
+                                tail.x, tail.y, tail.z));
             }
         }
 
@@ -864,9 +865,9 @@ public final class RingRegionExtraction {
      */
     public boolean cutsAlongSpline(int ring) {
         SurfaceSpline spline = splineByRing[ring];
-        return regions.ringIsWall[ring] && spline != null && !spline.open
+        return regions.ringIsWall[ring] && spline != null && spline.path.closed
                 && spline.mesh == regions.mesh
-                && spline.pointVertexId.length > TRIANGLE_CORNERS;
+                && spline.path.pointCount >= TRIANGLE_CORNERS;
     }
 
     /**

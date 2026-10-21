@@ -121,8 +121,9 @@ public class SurfacePickerTest {
                 "the girdling plane's normal misses the tube's axis by " + missDegrees
                         + " degrees, more than " + AXIS_TOLERANCE_DEGREES);
         double circumference = 2.0 * Math.PI * TUBE_RADIUS;
-        assertTrue(Math.abs(girdle.length - circumference) < 0.05 * circumference,
-                "the cut is " + girdle.length + ", not the tube's circumference " + circumference);
+        double length = girdle.cut.path.length;
+        assertTrue(Math.abs(length - circumference) < 0.05 * circumference,
+                "the cut is " + length + ", not the tube's circumference " + circumference);
     }
 
     /**

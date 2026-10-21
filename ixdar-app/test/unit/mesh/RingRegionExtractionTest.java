@@ -69,7 +69,8 @@ class RingRegionExtractionTest {
         SurfaceSpline[] splines = { tiltedRing(cylinder, LOW_RING_HEIGHT, 0),
             tiltedRing(cylinder, HIGH_RING_HEIGHT, Math.PI / 2) };
         RingRegions regions = new RingRegions(cylinder, LABELS,
-                new boolean[][] { splines[0].markedByEdgeId, splines[1].markedByEdgeId }).build();
+                new boolean[][] { splines[0].marks.markedByEdgeId,
+                    splines[1].marks.markedByEdgeId }).build();
         assertEquals(3, regions.regionCount, String.join(LINE_BREAK, regions.reportLines()));
 
         RingRegionExtraction extraction = new RingRegionExtraction(regions, splines,
@@ -152,7 +153,7 @@ class RingRegionExtractionTest {
             SurfaceSpline spline = tiltedRing(cylinder,
                     ring == 0 ? LOW_RING_HEIGHT : HIGH_RING_HEIGHT, ring * Math.PI / 2);
             bundle = SurfaceSpline.with(EdgeMarks.with(bundle, LABELS[ring],
-                    spline.markedByEdgeId), LABELS[ring], spline);
+                    spline.marks.markedByEdgeId), LABELS[ring], spline);
         }
         GeometryBundle[] pieces = new GeometryBundle[2];
         double[] volumes = new double[2];
@@ -217,8 +218,8 @@ class RingRegionExtractionTest {
             }
         }
         SurfaceSpline spline = tiltedRing(cylinder, LOW_RING_HEIGHT, 0);
-        spline.followPath(cylinder, new TracedSurfacePath(positions, vertexIds, edgeIds,
-                fractions, 2 * AROUND, true));
+        spline.path = new TracedSurfacePath(positions, vertexIds, edgeIds, fractions, 2 * AROUND,
+                true).measure();
         RingRegions regions = new RingRegions(cylinder, new String[] { LABELS[0] },
                 new boolean[][] { rowMarks }).build();
         RingRegionExtraction extraction = new RingRegionExtraction(regions,

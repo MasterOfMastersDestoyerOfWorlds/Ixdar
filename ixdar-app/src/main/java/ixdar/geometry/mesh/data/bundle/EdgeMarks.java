@@ -11,9 +11,9 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
- * Accessors for the {@link #SLOT} bundle slot: named per-edge mark arrays written by
- * {@code mark_edges}. Arrays are indexed by edge id, not active index; mixing the two silently
- * reads the wrong edges.
+ * One set of marked mesh edges, the edge loop a ring or bisector snaps to, plus accessors for the
+ * {@link #SLOT} bundle slot of named per-edge mark arrays written by {@code mark_edges}. Arrays are
+ * indexed by edge id, not active index; mixing the two silently reads the wrong edges.
  */
 public final class EdgeMarks {
 
@@ -21,11 +21,45 @@ public final class EdgeMarks {
 
     public static final double FINGERPRINT_ROUND_SCALE = 1.0e5;
 
+    public static final EdgeMarks NONE = new EdgeMarks(new boolean[0], 0);
+
     private static final long FINGERPRINT_OFFSET_BASIS = 0xcbf29ce484222325L;
 
     private static final long FINGERPRINT_PRIME = 0x100000001b3L;
 
-    private EdgeMarks() {
+    /** Edge-id-indexed mask, true on every marked mesh edge. */
+    public final boolean[] markedByEdgeId;
+
+    /** Ascending mesh edge ids of the marked edges. */
+    public final int[] markedEdgeIds;
+
+    /** Mesh edges marked by {@link #markedByEdgeId}. */
+    public final int markedEdgeCount;
+
+    /** Gaps the snap that produced the marks could not close. */
+    public final int unresolvedGaps;
+
+    /**
+     * Wraps a mask without copying it and lists its marked edge ids.
+     *
+     * @param markedByEdgeId edge-id-indexed mask
+     * @param unresolvedGaps gaps the producing snap left open
+     */
+    public EdgeMarks(boolean[] markedByEdgeId, int unresolvedGaps) {
+        this.markedByEdgeId = markedByEdgeId;
+        this.unresolvedGaps = unresolvedGaps;
+        int count = 0;
+        for (boolean marked : markedByEdgeId) {
+            count += marked ? 1 : 0;
+        }
+        markedEdgeCount = count;
+        markedEdgeIds = new int[count];
+        int next = 0;
+        for (int edgeId = 0; edgeId < markedByEdgeId.length; edgeId++) {
+            if (markedByEdgeId[edgeId]) {
+                markedEdgeIds[next++] = edgeId;
+            }
+        }
     }
 
     /**

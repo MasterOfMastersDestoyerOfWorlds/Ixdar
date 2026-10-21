@@ -23,6 +23,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
@@ -152,7 +153,7 @@ class BisectorTest {
         assertTrue(tool.confirmedRingUnsaved.get(first) && tool.confirmedRingUnsaved.get(second));
         int bisector = bisect(tool, vertex(FIRST_RING_ROW, TOP_SIDE),
                 vertex(SECOND_RING_ROW, TOP_SIDE), vertex(MIDDLE_ROW, TOP_SIDE + 2));
-        boolean[] drawn = tool.confirmedRings.get(bisector).markedByEdgeId;
+        boolean[] drawn = tool.confirmedRings.get(bisector).marks.markedByEdgeId;
         int[] serials = { tool.confirmedRingSerial.get(first), tool.confirmedRingSerial.get(second),
             tool.confirmedRingSerial.get(bisector) };
 
@@ -173,8 +174,8 @@ class BisectorTest {
 
         // The statement alone, on a bundle carrying both walls, gives back the same edges.
         GeometryBundle bundle = GeometryBundle.ofMesh(tube);
-        bundle = EdgeMarks.with(bundle, firstId, tool.confirmedRings.get(first).markedByEdgeId);
-        bundle = EdgeMarks.with(bundle, secondId, tool.confirmedRings.get(second).markedByEdgeId);
+        bundle = EdgeMarks.with(bundle, firstId, tool.confirmedRings.get(first).marks.markedByEdgeId);
+        bundle = EdgeMarks.with(bundle, secondId, tool.confirmedRings.get(second).marks.markedByEdgeId);
         SplineCutNode node = new SplineCutNode();
         MapNodeContext ctx = new MapNodeContext(node);
         ctx.setInput(SplineCutNode.GEOMETRY.name, bundle);
@@ -188,18 +189,57 @@ class BisectorTest {
                 "the spline_cut statement reloads other edges than the bisector drawn");
 
         // The re-run graph's rings are adopted again, the bisector naming its walls by serial.
-        tool.scene.ringMarksByLabel.put(firstId, tool.confirmedRings.get(first).markedByEdgeId);
-        tool.scene.ringMarksByLabel.put(secondId, tool.confirmedRings.get(second).markedByEdgeId);
+        tool.scene.ringMarksByLabel.put(firstId, tool.confirmedRings.get(first).marks.markedByEdgeId);
+        tool.scene.ringMarksByLabel.put(secondId, tool.confirmedRings.get(second).marks.markedByEdgeId);
         tool.scene.ringMarksByLabel.put(bisectorId, drawn);
         tool.scene.graph = NodeGraphRuntime.fromSource(saved);
         tool.graphRingsChanged();
         tool.adoptGraphRings(tube);
         int reloaded = tool.confirmedSourceLabel.indexOf(bisectorId);
         assertTrue(reloaded >= 0, "the bisector was not adopted: " + tool.lastError);
-        assertArrayEquals(drawn, tool.confirmedRings.get(reloaded).markedByEdgeId);
+        assertArrayEquals(drawn, tool.confirmedRings.get(reloaded).marks.markedByEdgeId);
         assertArrayEquals(new int[] { serials[0], serials[1] },
                 tool.confirmedBisectorEnds.get(reloaded), "the reloaded bisector lost its walls");
         assertEquals(serials[2], tool.confirmedRingSerial.get(reloaded));
+    }
+
+    @Test
+    void aGraphRingAuthoredAsEdgesWallsWithItsOwnEdgesNotItsFittedSpline() {
+        MeshTopology tube = tube();
+        RingTool tool = toolOn(tube, null);
+        // A staircase round the tube between two rows: diagonal, along, back down. The spline the
+        // tool fits through it runs smooth, so its snapped cycle is other edges than these.
+        int[] loop = new int[3 * TUBE_SIDES / 2];
+        for (int step = 0; step < TUBE_SIDES / 2; step++) {
+            loop[3 * step] = vertex(MIDDLE_ROW, 2 * step);
+            loop[3 * step + 1] = vertex(MIDDLE_ROW + 1, 2 * step + 1);
+            loop[3 * step + 2] = vertex(MIDDLE_ROW + 1, (2 * step + 2) % TUBE_SIDES);
+        }
+        boolean[] mask = new boolean[RingBundle.edgeIdCeiling(tube)];
+        for (int point = 0; point < loop.length; point++) {
+            int edgeId = tube.edgeBetween(loop[point], loop[(point + 1) % loop.length]);
+            assertTrue(edgeId >= 0, "the staircase steps off the mesh at point " + point);
+            mask[edgeId] = true;
+        }
+        tool.scene.ringMarksByLabel.put(FIRST_WALL, mask);
+
+        tool.adoptGraphRings(tube);
+
+        int adopted = tool.confirmedSourceLabel.indexOf(FIRST_WALL);
+        assertTrue(adopted >= 0, "the edge-mask ring was not adopted: " + tool.lastError);
+        SurfaceSpline ring = tool.confirmedRings.get(adopted);
+        assertArrayEquals(new EdgeMarks(mask, 0).markedEdgeIds, ring.marks.markedEdgeIds,
+                "the adopted ring lists other edges than the ones it was authored as, so a "
+                        + "bisector would snap to walls the ring does not draw");
+        assertEquals(loop.length, ring.path.pointCount);
+        double around = 0.0;
+        for (int point = 0; point < loop.length; point++) {
+            assertTrue(ring.path.vertexId[point] >= 0, "point " + point + " is off a vertex");
+            around += tube.edgeLength(tube.edgeBetween(loop[point],
+                    loop[(point + 1) % loop.length]));
+        }
+        assertEquals(around, ring.path.length, 1e-5,
+                "the adopted ring measures another curve than the edges it follows");
     }
 
     @Test
@@ -222,7 +262,7 @@ class BisectorTest {
             ring(tool, FIRST_RING_ROW);
             ring(tool, SECOND_RING_ROW);
             int bisector = bisect(tool, order[0], order[1], order[2], order[3]);
-            boolean[] marks = tool.confirmedRings.get(bisector).markedByEdgeId;
+            boolean[] marks = tool.confirmedRings.get(bisector).marks.markedByEdgeId;
             if (reference == null) {
                 reference = marks;
             }
@@ -392,7 +432,7 @@ class BisectorTest {
         assertTrue(loop.trace(corners, corners.length, null,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), loop.failure);
         int ring = tool.confirmLoop(RingTool.orderedLoop(tool.geodesics.mesh,
-                SurfaceSpline.of(loop.tracer).markedByEdgeId), "patch at row " + row);
+                SurfaceSpline.of(loop.tracer).marks.markedByEdgeId), "patch at row " + row);
         assertTrue(ring >= 0, tool.lastError);
         return ring;
     }

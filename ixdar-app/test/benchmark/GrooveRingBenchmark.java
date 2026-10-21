@@ -278,7 +278,7 @@ public final class GrooveRingBenchmark {
                         + saved.failure);
                 continue;
             }
-            float[] savedLine = SurfaceSpline.of(saved.tracer).polyline;
+            double[] savedLine = SurfaceSpline.of(saved.tracer).path.positions;
             double radius = SplineAnchorFit.meanRadiusOf(savedLine, savedLine.length / XYZ);
             double savedValley = 0.0;
             for (int point = 0; point < savedLine.length; point += XYZ) {
@@ -334,7 +334,7 @@ public final class GrooveRingBenchmark {
                             .append('\t').append(String.format(Locale.ROOT, "%.0f", millis));
                     continue;
                 }
-                float[] line = SurfaceSpline.of(ring.tracer).polyline;
+                double[] line = SurfaceSpline.of(ring.tracer).path.positions;
                 int linePoints = line.length / XYZ;
                 double away = 0.0;
                 double valley = 0.0;
@@ -543,10 +543,10 @@ public final class GrooveRingBenchmark {
      * crest lines.
      */
     private static double valleyDistance(SurfaceMetric metric, double[] toValley,
-            float[] polyline, int coordinate) {
+            double[] polyline, int coordinate) {
         try {
-            int vertexId = metric.nearestVertex.find(polyline[coordinate],
-                    polyline[coordinate + 1], polyline[coordinate + 2]);
+            int vertexId = metric.nearestVertex.find((float) polyline[coordinate],
+                    (float) polyline[coordinate + 1], (float) polyline[coordinate + 2]);
             return vertexId < 0 ? 0.0 : toValley[vertexId];
         } catch (IllegalStateException tie) {
             // The repaired scan splits a few hundred vertices into coincident copies, which tie

@@ -89,13 +89,13 @@ public class ListRings extends AutomationEndpoint implements AutomationRoute {
             JsonObject row = new JsonObject();
             row.addProperty("ring", ring);
             row.addProperty("neckness", rounded(rings.neckness[ring]));
-            row.addProperty("length", rounded(rings.length[ring]));
+            row.addProperty("length", rounded(rings.path[ring].length));
             row.addProperty("seed_length", rounded(rings.seedLength[ring]));
-            row.addProperty("mean_radius", rounded(rings.meanRadius[ring]));
+            row.addProperty("mean_radius", rounded(rings.path[ring].meanRadius));
             row.addProperty("skeleton_radius", rounded(rings.skeletonRadius[ring]));
             JsonArray centroid = new JsonArray();
-            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                centroid.add(rounded(rings.centroid[COORDINATES_PER_POINT * ring + axis]));
+            for (double coordinate : rings.path[ring].centroid) {
+                centroid.add(rounded(coordinate));
             }
             row.add("centroid", centroid);
             row.addProperty("branch_one_side", rings.branchOnOneSide[ring]);
@@ -104,15 +104,16 @@ public class ListRings extends AutomationEndpoint implements AutomationRoute {
             row.addProperty("region_other_side", rings.regionOnOtherSide[ring]);
             row.addProperty("area_one_side", rounded(rings.areaOnOneSide[ring]));
             row.addProperty("area_other_side", rounded(rings.areaOnOtherSide[ring]));
-            int[] edgeIds = rings.edgeIdsOf(ring);
+            int[] edgeIds = rings.marks[ring].markedEdgeIds;
             row.addProperty("edge_count", edgeIds.length);
-            row.addProperty("closed_cycle", RingCandidates.marksOneClosedCycle(mesh, edgeIds));
+            row.addProperty("closed_cycle",
+                    RingCandidateExtractor.marksOneClosedCycle(mesh, edgeIds));
             array.add(row);
         }
         return array;
     }
 
-    private static BigDecimal rounded(float value) {
+    private static BigDecimal rounded(double value) {
         return BigDecimal.valueOf(value).setScale(ROW_DECIMALS, RoundingMode.HALF_UP);
     }
 

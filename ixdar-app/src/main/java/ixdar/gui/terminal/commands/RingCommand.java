@@ -127,10 +127,11 @@ public class RingCommand extends TerminalCommand {
 
     private void close(Terminal terminal, RingScene scene) {
         SurfaceRing ring = scene.closeRing();
-        terminal.history.addLine("ring closed: " + ring.markedEdgeCount + " edges, length "
-                + ring.length + " (seed " + ring.seedLength + "), centroid "
-                + SurfaceWaypoints.format(
-                        new float[] { ring.centroidX, ring.centroidY, ring.centroidZ }, 1),
+        double[] centroid = ring.path.centroid;
+        terminal.history.addLine("ring closed: " + ring.marks.markedEdgeCount + " edges, length "
+                + ring.path.length + " (seed " + ring.seed.length + "), centroid "
+                + SurfaceWaypoints.format(new float[] { (float) centroid[0],
+                    (float) centroid[1], (float) centroid[2] }, 1),
                 Color.GREEN_TEAL_LIGHT);
     }
 

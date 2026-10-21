@@ -200,36 +200,40 @@ public final class RingAnchorOrderBenchmark {
             String label = String.valueOf(statement.inputSources.get(SplineRingNode.LABEL.name));
             SurfaceSpline spline = SurfaceSpline.inBundle(bundle, label);
             boolean[] marks = EdgeMarks.bools(bundle, label);
-            int points = spline.polyline.length / XYZ - 1;
+            double[] cubic = spline.path.positions;
+            int points = spline.path.pointCount;
             SurfacePathCrossings crossings = new SurfacePathCrossings();
-            crossings.isSimple(mesh, spline.surfacePath());
+            crossings.isSimple(mesh, spline.path);
             Path baseline = shapes.resolve(graphName + "_" + label + ".xyz");
             String moved = "baseline written";
             if (Files.exists(baseline)) {
-                float[] old = SurfaceWaypoints.parse(
+                float[] written = SurfaceWaypoints.parse(
                         new String(Files.readAllBytes(baseline), StandardCharsets.UTF_8));
+                double[] old = new double[written.length];
+                for (int coordinate = 0; coordinate < written.length; coordinate++) {
+                    old[coordinate] = written[coordinate];
+                }
                 int oldPoints = old.length / XYZ;
                 double farthest = 0.0;
-                for (int point = 0; point <= points; point++) {
+                for (int point = 0; point < points; point++) {
                     farthest = Math.max(farthest, SurfaceSpline.distanceToPolyline(old, oldPoints,
-                            spline.polyline[XYZ * point], spline.polyline[XYZ * point + 1],
-                            spline.polyline[XYZ * point + 2]));
+                            cubic[XYZ * point], cubic[XYZ * point + 1], cubic[XYZ * point + 2]));
                 }
                 for (int point = 0; point < oldPoints; point++) {
-                    farthest = Math.max(farthest, SurfaceSpline.distanceToPolyline(
-                            spline.polyline, points + 1, old[XYZ * point], old[XYZ * point + 1],
-                            old[XYZ * point + 2]));
+                    farthest = Math.max(farthest, SurfaceSpline.distanceToPolyline(cubic, points,
+                            old[XYZ * point], old[XYZ * point + 1], old[XYZ * point + 2]));
                 }
                 moved = String.format(Locale.ROOT, "%.2f", farthest / meanEdge);
             } else {
-                Files.write(baseline, SurfaceWaypoints.format(spline.polyline, points + 1)
+                float[] drawn = spline.path.drawnPolyline(cubic);
+                Files.write(baseline, SurfaceWaypoints.format(drawn, drawn.length / XYZ)
                         .getBytes(StandardCharsets.UTF_8));
             }
             rows.add(String.format(Locale.ROOT, "%s\t%d (%d)\t%d\t%s\t%d\t%d\t%s\t%.5f\t%s", label,
-                    spline.anchorCount, spline.authoredCount(), spline.markedEdgeCount,
+                    spline.anchorCount, spline.authoredCount(), spline.marks.markedEdgeCount,
                     EdgeMarks.fingerprint(mesh, marks), crossings.crossings,
                     crossings.revisitedVertices,
-                    RingTool.orderedLoop(mesh, marks).length > 0 ? YES : NO, spline.length,
+                    RingTool.orderedLoop(mesh, marks).length > 0 ? YES : NO, spline.path.length,
                     moved));
         }
         Path table = shapes.resolve(graphName + "_fingerprints.tsv");
@@ -298,7 +302,7 @@ public final class RingAnchorOrderBenchmark {
             savedRingOrder = ringOrder;
         }
         int[] loopPoint = ring.fit.authoredPoint;
-        int steps = ring.cut.stepCount;
+        int steps = ring.cut.path.pointCount;
         int tied = 0;
         int nearTied = 0;
         double furthest = 0.0;
@@ -328,10 +332,11 @@ public final class RingAnchorOrderBenchmark {
                     : Math.min(crossingToAnchor, distance);
         }
         SurfaceSpline spline = SurfaceSpline.of(ring.tracer);
-        boolean snappedSimple = RingTool.orderedLoop(surface, spline.markedByEdgeId).length > 0;
+        boolean snappedSimple =
+                RingTool.orderedLoop(surface, spline.marks.markedByEdgeId).length > 0;
         rows.add(String.format(Locale.ROOT, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%.4f\t%d\t%d\t%.1f\t%d\t%d"
                 + "\t%.1f\t%s\t%.0f", run, mode, joined(clicked), ringOrder,
-                ringOrder.equals(savedRingOrder) ? YES : NO, skipped, steps, ring.cut.length,
+                ringOrder.equals(savedRingOrder) ? YES : NO, skipped, steps, ring.cut.path.length,
                 tied, nearTied, furthest / geodesics.metric.meanEdgeLength, crossings.crossings,
                 crossings.revisitedVertices, crossingToAnchor / geodesics.metric.meanEdgeLength,
                 snappedSimple ? YES : NO, (System.nanoTime() - start) / 1e6));

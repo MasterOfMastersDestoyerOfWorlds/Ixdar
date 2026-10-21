@@ -136,6 +136,15 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         return array;
     }
 
+    /** Positions held in double precision, reported at the single precision the mesh holds. */
+    private static JsonArray floatArray(double[] packed) {
+        JsonArray array = new JsonArray();
+        for (double value : packed) {
+            array.add((float) value);
+        }
+        return array;
+    }
+
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         JsonObject root = new JsonObject();
@@ -321,18 +330,14 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             SurfaceRing closedRing = ringScene.ring;
             ringJson.addProperty(CLOSED, closedRing != null);
             if (closedRing != null) {
-                ringJson.addProperty(EDGECOUNT, closedRing.markedEdgeCount);
-                ringJson.addProperty(LENGTH, closedRing.length);
-                ringJson.addProperty(SEEDLENGTH, closedRing.seedLength);
-                JsonArray centroid = new JsonArray();
-                centroid.add(closedRing.centroidX);
-                centroid.add(closedRing.centroidY);
-                centroid.add(closedRing.centroidZ);
-                ringJson.add(CENTROID, centroid);
+                ringJson.addProperty(EDGECOUNT, closedRing.marks.markedEdgeCount);
+                ringJson.addProperty(LENGTH, closedRing.path.length);
+                ringJson.addProperty(SEEDLENGTH, closedRing.seed.length);
+                ringJson.add(CENTROID, floatArray(closedRing.path.centroid));
                 MeshTopology ringMesh = ringScene.halfEdgeSurface();
                 if (ringMesh != null) {
                     ringJson.addProperty(FINGERPRINT,
-                            EdgeMarks.fingerprint(ringMesh, closedRing.markedByEdgeId));
+                            EdgeMarks.fingerprint(ringMesh, closedRing.marks.markedByEdgeId));
                 }
             }
             root.add("ring", ringJson);
@@ -396,13 +401,13 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 draft.addProperty("convertedFrom",
                         tool.draftSourceLabel == null ? "" : tool.draftSourceLabel);
                 draft.add(BASE_NORMAL, floatArray(tool.draftBaseNormal));
-                draft.addProperty(EDGECOUNT, draftRing.markedEdgeCount);
-                draft.addProperty(LENGTH, draftRing.length);
+                draft.addProperty(EDGECOUNT, draftRing.marks.markedEdgeCount);
+                draft.addProperty(LENGTH, draftRing.path.length);
                 draft.addProperty("millis", tool.draftMillis);
                 draft.addProperty(MINIMUM_INTERIOR_ANGLE, draftRing.minimumInteriorAngleDegrees);
                 if (toolSurface != null) {
                     draft.addProperty(FINGERPRINT,
-                            EdgeMarks.fingerprint(toolSurface, draftRing.markedByEdgeId));
+                            EdgeMarks.fingerprint(toolSurface, draftRing.marks.markedByEdgeId));
                 }
             }
             toolJson.add("draft", draft);
@@ -421,19 +426,15 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 row.addProperty(SOURCE, sourceLabel == null ? "" : sourceLabel);
                 row.addProperty("deleted", index < tool.confirmedRingDeleted.size()
                         && tool.confirmedRingDeleted.get(index));
-                row.addProperty(EDGECOUNT, ring.markedEdgeCount);
-                row.addProperty(LENGTH, ring.length);
+                row.addProperty(EDGECOUNT, ring.marks.markedEdgeCount);
+                row.addProperty(LENGTH, ring.path.length);
                 row.addProperty("anchorCount", ring.anchorCount);
-                row.addProperty("meanRadius", ring.meanRadius);
+                row.addProperty("meanRadius", ring.path.meanRadius);
                 row.addProperty("traceDepth", ring.traceDepth);
                 row.addProperty(MINIMUM_INTERIOR_ANGLE,
                         ring.minimumInteriorAngleDegrees);
-                row.addProperty("unresolvedGaps", ring.unresolvedGaps);
-                JsonArray centroid = new JsonArray();
-                centroid.add(ring.centroidX);
-                centroid.add(ring.centroidY);
-                centroid.add(ring.centroidZ);
-                row.add(CENTROID, centroid);
+                row.addProperty("unresolvedGaps", ring.marks.unresolvedGaps);
+                row.add(CENTROID, floatArray(ring.path.centroid));
                 row.add("anchors", floatArray(ring.anchorXyz));
                 row.addProperty(AUTHORED_ANCHOR_COUNT, ring.authoredCount());
                 row.add(AUTHORED_ANCHORS,
@@ -442,7 +443,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 row.add("sharpestCorner", floatArray(ring.sharpestCornerXyz));
                 if (toolSurface != null) {
                     row.addProperty(FINGERPRINT,
-                            EdgeMarks.fingerprint(toolSurface, ring.markedByEdgeId));
+                            EdgeMarks.fingerprint(toolSurface, ring.marks.markedByEdgeId));
                 }
                 confirmed.add(row);
             }
