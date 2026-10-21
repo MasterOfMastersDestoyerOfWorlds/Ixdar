@@ -125,30 +125,42 @@ public class MeshBooleanProvenanceTest {
     }
 
     /**
-     * One entry per face in every provenance array, each holding a legal value.
+     * Every face carries the three provenance layers, each holding a legal value.
      *
      * @param result boolean output to check
      */
     private static void assertProvenanceShape(MeshBooleanResult result) {
-        int faceCount = result.mesh.faceCount();
-        assertEquals(faceCount, result.faceOrigin.length, "one origin per output face");
-        assertEquals(faceCount, result.faceSourceOperand.length, "one source operand per face");
-        assertEquals(faceCount, result.faceSourceQuad.length, "one source face per output face");
-        for (int face = 0; face < faceCount; face++) {
-            int origin = result.faceOrigin[face];
+        int[] faceOrigin = faceLayer(result, MeshBooleanResult.FACE_ORIGIN_LAYER);
+        int[] faceSourceOperand = faceLayer(result, HalfEdgeMesh.SOURCE_OPERAND);
+        int[] faceSourceQuad = faceLayer(result, HalfEdgeMesh.SOURCE_FACE);
+        for (int activeFace = 0; activeFace < result.mesh.faceCount(); activeFace++) {
+            int face = result.mesh.faceIdAt(activeFace);
+            int origin = faceOrigin[face];
             assertTrue(origin == MeshBooleanResult.ORIGIN_A || origin == MeshBooleanResult.ORIGIN_B
                     || origin == MeshBooleanResult.ORIGIN_NEW, "every face is attributable");
-            int operand = result.faceSourceOperand[face];
+            int operand = faceSourceOperand[face];
             assertTrue(operand == MeshBooleanResult.ORIGIN_A
                     || operand == MeshBooleanResult.ORIGIN_B,
                     "every face lies on one operand's surface");
             if (origin != MeshBooleanResult.ORIGIN_NEW) {
                 assertEquals(origin, operand, "an untouched face lies on the operand it copies");
             }
-            assertTrue(result.faceSourceQuad[face] >= 0
-                    && result.faceSourceQuad[face] < CUBE_FACE_COUNT,
+            assertTrue(faceSourceQuad[face] >= 0 && faceSourceQuad[face] < CUBE_FACE_COUNT,
                     "every face traces to one of its cube's six quads");
         }
+    }
+
+    /**
+     * One of the boolean mesh's named face layers.
+     *
+     * @param result boolean output
+     * @param name   layer name
+     * @return the layer, indexed by face id
+     */
+    private static int[] faceLayer(MeshBooleanResult result, String name) {
+        int layer = result.mesh.faceLayer(name);
+        assertTrue(layer >= 0, "the boolean records the " + name + " face layer");
+        return result.mesh.faceLayers[layer];
     }
 
     /**
@@ -174,9 +186,9 @@ public class MeshBooleanProvenanceTest {
             }
             centroid.div(THREE);
 
-            HalfEdgeMesh source = result.faceSourceOperand[activeFace] == MeshBooleanResult.ORIGIN_A
-                    ? meshA : meshB;
-            int quadId = source.faceIdAt(result.faceSourceQuad[activeFace]);
+            HalfEdgeMesh source = faceLayer(result, HalfEdgeMesh.SOURCE_OPERAND)[faceId]
+                    == MeshBooleanResult.ORIGIN_A ? meshA : meshB;
+            int quadId = faceLayer(result, HalfEdgeMesh.SOURCE_FACE)[faceId];
             source.vertexPosition(source.faceVertexAt(quadId, 0), quadCorner);
             for (int axis = 0; axis < THREE; axis++) {
                 boolean constantAxis = true;
@@ -200,9 +212,22 @@ public class MeshBooleanProvenanceTest {
      * @return number of faces with that origin
      */
     private static int countOrigin(MeshBooleanResult result, int origin) {
+        return countFaces(result, MeshBooleanResult.FACE_ORIGIN_LAYER, origin);
+    }
+
+    /**
+     * Faces whose value in a face layer is a given one.
+     *
+     * @param result boolean output to count over
+     * @param name   face layer name
+     * @param value  value to count
+     * @return number of active faces holding it
+     */
+    private static int countFaces(MeshBooleanResult result, String name, int value) {
+        int[] layer = faceLayer(result, name);
         int count = 0;
-        for (int value : result.faceOrigin) {
-            if (value == origin) {
+        for (int activeFace = 0; activeFace < result.mesh.faceCount(); activeFace++) {
+            if (layer[result.mesh.faceIdAt(activeFace)] == value) {
                 count++;
             }
         }
@@ -217,13 +242,7 @@ public class MeshBooleanProvenanceTest {
      * @return number of faces on that operand
      */
     private static int countSourceOperand(MeshBooleanResult result, int operand) {
-        int count = 0;
-        for (int value : result.faceSourceOperand) {
-            if (value == operand) {
-                count++;
-            }
-        }
-        return count;
+        return countFaces(result, HalfEdgeMesh.SOURCE_OPERAND, operand);
     }
 
     /**

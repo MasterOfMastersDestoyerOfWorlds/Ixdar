@@ -18,6 +18,14 @@ public class HalfEdgeMesh implements MeshTopology {
     public static final int FLOATS_PER_VERTEX = 3;
     public static final int TRIANGLE_CORNERS = 3;
 
+    public static final String SOURCE_VERTEX = "source_vertex";
+
+    public static final String SOURCE_EDGE = "source_edge";
+
+    public static final String SOURCE_FACE = "source_face";
+
+    public static final String SOURCE_OPERAND = "source_operand";
+
     public final ActiveIdSet activeVertexIds;
     public final ActiveIdSet activeEdgeIds;
     public final ActiveIdSet activeFaceIds;
@@ -71,6 +79,12 @@ public class HalfEdgeMesh implements MeshTopology {
      */
     public int[][] faceLayers = new int[0][];
     public int[] faceLayerFill = new int[0];
+
+    /** Name of each vertex layer, or null for one only its declarer addresses by index. */
+    public String[] vertexLayerName = new String[0];
+
+    /** Name of each face layer, or null for one only its declarer addresses by index. */
+    public String[] faceLayerName = new String[0];
 
     /** Edges of faces being replaced, kept so a re-created edge recovers its layer values. */
     public int[] replacedEdgeIds = new int[0];
@@ -273,7 +287,109 @@ public class HalfEdgeMesh implements MeshTopology {
         vertexLayerFill[layer] = fill;
         vertexLayerSplitEdgeLayer = Arrays.copyOf(vertexLayerSplitEdgeLayer, layer + 1);
         vertexLayerSplitEdgeLayer[layer] = splitEdgeLayer;
+        vertexLayerName = Arrays.copyOf(vertexLayerName, layer + 1);
         return layer;
+    }
+
+    /**
+     * The vertex layer of a name.
+     *
+     * @param name layer name, such as {@link #SOURCE_VERTEX}
+     * @return its index into {@link #vertexLayers}, or {@link MeshTopology#NONE} when undeclared
+     */
+    public int vertexLayer(String name) {
+        for (int layer = 0; layer < vertexLayerName.length; layer++) {
+            if (name.equals(vertexLayerName[layer])) {
+                return layer;
+            }
+        }
+        return NONE;
+    }
+
+    /**
+     * The face layer of a name.
+     *
+     * @param name layer name, such as {@link #SOURCE_FACE}
+     * @return its index into {@link #faceLayers}, or {@link MeshTopology#NONE} when undeclared
+     */
+    public int faceLayer(String name) {
+        for (int layer = 0; layer < faceLayerName.length; layer++) {
+            if (name.equals(faceLayerName[layer])) {
+                return layer;
+            }
+        }
+        return NONE;
+    }
+
+    /**
+     * Writes a named vertex layer, declaring it filled with {@link MeshTopology#NONE} when absent.
+     *
+     * @param name   layer name
+     * @param values value per vertex id; ids past its end keep the fill
+     * @return the layer's index into {@link #vertexLayers}
+     */
+    public int writeVertexLayer(String name, int[] values) {
+        int layer = vertexLayer(name);
+        if (layer == NONE) {
+            layer = declareVertexLayer(NONE, NONE);
+            vertexLayerName[layer] = name;
+        }
+        System.arraycopy(values, 0, vertexLayers[layer], 0,
+                Math.min(values.length, vertexLayers[layer].length));
+        return layer;
+    }
+
+    /**
+     * Writes a named face layer, declaring it filled with {@link MeshTopology#NONE} when absent.
+     *
+     * @param name   layer name
+     * @param values value per face id; ids past its end keep the fill
+     * @return the layer's index into {@link #faceLayers}
+     */
+    public int writeFaceLayer(String name, int[] values) {
+        int layer = faceLayer(name);
+        if (layer == NONE) {
+            layer = declareFaceLayer(NONE);
+            faceLayerName[layer] = name;
+        }
+        System.arraycopy(values, 0, faceLayers[layer], 0,
+                Math.min(values.length, faceLayers[layer].length));
+        return layer;
+    }
+
+    /**
+     * Records where an op that built this mesh took each element from in its input, as the
+     * {@link #SOURCE_VERTEX}, {@link #SOURCE_EDGE} and {@link #SOURCE_FACE} layers the slot carry
+     * reads. A null array leaves that layer undeclared, so slots of that domain do not follow.
+     *
+     * @param sourceVertex input vertex id per vertex id, {@link MeshTopology#NONE} for a minted one
+     * @param sourceEdge   input edge a minted vertex lies on, per vertex id, or null
+     * @param sourceFace   input face id per face id
+     */
+    public void recordSources(int[] sourceVertex, int[] sourceEdge, int[] sourceFace) {
+        if (sourceVertex != null) {
+            writeVertexLayer(SOURCE_VERTEX, sourceVertex);
+        }
+        if (sourceEdge != null) {
+            writeVertexLayer(SOURCE_EDGE, sourceEdge);
+        }
+        if (sourceFace != null) {
+            writeFaceLayer(SOURCE_FACE, sourceFace);
+        }
+    }
+
+    /**
+     * Records which input of a multi-input op each vertex and face came from, as the
+     * {@link #SOURCE_OPERAND} layers; the source layers then index that input's mesh.
+     *
+     * @param vertexOperand input index per vertex id, or null when the op tracks no vertices
+     * @param faceOperand   input index per face id
+     */
+    public void recordOperands(int[] vertexOperand, int[] faceOperand) {
+        if (vertexOperand != null) {
+            writeVertexLayer(SOURCE_OPERAND, vertexOperand);
+        }
+        writeFaceLayer(SOURCE_OPERAND, faceOperand);
     }
 
     /**
@@ -303,6 +419,7 @@ public class HalfEdgeMesh implements MeshTopology {
         faceLayers[layer] = growLayer(new int[0], faceActive.length, fill);
         faceLayerFill = Arrays.copyOf(faceLayerFill, layer + 1);
         faceLayerFill[layer] = fill;
+        faceLayerName = Arrays.copyOf(faceLayerName, layer + 1);
         return layer;
     }
 

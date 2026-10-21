@@ -59,7 +59,7 @@ public final class MeshAppend {
 
     /**
      * Concatenate two meshes without welding: {@code a}'s vertices and faces, then {@code b}'s,
-     * each in active order, with normals recomputed.
+     * each in active order, with normals recomputed and each element's operand and source recorded.
      *
      * @param a first mesh, or null
      * @param b second mesh, or null
@@ -75,14 +75,20 @@ public final class MeshAppend {
                 corners += part.faceVertexCount(part.faceIdAt(activeFace));
             }
         }
-        float[] positions = new float[(first.vertexCount() + second.vertexCount()) * 3];
+        int vertexTotal = first.vertexCount() + second.vertexCount();
+        float[] positions = new float[vertexTotal * 3];
         int[] faceSizes = new int[first.faceCount() + second.faceCount()];
         int[] faceCorners = new int[corners];
+        int[] sourceVertex = new int[vertexTotal];
+        int[] vertexOperand = new int[vertexTotal];
+        int[] sourceFace = new int[faceSizes.length];
+        int[] faceOperand = new int[faceSizes.length];
         Vector3f position = new Vector3f();
         int outVertex = 0;
         int outFace = 0;
         int outCorner = 0;
-        for (MeshTopology part : parts) {
+        for (int operand = 0; operand < parts.length; operand++) {
+            MeshTopology part = parts[operand];
             int[] outVertexOfId = new int[part.vertexIdBound()];
             for (int activeVertex = 0; activeVertex < part.vertexCount(); activeVertex++) {
                 int vertexId = part.vertexIdAt(activeVertex);
@@ -90,6 +96,8 @@ public final class MeshAppend {
                 positions[outVertex * 3] = position.x;
                 positions[outVertex * 3 + 1] = position.y;
                 positions[outVertex * 3 + 2] = position.z;
+                sourceVertex[outVertex] = vertexId;
+                vertexOperand[outVertex] = operand;
                 outVertexOfId[vertexId] = outVertex++;
             }
             for (int activeFace = 0; activeFace < part.faceCount(); activeFace++) {
@@ -98,6 +106,8 @@ public final class MeshAppend {
                 for (int corner = 0; corner < size; corner++) {
                     faceCorners[outCorner++] = outVertexOfId[part.faceVertexAt(faceId, corner)];
                 }
+                sourceFace[outFace] = faceId;
+                faceOperand[outFace] = operand;
                 faceSizes[outFace++] = size;
             }
         }
@@ -105,6 +115,8 @@ public final class MeshAppend {
         if (out.vertexCount() > 0) {
             out.computeNormals();
         }
+        out.recordSources(sourceVertex, null, sourceFace);
+        out.recordOperands(vertexOperand, faceOperand);
         return out;
     }
 }

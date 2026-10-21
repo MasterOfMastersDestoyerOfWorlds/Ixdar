@@ -1,202 +1,480 @@
 package ixdar.geometry.mesh.data.bundle;
 
+import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-import ixdar.geometry.mesh.data.ops.MeshAppend;
-import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.nodegraph.field.FloatField;
+import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.nodes.data.TagGeometryNode;
 import ixdar.nodegraph.nodes.modifier.SetBoneWeightNode;
-import ixdar.platform.Platforms;
+import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
 
 /**
- * Carries a bundle's slots across the geometry ops that rebuild a mesh: the whole-bundle material,
- * the per-corner UV field, per-vertex tags and per-vertex bone weights. Each op says how its
- * elements moved and this decides what that means for every slot.
+ * Carries a bundle's slots onto the mesh an op built from it, through the provenance layers the op
+ * recorded on that {@link HalfEdgeMesh}. Slots that are not per-element are copied whole.
  */
 public final class SlotCarry {
 
-    private SlotCarry() {
-    }
+    public static final int HANDLE_COMPONENTS = 3;
+
+    /** The op's inputs; the operand layers index this list. */
+    public final List<GeometryBundle> inputs;
+
+    /** The mesh the op built. */
+    public final MeshTopology mesh;
+
+    /** Input vertex id per output vertex id, or null when the op recorded none. */
+    public int[] sourceVertex;
+
+    /** Input edge a minted output vertex lies on, per output vertex id, or null. */
+    public int[] sourceEdgeOfVertex;
+
+    /** Input index per output vertex id. */
+    public int[] vertexOperand;
+
+    /** Input face id per output face id, or null when the op recorded none. */
+    public int[] sourceFace;
+
+    /** Input index per output face id. */
+    public int[] faceOperand;
+
+    /** Input edge id per output edge id, {@link MeshTopology#NONE} when it has none. */
+    public int[] edgeSource;
+
+    /** Input index per output edge id. */
+    public int[] edgeOperand;
+
+    /** Per output edge id: both ends have source vertices, so the edge's direction is known. */
+    public boolean[] edgeDirected;
+
+    /** Per output edge id: its canonical direction runs against its source edge's. */
+    public boolean[] edgeReversed;
+
+    /** Offset of each active output face's corners in {@link #cornerSource}. */
+    public int[] cornerStart;
+
+    /** Corner index in the source face per output corner, or -1 when unmatched. */
+    public int[] cornerSource;
 
     /**
-     * Concatenate two inputs' corner UVs the way {@link MeshAppend} concatenates their faces:
-     * {@code a}'s corners first, then {@code b}'s. A side with no UVs contributes zeros so the
-     * field still covers every face. The material comes from {@code a}, or from {@code b} when
-     * {@code a} has none.
+     * Reads the output's provenance layers. An edge's source joins its ends' sources; a corner's
+     * is the source face's corner at its vertex's source, else the same corner (a weld).
      *
-     * @param a first input bundle
-     * @param b second input bundle
-     * @param joined output bundle whose mesh already holds both inputs' faces, in that order
-     * @return {@code joined} with the texture slots filled in
+     * @param inputs the op's inputs
+     * @param mesh   the output mesh
      */
-    public static GeometryBundle join(GeometryBundle a, GeometryBundle b, GeometryBundle joined) {
-        GeometryBundle result = withMaterial(joined, MaterialData.of(a) != null ? a : b);
-        CornerUvField uvA = uvOf(a);
-        CornerUvField uvB = uvOf(b);
-        if (uvA == null && uvB == null) {
-            return result;
+    private SlotCarry(List<GeometryBundle> inputs, MeshTopology mesh) {
+        this.inputs = inputs;
+        this.mesh = mesh;
+        if (!(mesh instanceof HalfEdgeMesh layered)) {
+            return;
         }
-        int cornersA = a.mesh().faceCount() * CornerUvField.CORNERS_PER_FACE;
-        int cornersB = b.mesh().faceCount() * CornerUvField.CORNERS_PER_FACE;
-        if (joined.mesh().faceCount() * CornerUvField.CORNERS_PER_FACE != cornersA + cornersB) {
-            Platforms.log("[slots] join_geometry dropped " + CornerUvField.SLOT
-                    + ": its weld changed the face count, which corner UVs cannot follow");
-            return result;
+        int sourceVertexLayer = layered.vertexLayer(HalfEdgeMesh.SOURCE_VERTEX);
+        int sourceEdgeLayer = layered.vertexLayer(HalfEdgeMesh.SOURCE_EDGE);
+        int vertexOperandLayer = layered.vertexLayer(HalfEdgeMesh.SOURCE_OPERAND);
+        int sourceFaceLayer = layered.faceLayer(HalfEdgeMesh.SOURCE_FACE);
+        int faceOperandLayer = layered.faceLayer(HalfEdgeMesh.SOURCE_OPERAND);
+        sourceVertex = sourceVertexLayer == MeshTopology.NONE ? null
+                : layered.vertexLayers[sourceVertexLayer];
+        sourceEdgeOfVertex = sourceEdgeLayer == MeshTopology.NONE ? null
+                : layered.vertexLayers[sourceEdgeLayer];
+        vertexOperand = vertexOperandLayer == MeshTopology.NONE
+                ? new int[layered.vertexIdBound()] : layered.vertexLayers[vertexOperandLayer];
+        sourceFace = sourceFaceLayer == MeshTopology.NONE ? null
+                : layered.faceLayers[sourceFaceLayer];
+        faceOperand = faceOperandLayer == MeshTopology.NONE
+                ? new int[layered.faceIdBound()] : layered.faceLayers[faceOperandLayer];
+        if (sourceVertex == null) {
+            return;
         }
-        double[] cornerU = new double[cornersA + cornersB];
-        double[] cornerV = new double[cornersA + cornersB];
-        if (uvA != null) {
-            System.arraycopy(uvA.cornerU, 0, cornerU, 0, cornersA);
-            System.arraycopy(uvA.cornerV, 0, cornerV, 0, cornersA);
-        }
-        if (uvB != null) {
-            System.arraycopy(uvB.cornerU, 0, cornerU, cornersA, cornersB);
-            System.arraycopy(uvB.cornerV, 0, cornerV, cornersA, cornersB);
-        }
-        return result.withSlot(CornerUvField.SLOT, new CornerUvField(cornerU, cornerV));
-    }
 
-    /**
-     * Duplicate the corner UVs for a mirrored copy. The mirror appends one reversed-winding face
-     * per input face, so the mirrored corners are the input's corners read backwards, and a
-     * mirrored corner samples the same texel as the one it came from.
-     *
-     * @param base input bundle
-     * @param mirrored output bundle holding the original faces then their mirrored copies
-     * @return {@code mirrored} with the texture slots filled in
-     */
-    public static GeometryBundle mirror(GeometryBundle base, GeometryBundle mirrored) {
-        GeometryBundle result = withMaterial(mirrored, base);
-        CornerUvField uv = uvOf(base);
-        if (uv == null) {
-            return result;
-        }
-        int corners = uv.cornerU.length;
-        if (mirrored.mesh().faceCount() * CornerUvField.CORNERS_PER_FACE != corners * 2) {
-            Platforms.log("[slots] mirror_geometry dropped " + CornerUvField.SLOT
-                    + ": its seam weld changed the face count, which corner UVs cannot follow");
-            return result;
-        }
-        double[] cornerU = new double[corners * 2];
-        double[] cornerV = new double[corners * 2];
-        System.arraycopy(uv.cornerU, 0, cornerU, 0, corners);
-        System.arraycopy(uv.cornerV, 0, cornerV, 0, corners);
-        for (int face = 0; face < uv.faceCount(); face++) {
-            for (int corner = 0; corner < CornerUvField.CORNERS_PER_FACE; corner++) {
-                int source = uv.offset(face, CornerUvField.CORNERS_PER_FACE - 1 - corner);
-                int target = corners + uv.offset(face, corner);
-                cornerU[target] = uv.cornerU[source];
-                cornerV[target] = uv.cornerV[source];
+        edgeSource = new int[mesh.edgeIdBound()];
+        edgeOperand = new int[edgeSource.length];
+        edgeDirected = new boolean[edgeSource.length];
+        edgeReversed = new boolean[edgeSource.length];
+        Arrays.fill(edgeSource, MeshTopology.NONE);
+        if (sourceFace != null) {
+            cornerStart = new int[mesh.faceCount() + 1];
+            for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
+                cornerStart[activeFace + 1] =
+                        cornerStart[activeFace] + mesh.faceVertexCount(mesh.faceIdAt(activeFace));
             }
+            cornerSource = new int[cornerStart[mesh.faceCount()]];
+            Arrays.fill(cornerSource, -1);
         }
-        return result.withSlot(CornerUvField.SLOT, new CornerUvField(cornerU, cornerV));
-    }
-
-    /**
-     * Follow a weld: corner UVs re-index onto the faces it kept, tags OR together over every source
-     * vertex that landed on the same output vertex, and each bone weight takes its first source's
-     * value. The material is whole-bundle data and is already on {@code welded}.
-     *
-     * @param base input bundle
-     * @param welded output bundle carrying the input's slots verbatim
-     * @param welder the welder that produced {@code welded}, holding its element maps
-     * @return {@code welded} with every per-element slot re-indexed onto the welded mesh
-     */
-    @SuppressWarnings("unchecked")
-    public static GeometryBundle weld(
-            GeometryBundle base, GeometryBundle welded, MeshMergeByDistance welder) {
-        GeometryBundle result = weldCornerUv(base, welded, welder.sourceFace);
-
-        int[] weldedVertex = welder.weldedVertex;
-        int outputVertices = welded.mesh().vertexCount();
-        Object tagSlot = base.slots().get(TagGeometryNode.TAGS_SLOT);
-        if (tagSlot instanceof Map<?, ?> tags) {
-            Map<String, boolean[]> carried = new HashMap<>();
-            for (Map.Entry<String, boolean[]> tag : ((Map<String, boolean[]>) tags).entrySet()) {
-                boolean[] source = tag.getValue();
-                boolean[] target = new boolean[outputVertices];
-                for (int vertex = 0; vertex < weldedVertex.length && vertex < source.length; vertex++) {
-                    target[weldedVertex[vertex]] |= source[vertex];
-                }
-                carried.put(tag.getKey(), target);
-            }
-            result = result.withSlot(TagGeometryNode.TAGS_SLOT, carried);
-        }
-
-        boolean[] written = new boolean[outputVertices];
-        for (Map.Entry<String, Object> slot : base.slots().entrySet()) {
-            if (!slot.getKey().startsWith(SetBoneWeightNode.BONE_WEIGHT_PREFIX)
-                    || !(slot.getValue() instanceof float[] source)) {
+        for (int activeFace = 0; sourceFace != null && activeFace < mesh.faceCount(); activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            int source = sourceFace[faceId];
+            if (source == MeshTopology.NONE) {
                 continue;
             }
-            float[] target = new float[outputVertices];
-            Arrays.fill(written, false);
-            for (int vertex = 0; vertex < weldedVertex.length && vertex < source.length; vertex++) {
-                int output = weldedVertex[vertex];
-                if (!written[output]) {
-                    target[output] = source[vertex];
-                    written[output] = true;
+            MeshTopology input = inputs.get(faceOperand[faceId]).mesh();
+            int corners = mesh.faceVertexCount(faceId);
+            int sourceCorners = input.faceVertexCount(source);
+            for (int corner = 0; corner < corners; corner++) {
+                int vertexId = mesh.faceVertexAt(faceId, corner);
+                if (sourceVertex[vertexId] == MeshTopology.NONE) {
+                    continue;
+                }
+                int match = -1;
+                if (inputs.get(vertexOperand[vertexId]).mesh() == input) {
+                    for (int sourceCorner = 0; sourceCorner < sourceCorners; sourceCorner++) {
+                        if (input.faceVertexAt(source, sourceCorner) == sourceVertex[vertexId]) {
+                            match = sourceCorner;
+                        }
+                    }
+                }
+                if (match < 0 && sourceCorners == corners) {
+                    match = corner;
+                }
+                cornerSource[cornerStart[activeFace] + corner] = match;
+            }
+            // A face side whose two corners both resolved names its input edge exactly, even
+            // where a weld left the side's ends with sources from different input faces.
+            for (int corner = 0; corner < corners; corner++) {
+                int from = cornerSource[cornerStart[activeFace] + corner];
+                int to = cornerSource[cornerStart[activeFace] + (corner + 1) % corners];
+                int fromVertex = mesh.faceVertexAt(faceId, corner);
+                int edgeId = mesh.edgeBetween(fromVertex,
+                        mesh.faceVertexAt(faceId, (corner + 1) % corners));
+                if (from < 0 || to < 0 || edgeId == MeshTopology.NONE
+                        || edgeSource[edgeId] != MeshTopology.NONE) {
+                    continue;
+                }
+                int sourceFrom = input.faceVertexAt(source, from);
+                int sourceTo = input.faceVertexAt(source, to);
+                int sourceEdge = sourceFrom == sourceTo ? MeshTopology.NONE
+                        : input.edgeBetween(sourceFrom, sourceTo);
+                if (sourceEdge == MeshTopology.NONE) {
+                    continue;
+                }
+                boolean alongFace = mesh.halfEdgeVertex(mesh.edgeHalfEdge(edgeId)) == fromVertex;
+                int sourceTail = input.halfEdgeVertex(input.edgeHalfEdge(sourceEdge));
+                edgeSource[edgeId] = sourceEdge;
+                edgeOperand[edgeId] = faceOperand[faceId];
+                edgeDirected[edgeId] = true;
+                edgeReversed[edgeId] = sourceTail != (alongFace ? sourceFrom : sourceTo);
+            }
+        }
+
+        for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
+            int edgeId = mesh.edgeIdAt(activeEdge);
+            if (edgeSource[edgeId] != MeshTopology.NONE) {
+                continue;
+            }
+            int halfEdge = mesh.edgeHalfEdge(edgeId);
+            int tail = mesh.halfEdgeVertex(halfEdge);
+            int head = mesh.halfEdgeEndVertex(halfEdge);
+            int tailSource = sourceVertex[tail];
+            int headSource = sourceVertex[head];
+            int operand = vertexOperand[tail];
+            MeshTopology input = inputs.get(operand).mesh();
+            if (inputs.get(vertexOperand[head]).mesh() != input) {
+                continue;
+            }
+            edgeOperand[edgeId] = operand;
+            if (tailSource != MeshTopology.NONE && headSource != MeshTopology.NONE) {
+                int source = tailSource == headSource ? MeshTopology.NONE
+                        : input.edgeBetween(tailSource, headSource);
+                if (source != MeshTopology.NONE) {
+                    edgeSource[edgeId] = source;
+                    edgeDirected[edgeId] = true;
+                    edgeReversed[edgeId] =
+                            input.halfEdgeVertex(input.edgeHalfEdge(source)) != tailSource;
+                }
+                continue;
+            }
+            if (sourceEdgeOfVertex == null) {
+                continue;
+            }
+            int tailEdge = sourceEdgeOfVertex[tail];
+            int headEdge = sourceEdgeOfVertex[head];
+            if (tailSource == MeshTopology.NONE && headSource == MeshTopology.NONE) {
+                edgeSource[edgeId] = tailEdge == headEdge ? tailEdge : MeshTopology.NONE;
+                continue;
+            }
+            int mintedEdge = tailSource == MeshTopology.NONE ? tailEdge : headEdge;
+            int keptSource = tailSource == MeshTopology.NONE ? headSource : tailSource;
+            if (mintedEdge != MeshTopology.NONE
+                    && input.edgeOtherVertex(mintedEdge, keptSource) != MeshTopology.NONE) {
+                edgeSource[edgeId] = mintedEdge;
+            }
+        }
+    }
+
+    /**
+     * Gives an op's output every slot its inputs carried, re-indexed through the output mesh's
+     * provenance. Slots the output already holds are the op's own; a per-element slot without
+     * provenance for its domain is dropped.
+     *
+     * @param inputs the op's inputs, in the order its operand layers number them
+     * @param output the op's output: its mesh plus any slots it set itself
+     * @return the output with the inputs' slots carried onto it
+     */
+    @SuppressWarnings("unchecked")
+    public static GeometryBundle carry(List<GeometryBundle> inputs, GeometryBundle output) {
+        SlotCarry trace = new SlotCarry(inputs, output.mesh());
+        MeshTopology mesh = output.mesh();
+        Map<String, Object> slots = new HashMap<>(output.slots());
+
+        // One material over every input stays whole-bundle; inputs that disagree get a per-face index.
+        Set<MaterialData> singleMaterials = new LinkedHashSet<>();
+        boolean anySet = false;
+        boolean anyUntextured = false;
+        for (GeometryBundle input : inputs) {
+            anySet |= MaterialSet.of(input) != null;
+            anyUntextured |= MaterialData.of(input) == null && MaterialSet.of(input) == null;
+            if (MaterialData.of(input) != null) {
+                singleMaterials.add(MaterialData.of(input));
+            }
+        }
+        boolean perFaceMaterials = (anySet || singleMaterials.size() > 1
+                || anyUntextured && !singleMaterials.isEmpty())
+                && !slots.containsKey(MaterialSet.SLOT);
+
+        Set<String> tagNames = new LinkedHashSet<>();
+        Set<String> vertexFloatNames = new LinkedHashSet<>();
+        Set<String> fieldNames = new LinkedHashSet<>();
+        Set<String> markLabels = new LinkedHashSet<>();
+        boolean anyUv = false;
+        boolean anyHandles = false;
+        for (GeometryBundle input : inputs) {
+            for (Map.Entry<String, Object> slot : input.slots().entrySet()) {
+                String name = slot.getKey();
+                Object value = slot.getValue();
+                if (name.equals(TagGeometryNode.TAGS_SLOT) && value instanceof Map<?, ?> tags) {
+                    tagNames.addAll((Set<String>) tags.keySet());
+                } else if (name.equals(EdgeMarks.SLOT) && value instanceof Map<?, ?> marks) {
+                    markLabels.addAll((Set<String>) marks.keySet());
+                } else if (name.equals(CornerUvField.SLOT)) {
+                    anyUv |= value instanceof CornerUvField field
+                            && field.faceCount() == input.mesh().faceCount();
+                } else if (name.equals(AssignBezierHandlesNode.SLOT_HANDLES_START)
+                        || name.equals(AssignBezierHandlesNode.SLOT_HANDLES_END)) {
+                    anyHandles = true;
+                } else if (name.startsWith(SetBoneWeightNode.BONE_WEIGHT_PREFIX)
+                        && value instanceof float[]) {
+                    vertexFloatNames.add(name);
+                } else if (value instanceof FloatField) {
+                    fieldNames.add(name);
+                } else if (!name.equals(MaterialSet.FACE_MATERIAL_SLOT)
+                        && !(perFaceMaterials && (name.equals(MaterialSet.SLOT)
+                                || name.equals(MaterialData.SLOT)))) {
+                    slots.putIfAbsent(name, value);
                 }
             }
-            result = result.withSlot(slot.getKey(), target);
         }
-        return result;
-    }
 
-    /**
-     * Re-index only the corner UVs onto the faces a weld kept. The nodes that weld as a step of a
-     * bigger rebuild call this directly, so the weld does not also rewrite the tags and bone
-     * weights they are assembling themselves.
-     *
-     * @param base bundle whose UV field covers the pre-weld faces
-     * @param welded output bundle
-     * @param sourceFace input face each output face came from, as
-     *     {@link MeshMergeByDistance#sourceFace} records it
-     * @return {@code welded} with its UV slot re-indexed, or unchanged when {@code base} had none
-     */
-    public static GeometryBundle weldCornerUv(
-            GeometryBundle base, GeometryBundle welded, int[] sourceFace) {
-        CornerUvField uv = uvOf(base);
-        if (uv == null) {
-            return welded;
-        }
-        double[] cornerU = new double[sourceFace.length * CornerUvField.CORNERS_PER_FACE];
-        double[] cornerV = new double[cornerU.length];
-        for (int face = 0; face < sourceFace.length; face++) {
-            for (int corner = 0; corner < CornerUvField.CORNERS_PER_FACE; corner++) {
-                int source = uv.offset(sourceFace[face], corner);
-                int target = face * CornerUvField.CORNERS_PER_FACE + corner;
-                cornerU[target] = uv.cornerU[source];
-                cornerV[target] = uv.cornerV[source];
+        if (trace.sourceVertex != null) {
+            int vertexBound = mesh.vertexIdBound();
+            if (!tagNames.isEmpty() && !slots.containsKey(TagGeometryNode.TAGS_SLOT)) {
+                Map<String, boolean[]> carried = new LinkedHashMap<>();
+                for (String tag : tagNames) {
+                    boolean[] target = new boolean[vertexBound];
+                    for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+                        int vertexId = mesh.vertexIdAt(activeVertex);
+                        target[vertexId] = trace.tagAt(tag, trace.vertexOperand[vertexId],
+                                trace.sourceVertex[vertexId]);
+                    }
+                    // A weld lands several input vertices on one output vertex: a tag on any of
+                    // them, reached through the corners of the faces they shared, holds there.
+                    for (int activeFace = 0; trace.cornerSource != null
+                            && activeFace < mesh.faceCount(); activeFace++) {
+                        int faceId = mesh.faceIdAt(activeFace);
+                        MeshTopology input = inputs.get(trace.faceOperand[faceId]).mesh();
+                        for (int corner = 0; corner < mesh.faceVertexCount(faceId); corner++) {
+                            int sourceCorner = trace.cornerSource[trace.cornerStart[activeFace] + corner];
+                            if (sourceCorner >= 0) {
+                                target[mesh.faceVertexAt(faceId, corner)] |= trace.tagAt(tag,
+                                        trace.faceOperand[faceId],
+                                        input.faceVertexAt(trace.sourceFace[faceId], sourceCorner));
+                            }
+                        }
+                    }
+                    carried.put(tag, target);
+                }
+                slots.put(TagGeometryNode.TAGS_SLOT, carried);
+            }
+            for (String name : vertexFloatNames) {
+                float[] target = new float[vertexBound];
+                for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+                    int vertexId = mesh.vertexIdAt(activeVertex);
+                    int source = trace.sourceVertex[vertexId];
+                    if (source != MeshTopology.NONE && inputs.get(trace.vertexOperand[vertexId])
+                            .slots().get(name) instanceof float[] values && source < values.length) {
+                        target[vertexId] = values[source];
+                    }
+                }
+                slots.putIfAbsent(name, target);
+            }
+            for (String name : fieldNames) {
+                List<int[]> activeVertexOfId = new ArrayList<>();
+                for (GeometryBundle input : inputs) {
+                    int[] activeOfId = new int[input.mesh().vertexIdBound()];
+                    for (int activeVertex = 0; activeVertex < input.mesh().vertexCount();
+                            activeVertex++) {
+                        activeOfId[input.mesh().vertexIdAt(activeVertex)] = activeVertex;
+                    }
+                    activeVertexOfId.add(activeOfId);
+                }
+                float[] target = new float[mesh.vertexCount()];
+                for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+                    int vertexId = mesh.vertexIdAt(activeVertex);
+                    int operand = trace.vertexOperand[vertexId];
+                    int source = trace.sourceVertex[vertexId];
+                    if (source != MeshTopology.NONE
+                            && inputs.get(operand).slots().get(name) instanceof FloatField field) {
+                        int sourceIndex = activeVertexOfId.get(operand)[source];
+                        target[activeVertex] = sourceIndex < field.length() ? field.get(sourceIndex)
+                                : 0f;
+                    }
+                }
+                slots.putIfAbsent(name, new FloatField(target));
+            }
+
+            int edgeBound = mesh.edgeIdBound();
+            if (!markLabels.isEmpty() && !slots.containsKey(EdgeMarks.SLOT)) {
+                Map<String, Object> carried = new LinkedHashMap<>();
+                for (String label : markLabels) {
+                    Object[] sourceMarks = new Object[inputs.size()];
+                    Object kind = null;
+                    for (int operand = 0; operand < inputs.size(); operand++) {
+                        if (inputs.get(operand).slots().get(EdgeMarks.SLOT) instanceof Map<?, ?> m) {
+                            sourceMarks[operand] = m.get(label);
+                            kind = kind == null ? sourceMarks[operand] : kind;
+                        }
+                    }
+                    Object target = kind instanceof float[] ? new float[edgeBound]
+                            : kind instanceof int[] ? new int[edgeBound] : new boolean[edgeBound];
+                    for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
+                        int edgeId = mesh.edgeIdAt(activeEdge);
+                        int source = trace.edgeSource[edgeId];
+                        Object marks = sourceMarks[trace.edgeOperand[edgeId]];
+                        if (source == MeshTopology.NONE || marks == null
+                                || source >= Array.getLength(marks)
+                                || marks.getClass() != target.getClass()) {
+                            continue;
+                        }
+                        System.arraycopy(marks, source, target, edgeId, 1);
+                    }
+                    carried.put(label, target);
+                }
+                slots.put(EdgeMarks.SLOT, carried);
+            }
+            if (anyHandles && !slots.containsKey(AssignBezierHandlesNode.SLOT_HANDLES_START)) {
+                float[] start = new float[edgeBound * HANDLE_COMPONENTS];
+                float[] end = new float[start.length];
+                for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
+                    int edgeId = mesh.edgeIdAt(activeEdge);
+                    GeometryBundle input = inputs.get(trace.edgeOperand[edgeId]);
+                    int source = trace.edgeSource[edgeId] * HANDLE_COMPONENTS;
+                    if (!trace.edgeDirected[edgeId]
+                            || !(input.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_START)
+                                    instanceof float[] sourceStart)
+                            || !(input.slots().get(AssignBezierHandlesNode.SLOT_HANDLES_END)
+                                    instanceof float[] sourceEnd)
+                            || source + HANDLE_COMPONENTS > sourceStart.length
+                            || source + HANDLE_COMPONENTS > sourceEnd.length) {
+                        continue;
+                    }
+                    int target = edgeId * HANDLE_COMPONENTS;
+                    boolean reversed = trace.edgeReversed[edgeId];
+                    System.arraycopy(reversed ? sourceEnd : sourceStart, source, start, target,
+                            HANDLE_COMPONENTS);
+                    System.arraycopy(reversed ? sourceStart : sourceEnd, source, end, target,
+                            HANDLE_COMPONENTS);
+                }
+                slots.put(AssignBezierHandlesNode.SLOT_HANDLES_START, start);
+                slots.put(AssignBezierHandlesNode.SLOT_HANDLES_END, end);
             }
         }
-        return welded.withSlot(CornerUvField.SLOT, new CornerUvField(cornerU, cornerV));
-    }
 
-    /**
-     * The per-corner UV field a bundle carries, when it has one of the expected size.
-     *
-     * @param bundle bundle to read, may be null
-     * @return the field in {@link CornerUvField#SLOT}, or null
-     */
-    private static CornerUvField uvOf(GeometryBundle bundle) {
-        if (bundle == null) {
-            return null;
+        if (trace.sourceFace == null) {
+            return new GeometryBundle(mesh, slots);
         }
-        return bundle.slots().get(CornerUvField.SLOT) instanceof CornerUvField field ? field : null;
+        boolean uvFits = anyUv && trace.cornerSource != null && !slots.containsKey(CornerUvField.SLOT)
+                && mesh.faceIdBound() == mesh.faceCount()
+                && trace.cornerSource.length == mesh.faceCount() * CornerUvField.CORNERS_PER_FACE;
+        double[] cornerU = uvFits ? new double[trace.cornerSource.length] : null;
+        double[] cornerV = uvFits ? new double[trace.cornerSource.length] : null;
+        for (int activeFace = 0; uvFits && activeFace < mesh.faceCount(); activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            uvFits = trace.sourceFace[faceId] != MeshTopology.NONE;
+            GeometryBundle input = uvFits ? inputs.get(trace.faceOperand[faceId]) : null;
+            CornerUvField uv = CornerUvField.of(input);
+            if (uv == null || uv.faceCount() != input.mesh().faceCount()) {
+                continue;
+            }
+            for (int corner = 0; corner < CornerUvField.CORNERS_PER_FACE; corner++) {
+                int sourceCorner = trace.cornerSource[trace.cornerStart[activeFace] + corner];
+                uvFits = sourceCorner >= 0;
+                if (!uvFits) {
+                    break;
+                }
+                int target = faceId * CornerUvField.CORNERS_PER_FACE + corner;
+                cornerU[target] = uv.u(trace.sourceFace[faceId], sourceCorner);
+                cornerV[target] = uv.v(trace.sourceFace[faceId], sourceCorner);
+            }
+        }
+        if (uvFits) {
+            slots.put(CornerUvField.SLOT, new CornerUvField(cornerU, cornerV));
+        }
+
+        if (perFaceMaterials) {
+            List<MaterialData> materials = new ArrayList<>();
+            int[] faceMaterial = new int[mesh.faceIdBound()];
+            Arrays.fill(faceMaterial, MaterialSet.NO_MATERIAL);
+            for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
+                int faceId = mesh.faceIdAt(activeFace);
+                int source = trace.sourceFace[faceId];
+                if (trace.faceOperand[faceId] == MeshTopology.NONE) {
+                    continue;
+                }
+                // A face whose source face is unknown still lies on its operand's surface.
+                GeometryBundle input = inputs.get(trace.faceOperand[faceId]);
+                MaterialSet set = MaterialSet.of(input);
+                IntField sourceIndex = MaterialSet.faceMaterialOf(input);
+                MaterialData material = MaterialData.of(input);
+                if (set != null && sourceIndex != null && source != MeshTopology.NONE
+                        && source < sourceIndex.length()) {
+                    material = set.get(sourceIndex.get(source));
+                }
+                int index = materials.indexOf(material);
+                if (material != null && index < 0) {
+                    index = materials.size();
+                    materials.add(material);
+                }
+                faceMaterial[faceId] = material == null ? MaterialSet.NO_MATERIAL : index;
+            }
+            if (!materials.isEmpty()) {
+                slots.put(MaterialSet.SLOT, new MaterialSet(materials.toArray(new MaterialData[0])));
+                slots.put(MaterialSet.FACE_MATERIAL_SLOT, new IntField(faceMaterial));
+            }
+        }
+        return new GeometryBundle(mesh, slots);
     }
 
     /**
-     * Copy {@code source}'s material onto {@code out} when it has one.
+     * One input vertex's flag under a tag.
      *
-     * @param out bundle to receive the material
-     * @param source bundle to read the material from
-     * @return {@code out}, or a copy carrying the material
+     * @param tag      tag name
+     * @param operand  input index
+     * @param vertexId input vertex id, or {@link MeshTopology#NONE}
+     * @return whether that input tags the vertex
      */
-    private static GeometryBundle withMaterial(GeometryBundle out, GeometryBundle source) {
-        MaterialData material = MaterialData.of(source);
-        return material == null ? out : out.withSlot(MaterialData.SLOT, material);
+    private boolean tagAt(String tag, int operand, int vertexId) {
+        Map<String, boolean[]> tags = TagGeometryNode.getTags(inputs.get(operand));
+        boolean[] flags = tags == null ? null : tags.get(tag);
+        return vertexId != MeshTopology.NONE && flags != null && vertexId < flags.length
+                && flags[vertexId];
     }
 }

@@ -149,8 +149,10 @@ public final class ManifoldMeshBooleanBackend implements MeshBooleanBackend {
             clearUntexturedCorners(cornerU, cornerV, provenance,
                     new QuadTriangulation[] {operandA, operandB});
         }
-        return new MeshBooleanResult(mesh, provenance.faceOrigin, provenance.faceSourceOperand,
-                provenance.faceSourceQuad, cornerU, cornerV);
+        mesh.recordSources(null, null, provenance.faceSourceQuad);
+        mesh.recordOperands(null, provenance.faceSourceOperand);
+        mesh.writeFaceLayer(MeshBooleanResult.FACE_ORIGIN_LAYER, provenance.faceOrigin);
+        return new MeshBooleanResult(mesh, cornerU, cornerV);
     }
 
     /** {@inheritDoc}. */

@@ -19,6 +19,7 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.SlotCarry;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -95,77 +96,14 @@ public class InsetFacesNode implements MeshNode {
             genMask[fi] = selected[fi];
         }
 
-        GeometryBundle outBundle = base.withMesh(out);
-        if (out != null && CoonsHandleBuilder.hasHandles(base)) {
-            Object w = base.slots().get(AssignBezierHandlesNode.SLOT_WEIGHT);
-            if (w instanceof Number num) {
-                outBundle = AssignBezierHandlesNode.computeHandles(outBundle, num.floatValue());
-            } else {
-                outBundle = preserveOuterHandles(base, in, out, outBundle);
-            }
+        GeometryBundle outBundle = SlotCarry.carry(List.of(base), GeometryBundle.ofMesh(out));
+        if (out != null && CoonsHandleBuilder.hasHandles(base)
+                && base.slots().get(AssignBezierHandlesNode.SLOT_WEIGHT) instanceof Number weight) {
+            outBundle = AssignBezierHandlesNode.computeHandles(outBundle, weight.floatValue());
         }
 
         ctx.setOutput(GEOMETRY.name, outBundle);
         ctx.setOutput(GENERATED_OUT.name, new BoolField(genMask));
-    }
-
-    /**
-     * Copies input handles onto output edges whose both endpoints are original
-     * vertex IDs (i.e. the outer boundary edges that were not replaced by
-     * inner geometry). Edges involving extruded/inset inner vertices get zero
-     * handles.
-     */
-    private static GeometryBundle preserveOuterHandles(GeometryBundle base,
-            MeshTopology inMesh, MeshTopology outMesh, GeometryBundle outBundle) {
-        float[] inHS = CoonsHandleBuilder.readHandleSlot(base,
-                AssignBezierHandlesNode.SLOT_HANDLES_START, inMesh);
-        float[] inHE = CoonsHandleBuilder.readHandleSlot(base,
-                AssignBezierHandlesNode.SLOT_HANDLES_END, inMesh);
-
-        Map<Long, float[]> inEdgeToStart = new HashMap<>();
-        Map<Long, float[]> inEdgeToEnd = new HashMap<>();
-        for (int ei = 0; ei < inMesh.edgeCount(); ei++) {
-            int eid = inMesh.edgeIdAt(ei);
-            int he = inMesh.edgeHalfEdge(eid);
-            int va = inMesh.halfEdgeVertex(he);
-            int vb = inMesh.halfEdgeEndVertex(he);
-            int o = eid * 3;
-            inEdgeToStart.put(CoonsHandleBuilder.dirPack(va, vb),
-                    new float[]{inHS[o], inHS[o + 1], inHS[o + 2]});
-            inEdgeToEnd.put(CoonsHandleBuilder.dirPack(va, vb),
-                    new float[]{inHE[o], inHE[o + 1], inHE[o + 2]});
-        }
-
-        int origVc = inMesh.vertexCount();
-        Map<Long, float[]> dh = new HashMap<>();
-        for (int ei = 0; ei < outMesh.edgeCount(); ei++) {
-            int eid = outMesh.edgeIdAt(ei);
-            int he = outMesh.edgeHalfEdge(eid);
-            int a = outMesh.halfEdgeVertex(he);
-            int b = outMesh.halfEdgeEndVertex(he);
-            if (a >= origVc || b >= origVc) continue;
-
-            int vertexIdA = inMesh.vertexIdAt(a);
-            int vertexIdB = inMesh.vertexIdAt(b);
-            long keyAB = CoonsHandleBuilder.dirPack(vertexIdA, vertexIdB);
-            long keyBA = CoonsHandleBuilder.dirPack(vertexIdB, vertexIdA);
-            float[] startAB = inEdgeToStart.get(keyAB);
-            float[] endAB = inEdgeToEnd.get(keyAB);
-            if (startAB == null) {
-                startAB = inEdgeToEnd.get(keyBA);
-                endAB = inEdgeToStart.get(keyBA);
-            }
-            if (startAB == null) continue;
-            dh.put(CoonsHandleBuilder.dirPack(a, b),
-                    new float[]{startAB[0], startAB[1], startAB[2]});
-            dh.put(CoonsHandleBuilder.dirPack(b, a),
-                    new float[]{endAB[0], endAB[1], endAB[2]});
-        }
-
-        float[][] handles = CoonsHandleBuilder.flushDirectedHandles(outMesh, dh);
-        return outBundle
-                .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_START, handles[0])
-                .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_END, handles[1]);
     }
 
     /**
@@ -234,6 +172,7 @@ public class InsetFacesNode implements MeshNode {
         Map<Integer, int[]> centralFillPerVertex = new HashMap<>();
 
         ArrayList<Float> extraPos = new ArrayList<>();
+        ArrayList<Integer> extraSource = new ArrayList<>();
         int[] nextVidBox = {vertCount};
         Set<Long> mergedEndpoint = new HashSet<>();
         float[] centroids = new float[faceCount * 3];
@@ -259,7 +198,7 @@ public class InsetFacesNode implements MeshNode {
 
             if (n == 3) {
                 boolean ok = allocate3PlusCornerFlat(topology, denseVid, atV,
-                        sharedEdgeIds, srcPos, t, extraPos,
+                        sharedEdgeIds, srcPos, t, extraPos, extraSource,
                         cyanAt3Plus, centralFillPerVertex, mergedEndpoint, nextVidBox);
                 if (ok) continue;
             }
@@ -300,6 +239,7 @@ public class InsetFacesNode implements MeshNode {
                             + (srcPos[otherVid * 3 + 2] - srcPos[denseVid * 3 + 2]) * t;
                     int newVid = nextVidBox[0]++;
                     extraPos.add(px); extraPos.add(py); extraPos.add(pz);
+                    extraSource.add(denseVid);
                     innerVerts[fiA][kA] = newVid;
                     innerVerts[fiB][kB] = newVid;
                     mergedEndpoint.add(packEdgeVertex(sharedEid, denseVid));
@@ -320,6 +260,7 @@ public class InsetFacesNode implements MeshNode {
                     extraPos.add(ox + (cx - ox) * t);
                     extraPos.add(oy + (cy - oy) * t);
                     extraPos.add(oz + (cz - oz) * t);
+                    extraSource.add(denseVid);
                     innerVerts[fi][k] = newVid;
                 }
             }
@@ -348,8 +289,10 @@ public class InsetFacesNode implements MeshNode {
 
         ArrayList<Integer> faceIdxList = new ArrayList<>();
         ArrayList<Integer> faceVpfList = new ArrayList<>();
+        ArrayList<Integer> faceSourceList = new ArrayList<>();
 
         for (int fi = 0; fi < faceCount; fi++) {
+            faceSourceList.add(topology.faceIdAt(fi));
             if (selected[fi]) {
                 int[] iv = innerVerts[fi];
                 int[][] cyanPerCorner = cyanAt3Plus[fi];
@@ -391,6 +334,7 @@ public class InsetFacesNode implements MeshNode {
                 faceIdxList.add(rightInner);
                 faceIdxList.add(leftInner);
                 faceVpfList.add(4);
+                faceSourceList.add(fid);
             }
         }
 
@@ -398,6 +342,7 @@ public class InsetFacesNode implements MeshNode {
             int[] fill = e.getValue();
             for (int v : fill) faceIdxList.add(v);
             faceVpfList.add(fill.length);
+            faceSourceList.add(topology.faceIdAt(facesAtVertex.get(e.getKey()).get(0)[0]));
         }
 
         int[] faceIdxFlat = new int[faceIdxList.size()];
@@ -406,6 +351,18 @@ public class InsetFacesNode implements MeshNode {
         for (int i = 0; i < faceVpfList.size(); i++) faceVpfArr[i] = faceVpfList.get(i);
         HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(outPos, faceVpfArr, faceIdxFlat);
         out.computeNormals();
+        int[] sourceVertex = new int[outV];
+        for (int activeVertex = 0; activeVertex < vertCount; activeVertex++) {
+            sourceVertex[activeVertex] = topology.vertexIdAt(activeVertex);
+        }
+        for (int extra = 0; extra < extraSource.size(); extra++) {
+            sourceVertex[vertCount + extra] = extraSource.get(extra);
+        }
+        int[] sourceFace = new int[faceSourceList.size()];
+        for (int face = 0; face < sourceFace.length; face++) {
+            sourceFace[face] = faceSourceList.get(face);
+        }
+        out.recordSources(sourceVertex, null, sourceFace);
         return out;
     }
 
@@ -463,7 +420,7 @@ public class InsetFacesNode implements MeshNode {
      */
     private static boolean allocate3PlusCornerFlat(MeshTopology topology,
             int denseVid, List<int[]> atV, Set<Integer> sharedEdgeIds,
-            float[] srcPos, float t, ArrayList<Float> extraPos,
+            float[] srcPos, float t, ArrayList<Float> extraPos, ArrayList<Integer> extraSource,
             int[][][] cyanAt3Plus, Map<Integer, int[]> centralFillPerVertex,
             Set<Long> mergedEndpoint, int[] nextVidBox) {
 
@@ -526,6 +483,7 @@ public class InsetFacesNode implements MeshNode {
             float pz = srcPos[denseVid * 3 + 2] + (srcPos[otherVid * 3 + 2] - srcPos[denseVid * 3 + 2]) * t;
             int newVid = nextVidBox[0]++;
             extraPos.add(px); extraPos.add(py); extraPos.add(pz);
+            extraSource.add(denseVid);
             cyanVids[i] = newVid;
         }
         for (int i = 0; i < n; i++) {
@@ -611,9 +569,12 @@ public class InsetFacesNode implements MeshNode {
                 (faceCount + sideFaceCount) * vpf * 2
         );
 
+        int[] sourceVertex = new int[vertCount + newVertCount];
+        int[] sourceFace = new int[faceCount + sideFaceCount];
         for (int vi = 0; vi < vertCount; vi++) {
             int vertexId = topology.vertexIdAt(vi);
-            out.addVertex(srcPos[vertexId * 3], srcPos[vertexId * 3 + 1], srcPos[vertexId * 3 + 2]);
+            sourceVertex[out.addVertex(srcPos[vertexId * 3], srcPos[vertexId * 3 + 1],
+                    srcPos[vertexId * 3 + 2])] = vertexId;
         }
 
         Vector3f center = new Vector3f();
@@ -641,20 +602,21 @@ public class InsetFacesNode implements MeshNode {
                 float ny = oy + (center.y - oy) * t;
                 float nz = oz + (center.z - oz) * t;
                 innerVerts[k] = out.addVertex(nx, ny, nz);
+                sourceVertex[innerVerts[k]] = vid;
             }
             faceInnerVerts[fi] = innerVerts;
         }
 
         for (int fi = 0; fi < faceCount; fi++) {
+            int fid = topology.faceIdAt(fi);
             if (selected[fi]) {
-                out.addFace(faceInnerVerts[fi]);
+                sourceFace[out.addFace(faceInnerVerts[fi])] = fid;
             } else {
-                int fid = topology.faceIdAt(fi);
                 int[] vids = new int[vpf];
                 for (int k = 0; k < vpf; k++) {
                     vids[k] = activeVertexOfId[topology.faceVertexAt(fid, k)];
                 }
-                out.addFace(vids);
+                sourceFace[out.addFace(vids)] = fid;
             }
         }
 
@@ -668,11 +630,12 @@ public class InsetFacesNode implements MeshNode {
                 int origB = activeVertexOfId[topology.faceVertexAt(fid, next)];
                 int innerA = innerVerts[k];
                 int innerB = innerVerts[next];
-                out.addFace(origA, origB, innerB, innerA);
+                sourceFace[out.addFace(origA, origB, innerB, innerA)] = fid;
             }
         }
 
         out.computeNormals();
+        out.recordSources(sourceVertex, null, sourceFace);
         return out;
     }
 }

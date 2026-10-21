@@ -15,6 +15,7 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.SlotCarry;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
@@ -61,13 +62,13 @@ public class SolidifyMeshNode implements MeshNode {
         }
         Object to = FieldBroadcast.getInputOrDefault(ctx, THICKNESS.name, THICKNESS.defaultValue);
         float t = FieldBroadcast.floatScalarOrDefault(to, 0.01f);
-        ctx.setOutput(GEOMETRY.name, base.withMesh(solidify(in, t)));
+        ctx.setOutput(GEOMETRY.name,
+                SlotCarry.carry(List.of(base), GeometryBundle.ofMesh(solidify(in, t))));
     }
 
     /**
-     * Gives an open polygon sheet thickness: each vertex copied inward along its normal (the
-     * normalized sum of its faces' unit normals), every face reversed on the copy keeping its first
-     * corner, and one side quad per boundary edge.
+     * Gives an open polygon sheet thickness: each vertex copied inward along its summed face
+     * normals, each face reversed on the copy, one side quad per boundary edge, sources recorded.
      *
      * @param in        polygon sheet, faces of any corner count
      * @param thickness offset distance; its absolute value is used, and 0 returns a copy
@@ -138,6 +139,12 @@ public class SolidifyMeshNode implements MeshNode {
 
         int[] faceSizes = new int[faceCount * 2 + boundaryEdges];
         int[] faceIndices = new int[cornerCount * 2 + boundaryEdges * 4];
+        int[] sourceVertex = new int[vertexCount * 2];
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            sourceVertex[activeVertex] = in.vertexIdAt(activeVertex);
+            sourceVertex[vertexCount + activeVertex] = sourceVertex[activeVertex];
+        }
+        int[] sourceFace = new int[faceSizes.length];
         int bottomCursor = cornerCount;
         int sideCursor = cornerCount * 2;
         int topCursor = 0;
@@ -147,6 +154,8 @@ public class SolidifyMeshNode implements MeshNode {
             int corners = in.faceVertexCount(faceId);
             faceSizes[activeFace] = corners;
             faceSizes[faceCount + activeFace] = corners;
+            sourceFace[activeFace] = faceId;
+            sourceFace[faceCount + activeFace] = faceId;
             for (int slot = 0; slot < corners; slot++) {
                 int vertexId = in.faceVertexAt(faceId, slot);
                 int nextVertexId = in.faceVertexAt(faceId, (slot + 1) % corners);
@@ -156,6 +165,7 @@ public class SolidifyMeshNode implements MeshNode {
                         outputVertexOfId[in.faceVertexAt(faceId, (corners - slot) % corners)] + vertexCount;
                 if (in.isBoundaryEdge(in.edgeBetween(vertexId, nextVertexId))) {
                     int end = outputVertexOfId[nextVertexId];
+                    sourceFace[sideFace] = faceId;
                     faceSizes[sideFace++] = 4;
                     faceIndices[sideCursor++] = start;
                     faceIndices[sideCursor++] = start + vertexCount;
@@ -166,6 +176,7 @@ public class SolidifyMeshNode implements MeshNode {
         }
         HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions, faceSizes, faceIndices);
         out.computeNormals();
+        out.recordSources(sourceVertex, null, sourceFace);
         return out;
     }
 }

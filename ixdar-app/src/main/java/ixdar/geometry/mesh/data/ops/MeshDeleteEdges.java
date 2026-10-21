@@ -94,6 +94,8 @@ public final class MeshDeleteEdges {
 
         HalfEdgeMesh out = new HalfEdgeMesh();
         HashMap<Integer, Integer> vertMap = new HashMap<>();
+        int[] sourceVertex = new int[referencedVerts.size()];
+        int[] sourceFace = new int[mesh.faceCount() - deadFaceIds.size()];
         Vector3f p = new Vector3f();
         for (int vi = 0; vi < mesh.vertexCount(); vi++) {
             int vid = mesh.vertexIdAt(vi);
@@ -103,6 +105,7 @@ public final class MeshDeleteEdges {
             mesh.vertexPosition(vid, p);
             int nid = out.addVertex(p);
             vertMap.put(vid, nid);
+            sourceVertex[nid] = vid;
         }
 
         for (int fi = 0; fi < mesh.faceCount(); fi++) {
@@ -115,9 +118,10 @@ public final class MeshDeleteEdges {
             for (int k = 0; k < fvc; k++) {
                 nv[k] = vertMap.get(mesh.faceVertexAt(fid, k));
             }
-            out.addFace(nv);
+            sourceFace[out.addFace(nv)] = fid;
         }
         out.computeNormals();
+        out.recordSources(sourceVertex, null, sourceFace);
         return out;
     }
 }

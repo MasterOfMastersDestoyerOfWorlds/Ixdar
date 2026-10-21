@@ -163,7 +163,7 @@ commas between test names, never `+`.
 - **ixdar.geometry.mesh.data.analysis.curvature**: Curvature features of a surface: principal directions, crest lines, saddle points and the axis a limb runs along.
 - **ixdar.geometry.mesh.data.analysis.segmentation**: Surface segmentation into patches: Morse-Smale and discrete-gradient decompositions, semantic patches, clustering segmenters, and the patch boundaries and colours they report.
 - **ixdar.geometry.mesh.data.analysis.skeleton**: TEASAR curve skeletons of a mesh and the comparison of a generated skeleton against a reference.
-- **ixdar.geometry.mesh.data.bundle**: `GeometryBundle`, a mesh plus named slots, and the slot payloads nodes pass along with it: edge marks, rings, curves, corner UVs and materials. `SlotCarry` copies slots across a topology change.
+- **ixdar.geometry.mesh.data.bundle**: `GeometryBundle`, a mesh plus named slots, and the slot payloads nodes pass along with it: edge marks, rings, curves, corner UVs and materials. `SlotCarry` re-indexes slots across a topology change through the provenance layers the op recorded on its output mesh.
 - **ixdar.geometry.mesh.data.fields.crossfield**: Cross-field computation: per-face 4-direction fields, singularity detection, `NDirectionField` smoothing.
 - **ixdar.geometry.mesh.data.fields.crossfield.constraint**: Constraint sources pinning cross-field directions: boundary edges, sharp creases, principal curvature, and the gauge anchor.
 - **ixdar.geometry.mesh.data.io**: Mesh file loading (`MeshLoader` and formats). Desktop-only in practice: uses `java.nio.file`, which throws in the browser.

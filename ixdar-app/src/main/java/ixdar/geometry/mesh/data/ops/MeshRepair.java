@@ -2,7 +2,7 @@ package ixdar.geometry.mesh.data.ops;
 
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,8 +20,6 @@ import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.nodegraph.field.UvField;
-import ixdar.nodegraph.nodes.data.TagGeometryNode;
-import ixdar.nodegraph.nodes.modifier.SetBoneWeightNode;
 import ixdar.geometry.mesh.data.bundle.SlotCarry;
 
 /**
@@ -65,7 +63,16 @@ public final class MeshRepair {
     public GeometryBundle output;
 
     /** The bundle handed in. */
-    public GeometryBundle input;
+    public final GeometryBundle input;
+
+    /** The welded mesh the later stages read, or null when the weld stage did not run. */
+    public MeshTopology weldedMesh;
+
+    /** Input face index per welded face, or null without a weld. */
+    public int[] weldedSourceFace;
+
+    /** Input vertex index of each welded vertex's first member, or null without a weld. */
+    public int[] weldedFirstVertex;
 
     /** Working vertex positions, xyz triples. */
     public float[] positions = new float[0];
@@ -165,7 +172,7 @@ public final class MeshRepair {
 
     /** Copies the input mesh and its per-corner UVs into the working arrays. */
     private void readInput() {
-        MeshTopology mesh = input.mesh();
+        MeshTopology mesh = weldedMesh != null ? weldedMesh : input.mesh();
         int meshVertexCount = mesh.vertexCount();
         int maxVertexId = 0;
         for (int index = 0; index < meshVertexCount; index++) {
@@ -205,19 +212,18 @@ public final class MeshRepair {
                 int slot = index * TRIANGLE_CORNERS + corner;
                 faceCorners[slot] = denseOfVertexId[mesh.faceVertexAt(faceId, corner)];
                 if (uv != null) {
-                    cornerU[slot] = uv.u(faceId, corner);
-                    cornerV[slot] = uv.v(faceId, corner);
+                    int uvFace = weldedSourceFace == null ? faceId
+                            : input.mesh().faceIdAt(weldedSourceFace[index]);
+                    cornerU[slot] = uv.u(uvFace, corner);
+                    cornerV[slot] = uv.v(uvFace, corner);
                 }
             }
         }
     }
 
     /**
-     * Stage 1: fuses vertices closer than {@link #weldEpsilon} through {@link MeshMergeByDistance},
-     * whose weld map {@link SlotCarry} then follows with the bundle's per-element slots.
-     *
-     * <p>The glTF loader already welds bitwise-identical positions on import, so this only catches
-     * genuinely near-coincident ones and does nothing when the epsilon is not positive.
+     * Stage 1: fuses vertices closer than {@link #weldEpsilon}, keeping the weld's maps so corner
+     * UVs and the final slot carry see through it; a non-positive epsilon skips it.
      */
     private void weld() {
         if (weldEpsilon <= 0 || input.mesh().vertexCount() == 0) {
@@ -229,13 +235,17 @@ public final class MeshRepair {
         if (welder.weldedFaceCorners.length != welder.weldedFaceSizes.length * TRIANGLE_CORNERS) {
             throw new IllegalArgumentException("repair_mesh needs a triangle mesh");
         }
-        MeshTopology welded = new ArrayMesh(welder.weldedPositions, null, welder.weldedFaceCorners,
+        weldedMesh = new ArrayMesh(welder.weldedPositions, null, welder.weldedFaceCorners,
                 TRIANGLE_CORNERS);
-        report.weldedVertexCount = input.mesh().vertexCount() - welded.vertexCount();
+        report.weldedVertexCount = input.mesh().vertexCount() - weldedMesh.vertexCount();
         int slitFaces = input.mesh().faceCount() - welder.sourceFace.length;
         report.degenerateFaceCount += slitFaces;
         report.degenerateDeletedCount += slitFaces;
-        input = SlotCarry.weld(input, input.withMesh(welded), welder);
+        weldedSourceFace = welder.sourceFace;
+        weldedFirstVertex = new int[weldedMesh.vertexCount()];
+        for (int vertex = welder.weldedVertex.length - 1; vertex >= 0; vertex--) {
+            weldedFirstVertex[welder.weldedVertex[vertex]] = vertex;
+        }
     }
 
     /**
@@ -1265,59 +1275,24 @@ public final class MeshRepair {
 
         HalfEdgeMesh oriented = report.unorientedEdgeCount > 0 ? null
                 : HalfEdgeMeshOps.buildFromIndexedMesh(outPositions, outFaces);
-        GeometryBundle bundle = input.withMesh(oriented != null ? oriented
+        GeometryBundle bundle = GeometryBundle.ofMesh(oriented != null ? oriented
                 : new ArrayMesh(outPositions, null, outFaces, TRIANGLE_CORNERS));
         if (outU != null) {
             bundle = bundle.withSlot(CornerUvField.SLOT, new CornerUvField(outU, outV));
         }
-        bundle = carryVertexSlots(bundle, outOriginal);
         bundle = bundle.withSlot(EdgeMarks.SLOT, Map.of());
         if (oriented != null) {
+            int[] sourceVertex = new int[survivors];
+            for (int vertex = 0; vertex < survivors; vertex++) {
+                int origin = outOriginal[vertex];
+                sourceVertex[vertex] = origin < 0 ? MeshTopology.NONE : input.mesh().vertexIdAt(
+                        weldedFirstVertex == null ? origin : weldedFirstVertex[origin]);
+            }
+            oriented.recordSources(sourceVertex, null, null);
             bundle = EdgeMarks.with(bundle, MeshRepairReport.OPEN_BOUNDARY_LABEL,
                     boundaryEdgeMarks(oriented));
         }
-        output = bundle.withSlot(MeshRepairReport.SLOT, report);
-    }
-
-    /**
-     * Re-indexes the per-vertex slots onto the repaired vertices: tags and bone weights follow the
-     * vertex each output vertex descends from, and vertices the repair minted get neither.
-     *
-     * @param bundle bundle carrying the repaired mesh
-     * @param originalOfOutput input vertex each output vertex descends from, or {@code -1}
-     * @return the bundle with its per-vertex slots rewritten
-     */
-    @SuppressWarnings("unchecked")
-    private GeometryBundle carryVertexSlots(GeometryBundle bundle, int[] originalOfOutput) {
-        GeometryBundle carried = bundle;
-        Object tagSlot = input.slots().get(TagGeometryNode.TAGS_SLOT);
-        if (tagSlot instanceof Map<?, ?> tags) {
-            Map<String, boolean[]> rebuilt = new LinkedHashMap<>();
-            for (Map.Entry<String, boolean[]> entry
-                    : ((Map<String, boolean[]>) tags).entrySet()) {
-                boolean[] source = entry.getValue();
-                boolean[] target = new boolean[originalOfOutput.length];
-                for (int vertex = 0; vertex < originalOfOutput.length; vertex++) {
-                    int origin = originalOfOutput[vertex];
-                    target[vertex] = origin >= 0 && origin < source.length && source[origin];
-                }
-                rebuilt.put(entry.getKey(), target);
-            }
-            carried = carried.withSlot(TagGeometryNode.TAGS_SLOT, rebuilt);
-        }
-        for (Map.Entry<String, Object> entry : input.slots().entrySet()) {
-            if (!entry.getKey().startsWith(SetBoneWeightNode.BONE_WEIGHT_PREFIX)
-                    || !(entry.getValue() instanceof float[] source)) {
-                continue;
-            }
-            float[] target = new float[originalOfOutput.length];
-            for (int vertex = 0; vertex < originalOfOutput.length; vertex++) {
-                int origin = originalOfOutput[vertex];
-                target[vertex] = origin >= 0 && origin < source.length ? source[origin] : 0;
-            }
-            carried = carried.withSlot(entry.getKey(), target);
-        }
-        return carried;
+        output = SlotCarry.carry(List.of(input), bundle.withSlot(MeshRepairReport.SLOT, report));
     }
 
     /**

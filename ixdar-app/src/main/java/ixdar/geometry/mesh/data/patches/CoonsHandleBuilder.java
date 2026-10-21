@@ -1,8 +1,6 @@
 package ixdar.geometry.mesh.data.patches;
 import java.util.Map;
 
-import java.util.HashMap;
-
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
@@ -19,7 +17,6 @@ import ixdar.nodegraph.nodes.patch.CoonsPatchNode;
  * indexed by the output mesh's edge IDs.
  */
 public final class CoonsHandleBuilder {
-    public static final float MIN_WELD_TOLERANCE = 1e-6f;
     public static final float FINITE_DIFF_EPS = 1e-3f;
     public static final float MIN_NORMAL_LENGTH = 1e-8f;
 
@@ -147,85 +144,6 @@ public final class CoonsHandleBuilder {
         Vector3f e = new Vector3f(b).lerp(c, t);
         Vector3f f = new Vector3f(d).lerp(e, t);
         return new SplitResult(f, a, d, e, c);
-    }
-
-    /**
-     * Rebuilds bezier handle slots after a vertex-welding operation such as
-     * {@code merge_by_distance}, pairing input to output edges by nearest
-     * welded endpoint within {@code 2 * weldDist}.
-     * <p>
-     * Edges that collapse into a single vertex are skipped, and when two input
-     * edges map onto the same output edge the first one wins.
-     *
-     * @param inHStart start-handle data on the input mesh, indexed by input edge id
-     * @param inHEnd end-handle data on the input mesh, indexed by input edge id
-     * @param inMesh pre-weld mesh
-     * @param outMesh post-weld mesh
-     * @param weldDist weld tolerance used to match input vertices to output vertices (matched within {@code 2 * weldDist})
-     * @return the resulting {@code [hStart, hEnd]} arrays indexed by output
-     *         edge ID, or {@code null} if either input mesh or output mesh is
-     *         null or empty.
-     */
-    public static float[][] rebuildHandlesAfterWeld(
-            float[] inHStart, float[] inHEnd,
-            MeshTopology inMesh, MeshTopology outMesh, float weldDist) {
-        if (inMesh == null || outMesh == null
-                || inMesh.vertexCount() == 0 || outMesh.vertexCount() == 0) {
-            return null;
-        }
-        int outVc = outMesh.vertexCount();
-        float[] outPos = new float[outVc * 3];
-        int[] outVids = new int[outVc];
-        Vector3f tmp = new Vector3f();
-        for (int i = 0; i < outVc; i++) {
-            int vid = outMesh.vertexIdAt(i);
-            outVids[i] = vid;
-            outMesh.vertexPosition(vid, tmp);
-            outPos[i * 3] = tmp.x;
-            outPos[i * 3 + 1] = tmp.y;
-            outPos[i * 3 + 2] = tmp.z;
-        }
-        float tol = Math.max(weldDist, MIN_WELD_TOLERANCE) * 2f;
-        float tol2 = tol * tol;
-        Map<Integer, Integer> inToOut = new HashMap<>();
-        int inVc = inMesh.vertexCount();
-        for (int i = 0; i < inVc; i++) {
-            int ivid = inMesh.vertexIdAt(i);
-            inMesh.vertexPosition(ivid, tmp);
-            int best = -1;
-            float bestD = Float.POSITIVE_INFINITY;
-            for (int k = 0; k < outVc; k++) {
-                float dx = tmp.x - outPos[k * 3];
-                float dy = tmp.y - outPos[k * 3 + 1];
-                float dz = tmp.z - outPos[k * 3 + 2];
-                float d2 = dx * dx + dy * dy + dz * dz;
-                if (d2 < bestD) {
-                    bestD = d2;
-                    best = k;
-                }
-            }
-            if (best >= 0 && bestD <= tol2) {
-                inToOut.put(ivid, outVids[best]);
-            }
-        }
-        Map<Long, float[]> dh = new HashMap<>();
-        for (int ei = 0; ei < inMesh.edgeCount(); ei++) {
-            int eid = inMesh.edgeIdAt(ei);
-            int he = inMesh.edgeHalfEdge(eid);
-            int va = inMesh.halfEdgeVertex(he);
-            int vb = inMesh.halfEdgeEndVertex(he);
-            Integer oa = inToOut.get(va);
-            Integer ob = inToOut.get(vb);
-            if (oa == null || ob == null || oa.intValue() == ob.intValue()) {
-                continue;
-            }
-            int o = eid * 3;
-            dh.putIfAbsent(dirPack(oa, ob),
-                    new float[]{inHStart[o], inHStart[o + 1], inHStart[o + 2]});
-            dh.putIfAbsent(dirPack(ob, oa),
-                    new float[]{inHEnd[o], inHEnd[o + 1], inHEnd[o + 2]});
-        }
-        return flushDirectedHandles(outMesh, dh);
     }
 
     /**

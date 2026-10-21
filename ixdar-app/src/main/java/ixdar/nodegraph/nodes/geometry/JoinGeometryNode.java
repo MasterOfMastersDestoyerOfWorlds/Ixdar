@@ -1,6 +1,5 @@
 package ixdar.nodegraph.nodes.geometry;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,9 +15,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshAppend;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.bundle.SlotCarry;
-import ixdar.nodegraph.nodes.data.TagGeometryNode;
-
-import ixdar.nodegraph.nodes.modifier.SetBoneWeightNode;
 
 @MeshNodeAnnotation(id = "join_geometry", category = NodeCategory.GEOMETRY_OPERATIONS)
 public class JoinGeometryNode implements MeshNode {
@@ -73,75 +69,12 @@ public class JoinGeometryNode implements MeshNode {
         Number mergeDist = ctx.getInput(MERGE_DISTANCE.name, Number.class);
         float md = mergeDist == null ? 0f : mergeDist.floatValue();
 
-        MeshTopology appended = MeshAppend.join(ma, mb);
-        GeometryBundle result = SlotCarry.join(ga, gb, GeometryBundle.ofMesh(appended));
-        MeshTopology joined = appended;
+        GeometryBundle result = SlotCarry.carry(List.of(ga, gb),
+                GeometryBundle.ofMesh(MeshAppend.join(ma, mb)));
         if (md > 0f) {
-            MeshMergeByDistance welder = new MeshMergeByDistance();
-            joined = welder.weld(appended, md);
-            result = SlotCarry.weldCornerUv(result, result.withMesh(joined), welder.sourceFace);
+            result = SlotCarry.carry(List.of(result),
+                    GeometryBundle.ofMesh(MeshMergeByDistance.merge(result.mesh(), md)));
         }
-
-        int countA = ma.vertexCount();
-        int countB = mb.vertexCount();
-        int total = joined.vertexCount();
-
-        // Merge tags from both inputs — offset B's vertex indices by A's count
-        Map<String, boolean[]> tagsA = TagGeometryNode.getTags(ga);
-        Map<String, boolean[]> tagsB = TagGeometryNode.getTags(gb);
-        if (tagsA != null || tagsB != null) {
-            Map<String, boolean[]> merged = new HashMap<>();
-
-            // Copy A's tags (first countA vertices)
-            if (tagsA != null) {
-                for (var entry : tagsA.entrySet()) {
-                    boolean[] mask = new boolean[total];
-                    boolean[] src = entry.getValue();
-                    System.arraycopy(src, 0, mask, 0, Math.min(src.length, countA));
-                    merged.put(entry.getKey(), mask);
-                }
-            }
-
-            // Merge B's tags (offset by countA)
-            if (tagsB != null) {
-                for (var entry : tagsB.entrySet()) {
-                    boolean[] mask = merged.get(entry.getKey());
-                    if (mask == null) {
-                        mask = new boolean[total];
-                        merged.put(entry.getKey(), mask);
-                    }
-                    boolean[] src = entry.getValue();
-                    for (int i = 0; i < Math.min(src.length, countB); i++) {
-                        mask[countA + i] = src[i];
-                    }
-                }
-            }
-
-            result = result.withSlot(TagGeometryNode.TAGS_SLOT, merged);
-        }
-
-        // Merge bone weight slots (float[] indexed by vertex ID)
-        String prefix = SetBoneWeightNode.BONE_WEIGHT_PREFIX;
-        Map<String, float[]> boneSlots = new HashMap<>();
-        for (var entry : ga.slots().entrySet()) {
-            if (entry.getKey().startsWith(prefix) && entry.getValue() instanceof float[] src) {
-                float[] arr = new float[total];
-                System.arraycopy(src, 0, arr, 0, Math.min(src.length, countA));
-                boneSlots.put(entry.getKey(), arr);
-            }
-        }
-        for (var entry : gb.slots().entrySet()) {
-            if (entry.getKey().startsWith(prefix) && entry.getValue() instanceof float[] src) {
-                float[] arr = boneSlots.computeIfAbsent(entry.getKey(), k -> new float[total]);
-                for (int i = 0; i < Math.min(src.length, countB); i++) {
-                    arr[countA + i] = src[i];
-                }
-            }
-        }
-        for (var entry : boneSlots.entrySet()) {
-            result = result.withSlot(entry.getKey(), entry.getValue());
-        }
-
         ctx.setOutput(GEOMETRY.name, result);
     }
 }

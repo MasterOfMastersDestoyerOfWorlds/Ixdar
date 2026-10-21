@@ -135,11 +135,10 @@ public class BooleanTextureTransferTest {
         assertNotNull(faceMaterial, "the result names a material per face");
         assertEquals(output.mesh().faceCount(), faceMaterial.length(), "one index per face");
 
-        IntField sourceOperand =
-                (IntField) output.slots().get(MeshBooleanNode.FACE_SOURCE_OPERAND_SLOT);
+        int[] sourceOperand = faceLayer(output, HalfEdgeMesh.SOURCE_OPERAND);
         for (int face = 0; face < faceMaterial.length(); face++) {
             MaterialData expected =
-                    sourceOperand.get(face) == MeshBooleanResult.ORIGIN_A ? materialA : materialB;
+                    sourceOperand[face] == MeshBooleanResult.ORIGIN_A ? materialA : materialB;
             assertEquals(expected, materials.get(faceMaterial.get(face)),
                     "face " + face + " keeps the material of the operand its surface lies on");
         }
@@ -158,13 +157,12 @@ public class BooleanTextureTransferTest {
         assertNotNull(materials, "the textured operand's material survives");
         assertEquals(1, materials.materials.length, "only one operand had a material");
         IntField faceMaterial = (IntField) output.slots().get(MaterialSet.FACE_MATERIAL_SLOT);
-        IntField sourceOperand =
-                (IntField) output.slots().get(MeshBooleanNode.FACE_SOURCE_OPERAND_SLOT);
+        int[] sourceOperand = faceLayer(output, HalfEdgeMesh.SOURCE_OPERAND);
         CornerUvField uv = (CornerUvField) output.slots().get(CornerUvField.SLOT);
 
         int untexturedFaces = 0;
         for (int face = 0; face < faceMaterial.length(); face++) {
-            if (sourceOperand.get(face) == MeshBooleanResult.ORIGIN_A) {
+            if (sourceOperand[face] == MeshBooleanResult.ORIGIN_A) {
                 assertEquals(0, faceMaterial.get(face), "a face of the textured cube names it");
                 continue;
             }
@@ -197,13 +195,12 @@ public class BooleanTextureTransferTest {
                 texturedCube(HALF, material()));
 
         CornerUvField uv = (CornerUvField) output.slots().get(CornerUvField.SLOT);
-        IntField sourceOperand =
-                (IntField) output.slots().get(MeshBooleanNode.FACE_SOURCE_OPERAND_SLOT);
-        IntField sourceFace = (IntField) output.slots().get(MeshBooleanNode.FACE_SOURCE_QUAD_SLOT);
+        int[] sourceOperand = faceLayer(output, HalfEdgeMesh.SOURCE_OPERAND);
+        int[] sourceFace = faceLayer(output, HalfEdgeMesh.SOURCE_FACE);
         int missingFaces = 0;
         for (int face = 0; face < uv.faceCount(); face++) {
-            boolean fromHole = sourceOperand.get(face) == MeshBooleanResult.ORIGIN_A
-                    && sourceFace.get(face) == holeTriangle;
+            boolean fromHole = sourceOperand[face] == MeshBooleanResult.ORIGIN_A
+                    && sourceFace[face] == holeTriangle;
             for (int corner = 0; corner < THREE; corner++) {
                 double cornerValue = uv.cornerU[face * THREE + corner];
                 assertEquals(fromHole, Double.isNaN(cornerValue),
@@ -226,8 +223,21 @@ public class BooleanTextureTransferTest {
         assertFalse(output.slots().containsKey(MaterialSet.SLOT), "no material list");
         assertFalse(output.slots().containsKey(MaterialSet.FACE_MATERIAL_SLOT),
                 "no per-face material index");
-        assertNotNull(output.slots().get(MeshBooleanNode.FACE_ORIGIN_SLOT),
+        assertNotNull(faceLayer(output, MeshBooleanResult.FACE_ORIGIN_LAYER),
                 "provenance is still recorded");
+    }
+
+    /**
+     * One of the boolean mesh's named face layers.
+     *
+     * @param output the boolean node's output
+     * @param name   layer name
+     * @return the layer, indexed by face id
+     */
+    private static int[] faceLayer(GeometryBundle output, String name) {
+        HalfEdgeMesh mesh = (HalfEdgeMesh) output.mesh();
+        assertTrue(mesh.faceLayer(name) >= 0, "the boolean records the " + name + " face layer");
+        return mesh.faceLayers[mesh.faceLayer(name)];
     }
 
     /** A textured operand's own slots do not survive onto a result they no longer describe. */

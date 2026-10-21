@@ -52,8 +52,8 @@ public final class MeshMergeByDistance {
     }
 
     /**
-     * Weld vertices that lie within {@code distance} of one another, recording {@link #weldedVertex}
-     * and {@link #sourceFace} so the caller can carry attributes across.
+     * Weld vertices that lie within {@code distance} of one another, recording on the output each
+     * welded vertex's first member and each face's source, which the slot carry follows.
      *
      * @param mesh source mesh; treated read-only
      * @param distance maximum Euclidean distance for two vertices to merge; values &lt;= 0 keep every
@@ -67,6 +67,16 @@ public final class MeshMergeByDistance {
         HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(weldedPositions, weldedFaceSizes,
                 weldedFaceCorners);
         out.computeNormals();
+        int[] sourceVertex = new int[weldedPositions.length / 3];
+        Arrays.fill(sourceVertex, MeshTopology.NONE);
+        for (int activeVertex = weldedVertex.length - 1; activeVertex >= 0; activeVertex--) {
+            sourceVertex[weldedVertex[activeVertex]] = mesh.vertexIdAt(activeVertex);
+        }
+        int[] sourceFaceId = new int[sourceFace.length];
+        for (int face = 0; face < sourceFace.length; face++) {
+            sourceFaceId[face] = mesh.faceIdAt(sourceFace[face]);
+        }
+        out.recordSources(sourceVertex, null, sourceFaceId);
         return out;
     }
 

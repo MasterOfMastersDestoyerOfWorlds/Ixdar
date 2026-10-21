@@ -16,8 +16,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
 import ixdar.geometry.mesh.data.bundle.SlotCarry;
 import ixdar.nodegraph.field.FieldBroadcast;
-import ixdar.nodegraph.nodes.patch.AssignBezierHandlesNode;
-import ixdar.geometry.mesh.data.patches.CoonsHandleBuilder;
 
 @MeshNodeAnnotation(id = "merge_by_distance", category = NodeCategory.MODIFIERS)
 public class MergeByDistanceNode implements MeshNode {
@@ -53,24 +51,7 @@ public class MergeByDistanceNode implements MeshNode {
         GeometryBundle base = Objects.requireNonNullElse(ctx.getInput(GEOMETRY.name, GeometryBundle.class), GeometryBundle.empty());
         Object d = FieldBroadcast.getInputOrDefault(ctx, DISTANCE.name, DISTANCE.defaultValue);
         float dist = FieldBroadcast.floatScalarOrDefault(d, 0.001f);
-        MeshTopology inMesh = base.mesh();
-        MeshMergeByDistance welder = new MeshMergeByDistance();
-        var outMesh = welder.weld(inMesh, dist);
-        GeometryBundle out = SlotCarry.weld(base, base.withMesh(outMesh), welder);
-
-        // If the input carried bezier handle slots, those arrays are indexed by
-        // input edge IDs — welding invalidates them. Rebuild by mapping each
-        // input edge to the corresponding output edge (matched by welded
-        // endpoint positions) via the shared helper.
-        if (CoonsHandleBuilder.hasHandles(base) && inMesh != null && outMesh != null) {
-            float[] inHS = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_START, inMesh);
-            float[] inHE = CoonsHandleBuilder.readHandleSlot(base, AssignBezierHandlesNode.SLOT_HANDLES_END, inMesh);
-            float[][] handles = CoonsHandleBuilder.rebuildHandlesAfterWeld(inHS, inHE, inMesh, outMesh, dist);
-            if (handles != null) {
-                out = out.withSlot(AssignBezierHandlesNode.SLOT_HANDLES_START, handles[0])
-                        .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_END, handles[1]);
-            }
-        }
-        ctx.setOutput(GEOMETRY.name, out);
+        MeshTopology welded = MeshMergeByDistance.merge(base.mesh(), dist);
+        ctx.setOutput(GEOMETRY.name, SlotCarry.carry(List.of(base), GeometryBundle.ofMesh(welded)));
     }
 }

@@ -17,7 +17,7 @@ public final class MeshVertexOffset {
 
     /**
      * Add a per-vertex or uniform offset to every vertex of {@code mesh}, returning a new mesh with
-     * the input's vertex and face order and normals recomputed.
+     * the input's vertex and face order, normals recomputed and each element's source recorded.
      *
      * @param mesh source mesh; null or empty meshes pass through as an empty mesh
      * @param offsetObj a {@link Vector3Field} (length must equal vertex count), a {@link Vector3Value} for a uniform offset, or anything else for a zero offset
@@ -76,6 +76,15 @@ public final class MeshVertexOffset {
         }
         HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions, faceSizes, faceCorners);
         out.computeNormals();
+        int[] sourceVertex = new int[n];
+        for (int activeVertex = 0; activeVertex < n; activeVertex++) {
+            sourceVertex[activeVertex] = mesh.vertexIdAt(activeVertex);
+        }
+        int[] sourceFace = new int[faceSizes.length];
+        for (int activeFace = 0; activeFace < faceSizes.length; activeFace++) {
+            sourceFace[activeFace] = mesh.faceIdAt(activeFace);
+        }
+        out.recordSources(sourceVertex, null, sourceFace);
         return out;
     }
 }

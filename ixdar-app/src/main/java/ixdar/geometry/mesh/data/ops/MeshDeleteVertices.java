@@ -63,6 +63,7 @@ public final class MeshDeleteVertices {
 
         float[] positions = new float[n * 3];
         int[] outVertexOfId = new int[mesh.vertexIdBound()];
+        int[] sourceVertex = new int[n];
         Vector3f position = new Vector3f();
         int survivors = 0;
         for (int activeVertex = 0; activeVertex < n; activeVertex++) {
@@ -75,6 +76,7 @@ public final class MeshDeleteVertices {
             positions[survivors * 3] = position.x;
             positions[survivors * 3 + 1] = position.y;
             positions[survivors * 3 + 2] = position.z;
+            sourceVertex[survivors] = vertexId;
             outVertexOfId[vertexId] = survivors++;
         }
         int corners = 0;
@@ -83,6 +85,7 @@ public final class MeshDeleteVertices {
         }
         int[] faceVertices = new int[corners];
         int[] faceSizes = new int[mesh.faceCount()];
+        int[] sourceFace = new int[mesh.faceCount()];
         int keptFaces = 0;
         int keptCorners = 0;
         for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
@@ -96,6 +99,7 @@ public final class MeshDeleteVertices {
                 for (int corner = 0; corner < size; corner++) {
                     faceVertices[keptCorners + corner] = outVertexOfId[mesh.faceVertexAt(faceId, corner)];
                 }
+                sourceFace[keptFaces] = faceId;
                 faceSizes[keptFaces++] = size;
                 keptCorners += size;
             }
@@ -103,6 +107,7 @@ public final class MeshDeleteVertices {
         HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(Arrays.copyOf(positions, survivors * 3),
                 Arrays.copyOf(faceSizes, keptFaces), Arrays.copyOf(faceVertices, keptCorners));
         out.computeNormals();
+        out.recordSources(sourceVertex, null, sourceFace);
         return out;
     }
 }

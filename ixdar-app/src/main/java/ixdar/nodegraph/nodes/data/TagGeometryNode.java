@@ -75,21 +75,8 @@ public class TagGeometryNode implements MeshNode {
             if (tag.isEmpty()) {
                 continue;
             }
-            if (merged.containsKey(tag)) {
-                // Tag already exists — ensure all current vertices are marked true
-                boolean[] existing = merged.get(tag);
-                if (existing.length == vertexCount) {
-                    // Same vertex count — mark all true (this geometry belongs to the tag)
-                    for (int i = 0; i < vertexCount; i++) {
-                        existing[i] = true;
-                    }
-                } else {
-                    // Vertex count changed — replace with full mask
-                    merged.put(tag, allTrue(vertexCount));
-                }
-            } else {
-                merged.put(tag, allTrue(vertexCount));
-            }
+            // A fresh mask, never the input's: that array belongs to an upstream node's output.
+            merged.put(tag, allTrue(vertexCount));
         }
 
         ctx.setOutput(GEOMETRY.name, base.withSlot(TAGS_SLOT, merged));

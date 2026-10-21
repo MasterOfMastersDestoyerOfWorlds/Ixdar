@@ -2927,7 +2927,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Result as a geometry bundle, with per-face provenance in the _boolean_face_origin, _boolean_face_source_operand and _boolean_face_source_quad slots, plus interpolated UVs and a material per face when the operands carried textures."
+          "description": "Result as a geometry bundle whose mesh carries per-face provenance layers (source_operand, source_face, _boolean_face_origin), plus interpolated UVs and a material per face when the operands carried textures."
         }
       ],
       "description": "Exact CSG boolean (union, difference, or intersect) of two meshes, splitting faces at the intersection curve and recording where each output face came from."

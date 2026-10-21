@@ -15,6 +15,7 @@ import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.GeometryBundles;
+import ixdar.geometry.mesh.data.bundle.SlotCarry;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
@@ -101,7 +102,8 @@ public class LoopCutNode implements MeshNode {
 
         GeometryBundle target = bundle != null ? bundle : GeometryBundle.ofMesh(mesh);
         if (cuts <= 0) {
-            ctx.setOutput(GEOMETRY_IN.name, target.withMesh(MeshVertexOffset.apply(mesh, null)));
+            ctx.setOutput(GEOMETRY_IN.name, SlotCarry.carry(List.of(target),
+                    GeometryBundle.ofMesh(MeshVertexOffset.apply(mesh, null))));
             return;
         }
         int vertexCount = mesh.vertexCount();
@@ -127,6 +129,7 @@ public class LoopCutNode implements MeshNode {
         Arrays.fill(firstCutVertexOfEdge, MeshTopology.NONE);
         boolean[] classified = new boolean[mesh.edgeIdBound()];
         float[] cutPositions = new float[0];
+        int[] cutSourceEdge = new int[0];
         int cutVertexCount = 0;
         Vector3f direction = new Vector3f();
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
@@ -159,7 +162,9 @@ public class LoopCutNode implements MeshNode {
                 if ((cutVertexCount + cuts) * 3 > cutPositions.length) {
                     cutPositions = Arrays.copyOf(cutPositions, Math.max(cutPositions.length * 2,
                             (cutVertexCount + cuts) * 3));
+                    cutSourceEdge = Arrays.copyOf(cutSourceEdge, cutPositions.length / 3);
                 }
+                Arrays.fill(cutSourceEdge, cutVertexCount, cutVertexCount + cuts, edgeId);
                 for (int cut = 0; cut < cuts; cut++) {
                     float t = (float) (cut + 1) / (cuts + 1);
                     int offset = (cutVertexCount + cut) * 3;
@@ -172,7 +177,8 @@ public class LoopCutNode implements MeshNode {
             }
         }
         if (cutVertexCount == 0) {
-            ctx.setOutput(GEOMETRY_IN.name, target.withMesh(MeshVertexOffset.apply(mesh, null)));
+            ctx.setOutput(GEOMETRY_IN.name, SlotCarry.carry(List.of(target),
+                    GeometryBundle.ofMesh(MeshVertexOffset.apply(mesh, null))));
             return;
         }
         float[] positions = Arrays.copyOf(sourcePositions, (vertexCount + cutVertexCount) * 3);
@@ -210,11 +216,14 @@ public class LoopCutNode implements MeshNode {
 
         int[] faceSizes = new int[outputFaceCount];
         int[] faceIndices = new int[outputCornerCount];
+        int[] sourceFace = new int[outputFaceCount];
         int faceCursor = 0;
         int cornerCursor = 0;
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             int faceId = mesh.faceIdAt(activeFace);
             int corners = mesh.faceVertexCount(faceId);
+            int pieces = stripsOfFace[activeFace] == 0 ? 1 : cuts + 1;
+            Arrays.fill(sourceFace, faceCursor, faceCursor + pieces, faceId);
             if (stripsOfFace[activeFace] == 0) {
                 faceSizes[faceCursor++] = corners;
                 for (int slot = 0; slot < corners; slot++) {
@@ -259,7 +268,16 @@ public class LoopCutNode implements MeshNode {
         }
         HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(positions, faceSizes, faceIndices);
         out.computeNormals();
-        ctx.setOutput(GEOMETRY_IN.name, target.withMesh(out));
+        int[] sourceVertex = new int[vertexCount + cutVertexCount];
+        int[] sourceEdge = new int[sourceVertex.length];
+        Arrays.fill(sourceVertex, vertexCount, sourceVertex.length, MeshTopology.NONE);
+        Arrays.fill(sourceEdge, 0, vertexCount, MeshTopology.NONE);
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            sourceVertex[activeVertex] = mesh.vertexIdAt(activeVertex);
+        }
+        System.arraycopy(cutSourceEdge, 0, sourceEdge, vertexCount, cutVertexCount);
+        out.recordSources(sourceVertex, sourceEdge, sourceFace);
+        ctx.setOutput(GEOMETRY_IN.name, SlotCarry.carry(List.of(target), GeometryBundle.ofMesh(out)));
     }
 
     /**

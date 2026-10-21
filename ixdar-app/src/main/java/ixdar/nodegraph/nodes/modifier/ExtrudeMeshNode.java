@@ -2,7 +2,6 @@ package ixdar.nodegraph.nodes.modifier;
 import java.util.Objects;
 import java.util.Arrays;
 
-import java.util.HashMap;
 import java.util.List;
 
 import java.util.Map;
@@ -18,6 +17,7 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.SlotCarry;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -49,7 +49,6 @@ public class ExtrudeMeshNode implements MeshNode {
     public static final OutputPort GENERATED_OUT = new OutputPort("generated", PortType.BOOLEAN);
 
     private boolean[] extrudedFaces;
-    private int[] extrudedFromVertex;
 
     @Override
     public List<InputPort> inputs() {
@@ -134,87 +133,15 @@ public class ExtrudeMeshNode implements MeshNode {
             genMask[fi] = extrudedFaces[fi];
         }
 
-        GeometryBundle outBundle = base.withMesh(out);
-        if (out != null && CoonsHandleBuilder.hasHandles(base)) {
-            Object w = base.slots().get(AssignBezierHandlesNode.SLOT_WEIGHT);
-            if (w instanceof Number num) {
-                outBundle = AssignBezierHandlesNode.computeHandles(outBundle, num.floatValue());
-            } else if (extrudedFromVertex != null) {
-                outBundle = preserveHandles(base, in, out, extrudedFromVertex, outBundle);
-            }
+        GeometryBundle outBundle = SlotCarry.carry(List.of(base), GeometryBundle.ofMesh(out));
+        if (out != null && CoonsHandleBuilder.hasHandles(base)
+                && base.slots().get(AssignBezierHandlesNode.SLOT_WEIGHT) instanceof Number weight) {
+            outBundle = AssignBezierHandlesNode.computeHandles(outBundle, weight.floatValue());
         }
 
         ctx.setOutput(GEOMETRY.name, outBundle);
         ctx.setOutput(GENERATED_OUT.name, new BoolField(genMask));
     }
-
-    /**
-     * For each output edge, classify it and stash the appropriate directed
-     * handle entry. Flush to output handle arrays.
-     */
-    private static GeometryBundle preserveHandles(GeometryBundle base, MeshTopology inMesh,
-            MeshTopology outMesh, int[] newToOrig, GeometryBundle outBundle) {
-        float[] inHS = CoonsHandleBuilder.readHandleSlot(base,
-                AssignBezierHandlesNode.SLOT_HANDLES_START, inMesh);
-        float[] inHE = CoonsHandleBuilder.readHandleSlot(base,
-                AssignBezierHandlesNode.SLOT_HANDLES_END, inMesh);
-
-        Map<Long, float[]> inEdgeToStart = new HashMap<>();
-        Map<Long, float[]> inEdgeToEnd = new HashMap<>();
-        for (int ei = 0; ei < inMesh.edgeCount(); ei++) {
-            int eid = inMesh.edgeIdAt(ei);
-            int he = inMesh.edgeHalfEdge(eid);
-            int va = inMesh.halfEdgeVertex(he);
-            int vb = inMesh.halfEdgeEndVertex(he);
-            int o = eid * 3;
-            inEdgeToStart.put(CoonsHandleBuilder.dirPack(va, vb),
-                    new float[]{inHS[o], inHS[o + 1], inHS[o + 2]});
-            inEdgeToEnd.put(CoonsHandleBuilder.dirPack(va, vb),
-                    new float[]{inHE[o], inHE[o + 1], inHE[o + 2]});
-        }
-
-        int origVc = inMesh.vertexCount();
-        Map<Long, float[]> dh = new HashMap<>();
-        for (int ei = 0; ei < outMesh.edgeCount(); ei++) {
-            int eid = outMesh.edgeIdAt(ei);
-            int he = outMesh.edgeHalfEdge(eid);
-            int a = outMesh.halfEdgeVertex(he);
-            int b = outMesh.halfEdgeEndVertex(he);
-
-            boolean aNew = a >= origVc;
-            boolean bNew = b >= origVc;
-            int origA = aNew ? newToOrig[a - origVc] : inMesh.vertexIdAt(a);
-            int origB = bNew ? newToOrig[b - origVc] : inMesh.vertexIdAt(b);
-            if (origA < 0 || origB < 0 || origA == origB) {
-                continue; 
-            }
-            if (aNew != bNew) {
-                continue; 
-            }
-
-            long keyAB = CoonsHandleBuilder.dirPack(origA, origB);
-            long keyBA = CoonsHandleBuilder.dirPack(origB, origA);
-            float[] startAB = inEdgeToStart.get(keyAB);
-            float[] endAB = inEdgeToEnd.get(keyAB);
-            if (startAB == null) {
-                startAB = inEdgeToEnd.get(keyBA);
-                endAB = inEdgeToStart.get(keyBA);
-            }
-            if (startAB == null) {
-                continue; // no ancestor edge — shouldn't happen for quads
-            }
-            dh.put(CoonsHandleBuilder.dirPack(a, b),
-                    new float[]{startAB[0], startAB[1], startAB[2]});
-            dh.put(CoonsHandleBuilder.dirPack(b, a),
-                    new float[]{endAB[0], endAB[1], endAB[2]});
-        }
-
-        float[][] handles = CoonsHandleBuilder.flushDirectedHandles(outMesh, dh);
-        return outBundle
-                .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_START, handles[0])
-                .withSlot(AssignBezierHandlesNode.SLOT_HANDLES_END, handles[1]);
-    }
-
 
     /**
      * Each selected face moves off along its own normal onto fresh vertices, joined to its old
@@ -244,7 +171,6 @@ public class ExtrudeMeshNode implements MeshNode {
         extrudedFaces = selected;
 
         if (selectedCount == 0 || offset == 0f) {
-            extrudedFromVertex = new int[0];
             return MeshVertexOffset.apply(mesh, null);
         }
 
@@ -261,7 +187,6 @@ public class ExtrudeMeshNode implements MeshNode {
         }
 
         int[] newToOrig = new int[selectedCorners];
-        extrudedFromVertex = newToOrig;
         float[] outPos = Arrays.copyOf(srcPos, (vertCount + selectedCorners) * 3);
         int[] faceSizes = new int[faceCount + selectedCorners];
         int[] outFaces = new int[cornerCount + selectedCorners * 4];
@@ -286,6 +211,10 @@ public class ExtrudeMeshNode implements MeshNode {
             }
         }
 
+        int[] sourceFace = new int[faceSizes.length];
+        for (int fi = 0; fi < faceCount; fi++) {
+            sourceFace[fi] = mesh.faceIdAt(fi);
+        }
         int faceWrite = faceCount;
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) {
@@ -295,6 +224,7 @@ public class ExtrudeMeshNode implements MeshNode {
             int corners = mesh.faceVertexCount(faceId);
             for (int k = 0; k < corners; k++) {
                 int next = (k + 1) % corners;
+                sourceFace[faceWrite] = faceId;
                 faceSizes[faceWrite++] = 4;
                 outFaces[cornerWrite++] = activeVertexOfId[mesh.faceVertexAt(faceId, k)];
                 outFaces[cornerWrite++] = activeVertexOfId[mesh.faceVertexAt(faceId, next)];
@@ -305,7 +235,25 @@ public class ExtrudeMeshNode implements MeshNode {
 
         HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(outPos, faceSizes, outFaces);
         out.computeNormals();
+        out.recordSources(extrudedSources(mesh, newToOrig), null, sourceFace);
         return out;
+    }
+
+    /**
+     * Source vertex per output vertex of an extrusion: the input's vertices in active order, then
+     * each moved copy's original.
+     *
+     * @param mesh      the input mesh
+     * @param newToOrig input vertex id per moved copy, in output order
+     * @return input vertex id per output vertex id
+     */
+    private static int[] extrudedSources(MeshTopology mesh, int[] newToOrig) {
+        int[] sourceVertex = new int[mesh.vertexCount() + newToOrig.length];
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            sourceVertex[activeVertex] = mesh.vertexIdAt(activeVertex);
+        }
+        System.arraycopy(newToOrig, 0, sourceVertex, mesh.vertexCount(), newToOrig.length);
+        return sourceVertex;
     }
 
     /**
@@ -336,7 +284,6 @@ public class ExtrudeMeshNode implements MeshNode {
         extrudedFaces = selected;
 
         if (selectedCount == 0 || offset == 0f) {
-            extrudedFromVertex = new int[0];
             return MeshVertexOffset.apply(mesh, null);
         }
 
@@ -382,7 +329,6 @@ public class ExtrudeMeshNode implements MeshNode {
             }
         }
         int[] newToOrig = new int[newVertTotal];
-        extrudedFromVertex = newToOrig;
         for (int vi = 0; vi < vertCount; vi++) {
             if (vertNewId[vi] >= 0) {
                 newToOrig[vertNewId[vi] - vertCount] = mesh.vertexIdAt(vi);
@@ -397,6 +343,7 @@ public class ExtrudeMeshNode implements MeshNode {
         }
         int[] boundaryStarts = new int[cornerCount];
         int[] boundaryEnds = new int[cornerCount];
+        int[] boundaryFaces = new int[cornerCount];
         int boundaryEdgeCount = 0;
         for (int fi = 0; fi < faceCount; fi++) {
             if (!selected[fi]) continue;
@@ -410,6 +357,7 @@ public class ExtrudeMeshNode implements MeshNode {
                         : mesh.edgeFace(edgeId, 0);
                 if (otherFaceId == MeshTopology.NONE || !selected[activeFaceOfId[otherFaceId]]) {
                     boundaryStarts[boundaryEdgeCount] = activeVertexOfId[vertexId];
+                    boundaryFaces[boundaryEdgeCount] = faceId;
                     boundaryEnds[boundaryEdgeCount++] = activeVertexOfId[nextVertexId];
                 }
             }
@@ -426,10 +374,13 @@ public class ExtrudeMeshNode implements MeshNode {
 
         int[] faceSizes = new int[faceCount + boundaryEdgeCount];
         int[] outFaces = new int[cornerCount + boundaryEdgeCount * 4];
+        int[] sourceFace = new int[faceSizes.length];
+        System.arraycopy(boundaryFaces, 0, sourceFace, faceCount, boundaryEdgeCount);
         int cornerWrite = 0;
         for (int fi = 0; fi < faceCount; fi++) {
             int faceId = mesh.faceIdAt(fi);
             int corners = mesh.faceVertexCount(faceId);
+            sourceFace[fi] = faceId;
             faceSizes[fi] = corners;
             for (int k = 0; k < corners; k++) {
                 int origV = activeVertexOfId[mesh.faceVertexAt(faceId, k)];
@@ -448,6 +399,7 @@ public class ExtrudeMeshNode implements MeshNode {
 
         HalfEdgeMesh out = HalfEdgeMeshOps.bulkAllocateMixed(outPos, faceSizes, outFaces);
         out.computeNormals();
+        out.recordSources(extrudedSources(mesh, newToOrig), null, sourceFace);
         return out;
     }
 }

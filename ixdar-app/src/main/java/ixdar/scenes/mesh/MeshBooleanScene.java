@@ -13,7 +13,6 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.nodes.geometry.MeshBooleanNode;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
@@ -193,17 +192,19 @@ public class MeshBooleanScene extends ModelScene {
      * colour, cut faces in a third. Tags are per vertex, so the display copy gives
      * every face its own corners.
      *
-     * @param bundle boolean output carrying the provenance slots
+     * @param bundle boolean output whose mesh carries the face origin layer
      * @param mesh   the boolean's mesh
      */
     private void applyProvenanceTags(GeometryBundle bundle, MeshTopology mesh) {
         int faceCount = mesh.faceCount();
-        Object origins = bundle.slots().get(MeshBooleanNode.FACE_ORIGIN_SLOT);
-        if (!(origins instanceof IntField faceOrigin) || faceOrigin.length() != faceCount) {
+        int originLayer = bundle.mesh() instanceof HalfEdgeMesh layered
+                ? layered.faceLayer(MeshBooleanResult.FACE_ORIGIN_LAYER) : MeshTopology.NONE;
+        if (originLayer == MeshTopology.NONE) {
             runtime.upload(mesh);
             runtime.clearTags();
             return;
         }
+        int[] faceOrigin = ((HalfEdgeMesh) bundle.mesh()).faceLayers[originLayer];
         int cornerCount = faceCount * CORNERS_PER_TRIANGLE;
         float[] positions = new float[cornerCount * CORNERS_PER_TRIANGLE];
         int[] triangles = new int[cornerCount];
@@ -214,7 +215,7 @@ public class MeshBooleanScene extends ModelScene {
         int newFaces = 0;
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
             int faceId = mesh.faceIdAt(activeFace);
-            int origin = faceOrigin.get(activeFace);
+            int origin = faceOrigin[faceId];
             if (origin == MeshBooleanResult.ORIGIN_NEW) {
                 newFaces++;
             }

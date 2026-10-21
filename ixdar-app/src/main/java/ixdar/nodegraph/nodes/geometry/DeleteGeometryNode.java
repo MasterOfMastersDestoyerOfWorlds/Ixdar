@@ -13,6 +13,7 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.SlotCarry;
 import ixdar.geometry.mesh.data.ops.MeshDeleteEdges;
 import ixdar.geometry.mesh.data.ops.MeshDeleteVertices;
 import ixdar.nodegraph.field.FieldBroadcast;
@@ -63,6 +64,6 @@ public class DeleteGeometryNode implements MeshNode {
             case "EDGE" -> MeshDeleteEdges.delete(base.mesh(), sel);
             default -> MeshDeleteVertices.delete(base.mesh(), sel);
         };
-        ctx.setOutput(GEOMETRY.name, base.withMesh(outMesh));
+        ctx.setOutput(GEOMETRY.name, SlotCarry.carry(List.of(base), GeometryBundle.ofMesh(outMesh)));
     }
 }
