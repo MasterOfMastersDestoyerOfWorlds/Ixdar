@@ -13,6 +13,7 @@ import ixdar.geometry.mesh.data.rings.RegionExplosion;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
+import ixdar.graphics.render.color.RegionColouring;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
@@ -201,7 +202,7 @@ public final class RegionLayer {
             boolean fresh = regions == null || regions.mesh != surface;
             if (fresh) {
                 regions = new RingRegions(surface, labels, masks);
-                colouring.colourByRegion = new int[0];
+                colouring.colourByNode = new int[0];
             }
             regions.absorbBelowFaces = absorbSlivers ? RingRegions.SLIVER_FACES : 0;
             if (fresh || builtAbsorbing != absorbSlivers) {
@@ -209,7 +210,8 @@ public final class RegionLayer {
             } else {
                 regions.update(labels, masks);
             }
-            colouring.colour(regions);
+            colouring.colour(regions.neighboursByRegion, regions.regionFaceCount,
+                    regions.formerRegionByRegion, regions.regionKeptFaces, Palettes.REGION);
             builtRingRevision = scene.ringTool.ringRevision;
             builtAbsorbing = absorbSlivers;
             revision++;
@@ -276,7 +278,7 @@ public final class RegionLayer {
                     : dimming && !tool.selectedRegions[region] ? grey
                             : regions.isSliver(region) ? SLIVER_COLOUR
                                     : Palettes.REGION.shadedColor(
-                                            colouring.colourByRegion[region]).toVector4f();
+                                            colouring.colourByNode[region]).toVector4f();
             tagByRegion[region] = RingRegionTool.regionTag(region);
         }
         int[] groupByActiveFace = regions.regionByActiveFace;

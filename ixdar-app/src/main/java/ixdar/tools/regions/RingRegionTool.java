@@ -203,7 +203,7 @@ public final class RingRegionTool implements Tool {
         while (firstRegion + 1 < selectedRegions.length && !selectedRegions[firstRegion]) {
             firstRegion++;
         }
-        int[] colourByRegion = scene.regionLayer.colouring.colourByRegion;
+        int[] colourByRegion = scene.regionLayer.colouring.colourByNode;
         extractedRuntime.setSolidColor(Palettes.REGION.shadedColor(
                 firstRegion < colourByRegion.length ? colourByRegion[firstRegion] : 0).toVector4f());
         if (!showingOpenCut) {

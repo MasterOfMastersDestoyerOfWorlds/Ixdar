@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.color.Palettes;
-import ixdar.tools.regions.RegionColouring;
+import ixdar.graphics.render.color.RegionColouring;
 import ixdar.tools.ring.RingTool;
 
 /**

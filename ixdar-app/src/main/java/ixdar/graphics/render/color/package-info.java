@@ -1,6 +1,6 @@
 /**
  * `Color` interface with the named palette, `ColorRGB`, and animated lerps driven by the static
- * `Clock`. `PatchColorHash` mirrors the GLSL `patchColor()` hash; but surface fill and layout
- * overlay hash different id spaces, so a shared palette does not mean matching colors.
+ * `Clock`. `Palettes` holds every colour cycle drawn by id (patch, ring, region, heat-map ramp),
+ * and `RegionColouring` hands palette entries to graph nodes so neighbours never match.
  */
 package ixdar.graphics.render.color;

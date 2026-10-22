@@ -45,7 +45,7 @@ class ColorOrderTest {
     private static final Set<String> BASE_WORDS = Set.of("BLACK", "GREY", "WHITE", "RED",
             "ORANGE", "BROWN", "YELLOW", "GREEN", "TEAL", "BLUE", "PURPLE", "PINK");
 
-    private static final Set<String> LIGHTNESS_WORDS = Set.of("DARK", "LIGHT", "PASTEL");
+    private static final Set<String> LIGHTNESS_WORDS = Set.of("DARK", "LIGHT", "PASTEL", "BRIGHT");
 
     @Test
     void constantsAreColourNamesSortedByHue() throws Exception {
@@ -97,7 +97,7 @@ class ColorOrderTest {
             String colourName = translucent ? variant.group(1) : name;
             // BASE[_LEAN][_LIGHTNESS]: a leading colour word, an optional second colour word
             // disambiguating a lean, then an optional lightness word (DARK, VERY_DARK, LIGHT,
-            // VERY_LIGHT or PASTEL); the alpha suffix was already stripped above.
+            // VERY_LIGHT, PASTEL or BRIGHT); the alpha suffix was already stripped above.
             List<String> words = new ArrayList<>(List.of(colourName.split("_")));
             boolean wellFormed = !words.isEmpty() && BASE_WORDS.contains(words.remove(0));
             if (wellFormed && !words.isEmpty() && BASE_WORDS.contains(words.get(0))) {

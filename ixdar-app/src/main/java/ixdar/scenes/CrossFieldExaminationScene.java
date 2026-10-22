@@ -7,7 +7,7 @@ import ixdar.geometry.mesh.data.io.CrossFieldLoader;
 import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
-import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.graphics.render.model.QuadLayoutOverlay;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
@@ -34,7 +34,7 @@ public class CrossFieldExaminationScene extends ModelScene {
     private CrossField oursField;
     private CrossField referenceField;
     private boolean showingReference;
-    private MeshOverlayRuntime quadRuntime;
+    private QuadLayoutOverlay quadRuntime;
 
     /** Default constructor wired by the scene annotation processor. */
     public CrossFieldExaminationScene() {
@@ -43,7 +43,7 @@ public class CrossFieldExaminationScene extends ModelScene {
 
     @Override
     public HalfEdgeMeshRuntime createRuntime() {
-        quadRuntime = new MeshOverlayRuntime();
+        quadRuntime = new QuadLayoutOverlay();
         return quadRuntime;
     }
 

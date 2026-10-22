@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.render.color.Palettes;
-import ixdar.tools.regions.RegionColouring;
+import ixdar.graphics.render.color.RegionColouring;
 
 /**
  * Incremental ring region updates on the capped cylinder of {@link RingRegionsTest}: after every
@@ -117,22 +117,24 @@ class RingRegionsUpdateTest {
         RingRegions regions = new RingRegions(cylinder, labels.toArray(new String[0]),
                 masks.toArray(new boolean[0][])).build();
         RegionColouring colouring = new RegionColouring();
-        colouring.colour(regions);
+        colouring.colour(regions.neighboursByRegion, regions.regionFaceCount,
+                regions.formerRegionByRegion, regions.regionKeptFaces, Palettes.REGION);
         assertEquals(2 * labels.size(), regions.regionCount);
         assertNeighboursDiffer(regions, colouring);
 
-        int[] before = colouring.colourByRegion.clone();
+        int[] before = colouring.colourByNode.clone();
         labels.add(row(7));
         masks.add(rowMask(cylinder, 7, false));
         update(regions, labels, masks);
-        colouring.colour(regions);
+        colouring.colour(regions.neighboursByRegion, regions.regionFaceCount,
+                regions.formerRegionByRegion, regions.regionKeptFaces, Palettes.REGION);
         assertNeighboursDiffer(regions, colouring);
         int kept = 0;
         for (int region = 0; region < regions.regionCount; region++) {
             if (regions.regionKeptFaces[region]) {
                 kept++;
                 assertEquals(before[regions.formerRegionByRegion[region]],
-                        colouring.colourByRegion[region]);
+                        colouring.colourByNode[region]);
             }
         }
         assertEquals(2 * (labels.size() - 2), kept);
@@ -216,8 +218,8 @@ class RingRegionsUpdateTest {
     private static void assertNeighboursDiffer(RingRegions regions, RegionColouring colouring) {
         for (int region = 0; region < regions.regionCount; region++) {
             for (int neighbour : regions.neighboursByRegion[region]) {
-                int colour = colouring.colourByRegion[region];
-                int other = colouring.colourByRegion[neighbour];
+                int colour = colouring.colourByNode[region];
+                int other = colouring.colourByNode[neighbour];
                 assertNotEquals(colour, other, region + " and " + neighbour);
                 assertTrue(Palettes.REGION.shadedColor(colour)
                         .distanceTo(Palettes.REGION.shadedColor(other))

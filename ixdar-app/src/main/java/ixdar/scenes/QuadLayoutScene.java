@@ -11,7 +11,7 @@ import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
 import ixdar.geometry.mesh.quadlayout.gridmap.GridMapIsoSurface;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
-import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.graphics.render.model.QuadLayoutOverlay;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
@@ -35,7 +35,7 @@ public class QuadLayoutScene extends ModelScene {
     private static final int GRID_MAP_VIEW_COUNT = 3;
 
     /** Render runtime of this scene; the diagnosis route highlights through it. */
-    public MeshOverlayRuntime quadRuntime;
+    public QuadLayoutOverlay quadRuntime;
 
     /**
      * The layout of the last build, held so the fill can be swapped without rebuilding; the
@@ -74,7 +74,7 @@ public class QuadLayoutScene extends ModelScene {
 
     @Override
     public HalfEdgeMeshRuntime createRuntime() {
-        quadRuntime = new MeshOverlayRuntime();
+        quadRuntime = new QuadLayoutOverlay();
         return quadRuntime;
     }
 
@@ -160,7 +160,7 @@ public class QuadLayoutScene extends ModelScene {
         GeometryBundle chosen = showInitialGrid
                 ? (coonsFill ? patchCoonsInitial : patchSurfacesInitial)
                 : (coonsFill ? layout.patchCoons : layout.patchSurfaces);
-        quadRuntime.setLayoutPatchSurfaces(chosen);
+        quadRuntime.setLayoutPatchSurfaces(chosen, layout.tmesh);
     }
 
     /**

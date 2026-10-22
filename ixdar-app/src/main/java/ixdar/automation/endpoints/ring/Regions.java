@@ -56,7 +56,7 @@ public class Regions extends AutomationEndpoint implements AutomationRoute {
                     hiddenFaces += hidden[activeFace] ? 1 : 0;
                 }
                 JsonArray rows = new JsonArray();
-                int[] colourByRegion = layer.colouring.colourByRegion;
+                int[] colourByRegion = layer.colouring.colourByNode;
                 for (int region = 0; region < regions.regionCount; region++) {
                     JsonObject row = new JsonObject();
                     row.addProperty("region", region);

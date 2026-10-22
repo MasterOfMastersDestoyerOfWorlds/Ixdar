@@ -9,7 +9,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
-import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.graphics.render.model.QuadLayoutOverlay;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
@@ -24,7 +24,7 @@ import ixdar.tools.ControlHint;
 @SceneAnnotation(id = "mcg-exam")
 public class MotorcycleGraphExaminationScene extends ModelScene {
 
-    private MeshOverlayRuntime quadRuntime;
+    private QuadLayoutOverlay quadRuntime;
     private SeamlessUv seamless;
 
     /**
@@ -36,7 +36,7 @@ public class MotorcycleGraphExaminationScene extends ModelScene {
 
     @Override
     public HalfEdgeMeshRuntime createRuntime() {
-        quadRuntime = new MeshOverlayRuntime();
+        quadRuntime = new QuadLayoutOverlay();
         return quadRuntime;
     }
 

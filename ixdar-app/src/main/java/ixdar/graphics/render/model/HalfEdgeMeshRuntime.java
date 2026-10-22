@@ -23,6 +23,7 @@ import ixdar.nodegraph.field.IntField;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.shaders.MeshLineShader;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
@@ -35,7 +36,7 @@ public class HalfEdgeMeshRuntime {
     public static final String VIEW = "view";
     public static final String PROJECTION = "projection";
     public static final String SOLIDCOLOR = "solidColor";
-    public static final String PATCH = "patch_";
+    public static final String RAMP_COLORS = "rampColors";
     public static final float FRAME_DISTANCE_FLOOR = 1.5f;
     public static final float FRAME_DISTANCE_MULTIPLIER = 2.5f;
     public static final float FEATURE_EDGE_LINE_WIDTH = 2.5f;
@@ -48,11 +49,6 @@ public class HalfEdgeMeshRuntime {
     public static final int UV_OFFSET = 6;
     public static final int SCALAR_ATTRIB_LOCATION = 3;
     public static final float EDGE_LINE_WIDTH = 2.0f;
-    public static final double GOLDEN_RATIO_CONJUGATE = 0.6180339887498949;
-    public static final int HASH_MASK = 0x7FFFFFFF;
-    public static final int HUE_QUANTIZATION = 10000;
-    public static final float TAG_SATURATION = 0.65f;
-    public static final float TAG_LIGHTNESS = 0.55f;
     public static final int HASH_PRIME = 31;
 
     public static final float NEAR_PLANE_DISTANCE_FRACTION = 0.01f;
@@ -459,6 +455,9 @@ public class HalfEdgeMeshRuntime {
         if (shaderMode == ShaderMode.SCALAR && scalarUploaded) {
             active.setFloat("scalarMin", scalarMin);
             active.setFloat("scalarMax", scalarMax);
+            for (int stop = 0; stop < Palettes.SCALAR_RAMP.size(); stop++) {
+                active.setVec4(RAMP_COLORS + "[" + stop + "]", Palettes.SCALAR_RAMP.color(stop));
+            }
         }
         active.setMat4(MODEL, modelMatrix);
         active.setMat4(VIEW, camera.view);
@@ -1196,35 +1195,7 @@ public class HalfEdgeMeshRuntime {
     private Vector4f resolveColor(String tag) {
         Vector4f override = tagColorOverrides.get(tag);
         if (override != null) return new Vector4f(override);
-        return stableTagColor(tag);
-    }
-
-    /**
-     * Golden-ratio-hue HSL colour derived from the tag name. Matches
-     * {@code PatchColors.uniquePatchColor(pid)} for a tag named
-     * {@code "patch_<pid>"}, so a decomposer tag renders in the colour the
-     * decomposition JSON reports as its {@code flat_color}.
-     *
-     * @param tagName tag identifier; names matching {@code patch_<int>} are
-     *                colored from the patch id, all others fall back to a
-     *                stable string hash
-     * @return RGBA color with alpha = 1
-     */
-    public static Vector4f stableTagColor(String tagName) {
-        int pid = -1;
-        if (tagName != null && tagName.startsWith(PATCH)) {
-            try {
-                pid = Integer.parseInt(tagName.substring(PATCH.length()));
-            } catch (NumberFormatException ignored) {}
-        }
-        float h;
-        if (pid >= 0) {
-            h = (float) ((pid * GOLDEN_RATIO_CONJUGATE) % 1.0);
-        } else {
-            int hash = stableHash(tagName == null ? "" : tagName);
-            h = ((hash & HASH_MASK) % HUE_QUANTIZATION) / 10000f;
-        }
-        return Color.fromHsl(h, TAG_SATURATION, TAG_LIGHTNESS).toVector4f();
+        return Palettes.PATCH.color(stableHash(tag)).toVector4f();
     }
 
     private static int stableHash(String s) {

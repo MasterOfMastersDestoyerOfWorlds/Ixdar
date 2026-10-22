@@ -74,9 +74,11 @@ setup has too many variables for it to be reliable; treat it as a starting point
 **Draw overlays on a mesh.** `HalfEdgeMeshRuntime` already has tag-partitioned coloring
 (`setTags`), scalar heat maps (`setPerVertexScalar`), and colored edge-line overlays
 (`setFeatureEdgeOverlay`). Check those before writing new GL plumbing. `MeshOverlayRuntime` now
-takes only general values (mesh, `UvField`, `ArcNetwork`, `CrossField`, patch surfaces, point
-clouds, coloured line groups, labels at points and polylines), converts each into a `LineSet`, a `PointSet`, or a corner array, and
-uploads through `VertexBuffer` per `VertexLayout`; decoupling overlay draw order from the runtime
+takes only general values (point clouds, coloured line groups, anchor discs, labels at points and
+polylines), converts each into a `LineSet`, a `PointSet`, or a corner array, and uploads through
+`VertexBuffer` per `VertexLayout`; its subclass `QuadLayoutOverlay` turns the quad-layout
+pipeline's values (`UvField`, `ArcNetwork`, `CrossField`, patch surfaces) into the same
+primitives. Patch and tag colours come from `Palettes`; decoupling overlay draw order from the runtime
 is still open.
 
 **Verify a change.** Build with `mvn -q clean compile -pl annotations,ixdar-app`. Plain
@@ -195,8 +197,8 @@ commas between test names, never `+`.
 - **ixdar.graphics**: Namespace root for `cameras` and `render`.
 - **ixdar.graphics.cameras**: `Camera2D` (pan/scale, zoom-to-fit) and `Camera3D` (first-person, or an orbit whose state it holds) behind a 2D-shaped `Camera` interface; several `Camera3D` methods throw. `CameraController` is how a camera answers drags, the wheel and held keys: `Camera2D` pans, `Camera3D` orbits, `FlyController` flies. `Bounds` is the viewport rectangle with a resize recalculator.
 - **ixdar.graphics.render**: Shared render primitives: `Clock` (process-global static time, frame deltas, oscillation; the animation driver for shaders) and `Texture` (supports a deferred placeholder mode filled in by async platform loading).
-- **ixdar.graphics.render.color**: `Color` interface with the named palette, `ColorRGB`, and animated lerps driven by the static `Clock`. `PatchColorHash` mirrors the GLSL `patchColor()` hash; but surface fill and layout overlay hash different id spaces, so a shared palette does not mean matching colors.
-- **ixdar.graphics.render.model**: Mesh rendering runtimes. `HalfEdgeMeshRuntime` uploads compiled meshes and draws them with tag partitioning, scalar heat maps, feature-edge overlays, and wireframe. `MeshOverlayRuntime` extends it with general overlays: points, lines, labels, fields and arcs become a `LineSet`, a `PointSet`, or a corner array, uploaded through `VertexBuffer` per `VertexLayout`. `AssimpModelRuntime` renders loaded models.
+- **ixdar.graphics.render.color**: `Color` interface with the named palette, `ColorRGB`, and animated lerps driven by the static `Clock`. `Palettes` holds every colour cycle drawn by id (patch, ring, region, heat-map ramp), and `RegionColouring` hands palette entries to graph nodes so neighbours never match.
+- **ixdar.graphics.render.model**: Mesh rendering runtimes: `HalfEdgeMeshRuntime` draws compiled meshes, `MeshOverlayRuntime` adds general overlays (lines, points, labels, markers), `QuadLayoutOverlay` adds the quad-layout pipeline's debug views, and `AssimpModelRuntime` renders loaded models.
 - **ixdar.graphics.render.sdf**: Signed-distance-field drawables, the editor's 2D drawing vocabulary: the `ShaderDrawable` base, `SDFLine` variants, `SDFCircle`, `SDFRoundedRect`, `SDFBezier`, `SDFUnion` and MSDF textures. Each draws geometry first, then colors, then the camera: `draw(..., Color, Camera)`.
 - **ixdar.graphics.render.shaders**: Shader compilation and GL object wrappers. `ShaderProgram.ShaderType` is the central registry mapping every logical shader to its class and `.vs`/`.fs` pair; subclasses differ mainly in vertex stride and attribute layout. Sources pass through `GlslSource` for the dialect rewrite.
 - **ixdar.graphics.render.text**: MSDF font atlas loading, glyphs and colored text runs, drawn for the rich-text model in `ixdar.gui.ui.text`. Each glyph is an SDF drawable. Private-Use-Area code points carry non-font glyphs.
@@ -273,7 +275,7 @@ commas between test names, never `+`.
 - **ixdar.tools.graph**: The DSL graph view: a ran DSL's statements laid out left to right by dependency depth as rounded boxes joined by bezier arrows, each box carrying its run time, toggled over any model scene that ran a graph.
 - **ixdar.tools.knot**: The TSP editor's knot tools, each a `KnotTool` (the shared knot hover and selection behind the merged `Tool`): free inspection, map editing and diagnostic overlays over the editor's knots.
 - **ixdar.tools.orbit**: `OrbitTool`: the look-only tool every model scene opens with; the mouse orbits, pans and zooms the camera and nothing is edited.
-- **ixdar.tools.regions**: Ring regions of the `ring-tool` editing scene: `RegionLayer` keeps the regions the ring tool's rings enclose up to date and colours them, `RegionColouring` picks the colours, and `RingRegionTool` (the region tool) selects regions by click and Shift+click and extracts them.
+- **ixdar.tools.regions**: Ring regions of the `ring-tool` editing scene: `RegionLayer` keeps the regions the ring tool's rings enclose up to date and colours them through the shared `RegionColouring`, and `RingRegionTool` (the region tool) selects regions by click and Shift+click and extracts them.
 - **ixdar.tools.ring**: The ring tool of the `ring-tool` editing scene: `RingTool` previews, drafts and confirms rings from authored anchors, `RingToolState` is its undoable snapshot, and `RingDslWriter` appends each ring to the working .dsl graph as one statement.
 - **ixdar.tools.trade**: Trade-game tools on the merged `Tool`: `HeadquartersPickerTool` and `RoutePlanningTool`, which depend on the game model instead of the knot editor.
 <!-- package-map:end -->

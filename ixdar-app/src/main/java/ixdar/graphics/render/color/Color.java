@@ -6,7 +6,6 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 public interface Color {
-    public static final float HUE_SEXTANTS = 6f;
     // Sorted by hue: neutrals black to white, then hue angle from red, ties by
     // lightness, alpha
     // variants (named BASE_<percent>) after their base. ColorOrderTest pins the
@@ -25,14 +24,16 @@ public interface Color {
     public static final Color RED_DARK = new ColorRGB(0.7f, 0.1f, 0.1f, "Red Dark");
     public static final Color RED = new ColorRGB(1f, 0f, 0f, "Red");
     public static final Color RED_50 = new ColorRGB(1f, 0f, 0f, 0.5f, "Red 50");
-    public static final Color RED_LIGHT = new ColorRGB(1f, 0.25f, 0.25f, "Red Light");
+    public static final Color RED_BRIGHT = new ColorRGB(217, 98, 98, "Red Bright");
+    public static final Color RED_LIGHT =new ColorRGB(1f, 0.25f, 0.25f, "Red Light");
     public static final Color RED_LIGHT_80 = new ColorRGB(1f, 0.25f, 0.25f, 0.8f, "Red Light 80");
     public static final Color PINK_PASTEL = new ColorRGB(0.99f, 0.80f, 0.80f, "Pink Pastel");
     public static final Color RED_VERY_LIGHT = new ColorRGB(255, 132, 124, "Red Very Light");
     public static final Color BROWN_RED = new ColorRGB(210, 111, 92, "Brown Red");
     public static final Color RED_ORANGE = new ColorRGB(255, 77, 26, "Red Orange");
     public static final Color ORANGE_LIGHT = new ColorRGB(248, 177, 149, "Orange Light");
-    public static final Color BROWN_DARK = new ColorRGB(210, 105, 30, "Brown Dark");
+    public static final Color RED_ORANGE_BRIGHT = new ColorRGB(217, 137, 98, "Red Orange Bright");
+    public static final Color BROWN_DARK =new ColorRGB(210, 105, 30, "Brown Dark");
     public static final Color ORANGE_VERY_LIGHT = new ColorRGB(254, 206, 171, "Orange Very Light");
     public static final Color BROWN_ORANGE = new ColorRGB(208, 138, 74, "Brown Orange");
     public static final Color ORANGE_DARK = new ColorRGB(178, 89, 0, "Orange Dark");
@@ -40,38 +41,47 @@ public interface Color {
     public static final Color ORANGE = new ColorRGB(255, 159, 10, "Orange");
     public static final Color ORANGE_PASTEL = new ColorRGB(243, 199, 122, "Orange Pastel");
     public static final Color YELLOW_ORANGE_VERY_LIGHT = new ColorRGB(0.98f, 0.88f, 0.70f, "Yellow Orange Very Light");
-    public static final Color BROWN_PASTEL = new ColorRGB(0.90f, 0.80f, 0.60f, "Brown Pastel");
+    public static final Color ORANGE_YELLOW_BRIGHT = new ColorRGB(217, 177, 98, "Orange Yellow Bright");
+    public static final Color BROWN_PASTEL =new ColorRGB(0.90f, 0.80f, 0.60f, "Brown Pastel");
     public static final Color YELLOW_PASTEL = new ColorRGB(0.95f, 0.85f, 0.55f, "Yellow Pastel");
     public static final Color YELLOW_ORANGE = new ColorRGB(1f, 0.8f, 0f, "Yellow Orange");
     public static final Color YELLOW_VERY_LIGHT = new ColorRGB(0.98f, 0.96f, 0.70f, "Yellow Very Light");
     public static final Color YELLOW = new ColorRGB(255, 255, 0, "Yellow");
     public static final Color YELLOW_50 = new ColorRGB(1f, 1f, 0f, 0.5f, "Yellow 50");
-    public static final Color YELLOW_LIGHT = new ColorRGB(232, 232, 160, "Yellow Light");
+    public static final Color YELLOW_BRIGHT = new ColorRGB(217, 217, 98, "Yellow Bright");
+    public static final Color YELLOW_LIGHT =new ColorRGB(232, 232, 160, "Yellow Light");
     public static final Color YELLOW_GREEN_PASTEL = new ColorRGB(0.90f, 0.95f, 0.55f, "Yellow Green Pastel");
-    public static final Color GREEN_YELLOW = new ColorRGB(182, 255, 59, "Green Yellow");
+    public static final Color YELLOW_GREEN_BRIGHT = new ColorRGB(177, 217, 98, "Yellow Green Bright");
+    public static final Color GREEN_YELLOW =new ColorRGB(182, 255, 59, "Green Yellow");
     public static final Color GREEN_PASTEL = new ColorRGB(0.75f, 0.85f, 0.65f, "Green Pastel");
     public static final Color GREEN_YELLOW_LIGHT = new ColorRGB(0.70f, 0.90f, 0.60f, "Green Yellow Light");
-    public static final Color GREEN_LIGHT = new ColorRGB(121, 233, 99, "Green Light");
+    public static final Color GREEN_YELLOW_BRIGHT = new ColorRGB(137, 217, 98, "Green Yellow Bright");
+    public static final Color GREEN_LIGHT =new ColorRGB(121, 233, 99, "Green Light");
     public static final Color GREEN_GREY_LIGHT = new ColorRGB(164, 195, 162, "Green Grey Light");
     public static final Color GREEN = new ColorRGB(0f, 1f, 0f, "Green");
     public static final Color GREEN_80 = new ColorRGB(0f, 1f, 0f, 0.8f, "Green 80");
-    public static final Color GREEN_VERY_LIGHT = new ColorRGB(0.80f, 0.96f, 0.80f, "Green Very Light");
+    public static final Color GREEN_BRIGHT = new ColorRGB(98, 217, 98, "Green Bright");
+    public static final Color GREEN_VERY_LIGHT =new ColorRGB(0.80f, 0.96f, 0.80f, "Green Very Light");
     public static final Color GREEN_TEAL = new ColorRGB(42, 223, 79, "Green Teal");
     public static final Color GREEN_TEAL_LIGHT = new ColorRGB(0.2f, 1f, 0.4f, "Green Teal Light");
-    public static final Color TEAL_GREEN = new ColorRGB(0, 255, 128, "Teal Green");
-    public static final Color TEAL_DARK = new ColorRGB(0f, 0.75f, 0.5f, "Teal Dark");
+    public static final Color GREEN_TEAL_BRIGHT = new ColorRGB(98, 217, 137, "Green Teal Bright");
+    public static final Color TEAL_GREEN =new ColorRGB(0, 255, 128, "Teal Green");
+    public static final Color TEAL_GREEN_BRIGHT = new ColorRGB(98, 217, 177, "Teal Green Bright");
+    public static final Color TEAL_DARK =new ColorRGB(0f, 0.75f, 0.5f, "Teal Dark");
     public static final Color TEAL_PASTEL = new ColorRGB(182, 224, 212, "Teal Pastel");
     public static final Color TEAL_LIGHT = new ColorRGB(61, 232, 200, "Teal Light");
     public static final Color TEAL = new ColorRGB(0, 255, 255, "Teal");
     public static final Color TEAL_50 = new ColorRGB(0f, 1f, 1f, 0.5f, "Teal 50");
-    public static final Color TEAL_VERY_LIGHT = new ColorRGB(77, 255, 255, "Teal Very Light");
+    public static final Color TEAL_BRIGHT = new ColorRGB(98, 217, 217, "Teal Bright");
+    public static final Color TEAL_VERY_LIGHT =new ColorRGB(77, 255, 255, "Teal Very Light");
     public static final Color TEAL_BLUE = new ColorRGB(0, 229, 255, "Teal Blue");
     public static final Color TEAL_BLUE_PASTEL = new ColorRGB(0.60f, 0.85f, 0.90f, "Teal Blue Pastel");
     public static final Color TEAL_BLUE_LIGHT = new ColorRGB(0.2f, 0.85f, 1f, "Teal Blue Light");
     public static final Color BLUE_TEAL = new ColorRGB(0, 200, 255, "Blue Teal");
     public static final Color GREY_BLUE_VERY_DARK = new ColorRGB(42, 54, 59, "Grey Blue Very Dark");
     public static final Color BLUE_TEAL_VERY_DARK = new ColorRGB(5, 37, 53, "Blue Teal Very Dark");
-    public static final Color BLUE_GREY = new ColorRGB(98, 142, 166, "Blue Grey");
+    public static final Color TEAL_BLUE_BRIGHT = new ColorRGB(98, 177, 217, "Teal Blue Bright");
+    public static final Color BLUE_GREY =new ColorRGB(98, 142, 166, "Blue Grey");
     public static final Color BLUE_VERY_LIGHT = new ColorRGB(0.88f, 0.95f, 1.0f, "Blue Very Light");
     public static final Color BLUE_GREY_VERY_LIGHT = new ColorRGB(143, 177, 203, "Blue Grey Very Light");
     public static final Color BLUE_GREY_DARK = new ColorRGB(53, 92, 125, "Blue Grey Dark");
@@ -84,27 +94,34 @@ public interface Color {
     public static final Color PURPLE_PASTEL = new ColorRGB(0.80f, 0.86f, 0.96f, "Purple Pastel");
     public static final Color BLUE_TEAL_LIGHT = new ColorRGB(0.25f, 0.5f, 1f, "Blue Teal Light");
     public static final Color BLUE_TEAL_LIGHT_80 = new ColorRGB(0.25f, 0.5f, 1f, 0.8f, "Blue Teal Light 80");
-    public static final Color BLUE_DARK = new ColorRGB(15, 45, 135, "Blue Dark");
+    public static final Color BLUE_TEAL_BRIGHT = new ColorRGB(98, 137, 217, "Blue Teal Bright");
+    public static final Color BLUE_DARK =new ColorRGB(15, 45, 135, "Blue Dark");
     public static final Color PURPLE_VERY_LIGHT = new ColorRGB(0.88f, 0.90f, 0.96f, "Purple Very Light");
     public static final Color BLUE_VERY_DARK = new ColorRGB(32, 35, 70, "Blue Very Dark");
     public static final Color BLUE = new ColorRGB(0f, 0f, 1f, "Blue");
-    public static final Color PURPLE_LIGHT = new ColorRGB(167, 147, 238, "Purple Light");
+    public static final Color BLUE_BRIGHT = new ColorRGB(98, 98, 217, "Blue Bright");
+    public static final Color PURPLE_LIGHT =new ColorRGB(167, 147, 238, "Purple Light");
+    public static final Color BLUE_PURPLE_BRIGHT = new ColorRGB(137, 98, 217, "Blue Purple Bright");
     public static final Color PURPLE = new ColorRGB(127, 0, 255, "Purple");
     public static final Color PURPLE_GREY_VERY_LIGHT = new ColorRGB(199, 181, 217, "Purple Grey Very Light");
     public static final Color PURPLE_BLUE_LIGHT = new ColorRGB(0.72f, 0.58f, 0.85f, "Purple Blue Light");
     public static final Color PURPLE_GREY = new ColorRGB(108, 91, 123, "Purple Grey");
     public static final Color PURPLE_PINK_VERY_LIGHT = new ColorRGB(0.85f, 0.70f, 0.95f, "Purple Pink Very Light");
     public static final Color PURPLE_BLUE = new ColorRGB(0.72f, 0.25f, 1f, "Purple Blue");
-    public static final Color PURPLE_GREY_DARK = new ColorRGB(93, 78, 96, "Purple Grey Dark");
+    public static final Color PURPLE_BRIGHT = new ColorRGB(177, 98, 217, "Purple Bright");
+    public static final Color PURPLE_GREY_DARK =new ColorRGB(93, 78, 96, "Purple Grey Dark");
     public static final Color PURPLE_GREY_LIGHT = new ColorRGB(173, 140, 174, "Purple Grey Light");
     public static final Color PURPLE_PINK = new ColorRGB(1f, 0f, 1f, "Purple Pink");
     public static final Color PURPLE_PINK_50 = new ColorRGB(1f, 0f, 1f, 0.5f, "Purple Pink 50");
-    public static final Color PURPLE_PINK_LIGHT = new ColorRGB(255, 77, 255, "Purple Pink Light");
+    public static final Color PURPLE_PINK_BRIGHT = new ColorRGB(217, 98, 217, "Purple Pink Bright");
+    public static final Color PURPLE_PINK_LIGHT =new ColorRGB(255, 77, 255, "Purple Pink Light");
     public static final Color PURPLE_DARK = new ColorRGB(125, 49, 123, "Purple Dark");
     public static final Color PINK = new ColorRGB(255, 0, 200, "Pink");
-    public static final Color PINK_LIGHT = new ColorRGB(255, 64, 160, "Pink Light");
+    public static final Color PINK_PURPLE_BRIGHT = new ColorRGB(217, 98, 177, "Pink Purple Bright");
+    public static final Color PINK_LIGHT =new ColorRGB(255, 64, 160, "Pink Light");
     public static final Color PINK_RED = new ColorRGB(255, 0, 128, "Pink Red");
-    public static final Color PINK_RED_LIGHT = new ColorRGB(192, 108, 132, "Pink Red Light");
+    public static final Color PINK_RED_BRIGHT = new ColorRGB(217, 98, 137, "Pink Red Bright");
+    public static final Color PINK_RED_LIGHT =new ColorRGB(192, 108, 132, "Pink Red Light");
     public static final Color PINK_RED_VERY_LIGHT = new ColorRGB(231, 163, 182, "Pink Red Very Light");
     public static final Color IXDAR_DARK = new ColorRGB(51, 1, 13, "Dark Ixdar");
     public static final Color IXDAR = new ColorRGB(150, 0, 36, "Ixdar");
@@ -188,46 +205,6 @@ public interface Color {
      */
     public static Color fullHue(float hue) {
         return HSBtoRGB(hue, 1f, 1f);
-    }
-
-    /**
-     * Convert HSL (hue/saturation/lightness) to RGB, unrounded: the conversion
-     * behind the patch colours, which step the hue by the golden ratio at a fixed
-     * saturation and lightness.
-     *
-     * @param hue        hue in [0, 1)
-     * @param saturation saturation in [0, 1]
-     * @param lightness  lightness in [0, 1]
-     * @return new opaque RGB color, each channel clamped into [0, 1]
-     */
-    public static Color fromHsl(float hue, float saturation, float lightness) {
-        float chroma = (1f - Math.abs(2f * lightness - 1f)) * saturation;
-        float sextant = hue * HUE_SEXTANTS;
-        float second = chroma * (1f - Math.abs(sextant % 2f - 1f));
-        float red = 0f;
-        float green = 0f;
-        float blue = 0f;
-        if (sextant < 1f) {
-            red = chroma;
-            green = second;
-        } else if (sextant < 2f) {
-            red = second;
-            green = chroma;
-        } else if (sextant < 3f) {
-            green = chroma;
-            blue = second;
-        } else if (sextant < 4f) {
-            green = second;
-            blue = chroma;
-        } else if (sextant < 5f) {
-            red = second;
-            blue = chroma;
-        } else {
-            red = chroma;
-            blue = second;
-        }
-        float lift = lightness - chroma * 0.5f;
-        return new ColorRGB(red + lift, green + lift, blue + lift);
     }
 
     /**

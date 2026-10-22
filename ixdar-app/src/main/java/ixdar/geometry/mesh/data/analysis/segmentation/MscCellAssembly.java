@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palettes;
 
 /**
  * Ascending-manifold segmentation from a Morse-Smale critical-point set: each face is labelled by
@@ -167,7 +168,7 @@ public final class MscCellAssembly {
             centroid[0] /= vertCount;
             centroid[1] /= vertCount;
             centroid[2] /= vertCount;
-            Color color = PatchColors.uniquePatchColor(patchId);
+            Color color = Palettes.PATCH.shadedColor(patchId);
             patches.add(new Patch(patchId++, verts, faces, /*branch=*/-1,
                     centroid, /*meanCurvature=*/0f, color));
         }

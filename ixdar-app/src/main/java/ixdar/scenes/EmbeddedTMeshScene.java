@@ -15,6 +15,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.graphics.render.model.QuadLayoutOverlay;
 import ixdar.models.ModelChoice;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.platform.Platforms;
@@ -68,7 +69,7 @@ public class EmbeddedTMeshScene extends ModelScene {
      */
     public int failedContractOps = ArcNetwork.NONE;
 
-    private MeshOverlayRuntime quadRuntime;
+    private QuadLayoutOverlay quadRuntime;
     private ArcNetwork tmesh;
 
     /** Contraction operators bound to {@link #tmesh}; rebound whenever it is replaced. */
@@ -105,7 +106,7 @@ public class EmbeddedTMeshScene extends ModelScene {
 
     @Override
     public HalfEdgeMeshRuntime createRuntime() {
-        quadRuntime = new MeshOverlayRuntime();
+        quadRuntime = new QuadLayoutOverlay();
         runtime = quadRuntime;
         return runtime;
     }

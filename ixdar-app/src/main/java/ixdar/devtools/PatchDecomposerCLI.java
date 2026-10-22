@@ -8,6 +8,8 @@ import java.nio.file.Files;
 import java.util.Map;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.TreeSet;
 
 import java.util.Arrays;
 
@@ -22,12 +24,13 @@ import ixdar.geometry.mesh.data.analysis.curvature.PrincipalDirectionField;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.analysis.segmentation.MeshSegmenter;
 import ixdar.geometry.mesh.data.analysis.segmentation.Patch;
-import ixdar.geometry.mesh.data.analysis.segmentation.PatchColors;
 import ixdar.geometry.mesh.data.analysis.segmentation.PatchDecomposition;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palettes;
+import ixdar.graphics.render.color.RegionColouring;
 
 /**
  * Headless CLI for the patch decomposition pipeline, callable without the automation server.
@@ -128,7 +131,8 @@ public final class PatchDecomposerCLI {
 
     /**
      * The decomposition as the JSON the CLI prints and the decompose route returns: each patch's
-     * id, branch, palette {@code color}, per-id {@code flat_color}, centroid, vertices and faces.
+     * id, branch, palette {@code color}, a {@code flat_color} no patch sharing a vertex with it
+     * takes, centroid, vertices and faces.
      *
      * @param d the decomposition to write
      * @return {@code {ok, vertex_count, patches}}
@@ -137,13 +141,39 @@ public final class PatchDecomposerCLI {
         JsonObject out = new JsonObject();
         out.addProperty(OK, true);
         out.addProperty(VERTEX_COUNT, d.vertexCount());
+        // Patches sharing a vertex neighbour each other, so their flat colours always differ.
+        List<Patch> patchList = d.patches();
+        List<List<Integer>> patchesByVertex = new ArrayList<>();
+        for (int vertex = 0; vertex < d.vertexCount(); vertex++) {
+            patchesByVertex.add(new ArrayList<>());
+        }
+        int[] facesByPatch = new int[patchList.size()];
+        for (int index = 0; index < patchList.size(); index++) {
+            facesByPatch[index] = patchList.get(index).faceIndices().length;
+            for (int vertex : patchList.get(index).vertexIndices()) {
+                patchesByVertex.get(vertex).add(index);
+            }
+        }
+        int[][] neighboursByPatch = new int[patchList.size()][];
+        for (int index = 0; index < patchList.size(); index++) {
+            TreeSet<Integer> neighbours = new TreeSet<>();
+            for (int vertex : patchList.get(index).vertexIndices()) {
+                neighbours.addAll(patchesByVertex.get(vertex));
+            }
+            neighbours.remove(index);
+            neighboursByPatch[index] = neighbours.stream().mapToInt(Integer::intValue).toArray();
+        }
+        RegionColouring flatColouring = new RegionColouring();
+        flatColouring.colour(neighboursByPatch, facesByPatch, null, null, Palettes.BRIGHT_PATCH);
         JsonArray patches = new JsonArray();
-        for (Patch p : d.patches()) {
+        for (int index = 0; index < patchList.size(); index++) {
+            Patch p = patchList.get(index);
             JsonObject pj = new JsonObject();
             pj.addProperty(ID, p.id());
             pj.addProperty("branch_id", p.branchId());
             pj.add(COLOR, channels(p.color()));
-            pj.add(FLAT_COLOR, channels(PatchColors.uniquePatchColor(p.id())));
+            pj.add(FLAT_COLOR, channels(
+                    Palettes.BRIGHT_PATCH.shadedColor(flatColouring.colourByNode[index])));
             pj.addProperty("curvature_mean", p.curvatureMean());
             JsonArray centroid = new JsonArray();
             for (float c : p.centroid()) centroid.add(c);

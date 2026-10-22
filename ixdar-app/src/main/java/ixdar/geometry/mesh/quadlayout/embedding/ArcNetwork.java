@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import org.joml.Vector3f;
 
@@ -641,6 +642,32 @@ public class ArcNetwork {
             }
         }
         return ends.size();
+    }
+
+    /**
+     * The patches across a live arc from each patch, by patch id; a patch meeting another only
+     * at a corner is not its neighbour.
+     *
+     * @return per patch id, its distinct neighbouring patch ids in ascending order
+     */
+    public int[][] patchNeighbours() {
+        List<TreeSet<Integer>> neighbours = new ArrayList<>();
+        for (int patchId = 0; patchId < patches.size(); patchId++) {
+            neighbours.add(new TreeSet<>());
+        }
+        for (EmbeddedArc arc : arcs) {
+            if (!arc.alive || arc.leftPatchId == NONE || arc.rightPatchId == NONE
+                    || arc.leftPatchId == arc.rightPatchId) {
+                continue;
+            }
+            neighbours.get(arc.leftPatchId).add(arc.rightPatchId);
+            neighbours.get(arc.rightPatchId).add(arc.leftPatchId);
+        }
+        int[][] byPatch = new int[patches.size()][];
+        for (int patchId = 0; patchId < byPatch.length; patchId++) {
+            byPatch[patchId] = neighbours.get(patchId).stream().mapToInt(Integer::intValue).toArray();
+        }
+        return byPatch;
     }
 
     /**

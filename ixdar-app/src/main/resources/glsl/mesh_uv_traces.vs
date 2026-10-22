@@ -9,7 +9,6 @@ layout(location = 5) in vec4 aTrace0;
 layout(location = 6) in vec4 aTrace1;
 layout(location = 7) in vec4 aTrace2;
 layout(location = 8) in vec4 aTrace3;
-layout(location = 9) in float aPatchId;
 
 out float vFlipped;
 out vec3 Normal;
@@ -18,7 +17,6 @@ out vec4 vTrace0;
 out vec4 vTrace1;
 out vec4 vTrace2;
 out vec4 vTrace3;
-flat out float vPatchId;
 
 uniform mat4 model;
 uniform mat4 view;
@@ -33,5 +31,4 @@ void main() {
     vTrace1 = aTrace1;
     vTrace2 = aTrace2;
     vTrace3 = aTrace3;
-    vPatchId = aPatchId;
 }

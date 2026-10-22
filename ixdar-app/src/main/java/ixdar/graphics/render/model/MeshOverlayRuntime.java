@@ -7,26 +7,12 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
-import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangleGeometry;
-import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.representation.IntIdList;
-import ixdar.nodegraph.field.BoolField;
-import ixdar.nodegraph.field.IntField;
-import ixdar.nodegraph.field.UvField;
-import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
-import ixdar.geometry.mesh.data.fields.crossfield.constraint.ConstraintSource;
-import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
-import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedNode;
-import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
-import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
-import ixdar.graphics.render.color.PatchColorHash;
 import ixdar.graphics.render.shaders.MeshLineShader;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.gui.ui.Drawing;
@@ -36,7 +22,7 @@ import ixdar.platform.gl.GL;
 import ixdar.geometry.mesh.data.paths.query.SurfaceFaceLocator;
 
 /**
- * General overlays drawn over a half-edge mesh surface: points, lines, labels, fields and arcs.
+ * General overlays drawn over a half-edge mesh surface: points, lines, labels and markers.
  * Each setter converts one value into a {@link LineSet}, a {@link PointSet} or a corner array,
  * and {@link VertexBuffer#upload} is the one upload path per {@link VertexLayout}.
  */
@@ -45,32 +31,13 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     public static final String GROUP_PALETTE_ORDER =
             "yellow, green, magenta, cyan, purple, white, red, azure";
 
-    private static final VertexLayout POSITION_LAYOUT =
+    public static final VertexLayout POSITION_LAYOUT =
             new VertexLayout(new int[] { 0 }, new int[] { 3 });
-    private static final VertexLayout ISO_CORNER_LAYOUT = new VertexLayout(
-            new int[] { 0, 1, 3, 4, 5, 6, 7, 8, 9 }, new int[] { 3, 3, 2, 1, 4, 4, 4, 4, 1 });
-    private static final VertexLayout CROSS_GLYPH_LAYOUT = new VertexLayout(
-            new int[] { 0, 1, 3, 4, 5, 6 }, new int[] { 3, 3, 3, 3, 3, 1 });
-    private static final int CORNERS_PER_FACE = 3;
-    private static final int TRACE_FLOATS_PER_FACE =
-            MotorcycleGraph.MAX_TRACE_RECORDS_PER_FACE * 4;
-    private static final int UV_OFFSET = 6;
-    private static final int FLIP_OFFSET = 8;
-    private static final int TRACE_OFFSET = 9;
-    private static final int CENTROID_OFFSET = 6;
-    private static final int DIR_U_OFFSET = 9;
-    private static final int DIR_V_OFFSET = 12;
-    private static final int ARM_LENGTH_OFFSET = 15;
-    private static final int INDICES_PER_GRID_CELL = 6;
-    private static final float ONE_THIRD = 1.0f / 3.0f;
-    private static final float CONSTRAINT_NORMAL_LIFT = 0.25f;
-    private static final float DEFAULT_LINE_HALF_WIDTH = 1.0f;
+    public static final float LAYOUT_LINE_WIDTH = 2.5f;
+    public static final float DEFAULT_GL_LINE_WIDTH = 1f;
+
     private static final float SPHERE_RADIUS_FRACTION_OF_BBOX = 0.005f;
-    private static final float LAYOUT_LINE_WIDTH = 2.5f;
     private static final float HIGHLIGHT_LINE_WIDTH = 5f;
-    private static final float DEFAULT_GL_LINE_WIDTH = 1f;
-    private static final float LAYOUT_PATCH_ALPHA = 0.55f;
-    private static final float CORNER_SPHERE_SCALE = 0.7f;
     private static final float HIGHLIGHT_REGION_SCALE = 0.22f;
     private static final float HIGHLIGHT_MARKER_SCALE = 2.2f;
     private static final float PATCH_CLOUD_SCALE = 1f;
@@ -85,38 +52,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private static final float LABEL_LIFT_TIE = 0.25f;
     private static final int LABEL_PIXEL_VALUES = 3;
 
-    private static final String BASE_COLOR = "baseColor";
-    private static final String U_LINE_COLOR = "uLineColor";
-    private static final String V_LINE_COLOR = "vLineColor";
-    private static final String LINE_HALF_WIDTH = "lineHalfWidth";
-    private static final String FLIPPED_COLOR_UNIFORM = "flippedColor";
-    private static final String DRAW_FULL_ISO_GRID_UNIFORM = "drawFullIsoGrid";
-    private static final String USE_PATCH_COLOR_UNIFORM = "usePatchColor";
-
-    private static final Color COLOR_U_ARM = Color.YELLOW;
-    private static final Color COLOR_V_ARM = Color.TEAL;
-    private static final Color COLOR_INTERSECTION_NODE = Color.WHITE;
-    private static final Color COLOR_BOUNDARY_NODE = Color.YELLOW;
-    private static final Color COLOR_TRUNCATED_NODE = Color.BROWN_DARK;
-    private static final Color COLOR_POSITIVE_INDEX = Color.TEAL_50;
-    private static final Color COLOR_NEGATIVE_INDEX = Color.RED_50;
-    private static final Color COLOR_CONSTRAINT_BOUNDARY = Color.GREEN;
-    private static final Color COLOR_CONSTRAINT_FEATURE = Color.BROWN_DARK;
-    private static final Color COLOR_CONSTRAINT_CURVATURE = Color.PURPLE_PINK;
-    private static final Color COLOR_CONSTRAINT_ANCHOR = Color.WHITE;
-    private static final ConstraintSource[] CONSTRAINT_DRAW_ORDER = {
-            ConstraintSource.BOUNDARY, ConstraintSource.FEATURE,
-            ConstraintSource.CURVATURE, ConstraintSource.ANCHOR
-    };
-    private static final Color COLOR_LAYOUT_BOUNDARY = Color.WHITE;
-    private static final Color COLOR_LAYOUT_CORNER = Color.RED_LIGHT;
-    private static final Color COLOR_QUAD_GRID = Color.GREY_VERY_DARK;
-    private static final Color COLOR_EMBEDDED_ARC = Color.ORANGE;
-    private static final Color COLOR_EMBEDDED_ZERO_ARC = Color.RED;
-    private static final Color COLOR_COPY_WIREFRAME = Color.WHITE_25;
-    private static final Color COLOR_EMBEDDED_NODE = Color.TEAL_BLUE_LIGHT;
-    private static final Color COLOR_EMBEDDED_NODE_CRITICAL = Color.YELLOW_ORANGE;
-
     private static final float PHI = (1f + (float) Math.sqrt(5f)) * 0.5f;
     private static final float[] ICO_VERTICES = {
             -1, PHI, 0, 1, PHI, 0, -1, -PHI, 0, 1, -PHI, 0,
@@ -130,33 +65,11 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             4, 9, 5, 2, 4, 11, 6, 2, 10, 8, 6, 7, 9, 8, 1
     };
 
-    public final ShaderProgram uvShader;
-    public final ShaderProgram traceUvShader;
-    public final ShaderProgram crossFieldShader;
     public final ShaderProgram unlitShader;
 
     /** Draws the anchor discs: a fixed pixel size, depth-tested like the overlay lines. */
     public final MeshLineShader anchorShader;
 
-    public float lineHalfWidth = DEFAULT_LINE_HALF_WIDTH;
-    public Color baseColor = Color.BLUE_GREY;
-    public Color uLineColor = Color.TEAL;
-    public Color vLineColor = Color.YELLOW;
-    public Color flippedColor = Color.PURPLE_PINK;
-
-    public boolean showIsoLines;
-    public boolean showSingularities;
-    public boolean showCrossField;
-    public boolean showConstraints;
-    public boolean showTraces;
-    public boolean showNodes;
-    public boolean showFullIsoGrid;
-    public boolean showLayoutPatches;
-    public boolean showLayoutBoundaries;
-    public boolean showQuadGrid;
-    public boolean showEmbeddedArcs;
-    public boolean showEmbeddedNodes = true;
-    public boolean showCopyWireframe;
     public boolean showPatchClouds;
     public boolean showDiagnostic;
     public boolean showLineGroups = true;
@@ -184,20 +97,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
      */
     public float[] labelDepthLift = new float[0];
 
-    private ArcNetwork arrangement;
-    private UvField seamlessParametrization;
-    private HalfEdgeMesh seamlessMesh;
-
-    private final VertexBuffer isoSurface = new VertexBuffer();
-    private final VertexBuffer crossField = new VertexBuffer();
-    private final VertexBuffer constraints = new VertexBuffer();
     private final VertexBuffer sphere = new VertexBuffer();
-    /** Patch boundary edges first, then the interior quad grid edges. */
-    private final VertexBuffer layoutLines = new VertexBuffer();
-    private final VertexBuffer layoutFill = new VertexBuffer();
-    private final VertexBuffer copyWireframe = new VertexBuffer();
-    private final VertexBuffer embeddedArcs = new VertexBuffer();
-    private final VertexBuffer embeddedZeroArcs = new VertexBuffer();
     /** Every colour group's line segments end to end, two vertices per segment. */
     private final VertexBuffer lineGroups = new VertexBuffer();
     private final List<VertexBuffer> diagnosticLines = new ArrayList<>();
@@ -205,18 +105,8 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private final List<PointSet> diagnosticRegions = new ArrayList<>();
     private final List<PointSet> diagnosticMarkers = new ArrayList<>();
     private final List<PointSet> patchClouds = new ArrayList<>();
-    private PointSet singularities;
-    private PointSet graphNodes;
-    private PointSet layoutCorners;
-    private PointSet embeddedNodes;
     /** One screen-space disc per anchor and face around it, six corners each. */
     private final VertexBuffer anchorDiscs = new VertexBuffer();
-    private int layoutBoundaryVertexCount;
-    private int[] constraintRangeStart;
-    private int[] constraintRangeCount;
-    private int[] layoutPatchIndexStart;
-    private int[] layoutPatchIndexCount;
-    private Color[] layoutPatchColors;
     private int[] lineGroupSegmentStart = new int[0];
     private Color[] lineGroupColors = new Color[0];
 
@@ -230,12 +120,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     /** Build the runtime and initialise its overlay shaders. */
     public MeshOverlayRuntime() {
         super();
-        this.uvShader = ShaderProgram.ShaderType.MeshUv.getShader();
-        this.uvShader.init();
-        this.traceUvShader = ShaderProgram.ShaderType.MeshUvTraces.getShader();
-        this.traceUvShader.init();
-        this.crossFieldShader = ShaderProgram.ShaderType.MeshCrossField.getShader();
-        this.crossFieldShader.init();
         this.unlitShader = ShaderProgram.ShaderType.MeshUnlit.getShader();
         this.anchorShader = (MeshLineShader) ShaderProgram.ShaderType.MeshAnchor.getShader();
         this.anchorShader.init();
@@ -255,179 +139,18 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Drops every overlay tied to one mesh: the parametrization and arrangement traced over it,
-     * their buffers and marker sets, a tool's labels, line groups and markers, the per-patch and
-     * per-constraint index ranges, and the sphere radius cap.
+     * Drops every overlay tied to one mesh: a tool's diagnostic, labels, line groups, markers and
+     * patch clouds, and the sphere radius cap.
      */
     public void clearMeshState() {
-        arrangement = null;
-        seamlessParametrization = null;
-        seamlessMesh = null;
-        isoSurface.delete();
-        crossField.delete();
-        constraints.delete();
-        layoutLines.delete();
-        layoutFill.delete();
-        copyWireframe.delete();
-        embeddedArcs.delete();
-        embeddedZeroArcs.delete();
         clearDiagnostic();
         clearLineGroups();
         clearMarkers();
         clearLabels();
         patchClouds.clear();
         showPatchClouds = false;
-        singularities = null;
-        graphNodes = null;
-        layoutCorners = null;
-        embeddedNodes = null;
-        layoutBoundaryVertexCount = 0;
-        constraintRangeStart = null;
-        constraintRangeCount = null;
-        layoutPatchIndexStart = null;
-        layoutPatchIndexCount = null;
-        layoutPatchColors = null;
         sphereRadiusCap = 0f;
         diagnosticRegionRadius = 0f;
-    }
-
-    /**
-     * Upload (or replace) the iso-line surface from {@code seamless}, with the attached
-     * arrangement's trace records when one is set.
-     *
-     * @param seamless per-corner UV field whose iso-lines to render
-     * @param mesh     the mesh the parametrization covers
-     */
-    public void setSeamlessParametrization(UvField seamless, HalfEdgeMesh mesh) {
-        seamlessParametrization = seamless;
-        seamlessMesh = mesh;
-        if (seamless != null) {
-            uploadSeamlessSurface();
-        }
-    }
-
-    /**
-     * Attach a traced arrangement: refreshes the surface's trace records and captures the
-     * arrangement nodes as markers.
-     *
-     * @param graph traced arrangement sharing the seamless parametrization
-     */
-    public void setMotorcycleGraph(ArcNetwork graph) {
-        arrangement = graph;
-        if (graph == null || seamlessParametrization == null) {
-            return;
-        }
-        uploadSeamlessSurface();
-        graphNodes = new PointSet(graph.nodes.size(), 1f);
-        for (EmbeddedNode node : graph.nodes) {
-            if (node.position != null) {
-                graphNodes.add(node.position, nodeColor(node), 0f);
-            }
-        }
-    }
-
-    /**
-     * Upload a per-patch rectangle parametrization as the iso-surface, shading each flagged
-     * folded face with {@link #flippedColor}. Shows the embedded T-mesh's per-patch maps, whose
-     * fold is a chart-orientation question the field answers, not the UV signed area.
-     *
-     * @param gridMap     per-corner grid coordinates over {@code copy}
-     * @param copy        the copy mesh the map covers
-     * @param faceFlipped whether each face folds in its patch's map, indexed by active face
-     */
-    public void setGridMapParametrization(UvField gridMap, HalfEdgeMesh copy,
-            BoolField faceFlipped) {
-        uploadIsoSurface(copy, gridMap, faceFlipped, null);
-    }
-
-    /**
-     * Upload cross-field glyphs and capture the singularity markers.
-     *
-     * @param field      built cross field
-     * @param crossScale arm length scale relative to incircle radius
-     */
-    public void setCrossField(CrossField field, float crossScale) {
-        if (field != null && field.theta != null && field.faceX != null && field.faceY != null) {
-            int faceCount = field.mesh.faceCount();
-            float[] glyphs = new float[faceCount * CORNERS_PER_FACE
-                    * CROSS_GLYPH_LAYOUT.floatsPerVertex];
-            for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-                writeFaceGlyph(field, activeFace, field.theta[activeFace], crossScale, 0f, glyphs,
-                        activeFace * CORNERS_PER_FACE);
-            }
-            crossField.upload(CROSS_GLYPH_LAYOUT, glyphs,
-                    identityIndices(faceCount * CORNERS_PER_FACE));
-        }
-        if (field == null || field.mesh == null) {
-            return;
-        }
-        setSingularities(field.singularityIndex4, field.mesh);
-    }
-
-    /**
-     * Upload constraint glyphs: the cross primitive oriented at each constrained face's
-     * {@code faceConstraintAngle}, grouped by source in {@link #CONSTRAINT_DRAW_ORDER}.
-     *
-     * @param field      built cross field carrying the constraint arrays
-     * @param crossScale arm length scale relative to incircle radius
-     */
-    public void setConstraints(CrossField field, float crossScale) {
-        if (field == null || field.faceConstrained == null || field.faceConstraintAngle == null
-                || field.faceConstraintSource == null || field.faceX == null
-                || field.faceY == null) {
-            return;
-        }
-        int faceCount = field.mesh.faceCount();
-        int constrainedCount = 0;
-        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-            if (field.faceConstrained[activeFace]) {
-                constrainedCount++;
-            }
-        }
-        float[] glyphs = new float[constrainedCount * CORNERS_PER_FACE
-                * CROSS_GLYPH_LAYOUT.floatsPerVertex];
-        int sourceCount = ConstraintSource.values().length;
-        constraintRangeStart = new int[sourceCount];
-        constraintRangeCount = new int[sourceCount];
-        int glyph = 0;
-        for (ConstraintSource source : CONSTRAINT_DRAW_ORDER) {
-            int rangeStart = glyph * CORNERS_PER_FACE;
-            constraintRangeStart[source.ordinal()] = rangeStart;
-            for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-                if (!field.faceConstrained[activeFace]
-                        || field.faceConstraintSource[activeFace] != source) {
-                    continue;
-                }
-                writeFaceGlyph(field, activeFace, field.faceConstraintAngle[activeFace],
-                        crossScale, CONSTRAINT_NORMAL_LIFT, glyphs, glyph * CORNERS_PER_FACE);
-                glyph++;
-            }
-            constraintRangeCount[source.ordinal()] = glyph * CORNERS_PER_FACE - rangeStart;
-        }
-        constraints.upload(CROSS_GLYPH_LAYOUT, glyphs,
-                identityIndices(constrainedCount * CORNERS_PER_FACE));
-    }
-
-    /**
-     * Capture singularity vertices as coloured sphere markers.
-     *
-     * @param index4 per-vertex singularity index4 in dense active-vertex order; nonzero entries
-     *               are rendered
-     * @param mesh   the underlying triangle mesh
-     */
-    public void setSingularities(IntField index4, HalfEdgeMesh mesh) {
-        ensureSphere();
-        updateSphereRadius();
-        singularities = new PointSet(index4.length(), 1f);
-        Vector3f position = new Vector3f();
-        for (int vertex = 0; vertex < index4.length(); vertex++) {
-            if (index4.get(vertex) == 0) {
-                continue;
-            }
-            mesh.vertexPosition(mesh.vertexIdAt(vertex), position);
-            singularities.add(position,
-                    index4.get(vertex) > 0 ? COLOR_POSITIVE_INDEX : COLOR_NEGATIVE_INDEX, 0f);
-        }
     }
 
     /**
@@ -538,186 +261,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Upload the finished layout: patch boundary edges then interior quad grid edges in one
-     * line buffer, every patch's grid as triangles with per-patch index ranges and
-     * palette-hashed colours, and a corner marker at every vertex with one incident face.
-     *
-     * @param patchGrid per-patch quad-grid geometry with the {@code patch_id} per-face slot
-     */
-    public void setLayoutPatchSurfaces(GeometryBundle patchGrid) {
-        MeshTopology mesh = patchGrid.mesh();
-        IntField patchIds = PatchSurfaceGeometry.patchIds(patchGrid);
-        int vertexCount = mesh.vertexCount();
-        int maxVertexId = 0;
-        for (int dense = 0; dense < vertexCount; dense++) {
-            maxVertexId = Math.max(maxVertexId, mesh.vertexIdAt(dense));
-        }
-        int[] denseOf = new int[maxVertexId + 1];
-        float[] gridVertices = new float[vertexCount * 3];
-        layoutCorners = new PointSet(vertexCount, CORNER_SPHERE_SCALE);
-        Vector3f position = new Vector3f();
-        for (int dense = 0; dense < vertexCount; dense++) {
-            int vertexId = mesh.vertexIdAt(dense);
-            denseOf[vertexId] = dense;
-            mesh.vertexPosition(vertexId, position);
-            gridVertices[dense * 3] = position.x;
-            gridVertices[dense * 3 + 1] = position.y;
-            gridVertices[dense * 3 + 2] = position.z;
-            if (mesh.vertexFaceCount(vertexId) == 1) {
-                layoutCorners.add(position, COLOR_LAYOUT_CORNER, 0f);
-            }
-        }
-
-        // Patch boundary edges first, then the interior grid edges.
-        LineSet lines = new LineSet(mesh.edgeCount());
-        for (boolean boundary : new boolean[] { true, false }) {
-            for (int edge = 0; edge < mesh.edgeCount(); edge++) {
-                int edgeId = mesh.edgeIdAt(edge);
-                if (mesh.isBoundaryEdge(edgeId) == boundary) {
-                    lines.edge(mesh, edgeId);
-                }
-            }
-            if (boundary) {
-                layoutBoundaryVertexCount = lines.vertexCount();
-            }
-        }
-        layoutLines.upload(LineSet.LAYOUT, lines.vertices, null);
-
-        int faceCount = mesh.faceCount();
-        int patchCount = 0;
-        int previousId = -1;
-        for (int face = 0; face < faceCount; face++) {
-            if (face == 0 || patchIds.get(face) != previousId) {
-                patchCount++;
-            }
-            previousId = patchIds.get(face);
-        }
-        int[] fillIndices = new int[faceCount * INDICES_PER_GRID_CELL];
-        layoutPatchIndexStart = new int[patchCount];
-        layoutPatchIndexCount = new int[patchCount];
-        layoutPatchColors = new Color[patchCount];
-        int patchCursor = -1;
-        int cursor = 0;
-        previousId = -1;
-        for (int face = 0; face < faceCount; face++) {
-            int faceId = mesh.faceIdAt(face);
-            int patchId = patchIds.get(face);
-            if (patchCursor < 0 || patchId != previousId) {
-                patchCursor++;
-                layoutPatchIndexStart[patchCursor] = cursor;
-                layoutPatchColors[patchCursor] =
-                        PatchColorHash.colorForPatch(patchId, LAYOUT_PATCH_ALPHA);
-            }
-            previousId = patchId;
-            int corner00 = denseOf[mesh.faceVertexAt(faceId, 0)];
-            int corner10 = denseOf[mesh.faceVertexAt(faceId, 1)];
-            int corner11 = denseOf[mesh.faceVertexAt(faceId, 2)];
-            int corner01 = denseOf[mesh.faceVertexAt(faceId, 3)];
-            fillIndices[cursor++] = corner00;
-            fillIndices[cursor++] = corner10;
-            fillIndices[cursor++] = corner01;
-            fillIndices[cursor++] = corner10;
-            fillIndices[cursor++] = corner11;
-            fillIndices[cursor++] = corner01;
-            layoutPatchIndexCount[patchCursor] = cursor - layoutPatchIndexStart[patchCursor];
-        }
-        layoutFill.upload(POSITION_LAYOUT, gridVertices, fillIndices);
-        ensureSphere();
-        updateSphereRadius();
-    }
-
-    /**
-     * Upload every edge of the working copy as outlines, so refinement density is visible.
-     *
-     * @param copy refined working copy to outline; {@code null} drops the buffer
-     */
-    public void setCopyWireframe(HalfEdgeMesh copy) {
-        showCopyWireframe = copy != null;
-        if (copy == null) {
-            copyWireframe.delete();
-            return;
-        }
-        LineSet outlines = new LineSet(copy.edgeCount());
-        for (int edge = 0; edge < copy.edgeCount(); edge++) {
-            outlines.edge(copy, copy.edgeIdAt(edge));
-        }
-        copyWireframe.upload(LineSet.LAYOUT, outlines.vertices, null);
-    }
-
-    /**
-     * Upload an embedded T-mesh: arcs as lines split positive/zero, live nodes as spheres capped
-     * to half their shortest incident copy edge, the sphere radius capped to the mean arc hop,
-     * and the copy wireframe refreshed when shown. One call per mutation.
-     *
-     * <p>See also: LCBK19 Figure 9
-     *
-     * @param tmesh embedded T-mesh to draw; retired elements are skipped
-     */
-    public void setEmbeddedTMesh(ArcNetwork tmesh) {
-        HalfEdgeMesh copy = tmesh.topology.copy;
-        int positiveSegments = 0;
-        int zeroSegments = 0;
-        for (EmbeddedArc arc : tmesh.arcs) {
-            if (!arc.alive || arc.path.copyVertexPath.size() < 2) {
-                continue;
-            }
-            int segments = arc.path.copyVertexPath.size() - 1;
-            if (arc.quantizedLength == 0) {
-                zeroSegments += segments;
-            } else {
-                positiveSegments += segments;
-            }
-        }
-        LineSet positive = new LineSet(positiveSegments);
-        LineSet zero = new LineSet(zeroSegments);
-        Vector3f segmentStart = new Vector3f();
-        Vector3f segmentEnd = new Vector3f();
-        double totalHopLength = 0;
-        int hopCount = 0;
-        for (EmbeddedArc arc : tmesh.arcs) {
-            List<Integer> path = arc.path.copyVertexPath;
-            if (!arc.alive || path.size() < 2) {
-                continue;
-            }
-            LineSet target = arc.quantizedLength == 0 ? zero : positive;
-            for (int index = 1; index < path.size(); index++) {
-                target.vertexStep(copy, path.get(index - 1), path.get(index));
-                totalHopLength += target.start.distance(target.end);
-                hopCount++;
-            }
-        }
-        embeddedArcs.upload(LineSet.LAYOUT, positive.vertices, null);
-        embeddedZeroArcs.upload(LineSet.LAYOUT, zero.vertices, null);
-
-        embeddedNodes = new PointSet(tmesh.nodes.size(), 1f);
-        Vector3f nodePosition = new Vector3f();
-        for (EmbeddedNode node : tmesh.nodes) {
-            if (!node.alive) {
-                continue;
-            }
-            copy.vertexPosition(node.copyVertex, nodePosition);
-            float shortestEdge = Float.MAX_VALUE;
-            for (int adjacency = 0; adjacency < copy.vertexEdgeCount(node.copyVertex);
-                    adjacency++) {
-                int halfEdge = copy.edgeHalfEdge(copy.vertexEdgeAt(node.copyVertex, adjacency));
-                copy.vertexPosition(copy.halfEdgeVertex(halfEdge), segmentStart);
-                copy.vertexPosition(copy.halfEdgeVertex(copy.halfEdgeTwin(halfEdge)), segmentEnd);
-                shortestEdge = Math.min(shortestEdge, segmentStart.distance(segmentEnd));
-            }
-            embeddedNodes.add(nodePosition,
-                    node.critical ? COLOR_EMBEDDED_NODE_CRITICAL : COLOR_EMBEDDED_NODE,
-                    shortestEdge == Float.MAX_VALUE ? 0f : shortestEdge / 2f);
-        }
-        ensureSphere();
-        setSphereRadiusCap(hopCount == 0 ? 0f : (float) (totalHopLength / hopCount));
-        updateSphereRadius();
-        if (showCopyWireframe) {
-            setCopyWireframe(copy);
-        }
-        showEmbeddedArcs = true;
-    }
-
-    /**
      * Upload one diagnostic's geometry groups, palette-coloured in this order: face groups as
      * dot clouds, path groups as lines, marker groups as large markers. Every argument is
      * world-space flat xyz, as {@code ArrangementDiagnostic}'s resolve methods produce.
@@ -779,7 +322,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
                     HIGHLIGHT_MARKER_SCALE, 0f));
         }
         diagnosticRegionRadius = cloudRadius(regionClouds, new Vector3f());
-        ensureSphere();
         updateSphereRadius();
         showDiagnostic = true;
     }
@@ -813,46 +355,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Shows the cover of each given patch as a face-centre dot cloud, the dot radius half the
-     * shortest covered edge so a dot never swallows an edge.
-     *
-     * @param tmesh    embedded T-mesh whose covers are shown
-     * @param patchIds live patches to show, coloured in palette order
-     */
-    public void showPatchCovers(ArcNetwork tmesh, List<Integer> patchIds) {
-        HalfEdgeMesh copy = tmesh.topology.copy;
-        List<float[]> clouds = new ArrayList<>();
-        float[] dotRadii = new float[patchIds.size()];
-        Vector3f corner = new Vector3f();
-        Vector3f nextCorner = new Vector3f();
-        Vector3f center = new Vector3f();
-        for (int index = 0; index < patchIds.size(); index++) {
-            IntIdList faces = tmesh.corridor.patchFaces(patchIds.get(index));
-            float[] centers = new float[faces.size() * 3];
-            float smallest = Float.MAX_VALUE;
-            for (int face = 0; face < faces.size(); face++) {
-                int faceId = faces.get(face);
-                int corners = copy.faceHalfEdgeCount(faceId);
-                center.zero();
-                for (int cornerIndex = 0; cornerIndex < corners; cornerIndex++) {
-                    copy.vertexPosition(copy.faceVertexAt(faceId, cornerIndex), corner);
-                    copy.vertexPosition(copy.faceVertexAt(faceId, (cornerIndex + 1) % corners),
-                            nextCorner);
-                    center.add(corner);
-                    smallest = Math.min(smallest, corner.distance(nextCorner));
-                }
-                center.div(Math.max(1, corners));
-                centers[face * 3] = center.x;
-                centers[face * 3 + 1] = center.y;
-                centers[face * 3 + 2] = center.z;
-            }
-            clouds.add(centers);
-            dotRadii[index] = smallest == Float.MAX_VALUE ? 0f : smallest / 2f;
-        }
-        setPatchClouds(clouds, dotRadii);
-    }
-
-    /**
      * Shows one dot cloud per updated patch cover, coloured in palette order; an empty list
      * hides the clouds.
      *
@@ -865,77 +367,24 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             patchClouds.add(PointSet.cloud(clouds.get(index), Palettes.OVERLAY_GROUP.color(index),
                     PATCH_CLOUD_SCALE, index < dotRadii.length ? dotRadii[index] : 0f));
         }
-        ensureSphere();
         updateSphereRadius();
         showPatchClouds = !patchClouds.isEmpty();
     }
 
     /**
-     * Render the enabled overlay layers. Call {@link #render(Camera3D)} first when the
-     * translucent base mesh should appear underneath.
+     * Render the coloured line groups and the anchor discs. Call {@link #render(Camera3D)} first
+     * when the translucent base mesh should appear underneath.
      *
      * @param camera active 3D camera
      */
     public void renderOverlays(Camera3D camera) {
-        boolean drawSurface = isoSurface.indexCount > 0
-                && (showIsoLines || showTraces || showFullIsoGrid);
-        boolean drawCross = showCrossField && crossField.indexCount > 0;
-        boolean drawConstraints = showConstraints && constraints.indexCount > 0
-                && constraintRangeCount != null;
-        boolean drawSingularities = showSingularities && singularities != null
-                && singularities.count > 0;
-        boolean drawNodes = showNodes && graphNodes != null && graphNodes.count > 0;
-        boolean drawLayoutFill = showLayoutPatches
-                && layoutPatchIndexCount != null && layoutPatchIndexCount.length > 0;
-        boolean drawLayoutBoundaries = showLayoutBoundaries && layoutBoundaryVertexCount > 0;
-        boolean drawQuadGrid = showQuadGrid && layoutLines.vertexCount > layoutBoundaryVertexCount;
-        boolean drawEmbeddedArcs = showEmbeddedArcs && (embeddedArcs.vertexCount > 0
-                || embeddedZeroArcs.vertexCount > 0 || embeddedNodes != null);
-        boolean drawCopyWireframe = showCopyWireframe && copyWireframe.vertexCount > 0;
         boolean drawLineGroups = showLineGroups && lineGroups.vertexCount > 0
                 && lineGroupSegmentStart.length > 1;
         boolean drawMarkers = anchorDiscs.vertexCount > 0;
-        if (!drawSurface && !drawCross && !drawConstraints && !drawSingularities && !drawNodes
-                && !drawLayoutFill && !drawLayoutBoundaries && !drawQuadGrid && !drawEmbeddedArcs
-                && !drawCopyWireframe && !drawLineGroups && !drawMarkers) {
+        if (!drawLineGroups && !drawMarkers) {
             return;
         }
         updateOverlayProjection(camera);
-        if (drawCopyWireframe) {
-            drawLines(camera, copyWireframe, 0, copyWireframe.vertexCount, COLOR_COPY_WIREFRAME,
-                    DEFAULT_GL_LINE_WIDTH);
-        }
-        if (drawSurface) {
-            renderSurface(camera);
-        }
-        if (drawLayoutFill && beginUnlit(camera)) {
-            for (int patch = 0; patch < layoutPatchIndexCount.length; patch++) {
-                unlitShader.setVec4(SOLIDCOLOR, layoutPatchColors[patch]);
-                drawTriangles(layoutFill, layoutPatchIndexStart[patch],
-                        layoutPatchIndexCount[patch]);
-            }
-        }
-        if (drawQuadGrid) {
-            drawLines(camera, layoutLines, layoutBoundaryVertexCount,
-                    layoutLines.vertexCount - layoutBoundaryVertexCount, COLOR_QUAD_GRID,
-                    DEFAULT_GL_LINE_WIDTH);
-        }
-        if (drawLayoutBoundaries) {
-            drawLines(camera, layoutLines, 0, layoutBoundaryVertexCount, COLOR_LAYOUT_BOUNDARY,
-                    LAYOUT_LINE_WIDTH);
-            if (beginUnlit(camera)) {
-                drawSpheres(layoutCorners);
-            }
-        }
-        if (drawEmbeddedArcs) {
-            drawLines(camera, embeddedArcs, 0, embeddedArcs.vertexCount, COLOR_EMBEDDED_ARC,
-                    LAYOUT_LINE_WIDTH);
-            drawLines(camera, embeddedZeroArcs, 0, embeddedZeroArcs.vertexCount,
-                    COLOR_EMBEDDED_ZERO_ARC, LAYOUT_LINE_WIDTH);
-            if (showEmbeddedNodes && beginUnlit(camera)) {
-                drawSpheres(embeddedNodes);
-            }
-        }
         if (drawLineGroups) {
             // The groups test against the surface but leave its depth alone, so the anchor discs
             // drawn next are not lost to a ring line tying them at the vertex they share.
@@ -959,34 +408,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
             gl.bindVertexArray(anchorDiscs.vao);
             gl.drawArrays(gl.TRIANGLES(), 0, anchorDiscs.vertexCount);
             gl.enable(gl.POLYGON_OFFSET_FILL());
-        }
-        if (drawCross && beginCrossField(camera)) {
-            crossFieldShader.setVec4(U_LINE_COLOR, COLOR_U_ARM);
-            crossFieldShader.setVec4(V_LINE_COLOR, COLOR_V_ARM);
-            drawTriangles(crossField, 0, crossField.indexCount);
-        }
-        if (drawConstraints && beginCrossField(camera)) {
-            for (ConstraintSource source : CONSTRAINT_DRAW_ORDER) {
-                int count = constraintRangeCount[source.ordinal()];
-                if (count <= 0) {
-                    continue;
-                }
-                Color color = switch (source) {
-                case BOUNDARY -> COLOR_CONSTRAINT_BOUNDARY;
-                case FEATURE -> COLOR_CONSTRAINT_FEATURE;
-                case CURVATURE -> COLOR_CONSTRAINT_CURVATURE;
-                default -> COLOR_CONSTRAINT_ANCHOR;
-                };
-                crossFieldShader.setVec4(U_LINE_COLOR, color);
-                crossFieldShader.setVec4(V_LINE_COLOR, color);
-                drawTriangles(constraints, constraintRangeStart[source.ordinal()], count);
-            }
-        }
-        if (drawSingularities && beginUnlit(camera)) {
-            drawSpheres(singularities);
-        }
-        if (drawNodes && beginUnlit(camera)) {
-            drawSpheres(graphNodes);
         }
     }
 
@@ -1085,229 +506,29 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     public void dispose() {
         super.dispose();
         clearDiagnostic();
-        isoSurface.delete();
-        crossField.delete();
-        constraints.delete();
         sphere.delete();
-        layoutLines.delete();
-        layoutFill.delete();
-        copyWireframe.delete();
-        embeddedArcs.delete();
-        embeddedZeroArcs.delete();
         lineGroups.delete();
         anchorDiscs.delete();
     }
 
-    private void uploadSeamlessSurface() {
-        uploadIsoSurface(seamlessMesh, seamlessParametrization, null,
-                arrangement != null ? arrangement.traceRecordsByFace : null);
-    }
-
     /**
-     * Build and upload the triangle-soup iso-surface: a flip flag from {@code faceFlipped} when
-     * given, else from the sign of the UV area, and the face's trace records when given.
+     * Recompute {@link #sphereRadius} from the mesh bounding-box diagonal under
+     * {@link #sphereRadiusCap}, uploading the shared marker sphere on first use.
      */
-    private void uploadIsoSurface(HalfEdgeMesh mesh, UvField uv, BoolField faceFlipped,
-            float[][] traceRows) {
-        int faceCount = mesh.faceCount();
-        int floatsPerCorner = ISO_CORNER_LAYOUT.floatsPerVertex;
-        float[] corners = new float[faceCount * CORNERS_PER_FACE * floatsPerCorner];
-        Vector3f p0 = new Vector3f();
-        Vector3f p1 = new Vector3f();
-        Vector3f p2 = new Vector3f();
-        Vector3f normal = new Vector3f();
-        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-            int faceId = mesh.faceIdAt(activeFace);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 1), p1);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 2), p2);
-            faceNormal(p0, p1, p2, normal);
-            double u0 = uv.u(faceId, 0);
-            double v0 = uv.v(faceId, 0);
-            double u1 = uv.u(faceId, 1);
-            double v1 = uv.v(faceId, 1);
-            double u2 = uv.u(faceId, 2);
-            double v2 = uv.v(faceId, 2);
-            boolean flipped = faceFlipped != null ? faceFlipped.get(activeFace)
-                    : (u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0) <= 0.0;
-            float flip = flipped ? 1f : 0f;
-            float[] traceRow = traceRows != null ? traceRows[activeFace] : null;
-            int base = activeFace * CORNERS_PER_FACE * floatsPerCorner;
-            writeIsoCorner(corners, base, p0, normal, (float) u0, (float) v0, flip, traceRow);
-            writeIsoCorner(corners, base + floatsPerCorner, p1, normal, (float) u1, (float) v1,
-                    flip, traceRow);
-            writeIsoCorner(corners, base + 2 * floatsPerCorner, p2, normal, (float) u2,
-                    (float) v2, flip, traceRow);
+    public void updateSphereRadius() {
+        if (sphere.vao == 0) {
+            float[] vertices = new float[ICO_VERTICES.length];
+            for (int base = 0; base < ICO_VERTICES.length; base += 3) {
+                float x = ICO_VERTICES[base];
+                float y = ICO_VERTICES[base + 1];
+                float z = ICO_VERTICES[base + 2];
+                float length = (float) Math.sqrt(x * x + y * y + z * z);
+                vertices[base] = x / length;
+                vertices[base + 1] = y / length;
+                vertices[base + 2] = z / length;
+            }
+            sphere.upload(POSITION_LAYOUT, vertices, ICO_TRIANGLES);
         }
-        isoSurface.upload(ISO_CORNER_LAYOUT, corners,
-                identityIndices(faceCount * CORNERS_PER_FACE));
-    }
-
-    private static void writeIsoCorner(float[] buffer, int offset, Vector3f position,
-            Vector3f normal, float u, float v, float flipped, float[] traceRow) {
-        writePositionNormal(buffer, offset, position, normal);
-        buffer[offset + UV_OFFSET] = u;
-        buffer[offset + UV_OFFSET + 1] = v;
-        buffer[offset + FLIP_OFFSET] = flipped;
-        if (traceRow != null) {
-            System.arraycopy(traceRow, 0, buffer, offset + TRACE_OFFSET, TRACE_FLOATS_PER_FACE);
-        }
-    }
-
-    /**
-     * Write one face's cross glyph as three triangle-soup corners: a unit pair of perpendicular
-     * arms in the face plane, the first along {@code angle} in the face's {@code (faceX, faceY)}
-     * frame, sized to the incircle and floated {@code normalLiftFraction} of an arm along the
-     * normal.
-     */
-    private static void writeFaceGlyph(CrossField field, int activeFace, float angle,
-            float crossScale, float normalLiftFraction, float[] glyphs, int cornerBase) {
-        HalfEdgeMesh mesh = field.mesh;
-        int faceId = mesh.faceIdAt(activeFace);
-        Vector3f p0 = new Vector3f();
-        Vector3f p1 = new Vector3f();
-        Vector3f p2 = new Vector3f();
-        Vector3f normal = new Vector3f();
-        mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
-        mesh.vertexPosition(mesh.faceVertexAt(faceId, 1), p1);
-        mesh.vertexPosition(mesh.faceVertexAt(faceId, 2), p2);
-        faceNormal(p0, p1, p2, normal);
-        float cx = (p0.x + p1.x + p2.x) * ONE_THIRD;
-        float cy = (p0.y + p1.y + p2.y) * ONE_THIRD;
-        float cz = (p0.z + p1.z + p2.z) * ONE_THIRD;
-        float ax = p1.x - p0.x;
-        float ay = p1.y - p0.y;
-        float az = p1.z - p0.z;
-        float bx = p2.x - p0.x;
-        float by = p2.y - p0.y;
-        float bz = p2.z - p0.z;
-        float crX = ay * bz - az * by;
-        float crY = az * bx - ax * bz;
-        float crZ = ax * by - ay * bx;
-        float twoArea = (float) Math.sqrt(crX * crX + crY * crY + crZ * crZ);
-        float lenA = (float) Math.sqrt(ax * ax + ay * ay + az * az);
-        float lenB = (float) Math.sqrt(bx * bx + by * by + bz * bz);
-        float ex = p2.x - p1.x;
-        float ey = p2.y - p1.y;
-        float ez = p2.z - p1.z;
-        float lenC = (float) Math.sqrt(ex * ex + ey * ey + ez * ez);
-        float perim = lenA + lenB + lenC;
-        float incircleR = perim > 0f ? twoArea / perim : 0f;
-        float armLength = Math.max(crossScale * incircleR, 1.0e-8f);
-        float lift = normalLiftFraction * armLength;
-        cx += normal.x * lift;
-        cy += normal.y * lift;
-        cz += normal.z * lift;
-        p0.add(normal.x * lift, normal.y * lift, normal.z * lift);
-        p1.add(normal.x * lift, normal.y * lift, normal.z * lift);
-        p2.add(normal.x * lift, normal.y * lift, normal.z * lift);
-        float cosT = (float) Math.cos(angle);
-        float sinT = (float) Math.sin(angle);
-        Vector3f fx = field.faceX[activeFace];
-        Vector3f fy = field.faceY[activeFace];
-        float dirUx = cosT * fx.x + sinT * fy.x;
-        float dirUy = cosT * fx.y + sinT * fy.y;
-        float dirUz = cosT * fx.z + sinT * fy.z;
-        float dirVx = -sinT * fx.x + cosT * fy.x;
-        float dirVy = -sinT * fx.y + cosT * fy.y;
-        float dirVz = -sinT * fx.z + cosT * fy.z;
-        float dirULen = (float) Math.sqrt(dirUx * dirUx + dirUy * dirUy + dirUz * dirUz);
-        float dirVLen = (float) Math.sqrt(dirVx * dirVx + dirVy * dirVy + dirVz * dirVz);
-        if (dirULen > 0f) {
-            dirUx /= dirULen;
-            dirUy /= dirULen;
-            dirUz /= dirULen;
-        }
-        if (dirVLen > 0f) {
-            dirVx /= dirVLen;
-            dirVy /= dirVLen;
-            dirVz /= dirVLen;
-        }
-        int floatsPerCorner = CROSS_GLYPH_LAYOUT.floatsPerVertex;
-        Vector3f[] positions = { p0, p1, p2 };
-        for (int corner = 0; corner < CORNERS_PER_FACE; corner++) {
-            int offset = (cornerBase + corner) * floatsPerCorner;
-            writePositionNormal(glyphs, offset, positions[corner], normal);
-            glyphs[offset + CENTROID_OFFSET] = cx;
-            glyphs[offset + CENTROID_OFFSET + 1] = cy;
-            glyphs[offset + CENTROID_OFFSET + 2] = cz;
-            glyphs[offset + DIR_U_OFFSET] = dirUx;
-            glyphs[offset + DIR_U_OFFSET + 1] = dirUy;
-            glyphs[offset + DIR_U_OFFSET + 2] = dirUz;
-            glyphs[offset + DIR_V_OFFSET] = dirVx;
-            glyphs[offset + DIR_V_OFFSET + 1] = dirVy;
-            glyphs[offset + DIR_V_OFFSET + 2] = dirVz;
-            glyphs[offset + ARM_LENGTH_OFFSET] = armLength;
-        }
-    }
-
-    private static void writePositionNormal(float[] buffer, int offset, Vector3f position,
-            Vector3f normal) {
-        buffer[offset] = position.x;
-        buffer[offset + 1] = position.y;
-        buffer[offset + 2] = position.z;
-        buffer[offset + 3] = normal.x;
-        buffer[offset + 4] = normal.y;
-        buffer[offset + 5] = normal.z;
-    }
-
-    private static void faceNormal(Vector3f p0, Vector3f p1, Vector3f p2, Vector3f result) {
-        float ax = p1.x - p0.x;
-        float ay = p1.y - p0.y;
-        float az = p1.z - p0.z;
-        float bx = p2.x - p0.x;
-        float by = p2.y - p0.y;
-        float bz = p2.z - p0.z;
-        result.set(
-                ay * bz - az * by,
-                az * bx - ax * bz,
-                ax * by - ay * bx);
-        float length = result.length();
-        if (length > 0f) {
-            result.div(length);
-        }
-    }
-
-    private static int[] identityIndices(int count) {
-        int[] indices = new int[count];
-        for (int index = 0; index < count; index++) {
-            indices[index] = index;
-        }
-        return indices;
-    }
-
-
-    private static Color nodeColor(EmbeddedNode node) {
-        if (node.critical) {
-            return node.singularityIndex4 > 0 ? COLOR_POSITIVE_INDEX : COLOR_NEGATIVE_INDEX;
-        }
-        if (node.border) {
-            return COLOR_BOUNDARY_NODE;
-        }
-        if (node.truncated) {
-            return COLOR_TRUNCATED_NODE;
-        }
-        return COLOR_INTERSECTION_NODE;
-    }
-
-    private void ensureSphere() {
-        if (sphere.vao != 0) {
-            return;
-        }
-        float[] vertices = new float[ICO_VERTICES.length];
-        for (int base = 0; base < ICO_VERTICES.length; base += 3) {
-            float x = ICO_VERTICES[base];
-            float y = ICO_VERTICES[base + 1];
-            float z = ICO_VERTICES[base + 2];
-            float length = (float) Math.sqrt(x * x + y * y + z * z);
-            vertices[base] = x / length;
-            vertices[base + 1] = y / length;
-            vertices[base + 2] = z / length;
-        }
-        sphere.upload(POSITION_LAYOUT, vertices, ICO_TRIANGLES);
-    }
-
-    private void updateSphereRadius() {
         Vector3f bMin = getBoundingBoxMin();
         Vector3f bMax = getBoundingBoxMax();
         float bbx = bMax.x - bMin.x;
@@ -1320,7 +541,12 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         }
     }
 
-    private void setSphereRadiusCap(float cap) {
+    /**
+     * Set the ceiling every later {@link #updateSphereRadius} keeps the marker radius under.
+     *
+     * @param cap world-space radius ceiling, zero for none
+     */
+    public void setSphereRadiusCap(float cap) {
         sphereRadiusCap = cap;
         if (cap > 0) {
             sphereRadius = Math.min(sphereRadius, cap);
@@ -1334,11 +560,18 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
      *
      * @param camera active camera
      */
-    private void updateOverlayProjection(Camera3D camera) {
+    public void updateOverlayProjection(Camera3D camera) {
         updateProjection(camera, getBoundingBoxMax().distance(getBoundingBoxMin()));
     }
 
-    private boolean beginUnlit(Camera3D camera) {
+    /**
+     * Bind the unlit shader with the camera's matrices, ready for {@link #drawSpheres} or a
+     * solid-colour triangle draw.
+     *
+     * @param camera active 3D camera
+     * @return whether the shader compiled and is bound
+     */
+    public boolean beginUnlit(Camera3D camera) {
         if (unlitShader.ID < 0) {
             return false;
         }
@@ -1350,50 +583,18 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         return true;
     }
 
-    private boolean beginCrossField(Camera3D camera) {
-        if (crossFieldShader.ID < 0) {
-            return false;
-        }
-        crossFieldShader.use();
-        crossFieldShader.setMat4(VIEW, camera.view);
-        crossFieldShader.setMat4(PROJECTION, camera.projection);
-        model.identity();
-        crossFieldShader.setMat4(MODEL, model);
-        crossFieldShader.setFloat(LINE_HALF_WIDTH, lineHalfWidth);
-        return true;
-    }
-
-    private void renderSurface(Camera3D camera) {
-        boolean traced = showTraces || showFullIsoGrid;
-        ShaderProgram shader = traced ? traceUvShader : uvShader;
-        if (shader.ID < 0) {
-            return;
-        }
-        shader.use();
-        shader.setMat4(VIEW, camera.view);
-        shader.setMat4(PROJECTION, camera.projection);
-        model.identity();
-        shader.setMat4(MODEL, model);
-        shader.setVec4(BASE_COLOR, baseColor);
-        shader.setVec4(U_LINE_COLOR, uLineColor);
-        shader.setVec4(V_LINE_COLOR, vLineColor);
-        shader.setFloat(LINE_HALF_WIDTH, lineHalfWidth);
-        shader.setVec4(FLIPPED_COLOR_UNIFORM, flippedColor);
-        if (traced) {
-            shader.setFloat(DRAW_FULL_ISO_GRID_UNIFORM, showFullIsoGrid ? 1f : 0f);
-            shader.setFloat(USE_PATCH_COLOR_UNIFORM, 0f);
-        }
-        drawTriangles(isoSurface, 0, isoSurface.indexCount);
-    }
-
-    private static void drawTriangles(VertexBuffer buffer, int firstIndex, int indexCount) {
-        GL gl = Platforms.gl();
-        gl.bindVertexArray(buffer.vao);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER(), buffer.ebo);
-        gl.drawElements(gl.TRIANGLES(), indexCount, gl.UNSIGNED_INT(), firstIndex * Integer.BYTES);
-    }
-
-    private void drawLines(Camera3D camera, VertexBuffer buffer, int firstVertex,
+    /**
+     * Draw a range of a {@link LineSet} buffer in one colour, dropping segments whose faces
+     * both turn away from the camera.
+     *
+     * @param camera      active 3D camera
+     * @param buffer      line vertices uploaded with {@link LineSet#LAYOUT}
+     * @param firstVertex first vertex of the range
+     * @param vertexCount vertices in the range, two per segment
+     * @param color       line colour
+     * @param width       GL line width in pixels
+     */
+    public void drawLines(Camera3D camera, VertexBuffer buffer, int firstVertex,
             int vertexCount, Color color, float width) {
         if (buffer.vao == 0 || vertexCount <= 0 || lineShader.ID < 0) {
             return;
@@ -1407,7 +608,13 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         gl.lineWidth(DEFAULT_GL_LINE_WIDTH);
     }
 
-    private void drawSpheres(PointSet points) {
+    /**
+     * Draw one shared-sphere marker per point, each in its colour at {@link #sphereRadius}
+     * times the set's scale under the point's cap. Call {@link #beginUnlit} first.
+     *
+     * @param points markers to draw, or {@code null} for none
+     */
+    public void drawSpheres(PointSet points) {
         if (points == null || points.count == 0 || sphere.vao == 0) {
             return;
         }
