@@ -17,15 +17,9 @@ import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
 import ixdar.geometry.mesh.quadlayout.QuadLayout;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
-import ixdar.geometry.mesh.data.fields.crossfield.NDirectionField;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
-import ixdar.geometry.mesh.quadlayout.embedding.LayoutEmbedding;
-import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.gridmap.GlobalGridMap;
-import ixdar.geometry.mesh.quadlayout.gridmap.GridMapAssembly;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
-import ixdar.geometry.mesh.quadlayout.quantization.QuantizedMeshGrid;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 
 /**
@@ -151,34 +145,41 @@ public class QuadLayoutNode extends NodeGroup {
     @Override
     public void build(GroupBuilder group) {
         GraphNodeContext parameters = group.scope;
-        GraphNodeContext field = group.node(FIELD.name, NDirectionField::new)
-                .input(NDirectionField.GEOMETRY.name, parameters, GEOMETRY.name)
-                .input(NDirectionField.CURVATURE_BIAS.name, parameters, CURVATURE_BIAS.name);
-        GraphNodeContext seamless = group.node(SEAMLESS.name, SeamlessParameterization::new)
-                .input(SeamlessParameterization.FIELD.name, field, NDirectionField.FIELD.name);
-        GraphNodeContext motorcycle = group.node(MOTORCYCLE.name, MotorcycleGraph::new)
-                .input(MotorcycleGraph.GEOMETRY.name, parameters, GEOMETRY.name)
-                .input(MotorcycleGraph.UV.name, seamless, SeamlessParameterization.UV.name)
-                .input(MotorcycleGraph.CHARTS.name, seamless, SeamlessParameterization.CHARTS.name)
-                .input(MotorcycleGraph.SINGULARITIES.name, field, NDirectionField.SINGULARITIES.name)
-                .input(MotorcycleGraph.FEATURE_EDGES.name, field, NDirectionField.FEATURE_EDGES.name)
-                .input(MotorcycleGraph.ALPHA_DEGREES.name, parameters, ALPHA_DEGREES.name);
-        GraphNodeContext quantize = group.node(QUANTIZE_NODE, QuantizedMeshGrid::new)
-                .input(QuantizedMeshGrid.GRAPH.name, motorcycle, MotorcycleGraph.GRAPH.name)
-                .input(QuantizedMeshGrid.ALPHA_DEGREES.name, parameters, ALPHA_DEGREES.name);
-        GraphNodeContext embed = group.node("embed", LayoutEmbedding::new)
-                .input(LayoutEmbedding.SKELETON.name, quantize, QuantizedMeshGrid.SKELETON.name)
-                .input(LayoutEmbedding.UV.name, seamless, SeamlessParameterization.UV.name);
-        GraphNodeContext contract = group.node("contract", NetworkContraction::new)
-                .input(NetworkContraction.TMESH.name, embed, LayoutEmbedding.TMESH.name)
-                .input(NetworkContraction.CONFORM.name, Boolean.FALSE);
-        GraphNodeContext assembly = group.node("assembly", GridMapAssembly::new)
-                .input(GridMapAssembly.TMESH.name, contract, NetworkContraction.TMESH_OUT.name)
-                .input(GridMapAssembly.UV.name, seamless, SeamlessParameterization.UV.name)
-                .input(GridMapAssembly.TARGET_EDGE_LENGTH.name, parameters, TARGET_EDGE_LENGTH.name);
+        GraphNodeContext field = group.node(FIELD.name, NDirectionFieldNode::new)
+                .input(NDirectionFieldNode.GEOMETRY.name, parameters, GEOMETRY.name)
+                .input(NDirectionFieldNode.CURVATURE_BIAS.name, parameters, CURVATURE_BIAS.name);
+        GraphNodeContext seamless = group.node(SEAMLESS.name, SeamlessParameterizationNode::new)
+                .input(SeamlessParameterizationNode.FIELD.name, field,
+                        NDirectionFieldNode.FIELD.name);
+        GraphNodeContext motorcycle = group.node(MOTORCYCLE.name, MotorcycleGraphNode::new)
+                .input(MotorcycleGraphNode.GEOMETRY.name, parameters, GEOMETRY.name)
+                .input(MotorcycleGraphNode.UV.name, seamless, SeamlessParameterizationNode.UV.name)
+                .input(MotorcycleGraphNode.CHARTS.name, seamless,
+                        SeamlessParameterizationNode.CHARTS.name)
+                .input(MotorcycleGraphNode.SINGULARITIES.name, field,
+                        NDirectionFieldNode.SINGULARITIES.name)
+                .input(MotorcycleGraphNode.FEATURE_EDGES.name, field,
+                        NDirectionFieldNode.FEATURE_EDGES.name)
+                .input(MotorcycleGraphNode.ALPHA_DEGREES.name, parameters, ALPHA_DEGREES.name);
+        GraphNodeContext quantize = group.node(QUANTIZE_NODE, QuantizedMeshGridNode::new)
+                .input(QuantizedMeshGridNode.GRAPH.name, motorcycle, MotorcycleGraphNode.GRAPH.name)
+                .input(QuantizedMeshGridNode.ALPHA_DEGREES.name, parameters, ALPHA_DEGREES.name);
+        GraphNodeContext embed = group.node("embed", LayoutEmbeddingNode::new)
+                .input(LayoutEmbeddingNode.SKELETON.name, quantize,
+                        QuantizedMeshGridNode.SKELETON.name)
+                .input(LayoutEmbeddingNode.UV.name, seamless, SeamlessParameterizationNode.UV.name);
+        GraphNodeContext contract = group.node("contract", NetworkContractionNode::new)
+                .input(NetworkContractionNode.TMESH.name, embed, LayoutEmbeddingNode.TMESH.name)
+                .input(NetworkContractionNode.CONFORM.name, Boolean.FALSE);
+        GraphNodeContext assembly = group.node("assembly", GridMapAssemblyNode::new)
+                .input(GridMapAssemblyNode.TMESH.name, contract,
+                        NetworkContractionNode.TMESH_OUT.name)
+                .input(GridMapAssemblyNode.UV.name, seamless, SeamlessParameterizationNode.UV.name)
+                .input(GridMapAssemblyNode.TARGET_EDGE_LENGTH.name, parameters,
+                        TARGET_EDGE_LENGTH.name);
         GraphNodeContext relax = group.node("relax", NewtonSolverNode::new)
-                .input(NewtonSolverNode.UV.name, assembly, GridMapAssembly.UV_OUT.name)
-                .input(NewtonSolverNode.DOFS.name, assembly, GridMapAssembly.DOFS.name);
+                .input(NewtonSolverNode.UV.name, assembly, GridMapAssemblyNode.UV_OUT.name)
+                .input(NewtonSolverNode.DOFS.name, assembly, GridMapAssemblyNode.DOFS.name);
         GraphNodeContext quads = group.node("quads", GridMapQuadsNode::new)
                 .input(GridMapQuadsNode.UV.name, relax, NewtonSolverNode.UV_OUT.name);
         GraphNodeContext surfaces = group.node(SURFACES.name, PatchSurfacesNode::new)
@@ -186,13 +187,13 @@ public class QuadLayoutNode extends NodeGroup {
 
         group.output(QUADS.name, quads, GridMapQuadsNode.GEOMETRY.name);
         group.output(UV.name, quads, GridMapQuadsNode.UV_OUT.name);
-        group.output(TMESH.name, contract, NetworkContraction.TMESH_OUT.name);
-        group.output(FIELD.name, field, NDirectionField.FIELD.name);
-        group.output(SINGULARITIES.name, field, NDirectionField.SINGULARITIES.name);
-        group.output(SEAMLESS.name, seamless, SeamlessParameterization.UV.name);
-        group.output(MOTORCYCLE.name, motorcycle, MotorcycleGraph.GRAPH.name);
-        group.output(SKELETON.name, quantize, QuantizedMeshGrid.SKELETON.name);
-        group.output(EMBEDDED.name, embed, LayoutEmbedding.TMESH.name);
+        group.output(TMESH.name, contract, NetworkContractionNode.TMESH_OUT.name);
+        group.output(FIELD.name, field, NDirectionFieldNode.FIELD.name);
+        group.output(SINGULARITIES.name, field, NDirectionFieldNode.SINGULARITIES.name);
+        group.output(SEAMLESS.name, seamless, SeamlessParameterizationNode.UV.name);
+        group.output(MOTORCYCLE.name, motorcycle, MotorcycleGraphNode.GRAPH.name);
+        group.output(SKELETON.name, quantize, QuantizedMeshGridNode.SKELETON.name);
+        group.output(EMBEDDED.name, embed, LayoutEmbeddingNode.TMESH.name);
         group.output(SURFACES.name, surfaces, PatchSurfacesNode.GEOMETRY.name);
         group.output(COONS.name, surfaces, PatchSurfacesNode.COONS.name);
     }

@@ -1,14 +1,13 @@
 package ixdar.geometry.mesh.data.analysis.skeleton;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
+import ixdar.numeric.graph.Dijkstra;
 
 /**
  * TEASAR-based skeleton extraction from a triangle mesh.
@@ -227,8 +226,9 @@ public final class MeshSkeletonExtractor {
     // ───────── Step 2: Distance from boundary ─────────
 
     private void computeDFB() {
-        Arrays.fill(dfb, Float.MAX_VALUE);
-        PriorityQueue<VDist> pq = new PriorityQueue<>();
+        int n = rx * ry * rz;
+        Dijkstra walk = new Dijkstra();
+        walk.start(n);
 
         // Seed from surface voxels
         for (int z = 0; z < rz; z++)
@@ -236,15 +236,13 @@ public final class MeshSkeletonExtractor {
                 for (int x = 0; x < rx; x++) {
                     int i = idx(x, y, z);
                     if (state[i] == SURFACE) {
-                        dfb[i] = 0;
-                        pq.add(new VDist(i, 0));
+                        walk.relax(i, 0f, -1);
                     }
                 }
 
-        while (!pq.isEmpty()) {
-            VDist cur = pq.poll();
-            if (cur.dist > dfb[cur.index]) continue;
-            int ci = cur.index;
+        // Distances are summed in float, as the field is stored.
+        for (int ci = walk.settle(); ci >= 0; ci = walk.settle()) {
+            float here = (float) walk.distance(ci);
             int cx = ci % rx, cy = (ci / rx) % ry, cz = ci / (rx * ry);
 
             for (int ni = 0; ni < NEIGHBOR_COUNT; ni++) {
@@ -252,12 +250,11 @@ public final class MeshSkeletonExtractor {
                 if (!ok(nx, ny, nz)) continue;
                 int nIdx = idx(nx, ny, nz);
                 if (state[nIdx] != INTERIOR) continue;
-                float nd = dfb[ci] + NBR_DIST[ni];
-                if (nd < dfb[nIdx]) {
-                    dfb[nIdx] = nd;
-                    pq.add(new VDist(nIdx, nd));
-                }
+                walk.relax(nIdx, here + NBR_DIST[ni], ci);
             }
+        }
+        for (int i = 0; i < n; i++) {
+            dfb[i] = walk.isReached(i) ? (float) walk.distance(i) : Float.MAX_VALUE;
         }
     }
 
@@ -279,19 +276,11 @@ public final class MeshSkeletonExtractor {
         if (root < 0 || maxDfb < EPSILON) return List.of();
 
         // Penalized Dijkstra from root
-        float[] dist = new float[n];
-        int[] parent = new int[n];
-        Arrays.fill(dist, Float.MAX_VALUE);
-        Arrays.fill(parent, -1);
-
-        dist[root] = 0;
-        PriorityQueue<VDist> pq = new PriorityQueue<>();
-        pq.add(new VDist(root, 0));
-
-        while (!pq.isEmpty()) {
-            VDist cur = pq.poll();
-            if (cur.dist > dist[cur.index]) continue;
-            int ci = cur.index;
+        Dijkstra walk = new Dijkstra();
+        walk.start(n);
+        walk.relax(root, 0f, -1);
+        for (int ci = walk.settle(); ci >= 0; ci = walk.settle()) {
+            float here = (float) walk.distance(ci);
             int cx = ci % rx, cy = (ci / rx) % ry, cz = ci / (rx * ry);
 
             for (int ni = 0; ni < NEIGHBOR_COUNT; ni++) {
@@ -302,13 +291,14 @@ public final class MeshSkeletonExtractor {
 
                 float edgeLen = NBR_DIST[ni];
                 float penalty = (float) Math.pow(maxDfb - dfb[nIdx] + 1.0, TEASAR_EXPONENT);
-                float nd = dist[ci] + edgeLen * penalty;
-                if (nd < dist[nIdx]) {
-                    dist[nIdx] = nd;
-                    parent[nIdx] = ci;
-                    pq.add(new VDist(nIdx, nd));
-                }
+                walk.relax(nIdx, here + edgeLen * penalty, ci);
             }
+        }
+        float[] dist = new float[n];
+        int[] parent = new int[n];
+        for (int i = 0; i < n; i++) {
+            dist[i] = walk.isReached(i) ? (float) walk.distance(i) : Float.MAX_VALUE;
+            parent[i] = walk.via(i);
         }
 
         // Iterative branch extraction
@@ -539,14 +529,4 @@ public final class MeshSkeletonExtractor {
     public record BranchPoint(float[] position, List<Integer> connectedBranches) {}
     public record SkeletonResult(int resolution, float voxelSize, float[] root,
                                  List<SkeletonBranch> branches, List<BranchPoint> branchPoints) {}
-
-    private record VDist(int index, float dist) implements Comparable<VDist> {
-        /**
-         * Order by ascending distance for use in a min-heap.
-         *
-         * @param o other entry
-         * @return signum of {@code this.dist - o.dist}
-         */
-        @Override public int compareTo(VDist o) { return Float.compare(dist, o.dist); }
-    }
 }

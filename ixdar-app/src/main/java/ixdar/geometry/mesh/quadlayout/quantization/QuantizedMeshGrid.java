@@ -6,23 +6,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import java.util.Map;
-
-import ixdar.annotations.meshnode.MeshNodeAnnotation;
-import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.nodegraph.api.InputPort;
-import ixdar.nodegraph.api.MeshNode;
-import ixdar.nodegraph.api.NodeContext;
-import ixdar.nodegraph.api.OutputPort;
-import ixdar.nodegraph.api.PortType;
-import ixdar.nodegraph.field.FieldBroadcast;
-import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.geometry.mesh.quadlayout.motorcycle.model.MetOtherTraceEntry;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.motorcycle.model.Trace;
+import ixdar.numeric.graph.UnionFind;
 import ixdar.platform.Platforms;
 
 /**
@@ -34,17 +24,7 @@ import ixdar.platform.Platforms;
  * <p>
  * See also: Lyon 2021 Sections 4 and 5
  */
-@MeshNodeAnnotation(id = "arc_quantization", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
-public class QuantizedMeshGrid implements MeshNode {
-
-    public static final InputPort GRAPH = new InputPort("graph", PortType.ARC_NETWORK, null);
-    public static final InputPort ALPHA_DEGREES = new InputPort("alpha_degrees", PortType.FLOAT,
-            MotorcycleGraph.DEFAULT_ALPHA_DEGREES);
-    public static final OutputPort SKELETON = new OutputPort("skeleton", PortType.ARC_NETWORK);
-    public static final OutputPort SEPARATION_CUTS = new OutputPort("separation_cuts", PortType.INT);
-    public static final OutputPort SEPARATION_VIOLATED = new OutputPort("separation_violated",
-            PortType.BOOLEAN);
-    public static final OutputPort VARIABLES = new OutputPort("variables", PortType.INT);
+public class QuantizedMeshGrid {
 
     private static final int MAX_SEPARATION_ROUNDS = 50;
 
@@ -94,12 +74,6 @@ public class QuantizedMeshGrid implements MeshNode {
     /** Per-trace constraint logging, on only for the first separation round. */
     private boolean constraintLoggingEnabled = true;
 
-    /** Inert node-registry instance; evaluation builds a fresh quantization. */
-    public QuantizedMeshGrid() {
-        this.network = null;
-        this.alphaRadians = 0f;
-    }
-
     /**
      * Stores inputs for a Lyon §4–§5 quantization solve.
      *
@@ -109,49 +83,6 @@ public class QuantizedMeshGrid implements MeshNode {
     public QuantizedMeshGrid(ArcNetwork network, float alphaRadians) {
         this.network = network;
         this.alphaRadians = alphaRadians;
-    }
-
-    @Override
-    public List<InputPort> inputs() {
-        return List.of(GRAPH, ALPHA_DEGREES);
-    }
-
-    @Override
-    public List<OutputPort> outputs() {
-        return List.of(SKELETON, SEPARATION_CUTS, SEPARATION_VIOLATED, VARIABLES);
-    }
-
-    @Override
-    public String description() {
-        return "Solves the quantization ILP over an arc network (one integer length per arc) and"
-                + " collapses zero-quantized arcs into the layout's separatrix skeleton.";
-    }
-
-    @Override
-    public Map<String, String> socketDocs() {
-        return Map.of(
-                GRAPH.name, "Arc network to quantize, from a motorcycle_graph node.",
-                ALPHA_DEGREES.name, "Maximum separatrix deviation in degrees, bounding the ILP.",
-                SKELETON.name, "The quantized skeleton: collapse clusters plus positive arcs.",
-                SEPARATION_CUTS.name, "Separation cuts added beyond Lemma 1 (0 expected).",
-                SEPARATION_VIOLATED.name, "Whether the solve merged two distinct singularities.",
-                VARIABLES.name, "Variables in the quantization ILP after the class merge."
-        );
-    }
-
-    @Override
-    public void evaluate(NodeContext ctx) {
-        ArcNetwork graph = (ArcNetwork) ctx.getInput(GRAPH.name, Object.class);
-        float alphaDegrees = FieldBroadcast.floatScalarOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, ALPHA_DEGREES.name, ALPHA_DEGREES.defaultValue),
-                MotorcycleGraph.DEFAULT_ALPHA_DEGREES);
-        QuantizedMeshGrid quantization =
-                new QuantizedMeshGrid(graph, (float) Math.toRadians(alphaDegrees)).build();
-        quantization.layout = new LayoutExtraction(quantization).build();
-        ctx.setOutput(SKELETON.name, graph);
-        ctx.setOutput(SEPARATION_CUTS.name, quantization.separationCutCount);
-        ctx.setOutput(SEPARATION_VIOLATED.name, quantization.singularitySeparationViolated);
-        ctx.setOutput(VARIABLES.name, quantization.variableCount);
     }
 
     /**
@@ -168,10 +99,7 @@ public class QuantizedMeshGrid implements MeshNode {
         List<EmbeddedArc> arcs = network.arcs;
         int arcCount = arcs.size();
 
-        int[] parent = new int[arcCount];
-        for (int arcId = 0; arcId < arcCount; arcId++) {
-            parent[arcId] = arcId;
-        }
+        int[] parent = UnionFind.singletons(arcCount);
         for (EmbeddedPatch patch : network.patches) {
             if (!patch.validRectangle) {
                 continue;
@@ -180,7 +108,7 @@ public class QuantizedMeshGrid implements MeshNode {
                 List<Integer> side = patch.sideArcIds.get(sideIndex);
                 List<Integer> oppositeSide = patch.sideArcIds.get(sideIndex + 2);
                 if (side.size() == 1 && oppositeSide.size() == 1) {
-                    union(parent, side.get(0), oppositeSide.get(0));
+                    UnionFind.union(parent, side.get(0), oppositeSide.get(0));
                 }
             }
         }
@@ -189,7 +117,7 @@ public class QuantizedMeshGrid implements MeshNode {
         int[] classOfRoot = new int[arcCount];
         Arrays.fill(classOfRoot, -1);
         for (int arcId = 0; arcId < arcCount; arcId++) {
-            int root = find(parent, arcId);
+            int root = UnionFind.find(parent, arcId);
             if (classOfRoot[root] < 0) {
                 classOfRoot[root] = classCount++;
             }
@@ -617,26 +545,5 @@ public class QuantizedMeshGrid implements MeshNode {
             }
         }
         return violations;
-    }
-
-    private int find(int[] parent, int arcId) {
-        int root = arcId;
-        while (parent[root] != root) {
-            root = parent[root];
-        }
-        while (parent[arcId] != root) {
-            int next = parent[arcId];
-            parent[arcId] = root;
-            arcId = next;
-        }
-        return root;
-    }
-
-    private void union(int[] parent, int arcA, int arcB) {
-        int rootA = find(parent, arcA);
-        int rootB = find(parent, arcB);
-        if (rootA != rootB) {
-            parent[rootB] = rootA;
-        }
     }
 }

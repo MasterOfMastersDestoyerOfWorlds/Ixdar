@@ -1,13 +1,12 @@
 package ixdar.geometry.mesh.data.paths.geodesic;
 
 import java.util.Arrays;
-import java.util.Comparator;
-import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.numeric.graph.Dijkstra;
 
 /**
  * Snaps a traced geodesic to the nearest cycle of original mesh edges, for consumers that need
@@ -33,10 +32,8 @@ public final class ConformingLoopSnap {
     /** Vertices one gap-closing walk may settle. */
     public int searchBudget = DEFAULT_SEARCH_BUDGET;
 
-    private int[] visitStamp = new int[0];
-    private double[] visitDistance = new double[0];
-    private int[] visitParent = new int[0];
-    private int currentStamp;
+    private final Dijkstra walk = new Dijkstra();
+    private int vertexIdBound;
     private final Vector3f scratchPosition = new Vector3f();
     private final Vector3f otherPosition = new Vector3f();
 
@@ -60,7 +57,7 @@ public final class ConformingLoopSnap {
             vertexCycle = new int[0];
             return marks;
         }
-        prepareVisitBuffers(mesh);
+        vertexIdBound = mesh.vertexIdBound();
 
         for (int index = 0; index < path.pointCount; index++) {
             int vertexId = path.vertexId[index];
@@ -104,7 +101,7 @@ public final class ConformingLoopSnap {
         // A walk whose next walk turns back along its last edge leaves a dead-end spur: across a
         // polygon, or where consecutive traced points snap to vertices A, B, A on a fine triangle
         // mesh. A closed ring never needs one, so unmark them down to the loop.
-        int[] markedDegree = new int[visitStamp.length];
+        int[] markedDegree = new int[vertexIdBound];
         for (int edgeId = 0; edgeId < marks.length; edgeId++) {
             if (marks[edgeId]) {
                 int halfEdge = mesh.edgeHalfEdge(edgeId);
@@ -151,19 +148,6 @@ public final class ConformingLoopSnap {
         return new EdgeMarks(marks, unresolvedGaps);
     }
 
-    private void prepareVisitBuffers(MeshTopology mesh) {
-        int maxVertexId = 0;
-        for (int index = 0; index < mesh.vertexCount(); index++) {
-            maxVertexId = Math.max(maxVertexId, mesh.vertexIdAt(index));
-        }
-        if (visitStamp.length <= maxVertexId) {
-            visitStamp = new int[maxVertexId + 1];
-            visitDistance = new double[maxVertexId + 1];
-            visitParent = new int[maxVertexId + 1];
-            currentStamp = 0;
-        }
-    }
-
     private int nearerEdgeEnd(MeshTopology mesh, int edgeId, double fraction) {
         int halfEdge = mesh.edgeHalfEdge(edgeId);
         return fraction <= 0.5 ? mesh.halfEdgeVertex(halfEdge) : mesh.halfEdgeEndVertex(halfEdge);
@@ -188,20 +172,14 @@ public final class ConformingLoopSnap {
         if (fromVertex == toVertex) {
             return true;
         }
-        currentStamp++;
-        visitStamp[fromVertex] = currentStamp;
-        visitDistance[fromVertex] = 0.0;
-        visitParent[fromVertex] = -1;
-        PriorityQueue<double[]> frontier = new PriorityQueue<>(
-                Comparator.comparingDouble(entry -> entry[0]));
-        frontier.add(new double[] { 0.0, fromVertex });
+        walk.start(vertexIdBound);
+        walk.relax(fromVertex, 0.0, -1);
         int settled = 0;
         boolean reached = false;
-        while (!frontier.isEmpty() && settled < searchBudget) {
-            double[] entry = frontier.poll();
-            int vertexId = (int) entry[1];
-            if (entry[0] > visitDistance[vertexId]) {
-                continue;
+        while (settled < searchBudget) {
+            int vertexId = walk.settle();
+            if (vertexId < 0) {
+                break;
             }
             settled++;
             if (vertexId == toVertex) {
@@ -209,6 +187,7 @@ public final class ConformingLoopSnap {
                 break;
             }
             mesh.vertexPosition(vertexId, scratchPosition);
+            double here = walk.distance(vertexId);
             int spokes = mesh.vertexEdgeCount(vertexId);
             for (int spoke = 0; spoke < spokes; spoke++) {
                 int edgeId = mesh.vertexEdgeAt(vertexId, spoke);
@@ -217,23 +196,14 @@ public final class ConformingLoopSnap {
                     continue;
                 }
                 mesh.vertexPosition(other, otherPosition);
-                double relaxed = visitDistance[vertexId] + scratchPosition.distance(otherPosition);
-                if (visitStamp[other] != currentStamp || relaxed < visitDistance[other]) {
-                    visitStamp[other] = currentStamp;
-                    visitDistance[other] = relaxed;
-                    visitParent[other] = vertexId;
-                    frontier.add(new double[] { relaxed, other });
-                }
+                walk.relax(other, here + scratchPosition.distance(otherPosition), vertexId);
             }
         }
         if (!reached) {
             return false;
         }
-        int walk = toVertex;
-        while (walk != fromVertex) {
-            int parent = visitParent[walk];
-            marks[mesh.edgeBetween(walk, parent)] = true;
-            walk = parent;
+        for (int vertexId = toVertex; vertexId != fromVertex; vertexId = walk.via(vertexId)) {
+            marks[mesh.edgeBetween(vertexId, walk.via(vertexId))] = true;
         }
         return true;
     }

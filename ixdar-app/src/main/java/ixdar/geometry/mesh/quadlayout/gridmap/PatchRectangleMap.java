@@ -11,6 +11,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
+import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.numeric.sparse.DirectSolver;
 import ixdar.numeric.sparse.matrix.NormalMatrix;
 import ixdar.numeric.sparse.ordering.OrderingMethod;
@@ -460,12 +461,8 @@ public final class PatchRectangleMap {
      * @return the signed area measure (sign is what matters)
      */
     private double signedArea(int[] triangle) {
-        double ux = rectangleU[triangle[0]];
-        double uy = rectangleV[triangle[0]];
-        double vx = rectangleU[triangle[1]];
-        double vy = rectangleV[triangle[1]];
-        double wx = rectangleU[triangle[2]];
-        double wy = rectangleV[triangle[2]];
-        return (vx - ux) * (wy - uy) - (wx - ux) * (vy - uy);
+        return ExactBarycentricOrient.orient2d(rectangleU[triangle[0]], rectangleV[triangle[0]],
+                rectangleU[triangle[1]], rectangleV[triangle[1]],
+                rectangleU[triangle[2]], rectangleV[triangle[2]]);
     }
 }

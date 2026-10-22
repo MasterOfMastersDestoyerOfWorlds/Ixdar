@@ -7,8 +7,8 @@ import ixdar.geometry.mesh.data.io.CrossFieldLoader;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
+import ixdar.nodegraph.nodes.quadlayout.SeamlessParameterizationNode;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutOverlay;
@@ -90,7 +90,7 @@ public class ParametrizationExaminationScene extends ModelScene {
                 QuadLayoutNode.sceneOutput(QuadLayoutNode.SEAMLESS));
         Object flipped = sceneOutput(QuadLayoutNode.LAYOUT_CALL + GraphNodeContext.PATH_SEPARATOR
                 + QuadLayoutNode.SEAMLESS.name + NodeGraphRuntime.PORT_SEPARATOR
-                + SeamlessParameterization.FLIPPED_TRIANGLES.name);
+                + SeamlessParameterizationNode.FLIPPED_TRIANGLES.name);
 
         quadRuntime.showIsoLines = true;
         quadRuntime.showSingularities = true;

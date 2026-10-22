@@ -10,6 +10,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 public final class ObjMeshParser {
     /**
@@ -104,41 +105,50 @@ public final class ObjMeshParser {
             }
         }
 
+        // Fan every face into triangles.
+        int[] faceIndices = new int[totalTriIndices];
+        int[] fan = new int[0];
+        int fi = 0;
+        for (int[] face : faces) {
+            if (fan.length < MeshLoader.FLOATS_PER_VERTEX * face.length) {
+                fan = new int[MeshLoader.FLOATS_PER_VERTEX * face.length];
+            }
+            int triangles = MeshTopology.triangleCorners(TriangulationRule.FAN, face.length, true,
+                    fan);
+            for (int slot = 0; slot < MeshLoader.FLOATS_PER_VERTEX * triangles; slot++) {
+                faceIndices[fi++] = face[fan[slot]];
+            }
+        }
+
         if (!hasVertexNormals) {
             // Compute face normals and assign to vertices
-            int vpf = faces.size() > 0 ? faces.get(0).length : 4;
             Vector3f e1 = new Vector3f();
             Vector3f e2 = new Vector3f();
             Vector3f fn = new Vector3f();
 
-            for (int[] face : faces) {
-                if (face.length < MeshLoader.FLOATS_PER_VERTEX) {
-                    continue;
+            for (int corner = 0; corner < faceIndices.length;
+                    corner += MeshLoader.FLOATS_PER_VERTEX) {
+                int v0 = faceIndices[corner];
+                int v1 = faceIndices[corner + 1];
+                int v2 = faceIndices[corner + 2];
+                int p0o = v0 * MeshLoader.FLOATS_PER_VERTEX;
+                int p1o = v1 * MeshLoader.FLOATS_PER_VERTEX;
+                int p2o = v2 * MeshLoader.FLOATS_PER_VERTEX;
+                e1.set(posArray[p1o], posArray[p1o + 1], posArray[p1o + 2])
+                        .sub(posArray[p0o], posArray[p0o + 1], posArray[p0o + 2]);
+                e2.set(posArray[p2o], posArray[p2o + 1], posArray[p2o + 2])
+                        .sub(posArray[p0o], posArray[p0o + 1], posArray[p0o + 2]);
+                e1.cross(e2, fn);
+                float len = fn.length();
+                if (len > MeshLoader.NORMAL_LENGTH_EPSILON) {
+                    fn.mul(1.0f / len);
                 }
-                // Triangulate n-gons
-                for (int i = 1; i < face.length - 1; i++) {
-                    int v0 = face[0];
-                    int v1 = face[i];
-                    int v2 = face[i + 1];
-                    int p0o = v0 * MeshLoader.FLOATS_PER_VERTEX;
-                    int p1o = v1 * MeshLoader.FLOATS_PER_VERTEX;
-                    int p2o = v2 * MeshLoader.FLOATS_PER_VERTEX;
-                    e1.set(posArray[p1o], posArray[p1o + 1], posArray[p1o + 2])
-                            .sub(posArray[p0o], posArray[p0o + 1], posArray[p0o + 2]);
-                    e2.set(posArray[p2o], posArray[p2o + 1], posArray[p2o + 2])
-                            .sub(posArray[p0o], posArray[p0o + 1], posArray[p0o + 2]);
-                    e1.cross(e2, fn);
-                    float len = fn.length();
-                    if (len > MeshLoader.NORMAL_LENGTH_EPSILON) {
-                        fn.mul(1.0f / len);
-                    }
-                    // Assign to all three vertices
-                    for (int v : new int[] { v0, v1, v2 }) {
-                        int vo = v * MeshLoader.FLOATS_PER_VERTEX;
-                        normArray[vo] += fn.x;
-                        normArray[vo + 1] += fn.y;
-                        normArray[vo + 2] += fn.z;
-                    }
+                // Assign to all three vertices
+                for (int v : new int[] { v0, v1, v2 }) {
+                    int vo = v * MeshLoader.FLOATS_PER_VERTEX;
+                    normArray[vo] += fn.x;
+                    normArray[vo + 1] += fn.y;
+                    normArray[vo + 2] += fn.z;
                 }
             }
 
@@ -153,21 +163,6 @@ public final class ObjMeshParser {
                     normArray[i + 1] = ny / len;
                     normArray[i + 2] = nz / len;
                 }
-            }
-        }
-
-        // Flatten faces to triangles (fan triangulation for n-gons)
-        int[] faceIndices = new int[totalTriIndices];
-        int fi = 0;
-        for (int[] face : faces) {
-            if (face.length < MeshLoader.FLOATS_PER_VERTEX) {
-                continue;
-            }
-            // Triangulate n-gons using fan
-            for (int i = 1; i < face.length - 1; i++) {
-                faceIndices[fi++] = face[0];
-                faceIndices[fi++] = face[i];
-                faceIndices[fi++] = face[i + 1];
             }
         }
 

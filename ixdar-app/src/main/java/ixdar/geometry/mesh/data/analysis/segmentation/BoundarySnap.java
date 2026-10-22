@@ -8,12 +8,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.numeric.graph.Dijkstra;
 
 /**
  * Post-assembly feature-edge boundary snap: reroutes cell-pair boundaries onto high-confidence
@@ -255,36 +255,24 @@ public final class BoundarySnap {
         }
         if (bandSize < MIN_BAND_VERTS) return null;
 
-        float[] dist = new float[nv];
-        Arrays.fill(dist, Float.POSITIVE_INFINITY);
-        int[] prev = new int[nv];
-        Arrays.fill(prev, -1);
-        dist[s] = 0f;
-        PriorityQueue<DijkstraNode> pq = new PriorityQueue<>(
-                (x, y) -> Float.compare(x.dist, y.dist));
-        pq.add(new DijkstraNode(0f, s));
-        while (!pq.isEmpty()) {
-            DijkstraNode head = pq.poll();
-            if (head.dist > dist[head.v]) continue;
-            int u = head.v;
-            if (u == t) break;
+        // Costs are summed in float; the walk only stores the sums.
+        Dijkstra walk = new Dijkstra();
+        walk.start(nv);
+        walk.relax(s, 0f, -1);
+        for (int u = walk.settle(); u >= 0 && u != t; u = walk.settle()) {
+            float here = (float) walk.distance(u);
             for (int n : ring[u]) {
                 if (!inBand[n]) continue;
                 float w = edgeCost(u, n, positions, highConfidenceEdges,
                         dihedralEdges, principalEdges, crestEdges);
-                float nd = head.dist + w;
-                if (nd < dist[n]) {
-                    dist[n] = nd;
-                    prev[n] = u;
-                    pq.add(new DijkstraNode(nd, n));
-                }
+                walk.relax(n, here + w, u);
             }
         }
-        if (Float.isInfinite(dist[t])) return null;
+        if (!walk.isReached(t)) return null;
 
         List<Integer> path = new ArrayList<>();
         int cur = t;
-        while (cur != -1) { path.add(cur); cur = prev[cur]; }
+        while (cur != -1) { path.add(cur); cur = walk.via(cur); }
         Collections.reverse(path);
         return path;
     }
@@ -455,11 +443,5 @@ public final class BoundarySnap {
         List<Integer> vertices;
         int labelA, labelB;
         boolean isClosed;
-    }
-
-    private static final class DijkstraNode {
-        final float dist;
-        final int v;
-        DijkstraNode(float d, int u) { dist = d; v = u; }
     }
 }

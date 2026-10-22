@@ -4,6 +4,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.numeric.exact.ExactArithmetic;
+import ixdar.numeric.graph.UnionFind;
 
 public class ParameterizationMetrics {
 
@@ -222,9 +223,7 @@ public class ParameterizationMetrics {
      * @return the chart-component count, ≥ 1 for any non-empty mesh
      */
     public int countDisconnectedCharts() {
-        int[] parent = new int[faceCount];
-        for (int i = 0; i < faceCount; i++)
-            parent[i] = i;
+        int[] parent = UnionFind.singletons(faceCount);
         for (int activeEdge = 0; activeEdge < edgeCount; activeEdge++) {
             if (seamless.uv.cutGraph.isCutEdge[activeEdge])
                 continue;
@@ -232,33 +231,14 @@ public class ParameterizationMetrics {
             int faceB = seamless.uv.edgeFaceB[activeEdge];
             if (faceA < 0 || faceB < 0)
                 continue;
-            int rootA = findRoot(parent, faceA);
-            int rootB = findRoot(parent, faceB);
-            if (rootA != rootB)
-                parent[rootA] = rootB;
+            UnionFind.union(parent, faceB, faceA);
         }
         int components = 0;
         for (int i = 0; i < faceCount; i++) {
-            if (findRoot(parent, i) == i)
+            if (UnionFind.find(parent, i) == i)
                 components++;
         }
         return components;
-    }
-
-    /**
-     * Union-find find with path halving. Used by {@link #chartCount()} during
-     * face-graph unioning and again when counting roots.
-     *
-     * @param parent in-place parent-pointer array
-     * @param node   node whose root to locate
-     * @return the root node id; {@code parent} is compacted along the way
-     */
-    private static int findRoot(int[] parent, int node) {
-        while (parent[node] != node) {
-            parent[node] = parent[parent[node]];
-            node = parent[node];
-        }
-        return node;
     }
 
     /**

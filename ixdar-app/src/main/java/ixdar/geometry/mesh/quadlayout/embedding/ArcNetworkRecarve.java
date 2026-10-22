@@ -3,12 +3,10 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -18,6 +16,7 @@ import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 import ixdar.geometry.mesh.quadlayout.gridmap.PatchRegions;
+import ixdar.numeric.graph.Dijkstra;
 import ixdar.platform.Platforms;
 
 /**
@@ -101,17 +100,8 @@ public final class ArcNetworkRecarve {
     /** The first foreign-node touch found, described for the report. */
     public String firstForeignNodeOnPath;
 
-    /** Route length so far per contracted-mesh vertex, for a flank re-route. */
-    public double[] distanceByCopyVertex = new double[0];
-
-    /** Vertex a flank route reached each contracted-mesh vertex from. */
-    public int[] parentByCopyVertex = new int[0];
-
-    /** Stamp marking the contracted-mesh vertices the current re-route settled. */
-    public int[] settledStampByCopyVertex = new int[0];
-
-    /** Current stamp of {@link #settledStampByCopyVertex}. */
-    public int routeStamp;
+    /** Shortest-route search over the contracted mesh's vertices, reused by every re-route. */
+    public final Dijkstra flankRoute = new Dijkstra();
 
     /** Stamp marking the contracted-mesh faces of the arc being re-routed's flanks. */
     public int[] flankStampByCopyFace = new int[0];
@@ -263,50 +253,26 @@ public final class ArcNetworkRecarve {
             return null;
         }
         floodFlanks(arc);
-        int vertexBound = topology.ownerNodeByCopyVertex().length;
-        if (distanceByCopyVertex.length < vertexBound) {
-            distanceByCopyVertex = new double[vertexBound];
-            parentByCopyVertex = new int[vertexBound];
-            settledStampByCopyVertex = new int[vertexBound];
-        }
-        routeStamp++;
-        Arrays.fill(distanceByCopyVertex, Double.POSITIVE_INFINITY);
-        PriorityQueue<double[]> frontier = new PriorityQueue<>(Comparator.comparingDouble(
-                (double[] entry) -> entry[0]));
-        distanceByCopyVertex[start] = 0.0;
-        parentByCopyVertex[start] = EmbeddedMeshTopology.UNCLAIMED;
-        frontier.add(new double[] { 0.0, start });
-        while (!frontier.isEmpty()) {
-            int vertex = (int) frontier.poll()[1];
-            if (settledStampByCopyVertex[vertex] == routeStamp) {
-                continue;
-            }
-            settledStampByCopyVertex[vertex] = routeStamp;
-            if (vertex == end) {
-                break;
-            }
+        flankRoute.start(topology.ownerNodeByCopyVertex().length);
+        flankRoute.relax(start, 0.0, EmbeddedMeshTopology.UNCLAIMED);
+        for (int vertex = flankRoute.settle(); vertex >= 0 && vertex != end;
+                vertex = flankRoute.settle()) {
+            double here = flankRoute.distance(vertex);
             for (int index = 0; index < copy.vertexOutgoingHalfEdgeCount(vertex); index++) {
                 int halfEdge = copy.vertexOutgoingHalfEdgeAt(vertex, index);
                 int next = copy.halfEdgeEndVertex(halfEdge);
-                int edge = copy.halfEdgeEdge(halfEdge);
-                if (settledStampByCopyVertex[next] == routeStamp
-                        || !routeMayStep(arc.arcId, halfEdge, next, end)) {
-                    continue;
-                }
-                double distance = distanceByCopyVertex[vertex] + topology.copy.edgeLength(edge);
-                if (distance < distanceByCopyVertex[next]) {
-                    distanceByCopyVertex[next] = distance;
-                    parentByCopyVertex[next] = vertex;
-                    frontier.add(new double[] { distance, next });
+                if (!flankRoute.isSettled(next) && routeMayStep(arc.arcId, halfEdge, next, end)) {
+                    flankRoute.relax(next, here + copy.edgeLength(copy.halfEdgeEdge(halfEdge)),
+                            vertex);
                 }
             }
         }
-        if (settledStampByCopyVertex[end] != routeStamp) {
+        if (!flankRoute.isSettled(end)) {
             return null;
         }
         List<Integer> route = new ArrayList<>();
         for (int vertex = end; vertex != EmbeddedMeshTopology.UNCLAIMED;
-                vertex = parentByCopyVertex[vertex]) {
+                vertex = flankRoute.via(vertex)) {
             route.add(vertex);
         }
         Collections.reverse(route);

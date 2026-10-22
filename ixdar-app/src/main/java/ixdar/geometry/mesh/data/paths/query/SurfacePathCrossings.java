@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.numeric.exact.ExactBarycentricOrient;
 
 /**
  * Finds where a ring or a bisector traced on a mesh crosses or touches itself: two spans crossing
@@ -183,8 +184,8 @@ public final class SurfacePathCrossings {
 
     private static double orientation(double[] xyz, int from, int to, int at, int first,
             int second) {
-        return (xyz[to + first] - xyz[from + first]) * (xyz[at + second] - xyz[from + second])
-                - (xyz[to + second] - xyz[from + second]) * (xyz[at + first] - xyz[from + first]);
+        return ExactBarycentricOrient.orient2d(xyz[from + first], xyz[from + second],
+                xyz[to + first], xyz[to + second], xyz[at + first], xyz[at + second]);
     }
 
     private void record(TracedSurfacePath path, int point, int otherPoint, double blend) {

@@ -7,6 +7,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.numeric.graph.Dijkstra;
 
 /**
  * How two faces of a surface are joined: their shortest path and the neck it passes, its narrowest
@@ -108,10 +109,7 @@ public final class SurfaceConnection {
     private final Vector3f scratch = new Vector3f();
     private final int[] loopFaceStamp;
     private int loopStamp;
-    private int[] arcTowardStart = new int[0];
-    private double[] frontierKey = new double[0];
-    private int[] frontierFace = new int[0];
-    private int frontierSize;
+    private final Dijkstra faceSearch = new Dijkstra();
 
     /**
      * Build the face graph of a surface once; every connect reuses it.
@@ -215,54 +213,19 @@ public final class SurfaceConnection {
         // Surface distance of every face from the start over arcs that cross no wall, each
         // reached face keeping its arc back toward the start.
         long start = System.nanoTime();
-        distanceFromStart = new double[faceCount];
-        Arrays.fill(distanceFromStart, Double.POSITIVE_INFINITY);
-        if (arcTowardStart.length != faceCount) {
-            arcTowardStart = new int[faceCount];
-        }
-        Arrays.fill(arcTowardStart, -1);
-        distanceFromStart[startFace] = 0.0;
-        frontierSize = 0;
-        pushFrontier(0.0, startFace);
-        while (frontierSize > 0) {
-            double key = frontierKey[0];
-            int settled = frontierFace[0];
-            frontierSize--;
-            double movedKey = frontierKey[frontierSize];
-            int movedFace = frontierFace[frontierSize];
-            int hole = 0;
-            while (true) {
-                int child = 2 * hole + 1;
-                if (child >= frontierSize) {
-                    break;
-                }
-                if (child + 1 < frontierSize && frontierKey[child + 1] < frontierKey[child]) {
-                    child++;
-                }
-                if (frontierKey[child] >= movedKey) {
-                    break;
-                }
-                frontierKey[hole] = frontierKey[child];
-                frontierFace[hole] = frontierFace[child];
-                hole = child;
-            }
-            frontierKey[hole] = movedKey;
-            frontierFace[hole] = movedFace;
-            if (key > distanceFromStart[settled]) {
-                continue;
-            }
+        faceSearch.start(faceCount);
+        faceSearch.relax(startFace, 0.0, -1);
+        for (int settled = faceSearch.settle(); settled >= 0; settled = faceSearch.settle()) {
+            double key = faceSearch.distance(settled);
             for (int arc = arcStart[settled]; arc < arcStart[settled + 1]; arc++) {
-                if (wall(arcEdgeId[arc])) {
-                    continue;
-                }
-                int neighbour = arcFace[arc];
-                double relaxed = key + arcLength[arc];
-                if (relaxed < distanceFromStart[neighbour]) {
-                    distanceFromStart[neighbour] = relaxed;
-                    arcTowardStart[neighbour] = arcReverse[arc];
-                    pushFrontier(relaxed, neighbour);
+                if (!wall(arcEdgeId[arc])) {
+                    faceSearch.relax(arcFace[arc], key + arcLength[arc], arcReverse[arc]);
                 }
             }
+        }
+        distanceFromStart = new double[faceCount];
+        for (int face = 0; face < faceCount; face++) {
+            distanceFromStart[face] = faceSearch.distance(face);
         }
         if (distanceFromStart[endFace] == Double.POSITIVE_INFINITY) {
             failure = "the two ends are not joined: no path between them crosses no wall";
@@ -272,7 +235,7 @@ public final class SurfaceConnection {
         connected = true;
         pathLength = distanceFromStart[endFace];
         int steps = 1;
-        for (int face = endFace; face != startFace; face = arcFace[arcTowardStart[face]]) {
+        for (int face = endFace; face != startFace; face = arcFace[faceSearch.via(face)]) {
             steps++;
         }
         pathActiveFace = new int[steps];
@@ -286,7 +249,7 @@ public final class SurfaceConnection {
             pathFilledFaceCount += face < filledByActiveFace.length && filledByActiveFace[face]
                     ? 1 : 0;
             if (index > 0) {
-                int arc = arcTowardStart[face];
+                int arc = faceSearch.via(face);
                 mesh.edgeMidpoint(arcEdgeId[arc], midpoint);
                 int base = COORDINATES_PER_POINT * (2 * index - 1);
                 pathPolyline[base] = midpoint.x;
@@ -436,33 +399,6 @@ public final class SurfaceConnection {
             }
         }
         return nearest;
-    }
-
-    /**
-     * Add one entry to the binary min-heap the distance search pops from; stale entries stay
-     * and are skipped when popped.
-     *
-     * @param key  the face's tentative distance
-     * @param face active face index
-     */
-    private void pushFrontier(double key, int face) {
-        if (frontierSize == frontierKey.length) {
-            int grown = Math.max(2 * frontierKey.length, faceCount);
-            frontierKey = Arrays.copyOf(frontierKey, grown);
-            frontierFace = Arrays.copyOf(frontierFace, grown);
-        }
-        int hole = frontierSize++;
-        while (hole > 0) {
-            int parent = (hole - 1) / 2;
-            if (frontierKey[parent] <= key) {
-                break;
-            }
-            frontierKey[hole] = frontierKey[parent];
-            frontierFace[hole] = frontierFace[parent];
-            hole = parent;
-        }
-        frontierKey[hole] = key;
-        frontierFace[hole] = face;
     }
 
     /**

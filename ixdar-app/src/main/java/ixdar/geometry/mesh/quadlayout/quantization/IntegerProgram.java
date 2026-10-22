@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.PriorityQueue;
 
+import ixdar.numeric.graph.UnionFind;
+
 /**
  * Exact integer program for quantization: minimise a non-negative weighting of non-negative
  * integers under {@code Σ left = Σ right} equalities and {@code Σ ≥ 1} cover rows.
@@ -624,10 +626,7 @@ public final class IntegerProgram {
             // free with d > 0 are the only ones that trade weight under the ceiling, so they join
             // one component; any other component's weight is constant over T. The lexicographic
             // minimum of a product is the product of the components' minima.
-            int[] componentOfColumn = new int[tieColumns];
-            for (int column = 0; column < tieColumns; column++) {
-                componentOfColumn[column] = column;
-            }
+            int[] componentOfColumn = UnionFind.singletons(tieColumns);
             // Row tieRows stands for the ceiling's coupled set: the free columns of every root
             // nonbasic slot left free with d > 0 (a row slot contributes its row's columns).
             boolean[] ceilingCoupled = new boolean[tieColumns];
@@ -655,28 +654,16 @@ public final class IntegerProgram {
                     if (!joins || rootTieBounds[column] == rootTieBounds[tieSlots + column]) {
                         continue;
                     }
-                    int columnRoot = column;
-                    while (componentOfColumn[columnRoot] != columnRoot) {
-                        columnRoot = componentOfColumn[columnRoot];
-                    }
                     if (anchor < 0) {
-                        anchor = columnRoot;
+                        anchor = column;
                     }
-                    int anchorRoot = anchor;
-                    while (componentOfColumn[anchorRoot] != anchorRoot) {
-                        anchorRoot = componentOfColumn[anchorRoot];
-                    }
-                    componentOfColumn[columnRoot] = anchorRoot;
+                    UnionFind.union(componentOfColumn, anchor, column);
                 }
             }
             // Group the free variables by component in ascending index: a variable whose columns
             // are all fixed, or whose value is fixed outright, is decided already.
             for (int column = 0; column < tieColumns; column++) {
-                int root = column;
-                while (componentOfColumn[root] != root) {
-                    root = componentOfColumn[root];
-                }
-                componentOfColumn[column] = root;
+                componentOfColumn[column] = UnionFind.find(componentOfColumn, column);
             }
             for (int column = 0; column < tieColumns; column++) {
                 if (rootTieBounds[column] == rootTieBounds[tieSlots + column]) {

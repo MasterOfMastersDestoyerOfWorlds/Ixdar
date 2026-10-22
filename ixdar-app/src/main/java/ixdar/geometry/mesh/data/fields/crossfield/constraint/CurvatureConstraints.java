@@ -3,14 +3,13 @@ package ixdar.geometry.mesh.data.fields.crossfield.constraint;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
-import ixdar.geometry.mesh.data.fields.crossfield.DijkstraNode;
+import ixdar.numeric.graph.Dijkstra;
 
 public class CurvatureConstraints {
 
@@ -36,13 +35,13 @@ public class CurvatureConstraints {
     /**
      * Reusable scratch for curvature-disk searches. Each search increments
      * {@code curvatureStamp}; arrays holding that stamp are treated as part of the
-     * current disk without clearing all mesh-sized arrays between searches.
+     * current disk without clearing all mesh-sized arrays between searches. The
+     * geodesic walk's own vertex distances live in {@link #disk}.
      */
-    int[] vertexInDiskStamp;
     int[] faceInDiskStamp;
     int[] edgeProcessedStamp;
-    float[] vertexDistance;
     int[] visitedVertexIds;
+    final Dijkstra disk = new Dijkstra();
 
     /**
      * Per-disk geometry recorded once during the single max-radius walk so every
@@ -120,10 +119,8 @@ public class CurvatureConstraints {
         this.faceCount = mesh.faceCount();
         this.edgeCount = mesh.edgeCount();
         this.vertexCount = mesh.vertexCount();
-        this.vertexInDiskStamp = new int[vertexCount];
         this.faceInDiskStamp = new int[faceCount];
         this.edgeProcessedStamp = new int[edgeCount];
-        this.vertexDistance = new float[vertexCount];
         this.visitedVertexIds = new int[vertexCount];
         this.faceInclusionDistance = new float[faceCount];
         this.diskFaceIds = new int[faceCount];
@@ -481,43 +478,28 @@ public class CurvatureConstraints {
         integrateCalls++;
         long sectionTime = System.nanoTime();
 
-        PriorityQueue<DijkstraNode> pq = new PriorityQueue<>();
+        // Distances are summed in float, as the disk radii are; the walk only stores them.
+        disk.start(vertexCount);
         int visitedCount = 0;
         for (int s = 0; s < seedVertexIds.length; s++) {
             int sv = seedVertexIds[s];
-            float sd = seedDistances[s];
-            if (vertexInDiskStamp[sv] != stamp) {
-                vertexInDiskStamp[sv] = stamp;
-                vertexDistance[sv] = sd;
+            if (!disk.isReached(sv)) {
                 visitedVertexIds[visitedCount++] = sv;
-                pq.offer(new DijkstraNode(sd, sv));
-            } else if (sd < vertexDistance[sv]) {
-                vertexDistance[sv] = sd;
-                pq.offer(new DijkstraNode(sd, sv));
             }
+            disk.relax(sv, seedDistances[s], -1);
         }
-
-        while (!pq.isEmpty()) {
-            DijkstraNode node = pq.poll();
-            int u = node.vertexOrFace;
-            if (node.distance > vertexDistance[u] + CrossField.EPSILON) {
-                continue;
-            }
+        for (int u = disk.settle(); u >= 0; u = disk.settle()) {
+            float here = (float) disk.distance(u);
             for (int j = neighborStart[u]; j < neighborStart[u + 1]; j++) {
                 int w = neighborVertexId[j];
-                float nd = node.distance + neighborEdgeLength[j];
+                float nd = here + neighborEdgeLength[j];
                 if (nd > maxRadius) {
                     continue;
                 }
-                if (vertexInDiskStamp[w] != stamp) {
-                    vertexInDiskStamp[w] = stamp;
-                    vertexDistance[w] = nd;
+                if (!disk.isReached(w)) {
                     visitedVertexIds[visitedCount++] = w;
-                    pq.offer(new DijkstraNode(nd, w));
-                } else if (nd < vertexDistance[w]) {
-                    vertexDistance[w] = nd;
-                    pq.offer(new DijkstraNode(nd, w));
                 }
+                disk.relax(w, nd, u);
             }
         }
         long sectionNow = System.nanoTime();
@@ -537,12 +519,10 @@ public class CurvatureConstraints {
                 int v0 = faceVertex0[faceId];
                 int v1 = faceVertex1[faceId];
                 int v2 = faceVertex2[faceId];
-                if (vertexInDiskStamp[v0] == stamp
-                        && vertexInDiskStamp[v1] == stamp
-                        && vertexInDiskStamp[v2] == stamp) {
+                if (disk.isReached(v0) && disk.isReached(v1) && disk.isReached(v2)) {
                     faceInDiskStamp[faceId] = stamp;
-                    faceInclusionDistance[faceId] = Math.max(vertexDistance[v0],
-                            Math.max(vertexDistance[v1], vertexDistance[v2]));
+                    faceInclusionDistance[faceId] = (float) Math.max(disk.distance(v0),
+                            Math.max(disk.distance(v1), disk.distance(v2)));
                     diskFaceIds[diskFaceCount++] = faceId;
                 }
             }
@@ -573,8 +553,8 @@ public class CurvatureConstraints {
                 if (!edgeContributes[edgeId]) {
                     continue;
                 }
-                if (vertexInDiskStamp[edgeStartVertex[edgeId]] != stamp
-                        || vertexInDiskStamp[edgeEndVertex[edgeId]] != stamp) {
+                if (!disk.isReached(edgeStartVertex[edgeId])
+                        || !disk.isReached(edgeEndVertex[edgeId])) {
                     continue;
                 }
                 int faceA = edgeFaceA[edgeId];

@@ -7,6 +7,7 @@ import java.util.List;
 
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
  * Reads ASCII PLY into a mesh ({@link MeshLoader#indexedMesh}): vertex positions, optional {@code nx/ny/nz} normals,
@@ -132,13 +133,17 @@ public final class PlyMeshParser {
             return new HalfEdgeMesh();
         }
         int[] triangles = new int[triangleCorners];
+        int[] polygonCorners = new int[0];
         int read = 0;
         int write = 0;
         for (int size : faceSizes) {
-            for (int fan = 1; fan + 1 < size; fan++) {
-                triangles[write++] = faceCorners[read];
-                triangles[write++] = faceCorners[read + fan];
-                triangles[write++] = faceCorners[read + fan + 1];
+            if (polygonCorners.length < TRIANGLE_CORNERS * size) {
+                polygonCorners = new int[TRIANGLE_CORNERS * size];
+            }
+            int polygonTriangles = MeshTopology.triangleCorners(TriangulationRule.FAN, size, true,
+                    polygonCorners);
+            for (int slot = 0; slot < TRIANGLE_CORNERS * polygonTriangles; slot++) {
+                triangles[write++] = faceCorners[read + polygonCorners[slot]];
             }
             read += size;
         }

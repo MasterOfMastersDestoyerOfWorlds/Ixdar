@@ -4,6 +4,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangleGeometry;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.graphics.render.model.LineSet;
 
 /**
@@ -34,10 +35,7 @@ public final class SurfaceFaceLocator {
      */
     public SurfaceFaceLocator(MeshTopology mesh) {
         this.mesh = mesh;
-        int triangleCount = 0;
-        for (int face = 0; face < mesh.faceCount(); face++) {
-            triangleCount += Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(face)) - 2);
-        }
+        int triangleCount = mesh.triangleCount();
         int maxVertexId = 0;
         for (int vertex = 0; vertex < mesh.vertexCount(); vertex++) {
             maxVertexId = Math.max(maxVertexId, mesh.vertexIdAt(vertex));
@@ -55,20 +53,8 @@ public final class SurfaceFaceLocator {
             low.min(position);
             high.max(position);
         }
-        int[] corners = new int[triangleCount * TriangleBvh.TRIANGLE_CORNERS];
         int[] faceOfTriangle = new int[triangleCount];
-        int triangle = 0;
-        for (int face = 0; face < mesh.faceCount(); face++) {
-            int faceId = mesh.faceIdAt(face);
-            for (int fan = 2; fan < mesh.faceVertexCount(faceId); fan++) {
-                corners[triangle * TriangleBvh.TRIANGLE_CORNERS] = mesh.faceVertexAt(faceId, 0);
-                corners[triangle * TriangleBvh.TRIANGLE_CORNERS + 1] =
-                        mesh.faceVertexAt(faceId, fan - 1);
-                corners[triangle * TriangleBvh.TRIANGLE_CORNERS + 2] =
-                        mesh.faceVertexAt(faceId, fan);
-                faceOfTriangle[triangle++] = faceId;
-            }
-        }
+        int[] corners = mesh.triangulate(TriangulationRule.FAN, faceOfTriangle);
         triangles.positions = positions;
         triangles.triangleCorners = corners;
         triangles.triangleGroup = faceOfTriangle;

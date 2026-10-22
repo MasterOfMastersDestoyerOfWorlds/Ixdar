@@ -9,8 +9,8 @@ import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
 import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
+import ixdar.nodegraph.nodes.quadlayout.SeamlessParameterizationNode;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
-import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.numeric.sparse.chol.CholeskyBackend;
 import ixdar.numeric.sparse.system.DofSystem;
@@ -49,20 +49,22 @@ public final class SeamlessPipelineBenchmark {
         CrossField crossField = (CrossField) layout.pull(
                 QuadLayoutNode.sceneOutput(QuadLayoutNode.FIELD));
         long seamlessStart = System.nanoTime();
-        MapNodeContext seamlessCtx = new MapNodeContext(new SeamlessParameterization())
-                .with(SeamlessParameterization.FIELD, crossField)
+        MapNodeContext seamlessCtx = new MapNodeContext(new SeamlessParameterizationNode())
+                .with(SeamlessParameterizationNode.FIELD, crossField)
                 .eval();
         long seamlessEnd = System.nanoTime();
-        SeamlessUv seamless = seamlessCtx.output(SeamlessParameterization.UV, SeamlessUv.class);
+        SeamlessUv seamless = seamlessCtx.output(SeamlessParameterizationNode.UV, SeamlessUv.class);
 
         Platforms.log("[benchmark] %s V=%d F=%d%n", offPath, mesh.vertexCount(), mesh.faceCount());
         Platforms.log("[benchmark] cross field total %.3fs, seamless total %.3fs%n",
                 (seamlessStart - crossFieldStart) / 1.0e9,
                 (seamlessEnd - seamlessStart) / 1.0e9);
         System.out.println("[benchmark] singularities=" + crossField.singularityCount()
-                + " flipped=" + seamlessCtx.output(SeamlessParameterization.FLIPPED_TRIANGLES, Integer.class)
+                + " flipped=" + seamlessCtx.output(SeamlessParameterizationNode.FLIPPED_TRIANGLES,
+                        Integer.class)
                 + " injective=" + seamless.injective);
         System.out.println("[benchmark] leftoverConstraints=" + seamless.cutGraph.leftoverConstraints.length
-                + " dofCount=" + seamlessCtx.output(SeamlessParameterization.DOFS, DofSystem.class).dofCount);
+                + " dofCount=" + seamlessCtx.output(SeamlessParameterizationNode.DOFS,
+                        DofSystem.class).dofCount);
     }
 }

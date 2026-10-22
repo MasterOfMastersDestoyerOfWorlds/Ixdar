@@ -4,12 +4,13 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.PriorityQueue;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
+import ixdar.numeric.graph.Dijkstra;
+import ixdar.numeric.graph.UnionFind;
 import ixdar.platform.Platforms;
 
 /**
@@ -176,62 +177,34 @@ public class CutGraph {
         isCutEdge = new boolean[seamless.edgeCount];
         Arrays.fill(isCutEdge, true);
 
-        double[] distance = new double[seamless.faceCount];
-        int[] parentEdge = new int[seamless.faceCount];
-        Arrays.fill(distance, Double.POSITIVE_INFINITY);
-        Arrays.fill(parentEdge, -1);
-
-        PriorityQueue<double[]> frontier = new PriorityQueue<>((a, b) -> Double.compare(
-                a[0], b[0]));
+        Dijkstra tree = new Dijkstra();
+        tree.start(seamless.faceCount);
         for (int seedFace = 0; seedFace < seamless.faceCount; seedFace++) {
-            if (distance[seedFace] != Double.POSITIVE_INFINITY) {
+            if (tree.isReached(seedFace)) {
                 continue;
             }
-            distance[seedFace] = 0.0;
-            frontier.add(new double[] { 0.0, seedFace });
-            growSpanningTree(frontier, distance, parentEdge);
+            tree.relax(seedFace, 0.0, -1);
+            for (int activeFace = tree.settle(); activeFace >= 0; activeFace = tree.settle()) {
+                double here = tree.distance(activeFace);
+                int faceId = mesh.faceIdAt(activeFace);
+                for (int corner = 0; corner < SeamlessUv.CORNERS_PER_FACE; corner++) {
+                    int edgeId = mesh.faceEdgeAt(faceId, corner);
+                    int activeEdge = crossField.edgeIdToActive[edgeId];
+                    int otherActiveFace = (seamless.edgeFaceA[activeEdge] == activeFace)
+                            ? seamless.edgeFaceB[activeEdge]
+                            : seamless.edgeFaceA[activeEdge];
+                    if (otherActiveFace >= 0) {
+                        tree.relax(otherActiveFace,
+                                here + (crossField.alignmentEdges.get(activeEdge) ? 0.0 : 1.0),
+                                activeEdge);
+                    }
+                }
+            }
         }
         for (int activeFace = 0; activeFace < seamless.faceCount; activeFace++) {
-            int treeEdge = parentEdge[activeFace];
+            int treeEdge = tree.via(activeFace);
             if (treeEdge >= 0) {
                 isCutEdge[treeEdge] = false;
-            }
-        }
-    }
-
-    /**
-     * Drain the frontier, relaxing dual edges into {@code distance} and {@code parentEdge}, so
-     * one call grows the tree of whichever component the seeded faces belong to.
-     *
-     * @param frontier   seeded priority queue of {@code {distance, activeFace}} pairs
-     * @param distance   per-active-face best dual distance so far, updated in place
-     * @param parentEdge per-active-face tree edge, updated in place
-     */
-    private void growSpanningTree(PriorityQueue<double[]> frontier, double[] distance,
-            int[] parentEdge) {
-        while (!frontier.isEmpty()) {
-            double[] top = frontier.poll();
-            double distHere = top[0];
-            int activeFace = (int) top[1];
-            if (distHere > distance[activeFace]) {
-                continue;
-            }
-            int faceId = mesh.faceIdAt(activeFace);
-            for (int corner = 0; corner < SeamlessUv.CORNERS_PER_FACE; corner++) {
-                int edgeId = mesh.faceEdgeAt(faceId, corner);
-                int activeEdge = crossField.edgeIdToActive[edgeId];
-                int otherActiveFace = (seamless.edgeFaceA[activeEdge] == activeFace)
-                        ? seamless.edgeFaceB[activeEdge]
-                        : seamless.edgeFaceA[activeEdge];
-                if (otherActiveFace < 0) {
-                    continue;
-                }
-                double newDistance = distHere + (crossField.alignmentEdges.get(activeEdge) ? 0.0 : 1.0);
-                if (newDistance < distance[otherActiveFace]) {
-                    distance[otherActiveFace] = newDistance;
-                    parentEdge[otherActiveFace] = activeEdge;
-                    frontier.add(new double[] { newDistance, otherActiveFace });
-                }
             }
         }
     }
@@ -308,6 +281,7 @@ public class CutGraph {
      * the shortest mesh-edge path.
      */
     private void connectDetachedSingularities() {
+        Dijkstra walk = new Dijkstra();
         for (int singularVertex = 0; singularVertex < crossField.singularityIndex4.length();
                 singularVertex++) {
             if (crossField.singularityIndex4.get(singularVertex) == 0) {
@@ -317,71 +291,43 @@ public class CutGraph {
             if (cutDegree[activeVertexIndex(vertexId)] > 0 || mesh.isBoundaryVertex(vertexId)) {
                 continue;
             }
-            double[] distance = new double[vertexCount];
-            int[] prevVertex = new int[vertexCount];
-            int[] prevEdge = new int[vertexCount];
-            Arrays.fill(distance, Double.POSITIVE_INFINITY);
-            Arrays.fill(prevVertex, -1);
-            Arrays.fill(prevEdge, -1);
             int startActiveVertex = activeVertexIndex(vertexId);
-            distance[startActiveVertex] = 0.0;
-
-            PriorityQueue<double[]> frontier = new PriorityQueue<>((a, b) -> Double.compare(a[0], b[0]));
-            frontier.add(new double[] { 0.0, startActiveVertex });
-
-
+            walk.start(vertexCount);
+            walk.relax(startActiveVertex, 0.0, -1);
             int reachedActiveVertex = -1;
-            while (!frontier.isEmpty()) {
-                double[] top = frontier.poll();
-                double distHere = top[0];
-                int activeVertex = (int) top[1];
-                if (distHere > distance[activeVertex]) {
-                    continue;
-                }
-                int activeVertexId = mesh.vertexIdAt(activeVertex);
+            for (int activeVertex = walk.settle(); activeVertex >= 0;
+                    activeVertex = walk.settle()) {
                 if (cutDegree[activeVertex] > 0 && activeVertex != startActiveVertex) {
                     reachedActiveVertex = activeVertex;
                     break;
                 }
+                double here = walk.distance(activeVertex);
+                int activeVertexId = mesh.vertexIdAt(activeVertex);
                 int incidentEdgeCount = mesh.vertexEdgeCount(activeVertexId);
                 for (int i = 0; i < incidentEdgeCount; i++) {
                     int edgeId = mesh.vertexEdgeAt(activeVertexId, i);
                     int activeEdge = crossField.edgeIdToActive[edgeId];
-                    if (activeVertex == startActiveVertex) {
-                        continue;
-                    }
-                    int otherVertexId = mesh.edgeOtherVertex(edgeId, activeVertexId);
-                    int otherActiveVertex = activeVertexIndex(otherVertexId);
                     double edgeLength = mesh.edgeLength(edgeId);
                     double edgeCost = crossField.alignmentEdges.get(activeEdge)
                             ? edgeLength * ALIGNMENT_PATH_PENALTY
                             : edgeLength;
-                    double newDistance = distHere + edgeCost;
-                    if (newDistance < distance[otherActiveVertex]) {
-                        distance[otherActiveVertex] = newDistance;
-                        prevVertex[otherActiveVertex] = activeVertex;
-                        prevEdge[otherActiveVertex] = activeEdge;
-                        frontier.add(new double[] { newDistance, otherActiveVertex });
-                    }
+                    walk.relax(activeVertexIndex(mesh.edgeOtherVertex(edgeId, activeVertexId)),
+                            here + edgeCost, activeEdge);
                 }
             }
             if (reachedActiveVertex < 0) {
                 return;
             }
-            int pathLength = 0;
-            for (int v = reachedActiveVertex; v != startActiveVertex; v = prevVertex[v]) {
-                pathLength++;
-            }
-            int[] pathEdges = new int[pathLength];
-            for (int v = reachedActiveVertex, i = 0; v != startActiveVertex; v = prevVertex[v]) {
-                pathEdges[i++] = prevEdge[v];
-            }
-            for (int activeEdge : pathEdges) {
+            for (int activeVertex = reachedActiveVertex; activeVertex != startActiveVertex;) {
+                int activeEdge = walk.via(activeVertex);
+                int edgeId = mesh.edgeIdAt(activeEdge);
+                activeVertex = activeVertexIndex(
+                        mesh.edgeOtherVertex(edgeId, mesh.vertexIdAt(activeVertex)));
                 if (isCutEdge[activeEdge]) {
                     continue;
                 }
                 isCutEdge[activeEdge] = true;
-                int halfEdge = mesh.edgeHalfEdge(mesh.edgeIdAt(activeEdge));
+                int halfEdge = mesh.edgeHalfEdge(edgeId);
                 cutDegree[activeVertexIndex(mesh.halfEdgeVertex(halfEdge))]++;
                 cutDegree[activeVertexIndex(mesh.halfEdgeEndVertex(halfEdge))]++;
             }
@@ -462,11 +408,7 @@ public class CutGraph {
     private void buildChartVertices() {
         final int cornersPerFace = SeamlessUv.CORNERS_PER_FACE;
         int totalCorners = seamless.faceCount * cornersPerFace;
-        int[] parent = new int[totalCorners];
-        int[] rank = new int[totalCorners];
-        for (int corner = 0; corner < totalCorners; corner++)
-            parent[corner] = corner;
-
+        int[] parent = UnionFind.singletons(totalCorners);
         for (int activeEdge = 0; activeEdge < seamless.edgeCount; activeEdge++) {
             if (isCutEdge[activeEdge])
                 continue;
@@ -478,16 +420,16 @@ public class CutGraph {
             int cornerStartB = seamless.edgeCornerInB[activeEdge];
             int cornerEndA = (cornerStartA + 1) % cornersPerFace;
             int cornerEndB = (cornerStartB + cornersPerFace - 1) % cornersPerFace;
-            unionCorners(parent, rank, activeFaceA * cornersPerFace + cornerStartA,
+            UnionFind.union(parent, activeFaceA * cornersPerFace + cornerStartA,
                     activeFaceB * cornersPerFace + cornerStartB);
-            unionCorners(parent, rank, activeFaceA * cornersPerFace + cornerEndA,
+            UnionFind.union(parent, activeFaceA * cornersPerFace + cornerEndA,
                     activeFaceB * cornersPerFace + cornerEndB);
         }
 
         cornerToChartVertex = new int[totalCorners];
         HashMap<Integer, Integer> rootToChartVertex = new HashMap<>();
         for (int corner = 0; corner < totalCorners; corner++) {
-            int root = findCorner(parent, corner);
+            int root = UnionFind.find(parent, corner);
             Integer chartVertex = rootToChartVertex.get(root);
             if (chartVertex == null) {
                 chartVertex = rootToChartVertex.size();
@@ -496,44 +438,6 @@ public class CutGraph {
             cornerToChartVertex[corner] = chartVertex;
         }
         chartVertexCount = rootToChartVertex.size();
-    }
-
-    /**
-     * Union-find {@code find} with path halving.
-     *
-     * @param parent the parent array
-     * @param corner the corner to find
-     * @return the root of the corner
-     */
-    private static int findCorner(int[] parent, int corner) {
-        while (parent[corner] != corner) {
-            parent[corner] = parent[parent[corner]];
-            corner = parent[corner];
-        }
-        return corner;
-    }
-
-    /**
-     * Union-find {@code union} by rank.
-     *
-     * @param parent  the parent array
-     * @param rank    the rank array
-     * @param cornerA the first corner
-     * @param cornerB the second corner
-     */
-    private static void unionCorners(int[] parent, int[] rank, int cornerA, int cornerB) {
-        int rootA = findCorner(parent, cornerA);
-        int rootB = findCorner(parent, cornerB);
-        if (rootA == rootB)
-            return;
-        if (rank[rootA] < rank[rootB]) {
-            parent[rootA] = rootB;
-        } else if (rank[rootA] > rank[rootB]) {
-            parent[rootB] = rootA;
-        } else {
-            parent[rootB] = rootA;
-            rank[rootA]++;
-        }
     }
 
     /**

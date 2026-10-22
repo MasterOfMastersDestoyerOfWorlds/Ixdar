@@ -219,7 +219,7 @@ commas between test names, never `+`.
 - **ixdar.nodegraph.api**: The node contract surface: `MeshNode`, `InputPort`/`OutputPort`/`PortType`, `MeshNodeSchema`, `NodeContext`, `MapNodeContext` and `CanonicalPortNames`. Moved from the annotations module so port types can reference app classes; only the annotation and its processor stay there.
 - **ixdar.nodegraph.catalog**: Node metadata: `MeshNodeCatalog` exports every node to the checked-in JSON each compile (sorted, byte-stable), and `NodeInspector` walks the graph a model scene ran.
 - **ixdar.nodegraph.field**: Per-element fields and their values: the typed `*Field` and `*Value` records, `FieldContext` and its mesh implementations, `FieldBroadcast` for constant-or-field inputs, and `FloatCurveKernel`.
-- **ixdar.nodegraph.nodes**: Every DSL node pack, one subpackage each; the algorithms the nodes call stay in their domains. Algorithm-as-node classes stay put until MESH-63 splits them: `NDirectionField`, `MotorcycleGraph`, `SeamlessParameterization`, `LayoutEmbedding`, `NetworkContraction`, `GridMapAssembly`, `QuantizedMeshGrid`.
+- **ixdar.nodegraph.nodes**: Every DSL node pack, one subpackage each; the algorithms the nodes call stay in their domains.
 - **ixdar.nodegraph.nodes.closure**: Nodes wrapping reusable sub-graph closures defined in the DSL (`def` group support).
 - **ixdar.nodegraph.nodes.control**: Graph control-flow nodes: switches and selection between inputs by index or condition.
 - **ixdar.nodegraph.nodes.curve**: Curve nodes: primitives (circle, bezier, function), conversion to and from meshes, sweep, loft, resample, deform. Curves travel between nodes as `CurveGeometry` under `CurveGeometry.SLOT`.
@@ -231,7 +231,7 @@ commas between test names, never `+`.
 - **ixdar.nodegraph.nodes.network**: Desktop-only arc-network authoring nodes: a network over a carrier mesh, then its nodes, arcs and patches.
 - **ixdar.nodegraph.nodes.patch**: Coons-patch nodes: patch fill, extrude and inset with bezier handle preservation (handles built by `ixdar.geometry.mesh.data.patches.CoonsHandleBuilder`, slots owned by `AssignBezierHandlesNode`).
 - **ixdar.nodegraph.nodes.primitives**: Primitive generators: cube, grid, icosphere, UV sphere, cylinder, cone, disk, torus, segments. `GridMeshNode` is the reference node shape and exposes static helpers (`triangulated`, `vertexId`, `rowCoordinate`) that tests build fixture geometry with.
-- **ixdar.nodegraph.nodes.quadlayout**: Desktop-only graph nodes over the quad-layout pipeline: its stages as independent capabilities.
+- **ixdar.nodegraph.nodes.quadlayout**: Desktop-only graph nodes over the quad-layout pipeline: its stages as independent capabilities, each a thin node over its algorithm class, `XNode` over `X`.
 - **ixdar.nodegraph.nodes.selection**: Selection nodes producing per-element masks consumed by modifiers.
 - **ixdar.nodegraph.nodes.transform**: Transform nodes: translate/rotate/scale geometry, align rotation to vector, instancing transforms.
 - **ixdar.nodegraph.optimize**: DSL parameter optimisation: the optimizable parameter descriptors, `SkeletonSensitivityAnalyzer` and `BatchDslEvaluator`.
@@ -239,8 +239,8 @@ commas between test names, never `+`.
 - **ixdar.nodegraph.syntax**: Lexer and recursive-descent parser for the Python-flavored mesh DSL, producing the syntax `GroupLibrary` loads into node groups and the source tools read and rewrite. Deliberately lenient: unknown characters are skipped so LLM-generated DSL stays parseable; malformed input degrades silently.
 - **ixdar.nodegraph.syntax.expr**: `MathExpressionEvaluator`: the single-variable math expressions procedural curve nodes evaluate.
 - **ixdar.numeric**: General numerics with no stage of the pipeline in them: sparse linear algebra (`sparse`), exact predicates and integer elimination (`exact`), and graph primitives (`graph`).
-- **ixdar.numeric.exact**: Exact arithmetic: `ExactArithmetic` (fraction-free integer elimination and fixed-point doubles for the seamless constraints) and `ExactBarycentricOrient` (the filtered, sign-exact orientation predicate).
-- **ixdar.numeric.graph**: Graph primitives: `UnionFind` over a caller-owned parent array, and the shared multi-source `Dijkstra` core with the `ShortestPathForest` it returns.
+- **ixdar.numeric.exact**: Exact arithmetic: `ExactArithmetic` (fraction-free integer elimination and fixed-point doubles for the seamless constraints) and `ExactBarycentricOrient` (the filtered, sign-exact orientation predicate, and the one plain-floating-point `orient2d`).
+- **ixdar.numeric.graph**: Graph primitives: `UnionFind` over a caller-owned parent array, and `Dijkstra`, the one shortest-path frontier, walked by its caller over any graph or run to a mesh-edge `ShortestPathForest`.
 - **ixdar.numeric.sparse**: Sparse linear algebra for the pipeline: normal matrices, AMD ordering, Cholesky backends (MKL when present, EJML fallback on macOS).
 - **ixdar.numeric.sparse.system**: The DOF-system state and the solve strategies decoupled from the stacks: `DofSystem` holds the canonical solution/frozen state plus assembly, energy, and write-back hooks; each outer loop (single solve, Newton, greedy rounding, lazy constraints, power iteration) is its own strategy class.
 - **ixdar.platform**: Portability root: `Platforms` is the process-global registry (`init`, `get()`, `gl()`, `switchTo` for multi-canvas web). `Toggle` is the app-wide feature-flag enum, here only because everything reaches for it.

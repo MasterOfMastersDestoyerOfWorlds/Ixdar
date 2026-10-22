@@ -8,6 +8,7 @@ import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.bundle.CornerUvSplit;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.nodegraph.field.UvField;
 
 /**
@@ -159,13 +160,16 @@ public final class MeshExport {
             cornerV = new double[corners];
         }
         int cursor = 0;
+        int[] faceCorners = new int[0];
         for (int index = 0; index < faceCount; index++) {
             int faceId = mesh.faceIdAt(index);
             int arity = mesh.faceVertexCount(faceId);
-            for (int fan = 1; fan + 1 < arity; fan++) {
-                cursor = writeCorner(mesh, uv, faceId, 0, cursor);
-                cursor = writeCorner(mesh, uv, faceId, fan, cursor);
-                cursor = writeCorner(mesh, uv, faceId, fan + 1, cursor);
+            if (faceCorners.length < CORNERS_PER_TRIANGLE * arity) {
+                faceCorners = new int[CORNERS_PER_TRIANGLE * arity];
+            }
+            int triangles = mesh.faceTriangleCorners(faceId, TriangulationRule.FAN, faceCorners);
+            for (int slot = 0; slot < CORNERS_PER_TRIANGLE * triangles; slot++) {
+                cursor = writeCorner(mesh, uv, faceId, faceCorners[slot], cursor);
             }
         }
 

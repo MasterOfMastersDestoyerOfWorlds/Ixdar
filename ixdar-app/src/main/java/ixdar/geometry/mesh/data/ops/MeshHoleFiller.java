@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.numeric.sparse.AdaptiveSolver;
 
 /**
  * Fills one boundary loop after Liepa 2003 (Filling holes in meshes, SGP): minimum-area
@@ -26,6 +27,8 @@ public final class MeshHoleFiller {
     private static final int DEFAULT_FAIRING_ITERATIONS = 4000;
 
     private static final double FAIRING_TOLERANCE = 1e-12;
+
+    private static final double FAIRING_NORM_FLOOR = 1e-300;
 
     private static final int RELAX_PASSES = 8;
 
@@ -443,40 +446,12 @@ public final class MeshHoleFiller {
             solution[unknown] = coordinate[fixedCount + unknown];
         }
         double[] full = new double[vertexCount];
-        double[] residual = new double[unknowns];
-        applyToUnknowns(solution, full, scratch, fixedCount, residual);
-        double residualNorm = 0;
-        double rightHandNorm = 0;
-        for (int unknown = 0; unknown < unknowns; unknown++) {
-            residual[unknown] = rightHandSide[unknown] - residual[unknown];
-            residualNorm += residual[unknown] * residual[unknown];
-            rightHandNorm += rightHandSide[unknown] * rightHandSide[unknown];
-        }
-        double target = FAIRING_TOLERANCE * FAIRING_TOLERANCE * Math.max(rightHandNorm, 1e-300);
-        double[] direction = residual.clone();
-        double[] applied = new double[unknowns];
-        for (int iteration = 0; iteration < fairingIterations && residualNorm > target; iteration++) {
-            applyToUnknowns(direction, full, scratch, fixedCount, applied);
-            double curvature = 0;
-            for (int unknown = 0; unknown < unknowns; unknown++) {
-                curvature += direction[unknown] * applied[unknown];
-            }
-            if (curvature <= 0) {
-                break;
-            }
-            double step = residualNorm / curvature;
-            double nextNorm = 0;
-            for (int unknown = 0; unknown < unknowns; unknown++) {
-                solution[unknown] += step * direction[unknown];
-                residual[unknown] -= step * applied[unknown];
-                nextNorm += residual[unknown] * residual[unknown];
-            }
-            double beta = nextNorm / residualNorm;
-            for (int unknown = 0; unknown < unknowns; unknown++) {
-                direction[unknown] = residual[unknown] + beta * direction[unknown];
-            }
-            residualNorm = nextNorm;
-        }
+        AdaptiveSolver.preconditionedConjugateGradient(
+                (source, destination) -> applyToUnknowns(source, full, scratch, fixedCount,
+                        destination),
+                rightHandSide, solution, null,
+                (residual, output) -> System.arraycopy(residual, 0, output, 0, unknowns),
+                fairingIterations, FAIRING_TOLERANCE, FAIRING_NORM_FLOOR);
         for (int unknown = 0; unknown < unknowns; unknown++) {
             coordinate[fixedCount + unknown] = solution[unknown];
         }

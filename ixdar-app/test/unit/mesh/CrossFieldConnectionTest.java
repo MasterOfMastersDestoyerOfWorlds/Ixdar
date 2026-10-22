@@ -15,6 +15,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh.EdgeFaceIds;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.data.SurfaceMetricNode;
+import ixdar.nodegraph.nodes.quadlayout.NDirectionFieldNode;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.data.fields.crossfield.NDirectionField;
 
@@ -86,14 +87,14 @@ class CrossFieldConnectionTest {
                 .with(SurfaceMetricNode.GEOMETRY, bundle).eval();
         GeometryBundle surface = measured.output(SurfaceMetricNode.GEOMETRY_OUT,
                 GeometryBundle.class);
-        CrossField wired = new MapNodeContext(new NDirectionField())
-                .with(NDirectionField.GEOMETRY, surface)
-                .with(NDirectionField.METRIC,
+        CrossField wired = new MapNodeContext(new NDirectionFieldNode())
+                .with(NDirectionFieldNode.GEOMETRY, surface)
+                .with(NDirectionFieldNode.METRIC,
                         measured.output(SurfaceMetricNode.METRIC, SurfaceMetric.class))
-                .eval().output(NDirectionField.FIELD, CrossField.class);
-        CrossField built = new MapNodeContext(new NDirectionField())
-                .with(NDirectionField.GEOMETRY, surface)
-                .eval().output(NDirectionField.FIELD, CrossField.class);
+                .eval().output(NDirectionFieldNode.FIELD, CrossField.class);
+        CrossField built = new MapNodeContext(new NDirectionFieldNode())
+                .with(NDirectionFieldNode.GEOMETRY, surface)
+                .eval().output(NDirectionFieldNode.FIELD, CrossField.class);
         assertArrayEquals(built.theta, wired.theta, "per-face angles");
         assertArrayEquals(built.kappa, wired.kappa, "transport angles");
         assertArrayEquals(built.singularityIndex4.data(), wired.singularityIndex4.data(),
@@ -103,9 +104,9 @@ class CrossFieldConnectionTest {
     @Test
     void aMetricMeasuredOnAnotherMeshIsRefused() throws Exception {
         SurfaceMetric elsewhere = SurfaceMetric.of(carrier(TORUS_SOURCE));
-        MapNodeContext context = new MapNodeContext(new NDirectionField())
-                .with(NDirectionField.GEOMETRY, GeometryBundle.ofMesh(carrier(TORUS_SOURCE)))
-                .with(NDirectionField.METRIC, elsewhere);
+        MapNodeContext context = new MapNodeContext(new NDirectionFieldNode())
+                .with(NDirectionFieldNode.GEOMETRY, GeometryBundle.ofMesh(carrier(TORUS_SOURCE)))
+                .with(NDirectionFieldNode.METRIC, elsewhere);
         assertThrows(IllegalArgumentException.class, context::eval);
     }
 

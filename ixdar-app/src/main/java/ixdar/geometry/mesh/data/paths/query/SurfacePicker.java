@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.data.paths.query;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
  * Where a ray meets a surface: the face it lands on, its barycentric weights there, and the
@@ -46,6 +47,7 @@ public final class SurfacePicker {
     private final Vector3f cornerA = new Vector3f();
     private final Vector3f cornerB = new Vector3f();
     private final Vector3f cornerC = new Vector3f();
+    private int[] faceCorners = new int[0];
 
     /**
      * The ray's hit on {@code hintFace} or, when it passes outside it, the nearest hit on a face
@@ -122,10 +124,18 @@ public final class SurfacePicker {
         double shearX = rayDirection[axisX] / (double) rayDirection[axisZ];
         double shearY = rayDirection[axisY] / (double) rayDirection[axisZ];
         double scaleZ = 1.0 / rayDirection[axisZ];
-        for (int fan = 1; fan + 1 < mesh.faceVertexCount(candidateFace); fan++) {
-            mesh.vertexPosition(mesh.faceVertexAt(candidateFace, 0), cornerA);
+        int corners = mesh.faceVertexCount(candidateFace);
+        if (faceCorners.length < TRIANGLE_CORNERS * corners) {
+            faceCorners = new int[TRIANGLE_CORNERS * corners];
+        }
+        int triangles = mesh.faceTriangleCorners(candidateFace, TriangulationRule.FAN, faceCorners);
+        for (int triangle = 0; triangle < triangles; triangle++) {
+            int fan = faceCorners[TRIANGLE_CORNERS * triangle + 1];
+            mesh.vertexPosition(mesh.faceVertexAt(candidateFace,
+                    faceCorners[TRIANGLE_CORNERS * triangle]), cornerA);
             mesh.vertexPosition(mesh.faceVertexAt(candidateFace, fan), cornerB);
-            mesh.vertexPosition(mesh.faceVertexAt(candidateFace, fan + 1), cornerC);
+            mesh.vertexPosition(mesh.faceVertexAt(candidateFace,
+                    faceCorners[TRIANGLE_CORNERS * triangle + 2]), cornerC);
             double aDepth = cornerA.get(axisZ) - (double) rayOrigin[axisZ];
             double bDepth = cornerB.get(axisZ) - (double) rayOrigin[axisZ];
             double cDepth = cornerC.get(axisZ) - (double) rayOrigin[axisZ];

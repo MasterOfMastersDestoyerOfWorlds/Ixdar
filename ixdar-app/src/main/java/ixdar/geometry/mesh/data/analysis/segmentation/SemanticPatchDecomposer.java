@@ -30,6 +30,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
+import ixdar.numeric.graph.UnionFind;
 
 
 /**
@@ -333,8 +334,7 @@ public final class SemanticPatchDecomposer {
         int[] patchFaceCount = new int[nextPatchId];
         for (int f = 0; f < faceCount; f++) patchFaceCount[facePatchId[f]]++;
 
-        int[] remap = new int[nextPatchId];
-        for (int i = 0; i < nextPatchId; i++) remap[i] = i;
+        int[] remap = UnionFind.singletons(nextPatchId);
 
         for (int pass = 0; pass < 2; pass++) {
             // Pass 0: absolutely no feature crossings. Pass 1: allow crossing
@@ -342,14 +342,14 @@ public final class SemanticPatchDecomposer {
             // fragments, but still not across high-confidence crest edges.
             int[][] walkAdj = pass == 0 ? adjCut : adjCrestOnly;
             for (int pid = 0; pid < nextPatchId; pid++) {
-                if (follow(remap, pid) != pid) continue;  // already merged
+                if (UnionFind.find(remap, pid) != pid) continue;  // already merged
                 if (patchFaceCount[pid] >= MIN_PATCH_FACES) continue;
                 Map<Integer, Integer> votes = new HashMap<>();
                 for (int f = 0; f < faceCount; f++) {
                     if (facePatchId[f] != pid) continue;
                     for (int nb : walkAdj[f]) {
                         if (nb < 0) continue;
-                        int nbPid = follow(remap, facePatchId[nb]);
+                        int nbPid = UnionFind.find(remap, facePatchId[nb]);
                         if (nbPid == pid) continue;
                         votes.merge(nbPid, 1, Integer::sum);
                     }
@@ -362,8 +362,8 @@ public final class SemanticPatchDecomposer {
                     }
                 }
                 if (best != -1) {
-                    remap[pid] = follow(remap, best);
-                    patchFaceCount[follow(remap, pid)] += patchFaceCount[pid];
+                    UnionFind.union(remap, best, pid);
+                    patchFaceCount[UnionFind.find(remap, pid)] += patchFaceCount[pid];
                     patchFaceCount[pid] = 0;
                 }
             }
@@ -374,7 +374,7 @@ public final class SemanticPatchDecomposer {
         Arrays.fill(finalId, -1);
         int compacted = 0;
         for (int pid = 0; pid < nextPatchId; pid++) {
-            int root = follow(remap, pid);
+            int root = UnionFind.find(remap, pid);
             if (finalId[root] == -1) finalId[root] = compacted++;
             finalId[pid] = finalId[root];
         }
@@ -1262,11 +1262,6 @@ public final class SemanticPatchDecomposer {
         if (a == c) return a;
         if (b == c) return b;
         return a;
-    }
-
-    private static int follow(int[] remap, int i) {
-        while (remap[i] != i) i = remap[i];
-        return i;
     }
 
     /**

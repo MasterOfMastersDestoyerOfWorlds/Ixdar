@@ -12,6 +12,7 @@ import java.util.List;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
  * Order-independent SHA-256 of triangle soup: round positions, canonicalize each triangle,
@@ -56,15 +57,7 @@ public final class MeshCanonicalFingerprint {
      * @return number of triangles, or 0 when {@code mesh} is null
      */
     public static int triangleCount(MeshTopology mesh) {
-        if (mesh == null) {
-            return 0;
-        }
-        int count = 0;
-        for (int index = 0; index < mesh.faceCount(); index++) {
-            int arity = mesh.faceVertexCount(mesh.faceIdAt(index));
-            count += arity < 3 ? 0 : arity - 2;
-        }
-        return count;
+        return mesh == null ? 0 : mesh.triangleCount();
     }
 
     /**
@@ -80,30 +73,26 @@ public final class MeshCanonicalFingerprint {
         }
         List<float[][]> triangles = new ArrayList<>(triangleCount(mesh));
         Vector3f scratch = new Vector3f();
-        for (int index = 0; index < mesh.faceCount(); index++) {
-            int faceId = mesh.faceIdAt(index);
-            int arity = mesh.faceVertexCount(faceId);
-            for (int fan = 1; fan + 1 < arity; fan++) {
-                triangles.add(sortCorners(corner(mesh, faceId, 0, scratch),
-                        corner(mesh, faceId, fan, scratch),
-                        corner(mesh, faceId, fan + 1, scratch)));
-            }
+        int[] corners = mesh.triangulate(TriangulationRule.FAN, null);
+        for (int slot = 0; slot < corners.length; slot += 3) {
+            triangles.add(sortCorners(corner(mesh, corners[slot], scratch),
+                    corner(mesh, corners[slot + 1], scratch),
+                    corner(mesh, corners[slot + 2], scratch)));
         }
         triangles.sort(TRIANGLE_ORDER);
         return sha256HexBytes(encodeTriangles(triangles));
     }
 
     /**
-     * One face corner's rounded position.
+     * One triangle corner's rounded position.
      *
      * @param mesh mesh to read
-     * @param faceId face the corner belongs to
-     * @param cornerIndex corner index within that face
+     * @param vertexId the corner's vertex
      * @param scratch reusable vector
      * @return the rounded {@code (x, y, z)}
      */
-    private static float[] corner(MeshTopology mesh, int faceId, int cornerIndex, Vector3f scratch) {
-        mesh.vertexPosition(mesh.faceVertexAt(faceId, cornerIndex), scratch);
+    private static float[] corner(MeshTopology mesh, int vertexId, Vector3f scratch) {
+        mesh.vertexPosition(vertexId, scratch);
         return new float[] {
                 roundCoord(scratch.x),
                 roundCoord(scratch.y),

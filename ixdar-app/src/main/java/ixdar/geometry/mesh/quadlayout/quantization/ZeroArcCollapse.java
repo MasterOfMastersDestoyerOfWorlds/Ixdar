@@ -9,6 +9,7 @@ import java.util.Set;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedNode;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
+import ixdar.numeric.graph.UnionFind;
 
 /**
  * Union-find collapse of T-mesh nodes connected by zero-quantized arcs: a path of
@@ -55,13 +56,10 @@ public final class ZeroArcCollapse {
      */
     public ZeroArcCollapse build() {
         int nodeCount = network.nodes.size();
-        int[] parent = new int[nodeCount];
-        for (int nodeId = 0; nodeId < nodeCount; nodeId++) {
-            parent[nodeId] = nodeId;
-        }
+        int[] parent = UnionFind.singletons(nodeCount);
         for (EmbeddedArc arc : network.arcs) {
             if (quantizedLengthByArc[arc.arcId] == 0) {
-                union(parent, arc.startNodeId, arc.endNodeId);
+                UnionFind.union(parent, arc.startNodeId, arc.endNodeId);
             }
         }
         clusterByNode = new int[nodeCount];
@@ -69,7 +67,7 @@ public final class ZeroArcCollapse {
         Arrays.fill(clusterOfRoot, -1);
         clusterCount = 0;
         for (int nodeId = 0; nodeId < nodeCount; nodeId++) {
-            int root = find(parent, nodeId);
+            int root = UnionFind.find(parent, nodeId);
             if (clusterOfRoot[root] < 0) {
                 clusterOfRoot[root] = clusterCount++;
             }
@@ -97,26 +95,5 @@ public final class ZeroArcCollapse {
             }
         }
         return this;
-    }
-
-    private int find(int[] parent, int nodeId) {
-        int root = nodeId;
-        while (parent[root] != root) {
-            root = parent[root];
-        }
-        while (parent[nodeId] != root) {
-            int next = parent[nodeId];
-            parent[nodeId] = root;
-            nodeId = next;
-        }
-        return root;
-    }
-
-    private void union(int[] parent, int nodeA, int nodeB) {
-        int rootA = find(parent, nodeA);
-        int rootB = find(parent, nodeB);
-        if (rootA != rootB) {
-            parent[rootB] = rootA;
-        }
     }
 }

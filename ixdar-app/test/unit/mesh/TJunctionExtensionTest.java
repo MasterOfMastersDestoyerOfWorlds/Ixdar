@@ -13,21 +13,19 @@ import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
+import ixdar.nodegraph.nodes.quadlayout.NetworkContractionNode;
 
 /**
- * LCK21a §6's T-junction extension on the Figure-9 torus: <em>"we iteratively extend all
- * T-junctions to the opposite sides of a patch, connecting opposing T-junctions if the quantization
- * matches or splitting the corresponding opposite arc if not"</em>.
- *
- * <p>The fixture's stub vertical at major 2 is exactly such a T-junction — it reaches the middle
- * loop and stops — so contracting the torus leaves one and conforming must consume it. The torus
- * also makes the termination question real: its rows wrap, so an extension chain walks a closed
- * quad strip and has to land on a node rather than spin.
+ * LCK21a §6's T-junction extension on the Figure-9 torus, whose stub vertical is a T-junction the
+ * contraction leaves and conforming must consume; the torus's wrapping rows test termination.
  */
 class TJunctionExtensionTest {
 
-    /** A torus is genus 1, so V - E + F is zero for any cell decomposition of it. */
     private static final int TORUS_EULER_CHARACTERISTIC = 0;
+
+    private static final String TORUS_LAYOUT_FIXTURE = "dsl/fixtures/torus_layout.dsl";
+
+    private static final String NETWORK_OUTPUT = "net";
 
     /**
      * Conforming the contracted torus leaves no patch with a T-junction, keeps the T-mesh a cell
@@ -36,8 +34,8 @@ class TJunctionExtensionTest {
      */
     @Test
     void conformingLeavesNoTJunction() {
-        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
-        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource(TORUS_LAYOUT_FIXTURE, Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput(NETWORK_OUTPUT);
         contractRoundsOnly(fixtureNet);
         int tjunctionsBefore = tjunctionCount(fixtureNet);
 
@@ -58,8 +56,8 @@ class TJunctionExtensionTest {
      */
     @Test
     void extensionCountMatchesThePatchesGained() {
-        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource("dsl/fixtures/torus_layout.dsl", Map.of());
-        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput("net");
+        NodeGraphRuntime fixture = NodeGraphRuntime.executeResource(TORUS_LAYOUT_FIXTURE, Map.of());
+        ArcNetwork fixtureNet = (ArcNetwork) fixture.lastOutput(NETWORK_OUTPUT);
         contractRoundsOnly(fixtureNet);
         int patchesBefore = livePatchCount(fixtureNet);
 
@@ -82,10 +80,10 @@ class TJunctionExtensionTest {
      * @param tmesh T-mesh to contract in place
      */
     private void contractRoundsOnly(ArcNetwork tmesh) {
-        new MapNodeContext(new NetworkContraction())
-                .with(NetworkContraction.TMESH, tmesh)
-                .with(NetworkContraction.CONFORM, Boolean.FALSE)
-                .with(NetworkContraction.RECARVE, Boolean.FALSE)
+        new MapNodeContext(new NetworkContractionNode())
+                .with(NetworkContractionNode.TMESH, tmesh)
+                .with(NetworkContractionNode.CONFORM, Boolean.FALSE)
+                .with(NetworkContractionNode.RECARVE, Boolean.FALSE)
                 .eval();
     }
 

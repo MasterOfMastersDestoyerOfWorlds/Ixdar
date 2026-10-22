@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.numeric.sparse.system.LazyConstraints;
 import ixdar.platform.Platforms;
 
@@ -470,7 +471,7 @@ public final class InjectivityConstraints implements LazyConstraints.ConstraintS
      * @return the signed area measure
      */
     private double signedArea(double[] first, double[] second, double[] third) {
-        return (second[0] - first[0]) * (third[1] - first[1])
-                - (third[0] - first[0]) * (second[1] - first[1]);
+        return ExactBarycentricOrient.orient2d(first[0], first[1], second[0], second[1],
+                third[0], third[1]);
     }
 }

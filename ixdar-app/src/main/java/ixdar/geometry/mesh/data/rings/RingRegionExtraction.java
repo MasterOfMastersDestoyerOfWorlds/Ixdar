@@ -22,6 +22,7 @@ import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
  * Selected ring regions taken out as their own closed mesh, cut along each ring's traced spline
@@ -615,8 +616,13 @@ public final class RingRegionExtraction {
                 if (corners < TRIANGLE_CORNERS
                         || cost[0][corners - 1] == Double.POSITIVE_INFINITY) {
                     degeneratePieces += corners < TRIANGLE_CORNERS ? 0 : 1;
-                    for (int corner = 1; corner + 1 < corners; corner++) {
-                        addTriangle(piece[0], piece[corner], piece[corner + 1], activeFace);
+                    int[] fan = new int[TRIANGLE_CORNERS * Math.max(0, corners - 2)];
+                    int triangles = MeshTopology.triangleCorners(TriangulationRule.FAN, corners,
+                            true, fan);
+                    for (int slot = 0; slot < TRIANGLE_CORNERS * triangles;
+                            slot += TRIANGLE_CORNERS) {
+                        addTriangle(piece[fan[slot]], piece[fan[slot + 1]], piece[fan[slot + 2]],
+                                activeFace);
                     }
                     continue;
                 }

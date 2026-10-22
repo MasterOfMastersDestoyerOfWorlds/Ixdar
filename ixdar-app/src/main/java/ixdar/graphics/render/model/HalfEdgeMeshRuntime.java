@@ -19,6 +19,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.MaterialData;
 import ixdar.geometry.mesh.data.bundle.MaterialSet;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.nodegraph.field.IntField;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.Texture;
@@ -382,21 +383,9 @@ public class HalfEdgeMeshRuntime {
             vertices[target + VEC3_SIZE + 1] = scratch.y;
             vertices[target + VEC3_SIZE + 2] = scratch.z;
         }
-        int triangleCount = 0;
-        for (int index = 0; index < mesh.faceCount(); index++) {
-            triangleCount += Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(index)) - 2);
-        }
-        int[] indices = new int[triangleCount * VEC3_SIZE];
-        int cursor = 0;
-        for (int index = 0; index < mesh.faceCount(); index++) {
-            int faceId = mesh.faceIdAt(index);
-            int corners = mesh.faceVertexCount(faceId);
-            int anchor = corners < VEC3_SIZE ? 0 : activeIndexOfVertex[mesh.faceVertexAt(faceId, 0)];
-            for (int fan = 1; fan + 1 < corners; fan++) {
-                indices[cursor++] = anchor;
-                indices[cursor++] = activeIndexOfVertex[mesh.faceVertexAt(faceId, fan)];
-                indices[cursor++] = activeIndexOfVertex[mesh.faceVertexAt(faceId, fan + 1)];
-            }
+        int[] indices = mesh.triangulate(TriangulationRule.FAN, null);
+        for (int corner = 0; corner < indices.length; corner++) {
+            indices[corner] = activeIndexOfVertex[indices[corner]];
         }
         return new HalfEdgeCompiledMeshData(vertices, indices, vertexCount, mesh.faceCount(),
                 mesh.boundsMin(new Vector3f()), mesh.boundsMax(new Vector3f()), mesh.center(new Vector3f()),
@@ -751,6 +740,7 @@ public class HalfEdgeMeshRuntime {
         float[] corners = new float[FACE_PICK_LAYOUT.floatsPerVertex * 3 * triangles];
         pickFaceCount = mesh.faceCount();
         Vector3f corner = new Vector3f();
+        int[] faceCorners = new int[0];
         int cursor = 0;
         for (int index = 0; index < mesh.faceCount(); index++) {
             if (hidden[index]) {
@@ -761,17 +751,19 @@ public class HalfEdgeMeshRuntime {
             float red = ((code >> (2 * PICK_CHANNEL_BITS)) & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
             float green = ((code >> PICK_CHANNEL_BITS) & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
             float blue = (code & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
-            for (int fan = 2; fan < mesh.faceVertexCount(faceId); fan++) {
-                for (int step = 0; step < 3; step++) {
-                    int slot = step == 0 ? 0 : fan - 2 + step;
-                    mesh.vertexPosition(mesh.faceVertexAt(faceId, slot), corner);
-                    corners[cursor++] = corner.x;
-                    corners[cursor++] = corner.y;
-                    corners[cursor++] = corner.z;
-                    corners[cursor++] = red;
-                    corners[cursor++] = green;
-                    corners[cursor++] = blue;
-                }
+            if (faceCorners.length < 3 * mesh.faceVertexCount(faceId)) {
+                faceCorners = new int[3 * mesh.faceVertexCount(faceId)];
+            }
+            int faceTriangles = mesh.faceTriangleCorners(faceId, TriangulationRule.FAN,
+                    faceCorners);
+            for (int slot = 0; slot < 3 * faceTriangles; slot++) {
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot]), corner);
+                corners[cursor++] = corner.x;
+                corners[cursor++] = corner.y;
+                corners[cursor++] = corner.z;
+                corners[cursor++] = red;
+                corners[cursor++] = green;
+                corners[cursor++] = blue;
             }
         }
         facePick.upload(FACE_PICK_LAYOUT, corners, null);

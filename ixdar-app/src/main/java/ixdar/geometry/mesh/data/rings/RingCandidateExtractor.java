@@ -3,13 +3,11 @@ package ixdar.geometry.mesh.data.rings;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
@@ -22,6 +20,8 @@ import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
+import ixdar.numeric.graph.Dijkstra;
+import ixdar.numeric.graph.UnionFind;
 import org.joml.Vector3f;
 
 /**
@@ -240,64 +240,51 @@ public final class RingCandidateExtractor {
     private void makeRegionsConnected() {
         int vertexIdBound = regionByVertex.length;
         int vertexCount = mesh.vertexCount();
-        int[] componentRoot = new int[vertexIdBound];
-        for (int vertexId = 0; vertexId < vertexIdBound; vertexId++) {
-            componentRoot[vertexId] = vertexId;
-        }
+        int[] componentRoot = UnionFind.singletons(vertexIdBound);
         for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
             int halfEdge = mesh.edgeHalfEdge(mesh.edgeIdAt(activeEdge));
             int tail = mesh.halfEdgeVertex(halfEdge);
             int head = mesh.halfEdgeEndVertex(halfEdge);
             if (regionByVertex[tail] == regionByVertex[head]) {
-                union(componentRoot, tail, head);
+                UnionFind.union(componentRoot, head, tail);
             }
         }
         int[] componentSize = new int[vertexIdBound];
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            componentSize[root(componentRoot, mesh.vertexIdAt(activeVertex))]++;
+            componentSize[UnionFind.find(componentRoot, mesh.vertexIdAt(activeVertex))]++;
         }
         int[] largestComponentOfRegion = new int[regionCount];
         Arrays.fill(largestComponentOfRegion, -1);
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
-            int component = root(componentRoot, vertexId);
+            int component = UnionFind.find(componentRoot, vertexId);
             int region = regionByVertex[vertexId];
             int held = largestComponentOfRegion[region];
             if (held < 0 || componentSize[component] > componentSize[held]) {
                 largestComponentOfRegion[region] = component;
             }
         }
-        double[] distance = new double[vertexIdBound];
-        PriorityQueue<double[]> frontier =
-                new PriorityQueue<>(Comparator.comparingDouble(entry -> entry[0]));
+        Dijkstra voronoi = new Dijkstra();
+        voronoi.start(vertexIdBound);
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
-            if (root(componentRoot, vertexId)
+            if (UnionFind.find(componentRoot, vertexId)
                     == largestComponentOfRegion[regionByVertex[vertexId]]) {
-                distance[vertexId] = 0.0;
-                frontier.add(new double[] { 0.0, vertexId });
+                voronoi.relax(vertexId, 0.0, vertexId);
             } else {
                 regionByVertex[vertexId] = -1;
-                distance[vertexId] = Double.POSITIVE_INFINITY;
             }
         }
-        while (!frontier.isEmpty()) {
-            double[] entry = frontier.poll();
-            int vertexId = (int) entry[1];
-            if (entry[0] > distance[vertexId]) {
-                continue;
-            }
+        for (int vertexId = voronoi.settle(); vertexId >= 0; vertexId = voronoi.settle()) {
+            // A settled vertex's parent settled first, so its region is already final.
+            regionByVertex[vertexId] = regionByVertex[voronoi.via(vertexId)];
+            double here = voronoi.distance(vertexId);
             int spokes = mesh.vertexEdgeCount(vertexId);
             for (int spoke = 0; spoke < spokes; spoke++) {
                 int other = neighborVertex(vertexId, spoke);
-                if (other < 0) {
-                    continue;
-                }
-                double step = distanceBetween(positionByVertexId, vertexId, other);
-                if (distance[vertexId] + step < distance[other]) {
-                    distance[other] = distance[vertexId] + step;
-                    regionByVertex[other] = regionByVertex[vertexId];
-                    frontier.add(new double[] { distance[other], other });
+                if (other >= 0) {
+                    voronoi.relax(other, here + distanceBetween(positionByVertexId, vertexId,
+                            other), vertexId);
                 }
             }
         }
@@ -388,23 +375,20 @@ public final class RingCandidateExtractor {
             bandIndexByVertex[vertexId] = band.size();
             band.add(vertexId);
         }
-        int[] componentRoot = new int[band.size()];
-        for (int index = 0; index < componentRoot.length; index++) {
-            componentRoot[index] = index;
-        }
+        int[] componentRoot = UnionFind.singletons(band.size());
         for (int index = 0; index < band.size(); index++) {
             int vertexId = band.get(index);
             int spokes = mesh.vertexEdgeCount(vertexId);
             for (int spoke = 0; spoke < spokes; spoke++) {
                 int other = neighborVertex(vertexId, spoke);
                 if (other >= 0 && bandStamp[other] == currentBandStamp) {
-                    union(componentRoot, index, bandIndexByVertex[other]);
+                    UnionFind.union(componentRoot, bandIndexByVertex[other], index);
                 }
             }
         }
         int[] memberCount = new int[band.size()];
         for (int index = 0; index < band.size(); index++) {
-            memberCount[root(componentRoot, index)]++;
+            memberCount[UnionFind.find(componentRoot, index)]++;
         }
         int[][] members = new int[band.size()][];
         int[] fillPosition = new int[band.size()];
@@ -414,7 +398,7 @@ public final class RingCandidateExtractor {
             }
         }
         for (int index = 0; index < band.size(); index++) {
-            int component = root(componentRoot, index);
+            int component = UnionFind.find(componentRoot, index);
             if (members[component] != null) {
                 members[component][fillPosition[component]++] = band.get(index);
             }
@@ -717,22 +701,5 @@ public final class RingCandidateExtractor {
         double dz = positions[COORDINATES_PER_POINT * first + 2]
                 - positions[COORDINATES_PER_POINT * second + 2];
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    private static int root(int[] componentRoot, int member) {
-        int walk = member;
-        while (componentRoot[walk] != walk) {
-            componentRoot[walk] = componentRoot[componentRoot[walk]];
-            walk = componentRoot[walk];
-        }
-        return walk;
-    }
-
-    private static void union(int[] componentRoot, int first, int second) {
-        int firstRoot = root(componentRoot, first);
-        int secondRoot = root(componentRoot, second);
-        if (firstRoot != secondRoot) {
-            componentRoot[firstRoot] = secondRoot;
-        }
     }
 }

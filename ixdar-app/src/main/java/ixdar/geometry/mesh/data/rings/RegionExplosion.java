@@ -6,6 +6,7 @@ import java.util.function.IntFunction;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
  * Animated exploded view of a partitioned surface's regions, writing each region's offset under
@@ -15,6 +16,8 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 public final class RegionExplosion {
 
     public static final int XYZ = 3;
+
+    public static final int TRIANGLE_CORNERS = 3;
 
     public static final float SWEEP_SECONDS = 0.6f;
 
@@ -74,13 +77,18 @@ public final class RegionExplosion {
         Vector3f second = new Vector3f();
         Vector3f edgeFirst = new Vector3f();
         Vector3f edgeSecond = new Vector3f();
+        int[] faceCorners = new int[0];
         for (int activeFace = 0; activeFace < regionByActiveFace.length; activeFace++) {
             int faceId = mesh.faceIdAt(activeFace);
             int base = XYZ * regionByActiveFace[activeFace];
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), anchor);
-            for (int corner = 2; corner < mesh.faceVertexCount(faceId); corner++) {
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, corner - 1), first);
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, corner), second);
+            if (faceCorners.length < TRIANGLE_CORNERS * mesh.faceVertexCount(faceId)) {
+                faceCorners = new int[TRIANGLE_CORNERS * mesh.faceVertexCount(faceId)];
+            }
+            int triangles = mesh.faceTriangleCorners(faceId, TriangulationRule.FAN, faceCorners);
+            for (int slot = 0; slot < TRIANGLE_CORNERS * triangles; slot += TRIANGLE_CORNERS) {
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot]), anchor);
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 1]), first);
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 2]), second);
                 edgeFirst.set(first).sub(anchor);
                 edgeSecond.set(second).sub(anchor);
                 double area = 0.5 * edgeFirst.cross(edgeSecond).length();

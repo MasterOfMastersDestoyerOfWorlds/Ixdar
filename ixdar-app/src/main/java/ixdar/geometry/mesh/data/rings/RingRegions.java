@@ -12,6 +12,8 @@ import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
+import ixdar.numeric.graph.UnionFind;
 
 
 /**
@@ -29,6 +31,8 @@ public final class RingRegions {
     public static final byte SIDE_DISTAL = 0;
 
     public static final byte SIDE_PROXIMAL = 1;
+
+    public static final int TRIANGLE_CORNERS = 3;
 
     public static final int SIDE_MASK_DISTAL = 1;
 
@@ -270,13 +274,22 @@ public final class RingRegions {
             Vector3f anchor = new Vector3f();
             Vector3f first = new Vector3f();
             Vector3f second = new Vector3f();
+            int[] faceCorners = new int[0];
             for (int activeFace = 0; activeFace < faceCount; activeFace++) {
                 int faceId = mesh.faceIdAt(activeFace);
                 activeFaceByFaceId[faceId] = activeFace;
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), anchor);
-                for (int corner = 2; corner < mesh.faceVertexCount(faceId); corner++) {
-                    mesh.vertexPosition(mesh.faceVertexAt(faceId, corner - 1), first).sub(anchor);
-                    mesh.vertexPosition(mesh.faceVertexAt(faceId, corner), second).sub(anchor);
+                if (faceCorners.length < TRIANGLE_CORNERS * mesh.faceVertexCount(faceId)) {
+                    faceCorners = new int[TRIANGLE_CORNERS * mesh.faceVertexCount(faceId)];
+                }
+                int triangles = mesh.faceTriangleCorners(faceId, TriangulationRule.FAN,
+                        faceCorners);
+                for (int slot = 0; slot < TRIANGLE_CORNERS * triangles;
+                        slot += TRIANGLE_CORNERS) {
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot]), anchor);
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 1]), first)
+                            .sub(anchor);
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 2]), second)
+                            .sub(anchor);
                     faceArea[activeFace] += 0.5 * first.cross(second).length();
                 }
             }
@@ -545,10 +558,7 @@ public final class RingRegions {
 
         // Regions are the components, or with absorption each sliver joined to its largest
         // neighbour, numbered by their lowest face.
-        int[] parent = new int[componentCount];
-        for (int component = 0; component < componentCount; component++) {
-            parent[component] = component;
-        }
+        int[] parent = UnionFind.singletons(componentCount);
         if (absorbBelowFaces > 0) {
             int[] largestNeighbour = new int[componentCount];
             Arrays.fill(largestNeighbour, MeshTopology.NONE);
@@ -569,7 +579,7 @@ public final class RingRegions {
             }
             for (int component = 0; component < componentCount; component++) {
                 if (largestNeighbour[component] != MeshTopology.NONE) {
-                    parent[root(parent, component)] = root(parent, largestNeighbour[component]);
+                    UnionFind.union(parent, largestNeighbour[component], component);
                 }
             }
         }
@@ -578,7 +588,7 @@ public final class RingRegions {
         Arrays.fill(regionOfRoot, MeshTopology.NONE);
         regionCount = 0;
         for (int component = 0; component < componentCount; component++) {
-            int root = root(parent, component);
+            int root = UnionFind.find(parent, component);
             if (regionOfRoot[root] == MeshTopology.NONE) {
                 regionOfRoot[root] = regionCount++;
             }
@@ -753,13 +763,12 @@ public final class RingRegions {
                         || wallRightComponent[wall] == MeshTopology.NONE) {
                     continue;
                 }
-                pieceOf[root(pieceOf, wallLeftComponent[wall])] =
-                        root(pieceOf, wallRightComponent[wall]);
+                UnionFind.union(pieceOf, wallRightComponent[wall], wallLeftComponent[wall]);
             }
             Arrays.fill(pieceArea, 0.0);
             Arrays.fill(adjacent, false);
             for (int component = 0; component < componentCount; component++) {
-                pieceOf[component] = root(pieceOf, component);
+                pieceOf[component] = UnionFind.find(pieceOf, component);
                 pieceArea[pieceOf[component]] += componentArea[component];
             }
             int sameSideEdges = 0;
@@ -1084,22 +1093,6 @@ public final class RingRegions {
             lines.add("problem: " + problem);
         }
         return lines;
-    }
-
-    /**
-     * Root of a node in a union-find forest, halving the path on the way.
-     *
-     * @param parent parent of each node; a root is its own parent
-     * @param node   node whose root is asked
-     * @return the root
-     */
-    private static int root(int[] parent, int node) {
-        int current = node;
-        while (parent[current] != current) {
-            parent[current] = parent[parent[current]];
-            current = parent[current];
-        }
-        return current;
     }
 
     private int activeFaceOf(int faceId) {

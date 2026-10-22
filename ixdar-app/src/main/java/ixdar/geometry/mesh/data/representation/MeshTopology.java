@@ -516,31 +516,82 @@ public interface MeshTopology {
      */
     default int[] triangulate(TriangulationRule rule, int[] faceOfTriangle) {
         int[] triangles = new int[triangleCount() * 3];
-        Vector3f first = new Vector3f();
-        Vector3f second = new Vector3f();
+        int[] corner = new int[3 * QUAD_CORNERS];
         int cursor = 0;
         int triangle = 0;
         for (int activeFace = 0; activeFace < faceCount(); activeFace++) {
             int faceId = faceIdAt(activeFace);
             int corners = faceVertexCount(faceId);
-            int apex = 0;
-            if (rule == TriangulationRule.SHORTER_DIAGONAL && corners == QUAD_CORNERS) {
-                float firstDiagonal = vertexPosition(faceVertexAt(faceId, 0), first)
-                        .distanceSquared(vertexPosition(faceVertexAt(faceId, 2), second));
-                float secondDiagonal = vertexPosition(faceVertexAt(faceId, 1), first)
-                        .distanceSquared(vertexPosition(faceVertexAt(faceId, 3), second));
-                apex = firstDiagonal <= secondDiagonal ? 0 : 1;
+            if (corner.length < 3 * corners) {
+                corner = new int[3 * corners];
             }
-            for (int fan = 1; fan + 1 < corners; fan++) {
-                triangles[cursor++] = faceVertexAt(faceId, apex);
-                triangles[cursor++] = faceVertexAt(faceId, (apex + fan) % corners);
-                triangles[cursor++] = faceVertexAt(faceId, (apex + fan + 1) % corners);
-                if (faceOfTriangle != null) {
-                    faceOfTriangle[triangle] = faceId;
-                }
-                triangle++;
+            int faceTriangles = faceTriangleCorners(faceId, rule, corner);
+            for (int slot = 0; slot < 3 * faceTriangles; slot++) {
+                triangles[cursor++] = faceVertexAt(faceId, corner[slot]);
             }
+            for (int each = 0; faceOfTriangle != null && each < faceTriangles; each++) {
+                faceOfTriangle[triangle + each] = faceId;
+            }
+            triangle += faceTriangles;
         }
         return triangles;
+    }
+
+    /**
+     * {@link #triangleCorners} for one face of this mesh, a {@link TriangulationRule#SHORTER_DIAGONAL}
+     * quad measured by its corner positions.
+     *
+     * @param faceId    face to split
+     * @param rule      how the face is split
+     * @param cornerOut receives the face's corner indices, three per triangle, at least
+     *                  {@code 3 (corners - 2)} long
+     * @return the triangles written
+     */
+    default int faceTriangleCorners(int faceId, TriangulationRule rule, int[] cornerOut) {
+        int corners = faceVertexCount(faceId);
+        boolean firstDiagonalShorter = true;
+        if (rule == TriangulationRule.SHORTER_DIAGONAL && corners == QUAD_CORNERS) {
+            Vector3f from = new Vector3f();
+            Vector3f to = new Vector3f();
+            vertexPosition(faceVertexAt(faceId, 0), from);
+            vertexPosition(faceVertexAt(faceId, 2), to);
+            float firstX = from.x - to.x;
+            float firstY = from.y - to.y;
+            float firstZ = from.z - to.z;
+            vertexPosition(faceVertexAt(faceId, 1), from);
+            vertexPosition(faceVertexAt(faceId, 3), to);
+            float secondX = from.x - to.x;
+            float secondY = from.y - to.y;
+            float secondZ = from.z - to.z;
+            firstDiagonalShorter = firstX * firstX + firstY * firstY + firstZ * firstZ
+                    <= secondX * secondX + secondY * secondY + secondZ * secondZ;
+        }
+        return triangleCorners(rule, corners, firstDiagonalShorter, cornerOut);
+    }
+
+    /**
+     * The one face triangulation: corner indices of the triangles {@code rule} splits a polygon
+     * into, three per triangle wound like the polygon, fanned from corner 0, or from corner 1 for
+     * a {@link TriangulationRule#SHORTER_DIAGONAL} quad whose 1-3 diagonal is the shorter.
+     *
+     * @param rule                 how the polygon is split
+     * @param corners              the polygon's corner count
+     * @param firstDiagonalShorter whether a quad's 0-2 diagonal is no longer than its 1-3; read
+     *                             only by the shorter-diagonal rule
+     * @param cornerOut            receives the corner indices, at least {@code 3 (corners - 2)}
+     *                             long
+     * @return the triangles written, {@code corners - 2} or none
+     */
+    static int triangleCorners(TriangulationRule rule, int corners, boolean firstDiagonalShorter,
+            int[] cornerOut) {
+        int apex = rule == TriangulationRule.SHORTER_DIAGONAL && corners == QUAD_CORNERS
+                && !firstDiagonalShorter ? 1 : 0;
+        int cursor = 0;
+        for (int fan = 1; fan + 1 < corners; fan++) {
+            cornerOut[cursor++] = apex;
+            cornerOut[cursor++] = (apex + fan) % corners;
+            cornerOut[cursor++] = (apex + fan + 1) % corners;
+        }
+        return Math.max(0, corners - 2);
     }
 }

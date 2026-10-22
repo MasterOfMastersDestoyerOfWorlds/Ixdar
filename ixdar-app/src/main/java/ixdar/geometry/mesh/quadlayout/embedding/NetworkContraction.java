@@ -3,17 +3,9 @@ package ixdar.geometry.mesh.quadlayout.embedding;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-import ixdar.annotations.meshnode.MeshNodeAnnotation;
-import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.nodegraph.api.InputPort;
-import ixdar.nodegraph.api.MeshNode;
-import ixdar.nodegraph.api.NodeContext;
-import ixdar.nodegraph.api.OutputPort;
-import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
 import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.platform.Platforms;
@@ -26,13 +18,7 @@ import ixdar.platform.Platforms;
  *
  * <p>See also: LCBK19 Appendix A.3
  */
-@MeshNodeAnnotation(id = "tmesh_contract", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
-public final class NetworkContraction implements MeshNode {
-
-    public static final InputPort TMESH = new InputPort("tmesh", PortType.ARC_NETWORK, null);
-    public static final InputPort CONFORM = new InputPort("conform", PortType.BOOLEAN, Boolean.TRUE);
-    public static final InputPort RECARVE = new InputPort("recarve", PortType.BOOLEAN, Boolean.TRUE);
-    public static final OutputPort TMESH_OUT = new OutputPort(TMESH.name, PortType.ARC_NETWORK);
+public final class NetworkContraction {
 
     public static final boolean VALIDATE_EVERY_COLLAPSE = false;
 
@@ -44,7 +30,7 @@ public final class NetworkContraction implements MeshNode {
 
     private static final double NANOS_PER_SECOND = 1.0e9;
 
-    /** The network being contracted; null on the inert registry instance. */
+    /** The network being contracted. */
     public ArcNetwork network;
 
     public ZeroPatchSplitOperator splitPatch;
@@ -67,10 +53,6 @@ public final class NetworkContraction implements MeshNode {
     /** The last operator {@link #applyCollapse} applied, naming it in stepped diagnostics. */
     public String lastOperatorDescription = "";
 
-    /** Inert node-registry instance; evaluation binds a fresh contraction. */
-    public NetworkContraction() {
-    }
-
     /**
      * Binds the operators to a network so it can be contracted.
      *
@@ -84,48 +66,6 @@ public final class NetworkContraction implements MeshNode {
         this.extendTJunction = new TJunctionExtension(network);
     }
 
-    @Override
-    public List<InputPort> inputs() {
-        return List.of(TMESH, CONFORM, RECARVE);
-    }
-
-    @Override
-    public List<OutputPort> outputs() {
-        return List.of(TMESH_OUT);
-    }
-
-    @Override
-    public String description() {
-        return "Contracts an embedded T-mesh until no zero arc or patch remains, then optionally"
-                + " extends surviving T-junctions so the layout conforms.";
-    }
-
-    @Override
-    public Map<String, String> socketDocs() {
-        return Map.of(
-                TMESH.name, "Embedded T-mesh in (from layout_embedding, mutated in place) and the"
-                        + " contracted, by default conforming, T-mesh out.",
-                CONFORM.name, "Whether to extend T-junctions after contraction so every patch conforms.",
-                RECARVE.name, "Whether to conform and replay the contracted layout onto a fresh working"
-                        + " copy; off, the rounds run in place and surviving T-junctions remain."
-        );
-    }
-
-    @Override
-    public void evaluate(NodeContext ctx) {
-        ArcNetwork input = (ArcNetwork) ctx.getInput(TMESH.name, Object.class);
-        Boolean conformInput = ctx.getInput(CONFORM.name, Boolean.class);
-        Boolean recarveInput = ctx.getInput(RECARVE.name, Boolean.class);
-        boolean conformRequested = conformInput == null || conformInput;
-        boolean recarveRequested = recarveInput == null || recarveInput;
-        NetworkContraction contraction = new NetworkContraction(input);
-        ArcNetwork result = recarveRequested ? contraction.contract() : contraction.contractRounds();
-        if (conformRequested) {
-            result = new NetworkContraction(result).conform();
-        }
-        ctx.setOutput(TMESH_OUT.name, result);
-    }
-
     /**
      * Contracts the T-mesh to its fixed point, conforms it, and re-carves it onto
      * a fresh working copy: the pipeline's composition of the three stages.
@@ -136,7 +76,7 @@ public final class NetworkContraction implements MeshNode {
         contractRounds();
         conform();
         if (VALIDATE_PARTITION_EVERY_COLLAPSE) {
-            network.requireArrangementMatchesPatches(progress(CONFORM.name));
+            network.requireArrangementMatchesPatches(progress("conform"));
         }
         return recarve(network.topology.sourceMesh);
     }
@@ -149,7 +89,7 @@ public final class NetworkContraction implements MeshNode {
      *
      * @return the network, contracted in place
      */
-    private ArcNetwork contractRounds() {
+    public ArcNetwork contractRounds() {
         network.labelPatchCovers();
         while (true) {
             while (applyCollapse()) {

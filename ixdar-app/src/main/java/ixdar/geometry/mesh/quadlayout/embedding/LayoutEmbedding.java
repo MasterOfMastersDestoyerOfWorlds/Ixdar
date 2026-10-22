@@ -1,16 +1,8 @@
 package ixdar.geometry.mesh.quadlayout.embedding;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import ixdar.annotations.meshnode.MeshNodeAnnotation;
-import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.nodegraph.api.InputPort;
-import ixdar.nodegraph.api.MeshNode;
-import ixdar.nodegraph.api.NodeContext;
-import ixdar.nodegraph.api.OutputPort;
-import ixdar.nodegraph.api.PortType;
 import ixdar.geometry.mesh.quadlayout.embedding.model.ArcEdgePath;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedMeshTopology;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedArc;
@@ -28,12 +20,7 @@ import ixdar.platform.Platforms;
  * <p>
  * See also: LCBK19 Section 6.1
  */
-@MeshNodeAnnotation(id = "layout_embedding", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
-public final class LayoutEmbedding implements MeshNode {
-
-    public static final InputPort SKELETON = new InputPort("skeleton", PortType.ARC_NETWORK, null);
-    public static final InputPort UV = new InputPort("uv", PortType.UV_FIELD, null);
-    public static final OutputPort TMESH = new OutputPort("tmesh", PortType.ARC_NETWORK);
+public final class LayoutEmbedding {
 
     private static final double NANOS_PER_SECOND = 1.0e9;
 
@@ -73,38 +60,6 @@ public final class LayoutEmbedding implements MeshNode {
 
     /** T-mesh nodes that claimed an existing mesh vertex outright. */
     public int nodesOnMeshVertexCount;
-
-    @Override
-    public List<InputPort> inputs() {
-        return List.of(SKELETON, UV);
-    }
-
-    @Override
-    public List<OutputPort> outputs() {
-        return List.of(TMESH);
-    }
-
-    @Override
-    public String description() {
-        return "Carves a quantized skeleton onto a working copy of the mesh and assembles the"
-                + " embedded T-mesh, validated as a cell decomposition of the surface.";
-    }
-
-    @Override
-    public Map<String, String> socketDocs() {
-        return Map.of(
-                SKELETON.name, "Quantized skeleton to embed, from an arc_quantization node.",
-                UV.name, "Seamless UV field the carve reads chart coordinates from.",
-                TMESH.name, "The embedded T-mesh, uncontracted; zero arcs and patches remain."
-        );
-    }
-
-    @Override
-    public void evaluate(NodeContext ctx) {
-        ArcNetwork skeleton = (ArcNetwork) ctx.getInput(SKELETON.name, Object.class);
-        UvField field = (UvField) ctx.getInput(UV.name, Object.class);
-        ctx.setOutput(TMESH.name, new LayoutEmbedding().build(skeleton, field));
-    }
 
     /**
      * Copy the mesh, place nodes, carve every trace, check the result really is a

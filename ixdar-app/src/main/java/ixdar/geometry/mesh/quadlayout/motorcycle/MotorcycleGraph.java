@@ -11,19 +11,10 @@ import java.util.Set;
 
 import org.joml.Vector3f;
 
-import ixdar.annotations.meshnode.MeshNodeAnnotation;
-import ixdar.annotations.meshnode.NodeCategory;
-import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.field.BoolField;
-import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.field.IntField;
-import ixdar.nodegraph.api.MeshNode;
-import ixdar.nodegraph.api.NodeContext;
-import ixdar.nodegraph.api.OutputPort;
-import ixdar.nodegraph.api.PortType;
 import ixdar.nodegraph.field.UvField;
-import ixdar.nodegraph.field.FieldBroadcast;
 import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.ChartBarycentric;
@@ -39,37 +30,18 @@ import ixdar.geometry.mesh.quadlayout.motorcycle.model.TraceAxis;
 import ixdar.geometry.mesh.quadlayout.motorcycle.model.TraceEvent;
 import ixdar.geometry.mesh.quadlayout.motorcycle.model.TracePort;
 import ixdar.geometry.mesh.quadlayout.motorcycle.model.TraceSegment;
+import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.platform.Platforms;
 
 /**
  * Lyon 2021 §3 modified motorcycle graph T-mesh: traces, nodes, arcs, and
- * patches built from a seamless parametrization. As the registered
- * {@code motorcycle_graph} node, the registry instance is inert and evaluation
- * builds a fresh graph.
+ * patches built from a seamless parametrization.
  *
  * <p>See also: Lyon 2021 Section 3, Eppstein 2008
  */
-@MeshNodeAnnotation(id = "motorcycle_graph", desktopOnly = true, category = NodeCategory.QUAD_LAYOUT)
-public final class MotorcycleGraph implements MeshNode {
+public final class MotorcycleGraph {
 
     public static final float DEFAULT_ALPHA_DEGREES = 15.0f;
-
-    public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
-    public static final InputPort UV = new InputPort("uv", PortType.UV_FIELD, null);
-    public static final InputPort SINGULARITIES = new InputPort("singularities",
-            PortType.INT, null);
-    public static final InputPort FEATURE_EDGES = new InputPort("feature_edges",
-            PortType.BOOLEAN, null);
-    public static final InputPort ALPHA_DEGREES = new InputPort("alpha_degrees", PortType.FLOAT,
-            DEFAULT_ALPHA_DEGREES);
-    public static final InputPort CHARTS = new InputPort("charts", PortType.CHART_ATLAS, null);
-    public static final OutputPort GRAPH = new OutputPort("graph", PortType.ARC_NETWORK);
-    public static final OutputPort NODE_COUNT = new OutputPort("node_count", PortType.INT);
-    public static final OutputPort ARC_COUNT = new OutputPort("arc_count", PortType.INT);
-    public static final OutputPort PATCH_COUNT = new OutputPort("patch_count", PortType.INT);
-    public static final OutputPort ORPHANED_TRACES = new OutputPort("orphaned_traces", PortType.INT);
-    public static final OutputPort REPEATED_CHAIN_NODES = new OutputPort("repeated_chain_nodes",
-            PortType.INT);
 
     public static final int MAX_TRACE_RECORDS_PER_FACE = 4;
     static final double CHAIN_TURN_COS = Math.cos(Math.PI / 4.0);
@@ -246,14 +218,6 @@ public final class MotorcycleGraph implements MeshNode {
     private int faceCount;
     private FaceSegmentIndex segmentIndex;
 
-    /** Inert node-registry instance; evaluation builds a fresh graph. */
-    public MotorcycleGraph() {
-        this.uv = null;
-        this.singularityIndex4 = null;
-        this.featureEdges = null;
-        this.alphaRadians = 0f;
-    }
-
     /**
      * Stores inputs for a Lyon §3 motorcycle graph build.
      *
@@ -290,71 +254,6 @@ public final class MotorcycleGraph implements MeshNode {
         this.traces = new ArrayList<>();
         network.traces = traces;
         network.featureSpanByEdgeId = featureSpanByEdgeId;
-    }
-
-    @Override
-    public List<InputPort> inputs() {
-        return List.of(GEOMETRY, UV, CHARTS, SINGULARITIES, FEATURE_EDGES, ALPHA_DEGREES);
-    }
-
-    @Override
-    public List<OutputPort> outputs() {
-        return List.of(GRAPH, NODE_COUNT, ARC_COUNT, PATCH_COUNT, ORPHANED_TRACES,
-                REPEATED_CHAIN_NODES);
-    }
-
-    @Override
-    public String description() {
-        return "Traces the motorcycle-graph T-mesh over a seamless parametrization: the"
-                + " separatrix arrangement whose cells are the layout's patches.";
-    }
-
-    @Override
-    public Map<String, String> socketDocs() {
-        return Map.ofEntries(
-                Map.entry(GEOMETRY.name, "Geometry carrying the parametrized triangle mesh."),
-                Map.entry(UV.name, "Seamless per-corner UV field to trace, from a seamless_uv node."),
-                Map.entry(SINGULARITIES.name,
-                        "Per-vertex index4 of the cone points the separatrices spawn from"
-                                + " (0 = not singular), from a cross_field node."),
-                Map.entry(FEATURE_EDGES.name,
-                        "Per-edge selection of feature and boundary curves, from a"
-                                + " cross_field node."),
-                Map.entry(ALPHA_DEGREES.name,
-                        "Maximum separatrix deviation in degrees, the quality knob."),
-                Map.entry(CHARTS.name,
-                        "The parametrization's charts and cut transitions, from a seamless_uv"
-                                + " node."),
-                Map.entry(GRAPH.name, "The T-mesh arrangement: nodes, arcs, traces, and patches."),
-                Map.entry(NODE_COUNT.name, "Number of T-mesh nodes in the arrangement."),
-                Map.entry(ARC_COUNT.name, "Number of T-mesh arcs in the arrangement."),
-                Map.entry(PATCH_COUNT.name, "Number of T-mesh patches (arrangement cells)."),
-                Map.entry(ORPHANED_TRACES.name,
-                        "Traces still alive when the event queue drained (0 expected)."),
-                Map.entry(REPEATED_CHAIN_NODES.name,
-                        "Trace chains containing one node twice (0 expected)."));
-    }
-
-    @Override
-    public void evaluate(NodeContext ctx) {
-        GeometryBundle bundle = ctx.getInput(GEOMETRY.name, GeometryBundle.class);
-        UvField inputUv = (UvField) ctx.getInput(UV.name, Object.class);
-        IntField cones = (IntField) ctx.getInput(SINGULARITIES.name, Object.class);
-        BoolField features = (BoolField) ctx.getInput(FEATURE_EDGES.name, Object.class);
-        float alphaDegrees = FieldBroadcast.floatScalarOrDefault(
-                FieldBroadcast.getInputOrDefault(ctx, ALPHA_DEGREES.name, ALPHA_DEGREES.defaultValue),
-                DEFAULT_ALPHA_DEGREES);
-        ChartAtlas chartsInput = (ChartAtlas) ctx.getInput(CHARTS.name, Object.class);
-        HalfEdgeMesh inputMesh = (HalfEdgeMesh) bundle.mesh();
-        MotorcycleGraph graph = new MotorcycleGraph(inputMesh, inputUv, chartsInput, cones,
-                features, (float) Math.toRadians(alphaDegrees));
-        graph.build();
-        ctx.setOutput(GRAPH.name, graph.network);
-        ctx.setOutput(NODE_COUNT.name, graph.network.nodes.size());
-        ctx.setOutput(ARC_COUNT.name, graph.network.arcs.size());
-        ctx.setOutput(PATCH_COUNT.name, graph.network.patches.size());
-        ctx.setOutput(ORPHANED_TRACES.name, graph.aliveAtQueueEndCount);
-        ctx.setOutput(REPEATED_CHAIN_NODES.name, graph.repeatedChainNodeCount);
     }
 
     /**
@@ -1496,7 +1395,7 @@ public final class MotorcycleGraph implements MeshNode {
                 double bv = cornerUv[nextCorner * 2 + 1];
                 double cu = cornerUv[thirdCorner * 2];
                 double cv = cornerUv[thirdCorner * 2 + 1];
-                double orientation = orient2d(au, av, bu, bv, cu, cv);
+                double orientation = ExactBarycentricOrient.orient2d(au, av, bu, bv, cu, cv);
                 if (orientation > 0.0) {
                     for (int r = 0; r < BRANCH_COUNT; r++) {
                         double[] dir = switch (((r % 4) + 4) % 4) {
@@ -1509,10 +1408,13 @@ public final class MotorcycleGraph implements MeshNode {
 
                         double edgeU = bu - au;
                         double edgeV = bv - av;
-                        if (orient2d(au, av, bu, bv, au + dir[0], av + dir[1]) > 0
-                                && orient2d(au, av, au + dir[0], av + dir[1], cu, cv) > 0) {
+                        if (ExactBarycentricOrient.orient2d(au, av, bu, bv, au + dir[0],
+                                        av + dir[1]) > 0
+                                && ExactBarycentricOrient.orient2d(au, av, au + dir[0],
+                                        av + dir[1], cu, cv) > 0) {
                             acceptCandidate = true;
-                        } else if (!(Math.abs(orient2d(0.0, 0.0, edgeU, edgeV, dir[0], dir[1])) <= 0)) {
+                        } else if (!(Math.abs(ExactBarycentricOrient.orient2d(0.0, 0.0, edgeU,
+                                edgeV, dir[0], dir[1])) <= 0)) {
                             acceptCandidate = false;
                         } else {
                             acceptCandidate = edgeU * dir[0] + edgeV * dir[1] > 0.0;
@@ -1536,21 +1438,5 @@ public final class MotorcycleGraph implements MeshNode {
             }
         }
         return 0;
-    }
-
-    /**
-     * Signed area of triangle {@code (a, b, c)}; positive iff {@code c} lies to the
-     * left of directed line {@code a → b}.
-     *
-     * @param ax x-coordinate of point a
-     * @param ay y-coordinate of point a
-     * @param bx x-coordinate of point b
-     * @param by y-coordinate of point b
-     * @param cx x-coordinate of point c
-     * @param cy y-coordinate of point c
-     * @return signed doubled triangle area
-     */
-    public static double orient2d(double ax, double ay, double bx, double by, double cx, double cy) {
-        return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
     }
 }

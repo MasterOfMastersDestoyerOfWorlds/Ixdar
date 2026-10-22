@@ -6,6 +6,7 @@ import org.joml.Intersectionf;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.numeric.graph.Dijkstra;
 
 /**
@@ -13,6 +14,8 @@ import ixdar.numeric.graph.Dijkstra;
  * never broken by id; coincident copies go to the one whose faces the point lies on.
  */
 public final class NearestVertex {
+
+    public static final int TRIANGLE_CORNERS = 3;
 
     public static final double RELATIVE_EPSILON = 1e-6;
 
@@ -266,6 +269,7 @@ public final class NearestVertex {
         Vector3f nextCorner = new Vector3f();
         Vector3f closest = new Vector3f();
         Vector3f point = new Vector3f(x, y, z);
+        int[] faceCorners = new int[0];
         for (int entry = cellStart[cell]; entry < cellStart[cell + 1]; entry++) {
             if (!samePosition(entry, bestEntry)) {
                 continue;
@@ -274,10 +278,18 @@ public final class NearestVertex {
             double nearestFace = Double.POSITIVE_INFINITY;
             for (int adjacency = 0; adjacency < mesh.vertexFaceCount(vertexId); adjacency++) {
                 int faceId = mesh.vertexFaceAt(vertexId, adjacency);
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), position);
-                for (int fan = 1; fan + 1 < mesh.faceVertexCount(faceId); fan++) {
-                    mesh.vertexPosition(mesh.faceVertexAt(faceId, fan), corner);
-                    mesh.vertexPosition(mesh.faceVertexAt(faceId, fan + 1), nextCorner);
+                int corners = mesh.faceVertexCount(faceId);
+                if (faceCorners.length < TRIANGLE_CORNERS * corners) {
+                    faceCorners = new int[TRIANGLE_CORNERS * corners];
+                }
+                int triangles = mesh.faceTriangleCorners(faceId, TriangulationRule.FAN,
+                        faceCorners);
+                for (int slot = 0; slot < TRIANGLE_CORNERS * triangles;
+                        slot += TRIANGLE_CORNERS) {
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot]), position);
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 1]), corner);
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 2]),
+                            nextCorner);
                     // A face with two corners at one position, such as a hole fill joining two
                     // copies, is the segment between its distinct corners; JOML's triangle test
                     // divides by its zero-length edge and returns NaN, which no copy passes.

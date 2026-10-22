@@ -5,6 +5,7 @@ import java.util.Arrays;
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.numeric.graph.Dijkstra;
 
 /**
  * The geodesic primitives a spline is built from, over a shared {@link SurfaceMetric}: the
@@ -61,28 +62,13 @@ public final class SurfaceGeodesics {
     /** Geodesics computed since this engine was built, the measure of a trace's cost. */
     public long geodesicCount;
 
-    /**
-     * Keys of the search frontier, a binary min-heap kept in parallel primitive arrays; the
-     * smallest is {@code heapKey[0]} while {@link #heapSize} is positive.
-     */
-    public double[] heapKey = new double[0];
-
-    /** The id stored beside each frontier key. */
-    public int[] heapVertex = new int[0];
-
-    /** Entries on the frontier; a search empties it by setting this to zero. */
-    public int heapSize;
-
     private final FlipGeodesics flipper = new FlipGeodesics();
+    private final Dijkstra search = new Dijkstra();
     private final Vector3f scratchPosition = new Vector3f();
     private final Vector3f otherPosition = new Vector3f();
     private final Vector3f targetPosition = new Vector3f();
     private final Vector3f walkDirection = new Vector3f();
     private final Vector3f walkNormal = new Vector3f();
-    private int[] visitStamp = new int[0];
-    private double[] costToVertex = new double[0];
-    private int[] visitParent = new int[0];
-    private int currentStamp;
     private int[] seedVertex = new int[0];
     private int seedVertexCount;
     private int[] seedHalfEdge = new int[0];
@@ -214,21 +200,17 @@ public final class SurfaceGeodesics {
         if (!mesh.hasVertex(fromVertexId)) {
             return distance;
         }
-        prepareVisitBuffers();
-        currentStamp++;
-        heapSize = 0;
-        visitStamp[fromVertexId] = currentStamp;
-        costToVertex[fromVertexId] = 0.0;
-        heapPush(0.0, fromVertexId);
+        search.start(metric.vertexIdBound);
+        search.relax(fromVertexId, 0.0, -1);
         int found = 0;
         int settled = 0;
-        while (heapSize > 0 && found < labels && settled < searchBudget) {
-            double cost = heapKey[0];
-            int vertexId = heapPop();
-            if (cost > costToVertex[vertexId]) {
-                continue;
+        while (found < labels && settled < searchBudget) {
+            int vertexId = search.settle();
+            if (vertexId < 0) {
+                break;
             }
             settled++;
+            double cost = search.distance(vertexId);
             int label = vertexId < labelByVertexId.length ? labelByVertexId[vertexId] : -1;
             if (label >= 0 && distance[label] == Double.POSITIVE_INFINITY) {
                 distance[label] = cost;
@@ -241,13 +223,7 @@ public final class SurfaceGeodesics {
                     continue;
                 }
                 mesh.vertexPosition(other, otherPosition);
-                double relaxed = cost + scratchPosition.distance(otherPosition);
-                if (visitStamp[other] == currentStamp && relaxed >= costToVertex[other]) {
-                    continue;
-                }
-                visitStamp[other] = currentStamp;
-                costToVertex[other] = relaxed;
-                heapPush(relaxed, other);
+                search.relax(other, cost + scratchPosition.distance(otherPosition), vertexId);
             }
         }
         return distance;
@@ -350,24 +326,23 @@ public final class SurfaceGeodesics {
      * straight-line distance still to go, so the search stays in the corridor between the two.
      */
     private boolean seedWalk(int fromVertexId, int toVertexId) {
-        prepareVisitBuffers();
         mesh.vertexPosition(toVertexId, targetPosition);
-        currentStamp++;
-        heapSize = 0;
-        visitStamp[fromVertexId] = currentStamp;
-        costToVertex[fromVertexId] = 0.0;
-        visitParent[fromVertexId] = -1;
+        search.start(metric.vertexIdBound);
         mesh.vertexPosition(fromVertexId, scratchPosition);
-        heapPush(scratchPosition.distance(targetPosition), fromVertexId);
+        search.relax(fromVertexId, 0.0, scratchPosition.distance(targetPosition), -1);
         int settled = 0;
         boolean reached = false;
-        while (heapSize > 0 && settled < searchBudget) {
-            int vertexId = heapPop();
+        while (settled < searchBudget) {
+            int vertexId = search.settle();
+            if (vertexId < 0) {
+                break;
+            }
             if (vertexId == toVertexId) {
                 reached = true;
                 break;
             }
             settled++;
+            double cost = search.distance(vertexId);
             mesh.vertexPosition(vertexId, scratchPosition);
             int spokes = mesh.vertexEdgeCount(vertexId);
             for (int spoke = 0; spoke < spokes; spoke++) {
@@ -376,14 +351,9 @@ public final class SurfaceGeodesics {
                     continue;
                 }
                 mesh.vertexPosition(other, otherPosition);
-                double relaxed = costToVertex[vertexId] + scratchPosition.distance(otherPosition);
-                if (visitStamp[other] == currentStamp && relaxed >= costToVertex[other]) {
-                    continue;
-                }
-                visitStamp[other] = currentStamp;
-                costToVertex[other] = relaxed;
-                visitParent[other] = vertexId;
-                heapPush(relaxed + otherPosition.distance(targetPosition), other);
+                double relaxed = cost + scratchPosition.distance(otherPosition);
+                search.relax(other, relaxed, relaxed + otherPosition.distance(targetPosition),
+                        vertexId);
             }
         }
         if (!reached) {
@@ -396,7 +366,7 @@ public final class SurfaceGeodesics {
                 seedVertex = Arrays.copyOf(seedVertex, Math.max(64, 2 * seedVertex.length));
             }
             seedVertex[seedVertexCount++] = walk;
-            walk = visitParent[walk];
+            walk = search.via(walk);
         }
         for (int front = 0, back = seedVertexCount - 1; front < back; front++, back--) {
             int swap = seedVertex[front];
@@ -404,76 +374,5 @@ public final class SurfaceGeodesics {
             seedVertex[back] = swap;
         }
         return seedVertexCount > 1;
-    }
-
-    private void prepareVisitBuffers() {
-        int vertexIdBound = metric.vertexIdBound;
-        if (visitStamp.length >= vertexIdBound) {
-            return;
-        }
-        visitStamp = new int[vertexIdBound];
-        costToVertex = new double[vertexIdBound];
-        visitParent = new int[vertexIdBound];
-        currentStamp = 0;
-    }
-
-    /**
-     * Push onto the search frontier. Every search here empties it first, so a caller between
-     * this engine's searches, such as a crease ring's sheet search, may run its own on it.
-     *
-     * @param key      the entry's tentative cost
-     * @param vertexId id stored with it, a vertex id here, any non-negative id to a caller
-     */
-    public void heapPush(double key, int vertexId) {
-        if (heapSize == heapKey.length) {
-            heapKey = Arrays.copyOf(heapKey, Math.max(64, 2 * heapKey.length));
-            heapVertex = Arrays.copyOf(heapVertex, heapKey.length);
-        }
-        int slot = heapSize++;
-        while (slot > 0) {
-            int parent = (slot - 1) / 2;
-            if (heapKey[parent] <= key) {
-                break;
-            }
-            heapKey[slot] = heapKey[parent];
-            heapVertex[slot] = heapVertex[parent];
-            slot = parent;
-        }
-        heapKey[slot] = key;
-        heapVertex[slot] = vertexId;
-    }
-
-    /**
-     * Pop the frontier's smallest entry; its key is {@code heapKey[0]} just before the call.
-     *
-     * @return the id stored with it
-     */
-    public int heapPop() {
-        int top = heapVertex[0];
-        heapSize--;
-        if (heapSize == 0) {
-            return top;
-        }
-        double key = heapKey[heapSize];
-        int vertexId = heapVertex[heapSize];
-        int slot = 0;
-        while (true) {
-            int child = 2 * slot + 1;
-            if (child >= heapSize) {
-                break;
-            }
-            if (child + 1 < heapSize && heapKey[child + 1] < heapKey[child]) {
-                child++;
-            }
-            if (heapKey[child] >= key) {
-                break;
-            }
-            heapKey[slot] = heapKey[child];
-            heapVertex[slot] = heapVertex[child];
-            slot = child;
-        }
-        heapKey[slot] = key;
-        heapVertex[slot] = vertexId;
-        return top;
     }
 }

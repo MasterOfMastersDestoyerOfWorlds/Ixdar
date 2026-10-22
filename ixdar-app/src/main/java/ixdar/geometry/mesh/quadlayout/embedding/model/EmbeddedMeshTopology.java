@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.quadlayout.embedding.EarClipping;
 import ixdar.numeric.exact.ExactBarycentricOrient;
+import ixdar.numeric.graph.UnionFind;
 
 /**
  * Working copy of the input mesh for the re-embedding, rebuilt into a fresh
@@ -850,12 +851,7 @@ public final class EmbeddedMeshTopology {
         if (patchId < 0 || patchId >= patchAliasByPatch.length) {
             return patchId;
         }
-        int walk = patchId;
-        while (patchAliasByPatch[walk] != walk) {
-            patchAliasByPatch[walk] = patchAliasByPatch[patchAliasByPatch[walk]];
-            walk = patchAliasByPatch[walk];
-        }
-        return walk;
+        return UnionFind.find(patchAliasByPatch, patchId);
     }
 
     /**
@@ -877,11 +873,7 @@ public final class EmbeddedMeshTopology {
                 patchAliasByPatch[patchId] = patchId;
             }
         }
-        int absorbed = resolvePatch(absorbedPatchId);
-        int survivor = resolvePatch(survivorPatchId);
-        if (absorbed != survivor) {
-            patchAliasByPatch[absorbed] = survivor;
-        }
+        UnionFind.union(patchAliasByPatch, survivorPatchId, absorbedPatchId);
     }
 
 }

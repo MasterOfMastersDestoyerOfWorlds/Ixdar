@@ -15,7 +15,9 @@ import ixdar.geometry.mesh.quadlayout.seamless.SeamlessDofSystem;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessParameterization;
 import ixdar.geometry.mesh.quadlayout.seamless.SeamlessUv;
 import ixdar.numeric.exact.ExactArithmetic;
+import ixdar.numeric.exact.ExactBarycentricOrient;
 import ixdar.numeric.exact.IrrefResult;
+import ixdar.numeric.graph.UnionFind;
 import ixdar.platform.Platforms;
 
 /**
@@ -274,10 +276,7 @@ public final class SeamlessProjector {
      * @return a union-find parent array over the slots
      */
     private int[] buildAlignmentClasses(boolean[] alignedSlot) {
-        int[] parent = new int[alignedSlot.length];
-        for (int slot = 0; slot < parent.length; slot++) {
-            parent[slot] = slot;
-        }
+        int[] parent = UnionFind.singletons(alignedSlot.length);
         for (int activeEdge = 0; activeEdge < alignComponent.length; activeEdge++) {
             int component = alignComponent[activeEdge];
             if (component < 0) {
@@ -291,11 +290,7 @@ public final class SeamlessProjector {
                     * chartVertexOfFaceAtActiveVertex(activeFace, endpoints[1]) + component;
             alignedSlot[startSlot] = true;
             alignedSlot[endSlot] = true;
-            int startRoot = findInParents(parent, startSlot);
-            int endRoot = findInParents(parent, endSlot);
-            if (startRoot != endRoot) {
-                parent[startRoot] = endRoot;
-            }
+            UnionFind.union(parent, endSlot, startSlot);
         }
         return parent;
     }
@@ -312,25 +307,17 @@ public final class SeamlessProjector {
      */
     private static int[] mergeAlignedColumns(Map<Integer, Integer> chartVertexToColumn,
             int[] alignClassParent, int reducedVariableCount) {
-        int[] columnParent = new int[reducedVariableCount];
-        for (int slot = 0; slot < reducedVariableCount; slot++) {
-            columnParent[slot] = slot;
-        }
+        int[] columnParent = UnionFind.singletons(reducedVariableCount);
         Map<Integer, Integer> firstSlotOfAlignClass = new HashMap<>();
         for (Map.Entry<Integer, Integer> entry : chartVertexToColumn.entrySet()) {
             int chartVertex = entry.getKey();
             for (int component = 0; component < COMPONENTS_PER_CHART_VERTEX; component++) {
-                int classRoot = findInParents(alignClassParent,
+                int classRoot = UnionFind.find(alignClassParent,
                         COMPONENTS_PER_CHART_VERTEX * chartVertex + component);
                 int slot = COMPONENTS_PER_CHART_VERTEX * entry.getValue() + component;
                 Integer priorSlot = firstSlotOfAlignClass.putIfAbsent(classRoot, slot);
-                if (priorSlot == null) {
-                    continue;
-                }
-                int priorRoot = findInParents(columnParent, priorSlot);
-                int slotRoot = findInParents(columnParent, slot);
-                if (priorRoot != slotRoot) {
-                    columnParent[slotRoot] = priorRoot;
+                if (priorSlot != null) {
+                    UnionFind.union(columnParent, priorSlot, slot);
                 }
             }
         }
@@ -338,14 +325,14 @@ public final class SeamlessProjector {
         Arrays.fill(columnOfRoot, -1);
         int nextColumn = 0;
         for (int slot = 0; slot < reducedVariableCount; slot++) {
-            int root = findInParents(columnParent, slot);
+            int root = UnionFind.find(columnParent, slot);
             if (columnOfRoot[root] < 0) {
                 columnOfRoot[root] = nextColumn++;
             }
         }
         int[] columnOfSlot = new int[reducedVariableCount];
         for (int slot = 0; slot < reducedVariableCount; slot++) {
-            columnOfSlot[slot] = columnOfRoot[findInParents(columnParent, slot)];
+            columnOfSlot[slot] = columnOfRoot[UnionFind.find(columnParent, slot)];
         }
         return columnOfSlot;
     }
@@ -381,7 +368,7 @@ public final class SeamlessProjector {
             }
             int chartVertex = slot / COMPONENTS_PER_CHART_VERTEX;
             boolean holdsU = slot % COMPONENTS_PER_CHART_VERTEX == U_COMPONENT;
-            int root = findInParents(alignClassParent, slot);
+            int root = UnionFind.find(alignClassParent, slot);
             if (chartVertexToColumn.containsKey(chartVertex)) {
                 classNodeValue[root] = holdsU ? chartU[chartVertex] : chartV[chartVertex];
                 classReachesNode[root] = true;
@@ -398,7 +385,7 @@ public final class SeamlessProjector {
             if (chartVertexToColumn.containsKey(chartVertex)) {
                 continue;
             }
-            int root = findInParents(alignClassParent, slot);
+            int root = UnionFind.find(alignClassParent, slot);
             double value = classReachesNode[root] ? classNodeValue[root]
                     : ExactArithmetic.truncateToFd(classSum[root] / classCount[root], scale);
             if (slot % COMPONENTS_PER_CHART_VERTEX == U_COMPONENT) {
@@ -407,23 +394,6 @@ public final class SeamlessProjector {
                 chartV[chartVertex] = value;
             }
         }
-    }
-
-    /**
-     * Union-find {@code find} with path halving, shared by the alignment class and
-     * reduced-column merges.
-     *
-     * @param parent the parent array, compressed in place
-     * @param item   the item to find the root of
-     * @return the root of {@code item}'s set
-     */
-    private static int findInParents(int[] parent, int item) {
-        int current = item;
-        while (parent[current] != current) {
-            parent[current] = parent[parent[current]];
-            current = parent[current];
-        }
-        return current;
     }
 
     /**
@@ -945,7 +915,7 @@ public final class SeamlessProjector {
         int cv0 = cutGraph.cornerToChartVertex[base];
         int cv1 = cutGraph.cornerToChartVertex[base + 1];
         int cv2 = cutGraph.cornerToChartVertex[base + 2];
-        return orient2dHelper(chartU[cv0], chartV[cv0],
+        return ExactBarycentricOrient.orient2d(chartU[cv0], chartV[cv0],
                 chartU[cv1], chartV[cv1], chartU[cv2], chartV[cv2]) <= 0.0;
     }
 
@@ -1132,8 +1102,8 @@ public final class SeamlessProjector {
         for (int i = 0; i < n; i++) {
             double[] p0 = poly.get(i);
             double[] p1 = poly.get((i + 1) % n);
-            double c0 = orient2dHelper(ax, ay, bx, by, p0[0], p0[1]);
-            double c1 = orient2dHelper(ax, ay, bx, by, p1[0], p1[1]);
+            double c0 = ExactBarycentricOrient.orient2d(ax, ay, bx, by, p0[0], p0[1]);
+            double c1 = ExactBarycentricOrient.orient2d(ax, ay, bx, by, p1[0], p1[1]);
             boolean p0In = c0 >= margin;
             boolean p1In = c1 >= margin;
             if (p0In) {
@@ -1152,22 +1122,5 @@ public final class SeamlessProjector {
             }
         }
         return out;
-    }
-
-    /**
-     * Signed-doubled-area orient2d, positive when {@code (px, py)} lies to the left
-     * of directed line {@code (ax, ay) → (bx, by)}.
-     *
-     * @param ax line start x
-     * @param ay line start y
-     * @param bx line end x
-     * @param by line end y
-     * @param px query x
-     * @param py query y
-     * @return signed area
-     */
-    private static double orient2dHelper(double ax, double ay, double bx, double by,
-            double px, double py) {
-        return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
     }
 }

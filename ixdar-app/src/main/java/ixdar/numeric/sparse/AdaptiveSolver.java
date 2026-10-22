@@ -1,7 +1,7 @@
 package ixdar.numeric.sparse;
 
 import java.util.ArrayDeque;
-import java.util.Arrays;
+import java.util.function.BiConsumer;
 import java.util.function.IntConsumer;
 
 import org.ejml.data.DMatrixRMaj;
@@ -192,97 +192,44 @@ public final class AdaptiveSolver {
         return count;
     }
 
+    /**
+     * Jacobi-preconditioned conjugate gradient over the free variables, the fixed ones held at
+     * their values in {@code start}.
+     *
+     * @param matrix  SPD system to solve
+     * @param start   warm start, read and not written
+     * @param fixed   per variable, held at its start value
+     * @param options iteration cap and relative tolerance
+     * @return the solution, its iteration count and whether it converged
+     */
     private static CgResult conjugateGradient(NormalMatrix matrix,
             double[] start,
             boolean[] fixed,
             Options options) {
         int n = matrix.size();
         double[] x = start.clone();
-        double[] r = new double[n];
-        double rhsNormSq = 0.0;
+        double[] freeRightHandSide = new double[n];
         for (int i = 0; i < n; i++) {
-            if (fixed[i]) {
-                continue;
-            }
-            r[i] = matrix.rightHandSide[i] - matrix.rowDot(i, x);
-            rhsNormSq += matrix.rightHandSide[i] * matrix.rightHandSide[i];
+            freeRightHandSide[i] = fixed[i] ? 0.0 : matrix.rightHandSide[i];
         }
-
-        double[] z = new double[n];
-        double[] p = new double[n];
-        double rzOld = 0.0;
-        for (int i = 0; i < n; i++) {
-            if (fixed[i]) {
-                continue;
-            }
-            double diag = matrix.diag(i);
-            z[i] = Math.abs(diag) > MIN_DIAGONAL ? r[i] / diag : r[i];
-            p[i] = z[i];
-            rzOld += r[i] * z[i];
-        }
-
-        double toleranceSq = options.cgTolerance * options.cgTolerance * Math.max(rhsNormSq, 1.0);
-        if (residualNormSquared(r, fixed) <= toleranceSq) {
-            return new CgResult(x, 0, true);
-        }
-
-        double[] ap = new double[n];
-        int iteration = 0;
-        for (; iteration < options.cgMaxIterations; iteration++) {
-            Arrays.fill(ap, 0.0);
+        PcgResult result = preconditionedConjugateGradient((source, destination) -> {
             for (int i = 0; i < n; i++) {
-                if (!fixed[i]) {
-                    ap[i] = matrix.rowDot(i, p);
-                }
+                destination[i] = fixed[i] ? 0.0 : matrix.rowDot(i, source);
             }
-
-            double pAp = 0.0;
+        }, freeRightHandSide, x, fixed, (residual, output) -> {
             for (int i = 0; i < n; i++) {
-                if (!fixed[i]) {
-                    pAp += p[i] * ap[i];
-                }
-            }
-            if (Math.abs(pAp) < MIN_DIAGONAL) {
-                break;
-            }
-
-            double alpha = rzOld / pAp;
-            for (int i = 0; i < n; i++) {
-                if (fixed[i]) {
-                    continue;
-                }
-                x[i] += alpha * p[i];
-                r[i] -= alpha * ap[i];
-            }
-            if (residualNormSquared(r, fixed) <= toleranceSq) {
-                return new CgResult(x, iteration + 1, true);
-            }
-
-            double rzNew = 0.0;
-            for (int i = 0; i < n; i++) {
-                if (fixed[i]) {
-                    continue;
-                }
                 double diag = matrix.diag(i);
-                z[i] = Math.abs(diag) > MIN_DIAGONAL ? r[i] / diag : r[i];
-                rzNew += r[i] * z[i];
+                output[i] = fixed[i] ? 0.0
+                        : Math.abs(diag) > MIN_DIAGONAL ? residual[i] / diag : residual[i];
             }
-            double beta = rzNew / rzOld;
-            for (int i = 0; i < n; i++) {
-                if (!fixed[i]) {
-                    p[i] = z[i] + beta * p[i];
-                }
-            }
-            rzOld = rzNew;
-        }
-        return new CgResult(x, iteration, false);
+        }, options.cgMaxIterations, options.cgTolerance, 1.0);
+        return new CgResult(x, result.iterations(), result.converged());
     }
 
     /**
-     * Preconditioned Conjugate Gradient with a caller-supplied preconditioner, with
-     * the warm-start semantics of {@link #conjugateGradient}. Mutates {@code x} in
-     * place. Entries flagged in {@code excludeFromNorms} are still updated but drop
-     * out of convergence detection.
+     * Preconditioned conjugate gradient on a matrix's own right-hand side; see
+     * {@link #preconditionedConjugateGradient(BiConsumer, double[], double[], boolean[],
+     * Preconditioner, int, double, double)}, with a right-hand-side norm floor of one.
      *
      * @param matrix             SPD system to solve
      * @param x                  warm-start input; mutated in place into the
@@ -301,19 +248,52 @@ public final class AdaptiveSolver {
             int maxIterations,
             double relativeTolerance) {
         int n = matrix.size();
+        return preconditionedConjugateGradient((source, destination) -> {
+            for (int i = 0; i < n; i++) {
+                destination[i] = matrix.rowDot(i, source);
+            }
+        }, matrix.rightHandSide, x, excludeFromNorms, preconditioner, maxIterations,
+                relativeTolerance, 1.0);
+    }
+
+    /**
+     * The one conjugate-gradient solver: preconditioned CG on {@code A x = b} for an operator
+     * given by its action, warm-started from and writing into {@code x}. It stops once the
+     * residual is within {@code relativeTolerance} of {@code max(|b|, normFloor)}.
+     *
+     * @param operator           writes {@code A} times its first argument into its second
+     * @param rightHandSide      {@code b}
+     * @param x                  warm-start input; mutated in place into the solution
+     * @param excludeFromNorms   per entry, left out of both norms; null for none
+     * @param preconditioner     applies {@code M⁻¹} to a residual vector
+     * @param maxIterations      cap on iterations
+     * @param relativeTolerance  relative residual tolerance τ
+     * @param normFloor          least squared norm of {@code b} the tolerance scales by
+     * @return iteration count and converged flag
+     */
+    public static PcgResult preconditionedConjugateGradient(BiConsumer<double[], double[]> operator,
+            double[] rightHandSide,
+            double[] x,
+            boolean[] excludeFromNorms,
+            Preconditioner preconditioner,
+            int maxIterations,
+            double relativeTolerance,
+            double normFloor) {
+        int n = rightHandSide.length;
         double[] r = new double[n];
         double[] z = new double[n];
         double[] p = new double[n];
         double[] ap = new double[n];
 
+        operator.accept(x, ap);
         double bNormSq = 0.0;
         for (int i = 0; i < n; i++) {
-            r[i] = matrix.rightHandSide[i] - matrix.rowDot(i, x);
+            r[i] = rightHandSide[i] - ap[i];
             if (excludeFromNorms == null || !excludeFromNorms[i]) {
-                bNormSq += matrix.rightHandSide[i] * matrix.rightHandSide[i];
+                bNormSq += rightHandSide[i] * rightHandSide[i];
             }
         }
-        double toleranceSq = relativeTolerance * relativeTolerance * Math.max(bNormSq, 1.0);
+        double toleranceSq = relativeTolerance * relativeTolerance * Math.max(bNormSq, normFloor);
         double rNormSq = 0.0;
         for (int i = 0; i < n; i++) {
             if (excludeFromNorms == null || !excludeFromNorms[i]) {
@@ -332,9 +312,7 @@ public final class AdaptiveSolver {
         }
 
         for (int iteration = 0; iteration < maxIterations; iteration++) {
-            for (int i = 0; i < n; i++) {
-                ap[i] = matrix.rowDot(i, p);
-            }
+            operator.accept(p, ap);
             double pAp = 0.0;
             for (int i = 0; i < n; i++) {
                 pAp += p[i] * ap[i];
@@ -438,16 +416,6 @@ public final class AdaptiveSolver {
             sum += residual * residual;
         }
         return Math.sqrt(sum);
-    }
-
-    private static double residualNormSquared(double[] residual, boolean[] fixed) {
-        double sum = 0.0;
-        for (int i = 0; i < residual.length; i++) {
-            if (!fixed[i]) {
-                sum += residual[i] * residual[i];
-            }
-        }
-        return sum;
     }
 
     private static void validateInputs(NormalMatrix matrix, double[] warmStart, boolean[] fixed) {

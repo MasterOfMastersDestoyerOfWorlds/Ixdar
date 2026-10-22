@@ -6,6 +6,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
  * Splits a mesh into triangles along each quad's shorter diagonal, recording which face every
@@ -16,8 +17,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 public final class QuadTriangulation {
 
     public static final int THREE = 3;
-
-    public static final int QUAD_VERTEX_COUNT = 4;
 
     /** Source mesh being triangulated. */
     public final MeshTopology mesh;
@@ -76,42 +75,10 @@ public final class QuadTriangulation {
             positions[activeVertex * THREE + 2] = position.z;
         }
 
-        int faceCount = mesh.faceCount();
-        int triangleCount = 0;
-        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-            triangleCount += mesh.faceVertexCount(mesh.faceIdAt(activeFace)) - 2;
-        }
-        triangles = new int[triangleCount * THREE];
-        triangleSourceFace = new int[triangleCount];
-
-        int corner = 0;
-        int triangle = 0;
-        int[] faceVertices = new int[QUAD_VERTEX_COUNT];
-        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-            int faceId = mesh.faceIdAt(activeFace);
-            int faceVertexCount = mesh.faceVertexCount(faceId);
-            if (faceVertexCount > faceVertices.length) {
-                faceVertices = new int[faceVertexCount];
-            }
-            for (int index = 0; index < faceVertexCount; index++) {
-                faceVertices[index] = activeVertexByVertexId[mesh.faceVertexAt(faceId, index)];
-            }
-            if (faceVertexCount == QUAD_VERTEX_COUNT && !firstDiagonalIsShorter(faceVertices)) {
-                // Fan from corner 1 rather than 0, which is the same as cutting the other diagonal.
-                for (int index = 1; index < faceVertexCount - 1; index++) {
-                    triangles[corner++] = faceVertices[1];
-                    triangles[corner++] = faceVertices[(index + 1) % faceVertexCount];
-                    triangles[corner++] = faceVertices[(index + 2) % faceVertexCount];
-                    triangleSourceFace[triangle++] = faceId;
-                }
-                continue;
-            }
-            for (int index = 1; index < faceVertexCount - 1; index++) {
-                triangles[corner++] = faceVertices[0];
-                triangles[corner++] = faceVertices[index];
-                triangles[corner++] = faceVertices[index + 1];
-                triangleSourceFace[triangle++] = faceId;
-            }
+        triangleSourceFace = new int[mesh.triangleCount()];
+        triangles = mesh.triangulate(TriangulationRule.SHORTER_DIAGONAL, triangleSourceFace);
+        for (int corner = 0; corner < triangles.length; corner++) {
+            triangles[corner] = activeVertexByVertexId[triangles[corner]];
         }
         return this;
     }
@@ -133,31 +100,5 @@ public final class QuadTriangulation {
         cornerU = uv.cornerU;
         cornerV = uv.cornerV;
         return this;
-    }
-
-    /**
-     * Whether a quad's 0–2 diagonal is no longer than its 1–3 diagonal, which is the one QuadMixer
-     * cuts along so the two triangles stay as well-shaped as the quad allows.
-     *
-     * @param faceVertices the quad's four active-vertex indices, in order around the face
-     * @return true when the 0–2 diagonal should be cut
-     */
-    private boolean firstDiagonalIsShorter(int[] faceVertices) {
-        return squaredDistance(faceVertices[0], faceVertices[2])
-                <= squaredDistance(faceVertices[1], faceVertices[THREE]);
-    }
-
-    /**
-     * Squared distance between two vertices of {@link #positions}.
-     *
-     * @param activeVertexA first active-vertex index
-     * @param activeVertexB second active-vertex index
-     * @return the squared distance, which orders the same as the distance
-     */
-    private float squaredDistance(int activeVertexA, int activeVertexB) {
-        float deltaX = positions[activeVertexA * THREE] - positions[activeVertexB * THREE];
-        float deltaY = positions[activeVertexA * THREE + 1] - positions[activeVertexB * THREE + 1];
-        float deltaZ = positions[activeVertexA * THREE + 2] - positions[activeVertexB * THREE + 2];
-        return deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
     }
 }

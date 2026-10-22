@@ -15,6 +15,7 @@ import ixdar.geometry.mesh.data.paths.spline.SplineAnchorFit;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.numeric.graph.Dijkstra;
 
 /**
  * The ring authored anchors decide, a pure function of their cycle and base normal: up to three
@@ -102,11 +103,11 @@ public final class AuthoredSplineRing {
     private int[] spanLabel = new int[0];
     private boolean cycleDoublesBack;
     private int referencePoints;
-    private double[] sheetDistance = new double[0];
-    private int[] sheetParent = new int[0];
-    private int[] sheetVisit = new int[0];
+    private final Dijkstra sheetSearch = new Dijkstra();
     private int[] sheetBranch = new int[0];
-    private int visit;
+    private int[] laidPointByState = new int[0];
+    private int[] layStampByState = new int[0];
+    private int layStamp;
     private final Vector3f neighbour = new Vector3f();
 
     /**
@@ -248,17 +249,14 @@ public final class AuthoredSplineRing {
             planeNormal[2] * seam[0] - planeNormal[0] * seam[2],
             planeNormal[0] * seam[1] - planeNormal[1] * seam[0] };
         int states = SHEETS * tracer.geodesics.metric.vertexIdBound;
-        if (sheetVisit.length < states) {
-            sheetDistance = new double[states];
-            sheetParent = new int[states];
-            sheetVisit = new int[states];
+        if (sheetBranch.length < states) {
             sheetBranch = new int[states];
-            visit = 0;
+            laidPointByState = new int[states];
+            layStampByState = new int[states];
+            layStamp = 0;
         }
         double[] spanCost = new double[SHEETS * distinctCount];
         int[][] spanPath = new int[SHEETS * distinctCount][];
-        // The search runs on the geodesic engine's frontier heap, between its own searches.
-        SurfaceGeodesics frontier = tracer.geodesics;
         // One anchor's span closes on itself, and swapping the sheets maps the double cover onto
         // itself, so the search from the anchor's other sheet is this one's mirror image. The ring
         // is found where this search meets its own mirror, from both ends at once: it stops at
@@ -270,25 +268,20 @@ public final class AuthoredSplineRing {
         int closingTo = -1;
         // States are dense metric vertex indices, two per vertex, walked over the metric's flat
         // half-edge arrays rather than the mesh's per-vertex lists.
-        SurfaceMetric metric = frontier.metric;
+        SurfaceMetric metric = tracer.geodesics.metric;
         for (int anchor = 0; anchor < distinctCount; anchor++) {
             int source = SHEETS * metric.vertexIndexByVertexId[distinct[anchor]];
             int target = SHEETS
                     * metric.vertexIndexByVertexId[distinct[(anchor + 1) % distinctCount]];
-            visit++;
-            frontier.heapSize = 0;
-            sheetVisit[source] = visit;
-            sheetDistance[source] = 0.0;
-            sheetParent[source] = -1;
-            frontier.heapPush(0.0, source);
+            sheetSearch.start(states);
+            sheetSearch.relax(source, 0.0, -1);
             int settledTargets = 0;
-            while (frontier.heapSize > 0 && settledTargets < SHEETS
-                    && !(closing && 2.0 * frontier.heapKey[0] >= closingCost)) {
-                double key = frontier.heapKey[0];
-                int state = frontier.heapPop();
-                if (key > sheetDistance[state]) {
-                    continue;
+            while (settledTargets < SHEETS) {
+                int state = sheetSearch.settle();
+                if (state < 0 || closing && 2.0 * sheetSearch.distance(state) >= closingCost) {
+                    break;
                 }
+                double hereDistance = sheetSearch.distance(state);
                 settledTargets += state == target || state == target + 1 ? 1 : 0;
                 int activeVertex = state / SHEETS;
                 int sheet = state % SHEETS;
@@ -328,7 +321,7 @@ public final class AuthoredSplineRing {
                             && hereAlong + (thereAlong - hereAlong) * hereAcross
                                     / (hereAcross - thereAcross) > 0.0;
                     int next = SHEETS * otherActive + (crosses ? 1 - sheet : sheet);
-                    double relaxed = sheetDistance[state] + creases.edgeCost[edgeId];
+                    double relaxed = hereDistance + creases.edgeCost[edgeId];
                     int mirror = next + 1 - 2 * (next % SHEETS);
                     // Both halves of a closing ring come out of this one search tree, so they
                     // must leave the anchor by different first vertices: halves sharing a branch
@@ -337,18 +330,14 @@ public final class AuthoredSplineRing {
                             : sheetBranch[state] / SHEETS;
                     int inwardFirst = mirror == source ? activeVertex
                             : sheetBranch[mirror] / SHEETS;
-                    if (closing && sheetVisit[mirror] == visit && outwardFirst != inwardFirst
-                            && relaxed + sheetDistance[mirror] < closingCost) {
-                        closingCost = relaxed + sheetDistance[mirror];
+                    if (closing && sheetSearch.isReached(mirror) && outwardFirst != inwardFirst
+                            && relaxed + sheetSearch.distance(mirror) < closingCost) {
+                        closingCost = relaxed + sheetSearch.distance(mirror);
                         closingFrom = state;
                         closingTo = mirror;
                     }
-                    if (sheetVisit[next] != visit || relaxed < sheetDistance[next]) {
-                        sheetVisit[next] = visit;
-                        sheetDistance[next] = relaxed;
-                        sheetParent[next] = state;
+                    if (sheetSearch.relax(next, relaxed, state)) {
                         sheetBranch[next] = state == source ? next : sheetBranch[state];
-                        frontier.heapPush(relaxed, next);
                     }
                 }
             }
@@ -357,24 +346,26 @@ public final class AuthoredSplineRing {
                 // mirror of closingTo's branch to the anchor.
                 boolean met = closing && sheet == 1;
                 int end = met ? closingFrom : target + sheet;
-                boolean reached = met ? closingFrom >= 0 : sheetVisit[end] == visit;
+                boolean reached = met ? closingFrom >= 0 : sheetSearch.isReached(end);
                 spanCost[SHEETS * anchor + sheet] = !reached ? Double.POSITIVE_INFINITY
-                        : met ? closingCost : sheetDistance[end];
+                        : met ? closingCost : sheetSearch.distance(end);
                 int outward = 0;
-                for (int state = end; reached && state >= 0; state = sheetParent[state]) {
+                for (int state = end; reached && state >= 0; state = sheetSearch.via(state)) {
                     outward++;
                 }
                 int inward = 0;
-                for (int state = met ? closingTo : -1; state >= 0; state = sheetParent[state]) {
+                for (int state = met ? closingTo : -1; state >= 0;
+                        state = sheetSearch.via(state)) {
                     inward++;
                 }
                 int[] path = new int[outward + inward];
                 int slot = outward;
-                for (int state = end; reached && state >= 0; state = sheetParent[state]) {
+                for (int state = end; reached && state >= 0; state = sheetSearch.via(state)) {
                     path[--slot] = metric.sourceVertexId[state / SHEETS];
                 }
                 slot = outward;
-                for (int state = met ? closingTo : -1; state >= 0; state = sheetParent[state]) {
+                for (int state = met ? closingTo : -1; state >= 0;
+                        state = sheetSearch.via(state)) {
                     path[slot++] = metric.sourceVertexId[state / SHEETS];
                 }
                 spanPath[SHEETS * anchor + sheet] = path;
@@ -415,9 +406,9 @@ public final class AuthoredSplineRing {
         }
         // The paths lie on two sheets, so the walk may come back to a vertex it passed on the
         // other sheet; the loop between the two visits is erased as the walk is laid down, unless
-        // an authored anchor lies on it. The searches are done, so each vertex's first sheet
-        // state holds its point in the walk under a fresh stamp.
-        visit++;
+        // an authored anchor lies on it. Each vertex's first sheet state holds its point in the
+        // walk under a fresh stamp.
+        layStamp++;
         points = 0;
         int lastAnchorPoint = 0;
         for (int anchor = 0; anchor < distinctCount; anchor++) {
@@ -426,14 +417,14 @@ public final class AuthoredSplineRing {
             lastAnchorPoint = points;
             for (int step = 0; step + 1 < path.length; step++) {
                 int state = SHEETS * metric.vertexIndexByVertexId[path[step]];
-                int earlier = sheetVisit[state] == visit ? sheetParent[state] : -1;
+                int earlier = layStampByState[state] == layStamp ? laidPointByState[state] : -1;
                 if (step > 0 && earlier >= lastAnchorPoint && earlier < points
                         && referenceVertexId[earlier] == path[step]) {
                     points = earlier + 1;
                     continue;
                 }
-                sheetVisit[state] = visit;
-                sheetParent[state] = points;
+                layStampByState[state] = layStamp;
+                laidPointByState[state] = points;
                 referenceVertexId[points] = path[step];
                 mesh.vertexPosition(path[step], position);
                 cycleXyz[COORDINATES_PER_POINT * points] = position.x;

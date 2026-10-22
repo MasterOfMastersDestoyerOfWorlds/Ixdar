@@ -89,6 +89,22 @@ public final class ExactBarycentricOrient {
     }
 
     /**
+     * Twice the signed area of a plane triangle, in plain floating point like {@link #area}.
+     *
+     * @param ax first corner x
+     * @param ay first corner y
+     * @param bx second corner x
+     * @param by second corner y
+     * @param cx third corner x
+     * @param cy third corner y
+     * @return the signed area, positive when {@code c} lies left of the line {@code a → b}
+     */
+    public static double orient2d(double ax, double ay, double bx, double by, double cx,
+            double cy) {
+        return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    }
+
+    /**
      * Sign of the orientation determinant evaluated exactly in floating-point
      * expansion arithmetic (Shewchuk 1997): each of the six triple products is
      * decomposed into exact double components via fused multiply-add, and all

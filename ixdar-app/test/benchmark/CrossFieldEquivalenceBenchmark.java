@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
-import ixdar.geometry.mesh.data.fields.crossfield.NDirectionField;
+import ixdar.nodegraph.nodes.quadlayout.NDirectionFieldNode;
 
 /**
  * Same-field check for cross-field solver changes: records per-vertex field angles (from each
@@ -46,7 +46,7 @@ public final class CrossFieldEquivalenceBenchmark {
         String dsl = System.getProperty(DSL_PROPERTY);
         assertTrue(dsl != null, "set -D" + DSL_PROPERTY + " to a graph ending in cross_field");
         NodeGraphRuntime runtime = NodeGraphRuntime.executeResource(dsl, Map.of());
-        CrossField field = (CrossField) runtime.lastOutput(NDirectionField.FIELD.name);
+        CrossField field = (CrossField) runtime.lastOutput(NDirectionFieldNode.FIELD.name);
 
         double[] solution = field.system.solution;
         SurfaceMetric metric = SurfaceMetric.of(field.mesh);
