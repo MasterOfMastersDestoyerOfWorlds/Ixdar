@@ -492,6 +492,44 @@ public interface MeshTopology {
     float radius();
 
     /**
+     * Number of edges with a face on one side only.
+     *
+     * @return the boundary edge count, zero for a closed mesh
+     */
+    default int boundaryEdgeCount() {
+        int boundary = 0;
+        for (int activeEdge = 0; activeEdge < edgeCount(); activeEdge++) {
+            boundary += isBoundaryEdge(edgeIdAt(activeEdge)) ? 1 : 0;
+        }
+        return boundary;
+    }
+
+    /**
+     * Number of faces with fewer than three corners or whose first three corners are collinear or
+     * coincide, so their first triangle has no area.
+     *
+     * @return the degenerate face count
+     */
+    default int degenerateFaceCount() {
+        int degenerate = 0;
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
+        for (int activeFace = 0; activeFace < faceCount(); activeFace++) {
+            int faceId = faceIdAt(activeFace);
+            if (faceVertexCount(faceId) < 3) {
+                degenerate++;
+                continue;
+            }
+            vertexPosition(faceVertexAt(faceId, 0), first);
+            vertexPosition(faceVertexAt(faceId, 1), second).sub(first);
+            vertexPosition(faceVertexAt(faceId, 2), third).sub(first);
+            degenerate += second.cross(third).lengthSquared() == 0f ? 1 : 0;
+        }
+        return degenerate;
+    }
+
+    /**
      * Number of triangles {@link #triangulate} gives: {@code n - 2} for every face of {@code n}
      * corners.
      *

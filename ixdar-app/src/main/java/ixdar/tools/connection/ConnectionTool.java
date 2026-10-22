@@ -10,6 +10,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.tool.ToolAnnotation;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -21,6 +22,9 @@ import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
+import ixdar.tools.Draft;
+import ixdar.tools.Item;
+import ixdar.tools.Preview;
 import ixdar.tools.Tool;
 import ixdar.tools.ring.RingTool;
 
@@ -29,7 +33,7 @@ import ixdar.tools.ring.RingTool;
  * them and the narrowest cross-section on it, the neck, which Enter makes a ring to edit.
  */
 @ToolAnnotation(id = ConnectionTool.TOOL_NAME)
-public final class ConnectionTool implements Tool {
+public final class ConnectionTool extends Tool {
 
     public static final String LOG_PREFIX = "[connection] ";
 
@@ -46,6 +50,10 @@ public final class ConnectionTool implements Tool {
     public static final int XYZ = SurfaceConnection.COORDINATES_PER_POINT;
 
     public static final int PICKS = 2;
+
+    public static final String START_PICK = "start";
+
+    public static final String NECK = "neck";
 
     /** Scene the tool runs on, whose ring tool holds the rings that act as walls. */
     public final RingScene scene;
@@ -80,12 +88,6 @@ public final class ConnectionTool implements Tool {
     /** Faces repair_mesh added to the shown surface, by active face index; empty when unknown. */
     public boolean[] filledByActiveFace = new boolean[0];
 
-    /** The last action's outcome, as logged. */
-    public String lastRow = "";
-
-    /** Why the last action failed, or empty. */
-    public String lastError = "";
-
     /** Drawn number of the ring the last Enter made, or -1. */
     public int confirmedRingNumber = -1;
 
@@ -108,6 +110,80 @@ public final class ConnectionTool implements Tool {
     @Override
     public String toolName() {
         return TOOL_NAME;
+    }
+
+    /**
+     * The two picks, start then end, with the one being dragged selected and the one under the
+     * cursor hovered; valid once both are set.
+     *
+     * @return the picks, or {@code null} before the first
+     */
+    @Override
+    public Draft draft() {
+        if (pickVertexId[0] < 0) {
+            return null;
+        }
+        Draft picks = new Draft();
+        boolean both = pickVertexId[1] >= 0;
+        picks.points = scene.ringTool.positionsOf(both ? pickVertexId : new int[] { pickVertexId[0] });
+        picks.pointLabels = both ? new String[] { START_PICK, "end" } : new String[] { START_PICK };
+        picks.selectedPoint = draggingPick;
+        picks.hoveredPoint = hoveredPick;
+        picks.valid = both;
+        picks.label = "picks";
+        picks.size = picks.pointLabels.length;
+        picks.detail = ringsAreWalls ? "rings are walls" : "rings are not walls";
+        return picks;
+    }
+
+    /**
+     * The traced connection: the neck's narrowest point, whether the picks are joined, the time
+     * the path and the cross-sections took, and the path and neck as the detail.
+     *
+     * @return the preview, or {@code null} before the picks were joined once
+     */
+    @Override
+    public Preview preview() {
+        if (connection == null) {
+            return null;
+        }
+        return new Preview(connection.narrowestPoint, connection.connected,
+                connection.pathMillis + connection.girthMillis, lastRow);
+    }
+
+    /**
+     * The joined path and the neck on it: the path by its faces and length, the neck by its loop's
+     * edges, girth and fingerprint at its narrowest point.
+     *
+     * @return the path then the neck, empty while the picks are not joined
+     */
+    @Override
+    public List<Item> items() {
+        List<Item> found = new ArrayList<>();
+        if (connection == null || !connection.connected) {
+            return found;
+        }
+        Item path = new Item();
+        path.label = "path";
+        int middle = connection.pathPolyline.length / XYZ / 2;
+        if (middle * XYZ + XYZ <= connection.pathPolyline.length) {
+            System.arraycopy(connection.pathPolyline, middle * XYZ, path.location, 0, XYZ);
+        }
+        path.size = connection.pathActiveFace.length;
+        path.length = connection.pathLength;
+        path.detail = connection.pathFilledFaceCount + " repair_mesh fill faces";
+        found.add(path);
+        Item neck = new Item();
+        neck.label = NECK;
+        System.arraycopy(connection.narrowestPoint, 0, neck.location, 0, XYZ);
+        neck.size = neckLoopVertexId.length;
+        neck.length = connection.narrowestGirth;
+        neck.fingerprint = EdgeMarks.fingerprint(connection.mesh,
+                connection.narrowestMarkedByEdgeId);
+        neck.detail = String.format(Locale.ROOT, "widest %.5f, %d crossing rings passed over",
+                connection.widestGirth, connection.girthsCrossingWalls);
+        found.add(neck);
+        return found;
     }
 
     /** Show the connection the tool holds; clicks and pick drags arrive through the pointer callbacks. */
@@ -439,7 +515,7 @@ public final class ConnectionTool implements Tool {
             lastError = "the ring tool has a draft open - Ctrl+R, then confirm (Enter) or discard "
                     + "(X) it";
         } else {
-            int ring = rings.confirmLoop(neckLoopVertexId, "neck");
+            int ring = rings.confirmLoop(neckLoopVertexId, NECK);
             if (ring >= 0) {
                 confirmedRingNumber = rings.drawnRingNumber(ring);
                 scene.switchTool(rings);

@@ -250,7 +250,7 @@ class PointerRegionPressTest {
      * The scene's active tool, taking the presses it is offered while {@link #taking} holds, and
      * recording every pointer callback it gets.
      */
-    private static final class RecordingTool implements Tool {
+    private static final class RecordingTool extends Tool {
 
         public final List<String> events = new ArrayList<>();
 

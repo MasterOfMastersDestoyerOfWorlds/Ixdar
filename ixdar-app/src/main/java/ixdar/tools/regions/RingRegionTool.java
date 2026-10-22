@@ -27,6 +27,7 @@ import ixdar.automation.AutomationPortFile;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
+import ixdar.tools.Item;
 import ixdar.tools.Tool;
 
 /**
@@ -35,7 +36,7 @@ import ixdar.tools.Tool;
  * selection is kept as surface points.
  */
 @ToolAnnotation(id = RingRegionTool.TOOL_NAME)
-public final class RingRegionTool implements Tool {
+public final class RingRegionTool extends Tool {
 
     public static final String LOG_PREFIX = "[ring-regions] ";
 
@@ -69,12 +70,6 @@ public final class RingRegionTool implements Tool {
 
     /** The {@code ring_regions} {@code select} query the current selection is. */
     public String selectQuery = "";
-
-    /** The last action's outcome, as logged. */
-    public String lastRow = "";
-
-    /** Why the last action failed, or empty. */
-    public String lastError = "";
 
     /** Whether the tool is the scene's active one. */
     public boolean active;
@@ -454,6 +449,60 @@ public final class RingRegionTool implements Tool {
     public boolean shiftHeld() {
         return scene.keys != null && (scene.keys.pressedKeys.contains(Keys.LEFT_SHIFT)
                 || scene.keys.pressedKeys.contains(Keys.RIGHT_SHIFT));
+    }
+
+    /**
+     * The regions the rings enclose, each under its tag at the centroid of its face corners, its
+     * face count as size, with its area, bounding rings, and whether it is a sliver, selected,
+     * hidden or isolated as the detail.
+     *
+     * @return one item per region, empty before the regions are first built
+     */
+    @Override
+    public List<Item> items() {
+        RegionLayer layer = scene.regionLayer;
+        RingRegions regions = layer.regions;
+        List<Item> items = new ArrayList<>();
+        if (regions == null) {
+            return items;
+        }
+        boolean hiding = layer.hiddenByActiveFace.length == regions.regionByActiveFace.length;
+        int[] hiddenFaces = new int[regions.regionCount];
+        float[] corners = new float[XYZ * regions.regionCount];
+        int[] cornerCount = new int[regions.regionCount];
+        Vector3f corner = new Vector3f();
+        for (int activeFace = 0; activeFace < regions.regionByActiveFace.length; activeFace++) {
+            int region = regions.regionByActiveFace[activeFace];
+            if (region < 0 || region >= regions.regionCount) {
+                continue;
+            }
+            hiddenFaces[region] += hiding && layer.hiddenByActiveFace[activeFace] ? 1 : 0;
+            int faceId = regions.mesh.faceIdAt(activeFace);
+            for (int side = 0; side < regions.mesh.faceVertexCount(faceId); side++) {
+                regions.mesh.vertexPosition(regions.mesh.faceVertexAt(faceId, side), corner);
+                corners[XYZ * region] += corner.x;
+                corners[XYZ * region + 1] += corner.y;
+                corners[XYZ * region + 2] += corner.z;
+                cornerCount[region]++;
+            }
+        }
+        for (int region = 0; region < regions.regionCount; region++) {
+            Item item = new Item();
+            item.label = regionTag(region);
+            for (int axis = 0; axis < XYZ; axis++) {
+                item.location[axis] = cornerCount[region] == 0 ? 0f
+                        : corners[XYZ * region + axis] / cornerCount[region];
+            }
+            item.size = regions.regionFaceCount[region];
+            boolean hidden = hiddenFaces[region] == regions.regionFaceCount[region];
+            item.detail = String.format(Locale.ROOT, "area %.5f, bounded by %s%s%s%s",
+                    regions.regionArea[region], regions.boundingRingText(region),
+                    regions.isSliver(region) ? ", sliver" : "",
+                    selectedRegions.length > region && selectedRegions[region] ? ", selected" : "",
+                    hidden ? ", hidden" : hiddenFaces[region] > 0 ? ", partly hidden" : "");
+            items.add(item);
+        }
+        return items;
     }
 
     /**

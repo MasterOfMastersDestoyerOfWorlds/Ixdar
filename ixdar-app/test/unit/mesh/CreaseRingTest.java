@@ -185,7 +185,7 @@ class CreaseRingTest {
             tool.addControls(controls);
 
             press(controls, Keys.T);
-            assertEquals(RingSegmentMode.CREASE, tool.newDraftMode, tool.lastError);
+            assertEquals(RingSegmentMode.CREASE, tool.newDraftMode(), tool.lastError);
             assertTrue(tool.draft == null, "T opened a draft");
             tool.perFrame();
             assertTrue(tool.previewValid, "no hover preview in crease mode: " + tool.lastError);
@@ -208,7 +208,7 @@ class CreaseRingTest {
             SurfaceSpline groove = tool.draft;
             press(controls, Keys.T);
             assertEquals(RingSegmentMode.GEODESIC, tool.draftMode, tool.lastError);
-            assertEquals(RingSegmentMode.GEODESIC, tool.newDraftMode, "T left the next mode");
+            assertEquals(RingSegmentMode.GEODESIC, tool.newDraftMode(), "T left the next mode");
             press(controls, Keys.T);
             assertEquals(RingSegmentMode.CREASE, tool.draftMode, tool.lastError);
             assertArrayEquals(groove.marks.markedByEdgeId, tool.draft.marks.markedByEdgeId,
@@ -216,7 +216,7 @@ class CreaseRingTest {
 
             assertTrue(tool.confirmDraft(), tool.lastError);
             assertEquals(RingSegmentMode.CREASE, tool.confirmedMode.get(0));
-            assertEquals(RingSegmentMode.CREASE, tool.newDraftMode, "confirm lost the mode");
+            assertEquals(RingSegmentMode.CREASE, tool.newDraftMode(), "confirm lost the mode");
             assertTrue(tool.reopenRing(0), tool.lastError);
             assertEquals(RingSegmentMode.CREASE, tool.draftMode, "re-open lost the ring's mode");
             assertArrayEquals(groove.marks.markedByEdgeId, tool.draft.marks.markedByEdgeId);
@@ -229,7 +229,7 @@ class CreaseRingTest {
                 assertTrue(tool.undo(), tool.lastError);
             }
             assertTrue(tool.draft == null, "undo kept the click's draft");
-            assertEquals(RingSegmentMode.CREASE, tool.newDraftMode, "undo lost the mode");
+            assertEquals(RingSegmentMode.CREASE, tool.newDraftMode(), "undo lost the mode");
         } finally {
             Platforms.init(suitePlatform, suiteGl);
         }

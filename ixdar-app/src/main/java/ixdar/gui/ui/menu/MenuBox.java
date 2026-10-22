@@ -16,6 +16,7 @@ import ixdar.graphics.render.color.ColorLerp;
 import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.sdf.SDFUnion;
 import ixdar.gui.ui.Drawing;
+import ixdar.gui.ui.text.HyperWord;
 import ixdar.audio.AudioAssets;
 import ixdar.scenes.Scene;
 import ixdar.platform.Platforms;
@@ -51,6 +52,12 @@ public class MenuBox implements PointerRegion {
      * region in which the shown menu takes the wheel and the presses on its buttons and bar.
      */
     public final Bounds itemColumn = new Bounds(0, 0, 0, 0, VIEW_MENU_ITEMS);
+
+    /**
+     * The shown items' labels as rows, one per button, each row's word placed on its button's
+     * rectangle as last drawn; the buttons draw themselves, so the box is never drawn.
+     */
+    public final MenuScrollBox itemBox;
 
     public SDFTexture logo;
 
@@ -99,6 +106,7 @@ public class MenuBox implements PointerRegion {
             activeMenu = debugMenu;
         }
         menuItems = activeMenu.loadMenu();
+        itemBox = new MenuScrollBox(itemColumn, ITEM_COLUMN_SCROLL_BAR, this::claimsWheel);
         PointerDispatcher.current().subscribe(itemColumn, this);
     }
 
@@ -150,6 +158,7 @@ public class MenuBox implements PointerRegion {
         bar.contentLength = itemHeight * menuItems.size() * ITEM_SPACING_FACTOR;
         bar.visibleLength = centerY;
         bar.scrollBy(0);
+        itemBox.clearRows();
         for (int i = 0; i < menuItems.size(); i++) {
             float itemCenterY = centerY - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR) + bar.scrollOffset;
             float leftBoundX = centerX - itemWidth / 2;
@@ -164,6 +173,14 @@ public class MenuBox implements PointerRegion {
                 rim = hovered ? outerFlash : outerColor;
             }
             menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, rim, camera);
+            int firstWord = itemBox.text.words.size();
+            itemBox.addRow(menuItems.get(i).getHeading(), Color.IXDAR, menuItems.get(i).action);
+            for (HyperWord word : itemBox.text.words.subList(firstWord, itemBox.text.words.size())) {
+                word.xScreenOffset = leftBoundX;
+                word.yScreenOffset = downBoundX;
+                word.drawnWidth = itemWidth;
+                word.rowHeight = itemHeight;
+            }
             Drawing.getDrawing().font.drawHyperString(menuItems.get(i).itemString(), centerX,
                     itemCenterY + itemHeight * LABEL_Y_OFFSET_FACTOR,
                     itemHeight / 2, (Camera2D) camera);
@@ -340,49 +357,6 @@ public class MenuBox implements PointerRegion {
      */
     public float getItemWidth() {
         return itemWidth;
-    }
-
-    /**
-     * Compute per-item screen-space bounds for the currently visible menu. Used by
-     * automation/test harnesses to locate buttons without having to replicate the
-     * layout math.
-     *
-     * @return a list of {@link MenuItemBounds}, one per item, or empty if the menu
-     *         has no items or its textures are not yet loaded
-     */
-    public List<MenuItemBounds> getMenuItemBounds() {
-        ArrayList<MenuItemBounds> bounds = new ArrayList<>();
-        if (menuItems == null || menuItems.isEmpty() || itemWidth <= 0 || itemHeight <= 0) {
-            return bounds;
-        }
-        float centerX = Platforms.get().getFrameBufferWidth() / 2f;
-        float centerY = Platforms.get().getFrameBufferHeight() / 2f;
-        for (int i = 0; i < menuItems.size(); i++) {
-            float itemCenterY = centerY - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR)
-                    + ITEM_COLUMN_SCROLL_BAR.scrollOffset;
-            MenuItemBounds item = new MenuItemBounds();
-            item.label = menuItems.get(i).getHeading();
-            item.enabled = menuItems.get(i).action != null;
-            item.left = centerX - itemWidth / 2f;
-            item.bottom = itemCenterY - itemHeight / 2f;
-            item.width = itemWidth;
-            item.height = itemHeight;
-            item.centerX = centerX;
-            item.centerY = itemCenterY;
-            bounds.add(item);
-        }
-        return bounds;
-    }
-
-    public static class MenuItemBounds {
-        public String label;
-        public boolean enabled;
-        public float left;
-        public float bottom;
-        public float width;
-        public float height;
-        public float centerX;
-        public float centerY;
     }
 
 }

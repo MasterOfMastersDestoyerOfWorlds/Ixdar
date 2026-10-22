@@ -21,7 +21,7 @@ import ixdar.tools.Tool;
  * selected. It sits here, not on {@link MainScene}, because each tool resets it on activation and
  * moves it its own way.
  */
-public abstract class KnotTool implements Tool {
+public abstract class KnotTool extends Tool {
 
     /** The editor whose knots, camera and terminal the tool works on. */
     public final MainScene editor;

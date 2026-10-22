@@ -2,6 +2,7 @@ package ixdar.scenes;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.joml.Vector3f;
 
@@ -25,6 +26,7 @@ import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.PaneTypes;
 import ixdar.gui.ui.code.ShaderCodePane;
 import ixdar.gui.ui.menu.MenuBox;
+import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.AutomationBackend;
 import ixdar.platform.Clock;
@@ -591,6 +593,41 @@ public abstract class Scene extends SceneDrawable {
                 controls.add(frameAllRow, new ControlHint(Keys.F, "F", FRAME_ALL_DESCRIPTION, this::frameAll));
             }
         }
+    }
+
+    /**
+     * The scroll boxes of the panes the scene shows, in drawing order. Base lists the scene
+     * terminal's and the code pane's; scenes with panes of their own add theirs after.
+     *
+     * @return the shown panes' boxes
+     */
+    public List<MenuScrollBox> panes() {
+        List<MenuScrollBox> panes = new ArrayList<>();
+        if (sceneTerminal != null) {
+            panes.add(sceneTerminal.scrollBox);
+        }
+        if (codePane != null) {
+            panes.add(codePane.codeBox);
+        }
+        return panes;
+    }
+
+    /**
+     * The name of the shading the scene's surface is drawn with.
+     *
+     * @return the shader mode's name, empty for a scene with no shaded surface
+     */
+    public String shaderModeName() {
+        return "";
+    }
+
+    /**
+     * Whether the scene's surface draws with its textures.
+     *
+     * @return false for a scene with no textured surface
+     */
+    public boolean texturedDraw() {
+        return false;
     }
 
     /**

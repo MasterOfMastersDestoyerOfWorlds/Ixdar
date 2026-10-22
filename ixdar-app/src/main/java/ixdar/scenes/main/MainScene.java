@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Random;
@@ -36,6 +37,7 @@ import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.InfoPane;
 import ixdar.gui.ui.PaneTypes;
 import ixdar.gui.ui.menu.MenuBox;
+import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.platform.Platforms;
 import ixdar.platform.file.FileManagement;
 import ixdar.geometry.tsp.PointSetPath;
@@ -368,6 +370,19 @@ public class MainScene extends Scene {
         addToolSwitch(neighborViewTool, new ControlHint(Keys.B, true, "ctrl+B",
                 "each point's two nearest neighbours", () -> switchTool(neighborViewTool)));
         defaultTool = freeTool;
+    }
+
+    /**
+     * The base's boxes, then the editor's terminal and info panes' boxes.
+     *
+     * @return the shown panes' boxes
+     */
+    @Override
+    public List<MenuScrollBox> panes() {
+        List<MenuScrollBox> panes = super.panes();
+        panes.add(terminal.scrollBox);
+        panes.add(info.scrollBox);
+        return panes;
     }
 
     /**

@@ -1,5 +1,7 @@
 package ixdar.tools.regions;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -20,6 +22,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.main.Toggle;
 import ixdar.scenes.ring.RingScene;
+import ixdar.tools.Item;
 
 /**
  * The editing scene's ring regions, updated incrementally as rings change: their colours, shown in
@@ -59,7 +62,7 @@ public final class RegionLayer {
     public Map<String, String> ringNoteByLabel = Map.of();
 
     /** One-line summary of the regions and the last update, as logged. */
-    public String lastRow = "";
+    public String summary = "";
 
     /**
      * Faces neither drawn nor picked in any tool, by dense face index, kept through ring edits;
@@ -135,6 +138,20 @@ public final class RegionLayer {
         if (!isolate) {
             tool.clearSelection();
         }
+    }
+
+    /**
+     * The rings every tool works over, the ones the ring tool confirmed, deleted ones included, as
+     * items in confirmation order.
+     *
+     * @return one item per confirmed ring
+     */
+    public List<Item> rings() {
+        List<Item> rings = new ArrayList<>();
+        for (int ring = 0; ring < scene.ringTool.confirmedRings.size(); ring++) {
+            rings.add(scene.ringTool.ringItem(ring));
+        }
+        return rings;
     }
 
     /** U: show every hidden face again. */
@@ -300,11 +317,11 @@ public final class RegionLayer {
         for (int region = 0; region < regions.regionCount; region++) {
             slivers += regions.isSliver(region) ? 1 : 0;
         }
-        lastRow = String.format(Locale.ROOT, "%d regions, %d slivers under %d faces (white)%s; "
+        summary = String.format(Locale.ROOT, "%d regions, %d slivers under %d faces (white)%s; "
                 + "rings in pink: %d split nothing; %s and drawn in %.0f ms, "
                 + "%d faces re-flooded", regions.regionCount, slivers, RingRegions.SLIVER_FACES,
                 absorbSlivers ? " absorbed" : "", ringNoteByLabel.size(), rebuilt,
                 (System.nanoTime() - start) / 1e6, regions.refloodedFaces);
-        Platforms.get().log(LOG_PREFIX + lastRow);
+        Platforms.get().log(LOG_PREFIX + summary);
     }
 }

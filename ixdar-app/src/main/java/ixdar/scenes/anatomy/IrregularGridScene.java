@@ -2,6 +2,7 @@ package ixdar.scenes.anatomy;
 
 import org.joml.Vector2f;
 
+import ixdar.annotations.command.Subsystem;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.grid2d.IrregularQuadLayoutGenerator;
 import ixdar.geometry.grid2d.IrregularQuadGrid;
@@ -100,93 +101,14 @@ public class IrregularGridScene extends Scene {
     }
 
     /**
-     * RNG seed used by the layout generator for deterministic grids.
+     * The scene shows a grid: the irregular quad grid it built.
      *
-     * @return the fixed seed
+     * @param subsystem a scene-held subsystem
+     * @return the grid for {@link Subsystem#GRID}, null until it is built, else the base's
      */
-    public long getSeed() {
-        return SEED;
-    }
-
-    /**
-     * Number of Lloyd-style relaxation passes applied to the layout.
-     *
-     * @return relaxation iteration count
-     */
-    public int getRelaxIters() {
-        return RELAX_ITERS;
-    }
-
-    /**
-     * Jitter magnitude applied to anchor positions (0 means none).
-     *
-     * @return jitter amount
-     */
-    public float getJitter() {
-        return JITTER;
-    }
-
-    /**
-     * Number of primal anchor points in the current grid.
-     *
-     * @return anchor count, or 0 if the grid has not been built
-     */
-    public int getPrimalPointCount() {
-        return grid == null ? 0 : grid.anchorCount();
-    }
-
-    /**
-     * Number of dual (face-center) points in the current grid.
-     *
-     * @return dual point count, or 0 if the grid has not been built
-     */
-    public int getDualPointCount() {
-        return grid == null ? 0 : grid.dualPointCount();
-    }
-
-    /**
-     * Number of edges in the current grid.
-     *
-     * @return edge count, or 0 if the grid has not been built
-     */
-    public int getEdgeCount() {
-        return grid == null ? 0 : grid.edgeCount();
-    }
-
-    /**
-     * Standard deviation of horizontal edge lengths in the current grid.
-     *
-     * @return std-dev, or {@link #JITTER} if the grid has not been built
-     */
-    public float getHorizontalEdgeStdDev() {
-        return grid == null ? JITTER : grid.horizontalEdgeStdDev();
-    }
-
-    /**
-     * Standard deviation of vertical edge lengths in the current grid.
-     *
-     * @return std-dev, or {@link #JITTER} if the grid has not been built
-     */
-    public float getVerticalEdgeStdDev() {
-        return grid == null ? JITTER : grid.verticalEdgeStdDev();
-    }
-
-    /**
-     * Mean horizontal edge length in the current grid.
-     *
-     * @return mean, or {@link #JITTER} if the grid has not been built
-     */
-    public float getHorizontalEdgeMean() {
-        return grid == null ? JITTER : grid.horizontalEdgeMean();
-    }
-
-    /**
-     * Mean vertical edge length in the current grid.
-     *
-     * @return mean, or {@link #JITTER} if the grid has not been built
-     */
-    public float getVerticalEdgeMean() {
-        return grid == null ? JITTER : grid.verticalEdgeMean();
+    @Override
+    public Object dataset(Subsystem subsystem) {
+        return subsystem == Subsystem.GRID ? grid : super.dataset(subsystem);
     }
 
     private void buildGrid() {

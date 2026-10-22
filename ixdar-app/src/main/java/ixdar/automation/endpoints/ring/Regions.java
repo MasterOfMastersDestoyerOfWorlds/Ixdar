@@ -94,7 +94,7 @@ public class Regions extends AutomationEndpoint implements AutomationRoute {
                 layer.hiddenRingLabels.forEach(hiddenRings::add);
                 result.add("hiddenRings", hiddenRings);
                 result.addProperty("absorbSlivers", layer.absorbSlivers);
-                result.addProperty("summary", layer.lastRow);
+                result.addProperty("summary", layer.summary);
                 result.addProperty("ringCount", regions.ringLabels.length);
                 result.addProperty("selectedCount", tool.selectedCount());
                 result.addProperty("select", tool.selectQuery);

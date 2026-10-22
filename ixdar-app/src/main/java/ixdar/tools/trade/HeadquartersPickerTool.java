@@ -16,7 +16,7 @@ import ixdar.tools.Tool;
  * This is the first tool active when a new game begins.
  */
 @ToolAnnotation(id = HeadquartersPickerTool.TOOL_NAME)
-public class HeadquartersPickerTool implements Tool {
+public class HeadquartersPickerTool extends Tool {
 
     public static final String TOOL_NAME = "hqpicker";
 

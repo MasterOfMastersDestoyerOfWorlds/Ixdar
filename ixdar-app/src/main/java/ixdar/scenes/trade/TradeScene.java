@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import ixdar.annotations.command.Subsystem;
 import ixdar.scenes.Scene;
 import ixdar.game.City;
 import ixdar.game.CityNetwork;
 import ixdar.geometry.grid2d.Grid.CartesianGrid;
+import ixdar.geometry.grid2d.IrregularQuadGrid;
 import ixdar.geometry.tsp.points.PointSet;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
@@ -116,6 +118,25 @@ public class TradeScene extends Scene {
         tools.add(hqPickerTool);
         tools.add(routePlanningTool);
         defaultTool = hqPickerTool;
+    }
+
+    /**
+     * The game shows a trade map, its city network, and the irregular grid the network lies on
+     * when it lies on one.
+     *
+     * @param subsystem a scene-held subsystem
+     * @return the network for {@link Subsystem#TRADE}, its irregular grid for {@link Subsystem#GRID},
+     *         else the base's
+     */
+    @Override
+    public Object dataset(Subsystem subsystem) {
+        if (subsystem == Subsystem.TRADE) {
+            return network;
+        }
+        if (subsystem == Subsystem.GRID) {
+            return network.grid instanceof IrregularQuadGrid grid ? grid : null;
+        }
+        return super.dataset(subsystem);
     }
 
     /**

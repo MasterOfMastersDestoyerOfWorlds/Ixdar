@@ -2,6 +2,7 @@ package ixdar.tools.trade;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import org.joml.Vector2f;
 
@@ -22,7 +23,9 @@ import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.trade.TradeScene;
 import ixdar.tools.ControlHint;
+import ixdar.tools.Draft;
 import ixdar.tools.EditHistory;
+import ixdar.tools.Item;
 import ixdar.tools.Tool;
 
 /**
@@ -31,7 +34,7 @@ import ixdar.tools.Tool;
  * selects their headquarters.
  */
 @ToolAnnotation(id = RoutePlanningTool.TOOL_NAME)
-public class RoutePlanningTool implements Tool {
+public class RoutePlanningTool extends Tool {
     public static final String TOOL_NAME = "routeplanning";
     public static final String P = "P";
     public static final String G = "G";
@@ -49,6 +52,7 @@ public class RoutePlanningTool implements Tool {
     public static final float EDGE_HIGHLIGHT_LINE_WIDTH = 4f;
     public static final int UNDO_BUTTON_INDEX = 3;
     public static final int CONFIRM_BUTTON_INDEX = 4;
+    public static final int COORDINATES_PER_CITY = 3;
 
     
     private static final Color ROUTE_COLOR = Color.PURPLE_PINK;
@@ -72,8 +76,6 @@ public class RoutePlanningTool implements Tool {
     private TradeScene tradeScene;
     private CityNetwork network;
 
-    
-    private Mode currentMode = Mode.PIPE;
     private OperationState state = OperationState.IDLE;
 
     
@@ -103,11 +105,12 @@ public class RoutePlanningTool implements Tool {
 
     /**
      * Build the route-planning tool over the owning trade scene, editing the cities and knot
-     * mappings of the scene's city network.
+     * mappings of the scene's city network. Its modes are {@link Mode}'s in declaration order.
      *
      * @param tradeScene the trade scene that owns this tool
      */
     public RoutePlanningTool(TradeScene tradeScene) {
+        super(Mode.PIPE.name(), Mode.GROW.name(), Mode.COLLAPSE.name());
         this.tradeScene = tradeScene;
         this.network = tradeScene.network;
         history.capacity = Integer.MAX_VALUE;
@@ -196,7 +199,7 @@ public class RoutePlanningTool implements Tool {
     }
 
     private void drawOperationPreview(Camera2D camera) {
-        switch (currentMode) {
+        switch (getCurrentMode()) {
         case PIPE:
             drawPipePreview(camera);
             break;
@@ -285,14 +288,14 @@ public class RoutePlanningTool implements Tool {
         float startX = wWidth / 2 - (UNDO_BUTTON_INDEX * BUTTON_SIZE + 2 * BUTTON_PADDING) / 2;
 
 
-        drawToolbarButton(camera, startX, toolbarY, 0, P, currentMode == Mode.PIPE);
+        drawToolbarButton(camera, startX, toolbarY, 0, P, getCurrentMode() == Mode.PIPE);
 
         
-        drawToolbarButton(camera, startX + BUTTON_SIZE + BUTTON_PADDING, toolbarY, 1, G, currentMode == Mode.GROW);
+        drawToolbarButton(camera, startX + BUTTON_SIZE + BUTTON_PADDING, toolbarY, 1, G, getCurrentMode() == Mode.GROW);
 
         
         drawToolbarButton(camera, startX + 2 * (BUTTON_SIZE + BUTTON_PADDING), toolbarY, 2, C,
-                currentMode == Mode.COLLAPSE);
+                getCurrentMode() == Mode.COLLAPSE);
 
 
         if (history.undoDepth > 0) {
@@ -331,7 +334,7 @@ public class RoutePlanningTool implements Tool {
      */
     public void onCityClick(City city) {
         System.out.println("[RoutePlanningTool] onCityClick: " + (city != null ? city.name : "null") +
-                STATE + state + MODE + currentMode);
+                STATE + state + MODE + getCurrentMode());
 
         if (city == null) {
             return;
@@ -362,7 +365,7 @@ public class RoutePlanningTool implements Tool {
 
     private void handleIdleClick(City city) {
         Knot currentRoute = getCurrentRoute();
-        switch (currentMode) {
+        switch (getCurrentMode()) {
         case PIPE:
             
             if (currentRoute == null) {
@@ -425,7 +428,7 @@ public class RoutePlanningTool implements Tool {
             return; 
         }
 
-        switch (currentMode) {
+        switch (getCurrentMode()) {
         case PIPE:
             selectedCityB = city;
             
@@ -524,18 +527,18 @@ public class RoutePlanningTool implements Tool {
         return "cancel the operation";
     }
 
-    private void setMode(Mode mode) {
-        if (currentMode != mode) {
-            currentMode = mode;
+    private void setMode(Mode next) {
+        if (mode != next.ordinal()) {
+            mode = next.ordinal();
             resetOperation();
-            System.out.println("Mode: " + mode.name());
+            System.out.println("Mode: " + next.name());
         }
     }
 
     
 
     private void executeOperation() {
-        switch (currentMode) {
+        switch (getCurrentMode()) {
         case PIPE:
             executePipe();
             break;
@@ -1063,22 +1066,95 @@ public class RoutePlanningTool implements Tool {
         System.out.println("Operation cancelled");
     }
 
-    /**
-     * Get the current operation state.
-     *
-     * @return the current state
-     */
-    public OperationState getOperationState() {
-        return state;
+    @Override
+    public EditHistory<OperationRecord> history() {
+        return history;
     }
 
     /**
-     * Get the current mode.
+     * The operation being set up, under its state's name: the cities picked for it, each labelled
+     * by its name, in world coordinates with z zero, valid once Enter would apply it.
+     *
+     * @return the draft, or {@code null} while the tool is idle
+     */
+    @Override
+    public Draft draft() {
+        if (state == OperationState.IDLE) {
+            return null;
+        }
+        Draft operation = new Draft();
+        operation.label = state.name();
+        City[] picked = selectedCityA == null ? new City[0] : selectedCityB == null
+                ? new City[] { selectedCityA } : new City[] { selectedCityA, selectedCityB };
+        operation.points = new float[COORDINATES_PER_CITY * picked.length];
+        operation.pointLabels = new String[picked.length];
+        for (int city = 0; city < picked.length; city++) {
+            operation.points[COORDINATES_PER_CITY * city] = picked[city].getX();
+            operation.points[COORDINATES_PER_CITY * city + 1] = picked[city].getY();
+            operation.pointLabels[city] = picked[city].name;
+            operation.location[0] += picked[city].getX() / picked.length;
+            operation.location[1] += picked[city].getY() / picked.length;
+        }
+        operation.size = picked.length;
+        operation.valid = state == OperationState.PREVIEW;
+        operation.detail = getCurrentMode().name().toLowerCase(Locale.ROOT);
+        return operation;
+    }
+
+    /**
+     * The city under the cursor, by its name, in world coordinates with z zero.
+     *
+     * @return the hovered city, or {@code null} when the cursor is over none
+     */
+    @Override
+    public Item hovered() {
+        City city = tradeScene.hoveredCity;
+        if (city == null) {
+            return null;
+        }
+        Item hoveredCity = new Item();
+        hoveredCity.label = city.name;
+        hoveredCity.location[0] = city.getX();
+        hoveredCity.location[1] = city.getY();
+        hoveredCity.saved = true;
+        return hoveredCity;
+    }
+
+    /**
+     * The current route's segments, each at its midpoint in world coordinates with z zero and its
+     * length.
+     *
+     * @return one item per segment, empty with no route
+     */
+    @Override
+    public List<Item> items() {
+        Knot route = getCurrentRoute();
+        List<Item> segments = new ArrayList<>();
+        if (route == null) {
+            return segments;
+        }
+        for (Segment segment : route.manifoldSegments) {
+            Item item = new Item();
+            item.label = "segment " + segments.size();
+            if (segment.first.p != null && segment.last.p != null) {
+                item.location[0] = (float) (segment.first.p.getScreenX() + segment.last.p.getScreenX()) / 2;
+                item.location[1] = (float) (segment.first.p.getScreenY() + segment.last.p.getScreenY()) / 2;
+            }
+            item.size = 1;
+            item.length = segment.distance;
+            item.saved = true;
+            segments.add(item);
+        }
+        return segments;
+    }
+
+    /**
+     * The mode the tool's {@link #mode} index names.
      *
      * @return the current mode
      */
     public Mode getCurrentMode() {
-        return currentMode;
+        return Mode.values()[mode];
     }
 
     /**
@@ -1089,42 +1165,6 @@ public class RoutePlanningTool implements Tool {
      */
     public Knot getCurrentRoute() {
         return history.undoDepth == 0 ? null : history.statesAfter.get(history.undoDepth - 1).route();
-    }
-
-    /**
-     * Display name of the first selected city.
-     *
-     * @return the name of the first selected city, or an empty string if none
-     */
-    public String getSelectedCityAName() {
-        return selectedCityA == null ? "" : selectedCityA.name;
-    }
-
-    /**
-     * Display name of the second selected city.
-     *
-     * @return the name of the second selected city, or an empty string if none
-     */
-    public String getSelectedCityBName() {
-        return selectedCityB == null ? "" : selectedCityB.name;
-    }
-
-    /**
-     * Whether the operation stack has an undoable operation.
-     *
-     * @return true if the operation stack has an undoable operation
-     */
-    public boolean canUndoOperation() {
-        return history.undoDepth > 0;
-    }
-
-    /**
-     * Whether the operation stack has a redoable operation.
-     *
-     * @return true if the operation stack has a redoable operation
-     */
-    public boolean canRedoOperation() {
-        return history.redoDepth() > 0;
     }
 
     /**
@@ -1152,11 +1192,11 @@ public class RoutePlanningTool implements Tool {
         }
 
         
-        h.addWord("[" + currentMode.name() + "] ", Color.TEAL);
+        h.addWord("[" + modes[mode] + "] ", Color.TEAL);
 
         switch (state) {
         case IDLE:
-            switch (currentMode) {
+            switch (getCurrentMode()) {
             case PIPE:
                 if (getCurrentRoute() == null) {
                     h.addWord("Click HQ to start a route", Color.WHITE);

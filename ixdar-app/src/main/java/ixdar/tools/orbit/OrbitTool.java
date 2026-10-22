@@ -14,7 +14,7 @@ import ixdar.tools.Tool;
  * and nothing else, so nothing a scene's other tools edit can change while it is active.
  */
 @ToolAnnotation(id = OrbitTool.TOOL_NAME)
-public final class OrbitTool implements Tool {
+public final class OrbitTool extends Tool {
 
     public static final String TOOL_NAME = "orbit";
 

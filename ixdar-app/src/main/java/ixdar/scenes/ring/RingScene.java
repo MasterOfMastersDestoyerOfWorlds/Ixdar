@@ -8,10 +8,8 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.command.Subsystem;
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
 import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.rings.SurfaceRing;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.gui.ui.ErrorToasts;
@@ -32,10 +30,6 @@ import ixdar.tools.ring.RingTool;
  */
 @SceneAnnotation(id = "ring-tool")
 public class RingScene extends MeshNodeViewerScene {
-
-    public static final String RING_SEED_LABEL = "ring_seed";
-
-    public static final String RING_TIGHTENED_LABEL = "ring_tightened";
 
     public static final String LOG_PREFIX = "[mesh-edit] ";
 
@@ -71,15 +65,6 @@ public class RingScene extends MeshNodeViewerScene {
 
     /** Why the tools refused the last clicks and keys, shown at the top left until they fade. */
     public final ErrorToasts errorToasts = new ErrorToasts(this);
-
-    /** Surface points the {@code rings add} route traced last, packed xyz. */
-    public float[] ringWaypointsXyz = new float[0];
-
-    /** Waypoints held in the front of {@link #ringWaypointsXyz}. */
-    public int ringWaypointCount;
-
-    /** Ring the {@code rings add} route traced last, or {@code null} before one. */
-    public SurfaceRing ring;
 
     /** The ring-labelled masks the graph left, drawn thick and numbered rather than as edges. */
     public Map<String, boolean[]> ringMarksByLabel = new LinkedHashMap<>();
@@ -374,47 +359,6 @@ public class RingScene extends MeshNodeViewerScene {
             return;
         }
         super.showEdgeMarks(featureMarks);
-    }
-
-    /**
-     * Show a closed ring as two overlays: its shortest-edge seed walk and the geodesic FlipOut
-     * tightened it to, in the contrasting colours the edge-mark overlay hands out.
-     *
-     * @param closedRing the ring to show, or {@code null} to drop the ring overlay
-     */
-    public void showRing(SurfaceRing closedRing) {
-        HalfEdgeMeshRuntime runtime = surfaceRuntime();
-        if (runtime == null) {
-            return;
-        }
-        if (closedRing == null) {
-            ringMarksByLabel = new LinkedHashMap<>();
-            ringTool.graphRingsChanged();
-            runtime.setFeatureEdgeOverlay(List.of());
-            return;
-        }
-        Map<String, boolean[]> marksByLabel = new LinkedHashMap<>();
-        marksByLabel.put(RING_SEED_LABEL, closedRing.seedMarks.markedByEdgeId);
-        marksByLabel.put(RING_TIGHTENED_LABEL, closedRing.marks.markedByEdgeId);
-        showEdgeMarks(marksByLabel);
-    }
-
-    /**
-     * Close the collected waypoints into a tightened ring and show it over the mesh.
-     *
-     * @throws IllegalStateException    when no mesh is loaded to ring
-     * @throws IllegalArgumentException when fewer than three waypoints were collected
-     * @return the closed ring, also kept in {@link #ring}
-     */
-    public SurfaceRing closeRing() {
-        MeshTopology surface = halfEdgeSurface();
-        if (surface == null || surface.faceCount() == 0) {
-            throw new IllegalStateException("no mesh is loaded to ring");
-        }
-        ring = SurfaceRing.through(surface, ringWaypointsXyz, ringWaypointCount, true, 0,
-                FlipGeodesics.UNBOUNDED_ITERATIONS);
-        showRing(ring);
-        return ring;
     }
 
     /**

@@ -56,7 +56,10 @@ import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
+import ixdar.tools.Draft;
 import ixdar.tools.EditHistory;
+import ixdar.tools.Item;
+import ixdar.tools.Preview;
 import ixdar.tools.Tool;
 
 /**
@@ -65,7 +68,7 @@ import ixdar.tools.Tool;
  * Confirming changes memory only: {@link #saveRings} alone writes the working .dsl.
  */
 @ToolAnnotation(id = RingTool.TOOL_NAME)
-public final class RingTool implements Tool {
+public final class RingTool extends Tool {
 
     public static final String STATUS_LINE =
             "ring tool: hover to preview, click to draft, click to add an anchor, drag or Delete "
@@ -86,6 +89,8 @@ public final class RingTool implements Tool {
     public static final String UNSAVED_RING_PREFIX = "ring #";
 
     public static final String BISECTOR_DRAFT_LABEL = "bisector draft";
+
+    public static final String DRAFT_LABEL = "draft";
 
     public static final float BISECTOR_REACH_PIXELS = 40f;
 
@@ -293,12 +298,6 @@ public final class RingTool implements Tool {
     /** How the draft runs between its authored anchors; T switches it. */
     public RingSegmentMode draftMode = RingSegmentMode.GEODESIC;
 
-    /**
-     * Mode the next click drafts its one-anchor ring through the cursor in; T sets it with the
-     * open draft's, and undo leaves it alone.
-     */
-    public RingSegmentMode newDraftMode = RingSegmentMode.GEODESIC;
-
     /** Groove cost of the current surface the crease mode follows, measured once per model. */
     public SurfaceCreases creases;
 
@@ -346,12 +345,6 @@ public final class RingTool implements Tool {
 
     /** Colour each drawn ring takes, parallel to {@link #drawnRingLabel}. */
     public Color[] drawnRingColors = new Color[0];
-
-    /** One-line summary of the last edit, shown under the status line. */
-    public String lastRow = "";
-
-    /** Why the last action failed, or empty when it did not. */
-    public String lastError = "";
 
     /** Bumped whenever the rings change, so a tool built on them knows to rebuild. */
     public int ringRevision;
@@ -438,17 +431,153 @@ public final class RingTool implements Tool {
     private int uploadedSelected = -1;
 
     /**
-     * Bind the tool to the scene it authors rings on.
+     * Bind the tool to the scene it authors rings on. Its modes are {@link RingSegmentMode}'s, the
+     * one the next click drafts in, which T sets and undo leaves alone.
      *
      * @param ringScene scene owning the surface, camera and working graph
      */
     public RingTool(RingScene ringScene) {
+        super(RingSegmentMode.GEODESIC.label, RingSegmentMode.CREASE.label);
         this.scene = ringScene;
     }
 
     @Override
     public String toolName() {
         return TOOL_NAME;
+    }
+
+    /**
+     * The segment mode the tool's {@link #mode} index names, the one the next click drafts in.
+     *
+     * @return the mode
+     */
+    public RingSegmentMode newDraftMode() {
+        return RingSegmentMode.values()[mode];
+    }
+
+    @Override
+    public EditHistory<RingToolState> history() {
+        return history;
+    }
+
+    /**
+     * The open draft ring: its authored anchors then its supporting ones, the selected and hovered
+     * authored anchor, the trace's edges, length and fingerprint, and the ring it re-opened.
+     *
+     * @return the draft, valid once its trace marks a ring of edges, or {@code null} when none is open
+     */
+    @Override
+    public Draft draft() {
+        if (draft == null) {
+            return null;
+        }
+        Draft shown = new Draft();
+        float[] authored = positionsOf(draftAuthoredVertexId);
+        int authoredCount = authored.length / COORDINATES_PER_POINT;
+        shown.points = Arrays.copyOf(authored, COORDINATES_PER_POINT * (authoredCount
+                + draft.anchorCount - draft.authoredCount()));
+        shown.pointLabels = new String[shown.points.length / COORDINATES_PER_POINT];
+        Arrays.fill(shown.pointLabels, 0, authoredCount, "authored");
+        int point = authoredCount;
+        for (int anchor = 0; anchor < draft.anchorCount && point < shown.pointLabels.length; anchor++) {
+            if (!draft.anchorAuthored[anchor]) {
+                System.arraycopy(draft.anchorXyz, COORDINATES_PER_POINT * anchor, shown.points,
+                        COORDINATES_PER_POINT * point, COORDINATES_PER_POINT);
+                shown.pointLabels[point++] = "supporting";
+            }
+        }
+        shown.selectedPoint = selectedIndex();
+        shown.hoveredPoint = hoveredAnchor;
+        shown.valid = draft.marks.markedEdgeCount > 0;
+        shown.reopened = draftSourceRing < 0 || draftSourceRing >= confirmedRings.size() ? null
+                : ringItem(draftSourceRing);
+        fillFromTrace(shown, draft, String.format(Locale.ROOT, "%s mode, %.0f ms%s%s",
+                draftMode.label, draftMillis, draftSourceLabel == null ? ""
+                        : ", converted from " + draftSourceLabel,
+                draggingAnchor ? ", dragging an anchor" : ""));
+        shown.label = bisecting ? BISECTOR_DRAFT_LABEL : DRAFT_LABEL;
+        return shown;
+    }
+
+    /**
+     * One confirmed ring as an item: the number drawn beside it, its centroid, marked edges,
+     * length and fingerprint, whether it is saved or deleted, and its statement and anchors.
+     *
+     * @param index the ring's position in {@link #confirmedRings}
+     * @return the ring's item
+     */
+    public Item ringItem(int index) {
+        SurfaceSpline ring = confirmedRings.get(index);
+        Item item = new Item();
+        String statementId = index < confirmedStatementIds.size()
+                ? confirmedStatementIds.get(index) : null;
+        String sourceLabel = index < confirmedSourceLabel.size()
+                ? confirmedSourceLabel.get(index) : null;
+        fillFromTrace(item, ring, String.format(Locale.ROOT, "statement %s, source %s, %d anchors "
+                + "(%d authored), mean radius %.5f, trace depth %d, %d unresolved gaps",
+                statementId == null ? "" : statementId, sourceLabel == null ? "" : sourceLabel,
+                ring.anchorCount, ring.authoredCount(), ring.path.meanRadius, ring.traceDepth,
+                ring.marks.unresolvedGaps));
+        item.label = Integer.toString(drawnRingNumber(index));
+        item.saved = !(index < confirmedRingUnsaved.size() && confirmedRingUnsaved.get(index));
+        item.deleted = index < confirmedRingDeleted.size() && confirmedRingDeleted.get(index);
+        return item;
+    }
+
+    /**
+     * Fill the parts an item takes from a traced ring: centroid, marked edges, length, fingerprint
+     * and, after {@code detail}, its sharpest corner.
+     *
+     * @param item   the item to fill
+     * @param ring   the traced ring
+     * @param detail what the caller knows of the ring, which leads the detail line
+     */
+    private void fillFromTrace(Item item, SurfaceSpline ring, String detail) {
+        for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
+            item.location[axis] = (float) ring.path.centroid[axis];
+        }
+        item.size = ring.marks.markedEdgeCount;
+        item.length = ring.path.length;
+        MeshTopology surface = scene.halfEdgeSurface();
+        item.fingerprint = surface == null ? ""
+                : EdgeMarks.fingerprint(surface, ring.marks.markedByEdgeId);
+        item.detail = detail + String.format(Locale.ROOT, ", sharpest corner %.1f deg",
+                ring.minimumInteriorAngleDegrees);
+    }
+
+    /**
+     * The confirmed ring under the cursor, else the graph ring under it by its label.
+     *
+     * @return the hovered ring, or {@code null} when the cursor is over none
+     */
+    @Override
+    public Item hovered() {
+        if (hoveredRing >= 0 && hoveredRing < confirmedRings.size()) {
+            return ringItem(hoveredRing);
+        }
+        if (hoveredGraphRing == null) {
+            return null;
+        }
+        Item graphRing = new Item();
+        graphRing.label = hoveredGraphRing;
+        graphRing.saved = true;
+        return graphRing;
+    }
+
+    /**
+     * The hover preview: where the cursor hit, whether it found a girdling ring, how long the trace
+     * took, and the trace's counts, length and fit as the detail line.
+     *
+     * @return the preview
+     */
+    @Override
+    public Preview preview() {
+        String detail = String.format(Locale.ROOT, "%d anchors, %d girdle edges, length %.5f, "
+                + "tolerance %.5f, deviation %.5f, %d geodesics%s%s", previewAnchorCount,
+                previewGirdleEdgeCount, previewLength, previewTolerance, previewDeviation,
+                previewGeodesicCount, previewAnchorCapReached ? ", anchor cap reached" : "",
+                axisFromSkeleton ? ", axis from the skeleton" : "");
+        return new Preview(previewHitPoint, previewValid, previewMillis, detail);
     }
 
     /** Start the hover preview; clicks and anchor drags arrive through the pointer callbacks. */
@@ -530,9 +659,9 @@ public final class RingTool implements Tool {
                 refusalShown(() -> confirmDraft())));
         // T switches between the geodesic spline and the crease path: the open draft, as one
         // edit, and the drafts clicks open from now on.
-        RingSegmentMode shownMode = draft != null ? draftMode : newDraftMode;
+        RingSegmentMode shownMode = draft != null ? draftMode : newDraftMode();
         controls.add(new ControlHint(Keys.T, "T", "mode: " + shownMode.label, refusalShown(() -> {
-            RingSegmentMode next = (draft != null ? draftMode : newDraftMode)
+            RingSegmentMode next = (draft != null ? draftMode : newDraftMode())
                     == RingSegmentMode.GEODESIC ? RingSegmentMode.CREASE : RingSegmentMode.GEODESIC;
             if (next == RingSegmentMode.CREASE && !readyCreases(scene.halfEdgeSurface())) {
                 return;
@@ -551,7 +680,7 @@ public final class RingTool implements Tool {
             } else {
                 lastRow = "a click drafts in " + next.label + " mode";
             }
-            newDraftMode = next;
+            mode = next.ordinal();
             previewedFace = -1;
             scene.refreshControls();
         })));
@@ -922,14 +1051,14 @@ public final class RingTool implements Tool {
             } else if (!previewValid || previewAuthoredVertexId < 0) {
                 lastError = String.format(Locale.ROOT, "no ring fits under the cursor - move "
                         + "along the limb until the %s preview ring shows, then click",
-                        newDraftMode == RingSegmentMode.CREASE ? "purple" : "red");
+                        newDraftMode() == RingSegmentMode.CREASE ? "purple" : "red");
             } else {
                 // The previewed ring at the full depth, in the mode it was previewed in. The hover
                 // shows no ring that crosses itself, so the click refuses one only where the
                 // deeper trace crosses and the preview's did not.
                 draftSourceRing = -1;
                 draftSourceLabel = null;
-                draftMode = newDraftMode;
+                draftMode = newDraftMode();
                 System.arraycopy(previewPlaneNormal, 0, draftBaseNormal, 0,
                         COORDINATES_PER_POINT);
                 if (retraceDraft(new int[] { previewAuthoredVertexId },
@@ -1199,7 +1328,7 @@ public final class RingTool implements Tool {
                 || !retraceDraft(confirmedAuthoredVertexId.get(ring),
                         SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, false)) {
             draft = null;
-            draftMode = newDraftMode;
+            draftMode = newDraftMode();
             draftBisectorEnds = null;
             return false;
         }
@@ -1786,7 +1915,7 @@ public final class RingTool implements Tool {
 
     private void clearDraft() {
         draft = null;
-        draftMode = newDraftMode;
+        draftMode = newDraftMode();
         draftBisectorEnds = null;
         draftSimple = true;
         scene.refreshControls();
@@ -2021,10 +2150,10 @@ public final class RingTool implements Tool {
         long geodesicsBefore = geodesics.geodesicCount;
         // The mode the click drafts in; in crease mode the loop away from the cursor is pulled
         // into the grooves.
-        if (newDraftMode == RingSegmentMode.CREASE && !readyCreases(surface)) {
+        if (newDraftMode() == RingSegmentMode.CREASE && !readyCreases(surface)) {
             return false;
         }
-        previewRing.mode = newDraftMode;
+        previewRing.mode = newDraftMode();
         previewRing.creases = creases;
         if (!previewRing.trace(new int[] { hitVertexId }, 1, previewPlaneNormal,
                 AuthoredSplineRing.SUPPORTING_FIT_DEPTH)) {
@@ -2612,8 +2741,9 @@ public final class RingTool implements Tool {
                 float[] written = SurfaceWaypoints.parse(
                         String.valueOf(statement.inputSources.get(SplineRingNode.NORMAL.name)));
                 normal = written.length == COORDINATES_PER_POINT ? written : null;
-                Object mode = statement.inputSources.get(SplineRingNode.MODE.name);
-                anchored.mode = RingSegmentMode.named(mode instanceof String text ? text : null);
+                Object modeArgument = statement.inputSources.get(SplineRingNode.MODE.name);
+                anchored.mode = RingSegmentMode.named(
+                        modeArgument instanceof String text ? text : null);
                 if (anchored.mode == RingSegmentMode.CREASE && readyCreases(surface)) {
                     anchored.creases = creases;
                 }
@@ -2933,7 +3063,7 @@ public final class RingTool implements Tool {
         if (drawingEditing) {
             groupStart[rings + 1] = groupStart[rings] + edited.vertexCount() / 2;
             groupColor[rings] = bisector ? (valid ? BISECTOR_DRAFT_COLOR : CROSSING_BISECTOR_COLOR)
-                    : (draft != null ? draftMode : newDraftMode)
+                    : (draft != null ? draftMode : newDraftMode())
                             == RingSegmentMode.CREASE ? CREASE_DRAFT_COLOR : GEODESIC_DRAFT_COLOR;
         }
         if (hoveredRing >= 0 && drawnRingNumber(hoveredRing) < rings) {

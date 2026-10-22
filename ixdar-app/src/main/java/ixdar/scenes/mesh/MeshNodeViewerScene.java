@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 
 import org.joml.Vector3f;
 
+import ixdar.annotations.command.Subsystem;
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
@@ -130,7 +131,7 @@ public class MeshNodeViewerScene extends ModelScene {
         sb.append("model=").append(current == null ? "(initial)" : current.displayName);
         sb.append(PATCHES).append(patchOverlayEnabled ? ON : OFF);
         sb.append("  shader=").append(shaderMode.name());
-        sb.append("  texture=").append(hasTexturedDraw() ? ON : OFF);
+        sb.append("  texture=").append(texturedDraw() ? ON : OFF);
         sb.append("  slots=").append(bundleSlotNames());
         if (patchOverlayEnabled) {
             sb.append("  mode=").append(shaderMode.name());
@@ -396,16 +397,7 @@ public class MeshNodeViewerScene extends ModelScene {
      * @return boundary-edge count, or 0 if no mesh is loaded
      */
     public int getMeshBoundaryEdgeCount() {
-        if (mesh == null) {
-            return 0;
-        }
-        int boundaryEdgeCount = 0;
-        for (int i = 0; i < mesh.edgeCount(); i++) {
-            if (mesh.isBoundaryEdge(mesh.edgeIdAt(i))) {
-                boundaryEdgeCount++;
-            }
-        }
-        return boundaryEdgeCount;
+        return mesh == null ? 0 : mesh.boundaryEdgeCount();
     }
 
     /**
@@ -459,34 +451,7 @@ public class MeshNodeViewerScene extends ModelScene {
      * @return degenerate-face count, or 0 if no mesh is loaded
      */
     public int getMeshDegenerateFaceCount() {
-        if (mesh == null) {
-            return 0;
-        }
-
-        int degenerateFaceCount = 0;
-        Vector3f p0 = new Vector3f();
-        Vector3f p1 = new Vector3f();
-        Vector3f p2 = new Vector3f();
-        Vector3f edgeA = new Vector3f();
-        Vector3f edgeB = new Vector3f();
-        Vector3f cross = new Vector3f();
-        for (int i = 0; i < mesh.faceCount(); i++) {
-            int faceId = mesh.faceIdAt(i);
-            if (mesh.faceVertexCount(faceId) < MIN_FACE_VERTICES) {
-                degenerateFaceCount++;
-                continue;
-            }
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 1), p1);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 2), p2);
-            edgeA.set(p1).sub(p0);
-            edgeB.set(p2).sub(p0);
-            edgeA.cross(edgeB, cross);
-            if (cross.lengthSquared() == 0f) {
-                degenerateFaceCount++;
-            }
-        }
-        return degenerateFaceCount;
+        return mesh == null ? 0 : mesh.degenerateFaceCount();
     }
 
     /**
@@ -908,6 +873,18 @@ public class MeshNodeViewerScene extends ModelScene {
         graph.loadPackagedSource(onLoaded);
     }
 
+    /**
+     * The viewer shows a mesh: the bundle it last uploaded, whose mesh, slots, edge marks and
+     * repair report describe it.
+     *
+     * @param subsystem a scene-held subsystem
+     * @return the shown bundle for {@link Subsystem#MESH}, null before one, else the model scene's
+     */
+    @Override
+    public Object dataset(Subsystem subsystem) {
+        return subsystem == Subsystem.MESH ? meshBundle : super.dataset(subsystem);
+    }
+
     @Override
     public void setControls() {
         controls.add(new ControlHint(Keys.LEFT_BRACKET, "[", "previous model", this::prevModel));
@@ -1061,11 +1038,12 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
-     * Name of the active shading mode, for the automation state snapshot.
+     * Name of the active shading mode.
      *
      * @return the {@link HalfEdgeMeshRuntime.ShaderMode} the viewer is drawing with
      */
-    public String getShaderModeName() {
+    @Override
+    public String shaderModeName() {
         return shaderMode.name();
     }
 
@@ -1074,7 +1052,8 @@ public class MeshNodeViewerScene extends ModelScene {
      *
      * @return true once TEXTURED mode would sample the file's own texture
      */
-    public boolean hasTexturedDraw() {
+    @Override
+    public boolean texturedDraw() {
         return meshRuntime != null && meshRuntime.hasTexturedDraw();
     }
 

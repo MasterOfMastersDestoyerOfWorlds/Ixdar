@@ -1,8 +1,11 @@
 package ixdar.scenes.menu;
 
+import java.util.List;
+
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.graphics.render.sdf.SDFFluid;
 import ixdar.gui.ui.menu.MenuBox;
+import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
@@ -50,6 +53,20 @@ public class MenuScene extends Scene {
         if (state && menu != null) {
             MenuBox.load(MenuBox.activeMenu);
         }
+    }
+
+    /**
+     * The main menu's item rows, once the first frame has built the menu.
+     *
+     * @return the shown panes' boxes
+     */
+    @Override
+    public List<MenuScrollBox> panes() {
+        List<MenuScrollBox> panes = super.panes();
+        if (menu != null) {
+            panes.add(menu.itemBox);
+        }
+        return panes;
     }
 
     /**

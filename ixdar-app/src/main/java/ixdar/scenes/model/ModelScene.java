@@ -21,6 +21,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.terminal.Terminal;
+import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.menu.model.SceneModelMenu;
 import ixdar.models.CollectionManifest;
 import ixdar.models.ModelCatalog;
@@ -821,6 +822,21 @@ public abstract class ModelScene extends Scene {
      */
     public List<ControlHint> controls() {
         return controls;
+    }
+
+    /**
+     * The scene terminal's box, then the model menu's models and controls boxes while it shows.
+     *
+     * @return the shown panes' boxes
+     */
+    @Override
+    public List<MenuScrollBox> panes() {
+        List<MenuScrollBox> panes = super.panes();
+        if (sceneModelMenu != null && sceneModelMenu.isVisible()) {
+            panes.add(sceneModelMenu.modelsBox);
+            panes.add(sceneModelMenu.controlsBox);
+        }
+        return panes;
     }
 
     /**

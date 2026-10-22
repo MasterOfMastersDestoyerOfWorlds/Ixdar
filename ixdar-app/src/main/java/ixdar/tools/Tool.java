@@ -10,11 +10,32 @@ import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
 
 /**
- * One tool a {@link Scene} hosts, in a 3D model scene or a 2D map. The one active tool owns the
- * scene's tool keys and, through the {@link PointerDispatcher}, its pointer; it keeps its state
- * when another takes over unless its {@link #activate} starts afresh.
+ * One tool a {@link Scene} hosts. The active tool owns the scene's tool keys and, through the
+ * {@link PointerDispatcher}, its pointer. What every tool reports has one shape here: last row and
+ * error, mode, history, draft, preview and items.
  */
-public interface Tool {
+public abstract class Tool {
+
+    /** One-line summary of the last thing the tool did, shown under the status line. */
+    public String lastRow = "";
+
+    /** Why the last action failed, or empty when it did not. */
+    public String lastError = "";
+
+    /** Labels of the ways of working the tool switches between, empty for a tool with one. */
+    public final String[] modes;
+
+    /** Index into {@link #modes} of the current one. */
+    public int mode;
+
+    /**
+     * A tool working in the first of {@code modes}.
+     *
+     * @param modes labels of the tool's modes in switching order, none for a tool with one
+     */
+    protected Tool(String... modes) {
+        this.modes = modes;
+    }
 
     /**
      * Name the tool-switch hint, the log and the terminal's {@code ct} command call the tool by,
@@ -22,16 +43,16 @@ public interface Tool {
      *
      * @return a short lower-case name
      */
-    String toolName();
+    public abstract String toolName();
 
     /** Become the active tool: take the mouse and start showing what the tool shows. */
-    void activate();
+    public abstract void activate();
 
     /** Hand the mouse back for another tool, keeping every edit and selection for later. */
-    void deactivate();
+    public abstract void deactivate();
 
     /** One frame, active or not; an inactive tool keeps only what must stay in step. */
-    default void perFrame() {
+    public void perFrame() {
     }
 
     /**
@@ -40,14 +61,59 @@ public interface Tool {
      *
      * @param controls the scene's control list, rebuilt whenever the active tool changes
      */
-    void addControls(List<ControlHint> controls);
+    public abstract void addControls(List<ControlHint> controls);
+
+    /**
+     * The edits undo and redo step through; a tool with undo narrows the type to its snapshots.
+     *
+     * @return the history, or {@code null} for a tool that keeps none
+     */
+    public EditHistory<?> history() {
+        return null;
+    }
+
+    /**
+     * What the tool is building and has not committed yet.
+     *
+     * @return the draft, or {@code null} when nothing is being built
+     */
+    public Draft draft() {
+        return null;
+    }
+
+    /**
+     * What the tool shows under the cursor before a click commits it.
+     *
+     * @return the preview, or {@code null} for a tool that previews nothing
+     */
+    public Preview preview() {
+        return null;
+    }
+
+    /**
+     * The item under the cursor, one the tool has made or one it works over.
+     *
+     * @return the hovered item, or {@code null} when the cursor is over none
+     */
+    public Item hovered() {
+        return null;
+    }
+
+    /**
+     * The things the tool has made, in the order it lists them.
+     *
+     * @return the items, empty for a tool that makes none
+     */
+    public List<? extends Item> items() {
+        return List.of();
+    }
 
     /**
      * The name the info pane and the trade state report show for the tool.
      *
      * @return a title-case name, {@link #toolName} unless the tool has a longer one
      */
-    default String displayName() {
+    public String displayName() {
         return toolName();
     }
 
@@ -56,7 +122,7 @@ public interface Tool {
      *
      * @return a short lower-case alias, {@link #toolName} unless the tool has a shorter one
      */
-    default String shortName() {
+    public String shortName() {
         return toolName();
     }
 
@@ -65,7 +131,7 @@ public interface Tool {
      *
      * @return the description, empty for a tool with none
      */
-    default String desc() {
+    public String desc() {
         return "";
     }
 
@@ -74,7 +140,7 @@ public interface Tool {
      *
      * @return the text, current as of the tool's last hover or selection change
      */
-    default HyperString info() {
+    public HyperString info() {
         return new HyperString();
     }
 
@@ -84,7 +150,7 @@ public interface Tool {
      * @param toggle the toggle to test
      * @return the toggle's value, or false for a toggle the tool switches off
      */
-    default boolean canUseToggle(Toggle toggle) {
+    public boolean canUseToggle(Toggle toggle) {
         return toggle.value;
     }
 
@@ -94,7 +160,7 @@ public interface Tool {
      *
      * @return true when the tool consumed the key
      */
-    default boolean escapePressed() {
+    public boolean escapePressed() {
         return false;
     }
 
@@ -103,7 +169,7 @@ public interface Tool {
      *
      * @return a short phrase, or empty when the tool never consumes Esc
      */
-    default String escapeDescription() {
+    public String escapeDescription() {
         return "";
     }
 
@@ -113,7 +179,7 @@ public interface Tool {
      *
      * @return false for a tool that works over the scene's view
      */
-    default boolean replacesView() {
+    public boolean replacesView() {
         return false;
     }
 
@@ -123,12 +189,12 @@ public interface Tool {
      *
      * @return false for a tool over the scene's view, which the scene then frames itself
      */
-    default boolean frameAll() {
+    public boolean frameAll() {
         return false;
     }
 
     /** Draw the tool's view in place of the scene's; only called while {@link #replacesView}. */
-    default void drawView() {
+    public void drawView() {
     }
 
     /**
@@ -137,7 +203,7 @@ public interface Tool {
      * @param camera        the scene's 2D camera, in its main view
      * @param lineThickness the scene's base line thickness in pixels
      */
-    default void drawOverlay(Camera2D camera, float lineThickness) {
+    public void drawOverlay(Camera2D camera, float lineThickness) {
     }
 
     /**
@@ -146,11 +212,11 @@ public interface Tool {
      * @param x framebuffer x of the cursor
      * @param y framebuffer y of the cursor, y up
      */
-    default void onHover(float x, float y) {
+    public void onHover(float x, float y) {
     }
 
     /** The cursor left a 2D scene's view: drop what the hover showed. */
-    default void clearHover() {
+    public void clearHover() {
     }
 
     /**
@@ -160,7 +226,7 @@ public interface Tool {
      * @param y framebuffer y of the click, y up
      * @return true when the tool acted on it
      */
-    default boolean onClick(float x, float y) {
+    public boolean onClick(float x, float y) {
         return false;
     }
 
@@ -173,7 +239,7 @@ public interface Tool {
      * @param mods modifier-key bitmask of the press, as {@link KeyNames} spells the bits
      * @return true to take the drag that follows; false leaves it to the camera
      */
-    default boolean onPress(float x, float y, int mods) {
+    public boolean onPress(float x, float y, int mods) {
         return false;
     }
 
@@ -183,7 +249,7 @@ public interface Tool {
      * @param x framebuffer x of the cursor
      * @param y framebuffer y of the cursor, y up
      */
-    default void onDrag(float x, float y) {
+    public void onDrag(float x, float y) {
     }
 
     /**
@@ -195,7 +261,7 @@ public interface Tool {
      * @param click true when the cursor stayed within the click threshold of the press
      * @return true when the tool acted on the click, so the overlay text's links do not
      */
-    default boolean onRelease(float x, float y, boolean click) {
+    public boolean onRelease(float x, float y, boolean click) {
         return false;
     }
 
@@ -207,7 +273,7 @@ public interface Tool {
      * @param deltaY summed vertical delta, 1.0 per wheel notch, positive away from the user
      * @return true when the tool used them; false leaves the vertical one to the camera's zoom
      */
-    default boolean onScroll(double deltaX, double deltaY) {
+    public boolean onScroll(double deltaX, double deltaY) {
         return false;
     }
 }

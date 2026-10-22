@@ -1,8 +1,6 @@
 package ixdar.automation;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
@@ -17,8 +15,6 @@ import com.google.gson.JsonObject;
 
 import ixdar.canvas.IxdarWindow;
 import ixdar.scenes.Scene;
-import ixdar.gui.ui.text.HyperString;
-import ixdar.gui.ui.text.HyperWord;
 import ixdar.platform.Platforms;
 import ixdar.platform.AutomationBackend;
 import ixdar.automation.endpoints.mesh.dsl.Timing;
@@ -313,74 +309,6 @@ public class AutomationRuntime implements AutomationBackend {
         if (mvs.graph != null) {
             result.add("timing", Timing.timingJson(mvs.graph, 1));
         }
-    }
-
-    /**
-     * Serialize a {@link HyperString} into the JSON shape used by UI introspection
-     * endpoints: a {@code lines} array of plain strings plus a {@code words} array
-     * carrying per-word screen offsets and dimensions.
-     *
-     * @param type          element type tag for the response
-     * @param region        named layout region containing the text
-     * @param value         rendered hyper-string; may be {@code null} (yields empty
-     *                      arrays)
-     * @param scrollOffsetY current vertical scroll offset of the containing region
-     * @return JSON element with {@code type}, {@code region},
-     *         {@code scrollOffsetY}, {@code lines}, and {@code words}
-     */
-    public JsonObject hyperStringElement(
-            String type,
-            String region,
-            HyperString value,
-            float scrollOffsetY) {
-        JsonObject element = new JsonObject();
-        element.addProperty(TYPE, type);
-        element.addProperty("region", region);
-        element.addProperty("scrollOffsetY", scrollOffsetY);
-        JsonArray lines = new JsonArray();
-        JsonArray words = new JsonArray();
-        if (value != null) {
-            for (String line : hyperStringLines(value)) {
-                lines.add(line);
-            }
-            for (HyperWord w : value.words) {
-                if (w.newLine) {
-                    continue;
-                }
-                JsonObject word = new JsonObject();
-                word.addProperty("text", w.toString());
-                word.addProperty(X, w.xScreenOffset);
-                word.addProperty(Y, w.yScreenOffset);
-                word.addProperty("width", w.drawnWidth);
-                word.addProperty("height", w.rowHeight);
-                words.add(word);
-            }
-        }
-        element.add("lines", lines);
-        element.add("words", words);
-        return element;
-    }
-
-    /**
-     * Flatten a {@link HyperString} into one plain-text line per laid-out row,
-     * skipping explicit newline tokens and trimming trailing whitespace.
-     *
-     * @param value laid-out hyper-string
-     * @return one entry per visual line in {@code value}
-     */
-    public List<String> hyperStringLines(HyperString value) {
-        List<String> lines = new ArrayList<>();
-        for (int i = 0; i < value.lines; i++) {
-            StringBuilder builder = new StringBuilder();
-            List<HyperWord> words = value.getLine(i);
-            for (HyperWord word : words) {
-                if (!word.newLine) {
-                    builder.append(word.toString());
-                }
-            }
-            lines.add(builder.toString().stripTrailing());
-        }
-        return lines;
     }
 
     /**

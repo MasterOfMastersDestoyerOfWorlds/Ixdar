@@ -59,11 +59,11 @@ public class RunTerminalLine extends AutomationEndpoint implements AutomationRou
                 }
                 appliedDuringFrame[0] = Clock.framesRendered();
                 Toggle.setPanelFocus(PaneTypes.Terminal);
-                List<String> before = runtime.hyperStringLines(terminal.history);
+                List<String> before = terminal.history.plainLines();
                 typeLine(keys, line);
                 keys.keyCallback(0L, Keys.ENTER, 0, Keys.ACTION_PRESS, 0);
                 keys.keyCallback(0L, Keys.ENTER, 0, Keys.ACTION_RELEASE, 0);
-                List<String> after = runtime.hyperStringLines(terminal.history);
+                List<String> after = terminal.history.plainLines();
                 int last = after.size();
                 while (last > 0 && after.get(last - 1).isBlank()) {
                     last--;

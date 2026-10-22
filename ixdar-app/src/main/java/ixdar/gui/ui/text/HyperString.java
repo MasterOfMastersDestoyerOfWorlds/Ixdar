@@ -2,6 +2,7 @@ package ixdar.gui.ui.text;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.function.Supplier;
 
 import ixdar.geometry.tsp.knot.Knot;
@@ -648,6 +649,25 @@ public class HyperString {
      */
     public Object getData() {
         return data;
+    }
+
+    /**
+     * One plain-text line per laid-out row, newline tokens skipped and trailing whitespace trimmed.
+     *
+     * @return the rows' text, top first
+     */
+    public List<String> plainLines() {
+        List<String> rows = new ArrayList<>();
+        for (int row = 0; row < lines; row++) {
+            StringBuilder builder = new StringBuilder();
+            for (HyperWord word : getLine(row)) {
+                if (!word.newLine) {
+                    builder.append(word.toString());
+                }
+            }
+            rows.add(builder.toString().stripTrailing());
+        }
+        return rows;
     }
 
     /**

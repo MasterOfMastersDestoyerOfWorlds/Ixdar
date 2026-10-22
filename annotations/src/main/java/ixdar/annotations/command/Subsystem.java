@@ -1,7 +1,7 @@
 package ixdar.annotations.command;
 
 /**
- * What a terminal command acts on. A scene says which of these it shows through
+ * What a terminal command acts on, or the ui-state route reports. A scene says which of these it shows through
  * {@code Scene.dataset}; the scene-free ones are always there, so the terminal never asks for them.
  */
 public enum Subsystem {
@@ -11,7 +11,10 @@ public enum Subsystem {
     KNOT("a knot", false),
     VIEW("a view", false),
     MODEL("a model", false),
-    RINGS("ring regions", false);
+    RINGS("ring regions", false),
+    MESH("a mesh", false),
+    GRID("a grid", false),
+    TRADE("a trade map", false);
 
     /** What the subsystem's data is called in a refusal: "mv acts on a knot; this scene shows none". */
     public final String noun;

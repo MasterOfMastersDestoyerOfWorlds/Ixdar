@@ -75,6 +75,22 @@ public final class MenuScrollBox implements PointerRegion {
     }
 
     /**
+     * A box over rows its owner lays out and draws itself, scrolled by a bar the owner already
+     * holds, such as the main menu's buttons.
+     *
+     * @param bounds    the rectangle the rows sit in
+     * @param scrollBar the bar that holds the rows' scroll
+     * @param shown     whether the owner is on screen
+     */
+    public MenuScrollBox(Bounds bounds, MenuScrollBar scrollBar, BooleanSupplier shown) {
+        this.bounds = bounds;
+        this.shown = shown;
+        this.clicked = null;
+        this.scrollBar = scrollBar;
+        clearRows();
+    }
+
+    /**
      * Start this frame's rows on a fresh wrapping text.
      */
     public void clearRows() {

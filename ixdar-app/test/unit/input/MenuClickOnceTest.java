@@ -127,8 +127,8 @@ class MenuClickOnceTest {
 
     @Test
     void aClickOnTheButtonPaddingRunsTheActionOnce() {
-        MenuBox.MenuItemBounds button = menu.getMenuItemBounds().get(0);
-        clickFramebuffer(button.left + PADDING_INSET, button.centerY);
+        HyperWord button = button(0);
+        clickFramebuffer(button.xScreenOffset + PADDING_INSET, button.yScreenOffset + button.rowHeight / 2);
         assertEquals(1, runs[0]);
     }
 
@@ -137,9 +137,25 @@ class MenuClickOnceTest {
         for (HyperWord word : disabled.itemString().words) {
             assertFalse(word.clickable);
         }
-        MenuBox.MenuItemBounds button = menu.getMenuItemBounds().get(1);
-        clickFramebuffer(button.centerX, button.centerY);
+        HyperWord button = button(1);
+        clickFramebuffer(button.xScreenOffset + button.drawnWidth / 2,
+                button.yScreenOffset + button.rowHeight / 2);
         assertEquals(0, runs[0]);
+    }
+
+    /**
+     * A button's rectangle as the menu's item box reports it, on its row's first word.
+     *
+     * @param row the item's row
+     * @return the row's first word, placed on the button
+     */
+    private HyperWord button(int row) {
+        for (HyperWord word : menu.itemBox.text.getLine(row)) {
+            if (!word.newLine) {
+                return word;
+            }
+        }
+        throw new AssertionError("row " + row + " has no words");
     }
 
     private void clickFramebuffer(float framebufferX, float framebufferY) {

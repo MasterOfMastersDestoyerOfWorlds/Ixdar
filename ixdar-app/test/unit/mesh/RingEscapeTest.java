@@ -7,6 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +29,8 @@ import ixdar.platform.gl.GL;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
+import ixdar.tools.Draft;
+import ixdar.tools.Item;
 import ixdar.tools.ring.RingTool;
 import unit.GlStandIn;
 
@@ -115,6 +121,26 @@ class RingEscapeTest {
         assertEquals(undoDepth, tool.history.undoDepth, "Esc on an edited ring changed the history");
         assertTrue(tool.lastRow.startsWith("draft kept"), tool.lastRow);
         assertEquals(0, tool.draftSourceRing);
+    }
+
+    @Test
+    public void aReopenedRingDraftsInTheSharedShapeAndStaysInTheSceneRingSet() {
+        RingScene scene = sceneOn(RingAnchorOrderTest.tube(0f, RADIUS));
+        RingTool tool = scene.ringTool;
+        List<Item> rings = scene.regionLayer.rings();
+        assertEquals(1, rings.size());
+        assertTrue(tool.items().isEmpty(), "the ring tool lists the scene's rings as its own");
+        assertTrue(tool.reopenRing(0), tool.lastError);
+
+        Draft draft = tool.draft();
+        assertNotNull(draft.reopened, "the draft forgot the ring it re-opened");
+        assertEquals(rings.get(0).label, draft.reopened.label);
+        assertEquals(rings.get(0).fingerprint, draft.fingerprint, "re-opening changed the ring");
+        assertEquals(tool.draft.marks.markedEdgeCount, draft.size);
+        assertEquals(tool.draft.path.length, draft.length);
+        assertEquals(tool.draftAuthoredVertexId.length,
+                Collections.frequency(Arrays.asList(draft.pointLabels), "authored"));
+        assertTrue(draft.valid);
     }
 
     @Test
