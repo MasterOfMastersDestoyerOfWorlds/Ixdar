@@ -1,5 +1,9 @@
 package ixdar.scenes.ring;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +25,7 @@ import ixdar.tools.Tool;
 import ixdar.tools.connection.ConnectionTool;
 import ixdar.tools.regions.RegionLayer;
 import ixdar.tools.regions.RingRegionTool;
+import ixdar.tools.ring.RingDslWriter;
 import ixdar.tools.ring.RingTool;
 
 /**
@@ -311,15 +316,21 @@ public class RingScene extends MeshNodeViewerScene {
     }
 
     /**
-     * Draw each ring's number beside its centroid while {@link #showRingNumbers} is set and the
-     * rings are shown, in the overlay order the tool numbers rings in, leaving the depth test to
-     * hide the numbers of rings the surface covers; then the refusals at the top left.
+     * Draw the ring numbers while {@link #showRingNumbers} is set and the rings are shown, the part
+     * names while the regions are assembled, then the refusals at the top left.
      */
     @Override
     public void drawSceneOverlayText() {
-        if (showRingNumbers && ringsShown()
-                && surfaceRuntime() instanceof MeshOverlayRuntime overlay) {
-            overlay.drawLabels(camera, camera2D);
+        if (surfaceRuntime() instanceof MeshOverlayRuntime overlay) {
+            if (showRingNumbers && ringsShown()) {
+                overlay.drawLabels(camera, camera2D);
+            }
+            if (regionLayer.showPartNames && !regionLayer.explosion.exploded()
+                    && !regionTool.showingExtraction) {
+                overlay.drawLabels(camera, camera2D, regionLayer.partNameXyz,
+                        regionLayer.partNameText, regionLayer.partNameColours,
+                        regionLayer.partNameLift);
+            }
         }
         errorToasts.draw(camera2D);
     }
@@ -362,15 +373,39 @@ public class RingScene extends MeshNodeViewerScene {
     }
 
     /**
-     * Write the rings the tool holds. Ctrl+S or a click on the menu row reaches here; a bare S
-     * does not, and nothing else in the tool touches the working .dsl. A refused save is shown.
+     * Write the rings the tool holds, then the region tool's part labels as the .dsl's closing
+     * block of label statements. Ctrl+S or a click on the menu row reaches here; a bare S does
+     * not, and nothing else touches the working .dsl. A refused save is shown.
      */
     public void saveRingsPressed() {
-        if (!ringTool.active && ringTool.unsavedRingCount() == 0) {
+        boolean ringsDue = ringTool.active || ringTool.unsavedRingCount() > 0;
+        if (ringsDue) {
+            ringTool.saveRings();
+            errorToasts.show(ringTool.toolName(), ringTool.lastError);
+        }
+        // Labels wait for a ring save that failed, so the file never holds them past its rings.
+        if (!regionLayer.labelsUnsaved || ringsDue && !ringTool.lastError.isEmpty()) {
             return;
         }
-        ringTool.saveRings();
-        errorToasts.show(ringTool.toolName(), ringTool.lastError);
+        String target = workingDslPath();
+        regionTool.lastError = target == null ? "this scene has no working .dsl; "
+                + regionLayer.partLabels.names.size() + " part label(s) stay unsaved" : "";
+        try {
+            if (target != null) {
+                Path path = Path.of(target);
+                RingDslWriter.writeAtomically(path, RingDslWriter.withLabels(
+                        new String(Files.readAllBytes(path), StandardCharsets.UTF_8),
+                        regionLayer.partLabels));
+                regionLayer.labelsUnsaved = false;
+                regionTool.lastRow = "saved " + regionLayer.partLabels.names.size()
+                        + " part label(s) to " + target + "; " + regionLayer.partsSummary();
+                Platforms.get().log(RingRegionTool.LOG_PREFIX + regionTool.lastRow);
+            }
+        } catch (IOException | RuntimeException failure) {
+            regionTool.lastError = "could not write the part labels to " + target + ": "
+                    + failure.getMessage();
+        }
+        errorToasts.show(regionTool.toolName(), regionTool.lastError);
     }
 
     /**

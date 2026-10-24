@@ -12,6 +12,7 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
+import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
@@ -22,7 +23,7 @@ import ixdar.scenes.ring.RingScene;
 
 /**
  * Names the surface under a screenshot pixel: the point, its face, nearest vertex and normal, and
- * the ring region it lies in, without hovering, clicking or touching any tool.
+ * the ring region it lies in with that region's part name, without touching any tool.
  */
 @AutomationRouteAnnotation(path = "/mesh/pick", method = APIMethod.POST)
 public class Pick extends AutomationEndpoint implements AutomationRoute {
@@ -75,6 +76,11 @@ public class Pick extends AutomationEndpoint implements AutomationRoute {
                     result.addProperty("region", region);
                     result.addProperty("regionBoundedBy",
                             region < 0 ? "" : regions.boundingRingText(region));
+                    int[] labelByRegion = scene.regionLayer.labelByRegion;
+                    int label = region < 0 || region >= labelByRegion.length
+                            ? MeshLabels.UNLABELLED : labelByRegion[region];
+                    result.addProperty("part", label == MeshLabels.UNLABELLED ? ""
+                            : scene.regionLayer.partLabels.names.get(label));
                 }
                 return result;
             });
@@ -88,15 +94,17 @@ public class Pick extends AutomationEndpoint implements AutomationRoute {
         return RouteDoc.builder()
                 .commandName("pick")
                 .description("Name the surface under a screenshot pixel: point, face, nearest "
-                        + "vertex, normal and ring region, touching no tool and no hover.")
+                        + "vertex, normal, ring region and its part name, touching no tool and "
+                        + "no hover.")
                 .param(X, RouteParamType.FLOAT, true, NO_DEFAULT,
                         "Framebuffer x from the left, as in a screenshot; whole numbers are "
                                 + "pixel centres.", "512")
                 .param(Y, RouteParamType.FLOAT, true, NO_DEFAULT,
                         "Framebuffer y from the top, as in a screenshot.", "384")
                 .responseHint("{ok, hit, point:\"x,y,z\", normal:[x,y,z], faceId, vertexId, "
-                        + "vertex:\"x,y,z\", region, regionBoundedBy, error}; region is present "
-                        + "once the editing scene's regions are built")
+                        + "vertex:\"x,y,z\", region, regionBoundedBy, part, error}; region and "
+                        + "part (empty when unlabelled) are present once the editing scene's "
+                        + "regions are built")
                 .build();
     }
 }

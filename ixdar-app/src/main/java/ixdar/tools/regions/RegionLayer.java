@@ -1,6 +1,7 @@
 package ixdar.tools.regions;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -10,6 +11,7 @@ import java.util.TreeSet;
 
 import org.joml.Vector4f;
 
+import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RegionExplosion;
 import ixdar.geometry.mesh.data.rings.RingRegions;
@@ -17,6 +19,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.color.RegionColouring;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
+import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
@@ -36,6 +39,10 @@ public final class RegionLayer {
     public static final Vector4f SLIVER_COLOUR = Color.WHITE.toVector4f();
 
     public static final String SPLITS_NOTHING_NOTE = "splits nothing";
+
+    public static final Vector4f UNLABELLED_COLOUR = Color.GREY_VERY_DARK.toVector4f();
+
+    public static final Color PART_NAME_COLOUR = Color.BLACK;
 
     /** Scene whose surface and ring tool the layer reads. */
     public final RingScene scene;
@@ -74,12 +81,47 @@ public final class RegionLayer {
     public Set<String> hiddenRingLabels = Set.of();
 
     /**
+     * The part labels of the shown surface, each kept as points inside its regions: read from the
+     * graph's output when a surface is first shown, then edited by the region tool.
+     */
+    public MeshLabels partLabels = new MeshLabels();
+
+    /** Whether {@link #partLabels} differs from what the working .dsl holds. */
+    public boolean labelsUnsaved;
+
+    /** Index into {@link #partLabels} of each region's label, {@link MeshLabels#UNLABELLED} for none. */
+    public int[] labelByRegion = new int[0];
+
+    /** Whether labelled regions take their label's colour and the rest one dark grey; P flips it. */
+    public boolean colourByPart = true;
+
+    /** Whether each label's name is drawn on its regions; Shift+P flips it. */
+    public boolean showPartNames = true;
+
+    /** Packed xyz of each drawn part name: the label points, which lie on the surface. */
+    public float[] partNameXyz = new float[0];
+
+    /** Text of each drawn part name, parallel to {@link #partNameXyz}. */
+    public String[] partNameText = new String[0];
+
+    /** Colour of each drawn part name, parallel to {@link #partNameText}. */
+    public Color[] partNameColours = new Color[0];
+
+    /**
+     * How far each part name's point is lifted toward the eye before its depth test: the overlay's
+     * marker radius, so a name on the surface is not hidden by the surface it lies on.
+     */
+    public float[] partNameLift = new float[0];
+
+    /**
      * Exploded view of {@link #regions}, shown in every tool and re-measured when they are
      * rebuilt; X in the region tool and the terminal's {@code xp} set it.
      */
     public final RegionExplosion explosion = new RegionExplosion(RingRegionTool::regionTag);
 
     private boolean hiddenStale;
+
+    private boolean labelsStale;
 
     private int builtRingRevision = -1;
 
@@ -176,6 +218,37 @@ public final class RegionLayer {
         overlayStale = true;
     }
 
+    /** Resolve and redraw {@link #partLabels} on the next frame after an edit, which a save writes. */
+    public void labelsChanged() {
+        labelsUnsaved = true;
+        labelsStale = true;
+    }
+
+    /**
+     * The labelled parts with their region counts, then the unlabelled count, as the region tool
+     * reports them.
+     *
+     * @return e.g. {@code parts: claw_left (2 regions), body (1 region); 37 regions unlabelled}
+     */
+    public String partsSummary() {
+        int[] regionsByLabel = new int[partLabels.names.size()];
+        int unlabelled = 0;
+        for (int label : labelByRegion) {
+            if (label == MeshLabels.UNLABELLED) {
+                unlabelled++;
+            } else {
+                regionsByLabel[label]++;
+            }
+        }
+        List<String> parts = new ArrayList<>();
+        for (int label = 0; label < regionsByLabel.length; label++) {
+            parts.add(partLabels.names.get(label) + " (" + regionsByLabel[label]
+                    + (regionsByLabel[label] == 1 ? " region)" : " regions)"));
+        }
+        return "parts: " + (parts.isEmpty() ? "none" : String.join(", ", parts)) + "; "
+                + unlabelled + (unlabelled == 1 ? " region" : " regions") + " unlabelled";
+    }
+
     /**
      * One frame: while colours are wanted or faces hidden, re-flood the regions changed rings
      * bound and draw the shown faces; otherwise drop the colours once.
@@ -220,6 +293,10 @@ public final class RegionLayer {
             if (fresh) {
                 regions = new RingRegions(surface, labels, masks);
                 colouring.colourByNode = new int[0];
+                // A new surface is a model the graph just ran: its labels are the ones it saved.
+                partLabels = new MeshLabels(MeshLabels.inBundle(scene.getGeometryBundle()));
+                labelsUnsaved = false;
+                labelsStale = true;
             }
             regions.absorbBelowFaces = absorbSlivers ? RingRegions.SLIVER_FACES : 0;
             if (fresh || builtAbsorbing != absorbSlivers) {
@@ -241,6 +318,32 @@ public final class RegionLayer {
             }
             ringNoteByLabel = notes;
             rebuilt = fresh ? "built" : "updated";
+            overlayStale = true;
+        }
+        if (labelsStale || rebuilt != null) {
+            // Points name regions, not region numbers, so every rebuild resolves them again.
+            labelsStale = false;
+            labelByRegion = partLabels.labelByRegion(regions);
+            int pointCount = 0;
+            for (float[] points : partLabels.pointsByLabel) {
+                pointCount += points.length / MeshLabels.XYZ;
+            }
+            partNameXyz = new float[MeshLabels.XYZ * pointCount];
+            partNameText = new String[pointCount];
+            partNameColours = new Color[pointCount];
+            partNameLift = new float[pointCount];
+            Arrays.fill(partNameLift, runtime instanceof MeshOverlayRuntime overlay
+                    ? overlay.sphereRadius : 0f);
+            int named = 0;
+            for (int label = 0; label < partLabels.names.size(); label++) {
+                float[] points = partLabels.pointsByLabel.get(label);
+                System.arraycopy(points, 0, partNameXyz, MeshLabels.XYZ * named, points.length);
+                for (int point = 0; point < points.length / MeshLabels.XYZ; point++) {
+                    partNameText[named] = partLabels.names.get(label);
+                    partNameColours[named] = PART_NAME_COLOUR;
+                    named++;
+                }
+            }
             overlayStale = true;
         }
         if (!shown) {
@@ -287,15 +390,27 @@ public final class RegionLayer {
         RingRegionTool tool = scene.regionTool;
         boolean dimming = scene.activeTool == tool && tool.selectedCount() > 0
                 && tool.selectedRegions.length == regions.regionCount;
+        // By part, a labelled region takes its label's entry, in label order, and every unlabelled
+        // one the same dark grey, so what is left to name stands out.
         Vector4f grey = Color.GREY.toVector4f();
+        boolean byPart = colourByPart && !partLabels.names.isEmpty()
+                && labelByRegion.length == regions.regionCount;
         Vector4f[] colourByRegion = new Vector4f[regions.regionCount];
         String[] tagByRegion = new String[regions.regionCount];
         for (int region = 0; region < regions.regionCount; region++) {
-            colourByRegion[region] = !coloured ? runtime.solidColor
-                    : dimming && !tool.selectedRegions[region] ? grey
-                            : regions.isSliver(region) ? SLIVER_COLOUR
-                                    : Palettes.REGION.shadedColor(
-                                            colouring.colourByNode[region]).toVector4f();
+            if (!coloured) {
+                colourByRegion[region] = runtime.solidColor;
+            } else if (dimming && !tool.selectedRegions[region]) {
+                colourByRegion[region] = grey;
+            } else if (byPart) {
+                colourByRegion[region] = labelByRegion[region] == MeshLabels.UNLABELLED
+                        ? UNLABELLED_COLOUR
+                        : Palettes.BRIGHT_PATCH.shadedColor(labelByRegion[region]).toVector4f();
+            } else {
+                colourByRegion[region] = regions.isSliver(region) ? SLIVER_COLOUR
+                        : Palettes.REGION.shadedColor(colouring.colourByNode[region])
+                                .toVector4f();
+            }
             tagByRegion[region] = RingRegionTool.regionTag(region);
         }
         int[] groupByActiveFace = regions.regionByActiveFace;
@@ -319,9 +434,10 @@ public final class RegionLayer {
         }
         summary = String.format(Locale.ROOT, "%d regions, %d slivers under %d faces (white)%s; "
                 + "rings in pink: %d split nothing; %s and drawn in %.0f ms, "
-                + "%d faces re-flooded", regions.regionCount, slivers, RingRegions.SLIVER_FACES,
-                absorbSlivers ? " absorbed" : "", ringNoteByLabel.size(), rebuilt,
-                (System.nanoTime() - start) / 1e6, regions.refloodedFaces);
+                + "%d faces re-flooded; %s", regions.regionCount, slivers,
+                RingRegions.SLIVER_FACES, absorbSlivers ? " absorbed" : "", ringNoteByLabel.size(),
+                rebuilt, (System.nanoTime() - start) / 1e6, regions.refloodedFaces,
+                partsSummary());
         Platforms.get().log(LOG_PREFIX + summary);
     }
 }

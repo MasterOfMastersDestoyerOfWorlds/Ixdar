@@ -22,6 +22,8 @@ import ixdar.automation.endpoints.ui.tools.FireControl;
 import ixdar.automation.endpoints.ui.tools.Tools;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.gui.terminal.Terminal;
+import ixdar.gui.terminal.commands.TerminalCommand;
+import ixdar.gui.ui.PaneTypes;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
@@ -45,6 +47,12 @@ import unit.GlStandIn;
 class ToolInputReplyTest {
 
     private static final String PEN = "pen";
+
+    private static final String HAND_BACK = "handback";
+
+    private static final String TERMINAL_DIRECTORY = ".";
+
+    private static final String TERMINAL_REASON = "terminal";
 
     private static final String DREW = "drew a stroke";
 
@@ -280,12 +288,61 @@ class ToolInputReplyTest {
     @Test
     void aKeyTheFocusedTerminalOwnsSaysTheTerminalTookIt() throws Exception {
         Toggle.IsTerminalFocused.value = true;
-        Terminal.current = new Terminal(".", scene);
+        Terminal.current = new Terminal(TERMINAL_DIRECTORY, scene);
         JsonObject reply = key(DRAW_KEY);
         assertTrue(reply.get(InjectKey.HANDLED).getAsBoolean(), reply.toString());
         assertTrue(reply.get(CONTROL).isJsonNull(), reply.toString());
-        assertTrue(reply.get(InjectKey.REASON).getAsString().contains("terminal"), reply.toString());
+        assertTrue(reply.get(InjectKey.REASON).getAsString().contains(TERMINAL_REASON),
+                reply.toString());
         assertEquals("", reply.getAsJsonObject(TOOL).get(LAST_ROW).getAsString(), "the pen drew");
+    }
+
+    @Test
+    void anEnterWhoseLineHandsTheKeysBackStillSaysTheTerminalTookIt() throws Exception {
+        Toggle.IsTerminalFocused.value = true;
+        Terminal.current = new Terminal(TERMINAL_DIRECTORY, scene);
+        Terminal.commandMap.put(HAND_BACK, new TerminalCommand() {
+            @Override
+            public String fullName() {
+                return HAND_BACK;
+            }
+
+            @Override
+            public String shortName() {
+                return HAND_BACK;
+            }
+
+            @Override
+            public String desc() {
+                return HAND_BACK;
+            }
+
+            @Override
+            public String usage() {
+                return HAND_BACK;
+            }
+
+            @Override
+            public int argLength() {
+                return 0;
+            }
+
+            @Override
+            public String[] run(String[] args, int startIdx, Terminal terminal) {
+                Toggle.setPanelFocus(PaneTypes.KnotView);
+                return null;
+            }
+        });
+        try {
+            Terminal.current.type(HAND_BACK);
+            JsonObject reply = key("ENTER");
+            assertFalse(Toggle.IsTerminalFocused.value, "the line did not hand the keys back");
+            assertTrue(reply.get(InjectKey.HANDLED).getAsBoolean(), reply.toString());
+            assertTrue(reply.get(InjectKey.REASON).getAsString().contains(TERMINAL_REASON),
+                    reply.toString());
+        } finally {
+            Terminal.commandMap.remove(HAND_BACK);
+        }
     }
 
     @Test
@@ -347,7 +404,7 @@ class ToolInputReplyTest {
         JsonObject ringTool = tools.get(2).getAsJsonObject();
         assertEquals(RingTool.TOOL_NAME, ringTool.get(NAME).getAsString());
         assertTrue(ringTool.get(SWITCH_KEY).isJsonNull());
-        assertEquals(RingTool.DESCRIPTION, ringTool.get(DESCRIPTION).getAsString());
+        assertEquals(new RingTool(null).desc(), ringTool.get(DESCRIPTION).getAsString());
         assertTrue(ringTool.has("draft") && ringTool.has("items"), "not the ui-state tool shape");
     }
 

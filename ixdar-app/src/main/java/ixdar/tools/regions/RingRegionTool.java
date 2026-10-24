@@ -13,6 +13,7 @@ import java.util.Map;
 import org.joml.Vector3f;
 
 import ixdar.annotations.tool.ToolAnnotation;
+import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegionExtraction;
@@ -22,9 +23,13 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
+import ixdar.gui.terminal.Terminal;
+import ixdar.gui.terminal.commands.LabelCommand;
+import ixdar.gui.ui.PaneTypes;
 import ixdar.platform.Platforms;
 import ixdar.automation.AutomationPortFile;
 import ixdar.platform.input.Keys;
+import ixdar.scenes.main.Toggle;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Item;
@@ -42,8 +47,11 @@ public final class RingRegionTool extends Tool {
 
     public static final String TOOL_NAME = "region tool";
 
-    public static final String TOOL_PURPOSE = "region colours, select and extract regions";
+    public static final String TOOL_PURPOSE = "region colours, select, name and extract regions";
 
+    public static final String PART_PREFIX = "part ";
+
+    public static final String UNLABELLED_PART = "unlabelled";
 
     public static final String TAG_PREFIX = "region_";
 
@@ -109,7 +117,8 @@ public final class RingRegionTool extends Tool {
 
     @Override
     public String desc() {
-        return "Select the regions the rings bound, hide or isolate them, and extract the selection as its own closed mesh";
+        return "Select the regions the rings bound, name them as parts saved with the model, hide or "
+                + "isolate them, and extract the selection as its own closed mesh";
     }
 
     /** Colour the regions through the region layer; clicks arrive through {@link #onRelease}. */
@@ -146,6 +155,50 @@ public final class RingRegionTool extends Tool {
                 "isolate selected regions (hide the rest)",
                 () -> scene.regionLayer.hideSelection(true)));
         controls.add(new ControlHint("hold , / .", "explode less / more"));
+        RegionLayer layer = scene.regionLayer;
+        controls.add(new ControlHint(Keys.L, false, true, "shift+L",
+                "drop the selected regions' part names", () -> {
+                    RingRegions regions = layer.regions;
+                    if (regions == null || selectedCount() == 0) {
+                        lastError = "select the regions whose part names to drop first";
+                        scene.errorToasts.show(TOOL_NAME, lastError);
+                        return;
+                    }
+                    int dropped = 0;
+                    for (int region = 0; region < selectedRegions.length; region++) {
+                        dropped += selectedRegions[region]
+                                ? layer.partLabels.unlabel(regions, region) : 0;
+                    }
+                    layer.labelsChanged();
+                    clearSelection();
+                    lastError = "";
+                    lastRow = "dropped " + dropped + " part name point(s); unsaved";
+                    Platforms.get().log(LOG_PREFIX + lastRow);
+                }));
+        // The name is typed on the terminal's command line, the scene's one text entry, after the
+        // command word this row puts there; Enter runs it.
+        controls.add(new ControlHint(Keys.L, "L",
+                "name the selected regions as one part: type the name, then Enter", () -> {
+                    Terminal terminal = scene.sceneTerminal;
+                    if (terminal == null || selectedCount() == 0) {
+                        lastError = terminal == null ? "this scene has no terminal to type in"
+                                : "select the regions to name first";
+                        scene.errorToasts.show(TOOL_NAME, lastError);
+                        return;
+                    }
+                    lastError = "";
+                    lastRow = "naming " + selectedCount() + " region(s): type the part name, "
+                            + "then Enter";
+                    Toggle.setPanelFocus(PaneTypes.Terminal);
+                    terminal.type(LabelCommand.cmd);
+                    terminal.keyPress(Keys.SPACE, 0, false);
+                }));
+        controls.add(new ControlHint(Keys.P, false, true, "shift+P", "part names on screen",
+                () -> layer.showPartNames = !layer.showPartNames));
+        controls.add(new ControlHint(Keys.P, "P", "colour by part / by region", () -> {
+            layer.colourByPart = !layer.colourByPart;
+            layer.redraw();
+        }));
     }
 
     /** E: drop a shown extraction, else extract the selection on the next frame. */
@@ -453,8 +506,9 @@ public final class RingRegionTool extends Tool {
 
     /**
      * The regions the rings enclose, each under its tag at the centroid of its face corners, its
-     * face count as size, with its area, bounding rings, and whether it is a sliver, selected,
-     * hidden or isolated as the detail.
+     * face count as size, with its part name or {@link #UNLABELLED_PART}, area, bounding rings,
+     * and whether it is a sliver, selected, hidden or isolated as the detail; saved while every
+     * part name is.
      *
      * @return one item per region, empty before the regions are first built
      */
@@ -495,7 +549,12 @@ public final class RingRegionTool extends Tool {
             }
             item.size = regions.regionFaceCount[region];
             boolean hidden = hiddenFaces[region] == regions.regionFaceCount[region];
-            item.detail = String.format(Locale.ROOT, "area %.5f, bounded by %s%s%s%s",
+            int label = region < layer.labelByRegion.length ? layer.labelByRegion[region]
+                    : MeshLabels.UNLABELLED;
+            item.saved = !layer.labelsUnsaved;
+            item.detail = String.format(Locale.ROOT, "%s, area %.5f, bounded by %s%s%s%s",
+                    label == MeshLabels.UNLABELLED ? UNLABELLED_PART
+                            : PART_PREFIX + layer.partLabels.names.get(label),
                     regions.regionArea[region], regions.boundingRingText(region),
                     regions.isSliver(region) ? ", sliver" : "",
                     selectedRegions.length > region && selectedRegions[region] ? ", selected" : "",

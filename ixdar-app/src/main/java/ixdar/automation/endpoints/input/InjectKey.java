@@ -70,6 +70,8 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
         return InputSettle.settledInput(runtime, settleFrames, () -> {
                 KeyGuy keys = runtime.activeKeys();
                 int consumedBefore = KeyActions.keysConsumed;
+                // Read before delivery: the line an Enter runs may hand the keys back to the scene.
+                boolean terminalOwned = KeyGuy.terminalOwnsKey(keyCode) && Terminal.current != null;
                 deliver(keys, keyCode, mods, modifierKeys, actionCode, tap);
                 JsonObject payload = new JsonObject();
                 payload.addProperty(KEY, spec);
@@ -84,8 +86,7 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
                 applied.addProperty(ACTION, action);
                 applied.addProperty(CONSUMED, KeyActions.keysConsumed > consumedBefore);
                 // The dispatcher's own answer: a control row fired, or the focused terminal took the key.
-                boolean terminalTook = keys.lastFiredControl == null && KeyGuy.terminalOwnsKey(keyCode)
-                        && Terminal.current != null;
+                boolean terminalTook = keys.lastFiredControl == null && terminalOwned;
                 applied.addProperty(HANDLED, keys.lastFiredControl != null || terminalTook);
                 Tool tool = keys.canvas.activeTool;
                 if (terminalTook) {

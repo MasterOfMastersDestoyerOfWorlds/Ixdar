@@ -49,6 +49,42 @@
       "description": "Bridges two boundary edge loops that may have different vertex counts, using a fan transition with quads and optional intermediate rings. Auto-discovers the nearest untagged loop if only one tag is provided."
     },
     {
+      "id": "add_label",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: any surface, usually one carrying ring marks. Output: the same bundle with the label added to the _labels slot.",
+          "defaultValue": null
+        },
+        {
+          "name": "label",
+          "portType": "STRING",
+          "description": "The label\u0027s name: a letter, then letters, digits and underscores, such as claw_left. Empty adds nothing.",
+          "defaultValue": ""
+        },
+        {
+          "name": "points",
+          "portType": "STRING",
+          "description": "Surface points selecting the labelled regions, `x,y,z` separated by \u0027;\u0027, one inside each region.",
+          "defaultValue": ""
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: any surface, usually one carrying ring marks. Output: the same bundle with the label added to the _labels slot."
+        }
+      ],
+      "description": "Adds a named label selected by surface points: a point picks its nearest face and the ring region holding it, resolved again whenever the rings change, so the label survives ring edits, additions and reordering. The mesh passes through unchanged; repeating a label adds its points to it."
+    },
+    {
       "id": "align_rotation_to_vector",
       "category": "Transform",
       "scopes": [

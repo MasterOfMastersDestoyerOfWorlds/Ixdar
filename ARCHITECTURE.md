@@ -153,6 +153,7 @@ commas between test names, never `+`.
 - **ixdar.automation.endpoints.ring**: The ring routes, URL paths unchanged: neck-ring listing and the pick and project views. Tools are driven through the general tool routes, key and click, never a route of their own.
 - **ixdar.automation.endpoints.scene**: Scene-level control: `/scene/model` switches the active model scene's model and waits for the recompute to finish.
 - **ixdar.automation.endpoints.ui**: View observation and posing: screenshots (single and multiview), orbit and projection get/set (paired classes sharing a path, differing by HTTP method), and the full UI state dump.
+- **ixdar.automation.endpoints.ui.tools**: Endpoints that list the scene's tools and fire their control rows.
 - **ixdar.canvas**: Bootstrap layer. `IxdarWindow` (desktop main: GL on a dedicated render thread, GLFW polling on the main thread, headless mode via `ixdar.headless`), `WebLauncher` (TeaVM main) and `CanvasSceneMap` (the scene registry plus the hand-registered `ixdar-canvas` id).
 - **ixdar.devtools**: Build-time exporters and developer command lines (named apart from the edit-tool `tools`). `ExportAutomationRoutes` and `SpliceArchitectureDoc` run every compile; `ValidateDsl` and `PatchDecomposerCLI` run by hand.
 - **ixdar.game**: Trade-game domain model: `City`, `Road`, and `CityNetwork` (all possible routes, distinct from the player's `Knot` trade routes). Model classes carry their own drawing code.
@@ -169,6 +170,7 @@ commas between test names, never `+`.
 - **ixdar.geometry.mesh.data.fields.crossfield**: Cross-field computation: per-face 4-direction fields, singularity detection, `NDirectionField` smoothing.
 - **ixdar.geometry.mesh.data.fields.crossfield.constraint**: Constraint sources pinning cross-field directions: boundary edges, sharp creases, principal curvature, and the gauge anchor.
 - **ixdar.geometry.mesh.data.io**: Mesh file loading (`MeshLoader` and formats). Desktop-only in practice: uses `java.nio.file`, which throws in the browser.
+- **ixdar.geometry.mesh.data.labels**: Named labels on a mesh, each selected by surface points and re-resolved against the mesh's current elements whenever they change, so a label survives the edits that renumber them.
 - **ixdar.geometry.mesh.data.ops**: Representation-preserving mesh operations (delete vertices/edges, merge by distance, vertex offset). Each branches on the concrete mesh type and returns the input's kind.
 - **ixdar.geometry.mesh.data.patches**: Parametric surface patches: Bezier fitting, Coons and Charrot-Gregory evaluators, their handle construction and the reconstruction error of a fit.
 - **ixdar.geometry.mesh.data.paths.geodesic**: Geodesics on a surface: the intrinsic metric and triangulation, FlipOut shortening, shortest edge paths, and tracing an intrinsic path back onto the mesh.

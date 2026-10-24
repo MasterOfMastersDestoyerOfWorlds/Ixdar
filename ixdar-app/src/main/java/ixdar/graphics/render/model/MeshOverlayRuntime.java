@@ -456,7 +456,24 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
      * @param screen the 2D camera the text is drawn through
      */
     public void drawLabels(Camera3D camera, Camera2D screen) {
-        if (labelText.length == 0 || screen == null) {
+        drawLabels(camera, screen, labelXyz, labelText, labelColors, labelDepthLift);
+    }
+
+    /**
+     * Draw text beside world points the way {@link #drawLabels(Camera3D, Camera2D)} draws the
+     * runtime's own labels, for a caller holding a second set, such as part names over ring
+     * numbers.
+     *
+     * @param camera    active 3D camera, whose matrices placed the surface in the depth buffer
+     * @param screen    the 2D camera the text is drawn through
+     * @param xyz       packed world xyz of every label's point
+     * @param text      text drawn beside each point; an empty entry draws nothing
+     * @param colors    one colour per label, black past its end
+     * @param depthLift world distance each point is pulled toward the eye before its depth test
+     */
+    public void drawLabels(Camera3D camera, Camera2D screen, float[] xyz, String[] text,
+            Color[] colors, float[] depthLift) {
+        if (text.length == 0 || screen == null) {
             return;
         }
         GL gl = Platforms.gl();
@@ -465,13 +482,13 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         // Depths read back through the overlay's planes: LABEL_LIFT_TIE is tuned against them.
         updateOverlayProjection(camera);
         inverseProjection.set(camera.projection).invert();
-        for (int label = 0; label < labelText.length; label++) {
-            String text = labelText[label];
-            if (text == null || text.isEmpty() || 3 * label + 2 >= labelXyz.length) {
+        for (int label = 0; label < text.length; label++) {
+            String shown = text[label];
+            if (shown == null || shown.isEmpty() || 3 * label + 2 >= xyz.length) {
                 continue;
             }
-            labelPoint.set(labelXyz[3 * label], labelXyz[3 * label + 1], labelXyz[3 * label + 2]);
-            float lift = label < labelDepthLift.length ? labelDepthLift[label] : 0f;
+            labelPoint.set(xyz[3 * label], xyz[3 * label + 1], xyz[3 * label + 2]);
+            float lift = label < depthLift.length ? depthLift[label] : 0f;
             if (lift > 0f) {
                 labelPoint.add(new Vector3f(camera.position).sub(labelPoint).normalize(lift));
             }
@@ -494,8 +511,7 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
                 continue;
             }
             HyperString drawn = new HyperString();
-            drawn.addWord(text,
-                    label < labelColors.length ? labelColors[label] : Color.BLACK);
+            drawn.addWord(shown, label < colors.length ? colors[label] : Color.BLACK);
             Drawing.getDrawing().font.drawHyperString(drawn,
                     labelPixel[0] + LABEL_OFFSET_PIXELS,
                     height - labelPixel[1] + LABEL_OFFSET_PIXELS, LABEL_ROW_HEIGHT_PIXELS, screen);

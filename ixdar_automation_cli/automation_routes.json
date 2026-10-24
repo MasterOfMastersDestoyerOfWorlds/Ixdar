@@ -98,8 +98,8 @@
       "path": "/ui/tools/control",
       "method": "POST",
       "description": "Fire a tool\u0027s control row by its key label, active tool or not, switching to the tool first as its switch key would, and report the outcome as key and click do.",
-      "sourceClass": "ixdar.automation.endpoints.ui.FireControl",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/FireControl.java",
+      "sourceClass": "ixdar.automation.endpoints.ui.tools.FireControl",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/tools/FireControl.java",
       "params": [
         {
           "name": "tool",
@@ -1125,7 +1125,7 @@
       "commandName": "pick",
       "path": "/mesh/pick",
       "method": "POST",
-      "description": "Name the surface under a screenshot pixel: point, face, nearest vertex, normal and ring region, touching no tool and no hover.",
+      "description": "Name the surface under a screenshot pixel: point, face, nearest vertex, normal, ring region and its part name, touching no tool and no hover.",
       "sourceClass": "ixdar.automation.endpoints.ring.Pick",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Pick.java",
       "params": [
@@ -1148,7 +1148,7 @@
           "example": "384"
         }
       ],
-      "responseHint": "{ok, hit, point:\"x,y,z\", normal:[x,y,z], faceId, vertexId, vertex:\"x,y,z\", region, regionBoundedBy, error}; region is present once the editing scene\u0027s regions are built"
+      "responseHint": "{ok, hit, point:\"x,y,z\", normal:[x,y,z], faceId, vertexId, vertex:\"x,y,z\", region, regionBoundedBy, part, error}; region and part (empty when unlabelled) are present once the editing scene\u0027s regions are built"
     },
     {
       "commandName": "project",
@@ -1467,8 +1467,8 @@
       "path": "/ui/tools",
       "method": "GET",
       "description": "List every tool the active scene hosts, active or not: switch key, description, modes and full controls with their modifiers, which `control` fires by key label.",
-      "sourceClass": "ixdar.automation.endpoints.ui.Tools",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/Tools.java",
+      "sourceClass": "ixdar.automation.endpoints.ui.tools.Tools",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/tools/Tools.java",
       "params": [],
       "responseHint": "{ok, sceneClass, activeTool, defaultTool, tools:[{the ui-state tool object (name, displayName, shortName, description, lastRow, error, undo heads, mode, modes, controls, draft, preview, hovered, items), active, switchKey:{key, description, keyCode, controlHeld, shiftHeld}|null}]}"
     },

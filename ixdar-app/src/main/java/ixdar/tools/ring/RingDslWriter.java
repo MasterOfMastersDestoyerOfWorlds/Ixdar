@@ -16,11 +16,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.rings.RingCandidates;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.api.MeshNode;
+import ixdar.nodegraph.nodes.data.AddLabelNode;
 import ixdar.nodegraph.nodes.data.SurfaceCreasesNode;
 import ixdar.nodegraph.nodes.data.SurfaceMetricNode;
 import ixdar.nodegraph.api.OutputPort;
@@ -65,8 +67,12 @@ public final class RingDslWriter {
     public static final Set<String> METRIC_RING_NODES =
             Set.of(SPLINE_RING_NODE, SplineCutNode.NODE_ID);
 
+    // A label rides the ring chain's mesh untouched, so rings written after one keep their metric.
     public static final Set<String> MESH_PRESERVING_RING_NODES =
-            Set.of(SPLINE_RING_NODE, SplineCutNode.NODE_ID, "loop_through_points");
+            Set.of(SPLINE_RING_NODE, SplineCutNode.NODE_ID, "loop_through_points",
+                    AddLabelNode.NODE_ID);
+
+    public static final String LABEL_STATEMENT_PREFIX = "label_";
 
     public static final String NO_UPSTREAM =
             "the working graph has no statement for the ring to read its geometry from";
@@ -537,6 +543,46 @@ public final class RingDslWriter {
         }
         lines[target] = line;
         return String.join(LINE_BREAK, lines);
+    }
+
+    /**
+     * The DSL source with its labels written as one block at the end: every {@code add_label}
+     * statement removed, its readers rewired past it, then one statement per label under
+     * {@link #LABEL_STATEMENT_PREFIX} and its name, chained onto the graph's last statement.
+     *
+     * @param dslSource working graph
+     * @param labels    the labels to write, in order; empty removes every label statement
+     * @throws IllegalArgumentException when another statement already binds a label's id, or the
+     *                                  graph has no statement for the labels to chain onto
+     * @return the source with the label block
+     */
+    public static String withLabels(String dslSource, MeshLabels labels) {
+        String source = dslSource;
+        Set<String> bound = new HashSet<>();
+        for (PythonParser.ParsedNode statement : PythonParser.parse(dslSource)) {
+            if (AddLabelNode.NODE_ID.equals(statement.type)) {
+                source = remove(source, statement.id);
+            } else {
+                bound.add(statement.id);
+            }
+        }
+        for (int label = 0; label < labels.names.size(); label++) {
+            String name = labels.names.get(label);
+            String id = LABEL_STATEMENT_PREFIX + name;
+            if (bound.contains(id)) {
+                throw new IllegalArgumentException("the working graph already binds " + id
+                        + ", the id label " + name + " is saved under; rename one of them");
+            }
+            List<PythonParser.ParsedNode> statements = upstreamStatements(source);
+            PythonParser.ParsedNode upstream = statements.get(statements.size() - 1);
+            float[] points = labels.pointsByLabel.get(label);
+            source = appended(source, id + " = " + AddLabelNode.NODE_ID + "("
+                    + AddLabelNode.GEOMETRY.name + "=" + upstream.id + "."
+                    + geometryPort(upstream.type) + ", " + AddLabelNode.LABEL.name + "=\"" + name
+                    + "\", " + POINTS_ARGUMENT + SurfaceWaypoints.format(points,
+                            points.length / MeshLabels.XYZ) + "\")");
+        }
+        return source;
     }
 
     /**
