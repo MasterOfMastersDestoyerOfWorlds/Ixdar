@@ -116,7 +116,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
 
     /**
      * An item in the one shape every tool and shared set reports: label, location, fingerprint,
-     * size, length, detail, saved and deleted.
+     * size, length, detail, saved, deleted, and its named numbers, points and flags as one
+     * {@code values} object.
      *
      * @param item the item
      * @return the item's object
@@ -131,6 +132,17 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         state.addProperty(DETAIL, item.detail);
         state.addProperty("saved", item.saved);
         state.addProperty("deleted", item.deleted);
+        JsonObject values = new JsonObject();
+        for (Map.Entry<String, Double> number : item.numbers.entrySet()) {
+            values.addProperty(number.getKey(), number.getValue());
+        }
+        for (Map.Entry<String, float[]> point : item.points.entrySet()) {
+            values.add(point.getKey(), floats(point.getValue()));
+        }
+        for (Map.Entry<String, Boolean> flag : item.flags.entrySet()) {
+            values.addProperty(flag.getKey(), flag.getValue());
+        }
+        state.add("values", values);
         return state;
     }
 

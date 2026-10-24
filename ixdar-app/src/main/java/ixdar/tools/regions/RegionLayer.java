@@ -12,6 +12,7 @@ import java.util.TreeSet;
 import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.labels.MeshLabels;
+import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RegionExplosion;
 import ixdar.geometry.mesh.data.rings.RingRegions;
@@ -20,6 +21,9 @@ import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.color.RegionColouring;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.nodegraph.nodes.data.SurfaceCreasesNode;
+import ixdar.nodegraph.runtime.GraphNodeContext;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
@@ -304,6 +308,26 @@ public final class RegionLayer {
             } else {
                 regions.update(labels, masks);
             }
+            // Flatness reads the creases crease rings follow: the ring tool's, else the graph's
+            // own surface_creases on this surface, else measured once here and handed to the tool.
+            SurfaceCreases creases = scene.ringTool.creases;
+            boolean creasesOnSurface = creases != null && creases.sourceMesh == surface;
+            NodeGraphRuntime graph = scene.graph;
+            for (GraphNodeContext record : creasesOnSurface || graph == null
+                    ? List.<GraphNodeContext>of() : graph.root.children) {
+                if (record.getOutput(SurfaceCreasesNode.CREASES.name)
+                        instanceof SurfaceCreases built && built.sourceMesh == surface) {
+                    creases = built;
+                }
+            }
+            if (creases == null || creases.sourceMesh != surface) {
+                creases = SurfaceCreases.of(surface);
+                Platforms.get().log(String.format(Locale.ROOT, LOG_PREFIX + "measured the "
+                        + "grooves of %d faces in %.0f ms for region flatness",
+                        surface.faceCount(), creases.buildMillis));
+            }
+            scene.ringTool.creases = creases;
+            regions.measureFlatness(creases);
             colouring.colour(regions.neighboursByRegion, regions.regionFaceCount,
                     regions.formerRegionByRegion, regions.regionKeptFaces, Palettes.REGION);
             builtRingRevision = scene.ringTool.ringRevision;

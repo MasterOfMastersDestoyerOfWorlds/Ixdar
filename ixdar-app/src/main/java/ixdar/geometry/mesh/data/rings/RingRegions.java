@@ -11,6 +11,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
+import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.numeric.graph.UnionFind;
@@ -49,6 +50,22 @@ public final class RingRegions {
     public static final String LABEL_SEPARATORS = "[,\\s]+";
 
     public static final int SLIVER_FACES = 100;
+
+    // A face lies near its region's rings within this share of the region's depth, the face steps
+    // from its rings to its farthest face: a joint band a ring splits stays within a third of the
+    // way into each half, while one left unsplit sits deepest in the merged region.
+    public static final double NEAR_RING_DEPTH_SHARE = 1.0 / 3;
+
+    // A face this many face steps from a ring or fewer is near it in any region: about three mean
+    // edges, the radius SurfaceCreases diffuses its signal over, so a groove a ring runs in counts
+    // as on the ring.
+    public static final int NEAR_RING_FACE_STEPS = 6;
+
+    // Interior crease under this share of a region is surface texture, not a joint: on IMG_4111
+    // the halves of a split claw joint read under 1%, the region left unsplit about 8%.
+    public static final double INTERIOR_JOINT_SHARE = 0.02;
+
+    public static final double PERCENT = 100.0;
 
     private static final int PAIR_SHIFT = 32;
 
@@ -130,6 +147,35 @@ public final class RingRegions {
     /** Problems found, one line each, naming the ring: open, empty, crossing, non-separating. */
     public final List<String> problems = new ArrayList<>();
 
+    /** Creases {@link #measureFlatness} measured these regions on; {@code null} until it runs. */
+    public SurfaceCreases flatnessCreases;
+
+    /** Share of each region's area whose faces lie in a crease. */
+    public double[] regionCreaseShare = new double[0];
+
+    /**
+     * Share of each region's area in crease faces far from its rings: beyond
+     * {@link #NEAR_RING_DEPTH_SHARE} of its depth and {@link #NEAR_RING_FACE_STEPS}. A joint no ring
+     * splits.
+     */
+    public double[] regionInteriorCreaseShare = new double[0];
+
+    /** Highest face valley curvature in each region, in inverse mesh units. */
+    public double[] regionPeakCurvature = new double[0];
+
+    /**
+     * Each region's crease point, xyz packed: the most curved face of its largest interior crease
+     * patch once interior crease reaches {@link #INTERIOR_JOINT_SHARE}, else of its largest crease
+     * patch near its rings, else of any crease, else its most curved face.
+     */
+    public float[] regionCreasePoint = new float[0];
+
+    /**
+     * Whether each region's crease point lies far from its rings, as
+     * {@link #regionInteriorCreaseShare} counts it.
+     */
+    public boolean[] regionCreaseInterior = new boolean[0];
+
     private boolean built;
 
     private int[] activeFaceByFaceId = new int[0];
@@ -167,6 +213,22 @@ public final class RingRegions {
     private int[][] ringLooseEnds = new int[0][];
 
     private int[] ringJunctions = new int[0];
+
+    private boolean[] regionWallsChanged = new boolean[0];
+
+    private SurfaceCreases formerFlatnessCreases;
+
+    private SurfaceCreases faceCurvatureCreases;
+
+    private float[] faceCurvature = new float[0];
+
+    private boolean[] faceInCrease = new boolean[0];
+
+    private int[] ringSteps = new int[0];
+
+    private boolean[] faceInterior = new boolean[0];
+
+    private boolean[] faceVisited = new boolean[0];
 
     /**
      * Stores the surface and rings whose regions {@link #build} computes.
@@ -721,6 +783,19 @@ public final class RingRegions {
         ringSplitsNothing = splitsNothing;
         ringSeparates = new boolean[ringCount];
         built = true;
+        // The flatness now describes the former regions; measureFlatness keeps it for the ones
+        // whose faces and walls this update left alone.
+        formerFlatnessCreases = flatnessCreases;
+        flatnessCreases = null;
+        regionWallsChanged = new boolean[regionCount];
+        for (int index = 0; index < changed; index++) {
+            for (int side = 0; side < 2; side++) {
+                int activeFace = activeFaceOf(mesh.edgeFace(changedEdges[index], side));
+                if (activeFace != MeshTopology.NONE) {
+                    regionWallsChanged[regionByActiveFace[activeFace]] = true;
+                }
+            }
+        }
 
         problems.clear();
         Vector3f position = new Vector3f();
@@ -1063,6 +1138,212 @@ public final class RingRegions {
             text.append(side == SIDE_NONE ? " (both sides)" : " (" + SIDE_NAMES[side] + ")");
         }
         return text.toString();
+    }
+
+    /**
+     * Fills the per-region flatness arrays from the surface's creases, after every {@link #build}
+     * or {@link #update}; only regions whose faces or walls changed since the last measure are
+     * re-measured.
+     *
+     * @param creases creases measured on {@link #mesh}
+     * @throws IllegalArgumentException when the creases lie on another mesh
+     */
+    public void measureFlatness(SurfaceCreases creases) {
+        if (creases.sourceMesh != mesh) {
+            throw new IllegalArgumentException("ring_regions: the creases lie on another mesh");
+        }
+        int faceCount = regionByActiveFace.length;
+        if (faceCurvatureCreases != creases) {
+            faceCurvature = new float[faceCount];
+            faceInCrease = new boolean[faceCount];
+            for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+                int faceId = mesh.faceIdAt(activeFace);
+                int corners = mesh.faceVertexCount(faceId);
+                float strength = 0f;
+                float curvature = 0f;
+                for (int slot = 0; slot < corners; slot++) {
+                    int vertexId = mesh.faceVertexAt(faceId, slot);
+                    strength += creases.valleyStrength[vertexId];
+                    curvature += creases.valleyCurvature[vertexId];
+                }
+                faceCurvature[activeFace] = curvature / corners;
+                faceInCrease[activeFace] = strength / corners >= SurfaceCreases.CREASE_STRENGTH;
+            }
+            faceCurvatureCreases = creases;
+        }
+        // A region that kept its faces and walls since the last measure keeps its flatness.
+        boolean reusing = formerFlatnessCreases == creases;
+        boolean[] measured = new boolean[regionCount];
+        for (int region = 0; region < regionCount; region++) {
+            measured[region] = !reusing || !regionKeptFaces[region] || regionWallsChanged[region];
+        }
+        // Face steps from the nearest face beside a ring edge, never crossing a ring; a face no
+        // ring reaches keeps Integer.MAX_VALUE.
+        if (ringSteps.length != faceCount) {
+            ringSteps = new int[faceCount];
+            faceInterior = new boolean[faceCount];
+            faceVisited = new boolean[faceCount];
+        }
+        Arrays.fill(ringSteps, Integer.MAX_VALUE);
+        Arrays.fill(faceVisited, false);
+        int tail = 0;
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            if (!measured[regionByActiveFace[activeFace]]) {
+                continue;
+            }
+            for (int slot = slotStart[activeFace]; slot < slotStart[activeFace + 1]; slot++) {
+                if (wallsByEdgeId[slotEdgeId[slot]] > 0) {
+                    ringSteps[activeFace] = 0;
+                    frontier[tail++] = activeFace;
+                    break;
+                }
+            }
+        }
+        for (int head = 0; head < tail; head++) {
+            int activeFace = frontier[head];
+            for (int slot = slotStart[activeFace]; slot < slotStart[activeFace + 1]; slot++) {
+                int neighbour = slotNeighbour[slot];
+                if (neighbour == MeshTopology.NONE || wallsByEdgeId[slotEdgeId[slot]] > 0
+                        || ringSteps[neighbour] != Integer.MAX_VALUE) {
+                    continue;
+                }
+                ringSteps[neighbour] = ringSteps[activeFace] + 1;
+                frontier[tail++] = neighbour;
+            }
+        }
+        int[] regionDepth = new int[regionCount];
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            if (ringSteps[activeFace] != Integer.MAX_VALUE) {
+                int region = regionByActiveFace[activeFace];
+                regionDepth[region] = Math.max(regionDepth[region], ringSteps[activeFace]);
+            }
+        }
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            faceInterior[activeFace] = ringSteps[activeFace] > Math.max(NEAR_RING_FACE_STEPS,
+                    NEAR_RING_DEPTH_SHARE * regionDepth[regionByActiveFace[activeFace]]);
+        }
+        // Crease patches: crease faces on one side of the near distance, joined across edges no
+        // ring marks.
+        double[] creaseArea = new double[regionCount];
+        double[] interiorArea = new double[regionCount];
+        double[] largestNearArea = new double[regionCount];
+        int[] largestNearFace = new int[regionCount];
+        double[] largestInteriorArea = new double[regionCount];
+        int[] largestInteriorFace = new int[regionCount];
+        int[] peakFace = new int[regionCount];
+        Arrays.fill(largestNearFace, MeshTopology.NONE);
+        Arrays.fill(largestInteriorFace, MeshTopology.NONE);
+        Arrays.fill(peakFace, MeshTopology.NONE);
+        for (int seed = 0; seed < faceCount; seed++) {
+            int region = regionByActiveFace[seed];
+            if (!measured[region]) {
+                continue;
+            }
+            if (peakFace[region] == MeshTopology.NONE
+                    || faceCurvature[seed] > faceCurvature[peakFace[region]]) {
+                peakFace[region] = seed;
+            }
+            if (!faceInCrease[seed] || faceVisited[seed]) {
+                continue;
+            }
+            faceVisited[seed] = true;
+            frontier[0] = seed;
+            tail = 1;
+            double area = 0.0;
+            int steepest = seed;
+            for (int head = 0; head < tail; head++) {
+                int activeFace = frontier[head];
+                area += faceArea[activeFace];
+                steepest = faceCurvature[activeFace] > faceCurvature[steepest] ? activeFace
+                        : steepest;
+                for (int slot = slotStart[activeFace]; slot < slotStart[activeFace + 1]; slot++) {
+                    int neighbour = slotNeighbour[slot];
+                    if (neighbour == MeshTopology.NONE || wallsByEdgeId[slotEdgeId[slot]] > 0
+                            || !faceInCrease[neighbour] || faceVisited[neighbour]
+                            || faceInterior[neighbour] != faceInterior[seed]) {
+                        continue;
+                    }
+                    faceVisited[neighbour] = true;
+                    frontier[tail++] = neighbour;
+                }
+            }
+            creaseArea[region] += area;
+            if (!faceInterior[seed] && area > largestNearArea[region]) {
+                largestNearArea[region] = area;
+                largestNearFace[region] = steepest;
+            }
+            if (faceInterior[seed]) {
+                interiorArea[region] += area;
+                if (area > largestInteriorArea[region]) {
+                    largestInteriorArea[region] = area;
+                    largestInteriorFace[region] = steepest;
+                }
+            }
+        }
+        double[] formerCreaseShare = regionCreaseShare;
+        double[] formerInteriorCreaseShare = regionInteriorCreaseShare;
+        double[] formerPeakCurvature = regionPeakCurvature;
+        float[] formerCreasePoint = regionCreasePoint;
+        boolean[] formerCreaseInterior = regionCreaseInterior;
+        regionCreaseShare = new double[regionCount];
+        regionInteriorCreaseShare = new double[regionCount];
+        regionPeakCurvature = new double[regionCount];
+        regionCreasePoint = new float[TRIANGLE_CORNERS * regionCount];
+        regionCreaseInterior = new boolean[regionCount];
+        Vector3f corner = new Vector3f();
+        for (int region = 0; region < regionCount; region++) {
+            if (!measured[region]) {
+                int former = formerRegionByRegion[region];
+                regionCreaseShare[region] = formerCreaseShare[former];
+                regionInteriorCreaseShare[region] = formerInteriorCreaseShare[former];
+                regionPeakCurvature[region] = formerPeakCurvature[former];
+                regionCreaseInterior[region] = formerCreaseInterior[former];
+                System.arraycopy(formerCreasePoint, TRIANGLE_CORNERS * former, regionCreasePoint,
+                        TRIANGLE_CORNERS * region, TRIANGLE_CORNERS);
+                continue;
+            }
+            double area = regionArea[region];
+            regionCreaseShare[region] = area > 0.0 ? creaseArea[region] / area : 0.0;
+            regionInteriorCreaseShare[region] = area > 0.0 ? interiorArea[region] / area : 0.0;
+            boolean joint = regionInteriorCreaseShare[region] >= INTERIOR_JOINT_SHARE;
+            int pointFace = joint ? largestInteriorFace[region]
+                    : largestNearFace[region] != MeshTopology.NONE ? largestNearFace[region]
+                            : largestInteriorFace[region] != MeshTopology.NONE
+                                    ? largestInteriorFace[region] : peakFace[region];
+            if (pointFace == MeshTopology.NONE) {
+                continue;
+            }
+            regionPeakCurvature[region] = faceCurvature[peakFace[region]];
+            regionCreaseInterior[region] = faceInterior[pointFace];
+            int faceId = mesh.faceIdAt(pointFace);
+            int corners = mesh.faceVertexCount(faceId);
+            for (int slot = 0; slot < corners; slot++) {
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, slot), corner);
+                regionCreasePoint[TRIANGLE_CORNERS * region] += corner.x / corners;
+                regionCreasePoint[TRIANGLE_CORNERS * region + 1] += corner.y / corners;
+                regionCreasePoint[TRIANGLE_CORNERS * region + 2] += corner.z / corners;
+            }
+        }
+        flatnessCreases = creases;
+    }
+
+    /**
+     * One region's flatness as {@link #measureFlatness} left it, for a human, e.g.
+     * {@code crease 8.1% of area, 6.0% interior, interior crease}.
+     *
+     * @param region region index
+     * @return the flatness line, or {@code not measured} before the first measure
+     */
+    public String flatnessText(int region) {
+        if (flatnessCreases == null || region >= regionCreaseShare.length) {
+            return "not measured";
+        }
+        String where = regionCreaseShare[region] == 0.0
+                ? "no crease, most curved " + (regionCreaseInterior[region] ? "inside" : "by a ring")
+                : regionCreaseInterior[region] ? "interior crease" : "crease on rings";
+        return String.format(Locale.ROOT, "crease %.1f%% of area, %.1f%% interior, %s",
+                PERCENT * regionCreaseShare[region], PERCENT * regionInteriorCreaseShare[region],
+                where);
     }
 
     /**

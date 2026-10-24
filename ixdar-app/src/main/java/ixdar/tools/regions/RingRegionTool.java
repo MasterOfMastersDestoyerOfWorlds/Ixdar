@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -62,6 +63,18 @@ public final class RingRegionTool extends Tool {
     public static final String EXPORT_DIRECTORY = "extracted";
 
     public static final String EXPORT_PREFIX = "region";
+
+    public static final String CREASE_SHARE = "creaseShare";
+
+    public static final String INTERIOR_CREASE_SHARE = "interiorCreaseShare";
+
+    public static final String PEAK_CURVATURE = "peakCurvature";
+
+    public static final String PEAK_OVER_SATURATION = "peakOverSaturation";
+
+    public static final String CREASE_POINT = "creasePoint";
+
+    public static final String CREASE_INTERIOR = "creaseInterior";
 
     /** Scene the tool runs on, whose region layer holds the regions the tool selects. */
     public final RingScene scene;
@@ -505,10 +518,8 @@ public final class RingRegionTool extends Tool {
     }
 
     /**
-     * The regions the rings enclose, each under its tag at the centroid of its face corners, its
-     * face count as size, with its part name or {@link #UNLABELLED_PART}, area, bounding rings,
-     * and whether it is a sliver, selected, hidden or isolated as the detail; saved while every
-     * part name is.
+     * The regions the rings enclose: tag at the corners' centroid, face count, part name, area,
+     * rings and state as detail, flatness as named values; saved while every part name is.
      *
      * @return one item per region, empty before the regions are first built
      */
@@ -559,6 +570,18 @@ public final class RingRegionTool extends Tool {
                     regions.isSliver(region) ? ", sliver" : "",
                     selectedRegions.length > region && selectedRegions[region] ? ", selected" : "",
                     hidden ? ", hidden" : hiddenFaces[region] > 0 ? ", partly hidden" : "");
+            item.detail += "; flatness: " + regions.flatnessText(region);
+            if (regions.flatnessCreases != null && region < regions.regionCreaseShare.length) {
+                double saturation = regions.flatnessCreases.saturation;
+                item.numbers.put(CREASE_SHARE, regions.regionCreaseShare[region]);
+                item.numbers.put(INTERIOR_CREASE_SHARE, regions.regionInteriorCreaseShare[region]);
+                item.numbers.put(PEAK_CURVATURE, regions.regionPeakCurvature[region]);
+                item.numbers.put(PEAK_OVER_SATURATION, saturation > 0.0
+                        ? regions.regionPeakCurvature[region] / saturation : 0.0);
+                item.points.put(CREASE_POINT, Arrays.copyOfRange(regions.regionCreasePoint,
+                        XYZ * region, XYZ * region + XYZ));
+                item.flags.put(CREASE_INTERIOR, regions.regionCreaseInterior[region]);
+            }
             items.add(item);
         }
         return items;

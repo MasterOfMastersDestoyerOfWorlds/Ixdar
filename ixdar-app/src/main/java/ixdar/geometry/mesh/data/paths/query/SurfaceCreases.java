@@ -30,11 +30,21 @@ public final class SurfaceCreases {
 
     public static final double HALF = 0.5;
 
+    // A face whose corners' mean valley strength reaches this lies in a crease: at least half
+    // the saturating signal, the grooves a crease ring follows rather than scan noise.
+    public static final float CREASE_STRENGTH = 0.5f;
+
     /** Mesh the creases were measured on. */
     public final MeshTopology sourceMesh;
 
     /** Valley strength in [0, 1] per mesh vertex id: one deep in a groove, zero off any. */
     public final float[] valleyStrength;
+
+    /** Diffused valley signal per mesh vertex id, never negative: the curvature strength ranks. */
+    public final float[] valleyCurvature;
+
+    /** Signal at which {@link #valleyStrength} saturates to one. */
+    public final double saturation;
 
     /** Path cost per mesh edge id: its length, scaled down toward the groove fraction. */
     public final double[] edgeCost;
@@ -100,12 +110,14 @@ public final class SurfaceCreases {
             }
         }
         Arrays.sort(positive, 0, positiveCount);
-        double saturation = Math.max(saturationFloor, positiveCount == 0 ? 0.0
+        saturation = Math.max(saturationFloor, positiveCount == 0 ? 0.0
                 : positive[(int) Math.min(positiveCount - 1,
                         Math.floor(SATURATION_QUANTILE * positiveCount))]);
         valleyStrength = new float[vertexIdBound];
+        valleyCurvature = new float[vertexIdBound];
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
+            valleyCurvature[vertexId] = (float) smoothed[vertexId];
             valleyStrength[vertexId] = (float) Math.min(1.0,
                     saturation > 0.0 ? smoothed[vertexId] / saturation : 0.0);
         }
