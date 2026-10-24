@@ -27,6 +27,7 @@ import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.input.Keys;
+import ixdar.scenes.Scene;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Draft;
@@ -147,7 +148,7 @@ class RingEscapeTest {
     public void theControlsMenuSaysWhatEscDoesWithAnOpenRing() {
         RingScene scene = sceneOn(RingAnchorOrderTest.tube(0f, RADIUS));
         ControlHint escape = null;
-        for (ControlHint hint : scene.controls()) {
+        for (ControlHint hint : scene.controls().get(Scene.SCENE_SECTION)) {
             escape = hint.keyCode == Keys.ESCAPE ? hint : escape;
         }
         assertNotNull(escape, "no Esc row in the controls");

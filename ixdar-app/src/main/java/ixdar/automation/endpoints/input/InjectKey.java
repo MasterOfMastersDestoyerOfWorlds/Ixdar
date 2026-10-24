@@ -60,8 +60,9 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
         int actionCode;
         try {
             keyCode = KeyNames.keyCode(spec);
-            mods = KeyNames.modifierMask(spec);
-            modifierKeys = KeyNames.modifierKeyCodes(spec);
+            List<String> modifiers = KeyNames.modifiers(spec, true);
+            mods = KeyNames.modifierMask(modifiers);
+            modifierKeys = KeyNames.modifierKeyCodes(modifiers);
             tap = KeyNames.ACTION_TAP.equalsIgnoreCase(action.trim());
             actionCode = tap ? Keys.ACTION_PRESS : KeyNames.actionCode(action);
         } catch (IllegalArgumentException badSpec) {

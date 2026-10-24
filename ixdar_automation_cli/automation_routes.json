@@ -82,6 +82,15 @@
           "example": "2"
         },
         {
+          "name": "mods",
+          "cliName": "mods",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Modifier keys held down for the click and released after, +-separated: shift, ctrl, alt.",
+          "example": "shift"
+        },
+        {
           "name": "settle",
           "cliName": "settle",
           "type": "int",
@@ -91,13 +100,13 @@
           "example": "0"
         }
       ],
-      "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, label?, view?}, activeTool, previousTool?, control (the controls-menu row clicked, else null), tool?:{name, lastRow, error, undo/redo heads, mode?}}, or {ok:false, error, candidates} when a label refuses"
+      "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, mods, label?, view?}, activeTool, previousTool?, control (the controls-menu row clicked, else null), tool?:{name, lastRow, error, undo/redo heads, mode?}}, or {ok:false, error, candidates} when a label refuses"
     },
     {
       "commandName": "control",
       "path": "/ui/tools/control",
       "method": "POST",
-      "description": "Fire a tool\u0027s control row by its key label, active tool or not, switching to the tool first as its switch key would, and report the outcome as key and click do.",
+      "description": "Fire a control row by its action id, a tool\u0027s, active or not, or the scene\u0027s own, switching to the tool first as its switch key would, and report the outcome as key and click do.",
       "sourceClass": "ixdar.automation.endpoints.ui.tools.FireControl",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/tools/FireControl.java",
       "params": [
@@ -111,12 +120,21 @@
           "example": "region tool"
         },
         {
+          "name": "action",
+          "cliName": "action",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "The row\u0027s action id exactly as the tools listing gives it.",
+          "example": "save-rings"
+        },
+        {
           "name": "key",
           "cliName": "key",
           "type": "string",
-          "required": true,
+          "required": false,
           "default": "",
-          "help": "The row\u0027s key label as the tools listing shows it, ignoring case.",
+          "help": "The row\u0027s key label instead of its action id, ignoring case.",
           "example": "shift+H"
         },
         {
@@ -129,7 +147,7 @@
           "example": "0"
         }
       ],
-      "responseHint": "{ok, key, control, settled, activeTool, previousTool?, tool:{name, lastRow, error, undo heads, mode?}}, or {ok:false, error, candidates}"
+      "responseHint": "{ok, action, key, control, settled, activeTool, previousTool?, tool:{name, lastRow, error, undo heads, mode?}}, or {ok:false, error, candidates}"
     },
     {
       "commandName": "drag",
@@ -896,7 +914,7 @@
       "commandName": "model",
       "path": "/scene/model",
       "method": "POST",
-      "description": "Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.",
+      "description": "Switch the active model scene to a named model, or open a file by its path, and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.",
       "sourceClass": "ixdar.automation.endpoints.scene.SwitchModel",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/scene/SwitchModel.java",
       "params": [
@@ -904,11 +922,20 @@
           "name": "name",
           "cliName": "name",
           "type": "string",
-          "required": true,
+          "required": false,
           "default": "",
           "help": "Model display name, or part of the name or path of a listed model.",
           "example": "bolt",
           "positional": true
+        },
+        {
+          "name": "path",
+          "cliName": "path",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "A .dsl graph or mesh file to open by its path instead of a name, the scene\u0027s own model included, so a saved file can be reopened without a restart.",
+          "example": "tmp/IMG_4111.dsl"
         },
         {
           "name": "set",
@@ -1466,11 +1493,11 @@
       "commandName": "tools",
       "path": "/ui/tools",
       "method": "GET",
-      "description": "List every tool the active scene hosts, active or not: switch key, description, modes and full controls with their modifiers, which `control` fires by key label.",
+      "description": "List every tool the active scene hosts, active or not, with its switch key, description, modes and controls, then the scene\u0027s own controls; `control` fires any of them by its action id.",
       "sourceClass": "ixdar.automation.endpoints.ui.tools.Tools",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/tools/Tools.java",
       "params": [],
-      "responseHint": "{ok, sceneClass, activeTool, defaultTool, tools:[{the ui-state tool object (name, displayName, shortName, description, lastRow, error, undo heads, mode, modes, controls, draft, preview, hovered, items), active, switchKey:{key, description, keyCode, controlHeld, shiftHeld}|null}]}"
+      "responseHint": "{ok, sceneClass, activeTool, defaultTool, tools:[{the ui-state tool object (name, displayName, shortName, description, lastRow, error, undo heads, mode, modes, controls, draft, preview, hovered, items), active, switchKey:{action, key, description, keyCode, controlHeld, shiftHeld}|null}], sceneControls:[the same control objects]}"
     },
     {
       "commandName": "type",
@@ -1500,7 +1527,7 @@
       "sourceClass": "ixdar.automation.endpoints.ui.State",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/State.java",
       "params": [],
-      "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ringTool?, rings?, errorToasts?, regions?, collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls, audio}"
+      "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ringTool?, rings?, errorToasts?, regions?, collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls:[{section, controls}], audio}"
     },
     {
       "commandName": "words",

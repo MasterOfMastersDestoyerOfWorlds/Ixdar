@@ -52,9 +52,12 @@ class ControlRowDispatchTest {
         canvasBefore = Scene.instance;
         Toggle.IsTerminalFocused.value = false;
         Scene canvas = new MenuScene();
-        canvas.controls.add(new ControlHint(Keys.B, true, CONTROL_B, CONTROL_B, () -> fired.add(CONTROL_B)));
-        canvas.controls.add(new ControlHint(Keys.B, PLAIN_B, PLAIN_B, () -> fired.add(PLAIN_B)));
-        canvas.controls.add(ControlHint.repeating(Keys.LEFT, CYCLE, CYCLE, () -> fired.add(CYCLE)));
+        canvas.controls.get(Scene.TOOL_SWITCH_SECTION).add(new ControlHint(CONTROL_B, Keys.B, true, CONTROL_B,
+                CONTROL_B, () -> fired.add(CONTROL_B)));
+        canvas.controls.get(Scene.SCENE_SECTION).add(new ControlHint(PLAIN_B, Keys.B, PLAIN_B, PLAIN_B,
+                () -> fired.add(PLAIN_B)));
+        canvas.controls.get(Scene.SCENE_SECTION).add(ControlHint.repeating(CYCLE, Keys.LEFT, CYCLE, CYCLE,
+                () -> fired.add(CYCLE)));
         keyGuy = new KeyGuy(canvas);
     }
 

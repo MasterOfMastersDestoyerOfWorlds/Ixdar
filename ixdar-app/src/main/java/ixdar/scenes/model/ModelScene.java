@@ -147,7 +147,8 @@ public abstract class ModelScene extends Scene {
         tools.add(orbitTool);
         defaultTool = orbitTool;
         graphTool = new DslGraphView(this);
-        addToolSwitch(graphTool, new ControlHint(Keys.G, true, "ctrl+G", "the DSL's node graph and run times",
+        addToolSwitch(graphTool, new ControlHint("graph-tool", Keys.G, true, "ctrl+G",
+                "the DSL's node graph and run times",
                 () -> switchTool(activeTool == graphTool ? defaultTool : graphTool)));
     }
 
@@ -816,11 +817,11 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * The scene's key controls, shown as the ctrl+I menu's Controls section.
+     * The scene's key controls by section, shown as the ctrl+I menu's Controls section.
      *
-     * @return the control list
+     * @return the sections of {@link #controls}
      */
-    public List<ControlHint> controls() {
+    public List<List<ControlHint>> controls() {
         return controls;
     }
 
@@ -840,27 +841,32 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Populate {@link #controls}. Base adds the orbit/scroll rows while the mouse orbits the camera,
-     * Ctrl+R to re-centre the orbit unless a tool binds it, Ctrl+I for the menu and Esc to close
-     * it; scenes call {@code super.setControls()} then add their keyed hints.
+     * Fill the scene's section of {@link #controls}. Base adds the orbit/scroll rows while the mouse
+     * orbits the camera, Ctrl+R to re-centre the orbit unless a tool switch or tool binds it, Ctrl+I
+     * for the menu and Esc to close it; scenes call {@code super.setControls(controls)} then add
+     * their keyed hints.
+     *
+     * @param controls the scene's section
      */
     @Override
-    public void setControls() {
+    public void setControls(List<ControlHint> controls) {
         if (mouse.controller == camera) {
-            controls.add(new ControlHint("drag", "orbit the camera"));
-            controls.add(new ControlHint("scroll", "zoom"));
+            controls.add(new ControlHint(ControlHint.NO_KEY, "drag", "orbit the camera"));
+            controls.add(new ControlHint(ControlHint.NO_KEY, "scroll", "zoom"));
         }
         boolean controlRBound = false;
-        for (ControlHint hint : controls) {
-            controlRBound |= hint.keyCode == Keys.R && hint.controlHeld && !hint.shiftHeld;
+        for (List<ControlHint> section : this.controls) {
+            for (ControlHint hint : section) {
+                controlRBound |= hint.keyCode == Keys.R && hint.controlHeld && !hint.shiftHeld;
+            }
         }
         if (!controlRBound) {
-            controls.add(new ControlHint(Keys.R, true, "ctrl+R", "re-centre the orbit on the model",
-                    camera::resetTarget));
+            controls.add(new ControlHint("recentre-orbit", Keys.R, true, "ctrl+R",
+                    "re-centre the orbit on the model", camera::resetTarget));
         }
-        controls.add(new ControlHint(Keys.I, true, "ctrl+I", "menu", () -> sceneModelMenu.toggle()));
-        controls.add(new ControlHint(Keys.ESCAPE, "esc", escapeDescription(), this::escapePressed));
-        super.setControls();
+        controls.add(new ControlHint("toggle-menu", Keys.I, true, "ctrl+I", "menu", () -> sceneModelMenu.toggle()));
+        controls.add(new ControlHint("escape", Keys.ESCAPE, "esc", escapeDescription(), this::escapePressed));
+        super.setControls(controls);
     }
 
     @Override

@@ -81,6 +81,10 @@ public final class RingTool extends Tool {
 
     public static final String REDO_HINT = "redo ring edit";
 
+    public static final String REDO_ACTION = "redo";
+
+    public static final String BISECT_ACTION = "bisect";
+
     public static final String NO_SELECTED_ANCHOR =
             "no anchor is selected - click a ring to open it, then click one of its anchors";
 
@@ -550,17 +554,18 @@ public final class RingTool extends Tool {
      */
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("drag anchor", "move it"));
-        controls.add(new ControlHint(Keys.Z, true, true, "ctrl+shift+Z", REDO_HINT,
+        controls.add(new ControlHint(ControlHint.NO_KEY, "drag anchor", "move it"));
+        controls.add(new ControlHint(REDO_ACTION, Keys.Z, true, true, "ctrl+shift+Z", REDO_HINT,
                 refusalShown(() -> redo())));
-        controls.add(new ControlHint(Keys.Z, true, "ctrl+Z", "undo ring edit",
+        controls.add(new ControlHint("undo", Keys.Z, true, "ctrl+Z", "undo ring edit",
                 refusalShown(() -> undo())));
-        controls.add(new ControlHint(Keys.Y, true, "ctrl+Y", REDO_HINT, refusalShown(() -> redo())));
-        controls.add(new ControlHint(Keys.ENTER, "enter", "confirm draft",
+        controls.add(new ControlHint(REDO_ACTION, Keys.Y, true, "ctrl+Y", REDO_HINT, refusalShown(() -> redo())));
+        controls.add(new ControlHint("confirm-draft", Keys.ENTER, "enter", "confirm draft",
                 refusalShown(() -> confirmDraft())));
         // T switches between the geodesic spline and the crease path: the open draft, as one
         // edit, and the drafts clicks open from now on.
-        controls.add(new ControlHint(Keys.T, "T", "mode: " + (draft != null ? draftMode : newDraftMode()).label
+        controls.add(new ControlHint("switch-mode", Keys.T, "T", "mode: "
+                + (draft != null ? draftMode : newDraftMode()).label
                 + ", switch to " + switchedMode().label, refusalShown(() -> {
             RingSegmentMode next = switchedMode();
             if (next == RingSegmentMode.CREASE && !readyCreases(scene.halfEdgeSurface())) {

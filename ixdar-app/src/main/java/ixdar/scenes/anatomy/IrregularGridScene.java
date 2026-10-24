@@ -1,5 +1,7 @@
 package ixdar.scenes.anatomy;
 
+import java.util.List;
+
 import org.joml.Vector2f;
 
 import ixdar.annotations.command.Subsystem;
@@ -61,9 +63,9 @@ public class IrregularGridScene extends Scene {
      * The grid's one key: R frames the grid again.
      */
     @Override
-    public void setControls() {
-        controls.add(new ControlHint(Keys.R, "R", "reset the camera", camera2D::reset));
-        super.setControls();
+    public void setControls(List<ControlHint> controls) {
+        controls.add(new ControlHint("reset-camera", Keys.R, "R", "reset the camera", camera2D::reset));
+        super.setControls(controls);
     }
 
     /**

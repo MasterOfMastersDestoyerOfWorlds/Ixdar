@@ -38,6 +38,8 @@ public class RingScene extends MeshNodeViewerScene {
 
     public static final String LOG_PREFIX = "[mesh-edit] ";
 
+    public static final String SAVE_RINGS_ACTION = "save-rings";
+
     public static final int COORDINATES_PER_POINT = 3;
 
     public static final float ANCHOR_HIT_RADIUS_PIXELS = 8f;
@@ -117,11 +119,11 @@ public class RingScene extends MeshNodeViewerScene {
     @Override
     public void setTools() {
         super.setTools();
-        addToolSwitch(ringTool, new ControlHint(Keys.R, true, "ctrl+R", "draw and edit rings",
+        addToolSwitch(ringTool, new ControlHint("ring-tool", Keys.R, true, "ctrl+R", "draw and edit rings",
                 () -> switchTool(ringTool)));
-        addToolSwitch(regionTool, new ControlHint(Keys.T, true, "ctrl+T", RingRegionTool.TOOL_PURPOSE,
-                () -> switchTool(regionTool)));
-        addToolSwitch(connectionTool, new ControlHint(Keys.J, true, "ctrl+J",
+        addToolSwitch(regionTool, new ControlHint("region-tool", Keys.T, true, "ctrl+T",
+                RingRegionTool.TOOL_PURPOSE, () -> switchTool(regionTool)));
+        addToolSwitch(connectionTool, new ControlHint("connection-tool", Keys.J, true, "ctrl+J",
                 "find the neck joining two places", () -> switchTool(connectionTool)));
     }
 
@@ -412,26 +414,28 @@ public class RingScene extends MeshNodeViewerScene {
      * The hints every tool shares, after the tool keys and the active tool's own hints the scene
      * lists first. Ctrl+I and Esc come from the model scene, so no tool may bind either; a tool
      * takes Esc through {@link Tool#escapePressed} instead.
+     *
+     * @param controls the scene's section
      */
     @Override
-    public void setControls() {
-        controls.add(new ControlHint(Keys.G, "G", "region colours in every tool",
+    public void setControls(List<ControlHint> controls) {
+        controls.add(new ControlHint("toggle-region-colours", Keys.G, "G", "region colours in every tool",
                 regionLayer::toggleVisible));
-        controls.add(new ControlHint(Keys.A, "A", "absorb slivers into largest neighbour",
+        controls.add(new ControlHint("toggle-absorb-slivers", Keys.A, "A", "absorb slivers into largest neighbour",
                 regionLayer::toggleAbsorbSlivers));
-        controls.add(new ControlHint(Keys.U, "U", "show hidden regions", regionLayer::showAll));
-        controls.add(new ControlHint(Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));
-        controls.add(new ControlHint(Keys.N, "N", "ring numbers",
+        controls.add(new ControlHint("show-hidden-regions", Keys.U, "U", "show hidden regions", regionLayer::showAll));
+        controls.add(new ControlHint(SAVE_RINGS_ACTION, Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));
+        controls.add(new ControlHint("toggle-ring-numbers", Keys.N, "N", "ring numbers",
                 () -> showRingNumbers = !showRingNumbers));
         // H flips the visibility that applies now: the exploded view's, or the assembled one.
-        controls.add(new ControlHint(Keys.H, "H", "show / hide rings", () -> {
+        controls.add(new ControlHint("toggle-rings", Keys.H, "H", "show / hide rings", () -> {
             if (regionLayer.explosion.exploded()) {
                 showRingsExploded = !showRingsExploded;
             } else {
                 showRings = !showRings;
             }
         }));
-        super.setControls();
+        super.setControls(controls);
     }
 
     /**

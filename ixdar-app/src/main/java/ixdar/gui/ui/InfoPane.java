@@ -1,6 +1,5 @@
 package ixdar.gui.ui;
 
-import java.util.List;
 import java.util.function.BooleanSupplier;
 
 import ixdar.graphics.cameras.Camera2D;
@@ -8,6 +7,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Clock;
+import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Tool;
@@ -40,9 +40,10 @@ public class InfoPane {
      *
      * @param camera   2D camera whose view is moved to the pane's box
      * @param tool     the active tool, whose info is shown
-     * @param controls the scene's controls, one row per key
+     * @param scene    the scene whose controls are listed, one row per key under each section's
+     *                 heading
      */
-    public void draw(Camera2D camera, Tool tool, List<ControlHint> controls) {
+    public void draw(Camera2D camera, Tool tool, Scene scene) {
         HyperString rows = new HyperString();
         rows.addWord("FPS:" + Clock.fps());
         rows.newLine();
@@ -52,9 +53,15 @@ public class InfoPane {
         rows.newLine();
         rows.newLine();
         rows.addLine("Controls:", Color.IXDAR);
-        for (ControlHint hint : controls) {
-            rows.addWord(hint.key, Color.BLUE_GREY);
-            rows.addLine(hint.description, Color.WHITE);
+        for (int section = 0; section < scene.controls.size(); section++) {
+            if (scene.controls.get(section).isEmpty()) {
+                continue;
+            }
+            rows.addLine(scene.controlSectionName(section), Color.IXDAR);
+            for (ControlHint hint : scene.controls.get(section)) {
+                rows.addWord(hint.key, Color.BLUE_GREY);
+                rows.addLine(hint.description, Color.WHITE);
+            }
         }
         rows.wrap();
         scrollBox.text = rows;

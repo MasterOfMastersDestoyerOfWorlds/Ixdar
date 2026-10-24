@@ -1,6 +1,7 @@
 package ixdar.scenes.trade;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -146,8 +147,8 @@ public class TradeScene extends Scene {
      * menu. The game has no terminal, so no {@code ~} row.
      */
     @Override
-    public void setControls() {
-        controls.add(new ControlHint(Keys.ESCAPE, "esc", (activeTool.escapeDescription().isEmpty() ? ""
+    public void setControls(List<ControlHint> controls) {
+        controls.add(new ControlHint("escape", Keys.ESCAPE, "esc", (activeTool.escapeDescription().isEmpty() ? ""
                 : activeTool.escapeDescription() + ", else ") + "back to the menu", () -> {
                     if (!activeTool.escapePressed()) {
                         returnToMenu();

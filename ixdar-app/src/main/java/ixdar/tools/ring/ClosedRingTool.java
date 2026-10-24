@@ -98,12 +98,12 @@ public final class ClosedRingTool extends RingSubTool {
 
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("click", "draft ring / add or pick anchor"));
-        controls.add(new ControlHint(Keys.X, "X", "discard draft",
+        controls.add(new ControlHint(ControlHint.NO_KEY, "click", "draft ring / add or pick anchor"));
+        controls.add(new ControlHint("discard-draft", Keys.X, "X", "discard draft",
                 ringTool.refusalShown(() -> ringTool.discardDraft())));
         // Delete or Backspace removes the selected anchor, or the whole ring with none selected.
         for (int key : new int[] { Keys.DELETE, Keys.BACKSPACE }) {
-            controls.add(new ControlHint(key, key == Keys.DELETE ? "del" : "backspace",
+            controls.add(new ControlHint("remove-anchor", key, key == Keys.DELETE ? "del" : "backspace",
                     RingTool.REMOVE_SELECTED_ANCHOR_HINT, ringTool.refusalShown(() -> {
                         if (ringTool.draft != null && ringTool.selectedIndex() < 0) {
                             ringTool.deleteDraftRing();
@@ -112,7 +112,7 @@ public final class ClosedRingTool extends RingSubTool {
                         }
                     })));
         }
-        controls.add(new ControlHint(Keys.K, "K", "bisect", ringTool.refusalShown(() -> {
+        controls.add(new ControlHint(RingTool.BISECT_ACTION, Keys.K, "K", "bisect", ringTool.refusalShown(() -> {
             if (ringTool.draft != null) {
                 ringTool.lastError = "confirm or discard the open ring draft before bisecting";
             } else {

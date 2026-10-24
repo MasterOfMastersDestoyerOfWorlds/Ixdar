@@ -18,22 +18,25 @@ import ixdar.tools.Tool;
 
 /**
  * What the active scene can do: every tool it hosts, active or not, in the shape ui-state writes
- * for the active tool, with the key that switches to it; {@link FireControl} drives any of their
- * control rows.
+ * for the active tool, with the key that switches to it, and the scene's own rows;
+ * {@link FireControl} drives any of those control rows.
  */
 @AutomationRouteAnnotation(path = "ui/tools", method = APIMethod.GET)
 public class Tools extends AutomationEndpoint implements AutomationRoute {
 
     public static final String TOOLS = "tools";
 
+    public static final String SCENE_CONTROLS = "sceneControls";
+
     /**
      * {@code GET /ui/tools}: list the active scene's tools, each as {@link State#toolState} writes
-     * it, its controls among them, plus whether it is active and its switch key.
+     * it, its controls among them, plus whether it is active and its switch key, then the scene's
+     * own controls.
      *
      * @param body unused
      * @throws IOException never thrown directly; declared to satisfy the route contract
-     * @return {@code {ok, sceneClass, activeTool, defaultTool, tools:[...]}}, or an error object
-     *         when no scene is bound
+     * @return {@code {ok, sceneClass, activeTool, defaultTool, tools:[...], sceneControls:[...]}},
+     *         or an error object when no scene is bound
      */
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
@@ -57,6 +60,7 @@ public class Tools extends AutomationEndpoint implements AutomationRoute {
                     tools.add(listed);
                 }
                 result.add(TOOLS, tools);
+                result.add(SCENE_CONTROLS, State.controls(scene.controls.get(Scene.SCENE_SECTION)));
                 return result;
             });
         } catch (Exception e) {
@@ -68,12 +72,14 @@ public class Tools extends AutomationEndpoint implements AutomationRoute {
     public RouteDoc describe() {
         return RouteDoc.builder()
                 .commandName(TOOLS)
-                .description("List every tool the active scene hosts, active or not: switch key, description, "
-                        + "modes and full controls with their modifiers, which `control` fires by key label.")
+                .description("List every tool the active scene hosts, active or not, with its switch key, "
+                        + "description, modes and controls, then the scene's own controls; `control` fires any "
+                        + "of them by its action id.")
                 .responseHint("{ok, sceneClass, activeTool, defaultTool, tools:[{the ui-state tool object "
                         + "(name, displayName, shortName, description, lastRow, error, undo heads, mode, modes, "
-                        + "controls, draft, preview, hovered, items), active, switchKey:{key, description, "
-                        + "keyCode, controlHeld, shiftHeld}|null}]}")
+                        + "controls, draft, preview, hovered, items), active, switchKey:{action, key, "
+                        + "description, keyCode, controlHeld, shiftHeld}|null}], sceneControls:[the same "
+                        + "control objects]}")
                 .build();
     }
 }

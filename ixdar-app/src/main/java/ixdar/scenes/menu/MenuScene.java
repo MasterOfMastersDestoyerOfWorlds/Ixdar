@@ -73,8 +73,8 @@ public class MenuScene extends Scene {
      * The menu's one key: Esc steps back out of a submenu.
      */
     @Override
-    public void setControls() {
-        controls.add(new ControlHint(Keys.ESCAPE, "esc", "back out of the submenu", this::escapePressed));
+    public void setControls(List<ControlHint> controls) {
+        controls.add(new ControlHint("escape", Keys.ESCAPE, "esc", "back out of the submenu", this::escapePressed));
     }
 
     /** Esc steps back out of a submenu. */

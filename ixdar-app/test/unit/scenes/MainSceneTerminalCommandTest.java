@@ -312,7 +312,7 @@ class MainSceneTerminalCommandTest {
     void theResetRowReturnsToTheFreeToolAndResetsTheToggles() throws Exception {
         MainScene editor = editorInNeighborViewWithCutMatchAndGradientOff();
         ControlHint resetRow = null;
-        for (ControlHint hint : editor.controls) {
+        for (ControlHint hint : editor.controls.get(Scene.SCENE_SECTION)) {
             if (hint.keyCode == Keys.R && !hint.controlHeld) {
                 resetRow = hint;
             }

@@ -18,6 +18,7 @@ import com.google.gson.JsonObject;
 import ixdar.automation.AutomationRuntime;
 import ixdar.automation.endpoints.input.InjectClick;
 import ixdar.automation.endpoints.input.InjectKey;
+import ixdar.automation.endpoints.ui.State;
 import ixdar.automation.endpoints.ui.tools.FireControl;
 import ixdar.automation.endpoints.ui.tools.Tools;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
@@ -57,6 +58,14 @@ class ToolInputReplyTest {
     private static final String DREW = "drew a stroke";
 
     private static final String CLICKED = "clicked the canvas";
+
+    private static final String CLICKED_WITH_SHIFT = "shift-clicked the canvas";
+
+    private static final String HIDE_ACTION = "hide-stroke";
+
+    private static final String FRAME_ALL_ACTION = "frame-all";
+
+    private static final String ACTION = "action";
 
     private static final String HIDE = "hide the stroke";
 
@@ -195,7 +204,7 @@ class ToolInputReplyTest {
 
             @Override
             public void addControls(List<ControlHint> controls) {
-                controls.add(new ControlHint(Keys.P, DRAW_KEY, DREW, () -> {
+                controls.add(new ControlHint("draw-stroke", Keys.P, DRAW_KEY, DREW, () -> {
                     lastRow = DREW;
                     penHistory.push(DREW, "", "");
                 }));
@@ -213,7 +222,7 @@ class ToolInputReplyTest {
 
             @Override
             public boolean onRelease(float x, float y, boolean click) {
-                lastRow = CLICKED;
+                lastRow = scene.keys.pressedKeys.contains(Keys.LEFT_SHIFT) ? CLICKED_WITH_SHIFT : CLICKED;
                 return true;
             }
         };
@@ -233,11 +242,11 @@ class ToolInputReplyTest {
 
             @Override
             public void addControls(List<ControlHint> controls) {
-                controls.add(new ControlHint(Keys.H, false, true, HIDE_KEY, HIDE, () -> lastRow = HIDE));
+                controls.add(new ControlHint(HIDE_ACTION, Keys.H, false, true, HIDE_KEY, HIDE, () -> lastRow = HIDE));
             }
         };
-        scene.addToolSwitch(pen, new ControlHint(Keys.Q, true, "ctrl+Q", "draw", () -> scene.switchTool(pen)));
-        scene.addToolSwitch(brush, new ControlHint(Keys.W, true, BRUSH_SWITCH, BRUSH,
+        scene.addToolSwitch(pen, new ControlHint(PEN, Keys.Q, true, "ctrl+Q", "draw", () -> scene.switchTool(pen)));
+        scene.addToolSwitch(brush, new ControlHint(BRUSH, Keys.W, true, BRUSH_SWITCH, BRUSH,
                 () -> scene.switchTool(brush)));
         scene.tools.add(new RingTool(null));
         scene.defaultTool = pen;
@@ -398,7 +407,7 @@ class ToolInputReplyTest {
         assertEquals(2, modes.size());
         assertEquals(PLAIN, modes.get(0).getAsString());
         assertEquals(CROSSHATCH, modes.get(1).getAsString());
-        JsonObject hide = inactive.getAsJsonArray("controls").get(0).getAsJsonObject();
+        JsonObject hide = inactive.getAsJsonArray(State.CONTROLS).get(0).getAsJsonObject();
         assertEquals(HIDE, hide.get(DESCRIPTION).getAsString());
         assertTrue(hide.get(SHIFT_HELD).getAsBoolean(), "the shift flag was dropped");
         JsonObject ringTool = tools.get(2).getAsJsonObject();
@@ -453,10 +462,82 @@ class ToolInputReplyTest {
         assertTrue(modeHint.contains(GEODESIC) && modeHint.contains(CREASE), modeHint);
     }
 
+    @Test
+    void aRowFiresByItsExactActionIdOnly() throws Exception {
+        JsonObject reply = fireAction(BRUSH, HIDE_ACTION);
+        assertTrue(reply.get(OK).getAsBoolean(), reply.toString());
+        assertEquals(HIDE_ACTION, reply.get(ACTION).getAsString());
+        assertEquals(HIDE_ACTION, reply.getAsJsonObject(CONTROL).get(ACTION).getAsString());
+        assertEquals(HIDE, reply.getAsJsonObject(TOOL).get(LAST_ROW).getAsString());
+        JsonObject leading = fireAction(BRUSH, "hide");
+        assertFalse(leading.get(OK).getAsBoolean(), "a prefix of an id fired a row: " + leading);
+    }
+
+    @Test
+    void aSceneRowFiresByItsActionNameWithNoToolNamed() throws Exception {
+        JsonObject reply = fireAction("", FRAME_ALL_ACTION);
+        assertTrue(reply.get(OK).getAsBoolean(), reply.toString());
+        assertEquals(Scene.FRAME_ALL_DESCRIPTION, reply.getAsJsonObject(CONTROL).get(DESCRIPTION).getAsString());
+        assertEquals(PEN, reply.get(ACTIVE_TOOL).getAsString());
+        assertFalse(reply.has(PREVIOUS_TOOL), "firing a scene row switched tools");
+    }
+
+    @Test
+    void anUnknownActionIsRefusedNamingTheToolsAndTheScenesActions() throws Exception {
+        JsonObject reply = fireAction(BRUSH, "paint");
+        assertFalse(reply.get(OK).getAsBoolean(), reply.toString());
+        List<String> candidates = new ArrayList<>();
+        reply.getAsJsonArray(FireControl.CANDIDATES).forEach(candidate -> candidates.add(candidate.getAsString()));
+        assertEquals(HIDE_ACTION, candidates.get(0), "the tool's rows come first");
+        assertTrue(candidates.contains(FRAME_ALL_ACTION), candidates.toString());
+        assertEquals(PEN, scene.activeTool.toolName(), "a refused action still switched tools");
+    }
+
+    @Test
+    void theToolsListingNamesEveryRowsActionAndTheScenesOwnRows() throws Exception {
+        JsonObject listing = new Tools() {
+            {
+                runtime = AutomationRuntime.get();
+                runtime.renderThreadId = Thread.currentThread().getId();
+            }
+        }.endpointHandler(new JsonObject());
+        JsonObject brushTool = listing.getAsJsonArray(Tools.TOOLS).get(1).getAsJsonObject();
+        assertEquals(HIDE_ACTION, brushTool.getAsJsonArray(State.CONTROLS).get(0).getAsJsonObject()
+                .get(ACTION).getAsString());
+        JsonArray sceneControls = listing.getAsJsonArray(Tools.SCENE_CONTROLS);
+        assertEquals(FRAME_ALL_ACTION, sceneControls.get(0).getAsJsonObject().get(ACTION).getAsString());
+    }
+
+    @Test
+    void aClickWithShiftHoldsShiftForTheClickOnlyAndAnUnknownModifierIsRefused() throws Exception {
+        JsonObject body = clickBody();
+        body.addProperty(InjectClick.MODS, "shift");
+        JsonObject reply = click(body);
+        assertTrue(reply.get(OK).getAsBoolean(), reply.toString());
+        assertEquals(CLICKED_WITH_SHIFT, reply.getAsJsonObject(TOOL).get(LAST_ROW).getAsString());
+        assertTrue(scene.keys.pressedKeys.isEmpty(), "shift was left held: " + scene.keys.pressedKeys);
+        assertFalse(scene.keys.shiftMask);
+        body.addProperty(InjectClick.MODS, "hyper");
+        JsonObject refused = click(body);
+        assertFalse(refused.get(OK).getAsBoolean(), refused.toString());
+        assertTrue(refused.get(ERROR).getAsString().contains("HYPER"), refused.toString());
+    }
+
+    private JsonObject fireAction(String toolName, String action) throws Exception {
+        JsonObject body = new JsonObject();
+        body.addProperty(FireControl.TOOL, toolName);
+        body.addProperty(FireControl.ACTION, action);
+        return control(body);
+    }
+
     private JsonObject fire(String toolName, String label) throws Exception {
         JsonObject body = new JsonObject();
         body.addProperty(FireControl.TOOL, toolName);
         body.addProperty(KEY, label);
+        return control(body);
+    }
+
+    private JsonObject control(JsonObject body) throws Exception {
         body.addProperty(SETTLE, 0);
         return new FireControl() {
             {
@@ -467,10 +548,18 @@ class ToolInputReplyTest {
     }
 
     private JsonObject click() throws Exception {
+        return click(clickBody());
+    }
+
+    private JsonObject clickBody() {
         JsonObject body = new JsonObject();
         body.addProperty("x", CLICK_PIXELS);
         body.addProperty("y", CLICK_PIXELS);
         body.addProperty(SETTLE, 0);
+        return body;
+    }
+
+    private JsonObject click(JsonObject body) throws Exception {
         return new InjectClick() {
             {
                 runtime = AutomationRuntime.get();

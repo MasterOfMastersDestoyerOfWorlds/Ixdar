@@ -29,13 +29,22 @@ class KeyNamesTest {
     @Test
     void readsModifiersOffTheSpec() {
         assertEquals(Keys.P, KeyNames.keyCode(SHIFT_P));
-        assertEquals(KeyNames.MOD_SHIFT, KeyNames.modifierMask(SHIFT_P));
-        assertEquals(0, KeyNames.modifierMask("P"));
+        assertEquals(KeyNames.MOD_SHIFT, KeyNames.modifierMask(KeyNames.modifiers(SHIFT_P, true)));
+        assertEquals(0, KeyNames.modifierMask(KeyNames.modifiers("P", true)));
         assertEquals(KeyNames.MOD_CONTROL | KeyNames.MOD_SHIFT,
-                KeyNames.modifierMask(CTRL_SHIFT_S));
+                KeyNames.modifierMask(KeyNames.modifiers(CTRL_SHIFT_S, true)));
         assertEquals(Keys.S, KeyNames.keyCode(CTRL_SHIFT_S));
         assertEquals(List.of(Keys.LEFT_CONTROL, Keys.LEFT_SHIFT),
-                KeyNames.modifierKeyCodes(CTRL_SHIFT_S));
+                KeyNames.modifierKeyCodes(KeyNames.modifiers(CTRL_SHIFT_S, true)));
+    }
+
+    @Test
+    void readsABareModifierListHeldAroundAClick() {
+        assertEquals(List.of(KeyNames.SHIFT), KeyNames.modifiers(" shift ", false));
+        assertEquals(KeyNames.MOD_CONTROL | KeyNames.MOD_ALT,
+                KeyNames.modifierMask(KeyNames.modifiers("ctrl+alt", false)));
+        assertEquals(List.of(), KeyNames.modifiers("", false));
+        assertThrows(IllegalArgumentException.class, () -> KeyNames.modifiers("shift+P", false));
     }
 
     @Test
@@ -51,7 +60,7 @@ class KeyNamesTest {
         assertThrows(IllegalArgumentException.class, () -> KeyNames.keyCode("ESCPAE"));
         assertThrows(IllegalArgumentException.class, () -> KeyNames.keyCode(""));
         assertThrows(IllegalArgumentException.class, () -> KeyNames.keyCode("SHIFT+"));
-        assertThrows(IllegalArgumentException.class, () -> KeyNames.modifierMask("META+P"));
+        assertThrows(IllegalArgumentException.class, () -> KeyNames.modifiers("META+P", true));
     }
 
     @Test

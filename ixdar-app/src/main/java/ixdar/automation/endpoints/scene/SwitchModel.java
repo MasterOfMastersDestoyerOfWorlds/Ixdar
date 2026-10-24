@@ -1,6 +1,8 @@
 package ixdar.automation.endpoints.scene;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 import com.google.gson.JsonArray;
@@ -51,10 +53,11 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
     private static final long MILLIS_PER_SECOND = 1000L;
 
     /**
-     * {@code POST /scene/model}: resolve {@code name} against the active model scene's models,
-     * request that load on the render thread, and answer once it has finished.
+     * {@code POST /scene/model}: resolve {@code name} against the active model scene's models, or
+     * open the file at {@code path}, request that load on the render thread, and answer once it has
+     * finished.
      *
-     * @param body JSON body with {@code name}
+     * @param body JSON body with {@code name} or {@code path}, and {@code set}
      * @throws IOException never thrown directly; declared to satisfy the route contract
      * @return {@code {ok, outcome, model, path, seconds}}, with {@code error} when the outcome is
      *         failed
@@ -64,17 +67,33 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
         String name = body.has(NAME) && !body.get(NAME).isJsonNull()
                 ? body.get(NAME).getAsString().trim()
                 : "";
+        String file = body.has(PATH) && !body.get(PATH).isJsonNull()
+                ? body.get(PATH).getAsString().trim()
+                : "";
         ModelScene[] requestedOn = new ModelScene[1];
         int[] serial = new int[1];
         JsonObject result;
         try {
-            result = name.isEmpty() ? failure("a model name is required, e.g. bolt")
+            result = name.isEmpty() == file.isEmpty()
+                    ? failure("name a model, e.g. bolt, or give a --path to open, not both")
                     : runtime.runOnMainThread(() -> {
                 if (!(runtime.canvas instanceof ModelScene)) {
                     return failure("the active scene is not a model scene");
                 }
                 ModelScene scene = (ModelScene) runtime.canvas;
-                ModelChoice match = ModelCatalog.resolve(scene.availableModels(), name);
+                // A path opens the way -Dixdar.model does; the scene's own model, reopened by its
+                // path, keeps its choice, so its overrides and save target stay the same.
+                ModelChoice match = file.isEmpty() ? ModelCatalog.resolve(scene.availableModels(), name)
+                        : ModelCatalog.launchChoice(file, null);
+                if (!file.isEmpty() && !Files.exists(Path.of(match.path))) {
+                    return failure("no file at " + match.path);
+                }
+                ModelChoice current = scene.currentModel();
+                if (!file.isEmpty() && current != null && current.path != null
+                        && Path.of(current.path).toAbsolutePath().normalize()
+                                .equals(Path.of(match.path).normalize())) {
+                    match = current;
+                }
                 if (match == null) {
                     JsonObject miss = failure("no model matching: " + name);
                     JsonArray available = new JsonArray();
@@ -149,11 +168,15 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
     public RouteDoc describe() {
         return RouteDoc.builder()
                 .commandName(MODEL)
-                .description("Switch the active model scene to a named model and recompute, as the"
-                        + " terminal command ml does, returning once it has loaded or failed, with"
-                        + " the failure message and the seconds it took.")
-                .positional(NAME, RouteParamType.STRING,
+                .description("Switch the active model scene to a named model, or open a file by its path,"
+                        + " and recompute, as the terminal command ml does, returning once it has loaded or"
+                        + " failed, with the failure message and the seconds it took.")
+                .optionalPositional(NAME, RouteParamType.STRING,
                         "Model display name, or part of the name or path of a listed model.", "bolt")
+                .param(PATH, RouteParamType.STRING, false, "",
+                        "A .dsl graph or mesh file to open by its path instead of a name, the scene's own "
+                                + "model included, so a saved file can be reopened without a restart.",
+                        "tmp/IMG_4111.dsl")
                 .param(SET, RouteParamType.STRING_LIST, false, "",
                         "Scene override path.port=value, kept across model switches; an empty value"
                                 + " clears it.",

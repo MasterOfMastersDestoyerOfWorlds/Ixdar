@@ -366,9 +366,9 @@ public class MainScene extends Scene {
         super.setTools();
         tools.add(freeTool);
         tools.add(mapEditorTool);
-        addToolSwitch(negativeCutMatchViewTool, new ControlHint(Keys.N, true, "ctrl+N",
+        addToolSwitch(negativeCutMatchViewTool, new ControlHint("negative-cut-match-tool", Keys.N, true, "ctrl+N",
                 "hole moves of negative length", () -> switchTool(negativeCutMatchViewTool)));
-        addToolSwitch(neighborViewTool, new ControlHint(Keys.B, true, "ctrl+B",
+        addToolSwitch(neighborViewTool, new ControlHint("neighbour-tool", Keys.B, true, "ctrl+B",
                 "each point's two nearest neighbours", () -> switchTool(neighborViewTool)));
         defaultTool = freeTool;
     }
@@ -391,22 +391,25 @@ public class MainScene extends Scene {
      * focused, and Esc. The terminal is a pane here, so no {@code ~} row.
      */
     @Override
-    public void setControls() {
-        controls.add(new ControlHint(Keys.C, "C", "new random knot colours",
+    public void setControls(List<ControlHint> controls) {
+        controls.add(new ControlHint("random-knot-colours", Keys.C, "C", "new random knot colours",
                 Toggle.IsMainFocused.gate(() -> Terminal.runNoArgs(ColorCommand.class))));
-        controls.add(new ControlHint(Keys.B, "B", "show the cut-match", Toggle.IsMainFocused.gate(Toggle.DrawCutMatch::toggle)));
-        controls.add(new ControlHint(Keys.Y, "Y", "knot gradient colours",
+        controls.add(new ControlHint("toggle-cut-match", Keys.B, "B", "show the cut-match",
+                Toggle.IsMainFocused.gate(Toggle.DrawCutMatch::toggle)));
+        controls.add(new ControlHint("toggle-knot-gradient", Keys.Y, "Y", "knot gradient colours",
                 Toggle.IsMainFocused.gate(Toggle.DrawKnotGradient::toggle)));
-        controls.add(new ControlHint(Keys.M, "M", "every layer, or the top layer again",
+        controls.add(new ControlHint("toggle-every-layer", Keys.M, "M", "every layer, or the top layer again",
                 Toggle.IsMainFocused.gate(this::setDrawLevelMetro)));
-        controls.add(new ControlHint(Keys.O, "O", "the original tour", Toggle.IsMainFocused.gate(Toggle.DrawMainPath::toggle)));
-        controls.add(new ControlHint(Keys.G, "G", "grid lines", Toggle.IsMainFocused.gate(Toggle.DrawGridLines::toggle)));
-        controls.add(new ControlHint(Keys.U, "U", "write the tour back to its file",
+        controls.add(new ControlHint("toggle-original-tour", Keys.O, "O", "the original tour",
+                Toggle.IsMainFocused.gate(Toggle.DrawMainPath::toggle)));
+        controls.add(new ControlHint("toggle-grid-lines", Keys.G, "G", "grid lines",
+                Toggle.IsMainFocused.gate(Toggle.DrawGridLines::toggle)));
+        controls.add(new ControlHint("write-tour", Keys.U, "U", "write the tour back to its file",
                 Toggle.IsMainFocused.gate(() -> Terminal.runNoArgs(UpdateCommand.class))));
-        controls.add(new ControlHint(Keys.R, "R", "reset the camera, the tool and the toggles",
+        controls.add(new ControlHint("reset", Keys.R, "R", "reset the camera, the tool and the toggles",
                 Toggle.IsMainFocused.gate(() -> ResetCommand.run(ResetOption.All, this))));
-        controls.add(new ControlHint(Keys.ESCAPE, "esc", "back to " + toolLabel(defaultTool) + ", else leave",
-                this::escapePressed));
+        controls.add(new ControlHint("escape", Keys.ESCAPE, "esc",
+                "back to " + toolLabel(defaultTool) + ", else leave", this::escapePressed));
     }
 
     /**
@@ -592,7 +595,7 @@ public class MainScene extends Scene {
             logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
 
             camera.updateView(VIEW_RIGHT_TOP);
-            info.draw(camera, activeTool, controls);
+            info.draw(camera, activeTool, this);
 
             camera.updateView(VIEW_BOTTOM);
             terminal.draw(camera);

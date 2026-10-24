@@ -1442,8 +1442,40 @@ class CliTest(unittest.TestCase):
         self.assertEqual(0, ixdar_cli.main(["control", "--tool", "region tool", "--key", "shift+H"]))
         request = urlopen.call_args[0][0]
         self.assertTrue(request.full_url.endswith("/ui/tools/control"))
-        self.assertEqual({"tool": "region tool", "key": "shift+H", "settle": 2},
+        self.assertEqual({"tool": "region tool", "action": "", "key": "shift+H", "settle": 2},
                          json.loads(request.data.decode("utf-8")))
+
+    @patch("urllib.request.urlopen")
+    def test_control_command_fires_a_row_by_its_action_id(self, urlopen):
+        urlopen.return_value = FakeResponse({"ok": True, "action": "save-rings", "activeTool": "ring tool"})
+        self.assertEqual(0, ixdar_cli.main(["control", "--action", "save-rings"]))
+        request = urlopen.call_args[0][0]
+        self.assertEqual({"tool": "", "action": "save-rings", "key": "", "settle": 2},
+                         json.loads(request.data.decode("utf-8")))
+        params = ixdar_cli._server_commands()["control"]["params"]
+        self.assertNotIn("argument", [param["name"] for param in params], "rows take no argument")
+        self.assertNotIn("key", [param["name"] for param in params if param.get("required")],
+                         "a row should not need its key label")
+
+    @patch("urllib.request.urlopen")
+    def test_terminal_sel_line_posts_to_the_terminal_route(self, urlopen):
+        urlopen.return_value = FakeResponse({"ok": True, "response": ["selected and framed 3,torso"]})
+        self.assertEqual(0, ixdar_cli.main(["terminal", "--line", "sel 3,torso"]))
+        self.assertEqual("sel 3,torso", json.loads(urlopen.call_args[0][0].data.decode("utf-8"))["line"])
+
+    @patch("urllib.request.urlopen")
+    def test_click_mods_are_held_for_the_click_in_one_call(self, urlopen):
+        urlopen.return_value = FakeResponse({"ok": True, "settled": True})
+        self.assertEqual(0, ixdar_cli.main(["click", "--x", "10", "--y", "20", "--mods", "shift"]))
+        body = json.loads(urlopen.call_args[0][0].data.decode("utf-8"))
+        self.assertEqual("shift", body["mods"])
+
+    @patch("urllib.request.urlopen")
+    def test_model_path_opens_a_file_without_a_name(self, urlopen):
+        urlopen.return_value = FakeResponse({"ok": True, "outcome": "loaded", "model": "IMG_4111.dsl"})
+        self.assertEqual(0, ixdar_cli.main(["model", "--path", "tmp/IMG_4111.dsl"]))
+        body = json.loads(urlopen.call_args[0][0].data.decode("utf-8"))
+        self.assertEqual(("", "tmp/IMG_4111.dsl"), (body["name"], body["path"]))
 
     @patch("urllib.request.urlopen")
     def test_terminal_command_posts_the_line_to_its_route(self, urlopen):
@@ -1461,7 +1493,7 @@ class CliTest(unittest.TestCase):
         self.assertEqual(0, ixdar_cli.main(["model", "bolt"]))
         request = urlopen.call_args[0][0]
         self.assertTrue(request.full_url.endswith("/scene/model"))
-        self.assertEqual({"name": "bolt", "set": []}, json.loads(request.data.decode("utf-8")))
+        self.assertEqual({"name": "bolt", "path": "", "set": []}, json.loads(request.data.decode("utf-8")))
         # The route holds the request open for the whole recompute, so the client must outwait it.
         route = ixdar_cli._server_commands()["model"]
         self.assertGreater(urlopen.call_args.kwargs["timeout"], route["waitSeconds"])
@@ -1491,7 +1523,7 @@ class CliTest(unittest.TestCase):
 
     def test_gen_docs_shows_a_positional_parameter_as_an_argument(self):
         route = ixdar_cli._server_commands()["model"]
-        self.assertEqual(" <name> [--set ...]", gen_docs._flag_summary(route))
+        self.assertEqual(" [<name>] [--path] [--set ...]", gen_docs._flag_summary(route))
         inspect = ixdar_cli._server_commands()["node-inspect"]
         self.assertEqual(" [<path>] [<field>] [--depth] [--limit]", gen_docs._flag_summary(inspect))
 

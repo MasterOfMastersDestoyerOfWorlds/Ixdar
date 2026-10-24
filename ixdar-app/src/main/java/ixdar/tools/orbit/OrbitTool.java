@@ -63,9 +63,10 @@ public final class OrbitTool extends Tool {
     @Override
     public void addControls(List<ControlHint> controls) {
         if (scene.mouse.controller == scene.camera) {
-            controls.add(new ControlHint("shift+drag", "pan the camera"));
+            controls.add(new ControlHint(ControlHint.NO_KEY, "shift+drag", "pan the camera"));
         }
-        controls.add(new ControlHint(Scene.FRAME_ALL_CLICK, "frame the whole model, as F does", scene::frameAll));
+        controls.add(new ControlHint("frame-model", ControlHint.NO_KEY, Scene.FRAME_ALL_CLICK,
+                "frame the whole model, as F does", scene::frameAll));
     }
 
     /**

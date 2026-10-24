@@ -143,10 +143,12 @@ class RefusalToastTest {
     }
 
     private static void press(RingScene scene, int keyCode) {
-        for (ControlHint hint : scene.controls()) {
-            if (hint.keyCode == keyCode && !hint.controlHeld && hint.action != null) {
-                hint.action.perform();
-                return;
+        for (List<ControlHint> section : scene.controls()) {
+            for (ControlHint hint : section) {
+                if (hint.keyCode == keyCode && !hint.controlHeld && hint.action != null) {
+                    hint.action.perform();
+                    return;
+                }
             }
         }
         throw new AssertionError("no hint for key " + keyCode);

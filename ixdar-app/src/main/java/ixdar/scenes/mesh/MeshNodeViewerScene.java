@@ -886,11 +886,11 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     @Override
-    public void setControls() {
-        controls.add(new ControlHint(Keys.LEFT_BRACKET, "[", "previous model", this::prevModel));
-        controls.add(new ControlHint(Keys.RIGHT_BRACKET, "]", "next model", this::nextModel));
-        controls.add(new ControlHint(Keys.Z, "Z", "toggle wireframe", this::toggleMeshWireframe));
-        super.setControls();
+    public void setControls(List<ControlHint> controls) {
+        controls.add(new ControlHint("previous-model", Keys.LEFT_BRACKET, "[", "previous model", this::prevModel));
+        controls.add(new ControlHint("next-model", Keys.RIGHT_BRACKET, "]", "next model", this::nextModel));
+        controls.add(new ControlHint("toggle-wireframe", Keys.Z, "Z", "toggle wireframe", this::toggleMeshWireframe));
+        super.setControls(controls);
     }
 
     /**

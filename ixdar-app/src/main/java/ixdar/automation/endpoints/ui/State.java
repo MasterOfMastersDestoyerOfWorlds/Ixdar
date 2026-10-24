@@ -252,7 +252,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     }
 
     /**
-     * Control hints as ui-state lists them: key label, description, key code, Control and Shift held.
+     * Control hints as ui-state lists them: action id, key label, description, key code, Control
+     * and Shift held.
      *
      * @param hints the hints
      * @return one object per hint
@@ -261,6 +262,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         JsonArray controls = new JsonArray();
         for (ControlHint hint : hints) {
             JsonObject control = new JsonObject();
+            control.addProperty("action", hint.actionName);
             control.addProperty("key", hint.key);
             control.addProperty(DESCRIPTION, hint.description);
             control.addProperty("keyCode", hint.keyCode);
@@ -564,7 +566,14 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             }
         }
         root.add("menuItems", menuItems);
-        root.add(CONTROLS, scene == null ? new JsonArray() : controls(scene.controls));
+        JsonArray controlSections = new JsonArray();
+        for (int section = 0; scene != null && section < scene.controls.size(); section++) {
+            JsonObject listed = new JsonObject();
+            listed.addProperty("section", scene.controlSectionName(section));
+            listed.add(CONTROLS, controls(scene.controls.get(section)));
+            controlSections.add(listed);
+        }
+        root.add(CONTROLS, controlSections);
 
         JsonObject audio = new JsonObject();
         AudioSystem audioSystem = AudioSystem.get();
@@ -593,7 +602,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 .responseHint("{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, "
                         + "menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, "
                         + "mode, trade, irregularGrid?, mesh?, ringTool?, rings?, errorToasts?, regions?, "
-                        + "collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls, audio}")
+                        + "collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls:[{section, controls}], audio}")
                 .build();
     }
 }

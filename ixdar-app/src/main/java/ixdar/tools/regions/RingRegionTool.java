@@ -153,23 +153,23 @@ public final class RingRegionTool extends Tool {
 
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("click", "select region"));
-        controls.add(new ControlHint("shift+click", "add / drop region"));
-        controls.add(new ControlHint(Keys.C, "C", "clear selection", this::clearSelection));
-        controls.add(new ControlHint(Keys.E, "E", "extract selection / back to surface",
+        controls.add(new ControlHint(ControlHint.NO_KEY, "click", "select region"));
+        controls.add(new ControlHint(ControlHint.NO_KEY, "shift+click", "add / drop region"));
+        controls.add(new ControlHint("clear-selection", Keys.C, "C", "clear selection", this::clearSelection));
+        controls.add(new ControlHint("extract", Keys.E, "E", "extract selection / back to surface",
                 this::extractPressed));
-        controls.add(new ControlHint(Keys.O, "O", "extracted: open cut / capped",
+        controls.add(new ControlHint("toggle-open-cut", Keys.O, "O", "extracted: open cut / capped",
                 this::toggleOpenCut));
-        controls.add(new ControlHint(Keys.X, "X", "explode / collapse regions",
+        controls.add(new ControlHint("toggle-explode", Keys.X, "X", "explode / collapse regions",
                 scene.regionLayer.explosion::toggle));
-        controls.add(new ControlHint(Keys.H, false, true, "shift+H", "hide selected regions",
+        controls.add(new ControlHint("hide-selected", Keys.H, false, true, "shift+H", "hide selected regions",
                 () -> scene.regionLayer.hideSelection(false)));
-        controls.add(new ControlHint(Keys.I, false, true, "shift+I",
+        controls.add(new ControlHint("isolate-selected", Keys.I, false, true, "shift+I",
                 "isolate selected regions (hide the rest)",
                 () -> scene.regionLayer.hideSelection(true)));
-        controls.add(new ControlHint("hold , / .", "explode less / more"));
+        controls.add(new ControlHint(ControlHint.NO_KEY, "hold , / .", "explode less / more"));
         RegionLayer layer = scene.regionLayer;
-        controls.add(new ControlHint(Keys.L, false, true, "shift+L",
+        controls.add(new ControlHint("drop-part-names", Keys.L, false, true, "shift+L",
                 "drop the selected regions' part names", () -> {
                     RingRegions regions = layer.regions;
                     if (regions == null || selectedCount() == 0) {
@@ -190,7 +190,7 @@ public final class RingRegionTool extends Tool {
                 }));
         // The name is typed on the terminal's command line, the scene's one text entry, after the
         // command word this row puts there; Enter runs it.
-        controls.add(new ControlHint(Keys.L, "L",
+        controls.add(new ControlHint("name-part", Keys.L, "L",
                 "name the selected regions as one part: type the name, then Enter", () -> {
                     Terminal terminal = scene.sceneTerminal;
                     if (terminal == null || selectedCount() == 0) {
@@ -206,9 +206,9 @@ public final class RingRegionTool extends Tool {
                     terminal.type(LabelCommand.cmd);
                     terminal.keyPress(Keys.SPACE, 0, false);
                 }));
-        controls.add(new ControlHint(Keys.P, false, true, "shift+P", "part names on screen",
+        controls.add(new ControlHint("toggle-part-names", Keys.P, false, true, "shift+P", "part names on screen",
                 () -> layer.showPartNames = !layer.showPartNames));
-        controls.add(new ControlHint(Keys.P, "P", "colour by part / by region", () -> {
+        controls.add(new ControlHint("toggle-colour-by-part", Keys.P, "P", "colour by part / by region", () -> {
             layer.colourByPart = !layer.colourByPart;
             layer.redraw();
         }));
@@ -440,16 +440,7 @@ public final class RingRegionTool extends Tool {
             return;
         }
         lastError = "";
-        int faceId = surface.faceIdAt(activeFace);
-        float[] centroid = new float[XYZ];
-        Vector3f corner = new Vector3f();
-        int corners = surface.faceVertexCount(faceId);
-        for (int slot = 0; slot < corners; slot++) {
-            surface.vertexPosition(surface.faceVertexAt(faceId, slot), corner);
-            centroid[0] += corner.x / corners;
-            centroid[1] += corner.y / corners;
-            centroid[2] += corner.z / corners;
-        }
+        float[] centroid = faceCentroid(surface, surface.faceIdAt(activeFace));
         int region = regions.regionByActiveFace[activeFace];
         if (!pendingShift) {
             pickedPoints.clear();
@@ -472,6 +463,27 @@ public final class RingRegionTool extends Tool {
         reselect();
         Platforms.get().log(LOG_PREFIX + lastRow + " -> " + selectedCount() + " of "
                 + regions.regionCount + " selected, select=\"" + selectQuery + "\"");
+    }
+
+    /**
+     * The centroid of a face's corners, the point a pick stands for in the selection, which the
+     * nearest-face lookup maps back to that face.
+     *
+     * @param surface the shown surface
+     * @param faceId  a face of {@code surface}
+     * @return the centroid, packed xyz
+     */
+    public static float[] faceCentroid(MeshTopology surface, int faceId) {
+        float[] centroid = new float[XYZ];
+        Vector3f corner = new Vector3f();
+        int corners = surface.faceVertexCount(faceId);
+        for (int slot = 0; slot < corners; slot++) {
+            surface.vertexPosition(surface.faceVertexAt(faceId, slot), corner);
+            centroid[0] += corner.x / corners;
+            centroid[1] += corner.y / corners;
+            centroid[2] += corner.z / corners;
+        }
+        return centroid;
     }
 
     /**

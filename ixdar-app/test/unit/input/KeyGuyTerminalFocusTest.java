@@ -57,14 +57,14 @@ class KeyGuyTerminalFocusTest {
         menuVisibleBefore = MenuBox.menuVisible;
         canvasBefore = Scene.instance;
         Scene canvas = new MenuScene();
-        List<ControlHint> controls = canvas.controls;
-        controls.add(new ControlHint(Keys.GRAVE, "~", TOGGLE_TERMINAL, () -> {
+        List<ControlHint> controls = canvas.controls.get(Scene.SCENE_SECTION);
+        controls.add(new ControlHint(TOGGLE_TERMINAL, Keys.GRAVE, "~", TOGGLE_TERMINAL, () -> {
             fired.add(TOGGLE_TERMINAL);
             Toggle.IsTerminalFocused.value = !Toggle.IsTerminalFocused.value;
         }));
         for (int index = 0; index < CONTROL_KEYS.length; index++) {
             String label = CONTROL_LABELS.get(index);
-            controls.add(new ControlHint(CONTROL_KEYS[index], CONTROL_HELD[index], label, label,
+            controls.add(new ControlHint(label, CONTROL_KEYS[index], CONTROL_HELD[index], label, label,
                     () -> fired.add(label)));
         }
         canvas.mouse.controller = canvas.camera;

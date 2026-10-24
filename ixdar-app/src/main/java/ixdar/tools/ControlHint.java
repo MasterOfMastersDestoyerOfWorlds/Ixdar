@@ -3,10 +3,8 @@ package ixdar.tools;
 import ixdar.gui.ui.actions.Action;
 
 /**
- * One row in the model menu's Controls section: a {@link #key} label, a short
- * {@link #description}, an optional {@link #action} (clickable in the menu, and fired by the
- * scene key handler when a key press matches {@link #keyCode}). A {@link #NO_KEY} keycode marks a
- * display-only row (orbit, scroll) with no keyboard trigger.
+ * One row in the model menu's Controls section: a {@link #key} label, a {@link #description}, and
+ * an optional {@link #action} its key or a click fires; automation fires it by {@link #actionName}.
  */
 public final class ControlHint {
 
@@ -14,7 +12,13 @@ public final class ControlHint {
 
     public static final String KEY_DESCRIPTION_GAP = "  ";
 
-    /** Key code that fires {@link #action}, or {@link #NO_KEY} for a display-only row. */
+    /**
+     * Stable id automation fires the row by, given where the row is made and kept however its key
+     * label or description changes with state; empty for a display-only row.
+     */
+    public final String actionName;
+
+    /** Key code that fires {@link #action}, or {@link #NO_KEY} for a row no key fires. */
     public final int keyCode;
 
     /** Key label shown to the viewer. */
@@ -44,34 +48,38 @@ public final class ControlHint {
     public final boolean repeatsWhileHeld;
 
     /**
-     * Build a key-bound, clickable control hint.
+     * Build a clickable control hint, key-bound unless {@code keyCode} is {@link #NO_KEY}.
      *
-     * @param keyCode key code that fires {@code action} (see {@link ixdar.platform.input.Keys})
-     * @param key key label shown to the viewer
+     * @param actionName  stable id automation fires the row by
+     * @param keyCode     key code that fires {@code action} (see {@link ixdar.platform.input.Keys}),
+     *                    or {@link #NO_KEY}
+     * @param key         key label shown to the viewer
      * @param description short description of the effect
-     * @param action effect invoked on click or key press
+     * @param action      effect invoked on click or key press
      */
-    public ControlHint(int keyCode, String key, String description, Action action) {
-        this(keyCode, false, key, description, action);
+    public ControlHint(String actionName, int keyCode, String key, String description, Action action) {
+        this(actionName, keyCode, false, key, description, action);
     }
 
     /**
      * Build a clickable control hint whose key needs Control held, such as Ctrl+S.
      *
+     * @param actionName  stable id automation fires the row by
      * @param keyCode     key code that fires {@code action} with Control held
      * @param controlHeld whether the key fires only with Control held
      * @param key         key label shown to the viewer
      * @param description short description of the effect
      * @param action      effect invoked on click or key press
      */
-    public ControlHint(int keyCode, boolean controlHeld, String key, String description,
+    public ControlHint(String actionName, int keyCode, boolean controlHeld, String key, String description,
             Action action) {
-        this(keyCode, controlHeld, false, key, description, action);
+        this(actionName, keyCode, controlHeld, false, key, description, action);
     }
 
     /**
      * Build a clickable control hint whose key needs Control and Shift held, such as Ctrl+Shift+Z.
      *
+     * @param actionName  stable id automation fires the row by
      * @param keyCode     key code that fires {@code action} with the modifiers held
      * @param controlHeld whether the key fires only with Control held
      * @param shiftHeld   whether the key fires only with Shift held
@@ -79,34 +87,25 @@ public final class ControlHint {
      * @param description short description of the effect
      * @param action      effect invoked on click or key press
      */
-    public ControlHint(int keyCode, boolean controlHeld, boolean shiftHeld, String key,
+    public ControlHint(String actionName, int keyCode, boolean controlHeld, boolean shiftHeld, String key,
             String description, Action action) {
-        this(keyCode, controlHeld, shiftHeld, false, key, description, action);
+        this(actionName, keyCode, controlHeld, shiftHeld, false, key, description, action);
     }
 
     /**
-     * Build a clickable control hint with no keyboard trigger.
+     * Build a display-only control hint, which describes a gesture and fires nothing.
      *
-     * @param key key label shown to the viewer
-     * @param description short description of the effect
-     * @param action effect invoked on click, or {@code null} for display-only
-     */
-    public ControlHint(String key, String description, Action action) {
-        this(NO_KEY, key, description, action);
-    }
-
-    /**
-     * Build a display-only control hint (no click action, no keyboard trigger).
-     *
-     * @param key key label shown to the viewer
+     * @param keyCode     key code the gesture uses, usually {@link #NO_KEY}
+     * @param key         key label shown to the viewer
      * @param description short description of the effect
      */
-    public ControlHint(String key, String description) {
-        this(NO_KEY, key, description, null);
+    public ControlHint(int keyCode, String key, String description) {
+        this("", keyCode, false, false, false, key, description, null);
     }
 
-    private ControlHint(int keyCode, boolean controlHeld, boolean shiftHeld, boolean repeatsWhileHeld,
-            String key, String description, Action action) {
+    private ControlHint(String actionName, int keyCode, boolean controlHeld, boolean shiftHeld,
+            boolean repeatsWhileHeld, String key, String description, Action action) {
+        this.actionName = actionName;
         this.keyCode = keyCode;
         this.controlHeld = controlHeld;
         this.shiftHeld = shiftHeld;
@@ -120,14 +119,16 @@ public final class ControlHint {
      * Build a key-bound hint whose action also repeats while the key is held, such as stepping
      * through a list.
      *
+     * @param actionName  stable id automation fires the row by
      * @param keyCode     key code that fires {@code action}
      * @param key         key label shown to the viewer
      * @param description short description of the effect
      * @param action      effect invoked on click, key press and each repeat
      * @return the hint
      */
-    public static ControlHint repeating(int keyCode, String key, String description, Action action) {
-        return new ControlHint(keyCode, false, false, true, key, description, action);
+    public static ControlHint repeating(String actionName, int keyCode, String key, String description,
+            Action action) {
+        return new ControlHint(actionName, keyCode, false, false, true, key, description, action);
     }
 
     /**

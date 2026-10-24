@@ -19,13 +19,16 @@ import ixdar.tools.ControlHint;
 import ixdar.tools.Tool;
 
 /**
- * Fire one control row of any hosted tool by its key label, the way pressing its key or clicking
- * its row in the controls menu does, switching to the tool first as its switch key would.
+ * Fire one control row by its action id, a tool's or the scene's own, the way pressing its key
+ * or clicking its row in the controls menu does, switching to the tool first as its switch key
+ * would.
  */
 @AutomationRouteAnnotation(path = "ui/tools/control", method = APIMethod.POST)
 public class FireControl extends AutomationEndpoint implements AutomationRoute {
 
     public static final String TOOL = "tool";
+
+    public static final String ACTION = "action";
 
     public static final String KEY = "key";
 
@@ -36,19 +39,22 @@ public class FireControl extends AutomationEndpoint implements AutomationRoute {
     public static final String COMMAND = "control";
 
     /**
-     * {@code POST /ui/tools/control}: find the tool's row whose key label matches, switch to the
-     * tool when it is not active, fire the row through the key dispatcher and report the outcome.
+     * {@code POST /ui/tools/control}: find the row among the tool's section, then the scene's own,
+     * whose action id is exactly the one asked for, switch to the tool when it is not active, fire
+     * the row and report the outcome.
      *
-     * @param body JSON body with {@code tool} (a tool name; default the active tool), {@code key}
-     *             (the row's key label as the tools listing shows it, ignoring case) and
-     *             {@code settle} (frames to wait for after; default 2)
+     * @param body JSON body with {@code tool} (a tool name; default the active tool),
+     *             {@code action} (the row's action id as the tools listing gives it), or
+     *             {@code key} (its key label, ignoring case), and {@code settle} (frames to wait
+     *             for after; default 2)
      * @throws IOException never thrown directly; declared to satisfy the route contract
      * @return the key and input outcome {@code key} and {@code click} reply with, or a refusal
-     *         naming the tools or the fireable rows when the tool or the label matches none
+     *         naming the tools or the fireable rows when the tool or the row matches none
      */
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         String toolName = body.has(TOOL) ? body.get(TOOL).getAsString() : "";
+        String actionName = body.has(ACTION) ? body.get(ACTION).getAsString().trim() : "";
         String label = body.has(KEY) ? body.get(KEY).getAsString() : "";
         int settleFrames = body.has(SETTLE) ? body.get(SETTLE).getAsInt() : InputSettle.DEFAULT_FRAMES;
         return InputSettle.settledInput(runtime, settleFrames, () -> {
@@ -61,31 +67,48 @@ public class FireControl extends AutomationEndpoint implements AutomationRoute {
                     tool = hosted;
                 }
             }
-            if (tool == null) {
+            if (tool == null && !toolName.isEmpty()) {
                 JsonObject refusal = failure("no tool named '" + toolName + "' in this scene");
                 refusal.add(CANDIDATES, toolNames);
                 return refusal;
             }
+            // The tool's section, as it stands once the tool is active, then the scene's own, in the
+            // order the key handler fires them.
             List<ControlHint> rows = new ArrayList<>();
-            tool.addControls(rows);
+            if (tool == scene.activeTool) {
+                rows.addAll(scene.controls.get(Scene.TOOL_SECTION));
+            } else {
+                tool.addControls(rows);
+            }
+            rows.addAll(scene.controls.get(Scene.SCENE_SECTION));
             ControlHint row = null;
-            JsonArray fireable = new JsonArray();
+            List<String> fireable = new ArrayList<>();
             for (ControlHint hint : rows) {
                 if (hint.action == null) {
                     continue;
                 }
-                fireable.add(hint.toString());
-                if (row == null && hint.key.equalsIgnoreCase(label)) {
-                    row = hint;
+                String candidate = actionName.isEmpty() ? hint.toString() : hint.actionName;
+                if (!fireable.contains(candidate)) {
+                    fireable.add(candidate);
                 }
+                boolean matches = actionName.isEmpty() ? hint.key.equalsIgnoreCase(label)
+                        : hint.actionName.equals(actionName);
+                row = row == null && matches ? hint : row;
             }
             if (row == null) {
-                JsonObject refusal = failure("the " + tool.toolName() + " has no control row with key '" + label
-                        + "'; fire one of its candidates by its key label");
-                refusal.add(CANDIDATES, fireable);
+                String scope = tool == null ? "the scene" : "the " + tool.toolName() + " or the scene";
+                String asked = actionName.isEmpty() ? "with key '" + label + "'" : "with action '" + actionName + "'";
+                JsonObject refusal = failure(actionName.isEmpty() && label.isEmpty()
+                        ? "name the row to fire by its action, as the tools listing gives it"
+                        : scope + " has no control row " + asked + "; fire one of its candidates");
+                JsonArray candidates = new JsonArray();
+                for (String candidate : fireable) {
+                    candidates.add(candidate);
+                }
+                refusal.add(CANDIDATES, candidates);
                 return refusal;
             }
-            if (tool != scene.activeTool) {
+            if (tool != null && tool != scene.activeTool) {
                 int switchIndex = scene.switchedTools.indexOf(tool);
                 if (switchIndex < 0) {
                     scene.switchTool(tool);
@@ -95,10 +118,11 @@ public class FireControl extends AutomationEndpoint implements AutomationRoute {
             }
             scene.keys.fire(row);
             JsonObject payload = new JsonObject();
-            payload.addProperty(TOOL, tool.toolName());
-            payload.addProperty(KEY, row.key);
+            payload.addProperty(TOOL, tool == null ? "" : tool.toolName());
+            payload.addProperty(ACTION, row.actionName);
             runtime.recordAbstractAction(COMMAND, payload);
             JsonObject applied = success();
+            applied.addProperty(ACTION, row.actionName);
             applied.addProperty(KEY, row.key);
             return applied;
         });
@@ -108,15 +132,18 @@ public class FireControl extends AutomationEndpoint implements AutomationRoute {
     public RouteDoc describe() {
         return RouteDoc.builder()
                 .commandName(COMMAND)
-                .description("Fire a tool's control row by its key label, active tool or not, switching to the "
-                        + "tool first as its switch key would, and report the outcome as key and click do.")
+                .description("Fire a control row by its action id, a tool's, active or not, or the scene's own, "
+                        + "switching to the tool first as its switch key would, and report the outcome as key and "
+                        + "click do.")
                 .param(TOOL, RouteParamType.STRING, false, "",
                         "Tool name as the tools listing gives it; the active tool when left out.", "region tool")
-                .param(KEY, RouteParamType.STRING, true, "",
-                        "The row's key label as the tools listing shows it, ignoring case.", "shift+H")
+                .param(ACTION, RouteParamType.STRING, false, "",
+                        "The row's action id exactly as the tools listing gives it.", "save-rings")
+                .param(KEY, RouteParamType.STRING, false, "",
+                        "The row's key label instead of its action id, ignoring case.", "shift+H")
                 .param(SETTLE, RouteParamType.INT, false, String.valueOf(InputSettle.DEFAULT_FRAMES),
                         "Frames to wait for after the row fired; 0 returns at once.", "0")
-                .responseHint("{ok, key, control, settled, activeTool, previousTool?, tool:{name, lastRow, "
+                .responseHint("{ok, action, key, control, settled, activeTool, previousTool?, tool:{name, lastRow, "
                         + "error, undo heads, mode?}}, or {ok:false, error, candidates}")
                 .build();
     }

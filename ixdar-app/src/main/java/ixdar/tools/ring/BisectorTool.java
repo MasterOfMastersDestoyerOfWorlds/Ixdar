@@ -114,12 +114,14 @@ public final class BisectorTool extends RingSubTool {
 
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("click", CLICK_HINT));
+        controls.add(new ControlHint(ControlHint.NO_KEY, "click", CLICK_HINT));
         for (int key : new int[] { Keys.X, Keys.DELETE, Keys.BACKSPACE }) {
-            controls.add(new ControlHint(key, key == Keys.X ? "X" : key == Keys.DELETE ? "del"
-                    : "backspace", DELETE_POINT_HINT, ringTool.refusalShown(() -> deletePoint())));
+            controls.add(new ControlHint("delete-bisector-point", key, key == Keys.X ? "X"
+                    : key == Keys.DELETE ? "del" : "backspace", DELETE_POINT_HINT,
+                    ringTool.refusalShown(() -> deletePoint())));
         }
-        controls.add(new ControlHint(Keys.K, "K", LEAVE, ringTool.refusalShown(() -> {
+        // K is the one bisect row: it enters the bisector from a ring and leaves it here.
+        controls.add(new ControlHint(RingTool.BISECT_ACTION, Keys.K, "K", LEAVE, ringTool.refusalShown(() -> {
             if (ringTool.draft != null) {
                 ringTool.lastError = "confirm the open bisector with Enter, or delete its points with "
                         + "X, before leaving the bisector";

@@ -10,6 +10,7 @@ import static ixdar.platform.input.Keys.RIGHT_SHIFT;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -120,15 +121,17 @@ public class KeyGuy {
             return;
         }
         boolean control = (mods & KeyNames.MOD_CONTROL) != 0;
-        for (ControlHint hint : canvas.controls) {
-            boolean modifierHeld = hint.controlHeld == control
-                    && (!hint.shiftHeld || (mods & KeyNames.MOD_SHIFT) != 0);
-            if (hint.keyCode == key && hint.keyCode != ControlHint.NO_KEY && hint.action != null
-                    && modifierHeld) {
-                fire(hint);
-                KeyActions.markKeyConsumed();
-                lastRepeatMillis = System.currentTimeMillis();
-                return;
+        for (List<ControlHint> section : canvas.controls) {
+            for (ControlHint hint : section) {
+                boolean modifierHeld = hint.controlHeld == control
+                        && (!hint.shiftHeld || (mods & KeyNames.MOD_SHIFT) != 0);
+                if (hint.keyCode == key && hint.keyCode != ControlHint.NO_KEY && hint.action != null
+                        && modifierHeld) {
+                    fire(hint);
+                    KeyActions.markKeyConsumed();
+                    lastRepeatMillis = System.currentTimeMillis();
+                    return;
+                }
             }
         }
     }
@@ -169,10 +172,12 @@ public class KeyGuy {
         if (now - lastRepeatMillis <= REPEAT_MILLIS / shiftMod) {
             return;
         }
-        for (ControlHint hint : canvas.controls) {
-            if (hint.repeatsWhileHeld && pressedKeys.contains(hint.keyCode) && !controlMask) {
-                lastRepeatMillis = now;
-                fire(hint);
+        for (List<ControlHint> section : canvas.controls) {
+            for (ControlHint hint : section) {
+                if (hint.repeatsWhileHeld && pressedKeys.contains(hint.keyCode) && !controlMask) {
+                    lastRepeatMillis = now;
+                    fire(hint);
+                }
             }
         }
     }

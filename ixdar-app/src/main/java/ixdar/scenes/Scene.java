@@ -68,7 +68,15 @@ public abstract class Scene extends SceneDrawable {
 
     public static final String FRAME_ALL_DESCRIPTION = "frame all: back to the tool's home view";
 
+    public static final String FRAME_ALL_ACTION = "frame-all";
+
     public static final String VIEW_TOOLTIP = "TOOLTIP";
+
+    public static final int TOOL_SWITCH_SECTION = 0;
+
+    public static final int TOOL_SECTION = 1;
+
+    public static final int SCENE_SECTION = 2;
 
     public static volatile Scene instance;
 
@@ -104,7 +112,12 @@ public abstract class Scene extends SceneDrawable {
 
     public ShaderCodePane codePane;
 
-    public final ArrayList<ControlHint> controls = new ArrayList<>();
+    /**
+     * The rows the key handler fires, by section in dispatch order: {@link #TOOL_SWITCH_SECTION},
+     * {@link #TOOL_SECTION} and {@link #SCENE_SECTION}; {@link #refreshControls} fills each.
+     */
+    public final List<List<ControlHint>> controls = List.of(new ArrayList<>(), new ArrayList<>(),
+            new ArrayList<>());
 
     /** Every tool the scene hosts, each run once per frame whether active or not; empty for none. */
     public final ArrayList<Tool> tools = new ArrayList<>();
@@ -505,16 +518,18 @@ public abstract class Scene extends SceneDrawable {
     }
 
     /**
-     * Populate {@link #controls}, the rows the key handler fires. Base adds the {@code ~} terminal
-     * toggle when the scene has a terminal; scenes add their keyed hints and call
-     * {@code super.setControls()}.
+     * Fill the scene's own section of {@link #controls}. Base adds the {@code ~} terminal toggle
+     * when the scene has a terminal; scenes add their keyed hints and call
+     * {@code super.setControls(controls)}.
+     *
+     * @param controls the scene's section, after its frame-all row
      */
-    public void setControls() {
+    public void setControls(List<ControlHint> controls) {
         if (sceneTerminal == null) {
             return;
         }
         controls.add(
-                new ControlHint(Keys.GRAVE, "~", "toggle the terminal", () -> {
+                new ControlHint("toggle-terminal", Keys.GRAVE, "~", "toggle the terminal", () -> {
                     boolean focusTerminal = !Toggle.IsTerminalFocused.value;
                     Toggle.setPanelFocus(focusTerminal ? PaneTypes.Terminal : PaneTypes.KnotView);
                 }));
@@ -562,12 +577,17 @@ public abstract class Scene extends SceneDrawable {
     }
 
     /**
-     * Rebuild {@link #controls}: the tool switches, the active tool's hints, F for
-     * {@link #frameAll} unless the tool or the scene binds F itself, then the scene's own from
-     * {@link #setControls}, left out by a tool that {@link Tool#replacesView replaces the view}.
+     * Rebuild the sections of {@link #controls}: the tool switches, the active tool's hints, then
+     * the scene's own, F for {@link #frameAll} first unless the tool or the scene binds F itself,
+     * then {@link #setControls}'s, left out by a tool that {@link Tool#replacesView replaces the view}.
      */
     public void refreshControls() {
-        controls.clear();
+        List<ControlHint> switches = controls.get(TOOL_SWITCH_SECTION);
+        List<ControlHint> toolRows = controls.get(TOOL_SECTION);
+        List<ControlHint> sceneRows = controls.get(SCENE_SECTION);
+        for (List<ControlHint> section : controls) {
+            section.clear();
+        }
         for (int switchIndex = 0; switchIndex < toolSwitchHints.size(); switchIndex++) {
             ControlHint hint = toolSwitchHints.get(switchIndex);
             Tool tool = switchedTools.get(switchIndex);
@@ -575,25 +595,41 @@ public abstract class Scene extends SceneDrawable {
             if (tool == activeTool) {
                 description.append(ACTIVE_MARK);
             }
-            controls.add(new ControlHint(hint.keyCode, hint.controlHeld, hint.shiftHeld, hint.key,
-                    description.toString(), hint.action));
+            switches.add(new ControlHint(hint.actionName, hint.keyCode, hint.controlHeld, hint.shiftHeld,
+                    hint.key, description.toString(), hint.action));
         }
         if (activeTool != null) {
-            activeTool.addControls(controls);
+            activeTool.addControls(toolRows);
         }
-        int frameAllRow = controls.size();
         if (activeTool == null || !activeTool.replacesView()) {
-            setControls();
+            setControls(sceneRows);
         }
         if (activeTool != null) {
             boolean bindsF = false;
-            for (ControlHint hint : controls) {
-                bindsF |= hint.keyCode == Keys.F && !hint.controlHeld && !hint.shiftHeld;
+            for (List<ControlHint> section : controls) {
+                for (ControlHint hint : section) {
+                    bindsF |= hint.keyCode == Keys.F && !hint.controlHeld && !hint.shiftHeld;
+                }
             }
             if (!bindsF) {
-                controls.add(frameAllRow, new ControlHint(Keys.F, "F", FRAME_ALL_DESCRIPTION, this::frameAll));
+                sceneRows.add(0, new ControlHint(FRAME_ALL_ACTION, Keys.F, "F", FRAME_ALL_DESCRIPTION,
+                        this::frameAll));
             }
         }
+    }
+
+    /**
+     * The heading a section of {@link #controls} is listed under.
+     *
+     * @param section one of {@link #TOOL_SWITCH_SECTION}, {@link #TOOL_SECTION} or
+     *                {@link #SCENE_SECTION}
+     * @return {@code tools}, the active tool's display name, or {@code scene}
+     */
+    public String controlSectionName(int section) {
+        if (section == TOOL_SWITCH_SECTION) {
+            return "tools";
+        }
+        return section == TOOL_SECTION && activeTool != null ? activeTool.displayName() : "scene";
     }
 
     /**

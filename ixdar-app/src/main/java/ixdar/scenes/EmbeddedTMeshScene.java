@@ -178,24 +178,24 @@ public class EmbeddedTMeshScene extends ModelScene {
     }
 
     @Override
-    public void setControls() {
-        controls.add(new ControlHint(Keys.C, "C", "contract to a fixed point",
+    public void setControls(List<ControlHint> controls) {
+        controls.add(new ControlHint("contract", Keys.C, "C", "contract to a fixed point",
                 () -> pendingContract = true));
-        controls.add(new ControlHint(Keys.R, "R", "toggle refinement-density heat map",
+        controls.add(new ControlHint("toggle-split-density", Keys.R, "R", "toggle refinement-density heat map",
                 () -> pendingSplitDensity = true));
-        controls.add(new ControlHint(Keys.N, "N", "advance one contraction step",
+        controls.add(new ControlHint("contract-step", Keys.N, "N", "advance one contraction step",
                 () -> pendingContractSteps++));
-        controls.add(new ControlHint(Keys.D, "D", "advance one drag of a zero-arc collapse",
+        controls.add(new ControlHint("drag-step", Keys.D, "D", "advance one drag of a zero-arc collapse",
                 () -> pendingDragSteps++));
-        controls.add(new ControlHint(Keys.W, "W", "toggle working-copy triangle outlines",
+        controls.add(new ControlHint("toggle-wireframe", Keys.W, "W", "toggle working-copy triangle outlines",
                 () -> pendingWireframe = true));
-        controls.add(new ControlHint(Keys.V, "V", "toggle node markers",
+        controls.add(new ControlHint("toggle-node-markers", Keys.V, "V", "toggle node markers",
                 () -> pendingNodeToggle = true));
-        controls.add(new ControlHint(Keys.Z, "Z", "reset by reloading the current model",
+        controls.add(new ControlHint("reset", Keys.Z, "Z", "reset by reloading the current model",
                 () -> pendingReset = true));
-        controls.add(new ControlHint(Keys.B, "B", "rewind to just before the recorded failure",
+        controls.add(new ControlHint("rewind-to-failure", Keys.B, "B", "rewind to just before the recorded failure",
                 () -> pendingRewind = true));
-        super.setControls();
+        super.setControls(controls);
     }
 
     /**

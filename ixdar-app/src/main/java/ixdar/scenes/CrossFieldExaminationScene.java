@@ -1,6 +1,7 @@
 package ixdar.scenes;
 
 import java.io.IOException;
+import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.io.CrossFieldLoader;
@@ -103,11 +104,14 @@ public class CrossFieldExaminationScene extends ModelScene {
     }
 
     @Override
-    public void setControls() {
-        super.setControls();
-        controls.add(new ControlHint(Keys.R, "R", "toggle reference field", this::toggleReferenceField));
-        controls.add(new ControlHint(Keys.C, "C", "toggle constraints", this::toggleConstraints));
-        controls.add(new ControlHint(Keys.X, "X", "toggle cross field", this::toggleCrossField));
+    public void setControls(List<ControlHint> controls) {
+        super.setControls(controls);
+        controls.add(new ControlHint("toggle-reference-field", Keys.R, "R", "toggle reference field",
+                this::toggleReferenceField));
+        controls.add(new ControlHint("toggle-constraints", Keys.C, "C", "toggle constraints",
+                this::toggleConstraints));
+        controls.add(new ControlHint("toggle-cross-field", Keys.X, "X", "toggle cross field",
+                this::toggleCrossField));
     }
 
     /**

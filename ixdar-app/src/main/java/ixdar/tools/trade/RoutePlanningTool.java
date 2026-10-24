@@ -464,16 +464,17 @@ public class RoutePlanningTool extends Tool {
      */
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint(Keys.P, P, "pipe: join two cities or knots into one loop",
+        controls.add(new ControlHint("pipe-mode", Keys.P, P, "pipe: join two cities or knots into one loop",
                 () -> setMode(Mode.PIPE)));
-        controls.add(new ControlHint(Keys.G, G, "grow: insert a city into a route edge",
+        controls.add(new ControlHint("grow-mode", Keys.G, G, "grow: insert a city into a route edge",
                 () -> setMode(Mode.GROW)));
-        controls.add(new ControlHint(Keys.C, C, "collapse: compress a chain, keeping one loop",
+        controls.add(new ControlHint("collapse-mode", Keys.C, C, "collapse: compress a chain, keeping one loop",
                 () -> setMode(Mode.COLLAPSE)));
-        controls.add(new ControlHint(Keys.ENTER, "enter", "apply the preview", this::confirm));
-        controls.add(ControlHint.repeating(Keys.Z, Z, "undo the last route operation", this::undo));
-        controls.add(ControlHint.repeating(Keys.Y, "Y", "redo", this::redo));
-        controls.add(new ControlHint(Keys.BACKSPACE, "backspace", "up the route hierarchy", this::navigateUp));
+        controls.add(new ControlHint("apply-preview", Keys.ENTER, "enter", "apply the preview", this::confirm));
+        controls.add(ControlHint.repeating("undo", Keys.Z, Z, "undo the last route operation", this::undo));
+        controls.add(ControlHint.repeating("redo-route", Keys.Y, "Y", "redo", this::redo));
+        controls.add(new ControlHint("up-hierarchy", Keys.BACKSPACE, "backspace", "up the route hierarchy",
+                this::navigateUp));
     }
 
     /**

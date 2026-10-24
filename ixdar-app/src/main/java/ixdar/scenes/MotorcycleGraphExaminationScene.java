@@ -1,6 +1,7 @@
 package ixdar.scenes;
 
 import java.io.IOException;
+import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.nodegraph.field.IntField;
@@ -57,14 +58,14 @@ public class MotorcycleGraphExaminationScene extends ModelScene {
     }
 
     @Override
-    public void setControls() {
-        controls.add(new ControlHint(Keys.T, "T", "toggle traces",
+    public void setControls(List<ControlHint> controls) {
+        controls.add(new ControlHint("toggle-traces", Keys.T, "T", "toggle traces",
                 () -> quadRuntime.showTraces = !quadRuntime.showTraces));
-        controls.add(new ControlHint(Keys.N, "N", "toggle nodes",
+        controls.add(new ControlHint("toggle-nodes", Keys.N, "N", "toggle nodes",
                 () -> quadRuntime.showNodes = !quadRuntime.showNodes));
-        controls.add(new ControlHint(Keys.COMMA, ",", "decrease alpha", () -> stepAlpha(-1f)));
-        controls.add(new ControlHint(Keys.PERIOD, ".", "increase alpha", () -> stepAlpha(1f)));
-        super.setControls();
+        controls.add(new ControlHint("decrease-alpha", Keys.COMMA, ",", "decrease alpha", () -> stepAlpha(-1f)));
+        controls.add(new ControlHint("increase-alpha", Keys.PERIOD, ".", "increase alpha", () -> stepAlpha(1f)));
+        super.setControls(controls);
     }
 
     private void rebuildMotorcycleGraph() {

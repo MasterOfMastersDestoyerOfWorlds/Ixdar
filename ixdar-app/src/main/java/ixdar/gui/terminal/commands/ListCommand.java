@@ -77,8 +77,13 @@ public class ListCommand extends TerminalCommand {
             } else if (target.equals("questions")) {
 
             } else if (keyOptionAliases.contains(target)) {
-                for (ControlHint hint : view.controls) {
-                    terminal.history.addLine(hint.toString(), Color.GREEN);
+                for (int section = 0; section < view.controls.size(); section++) {
+                    if (!view.controls.get(section).isEmpty()) {
+                        terminal.history.addLine(view.controlSectionName(section), Color.IXDAR);
+                    }
+                    for (ControlHint hint : view.controls.get(section)) {
+                        terminal.history.addLine(hint.toString(), Color.GREEN);
+                    }
                 }
             } else if (commandOptionAliases.contains(target)) {
                 for (TerminalOption tc : Terminal.commandList) {

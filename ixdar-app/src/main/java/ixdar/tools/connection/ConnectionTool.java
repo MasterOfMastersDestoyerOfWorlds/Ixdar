@@ -215,27 +215,28 @@ public final class ConnectionTool extends Tool {
 
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("click", "pick two places (cyan)"));
-        controls.add(new ControlHint("drag pick", "move it, re-run on release"));
-        controls.add(new ControlHint(Keys.ENTER, "enter", "make the green neck a ring and edit it",
+        controls.add(new ControlHint(ControlHint.NO_KEY, "click", "pick two places (cyan)"));
+        controls.add(new ControlHint(ControlHint.NO_KEY, "drag pick", "move it, re-run on release"));
+        controls.add(new ControlHint("confirm-neck", Keys.ENTER, "enter", "make the green neck a ring and edit it",
                 () -> {
                     confirmNeck();
                     scene.errorToasts.show(TOOL_NAME, lastError);
                 }));
-        controls.add(new ControlHint(Keys.W, "W", "rings as walls on / off", () -> {
+        controls.add(new ControlHint("toggle-rings-as-walls", Keys.W, "W", "rings as walls on / off", () -> {
             ringsAreWalls = !ringsAreWalls;
             Platforms.get().log(LOG_PREFIX + "rings are " + (ringsAreWalls ? "" : "not ") + "walls");
             if (pickVertexId[1] >= 0 && !run()) {
                 scene.errorToasts.show(TOOL_NAME, lastError);
             }
         }));
-        controls.add(new ControlHint(Keys.F, "F", "repair_mesh fills (orange-red) on / off", () -> {
+        controls.add(new ControlHint("toggle-repair-fills", Keys.F, "F", "repair_mesh fills (orange-red) on / off",
+                () -> {
             showingFills = !showingFills;
             if (active) {
                 showFills(showingFills);
             }
         }));
-        controls.add(new ControlHint(Keys.C, "C", "clear picks", () -> {
+        controls.add(new ControlHint("clear-picks", Keys.C, "C", "clear picks", () -> {
             Arrays.fill(pickVertexId, -1);
             draggingPick = -1;
             hoveredPick = -1;

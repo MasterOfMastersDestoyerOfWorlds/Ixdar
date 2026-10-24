@@ -112,8 +112,13 @@ public final class SceneModelMenu implements PointerRegion {
         float stripX = Platforms.get().getFrameBufferWidth() - ModelScene.MENU_PANEL_WIDTH;
         float boxRoom = Math.max(0,
                 stripTop - (RECOMPUTE_BLANK_AND_CONTROLS_TITLE_ROWS + 1) * rowHeight);
-        int controlLines = controlsBox.rowsUsed == 0 ? scene.controls().size()
-                : controlsBox.rowsUsed;
+        int controlLines = controlsBox.rowsUsed;
+        if (controlLines == 0) {
+            // Before the first draw: each shown section's rows under its heading.
+            for (List<ControlHint> section : scene.controls()) {
+                controlLines += section.isEmpty() ? 0 : section.size() + 1;
+            }
+        }
         controlLines = Math.min(controlLines,
                 (int) (boxRoom * MAXIMUM_CONTROLS_BOX_SHARE_OF_STRIP / rowHeight));
         float controlsHeight = controlLines * rowHeight;
@@ -132,10 +137,16 @@ public final class SceneModelMenu implements PointerRegion {
      */
     public void draw(Camera2D camera) {
         controlsBox.clearRows();
-        for (ControlHint hint : scene.controls()) {
-            controlsBox.addRow(hint.toString(),
-                    hint.action == null ? Color.GREY_DARK : Color.BLUE_GREY,
-                    hint.action == null ? null : () -> scene.keys.fire(hint));
+        for (int section = 0; section < scene.controls().size(); section++) {
+            if (scene.controls().get(section).isEmpty()) {
+                continue;
+            }
+            controlsBox.addRow(scene.controlSectionName(section), Color.IXDAR, null);
+            for (ControlHint hint : scene.controls().get(section)) {
+                controlsBox.addRow(hint.toString(),
+                        hint.action == null ? Color.GREY_DARK : Color.BLUE_GREY,
+                        hint.action == null ? null : () -> scene.keys.fire(hint));
+            }
         }
         layout();
         controlsBox.layout(camera);

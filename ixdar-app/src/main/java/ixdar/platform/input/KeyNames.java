@@ -120,31 +120,57 @@ public final class KeyNames {
     }
 
     /**
-     * Resolve the GLFW modifier mask named by the {@code +}-separated prefix of a spec.
+     * The modifier words of a key spec, its {@code +}-separated tokens before the key, or of a bare
+     * list of modifiers held around an input with no key, such as a click.
      *
-     * @param spec key spec such as {@code CTRL+SHIFT+S}
-     * @throws IllegalArgumentException when a prefix token is not a modifier word
-     * @return the OR of every named modifier bit, or 0 when the spec names none
+     * @param text      a key spec such as {@code CTRL+SHIFT+S}, or modifier words such as
+     *                  {@code shift} or {@code ctrl+shift}; blank for none
+     * @param endsInKey whether the last token is the key, as in a spec, rather than a modifier
+     * @throws IllegalArgumentException when a modifier token is not a modifier word
+     * @return the upper-case modifier words, in order
      */
-    public static int modifierMask(String spec) {
+    public static List<String> modifiers(String text, boolean endsInKey) {
+        List<String> words = new ArrayList<>();
+        String trimmed = text == null ? "" : text.trim();
+        if (trimmed.isEmpty()) {
+            return words;
+        }
+        String[] tokens = trimmed.split(SPEC_SEPARATOR);
+        for (int index = 0; index < tokens.length - (endsInKey ? 1 : 0); index++) {
+            String token = tokens[index].trim().toUpperCase(Locale.ROOT);
+            if (!MODIFIER_BITS.containsKey(token)) {
+                throw new IllegalArgumentException("unknown modifier " + token + "; use "
+                        + String.join(NAME_LIST_SEPARATOR, MODIFIER_BITS.keySet()));
+            }
+            words.add(token);
+        }
+        return words;
+    }
+
+    /**
+     * The GLFW modifier mask of modifier words.
+     *
+     * @param modifiers words as {@link #modifiers} parses them
+     * @return the OR of every named modifier bit, or 0 for none
+     */
+    public static int modifierMask(List<String> modifiers) {
         int mask = 0;
-        for (String modifier : modifierTokens(spec)) {
+        for (String modifier : modifiers) {
             mask |= MODIFIER_BITS.get(modifier);
         }
         return mask;
     }
 
     /**
-     * The physical modifier keys a spec asks to be held, so a handler reading pressed keys sees
+     * The physical modifier keys to hold for modifier words, so a handler reading pressed keys sees
      * the same thing as one reading the modifier mask.
      *
-     * @param spec key spec such as {@code CTRL+SHIFT+S}
-     * @throws IllegalArgumentException when a prefix token is not a modifier word
-     * @return {@link Keys} codes for the named modifiers, in spec order
+     * @param modifiers words as {@link #modifiers} parses them
+     * @return {@link Keys} codes for the named modifiers, in order, each once
      */
-    public static List<Integer> modifierKeyCodes(String spec) {
+    public static List<Integer> modifierKeyCodes(List<String> modifiers) {
         List<Integer> codes = new ArrayList<>();
-        for (String modifier : modifierTokens(spec)) {
+        for (String modifier : modifiers) {
             int code = MODIFIER_KEYS.get(modifier);
             if (!codes.contains(code)) {
                 codes.add(code);
@@ -197,21 +223,6 @@ public final class KeyNames {
             throw new IllegalArgumentException("key spec " + spec + " ends in a modifier; name the key too");
         }
         return token;
-    }
-
-    private static List<String> modifierTokens(String spec) {
-        List<String> modifiers = new ArrayList<>();
-        String trimmed = spec == null ? "" : spec.trim();
-        String[] tokens = trimmed.split(SPEC_SEPARATOR);
-        for (int index = 0; index < tokens.length - 1; index++) {
-            String token = tokens[index].trim().toUpperCase(Locale.ROOT);
-            if (!MODIFIER_BITS.containsKey(token)) {
-                throw new IllegalArgumentException("unknown modifier " + token + "; use "
-                        + String.join(NAME_LIST_SEPARATOR,MODIFIER_BITS.keySet()));
-            }
-            modifiers.add(token);
-        }
-        return modifiers;
     }
 
     private static boolean isNumeric(String token) {

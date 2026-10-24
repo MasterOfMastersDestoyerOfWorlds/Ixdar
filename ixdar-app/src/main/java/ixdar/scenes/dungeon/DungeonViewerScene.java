@@ -1,6 +1,7 @@
 package ixdar.scenes.dungeon;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.joml.Vector3f;
 
@@ -269,13 +270,15 @@ public class DungeonViewerScene extends ModelScene {
      * {@link #escapePressed}.
      */
     @Override
-    public void setControls() {
-        controls.add(new ControlHint("drag", "look round; while walking every move looks"));
-        controls.add(new ControlHint("scroll", "zoom the third-person camera"));
-        controls.add(new ControlHint(Keys.F, "F", "walk the player or fly the camera", this::togglePlayerMode));
-        controls.add(new ControlHint(Keys.V, "V", "first or third person while walking", this::toggleViewMode));
-        controls.add(new ControlHint(Keys.R, "R", "reset the look", camera::reset));
-        super.setControls();
+    public void setControls(List<ControlHint> controls) {
+        controls.add(new ControlHint(ControlHint.NO_KEY, "drag", "look round; while walking every move looks"));
+        controls.add(new ControlHint(ControlHint.NO_KEY, "scroll", "zoom the third-person camera"));
+        controls.add(new ControlHint("toggle-player-mode", Keys.F, "F", "walk the player or fly the camera",
+                this::togglePlayerMode));
+        controls.add(new ControlHint("toggle-view-mode", Keys.V, "V", "first or third person while walking",
+                this::toggleViewMode));
+        controls.add(new ControlHint("reset-look", Keys.R, "R", "reset the look", camera::reset));
+        super.setControls(controls);
     }
 
     /** Escape stops walking, else does what every model scene's does. */

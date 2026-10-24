@@ -23,6 +23,12 @@ import ixdar.tools.Tool;
  */
 public abstract class KnotTool extends Tool {
 
+    public static final String NEXT_LAYER = "next-layer";
+
+    public static final String PREVIOUS_LAYER = "previous-layer";
+
+    public static final String CONFIRM = "confirm";
+
     /** The editor whose knots, camera and terminal the tool works on. */
     public final MainScene editor;
 
@@ -90,19 +96,21 @@ public abstract class KnotTool extends Tool {
      */
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(ControlHint.repeating(Keys.LEFT, "left", "cycle " + cycleKeysStep + " clockwise",
-                this::cycleLeft));
-        controls.add(ControlHint.repeating(Keys.RIGHT, "right", "cycle " + cycleKeysStep + " anticlockwise",
-                this::cycleRight));
-        controls.add(new ControlHint(Keys.RIGHT_BRACKET, "]", "next " + layerKeysStep,
+        controls.add(ControlHint.repeating("cycle-clockwise", Keys.LEFT, "left",
+                "cycle " + cycleKeysStep + " clockwise", this::cycleLeft));
+        controls.add(ControlHint.repeating("cycle-anticlockwise", Keys.RIGHT, "right",
+                "cycle " + cycleKeysStep + " anticlockwise", this::cycleRight));
+        // Two keys each step the layer, one action under both.
+        controls.add(new ControlHint(NEXT_LAYER, Keys.RIGHT_BRACKET, "]", "next " + layerKeysStep,
                 Toggle.IsMainFocused.gate(this::increaseViewLayer)));
-        controls.add(new ControlHint(Keys.UP, "up", "next " + layerKeysStep,
+        controls.add(new ControlHint(NEXT_LAYER, Keys.UP, "up", "next " + layerKeysStep,
                 Toggle.IsMainFocused.gate(this::increaseViewLayer)));
-        controls.add(new ControlHint(Keys.LEFT_BRACKET, "[", "previous " + layerKeysStep,
+        controls.add(new ControlHint(PREVIOUS_LAYER, Keys.LEFT_BRACKET, "[", "previous " + layerKeysStep,
                 Toggle.IsMainFocused.gate(this::decreaseViewLayer)));
-        controls.add(new ControlHint(Keys.DOWN, "down", "previous " + layerKeysStep,
+        controls.add(new ControlHint(PREVIOUS_LAYER, Keys.DOWN, "down", "previous " + layerKeysStep,
                 Toggle.IsMainFocused.gate(this::decreaseViewLayer)));
-        controls.add(new ControlHint(Keys.ENTER, "enter", "confirm", Toggle.IsMainFocused.gate(this::confirm)));
+        controls.add(new ControlHint(CONFIRM, Keys.ENTER, "enter", CONFIRM,
+                Toggle.IsMainFocused.gate(this::confirm)));
     }
 
     /**
