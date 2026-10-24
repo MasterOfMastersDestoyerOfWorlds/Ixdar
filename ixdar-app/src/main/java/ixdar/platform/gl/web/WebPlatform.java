@@ -472,6 +472,16 @@ public class WebPlatform implements Platform {
     /**
      * {@inheritDoc}.
      *
+     * <p>The browser has no filesystem, so there is no last-opened-file cache.
+     */
+    @Override
+    public String appCacheDirectory() {
+        return null;
+    }
+
+    /**
+     * {@inheritDoc}.
+     *
      * <p>Assimp is a native importer with no browser counterpart. Refusing here is what keeps it out
      * of the JavaScript build: the web launcher only ever reaches this backend, so the desktop one —
      * and the whole LWJGL native stack behind it — never enters TeaVM's reachability graph.

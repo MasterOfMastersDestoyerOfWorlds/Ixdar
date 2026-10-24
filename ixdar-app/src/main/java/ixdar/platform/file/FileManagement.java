@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,10 +24,7 @@ public class FileManagement {
 
     public static final String SOLUTIONS_FOLDER = "./src/main/resources/solutions/";
 
-    public static final String CACHE_FOLDER = "./test/cache/";
-
-    /** The file naming the last point-set file opened, which the debug menu's Continue reopens. */
-    public static String testFileCacheLocation = CACHE_FOLDER + "cache";
+    public static final String CACHE_FILE = "cache";
 
     /**
      * Locate the IxdarAssets checkout root, preferring the JVM property
@@ -114,39 +112,49 @@ public class FileManagement {
     }
 
     /**
-     * Read the most recently used file path from the on-disk test cache.
+     * Read the most recently used file name from the platform's cache directory.
      *
-     * @return cached path string, or {@code ""} if the cache is missing or unreadable
+     * @throws UncheckedIOException if the cache file exists but cannot be read
+     * @return cached file name, or {@code ""} when there is no cache directory, no cache file or
+     *         it is empty
      */
     public static String getTestFileCache() {
-        File cache = new File(testFileCacheLocation);
+        String cacheDirectory = Platforms.get().appCacheDirectory();
+        if (cacheDirectory == null) {
+            return "";
+        }
+        File cache = new File(cacheDirectory, CACHE_FILE);
+        if (!cache.isFile()) {
+            return "";
+        }
         try (BufferedReader br = new BufferedReader(new FileReader(cache))) {
             String line = br.readLine();
-            br.close();
-            return line;
-        } catch (Exception e) {
-
+            return line == null ? "" : line;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
-        return "";
     }
 
     /**
-     * Persist {@code cachedLocation} as the last-used file path. Blank strings are ignored;
-     * I/O errors are logged and swallowed.
+     * Persist {@code cachedLocation} as the last-used file name in the platform's cache directory,
+     * creating the directory when missing. Blank names and a platform without one are ignored.
      *
-     * @param cachedLocation path to remember; ignored if blank
+     * @param cachedLocation file name to remember; ignored if blank
+     * @throws UncheckedIOException if the directory or file cannot be written
      */
     public static void updateTestFileCache(String cachedLocation) {
-        if (!Compat.isBlank(cachedLocation)) {
-            File cache = new File(testFileCacheLocation);
-            try (FileWriter fw = new FileWriter(cache)) {
-                BufferedWriter out = new BufferedWriter(fw);
-                out.write(cachedLocation);
-                out.flush();
-                out.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        String cacheDirectory = Platforms.get().appCacheDirectory();
+        if (cacheDirectory == null || Compat.isBlank(cachedLocation)) {
+            return;
+        }
+        File directory = new File(cacheDirectory);
+        if (!directory.isDirectory() && !directory.mkdirs()) {
+            throw new UncheckedIOException(new IOException("Cannot create " + directory));
+        }
+        try (FileWriter fw = new FileWriter(new File(directory, CACHE_FILE))) {
+            fw.write(cachedLocation);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 

@@ -1,5 +1,6 @@
 package ixdar.platform;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.function.Consumer;
 
@@ -21,6 +22,8 @@ import ixdar.platform.json.JsonValue;
  * (desktop), {@code HeadlessPlatform} (CI / tests), {@code WebPlatform} (TeaVM browser).
  */
 public interface Platform {
+
+    String APP_DIRECTORY_NAME = "Ixdar";
 
     /**
      * Set the OS window / browser tab title.
@@ -123,6 +126,34 @@ public interface Platform {
      * @return the parsed tree; a null node for empty or malformed input
      */
     JsonValue parseJson(String json);
+
+    /**
+     * Directory for data the application may regenerate, such as the last-opened-file cache, so
+     * nothing is written under the source tree. Linux {@code $XDG_CACHE_HOME/ixdar} (default
+     * {@code ~/.cache/ixdar}), Windows {@code %LOCALAPPDATA%\Ixdar}, macOS
+     * {@code ~/Library/Caches/Ixdar}. The browser platform overrides it with {@code null}.
+     *
+     * @return absolute directory path, which may not exist yet, or {@code null} when the platform
+     *         has no cache directory
+     */
+    default String appCacheDirectory() {
+        String os = System.getProperty("os.name", "").toLowerCase();
+        String home = System.getProperty("user.home");
+        if (os.contains("win")) {
+            String localAppData = System.getenv("LOCALAPPDATA");
+            File base = Compat.isBlank(localAppData) ? new File(home, "AppData" + File.separator + "Local")
+                    : new File(localAppData);
+            return new File(base, APP_DIRECTORY_NAME).getPath();
+        }
+        if (os.contains("mac")) {
+            return new File(home, "Library" + File.separator + "Caches" + File.separator + APP_DIRECTORY_NAME)
+                    .getPath();
+        }
+        String xdgCache = System.getenv("XDG_CACHE_HOME");
+        File base = Compat.isBlank(xdgCache) || !new File(xdgCache).isAbsolute() ? new File(home, ".cache")
+                : new File(xdgCache);
+        return new File(base, APP_DIRECTORY_NAME.toLowerCase()).getPath();
+    }
 
     /**
      * Terminate the process (or no-op on web / tests).

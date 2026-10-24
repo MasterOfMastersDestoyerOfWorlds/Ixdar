@@ -3,12 +3,15 @@ package unit.scenes;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,37 +35,45 @@ class MenuContinueTest {
 
     private static final String CACHED_FILE = "triforce.ix";
 
+    private static final String APP_CACHE_DIRECTORY = "appCacheDirectory";
+
     @TempDir
     Path cacheDirectory;
-
-    private String cacheLocationBefore;
-
-    private Path cache;
 
     private Platform suitePlatform;
 
     private GL suiteGl;
 
+    private String platformCacheDirectory;
+
     /**
-     * Point the cache at an empty scratch directory so the tracked cache file is never written,
-     * and pair the suite's platform with a GL that does nothing, so menu labels can load the font.
+     * Pair the suite's platform, its cache directory moved into the test's temp folder, with a GL
+     * that does nothing, so menu labels can load the font.
      */
     @BeforeEach
-    void useScratchCache() {
-        cacheLocationBefore = FileManagement.testFileCacheLocation;
-        cache = cacheDirectory.resolve("cache");
-        FileManagement.testFileCacheLocation = cache.toString();
+    void useStandInPlatform() {
         suitePlatform = Platforms.get();
         suiteGl = Platforms.gl();
-        Platforms.init(suitePlatform, GlStandIn.create());
+        platformCacheDirectory = cacheDirectory.toString();
+        Platform cachedInTemp = (Platform) Proxy.newProxyInstance(Platform.class.getClassLoader(),
+                new Class<?>[] {Platform.class}, (proxy, method, arguments) -> {
+                    if (APP_CACHE_DIRECTORY.equals(method.getName())) {
+                        return platformCacheDirectory;
+                    }
+                    try {
+                        return method.invoke(suitePlatform, arguments);
+                    } catch (InvocationTargetException e) {
+                        throw e.getCause();
+                    }
+                });
+        Platforms.init(cachedInTemp, GlStandIn.create());
     }
 
     /**
-     * Put the cache location and the suite's GL back the way the suite had them.
+     * Put the suite's platform and GL back the way the suite had them.
      */
     @AfterEach
-    void restoreCacheLocation() {
-        FileManagement.testFileCacheLocation = cacheLocationBefore;
+    void restoreSuitePlatform() {
         Platforms.init(suitePlatform, suiteGl);
     }
 
@@ -73,12 +84,19 @@ class MenuContinueTest {
 
     @Test
     void continueIsDisabledWithAnEmptyCache() throws IOException {
-        Files.write(cache, new byte[0]);
+        Files.write(cacheDirectory.resolve(FileManagement.CACHE_FILE), new byte[0]);
+        assertNull(continueItem(new Menu.MainMenu()).action);
+    }
+
+    @Test
+    void continueIsDisabledWhenThePlatformHasNoCacheDirectory() {
+        platformCacheDirectory = null;
         assertNull(continueItem(new Menu.MainMenu()).action);
     }
 
     @Test
     void continueOpensTheCachedFileOnceOneIsLoaded() {
+        platformCacheDirectory = cacheDirectory.resolve("not-yet-created").toString();
         Menu.MainMenu menu = new Menu.MainMenu();
         assertNull(continueItem(menu).action);
         FileManagement.updateTestFileCache(CACHED_FILE);
@@ -87,9 +105,36 @@ class MenuContinueTest {
     }
 
     @Test
-    void theDefaultCacheLocationIsTheTrackedCacheFile() {
-        File tracked = new File(cacheLocationBefore);
-        assertTrue(tracked.isFile(), tracked.getAbsolutePath());
+    void thePlatformCacheDirectoryIsOutsideTheSourceTree() {
+        Path sourceTree = Path.of("").toAbsolutePath();
+        Path resolved = Path.of(suitePlatform.appCacheDirectory()).toAbsolutePath();
+        assertFalse(resolved.startsWith(sourceTree), resolved + " is under " + sourceTree);
+        assertTrue(resolved.endsWith("ixdar") || resolved.endsWith("Ixdar"), resolved.toString());
+    }
+
+    @Test
+    void loadingAFileWritesOnlyInsideTheCacheDirectory() throws IOException {
+        long writesBefore = newestSourceModification();
+        FileManagement.updateTestFileCache(CACHED_FILE);
+        assertEquals(writesBefore, newestSourceModification());
+        assertEquals(CACHED_FILE, FileManagement.getTestFileCache());
+    }
+
+    /**
+     * Latest modification time of any file under the module's {@code src} and {@code test}
+     * folders.
+     *
+     * @return the newest last-modified time in epoch milliseconds
+     * @throws IOException if a folder cannot be walked
+     */
+    private static long newestSourceModification() throws IOException {
+        long newest = 0L;
+        for (String folder : new String[] {"src", "test"}) {
+            try (Stream<Path> files = Files.walk(Path.of(folder))) {
+                newest = Math.max(newest, files.mapToLong(path -> path.toFile().lastModified()).max().orElse(0L));
+            }
+        }
+        return newest;
     }
 
     /**
