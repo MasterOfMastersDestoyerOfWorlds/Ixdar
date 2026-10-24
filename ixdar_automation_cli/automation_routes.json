@@ -1329,6 +1329,16 @@
       "responseHint": "{replaying, status, file, paused}"
     },
     {
+      "commandName": "request-exit",
+      "path": "/shutdown",
+      "method": "POST",
+      "description": "Acknowledge, then asynchronously close the canvas and exit the process.",
+      "sourceClass": "ixdar.automation.endpoints.Shutdown",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/Shutdown.java",
+      "params": [],
+      "responseHint": "{ok, accepted}"
+    },
+    {
       "commandName": "rings add",
       "path": "/mesh/rings/add",
       "method": "POST",
@@ -1490,16 +1500,6 @@
         }
       ],
       "responseHint": "{ok}"
-    },
-    {
-      "commandName": "shutdown",
-      "path": "/shutdown",
-      "method": "POST",
-      "description": "Acknowledge, then asynchronously close the canvas and exit the process.",
-      "sourceClass": "ixdar.automation.endpoints.Shutdown",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/Shutdown.java",
-      "params": [],
-      "responseHint": "{ok, accepted}"
     },
     {
       "commandName": "terminal",

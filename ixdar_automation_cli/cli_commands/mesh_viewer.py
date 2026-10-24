@@ -13,7 +13,14 @@ import subprocess
 import sys
 import time
 
-from ..automation_client import AutomationClient, live_scenes
+from ..automation_client import (
+    CLI_LAUNCHER,
+    LAUNCHER_PROPERTY,
+    AutomationClient,
+    live_scenes,
+    refuse_second_scene,
+    register_launch,
+)
 from ..build_state import IXDAR_APP_DIR, ensure_build, launch_classpath
 from ..cli_registry import CliCommandResult, cli_command
 
@@ -31,7 +38,8 @@ def _wait_for_server(client: AutomationClient, known_pids: set, timeout: float =
     """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        fresh = [record for record in live_scenes() if record["pid"] not in known_pids]
+        fresh = [record for record in live_scenes()
+                 if record["pid"] not in known_pids and "baseUrl" in record]
         if fresh:
             client.target = fresh[0]
             client.base_url = fresh[0]["baseUrl"]
@@ -50,7 +58,7 @@ def _java_command(dsl: str) -> list[str]:
     :param dsl: Model passed as ``ixdar.model``, or empty for the viewer's default.
     :return: The full argv.
     """
-    command = ["java", "-enableassertions"]
+    command = ["java", "-enableassertions", f"-D{LAUNCHER_PROPERTY}={CLI_LAUNCHER}"]
     if sys.platform == "darwin":
         # GLFW refuses to initialise unless main() is on the process's first thread.
         command.append("-XstartOnFirstThread")
@@ -93,6 +101,7 @@ def run(
     proc = None
 
     if not no_launch:
+        refuse_second_scene("mesh-viewer")
         ensure_build(skip_build=False)
         known_pids = {record["pid"] for record in live_scenes()}
         print(f"Starting mesh-viewer (model: {dsl or 'default'})", file=sys.stderr)
@@ -102,6 +111,7 @@ def run(
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
         )
+        register_launch(proc.pid, "mesh-viewer", headless=False)
 
         print(f"Waiting for automation server (timeout={timeout}s)...", file=sys.stderr)
         if not _wait_for_server(client, known_pids, timeout):
@@ -156,7 +166,7 @@ def run(
     if not keep_alive and proc:
         print("Shutting down Ixdar...", file=sys.stderr)
         try:
-            client.call("shutdown")
+            client.call("request-exit")
         except Exception:
             pass
         proc.wait(timeout=10)

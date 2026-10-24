@@ -1,7 +1,7 @@
 """Build, launch, observe and shut down an Ixdar scene in one command.
 
 Driving a scene by hand takes four separately-approved privileged invocations — ``setsid java`` to
-launch, a ``curl`` health-poll loop, ``ixdar-cli stop-scene``, and ``pgrep``/``kill`` to clean up — and
+launch, a ``curl`` health-poll loop, ``ixdar-cli shutdown``, and ``pgrep``/``kill`` to clean up — and
 one of them is a trap: ``pkill -f IxdarWindow`` also matches the *invoking shell*, whose command line
 contains that string, so it kills the caller. This command replaces the whole loop.
 
@@ -23,11 +23,16 @@ import sys
 import time
 
 from ..automation_client import (
+    CLI_LAUNCHER,
+    LAUNCHER_PROPERTY,
     LOOPBACK_HOST,
     RECORD_SUFFIX,
     AutomationClient,
+    forget_scene,
     read_port_file,
     records_directory,
+    refuse_second_scene,
+    register_launch,
 )
 from ..build_state import (
     CLASSES_DIR,
@@ -298,34 +303,34 @@ def _terminate(process: subprocess.Popen, client: AutomationClient) -> None:
 
     async-profiler flushes its HTML at JVM exit, so an orderly shutdown is what makes a profiled run
     usable. Falls back to signalling the process group this command created, which is safe because it
-    targets a captured PID rather than a command-line pattern.
+    targets a captured PID rather than a command-line pattern. Once the process is gone its record
+    leaves the checkout's registry.
 
     :param process: The launched JVM.
     :param client: Automation client used to request shutdown.
     """
+    if process.poll() is None:
+        try:
+            client.call("request-exit")
+        except Exception:
+            pass
+        try:
+            process.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                process.wait(timeout=10)
+            except Exception:
+                process.kill()
     if process.poll() is not None:
-        return
-    try:
-        client.call("shutdown")
-    except Exception:
-        pass
-    try:
-        process.wait(timeout=30)
-        return
-    except subprocess.TimeoutExpired:
-        pass
-    try:
-        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-        process.wait(timeout=10)
-    except Exception:
-        process.kill()
+        forget_scene(process.pid)
 
 
 CRASH_EXCEPTION_PREFIX = "Exception in thread \"main\" "
 
 MATCHED_LINES_REPORTED = 10
 
-KEEP_ALIVE_HINT = ("switch a model scene's mesh with `ixdar-cli model <name>`, then `ixdar-cli screenshot`; stop with `ixdar-cli stop-scene`")
+KEEP_ALIVE_HINT = ("switch a model scene's mesh with `ixdar-cli model <name>`, then `ixdar-cli screenshot`; stop with `ixdar-cli shutdown`")
 
 
 def crash_headline(crash: list[str]) -> str:
@@ -425,7 +430,9 @@ def run(
     """Build, launch, observe and shut down a scene on a port it picks for itself.
 
     :return: Summary dict: outcome, scene, mesh, port, base URL, screenshot and log excerpts.
+    :raises SceneResolutionError: When this checkout already has a live scene.
     """
+    refuse_second_scene("run-scene")
     properties = resolve_scene_properties(list(property or []))
     if mesh:
         properties.append(f"{MODEL_PROPERTY}={resolve_mesh(mesh)}")
@@ -444,6 +451,7 @@ def run(
     port = free_port()
     base_url = f"http://{LOOPBACK_HOST}:{port}"
     properties.append(f"{AUTOMATION_PORT_PROPERTY}={port}")
+    properties.append(f"{LAUNCHER_PROPERTY}={CLI_LAUNCHER}")
     client = AutomationClient(base_url=base_url)
     command = _java_command(scene, properties, resolved_profile, profile_event,
                             resolved_coverage)
@@ -458,6 +466,7 @@ def run(
             stderr=subprocess.STDOUT,
             start_new_session=True,
         )
+        register_launch(process.pid, scene, headless=True)
 
         status = _await_scene(client, process, log_path, await_log, timeout)
         result: dict = {
@@ -550,6 +559,9 @@ def run_scene(
     The scene binds a free port of its own and publishes it in its own ``tmp/automation/<pid>.json``
     record under this checkout, so parallel scenes never collide; while it is the checkout's one
     headless scene, no other command needs a ``--base-url``.
+    The record is written the moment the JVM starts, so it refuses to start while a scene
+    ixdar-cli launched in this checkout is still alive, naming its pid; ``ixdar-cli shutdown``
+    stops them all.
 
     :param scene: Scene id passed to IxdarWindow (see @SceneAnnotation ids).
     :param property: Repeatable ``key=value`` JVM system property; a ``*.off`` or ``ixdar.model``
@@ -579,7 +591,7 @@ def run_scene(
     :param skip_build: Launch the classes on disk even if stale, after syncing newer resources; by default the build state decides.
         Without it the launch runs no Maven when nothing changed since the last successful build,
         syncs resources, compiles, or clean-compiles, with the reason on one ``build:`` line.
-    :param keep_alive: Leave the scene running, returning only once it reports ready.
+    :param keep_alive: Leave the scene running, returning only once it reports ready; stop it with ``ixdar-cli shutdown``.
     :param top: How many profile-report hot methods or partly-covered classes to report.
     """
     payload = run(

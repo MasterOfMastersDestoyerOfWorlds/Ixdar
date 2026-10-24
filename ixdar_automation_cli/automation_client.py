@@ -16,9 +16,14 @@ DEFAULT_RETRY_DELAY = 1.0
 DEFAULT_REQUEST_TIMEOUT = 10.0
 PROGRESS_INTERVAL = 30.0
 
-# AutomationPortFile: every scene writes tmp/automation/<pid>.json and removes it on exit.
+# AutomationPortFile: every scene writes tmp/automation/<pid>.json and removes it on exit. These
+# records are the checkout's one registry of open scene pids: ixdar-cli writes a scene's record
+# the moment it starts the JVM, marked with CLI_LAUNCHER, and the scene adds its port once bound.
 RECORD_DIRECTORY_RELATIVE = os.path.join("tmp", "automation")
 RECORD_SUFFIX = ".json"
+# AutomationPortFile.CLI_LAUNCHER_PROPERTY: the scene copies its value into its record.
+LAUNCHER_PROPERTY = "ixdar.automation.launcher"
+CLI_LAUNCHER = "ixdar-cli"
 
 
 def load_manifest() -> dict:
@@ -80,14 +85,45 @@ def process_alive(pid: int) -> bool:
     return True
 
 
+def register_launch(pid: int, scene: str, headless: bool, root: str = "") -> None:
+    """Record a scene JVM ixdar-cli just started, before it has bound a port.
+
+    The scene rewrites this same ``<pid>.json`` with its port once its server is up, keeping the
+    launcher mark, so the pid is in the registry for the JVM's whole life.
+
+    :param pid: The JVM's pid.
+    :param scene: Scene id or launch entry name.
+    :param headless: Whether it runs off-screen.
+    :param root: Checkout root; empty uses :func:`checkout_root`.
+    """
+    directory = records_directory(root)
+    os.makedirs(directory, exist_ok=True)
+    with open(os.path.join(directory, f"{pid}{RECORD_SUFFIX}"), "w", encoding="utf-8") as handle:
+        json.dump({"pid": pid, "scene": scene, "headless": headless, "launcher": CLI_LAUNCHER},
+                  handle)
+
+
+def forget_scene(pid: int, root: str = "") -> None:
+    """Drop a scene's record once its process is confirmed gone.
+
+    :param pid: The exited JVM's pid.
+    :param root: Checkout root; empty uses :func:`checkout_root`.
+    """
+    try:
+        os.remove(os.path.join(records_directory(root), f"{pid}{RECORD_SUFFIX}"))
+    except FileNotFoundError:
+        pass
+
+
 def live_scenes(root: str = "") -> list[dict]:
     """The scenes of a checkout whose process is still alive, deleting the records of dead ones.
 
     A scene removes its own record when it exits; a killed one cannot, so a record whose pid is
-    gone is stale and is dropped here rather than resolved to.
+    gone is stale and is dropped here rather than resolved to. A scene ixdar-cli started that has
+    not bound its port yet is listed without ``port`` or ``baseUrl``.
 
     :param root: Checkout root; empty uses :func:`checkout_root`.
-    :return: One record per live scene, ordered by pid, each with its ``baseUrl`` added.
+    :return: One record per live scene, ordered by pid, each bound one with its ``baseUrl``.
     """
     directory = records_directory(root)
     try:
@@ -101,13 +137,14 @@ def live_scenes(root: str = "") -> list[dict]:
         path = os.path.join(directory, name)
         record = read_port_file(path)
         pid = record.get("pid")
-        if not pid or not record.get("port") or not process_alive(int(pid)):
+        if not pid or not process_alive(int(pid)):
             try:
                 os.remove(path)
             except OSError:
                 pass
             continue
-        record["baseUrl"] = f"http://{LOOPBACK_HOST}:{record['port']}"
+        if record.get("port"):
+            record["baseUrl"] = f"http://{LOOPBACK_HOST}:{record['port']}"
         scenes.append(record)
     return sorted(scenes, key=lambda record: record["pid"])
 
@@ -127,11 +164,40 @@ def describe_scene(record: dict) -> str:
 
 
 class SceneResolutionError(ValueError):
-    """No single scene answers to a command, carrying the live scenes so the refusal lists them."""
+    """No single scene answers to a command, or a live one stands where a new one would pile up;
+    it carries the live scenes so the refusal lists them."""
 
     def __init__(self, message: str, scenes: list[dict]):
         super().__init__(message)
         self.scenes = scenes
+
+
+def launched_scenes(root: str = "") -> list[dict]:
+    """The live scenes ixdar-cli started in this checkout, headless or windowed, F5 windows aside.
+
+    :param root: Checkout root; empty uses :func:`checkout_root`.
+    :return: Their records, as :func:`live_scenes` lists them.
+    """
+    return [record for record in live_scenes(root) if record.get("launcher") == CLI_LAUNCHER]
+
+
+def refuse_second_scene(command: str, root: str = "") -> None:
+    """Refuse to launch a scene while ixdar-cli already has one alive in this checkout.
+
+    A second scene beside a ``--keep-alive`` one is how scenes piled up until the machine ran out
+    of memory.
+
+    :param command: The launching command, named in the refusal.
+    :param root: Checkout root; empty uses :func:`checkout_root`.
+    :raises SceneResolutionError: Naming each live scene's pid and the command that stops them.
+    """
+    scenes = launched_scenes(root)
+    if not scenes:
+        return
+    raise SceneResolutionError(
+        f"{command} refuses to start a second scene while this checkout has a live one: "
+        + "; ".join(describe_scene(record) for record in scenes)
+        + "; stop them with `ixdar-cli shutdown`", scenes)
 
 
 def resolve_target(base_url: str = "", pid: int = 0, root: str = "") -> dict:
@@ -148,7 +214,7 @@ def resolve_target(base_url: str = "", pid: int = 0, root: str = "") -> dict:
         ``baseUrl``.
     :raises SceneResolutionError: When no scene, or more than one, fits.
     """
-    scenes = live_scenes(root)
+    scenes = [record for record in live_scenes(root) if record.get("port")]
     listing = "; ".join(describe_scene(record) for record in scenes) or "none"
     if base_url:
         port = int(base_url.rstrip("/").rsplit(":", 1)[1])

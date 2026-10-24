@@ -113,7 +113,7 @@ class FakeHealthClient:
 
 
 HEADLESS_SCENE = {"port": 47960, "pid": 7001, "scene": "mesh-viewer", "headless": True,
-                  "baseUrl": "http://127.0.0.1:47960"}
+                  "launcher": "ixdar-cli", "baseUrl": "http://127.0.0.1:47960"}
 
 
 def write_scene_record(root: str, record: dict) -> str:
@@ -215,11 +215,11 @@ class SceneResolutionTest(unittest.TestCase):
         output = io.StringIO()
         with patch.object(automation_client, "checkout_root", return_value=self.root), \
                 patch("sys.stdout", output):
-            self.assertEqual(4, ixdar_cli.main(["stop-scene"]))
+            self.assertEqual(0, ixdar_cli.main(["shutdown"]))
         urlopen.assert_not_called()
-        refusal = json.loads(output.getvalue())
-        self.assertFalse(refusal["ok"])
-        self.assertIn("port=47970", refusal["scenes"][0])
+        report = json.loads(output.getvalue())
+        self.assertEqual([], report["stopped"])
+        self.assertIn("port=47970", report["leftRunning"][0])
 
 
 class SceneLifecycleTest(unittest.TestCase):
@@ -473,6 +473,7 @@ class SceneLifecycleTest(unittest.TestCase):
                 patch.object(run_scene, "ensure_build", return_value=[]), \
                 patch.object(run_scene, "_java_command", return_value=["java", "-version"]), \
                 patch.object(run_scene, "free_port", return_value=47905), \
+                patch.object(run_scene, "register_launch"), \
                 patch.object(run_scene, "point_latest"), \
                 patch.object(run_scene, "_terminate"), \
                 patch.object(subprocess, "Popen", return_value=FakeProcess()), \
@@ -498,6 +499,7 @@ class SceneLifecycleTest(unittest.TestCase):
                 patch.object(run_scene, "ensure_build", return_value=[]), \
                 patch.object(run_scene, "_java_command", side_effect=capture), \
                 patch.object(run_scene, "free_port", return_value=47906), \
+                patch.object(run_scene, "register_launch"), \
                 patch.object(run_scene, "point_latest"), \
                 patch.object(run_scene, "_terminate"), \
                 patch.object(subprocess, "Popen", return_value=FakeProcess()), \
@@ -515,6 +517,7 @@ class SceneLifecycleTest(unittest.TestCase):
                 patch.object(run_scene, "ensure_build", return_value=[]), \
                 patch.object(run_scene, "_java_command", return_value=["java", "-version"]), \
                 patch.object(run_scene, "free_port", return_value=47907), \
+                patch.object(run_scene, "register_launch"), \
                 patch.object(run_scene, "_mesh_summary", return_value={}), \
                 patch.object(subprocess, "Popen", return_value=FakeProcess()), \
                 patch.object(run_scene, "_await_scene", return_value={
@@ -540,31 +543,41 @@ class SceneLifecycleTest(unittest.TestCase):
     def test_shutdown_returns_only_after_the_process_is_gone(self):
         alive = [True, True, False]
         scene = {**HEADLESS_SCENE, "port": 47907, "pid": 9911, "baseUrl": "http://127.0.0.1:47907"}
-        with patch.object(automation_client, "live_scenes", return_value=[scene]), \
+        with patch.object(shutdown_scene, "live_scenes", return_value=[scene]), \
                 patch.object(shutdown_scene, "process_alive", side_effect=lambda pid: alive.pop(0)), \
                 patch("time.sleep"), \
                 patch("urllib.request.urlopen",
                       return_value=FakeResponse({"ok": True, "accepted": True})):
-            exit_code = ixdar_cli.main(["stop-scene"])
+            exit_code = ixdar_cli.main(["shutdown"])
         self.assertEqual(0, exit_code)
         self.assertEqual([], alive)
 
-    def test_shutdown_fails_when_the_process_outlives_the_timeout(self):
+    def test_shutdown_kills_a_process_that_outlives_the_timeout(self):
         scene = {**HEADLESS_SCENE, "port": 47908, "pid": 9912, "baseUrl": "http://127.0.0.1:47908"}
-        with patch.object(automation_client, "live_scenes", return_value=[scene]), \
+        output = io.StringIO()
+        with patch.object(shutdown_scene, "live_scenes", return_value=[scene]), \
                 patch.object(shutdown_scene, "process_alive", return_value=True), \
+                patch.object(shutdown_scene.os, "kill") as kill, \
+                patch.object(shutdown_scene, "KILL_WAIT_SECONDS", 0.01), \
                 patch("time.sleep"), \
+                patch("sys.stdout", output), \
                 patch("urllib.request.urlopen",
                       return_value=FakeResponse({"ok": True, "accepted": True})):
-            exit_code = ixdar_cli.main(["stop-scene", "--timeout", "0.01"])
+            exit_code = ixdar_cli.main(["shutdown", "--timeout", "0.01"])
+        # The fake pid never dies, even to SIGKILL, so the command says so instead of claiming it.
+        kill.assert_called_once_with(9912, shutdown_scene.signal.SIGKILL)
         self.assertEqual(1, exit_code)
+        stopped = json.loads(output.getvalue())["stopped"][0]
+        self.assertTrue(stopped["killed"])
+        self.assertFalse(stopped["exited"])
 
     def test_no_registry_command_shadows_a_route(self):
-        # A registry command named after a route used to hide it; stop-scene wraps shutdown.
+        # A registry command named after a route used to hide it; the CLI's waiting shutdown
+        # calls the route the Java side names request-exit.
         server_commands = ixdar_cli._server_commands()
         self.assertEqual(set(), set(get_registry()) & set(server_commands))
-        self.assertIn("stop-scene", get_registry())
-        for route_name in ("shutdown", "terminal", "mesh-overlay"):
+        self.assertIn("shutdown", get_registry())
+        for route_name in ("request-exit", "terminal", "mesh-overlay"):
             self.assertIn(route_name, server_commands)
 
 
@@ -1132,7 +1145,7 @@ class CliTest(unittest.TestCase):
         urlopen.return_value = FakeResponse({"ok": True, "accepted": True})
         # A URL no scene record names has no pid to wait on, so the command reports the
         # acknowledgement alone.
-        exit_code = ixdar_cli.main(["--base-url", "http://127.0.0.1:47950", "stop-scene"])
+        exit_code = ixdar_cli.main(["--base-url", "http://127.0.0.1:47950", "shutdown"])
         self.assertEqual(0, exit_code)
 
     @patch("urllib.request.urlopen")
@@ -1609,6 +1622,205 @@ class ClientRoutesTest(unittest.TestCase):
         """
         self.assertEqual(quilt_mesh_fingerprint.float32(0.49975),
                          quilt_mesh_fingerprint.round_coord(0.499745))
+
+
+REAL_POPEN = subprocess.Popen
+
+
+class SceneLimitTest(unittest.TestCase):
+    """Scenes cannot pile up: the checkout's ``tmp/automation`` records list every scene pid
+    ixdar-cli started, a second launch refuses while one is alive, and shutdown stops them all.
+
+    The scene JVMs are ``sleep`` processes standing in for them, launched for real so the kill
+    path acts on live pids; a reaper thread waits on each so a stopped one does not linger as a
+    zombie the shutdown would still see as alive.
+    """
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = make_checkout(directory.name)
+        for module in (automation_client, launch_entry):
+            patcher = patch.object(module, "checkout_root", return_value=self.root)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        self.scenes: dict[int, subprocess.Popen] = {}
+        self.hung: set[int] = set()
+
+    def spawn_scene(self, command=None, **kwargs) -> subprocess.Popen:
+        """Start a fake scene JVM.
+
+        :param command: The JVM command the CLI built; ignored.
+        :param kwargs: The CLI's ``Popen`` keywords; ignored.
+        :return: The running fake.
+        """
+        process = REAL_POPEN(["sleep", "60"], start_new_session=True)
+        threading.Thread(target=process.wait, daemon=True).start()
+        self.addCleanup(lambda: process.poll() is None and process.kill())
+        return process
+
+    def publish(self, process: subprocess.Popen, scene: str, root: str = "",
+                launcher: str = automation_client.CLI_LAUNCHER, headless: bool = True) -> int:
+        """Write the record a scene publishes once its port is bound, as AutomationPortFile does.
+
+        :param process: The fake scene.
+        :param scene: Scene id for the record.
+        :param root: Checkout the scene runs in; empty is the test's.
+        :param launcher: The launcher mark the scene copies from its system property; empty for
+            a window the user opened with F5.
+        :param headless: Whether the scene runs off-screen.
+        :return: The record's port.
+        """
+        port = 48100 + len(self.scenes)
+        self.scenes[port] = process
+        write_scene_record(root or self.root, {"port": port, "pid": process.pid, "scene": scene,
+                                               "headless": headless, "launcher": launcher})
+        return port
+
+    def record(self, pid: int) -> dict:
+        """Read one pid's record in the test checkout.
+
+        :param pid: Scene pid.
+        :return: The record, or ``{}`` when there is none.
+        """
+        return automation_client.read_port_file(
+            os.path.join(automation_client.records_directory(self.root), f"{pid}.json"))
+
+    def answer(self, request, timeout=0):
+        """Answer a route like a scene: request-exit ends the fake unless it is one that hangs.
+
+        :param request: The urllib request the CLI sent.
+        :param timeout: Ignored.
+        :return: The route's acknowledgement.
+        """
+        port = int(request.full_url.split(":")[2].split("/")[0])
+        process = self.scenes[port]
+        if request.full_url.endswith("/shutdown") and process.pid not in self.hung:
+            process.terminate()
+        return FakeResponse({"ok": True, "accepted": True})
+
+    def keep_alive_run(self, scene: str) -> dict:
+        """``run-scene --keep-alive`` with the build and readiness faked and the JVM a fake.
+
+        :param scene: Scene id.
+        :return: The run's result.
+        """
+        def ready(client, process, log_path, await_log, timeout):
+            # The pid is in the registry from the moment the JVM starts, before any port.
+            self.assertEqual({"pid": process.pid, "scene": scene, "headless": True,
+                              "launcher": "ixdar-cli"}, self.record(process.pid))
+            self.publish(process, scene)
+            return {"ready": True, "exited": False, "matched": [], "crash": [], "waited": 0.1}
+
+        with patch.object(run_scene, "ensure_build", return_value=[]), \
+                patch.object(run_scene, "_java_command", return_value=["java"]), \
+                patch.object(run_scene, "_mesh_summary", return_value={}), \
+                patch.object(run_scene, "_await_scene", side_effect=ready), \
+                patch.object(subprocess, "Popen", side_effect=self.spawn_scene) as popen:
+            result = run_scene.run(scene=scene, keep_alive=True,
+                                   log=os.path.join(self.root, "tmp", f"{scene}.log"))
+        self.assertEqual(1, popen.call_count)
+        return result
+
+    def shutdown(self, *arguments) -> tuple[int, dict]:
+        """Run ``ixdar-cli shutdown`` with no target against the fakes.
+
+        :param arguments: Extra arguments after ``shutdown``.
+        :return: ``(exitCode, report)``.
+        """
+        output = io.StringIO()
+        with patch("urllib.request.urlopen", side_effect=self.answer), patch("sys.stdout", output):
+            exit_code = ixdar_cli.main(["shutdown", *arguments])
+        return exit_code, json.loads(output.getvalue())
+
+    def test_a_second_keep_alive_scene_is_refused_naming_the_first(self):
+        first = self.keep_alive_run("quad-layout")
+        self.assertTrue(first["ok"])
+        output = io.StringIO()
+        with patch.object(subprocess, "Popen") as popen, patch("sys.stdout", output):
+            exit_code = ixdar_cli.main(["run-scene", "--scene", "quad-layout", "--keep-alive"])
+        popen.assert_not_called()
+        self.assertEqual(4, exit_code)
+        refusal = json.loads(output.getvalue())
+        self.assertIn(f"pid={first['pid']}", refusal["error"])
+        self.assertIn("ixdar-cli shutdown", refusal["error"])
+
+        exit_code, report = self.shutdown()
+        self.assertEqual(0, exit_code)
+        self.assertEqual([first["pid"]], [entry["pid"] for entry in report["stopped"]])
+        self.assertEqual({}, self.record(first["pid"]))
+
+    def test_launch_refuses_while_the_checkout_has_a_live_scene(self):
+        os.makedirs(os.path.join(self.root, ".vscode"))
+        with open(os.path.join(self.root, ".vscode", "launch.json"), "w", encoding="utf-8") as handle:
+            json.dump({"configurations": [{"name": "Quad Layout", "mainClass": "ixdar.canvas.IxdarWindow",
+                                           "args": "quad-layout"}]}, handle)
+        live = self.spawn_scene()
+        self.publish(live, "quad-layout")
+        output = io.StringIO()
+        with patch.object(subprocess, "Popen") as popen, patch("sys.stdout", output):
+            exit_code = ixdar_cli.main(["launch", "Quad Layout", "--keep-alive"])
+        popen.assert_not_called()
+        self.assertEqual(4, exit_code)
+        self.assertIn(f"pid={live.pid}", json.loads(output.getvalue())["error"])
+
+    def test_the_eng30_sweep_leaves_no_scene_alive(self):
+        # ENG-30's sweep: keep-alive launches with `shutdown` in between. Seed the state that
+        # leaked: two live scenes, one of which ignores request-exit, so the old shutdown
+        # refused to pick one and exited 4 while both stayed up.
+        launched = [self.keep_alive_run("quad-layout")["pid"]]
+        stray = self.spawn_scene()
+        automation_client.register_launch(stray.pid, "quad-layout", headless=True)
+        self.publish(stray, "quad-layout")
+        self.hung.add(stray.pid)
+        launched.append(stray.pid)
+        exit_code, report = self.shutdown("--timeout", "0.5")
+        self.assertEqual(0, exit_code, report)
+        by_pid = {entry["pid"]: entry for entry in report["stopped"]}
+        self.assertEqual(sorted(launched), sorted(by_pid))
+        self.assertTrue(by_pid[stray.pid]["killed"])
+        self.assertNotIn("killed", by_pid[launched[0]])
+
+        for scene in ("bolt", "fertility", "crawfish"):
+            launched.append(self.keep_alive_run(scene)["pid"])
+            self.assertEqual(0, self.shutdown("--timeout", "5")[0])
+
+        for process in self.scenes.values():
+            process.wait(timeout=5)
+        self.assertEqual([], [pid for pid in launched if automation_client.process_alive(pid)])
+        self.assertEqual([], automation_client.live_scenes(self.root))
+        self.assertEqual([], os.listdir(automation_client.records_directory(self.root)))
+
+    def test_a_scene_still_starting_is_refused_and_stopped(self):
+        # Registered at launch, no port bound yet: a parallel second launch must still see it.
+        starting = self.spawn_scene()
+        automation_client.register_launch(starting.pid, "crawfish", headless=True)
+        with self.assertRaisesRegex(automation_client.SceneResolutionError, f"pid={starting.pid}"):
+            automation_client.refuse_second_scene("run-scene")
+        exit_code, report = self.shutdown("--timeout", "5")
+        self.assertEqual(0, exit_code, report)
+        self.assertEqual("still starting, so sent SIGTERM", report["stopped"][0]["note"])
+        self.assertFalse(automation_client.process_alive(starting.pid))
+        self.assertEqual({}, self.record(starting.pid))
+
+    def test_shutdown_spares_f5_windows_and_other_checkouts(self):
+        cli_window = self.spawn_scene()
+        automation_client.register_launch(cli_window.pid, "mesh-viewer", headless=False)
+        self.publish(cli_window, "mesh-viewer", headless=False)
+        f5_window = self.spawn_scene()
+        self.publish(f5_window, "quad-layout", launcher="", headless=False)
+        other_root = make_checkout(os.path.join(self.root, "tmp", "other-worktree"))
+        elsewhere = self.spawn_scene()
+        self.publish(elsewhere, "crawfish", root=other_root)
+        exit_code, report = self.shutdown("--timeout", "5")
+        self.assertEqual(0, exit_code, report)
+        self.assertEqual([cli_window.pid], [entry["pid"] for entry in report["stopped"]])
+        self.assertIn(f"pid={f5_window.pid}", report["leftRunning"][0])
+        cli_window.wait(timeout=5)
+        self.assertTrue(automation_client.process_alive(f5_window.pid))
+        self.assertTrue(automation_client.process_alive(elsewhere.pid))
+        # The user's F5 window, left running, is no reason to refuse a launch.
+        automation_client.refuse_second_scene("run-scene")
 
 
 if __name__ == "__main__":

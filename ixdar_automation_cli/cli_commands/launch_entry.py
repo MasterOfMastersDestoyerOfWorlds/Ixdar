@@ -23,7 +23,14 @@ import subprocess
 import sys
 from typing import Annotated
 
-from ..automation_client import LOOPBACK_HOST, AutomationClient
+from ..automation_client import (
+    CLI_LAUNCHER,
+    LAUNCHER_PROPERTY,
+    LOOPBACK_HOST,
+    AutomationClient,
+    refuse_second_scene,
+    register_launch,
+)
 from ..build_state import ANNOTATIONS_CLASSES, CLASSES_DIR, CLASSPATH_FILE, IXDAR_APP_DIR, ensure_build
 from ..checkout import checkout_root
 from ..cli_registry import CliCommandResult, CliOption, cli_command
@@ -174,7 +181,7 @@ def launch_command(configuration: dict, root: str, port: int) -> list[str]:
     """Assemble the JVM command line for a launch entry.
 
     The classpath is this checkout's built one rather than the one the IDE computes, and the
-    only arguments added are the automation port and the headless switch, so what runs is
+    only arguments added are the automation port, the launcher mark and the headless switch, so what runs is
     otherwise the entry verbatim, with its own ``vmArgs``. The headless switch comes after the
     entry's own arguments so it wins over anything the entry says.
 
@@ -192,6 +199,7 @@ def launch_command(configuration: dict, root: str, port: int) -> list[str]:
     command = ["java", *resolve_vm_arguments(configuration, root)]
     command.append(f"-D{HEADLESS_PROPERTY}=true")
     command.append(f"-D{AUTOMATION_PORT_PROPERTY}={port}")
+    command.append(f"-D{LAUNCHER_PROPERTY}={CLI_LAUNCHER}")
     command.extend([
         "-cp",
         os.pathsep.join((CLASSES_DIR, ANNOTATIONS_CLASSES, classpath)),
@@ -241,6 +249,8 @@ def launch(
     This is the F5 path, driven: same main class, args, vmArgs (profiler agent included) and
     working directory, plus an automation port so the scene can be waited on and photographed,
     and the off-screen platform in place of a window so it runs from an agent session.
+    Like run-scene it records the JVM in ``tmp/automation/`` the moment it starts and refuses while
+    a scene ixdar-cli launched in this checkout is still alive.
 
     :param entry: Launch entry name, exact or a unique substring (see --list-entries).
     :param list_entries: List the launch entry names and exit.
@@ -249,7 +259,7 @@ def launch(
     :param log_lines: How many opening log lines to return.
     :param log: Log path (default: next free tmp/logs/<scene>-<entry>-<n>.log; latest-<scene>.log links the newest).
     :param skip_build: Launch the classes on disk even if stale; by default the build state decides, as for run-scene.
-    :param keep_alive: Leave the scene running instead of shutting it down.
+    :param keep_alive: Leave the scene running instead of shutting it down; stop it with ``ixdar-cli shutdown``.
     """
     root = checkout_root()
     configurations = read_configurations(root)
@@ -261,6 +271,7 @@ def launch(
         )
 
     configuration = find_configuration(configurations, entry)
+    refuse_second_scene("launch", root)
     name = configuration.get("name", entry)
     scene = entry_scene(configuration)
     log_path = os.path.abspath(log) if log else next_log_path(scene, name, root)
@@ -285,6 +296,7 @@ def launch(
             stderr=subprocess.STDOUT,
             start_new_session=True,
         )
+        register_launch(process.pid, name, headless=True, root=root)
         status = _await_scene(client, process, log_path, "", timeout)
         payload: dict = {
             "port": int(client.base_url.rsplit(":", 1)[1]),

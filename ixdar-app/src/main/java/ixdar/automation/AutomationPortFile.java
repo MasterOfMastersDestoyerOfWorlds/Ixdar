@@ -15,6 +15,7 @@ public class AutomationPortFile {
     public static final String MODULE_DIRECTORY = "ixdar-app";
     public static final String POM_FILE = "pom.xml";
     public static final String WORKING_DIRECTORY_PROPERTY = "user.dir";
+    public static final String CLI_LAUNCHER_PROPERTY = "ixdar.automation.launcher";
 
     /**
      * The checkout the JVM was launched from: the nearest ancestor of the working
@@ -48,8 +49,8 @@ public class AutomationPortFile {
     }
 
     /**
-     * Publish the bound port with this JVM's pid, scene id and headless flag, so the CLI can
-     * pick the scene it launched and never drive a window the user opened. Failures are ignored.
+     * Publish the bound port with pid, scene, headless flag and launcher, rewriting the
+     * port-less record ixdar-cli wrote at launch. Failures are ignored.
      *
      * @param port     the port the automation server actually bound
      * @param scene    the scene id the JVM was started with
@@ -62,6 +63,7 @@ public class AutomationPortFile {
         record.addProperty("pid", ProcessHandle.current().pid());
         record.addProperty("scene", scene == null ? "" : scene);
         record.addProperty("headless", headless);
+        record.addProperty("launcher", System.getProperty(CLI_LAUNCHER_PROPERTY, ""));
         try {
             Files.createDirectories(file.getParent());
             Files.writeString(file, record + "\n", StandardCharsets.UTF_8);

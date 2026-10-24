@@ -54,7 +54,9 @@ public class Shutdown extends AutomationEndpoint implements AutomationRoute {
 
     @Override
     public RouteDoc describe() {
+        // The CLI's own `shutdown` waits for the process and stops every scene of the checkout.
         return RouteDoc.builder()
+                .commandName("request-exit")
                 .description("Acknowledge, then asynchronously close the canvas and exit the process.")
                 .responseHint("{ok, accepted}")
                 .build();
