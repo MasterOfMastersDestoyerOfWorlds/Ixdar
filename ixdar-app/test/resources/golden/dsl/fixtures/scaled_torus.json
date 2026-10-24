@@ -1,0 +1,19 @@
+{
+  "statement": "p9",
+  "outputs": {
+    "net": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "41368201f47aa4921213a76ab0c9c0d646870362b767ea25f193d424338c2a3d",
+      "vertexCount": 1536,
+      "edgeCount": 4608,
+      "faceCount": 3072,
+      "triangleCount": 3072,
+      "boundaryEdgeCount": 0,
+      "slots": [],
+      "edgeMarks": [],
+      "nodeCount": 11,
+      "arcCount": 21,
+      "patchCount": 10
+    }
+  }
+}

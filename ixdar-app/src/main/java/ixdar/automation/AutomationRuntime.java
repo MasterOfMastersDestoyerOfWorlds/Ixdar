@@ -55,6 +55,13 @@ public class AutomationRuntime implements AutomationBackend {
     public final Queue<PendingMainThreadAction> pendingMainThreadActions = new ConcurrentLinkedQueue<>();
     public AutomationApiServer server;
     public boolean started;
+
+    /**
+     * Whether {@link #start} opens the HTTP server; the snapshot entry point clears it, calling
+     * the route handlers in-process, so it binds no port and publishes no port file.
+     */
+    public boolean serveHttp = true;
+
     public volatile Scene canvas;
     public volatile long renderThreadId = -1;
 
@@ -68,16 +75,15 @@ public class AutomationRuntime implements AutomationBackend {
     }
 
     /**
-     * Bind the runtime to a live render canvas and start the HTTP automation
-     * server, publishing the bound port to this process's own record under the
-     * checkout's {@code tmp/automation/}. Idempotent: subsequent calls only refresh
-     * the canvas reference, as {@link Scene#show} does each time a scene is shown.
+     * Bind the runtime to a live render canvas and, the first time while {@link #serveHttp} is
+     * on, start the HTTP server and publish its port under the checkout's {@code tmp/automation/}.
+     * Later calls only refresh the canvas.
      *
      * @param canvas3D the active render canvas; held so endpoints can drive scenes
      */
     @Override
     public synchronized void start(Scene canvas3D) {
-        if (started) {
+        if (started || !serveHttp) {
             canvas = canvas3D;
             return;
         }

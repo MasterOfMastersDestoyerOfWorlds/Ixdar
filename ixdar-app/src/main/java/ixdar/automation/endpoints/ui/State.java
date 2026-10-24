@@ -19,11 +19,11 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.command.Subsystem;
 import ixdar.audio.AudioSystem;
 import ixdar.automation.AutomationEndpoint;
+import ixdar.automation.endpoints.mesh.Fingerprint;
 import ixdar.canvas.IxdarWindow;
 import ixdar.game.City;
 import ixdar.game.CityNetwork;
 import ixdar.geometry.grid2d.IrregularQuadGrid;
-import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -416,24 +416,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             mesh.add("center", runtime.vector3Array(shown.center(new Vector3f())));
             mesh.add("boundingBoxMin", runtime.vector3Array(shown.boundsMin(new Vector3f())));
             mesh.add("boundingBoxMax", runtime.vector3Array(shown.boundsMax(new Vector3f())));
-            JsonArray edgeMarks = new JsonArray();
-            if (slots.get(EdgeMarks.SLOT) instanceof Map<?, ?> marks) {
-                for (Map.Entry<?, ?> entry : marks.entrySet()) {
-                    if (!(entry.getValue() instanceof boolean[] flags)) {
-                        continue;
-                    }
-                    int marked = 0;
-                    for (boolean edgeMarked : flags) {
-                        marked += edgeMarked ? 1 : 0;
-                    }
-                    JsonObject mark = new JsonObject();
-                    mark.addProperty(LABEL, String.valueOf(entry.getKey()));
-                    mark.addProperty(EDGE_COUNT, marked);
-                    mark.addProperty(FINGERPRINT, EdgeMarks.fingerprint(shown, flags));
-                    edgeMarks.add(mark);
-                }
-            }
-            mesh.add("edgeMarks", edgeMarks);
+            mesh.add("edgeMarks", Fingerprint.edgeMarks(bundle));
             root.add("mesh", mesh);
         }
         RegionLayer regionLayer = scene == null ? null : (RegionLayer) scene.dataset(Subsystem.RINGS);

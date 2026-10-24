@@ -11,6 +11,7 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <ixdar.test.heap>-Xmx4g</ixdar.test.heap>
     <ixdar.test.timeout>300s</ixdar.test.timeout>
+    <ixdar.test.excludedGroups>heavy</ixdar.test.excludedGroups>
     <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
   </properties>
 
@@ -58,6 +59,13 @@
         <configuration>
           <argLine>${ixdar.test.heap} --enable-native-access=ALL-UNNAMED -XX:ErrorFile=${project.build.directory}/hs_err_pid%p.log -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=${project.build.directory}</argLine>
           <forkedProcessExitTimeoutInSeconds>60</forkedProcessExitTimeoutInSeconds>
+          <!--
+            Tests tagged heavy (inputs outside the repository, or long runs) stay out of the default
+            run; `mvn test -Dixdar.test.excludedGroups= -Dgroups=heavy` runs only them. Tests tagged
+            mesh (they load meshes or run graphs) run by default;
+            `mvn test -Dixdar.test.excludedGroups=heavy,mesh` skips them too.
+          -->
+          <excludedGroups>${ixdar.test.excludedGroups}</excludedGroups>
           <properties>
             <configurationParameters>
               junit.jupiter.execution.timeout.default = ${ixdar.test.timeout}

@@ -1,0 +1,30 @@
+{
+  "statement": "ring",
+  "outputs": {
+    "geometry": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "bed88e9f359925925fe6c9e8130e342633d188ac59d76301a02971e4bd8839c8",
+      "vertexCount": 3072,
+      "edgeCount": 9216,
+      "faceCount": 6144,
+      "triangleCount": 6144,
+      "boundaryEdgeCount": 0,
+      "slots": [
+        "_curve",
+        "_edge_marks"
+      ],
+      "edgeMarks": [
+        {
+          "label": "ring_seed",
+          "edgeCount": 68,
+          "fingerprint": "f252fe8c67d7bab5"
+        },
+        {
+          "label": "ring_tightened",
+          "edgeCount": 48,
+          "fingerprint": "94ed3ea4832ce03d"
+        }
+      ]
+    }
+  }
+}

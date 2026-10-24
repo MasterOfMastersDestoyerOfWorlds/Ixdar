@@ -1,0 +1,19 @@
+{
+  "statement": "southCellPatchId",
+  "outputs": {
+    "net": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "109717aaa9d210164280f1d5425b691289f53467b5af571c01620951ebb4cf4c",
+      "vertexCount": 49,
+      "edgeCount": 132,
+      "faceCount": 84,
+      "triangleCount": 84,
+      "boundaryEdgeCount": 12,
+      "slots": [],
+      "edgeMarks": [],
+      "nodeCount": 5,
+      "arcCount": 8,
+      "patchCount": 5
+    }
+  }
+}

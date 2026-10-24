@@ -494,7 +494,7 @@
           "example": "geometry"
         }
       ],
-      "responseHint": "{ok, dsl, node, port, vertices, faces, timing...}; while another graph runs, {ok: false, running, error}",
+      "responseHint": "{ok, dsl, node, port, vertices, faces, fingerprint:{statement, outputs}, timing...}; while another graph runs, {ok: false, running, error}",
       "waitSeconds": 1800
     },
     {
@@ -602,7 +602,7 @@
       "sourceClass": "ixdar.automation.endpoints.mesh.Fingerprint",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/Fingerprint.java",
       "params": [],
-      "responseHint": "{algorithm, ok, sha256, vertexCount, faceCount, triangleCount}"
+      "responseHint": "{algorithm, ok, sha256, vertexCount, edgeCount, faceCount, triangleCount, boundaryEdgeCount, slots, edgeMarks:[{label, edgeCount, fingerprint}]}"
     },
     {
       "commandName": "mesh-holes",

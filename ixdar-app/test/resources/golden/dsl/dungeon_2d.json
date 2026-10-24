@@ -1,0 +1,16 @@
+{
+  "statement": "dungeon",
+  "outputs": {
+    "mesh": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "2db0fbd1e2ba2ca17b88f94da0616681fbb9bc36ec2bb6822cc92095cea4b55a",
+      "vertexCount": 8976,
+      "edgeCount": 8976,
+      "faceCount": 2244,
+      "triangleCount": 4488,
+      "boundaryEdgeCount": 8976,
+      "slots": [],
+      "edgeMarks": []
+    }
+  }
+}

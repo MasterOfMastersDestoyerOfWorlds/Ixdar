@@ -1,0 +1,19 @@
+{
+  "statement": "outerPatchId",
+  "outputs": {
+    "net": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "3487aaf098ffdc11a9a75a679c2fd784ce3c203e530926e87f7ec6fbbadce321",
+      "vertexCount": 61,
+      "edgeCount": 168,
+      "faceCount": 108,
+      "triangleCount": 108,
+      "boundaryEdgeCount": 12,
+      "slots": [],
+      "edgeMarks": [],
+      "nodeCount": 6,
+      "arcCount": 8,
+      "patchCount": 4
+    }
+  }
+}

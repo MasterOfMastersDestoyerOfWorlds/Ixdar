@@ -78,10 +78,16 @@ public class IxdarWindow {
     public static float startTime;
 
     public static long window;
+
+    /**
+     * Id of the scene the window shows, which ui-state reports; set from {@code args[0]} at
+     * startup, and by the snapshot entry point per scene it opens.
+     */
+    public static String canvasId;
+
     private static final String FATAL_PREFIX = "Exception in thread \"main\" ";
 
     private static volatile Scene canvas;
-    private static String canvasId;
     private static int windowWidth;
     private static int windowHeight;
 
@@ -125,16 +131,7 @@ public class IxdarWindow {
      * @throws RuntimeException when no scene is registered for the requested canvas id
      */
     public void runHeadless() {
-        int size = Integer.getInteger(HEADLESS_SIZE_PROPERTY, HEADLESS_DEFAULT_SIZE);
-        float scale = Float.parseFloat(System.getProperty(HEADLESS_SCALE_PROPERTY, HEADLESS_DEFAULT_DISPLAY_SCALE));
-        HeadlessPlatform platform = new HeadlessPlatform(size, size, scale);
-        platform.setPlatformID(HEADLESS_PLATFORM_ID);
-        LwjglGL gl = platform.getGL();
-        gl.setPlatformID(HEADLESS_PLATFORM_ID);
-        Platforms.init(platform, gl);
-        CholeskyBackend.preloadAsync();
-        gl.enable(gl.DEPTH_TEST());
-
+        int size = installHeadlessPlatform();
         Supplier<? extends SceneDrawable> sceneSupplier = CanvasSceneMap.MAP.get(canvasId);
         if (sceneSupplier == null) {
             throw new RuntimeException(CANVAS3D_NOT_FOUND_FOR + canvasId);
@@ -152,6 +149,26 @@ public class IxdarWindow {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    /**
+     * Install the off-screen platform every headless run draws through: a hidden window
+     * {@link #HEADLESS_SIZE_PROPERTY} pixels square, its framebuffer {@link #HEADLESS_SCALE_PROPERTY}
+     * times that, with depth testing on and the native Cholesky backend loading.
+     *
+     * @return the window size, in window pixels
+     */
+    public static int installHeadlessPlatform() {
+        int size = Integer.getInteger(HEADLESS_SIZE_PROPERTY, HEADLESS_DEFAULT_SIZE);
+        float scale = Float.parseFloat(System.getProperty(HEADLESS_SCALE_PROPERTY, HEADLESS_DEFAULT_DISPLAY_SCALE));
+        HeadlessPlatform platform = new HeadlessPlatform(size, size, scale);
+        platform.setPlatformID(HEADLESS_PLATFORM_ID);
+        LwjglGL gl = platform.getGL();
+        gl.setPlatformID(HEADLESS_PLATFORM_ID);
+        Platforms.init(platform, gl);
+        CholeskyBackend.preloadAsync();
+        gl.enable(gl.DEPTH_TEST());
+        return size;
     }
 
     /**

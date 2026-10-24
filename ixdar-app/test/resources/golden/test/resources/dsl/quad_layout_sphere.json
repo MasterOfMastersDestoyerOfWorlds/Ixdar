@@ -1,0 +1,98 @@
+{
+  "statement": "layout",
+  "outputs": {
+    "motorcycle": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "13678355e299c3a7618109d8dd2f5332a65f656d507584c96fdf7e4c1b75342c",
+      "vertexCount": 2176,
+      "edgeCount": 6522,
+      "faceCount": 4348,
+      "triangleCount": 4348,
+      "boundaryEdgeCount": 0,
+      "slots": [],
+      "edgeMarks": [],
+      "nodeCount": 247,
+      "arcCount": 474,
+      "patchCount": 229
+    },
+    "skeleton": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "13678355e299c3a7618109d8dd2f5332a65f656d507584c96fdf7e4c1b75342c",
+      "vertexCount": 2176,
+      "edgeCount": 6522,
+      "faceCount": 4348,
+      "triangleCount": 4348,
+      "boundaryEdgeCount": 0,
+      "slots": [],
+      "edgeMarks": [],
+      "nodeCount": 247,
+      "arcCount": 474,
+      "patchCount": 229
+    },
+    "tmesh": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "b8fa3b8b8beefd88a9949f86f12b72da105f5d343e05f698d9e892f7c0e448ec",
+      "vertexCount": 627,
+      "edgeCount": 1875,
+      "faceCount": 1250,
+      "triangleCount": 1250,
+      "boundaryEdgeCount": 0,
+      "slots": [],
+      "edgeMarks": [],
+      "nodeCount": 30,
+      "arcCount": 56,
+      "patchCount": 28
+    },
+    "surfaces": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "a4a111c1717586f110e8e14938b36d10695dfe666fa096b4f1aae1929f121ace",
+      "vertexCount": 18768,
+      "edgeCount": 36082,
+      "faceCount": 17342,
+      "triangleCount": 34684,
+      "boundaryEdgeCount": 2796,
+      "slots": [
+        "patch_id"
+      ],
+      "edgeMarks": []
+    },
+    "geometry": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "40014b1c6fdfe82f18074c6c17afdc43d7fd8c3bdbd3fa9ac29033efd9a1bf67",
+      "vertexCount": 17344,
+      "edgeCount": 34684,
+      "faceCount": 17342,
+      "triangleCount": 34684,
+      "boundaryEdgeCount": 0,
+      "slots": [],
+      "edgeMarks": []
+    },
+    "embedded": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "13678355e299c3a7618109d8dd2f5332a65f656d507584c96fdf7e4c1b75342c",
+      "vertexCount": 2176,
+      "edgeCount": 6522,
+      "faceCount": 4348,
+      "triangleCount": 4348,
+      "boundaryEdgeCount": 0,
+      "slots": [],
+      "edgeMarks": [],
+      "nodeCount": 247,
+      "arcCount": 474,
+      "patchCount": 229
+    },
+    "coons": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "873046fe0aa088e26109cf4e1cdae56acbe97382a6ff35420dd843192a56fa9c",
+      "vertexCount": 18768,
+      "edgeCount": 36082,
+      "faceCount": 17342,
+      "triangleCount": 34684,
+      "boundaryEdgeCount": 2796,
+      "slots": [
+        "patch_id"
+      ],
+      "edgeMarks": []
+    }
+  }
+}

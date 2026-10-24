@@ -1,0 +1,86 @@
+{
+  "statement": "ring_17",
+  "outputs": {
+    "geometry": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "9b592427aa08f6a2d10af6a27b667e4294f94795092f850dfe7ed2e062071043",
+      "vertexCount": 13971,
+      "edgeCount": 41931,
+      "faceCount": 27954,
+      "triangleCount": 27954,
+      "boundaryEdgeCount": 0,
+      "slots": [
+        "_curve",
+        "_edge_marks",
+        "_surface_splines"
+      ],
+      "edgeMarks": [
+        {
+          "label": "ring_05",
+          "edgeCount": 65,
+          "fingerprint": "9a5ac3f84905b2ed"
+        },
+        {
+          "label": "ring_06",
+          "edgeCount": 121,
+          "fingerprint": "068c39c971c95ae6"
+        },
+        {
+          "label": "ring_07",
+          "edgeCount": 59,
+          "fingerprint": "325216d5e65d908a"
+        },
+        {
+          "label": "ring_08",
+          "edgeCount": 33,
+          "fingerprint": "b07953158a0cb6d8"
+        },
+        {
+          "label": "ring_09",
+          "edgeCount": 31,
+          "fingerprint": "aac7cef8b3071670"
+        },
+        {
+          "label": "ring_10",
+          "edgeCount": 35,
+          "fingerprint": "acb0b32d7a2bbe4a"
+        },
+        {
+          "label": "ring_11",
+          "edgeCount": 37,
+          "fingerprint": "4df31d8a3f57d05d"
+        },
+        {
+          "label": "ring_12",
+          "edgeCount": 36,
+          "fingerprint": "cd0c82c320aca1f7"
+        },
+        {
+          "label": "ring_13",
+          "edgeCount": 21,
+          "fingerprint": "7ebcb02870b7cd6b"
+        },
+        {
+          "label": "ring_14",
+          "edgeCount": 25,
+          "fingerprint": "b7054d3e72243f9f"
+        },
+        {
+          "label": "ring_15",
+          "edgeCount": 49,
+          "fingerprint": "206b1ec1c499af46"
+        },
+        {
+          "label": "ring_16",
+          "edgeCount": 27,
+          "fingerprint": "f10fca21cbd8d4cf"
+        },
+        {
+          "label": "ring_17",
+          "edgeCount": 33,
+          "fingerprint": "d461ec025836a33d"
+        }
+      ]
+    }
+  }
+}

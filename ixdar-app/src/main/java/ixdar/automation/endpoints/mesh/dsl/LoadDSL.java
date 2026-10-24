@@ -11,6 +11,7 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.AutomationRuntime;
+import ixdar.automation.endpoints.mesh.Fingerprint;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 /**
@@ -38,7 +39,7 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
      *
      * @param body JSON body with {@code name}, optional {@code node} and {@code port}
      * @throws IOException never thrown directly; declared to satisfy the route contract
-     * @return {@code {ok, dsl, node, port, vertices, faces, timing}}, or {@code {ok: false, error}}
+     * @return {@code {ok, dsl, node, port, vertices, faces, fingerprint, timing}}, or {@code {ok: false, error}}
      *         with {@code running} naming the graph in progress when this submit was refused
      */
     @Override
@@ -79,6 +80,7 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
                     result.addProperty(PORT, port != null ? port : GEOMETRY);
                     result.addProperty("vertices", mvs.getMeshVertexCount());
                     result.addProperty("faces", mvs.getMeshFaceCount());
+                    result.add("fingerprint", Fingerprint.graphFingerprint(mvs.graph));
                     AutomationRuntime.appendTiming(mvs, result);
                     return result;
                 } finally {
@@ -111,7 +113,8 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
                         "Graph node whose output geometry becomes the active mesh.", "output")
                 .param(PORT, RouteParamType.STRING, false, GEOMETRY,
                         "Output port on the selected node to read geometry from.", GEOMETRY)
-                .responseHint("{ok, dsl, node, port, vertices, faces, timing...}; while another"
+                .responseHint("{ok, dsl, node, port, vertices, faces, fingerprint:{statement, outputs}, timing...};"
+                        + " while another"
                         + " graph runs, {ok: false, running, error}")
                 .waitSeconds(WAIT_SECONDS)
                 .build();

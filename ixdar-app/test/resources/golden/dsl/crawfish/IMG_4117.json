@@ -1,0 +1,27 @@
+{
+  "statement": "repaired",
+  "outputs": {
+    "geometry": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "bf09084476a9f4ef963b97b3fbf788ff5176aa709d0f5cd111de02318a2284a4",
+      "vertexCount": 549968,
+      "edgeCount": 1649958,
+      "faceCount": 1099972,
+      "triangleCount": 1099972,
+      "boundaryEdgeCount": 0,
+      "slots": [
+        "_edge_marks",
+        "_material",
+        "_repair_report",
+        "_uv"
+      ],
+      "edgeMarks": [
+        {
+          "label": "open_boundary",
+          "edgeCount": 0,
+          "fingerprint": "cbf29ce484222325"
+        }
+      ]
+    }
+  }
+}

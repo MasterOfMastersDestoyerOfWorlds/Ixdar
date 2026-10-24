@@ -1,0 +1,16 @@
+{
+  "statement": "smooth",
+  "outputs": {
+    "geometry": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "a5fc24c411bef0cc931d429dbbcb84389dcf4892040760e5be067012b0c29fee",
+      "vertexCount": 800,
+      "edgeCount": 1568,
+      "faceCount": 768,
+      "triangleCount": 1536,
+      "boundaryEdgeCount": 64,
+      "slots": [],
+      "edgeMarks": []
+    }
+  }
+}

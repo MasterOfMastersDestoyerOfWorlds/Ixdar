@@ -1,0 +1,51 @@
+{
+  "statement": "limb_cut",
+  "outputs": {
+    "geometry": {
+      "algorithm": "ixdar-mesh-fingerprint-v1",
+      "sha256": "9b592427aa08f6a2d10af6a27b667e4294f94795092f850dfe7ed2e062071043",
+      "vertexCount": 13971,
+      "edgeCount": 41931,
+      "faceCount": 27954,
+      "triangleCount": 27954,
+      "boundaryEdgeCount": 0,
+      "slots": [
+        "_curve",
+        "_edge_marks",
+        "_rings"
+      ],
+      "edgeMarks": [
+        {
+          "label": "ring_00",
+          "edgeCount": 71,
+          "fingerprint": "9a4a58c33bd1c8cf"
+        },
+        {
+          "label": "ring_01",
+          "edgeCount": 20,
+          "fingerprint": "da55e2ed0810b94e"
+        },
+        {
+          "label": "ring_02",
+          "edgeCount": 27,
+          "fingerprint": "66b014c3fe14edd5"
+        },
+        {
+          "label": "ring_03",
+          "edgeCount": 41,
+          "fingerprint": "977890025bbaba86"
+        },
+        {
+          "label": "ring_04",
+          "edgeCount": 33,
+          "fingerprint": "a7105bdade5f979c"
+        },
+        {
+          "label": "selected_ring",
+          "edgeCount": 41,
+          "fingerprint": "977890025bbaba86"
+        }
+      ]
+    }
+  }
+}
