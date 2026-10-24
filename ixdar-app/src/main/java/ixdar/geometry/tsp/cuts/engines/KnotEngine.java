@@ -1,17 +1,24 @@
 package ixdar.geometry.tsp.cuts.engines;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import ixdar.geometry.tsp.MultipleCyclesFoundException;
 import ixdar.geometry.tsp.cuts.CutMatch;
-import ixdar.geometry.tsp.cuts.DisjointUnionSets;
 import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.knot.Segment;
 import ixdar.geometry.tsp.shell.Shell;
+import ixdar.numeric.graph.UnionFind;
 
 public class KnotEngine {
     public ArrayList<Knot> unvisited;
     public ArrayList<Knot> knots;
+
+    /** Parent knot id per knot id in the {@link UnionFind} forest of knot groups. */
+    public int[] groupParent = new int[0];
+
+    /** Rank per knot id, which decides the surviving root, and so the group id, of a merge. */
+    public int[] groupRank = new int[0];
 
     int halfKnotCount = 0;
     int sameKnotPointCount = 0;
@@ -26,6 +33,18 @@ public class KnotEngine {
     public KnotEngine(Shell shell) {
         this.shell = shell;
         unvisited = new ArrayList<Knot>();
+    }
+
+    /**
+     * Add a knot to the forest as its own group, growing the arrays to cover its id. A reused id
+     * keeps its rank.
+     *
+     * @param knot knot whose id becomes its own parent
+     */
+    public void addGroup(Knot knot) {
+        groupParent = UnionFind.grow(groupParent, knot.id);
+        groupRank = Arrays.copyOf(groupRank, groupParent.length);
+        groupParent[knot.id] = knot.id;
     }
 
     /**
@@ -64,10 +83,9 @@ public class KnotEngine {
             throws MultipleCyclesFoundException {
 
         boolean updated = true;
-        DisjointUnionSets unionSets = Knot.unionSet;
         while (updated) {
             updated = false;
-            int size = unionSets.totalNumGroups();
+            int size = groupParent.length;
             CutMatch[] smallestMoveList = new CutMatch[size];
             int[] smallestMoveOtherGroup = new int[size];
             Knot[] knot1ByGroup = new Knot[size];
@@ -77,8 +95,8 @@ public class KnotEngine {
             smallestMove.delta = Double.MAX_VALUE;
             for (Knot k : knots) {
                 for (Knot o : knots) {
-                    int kGroup = Knot.unionSet.find(k);
-                    int oGroup = Knot.unionSet.find(o);
+                    int kGroup = UnionFind.find(groupParent, k.id);
+                    int oGroup = UnionFind.find(groupParent, o.id);
                     if (!(kGroup == oGroup)) {
                         CutMatch move = k.getDeltaDistTo(o);
                         if (move != null) {

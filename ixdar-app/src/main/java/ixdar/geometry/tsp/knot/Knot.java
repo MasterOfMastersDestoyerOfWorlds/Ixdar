@@ -11,18 +11,18 @@ import ixdar.geometry.tsp.PointSetPath;
 import ixdar.geometry.tsp.SegmentBalanceException;
 import ixdar.platform.Compat;
 import ixdar.geometry.tsp.cuts.CutMatch;
-import ixdar.geometry.tsp.cuts.DisjointUnionSets;
+import ixdar.geometry.tsp.cuts.engines.KnotEngine;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.geometry.tsp.shell.Shell;
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.actions.Action;
 import ixdar.gui.ui.text.HyperString;
+import ixdar.numeric.graph.UnionFind;
 
 public class Knot {
     public static final String KNOT = "Knot[ ";
     public static final String KNOT_CLOSE = "]";
     public static final String GROW_REQUIRES_A_SINGLETON = "grow requires a singleton";
-    public static DisjointUnionSets unionSet = new DisjointUnionSets();
 
     public int minMatches;
     public int maxMatches;
@@ -65,7 +65,7 @@ public class Knot {
         minMatches = 2;
         maxMatches = 2;
         matchCount = 0;
-        unionSet.addSet(this);
+        shell.knotEngine.addGroup(this);
     }
 
     /**
@@ -87,9 +87,10 @@ public class Knot {
         maxMatches = 2;
         knotPoints.add(k1);
         knotPoints.add(k2);
-        unionSet.addSet(this);
-        unionSet.union(this, k1);
-        unionSet.union(this, k2);
+        KnotEngine engine = shell.knotEngine;
+        engine.addGroup(this);
+        UnionFind.unionByRank(engine.groupParent, engine.groupRank, id, k1.id);
+        UnionFind.unionByRank(engine.groupParent, engine.groupRank, id, k2.id);
         for (Segment cut : smallestMove.cutSegments) {
             cut.first.removeMatch(cut.last);
             cut.last.removeMatch(cut.first);
@@ -296,7 +297,7 @@ public class Knot {
      */
     public void growByPoint(CutMatch smallestMove, Knot p) throws MultipleCyclesFoundException {
         knotPoints.add(p);
-        unionSet.union(this, p);
+        UnionFind.unionByRank(shell.knotEngine.groupParent, shell.knotEngine.groupRank, id, p.id);
         for (Segment cut : smallestMove.cutSegments) {
             cut.first.removeMatch(cut.last);
             cut.last.removeMatch(cut.first);
@@ -1029,9 +1030,10 @@ public class Knot {
         k2.topGroupKnot = loop;
 
         // Union sets
-        unionSet.addSet(loop);
-        unionSet.union(loop, k1);
-        unionSet.union(loop, k2);
+        KnotEngine engine = shell.knotEngine;
+        engine.addGroup(loop);
+        UnionFind.unionByRank(engine.groupParent, engine.groupRank, loop.id, k1.id);
+        UnionFind.unionByRank(engine.groupParent, engine.groupRank, loop.id, k2.id);
 
         // Store in record
         record.resultKnot = loop;
@@ -1137,7 +1139,8 @@ public class Knot {
         knot.maxMatches++;
 
         // Union sets
-        unionSet.union(knot, singleton);
+        UnionFind.unionByRank(knot.shell.knotEngine.groupParent, knot.shell.knotEngine.groupRank, knot.id,
+                singleton.id);
 
         // Store in record
         record.addedSeg1 = seg1;
@@ -1216,7 +1219,8 @@ public class Knot {
             parent.maxMatches++;
         }
 
-        unionSet.union(parent, b);
+        UnionFind.unionByRank(parent.shell.knotEngine.groupParent, parent.shell.knotEngine.groupRank, parent.id,
+                b.id);
 
         record.addedSeg1 = pipe1;
         record.addedSeg2 = pipe2;
@@ -1306,9 +1310,10 @@ public class Knot {
         b.topGroupKnot = newParent;
 
         // Union sets
-        unionSet.addSet(newParent);
-        unionSet.union(newParent, a);
-        unionSet.union(newParent, b);
+        KnotEngine engine = shell.knotEngine;
+        engine.addGroup(newParent);
+        UnionFind.unionByRank(engine.groupParent, engine.groupRank, newParent.id, a.id);
+        UnionFind.unionByRank(engine.groupParent, engine.groupRank, newParent.id, b.id);
 
         record.resultKnot = newParent;
         record.addedSeg1 = pipe1;
@@ -1425,7 +1430,7 @@ public class Knot {
         maxMatches++;
 
         // Union sets
-        unionSet.union(this, singleton);
+        UnionFind.unionByRank(shell.knotEngine.groupParent, shell.knotEngine.groupRank, id, singleton.id);
 
         // Store in record
         record.newEdge1 = newEdge1;
