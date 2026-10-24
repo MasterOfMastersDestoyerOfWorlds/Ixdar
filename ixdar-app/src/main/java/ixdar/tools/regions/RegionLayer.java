@@ -271,7 +271,8 @@ public final class RegionLayer {
             overlayStale = true;
         }
         boolean coloured = visible || scene.activeTool == scene.regionTool
-                || scene.ringTool.bisecting;
+                || scene.activeTool == scene.ringTool
+                        && scene.ringTool.activeSubTool == scene.ringTool.bisector;
         boolean exploding = explosion.target > 0f || explosion.exploded();
         if (runtime == null || surface == null || surface.faceCount() == 0
                 || !coloured && hiddenByActiveFace.length == 0 && !exploding) {

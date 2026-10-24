@@ -10,6 +10,8 @@ import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingAttachment;
+import ixdar.geometry.mesh.data.rings.RingSegmentMode;
+import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
@@ -37,13 +39,15 @@ public class SplineCutNode implements MeshNode {
     public static final InputPort ENDS = new InputPort("ends", PortType.STRING, "");
     public static final InputPort LABEL = new InputPort("label", PortType.STRING, NODE_ID);
     public static final InputPort METRIC = SplineRingNode.METRIC;
+    public static final InputPort MODE = SplineRingNode.MODE;
+    public static final InputPort CREASES = SplineRingNode.CREASES;
     public static final OutputPort GEOMETRY_OUT = new OutputPort(GEOMETRY.name,
             PortType.GEOMETRY_BUNDLE);
     public static final OutputPort SELECTION = new OutputPort("selection", PortType.BOOLEAN);
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(GEOMETRY, POINTS, ENDS, LABEL, METRIC);
+        return List.of(GEOMETRY, POINTS, ENDS, LABEL, METRIC, MODE, CREASES);
     }
 
     @Override
@@ -54,7 +58,7 @@ public class SplineCutNode implements MeshNode {
     @Override
     public String description() {
         return "A bisector: an open geodesic spline through authored anchors, traced like a "
-                + "spline_ring, its first and last anchor attached to the walls named in ends, "
+                + "spline_ring, or in crease mode the cheapest crease path joining them, its first and last anchor attached to the walls named in ends, "
                 + "rings or earlier bisectors on the bundle. It may cross other walls, and splits "
                 + "every region it crosses. The ends are linked: each is re-attached to its "
                 + "wall's nearest vertex on every evaluation, so editing the wall moves the end. "
@@ -82,6 +86,14 @@ public class SplineCutNode implements MeshNode {
                 "Required: the metric output of the surface_metric statement measured on this "
                         + "very mesh, the one every spline_ring of the chain shares. A bisector "
                         + "without one is refused.",
+                MODE.name,
+                "How the bisector runs between its anchors: \"geodesic\" (the default) is the "
+                        + "smooth open spline; \"crease\" is the cheapest path over the surface's "
+                        + "crease cost from each anchor to the next, so it follows the groove "
+                        + "they sit in.",
+                CREASES.name,
+                "The creases output of a surface_creases statement on this very mesh; required "
+                        + "by the crease mode and ignored by the geodesic one.",
                 SELECTION.name,
                 "Per-edge BoolField, true on every edge of the bisector.");
     }
@@ -135,8 +147,15 @@ public class SplineCutNode implements MeshNode {
                         + " end to sit on");
             }
         }
-        SurfaceSpline bisector = SurfaceSpline.bisector(SurfaceGeodesics.over(metric), anchors,
-                walls[0], walls[1]);
+        RingSegmentMode mode = RingSegmentMode.named(ctx.getInput(MODE.name, String.class));
+        SurfaceCreases creases = ctx.getInput(CREASES.name, SurfaceCreases.class);
+        if (mode == RingSegmentMode.CREASE && (creases == null || creases.sourceMesh != mesh)) {
+            throw new IllegalArgumentException(NODE_ID + " " + label + " runs in crease mode but "
+                    + "has no creases of its mesh; wire creases = surface_creases(geometry=...) on "
+                    + "the surface it bisects and pass creases=creases.creases");
+        }
+        SurfaceSpline bisector = SurfaceSpline.bisector(SurfaceGeodesics.over(metric),
+                mode == RingSegmentMode.CREASE ? creases : null, anchors, walls[0], walls[1]);
         if (bisector.marks.markedEdgeCount == 0) {
             throw new IllegalArgumentException(NODE_ID + " " + label + ": its snapped path does "
                     + "not join its two ends");

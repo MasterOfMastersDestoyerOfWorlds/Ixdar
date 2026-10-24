@@ -1,5 +1,6 @@
 package ixdar.tools;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import ixdar.graphics.cameras.Camera2D;
@@ -29,12 +30,40 @@ public abstract class Tool {
     public int mode;
 
     /**
+     * Tools this one owns and hands its own interaction to, in place of its default one, over the
+     * state they share; the scene never hosts them. Empty for a tool with none.
+     */
+    public final List<Tool> subTools = new ArrayList<>();
+
+    /** The one of {@link #subTools} taking the tool's input, or {@code null} while it takes it. */
+    public Tool activeSubTool;
+
+    /**
      * A tool working in the first of {@code modes}.
      *
      * @param modes labels of the tool's modes in switching order, none for a tool with one
      */
     protected Tool(String... modes) {
         this.modes = modes;
+    }
+
+    /**
+     * Hand the tool's input to one of its {@link #subTools}, or with {@code null} take it back: the
+     * sub-tool leaving deactivates and the one coming activates.
+     *
+     * @param subTool one of {@link #subTools}, or {@code null} for the tool's default interaction
+     */
+    public void switchSubTool(Tool subTool) {
+        if (subTool == activeSubTool) {
+            return;
+        }
+        if (activeSubTool != null) {
+            activeSubTool.deactivate();
+        }
+        activeSubTool = subTool;
+        if (subTool != null) {
+            subTool.activate();
+        }
     }
 
     /**

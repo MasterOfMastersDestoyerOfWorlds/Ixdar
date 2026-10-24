@@ -402,7 +402,8 @@ public final class RingDslWriter {
 
     /**
      * The DSL source with every spline ring and bisector wired to its {@code surface_metric}, made
-     * when missing, and every crease-mode ring to that surface's {@code surface_creases}.
+     * when missing, and every crease-mode ring and bisector to that surface's
+     * {@code surface_creases}.
      *
      * @param dslSource working graph
      * @throws IllegalArgumentException when a statement the wiring rewrites is bound twice
@@ -469,7 +470,7 @@ public final class RingDslWriter {
                 metricIdByStatement.put(statement.id, metricId);
             }
             Object mode = statement.arguments.get(SplineRingNode.MODE.name);
-            if (metricId == null || !SPLINE_RING_NODE.equals(statement.type)
+            if (metricId == null || !METRIC_RING_NODES.contains(statement.type)
                     || statement.arguments.get(SplineRingNode.CREASES.name)
                             instanceof PythonParser.NodeReference
                     || RingSegmentMode.named(mode instanceof String text ? text : null)
@@ -507,8 +508,8 @@ public final class RingDslWriter {
     }
 
     /**
-     * The DSL source with one spline ring's segment mode written in place: {@code mode=} after its
-     * anchors and normal, or dropped for the geodesic mode, which is the default.
+     * The DSL source with one spline ring's or bisector's segment mode written in place:
+     * {@code mode=} after its anchors and normal, or dropped for the geodesic mode, the default.
      *
      * @param dslSource working graph holding the statement
      * @param id        statement id to rewrite

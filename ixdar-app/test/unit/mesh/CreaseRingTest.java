@@ -200,7 +200,7 @@ class CreaseRingTest {
             assertEquals("", tool.lastError);
             assertArrayEquals(new int[] { hovered }, tool.draftAuthoredVertexId,
                     "the click anchored the ring off the cursor");
-            assertArrayEquals(tool.previewPlaneNormal, tool.draftBaseNormal,
+            assertArrayEquals(tool.closedRing.previewPlaneNormal, tool.draftBaseNormal,
                     "the click drafted on another plane than the hover");
             assertEquals(RingSegmentMode.CREASE, tool.draftMode);
             assertTrue(meanOffNotch(tool.draft) < IN_NOTCH,

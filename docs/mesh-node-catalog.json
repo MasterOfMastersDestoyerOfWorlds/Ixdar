@@ -4661,6 +4661,18 @@
           "portType": "SURFACE_METRIC",
           "description": "Required: the metric output of the surface_metric statement measured on this very mesh, the one every spline_ring of the chain shares. A bisector without one is refused.",
           "defaultValue": null
+        },
+        {
+          "name": "mode",
+          "portType": "STRING",
+          "description": "How the bisector runs between its anchors: \"geodesic\" (the default) is the smooth open spline; \"crease\" is the cheapest path over the surface\u0027s crease cost from each anchor to the next, so it follows the groove they sit in.",
+          "defaultValue": "geodesic"
+        },
+        {
+          "name": "creases",
+          "portType": "SURFACE_CREASES",
+          "description": "The creases output of a surface_creases statement on this very mesh; required by the crease mode and ignored by the geodesic one.",
+          "defaultValue": null
         }
       ],
       "outputs": [
@@ -4675,7 +4687,7 @@
           "description": "Per-edge BoolField, true on every edge of the bisector."
         }
       ],
-      "description": "A bisector: an open geodesic spline through authored anchors, traced like a spline_ring, its first and last anchor attached to the walls named in ends, rings or earlier bisectors on the bundle. It may cross other walls, and splits every region it crosses. The ends are linked: each is re-attached to its wall\u0027s nearest vertex on every evaluation, so editing the wall moves the end. Emits the snapped edge path, trimmed to touch its end walls only at its two ends, as edge marks the region flood takes as a wall."
+      "description": "A bisector: an open geodesic spline through authored anchors, traced like a spline_ring, or in crease mode the cheapest crease path joining them, its first and last anchor attached to the walls named in ends, rings or earlier bisectors on the bundle. It may cross other walls, and splits every region it crosses. The ends are linked: each is re-attached to its wall\u0027s nearest vertex on every evaluation, so editing the wall moves the end. Emits the snapped edge path, trimmed to touch its end walls only at its two ends, as edge marks the region flood takes as a wall."
     },
     {
       "id": "spline_ring",

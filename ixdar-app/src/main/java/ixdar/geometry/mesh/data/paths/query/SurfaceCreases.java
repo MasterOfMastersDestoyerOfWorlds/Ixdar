@@ -8,6 +8,8 @@ import ixdar.geometry.mesh.data.analysis.curvature.PrincipalDirectionField;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.numeric.graph.Dijkstra;
+import ixdar.numeric.graph.ShortestPathForest;
 
 /**
  * A surface's grooves as a cost over its edges: each vertex's valley strength in [0, 1], and each
@@ -177,5 +179,32 @@ public final class SurfaceCreases {
                 magnitude.length == 0 ? 0.0 : magnitude[magnitude.length / 2]);
         creases.buildMillis = (System.nanoTime() - start) / 1e6;
         return creases;
+    }
+
+    /**
+     * The cheapest path over {@link #edgeCost} between two vertices, the one hugging the groove
+     * that joins them.
+     *
+     * @param fromVertexId vertex the path starts on
+     * @param toVertexId   vertex the path ends on
+     * @return the path's vertex ids from one end to the other, both included, or an empty array
+     *         when no path joins them
+     */
+    public int[] path(int fromVertexId, int toVertexId) {
+        ShortestPathForest forest = Dijkstra.forest(sourceMesh, new int[] { fromVertexId }, edgeCost,
+                new int[] { toVertexId });
+        if (toVertexId >= forest.parent.length || forest.parent[toVertexId] < 0) {
+            return new int[0];
+        }
+        int steps = 1;
+        for (int vertexId = toVertexId; vertexId != fromVertexId; vertexId = forest.parent[vertexId]) {
+            steps++;
+        }
+        int[] path = new int[steps];
+        int slot = steps;
+        for (int vertexId = toVertexId; slot > 0; vertexId = forest.parent[vertexId]) {
+            path[--slot] = vertexId;
+        }
+        return path;
     }
 }

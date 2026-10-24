@@ -162,7 +162,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
 
     /**
      * What every tool's last input left, read from the {@link Tool} base: its name, last row and
-     * error, undo and redo heads when it keeps a history, and its mode with the options.
+     * error, undo and redo heads when it keeps a history, its mode with the options, and the
+     * sub-tool taking its input among its sub-tools, the tool's own name while none does.
      *
      * @param tool the tool
      * @return the tool's summary object
@@ -186,6 +187,15 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 modes.add(option);
             }
             state.add("modes", modes);
+        }
+        if (!tool.subTools.isEmpty()) {
+            state.addProperty("subTool", tool.activeSubTool == null ? tool.toolName()
+                    : tool.activeSubTool.toolName());
+            JsonArray subTools = new JsonArray();
+            for (Tool subTool : tool.subTools) {
+                subTools.add(subTool.toolName());
+            }
+            state.add("subTools", subTools);
         }
         return state;
     }

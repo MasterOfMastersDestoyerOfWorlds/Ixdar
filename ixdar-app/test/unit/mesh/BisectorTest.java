@@ -27,6 +27,7 @@ import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
+import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
@@ -43,6 +44,7 @@ import ixdar.platform.gl.GL;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
+import ixdar.tools.ring.BisectorTool;
 import ixdar.tools.ring.RingDslWriter;
 import ixdar.tools.ring.RingTool;
 import unit.GlStandIn;
@@ -93,6 +95,16 @@ class BisectorTest {
 
     private static final String CLICKED_ORDER = "ring_c";
 
+    private static final String WORKING_DSL = "tube.dsl";
+
+    // The groove dips a tenth of the radius, about a side wide, and bows this many sides off the
+    // straight line between its ends at the middle row.
+    private static final double GROOVE_DEPTH = 0.04;
+
+    private static final double GROOVE_HALF_WIDTH_SIDES = 1.0;
+
+    private static final int GROOVE_BEND = 8;
+
     private Platform suitePlatform;
 
     private GL suiteGl;
@@ -120,7 +132,8 @@ class BisectorTest {
         RingTool tool = toolOn(tube, null);
         ring(tool, FIRST_RING_ROW);
         ring(tool, SECOND_RING_ROW);
-        assertTrue(tool.startBisector(), tool.lastError);
+        press(tool, Keys.K);
+        assertEquals(tool.bisector, tool.activeSubTool, tool.lastError);
         assertTrue(click(tool, FIRST_RING_ROW, TOP_SIDE), tool.lastError);
         assertTrue(click(tool, SECOND_RING_ROW, TOP_SIDE), tool.lastError);
         int steer = vertex(MIDDLE_ROW, TOP_SIDE + PATCH_HALF_SIDES);
@@ -130,22 +143,123 @@ class BisectorTest {
 
         press(tool, Keys.X);
         assertEquals(2, tool.draftAuthoredVertexId.length, "X kept the selected anchor");
-        assertTrue(tool.bisecting, "X left the bisector instead of deleting a point");
+        assertEquals(tool.bisector, tool.activeSubTool,
+                "X left the bisector instead of deleting a point");
         press(tool, Keys.X);
         assertNull(tool.draft, "X did not delete the second end");
-        assertTrue(tool.bisectorStartVertexId >= 0, "the first end went with the second");
+        assertTrue(tool.bisector.startVertexId >= 0, "the first end went with the second");
         press(tool, Keys.X);
-        assertEquals(-1, tool.bisectorStartVertexId, "X did not delete the first end");
-        assertTrue(tool.bisecting);
+        assertEquals(-1, tool.bisector.startVertexId, "X did not delete the first end");
+        assertEquals(tool.bisector, tool.activeSubTool);
         assertTrue(tool.escapePressed());
-        assertFalse(tool.bisecting, "Esc did not leave the bisector");
+        assertEquals(tool.closedRing, tool.activeSubTool, "Esc did not leave the bisector");
+    }
+
+    /**
+     * The bisector is a sub-tool: K hands it the ring tool's input, the controls list the shared
+     * rows then the bisector's own, and Esc gives the input back to the rings.
+     */
+    @Test
+    void kHandsTheInputToTheBisectorAndEscGivesItBackToTheRings() {
+        RingTool tool = toolOn(tube(), null);
+        tool.scene.switchTool(tool);
+        assertEquals(tool.closedRing, tool.activeSubTool, "the rings are not the default sub-tool");
+        List<String> ringRows = rows(tool);
+        assertTrue(ringRows.contains("K  bisect") && ringRows.contains("X  discard draft"),
+                ringRows.toString());
+        press(tool, Keys.K);
+        assertEquals(tool.bisector, tool.activeSubTool);
+        assertEquals(tool, tool.scene.activeTool, "the scene sees another tool than the ring tool");
+        List<String> bisectorRows = rows(tool);
+        assertEquals(ringRows.subList(0, ringRows.indexOf("click  draft ring / add or pick anchor")),
+                bisectorRows.subList(0, bisectorRows.indexOf("click  " + BisectorTool.CLICK_HINT)),
+                "the shared rows changed with the sub-tool");
+        assertTrue(bisectorRows.contains("X  " + BisectorTool.DELETE_POINT_HINT)
+                && bisectorRows.contains("K  " + BisectorTool.LEAVE), bisectorRows.toString());
+        assertTrue(tool.escapePressed());
+        assertEquals(tool.closedRing, tool.activeSubTool);
+        assertEquals(ringRows, rows(tool), "Esc did not bring the rings' rows back");
+    }
+
+    /**
+     * T switches the bisector to crease mode: it follows a bent groove the geodesic between its
+     * ends cuts across, and its spline_cut statement reloads the same edges in crease mode.
+     */
+    @Test
+    void aCreaseBisectorFollowsTheGrooveAndSavesAndReloadsTheSameEdges(@TempDir Path folder)
+            throws IOException {
+        MeshTopology grooved = tube(GROOVE_DEPTH);
+        Path dsl = folder.resolve(WORKING_DSL);
+        Files.write(dsl, CARRIER.getBytes(StandardCharsets.UTF_8));
+        RingTool tool = toolOn(grooved, dsl);
+        int first = ring(tool, FIRST_RING_ROW);
+        int second = ring(tool, SECOND_RING_ROW);
+        press(tool, Keys.K);
+        press(tool, Keys.T);
+        assertEquals(RingSegmentMode.CREASE, tool.newDraftMode(), tool.lastError);
+        int crease = bisect(tool, vertex(FIRST_RING_ROW, TOP_SIDE), vertex(SECOND_RING_ROW, TOP_SIDE));
+        assertEquals(RingSegmentMode.CREASE, tool.confirmedMode.get(crease));
+        boolean[] drawn = tool.confirmedRings.get(crease).marks.markedByEdgeId;
+        assertTrue(touches(grooved, drawn, vertex(MIDDLE_ROW, TOP_SIDE + GROOVE_BEND)),
+                "the crease bisector does not follow the groove");
+        SurfaceSpline geodesic = SurfaceSpline.bisector(tool.geodesics, null,
+                new int[] { vertex(FIRST_RING_ROW, TOP_SIDE), vertex(SECOND_RING_ROW, TOP_SIDE) },
+                tool.confirmedRings.get(first).marks.markedByEdgeId,
+                tool.confirmedRings.get(second).marks.markedByEdgeId);
+        assertFalse(touches(grooved, geodesic.marks.markedByEdgeId,
+                vertex(MIDDLE_ROW, TOP_SIDE + GROOVE_BEND)), "the geodesic follows the groove too, "
+                        + "so the groove tests nothing");
+
+        assertTrue(tool.saveRings(), tool.lastError);
+        String saved = new String(Files.readAllBytes(dsl), StandardCharsets.UTF_8);
+        PythonParser.ParsedNode written = PythonParser.parse(saved).get(PythonParser.parse(saved)
+                .size() - 1);
+        assertEquals(SplineCutNode.NODE_ID, written.type, saved);
+        assertEquals(RingSegmentMode.CREASE.dslName, written.arguments.get(SplineCutNode.MODE.name),
+                saved);
+        assertTrue(written.arguments.get(SplineCutNode.CREASES.name)
+                instanceof PythonParser.NodeReference, "the save left the crease bisector without "
+                        + "creases:\n" + saved);
+        String bisectorId = tool.confirmedStatementIds.get(crease);
+        GeometryBundle bundle = GeometryBundle.ofMesh(grooved);
+        bundle = EdgeMarks.with(bundle, tool.confirmedStatementIds.get(first),
+                tool.confirmedRings.get(first).marks.markedByEdgeId);
+        bundle = EdgeMarks.with(bundle, tool.confirmedStatementIds.get(second),
+                tool.confirmedRings.get(second).marks.markedByEdgeId);
+        SplineCutNode node = new SplineCutNode();
+        MapNodeContext ctx = new MapNodeContext(node);
+        ctx.setInput(SplineCutNode.GEOMETRY.name, bundle);
+        ctx.setInput(SplineCutNode.POINTS.name, written.arguments.get(SplineCutNode.POINTS.name));
+        ctx.setInput(SplineCutNode.ENDS.name, written.arguments.get(SplineCutNode.ENDS.name));
+        ctx.setInput(SplineCutNode.LABEL.name, bisectorId);
+        ctx.setInput(SplineCutNode.METRIC.name, tool.geodesics.metric);
+        ctx.setInput(SplineCutNode.MODE.name, written.arguments.get(SplineCutNode.MODE.name));
+        ctx.setInput(SplineCutNode.CREASES.name, tool.creases);
+        node.evaluate(ctx);
+        assertArrayEquals(drawn, EdgeMarks.bools(
+                ctx.getOutput(SplineCutNode.GEOMETRY.name, GeometryBundle.class), bisectorId),
+                "the crease spline_cut statement reloads other edges than the bisector drawn");
+
+        tool.scene.ringMarksByLabel.put(tool.confirmedStatementIds.get(first),
+                tool.confirmedRings.get(first).marks.markedByEdgeId);
+        tool.scene.ringMarksByLabel.put(tool.confirmedStatementIds.get(second),
+                tool.confirmedRings.get(second).marks.markedByEdgeId);
+        tool.scene.ringMarksByLabel.put(bisectorId, drawn);
+        tool.scene.graph = NodeGraphRuntime.fromSource(saved);
+        tool.graphRingsChanged();
+        tool.adoptGraphRings(grooved);
+        int reloaded = tool.confirmedSourceLabel.indexOf(bisectorId);
+        assertTrue(reloaded >= 0, "the crease bisector was not adopted: " + tool.lastError);
+        assertEquals(RingSegmentMode.CREASE, tool.confirmedMode.get(reloaded));
+        assertArrayEquals(drawn, tool.confirmedRings.get(reloaded).marks.markedByEdgeId,
+                "the reloaded crease bisector runs along other edges");
     }
 
     @Test
     void anUnsavedRingIsAWallAndTheBisectorSavesAndReloadsWithIt(@TempDir Path folder)
             throws IOException {
         MeshTopology tube = tube();
-        Path dsl = folder.resolve("tube.dsl");
+        Path dsl = folder.resolve(WORKING_DSL);
         Files.write(dsl, CARRIER.getBytes(StandardCharsets.UTF_8));
         RingTool tool = toolOn(tube, dsl);
         int first = ring(tool, FIRST_RING_ROW);
@@ -348,7 +462,9 @@ class BisectorTest {
         assertTrue(crossing >= 0, "the clicked-order bisector was not adopted: "
                 + clicked.lastError);
         assertTrue(clicked.reopenRing(crossing), clicked.lastError);
-        assertFalse(clicked.draftSimple, "anchors in click order should double back and cross");
+        assertEquals(clicked.bisector, clicked.activeSubTool, "the bisector re-opened in the rings");
+        assertFalse(clicked.bisector.draftSimple,
+                "anchors in click order should double back and cross");
         assertFalse(clicked.confirmDraft(), "a crossing bisector was confirmed");
         assertTrue(clicked.lastError.contains("crosses itself"), clicked.lastError);
     }
@@ -378,13 +494,16 @@ class BisectorTest {
      * @return the confirmed bisector's index
      */
     private static int bisect(RingTool tool, int firstEnd, int secondEnd, int... steering) {
-        assertTrue(tool.bisecting || tool.startBisector(), tool.lastError);
+        if (tool.activeSubTool != tool.bisector) {
+            press(tool, Keys.K);
+        }
+        assertEquals(tool.bisector, tool.activeSubTool, tool.lastError);
         assertTrue(click(tool, firstEnd), tool.lastError);
         assertTrue(click(tool, secondEnd), tool.lastError);
         for (int anchor : steering) {
             assertTrue(tool.addAuthoredAnchor(anchor), tool.lastError);
         }
-        assertTrue(tool.draftSimple, tool.lastRow);
+        assertTrue(tool.bisector.draftSimple, tool.lastRow);
         assertTrue(tool.confirmDraft(), tool.lastError);
         return tool.confirmedRings.size() - 1;
     }
@@ -393,10 +512,43 @@ class BisectorTest {
         return click(tool, vertex(row, side));
     }
 
+    /** A click on a vertex as the ring tool hands it to the bisector, once its pick found it. */
     private static boolean click(RingTool tool, int vertexId) {
         Vector3f position = new Vector3f();
         tool.geodesics.mesh.vertexPosition(vertexId, position);
-        return tool.placeBisectorEnd(vertexId, new float[] { position.x, position.y, position.z });
+        tool.scene.cursorVertexId = vertexId;
+        tool.scene.cursorPoint[0] = position.x;
+        tool.scene.cursorPoint[1] = position.y;
+        tool.scene.cursorPoint[2] = position.z;
+        tool.lastError = "";
+        return tool.bisector.onClick(0f, 0f);
+    }
+
+    /** The ring tool's control rows as the controls menu lists them. */
+    private static List<String> rows(RingTool tool) {
+        List<ControlHint> controls = new ArrayList<>();
+        tool.addControls(controls);
+        List<String> rows = new ArrayList<>();
+        for (ControlHint control : controls) {
+            rows.add(control.toString());
+        }
+        return rows;
+    }
+
+    /** Whether any marked edge ends on a vertex or on one of its neighbours. */
+    private static boolean touches(MeshTopology mesh, boolean[] marks, int vertexId) {
+        for (int spoke = 0; spoke < mesh.vertexEdgeCount(vertexId); spoke++) {
+            int near = mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, spoke), vertexId);
+            for (int around : new int[] { vertexId, near }) {
+                for (int edge = 0; edge < mesh.vertexEdgeCount(around); edge++) {
+                    int edgeId = mesh.vertexEdgeAt(around, edge);
+                    if (edgeId < marks.length && marks[edgeId]) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /** Run the action a key is bound to in the ring tool, as pressing it does. */
@@ -480,15 +632,28 @@ class BisectorTest {
 
     /** A straight open tube along x. */
     private static MeshTopology tube() {
+        return tube(0.0);
+    }
+
+    /**
+     * A straight open tube along x, a groove of the given depth running from the top of the first
+     * ring row to the top of the second, bowed {@link #GROOVE_BEND} sides round at the middle row.
+     */
+    private static MeshTopology tube(double grooveDepth) {
         float[] positions = new float[COORDINATES * TUBE_SIDES * TUBE_RINGS];
         for (int row = 0; row < TUBE_RINGS; row++) {
             float x = -TUBE_HALF_LENGTH + 2f * TUBE_HALF_LENGTH * row / (TUBE_RINGS - 1);
+            double along = (row - FIRST_RING_ROW) / (double) (SECOND_RING_ROW - FIRST_RING_ROW);
+            double grooveSide = TOP_SIDE + GROOVE_BEND * Math.sin(Math.PI * along);
             for (int side = 0; side < TUBE_SIDES; side++) {
                 double angle = 2.0 * Math.PI * side / TUBE_SIDES;
+                double fromGroove = (side - grooveSide) / GROOVE_HALF_WIDTH_SIDES;
+                double radius = TUBE_RADIUS - (along < 0.0 || along > 1.0 ? 0.0
+                        : grooveDepth * Math.exp(-fromGroove * fromGroove));
                 int base = COORDINATES * vertex(row, side);
                 positions[base] = x;
-                positions[base + 1] = (float) (TUBE_RADIUS * Math.cos(angle));
-                positions[base + 2] = (float) (TUBE_RADIUS * Math.sin(angle));
+                positions[base + 1] = (float) (radius * Math.cos(angle));
+                positions[base + 2] = (float) (radius * Math.sin(angle));
             }
         }
         int[] faces = new int[2 * COORDINATES * TUBE_SIDES * (TUBE_RINGS - 1)];

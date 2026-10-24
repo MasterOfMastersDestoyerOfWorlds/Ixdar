@@ -8,11 +8,12 @@ import java.util.Set;
 
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
+import ixdar.tools.Tool;
 
 /**
- * What one ring tool edit can change, captured whole: the confirmed rings, the draft and the
- * graph rings turned into tool rings. The traced splines are shared, not copied, since the tool
- * replaces them rather than mutating them, so restoring one is exact and needs no re-trace.
+ * What one ring tool edit can change, captured whole: the confirmed rings, the draft, the graph
+ * rings turned into tool rings and the sub-tool working on them. Traced splines are shared, never
+ * copied, since the tool replaces rather than mutates them.
  */
 public final class RingToolState {
 
@@ -82,6 +83,12 @@ public final class RingToolState {
     /** Serial of the wall that first end sat on, or -1. */
     public final int bisectorStartWall;
 
+    /** Sub-tool the ring tool handed its input to. */
+    public final Tool activeSubTool;
+
+    /** Sub-tool that owned the draft, the rings when there was none. */
+    public final RingSubTool draftOwner;
+
     /**
      * Capture the tool's editable state as it stands.
      *
@@ -100,10 +107,12 @@ public final class RingToolState {
         confirmedRingSerial = new ArrayList<>(tool.confirmedRingSerial);
         convertedGraphLabels = new HashSet<>(tool.convertedGraphLabels);
         draft = tool.draft;
-        draftBisectorEnds = tool.draftBisectorEnds;
-        draftSimple = tool.draftSimple;
-        bisectorStartVertexId = tool.bisectorStartVertexId;
-        bisectorStartWall = tool.bisectorStartWall;
+        draftBisectorEnds = tool.bisector.draftEnds;
+        draftSimple = tool.bisector.draftSimple;
+        bisectorStartVertexId = tool.bisector.startVertexId;
+        bisectorStartWall = tool.bisector.startWall;
+        activeSubTool = tool.activeSubTool;
+        draftOwner = tool.draftOwner;
         draftAuthoredVertexId = tool.draftAuthoredVertexId;
         draftBaseNormal = Arrays.copyOf(tool.draftBaseNormal, tool.draftBaseNormal.length);
         draftMode = tool.draftMode;
@@ -196,12 +205,14 @@ public final class RingToolState {
         tool.draftSourceRing = draftSourceRing;
         tool.draftSourceLabel = draftSourceLabel;
         tool.draftDepth = draftDepth;
-        tool.draftBisectorEnds = draftBisectorEnds;
-        tool.draftSimple = draftSimple;
-        tool.bisectorStartVertexId = bisectorStartVertexId;
-        tool.bisectorStartWall = bisectorStartWall;
-        // A first end waiting for its second is only ever placed while bisecting.
-        tool.bisecting |= bisectorStartVertexId >= 0;
+        tool.bisector.draftEnds = draftBisectorEnds;
+        tool.bisector.draftSimple = draftSimple;
+        tool.bisector.startVertexId = bisectorStartVertexId;
+        tool.bisector.startWall = bisectorStartWall;
+        // Back in the sub-tool the state was captured in, so a bisector draft is edited in the
+        // bisector and a ring draft in the rings.
+        tool.switchSubTool(activeSubTool);
+        tool.draftOwner = draftOwner;
         boolean selectionKept = false;
         for (int held : draftAuthoredVertexId) {
             selectionKept |= held == tool.selectedAnchorVertexId;
@@ -210,7 +221,7 @@ public final class RingToolState {
             tool.selectedAnchorVertexId = -1;
         }
         tool.hoveredAnchor = -1;
-        tool.hoveredRing = -1;
+        tool.closedRing.hoveredRing = -1;
         tool.draggingAnchor = false;
         tool.invalidateRings();
     }

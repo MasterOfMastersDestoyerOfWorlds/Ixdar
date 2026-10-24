@@ -13,6 +13,7 @@ import ixdar.geometry.mesh.data.paths.geodesic.ConformingLoopSnap;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
+import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingAttachment;
 
@@ -110,32 +111,82 @@ public final class SurfaceSpline {
     }
 
     /**
-     * A bisector through authored anchors whose first and last sit on walls: the open geodesic
-     * spline, walled by the longest run of its snapped edge path touching those walls only at its
-     * ends. Walls it crosses on the way do not stop it.
+     * A bisector through anchors whose ends sit on walls, the open geodesic spline or the cheapest
+     * crease path: the longest run of its edge path touching those walls only at its ends.
      *
      * @param geodesics       engine over the surface the bisector lies on
+     * @param creases         groove cost of that surface the crease mode follows, or {@code null}
+     *                        for the geodesic spline
      * @param anchorVertexIds mesh vertices it passes through in order, both ends on walls
      * @param startWall       edge-id-indexed wall the first anchor sits on
      * @param endWall         edge-id-indexed wall the last anchor sits on, possibly the same
-     * @return the bisector, with no marked edge when its snapped path does not join its two ends
+     * @return the bisector, with no marked edge when its edge path does not join its two ends
      */
-    public static SurfaceSpline bisector(SurfaceGeodesics geodesics, int[] anchorVertexIds,
-            boolean[] startWall, boolean[] endWall) {
+    public static SurfaceSpline bisector(SurfaceGeodesics geodesics, SurfaceCreases creases,
+            int[] anchorVertexIds, boolean[] startWall, boolean[] endWall) {
         MeshTopology mesh = geodesics.mesh;
         SurfaceSplineTracer tracer = new SurfaceSplineTracer(geodesics);
         tracer.open = true;
         boolean[] authored = new boolean[anchorVertexIds.length];
         Arrays.fill(authored, true);
-        boolean traced = tracer.setAnchors(anchorVertexIds, authored, anchorVertexIds.length);
-        SurfaceSpline spline = unsnapped(tracer);
         boolean[] marks = new boolean[RingBundle.edgeIdCeiling(mesh)];
         boolean[] snapped = new boolean[0];
         int unresolvedGaps = 0;
-        if (traced) {
-            ConformingLoopSnap snap = new ConformingLoopSnap();
-            snapped = snap.snap(mesh, spline.path);
-            unresolvedGaps = snap.unresolvedGaps;
+        boolean traced;
+        SurfaceSpline spline;
+        if (creases == null) {
+            traced = tracer.setAnchors(anchorVertexIds, authored, anchorVertexIds.length);
+            spline = unsnapped(tracer);
+            if (traced) {
+                ConformingLoopSnap snap = new ConformingLoopSnap();
+                snapped = snap.snap(mesh, spline.path);
+                unresolvedGaps = snap.unresolvedGaps;
+            }
+        } else {
+            // The crease bisector is its edge path: each span the cheapest crease path to the next
+            // anchor, the anchors its only control points, drawn along the edges it marks.
+            int[] walk = { anchorVertexIds[0] };
+            for (int anchor = 0; anchor + 1 < anchorVertexIds.length && walk.length > 0; anchor++) {
+                int[] span = creases.path(anchorVertexIds[anchor], anchorVertexIds[anchor + 1]);
+                if (span.length == 0) {
+                    walk = new int[0];
+                    continue;
+                }
+                int[] grown = Arrays.copyOf(walk, walk.length + span.length - 1);
+                System.arraycopy(span, 1, grown, walk.length, span.length - 1);
+                walk = grown;
+            }
+            traced = walk.length > 1;
+            spline = new SurfaceSpline();
+            spline.mesh = mesh;
+            spline.anchorCount = anchorVertexIds.length;
+            spline.anchorAuthored = authored;
+            spline.anchorVertexId = Arrays.copyOf(anchorVertexIds, anchorVertexIds.length);
+            spline.anchorXyz = new float[COORDINATES_PER_POINT * anchorVertexIds.length];
+            double[] walkXyz = new double[COORDINATES_PER_POINT * walk.length];
+            int[] noEdge = new int[walk.length];
+            double[] noFraction = new double[walk.length];
+            Arrays.fill(noEdge, -1);
+            Arrays.fill(noFraction, -1.0);
+            snapped = new boolean[marks.length];
+            Vector3f position = new Vector3f();
+            for (int point = 0; point < walk.length; point++) {
+                mesh.vertexPosition(walk[point], position);
+                walkXyz[COORDINATES_PER_POINT * point] = position.x;
+                walkXyz[COORDINATES_PER_POINT * point + 1] = position.y;
+                walkXyz[COORDINATES_PER_POINT * point + 2] = position.z;
+                if (point > 0) {
+                    snapped[mesh.edgeBetween(walk[point - 1], walk[point])] = true;
+                }
+            }
+            for (int anchor = 0; anchor < anchorVertexIds.length; anchor++) {
+                mesh.vertexPosition(anchorVertexIds[anchor], position);
+                spline.anchorXyz[COORDINATES_PER_POINT * anchor] = position.x;
+                spline.anchorXyz[COORDINATES_PER_POINT * anchor + 1] = position.y;
+                spline.anchorXyz[COORDINATES_PER_POINT * anchor + 2] = position.z;
+            }
+            spline.path = new TracedSurfacePath(walkXyz, walk, noEdge, noFraction, walk.length,
+                    false).measure();
         }
         // The walk runs over the snapped edges' own vertices, sorted so a vertex finds its slot
         // by binary search, which keeps its arrays the size of the path, not of the mesh.
