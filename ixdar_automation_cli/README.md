@@ -24,12 +24,13 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | Command | Description |
 | --- | --- |
 | [`click`](#click) | Click at a point, or on a drawn label by its text, on the active mouse handler, then wait for the click to be drawn. |
+| [`control`](#control) | Fire a tool's control row by its key label, active tool or not, switching to the tool first as its switch key would, and report the outcome as key and click do. |
 | [`drag`](#drag) | Drag with the left button from one window point to another, a frame drawn after every step. |
 | [`frame`](#frame) | Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it. |
 | [`health`](#health) | Liveness probe reporting server status, recording/replaying flags, and port. |
 | [`hover`](#hover) | Move the cursor without clicking, then wait for the hover to be drawn. |
 | [`hover-clear`](#hover-clear) | Release the persistent automation hover lock on the active mouse handler. |
-| [`key`](#key) | Deliver a named key event to the active key handler and report whether it was consumed. |
+| [`key`](#key) | Deliver a named key event to the active key handler and report what took it: the control row it fired, or that nothing did, and the active tool's state after. |
 | [`mesh-compare`](#mesh-compare) | Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics. |
 | [`mesh-dsl`](#mesh-dsl) | Load and execute a named DSL skill graph, making its output geometry the active mesh. |
 | [`mesh-dsl-graph`](#mesh-dsl-graph) | Report the DSL graph view of the active model scene: every node's box, depth and run time, every edge, the critical path, the zoom and the scroll bars. |
@@ -63,11 +64,12 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`replay-resume`](#replay-resume) | Clear the paused flag on the replay engine; no-op when nothing is running. |
 | [`replay-start`](#replay-start) | Launch a replay from a previously saved recording file. |
 | [`replay-status`](#replay-status) | Snapshot of the replay engine: running flag, status, current file, paused flag. |
+| [`request-exit`](#request-exit) | Acknowledge, then asynchronously close the canvas and exit the process. |
 | [`rings-list`](#rings-list) | Rank the neck rings a mesh's skeleton proposes, most neck-like first. |
 | [`screenshot`](#screenshot) | Capture a PNG screenshot of the current framebuffer to a file. |
 | [`scroll`](#scroll) | Deliver a synthesized two-axis scroll event to the active mouse handler. |
-| [`shutdown`](#shutdown) | Acknowledge, then asynchronously close the canvas and exit the process. |
 | [`terminal`](#terminal) | Run one line in the scene terminal and return the history lines it produced. |
+| [`tools`](#tools) | List every tool the active scene hosts, active or not: switch key, description, modes and full controls with their modifiers, which `control` fires by key label. |
 | [`type`](#type) | Synthesize character events on the active key handler, one per character of the text. |
 | [`ui-state`](#ui-state) | Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio. |
 | [`words`](#words) | List the words the last frame drew and the labels they make: text, rectangle in framebuffer and window pixels, clickable, visible, culled and owning view; a visible label's click pixel is what click --label clicks. |
@@ -102,8 +104,8 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`profile-report`](#profile-report) | Report self-time hot methods from an async-profiler HTML capture. |
 | [`quilt-mesh-compare`](#quilt-mesh-compare) | Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as Java). |
 | [`run-scene`](#run-scene) | Build, launch, wait for, optionally profile and screenshot, then shut down a scene. |
+| [`shutdown`](#shutdown) | Stop every scene ixdar-cli started in this checkout, or the one named, once each is gone. |
 | [`start-new-game`](#start-new-game) | Leave the menu by clicking Start New Game. |
-| [`stop-scene`](#stop-scene) | Ask the scene to exit and return only once its process is gone. |
 | [`teavm-build`](#teavm-build) | Package the TeaVM web bundle on a JDK 25, failing on any TeaVM [ERROR] or a stub classes.js. |
 | [`trade-hover-scan`](#trade-hover-scan) | Scan trade cities until the requested toolbar tooltip appears. |
 | [`validate-route-ops`](#validate-route-ops) | Validate trade route operations against the running app. |
@@ -127,8 +129,22 @@ Click at a point, or on a drawn label by its text, on the active mouse handler, 
   - `--button` (int, default `0`) — GLFW mouse button code., e.g. `1`
   - `--count` (int, default `1`) — Press/release pairs delivered back to back; 2 is a double-click., e.g. `2`
   - `--settle` (int, default `2`) — Frames to wait for after the click, so a screenshot needs no sleep; 0 returns at once., e.g. `0`
-- **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, label?, view?}}, or {ok:false, error, candidates} when a label refuses`
+- **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, label?, view?}, activeTool, previousTool?, control (the controls-menu row clicked, else null), tool?:{name, lastRow, error, undo/redo heads, mode?}}, or {ok:false, error, candidates} when a label refuses`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"label": "Start New Game", "within": "TERMINAL", "index": 1, "x": 0.5, "y": 0.25, "normalized": true, "button": 1, "count": 2, "settle": 0}'`
+
+### `control`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/FireControl.java)
+
+Fire a tool's control row by its key label, active tool or not, switching to the tool first as its switch key would, and report the outcome as key and click do.
+
+- **Route:** `POST /ui/tools/control`
+- **Flags:**
+  - `--tool` (string, default ``) — Tool name as the tools listing gives it; the active tool when left out., e.g. `region tool`
+  - `--key` (string, required) — The row's key label as the tools listing shows it, ignoring case., e.g. `shift+H`
+  - `--settle` (int, default `2`) — Frames to wait for after the row fired; 0 returns at once., e.g. `0`
+- **Response:** `{ok, key, control, settled, activeTool, previousTool?, tool:{name, lastRow, error, undo heads, mode?}}, or {ok:false, error, candidates}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/tools/control -d '{"tool": "region tool", "key": "shift+H", "settle": 0}'`
 
 ### `drag`
 
@@ -208,14 +224,14 @@ Release the persistent automation hover lock on the active mouse handler.
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectKey.java)
 
-Deliver a named key event to the active key handler and report whether it was consumed.
+Deliver a named key event to the active key handler and report what took it: the control row it fired, or that nothing did, and the active tool's state after.
 
 - **Route:** `POST /input/key`
 - **Flags:**
   - `--key` (string, required) — Key name, with optional modifiers: ESCAPE, GRAVE, RIGHT_BRACKET, P, SHIFT+P, CTRL+SHIFT+S. Raw GLFW codes are rejected., e.g. `SHIFT+P`
   - `--action` (string, default `tap`) — Event action: tap (press then release), press, release or repeat., e.g. `press`
   - `--settle` (int, default `2`) — Frames to wait for after the key, so a screenshot needs no sleep; 0 returns at once., e.g. `0`
-- **Response:** `{ok, key, keyCode, mods, action, consumed, settled}`
+- **Response:** `{ok, key, keyCode, mods, action, consumed, handled, reason?, settled, activeTool, previousTool?, control:{key, description, keyCode, controlHeld, shiftHeld}|null, tool?:{name, lastRow, error, undoDepth?, redoDepth?, nextUndo?, nextRedo?, mode?, modes?}}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/key -d '{"key": "SHIFT+P", "action": "press", "settle": 0}'`
 
 ### `mesh-compare`
@@ -244,7 +260,7 @@ Load and execute a named DSL skill graph, making its output geometry the active 
   - `--name` (string, required) — Name of the DSL skill graph to run., e.g. `skeleton-decompose`
   - `--node` (string, default ``) — Graph node whose output geometry becomes the active mesh., e.g. `output`
   - `--port` (string, default `geometry`) — Output port on the selected node to read geometry from., e.g. `geometry`
-- **Response:** `{ok, dsl, node, port, vertices, faces, timing...}; while another graph runs, {ok: false, running, error}`
+- **Response:** `{ok, dsl, node, port, vertices, faces, fingerprint:{statement, outputs}, timing...}; while another graph runs, {ok: false, running, error}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/dsl -d '{"name": "skeleton-decompose", "node": "output", "port": "geometry"}'`
 
 ### `mesh-dsl-graph`
@@ -303,7 +319,7 @@ Write the active viewer mesh, with normals and per-corner UVs, to a glTF binary 
 Compute the canonical SHA-256 fingerprint of the active viewer mesh.
 
 - **Route:** `GET /mesh/fingerprint`
-- **Response:** `{algorithm, ok, sha256, vertexCount, faceCount, triangleCount}`
+- **Response:** `{algorithm, ok, sha256, vertexCount, edgeCount, faceCount, triangleCount, boundaryEdgeCount, slots, edgeMarks:[{label, edgeCount, fingerprint}]}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/mesh/fingerprint`
 
 ### `mesh-holes`
@@ -631,6 +647,16 @@ Snapshot of the replay engine: running flag, status, current file, paused flag.
 - **Response:** `{replaying, status, file, paused}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/replay/status`
 
+### `request-exit`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/Shutdown.java)
+
+Acknowledge, then asynchronously close the canvas and exit the process.
+
+- **Route:** `POST /shutdown`
+- **Response:** `{ok, accepted}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/shutdown -d '{}'`
+
 ### `rings-list`
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/ListRings.java)
@@ -673,16 +699,6 @@ Deliver a synthesized two-axis scroll event to the active mouse handler.
 - **Response:** `{ok}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/scroll -d '{"delta": -1.5, "deltaX": 0.5}'`
 
-### `shutdown`
-
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/Shutdown.java)
-
-Acknowledge, then asynchronously close the canvas and exit the process.
-
-- **Route:** `POST /shutdown`
-- **Response:** `{ok, accepted}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/shutdown -d '{}'`
-
 ### `terminal`
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/RunTerminalLine.java)
@@ -695,6 +711,16 @@ Run one line in the scene terminal and return the history lines it produced.
   - `--settle` (int, default `2`) — Frames to wait for after the command runs; 0 returns at once., e.g. `0`
 - **Response:** `{ok, line, response, settled}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/terminal -d '{"line": "rings list", "settle": 0}'`
+
+### `tools`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/Tools.java)
+
+List every tool the active scene hosts, active or not: switch key, description, modes and full controls with their modifiers, which `control` fires by key label.
+
+- **Route:** `GET /ui/tools`
+- **Response:** `{ok, sceneClass, activeTool, defaultTool, tools:[{the ui-state tool object (name, displayName, shortName, description, lastRow, error, undo heads, mode, modes, controls, draft, preview, hovered, items), active, switchKey:{key, description, keyCode, controlHeld, shiftHeld}|null}]}`
+- **Direct call:** `curl -s http://127.0.0.1:47832/ui/tools`
 
 ### `type`
 
@@ -715,7 +741,7 @@ Synthesize character events on the active key handler, one per character of the 
 Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.
 
 - **Route:** `GET /ui/state`
-- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ring?, collection?, knotEditor?, textElements, menuItems, controls, audio}`
+- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ringTool?, rings?, errorToasts?, regions?, collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls, audio}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/state`
 
 ### `words`
@@ -869,7 +895,7 @@ Install a global ixdar-cli wrapper into ~/.local/bin (ixdar-cli.cmd on Windows).
 
 ### `launch`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/launch_entry.py#L228)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/launch_entry.py#L236)
 
 Run a .vscode/launch.json entry headless, then report its first log lines and a screenshot.
 
@@ -880,7 +906,7 @@ Run a .vscode/launch.json entry headless, then report its first log lines and a 
 - `--log-lines` — How many opening log lines to return.
 - `--log` — Log path (default: next free tmp/logs/<scene>-<entry>-<n>.log; latest-<scene>.log links the newest).
 - `--skip-build` — Launch the classes on disk even if stale; by default the build state decides, as for run-scene.
-- `--keep-alive` — Leave the scene running instead of shutting it down.
+- `--keep-alive` — Leave the scene running instead of shutting it down; stop it with ``ixdar-cli shutdown``.
 
 ### `link-profiler`
 
@@ -926,7 +952,7 @@ Validate the current mesh viewer payload.
 
 ### `mesh-viewer`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/mesh_viewer.py#L167)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/mesh_viewer.py#L177)
 
 Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
 
@@ -978,7 +1004,7 @@ Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as 
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L526)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L535)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
@@ -999,8 +1025,16 @@ Build, launch, wait for, optionally profile and screenshot, then shut down a sce
 - `--multiview` — Capture an 8-angle multiview composite to this path once ready.
 - `--log` — Log path (default: next free tmp/logs/<scene>-<mesh>-<n>.log; latest-<scene>.log links the newest).
 - `--skip-build` — Launch the classes on disk even if stale, after syncing newer resources; by default the build state decides.
-- `--keep-alive` — Leave the scene running, returning only once it reports ready.
+- `--keep-alive` — Leave the scene running, returning only once it reports ready; stop it with ``ixdar-cli shutdown``.
 - `--top` — How many profile-report hot methods or partly-covered classes to report.
+
+### `shutdown`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/shutdown_scene.py#L57)
+
+Stop every scene ixdar-cli started in this checkout, or the one named, once each is gone.
+
+- `--timeout` — Seconds to wait for each process to exit before killing it.
 
 ### `start-new-game`
 
@@ -1010,14 +1044,6 @@ Leave the menu by clicking Start New Game.
 
 - `--button` — Mouse button index to press.
 - `--no-fallback-scan` — Disable the fallback click scan when menu bounds are missing.
-
-### `stop-scene`
-
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/shutdown_scene.py#L45)
-
-Ask the scene to exit and return only once its process is gone.
-
-- `--timeout` — Seconds to wait for the process to disappear.
 
 ### `teavm-build`
 
