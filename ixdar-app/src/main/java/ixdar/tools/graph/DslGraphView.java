@@ -144,6 +144,11 @@ public class DslGraphView extends Tool {
         return TOOL_NAME;
     }
 
+    @Override
+    public String desc() {
+        return "Show the model's DSL node graph with each node's run time in place of the 3D view";
+    }
+
     /**
      * Give the window's pointer to the graph's scroll, subscribing it over the window, and draw
      * the graph in place of the 3D view.

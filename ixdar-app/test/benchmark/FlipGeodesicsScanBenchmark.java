@@ -95,8 +95,8 @@ public final class FlipGeodesicsScanBenchmark {
     }
 
     /**
-     * The CRAW-23 ring row for one walking leg, on the shell rather than the raw scan: the scene
-     * and {@code /mesh/rings/add} refuse IMG_4109 itself until CRAW-26 repairs its non-manifold
+     * The CRAW-23 ring row for one walking leg, on the shell rather than the raw scan: the ring
+     * scene refuses IMG_4109 itself until CRAW-26 repairs its non-manifold
      * edges, so the row is produced here the way the timings above are.
      *
      * @throws IOException if the scan cannot be read

@@ -10,13 +10,14 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
-import ixdar.platform.Clock;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.InputSettle;
+import ixdar.gui.terminal.Terminal;
 import ixdar.input.KeyGuy;
 import ixdar.platform.input.KeyActions;
 import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.Keys;
+import ixdar.tools.Tool;
 
 @AutomationRouteAnnotation(path = "input/key", method = APIMethod.POST)
 public class InjectKey extends AutomationEndpoint implements AutomationRoute {
@@ -26,7 +27,8 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
     public static final String SETTLE = "settle";
     public static final String KEY_CODE = "keyCode";
     public static final String CONSUMED = "consumed";
-    public static final String SETTLED = "settled";
+    public static final String HANDLED = "handled";
+    public static final String REASON = "reason";
 
     /**
      * {@code POST /input/key}: deliver a named key event to the active key handler and report
@@ -37,8 +39,9 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
      *             {@code release}, {@code repeat}; default {@code tap}) and {@code settle}
      *             (frames to wait for after the input; default 2)
      * @throws IOException never thrown directly; declared to satisfy the route contract
-     * @return {@code {"ok", "key", "keyCode", "mods", "action", "consumed", "settled"}}, or an
-     *         error object when the key name is unparseable or no key handler is active
+     * @return the key, whether anything took it and why not, and once it settled the active tool,
+     *         the control row it fired and the tool's shared state; an error object when the key
+     *         name is unparseable or no key handler is active
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         String spec = body.has(KEY) && !body.get(KEY).isJsonNull()
@@ -64,15 +67,8 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
         } catch (IllegalArgumentException badSpec) {
             return failure(badSpec.getMessage());
         }
-        long[] appliedDuringFrame = new long[1];
-        JsonObject result;
-        try {
-            result = runtime.runOnMainThread(() -> {
+        return InputSettle.settledInput(runtime, settleFrames, () -> {
                 KeyGuy keys = runtime.activeKeys();
-                if (keys == null) {
-                    return failure("No active key handler");
-                }
-                appliedDuringFrame[0] = Clock.framesRendered();
                 int consumedBefore = KeyActions.keysConsumed;
                 deliver(keys, keyCode, mods, modifierKeys, actionCode, tap);
                 JsonObject payload = new JsonObject();
@@ -87,15 +83,21 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
                 applied.addProperty(MODS, mods);
                 applied.addProperty(ACTION, action);
                 applied.addProperty(CONSUMED, KeyActions.keysConsumed > consumedBefore);
+                // The dispatcher's own answer: a control row fired, or the focused terminal took the key.
+                boolean terminalTook = keys.lastFiredControl == null && KeyGuy.terminalOwnsKey(keyCode)
+                        && Terminal.current != null;
+                applied.addProperty(HANDLED, keys.lastFiredControl != null || terminalTook);
+                Tool tool = keys.canvas.activeTool;
+                if (terminalTook) {
+                    applied.addProperty(REASON, "the focused terminal took " + spec
+                            + ", not the scene; ~ gives the keys back to the scene");
+                } else if (keys.lastFiredControl == null) {
+                    applied.addProperty(REASON, "nothing took " + spec + ": no control row of the scene "
+                            + (tool == null ? "" : "or of its active tool '" + tool.toolName() + "' ")
+                            + "is bound to it with these modifiers");
+                }
                 return applied;
             });
-        } catch (Exception e) {
-            return failure(e.getMessage());
-        }
-        if (result.has(OK) && result.get(OK).getAsBoolean()) {
-            result.addProperty(SETTLED, InputSettle.awaitFrames(appliedDuringFrame[0], settleFrames));
-        }
-        return result;
     }
 
     /**
@@ -132,7 +134,8 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
     public RouteDoc describe() {
         return RouteDoc.builder()
                 .commandName(KEY)
-                .description("Deliver a named key event to the active key handler and report whether it was consumed.")
+                .description("Deliver a named key event to the active key handler and report what took it: "
+                        + "the control row it fired, or that nothing did, and the active tool's state after.")
                 .param(KEY, RouteParamType.STRING, true, "",
                         "Key name, with optional modifiers: ESCAPE, GRAVE, RIGHT_BRACKET, P, SHIFT+P, CTRL+SHIFT+S. "
                                 + "Raw GLFW codes are rejected.",
@@ -141,7 +144,10 @@ public class InjectKey extends AutomationEndpoint implements AutomationRoute {
                         "Event action: tap (press then release), press, release or repeat.", "press")
                 .param(SETTLE, RouteParamType.INT, false, String.valueOf(InputSettle.DEFAULT_FRAMES),
                         "Frames to wait for after the key, so a screenshot needs no sleep; 0 returns at once.", "0")
-                .responseHint("{ok, key, keyCode, mods, action, consumed, settled}")
+                .responseHint("{ok, key, keyCode, mods, action, consumed, handled, reason?, settled, "
+                        + "activeTool, previousTool?, control:{key, description, keyCode, controlHeld, "
+                        + "shiftHeld}|null, tool?:{name, lastRow, error, undoDepth?, redoDepth?, nextUndo?, "
+                        + "nextRedo?, mode?, modes?}}")
                 .build();
     }
 }

@@ -963,21 +963,18 @@ class CliTest(unittest.TestCase):
         self.assertEqual("fertility_in_tri.off", body["path"])
         self.assertAlmostEqual(0.6, body["min_neckness"])
 
-    @patch("urllib.request.urlopen")
-    def test_rings_add_command_posts_points_under_a_group(self, urlopen):
-        # The route declares the grouped command name "rings add", so the CLI parses two words.
-        urlopen.return_value = FakeResponse({"ok": True, "edgeCount": 96})
-        exit_code = ixdar_cli.main(
-            ["rings", "add", "--points", "1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65"]
-        )
-        self.assertEqual(0, exit_code)
-        request = urlopen.call_args.args[0]
-        self.assertEqual("POST", request.method)
-        self.assertTrue(request.full_url.endswith("/mesh/rings/add"))
-        body = json.loads(request.data.decode("utf-8"))
-        self.assertEqual("1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65", body["points"])
-        # The ring is confirmed into the ring tool; the old FlipOut tighten switch is gone.
-        self.assertNotIn("tighten", body)
+    def test_a_command_name_with_a_space_parses_as_a_group_subcommand(self):
+        # No route declares a grouped name now, so the grouping is checked on a synthetic route.
+        import argparse
+        from ixdar_automation_cli import server_routes
+        parser = argparse.ArgumentParser()
+        route = {"commandName": "shapes add", "params": [
+            {"name": "points", "cliName": "points", "type": "string", "required": True,
+             "default": "", "help": "", "example": "", "positional": False}]}
+        server_routes.add_server_parsers(parser.add_subparsers(dest="command"),
+                                         {"shapes add": route})
+        parsed = parser.parse_args(["shapes", "add", "--points", "1,0,0"])
+        self.assertEqual(("shapes add", "1,0,0"), (parsed.resolved_command, parsed.points))
 
     def test_a_post_the_scene_is_still_working_on_is_sent_once(self):
         # A real server slower than the client's timeout: the CRAW-55 15-minute graph, shrunk.
@@ -1034,9 +1031,11 @@ class CliTest(unittest.TestCase):
         self.assertEqual(0, ixdar_cli.main(["health"]))
         self.assertEqual(2, urlopen.call_count)
 
-    def test_rings_add_route_is_registered_under_its_group(self):
-        ixdar_cli._build_parser()
-        self.assertIn("rings add", ixdar_cli._server_commands())
+    def test_no_route_drives_one_tool(self):
+        commands = ixdar_cli._server_commands()
+        for retired in ("rings add", "rings bisect", "regions", "connection"):
+            self.assertNotIn(retired, commands)
+        self.assertIn("control", commands)
 
     @patch("urllib.request.urlopen")
     def test_hover_command_posts_payload(self, urlopen):
@@ -1413,6 +1412,38 @@ class CliTest(unittest.TestCase):
         self.assertEqual(0, ixdar_cli.main(["key", "--key", "SHIFT+P"]))
         body = json.loads(urlopen.call_args[0][0].data.decode("utf-8"))
         self.assertEqual({"key": "SHIFT+P", "action": "tap", "settle": 2}, body)
+
+    @patch("urllib.request.urlopen")
+    def test_key_reply_prints_the_tool_and_control_it_reached(self, urlopen):
+        reply = {"ok": True, "consumed": False, "handled": False, "control": None,
+                 "reason": "nothing took P", "activeTool": "ring tool",
+                 "tool": {"name": "ring tool", "lastRow": "", "error": "", "nextUndo": ""}}
+        urlopen.return_value = FakeResponse(reply)
+        with patch("sys.stdout", new_callable=io.StringIO) as stdout:
+            self.assertEqual(0, ixdar_cli.main(["key", "--key", "P"]))
+        printed = json.loads(stdout.getvalue())
+        self.assertFalse(printed["handled"])
+        self.assertEqual("ring tool", printed["tool"]["name"])
+        self.assertIn("handled", ixdar_cli._server_commands()["key"]["responseHint"])
+
+    @patch("urllib.request.urlopen")
+    def test_tools_command_gets_the_scene_s_tool_listing(self, urlopen):
+        urlopen.return_value = FakeResponse({"ok": True, "activeTool": "orbit", "tools": []})
+        self.assertEqual(0, ixdar_cli.main(["tools"]))
+        request = urlopen.call_args[0][0]
+        self.assertTrue(request.full_url.endswith("/ui/tools"))
+        self.assertEqual("GET", request.method)
+        self.assertFalse(any("tool" in route for route in ixdar_cli._server_commands().values()),
+                         "no route is mapped to a tool")
+
+    @patch("urllib.request.urlopen")
+    def test_control_command_fires_a_tool_row_by_its_key_label(self, urlopen):
+        urlopen.return_value = FakeResponse({"ok": True, "key": "shift+H", "activeTool": "region tool"})
+        self.assertEqual(0, ixdar_cli.main(["control", "--tool", "region tool", "--key", "shift+H"]))
+        request = urlopen.call_args[0][0]
+        self.assertTrue(request.full_url.endswith("/ui/tools/control"))
+        self.assertEqual({"tool": "region tool", "key": "shift+H", "settle": 2},
+                         json.loads(request.data.decode("utf-8")))
 
     @patch("urllib.request.urlopen")
     def test_terminal_command_posts_the_line_to_its_route(self, urlopen):

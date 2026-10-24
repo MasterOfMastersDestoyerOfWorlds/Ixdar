@@ -79,8 +79,8 @@ public class SelectionBounds {
             return ring(scene, name);
         }
         if (REGION.equals(kind)) {
-            // Comma-separated region numbers as the regions command reports them, or the region
-            // tool's selection.
+            // Comma-separated region numbers as the region tool's item labels carry them, or the
+            // region tool's selection.
             RingRegions regions = scene instanceof RingScene ringScene
                     && ringScene.regionLayer.regions != null
                     && ringScene.regionLayer.regions.mesh == ringScene.halfEdgeSurface()

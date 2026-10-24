@@ -84,6 +84,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
 
     public static final String TRADE = "trade";
 
+    public static final String TOOL = "tool";
+
     public static final String DESCRIPTION = "description";
 
     public static final String MODE = "mode";
@@ -147,18 +149,15 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     }
 
     /**
-     * A tool in the one shape every tool shares: names, last row and error, undo heads, mode,
-     * controls, draft, preview, hovered item and items, read from the {@link Tool} base and its
-     * accessors.
+     * What every tool's last input left, read from the {@link Tool} base: its name, last row and
+     * error, undo and redo heads when it keeps a history, and its mode with the options.
      *
      * @param tool the tool
-     * @return the tool's object
+     * @return the tool's summary object
      */
-    private static JsonObject toolState(Tool tool) {
+    public static JsonObject toolSummary(Tool tool) {
         JsonObject state = new JsonObject();
         state.addProperty(NAME, tool.toolName());
-        state.addProperty("displayName", tool.displayName());
-        state.addProperty(DESCRIPTION, tool.desc());
         state.addProperty("lastRow", tool.lastRow);
         state.addProperty(ERROR, tool.lastError);
         EditHistory<?> history = tool.history();
@@ -176,6 +175,22 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             }
             state.add("modes", modes);
         }
+        return state;
+    }
+
+    /**
+     * A tool in the one shape every tool shares, the one ui-state and the tools listing write:
+     * names, description, last row and error, undo heads, mode, controls, draft, preview, hovered
+     * item and items, read from the {@link Tool} base and its accessors.
+     *
+     * @param tool the tool
+     * @return the tool's object
+     */
+    public static JsonObject toolState(Tool tool) {
+        JsonObject state = toolSummary(tool);
+        state.addProperty("displayName", tool.displayName());
+        state.addProperty("shortName", tool.shortName());
+        state.addProperty(DESCRIPTION, tool.desc());
         List<ControlHint> hints = new ArrayList<>();
         tool.addControls(hints);
         state.add(CONTROLS, controls(hints));
@@ -215,12 +230,12 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     }
 
     /**
-     * Control hints as ui-state lists them: key label, description, key code, Control held.
+     * Control hints as ui-state lists them: key label, description, key code, Control and Shift held.
      *
      * @param hints the hints
      * @return one object per hint
      */
-    private static JsonArray controls(List<ControlHint> hints) {
+    public static JsonArray controls(List<ControlHint> hints) {
         JsonArray controls = new JsonArray();
         for (ControlHint hint : hints) {
             JsonObject control = new JsonObject();
@@ -228,6 +243,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             control.addProperty(DESCRIPTION, hint.description);
             control.addProperty("keyCode", hint.keyCode);
             control.addProperty("controlHeld", hint.controlHeld);
+            control.addProperty("shiftHeld", hint.shiftHeld);
             controls.add(control);
         }
         return controls;
@@ -486,7 +502,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             root.add("knotEditor", knotEditor);
         }
         if (scene != null && scene.activeTool != null) {
-            root.add("tool", toolState(scene.activeTool));
+            root.add(TOOL, toolState(scene.activeTool));
         }
 
         JsonArray textElements = new JsonArray();

@@ -117,7 +117,7 @@ def main(argv: list[str]) -> int:
     try:
         registry = get_registry()
         server_commands = _server_commands()
-        # Grouped routes ("rings add") parse as a group subcommand and carry their full name.
+        # Grouped routes ("shapes add") parse as a group subcommand and carry their full name.
         resolved_name = getattr(args, "resolved_command", args.command_name)
         if args.command_name in registry:
             command_result = _execute_registry_command(registry[args.command_name], args, client)

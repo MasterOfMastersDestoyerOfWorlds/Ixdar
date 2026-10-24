@@ -1,5 +1,5 @@
 /**
- * The ring-tool routes, URL paths unchanged: neck-ring listing, ring authoring and bisection, and
- * the region, connection, pick and project views. Authoring needs the {@code ring-tool} scene.
+ * The ring routes, URL paths unchanged: neck-ring listing and the pick and project views. Tools are
+ * driven through the general tool routes, key and click, never a route of their own.
  */
 package ixdar.automation.endpoints.ring;

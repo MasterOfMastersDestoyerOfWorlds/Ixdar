@@ -134,7 +134,8 @@ public final class SceneModelMenu implements PointerRegion {
         controlsBox.clearRows();
         for (ControlHint hint : scene.controls()) {
             controlsBox.addRow(hint.toString(),
-                    hint.action == null ? Color.GREY_DARK : Color.BLUE_GREY, hint.action);
+                    hint.action == null ? Color.GREY_DARK : Color.BLUE_GREY,
+                    hint.action == null ? null : () -> scene.keys.fire(hint));
         }
         layout();
         controlsBox.layout(camera);

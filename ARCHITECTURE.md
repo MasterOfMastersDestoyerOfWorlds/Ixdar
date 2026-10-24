@@ -150,7 +150,7 @@ commas between test names, never `+`.
 - **ixdar.automation.endpoints.mesh.skeleton**: Skeleton comparison against a reference mesh and sensitivity of the score to DSL parameter perturbation. Relative paths resolve against the working directory.
 - **ixdar.automation.endpoints.record**: Recording routes: start/stop/status for capturing raw input events to a JSON file.
 - **ixdar.automation.endpoints.replay**: Replay routes: play a recording back through the live handlers on a dedicated thread. Cancel takes effect at the next event boundary, not immediately.
-- **ixdar.automation.endpoints.ring**: The ring-tool routes, URL paths unchanged: neck-ring listing, ring authoring and bisection, and the region, connection, pick and project views. Authoring needs the `ring-tool` scene.
+- **ixdar.automation.endpoints.ring**: The ring routes, URL paths unchanged: neck-ring listing and the pick and project views. Tools are driven through the general tool routes, key and click, never a route of their own.
 - **ixdar.automation.endpoints.scene**: Scene-level control: `/scene/model` switches the active model scene's model and waits for the recompute to finish.
 - **ixdar.automation.endpoints.ui**: View observation and posing: screenshots (single and multiview), orbit and projection get/set (paired classes sharing a path, differing by HTTP method), and the full UI state dump.
 - **ixdar.canvas**: Bootstrap layer. `IxdarWindow` (desktop main: GL on a dedicated render thread, GLFW polling on the main thread, headless mode via `ixdar.headless`), `WebLauncher` (TeaVM main) and `CanvasSceneMap` (the scene registry plus the hand-registered `ixdar-canvas` id).

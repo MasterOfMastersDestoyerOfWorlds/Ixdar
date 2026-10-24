@@ -44,10 +44,6 @@ public final class RingRegionTool extends Tool {
 
     public static final String TOOL_PURPOSE = "region colours, select and extract regions";
 
-    public static final String STATUS_LINE = TOOL_NAME + " (" + TOOL_PURPOSE + "): click "
-            + "selects the region under the cursor, Shift+click adds or drops one, C clears, "
-            + "E extracts, Shift+H hides it, Shift+I isolates it, U shows all, A absorbs slivers, "
-            + "Esc back to orbit";
 
     public static final String TAG_PREFIX = "region_";
 
@@ -111,11 +107,15 @@ public final class RingRegionTool extends Tool {
         return TOOL_NAME;
     }
 
+    @Override
+    public String desc() {
+        return "Select the regions the rings bound, hide or isolate them, and extract the selection as its own closed mesh";
+    }
+
     /** Colour the regions through the region layer; clicks arrive through {@link #onRelease}. */
     @Override
     public void activate() {
         active = true;
-        Platforms.get().log(LOG_PREFIX + STATUS_LINE);
         scene.regionLayer.redraw();
     }
 

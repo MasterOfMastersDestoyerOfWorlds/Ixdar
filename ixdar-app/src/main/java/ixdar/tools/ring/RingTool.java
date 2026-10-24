@@ -70,17 +70,12 @@ import ixdar.tools.Tool;
 @ToolAnnotation(id = RingTool.TOOL_NAME)
 public final class RingTool extends Tool {
 
-    public static final String STATUS_LINE =
-            "ring tool: hover to preview, click to draft, click to add an anchor, drag or Delete "
-                    + "one, Delete with none selected removes the ring, Ctrl+Z undo, Ctrl+Shift+Z "
-                    + "or Ctrl+Y redo, Enter confirm, X discard, Ctrl+S save, G region colours, "
-                    + "Ctrl+T region tool, Esc back to orbit; K: bisect";
+    public static final String BISECTOR_HINT = "bisecting: a geodesic spline through your anchors, traced "
+            + "like a ring but open; each end snaps to the nearest wall vertex, and it may cross walls, "
+            + "splitting every region it crosses";
 
-    public static final String BISECTOR_HINT = "K: bisect - a geodesic spline through your anchors, "
-            + "traced like a ring but open. Click near a ring or bisector for each end (it snaps "
-            + "to the nearest wall vertex), then click anywhere to add an anchor that steers it; "
-            + "it may cross walls and splits every region it crosses. X/Del deletes a point, "
-            + "Enter confirms, Esc leaves";
+    public static final String BISECTOR_CLICK_HINT = "pick an end near a ring or bisector, then add "
+            + "anchors that steer it";
 
     public static final String LOG_PREFIX = "[ring-tool] ";
 
@@ -446,6 +441,11 @@ public final class RingTool extends Tool {
         return TOOL_NAME;
     }
 
+    @Override
+    public String desc() {
+        return "Draw rings around the surface and edit their anchors, in geodesic or crease mode, and bisect between rings";
+    }
+
     /**
      * The segment mode the tool's {@link #mode} index names, the one the next click drafts in.
      *
@@ -491,10 +491,15 @@ public final class RingTool extends Tool {
         shown.valid = draft.marks.markedEdgeCount > 0;
         shown.reopened = draftSourceRing < 0 || draftSourceRing >= confirmedRings.size() ? null
                 : ringItem(draftSourceRing);
-        fillFromTrace(shown, draft, String.format(Locale.ROOT, "%s mode, %.0f ms%s%s",
+        int firstWall = draftBisectorEnds == null ? -1 : ringOfSerial(draftBisectorEnds[0]);
+        int lastWall = draftBisectorEnds == null ? -1 : ringOfSerial(draftBisectorEnds[1]);
+        fillFromTrace(shown, draft, String.format(Locale.ROOT, "%s mode, %.0f ms%s%s%s%s",
                 draftMode.label, draftMillis, draftSourceLabel == null ? ""
                         : ", converted from " + draftSourceLabel,
-                draggingAnchor ? ", dragging an anchor" : ""));
+                draggingAnchor ? ", dragging an anchor" : "",
+                firstWall < 0 || lastWall < 0 ? "" : ", bisector from " + liveLabel(firstWall) + " to "
+                        + liveLabel(lastWall),
+                draftSimple ? ", simple" : ", crosses itself"));
         shown.label = bisecting ? BISECTOR_DRAFT_LABEL : DRAFT_LABEL;
         return shown;
     }
@@ -587,7 +592,6 @@ public final class RingTool extends Tool {
         lastError = "";
         // Another tool may have drawn its own anchors over the draft's since this one uploaded.
         overlayStale = true;
-        Platforms.get().log(LOG_PREFIX + STATUS_LINE);
     }
 
     /**
@@ -618,7 +622,7 @@ public final class RingTool extends Tool {
 
     @Override
     public void addControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("click", "draft ring / add or pick anchor"));
+        controls.add(new ControlHint("click", bisecting ? BISECTOR_CLICK_HINT : "draft ring / add or pick anchor"));
         controls.add(new ControlHint("drag anchor", "move it"));
         // On a bisector, X, Delete and Backspace all delete a point; on a ring X discards the
         // draft and Delete or Backspace removes an anchor or the ring.
@@ -659,10 +663,9 @@ public final class RingTool extends Tool {
                 refusalShown(() -> confirmDraft())));
         // T switches between the geodesic spline and the crease path: the open draft, as one
         // edit, and the drafts clicks open from now on.
-        RingSegmentMode shownMode = draft != null ? draftMode : newDraftMode();
-        controls.add(new ControlHint(Keys.T, "T", "mode: " + shownMode.label, refusalShown(() -> {
-            RingSegmentMode next = (draft != null ? draftMode : newDraftMode())
-                    == RingSegmentMode.GEODESIC ? RingSegmentMode.CREASE : RingSegmentMode.GEODESIC;
+        controls.add(new ControlHint(Keys.T, "T", "mode: " + (draft != null ? draftMode : newDraftMode()).label
+                + ", switch to " + switchedMode().label, refusalShown(() -> {
+            RingSegmentMode next = switchedMode();
             if (next == RingSegmentMode.CREASE && !readyCreases(scene.halfEdgeSurface())) {
                 return;
             }
@@ -684,6 +687,17 @@ public final class RingTool extends Tool {
             previewedFace = -1;
             scene.refreshControls();
         })));
+    }
+
+    /**
+     * The segment mode T switches to: the other one than the open draft's, or than the next
+     * draft's when none is open.
+     *
+     * @return the mode T would switch to now
+     */
+    private RingSegmentMode switchedMode() {
+        return (draft != null ? draftMode : newDraftMode()) == RingSegmentMode.GEODESIC
+                ? RingSegmentMode.CREASE : RingSegmentMode.GEODESIC;
     }
 
     /**
@@ -2850,84 +2864,6 @@ public final class RingTool extends Tool {
         if (!anchored.trace(anchors, anchors.length, normal,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
             lastError = what + ": " + anchored.failure;
-            return -1;
-        }
-        return addConfirmedRing(anchored, normal, what);
-    }
-
-    /**
-     * Confirm a ring through authored surface points as a new unsaved ring, as clicking them in
-     * the ring tool and pressing Enter would: each point snaps to its vertex and every point past
-     * the third goes where it adds least, under the plane all the points fit.
-     *
-     * @param packedXyz  the points, three floats each
-     * @param pointCount points to read from the front of {@code packedXyz}
-     * @param what       the edit's name in the undo history and the log
-     * @return the new ring's index in {@link #confirmedRings}, or -1 with {@link #lastError}
-     *         saying why no ring was confirmed
-     */
-    public int confirmPoints(float[] packedXyz, int pointCount, String what) {
-        lastError = "";
-        MeshTopology surface = scene.halfEdgeSurface();
-        if (surface == null || surface.faceCount() == 0 || !readyGeodesics(surface)) {
-            lastError = lastError.isEmpty() ? NO_SURFACE_TO_RING : lastError;
-            return -1;
-        }
-        int[] vertexIds;
-        try {
-            vertexIds = SurfaceWaypoints.snap(geodesics.metric.nearestVertex, packedXyz,
-                    pointCount);
-        } catch (IllegalStateException unresolved) {
-            lastError = what + ": " + unresolved.getMessage();
-            return -1;
-        }
-        int[] distinct = new int[pointCount];
-        int[] pointOfAnchor = new int[pointCount];
-        int distinctCount = 0;
-        for (int point = 0; point < pointCount; point++) {
-            boolean repeated = false;
-            for (int held = 0; held < distinctCount; held++) {
-                repeated |= distinct[held] == vertexIds[point];
-            }
-            if (!repeated) {
-                pointOfAnchor[distinctCount] = point;
-                distinct[distinctCount++] = vertexIds[point];
-            }
-        }
-        if (distinctCount < SurfaceSplineTracer.MINIMUM_ANCHORS) {
-            lastError = String.format(Locale.ROOT, "%s: a ring through points needs %d on "
-                    + "distinct vertices; the %d given snap to %d", what,
-                    SurfaceSplineTracer.MINIMUM_ANCHORS, pointCount, distinctCount);
-            return -1;
-        }
-        AuthoredSplineRing anchored = new AuthoredSplineRing(geodesics);
-        anchored.fitPlane(surface, distinct, distinctCount, null);
-        float[] normal = written(anchored.planeNormal);
-        if (!anchored.trace(distinct, AuthoredSplineRing.PLANE_STARTED_ANCHORS, normal,
-                SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
-            lastError = what + ": the first three points trace no ring: " + anchored.failure;
-            return -1;
-        }
-        for (int anchor = AuthoredSplineRing.PLANE_STARTED_ANCHORS; anchor < distinctCount;
-                anchor++) {
-            if (!anchored.insert(distinct[anchor], normal,
-                    SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
-                int base = COORDINATES_PER_POINT * pointOfAnchor[anchor];
-                lastError = String.format(Locale.ROOT, "%s: point %d (%.6f,%.6f,%.6f) refused: "
-                        + "%s", what, pointOfAnchor[anchor] + 1, packedXyz[base],
-                        packedXyz[base + 1], packedXyz[base + 2], anchored.failure);
-                return -1;
-            }
-        }
-        if (!anchored.simple) {
-            float[] crossing = anchored.crossings.firstCrossingXyz;
-            lastError = String.format(Locale.ROOT, "%s: the ring crosses itself near "
-                    + "%.4f,%.4f,%.4f; move or drop a point", what, crossing[0], crossing[1],
-                    crossing[2]);
-            return -1;
-        }
-        if (SurfaceSpline.of(anchored.tracer).marks.markedEdgeCount == 0) {
-            lastError = what + ": the points trace a ring along no mesh edge";
             return -1;
         }
         return addConfirmedRing(anchored, normal, what);

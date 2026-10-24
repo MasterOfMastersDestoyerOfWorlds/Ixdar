@@ -141,7 +141,7 @@ public class Frame extends AutomationEndpoint implements AutomationRoute {
                 .param(RADIUS, RouteParamType.FLOAT, false, "",
                         "Radius of the sphere framed around --point.", "0.05")
                 .param(REGION, RouteParamType.STRING, false, "",
-                        "Ring regions by the numbers the regions command reports, comma-separated, "
+                        "Ring regions by the numbers in the region tool's item labels, comma-separated, "
                                 + "or 'selected' for the region tool's selection.",
                         "3")
                 .param(RING, RouteParamType.STRING, false, "",

@@ -91,54 +91,45 @@
           "example": "0"
         }
       ],
-      "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, label?, view?}}, or {ok:false, error, candidates} when a label refuses"
+      "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, label?, view?}, activeTool, previousTool?, control (the controls-menu row clicked, else null), tool?:{name, lastRow, error, undo/redo heads, mode?}}, or {ok:false, error, candidates} when a label refuses"
     },
     {
-      "commandName": "connection",
-      "path": "/mesh/connection",
+      "commandName": "control",
+      "path": "/ui/tools/control",
       "method": "POST",
-      "description": "Show how two surface points are joined in the editing scene\u0027s connection tool: the path and its narrowest cross-section, the neck, optionally confirmed as a ring opened in the ring tool.",
-      "sourceClass": "ixdar.automation.endpoints.ring.Connection",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Connection.java",
+      "description": "Fire a tool\u0027s control row by its key label, active tool or not, switching to the tool first as its switch key would, and report the outcome as key and click do.",
+      "sourceClass": "ixdar.automation.endpoints.ui.FireControl",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/FireControl.java",
       "params": [
         {
-          "name": "from",
-          "cliName": "from",
+          "name": "tool",
+          "cliName": "tool",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Tool name as the tools listing gives it; the active tool when left out.",
+          "example": "region tool"
+        },
+        {
+          "name": "key",
+          "cliName": "key",
           "type": "string",
           "required": true,
           "default": "",
-          "help": "First surface point, \"x,y,z\".",
-          "example": "-0.28,-0.066,0.052"
+          "help": "The row\u0027s key label as the tools listing shows it, ignoring case.",
+          "example": "shift+H"
         },
         {
-          "name": "to",
-          "cliName": "to",
-          "type": "string",
-          "required": true,
-          "default": "",
-          "help": "Second surface point, \"x,y,z\".",
-          "example": "-0.2,-0.05,0.04"
-        },
-        {
-          "name": "through_rings",
-          "cliName": "through_rings",
-          "type": "bool",
+          "name": "settle",
+          "cliName": "settle",
+          "type": "int",
           "required": false,
-          "default": "false",
-          "help": "Let the path and the cross-sections cross the rings; by default the rings are walls.",
-          "example": "true"
-        },
-        {
-          "name": "confirm",
-          "cliName": "confirm",
-          "type": "bool",
-          "required": false,
-          "default": "false",
-          "help": "Confirm the neck as an unsaved ring and open it in the ring tool as the draft, as Enter does.",
-          "example": "true"
+          "default": "2",
+          "help": "Frames to wait for after the row fired; 0 returns at once.",
+          "example": "0"
         }
       ],
-      "responseHint": "{ok, connected, pathLength, pathFaces, pathFilledFaces, narrowestGirth, narrowestPoint, widestGirth, neckEdges, girthsCrossingRings, pathMillis, girthMillis, confirmedRing, draftOpen, activeTool, lastRow, error}"
+      "responseHint": "{ok, key, control, settled, activeTool, previousTool?, tool:{name, lastRow, error, undo heads, mode?}}, or {ok:false, error, candidates}"
     },
     {
       "commandName": "drag",
@@ -264,7 +255,7 @@
           "type": "string",
           "required": false,
           "default": "",
-          "help": "Ring regions by the numbers the regions command reports, comma-separated, or \u0027selected\u0027 for the region tool\u0027s selection.",
+          "help": "Ring regions by the numbers in the region tool\u0027s item labels, comma-separated, or \u0027selected\u0027 for the region tool\u0027s selection.",
           "example": "3"
         },
         {
@@ -386,7 +377,7 @@
       "commandName": "key",
       "path": "/input/key",
       "method": "POST",
-      "description": "Deliver a named key event to the active key handler and report whether it was consumed.",
+      "description": "Deliver a named key event to the active key handler and report what took it: the control row it fired, or that nothing did, and the active tool\u0027s state after.",
       "sourceClass": "ixdar.automation.endpoints.input.InjectKey",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectKey.java",
       "params": [
@@ -418,7 +409,7 @@
           "example": "0"
         }
       ],
-      "responseHint": "{ok, key, keyCode, mods, action, consumed, settled}"
+      "responseHint": "{ok, key, keyCode, mods, action, consumed, handled, reason?, settled, activeTool, previousTool?, control:{key, description, keyCode, controlHeld, shiftHeld}|null, tool?:{name, lastRow, error, undoDepth?, redoDepth?, nextUndo?, nextRedo?, mode?, modes?}}"
     },
     {
       "commandName": "mesh-compare",
@@ -1000,7 +991,7 @@
           "type": "string",
           "required": false,
           "default": "",
-          "help": "Ring regions by the numbers the regions command reports, comma-separated, or \u0027selected\u0027 for the region tool\u0027s selection.",
+          "help": "Ring regions by the numbers in the region tool\u0027s item labels, comma-separated, or \u0027selected\u0027 for the region tool\u0027s selection.",
           "example": "3"
         },
         {
@@ -1250,16 +1241,6 @@
       "responseHint": "{recording, rawEventCount, abstractActionCount, startedAtIso, lastSavedFile, saved, file}"
     },
     {
-      "commandName": "regions",
-      "path": "/mesh/regions",
-      "method": "GET",
-      "description": "Report the ring regions the editing scene\u0027s region-select tool shows: each region\u0027s faces, area and bounding rings, the problem rings, and the selection.",
-      "sourceClass": "ixdar.automation.endpoints.ring.Regions",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Regions.java",
-      "params": [],
-      "responseHint": "{ok, activeTool, regionCount, regions:[{region, faces, area, boundedBy, sliver, colour, neighbours, selected, hidden}], problems, ringsSplittingNothing, visible, hiddenFaces, hiddenRings, absorbSlivers, summary, ringCount, selectedCount, select, lastRow, error}"
-    },
-    {
       "commandName": "replay-cancel",
       "path": "/replay/cancel",
       "method": "POST",
@@ -1337,55 +1318,6 @@
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/Shutdown.java",
       "params": [],
       "responseHint": "{ok, accepted}"
-    },
-    {
-      "commandName": "rings add",
-      "path": "/mesh/rings/add",
-      "method": "POST",
-      "description": "Confirm a ring through authored surface points in the ring tool, as clicking them and pressing Enter does: regions count it and Ctrl+S saves it.",
-      "sourceClass": "ixdar.automation.endpoints.ring.Add",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Add.java",
-      "params": [
-        {
-          "name": "points",
-          "cliName": "points",
-          "type": "string",
-          "required": true,
-          "default": "",
-          "help": "Surface points as \"x,y,z; x,y,z; ...\", three or more around the part; past the third each goes where it adds least.",
-          "example": "1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65"
-        }
-      ],
-      "responseHint": "{ok, ring, label, pointCount, authoredAnchors, edgeCount, length, centroid:[x,y,z], unsavedRings, fingerprint, lastRow} or {ok:false, error}"
-    },
-    {
-      "commandName": "rings bisect",
-      "path": "/mesh/rings/bisect",
-      "method": "POST",
-      "description": "Draw a bisector in the ring scene as K and clicks do: its two ends snap onto the nearest ring or bisector, the points between steer it, and the open geodesic spline through them splits every region it crosses.",
-      "sourceClass": "ixdar.automation.endpoints.ring.Bisect",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Bisect.java",
-      "params": [
-        {
-          "name": "points",
-          "cliName": "points",
-          "type": "string",
-          "required": true,
-          "default": "",
-          "help": "Points as \"x,y,z; ...\": the first and last are the ends, on or beside walls; any between are steering anchors, in any order.",
-          "example": "0.04,-0.01,-0.03; 0.05,-0.12,-0.16"
-        },
-        {
-          "name": "confirm",
-          "cliName": "confirm",
-          "type": "bool",
-          "required": false,
-          "default": "false",
-          "help": "Confirm the bisector as Enter does.",
-          "example": "true"
-        }
-      ],
-      "responseHint": "{ok, anchors, simple, firstWall, lastWall, edges, length, fingerprint, confirmed, error, lastRow}"
     },
     {
       "commandName": "rings-list",
@@ -1529,6 +1461,16 @@
         }
       ],
       "responseHint": "{ok, line, response, settled}"
+    },
+    {
+      "commandName": "tools",
+      "path": "/ui/tools",
+      "method": "GET",
+      "description": "List every tool the active scene hosts, active or not: switch key, description, modes and full controls with their modifiers, which `control` fires by key label.",
+      "sourceClass": "ixdar.automation.endpoints.ui.Tools",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/Tools.java",
+      "params": [],
+      "responseHint": "{ok, sceneClass, activeTool, defaultTool, tools:[{the ui-state tool object (name, displayName, shortName, description, lastRow, error, undo heads, mode, modes, controls, draft, preview, hovered, items), active, switchKey:{key, description, keyCode, controlHeld, shiftHeld}|null}]}"
     },
     {
       "commandName": "type",

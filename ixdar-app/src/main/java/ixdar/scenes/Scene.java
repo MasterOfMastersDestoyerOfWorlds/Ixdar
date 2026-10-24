@@ -557,7 +557,8 @@ public abstract class Scene extends SceneDrawable {
         activeTool = tool;
         activeTool.activate();
         refreshControls();
-        Platforms.get().log(TOOL_LOG_PREFIX + "active tool: " + activeTool.toolName());
+        Platforms.get().log(TOOL_LOG_PREFIX + "active tool: " + activeTool.toolName()
+                + (activeTool.desc().isEmpty() ? "" : " - " + activeTool.desc()));
     }
 
     /**

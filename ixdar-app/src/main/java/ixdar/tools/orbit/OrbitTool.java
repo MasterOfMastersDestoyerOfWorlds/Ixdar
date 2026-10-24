@@ -3,7 +3,6 @@ package ixdar.tools.orbit;
 import java.util.List;
 
 import ixdar.annotations.tool.ToolAnnotation;
-import ixdar.platform.Platforms;
 import ixdar.scenes.Scene;
 import ixdar.scenes.model.ModelScene;
 import ixdar.tools.ControlHint;
@@ -35,11 +34,14 @@ public final class OrbitTool extends Tool {
         return TOOL_NAME;
     }
 
+    @Override
+    public String desc() {
+        return "Look around the model: orbit, pan and zoom the camera without editing anything";
+    }
+
     /** Leave every drag to the camera; the tool takes no press, so only its clicks are read. */
     @Override
     public void activate() {
-        Platforms.get().log(Scene.TOOL_LOG_PREFIX
-                + "orbit: drag orbits, Shift+drag pans, scroll zooms; nothing is edited");
     }
 
     /** Nothing to hand back: the tool holds no press and edits nothing. */

@@ -12,7 +12,6 @@ import ixdar.annotations.automation.AutomationRoute;
 import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
-import ixdar.platform.Clock;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.InputSettle;
 import ixdar.automation.endpoints.ui.DrawnWords;
@@ -27,7 +26,6 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
     public static final String BUTTON = "button";
     public static final String SETTLE = "settle";
     public static final String COUNT = "count";
-    public static final String SETTLED = "settled";
     public static final String COMMAND = "click";
 
     /**
@@ -44,8 +42,9 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
      *             back to back, 2 for a double-click; default 1) and {@code settle}
      *             (frames to wait for after the click; default 2)
      * @throws IOException never thrown directly; declared to satisfy the route contract
-     * @return {@code {"ok": true, "settled": true, "event": {xPx, yPx, xNorm, yNorm, button}}} on
-     *         success, or an error object when no mouse handler is active or the label refuses
+     * @return the event and, once it settled, the active tool, the controls-menu row it fired and
+     *         the tool's shared state; an error object when no mouse handler is active or the
+     *         label refuses
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         String label = body.has(DrawnWords.LABEL) ? body.get(DrawnWords.LABEL).getAsString() : "";
@@ -60,23 +59,22 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
         int settleFrames = body.has(SETTLE)
                 ? body.get(SETTLE).getAsInt()
                 : InputSettle.DEFAULT_FRAMES;
-        long[] appliedDuringFrame = new long[1];
-        try {
-            JsonObject result = runtime.runOnMainThread(() -> {
+        return InputSettle.settledInput(runtime, settleFrames, () -> {
                 MouseTrap mouse = runtime.activeMouse();
-                if (mouse == null) {
-                    return failure("No active mouse handler");
-                }
                 JsonObject target = label.isEmpty() ? null
                         : DrawnWords.labelTarget(label, within, index);
                 if (target != null && !target.get(OK).getAsBoolean()) {
                     return target;
                 }
-                appliedDuringFrame[0] = Clock.framesRendered();
                 float xPos = target != null ? target.get(X).getAsFloat() : normalized ? denormalizeX(x) : x;
                 float yPos = target != null ? target.get(Y).getAsFloat() : normalized ? denormalizeY(y) : y;
                 mouse.automationInputInProgress = true;
                 try {
+                    // A pinned hover follows the cursor to the click, as a real cursor stays where
+                    // it clicked; left behind, it would pull a tool's next-frame pick back to it.
+                    if (mouse.automationHoverLocked) {
+                        mouse.setAutomationHoverLock(xPos, yPos);
+                    }
                     mouse.mousePos(xPos, yPos);
                     PointerDispatcher pointer = PointerDispatcher.current();
                     for (int click = 0; click < count; click++) {
@@ -101,14 +99,6 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                 applied.add("event", payload);
                 return applied;
             });
-            if (result.has(OK) && result.get(OK).getAsBoolean()) {
-                result.addProperty(SETTLED,
-                        InputSettle.awaitFrames(appliedDuringFrame[0], settleFrames));
-            }
-            return result;
-        } catch (Exception e) {
-            return failure(e.getMessage());
-        }
     }
 
     @Override
@@ -138,7 +128,9 @@ public class InjectClick extends AutomationEndpoint implements AutomationRoute {
                         "Press/release pairs delivered back to back; 2 is a double-click.", "2")
                 .param(SETTLE, RouteParamType.INT, false, String.valueOf(InputSettle.DEFAULT_FRAMES),
                         "Frames to wait for after the click, so a screenshot needs no sleep; 0 returns at once.", "0")
-                .responseHint("{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, label?, view?}}, "
+                .responseHint("{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, label?, view?}, "
+                        + "activeTool, previousTool?, control (the controls-menu row clicked, else null), "
+                        + "tool?:{name, lastRow, error, undo/redo heads, mode?}}, "
                         + "or {ok:false, error, candidates} when a label refuses")
                 .build();
     }

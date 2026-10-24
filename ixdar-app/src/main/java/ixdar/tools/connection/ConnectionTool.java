@@ -39,12 +39,6 @@ public final class ConnectionTool extends Tool {
 
     public static final String TOOL_NAME = "connection";
 
-    public static final String STATUS_LINE = "connection tool: click two places to pick them "
-            + "(cyan anchors, yellow under the cursor; drag one to move it). Yellow is the shortest "
-            + "path between them, green the narrowest cross-section on it, snapped to mesh edges. "
-            + "Enter makes the green loop a ring and opens it in the ring tool; W rings as walls, "
-            + "F repair_mesh fills in orange-red, C clears, Esc back to orbit";
-
     public static final String FILL_TAG = "repair_fill";
 
     public static final int XYZ = SurfaceConnection.COORDINATES_PER_POINT;
@@ -110,6 +104,13 @@ public final class ConnectionTool extends Tool {
     @Override
     public String toolName() {
         return TOOL_NAME;
+    }
+
+    @Override
+    public String desc() {
+        return "Pick two surface places (cyan) to see the shortest path "
+                + "joining them (yellow) and its narrowest cross-section snapped to mesh edges, the neck (green), "
+                + "which can become a ring in the ring tool";
     }
 
     /**
@@ -190,7 +191,6 @@ public final class ConnectionTool extends Tool {
     @Override
     public void activate() {
         active = true;
-        Platforms.get().log(LOG_PREFIX + STATUS_LINE);
         overlayStale = true;
         if (showingFills) {
             showFills(true);
@@ -369,43 +369,6 @@ public final class ConnectionTool extends Tool {
         if (joined) {
             overlay.capDiagnosticRegion((float) shown.pathLength);
         }
-    }
-
-    /**
-     * Join two surface positions as two clicks there would: each pick goes on the face nearest
-     * its position, at that face's corner nearest it.
-     *
-     * @param from first position, packed xyz
-     * @param to   second position, packed xyz
-     * @return true when the two are joined and a neck was found
-     */
-    public boolean connectPoints(float[] from, float[] to) {
-        MeshTopology surface = scene.halfEdgeSurface();
-        if (surface == null || surface.faceCount() == 0) {
-            lastError = "no surface is shown";
-            return false;
-        }
-        prepare(surface);
-        builtRingRevision = scene.ringTool.ringRevision;
-        Vector3f corner = new Vector3f();
-        float[][] positions = { from, to };
-        for (int pick = 0; pick < PICKS; pick++) {
-            float[] position = positions[pick];
-            int face = connection.nearestActiveFace(position[0], position[1], position[2]);
-            int faceId = surface.faceIdAt(face);
-            double nearest = Double.POSITIVE_INFINITY;
-            for (int index = 0; index < surface.faceVertexCount(faceId); index++) {
-                int vertexId = surface.faceVertexAt(faceId, index);
-                surface.vertexPosition(vertexId, corner);
-                double distance = corner.distance(position[0], position[1], position[2]);
-                if (distance < nearest) {
-                    nearest = distance;
-                    pickVertexId[pick] = vertexId;
-                }
-            }
-            pickActiveFace[pick] = face;
-        }
-        return run();
     }
 
     /**

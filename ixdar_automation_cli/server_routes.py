@@ -28,8 +28,8 @@ def server_command_map(manifest: dict) -> dict:
 def add_server_parsers(subparsers, command_map: dict) -> None:
     """Add one argparse subparser per dynamic server route.
 
-    A route whose Java-declared command name carries a space (``"rings add"``) becomes a group
-    subcommand: ``ixdar-cli rings add``. Every leaf parser records its own full name under
+    A route whose Java-declared command name carries a space (``"shapes add"``) becomes a group
+    subcommand: ``ixdar-cli shapes add``. Every leaf parser records its own full name under
     ``resolved_command`` so dispatch never has to re-join the words.
 
     :param subparsers: the argparse subparsers action to add to

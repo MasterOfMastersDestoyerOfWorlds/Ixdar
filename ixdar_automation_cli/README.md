@@ -24,7 +24,6 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | Command | Description |
 | --- | --- |
 | [`click`](#click) | Click at a point, or on a drawn label by its text, on the active mouse handler, then wait for the click to be drawn. |
-| [`connection`](#connection) | Show how two surface points are joined in the editing scene's connection tool: the path and its narrowest cross-section, the neck, optionally confirmed as a ring opened in the ring tool. |
 | [`drag`](#drag) | Drag with the left button from one window point to another, a frame drawn after every step. |
 | [`frame`](#frame) | Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it. |
 | [`health`](#health) | Liveness probe reporting server status, recording/replaying flags, and port. |
@@ -59,14 +58,11 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`record-start`](#record-start) | Begin a new recording session, clearing any previously buffered events. |
 | [`record-status`](#record-status) | Snapshot of the recorder: recording flag, event counts, start time, saved file. |
 | [`record-stop`](#record-stop) | End the active recording session and write the captured events to disk. |
-| [`regions`](#regions) | Report the ring regions the editing scene's region-select tool shows: each region's faces, area and bounding rings, the problem rings, and the selection. |
 | [`replay-cancel`](#replay-cancel) | Signal the active replay to abort at the next event boundary; no-op if idle. |
 | [`replay-pause`](#replay-pause) | Suspend the replay engine before the next event; no-op when nothing is running. |
 | [`replay-resume`](#replay-resume) | Clear the paused flag on the replay engine; no-op when nothing is running. |
 | [`replay-start`](#replay-start) | Launch a replay from a previously saved recording file. |
 | [`replay-status`](#replay-status) | Snapshot of the replay engine: running flag, status, current file, paused flag. |
-| [`rings add`](#rings add) | Ring the shown surface through authored points and report the ring row: centroid, length and marked edge count. |
-| [`rings bisect`](#rings bisect) | Draw a bisector in the ring scene as K and clicks do: its two ends snap onto the nearest ring or bisector, the points between steer it, and the open geodesic spline through them splits every region it crosses. |
 | [`rings-list`](#rings-list) | Rank the neck rings a mesh's skeleton proposes, most neck-like first. |
 | [`screenshot`](#screenshot) | Capture a PNG screenshot of the current framebuffer to a file. |
 | [`scroll`](#scroll) | Deliver a synthesized two-axis scroll event to the active mouse handler. |
@@ -134,21 +130,6 @@ Click at a point, or on a drawn label by its text, on the active mouse handler, 
 - **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, label?, view?}}, or {ok:false, error, candidates} when a label refuses`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"label": "Start New Game", "within": "TERMINAL", "index": 1, "x": 0.5, "y": 0.25, "normalized": true, "button": 1, "count": 2, "settle": 0}'`
 
-### `connection`
-
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Connection.java)
-
-Show how two surface points are joined in the editing scene's connection tool: the path and its narrowest cross-section, the neck, optionally confirmed as a ring opened in the ring tool.
-
-- **Route:** `POST /mesh/connection`
-- **Flags:**
-  - `--from` (string, required) — First surface point, "x,y,z"., e.g. `-0.28,-0.066,0.052`
-  - `--to` (string, required) — Second surface point, "x,y,z"., e.g. `-0.2,-0.05,0.04`
-  - `--through-rings` (bool, default `false`) — Let the path and the cross-sections cross the rings; by default the rings are walls., e.g. `true`
-  - `--confirm` (bool, default `false`) — Confirm the neck as an unsaved ring and open it in the ring tool as the draft, as Enter does., e.g. `true`
-- **Response:** `{ok, connected, pathLength, pathFaces, pathFilledFaces, narrowestGirth, narrowestPoint, widestGirth, neckEdges, girthsCrossingRings, pathMillis, girthMillis, confirmedRing, draftOpen, activeTool, lastRow, error}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/connection -d '{"from": "-0.28,-0.066,0.052", "to": "-0.2,-0.05,0.04", "through_rings": true, "confirm": true}'`
-
 ### `drag`
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectDrag.java)
@@ -179,7 +160,7 @@ Fit the camera to a selection, a region, a ring, a point and radius or an explic
   - `--bounds` (string, default ``) — Explicit box as minX,minY,minZ,maxX,maxY,maxZ; overrides every other selection., e.g. `-1,-1,-1,1,1,1`
   - `--point` (string, default ``) — A point x,y,z to frame with --radius around it., e.g. `0.1,0.4,0`
   - `--radius` (float, default ``) — Radius of the sphere framed around --point., e.g. `0.05`
-  - `--region` (string, default ``) — Ring regions by the numbers the regions command reports, comma-separated, or 'selected' for the region tool's selection., e.g. `3`
+  - `--region` (string, default ``) — Ring regions by the numbers in the region tool's item labels, comma-separated, or 'selected' for the region tool's selection., e.g. `3`
   - `--ring` (string, default ``) — A ring by its label in the ring-tool scene: a graph ring or 'ring #N'., e.g. `ring2`
   - `--padding` (float, default `0.15`) — Margin around the selection as a fraction of its radius., e.g. `0.25`
   - `--azimuth` (float, default ``) — Orbit azimuth in radians to view from; omitted keeps the current angle., e.g. `1.5708`
@@ -472,7 +453,7 @@ Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by defaul
   - `--bounds` (string, default ``) — Explicit box as minX,minY,minZ,maxX,maxY,maxZ; overrides every other selection., e.g. `-1,-1,-1,1,1,1`
   - `--point` (string, default ``) — A point x,y,z to frame with --radius around it., e.g. `0.1,0.4,0`
   - `--radius` (float, default ``) — Radius of the sphere framed around --point., e.g. `0.05`
-  - `--region` (string, default ``) — Ring regions by the numbers the regions command reports, comma-separated, or 'selected' for the region tool's selection., e.g. `3`
+  - `--region` (string, default ``) — Ring regions by the numbers in the region tool's item labels, comma-separated, or 'selected' for the region tool's selection., e.g. `3`
   - `--ring` (string, default ``) — A ring by its label in the ring-tool scene: a graph ring or 'ring #N'., e.g. `ring2`
   - `--padding` (float, default `0.15`) — Margin around the selection as a fraction of its radius., e.g. `0.25`
 - **Response:** `{ok, selection, center, radius, distance, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}`
@@ -597,16 +578,6 @@ End the active recording session and write the captured events to disk.
 - **Response:** `{recording, rawEventCount, abstractActionCount, startedAtIso, lastSavedFile, saved, file}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/record/stop -d '{"path": "/tmp/rec.json"}'`
 
-### `regions`
-
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Regions.java)
-
-Report the ring regions the editing scene's region-select tool shows: each region's faces, area and bounding rings, the problem rings, and the selection.
-
-- **Route:** `GET /mesh/regions`
-- **Response:** `{ok, activeTool, regionCount, regions:[{region, faces, area, boundedBy, sliver, colour, neighbours, selected, hidden}], problems, ringsSplittingNothing, visible, hiddenFaces, hiddenRings, absorbSlivers, summary, ringCount, selectedCount, select, lastRow, error}`
-- **Direct call:** `curl -s http://127.0.0.1:47832/mesh/regions`
-
 ### `replay-cancel`
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/replay/Cancel.java)
@@ -659,32 +630,6 @@ Snapshot of the replay engine: running flag, status, current file, paused flag.
 - **Route:** `GET /replay/status`
 - **Response:** `{replaying, status, file, paused}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/replay/status`
-
-### `rings add`
-
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Add.java)
-
-Ring the shown surface through authored points and report the ring row: centroid, length and marked edge count.
-
-- **Route:** `POST /mesh/rings/add`
-- **Flags:**
-  - `--points` (string, required) — Surface points as "x,y,z; x,y,z; ..."; three or more bound a loop., e.g. `1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65`
-  - `--tighten` (bool, default `true`) — Tighten the closed walk into a geodesic with FlipOut., e.g. `false`
-- **Response:** `{ok, waypointCount, points, edgeCount, length, seedLength, centroid:[x,y,z], fingerprint}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/rings/add -d '{"points": "1.35,0,0; 0.45,0.3,0.69; 0.51,-0.3,-0.65", "tighten": false}'`
-
-### `rings bisect`
-
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Bisect.java)
-
-Draw a bisector in the ring scene as K and clicks do: its two ends snap onto the nearest ring or bisector, the points between steer it, and the open geodesic spline through them splits every region it crosses.
-
-- **Route:** `POST /mesh/rings/bisect`
-- **Flags:**
-  - `--points` (string, required) — Points as "x,y,z; ...": the first and last are the ends, on or beside walls; any between are steering anchors, in any order., e.g. `0.04,-0.01,-0.03; 0.05,-0.12,-0.16`
-  - `--confirm` (bool, default `false`) — Confirm the bisector as Enter does., e.g. `true`
-- **Response:** `{ok, anchors, simple, firstWall, lastWall, edges, length, fingerprint, confirmed, error, lastRow}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/rings/bisect -d '{"points": "0.04,-0.01,-0.03; 0.05,-0.12,-0.16", "confirm": true}'`
 
 ### `rings-list`
 

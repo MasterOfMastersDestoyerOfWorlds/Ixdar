@@ -43,6 +43,9 @@ public class KeyGuy {
     /** When a held {@link ControlHint#repeatsWhileHeld repeating} row last fired. */
     public long lastRepeatMillis;
 
+    /** The control row that fired last, from a key, a repeat or a click on its row; {@code null} before any. */
+    public ControlHint lastFiredControl;
+
     /**
      * Key handler for a scene, firing the rows of its {@link Scene#controls}.
      *
@@ -122,7 +125,7 @@ public class KeyGuy {
                     && (!hint.shiftHeld || (mods & KeyNames.MOD_SHIFT) != 0);
             if (hint.keyCode == key && hint.keyCode != ControlHint.NO_KEY && hint.action != null
                     && modifierHeld) {
-                hint.action.perform();
+                fire(hint);
                 KeyActions.markKeyConsumed();
                 lastRepeatMillis = System.currentTimeMillis();
                 return;
@@ -169,9 +172,20 @@ public class KeyGuy {
         for (ControlHint hint : canvas.controls) {
             if (hint.repeatsWhileHeld && pressedKeys.contains(hint.keyCode) && !controlMask) {
                 lastRepeatMillis = now;
-                hint.action.perform();
+                fire(hint);
             }
         }
+    }
+
+    /**
+     * Perform a control row's action and remember it as {@link #lastFiredControl}, the one way a
+     * row fires, whether by its key, its repeat or a click on it in the controls menu.
+     *
+     * @param hint the row, whose action is not {@code null}
+     */
+    public void fire(ControlHint hint) {
+        lastFiredControl = hint;
+        hint.action.perform();
     }
 
     /**
