@@ -13,8 +13,9 @@ import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.text.HyperString;
-import ixdar.platform.input.Keys;
+import ixdar.input.CanvasScroll;
 import ixdar.input.PointerDispatcher;
+import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
 import ixdar.tools.ControlHint;
 
@@ -40,21 +41,20 @@ public class IrregularGridScene extends Scene {
     private final Vector2f tmpScreen = new Vector2f();
 
     /**
-     * Initialize input handlers, build the Townscaper-style hex/quad grid,
-     * frame the camera around it, and subscribe scroll-to-zoom on the
-     * 2D camera bounds.
+     * Initialize input handlers, the 2D camera's scroll taking the wheel over its view and the
+     * drag, build the Townscaper-style hex/quad grid and frame the camera around it.
      */
     @Override
     public void initGL() {
         super.initGL();
         MenuBox.menuVisible = false;
         mouse.camera = camera2D;
-        mouse.controller = camera2D;
+        CanvasScroll gridScroll = new CanvasScroll(camera2D, false, () -> active);
+        mouse.controller = gridScroll;
+        PointerDispatcher.current().subscribe(camera2D.mainViewBounds, gridScroll);
         buildGrid();
         centerCameraOnGrid();
         fpsText = new HyperString();
-        PointerDispatcher.current().subscribe(camera2D.getBounds(),
-                (scrollUp, deltaSeconds) -> camera2D.onScroll(scrollUp, deltaSeconds));
     }
 
     /**

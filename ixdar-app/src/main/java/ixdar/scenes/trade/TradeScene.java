@@ -16,6 +16,7 @@ import ixdar.graphics.cameras.Camera2D;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
+import ixdar.input.CanvasScroll;
 import ixdar.input.PointerDispatcher;
 import ixdar.tools.ControlHint;
 import ixdar.tools.trade.HeadquartersPickerTool;
@@ -77,7 +78,8 @@ public class TradeScene extends Scene {
         routePlanningTool = new RoutePlanningTool(this);
 
         mouse.camera = mapCamera;
-        mouse.controller = mapCamera;
+        CanvasScroll mapScroll = new CanvasScroll(mapCamera, false, () -> active);
+        mouse.controller = mapScroll;
 
         Platforms.get().setTitle("Ixdar : Trade Game");
 
@@ -90,7 +92,7 @@ public class TradeScene extends Scene {
         views.put(VIEW_TOOLTIP, tooltipBounds());
 
         mapCamera.initCamera(views, VIEW_MAIN);
-        PointerDispatcher.current().subscribe(views.get(VIEW_MAIN), mapCamera);
+        PointerDispatcher.current().subscribe(views.get(VIEW_MAIN), mapScroll);
     }
 
     /**

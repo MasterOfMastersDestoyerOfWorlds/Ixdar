@@ -14,6 +14,7 @@ import ixdar.nodegraph.runtime.HeapSampler;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.gui.ui.menu.MenuScrollBar;
+import ixdar.input.CanvasScroll;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.scenes.model.ModelScene;
 import ixdar.tools.graph.DslGraphLayout;
@@ -92,9 +93,10 @@ public class Graph extends AutomationEndpoint implements AutomationRoute {
                 result.addProperty("slowest", graph.slowestNode < 0 ? "" : graph.nodeId[graph.slowestNode]);
                 result.addProperty(TEXT_PX, DslGraphLayout.TEXT_HEIGHT * pixelsPerUnit);
                 result.addProperty("scale_factor", camera.ScaleFactor);
-                view.updateScrollBars();
+                CanvasScroll canvasScroll = view.scroll;
+                canvasScroll.updateBars();
                 JsonObject scroll = new JsonObject();
-                for (MenuScrollBar bar : new MenuScrollBar[] { view.horizontalBar, view.verticalBar }) {
+                for (MenuScrollBar bar : new MenuScrollBar[] { canvasScroll.horizontalBar, canvasScroll.verticalBar }) {
                     JsonObject barRow = new JsonObject();
                     barRow.addProperty("content_px", bar.contentLength);
                     barRow.addProperty("visible_px", bar.visibleLength);
@@ -107,10 +109,12 @@ public class Graph extends AutomationEndpoint implements AutomationRoute {
                 result.add("scroll", scroll);
                 JsonArray home = new JsonArray();
                 JsonArray range = new JsonArray();
-                for (float edge : new float[] { view.homeLeft, view.homeBottom, view.homeRight, view.homeTop }) {
+                for (float edge : new float[] { canvasScroll.contentLeft, canvasScroll.contentBottom,
+                        canvasScroll.contentRight, canvasScroll.contentTop }) {
                     home.add(edge);
                 }
-                for (float edge : new float[] { view.rangeLeft, view.rangeBottom, view.rangeRight, view.rangeTop }) {
+                for (float edge : new float[] { canvasScroll.rangeLeft, canvasScroll.rangeBottom,
+                        canvasScroll.rangeRight, canvasScroll.rangeTop }) {
                     range.add(edge);
                 }
                 result.add("home_frame", home);
@@ -122,8 +126,8 @@ public class Graph extends AutomationEndpoint implements AutomationRoute {
                     shown.add(edge);
                 }
                 result.add("view_rect", shown);
-                result.addProperty("whole_graph_visible", !view.horizontalBar.isNeeded()
-                        && !view.verticalBar.isNeeded());
+                result.addProperty("whole_graph_visible", !canvasScroll.horizontalBar.isNeeded()
+                        && !canvasScroll.verticalBar.isNeeded());
                 JsonArray nodes = new JsonArray();
                 for (int node = 0; node < graph.nodeCount; node++) {
                     JsonObject row = new JsonObject();

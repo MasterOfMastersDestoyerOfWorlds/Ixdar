@@ -2,7 +2,6 @@ package ixdar.graphics.cameras;
 
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Supplier;
 
 import org.joml.Vector2d;
@@ -18,10 +17,10 @@ import ixdar.platform.Platforms;
 
 /**
  * Orthographic 2D camera framing a {@link PointSet} on a screen-space viewport: pan and scale,
- * point-to-screen transforms, zoom-to-fit, an ortho z-index. As a {@link CameraController} a drag
- * starting in its main view pans it.
+ * point-to-screen transforms, zoom-to-fit, zoom about a point, an ortho z-index. Input reaches it
+ * through a {@code CanvasScroll}.
  */
-public class Camera2D implements Camera, CameraController {
+public class Camera2D implements Camera {
     public static final int DEFAULT_BOUND_MIN = -10;
     public static final int DEFAULT_BOUND_MAX = 10;
     public static final double MIN_SCALE = 0.1;
@@ -60,23 +59,13 @@ public class Camera2D implements Camera, CameraController {
     public Supplier<Knot> resetTarget;
 
     /**
-     * Whether the camera takes the wheel itself, zooming a notch's worth on the frame it arrives;
-     * false leaves the wheel to the panes under the cursor, the camera's own view among them.
+     * The view the camera frames, the active one of {@link #initCamera(Map, String)}'s map, in
+     * framebuffer pixels, y up; {@code null} before one is bound.
      */
-    public boolean wheelZooms = true;
-
-    /** Framebuffer x the held pan drag last moved the view from. */
-    public float dragStartX;
-
-    /** Framebuffer y the held pan drag last moved the view from. */
-    public float dragStartY;
-
-    /** Whether the held press started in the main view, so its drag pans. */
-    public boolean dragPans;
+    public Bounds mainViewBounds;
 
     private float SHIFT_MOD = 1.0f;
     private Map<String, Bounds> namedBounds;
-    private Bounds mainViewBounds;
 
     /**
      * Construct a camera over the square min(Width, Height) viewport at the
@@ -185,8 +174,10 @@ public class Camera2D implements Camera, CameraController {
         rangeY = Math.abs(maxY - minY);
         height = Height * ScaleFactor;
         width = Width * ScaleFactor;
-        offsetX = 0 + (int) PanX;
-        offsetY = 0 + (int) PanY;
+        // Unrounded: a whole-pixel offset moves the point a zoom holds under the cursor by up to a
+        // pixel a step, and a pinch's many steps walk it away.
+        offsetX = PanX;
+        offsetY = PanY;
 
         if (rangeX > rangeY) {
             rangeY = rangeX;
@@ -530,25 +521,21 @@ public class Camera2D implements Camera, CameraController {
     }
 
     /**
-     * Apply a zoom delta while keeping the screen-space center anchored to
-     * the same point-space location. Ignored when the resulting scale would
-     * fall below 0.1.
+     * Multiply the zoom, no lower than {@link #MIN_SCALE}, keeping the point under a view position
+     * where it is: every 2D zoom, the wheel's about the cursor and the keys' about the centre.
      *
-     * @param delta signed change to {@link #ScaleFactor}
+     * @param factor zoom multiplier, above 1 to zoom in
+     * @param x      x in the view, framebuffer pixels from its left edge
+     * @param y      y in the view, framebuffer pixels from its bottom edge
      */
-    public void scale(float delta) {
-
-        if (ScaleFactor + delta < MIN_SCALE) {
-            return;
-        }
-        float newScaleY = ScaleFactor + delta;
-        float midXPointSpace = screenTransformX(((float) ScreenWidth) / 2);
-        float midYPointSpace = screenTransformY(((float) ScreenHeight) / 2);
-        float midXNewScale = pointTransformX(midXPointSpace, newScaleY);
-        float midYNewScale = pointTransformY(midYPointSpace, newScaleY);
-        PanX += (((float) ScreenWidth) / 2) - midXNewScale;
-        PanY += (((float) ScreenHeight) / 2) - midYNewScale;
-        ScaleFactor += delta;
+    public void zoomAbout(double factor, float x, float y) {
+        calculateCameraTransform(ps);
+        float pointX = screenTransformX(x);
+        float pointY = screenTransformY(y);
+        ScaleFactor = (float) Math.max(MIN_SCALE, ScaleFactor * factor);
+        calculateCameraTransform(ps);
+        drag(x - pointTransformX(pointX), y - pointTransformY(pointY));
+        calculateCameraTransform(ps);
     }
 
     /**
@@ -589,20 +576,16 @@ public class Camera2D implements Camera, CameraController {
     }
 
     /**
-     * Translate scroll wheel input into a {@link #scale(float)} call,
-     * zooming in when {@code b} is true and out otherwise.
+     * A held zoom key's frame: {@link #zoomAbout} the view's centre, in when {@code b} is true and
+     * out otherwise, by {@link #ZOOM_SPEED} times the shift multiplier per notch.
      *
      * @param b true for zoom-in, false for zoom-out
-     * @param delta wheel notch magnitude (units of 100)
+     * @param delta zoom magnitude in hundredths of a notch
      */
     @Override
     public void onScroll(boolean b, double delta) {
-        float deltaRee = (float) delta / WHEEL_NOTCH_SCALE;
-        if (b) {
-            scale(ZOOM_SPEED * SHIFT_MOD * deltaRee * ScaleFactor);
-        } else {
-            scale(-1 * ZOOM_SPEED * SHIFT_MOD * deltaRee * ScaleFactor);
-        }
+        float step = ZOOM_SPEED * SHIFT_MOD * (float) delta / WHEEL_NOTCH_SCALE;
+        zoomAbout(b ? 1 + step : 1 - step, ScreenWidth / 2, ScreenHeight / 2);
     }
 
     /**
@@ -617,80 +600,7 @@ public class Camera2D implements Camera, CameraController {
         PanY += e;
     }
 
-    /**
-     * A drag pans only when its press lands in the camera's main view, tested in framebuffer pixels,
-     * y up, as the view's bounds are laid out; a camera with no view pans from anywhere.
-     *
-     * @param x    window x of the press
-     * @param y    window y of the press
-     * @param mods modifier-key bitmask (unused)
-     */
-    @Override
-    public void pointerPressed(float x, float y, int mods) {
-        dragStartX = getNormalizePosX(x);
-        dragStartY = getNormalizePosY(y);
-        dragPans = mainViewBounds == null;
-        if (!dragPans) {
-            mainViewBounds.recalc();
-            dragPans = dragStartX >= mainViewBounds.offsetX
-                    && dragStartX <= mainViewBounds.offsetX + mainViewBounds.viewWidth
-                    && dragStartY >= mainViewBounds.offsetY
-                    && dragStartY <= mainViewBounds.offsetY + mainViewBounds.viewHeight;
-        }
-    }
 
-    /**
-     * Pan by the framebuffer travel since the press or the last drag sample.
-     *
-     * @param lastX window x of the previous cursor sample (unused; the pan runs from the press)
-     * @param lastY window y of the previous cursor sample (unused)
-     * @param x     window x of the cursor
-     * @param y     window y of the cursor
-     */
-    @Override
-    public void pointerDragged(float lastX, float lastY, float x, float y) {
-        if (!dragPans) {
-            return;
-        }
-        float normalizedX = getNormalizePosX(x);
-        float normalizedY = getNormalizePosY(y);
-        drag(normalizedX - dragStartX, normalizedY - dragStartY);
-        dragStartX = normalizedX;
-        dragStartY = normalizedY;
-    }
-
-    /**
-     * Whether the wheel zooms this camera directly; see {@link #wheelZooms}.
-     *
-     * @return {@link #wheelZooms}
-     */
-    @Override
-    public boolean usesWheel() {
-        return wheelZooms;
-    }
-
-    /**
-     * Zoom by the summed delta: its sign picks the direction and its size, capped at one notch a
-     * frame, scales the step, so a trackpad zooms in proportion to the finger.
-     *
-     * @param delta summed vertical wheel delta, positive away from the user
-     */
-    @Override
-    public void wheelScrolled(double delta) {
-        double notches = Math.min(1, Math.abs(delta));
-        onScroll(delta < 0, notches * Clock.deltaTime() * SCROLL_SPEED_SCALE);
-    }
-
-    /**
-     * Move by the held movement keys and zoom by the held zoom keys.
-     *
-     * @param pressedKeys key codes held down
-     * @param shiftMod    speed multiplier
-     */
-    @Override
-    public void keysHeld(Set<Integer> pressedKeys, float shiftMod) {
-        CameraController.moveWithKeys(this, pressedKeys, shiftMod, Clock.deltaTime());
-    }
 
     /**
      * {@inheritDoc}.

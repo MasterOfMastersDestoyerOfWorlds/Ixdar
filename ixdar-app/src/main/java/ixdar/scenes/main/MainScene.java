@@ -47,6 +47,7 @@ import ixdar.gui.terminal.commands.ResetCommand;
 import ixdar.gui.terminal.commands.ResetCommand.ResetOption;
 import ixdar.gui.terminal.commands.UpdateCommand;
 import ixdar.platform.input.Keys;
+import ixdar.input.CanvasScroll;
 import ixdar.input.PointerDispatcher;
 import ixdar.tools.ControlHint;
 import ixdar.tools.knot.FreeTool;
@@ -162,9 +163,9 @@ public class MainScene extends Scene {
 
         Toggle.setPanelFocus(PaneTypes.KnotView);
         grid = pointSetPath.grid;
-        editorCamera.wheelZooms = false;
         mouse.camera = editorCamera;
-        mouse.controller = editorCamera;
+        CanvasScroll editorScroll = new CanvasScroll(editorCamera, false, () -> active);
+        mouse.controller = editorScroll;
         freeTool = new FreeTool(this);
         mapEditorTool = new MapEditorTool(this);
         negativeCutMatchViewTool = new NegativeCutMatchViewTool(this);
@@ -204,7 +205,7 @@ public class MainScene extends Scene {
         PointerDispatcher pointer = PointerDispatcher.current();
         pointer.subscribe(rightTop, info.scrollBox);
         pointer.subscribe(bottom, terminal.scrollBox);
-        pointer.subscribe(views.get(VIEW_MAIN), editorCamera);
+        pointer.subscribe(views.get(VIEW_MAIN), editorScroll);
         DistanceMatrix d = pointSetPath.d;
         if (pointSetPath.d == null) {
             d = new DistanceMatrix(pointSetPath.ps);

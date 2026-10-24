@@ -202,9 +202,12 @@ public final class MenuScrollBox implements PointerRegion {
      *
      * @param deltaX raw horizontal delta, ignored
      * @param deltaY raw vertical delta, 1.0 per wheel notch
+     * @param x      framebuffer x of the cursor, ignored
+     * @param y      framebuffer y of the cursor, ignored
+     * @param mods   held modifiers, ignored
      */
     @Override
-    public void onScrollDelta(double deltaX, double deltaY) {
+    public void onScrollDelta(double deltaX, double deltaY, float x, float y, int mods) {
         if (!shown.getAsBoolean()) {
             return;
         }

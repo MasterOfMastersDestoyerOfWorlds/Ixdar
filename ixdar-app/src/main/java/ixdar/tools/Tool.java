@@ -264,16 +264,4 @@ public abstract class Tool {
     public boolean onRelease(float x, float y, boolean click) {
         return false;
     }
-
-    /**
-     * The wheel deltas summed since the last frame, offered to the active tool when no UI pane
-     * under the cursor takes them.
-     *
-     * @param deltaX summed horizontal delta, positive toward the left
-     * @param deltaY summed vertical delta, 1.0 per wheel notch, positive away from the user
-     * @return true when the tool used them; false leaves the vertical one to the camera's zoom
-     */
-    public boolean onScroll(double deltaX, double deltaY) {
-        return false;
-    }
 }

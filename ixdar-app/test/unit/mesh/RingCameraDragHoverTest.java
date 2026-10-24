@@ -28,6 +28,7 @@ import ixdar.graphics.cameras.Camera3D;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.Platform;
+import ixdar.input.CanvasScroll;
 import ixdar.input.MouseTrap;
 import ixdar.input.PointerDispatcher;
 import ixdar.scenes.ring.RingScene;
@@ -217,7 +218,7 @@ class RingCameraDragHoverTest {
     void aDragOnATwoDimensionalTrapReportsADragUntilItsRelease() {
         Camera2D flat = new Camera2D(WINDOW_WIDTH, WINDOW_HEIGHT, 1f, 0, 0, null);
         MouseTrap pan = new MouseTrap(flat, scene);
-        pan.controller = flat;
+        pan.controller = new CanvasScroll(flat, false, () -> true);
         pointer.moveOrDrag(pan, 0L, START_X, MIDDLE_Y);
         press(pan);
         pointer.moveOrDrag(pan, 0L, START_X + CLICK_WOBBLE, MIDDLE_Y);

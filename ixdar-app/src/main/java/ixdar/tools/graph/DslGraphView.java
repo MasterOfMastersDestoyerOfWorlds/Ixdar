@@ -13,7 +13,6 @@ import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.geometry.tsp.points.PointSet;
-import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palette;
@@ -24,8 +23,9 @@ import ixdar.graphics.render.sdf.SDFLine;
 import ixdar.graphics.render.sdf.SDFRoundedRect;
 import ixdar.graphics.render.text.Font;
 import ixdar.gui.ui.Drawing;
-import ixdar.gui.ui.menu.MenuScrollBar;
 import ixdar.gui.ui.text.HyperString;
+import ixdar.input.CanvasScroll;
+import ixdar.input.PointerDispatcher;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
@@ -36,7 +36,7 @@ import ixdar.tools.Tool;
 /**
  * The model scenes' graph tool: draws the node tree of the scene's graph in place of the 3D view,
  * time-tinted boxes, expandable groups, bezier arrows and the critical path, on its own
- * pan-and-zoom {@link Camera2D} with scroll bars.
+ * {@link Camera2D}, scrolled by a {@link CanvasScroll} with scroll bars.
  */
 @ToolAnnotation(id = DslGraphView.TOOL_NAME)
 public class DslGraphView extends Tool {
@@ -64,9 +64,7 @@ public class DslGraphView extends Tool {
     public static final float CURVE_TANGENT_SHARE = 0.35f;
     public static final float LANE_RAMP = DslGraphLayout.COLUMN_GAP * 0.4f;
     public static final float STRAIGHT_EDGE_PX = 1.5f;
-    public static final double ZOOM_PER_SCROLL_UNIT = 1.15;
-    public static final float SCROLL_STEP_PX = 40f;
-    public static final float SCROLL_PAN_PX_PER_UNIT = 30f;
+    public static final float MARGIN_SHARE = FRAME_MARGIN / (1 - 2 * FRAME_MARGIN);
     public static final int HOTSPOT_COUNT = 10;
     public static final Color HOTSPOT_TEXT = Color.YELLOW_ORANGE;
     public static final Color GROUP_FRAME = Color.TEAL_BLUE_LIGHT;
@@ -104,32 +102,14 @@ public class DslGraphView extends Tool {
     /** Graph of the last run, or {@code null} before one has run. */
     public DslGraphLayout layout;
 
-    /**
-     * The home frame in layout units: every box and group frame, padded by the margin
-     * {@link #frameAll} leaves, so frame-all shows exactly this box along its tighter axis.
-     */
-    public float homeLeft;
-    public float homeBottom;
-    public float homeRight;
-    public float homeTop;
-
-    /**
-     * What the scroll bars and scroll input span, in layout units: the home frame and the view as
-     * the last drag-pan step, zoom, focus or frame-all left it; scrolling moves only within it.
-     */
-    public float rangeLeft;
-    public float rangeBottom;
-    public float rangeRight;
-    public float rangeTop;
-
-    /** Pans and zooms the graph; its point set is the graph's bounding box. */
+    /** Draws the graph; its point set is the graph's bounding box. */
     public final Camera2D camera;
 
-    /** Bar along the bottom edge: the graph's width against the window's, scrolled by the pan. */
-    public final MenuScrollBar horizontalBar;
-
-    /** Bar down the right edge, above the horizontal one: the graph's height against the window's. */
-    public final MenuScrollBar verticalBar;
+    /**
+     * Scrolls the camera, with scroll bars; its content is every box and group frame padded by
+     * the margin {@link #frameAll} leaves, set from each layout.
+     */
+    public final CanvasScroll scroll;
 
     public final SDFRoundedRect box = new SDFRoundedRect();
     public final SDFBezier curve = new SDFBezier();
@@ -140,15 +120,9 @@ public class DslGraphView extends Tool {
     public final ArrayList<HyperString> texts = new ArrayList<>();
     public final ArrayList<Vector2f> textPositions = new ArrayList<>();
 
-    /** The bar a press landed on, which takes the drag and release, or {@code null} for a pan. */
-    public MenuScrollBar pressedBar;
-
-    private float pressX;
-    private float pressY;
-
     /**
-     * Build the view over {@code scene}'s window; the scene hands it the pointer while it is the
-     * active tool.
+     * Build the view over {@code scene}'s window; while it is the active tool its scroll is the
+     * scene's camera controller and a pointer region over the window.
      *
      * @param scene scene whose window the view covers
      */
@@ -160,8 +134,7 @@ public class DslGraphView extends Tool {
         camera = new Camera2D(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight(),
                 1.0f, 0.0f, 0.0f, bounds);
         camera.initCamera(scene.webViews, Scene.DEFAULT_VIEW);
-        horizontalBar = new MenuScrollBar(new Bounds(0, 0, 0, 0, "DSL_GRAPH_HORIZONTAL_BAR"), true, SCROLL_STEP_PX);
-        verticalBar = new MenuScrollBar(new Bounds(0, 0, 0, 0, "DSL_GRAPH_VERTICAL_BAR"), false, SCROLL_STEP_PX);
+        scroll = new CanvasScroll(camera, true, () -> active && scene.active);
         hotspotLabel.add(new HyperString());
         hotspotLabelPosition.add(new Vector2f());
     }
@@ -171,17 +144,27 @@ public class DslGraphView extends Tool {
         return TOOL_NAME;
     }
 
-    /** Take the window's pointer and draw the scene's graph in place of the 3D view. */
+    /**
+     * Give the window's pointer to the graph's scroll, subscribing it over the window, and draw
+     * the graph in place of the 3D view.
+     */
     @Override
     public void activate() {
         active = true;
+        scene.mouse.controller = scroll;
+        PointerDispatcher.current().subscribe(camera.mainViewBounds, scroll);
         refresh();
     }
 
-    /** Hand the window back to the scene's view, keeping the zoom, pan, hotspot and expansions. */
+    /**
+     * Unsubscribe the scroll and hand the pointer back to the scene's orbit, keeping the zoom,
+     * pan, hotspot and expansions.
+     */
     @Override
     public void deactivate() {
         active = false;
+        PointerDispatcher.current().unsubscribe(scroll);
+        scene.mouse.controller = scene.camera;
     }
 
     /** Nothing runs per frame; {@link #drawView} follows the scene's graph through {@link #refresh}. */
@@ -395,18 +378,13 @@ public class DslGraphView extends Tool {
             texts.add(string);
             textPositions.add(new Vector2f());
         }
-        float marginShare = FRAME_MARGIN / (1 - 2 * FRAME_MARGIN);
-        float padX = (layout.maxX - layout.minX) * marginShare;
-        float padY = (layout.maxY - layout.minY) * marginShare;
-        homeLeft = layout.minX - padX;
-        homeBottom = layout.minY - padY;
-        homeRight = layout.maxX + padX;
-        homeTop = layout.maxY + padY;
-        resetScrollRange();
+        float padX = (layout.maxX - layout.minX) * MARGIN_SHARE;
+        float padY = (layout.maxY - layout.minY) * MARGIN_SHARE;
+        scroll.setContent(layout.minX - padX, layout.minY - padY, layout.maxX + padX, layout.maxY + padY);
     }
 
     /**
-     * Zoom and pan so a layout rectangle fits the window with a margin, centred.
+     * Have the scroll frame a layout rectangle in the window with a margin, centred.
      *
      * @param left layout x of the rectangle's left edge
      * @param bottom layout y of its bottom edge
@@ -414,72 +392,9 @@ public class DslGraphView extends Tool {
      * @param top layout y of its top edge
      */
     public void focus(float left, float bottom, float right, float top) {
-        float viewWidth = scene.paneBounds.viewWidth;
-        float viewHeight = scene.paneBounds.viewHeight;
-        camera.calculateCameraTransform(camera.ps);
-        float pixelsPerUnitAtUnitScale = camera.Width / camera.rangeX;
-        camera.ScaleFactor = Math.min(viewWidth / (right - left), viewHeight / (top - bottom))
-                * (1 - 2 * FRAME_MARGIN) / pixelsPerUnitAtUnitScale;
-        camera.calculateCameraTransform(camera.ps);
-        float pixelsPerUnit = pixelsPerUnitAtUnitScale * camera.ScaleFactor;
-        camera.PanX = viewWidth / 2 - ((left + right) / 2 - camera.minX) * pixelsPerUnit;
-        camera.PanY = viewHeight / 2 - ((bottom + top) / 2 - camera.minY) * pixelsPerUnit;
-        camera.calculateCameraTransform(camera.ps);
-        resetScrollRange();
-    }
-
-    /**
-     * Shrink the scroll range to the home frame and the view, as every move of the view but a
-     * scroll does: a drag-pan step, a zoom, a focus or frame-all.
-     */
-    public void resetScrollRange() {
-        rangeLeft = homeLeft;
-        rangeBottom = homeBottom;
-        rangeRight = homeRight;
-        rangeTop = homeTop;
-        updateScrollBars();
-    }
-
-    /**
-     * Point the scroll bars at the window's edges and at the scroll range, first grown to hold the
-     * view: content is the range's on-screen extent rounded to whole pixels, offset the view's
-     * distance into it from its left or top.
-     */
-    public void updateScrollBars() {
-        Bounds pane = scene.paneBounds;
-        float barWidth = MenuScrollBar.WIDTH_PIXELS;
-        horizontalBar.bounds.update(pane.offsetX, pane.offsetY, pane.viewWidth - barWidth, pane.viewHeight);
-        verticalBar.bounds.update(pane.offsetX, pane.offsetY + barWidth, pane.viewWidth, pane.viewHeight - barWidth);
-        camera.calculateCameraTransform(camera.ps);
-        if (layout == null) {
-            return;
-        }
-        float viewLeft = camera.screenTransformX(0);
-        float viewTop = camera.screenTransformY(pane.viewHeight);
-        rangeLeft = Math.min(rangeLeft, viewLeft);
-        rangeBottom = Math.min(rangeBottom, camera.screenTransformY(0));
-        rangeRight = Math.max(rangeRight, camera.screenTransformX(pane.viewWidth));
-        rangeTop = Math.max(rangeTop, viewTop);
-        // Not pointTransformX(1) - pointTransformX(0): far into a zoom both are ~1e5 px and their
-        // float difference is off by tenths of a percent, which a scroll then turns into a jump.
-        float pixelsPerUnit = camera.width / camera.rangeX;
-        horizontalBar.contentLength = Math.round((rangeRight - rangeLeft) * pixelsPerUnit);
-        horizontalBar.visibleLength = pane.viewWidth;
-        horizontalBar.scrollOffset = (viewLeft - rangeLeft) * pixelsPerUnit;
-        verticalBar.contentLength = Math.round((rangeTop - rangeBottom) * pixelsPerUnit);
-        verticalBar.visibleLength = pane.viewHeight;
-        verticalBar.scrollOffset = (rangeTop - viewTop) * pixelsPerUnit;
-    }
-
-    /**
-     * Pan the camera so the view sits in the scroll range where the bars' offsets say, the
-     * inverse of {@link #updateScrollBars}.
-     */
-    public void panToScrollBars() {
-        camera.calculateCameraTransform(camera.ps);
-        camera.drag(-horizontalBar.scrollOffset - camera.pointTransformX(rangeLeft),
-                scene.paneBounds.viewHeight + verticalBar.scrollOffset - camera.pointTransformY(rangeTop));
-        camera.calculateCameraTransform(camera.ps);
+        float padX = (right - left) * MARGIN_SHARE;
+        float padY = (top - bottom) * MARGIN_SHARE;
+        scroll.frame(left - padX, bottom - padY, right + padX, top + padY);
     }
 
     /**
@@ -490,7 +405,7 @@ public class DslGraphView extends Tool {
         camera.resetZIndex();
         camera.setZIndex(scene.camera);
         camera.updateView(Scene.DEFAULT_VIEW);
-        updateScrollBars();
+        camera.calculateCameraTransform(camera.ps);
         if (layout != null) {
             float pixelsPerUnit = camera.width / camera.rangeX;
             for (int group = layout.groupCount - 1; group >= 0; group--) {
@@ -565,8 +480,7 @@ public class DslGraphView extends Tool {
                 Drawing.getDrawing().font.drawHyperStrings(hotspotLabel, hotspotLabelPosition,
                         DslGraphLayout.TEXT_HEIGHT * pixelsPerUnit, camera);
             }
-            horizontalBar.draw(camera);
-            verticalBar.draw(camera);
+            scroll.drawBars();
             camera.updateView(Scene.DEFAULT_VIEW);
         }
         scene.camera2D.setZIndex(camera);
@@ -595,106 +509,16 @@ public class DslGraphView extends Tool {
     }
 
     /**
-     * Scroll each bar by {@link #SCROLL_PAN_PX_PER_UNIT} per unit of its own axis, clamped to the
-     * scroll range, Shift turning the wheel sideways; with Control held, zoom by
-     * {@link #ZOOM_PER_SCROLL_UNIT} to the power of the vertical delta about the cursor.
+     * A click on a box focuses that box with its neighbourhood, and one on empty space counts
+     * toward the scene's double-click, which frames the whole graph.
      *
-     * @param deltaX summed horizontal delta, positive toward the left
-     * @param deltaY summed vertical delta, positive away from the user
-     * @return true: the wheel never reaches the hidden 3D camera
+     * @param x framebuffer x of the click
+     * @param y framebuffer y of the click, y up
+     * @return true: the graph took the click
      */
     @Override
-    public boolean onScroll(double deltaX, double deltaY) {
+    public boolean onClick(float x, float y) {
         if (layout == null) {
-            return true;
-        }
-        camera.calculateCameraTransform(camera.ps);
-        if (!scene.keys.controlMask) {
-            boolean sideways = scene.keys.shiftMask && deltaX == 0;
-            updateScrollBars();
-            horizontalBar.scrollBy((float) (-(sideways ? deltaY : deltaX) * SCROLL_PAN_PX_PER_UNIT));
-            verticalBar.scrollBy((float) (-(sideways ? 0 : deltaY) * SCROLL_PAN_PX_PER_UNIT));
-            panToScrollBars();
-            return true;
-        }
-        float cursorX = scene.mouse.normalizedPosX;
-        float cursorY = scene.mouse.normalizedPosY;
-        float graphX = camera.screenTransformX(cursorX);
-        float graphY = camera.screenTransformY(cursorY);
-        camera.ScaleFactor = (float) Math.max(Camera2D.MIN_SCALE,
-                camera.ScaleFactor * Math.pow(ZOOM_PER_SCROLL_UNIT, deltaY));
-        camera.calculateCameraTransform(camera.ps);
-        camera.drag(cursorX - camera.pointTransformX(graphX), cursorY - camera.pointTransformY(graphY));
-        resetScrollRange();
-        return true;
-    }
-
-    /**
-     * Start a pan or a click at the press point, or, on a scroll bar, hand the press to it.
-     *
-     * @param x    framebuffer x of the press
-     * @param y    framebuffer y of the press, y up
-     * @param mods modifier-key bitmask, unused: every press pans or clicks the graph
-     * @return true: the graph takes every drag, so the hidden 3D camera never moves
-     */
-    @Override
-    public boolean onPress(float x, float y, int mods) {
-        pressX = x;
-        pressY = y;
-        pressedBar = null;
-        if (layout == null) {
-            return true;
-        }
-        updateScrollBars();
-        for (MenuScrollBar bar : new MenuScrollBar[] { horizontalBar, verticalBar }) {
-            if (bar.contains(x, y)) {
-                pressedBar = bar;
-                bar.press(x, y);
-                panToScrollBars();
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Pan the graph with the cursor, without limit, the scroll range following to the home frame
-     * and the view; or move a grabbed scroll bar thumb.
-     *
-     * @param x framebuffer x of the cursor
-     * @param y framebuffer y of the cursor, y up
-     */
-    @Override
-    public void onDrag(float x, float y) {
-        if (pressedBar != null) {
-            pressedBar.dragTo(x, y);
-            panToScrollBars();
-            return;
-        }
-        camera.drag(x - pressX, y - pressY);
-        pressX = x;
-        pressY = y;
-        if (layout != null) {
-            resetScrollRange();
-        }
-    }
-
-    /**
-     * Let go of a scroll bar; otherwise a click on a box focuses that box with its neighbourhood,
-     * and one on empty space counts toward the scene's double-click, which frames the whole graph.
-     *
-     * @param x framebuffer x of the release
-     * @param y framebuffer y of the release, y up
-     * @param click true when the press did not move
-     * @return true: the graph took the press, so no overlay link sees it
-     */
-    @Override
-    public boolean onRelease(float x, float y, boolean click) {
-        if (pressedBar != null) {
-            pressedBar.release();
-            pressedBar = null;
-            return true;
-        }
-        if (!click || layout == null) {
             return true;
         }
         camera.calculateCameraTransform(camera.ps);

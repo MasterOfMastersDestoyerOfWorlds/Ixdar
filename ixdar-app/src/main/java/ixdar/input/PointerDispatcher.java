@@ -12,6 +12,7 @@ import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.CameraController;
 import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
+import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.PointerRegion;
 import ixdar.scenes.Scene;
 import ixdar.tools.Tool;
@@ -248,8 +249,8 @@ public class PointerDispatcher {
 
     /**
      * Per-frame: the queued wheel deltas, both axes, go whole to a region under the cursor that
-     * {@link PointerRegion#claimsWheel claims them}, else to the active scene tool if it takes
-     * them; otherwise the vertical one steps a region or reaches the trap, and the horizontal is dropped.
+     * {@link PointerRegion#claimsWheel claims them}, with the cursor and the held modifiers;
+     * otherwise the vertical one steps a region or reaches the trap, and the horizontal is dropped.
      *
      * @param trap trap whose frame this is
      * @param shiftMod speed multiplier, passed to the trap
@@ -259,13 +260,14 @@ public class PointerDispatcher {
         trap.queuedScrollDeltaX = 0;
         if (trap.queuedScrollDelta != 0 || deltaX != 0) {
             PointerRegion claimer = trap.active ? regionUnderCursor(trap, PointerRegion::claimsWheel) : null;
-            Tool tool = trap.active && claimer == null ? activeTool(trap) : null;
             if (claimer != null) {
                 double deltaY = trap.queuedScrollDelta;
                 trap.queuedScrollDelta = 0;
-                claimer.onScrollDelta(deltaX, deltaY);
-            } else if (tool != null && tool.onScroll(deltaX, trap.queuedScrollDelta)) {
-                trap.queuedScrollDelta = 0;
+                // The wheel carries no modifiers of its own: the held ones are the key handler's.
+                KeyGuy keys = trap.canvas == null ? null : trap.canvas.keys;
+                int mods = keys == null ? 0
+                        : (keys.shiftMask ? KeyNames.MOD_SHIFT : 0) | (keys.controlMask ? KeyNames.MOD_CONTROL : 0);
+                claimer.onScrollDelta(deltaX, deltaY, trap.normalizedPosX, trap.normalizedPosY, mods);
             } else if (trap.queuedScrollDelta != 0 && !trap.usesWheel()
                     && System.currentTimeMillis() - trap.timeLastScroll <= MouseTrap.SCROLL_DECAY_MS) {
                 PointerRegion region = regionUnderCursor(trap, any -> true);

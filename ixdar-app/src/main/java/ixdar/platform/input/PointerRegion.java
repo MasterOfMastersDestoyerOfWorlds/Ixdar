@@ -43,8 +43,11 @@ public interface PointerRegion {
      *               two-finger sideways swipe
      * @param deltaY summed vertical delta, 1.0 per wheel notch, negative when the wheel rolled
      *               toward the user
+     * @param x      framebuffer x of the cursor
+     * @param y      framebuffer y of the cursor, y up
+     * @param mods   modifier-key bitmask held, as {@link KeyNames} spells the bits
      */
-    default void onScrollDelta(double deltaX, double deltaY) {
+    default void onScrollDelta(double deltaX, double deltaY, float x, float y, int mods) {
     }
 
     /**

@@ -233,7 +233,7 @@ class ScrollRegionHitTest {
         }
 
         @Override
-        public void onScrollDelta(double deltaX, double deltaY) {
+        public void onScrollDelta(double deltaX, double deltaY, float x, float y, int mods) {
             deltas.add(deltaY);
         }
 
