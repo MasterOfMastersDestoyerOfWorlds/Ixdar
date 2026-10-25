@@ -3,7 +3,9 @@ package unit.mesh;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -48,6 +50,7 @@ import ixdar.tools.ControlHint;
 import ixdar.tools.Draft;
 import ixdar.tools.connection.ConnectionTool;
 import ixdar.tools.ring.BisectorTool;
+import ixdar.tools.ring.ConfirmedRing;
 import ixdar.tools.ring.RingDslWriter;
 import ixdar.tools.ring.RingTool;
 import unit.GlStandIn;
@@ -667,6 +670,129 @@ class BisectorTest {
                 "the reload moved an end back onto the wall it was dragged off");
         assertArrayEquals(drawn, tool.confirmedRings.get(reloaded).spline.marks.markedByEdgeId,
                 "the reloaded bisector runs along other edges than the one confirmed");
+    }
+
+    /**
+     * A loaded graph's spline rings and bisector are adopted as the very splines the graph traced,
+     * holding what a trace of their statements would, and an adopted wall still re-opens, edits,
+     * carries its bisector along and undoes back to the graph's spline.
+     */
+    @Test
+    void graphRingsAreAdoptedAsTheGraphsOwnSplinesAndStillEdit(@TempDir Path folder)
+            throws Exception {
+        // The graph loads the tube from a file, which it reads back with the same vertex ids.
+        MeshTopology written = tube();
+        StringBuilder off = new StringBuilder("OFF\n" + written.vertexCount() + " "
+                + written.faceCount() + " 0\n");
+        Vector3f position = new Vector3f();
+        for (int vertex = 0; vertex < written.vertexCount(); vertex++) {
+            written.vertexPosition(written.vertexIdAt(vertex), position);
+            off.append(position.x).append(' ').append(position.y).append(' ')
+                    .append(position.z).append('\n');
+        }
+        for (int face = 0; face < written.faceCount(); face++) {
+            int faceId = written.faceIdAt(face);
+            off.append(written.faceVertexCount(faceId));
+            for (int corner = 0; corner < written.faceVertexCount(faceId); corner++) {
+                off.append(' ').append(written.faceVertexAt(faceId, corner));
+            }
+            off.append('\n');
+        }
+        Path mesh = folder.resolve("tube.off");
+        Files.write(mesh, off.toString().getBytes(StandardCharsets.UTF_8));
+        Path dsl = folder.resolve(WORKING_DSL);
+        Files.write(dsl, ("carrier = load_mesh(path=\"" + mesh + "\")\n")
+                .getBytes(StandardCharsets.UTF_8));
+        RingTool saving = toolOn(written, dsl);
+        ring(saving, FIRST_RING_ROW);
+        ring(saving, SECOND_RING_ROW);
+        bisect(saving, vertex(FIRST_RING_ROW, TOP_SIDE), vertex(SECOND_RING_ROW, TOP_SIDE),
+                vertex(MIDDLE_ROW, TOP_SIDE + 2));
+        assertTrue(saving.saveRings(), saving.lastError);
+        String saved = new String(Files.readAllBytes(dsl), StandardCharsets.UTF_8);
+        // The first source writes no normal for the first ring, whose plane adoption then fits.
+        String[] sources = { saved.replaceFirst(", normal=\"[^\"]*\"", ""), saved };
+        assertFalse(sources[0].equals(saved), "the saved rings carry no normal:\n" + saved);
+        RingTool adopting = null;
+        GeometryBundle output = null;
+        for (String source : sources) {
+            NodeGraphRuntime graph = NodeGraphRuntime.fromSource(source);
+            output = (GeometryBundle) graph.executeGraphResult(graph.lastId(),
+                    RingDslWriter.DEFAULT_UPSTREAM_PORT);
+            MeshTopology tube = output.mesh();
+            assertEquals(written.vertexCount(), tube.vertexCount());
+
+            // The same graph rings, adopted once from the graph that ran and once from its
+            // statements alone, with no output to read, which traces them.
+            adopting = toolOn(tube, dsl);
+            adopting.scene.graph = graph;
+            assertSame(output, adopting.scene.getGeometryBundle());
+            RingTool tracing = toolOn(tube, dsl);
+            tracing.scene.graph = NodeGraphRuntime.fromSource(source);
+            for (RingTool tool : new RingTool[] { adopting, tracing }) {
+                for (ConfirmedRing held : saving.confirmedRings) {
+                    tool.scene.ringMarksByLabel.put(held.statementId,
+                            EdgeMarks.bools(output, held.statementId));
+                }
+                tool.adoptGraphRings(tube);
+                assertEquals(saving.confirmedRings.size(), tool.confirmedRings.size(),
+                        tool.lastError);
+            }
+            for (int ring = 0; ring < adopting.confirmedRings.size(); ring++) {
+                ConfirmedRing adopted = adopting.confirmedRings.get(ring);
+                ConfirmedRing traced = tracing.confirmedRings.get(ring);
+                assertSame(SurfaceSpline.inBundle(output, adopted.sourceLabel), adopted.spline,
+                        adopted.sourceLabel + " was traced again, not taken from the graph");
+                assertEquals(EdgeMarks.fingerprint(tube, traced.spline.marks.markedByEdgeId),
+                        EdgeMarks.fingerprint(tube, adopted.spline.marks.markedByEdgeId),
+                        adopted.sourceLabel + " marks other edges than its trace");
+                assertArrayEquals(traced.spline.path.positions, adopted.spline.path.positions,
+                        adopted.sourceLabel + " runs another path than its trace");
+                assertArrayEquals(traced.authoredVertexId, adopted.authoredVertexId,
+                        adopted.sourceLabel + " holds other anchors than its trace");
+                assertArrayEquals(traced.baseNormal, adopted.baseNormal,
+                        adopted.sourceLabel + " leans toward another normal than its trace");
+                assertArrayEquals(traced.bisectorEnds, adopted.bisectorEnds);
+                assertEquals(traced.mode, adopted.mode);
+                assertEquals(traced.statementId, adopted.statementId);
+                assertEquals(traced.serial, adopted.serial);
+                assertFalse(adopted.unsaved || adopted.deleted, adopted.sourceLabel);
+            }
+        }
+
+        int wall = 0;
+        int cut = adopting.confirmedRings.size() - 1;
+        SurfaceSpline adoptedWall = adopting.confirmedRings.get(wall).spline;
+        SurfaceSpline adoptedCut = adopting.confirmedRings.get(cut).spline;
+        assertTrue(adopting.confirmedRings.get(cut).isBisector());
+        assertTrue(adopting.reopenRing(wall), adopting.lastError);
+        assertNotSame(adoptedWall, adopting.draft, "re-opening did not trace the ring afresh");
+        assertArrayEquals(adoptedWall.marks.markedByEdgeId, adopting.draft.marks.markedByEdgeId,
+                "the re-opened ring runs along other edges than the adopted one");
+        int moved = adopting.draftAuthoredVertexId[0];
+        adopting.selectedAnchorVertexId = moved;
+        assertTrue(adopting.moveSelectedAnchor(moved + 2 * TUBE_SIDES), adopting.lastError);
+        adopting.releaseAnchor();
+        assertTrue(adopting.confirmDraft(), adopting.lastError);
+        assertNotSame(adoptedWall, adopting.confirmedRings.get(wall).spline);
+        assertTrue(adopting.confirmedRings.get(wall).unsaved, "the edited wall reads as saved");
+        assertNotSame(adoptedCut, adopting.confirmedRings.get(cut).spline,
+                "the bisector did not follow its edited wall");
+
+        // Undo back past the re-opening, to no draft at all.
+        assertTrue(adopting.undo(), adopting.lastError);
+        while (adopting.draft != null) {
+            assertTrue(adopting.undo(), adopting.lastError);
+        }
+        assertSame(adoptedWall, adopting.confirmedRings.get(wall).spline,
+                "undo did not give back the graph's spline");
+        assertSame(adoptedCut, adopting.confirmedRings.get(cut).spline);
+        assertFalse(adopting.confirmedRings.get(wall).unsaved, "undo left the wall unsaved");
+        assertTrue(adopting.reopenRing(cut), adopting.lastError);
+        assertEquals(adopting.bisector, adopting.draftOwner, "the adopted bisector re-opened "
+                + "as a ring");
+        assertArrayEquals(adoptedCut.marks.markedByEdgeId, adopting.draft.marks.markedByEdgeId,
+                "the re-opened bisector runs along other edges than the adopted one");
     }
 
     /**

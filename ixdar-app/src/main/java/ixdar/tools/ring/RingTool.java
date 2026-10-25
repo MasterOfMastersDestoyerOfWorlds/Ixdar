@@ -22,6 +22,7 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.analysis.curvature.LimbAxis;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
@@ -1946,9 +1947,9 @@ public final class RingTool extends Tool {
     }
 
     /**
-     * Turn each unowned graph ring into a confirmed ring with authored anchors: a
-     * {@code spline_ring}'s own, or anchors fitted to a proposed ring, which still draws its exact
-     * loop until edited.
+     * Turn each unowned graph ring into a confirmed ring: a statement's ring as the spline the
+     * graph traced for it, traced here only when the graph left none, or a proposed ring through
+     * fitted anchors.
      *
      * @param surface the surface the graph's marks index
      * @throws IllegalArgumentException when the graph has more than one ring_candidates node
@@ -1981,6 +1982,7 @@ public final class RingTool extends Tool {
         candidateRingByLabel.clear();
         writtenCandidateRings.clear();
         candidatesLine = null;
+        GeometryBundle graphOutput = scene.getGeometryBundle();
         for (Map.Entry<String, boolean[]> entry : scene.ringMarksByLabel.entrySet()) {
             String label = entry.getKey();
             GraphNodeContext statement = null;
@@ -1997,6 +1999,19 @@ public final class RingTool extends Tool {
             if (ringOfSourceLabel(label) >= 0 || convertedGraphLabels.contains(label)) {
                 continue;
             }
+            // The spline the graph traced for the label, when it is the one whose marks are shown
+            // and lies on this surface, is adopted as it is rather than traced a second time.
+            SurfaceSpline graphSpline = graphOutput == null ? null
+                    : SurfaceSpline.inBundle(graphOutput, label);
+            graphSpline = graphSpline != null && graphSpline.mesh == surface
+                    && graphSpline.marks.markedByEdgeId == entry.getValue() ? graphSpline : null;
+            int[] graphAuthored = new int[graphSpline == null ? 0 : graphSpline.authoredCount()];
+            for (int anchor = 0, held = 0; graphSpline != null
+                    && anchor < graphSpline.anchorCount; anchor++) {
+                if (graphSpline.anchorAuthored[anchor]) {
+                    graphAuthored[held++] = graphSpline.anchorVertexId[anchor];
+                }
+            }
             if (statement != null && SplineCutNode.NODE_ID.equals(statement.type)) {
                 // A bisector attaches to walls adopted before it, which in graph order are its
                 // walls; from here on it names them by serial, not by label.
@@ -2010,14 +2025,17 @@ public final class RingTool extends Tool {
                     int wall = ringOfSourceLabel(endLabels[end].strip());
                     ends[end] = wall < 0 ? -1 : confirmedRings.get(wall).serial;
                 }
-                int[] anchors = SurfaceWaypoints.snap(geodesics.metric.nearestVertex, points,
-                        points.length / COORDINATES_PER_POINT);
+                boolean walled = ends.length == 2 && ends[0] >= 0 && ends[1] >= 0;
+                int[] anchors = walled && graphSpline != null ? graphAuthored
+                        : SurfaceWaypoints.snap(geodesics.metric.nearestVertex, points,
+                                points.length / COORDINATES_PER_POINT);
                 Object modeArgument = statement.inputSources.get(SplineCutNode.MODE.name);
                 RingSegmentMode bisectorMode = RingSegmentMode.named(
                         modeArgument instanceof String text ? text : null);
                 lastError = "it needs two points and two end walls";
-                SurfaceSpline traced = ends.length == 2 && anchors.length >= 2
-                        ? bisector.traced(anchors, ends, bisectorMode) : null;
+                SurfaceSpline traced = walled && graphSpline != null ? graphSpline
+                        : ends.length == 2 && anchors.length >= 2
+                                ? bisector.traced(anchors, ends, bisectorMode) : null;
                 lastError = traced != null && traced.marks.markedEdgeCount == 0
                         ? BisectorTool.WALLS_NOTHING : lastError;
                 if (traced == null || traced.marks.markedEdgeCount == 0) {
@@ -2046,22 +2064,33 @@ public final class RingTool extends Tool {
                 Object modeArgument = statement.inputSources.get(SplineRingNode.MODE.name);
                 anchored.mode = RingSegmentMode.named(
                         modeArgument instanceof String text ? text : null);
-                if (anchored.mode == RingSegmentMode.CREASE && readyCreases(surface)) {
+                if (graphSpline == null && anchored.mode == RingSegmentMode.CREASE
+                        && readyCreases(surface)) {
                     anchored.creases = creases;
                 }
-                anchors = SurfaceWaypoints.snap(geodesics.metric.nearestVertex, points,
-                        points.length / COORDINATES_PER_POINT);
+                anchors = graphSpline != null ? graphAuthored
+                        : SurfaceWaypoints.snap(geodesics.metric.nearestVertex, points,
+                                points.length / COORDINATES_PER_POINT);
             } else {
+                graphSpline = null;
                 anchors = fitLoop(orderedLoop(surface, entry.getValue()), anchored,
                         "graph ring " + label);
                 normal = anchors.length > 0 ? written(anchored.planeNormal) : null;
             }
-            if (anchors.length == 0 || !anchored.trace(anchors, anchors.length, normal,
-                    SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
+            SurfaceSpline traced = graphSpline;
+            if (traced != null && normal == null) {
+                // The plane a statement without a normal was traced in, which a save writes.
+                anchored.fitPlane(surface, anchors, anchors.length, null);
+            }
+            if (traced == null && (anchors.length == 0 || !anchored.trace(anchors,
+                    anchors.length, normal, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH))) {
                 refused.add(label + (anchors.length == 0 ? "" : ": " + anchored.failure));
                 continue;
             }
-            SurfaceSpline traced = SurfaceSpline.of(anchored.tracer);
+            if (traced == null) {
+                traced = SurfaceSpline.of(anchored.tracer);
+                anchors = anchored.authoredVertexId;
+            }
             if (!spline) {
                 int[] loop = orderedLoop(surface, entry.getValue());
                 int[] noEdge = new int[loop.length];
@@ -2076,7 +2105,7 @@ public final class RingTool extends Tool {
                 knownRingStatementIds.add(statement.nodeAssignmentId());
             }
             Integer retired = retiredSerialByLabel.remove(label);
-            confirmedRings.add(new ConfirmedRing(traced, anchored.authoredVertexId,
+            confirmedRings.add(new ConfirmedRing(traced, anchors,
                     normal == null ? written(anchored.planeNormal) : normal, anchored.mode,
                     spline ? statement.nodeAssignmentId() : null, false, label,
                     retired != null ? retired : nextRingSerial++, null));

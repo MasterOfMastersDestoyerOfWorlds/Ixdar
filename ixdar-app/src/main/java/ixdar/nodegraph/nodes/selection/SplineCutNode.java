@@ -72,7 +72,9 @@ public class SplineCutNode implements MeshNode {
                 GEOMETRY.name,
                 "Input: the mesh carrying both end walls as edge marks under their labels. "
                         + "Output: the same mesh with the bisector's edge path added under `label` "
-                        + "and its polyline as curve geometry.",
+                        + "in the edge-marks slot, its polyline as curve geometry, and the traced "
+                        + "bisector itself under `label` in the " + SurfaceSpline.SLOT + " slot, "
+                        + "which the ring tool adopts without tracing it again.",
                 POINTS.name,
                 "Anchors as \"x,y,z; x,y,z; ...\" from one end to the other, at least two. The "
                         + "first and last attach to the nearest vertex of their wall, the rest "
@@ -160,8 +162,9 @@ public class SplineCutNode implements MeshNode {
             throw new IllegalArgumentException(NODE_ID + " " + label + ": its snapped path does "
                     + "not join its two ends");
         }
-        GeometryBundle out = bundle.withSlot(CurveGeometry.SLOT, CurveGeometry.singlePolyline(
-                bisector.path.drawnPolyline(bisector.path.positions)));
+        GeometryBundle out = SurfaceSpline.with(bundle.withSlot(CurveGeometry.SLOT,
+                CurveGeometry.singlePolyline(bisector.path.drawnPolyline(bisector.path.positions))),
+                label, bisector);
         boolean[] marks = bisector.marks.markedByEdgeId;
         ctx.setOutput(GEOMETRY.name, EdgeMarks.with(out, label, marks));
         boolean[] selection = new boolean[mesh.edgeCount()];

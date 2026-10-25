@@ -4635,7 +4635,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: the mesh carrying both end walls as edge marks under their labels. Output: the same mesh with the bisector\u0027s edge path added under `label` and its polyline as curve geometry.",
+          "description": "Input: the mesh carrying both end walls as edge marks under their labels. Output: the same mesh with the bisector\u0027s edge path added under `label` in the edge-marks slot, its polyline as curve geometry, and the traced bisector itself under `label` in the _surface_splines slot, which the ring tool adopts without tracing it again.",
           "defaultValue": null
         },
         {
@@ -4679,7 +4679,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: the mesh carrying both end walls as edge marks under their labels. Output: the same mesh with the bisector\u0027s edge path added under `label` and its polyline as curve geometry."
+          "description": "Input: the mesh carrying both end walls as edge marks under their labels. Output: the same mesh with the bisector\u0027s edge path added under `label` in the edge-marks slot, its polyline as curve geometry, and the traced bisector itself under `label` in the _surface_splines slot, which the ring tool adopts without tracing it again."
         },
         {
           "name": "selection",
