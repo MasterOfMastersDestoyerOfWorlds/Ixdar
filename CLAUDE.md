@@ -101,7 +101,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli drag --fromX --fromY --toX --toY [--steps] [--hold] [--settle]` — Drag with the left button from one window point to another, a frame drawn after every step.
 - `ixdar-cli frame [--selection] [--bounds] [--point] [--radius] [--region] [--ring] [--padding] [--azimuth] [--elevation]` — Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it.
 - `ixdar-cli health` — Liveness probe reporting server status, recording/replaying flags, and port.
-- `ixdar-cli hover [--x] [--y] [--normalized] [--persistent] [--settle]` — Move the cursor without clicking, then wait for the hover to be drawn.
+- `ixdar-cli hover [--x] [--y] [--normalized] [--persistent] [--settle]` — Move the cursor without clicking, wait for the hover to be drawn, and name the surface under it as pick does, its crease strength included.
 - `ixdar-cli hover-clear` — Release the persistent automation hover lock on the active mouse handler.
 - `ixdar-cli key --key [--action] [--settle]` — Deliver a named key event to the active key handler and report what took it: the control row it fired, or that nothing did, and the active tool's state after.
 - `ixdar-cli mesh-compare --reference [--distance-type] [--scale] [--normalize]` — Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics.

@@ -28,7 +28,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`drag`](#drag) | Drag with the left button from one window point to another, a frame drawn after every step. |
 | [`frame`](#frame) | Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it. |
 | [`health`](#health) | Liveness probe reporting server status, recording/replaying flags, and port. |
-| [`hover`](#hover) | Move the cursor without clicking, then wait for the hover to be drawn. |
+| [`hover`](#hover) | Move the cursor without clicking, wait for the hover to be drawn, and name the surface under it as pick does, its crease strength included. |
 | [`hover-clear`](#hover-clear) | Release the persistent automation hover lock on the active mouse handler. |
 | [`key`](#key) | Deliver a named key event to the active key handler and report what took it: the control row it fired, or that nothing did, and the active tool's state after. |
 | [`mesh-compare`](#mesh-compare) | Compare the active viewer mesh against a reference OBJ using Hausdorff and Chamfer metrics. |
@@ -200,7 +200,7 @@ Liveness probe reporting server status, recording/replaying flags, and port.
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectHover.java)
 
-Move the cursor without clicking, then wait for the hover to be drawn.
+Move the cursor without clicking, wait for the hover to be drawn, and name the surface under it as pick does, its crease strength included.
 
 - **Route:** `POST /input/hover`
 - **Flags:**
@@ -209,7 +209,7 @@ Move the cursor without clicking, then wait for the hover to be drawn.
   - `--normalized` (bool, default `false`) — Treat X/Y as fractions of window size rather than pixels., e.g. `true`
   - `--persistent` (bool, default `true`) — Hold the hover lock so real mouse motion cannot dislodge it; false clears it., e.g. `false`
   - `--settle` (int, default `2`) — Frames to wait for after the hover, so a screenshot needs no sleep; 0 returns at once., e.g. `0`
-- **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, persistent}}`
+- **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, persistent}, surface?:{hit, point, normal, faceId, vertexId, creaseStrength, inCrease, region, part}}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/hover -d '{"x": 0.5, "y": 0.25, "normalized": true, "persistent": false, "settle": 0}'`
 
 ### `hover-clear`
@@ -453,7 +453,7 @@ Switch the active model scene to a named model, or open a file by its path, and 
 - **Route:** `POST /scene/model`
 - **Flags:**
   - `<name>` (string, default ``) — Model display name, or part of the name or path of a listed model., e.g. `bolt`
-  - `--path` (string, default ``) — A .dsl graph or mesh file to open by its path instead of a name, the scene's own model included, so a saved file can be reopened without a restart., e.g. `tmp/IMG_4111.dsl`
+  - `--path` (string, default ``) — A .dsl graph or mesh file to open by its path instead of a name, the scene's own model included, so a saved file can be reopened without a restart; a relative path is read from the checkout root., e.g. `tmp/IMG_4111.dsl`
   - `--set` (string_list, default ``) — Scene override path.port=value, kept across model switches; an empty value clears it., e.g. `layout/field.curvature_bias=-0.5`
 - **Response:** `{ok, outcome: loaded|failed, model, path, seconds, error, overrides}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/scene/model -d '{"name": "bolt", "path": "tmp/IMG_4111.dsl", "set": "layout/field.curvature_bias=-0.5"}'`
@@ -528,7 +528,7 @@ Name the surface under a screenshot pixel: point, face, nearest vertex, normal, 
 - **Flags:**
   - `--x` (float, required) — Framebuffer x from the left, as in a screenshot; whole numbers are pixel centres., e.g. `512`
   - `--y` (float, required) — Framebuffer y from the top, as in a screenshot., e.g. `384`
-- **Response:** `{ok, hit, point:"x,y,z", normal:[x,y,z], faceId, vertexId, vertex:"x,y,z", region, regionBoundedBy, part, error}; region and part (empty when unlabelled) are present once the editing scene's regions are built`
+- **Response:** `{ok, hit, point:"x,y,z", normal:[x,y,z], faceId, vertexId, vertex:"x,y,z", creaseStrength, vertexCreaseStrength, inCrease, region, regionBoundedBy, part, error}; the crease strengths (0 to 1) and the region fields are the editing scene's`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/pick -d '{"x": 512, "y": 384}'`
 
 ### `project`
