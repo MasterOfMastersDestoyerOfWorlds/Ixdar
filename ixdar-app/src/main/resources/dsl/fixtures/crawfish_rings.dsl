@@ -6,7 +6,7 @@
 # leaving it open, so every boundary loop here is a scanning artefact and max_hole_edges is only a
 # safety cap: the repaired scan has no boundary left, and the `open_boundary` edge-marks overlay
 # the mesh viewer draws is empty.
-scan = load_mesh(path="/home/acw/crawfish/IMG_4109.glb")
+scan = load_mesh(path="${IXDAR_DATA_ROOT}/crawfish/IMG_4109.glb")
 repaired = repair_mesh(geometry=scan.geometry, weld_epsilon=0.0, max_hole_edges=4096, min_shell_faces=100, strict=false)
 surface = surface_metric(geometry=repaired.geometry)
 ring_00 = spline_ring(geometry=surface.geometry, metric=surface.metric, points="0.232332,0.014114,0.069664; 0.211900,0.021999,0.080991; 0.195528,0.029212,0.093261; 0.187356,0.032999,0.096550; 0.175938,0.035443,0.100973; 0.160587,0.038894,0.112941; 0.148171,0.024174,0.092227; 0.127676,-0.004114,0.075878; 0.141902,-0.025401,0.052903; 0.158178,-0.037287,0.041662; 0.188543,-0.038309,0.037488; 0.227451,-0.009832,0.049488", normal="-0.364105,-0.131871,0.921975", label="ring_00")

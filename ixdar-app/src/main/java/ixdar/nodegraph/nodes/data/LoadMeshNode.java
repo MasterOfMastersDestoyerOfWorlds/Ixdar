@@ -18,10 +18,8 @@ import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 /**
- * Loads a mesh from an OBJ, PLY, OFF or glTF ({@code .glb}/{@code .gltf}) file into the graph;
- * glTF texture coordinates ride the bundle's {@link CornerUvField#SLOT} slot as a per-corner
- * {@code UvField}. Paths resolve
- * absolute, or relative to the working directory with an {@code ixdar-app/} retry.
+ * Loads a mesh from an OBJ, PLY, OFF or glTF file into the graph, glTF texture coordinates riding
+ * {@link CornerUvField#SLOT}; paths resolve as {@link MeshLoader#resolve} does.
  */
 @MeshNodeAnnotation(id = "load_mesh", desktopOnly = true, category = NodeCategory.FIELD_DATA)
 public class LoadMeshNode implements MeshNode {
@@ -42,13 +40,18 @@ public class LoadMeshNode implements MeshNode {
     @Override
     public String description() {
         return "Loads a mesh from an OBJ, PLY, OFF or glTF (.glb/.gltf) file, resolving relative paths"
-                + " against the working directory and the ixdar-app module directory.";
+                + " against the working directory and the ixdar-app module directory, and a "
+                + MeshLoader.DATA_ROOT_PLACEHOLDER + " prefix against this machine's data root.";
     }
 
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                PATH.name, "File path to load; .obj, .ply, .off, .glb and .gltf are supported.",
+                PATH.name, "File path to load; .obj, .ply, .off, .glb and .gltf are supported. A"
+                        + " path starting " + MeshLoader.DATA_ROOT_PLACEHOLDER + " names a file below"
+                        + " this machine's data root: the " + MeshLoader.DATA_ROOT_PROPERTY
+                        + " property, else the " + MeshLoader.DATA_ROOT_VARIABLE
+                        + " variable, else the home directory.",
                 GEOMETRY.name, "The loaded mesh as a geometry bundle; glTF files weld duplicate "
                         + "positions and add the " + CornerUvField.SLOT
                         + " slot holding TEXCOORD_0 as a per-corner UvField."

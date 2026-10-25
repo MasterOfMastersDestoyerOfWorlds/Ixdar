@@ -33,6 +33,10 @@ public final class MeshLoader {
 
     public static final String MODULE_DIRECTORY = "ixdar-app";
 
+    public static final String DATA_ROOT_VARIABLE = "IXDAR_DATA_ROOT";
+    public static final String DATA_ROOT_PROPERTY = "ixdar.data.root";
+    public static final String DATA_ROOT_PLACEHOLDER = "${" + DATA_ROOT_VARIABLE + "}";
+
     public static final String OBJ_EXTENSION = ".obj";
     public static final String PLY_EXTENSION = ".ply";
     public static final String OFF_EXTENSION = ".off";
@@ -131,18 +135,41 @@ public final class MeshLoader {
     }
 
     /**
-     * Resolve a path against the working directory, retrying under {@link #MODULE_DIRECTORY} so a
-     * launcher started at the repository root still finds a scene's relative default.
+     * Resolve a path against the working directory, retrying under {@link #MODULE_DIRECTORY}; a
+     * path starting with {@link #DATA_ROOT_PLACEHOLDER} resolves below {@link #dataRoot()} instead.
      *
      * @param path file name or path as the caller wrote it
-     * @return the path that exists, or the working-directory one when neither does
+     * @return the data-root path, else the path that exists, else the working-directory one
      */
     public static Path resolve(String path) {
+        if (path.startsWith(DATA_ROOT_PLACEHOLDER)) {
+            String below = path.substring(DATA_ROOT_PLACEHOLDER.length()).replaceFirst("^[/\\\\]+", "");
+            return dataRoot().resolve(below);
+        }
         Path file = Paths.get(path);
         if (!Files.exists(file) && Files.exists(Paths.get(MODULE_DIRECTORY, path))) {
             return Paths.get(MODULE_DIRECTORY, path);
         }
         return file;
+    }
+
+    /**
+     * This machine's data root, whose folders hold data kept out of the repositories (the crawfish
+     * scans live in {@code crawfish/}): the {@link #DATA_ROOT_PROPERTY} property, else the
+     * {@link #DATA_ROOT_VARIABLE} variable, else the user's home directory.
+     *
+     * @return the data root, which need not exist
+     */
+    public static Path dataRoot() {
+        String property = System.getProperty(DATA_ROOT_PROPERTY);
+        if (property != null && !property.isBlank()) {
+            return Path.of(property);
+        }
+        String variable = System.getenv(DATA_ROOT_VARIABLE);
+        if (variable != null && !variable.isBlank()) {
+            return Path.of(variable);
+        }
+        return Path.of(System.getProperty("user.home"));
     }
 
     /**

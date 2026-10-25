@@ -2635,7 +2635,7 @@
         {
           "name": "path",
           "portType": "STRING",
-          "description": "File path to load; .obj, .ply, .off, .glb and .gltf are supported.",
+          "description": "File path to load; .obj, .ply, .off, .glb and .gltf are supported. A path starting ${IXDAR_DATA_ROOT} names a file below this machine\u0027s data root: the ixdar.data.root property, else the IXDAR_DATA_ROOT variable, else the home directory.",
           "defaultValue": ""
         }
       ],
@@ -2646,7 +2646,7 @@
           "description": "The loaded mesh as a geometry bundle; glTF files weld duplicate positions and add the _uv slot holding TEXCOORD_0 as a per-corner UvField."
         }
       ],
-      "description": "Loads a mesh from an OBJ, PLY, OFF or glTF (.glb/.gltf) file, resolving relative paths against the working directory and the ixdar-app module directory."
+      "description": "Loads a mesh from an OBJ, PLY, OFF or glTF (.glb/.gltf) file, resolving relative paths against the working directory and the ixdar-app module directory, and a ${IXDAR_DATA_ROOT} prefix against this machine\u0027s data root."
     },
     {
       "id": "loop_cut",

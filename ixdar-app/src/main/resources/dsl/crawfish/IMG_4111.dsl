@@ -1,6 +1,6 @@
 # Segmentation of crawfish scan IMG_4111, edited in the ring tool (Ctrl+S saves rings here).
 # Repair settings match fixtures/crawfish_rings.dsl (IMG_4109).
-scan = load_mesh(path="/home/acw/crawfish/IMG_4111.glb")
+scan = load_mesh(path="${IXDAR_DATA_ROOT}/crawfish/IMG_4111.glb")
 repaired = repair_mesh(geometry=scan.geometry, weld_epsilon=0.0, max_hole_edges=4096, min_shell_faces=100, strict=false)
 surface = surface_metric(geometry=repaired.geometry)
 creases = surface_creases(geometry=surface.geometry)
