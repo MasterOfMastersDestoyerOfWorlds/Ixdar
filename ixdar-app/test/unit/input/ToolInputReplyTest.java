@@ -483,6 +483,17 @@ class ToolInputReplyTest {
     }
 
     @Test
+    void aToolSwitchRowFiresByItsActionIdAndSwitchesTools() throws Exception {
+        JsonObject reply = fireAction("", BRUSH);
+        assertTrue(reply.get(OK).getAsBoolean(), reply.toString());
+        assertEquals(BRUSH, reply.get(ACTION).getAsString());
+        assertEquals(BRUSH_SWITCH, reply.get(KEY).getAsString());
+        assertEquals(BRUSH, reply.get(ACTIVE_TOOL).getAsString());
+        assertEquals(PEN, reply.get(PREVIOUS_TOOL).getAsString());
+        assertEquals(brush, scene.activeTool);
+    }
+
+    @Test
     void anUnknownActionIsRefusedNamingTheToolsAndTheScenesActions() throws Exception {
         JsonObject reply = fireAction(BRUSH, "paint");
         assertFalse(reply.get(OK).getAsBoolean(), reply.toString());

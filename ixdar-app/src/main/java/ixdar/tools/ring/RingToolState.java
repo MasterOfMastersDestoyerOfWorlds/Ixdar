@@ -17,35 +17,8 @@ import ixdar.tools.Tool;
  */
 public final class RingToolState {
 
-    /** Confirmed rings, as {@link RingTool#confirmedRings} held them. */
-    public final List<SurfaceSpline> confirmedRings;
-
-    /** Authored anchors of each confirmed ring. */
-    public final List<int[]> confirmedAuthoredVertexId;
-
-    /** Base normal of each confirmed ring. */
-    public final List<float[]> confirmedBaseNormal;
-
-    /** Segment mode of each confirmed ring. */
-    public final List<RingSegmentMode> confirmedMode;
-
-    /** Statement id of each confirmed ring when captured, {@code null} for one not saved yet. */
-    public final List<String> confirmedStatementIds;
-
-    /** Whether each confirmed ring differed from the working .dsl when captured. */
-    public final List<Boolean> confirmedRingUnsaved;
-
-    /** Graph ring label each confirmed ring stood for, or {@code null}. */
-    public final List<String> confirmedSourceLabel;
-
-    /** Whether each confirmed ring was deleted and awaiting a save. */
-    public final List<Boolean> confirmedRingDeleted;
-
-    /** Serials of the walls each confirmed bisector ends on, {@code null} for a ring. */
-    public final List<int[]> confirmedBisectorEnds;
-
-    /** In-memory identity of each confirmed ring. */
-    public final List<Integer> confirmedRingSerial;
+    /** Copies of the confirmed rings as {@link RingTool#confirmedRings} held them when captured. */
+    public final List<ConfirmedRing> confirmedRings = new ArrayList<>();
 
     /** Graph ring labels hidden because a tool ring replaced them. */
     public final Set<String> convertedGraphLabels;
@@ -95,16 +68,9 @@ public final class RingToolState {
      * @param tool the ring tool
      */
     public RingToolState(RingTool tool) {
-        confirmedRings = new ArrayList<>(tool.confirmedRings);
-        confirmedAuthoredVertexId = new ArrayList<>(tool.confirmedAuthoredVertexId);
-        confirmedBaseNormal = new ArrayList<>(tool.confirmedBaseNormal);
-        confirmedMode = new ArrayList<>(tool.confirmedMode);
-        confirmedStatementIds = new ArrayList<>(tool.confirmedStatementIds);
-        confirmedRingUnsaved = new ArrayList<>(tool.confirmedRingUnsaved);
-        confirmedSourceLabel = new ArrayList<>(tool.confirmedSourceLabel);
-        confirmedRingDeleted = new ArrayList<>(tool.confirmedRingDeleted);
-        confirmedBisectorEnds = new ArrayList<>(tool.confirmedBisectorEnds);
-        confirmedRingSerial = new ArrayList<>(tool.confirmedRingSerial);
+        for (ConfirmedRing ring : tool.confirmedRings) {
+            confirmedRings.add(new ConfirmedRing(ring));
+        }
         convertedGraphLabels = new HashSet<>(tool.convertedGraphLabels);
         draft = tool.draft;
         draftBisectorEnds = tool.bisector.draftEnds;
@@ -129,13 +95,18 @@ public final class RingToolState {
      * @return true when nothing an undo would restore differs
      */
     public boolean sameEdit(RingToolState other) {
+        boolean sameRings = confirmedRings.size() == other.confirmedRings.size();
+        for (int ring = 0; sameRings && ring < confirmedRings.size(); ring++) {
+            ConfirmedRing mine = confirmedRings.get(ring);
+            ConfirmedRing theirs = other.confirmedRings.get(ring);
+            sameRings = mine.spline.equals(theirs.spline) && mine.deleted == theirs.deleted;
+        }
         return draft == other.draft && draftSourceRing == other.draftSourceRing
                 && bisectorStartVertexId == other.bisectorStartVertexId
                 && Arrays.equals(draftAuthoredVertexId, other.draftAuthoredVertexId)
                 && Arrays.equals(draftBaseNormal, other.draftBaseNormal)
                 && draftMode == other.draftMode
-                && confirmedRings.equals(other.confirmedRings)
-                && confirmedRingDeleted.equals(other.confirmedRingDeleted)
+                && sameRings
                 && convertedGraphLabels.equals(other.convertedGraphLabels);
     }
 
@@ -148,27 +119,12 @@ public final class RingToolState {
      */
     public void restore(RingTool tool) {
         tool.confirmedRings.clear();
-        tool.confirmedRings.addAll(confirmedRings);
-        tool.confirmedAuthoredVertexId.clear();
-        tool.confirmedAuthoredVertexId.addAll(confirmedAuthoredVertexId);
-        tool.confirmedBaseNormal.clear();
-        tool.confirmedBaseNormal.addAll(confirmedBaseNormal);
-        tool.confirmedMode.clear();
-        tool.confirmedMode.addAll(confirmedMode);
-        tool.confirmedStatementIds.clear();
-        tool.confirmedRingUnsaved.clear();
-        tool.confirmedSourceLabel.clear();
-        tool.confirmedRingDeleted.clear();
-        tool.confirmedRingDeleted.addAll(confirmedRingDeleted);
-        tool.confirmedBisectorEnds.clear();
-        tool.confirmedBisectorEnds.addAll(confirmedBisectorEnds);
-        tool.confirmedRingSerial.clear();
-        tool.confirmedRingSerial.addAll(confirmedRingSerial);
-        for (int ring = 0; ring < confirmedRings.size(); ring++) {
-            String statementId = confirmedStatementIds.get(ring);
-            String sourceLabel = confirmedSourceLabel.get(ring);
+        for (ConfirmedRing captured : confirmedRings) {
+            ConfirmedRing ring = new ConfirmedRing(captured);
+            String statementId = ring.statementId;
+            String sourceLabel = ring.sourceLabel;
             if (statementId == null) {
-                statementId = tool.savedStatementByRing.get(confirmedRings.get(ring));
+                statementId = tool.savedStatementByRing.get(ring.spline);
                 sourceLabel = statementId == null ? sourceLabel : statementId;
             }
             if (statementId != null && !tool.knownRingStatementIds.contains(statementId)) {
@@ -182,19 +138,19 @@ public final class RingToolState {
                 // A proposed ring the graph still proposes is as saved as it was when captured.
                 unsaved = sourceLabel == null
                         || !tool.scene.ringMarksByLabel.containsKey(sourceLabel)
-                        || confirmedRingUnsaved.get(ring);
+                        || ring.unsaved;
             } else if (tool.savedAuthoredByStatement.containsKey(statementId)) {
-                unsaved = !Arrays.equals(confirmedAuthoredVertexId.get(ring),
+                unsaved = !Arrays.equals(ring.authoredVertexId,
                         tool.savedAuthoredByStatement.get(statementId))
-                        || !Arrays.equals(confirmedBaseNormal.get(ring),
-                                tool.savedNormalByStatement.get(statementId))
-                        || confirmedMode.get(ring) != tool.savedModeByStatement.get(statementId);
+                        || !Arrays.equals(ring.baseNormal, tool.savedNormalByStatement.get(statementId))
+                        || ring.mode != tool.savedModeByStatement.get(statementId);
             } else {
-                unsaved = confirmedRingUnsaved.get(ring);
+                unsaved = ring.unsaved;
             }
-            tool.confirmedStatementIds.add(statementId);
-            tool.confirmedRingUnsaved.add(unsaved);
-            tool.confirmedSourceLabel.add(sourceLabel);
+            ring.statementId = statementId;
+            ring.unsaved = unsaved;
+            ring.sourceLabel = sourceLabel;
+            tool.confirmedRings.add(ring);
         }
         tool.convertedGraphLabels.clear();
         tool.convertedGraphLabels.addAll(convertedGraphLabels);

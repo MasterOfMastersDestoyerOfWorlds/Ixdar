@@ -3,6 +3,7 @@ package ixdar.automation.endpoints.ui;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
@@ -25,8 +26,11 @@ import ixdar.game.City;
 import ixdar.game.CityNetwork;
 import ixdar.geometry.grid2d.IrregularQuadGrid;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
+import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.tsp.PointSetPath;
 import ixdar.graphics.cameras.Camera;
 import ixdar.gui.ui.ErrorToasts;
@@ -49,6 +53,9 @@ import ixdar.tools.Item;
 import ixdar.tools.Preview;
 import ixdar.tools.Tool;
 import ixdar.tools.regions.RegionLayer;
+import ixdar.tools.regions.RingRegionTool;
+import ixdar.tools.ring.ConfirmedRing;
+import ixdar.tools.ring.RingTool;
 
 /**
  * The ui-state snapshot, the one place it is written as JSON: the common header (window,
@@ -96,6 +103,30 @@ public class State extends AutomationEndpoint implements AutomationRoute {
 
     public static final String DETAIL = "detail";
 
+    public static final String KIND = "kind";
+
+    public static final String DELETED = "deleted";
+
+    public static final String SOURCE = "source";
+
+    public static final String REGION = "region";
+
+    public static final String FACE_COUNT = "faceCount";
+
+    public static final String AREA = "area";
+
+    public static final String CREASE_SHARE = "creaseShare";
+
+    public static final String INTERIOR_CREASE_SHARE = "interiorCreaseShare";
+
+    public static final String PEAK_CURVATURE = "peakCurvature";
+
+    public static final String PEAK_OVER_SATURATION = "peakOverSaturation";
+
+    public static final String CREASE_POINT = "creasePoint";
+
+    public static final String CREASE_INTERIOR = "creaseInterior";
+
     public static final String IDLE_ROUTE_STATE = "IDLE";
 
     public static final String SCROLL_BOX = "scroll_box";
@@ -115,9 +146,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     }
 
     /**
-     * An item in the one shape every tool and shared set reports: label, location, fingerprint,
-     * size, length, detail, saved, deleted, and its named numbers, points and flags as one
-     * {@code values} object.
+     * An item handle in the one shape every tool reports: label, location, fingerprint, size,
+     * length, detail, saved and deleted.
      *
      * @param item the item
      * @return the item's object
@@ -131,18 +161,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         state.addProperty("length", item.length);
         state.addProperty(DETAIL, item.detail);
         state.addProperty("saved", item.saved);
-        state.addProperty("deleted", item.deleted);
-        JsonObject values = new JsonObject();
-        for (Map.Entry<String, Double> number : item.numbers.entrySet()) {
-            values.addProperty(number.getKey(), number.getValue());
-        }
-        for (Map.Entry<String, float[]> point : item.points.entrySet()) {
-            values.add(point.getKey(), floats(point.getValue()));
-        }
-        for (Map.Entry<String, Boolean> flag : item.flags.entrySet()) {
-            values.addProperty(flag.getKey(), flag.getValue());
-        }
-        state.add("values", values);
+        state.addProperty(DELETED, item.deleted);
         return state;
     }
 
@@ -287,7 +306,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             float scrollOffsetY) {
         JsonObject element = new JsonObject();
         element.addProperty("type", type);
-        element.addProperty("region", region);
+        element.addProperty(REGION, region);
         element.addProperty(SCROLL_OFFSET_Y, scrollOffsetY);
         JsonArray lines = new JsonArray();
         JsonArray words = new JsonArray();
@@ -423,7 +442,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             JsonObject mesh = new JsonObject();
             mesh.addProperty(VERTEX_COUNT, shown.vertexCount());
             mesh.addProperty(EDGE_COUNT, shown.edgeCount());
-            mesh.addProperty("faceCount", shown.faceCount());
+            mesh.addProperty(FACE_COUNT, shown.faceCount());
             int boundaryEdges = shown.boundaryEdgeCount();
             mesh.addProperty("boundaryEdgeCount", boundaryEdges);
             mesh.addProperty("degenerateFaceCount", shown.degenerateFaceCount());
@@ -448,12 +467,53 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             JsonObject ringTool = toolState(regionLayer.scene.ringTool);
             ringTool.addProperty(ACTIVE_TOOL, regionLayer.scene.activeTool.toolName());
             root.add("ringTool", ringTool);
-            root.add("rings", itemStates(regionLayer.rings()));
+            // The confirmed rings, by the number drawn beside each as their items are labelled.
+            RingTool rings = regionLayer.scene.ringTool;
+            JsonArray ringRows = new JsonArray();
+            for (int index = 0; index < rings.confirmedRings.size(); index++) {
+                ConfirmedRing ring = rings.confirmedRings.get(index);
+                JsonObject row = new JsonObject();
+                row.addProperty(LABEL, Integer.toString(rings.drawnRingNumber(index)));
+                row.addProperty("liveLabel", rings.liveLabel(index));
+                row.addProperty("bisector", ring.isBisector());
+                row.addProperty(MODE, ring.mode.label);
+                row.addProperty("serial", ring.serial);
+                row.addProperty("statement", ring.statementId == null ? "" : ring.statementId);
+                row.addProperty(SOURCE, ring.sourceLabel == null ? "" : ring.sourceLabel);
+                JsonArray walls = new JsonArray();
+                for (int wall : ring.isBisector() ? ring.bisectorEnds : new int[0]) {
+                    walls.add(wall);
+                }
+                row.add("wallSerials", walls);
+                row.addProperty("anchorCount", ring.spline.anchorCount);
+                row.addProperty("authoredCount", ring.spline.authoredCount());
+                row.addProperty("unsaved", ring.unsaved);
+                row.addProperty(DELETED, ring.deleted);
+                ringRows.add(row);
+            }
+            root.add("rings", ringRows);
+            SurfaceConnection connection = regionLayer.scene.connectionTool.connection;
+            if (connection != null) {
+                JsonObject joined = new JsonObject();
+                joined.addProperty("connected", connection.connected);
+                joined.addProperty(ERROR, connection.failure);
+                joined.addProperty("pathLength", connection.pathLength);
+                joined.addProperty("pathFaceCount", connection.pathActiveFace.length);
+                joined.addProperty("pathFilledFaceCount", connection.pathFilledFaceCount);
+                joined.addProperty("narrowestGirth", Double.isInfinite(connection.narrowestGirth) ? -1.0
+                        : connection.narrowestGirth);
+                joined.addProperty("widestGirth", connection.widestGirth);
+                joined.add("narrowestPoint", floats(connection.narrowestPoint));
+                joined.addProperty("girthsCrossingWalls", connection.girthsCrossingWalls);
+                joined.addProperty("pathMillis", connection.pathMillis);
+                joined.addProperty("girthMillis", connection.girthMillis);
+                root.add("connection", joined);
+            }
             ErrorToasts toasts = regionLayer.scene.errorToasts;
             JsonArray toastRows = new JsonArray();
             for (int toast = 0; toast < toasts.messages.size(); toast++) {
                 JsonObject row = new JsonObject();
-                row.addProperty("source", toasts.sources.get(toast));
+                row.addProperty(SOURCE, toasts.sources.get(toast));
                 row.addProperty("message", toasts.messages.get(toast));
                 row.addProperty("opacity", toasts.colors.get(toast).toVector4f().w);
                 toastRows.add(row);
@@ -466,6 +526,46 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             regions.addProperty("absorbSlivers", regionLayer.absorbSlivers);
             regions.addProperty("hiddenRingCount", regionLayer.hiddenRingLabels.size());
             regions.addProperty("summary", regionLayer.summary);
+            // Each region by its number, as its item's tag names it: area, bounding rings with
+            // the side the region lies on, part label and flatness.
+            RingRegions built = regionLayer.regions;
+            JsonArray regionRows = new JsonArray();
+            for (int region = 0; built != null && region < built.regionCount; region++) {
+                JsonObject row = new JsonObject();
+                row.addProperty(REGION, region);
+                row.addProperty(LABEL, RingRegionTool.regionTag(region));
+                row.addProperty(FACE_COUNT, built.regionFaceCount[region]);
+                row.addProperty(AREA, built.regionArea[region]);
+                row.addProperty("sliver", built.isSliver(region));
+                JsonArray bounding = new JsonArray();
+                for (int ring : built.boundingRingsByRegion[region]) {
+                    JsonObject side = new JsonObject();
+                    side.addProperty("ring", built.ringLabels[ring]);
+                    byte sideOfRing = built.sideByRingRegion[ring][region];
+                    side.addProperty("side", sideOfRing == RingRegions.SIDE_NONE ? "both"
+                            : RingRegions.SIDE_NAMES[sideOfRing]);
+                    bounding.add(side);
+                }
+                row.add("boundingRings", bounding);
+                int part = region < regionLayer.labelByRegion.length ? regionLayer.labelByRegion[region]
+                        : MeshLabels.UNLABELLED;
+                row.addProperty("part", part == MeshLabels.UNLABELLED ? ""
+                        : regionLayer.partLabels.names.get(part));
+                if (built.flatnessCreases != null && region < built.regionCreaseShare.length) {
+                    double saturation = built.flatnessCreases.saturation;
+                    row.addProperty(CREASE_SHARE, built.regionCreaseShare[region]);
+                    row.addProperty(INTERIOR_CREASE_SHARE, built.regionInteriorCreaseShare[region]);
+                    row.addProperty(PEAK_CURVATURE, built.regionPeakCurvature[region]);
+                    row.addProperty(PEAK_OVER_SATURATION, saturation > 0.0
+                            ? built.regionPeakCurvature[region] / saturation : 0.0);
+                    row.add(CREASE_POINT, floats(Arrays.copyOfRange(built.regionCreasePoint,
+                            RingRegions.TRIANGLE_CORNERS * region,
+                            RingRegions.TRIANGLE_CORNERS * region + RingRegions.TRIANGLE_CORNERS)));
+                    row.addProperty(CREASE_INTERIOR, built.regionCreaseInterior[region]);
+                }
+                regionRows.add(row);
+            }
+            regions.add("rows", regionRows);
             root.add("regions", regions);
         }
         ModelCollection modelCollection = scene == null ? null
@@ -486,7 +586,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 JsonObject memberState = new JsonObject();
                 memberState.addProperty(NAME, modelCollection.members[member].displayName);
                 memberState.addProperty("path", modelCollection.members[member].path);
-                memberState.addProperty("kind", modelCollection.members[member].kind.name());
+                memberState.addProperty(KIND, modelCollection.members[member].kind.name());
                 memberState.addProperty("keep", modelCollection.memberKeep[member]);
                 memberState.addProperty(VERTEX_COUNT, modelCollection.memberVertexCount[member]);
                 memberState.addProperty("triangleCount", modelCollection.memberTriangleCount[member]);
@@ -601,7 +701,12 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 .description("Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.")
                 .responseHint("{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, "
                         + "menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, "
-                        + "mode, trade, irregularGrid?, mesh?, ringTool?, rings?, errorToasts?, regions?, "
+                        + "mode, trade, irregularGrid?, mesh?, ringTool?, rings?:[{label, liveLabel, bisector, mode, "
+                        + "serial, statement, source, wallSerials, anchorCount, authoredCount, unsaved, deleted}], "
+                        + "connection?, errorToasts?, regions?:{regionCount, visible, absorbSlivers, "
+                        + "hiddenRingCount, summary, rows:[{region, label, faceCount, area, sliver, "
+                        + "boundingRings:[{ring, side}], part, creaseShare?, interiorCreaseShare?, peakCurvature?, "
+                        + "peakOverSaturation?, creasePoint?, creaseInterior?}]}, "
                         + "collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls:[{section, controls}], audio}")
                 .build();
     }

@@ -5,8 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
-
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.RingBundle;
@@ -14,13 +12,6 @@ import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
-import ixdar.platform.Platform;
-import ixdar.platform.Platforms;
-import ixdar.platform.gl.GL;
-import ixdar.scenes.ring.RingScene;
-import ixdar.tools.Item;
-import ixdar.tools.regions.RingRegionTool;
-import unit.GlStandIn;
 
 /**
  * Region flatness on a capped tube bent a quarter turn in its middle: with rings only near its
@@ -77,13 +68,11 @@ class RegionFlatnessTest {
         assertEquals(3, regions.regionCount);
         int middle = regions.regionByActiveFace[regions.nearestActiveFace(BEND_INNER_POINT[0],
                 BEND_INNER_POINT[1], BEND_INNER_POINT[2])];
-        Item item = regionItems(regions).get(middle);
-        assertTrue(item.numbers.get(RingRegionTool.INTERIOR_CREASE_SHARE) > 0.0, item.detail);
-        assertEquals(item.numbers.get(RingRegionTool.CREASE_SHARE),
-                item.numbers.get(RingRegionTool.INTERIOR_CREASE_SHARE), 1e-9, item.detail);
-        assertTrue(item.numbers.get(RingRegionTool.PEAK_OVER_SATURATION) > 0.0, item.detail);
-        assertTrue(item.flags.get(RingRegionTool.CREASE_INTERIOR), item.detail);
-        assertTrue(distanceToBend(item) < CREASE_POINT_REACH, item.detail);
+        assertTrue(regions.regionInteriorCreaseShare[middle] > 0.0);
+        assertEquals(regions.regionCreaseShare[middle], regions.regionInteriorCreaseShare[middle], 1e-9);
+        assertTrue(regions.flatnessCreases.saturation > 0.0 && regions.regionPeakCurvature[middle] > 0.0);
+        assertTrue(regions.regionCreaseInterior[middle]);
+        assertTrue(distanceToBend(regions, middle) < CREASE_POINT_REACH);
     }
 
     @Test
@@ -95,17 +84,15 @@ class RegionFlatnessTest {
 
         assertEquals(4, regions.regionCount);
         int halves = 0;
-        List<Item> items = regionItems(regions);
         for (int region = 0; region < regions.regionCount; region++) {
             if (regions.boundingRingsByRegion[region].length != 2) {
                 continue;
             }
             halves++;
-            Item item = items.get(region);
-            assertTrue(item.numbers.get(RingRegionTool.CREASE_SHARE) > 0.0, item.detail);
-            assertEquals(0.0, item.numbers.get(RingRegionTool.INTERIOR_CREASE_SHARE), item.detail);
-            assertFalse(item.flags.get(RingRegionTool.CREASE_INTERIOR), item.detail);
-            assertTrue(distanceToBend(item) < CREASE_POINT_REACH, item.detail);
+            assertTrue(regions.regionCreaseShare[region] > 0.0);
+            assertEquals(0.0, regions.regionInteriorCreaseShare[region]);
+            assertFalse(regions.regionCreaseInterior[region]);
+            assertTrue(distanceToBend(regions, region) < CREASE_POINT_REACH);
         }
         assertEquals(2, halves);
     }
@@ -130,35 +117,17 @@ class RegionFlatnessTest {
         fresh.measureFlatness(creases);
 
         assertEquals(fresh.regionCount, updated.regionCount);
-        List<Item> freshItems = regionItems(fresh);
-        List<Item> updatedItems = regionItems(updated);
-        for (int region = 0; region < fresh.regionCount; region++) {
-            assertEquals(freshItems.get(region).numbers, updatedItems.get(region).numbers);
-            assertEquals(freshItems.get(region).flags, updatedItems.get(region).flags);
-            assertArrayEquals(freshItems.get(region).points.get(RingRegionTool.CREASE_POINT),
-                    updatedItems.get(region).points.get(RingRegionTool.CREASE_POINT));
-        }
+        assertArrayEquals(fresh.regionCreaseShare, updated.regionCreaseShare);
+        assertArrayEquals(fresh.regionInteriorCreaseShare, updated.regionInteriorCreaseShare);
+        assertArrayEquals(fresh.regionPeakCurvature, updated.regionPeakCurvature);
+        assertArrayEquals(fresh.regionCreaseInterior, updated.regionCreaseInterior);
+        assertArrayEquals(fresh.regionCreasePoint, updated.regionCreasePoint);
     }
 
-    /** The region tool's items over measured regions, as ui-state and the tools route export them. */
-    private static List<Item> regionItems(RingRegions regions) {
-        Platform suitePlatform = Platforms.get();
-        GL suiteGl = Platforms.gl();
-        Platforms.init(suitePlatform, GlStandIn.create());
-        try {
-            RingScene scene = new RingScene();
-            scene.regionLayer.regions = regions;
-            return new RingRegionTool(scene).items();
-        } finally {
-            Platforms.init(suitePlatform, suiteGl);
-        }
-    }
-
-    private static double distanceToBend(Item item) {
-        float[] point = item.points.get(RingRegionTool.CREASE_POINT);
-        double dx = point[0] - BEND_INNER_POINT[0];
-        double dy = point[1] - BEND_INNER_POINT[1];
-        double dz = point[2] - BEND_INNER_POINT[2];
+    private static double distanceToBend(RingRegions regions, int region) {
+        double dx = regions.regionCreasePoint[3 * region] - BEND_INNER_POINT[0];
+        double dy = regions.regionCreasePoint[3 * region + 1] - BEND_INNER_POINT[1];
+        double dz = regions.regionCreasePoint[3 * region + 2] - BEND_INNER_POINT[2];
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 

@@ -175,10 +175,10 @@ public final class ClosedRingTool extends RingSubTool {
         int faceId = scene.cursorFaceId;
         double reach = RingTool.RING_HIT_PIXELS * scene.worldPerPixel();
         for (int ring = 0; ring < ringTool.confirmedRings.size(); ring++) {
-            if (ringTool.confirmedRingDeleted.get(ring)) {
+            if (ringTool.confirmedRings.get(ring).deleted) {
                 continue;
             }
-            TracedSurfacePath path = ringTool.confirmedRings.get(ring).path;
+            TracedSurfacePath path = ringTool.confirmedRings.get(ring).spline.path;
             double distance = SurfaceSpline.distanceToPolyline(path.positions, path.pointCount,
                     hitPoint[0], hitPoint[1], hitPoint[2]);
             if (distance < reach) {

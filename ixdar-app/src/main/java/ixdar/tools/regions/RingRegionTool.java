@@ -64,18 +64,6 @@ public final class RingRegionTool extends Tool {
 
     public static final String EXPORT_PREFIX = "region";
 
-    public static final String CREASE_SHARE = "creaseShare";
-
-    public static final String INTERIOR_CREASE_SHARE = "interiorCreaseShare";
-
-    public static final String PEAK_CURVATURE = "peakCurvature";
-
-    public static final String PEAK_OVER_SATURATION = "peakOverSaturation";
-
-    public static final String CREASE_POINT = "creasePoint";
-
-    public static final String CREASE_INTERIOR = "creaseInterior";
-
     /** Scene the tool runs on, whose region layer holds the regions the tool selects. */
     public final RingScene scene;
 
@@ -208,6 +196,8 @@ public final class RingRegionTool extends Tool {
                 }));
         controls.add(new ControlHint("toggle-part-names", Keys.P, false, true, "shift+P", "part names on screen",
                 () -> layer.showPartNames = !layer.showPartNames));
+        controls.add(new ControlHint("toggle-region-numbers", Keys.N, false, true, "shift+N",
+                "region numbers on screen (R3 is region 3)", () -> layer.showRegionNumbers = !layer.showRegionNumbers));
         controls.add(new ControlHint("toggle-colour-by-part", Keys.P, "P", "colour by part / by region", () -> {
             layer.colourByPart = !layer.colourByPart;
             layer.redraw();
@@ -530,8 +520,9 @@ public final class RingRegionTool extends Tool {
     }
 
     /**
-     * The regions the rings enclose: tag at the corners' centroid, face count, part name, area,
-     * rings and state as detail, flatness as named values; saved while every part name is.
+     * Handles on the regions the rings enclose: tag at the corners' centroid, face count, and part
+     * name, bounding rings and state as detail; saved while every part name is. Area and flatness
+     * are the region dataset's.
      *
      * @return one item per region, empty before the regions are first built
      */
@@ -575,25 +566,12 @@ public final class RingRegionTool extends Tool {
             int label = region < layer.labelByRegion.length ? layer.labelByRegion[region]
                     : MeshLabels.UNLABELLED;
             item.saved = !layer.labelsUnsaved;
-            item.detail = String.format(Locale.ROOT, "%s, area %.5f, bounded by %s%s%s%s",
+            item.detail = String.format(Locale.ROOT, "%s, bounded by %s%s%s%s",
                     label == MeshLabels.UNLABELLED ? UNLABELLED_PART
                             : PART_PREFIX + layer.partLabels.names.get(label),
-                    regions.regionArea[region], regions.boundingRingText(region),
-                    regions.isSliver(region) ? ", sliver" : "",
+                    regions.boundingRingText(region), regions.isSliver(region) ? ", sliver" : "",
                     selectedRegions.length > region && selectedRegions[region] ? ", selected" : "",
                     hidden ? ", hidden" : hiddenFaces[region] > 0 ? ", partly hidden" : "");
-            item.detail += "; flatness: " + regions.flatnessText(region);
-            if (regions.flatnessCreases != null && region < regions.regionCreaseShare.length) {
-                double saturation = regions.flatnessCreases.saturation;
-                item.numbers.put(CREASE_SHARE, regions.regionCreaseShare[region]);
-                item.numbers.put(INTERIOR_CREASE_SHARE, regions.regionInteriorCreaseShare[region]);
-                item.numbers.put(PEAK_CURVATURE, regions.regionPeakCurvature[region]);
-                item.numbers.put(PEAK_OVER_SATURATION, saturation > 0.0
-                        ? regions.regionPeakCurvature[region] / saturation : 0.0);
-                item.points.put(CREASE_POINT, Arrays.copyOfRange(regions.regionCreasePoint,
-                        XYZ * region, XYZ * region + XYZ));
-                item.flags.put(CREASE_INTERIOR, regions.regionCreaseInterior[region]);
-            }
             items.add(item);
         }
         return items;

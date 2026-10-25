@@ -183,8 +183,8 @@ class QuadRingToolTest {
         assertNotNull(tool.geodesics, "the geodesic engine was refused on the quad cylinder");
         assertSame(surface, tool.geodesics.mesh);
         assertEquals(1, tool.confirmedRings.size(), tool.lastRow);
-        assertEquals(SEGMENTS_AROUND, tool.confirmedRings.get(0).marks.markedEdgeCount);
-        float[] anchors = tool.positionsOf(tool.confirmedAuthoredVertexId.get(0));
+        assertEquals(SEGMENTS_AROUND, tool.confirmedRings.get(0).spline.marks.markedEdgeCount);
+        float[] anchors = tool.positionsOf(tool.confirmedRings.get(0).authoredVertexId);
         assertTrue(anchors.length >= RingTool.COORDINATES_PER_POINT);
         for (int anchor = 2; anchor < anchors.length; anchor += RingTool.COORDINATES_PER_POINT) {
             assertEquals(rowHeight(RING_ROW), anchors[anchor], POSITION_TOLERANCE,
@@ -200,8 +200,8 @@ class QuadRingToolTest {
         MeshTopology surface = scene.halfEdgeSurface();
         scene.ringMarksByLabel.put(RING_LABEL, rowLoop(quads, RING_ROW));
         tool.adoptGraphRings(surface);
-        int[] authored = tool.confirmedAuthoredVertexId.get(0);
-        float[] normal = tool.confirmedBaseNormal.get(0);
+        int[] authored = tool.confirmedRings.get(0).authoredVertexId;
+        float[] normal = tool.confirmedRings.get(0).baseNormal;
 
         assertToolAndGraphAgree(quads, scene, tool.positionsOf(authored), authored.length,
                 normal);

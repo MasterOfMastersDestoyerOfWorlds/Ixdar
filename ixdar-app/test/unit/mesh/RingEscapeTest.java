@@ -2,6 +2,7 @@ package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -32,6 +33,7 @@ import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Draft;
 import ixdar.tools.Item;
+import ixdar.tools.ring.ConfirmedRing;
 import ixdar.tools.ring.RingTool;
 import unit.GlStandIn;
 
@@ -79,7 +81,7 @@ class RingEscapeTest {
         MeshTopology tube = RingAnchorOrderTest.tube(0f, RADIUS);
         RingScene scene = sceneOn(tube);
         RingTool tool = scene.ringTool;
-        SurfaceSpline confirmed = tool.confirmedRings.get(0);
+        SurfaceSpline confirmed = tool.confirmedRings.get(0).spline;
         int unsaved = tool.unsavedRingCount();
         assertTrue(tool.reopenRing(0), tool.lastError);
         assertEquals(2, tool.history.undoDepth);
@@ -91,7 +93,7 @@ class RingEscapeTest {
         assertEquals(1, tool.history.undoDepth, "closing the unedited ring left an undo entry");
         assertEquals(0, tool.history.redoDepth());
         assertEquals(CONFIRMED, tool.history.nextUndoName());
-        assertSame(confirmed, tool.confirmedRings.get(0));
+        assertSame(confirmed, tool.confirmedRings.get(0).spline);
         assertEquals(unsaved, tool.unsavedRingCount(), "closing changed the unsaved count");
 
         scene.escapePressed();
@@ -125,12 +127,11 @@ class RingEscapeTest {
     }
 
     @Test
-    public void aReopenedRingDraftsInTheSharedShapeAndStaysInTheSceneRingSet() {
+    public void aReopenedRingDraftsInTheSharedShapeAndStaysInTheRingToolsItems() {
         RingScene scene = sceneOn(RingAnchorOrderTest.tube(0f, RADIUS));
         RingTool tool = scene.ringTool;
-        List<Item> rings = scene.regionLayer.rings();
+        List<Item> rings = tool.items();
         assertEquals(1, rings.size());
-        assertTrue(tool.items().isEmpty(), "the ring tool lists the scene's rings as its own");
         assertTrue(tool.reopenRing(0), tool.lastError);
 
         Draft draft = tool.draft();
@@ -142,6 +143,26 @@ class RingEscapeTest {
         assertEquals(tool.draftAuthoredVertexId.length,
                 Collections.frequency(Arrays.asList(draft.pointLabels), "authored"));
         assertTrue(draft.valid);
+    }
+
+    @Test
+    public void theRingToolsItemsAreHandlesOnItsConfirmedRings() {
+        RingScene scene = sceneOn(RingAnchorOrderTest.tube(0f, RADIUS));
+        RingTool tool = scene.ringTool;
+
+        List<Item> rings = tool.items();
+        assertEquals(1, rings.size());
+        Item ring = rings.get(0);
+        ConfirmedRing confirmed = tool.confirmedRings.get(0);
+        assertEquals(Integer.toString(tool.drawnRingNumber(0)), ring.label);
+        assertEquals(confirmed.spline.marks.markedEdgeCount, ring.size);
+        assertEquals(confirmed.spline.path.length, ring.length);
+        assertTrue(ring.size > 0 && ring.length > 0.0, ring.detail);
+        assertEquals(confirmed.mode.label + " mode", ring.detail);
+        assertFalse(ring.saved, "a ring only this session holds reads as saved");
+        assertFalse(ring.deleted);
+        assertTrue(tool.deleteRing(0), tool.lastError);
+        assertTrue(tool.items().get(0).deleted, "a deleted ring's handle does not say so");
     }
 
     @Test

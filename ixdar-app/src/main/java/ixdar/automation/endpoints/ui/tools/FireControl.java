@@ -19,7 +19,7 @@ import ixdar.tools.ControlHint;
 import ixdar.tools.Tool;
 
 /**
- * Fire one control row by its action id, a tool's or the scene's own, the way pressing its key
+ * Fire one control row by its action id, a tool's, the scene's own or a tool switch, the way pressing its key
  * or clicking its row in the controls menu does, switching to the tool first as its switch key
  * would.
  */
@@ -39,8 +39,8 @@ public class FireControl extends AutomationEndpoint implements AutomationRoute {
     public static final String COMMAND = "control";
 
     /**
-     * {@code POST /ui/tools/control}: find the row among the tool's section, then the scene's own,
-     * whose action id is exactly the one asked for, switch to the tool when it is not active, fire
+     * {@code POST /ui/tools/control}: find the row among the tool's section, the scene's own and the
+     * tool switches whose action id is exactly the one asked for, switch to the tool when it is not active, fire
      * the row and report the outcome.
      *
      * @param body JSON body with {@code tool} (a tool name; default the active tool),
@@ -72,8 +72,9 @@ public class FireControl extends AutomationEndpoint implements AutomationRoute {
                 refusal.add(CANDIDATES, toolNames);
                 return refusal;
             }
-            // The tool's section, as it stands once the tool is active, then the scene's own, in the
-            // order the key handler fires them.
+            // The tool's section, as it stands once the tool is active, the scene's own, then the tool
+            // switches: every section the tools listing shows, the tool's rows first among the
+            // candidates a refusal names.
             List<ControlHint> rows = new ArrayList<>();
             if (tool == scene.activeTool) {
                 rows.addAll(scene.controls.get(Scene.TOOL_SECTION));
@@ -81,6 +82,7 @@ public class FireControl extends AutomationEndpoint implements AutomationRoute {
                 tool.addControls(rows);
             }
             rows.addAll(scene.controls.get(Scene.SCENE_SECTION));
+            rows.addAll(scene.controls.get(Scene.TOOL_SWITCH_SECTION));
             ControlHint row = null;
             List<String> fireable = new ArrayList<>();
             for (ControlHint hint : rows) {
@@ -132,9 +134,9 @@ public class FireControl extends AutomationEndpoint implements AutomationRoute {
     public RouteDoc describe() {
         return RouteDoc.builder()
                 .commandName(COMMAND)
-                .description("Fire a control row by its action id, a tool's, active or not, or the scene's own, "
-                        + "switching to the tool first as its switch key would, and report the outcome as key and "
-                        + "click do.")
+                .description("Fire a control row by its action id, a tool's, active or not, the scene's own or a "
+                        + "tool switch, switching to the tool first as its switch key would, and report the outcome "
+                        + "as key and click do.")
                 .param(TOOL, RouteParamType.STRING, false, "",
                         "Tool name as the tools listing gives it; the active tool when left out.", "region tool")
                 .param(ACTION, RouteParamType.STRING, false, "",

@@ -215,7 +215,7 @@ class CreaseRingTest {
                     "switching the mode back did not restore the groove ring");
 
             assertTrue(tool.confirmDraft(), tool.lastError);
-            assertEquals(RingSegmentMode.CREASE, tool.confirmedMode.get(0));
+            assertEquals(RingSegmentMode.CREASE, tool.confirmedRings.get(0).mode);
             assertEquals(RingSegmentMode.CREASE, tool.newDraftMode(), "confirm lost the mode");
             assertTrue(tool.reopenRing(0), tool.lastError);
             assertEquals(RingSegmentMode.CREASE, tool.draftMode, "re-open lost the ring's mode");

@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.labels.MeshLabels;
@@ -16,6 +17,7 @@ import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RegionExplosion;
 import ixdar.geometry.mesh.data.rings.RingRegions;
+import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.color.RegionColouring;
@@ -29,7 +31,6 @@ import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.main.Toggle;
 import ixdar.scenes.ring.RingScene;
-import ixdar.tools.Item;
 
 /**
  * The editing scene's ring regions, updated incrementally as rings change: their colours, shown in
@@ -47,6 +48,20 @@ public final class RegionLayer {
     public static final Vector4f UNLABELLED_COLOUR = Color.GREY_VERY_DARK.toVector4f();
 
     public static final Color PART_NAME_COLOUR = Color.BLACK;
+
+    public static final Color REGION_NUMBER_COLOUR = Color.WHITE;
+
+    public static final String REGION_NUMBER_PREFIX = "R";
+
+    public static final int REGION_NUMBER_CELL_PIXELS = 8;
+
+    private static final float HALF_CELL = 0.5f;
+
+    private static final int[] CHAMFER_COLUMN_STEPS = { -1, -1, 0, 1 };
+
+    private static final int[] CHAMFER_ROW_STEPS = { 0, -1, -1, -1 };
+
+    private static final int[] CHAMFER_WEIGHTS = { 3, 4, 3, 4 };
 
     /** Scene whose surface and ring tool the layer reads. */
     public final RingScene scene;
@@ -117,6 +132,15 @@ public final class RegionLayer {
      */
     public float[] partNameLift = new float[0];
 
+    /** Whether each region's number is drawn on the thickest part of it the camera sees; Shift+N flips it. */
+    public boolean showRegionNumbers;
+
+    /** Framebuffer x then y, y up, of each region's drawn number, by region. */
+    public float[] regionNumberXy = new float[0];
+
+    /** Each region's drawn number, {@code null} for one the camera does not see; empty while none are drawn. */
+    public String[] regionNumberText = new String[0];
+
     /**
      * Exploded view of {@link #regions}, shown in every tool and re-measured when they are
      * rebuilt; X in the region tool and the terminal's {@code xp} set it.
@@ -136,6 +160,10 @@ public final class RegionLayer {
     private boolean overlayStale;
 
     private HalfEdgeMeshRuntime.ShaderMode shaderModeBefore;
+
+    private final Matrix4f numberedView = new Matrix4f();
+
+    private final Matrix4f numberedProjection = new Matrix4f();
 
     /**
      * Binds the layer to its scene.
@@ -184,20 +212,6 @@ public final class RegionLayer {
         if (!isolate) {
             tool.clearSelection();
         }
-    }
-
-    /**
-     * The rings every tool works over, the ones the ring tool confirmed, deleted ones included, as
-     * items in confirmation order.
-     *
-     * @return one item per confirmed ring
-     */
-    public List<Item> rings() {
-        List<Item> rings = new ArrayList<>();
-        for (int ring = 0; ring < scene.ringTool.confirmedRings.size(); ring++) {
-            rings.add(scene.ringTool.ringItem(ring));
-        }
-        return rings;
     }
 
     /** U: show every hidden face again. */
@@ -284,6 +298,7 @@ public final class RegionLayer {
                 scene.ringTool.markRings(Map.of(), Set.of());
             }
             shown = false;
+            regionNumberText = new String[0];
             return;
         }
         long start = System.nanoTime();
@@ -405,6 +420,65 @@ public final class RegionLayer {
         int heldDirection = (keysFree && scene.keys.pressedKeys.contains(Keys.PERIOD) ? 1 : 0)
                 - (keysFree && scene.keys.pressedKeys.contains(Keys.COMMA) ? 1 : 0);
         explosion.step((float) Clock.deltaTime(), heldDirection, runtime.tagOffsets);
+        Camera3D camera = scene.camera;
+        if (!showRegionNumbers || explosion.exploded() || scene.regionTool.showingExtraction
+                || !runtime.facePickReady()) {
+            regionNumberText = new String[0];
+        } else if (overlayStale || regionNumberText.length != regions.regionCount
+                || !camera.view.equals(numberedView) || !camera.projection.equals(numberedProjection)) {
+            // Each number goes where the region's seen part is thickest: the cell of a coarse id
+            // pass farthest, by a 3-4 chamfer distance, from any cell showing another region, no
+            // surface or the view's edge.
+            int width = Platforms.get().getFrameBufferWidth();
+            int height = Platforms.get().getFrameBufferHeight();
+            int columns = width / REGION_NUMBER_CELL_PIXELS;
+            int rows = height / REGION_NUMBER_CELL_PIXELS;
+            int[] regionByCell = runtime.faceIndexGrid(camera, columns, rows);
+            numberedView.set(camera.view);
+            numberedProjection.set(camera.projection);
+            int[] distance = new int[regionByCell.length];
+            for (int cell = 0; cell < regionByCell.length; cell++) {
+                int activeFace = regionByCell[cell];
+                regionByCell[cell] = activeFace < 0 || activeFace >= regions.regionByActiveFace.length
+                        ? MeshTopology.NONE : regions.regionByActiveFace[activeFace];
+                distance[cell] = regionByCell[cell] < 0 ? 0 : Integer.MAX_VALUE / 2;
+            }
+            for (int pass = 0; pass < 2; pass++) {
+                int sign = pass == 0 ? 1 : -1;
+                for (int step = 0; step < regionByCell.length; step++) {
+                    int cell = pass == 0 ? step : regionByCell.length - 1 - step;
+                    int region = regionByCell[cell];
+                    for (int neighbour = 0; region >= 0 && neighbour < CHAMFER_WEIGHTS.length; neighbour++) {
+                        int column = cell % columns + sign * CHAMFER_COLUMN_STEPS[neighbour];
+                        int row = cell / columns + sign * CHAMFER_ROW_STEPS[neighbour];
+                        boolean inside = column >= 0 && column < columns && row >= 0 && row < rows
+                                && regionByCell[row * columns + column] == region;
+                        distance[cell] = Math.min(distance[cell],
+                                (inside ? distance[row * columns + column] : 0) + CHAMFER_WEIGHTS[neighbour]);
+                    }
+                }
+            }
+            int[] centreCell = new int[regions.regionCount];
+            int[] centreDistance = new int[regions.regionCount];
+            Arrays.fill(centreCell, -1);
+            for (int cell = 0; cell < regionByCell.length; cell++) {
+                int region = regionByCell[cell];
+                if (region >= 0 && region < regions.regionCount && distance[cell] > centreDistance[region]) {
+                    centreDistance[region] = distance[cell];
+                    centreCell[region] = cell;
+                }
+            }
+            regionNumberXy = new float[2 * regions.regionCount];
+            regionNumberText = new String[regions.regionCount];
+            for (int region = 0; region < regions.regionCount; region++) {
+                int cell = centreCell[region];
+                if (cell >= 0) {
+                    regionNumberXy[2 * region] = (cell % columns + HALF_CELL) * width / columns;
+                    regionNumberXy[2 * region + 1] = (cell / columns + HALF_CELL) * height / rows;
+                    regionNumberText[region] = REGION_NUMBER_PREFIX + region;
+                }
+            }
+        }
         if (!overlayStale) {
             return;
         }

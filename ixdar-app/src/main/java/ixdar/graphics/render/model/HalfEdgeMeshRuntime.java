@@ -799,7 +799,6 @@ public class HalfEdgeMeshRuntime {
                 || framebufferY >= height) {
             return -1;
         }
-        GL gl = Platforms.gl();
         updateProjection(camera);
         // The id pass rasterizes one pixel: the viewport is that pixel and the projection is
         // scaled and shifted so the cursor's direction fills it, which keeps the pass off the
@@ -811,27 +810,64 @@ public class HalfEdgeMeshRuntime {
                 .scaling(width, height, 1f)
                 .translate(-cursorNdcX, -cursorNdcY, 0f)
                 .mul(camera.projection);
+        return faceIndices(camera, pickProjection, framebufferX, bottomY, 1, 1)[0];
+    }
+
+    /**
+     * The face the camera sees at the centre of every cell of a coarse grid over the whole view:
+     * the id pass drawn into a {@code columns} by {@code rows} viewport, which keeps a scan-scale
+     * mesh's pass cheap, then the cleared frame restored.
+     *
+     * @param camera  active camera
+     * @param columns grid columns across the view
+     * @param rows    grid rows up the view
+     * @return active face index by cell, row-major from the bottom row, {@code -1} where no
+     *         surface is seen, empty before a face-pick buffer is uploaded
+     */
+    public int[] faceIndexGrid(Camera3D camera, int columns, int rows) {
+        if (facePick.vertexCount == 0 || meshPickShader.ID < 0 || columns <= 0 || rows <= 0) {
+            return new int[0];
+        }
+        updateProjection(camera);
+        return faceIndices(camera, camera.projection, 0, 0, columns, rows);
+    }
+
+    /**
+     * Draw the face-id pass through {@code projection} into a viewport, read it back and restore
+     * the cleared full-frame viewport the scene is about to draw into.
+     *
+     * @param camera     active camera, whose view places the surface
+     * @param projection the projection the pass draws through
+     * @param left       viewport left, in framebuffer pixels
+     * @param bottom     viewport bottom, in framebuffer pixels
+     * @param width      viewport width
+     * @param height     viewport height
+     * @return active face index per viewport pixel, row-major from the bottom row, {@code -1}
+     *         where no shown face covers it
+     */
+    private int[] faceIndices(Camera3D camera, Matrix4f projection, int left, int bottom, int width,
+            int height) {
+        GL gl = Platforms.gl();
         gl.clearColor(Color.BLACK);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
-        gl.viewport(framebufferX, bottomY, 1, 1);
+        gl.viewport(left, bottom, width, height);
         meshPickShader.use();
         meshPickShader.setMat4(MODEL, modelMatrix);
         meshPickShader.setMat4(VIEW, camera.view);
-        meshPickShader.setMat4(PROJECTION, pickProjection);
+        meshPickShader.setMat4(PROJECTION, projection);
         gl.bindVertexArray(facePick.vao);
         gl.drawArrays(gl.TRIANGLES(), 0, facePick.vertexCount);
-        int[] pixel = gl.readPixels(framebufferX, bottomY, 1, 1, gl.RGBA(),
-                gl.UNSIGNED_BYTE(), 0);
-        gl.viewport(0, 0, width, height);
+        int[] pixels = gl.readPixels(left, bottom, width, height, gl.RGBA(), gl.UNSIGNED_BYTE(), 0);
+        gl.viewport(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight());
         gl.clearColor(Color.GREY_VERY_DARK);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         gl.bindVertexArray(surface.vao);
-        int code = pixel.length == 0 ? 0 : pixel[0] & PICK_ID_MASK;
-        int faceIndex = code - 1;
-        if (faceIndex < 0 || faceIndex >= pickFaceCount) {
-            return -1;
+        int[] faceIndexByPixel = new int[width * height];
+        for (int pixel = 0; pixel < faceIndexByPixel.length; pixel++) {
+            int faceIndex = (pixel < pixels.length ? pixels[pixel] & PICK_ID_MASK : 0) - 1;
+            faceIndexByPixel[pixel] = faceIndex < pickFaceCount ? faceIndex : -1;
         }
-        return faceIndex;
+        return faceIndexByPixel;
     }
 
     /**

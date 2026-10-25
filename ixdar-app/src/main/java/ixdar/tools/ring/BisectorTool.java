@@ -158,9 +158,9 @@ public final class BisectorTool extends RingSubTool {
         ringTool.previewSpline = !ringTool.previewValid ? null
                 : SurfaceSpline.bisector(ringTool.geodesics, crease ? ringTool.creases : null,
                         new int[] { startVertexId, target },
-                        ringTool.confirmedRings.get(startRing).marks.markedByEdgeId,
+                        ringTool.confirmedRings.get(startRing).spline.marks.markedByEdgeId,
                         endRing < 0 ? new boolean[0]
-                                : ringTool.confirmedRings.get(endRing).marks.markedByEdgeId);
+                                : ringTool.confirmedRings.get(endRing).spline.marks.markedByEdgeId);
         previewSimple = ringTool.previewValid && endRing >= 0
                 && ringTool.previewSpline.marks.markedEdgeCount > 0
                 && crossings.isSimple(surface, ringTool.previewSpline.path);
@@ -335,8 +335,8 @@ public final class BisectorTool extends RingSubTool {
         for (int end = 0; end < 2; end++) {
             int ring = ringTool.ringOfSerial(ends[end]);
             int anchor = end == 0 ? 0 : anchors.length - 1;
-            marks[end] = ring < 0 || ringTool.confirmedRingDeleted.get(ring) ? null
-                    : ringTool.confirmedRings.get(ring).marks.markedByEdgeId;
+            marks[end] = ring < 0 || ringTool.confirmedRings.get(ring).deleted ? null
+                    : ringTool.confirmedRings.get(ring).spline.marks.markedByEdgeId;
             boolean onWall = false;
             for (int spoke = 0; marks[end] != null
                     && spoke < surface.vertexEdgeCount(anchors[anchor]); spoke++) {

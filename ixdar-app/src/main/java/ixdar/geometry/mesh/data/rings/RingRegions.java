@@ -65,8 +65,6 @@ public final class RingRegions {
     // the halves of a split claw joint read under 1%, the region left unsplit about 8%.
     public static final double INTERIOR_JOINT_SHARE = 0.02;
 
-    public static final double PERCENT = 100.0;
-
     private static final int PAIR_SHIFT = 32;
 
     private static final long LOW_HALF = 0xFFFFFFFFL;
@@ -1325,25 +1323,6 @@ public final class RingRegions {
             }
         }
         flatnessCreases = creases;
-    }
-
-    /**
-     * One region's flatness as {@link #measureFlatness} left it, for a human, e.g.
-     * {@code crease 8.1% of area, 6.0% interior, interior crease}.
-     *
-     * @param region region index
-     * @return the flatness line, or {@code not measured} before the first measure
-     */
-    public String flatnessText(int region) {
-        if (flatnessCreases == null || region >= regionCreaseShare.length) {
-            return "not measured";
-        }
-        String where = regionCreaseShare[region] == 0.0
-                ? "no crease, most curved " + (regionCreaseInterior[region] ? "inside" : "by a ring")
-                : regionCreaseInterior[region] ? "interior crease" : "crease on rings";
-        return String.format(Locale.ROOT, "crease %.1f%% of area, %.1f%% interior, %s",
-                PERCENT * regionCreaseShare[region], PERCENT * regionInteriorCreaseShare[region],
-                where);
     }
 
     /**

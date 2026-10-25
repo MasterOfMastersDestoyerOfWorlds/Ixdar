@@ -106,7 +106,7 @@
       "commandName": "control",
       "path": "/ui/tools/control",
       "method": "POST",
-      "description": "Fire a control row by its action id, a tool\u0027s, active or not, or the scene\u0027s own, switching to the tool first as its switch key would, and report the outcome as key and click do.",
+      "description": "Fire a control row by its action id, a tool\u0027s, active or not, the scene\u0027s own or a tool switch, switching to the tool first as its switch key would, and report the outcome as key and click do.",
       "sourceClass": "ixdar.automation.endpoints.ui.tools.FireControl",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/tools/FireControl.java",
       "params": [
@@ -1527,7 +1527,7 @@
       "sourceClass": "ixdar.automation.endpoints.ui.State",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/State.java",
       "params": [],
-      "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ringTool?, rings?, errorToasts?, regions?, collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls:[{section, controls}], audio}"
+      "responseHint": "{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ringTool?, rings?:[{label, liveLabel, bisector, mode, serial, statement, source, wallSerials, anchorCount, authoredCount, unsaved, deleted}], connection?, errorToasts?, regions?:{regionCount, visible, absorbSlivers, hiddenRingCount, summary, rows:[{region, label, faceCount, area, sliver, boundingRings:[{ring, side}], part, creaseShare?, interiorCreaseShare?, peakCurvature?, peakOverSaturation?, creasePoint?, creaseInterior?}]}, collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls:[{section, controls}], audio}"
     },
     {
       "commandName": "words",

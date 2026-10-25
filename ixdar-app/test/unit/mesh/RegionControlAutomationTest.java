@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,11 +17,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import ixdar.automation.AutomationRuntime;
 import ixdar.automation.endpoints.input.InjectClick;
 import ixdar.automation.endpoints.ui.SelectionBounds;
+import ixdar.automation.endpoints.ui.State;
 import ixdar.automation.endpoints.ui.tools.FireControl;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
@@ -37,6 +40,7 @@ import ixdar.scenes.main.Toggle;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Tool;
+import ixdar.tools.regions.RegionLayer;
 import ixdar.tools.regions.RingRegionTool;
 
 /**
@@ -93,6 +97,12 @@ class RegionControlAutomationTest {
     /** Active face the surface's id pass reports under any pixel, as a click would read it. */
     private final int[] faceUnderCursor = { -1 };
 
+    /** Active face the coarse id pass sees over the lower half of the view. */
+    private final int[] faceSeenBelow = { -1 };
+
+    /** Active face the coarse id pass sees over the upper half of the view. */
+    private final int[] faceSeenAbove = { -1 };
+
     /**
      * A ring scene over the cylinder with its two rings and the region tool active, its regions and
      * pick buffer built, bound to the automation runtime.
@@ -147,6 +157,14 @@ class RegionControlAutomationTest {
             @Override
             public int faceIndexAtPixel(Camera3D camera, int framebufferX, int framebufferY) {
                 return faceUnderCursor[0];
+            }
+
+            @Override
+            public int[] faceIndexGrid(Camera3D camera, int columns, int rows) {
+                int[] grid = new int[columns * rows];
+                Arrays.fill(grid, 0, grid.length / 2, faceSeenBelow[0]);
+                Arrays.fill(grid, grid.length / 2, grid.length, faceSeenAbove[0]);
+                return grid;
             }
         };
         scene.meshRuntime.upload(cylinder);
@@ -283,6 +301,69 @@ class RegionControlAutomationTest {
         click("");
         scene.updateScene();
         assertEquals(1, scene.regionTool.selectedCount(), "shift stayed held after the shift-click");
+    }
+
+    @Test
+    void theRegionNumbersRowDrawsEachSeenRegionsNumberInsideTheViewOfIt() throws Exception {
+        RingRegions regions = scene.regionLayer.regions;
+        faceSeenBelow[0] = regions.nearestActiveFace(BOTTOM_POINT[0], BOTTOM_POINT[1], BOTTOM_POINT[2]);
+        faceSeenAbove[0] = regions.nearestActiveFace(TOP_POINT[0], TOP_POINT[1], TOP_POINT[2]);
+        int below = regions.regionByActiveFace[faceSeenBelow[0]];
+        int above = regions.regionByActiveFace[faceSeenAbove[0]];
+        scene.updateScene();
+        assertEquals(0, scene.regionLayer.regionNumberText.length, "numbers drawn before the row turned them on");
+        JsonObject body = new JsonObject();
+        body.addProperty(FireControl.ACTION, "toggle-region-numbers");
+        assertTrue(control(body).get(OK).getAsBoolean());
+        scene.updateScene();
+
+        String[] text = scene.regionLayer.regionNumberText;
+        float[] xy = scene.regionLayer.regionNumberXy;
+        assertEquals(regions.regionCount, text.length);
+        assertEquals(RegionLayer.REGION_NUMBER_PREFIX + below, text[below]);
+        assertEquals(RegionLayer.REGION_NUMBER_PREFIX + above, text[above]);
+        assertTrue(xy[2 * below + 1] < WINDOW_SIZE / 2f && xy[2 * above + 1] > WINDOW_SIZE / 2f,
+                "a number left the half of the view its region fills: " + Arrays.toString(xy));
+        for (int region = 0; region < regions.regionCount; region++) {
+            assertTrue(region == below || region == above || text[region] == null,
+                    "region " + region + " is numbered but not seen");
+        }
+        assertTrue(control(body).get(OK).getAsBoolean());
+        scene.updateScene();
+        assertEquals(0, scene.regionLayer.regionNumberText.length, "the row did not turn the numbers off");
+    }
+
+    @Test
+    void uiStateExportsTheRegionAndRingDatasetsOnceAndTheItemsAsHandles() throws Exception {
+        JsonObject state = new State() {
+            {
+                runtime = AutomationRuntime.get();
+            }
+        }.endpointHandler(new JsonObject());
+        RingRegions regions = scene.regionLayer.regions;
+        JsonArray rows = state.getAsJsonObject("regions").getAsJsonArray("rows");
+        assertEquals(regions.regionCount, rows.size());
+        for (int region = 0; region < regions.regionCount; region++) {
+            JsonObject row = rows.get(region).getAsJsonObject();
+            assertEquals(RingRegionTool.regionTag(region), row.get(State.LABEL).getAsString());
+            assertEquals(regions.regionArea[region], row.get(State.AREA).getAsDouble(), 1e-12);
+            assertEquals(regions.boundingRingsByRegion[region].length, row.getAsJsonArray("boundingRings").size());
+            assertEquals(regions.regionCreaseShare[region], row.get(State.CREASE_SHARE).getAsDouble(), 1e-12);
+            assertEquals(regions.regionCreaseInterior[region], row.get(State.CREASE_INTERIOR).getAsBoolean());
+            assertEquals(3, row.getAsJsonArray(State.CREASE_POINT).size());
+        }
+        JsonArray rings = state.getAsJsonArray("rings");
+        assertEquals(scene.ringTool.confirmedRings.size(), rings.size());
+        for (int ring = 0; ring < rings.size(); ring++) {
+            JsonObject row = rings.get(ring).getAsJsonObject();
+            assertEquals(scene.ringTool.confirmedRings.get(ring).serial, row.get("serial").getAsInt());
+            assertEquals(scene.ringTool.confirmedRings.get(ring).mode.label, row.get(State.MODE).getAsString());
+        }
+        JsonObject regionTool = state.getAsJsonObject("tool");
+        JsonObject handle = regionTool.getAsJsonArray("items").get(0).getAsJsonObject();
+        assertTrue(!handle.has("values") && !handle.has(State.KIND)
+                && !handle.get(State.DETAIL).getAsString().contains(State.AREA),
+                "a region handle still carries the region dataset: " + handle);
     }
 
     private JsonObject control(JsonObject body) throws Exception {

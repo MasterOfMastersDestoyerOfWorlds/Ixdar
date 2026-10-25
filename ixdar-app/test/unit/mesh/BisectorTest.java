@@ -198,14 +198,14 @@ class BisectorTest {
         press(tool, Keys.T);
         assertEquals(RingSegmentMode.CREASE, tool.newDraftMode(), tool.lastError);
         int crease = bisect(tool, vertex(FIRST_RING_ROW, TOP_SIDE), vertex(SECOND_RING_ROW, TOP_SIDE));
-        assertEquals(RingSegmentMode.CREASE, tool.confirmedMode.get(crease));
-        boolean[] drawn = tool.confirmedRings.get(crease).marks.markedByEdgeId;
+        assertEquals(RingSegmentMode.CREASE, tool.confirmedRings.get(crease).mode);
+        boolean[] drawn = tool.confirmedRings.get(crease).spline.marks.markedByEdgeId;
         assertTrue(touches(grooved, drawn, vertex(MIDDLE_ROW, TOP_SIDE + GROOVE_BEND)),
                 "the crease bisector does not follow the groove");
         SurfaceSpline geodesic = SurfaceSpline.bisector(tool.geodesics, null,
                 new int[] { vertex(FIRST_RING_ROW, TOP_SIDE), vertex(SECOND_RING_ROW, TOP_SIDE) },
-                tool.confirmedRings.get(first).marks.markedByEdgeId,
-                tool.confirmedRings.get(second).marks.markedByEdgeId);
+                tool.confirmedRings.get(first).spline.marks.markedByEdgeId,
+                tool.confirmedRings.get(second).spline.marks.markedByEdgeId);
         assertFalse(touches(grooved, geodesic.marks.markedByEdgeId,
                 vertex(MIDDLE_ROW, TOP_SIDE + GROOVE_BEND)), "the geodesic follows the groove too, "
                         + "so the groove tests nothing");
@@ -220,12 +220,12 @@ class BisectorTest {
         assertTrue(written.arguments.get(SplineCutNode.CREASES.name)
                 instanceof PythonParser.NodeReference, "the save left the crease bisector without "
                         + "creases:\n" + saved);
-        String bisectorId = tool.confirmedStatementIds.get(crease);
+        String bisectorId = tool.confirmedRings.get(crease).statementId;
         GeometryBundle bundle = GeometryBundle.ofMesh(grooved);
-        bundle = EdgeMarks.with(bundle, tool.confirmedStatementIds.get(first),
-                tool.confirmedRings.get(first).marks.markedByEdgeId);
-        bundle = EdgeMarks.with(bundle, tool.confirmedStatementIds.get(second),
-                tool.confirmedRings.get(second).marks.markedByEdgeId);
+        bundle = EdgeMarks.with(bundle, tool.confirmedRings.get(first).statementId,
+                tool.confirmedRings.get(first).spline.marks.markedByEdgeId);
+        bundle = EdgeMarks.with(bundle, tool.confirmedRings.get(second).statementId,
+                tool.confirmedRings.get(second).spline.marks.markedByEdgeId);
         SplineCutNode node = new SplineCutNode();
         MapNodeContext ctx = new MapNodeContext(node);
         ctx.setInput(SplineCutNode.GEOMETRY.name, bundle);
@@ -240,18 +240,18 @@ class BisectorTest {
                 ctx.getOutput(SplineCutNode.GEOMETRY.name, GeometryBundle.class), bisectorId),
                 "the crease spline_cut statement reloads other edges than the bisector drawn");
 
-        tool.scene.ringMarksByLabel.put(tool.confirmedStatementIds.get(first),
-                tool.confirmedRings.get(first).marks.markedByEdgeId);
-        tool.scene.ringMarksByLabel.put(tool.confirmedStatementIds.get(second),
-                tool.confirmedRings.get(second).marks.markedByEdgeId);
+        tool.scene.ringMarksByLabel.put(tool.confirmedRings.get(first).statementId,
+                tool.confirmedRings.get(first).spline.marks.markedByEdgeId);
+        tool.scene.ringMarksByLabel.put(tool.confirmedRings.get(second).statementId,
+                tool.confirmedRings.get(second).spline.marks.markedByEdgeId);
         tool.scene.ringMarksByLabel.put(bisectorId, drawn);
         tool.scene.graph = NodeGraphRuntime.fromSource(saved);
         tool.graphRingsChanged();
         tool.adoptGraphRings(grooved);
-        int reloaded = tool.confirmedSourceLabel.indexOf(bisectorId);
+        int reloaded = tool.ringOfSourceLabel(bisectorId);
         assertTrue(reloaded >= 0, "the crease bisector was not adopted: " + tool.lastError);
-        assertEquals(RingSegmentMode.CREASE, tool.confirmedMode.get(reloaded));
-        assertArrayEquals(drawn, tool.confirmedRings.get(reloaded).marks.markedByEdgeId,
+        assertEquals(RingSegmentMode.CREASE, tool.confirmedRings.get(reloaded).mode);
+        assertArrayEquals(drawn, tool.confirmedRings.get(reloaded).spline.marks.markedByEdgeId,
                 "the reloaded crease bisector runs along other edges");
     }
 
@@ -264,19 +264,19 @@ class BisectorTest {
         RingTool tool = toolOn(tube, dsl);
         int first = ring(tool, FIRST_RING_ROW);
         int second = ring(tool, SECOND_RING_ROW);
-        assertTrue(tool.confirmedRingUnsaved.get(first) && tool.confirmedRingUnsaved.get(second));
+        assertTrue(tool.confirmedRings.get(first).unsaved && tool.confirmedRings.get(second).unsaved);
         int bisector = bisect(tool, vertex(FIRST_RING_ROW, TOP_SIDE),
                 vertex(SECOND_RING_ROW, TOP_SIDE), vertex(MIDDLE_ROW, TOP_SIDE + 2));
-        boolean[] drawn = tool.confirmedRings.get(bisector).marks.markedByEdgeId;
-        int[] serials = { tool.confirmedRingSerial.get(first), tool.confirmedRingSerial.get(second),
-            tool.confirmedRingSerial.get(bisector) };
+        boolean[] drawn = tool.confirmedRings.get(bisector).spline.marks.markedByEdgeId;
+        int[] serials = { tool.confirmedRings.get(first).serial, tool.confirmedRings.get(second).serial,
+            tool.confirmedRings.get(bisector).serial };
 
         assertTrue(tool.saveRings(), tool.lastError);
         String saved = new String(Files.readAllBytes(dsl), StandardCharsets.UTF_8);
         List<PythonParser.ParsedNode> statements = PythonParser.parse(saved);
-        String firstId = tool.confirmedStatementIds.get(first);
-        String secondId = tool.confirmedStatementIds.get(second);
-        String bisectorId = tool.confirmedStatementIds.get(bisector);
+        String firstId = tool.confirmedRings.get(first).statementId;
+        String secondId = tool.confirmedRings.get(second).statementId;
+        String bisectorId = tool.confirmedRings.get(bisector).statementId;
         PythonParser.ParsedNode written = statements.get(statements.size() - 1);
         assertEquals(SplineCutNode.NODE_ID, written.type, saved);
         assertEquals(bisectorId, written.id, saved);
@@ -288,8 +288,8 @@ class BisectorTest {
 
         // The statement alone, on a bundle carrying both walls, gives back the same edges.
         GeometryBundle bundle = GeometryBundle.ofMesh(tube);
-        bundle = EdgeMarks.with(bundle, firstId, tool.confirmedRings.get(first).marks.markedByEdgeId);
-        bundle = EdgeMarks.with(bundle, secondId, tool.confirmedRings.get(second).marks.markedByEdgeId);
+        bundle = EdgeMarks.with(bundle, firstId, tool.confirmedRings.get(first).spline.marks.markedByEdgeId);
+        bundle = EdgeMarks.with(bundle, secondId, tool.confirmedRings.get(second).spline.marks.markedByEdgeId);
         SplineCutNode node = new SplineCutNode();
         MapNodeContext ctx = new MapNodeContext(node);
         ctx.setInput(SplineCutNode.GEOMETRY.name, bundle);
@@ -303,18 +303,18 @@ class BisectorTest {
                 "the spline_cut statement reloads other edges than the bisector drawn");
 
         // The re-run graph's rings are adopted again, the bisector naming its walls by serial.
-        tool.scene.ringMarksByLabel.put(firstId, tool.confirmedRings.get(first).marks.markedByEdgeId);
-        tool.scene.ringMarksByLabel.put(secondId, tool.confirmedRings.get(second).marks.markedByEdgeId);
+        tool.scene.ringMarksByLabel.put(firstId, tool.confirmedRings.get(first).spline.marks.markedByEdgeId);
+        tool.scene.ringMarksByLabel.put(secondId, tool.confirmedRings.get(second).spline.marks.markedByEdgeId);
         tool.scene.ringMarksByLabel.put(bisectorId, drawn);
         tool.scene.graph = NodeGraphRuntime.fromSource(saved);
         tool.graphRingsChanged();
         tool.adoptGraphRings(tube);
-        int reloaded = tool.confirmedSourceLabel.indexOf(bisectorId);
+        int reloaded = tool.ringOfSourceLabel(bisectorId);
         assertTrue(reloaded >= 0, "the bisector was not adopted: " + tool.lastError);
-        assertArrayEquals(drawn, tool.confirmedRings.get(reloaded).marks.markedByEdgeId);
+        assertArrayEquals(drawn, tool.confirmedRings.get(reloaded).spline.marks.markedByEdgeId);
         assertArrayEquals(new int[] { serials[0], serials[1] },
-                tool.confirmedBisectorEnds.get(reloaded), "the reloaded bisector lost its walls");
-        assertEquals(serials[2], tool.confirmedRingSerial.get(reloaded));
+                tool.confirmedRings.get(reloaded).bisectorEnds, "the reloaded bisector lost its walls");
+        assertEquals(serials[2], tool.confirmedRings.get(reloaded).serial);
     }
 
     @Test
@@ -339,9 +339,9 @@ class BisectorTest {
 
         tool.adoptGraphRings(tube);
 
-        int adopted = tool.confirmedSourceLabel.indexOf(FIRST_WALL);
+        int adopted = tool.ringOfSourceLabel(FIRST_WALL);
         assertTrue(adopted >= 0, "the edge-mask ring was not adopted: " + tool.lastError);
-        SurfaceSpline ring = tool.confirmedRings.get(adopted);
+        SurfaceSpline ring = tool.confirmedRings.get(adopted).spline;
         assertArrayEquals(new EdgeMarks(mask, 0).markedEdgeIds, ring.marks.markedEdgeIds,
                 "the adopted ring lists other edges than the ones it was authored as, so a "
                         + "bisector would snap to walls the ring does not draw");
@@ -376,7 +376,7 @@ class BisectorTest {
             ring(tool, FIRST_RING_ROW);
             ring(tool, SECOND_RING_ROW);
             int bisector = bisect(tool, order[0], order[1], order[2], order[3]);
-            boolean[] marks = tool.confirmedRings.get(bisector).marks.markedByEdgeId;
+            boolean[] marks = tool.confirmedRings.get(bisector).spline.marks.markedByEdgeId;
             if (reference == null) {
                 reference = marks;
             }
@@ -415,10 +415,10 @@ class BisectorTest {
         assertEquals(COORDINATES, regions(tool).regionCount, "the bite closes no pocket");
         // A second bisector from the bite's apex back to the ring halves the pocket.
         int join = bisect(tool, apex, vertex(FIRST_RING_ROW, TOP_SIDE));
-        int[] ends = tool.confirmedBisectorEnds.get(join).clone();
+        int[] ends = tool.confirmedRings.get(join).bisectorEnds.clone();
         Arrays.sort(ends);
-        assertArrayEquals(new int[] { tool.confirmedRingSerial.get(ring),
-            tool.confirmedRingSerial.get(bite) }, ends,
+        assertArrayEquals(new int[] { tool.confirmedRings.get(ring).serial,
+            tool.confirmedRings.get(bite).serial }, ends,
                 "the join does not end on the bite and the ring");
         RingRegions regions = regions(tool);
         assertEquals(COORDINATES + 1, regions.regionCount,
@@ -443,13 +443,13 @@ class BisectorTest {
         ring(placed, SECOND_RING_ROW);
         int bisector = bisect(placed, start, end, far, near);
         assertArrayEquals(new int[] { start, near, far, end },
-                placed.confirmedAuthoredVertexId.get(bisector),
+                placed.confirmedRings.get(bisector).authoredVertexId,
                 "the anchors were not placed where they add least");
 
         // The same anchors in click order, as a statement holds them, cross.
         RingTool clicked = toolOn(tube, null);
-        clicked.confirmedSourceLabel.set(ring(clicked, FIRST_RING_ROW), FIRST_WALL);
-        clicked.confirmedSourceLabel.set(ring(clicked, SECOND_RING_ROW), SECOND_WALL);
+        clicked.confirmedRings.get(ring(clicked, FIRST_RING_ROW)).sourceLabel = FIRST_WALL;
+        clicked.confirmedRings.get(ring(clicked, SECOND_RING_ROW)).sourceLabel = SECOND_WALL;
         clicked.scene.graph = NodeGraphRuntime.fromSource(CARRIER + CLICKED_ORDER + " = "
                 + SplineCutNode.NODE_ID + "(geometry=carrier.geometry, points=\""
                 + SurfaceWaypoints.format(clicked.positionsOf(new int[] { start, far, near, end }),
@@ -458,7 +458,7 @@ class BisectorTest {
                 + "\", label=\"" + CLICKED_ORDER + "\")\n");
         clicked.scene.ringMarksByLabel.put(CLICKED_ORDER, new boolean[0]);
         clicked.adoptGraphRings(tube);
-        int crossing = clicked.confirmedSourceLabel.indexOf(CLICKED_ORDER);
+        int crossing = clicked.ringOfSourceLabel(CLICKED_ORDER);
         assertTrue(crossing >= 0, "the clicked-order bisector was not adopted: "
                 + clicked.lastError);
         assertTrue(clicked.reopenRing(crossing), clicked.lastError);

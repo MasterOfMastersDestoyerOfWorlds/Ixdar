@@ -138,34 +138,8 @@ public final class RingTool extends Tool {
     /** Scene the tool runs on, which owns the surface, the camera and the working graph. */
     public final RingScene scene;
 
-    /** Rings confirmed in this session, in the order they were confirmed. */
-    public final List<SurfaceSpline> confirmedRings = new ArrayList<>();
-
-    /** Authored anchors of each confirmed ring in ring order, what a save writes. */
-    public final List<int[]> confirmedAuthoredVertexId = new ArrayList<>();
-
-    /** Base normal each confirmed ring's plane leans toward, at the precision a save writes. */
-    public final List<float[]> confirmedBaseNormal = new ArrayList<>();
-
-    /** How each confirmed ring runs between its authored anchors, what a save writes as mode. */
-    public final List<RingSegmentMode> confirmedMode = new ArrayList<>();
-
-    /**
-     * Statement id each confirmed ring was last saved under, {@code null} until a save writes it.
-     */
-    public final List<String> confirmedStatementIds = new ArrayList<>();
-
-    /** Whether each confirmed ring carries changes the working .dsl does not hold yet. */
-    public final List<Boolean> confirmedRingUnsaved = new ArrayList<>();
-
-    /**
-     * Graph ring label each confirmed ring stands for in the working .dsl, which draws as that
-     * ring instead of from the graph's marks, or {@code null} for a ring only this session holds.
-     */
-    public final List<String> confirmedSourceLabel = new ArrayList<>();
-
-    /** Whether each confirmed ring is deleted: it draws nothing and the next save drops it. */
-    public final List<Boolean> confirmedRingDeleted = new ArrayList<>();
+    /** Rings and bisectors confirmed in this session, deleted ones included, in confirm order. */
+    public final List<ConfirmedRing> confirmedRings = new ArrayList<>();
 
     /** Graph ring labels turned into tool rings, no longer drawn from the graph's marks. */
     public final Set<String> convertedGraphLabels = new HashSet<>();
@@ -295,18 +269,6 @@ public final class RingTool extends Tool {
 
     /** Live labels of the rings not drawn because every region they bound is hidden. */
     public Set<String> hiddenRingLabels = Set.of();
-
-    /**
-     * Identity of each confirmed ring in memory, which bisectors name their end walls by; it
-     * outlives edits, saves and the re-adoption of the ring's statement.
-     */
-    public final List<Integer> confirmedRingSerial = new ArrayList<>();
-
-    /**
-     * Serials of the walls each confirmed bisector's first and last anchor sit on, or
-     * {@code null} for a ring.
-     */
-    public final List<int[]> confirmedBisectorEnds = new ArrayList<>();
 
     /** Serial the next confirmed ring takes. */
     public int nextRingSerial;
@@ -447,37 +409,45 @@ public final class RingTool extends Tool {
     }
 
     /**
-     * One confirmed ring as an item: the number drawn beside it, its centroid, marked edges,
-     * length and fingerprint, whether it is saved or deleted, and its statement and anchors.
+     * The confirmed rings and bisectors, deleted ones included, each as {@link #ringItem} writes
+     * it, in confirmation order; the rings the scene's other tools work over.
+     *
+     * @return one item per confirmed ring or bisector
+     */
+    @Override
+    public List<Item> items() {
+        List<Item> rings = new ArrayList<>();
+        for (int ring = 0; ring < confirmedRings.size(); ring++) {
+            rings.add(ringItem(ring));
+        }
+        return rings;
+    }
+
+    /**
+     * A handle on one confirmed ring or bisector: the number drawn beside it, its centroid, marked
+     * edges, length and fingerprint, whether it is saved or deleted, and its mode as the detail;
+     * the rest, whether it is a bisector included, is the ring dataset's.
      *
      * @param index the ring's position in {@link #confirmedRings}
      * @return the ring's item
      */
     public Item ringItem(int index) {
-        SurfaceSpline ring = confirmedRings.get(index);
+        ConfirmedRing ring = confirmedRings.get(index);
         Item item = new Item();
-        String statementId = index < confirmedStatementIds.size()
-                ? confirmedStatementIds.get(index) : null;
-        String sourceLabel = index < confirmedSourceLabel.size()
-                ? confirmedSourceLabel.get(index) : null;
-        fillFromTrace(item, ring, String.format(Locale.ROOT, "statement %s, source %s, %d anchors "
-                + "(%d authored), mean radius %.5f, trace depth %d, %d unresolved gaps",
-                statementId == null ? "" : statementId, sourceLabel == null ? "" : sourceLabel,
-                ring.anchorCount, ring.authoredCount(), ring.path.meanRadius, ring.traceDepth,
-                ring.marks.unresolvedGaps));
+        fillFromTrace(item, ring.spline, ring.mode.label + " mode");
         item.label = Integer.toString(drawnRingNumber(index));
-        item.saved = !(index < confirmedRingUnsaved.size() && confirmedRingUnsaved.get(index));
-        item.deleted = index < confirmedRingDeleted.size() && confirmedRingDeleted.get(index);
+        item.saved = !ring.unsaved;
+        item.deleted = ring.deleted;
         return item;
     }
 
     /**
-     * Fill the parts an item takes from a traced ring: centroid, marked edges, length, fingerprint
-     * and, after {@code detail}, its sharpest corner.
+     * Fill the parts an item takes from a traced ring: centroid, marked edges, length,
+     * fingerprint and detail.
      *
      * @param item   the item to fill
      * @param ring   the traced ring
-     * @param detail what the caller knows of the ring, which leads the detail line
+     * @param detail the short line the item shows
      */
     private void fillFromTrace(Item item, SurfaceSpline ring, String detail) {
         for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
@@ -488,8 +458,7 @@ public final class RingTool extends Tool {
         MeshTopology surface = scene.halfEdgeSurface();
         item.fingerprint = surface == null ? ""
                 : EdgeMarks.fingerprint(surface, ring.marks.markedByEdgeId);
-        item.detail = detail + String.format(Locale.ROOT, ", sharpest corner %.1f deg",
-                ring.minimumInteriorAngleDegrees);
+        item.detail = detail;
     }
 
     /**
@@ -770,11 +739,9 @@ public final class RingTool extends Tool {
             }
         }
         for (int ring = 0; ring < confirmedRings.size(); ring++) {
-            if (confirmedRingDeleted.get(ring)) {
-                continue;
+            if (!confirmedRings.get(ring).deleted) {
+                splines.put(liveLabel(ring), confirmedRings.get(ring).spline);
             }
-            String label = confirmedSourceLabel.get(ring);
-            splines.put(liveLabel(ring), confirmedRings.get(ring));
         }
         if (draft != null && draftOwner == bisector && draftSourceRing < 0
                 && !bisector.drawsInvalid()) {
@@ -791,18 +758,23 @@ public final class RingTool extends Tool {
      * @return the live label
      */
     public String liveLabel(int ring) {
-        String label = confirmedSourceLabel.get(ring);
+        String label = confirmedRings.get(ring).sourceLabel;
         return label != null ? label : UNSAVED_RING_PREFIX + drawnRingNumber(ring);
     }
 
     /**
      * The confirmed ring holding a serial.
      *
-     * @param serial a ring's {@link #confirmedRingSerial}
+     * @param serial a ring's {@link ConfirmedRing#serial}
      * @return its index in {@link #confirmedRings}, or -1 when no ring holds it
      */
     public int ringOfSerial(int serial) {
-        return confirmedRingSerial.indexOf(serial);
+        for (int ring = 0; ring < confirmedRings.size(); ring++) {
+            if (confirmedRings.get(ring).serial == serial) {
+                return ring;
+            }
+        }
+        return -1;
     }
 
     /**
@@ -919,16 +891,17 @@ public final class RingTool extends Tool {
             wallsBuiltRevision = ringRevision;
             wallEpoch++;
             for (int ring = 0; ring < confirmedRings.size(); ring++) {
-                if (confirmedRingDeleted.get(ring) || ring == draftSourceRing && draft != null) {
+                ConfirmedRing wall = confirmedRings.get(ring);
+                if (wall.deleted || ring == draftSourceRing && draft != null) {
                     continue;
                 }
-                for (int edgeId : confirmedRings.get(ring).marks.markedEdgeIds) {
+                for (int edgeId : wall.spline.marks.markedEdgeIds) {
                     int halfEdge = surface.edgeHalfEdge(edgeId);
                     for (int end : new int[] { surface.halfEdgeVertex(halfEdge),
                         surface.halfEdgeEndVertex(halfEdge) }) {
                         if (wallVertexStamp[end] != wallEpoch) {
                             wallVertexStamp[end] = wallEpoch;
-                            wallSerialByVertex[end] = confirmedRingSerial.get(ring);
+                            wallSerialByVertex[end] = wall.serial;
                         }
                     }
                 }
@@ -980,19 +953,19 @@ public final class RingTool extends Tool {
      */
     public boolean reopenRing(int ring) {
         if (draft != null || ring < 0 || ring >= confirmedRings.size()
-                || confirmedRingDeleted.get(ring)) {
+                || confirmedRings.get(ring).deleted) {
             lastError = "ring " + ring + " is not a live confirmed ring to re-open";
             return false;
         }
+        ConfirmedRing reopened = confirmedRings.get(ring);
         RingToolState stateBefore = new RingToolState(this);
-        System.arraycopy(confirmedBaseNormal.get(ring), 0, draftBaseNormal, 0,
-                COORDINATES_PER_POINT);
-        draftMode = confirmedMode.get(ring);
+        System.arraycopy(reopened.baseNormal, 0, draftBaseNormal, 0, COORDINATES_PER_POINT);
+        draftMode = reopened.mode;
         // A confirmed ring with end walls is a bisector, and re-opens as the bisector's draft.
-        bisector.draftEnds = confirmedBisectorEnds.get(ring);
-        draftOwner = bisector.draftEnds != null ? bisector : closedRing;
+        bisector.draftEnds = reopened.bisectorEnds;
+        draftOwner = reopened.isBisector() ? bisector : closedRing;
         if (draftMode == RingSegmentMode.CREASE && !readyCreases(scene.halfEdgeSurface())
-                || !draftOwner.retrace(confirmedAuthoredVertexId.get(ring), false)) {
+                || !draftOwner.retrace(reopened.authoredVertexId, false)) {
             draft = null;
             draftMode = newDraftMode();
             draftOwner.draftClosed();
@@ -1076,10 +1049,10 @@ public final class RingTool extends Tool {
             lastRow = "deleted the draft, which was never confirmed";
             return -1;
         }
-        int serial = ring >= 0 ? confirmedRingSerial.get(ring) : -1;
+        int serial = ring >= 0 ? confirmedRings.get(ring).serial : -1;
         for (int other = 0; serial >= 0 && other < confirmedRings.size(); other++) {
-            int[] ends = confirmedBisectorEnds.get(other);
-            if (other != ring && ends != null && !confirmedRingDeleted.get(other)
+            int[] ends = confirmedRings.get(other).bisectorEnds;
+            if (other != ring && ends != null && !confirmedRings.get(other).deleted
                     && (ends[0] == serial || ends[1] == serial)) {
                 lastError = "bisector " + liveLabel(other) + " ends on " + liveLabel(ring)
                         + "; delete that bisector first";
@@ -1089,16 +1062,9 @@ public final class RingTool extends Tool {
         RingToolState stateBefore = new RingToolState(this);
         if (ring < 0) {
             ring = confirmedRings.size();
-            confirmedRings.add(draft);
-            confirmedAuthoredVertexId.add(draftAuthoredVertexId);
-            confirmedBaseNormal.add(Arrays.copyOf(draftBaseNormal, COORDINATES_PER_POINT));
-            confirmedMode.add(draftMode);
-            confirmedStatementIds.add(null);
-            confirmedRingUnsaved.add(false);
-            confirmedSourceLabel.add(draftSourceLabel);
-            confirmedRingDeleted.add(false);
-            confirmedBisectorEnds.add(bisector.draftEnds);
-            confirmedRingSerial.add(nextRingSerial++);
+            confirmedRings.add(new ConfirmedRing(draft, draftAuthoredVertexId,
+                    Arrays.copyOf(draftBaseNormal, COORDINATES_PER_POINT), draftMode, null, false,
+                    draftSourceLabel, nextRingSerial++, bisector.draftEnds));
         }
         clearDraft();
         deleteRing(ring);
@@ -1114,15 +1080,15 @@ public final class RingTool extends Tool {
      * @return true when the ring was live and is now deleted
      */
     public boolean deleteRing(int ring) {
-        if (ring < 0 || ring >= confirmedRings.size() || confirmedRingDeleted.get(ring)
+        if (ring < 0 || ring >= confirmedRings.size() || confirmedRings.get(ring).deleted
                 || ring == draftSourceRing && draft != null) {
             lastError = "ring " + ring + " is not a live confirmed ring to delete";
             return false;
         }
-        confirmedRingDeleted.set(ring, true);
+        String sourceLabel = confirmedRings.get(ring).sourceLabel;
+        confirmedRings.get(ring).deleted = true;
         lastRow = "deleted ring " + drawnRingNumber(ring)
-                + (confirmedSourceLabel.get(ring) == null ? "" : " (" + confirmedSourceLabel.get(ring)
-                        + ")")
+                + (sourceLabel == null ? "" : " (" + sourceLabel + ")")
                 + "; Ctrl+S removes it from the working .dsl";
         invalidateRings();
         return true;
@@ -1280,28 +1246,28 @@ public final class RingTool extends Tool {
         float[] normal = Arrays.copyOf(draftBaseNormal, COORDINATES_PER_POINT);
         int ring = draftSourceRing;
         if (ring >= 0) {
-            boolean changed = !Arrays.equals(confirmedAuthoredVertexId.get(ring),
-                    draftAuthoredVertexId)
-                    || !Arrays.equals(confirmedBaseNormal.get(ring), normal)
-                    || confirmedMode.get(ring) != draftMode;
+            ConfirmedRing edited = confirmedRings.get(ring);
+            boolean changed = !Arrays.equals(edited.authoredVertexId, draftAuthoredVertexId)
+                    || !Arrays.equals(edited.baseNormal, normal)
+                    || edited.mode != draftMode;
             if (changed) {
-                confirmedRings.set(ring, draft);
+                edited.spline = draft;
             }
-            confirmedAuthoredVertexId.set(ring, draftAuthoredVertexId);
-            confirmedBaseNormal.set(ring, normal);
-            confirmedMode.set(ring, draftMode);
-            confirmedRingUnsaved.set(ring, confirmedRingUnsaved.get(ring) || changed);
+            edited.authoredVertexId = draftAuthoredVertexId;
+            edited.baseNormal = normal;
+            edited.mode = draftMode;
+            edited.unsaved |= changed;
             // The bisectors ending on an edited ring follow it: each end re-attaches to the ring's
             // nearest vertex, as the bisector's statement does on reload.
-            int serial = confirmedRingSerial.get(ring);
             for (int other = 0; changed && other < confirmedRings.size(); other++) {
-                int[] ends = confirmedBisectorEnds.get(other);
-                if (ends == null || confirmedRingDeleted.get(other)
-                        || ends[0] != serial && ends[1] != serial) {
+                ConfirmedRing follower = confirmedRings.get(other);
+                int[] ends = follower.bisectorEnds;
+                if (ends == null || follower.deleted
+                        || ends[0] != edited.serial && ends[1] != edited.serial) {
                     continue;
                 }
-                int[] anchors = confirmedAuthoredVertexId.get(other).clone();
-                SurfaceSpline followed = bisector.traced(anchors, ends, confirmedMode.get(other));
+                int[] anchors = follower.authoredVertexId.clone();
+                SurfaceSpline followed = bisector.traced(anchors, ends, follower.mode);
                 lastError = followed != null && followed.marks.markedEdgeCount == 0
                         ? BisectorTool.WALLS_NOTHING : lastError;
                 if (followed == null || followed.marks.markedEdgeCount == 0) {
@@ -1309,25 +1275,16 @@ public final class RingTool extends Tool {
                             + lastError;
                     continue;
                 }
-                confirmedRings.set(other, followed);
-                confirmedRingUnsaved.set(other, confirmedRingUnsaved.get(other)
-                        || !Arrays.equals(anchors, confirmedAuthoredVertexId.get(other)));
-                confirmedAuthoredVertexId.set(other, anchors);
+                follower.spline = followed;
+                follower.unsaved |= !Arrays.equals(anchors, follower.authoredVertexId);
+                follower.authoredVertexId = anchors;
             }
         } else {
             ring = confirmedRings.size();
-            confirmedRings.add(draft);
-            confirmedAuthoredVertexId.add(draftAuthoredVertexId);
-            confirmedBaseNormal.add(normal);
-            confirmedMode.add(draftMode);
-            confirmedStatementIds.add(null);
-            confirmedRingUnsaved.add(true);
-            confirmedSourceLabel.add(draftSourceLabel);
-            confirmedRingDeleted.add(false);
-            confirmedBisectorEnds.add(bisectorEnds);
-            confirmedRingSerial.add(nextRingSerial++);
+            confirmedRings.add(new ConfirmedRing(draft, draftAuthoredVertexId, normal, draftMode, null,
+                    true, draftSourceLabel, nextRingSerial++, bisectorEnds));
         }
-        SurfaceSpline spline = confirmedRings.get(ring);
+        SurfaceSpline spline = confirmedRings.get(ring).spline;
         clearDraft();
         recordEdit("draft confirmed", stateBefore);
         lastRow = String.format(Locale.ROOT,
@@ -1339,7 +1296,7 @@ public final class RingTool extends Tool {
                 spline.path.length, spline.path.centroid[0], spline.path.centroid[1],
                 spline.path.centroid[2], spline.minimumInteriorAngleDegrees,
                 (System.nanoTime() - start) / 1e6,
-                confirmedRingUnsaved.get(ring) ? "unsaved" : "saved");
+                confirmedRings.get(ring).unsaved ? "unsaved" : "saved");
         Platforms.get().log(LOG_PREFIX + lastRow + ", fingerprint "
                 + EdgeMarks.fingerprint(scene.halfEdgeSurface(), spline.marks.markedByEdgeId));
         invalidateRings();
@@ -1541,11 +1498,41 @@ public final class RingTool extends Tool {
     public List<String> unownedGraphRingLabels() {
         List<String> unowned = new ArrayList<>();
         for (String label : scene.ringMarksByLabel.keySet()) {
-            if (!confirmedSourceLabel.contains(label)) {
+            if (ringOfSourceLabel(label) < 0) {
                 unowned.add(label);
             }
         }
         return unowned;
+    }
+
+    /**
+     * The first confirmed ring standing for a graph ring label, deleted or not.
+     *
+     * @param label a graph or statement ring label
+     * @return its index in {@link #confirmedRings}, or -1 when no ring stands for it
+     */
+    public int ringOfSourceLabel(String label) {
+        for (int ring = 0; ring < confirmedRings.size(); ring++) {
+            if (label.equals(confirmedRings.get(ring).sourceLabel)) {
+                return ring;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Whether a confirmed ring, deleted or not, is held under a statement id.
+     *
+     * @param statementId a statement id of the working .dsl
+     * @return true when some confirmed ring was last saved under it
+     */
+    public boolean holdsStatement(String statementId) {
+        for (ConfirmedRing ring : confirmedRings) {
+            if (statementId.equals(ring.statementId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1557,13 +1544,12 @@ public final class RingTool extends Tool {
     public int unsavedRingCount() {
         int unsaved = 0;
         for (String statementId : knownRingStatementIds) {
-            if (!confirmedStatementIds.contains(statementId)) {
+            if (!holdsStatement(statementId)) {
                 unsaved++;
             }
         }
-        for (int ring = 0; ring < confirmedRingUnsaved.size(); ring++) {
-            if (!candidateLabels.contains(confirmedSourceLabel.get(ring))
-                    && (confirmedRingUnsaved.get(ring) || confirmedRingDeleted.get(ring))) {
+        for (ConfirmedRing ring : confirmedRings) {
+            if (!candidateLabels.contains(ring.sourceLabel) && (ring.unsaved || ring.deleted)) {
                 unsaved++;
             }
         }
@@ -1586,9 +1572,9 @@ public final class RingTool extends Tool {
         List<SurfaceSpline> current = new ArrayList<>();
         for (String label : candidateLabels) {
             SurfaceSpline live = null;
-            for (int ring = 0; ring < confirmedRings.size(); ring++) {
-                if (label.equals(confirmedSourceLabel.get(ring)) && !confirmedRingDeleted.get(ring)) {
-                    live = confirmedRings.get(ring);
+            for (ConfirmedRing ring : confirmedRings) {
+                if (label.equals(ring.sourceLabel) && !ring.deleted) {
+                    live = ring.spline;
                 }
             }
             current.add(live);
@@ -1640,7 +1626,7 @@ public final class RingTool extends Tool {
     public boolean saveRings() {
         lastError = "";
         Set<String> orphaned = new HashSet<>(knownRingStatementIds);
-        orphaned.removeAll(confirmedStatementIds);
+        orphaned.removeIf(this::holdsStatement);
         int unsaved = unsavedRingCount();
         if (unsaved == 0) {
             lastRow = "nothing to save: the working .dsl holds every confirmed ring";
@@ -1718,14 +1704,16 @@ public final class RingTool extends Tool {
                                         geodesics.metric.nearestVertex, loop, loop.length),
                                 loop.length));
                     } else {
-                        int index = confirmedRings.indexOf(ring);
-                        int[] authored = confirmedAuthoredVertexId.get(index);
+                        ConfirmedRing edited = null;
+                        for (ConfirmedRing held : confirmedRings) {
+                            edited = edited == null && held.spline.equals(ring) ? held : edited;
+                        }
+                        int[] authored = edited.authoredVertexId;
                         block.add(RingDslWriter.withMode(RingDslWriter.splineStatement(label,
                                 output, SurfaceWaypoints.resolvingPoints(
                                         geodesics.metric.nearestVertex, authored,
                                         authored.length),
-                                authored.length, confirmedBaseNormal.get(index)), label,
-                                confirmedMode.get(index)));
+                                authored.length, edited.baseNormal), label, edited.mode));
                     }
                     output = label + "." + RingDslWriter.DEFAULT_UPSTREAM_PORT;
                 }
@@ -1734,15 +1722,15 @@ public final class RingTool extends Tool {
                 source = RingDslWriter.replaceBlock(source, blockIds, block, upstream, output);
             }
             for (int ring = 0; ring < confirmedRings.size(); ring++) {
-                savedId[ring] = confirmedStatementIds.get(ring);
-                boolean deleting = confirmedRingDeleted.get(ring);
-                if (!confirmedRingUnsaved.get(ring) && !deleting
-                        || candidateLabels.contains(confirmedSourceLabel.get(ring))) {
+                ConfirmedRing held = confirmedRings.get(ring);
+                savedId[ring] = held.statementId;
+                boolean deleting = held.deleted;
+                if (!held.unsaved && !deleting || candidateLabels.contains(held.sourceLabel)) {
                     continue;
                 }
                 // A ring the file holds under another statement, such as a frozen proposed ring,
                 // is removed with it, or rewritten in its place as a spline ring.
-                String sourceLabel = confirmedSourceLabel.get(ring);
+                String sourceLabel = held.sourceLabel;
                 PythonParser.ParsedNode owner = null;
                 if (savedId[ring] == null && sourceLabel != null) {
                     owner = RingDslWriter.labelledStatement(PythonParser.parse(source), sourceLabel);
@@ -1756,15 +1744,15 @@ public final class RingTool extends Tool {
                     deleted++;
                     continue;
                 }
-                int[] authored = confirmedAuthoredVertexId.get(ring);
+                int[] authored = held.authoredVertexId;
                 float[] authoredXyz = SurfaceWaypoints.resolvingPoints(
                         geodesics.metric.nearestVertex, authored, authored.length);
-                if (confirmedBisectorEnds.get(ring) != null) {
+                if (held.isBisector()) {
                     // Written below, after every wall.
                     savedId[ring] = owner != null ? owner.id : savedId[ring];
                     continue;
                 }
-                float[] normal = confirmedBaseNormal.get(ring);
+                float[] normal = held.baseNormal;
                 if (owner != null) {
                     savedId[ring] = owner.id;
                     source = RingDslWriter.replace(source, owner.id,
@@ -1781,7 +1769,7 @@ public final class RingTool extends Tool {
                     source = RingDslWriter.replaceSpline(source, savedId[ring], authoredXyz,
                             authored.length, normal);
                 }
-                source = RingDslWriter.withMode(source, savedId[ring], confirmedMode.get(ring));
+                source = RingDslWriter.withMode(source, savedId[ring], held.mode);
             }
             // A bisector names its walls by label, resolved only now, and reads them from the
             // chain, so it must follow them. Once any bisector or a wall one ends on changed,
@@ -1790,15 +1778,15 @@ public final class RingTool extends Tool {
             List<Integer> pending = new ArrayList<>();
             boolean bisectorsChanged = false;
             for (int ring = 0; ring < confirmedRings.size(); ring++) {
-                int[] ends = confirmedBisectorEnds.get(ring);
-                if (ends == null || confirmedRingDeleted.get(ring)) {
+                int[] ends = confirmedRings.get(ring).bisectorEnds;
+                if (ends == null || confirmedRings.get(ring).deleted) {
                     continue;
                 }
                 pending.add(ring);
-                bisectorsChanged |= confirmedRingUnsaved.get(ring);
+                bisectorsChanged |= confirmedRings.get(ring).unsaved;
                 for (int end : ends) {
                     int wall = ringOfSerial(end);
-                    bisectorsChanged |= wall >= 0 && confirmedRingUnsaved.get(wall);
+                    bisectorsChanged |= wall >= 0 && confirmedRings.get(wall).unsaved;
                 }
             }
             for (int ring : bisectorsChanged ? pending : List.<Integer>of()) {
@@ -1810,13 +1798,14 @@ public final class RingTool extends Tool {
                 boolean wrote = false;
                 for (Iterator<Integer> waiting = pending.iterator(); waiting.hasNext();) {
                     int ring = waiting.next();
-                    int[] ends = confirmedBisectorEnds.get(ring);
+                    ConfirmedRing written = confirmedRings.get(ring);
+                    int[] ends = written.bisectorEnds;
                     String[] walls = new String[2];
                     for (int end = 0; end < 2; end++) {
                         int wall = ringOfSerial(ends[end]);
                         walls[end] = wall < 0 || pending.contains(wall) ? null
                                 : savedId[wall] != null ? savedId[wall]
-                                        : confirmedSourceLabel.get(wall);
+                                        : confirmedRings.get(wall).sourceLabel;
                     }
                     if (walls[0] == null || walls[1] == null) {
                         continue;
@@ -1824,11 +1813,11 @@ public final class RingTool extends Tool {
                     appended += savedId[ring] == null ? 1 : 0;
                     savedId[ring] = savedId[ring] != null ? savedId[ring]
                             : RingDslWriter.nextRingId(source, liveLabels);
-                    int[] authored = confirmedAuthoredVertexId.get(ring);
+                    int[] authored = written.authoredVertexId;
                     source = RingDslWriter.withMode(RingDslWriter.appendBisector(source,
                             savedId[ring], SurfaceWaypoints.resolvingPoints(
                                     geodesics.metric.nearestVertex, authored, authored.length),
-                            authored.length, walls), savedId[ring], confirmedMode.get(ring));
+                            authored.length, walls), savedId[ring], written.mode);
                     waiting.remove();
                     wrote = true;
                 }
@@ -1855,39 +1844,40 @@ public final class RingTool extends Tool {
         // The graph's marks still hold the labels the file gave up; drop them so they do not draw
         // again, and drop the deleted rings, whose statements are gone.
         for (int ring = confirmedRings.size() - 1; ring >= 0; ring--) {
-            String sourceLabel = confirmedSourceLabel.get(ring);
+            ConfirmedRing held = confirmedRings.get(ring);
+            String sourceLabel = held.sourceLabel;
             if (candidateLabels.contains(sourceLabel)) {
                 // A proposed ring keeps its label, whichever form the block wrote it in.
-                confirmedRingUnsaved.set(ring, false);
-                if (confirmedRingDeleted.get(ring)) {
+                held.unsaved = false;
+                if (held.deleted) {
                     scene.ringMarksByLabel.remove(sourceLabel);
-                    removeConfirmedRing(ring);
+                    confirmedRings.remove(ring);
                 }
                 continue;
             }
-            if (!confirmedRingUnsaved.get(ring) && !confirmedRingDeleted.get(ring)) {
+            if (!held.unsaved && !held.deleted) {
                 continue;
             }
             if (sourceLabel != null && !sourceLabel.equals(savedId[ring])) {
                 scene.ringMarksByLabel.remove(sourceLabel);
                 convertedGraphLabels.remove(sourceLabel);
             }
-            if (confirmedRingDeleted.get(ring)) {
-                removeConfirmedRing(ring);
+            if (held.deleted) {
+                confirmedRings.remove(ring);
                 continue;
             }
-            confirmedStatementIds.set(ring, savedId[ring]);
-            confirmedSourceLabel.set(ring, savedId[ring]);
-            confirmedRingUnsaved.set(ring, false);
-            savedStatementByRing.put(confirmedRings.get(ring), savedId[ring]);
-            savedAuthoredByStatement.put(savedId[ring], confirmedAuthoredVertexId.get(ring));
-            savedNormalByStatement.put(savedId[ring], confirmedBaseNormal.get(ring));
-            savedModeByStatement.put(savedId[ring], confirmedMode.get(ring));
+            held.statementId = savedId[ring];
+            held.sourceLabel = savedId[ring];
+            held.unsaved = false;
+            savedStatementByRing.put(held.spline, savedId[ring]);
+            savedAuthoredByStatement.put(savedId[ring], held.authoredVertexId);
+            savedNormalByStatement.put(savedId[ring], held.baseNormal);
+            savedModeByStatement.put(savedId[ring], held.mode);
         }
         knownRingStatementIds.clear();
-        for (String statementId : confirmedStatementIds) {
-            if (statementId != null) {
-                knownRingStatementIds.add(statementId);
+        for (ConfirmedRing held : confirmedRings) {
+            if (held.statementId != null) {
+                knownRingStatementIds.add(held.statementId);
             }
         }
         List<SurfaceSpline> written = currentCandidateRings();
@@ -1925,15 +1915,6 @@ public final class RingTool extends Tool {
         Platforms.get().log(LOG_PREFIX + reason + " discarded " + confirmedRings.size()
                 + " confirmed ring(s), " + unsavedRingCount() + " of them unsaved");
         confirmedRings.clear();
-        confirmedAuthoredVertexId.clear();
-        confirmedBaseNormal.clear();
-        confirmedMode.clear();
-        confirmedStatementIds.clear();
-        confirmedRingUnsaved.clear();
-        confirmedSourceLabel.clear();
-        confirmedRingDeleted.clear();
-        confirmedBisectorEnds.clear();
-        confirmedRingSerial.clear();
         retiredSerialByLabel.clear();
         knownRingStatementIds.clear();
         closedRing.hoveredRing = -1;
@@ -1951,31 +1932,17 @@ public final class RingTool extends Tool {
             discardDraft();
         }
         for (int ring = confirmedRings.size() - 1; ring >= 0; ring--) {
-            if (confirmedSourceLabel.get(ring) != null && !confirmedRingUnsaved.get(ring)
-                    && !confirmedRingDeleted.get(ring)) {
-                knownRingStatementIds.remove(confirmedStatementIds.get(ring));
+            ConfirmedRing held = confirmedRings.get(ring);
+            if (held.sourceLabel != null && !held.unsaved && !held.deleted) {
+                knownRingStatementIds.remove(held.statementId);
                 // Its label is adopted again under the same serial, so bisectors keep their walls.
-                retiredSerialByLabel.put(confirmedSourceLabel.get(ring),
-                        confirmedRingSerial.get(ring));
-                removeConfirmedRing(ring);
+                retiredSerialByLabel.put(held.sourceLabel, held.serial);
+                confirmedRings.remove(ring);
             }
         }
-        convertedGraphLabels.retainAll(confirmedSourceLabel);
+        convertedGraphLabels.removeIf(label -> ringOfSourceLabel(label) < 0);
         graphRingsPending = true;
         invalidateRings();
-    }
-
-    private void removeConfirmedRing(int ring) {
-        confirmedRings.remove(ring);
-        confirmedAuthoredVertexId.remove(ring);
-        confirmedBaseNormal.remove(ring);
-        confirmedMode.remove(ring);
-        confirmedStatementIds.remove(ring);
-        confirmedRingUnsaved.remove(ring);
-        confirmedSourceLabel.remove(ring);
-        confirmedRingDeleted.remove(ring);
-        confirmedBisectorEnds.remove(ring);
-        confirmedRingSerial.remove(ring);
     }
 
     /**
@@ -2027,7 +1994,7 @@ public final class RingTool extends Tool {
                 candidateLabels.add(label);
                 writtenCandidateRings.add(null);
             }
-            if (confirmedSourceLabel.contains(label) || convertedGraphLabels.contains(label)) {
+            if (ringOfSourceLabel(label) >= 0 || convertedGraphLabels.contains(label)) {
                 continue;
             }
             if (statement != null && SplineCutNode.NODE_ID.equals(statement.type)) {
@@ -2040,8 +2007,8 @@ public final class RingTool extends Tool {
                         .split(SplineCutNode.END_SEPARATOR);
                 int[] ends = new int[endLabels.length];
                 for (int end = 0; end < ends.length; end++) {
-                    int wall = confirmedSourceLabel.indexOf(endLabels[end].strip());
-                    ends[end] = wall < 0 ? -1 : confirmedRingSerial.get(wall);
+                    int wall = ringOfSourceLabel(endLabels[end].strip());
+                    ends[end] = wall < 0 ? -1 : confirmedRings.get(wall).serial;
                 }
                 int[] anchors = SurfaceWaypoints.snap(geodesics.metric.nearestVertex, points,
                         points.length / COORDINATES_PER_POINT);
@@ -2057,18 +2024,11 @@ public final class RingTool extends Tool {
                     refused.add(label + ": " + lastError);
                     continue;
                 }
-                confirmedRings.add(traced);
-                confirmedAuthoredVertexId.add(anchors);
-                confirmedBaseNormal.add(new float[COORDINATES_PER_POINT]);
-                confirmedMode.add(bisectorMode);
-                confirmedStatementIds.add(statement.nodeAssignmentId());
                 knownRingStatementIds.add(statement.nodeAssignmentId());
-                confirmedRingUnsaved.add(false);
-                confirmedSourceLabel.add(label);
-                confirmedRingDeleted.add(false);
-                confirmedBisectorEnds.add(ends);
                 Integer retired = retiredSerialByLabel.remove(label);
-                confirmedRingSerial.add(retired != null ? retired : nextRingSerial++);
+                confirmedRings.add(new ConfirmedRing(traced, anchors, new float[COORDINATES_PER_POINT],
+                        bisectorMode, statement.nodeAssignmentId(), false, label,
+                        retired != null ? retired : nextRingSerial++, ends));
                 adopted++;
                 continue;
             }
@@ -2112,20 +2072,14 @@ public final class RingTool extends Tool {
                         noFraction, loop.length, true).measure();
                 traced.marks = new EdgeMarks(entry.getValue(), 0);
             }
-            confirmedRings.add(traced);
-            confirmedAuthoredVertexId.add(anchored.authoredVertexId);
-            confirmedBaseNormal.add(normal == null ? written(anchored.planeNormal) : normal);
-            confirmedMode.add(anchored.mode);
-            confirmedStatementIds.add(spline ? statement.nodeAssignmentId() : null);
             if (spline) {
                 knownRingStatementIds.add(statement.nodeAssignmentId());
             }
-            confirmedRingUnsaved.add(false);
-            confirmedSourceLabel.add(label);
-            confirmedRingDeleted.add(false);
-            confirmedBisectorEnds.add(null);
             Integer retired = retiredSerialByLabel.remove(label);
-            confirmedRingSerial.add(retired != null ? retired : nextRingSerial++);
+            confirmedRings.add(new ConfirmedRing(traced, anchored.authoredVertexId,
+                    normal == null ? written(anchored.planeNormal) : normal, anchored.mode,
+                    spline ? statement.nodeAssignmentId() : null, false, label,
+                    retired != null ? retired : nextRingSerial++, null));
             if (proposed) {
                 candidateRingByLabel.put(label, traced);
                 writtenCandidateRings.set(candidateLabels.size() - 1, traced);
@@ -2209,16 +2163,8 @@ public final class RingTool extends Tool {
     private int addConfirmedRing(AuthoredSplineRing anchored, float[] normal, String what) {
         RingToolState stateBefore = new RingToolState(this);
         SurfaceSpline spline = SurfaceSpline.of(anchored.tracer);
-        confirmedRings.add(spline);
-        confirmedAuthoredVertexId.add(anchored.authoredVertexId);
-        confirmedBaseNormal.add(normal);
-        confirmedMode.add(RingSegmentMode.GEODESIC);
-        confirmedStatementIds.add(null);
-        confirmedRingUnsaved.add(true);
-        confirmedSourceLabel.add(null);
-        confirmedRingDeleted.add(false);
-        confirmedBisectorEnds.add(null);
-        confirmedRingSerial.add(nextRingSerial++);
+        confirmedRings.add(new ConfirmedRing(spline, anchored.authoredVertexId, normal,
+                RingSegmentMode.GEODESIC, null, true, null, nextRingSerial++, null));
         recordEdit(what, stateBefore);
         invalidateRings();
         int ring = confirmedRings.size() - 1;
@@ -2334,7 +2280,7 @@ public final class RingTool extends Tool {
         }
         if (hoveredRing >= 0 && drawnRingNumber(hoveredRing) < rings) {
             groupColor[drawnRingNumber(hoveredRing)] =
-                    confirmedMode.get(hoveredRing) == RingSegmentMode.CREASE ? CREASE_DRAFT_COLOR
+                    confirmedRings.get(hoveredRing).mode == RingSegmentMode.CREASE ? CREASE_DRAFT_COLOR
                             : GEODESIC_DRAFT_COLOR;
         }
         int graphIndex = 0;
@@ -2437,12 +2383,12 @@ public final class RingTool extends Tool {
             }
         }
         for (int ring = 0; ring < confirmedRings.size(); ring++) {
-            String sourceLabel = confirmedSourceLabel.get(ring);
+            String sourceLabel = confirmedRings.get(ring).sourceLabel;
             String liveLabel = sourceLabel != null ? sourceLabel
                     : UNSAVED_RING_PREFIX + drawnRingNumber(ring);
             boolean hidden = ring == draftSourceRing && draft != null
-                    || confirmedRingDeleted.get(ring) || hiddenRingLabels.contains(liveLabel);
-            SurfaceSpline spline = confirmedRings.get(ring);
+                    || confirmedRings.get(ring).deleted || hiddenRingLabels.contains(liveLabel);
+            SurfaceSpline spline = confirmedRings.get(ring).spline;
             perRing.add(hidden ? new float[0] : closedPolylineSegments(
                     spline.path.drawnPolyline(spline.path.surfacePositions)));
             perRingLines.add(hidden ? new LineSet(0) : splineLines(surface, spline));

@@ -16,7 +16,9 @@ import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.ErrorToasts;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
@@ -57,6 +59,8 @@ public class RingScene extends MeshNodeViewerScene {
 
     public static final String NO_SURFACE_REFUSAL =
             "no mesh is shown yet - wait for the model to load, then click";
+
+    public static final float REGION_NUMBER_ROW_PIXELS = 26f;
 
     /** The hover-to-preview ring tool, which holds the rings every tool works over. */
     public final RingTool ringTool = new RingTool(this);
@@ -319,7 +323,8 @@ public class RingScene extends MeshNodeViewerScene {
 
     /**
      * Draw the ring numbers while {@link #showRingNumbers} is set and the rings are shown, the part
-     * names while the regions are assembled, then the refusals at the top left.
+     * names while the regions are assembled, the region numbers the region layer placed, then the
+     * refusals at the top left.
      */
     @Override
     public void drawSceneOverlayText() {
@@ -332,6 +337,14 @@ public class RingScene extends MeshNodeViewerScene {
                 overlay.drawLabels(camera, camera2D, regionLayer.partNameXyz,
                         regionLayer.partNameText, regionLayer.partNameColours,
                         regionLayer.partNameLift);
+            }
+        }
+        for (int region = 0; region < regionLayer.regionNumberText.length; region++) {
+            if (regionLayer.regionNumberText[region] != null) {
+                HyperString number = new HyperString();
+                number.addWord(regionLayer.regionNumberText[region], RegionLayer.REGION_NUMBER_COLOUR);
+                Drawing.getDrawing().font.drawHyperString(number, regionLayer.regionNumberXy[2 * region],
+                        regionLayer.regionNumberXy[2 * region + 1], REGION_NUMBER_ROW_PIXELS, camera2D);
             }
         }
         errorToasts.draw(camera2D);

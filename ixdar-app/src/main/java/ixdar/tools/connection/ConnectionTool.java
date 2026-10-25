@@ -181,8 +181,7 @@ public final class ConnectionTool extends Tool {
         neck.length = connection.narrowestGirth;
         neck.fingerprint = EdgeMarks.fingerprint(connection.mesh,
                 connection.narrowestMarkedByEdgeId);
-        neck.detail = String.format(Locale.ROOT, "widest %.5f, %d crossing rings passed over",
-                connection.widestGirth, connection.girthsCrossingWalls);
+        neck.detail = "the narrowest cross-section the path widens away from";
         found.add(neck);
         return found;
     }
