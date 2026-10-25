@@ -24,6 +24,10 @@ public class Topology extends AutomationEndpoint implements AutomationRoute {
 
     public static final double DEFAULT_DUPLICATE_TOLERANCE = 1e-6;
 
+    public static final int PATCH_BOUNDS_FLOATS = 6;
+
+    public static final String FACES = "faces";
+
     /**
      * {@code POST /mesh/topology}: counts, edge-connected shells and boundary loops of a mesh
      * file, or of the active viewer mesh when no path is given.
@@ -74,12 +78,14 @@ public class Topology extends AutomationEndpoint implements AutomationRoute {
                         "Distance below which two vertices count as one position; 0 skips the scan.",
                         "1e-6")
                 .responseHint("{ok, source, vertex_count, edge_count, face_count, face_side_count, "
-                        + "triangle_count, euler_characteristic, boundary_edge_count, "
+                        + "triangle_count, euler_characteristic, inward_face_count, "
+                        + "boundary_edge_count, "
                         + "non_manifold_edge_count, unoriented_edge_count, isolated_vertex_count, "
                         + "non_manifold_boundary_vertex_count, unwalked_boundary_edge_count, "
                         + "duplicate_position_vertex_count, distinct_position_count, shell_count, "
                         + "boundary_loop_count, "
-                        + "shells:[{faces, vertices, edges, boundary_edges, boundary_loops, euler}, ...], text}")
+                        + "shells:[{faces, vertices, edges, boundary_edges, boundary_loops, euler}, ...], "
+                        + "orientation_patches:[{faces, inward_faces, bounds}, ...], text}")
                 .build();
     }
 
@@ -103,6 +109,7 @@ public class Topology extends AutomationEndpoint implements AutomationRoute {
         result.addProperty("face_side_count", analysis.faceSideCount);
         result.addProperty("triangle_count", analysis.triangleCount);
         result.addProperty("euler_characteristic", analysis.eulerCharacteristic);
+        result.addProperty("inward_face_count", analysis.inwardFaceCount);
         result.addProperty("boundary_edge_count", analysis.boundaryEdgeCount);
         result.addProperty("non_manifold_edge_count", analysis.nonManifoldEdgeCount);
         result.addProperty("unoriented_edge_count", analysis.unorientedEdgeCount);
@@ -117,7 +124,7 @@ public class Topology extends AutomationEndpoint implements AutomationRoute {
         JsonArray shells = new JsonArray();
         for (int shell = 0; shell < analysis.shellFaceCounts.length; shell++) {
             JsonObject entry = new JsonObject();
-            entry.addProperty("faces", analysis.shellFaceCounts[shell]);
+            entry.addProperty(FACES, analysis.shellFaceCounts[shell]);
             entry.addProperty("vertices", analysis.shellVertexCounts[shell]);
             entry.addProperty("edges", analysis.shellEdgeCounts[shell]);
             entry.addProperty("boundary_edges", analysis.shellBoundaryEdgeCounts[shell]);
@@ -126,6 +133,19 @@ public class Topology extends AutomationEndpoint implements AutomationRoute {
             shells.add(entry);
         }
         result.add("shells", shells);
+        JsonArray patches = new JsonArray();
+        for (int patch = 0; patch < analysis.patchFaceCounts.length; patch++) {
+            JsonObject entry = new JsonObject();
+            entry.addProperty(FACES, analysis.patchFaceCounts[patch]);
+            entry.addProperty("inward_faces", analysis.patchInwardFaceCounts[patch]);
+            JsonArray bounds = new JsonArray();
+            for (int corner = 0; corner < PATCH_BOUNDS_FLOATS; corner++) {
+                bounds.add(analysis.patchBounds[patch * PATCH_BOUNDS_FLOATS + corner]);
+            }
+            entry.add("bounds", bounds);
+            patches.add(entry);
+        }
+        result.add("orientation_patches", patches);
         result.addProperty("text", analysis.toText());
         return result;
     }

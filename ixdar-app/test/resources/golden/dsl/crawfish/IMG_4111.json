@@ -3,11 +3,11 @@
   "outputs": {
     "geometry": {
       "algorithm": "ixdar-mesh-fingerprint-v1",
-      "sha256": "d9b2d65f69c6876154d87ef004d2671f80d9baf70ac7e37062946d03973dbd25",
-      "vertexCount": 493700,
-      "edgeCount": 1481136,
-      "faceCount": 987424,
-      "triangleCount": 987424,
+      "sha256": "7996a930d71815ac29e8bf9bfc7dd478e5443477325d56d4f5d551795d1ccb19",
+      "vertexCount": 492358,
+      "edgeCount": 1477110,
+      "faceCount": 984740,
+      "triangleCount": 984740,
       "boundaryEdgeCount": 0,
       "slots": [
         "_curve",
@@ -25,13 +25,13 @@
         },
         {
           "label": "ring_00",
-          "edgeCount": 388,
-          "fingerprint": "74f523ee49203972"
+          "edgeCount": 401,
+          "fingerprint": "ff0fca18ce39f32c"
         },
         {
           "label": "ring_01",
-          "edgeCount": 423,
-          "fingerprint": "f7104795774cada4"
+          "edgeCount": 422,
+          "fingerprint": "0b1ddd76fc066343"
         },
         {
           "label": "ring_02",
@@ -40,53 +40,53 @@
         },
         {
           "label": "ring_03",
-          "edgeCount": 335,
-          "fingerprint": "506692f184446298"
+          "edgeCount": 323,
+          "fingerprint": "ea6ea39c73a201ff"
         },
         {
           "label": "ring_04",
-          "edgeCount": 534,
-          "fingerprint": "0fd526f50126b705"
+          "edgeCount": 527,
+          "fingerprint": "48d89af961c380ca"
         },
         {
           "label": "ring_05",
-          "edgeCount": 335,
-          "fingerprint": "c583e6aab078d068"
+          "edgeCount": 324,
+          "fingerprint": "f888a31a95251f98"
         },
         {
           "label": "ring_06",
-          "edgeCount": 463,
-          "fingerprint": "0cd37e32de429a29"
+          "edgeCount": 461,
+          "fingerprint": "00028f7902509e78"
         },
         {
           "label": "ring_07",
-          "edgeCount": 206,
-          "fingerprint": "afdf07f3ca0755ea"
+          "edgeCount": 196,
+          "fingerprint": "09d977c885a30dcd"
         },
         {
           "label": "ring_08",
-          "edgeCount": 185,
-          "fingerprint": "663230288c6730cc"
+          "edgeCount": 168,
+          "fingerprint": "48dc59c23f9b800b"
         },
         {
           "label": "ring_09",
-          "edgeCount": 265,
-          "fingerprint": "c10e94c84248bad7"
+          "edgeCount": 263,
+          "fingerprint": "a6f782f7af61e557"
         },
         {
           "label": "ring_10",
-          "edgeCount": 268,
-          "fingerprint": "fd4747420ab35296"
+          "edgeCount": 280,
+          "fingerprint": "58ad2df1aa8c7cc5"
         },
         {
           "label": "ring_11",
-          "edgeCount": 152,
-          "fingerprint": "e837854591e2eb41"
+          "edgeCount": 158,
+          "fingerprint": "05ff322ba8fd2298"
         },
         {
           "label": "ring_12",
-          "edgeCount": 145,
-          "fingerprint": "ae7a8d348804bb7b"
+          "edgeCount": 140,
+          "fingerprint": "1291f9603d2f9357"
         },
         {
           "label": "ring_13",
@@ -100,8 +100,8 @@
         },
         {
           "label": "ring_15",
-          "edgeCount": 528,
-          "fingerprint": "61a32cf89a67d923"
+          "edgeCount": 525,
+          "fingerprint": "e5928b6a9a0d98d5"
         },
         {
           "label": "ring_16",
@@ -115,8 +115,8 @@
         },
         {
           "label": "ring_18",
-          "edgeCount": 100,
-          "fingerprint": "9edbe77a753282b1"
+          "edgeCount": 102,
+          "fingerprint": "9fcce8128291cfb3"
         },
         {
           "label": "ring_19",
@@ -135,8 +135,8 @@
         },
         {
           "label": "ring_22",
-          "edgeCount": 549,
-          "fingerprint": "7b1309c6c654ba64"
+          "edgeCount": 546,
+          "fingerprint": "244e76efa78701ca"
         },
         {
           "label": "ring_23",
@@ -160,13 +160,13 @@
         },
         {
           "label": "ring_27",
-          "edgeCount": 62,
-          "fingerprint": "7a839b53b2a42cf3"
+          "edgeCount": 64,
+          "fingerprint": "0208cd71810066ad"
         },
         {
           "label": "ring_28",
-          "edgeCount": 97,
-          "fingerprint": "7de0ed163c2cb0c0"
+          "edgeCount": 98,
+          "fingerprint": "b3b3e0ffd33a020d"
         },
         {
           "label": "ring_29",
@@ -175,33 +175,33 @@
         },
         {
           "label": "ring_30",
-          "edgeCount": 618,
-          "fingerprint": "fb2c134b621e5631"
+          "edgeCount": 669,
+          "fingerprint": "cef1a90e718993c4"
         },
         {
           "label": "ring_31",
-          "edgeCount": 89,
-          "fingerprint": "85fc6f1159a364d1"
+          "edgeCount": 87,
+          "fingerprint": "565c6e7070c8eb64"
         },
         {
           "label": "ring_32",
-          "edgeCount": 78,
-          "fingerprint": "0794df2b24b4bbbb"
+          "edgeCount": 76,
+          "fingerprint": "45882341abedcc3f"
         },
         {
           "label": "ring_33",
-          "edgeCount": 167,
-          "fingerprint": "27168e06e81a20ac"
+          "edgeCount": 169,
+          "fingerprint": "1b2f7944ec05d328"
         },
         {
           "label": "ring_34",
-          "edgeCount": 80,
-          "fingerprint": "5d97b0c876613bb5"
+          "edgeCount": 82,
+          "fingerprint": "be729624a0a65091"
         },
         {
           "label": "ring_35",
-          "edgeCount": 44,
-          "fingerprint": "e2f00f3e7728917d"
+          "edgeCount": 42,
+          "fingerprint": "c57d1989c6f724e8"
         },
         {
           "label": "ring_36",
@@ -216,7 +216,7 @@
         {
           "label": "ring_38",
           "edgeCount": 202,
-          "fingerprint": "3096b06a56efb361"
+          "fingerprint": "8e360dd423badab0"
         },
         {
           "label": "ring_39",
@@ -230,18 +230,18 @@
         },
         {
           "label": "ring_41",
-          "edgeCount": 123,
-          "fingerprint": "b8245f4fc77318c2"
+          "edgeCount": 126,
+          "fingerprint": "00c3fdce0e83471a"
         },
         {
           "label": "ring_42",
-          "edgeCount": 180,
-          "fingerprint": "206e07e3152ac62e"
+          "edgeCount": 185,
+          "fingerprint": "9e8b97638f69d3f5"
         },
         {
           "label": "ring_43",
-          "edgeCount": 114,
-          "fingerprint": "a4d09e36fc6b8fc8"
+          "edgeCount": 105,
+          "fingerprint": "443307adb913639b"
         },
         {
           "label": "ring_44",
@@ -275,28 +275,28 @@
         },
         {
           "label": "ring_50",
-          "edgeCount": 625,
-          "fingerprint": "7139db7e53cd1383"
+          "edgeCount": 616,
+          "fingerprint": "70d653a9800c2276"
         },
         {
           "label": "ring_51",
-          "edgeCount": 184,
-          "fingerprint": "0dc6b6d793a5fd10"
+          "edgeCount": 188,
+          "fingerprint": "c81036880a874f58"
         },
         {
           "label": "ring_52",
-          "edgeCount": 264,
-          "fingerprint": "72815c862082b63e"
+          "edgeCount": 285,
+          "fingerprint": "1a3620f005a4de00"
         },
         {
           "label": "ring_53",
-          "edgeCount": 275,
-          "fingerprint": "b82677e23922432c"
+          "edgeCount": 278,
+          "fingerprint": "0f38287f37729aef"
         },
         {
           "label": "ring_54",
-          "edgeCount": 48,
-          "fingerprint": "f0d5192ec0c8f3e3"
+          "edgeCount": 52,
+          "fingerprint": "ecb9209d01892f07"
         },
         {
           "label": "ring_55",
@@ -306,7 +306,7 @@
         {
           "label": "ring_56",
           "edgeCount": 38,
-          "fingerprint": "13b1923715deab4b"
+          "fingerprint": "801183cc2b8f9e83"
         },
         {
           "label": "ring_57",
@@ -330,8 +330,8 @@
         },
         {
           "label": "ring_61",
-          "edgeCount": 42,
-          "fingerprint": "18440aa3ebda221b"
+          "edgeCount": 44,
+          "fingerprint": "c567ba33cf0cda3a"
         },
         {
           "label": "ring_62",
@@ -340,18 +340,18 @@
         },
         {
           "label": "ring_63",
-          "edgeCount": 42,
-          "fingerprint": "4094cb8e290f0933"
+          "edgeCount": 41,
+          "fingerprint": "cec42554e985ac9d"
         },
         {
           "label": "ring_64",
-          "edgeCount": 42,
-          "fingerprint": "3ee9c1fed92a3b7b"
+          "edgeCount": 40,
+          "fingerprint": "2156dbd59c35519c"
         },
         {
           "label": "ring_65",
-          "edgeCount": 36,
-          "fingerprint": "2fa2bdb8d9f109e1"
+          "edgeCount": 39,
+          "fingerprint": "c12448896b96a1a1"
         },
         {
           "label": "ring_66",
@@ -360,23 +360,23 @@
         },
         {
           "label": "ring_67",
-          "edgeCount": 206,
-          "fingerprint": "a63da216937dd5e2"
+          "edgeCount": 207,
+          "fingerprint": "d7e86ada5ed0fd72"
         },
         {
           "label": "ring_68",
-          "edgeCount": 275,
-          "fingerprint": "c170d44f865d50d8"
+          "edgeCount": 265,
+          "fingerprint": "623abfbd16e6a183"
         },
         {
           "label": "ring_69",
-          "edgeCount": 36,
-          "fingerprint": "a9a0560132e536bf"
+          "edgeCount": 37,
+          "fingerprint": "b22e04e201e30111"
         },
         {
           "label": "ring_70",
-          "edgeCount": 41,
-          "fingerprint": "b39988ef29c8de2e"
+          "edgeCount": 37,
+          "fingerprint": "24143bf3bb70a307"
         },
         {
           "label": "ring_71",
@@ -430,8 +430,8 @@
         },
         {
           "label": "ring_81",
-          "edgeCount": 260,
-          "fingerprint": "ed52c287f9d59983"
+          "edgeCount": 263,
+          "fingerprint": "86feebc06843a3ac"
         }
       ]
     }

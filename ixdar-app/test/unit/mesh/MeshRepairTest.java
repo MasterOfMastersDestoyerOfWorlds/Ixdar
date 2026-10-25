@@ -8,14 +8,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 
+import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.CornerUvField;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.ops.MeshRepair;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
+import ixdar.geometry.mesh.data.ops.MeshTopologyAnalysis;
+import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.modifier.RepairMeshNode;
 
@@ -50,6 +56,26 @@ class MeshRepairTest {
     private static final int OCTAHEDRON_FACES = 8;
 
     private static final int TETRAHEDRON_FACES = 4;
+
+    private static final int CUBE_GRID = 8;
+
+    private static final int CUBE_SIDES = 6;
+
+    private static final int QUAD_CORNERS = 4;
+
+    private static final int PATCH_FIRST = 2;
+
+    private static final int PATCH_CELLS = 4;
+
+    private static final int SHEET_ROW = 3;
+
+    private static final int SCAN_HOLE_EDGES = 4096;
+
+    private static final float SURFACE_EPSILON = 1e-4f;
+
+    private static final double CUBE_TOP_HALF_AREA = 12;
+
+    private static final double AREA_TOLERANCE = 1e-3;
 
     @Test
     void seamSplitSquareWeldsToFourVerticesWithUvsIntactPerCorner() {
@@ -129,6 +155,111 @@ class MeshRepairTest {
         assertEquals(repair.report.shellFaceCounts[0], repair.report.outputFaceCount,
                 "exactly the outer sphere survives");
         assertEquals(0, repair.report.outputBoundaryEdgeCount, "the sphere stays closed");
+    }
+
+    @Test
+    void aReversedPatchSharingTheSkinsWindingThroughABridgeIsTurnedOutward() {
+        GeometryBundle scan = cubeWithReversedPatchAndBridge();
+        MeshTopologyAnalysis before = new MeshTopologyAnalysis();
+        before.analyze(scan.mesh());
+        assertEquals(scan.mesh().faceCount(), before.patchFaceCounts[0],
+                "the bridge joins the reversed patch and the skin into one consistently wound "
+                        + "patch, which is what kept the patch reversed");
+        assertTrue(before.unorientedEdgeCount >= PATCH_CELLS * 4 - 1,
+                "the patch's rim is contested");
+        assertEquals(PATCH_CELLS * PATCH_CELLS * 2, before.inwardFaceCount,
+                "exactly the patch's faces wind into the cube");
+
+        MeshRepair repair = repair(scan, 0, SCAN_HOLE_EDGES, 1);
+
+        MeshTopology cube = repair.output.mesh();
+        Vector3f corner = new Vector3f();
+        int topFaces = 0;
+        for (int activeFace = 0; activeFace < cube.faceCount(); activeFace++) {
+            int faceId = cube.faceIdAt(activeFace);
+            boolean onTop = true;
+            for (int index = 0; index < TRIANGLE_CORNERS; index++) {
+                onTop &= cube.vertexPosition(cube.faceVertexAt(faceId, index), corner).z
+                        > 1 - SURFACE_EPSILON;
+            }
+            if (onTop) {
+                assertTrue(facesOutOfTheCube(cube, faceId), "top face " + faceId + " at "
+                        + corner + " winds out of the cube");
+                topFaces++;
+            }
+        }
+        assertTrue(topFaces >= CUBE_GRID * CUBE_GRID * 2 - 1, "the whole top was checked");
+        assertTrue(repair.report.mobiusEdgeCount < PATCH_CELLS,
+                "the contradiction is cut at the bridge, not around the patch's rim");
+        assertEquals(0, repair.report.outputBoundaryEdgeCount, "and the repaired cube is closed");
+        assertHalfEdgeBuildable(repair);
+    }
+
+    @Test
+    void theRegionAboveARingAroundTheRepairedCubeHoldsOnlyOuterSurface() {
+        MeshRepair repair = repair(cubeWithReversedPatchAndBridge(), 0, SCAN_HOLE_EDGES, 1);
+        MeshTopology cube = repair.output.mesh();
+        boolean[][] marks = new boolean[1][RingBundle.edgeIdCeiling(cube)];
+        Vector3f tail = new Vector3f();
+        Vector3f head = new Vector3f();
+        int ringEdges = 0;
+        for (int activeEdge = 0; activeEdge < cube.edgeCount(); activeEdge++) {
+            int edgeId = cube.edgeIdAt(activeEdge);
+            int halfEdge = cube.edgeHalfEdge(edgeId);
+            cube.vertexPosition(cube.halfEdgeVertex(halfEdge), tail);
+            cube.vertexPosition(cube.halfEdgeEndVertex(halfEdge), head);
+            boolean onSides = Math.max(Math.abs(tail.x), Math.abs(tail.y)) > 1 - SURFACE_EPSILON
+                    && Math.max(Math.abs(head.x), Math.abs(head.y)) > 1 - SURFACE_EPSILON;
+            if (onSides && Math.abs(tail.z) < SURFACE_EPSILON && Math.abs(head.z) < SURFACE_EPSILON) {
+                marks[0][edgeId] = true;
+                ringEdges++;
+            }
+        }
+        assertEquals(CUBE_GRID * 4, ringEdges, "the ring runs once around the cube's middle");
+
+        RingRegions regions = new RingRegions(cube, new String[] { "middle" }, marks).build();
+
+        int top = regions.regionByActiveFace[regions.nearestActiveFace(0, 0, 1)];
+        int bottom = regions.regionByActiveFace[regions.nearestActiveFace(0, 0, -1)];
+        assertTrue(top != bottom, "the ring separates the top half from the bottom");
+        for (int activeFace = 0; activeFace < cube.faceCount(); activeFace++) {
+            if (regions.regionByActiveFace[activeFace] == top) {
+                assertTrue(facesOutOfTheCube(cube, cube.faceIdAt(activeFace)), "face "
+                        + cube.faceIdAt(activeFace) + " of the top region lies on the cube "
+                        + "and winds out of it");
+            }
+        }
+        assertEquals(CUBE_TOP_HALF_AREA, regions.regionArea[top], AREA_TOLERANCE,
+                "the top region is the cube's top half, with no second sheet over the patch");
+    }
+
+    /**
+     * Whether a face lies in the plane of one side of the {@code [-1, 1]} cube and its winding
+     * points out of that side.
+     *
+     * @param cube repaired cube
+     * @param faceId face to test
+     * @return true when the face is outer surface wound outward
+     */
+    private static boolean facesOutOfTheCube(MeshTopology cube, int faceId) {
+        Vector3f[] corners = new Vector3f[TRIANGLE_CORNERS];
+        for (int index = 0; index < TRIANGLE_CORNERS; index++) {
+            corners[index] = cube.vertexPosition(cube.faceVertexAt(faceId, index), new Vector3f());
+        }
+        Vector3f normal = new Vector3f(corners[1]).sub(corners[0])
+                .cross(new Vector3f(corners[2]).sub(corners[0]));
+        for (int axis = 0; axis < TRIANGLE_CORNERS; axis++) {
+            for (int sign = -1; sign <= 1; sign += 2) {
+                boolean onSide = true;
+                for (Vector3f corner : corners) {
+                    onSide &= corner.get(axis) * sign > 1 - SURFACE_EPSILON;
+                }
+                if (onSide) {
+                    return normal.get(axis) * sign > 0;
+                }
+            }
+        }
+        return false;
     }
 
     @Test
@@ -264,6 +395,99 @@ class MeshRepairTest {
                 "every repaired face is accepted");
         assertEquals(repair.report.outputVertexCount, built.vertexCount(),
                 "every repaired vertex is accepted");
+    }
+
+    /**
+     * An outward gridded cube whose top carries an inward-wound square, joined consistently to the
+     * bottom by a sheet through the inside, as a scan's flipped patch reaches its skin elsewhere.
+     *
+     * @return the fixture bundle
+     */
+    private static GeometryBundle cubeWithReversedPatchAndBridge() {
+        int side = CUBE_GRID + 1;
+        int[] vertexOfLattice = new int[side * side * side];
+        Arrays.fill(vertexOfLattice, -1);
+        float[] positions = new float[(vertexOfLattice.length + 2 * CUBE_GRID) * TRIANGLE_CORNERS];
+        int vertexCount = 0;
+        int[] faces = new int[(CUBE_SIDES * CUBE_GRID + 2) * CUBE_GRID * 2 * TRIANGLE_CORNERS];
+        int faceCount = 0;
+        int[] lattice = new int[TRIANGLE_CORNERS];
+        int[] cell = new int[QUAD_CORNERS];
+        for (int axis = 0; axis < TRIANGLE_CORNERS; axis++) {
+            for (int high = 0; high < 2; high++) {
+                for (int across = 0; across < CUBE_GRID; across++) {
+                    for (int along = 0; along < CUBE_GRID; along++) {
+                        for (int corner = 0; corner < QUAD_CORNERS; corner++) {
+                            lattice[axis] = high * CUBE_GRID;
+                            lattice[(axis + 1) % TRIANGLE_CORNERS] = across
+                                    + (corner == 1 || corner == 2 ? 1 : 0);
+                            lattice[(axis + 2) % TRIANGLE_CORNERS] = along + (corner >= 2 ? 1 : 0);
+                            int key = (lattice[0] * side + lattice[1]) * side + lattice[2];
+                            if (vertexOfLattice[key] < 0) {
+                                vertexOfLattice[key] = vertexCount;
+                                for (int component = 0; component < TRIANGLE_CORNERS; component++) {
+                                    positions[vertexCount * TRIANGLE_CORNERS + component] =
+                                            -1 + 2f * lattice[component] / CUBE_GRID;
+                                }
+                                vertexCount++;
+                            }
+                            cell[corner] = vertexOfLattice[key];
+                        }
+                        boolean top = axis == 2 && high == 1;
+                        boolean patch = top && across >= PATCH_FIRST
+                                && across < PATCH_FIRST + PATCH_CELLS && along >= PATCH_FIRST
+                                && along < PATCH_FIRST + PATCH_CELLS;
+                        // The skin triangles on the sheet's two ends give their edge to the sheet.
+                        boolean sheetEnd = across == PATCH_FIRST + PATCH_CELLS && axis == 2
+                                && (along == SHEET_ROW
+                                        || high == 0 && along == SHEET_ROW + 1);
+                        if ((high == 0) != patch) {
+                            if (!sheetEnd) {
+                                faceCount = appendFace(faces, faceCount, cell[0], cell[2], cell[1]);
+                            }
+                            faceCount = appendFace(faces, faceCount, cell[0], cell[3], cell[2]);
+                        } else {
+                            faceCount = appendFace(faces, faceCount, cell[0], cell[1], cell[2]);
+                            if (!sheetEnd) {
+                                faceCount = appendFace(faces, faceCount, cell[0], cell[2], cell[3]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        int[] railA = new int[CUBE_GRID + 1];
+        int[] railB = new int[CUBE_GRID + 1];
+        int sheetX = PATCH_FIRST + PATCH_CELLS;
+        railA[0] = vertexOfLattice[(sheetX * side + SHEET_ROW) * side + CUBE_GRID];
+        railB[0] = vertexOfLattice[(sheetX * side + SHEET_ROW + 1) * side + CUBE_GRID];
+        railA[CUBE_GRID] = vertexOfLattice[((sheetX + 1) * side + SHEET_ROW) * side];
+        railB[CUBE_GRID] = vertexOfLattice[((sheetX + 1) * side + SHEET_ROW + 1) * side];
+        for (int step = 1; step < CUBE_GRID; step++) {
+            for (int rail = 0; rail < 2; rail++) {
+                positions[vertexCount * TRIANGLE_CORNERS] =
+                        -1 + 2f * (sheetX + (float) step / CUBE_GRID) / CUBE_GRID;
+                positions[vertexCount * TRIANGLE_CORNERS + 1] =
+                        -1 + 2f * (SHEET_ROW + rail) / CUBE_GRID;
+                positions[vertexCount * TRIANGLE_CORNERS + 2] = 1 - 2f * step / CUBE_GRID;
+                if (rail == 0) {
+                    railA[step] = vertexCount++;
+                } else {
+                    railB[step] = vertexCount++;
+                }
+            }
+        }
+        for (int step = 0; step < CUBE_GRID; step++) {
+            faceCount = appendFace(faces, faceCount, railA[step], railB[step], railB[step + 1]);
+            faceCount = appendFace(faces, faceCount, railA[step], railB[step + 1], railA[step + 1]);
+        }
+        // The sheet's foot fans over a second edge of the bottom, so the skin holds it more firmly
+        // than the patch does.
+        int footC = vertexOfLattice[((sheetX + 1) * side + SHEET_ROW + 2) * side];
+        faceCount = appendFace(faces, faceCount, railB[CUBE_GRID - 1], footC, railB[CUBE_GRID]);
+        return GeometryBundle.ofMesh(new ArrayMesh(Arrays.copyOf(positions,
+                vertexCount * TRIANGLE_CORNERS), null, Arrays.copyOf(faces,
+                        faceCount * TRIANGLE_CORNERS), TRIANGLE_CORNERS));
     }
 
     /**

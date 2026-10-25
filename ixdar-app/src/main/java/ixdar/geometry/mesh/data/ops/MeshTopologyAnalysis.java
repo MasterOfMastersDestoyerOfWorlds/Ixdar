@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.numeric.graph.UnionFind;
 
@@ -19,6 +20,8 @@ public final class MeshTopologyAnalysis {
     private static final long KEY_MASK = 0xffffffffL;
 
     private static final float SMALLEST_CELL = 1e-8f;
+
+    private static final int BOUNDS_FLOATS = 6;
 
     /** Distance below which two vertices count as sharing a position; not positive skips the scan. */
     public double duplicateTolerance = 1e-6;
@@ -71,6 +74,12 @@ public final class MeshTopologyAnalysis {
     /** Whole-mesh Euler characteristic, vertices minus edges plus faces. */
     public int eulerCharacteristic;
 
+    /**
+     * Faces whose winding points into the volume the mesh encloses, by ray parity on both sides of
+     * each face's first fan triangle; meaningful when the mesh is closed.
+     */
+    public int inwardFaceCount;
+
     /** Faces of each shell, largest shell first. */
     public int[] shellFaceCounts = new int[0];
 
@@ -100,6 +109,18 @@ public final class MeshTopologyAnalysis {
 
     /** Shell index of each boundary loop, into the {@code shell*} arrays. */
     public int[] loopShells = new int[0];
+
+    /**
+     * Faces of each orientation patch, the faces joined across manifold edges they wind
+     * consistently, largest patch first.
+     */
+    public int[] patchFaceCounts = new int[0];
+
+    /** Faces of each patch of {@link #patchFaceCounts} that wind inward by ray parity. */
+    public int[] patchInwardFaceCounts = new int[0];
+
+    /** Lower then upper corner of each patch's bounding box, six floats per patch. */
+    public float[] patchBounds = new float[0];
 
     /** Dense vertex index of every vertex id, or -1 where the id is not live. */
     private int[] denseVertexOfId = new int[0];
@@ -160,6 +181,93 @@ public final class MeshTopologyAnalysis {
         walkBoundaryLoops();
         countDuplicatePositions();
         eulerCharacteristic = vertexCount - edgeCount + faceCount;
+        TriangleBvh soup = new TriangleBvh();
+        soup.positions = new float[vertexCount * TriangleBvh.TRIANGLE_CORNERS];
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            soup.positions[activeVertex * TriangleBvh.TRIANGLE_CORNERS] = positionX[activeVertex];
+            soup.positions[activeVertex * TriangleBvh.TRIANGLE_CORNERS + 1] =
+                    positionY[activeVertex];
+            soup.positions[activeVertex * TriangleBvh.TRIANGLE_CORNERS + 2] =
+                    positionZ[activeVertex];
+        }
+        soup.triangleCorners = new int[triangleCount * TriangleBvh.TRIANGLE_CORNERS];
+        soup.triangleGroup = new int[triangleCount];
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            int start = faceCornerStart[activeFace];
+            for (int corner = 2; corner < faceCornerStart[activeFace + 1] - start; corner++) {
+                soup.triangleCorners[soup.triangleCount * TriangleBvh.TRIANGLE_CORNERS] =
+                        faceCorners[start];
+                soup.triangleCorners[soup.triangleCount * TriangleBvh.TRIANGLE_CORNERS + 1] =
+                        faceCorners[start + corner - 1];
+                soup.triangleCorners[soup.triangleCount * TriangleBvh.TRIANGLE_CORNERS + 2] =
+                        faceCorners[start + corner];
+                soup.triangleGroup[soup.triangleCount++] = activeFace;
+            }
+        }
+        soup.buildColumns();
+        int[] facing = soup.facing(null);
+        boolean[] inwardOfFace = new boolean[faceCount];
+        inwardFaceCount = 0;
+        int triangle = 0;
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            int corners = faceCornerStart[activeFace + 1] - faceCornerStart[activeFace];
+            if (corners > 2) {
+                inwardOfFace[activeFace] = facing[triangle] == TriangleBvh.FACING_INTO_VOLUME;
+                inwardFaceCount += inwardOfFace[activeFace] ? 1 : 0;
+                triangle += corners - 2;
+            }
+        }
+        int[] patchParent = UnionFind.singletons(Math.max(1, faceCount));
+        for (int side = 0; side < faceSideCount; side++) {
+            int edge = edgeOfFaceSide[side];
+            if (edgeFaceUses[edge] == 2 && edgeForwardUses[edge] == 1) {
+                int activeFace = Arrays.binarySearch(faceCornerStart, 0, faceCount + 1, side);
+                activeFace = activeFace >= 0 ? activeFace : -activeFace - 2;
+                UnionFind.union(patchParent, activeFace, edgeFirstFace[edge]);
+            }
+        }
+        int[] facesOfRoot = new int[Math.max(1, faceCount)];
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            facesOfRoot[UnionFind.find(patchParent, activeFace)]++;
+        }
+        long[] patchOrder = new long[faceCount];
+        int patches = 0;
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            if (facesOfRoot[activeFace] > 0 && UnionFind.find(patchParent, activeFace) == activeFace) {
+                patchOrder[patches++] = ((long) (Integer.MAX_VALUE - facesOfRoot[activeFace])
+                        << KEY_SHIFT) | activeFace;
+            }
+        }
+        Arrays.sort(patchOrder, 0, patches);
+        int[] patchOfRoot = new int[Math.max(1, faceCount)];
+        for (int patch = 0; patch < patches; patch++) {
+            patchOfRoot[(int) (patchOrder[patch] & KEY_MASK)] = patch;
+        }
+        patchFaceCounts = new int[patches];
+        patchInwardFaceCounts = new int[patches];
+        patchBounds = new float[patches * BOUNDS_FLOATS];
+        for (int patch = 0; patch < patches; patch++) {
+            Arrays.fill(patchBounds, patch * BOUNDS_FLOATS, patch * BOUNDS_FLOATS + BOUNDS_FLOATS / 2,
+                    Float.POSITIVE_INFINITY);
+            Arrays.fill(patchBounds, patch * BOUNDS_FLOATS + BOUNDS_FLOATS / 2,
+                    (patch + 1) * BOUNDS_FLOATS, Float.NEGATIVE_INFINITY);
+        }
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            int patch = patchOfRoot[UnionFind.find(patchParent, activeFace)];
+            patchFaceCounts[patch]++;
+            patchInwardFaceCounts[patch] += inwardOfFace[activeFace] ? 1 : 0;
+            int box = patch * BOUNDS_FLOATS;
+            for (int side = faceCornerStart[activeFace]; side < faceCornerStart[activeFace + 1];
+                    side++) {
+                int vertex = faceCorners[side];
+                patchBounds[box] = Math.min(patchBounds[box], positionX[vertex]);
+                patchBounds[box + 1] = Math.min(patchBounds[box + 1], positionY[vertex]);
+                patchBounds[box + 2] = Math.min(patchBounds[box + 2], positionZ[vertex]);
+                patchBounds[box + 3] = Math.max(patchBounds[box + 3], positionX[vertex]);
+                patchBounds[box + 4] = Math.max(patchBounds[box + 4], positionY[vertex]);
+                patchBounds[box + 5] = Math.max(patchBounds[box + 5], positionZ[vertex]);
+            }
+        }
     }
 
     /**
@@ -571,6 +679,7 @@ public final class MeshTopologyAnalysis {
         appendCount(text, "faceSideCount", faceSideCount);
         appendCount(text, "triangleCount", triangleCount);
         appendCount(text, "eulerCharacteristic", eulerCharacteristic);
+        appendCount(text, "inwardFaceCount", inwardFaceCount);
         appendCount(text, "boundaryEdgeCount", boundaryEdgeCount);
         appendCount(text, "nonManifoldEdgeCount", nonManifoldEdgeCount);
         appendCount(text, "unorientedEdgeCount", unorientedEdgeCount);

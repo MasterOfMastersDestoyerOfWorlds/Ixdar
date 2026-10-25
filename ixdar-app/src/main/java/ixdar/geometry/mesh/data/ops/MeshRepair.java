@@ -1,9 +1,11 @@
 package ixdar.geometry.mesh.data.ops;
 
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Set;
 
 import org.joml.Vector3f;
@@ -44,6 +46,10 @@ public final class MeshRepair {
     private static final int DETACH_ROUNDS = 4;
 
     private static final int SMALL_BUCKET = 16;
+
+    private static final int CLUSTER_FACES = 32;
+
+    private static final int CLUSTER_SAMPLES = 2;
 
     private static final int SLOTS_PER_EDGE = 2;
 
@@ -271,15 +277,110 @@ public final class MeshRepair {
     }
 
     /**
-     * Stage 2: makes the winding consistent by breadth-first search from the largest face of each
-     * component. An edge whose two faces demand opposite windings is a Mobius contradiction and is
-     * reported as non-manifold rather than resolved.
+     * Stage 2: makes the winding consistent and outward by two-colouring patches of consistently
+     * wound faces that agree on which side is inside. An edge left contested is a Mobius
+     * contradiction, reported rather than resolved.
      */
     private void orient() {
         ensureEdges();
+        TriangleBvh soup = new TriangleBvh();
+        soup.positions = positions;
+        soup.triangleCorners = faceCorners;
+        soup.triangleCount = faceCount;
+        soup.triangleGroup = new int[faceCount];
+        for (int face = 0; face < faceCount; face++) {
+            soup.triangleGroup[face] = faceAlive[face] ? face : -1;
+        }
+        // Parity is cast from the first and last face of each small cluster of consistently wound
+        // faces and given to the whole cluster when they agree: it changes only across a shadow,
+        // an intersection or a fold, and a ray from every face would cost more than the rest of
+        // the repair. Clusters where it may change are cast face by face below.
+        int[] partner = new int[faceCount * TRIANGLE_CORNERS];
+        Arrays.fill(partner, -1);
+        for (int edge = 0; edge < edgeCount; edge++) {
+            if (manifoldEdge(edge)) {
+                partner[edgeUses[edgeUseStart[edge]]] = edgeUses[edgeUseStart[edge] + 1];
+                partner[edgeUses[edgeUseStart[edge] + 1]] = edgeUses[edgeUseStart[edge]];
+            }
+        }
+        int[] clusterOf = new int[faceCount];
+        Arrays.fill(clusterOf, -1);
+        int[] clusterSamples = new int[faceCount * CLUSTER_SAMPLES];
+        boolean[] asked = new boolean[faceCount];
+        int[] grown = new int[CLUSTER_FACES];
+        int clusters = 0;
+        for (int seed = 0; seed < faceCount; seed++) {
+            if (!faceAlive[seed] || clusterOf[seed] >= 0) {
+                continue;
+            }
+            clusterOf[seed] = clusters;
+            grown[0] = seed;
+            int size = 1;
+            for (int next = 0; next < size && size < CLUSTER_FACES; next++) {
+                for (int corner = 0; corner < TRIANGLE_CORNERS; corner++) {
+                    int across = partner[grown[next] * TRIANGLE_CORNERS + corner];
+                    if (across >= 0 && clusterOf[across / TRIANGLE_CORNERS] < 0
+                            && size < CLUSTER_FACES) {
+                        clusterOf[across / TRIANGLE_CORNERS] = clusters;
+                        grown[size++] = across / TRIANGLE_CORNERS;
+                    }
+                }
+            }
+            for (int sample = 0; sample < CLUSTER_SAMPLES; sample++) {
+                int face = grown[(size - 1) * sample / (CLUSTER_SAMPLES - 1)];
+                clusterSamples[clusters * CLUSTER_SAMPLES + sample] = face;
+                asked[face] = true;
+            }
+            clusters++;
+        }
+        soup.buildColumns();
+        int[] sampled = soup.facing(asked);
+        int[] clusterFacing = new int[clusters];
+        boolean[] mixed = new boolean[clusters];
+        for (int cluster = 0; cluster < clusters; cluster++) {
+            clusterFacing[cluster] = sampled[clusterSamples[cluster * CLUSTER_SAMPLES]];
+            for (int sample = 1; sample < CLUSTER_SAMPLES; sample++) {
+                mixed[cluster] |= sampled[clusterSamples[cluster * CLUSTER_SAMPLES + sample]]
+                        != clusterFacing[cluster];
+            }
+        }
+        // A cluster whose samples disagree, or that borders one facing the other way, may straddle
+        // a change, so each of its faces is cast for itself.
+        for (int slot = 0; slot < faceCount * TRIANGLE_CORNERS; slot++) {
+            if (partner[slot] >= 0 && clusterFacing[clusterOf[slot / TRIANGLE_CORNERS]]
+                    != clusterFacing[clusterOf[partner[slot] / TRIANGLE_CORNERS]]) {
+                mixed[clusterOf[slot / TRIANGLE_CORNERS]] = true;
+            }
+        }
+        // So may a cluster on a contested edge, where the winding, and with it the side the
+        // parity finds inside, turns over.
+        for (int edge = 0; edge < edgeCount; edge++) {
+            if (edgeUseStart[edge + 1] - edgeUseStart[edge] == 2 && !manifoldEdge(edge)) {
+                for (int use = edgeUseStart[edge]; use < edgeUseStart[edge + 1]; use++) {
+                    mixed[clusterOf[edgeUses[use] / TRIANGLE_CORNERS]] = true;
+                }
+            }
+        }
+        // Their neighbours are cast too, since a change can run along a cluster's border.
+        boolean[] near = Arrays.copyOf(mixed, clusters);
+        for (int slot = 0; slot < faceCount * TRIANGLE_CORNERS; slot++) {
+            if (partner[slot] >= 0 && mixed[clusterOf[partner[slot] / TRIANGLE_CORNERS]]) {
+                near[clusterOf[slot / TRIANGLE_CORNERS]] = true;
+            }
+        }
+        for (int face = 0; face < faceCount; face++) {
+            asked[face] = faceAlive[face] && near[clusterOf[face]];
+        }
+        int[] refined = soup.facing(asked);
+        int[] facing = new int[faceCount];
+        for (int face = 0; face < faceCount; face++) {
+            if (faceAlive[face]) {
+                facing[face] = asked[face] ? refined[face] : clusterFacing[clusterOf[face]];
+            }
+        }
         int[] faceComponent = UnionFind.singletons(faceCount);
-        int[] contestedSlots = new int[0];
-        int contestedCount = 0;
+        int[] seamSlots = new int[0];
+        int seamCount = 0;
         for (int edge = 0; edge < edgeCount; edge++) {
             int start = edgeUseStart[edge];
             if (edgeUseStart[edge + 1] - start != 2) {
@@ -287,24 +388,132 @@ public final class MeshRepair {
             }
             int firstSlot = edgeUses[start];
             int secondSlot = edgeUses[start + 1];
-            if (cornerForward[firstSlot] != cornerForward[secondSlot]) {
+            if (cornerForward[firstSlot] != cornerForward[secondSlot]
+                    && facing[firstSlot / TRIANGLE_CORNERS] == facing[secondSlot / TRIANGLE_CORNERS]) {
                 UnionFind.union(faceComponent, firstSlot / TRIANGLE_CORNERS,
                         secondSlot / TRIANGLE_CORNERS);
                 continue;
             }
-            if ((contestedCount + 1) * SLOTS_PER_EDGE > contestedSlots.length) {
-                contestedSlots = Arrays.copyOf(contestedSlots,
-                        Math.max(SLOTS_PER_EDGE, contestedSlots.length * GROWTH));
+            if ((seamCount + 1) * SLOTS_PER_EDGE > seamSlots.length) {
+                seamSlots = Arrays.copyOf(seamSlots,
+                        Math.max(SLOTS_PER_EDGE, seamSlots.length * GROWTH));
             }
-            contestedSlots[contestedCount * SLOTS_PER_EDGE] = firstSlot;
-            contestedSlots[contestedCount * SLOTS_PER_EDGE + 1] = secondSlot;
-            contestedCount++;
+            seamSlots[seamCount * SLOTS_PER_EDGE] = firstSlot;
+            seamSlots[seamCount * SLOTS_PER_EDGE + 1] = secondSlot;
+            seamCount++;
         }
-        boolean[] flip = orientComponents(faceComponent, contestedSlots, contestedCount);
-        for (int index = 0; index < contestedCount; index++) {
-            int firstFace = contestedSlots[index * SLOTS_PER_EDGE] / TRIANGLE_CORNERS;
-            int secondFace = contestedSlots[index * SLOTS_PER_EDGE + 1] / TRIANGLE_CORNERS;
-            if (flip[firstFace] == flip[secondFace]) {
+        // The patches are two-coloured along a maximum spanning tree of their seams: a seam's
+        // contested edges vote for opposite windings and its consistent ones for the same, so a
+        // patch follows its longest agreement, and ray parity weighed by area picks each tree's
+        // facing.
+        long[] oppositePairs = new long[seamCount];
+        long[] samePairs = new long[seamCount];
+        int opposites = 0;
+        int sames = 0;
+        for (int index = 0; index < seamCount; index++) {
+            int firstSlot = seamSlots[index * SLOTS_PER_EDGE];
+            int secondSlot = seamSlots[index * SLOTS_PER_EDGE + 1];
+            int first = UnionFind.find(faceComponent, firstSlot / TRIANGLE_CORNERS);
+            int second = UnionFind.find(faceComponent, secondSlot / TRIANGLE_CORNERS);
+            if (first == second) {
+                continue;
+            }
+            if (cornerForward[firstSlot] == cornerForward[secondSlot]) {
+                oppositePairs[opposites++] = EdgeKey.undirected(first, second);
+            } else {
+                samePairs[sames++] = EdgeKey.undirected(first, second);
+            }
+        }
+        Arrays.sort(oppositePairs, 0, opposites);
+        Arrays.sort(samePairs, 0, sames);
+        long[] pairs = new long[opposites + sames];
+        int[] vote = new int[opposites + sames];
+        int pairCount = 0;
+        int nextOpposite = 0;
+        int nextSame = 0;
+        while (nextOpposite < opposites || nextSame < sames) {
+            boolean takeOpposite = nextSame == sames
+                    || nextOpposite < opposites && oppositePairs[nextOpposite] <= samePairs[nextSame];
+            long pair = takeOpposite ? oppositePairs[nextOpposite++] : samePairs[nextSame++];
+            if (pairCount == 0 || pairs[pairCount - 1] != pair) {
+                pairs[pairCount++] = pair;
+            }
+            vote[pairCount - 1] += takeOpposite ? 1 : -1;
+        }
+        int[] linkStart = new int[faceCount + 1];
+        for (int pair = 0; pair < pairCount; pair++) {
+            linkStart[EdgeKey.minVertex(pairs[pair])]++;
+            linkStart[EdgeKey.maxVertex(pairs[pair])]++;
+        }
+        int running = 0;
+        for (int component = 0; component < faceCount; component++) {
+            int degree = linkStart[component];
+            linkStart[component] = running;
+            running += degree;
+        }
+        linkStart[faceCount] = running;
+        int[] cursor = Arrays.copyOf(linkStart, faceCount);
+        int[] links = new int[running];
+        for (int pair = 0; pair < pairCount; pair++) {
+            links[cursor[EdgeKey.minVertex(pairs[pair])]++] = pair;
+            links[cursor[EdgeKey.maxVertex(pairs[pair])]++] = pair;
+        }
+        boolean[] componentFlip = new boolean[faceCount];
+        boolean[] componentVisited = new boolean[faceCount];
+        int[] treeOfComponent = new int[faceCount];
+        PriorityQueue<Long> frontier = new PriorityQueue<>(Comparator.reverseOrder());
+        long[] seedOrder = componentSeedsAscending(faceComponent);
+        for (int index = seedOrder.length - 1; index >= 0; index--) {
+            int root = UnionFind.find(faceComponent, (int) (seedOrder[index] & KEY_MASK));
+            if (componentVisited[root]) {
+                continue;
+            }
+            componentVisited[root] = true;
+            treeOfComponent[root] = root;
+            int reached = root;
+            while (reached >= 0) {
+                for (int link = linkStart[reached]; link < linkStart[reached + 1]; link++) {
+                    if (vote[links[link]] != 0) {
+                        frontier.add(((long) Math.abs(vote[links[link]]) << KEY_SHIFT)
+                                | links[link]);
+                    }
+                }
+                reached = -1;
+                while (reached < 0 && !frontier.isEmpty()) {
+                    int pair = (int) (frontier.poll() & KEY_MASK);
+                    int low = EdgeKey.minVertex(pairs[pair]);
+                    int high = EdgeKey.maxVertex(pairs[pair]);
+                    if (componentVisited[low] != componentVisited[high]) {
+                        int from = componentVisited[low] ? low : high;
+                        reached = from == low ? high : low;
+                        componentVisited[reached] = true;
+                        componentFlip[reached] = componentFlip[from] != (vote[pair] > 0);
+                        treeOfComponent[reached] = root;
+                    }
+                }
+            }
+        }
+        double[] inwardAreaOfTree = new double[faceCount];
+        for (int face = 0; face < faceCount; face++) {
+            if (faceAlive[face]) {
+                int component = UnionFind.find(faceComponent, face);
+                inwardAreaOfTree[treeOfComponent[component]] += faceArea(face) * -facing[face]
+                        * (componentFlip[component] ? -1 : 1);
+            }
+        }
+        boolean[] flip = new boolean[faceCount];
+        for (int face = 0; face < faceCount; face++) {
+            if (faceAlive[face]) {
+                int component = UnionFind.find(faceComponent, face);
+                flip[face] = componentFlip[component]
+                        != (inwardAreaOfTree[treeOfComponent[component]] > 0);
+            }
+        }
+        for (int index = 0; index < seamCount; index++) {
+            int firstSlot = seamSlots[index * SLOTS_PER_EDGE];
+            int secondSlot = seamSlots[index * SLOTS_PER_EDGE + 1];
+            if ((cornerForward[firstSlot] == cornerForward[secondSlot])
+                    == (flip[firstSlot / TRIANGLE_CORNERS] == flip[secondSlot / TRIANGLE_CORNERS])) {
                 report.mobiusEdgeCount++;
             }
         }
@@ -326,78 +535,6 @@ public final class MeshRepair {
             edgesDirty = true;
             report.orientedFaceCount++;
         }
-    }
-
-    /**
-     * Two-colours the components of consistently wound faces across the edges whose two faces run
-     * the same way, breadth-first from the component of the largest face. Orienting whole
-     * components rather than single faces keeps one contested edge from cascading a flip over
-     * everything the search reaches through it.
-     *
-     * @param faceComponent union-find parents over faces, joined across consistent edges
-     * @param contestedSlots the two corner slots of each contested edge, in pairs
-     * @param contested edges whose two faces run the same way
-     * @return the flip flag of each face
-     */
-    private boolean[] orientComponents(int[] faceComponent, int[] contestedSlots, int contested) {
-        int[] contestedFirst = new int[contested];
-        int[] contestedSecond = new int[contested];
-        for (int index = 0; index < contested; index++) {
-            contestedFirst[index] = UnionFind.find(faceComponent,
-                    contestedSlots[index * SLOTS_PER_EDGE] / TRIANGLE_CORNERS);
-            contestedSecond[index] = UnionFind.find(faceComponent,
-                    contestedSlots[index * SLOTS_PER_EDGE + 1] / TRIANGLE_CORNERS);
-        }
-        int[] linkStart = new int[faceCount + 1];
-        for (int index = 0; index < contested; index++) {
-            linkStart[contestedFirst[index]]++;
-            linkStart[contestedSecond[index]]++;
-        }
-        int running = 0;
-        for (int component = 0; component < faceCount; component++) {
-            int degree = linkStart[component];
-            linkStart[component] = running;
-            running += degree;
-        }
-        linkStart[faceCount] = running;
-        int[] cursor = Arrays.copyOf(linkStart, faceCount);
-        int[] links = new int[running];
-        for (int index = 0; index < contested; index++) {
-            links[cursor[contestedFirst[index]]++] = contestedSecond[index];
-            links[cursor[contestedSecond[index]]++] = contestedFirst[index];
-        }
-        boolean[] componentFlip = new boolean[faceCount];
-        boolean[] componentVisited = new boolean[faceCount];
-        int[] stack = new int[faceCount];
-        long[] seedOrder = componentSeedsAscending(faceComponent);
-        for (int index = seedOrder.length - 1; index >= 0; index--) {
-            int root = UnionFind.find(faceComponent, (int) (seedOrder[index] & KEY_MASK));
-            if (componentVisited[root]) {
-                continue;
-            }
-            componentVisited[root] = true;
-            int top = 0;
-            stack[top++] = root;
-            while (top > 0) {
-                int component = stack[--top];
-                for (int link = linkStart[component]; link < linkStart[component + 1]; link++) {
-                    int other = links[link];
-                    if (componentVisited[other]) {
-                        continue;
-                    }
-                    componentVisited[other] = true;
-                    componentFlip[other] = !componentFlip[component];
-                    stack[top++] = other;
-                }
-            }
-        }
-        boolean[] flip = new boolean[faceCount];
-        for (int face = 0; face < faceCount; face++) {
-            if (faceAlive[face]) {
-                flip[face] = componentFlip[UnionFind.find(faceComponent, face)];
-            }
-        }
-        return flip;
     }
 
     /**

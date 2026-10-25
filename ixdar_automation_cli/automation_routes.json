@@ -908,7 +908,7 @@
           "example": "1e-6"
         }
       ],
-      "responseHint": "{ok, source, vertex_count, edge_count, face_count, face_side_count, triangle_count, euler_characteristic, boundary_edge_count, non_manifold_edge_count, unoriented_edge_count, isolated_vertex_count, non_manifold_boundary_vertex_count, unwalked_boundary_edge_count, duplicate_position_vertex_count, distinct_position_count, shell_count, boundary_loop_count, shells:[{faces, vertices, edges, boundary_edges, boundary_loops, euler}, ...], text}"
+      "responseHint": "{ok, source, vertex_count, edge_count, face_count, face_side_count, triangle_count, euler_characteristic, inward_face_count, boundary_edge_count, non_manifold_edge_count, unoriented_edge_count, isolated_vertex_count, non_manifold_boundary_vertex_count, unwalked_boundary_edge_count, duplicate_position_vertex_count, distinct_position_count, shell_count, boundary_loop_count, shells:[{faces, vertices, edges, boundary_edges, boundary_loops, euler}, ...], orientation_patches:[{faces, inward_faces, bounds}, ...], text}"
     },
     {
       "commandName": "model",

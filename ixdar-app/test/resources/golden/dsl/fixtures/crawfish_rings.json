@@ -3,11 +3,11 @@
   "outputs": {
     "geometry": {
       "algorithm": "ixdar-mesh-fingerprint-v1",
-      "sha256": "7304dc3eb2c971e0fa4ff98216ac7692250042cf4d4da47bff744d867b03f834",
-      "vertexCount": 469131,
-      "edgeCount": 1407453,
-      "faceCount": 938302,
-      "triangleCount": 938302,
+      "sha256": "0a4e1a65a7a5ff882cad9beec97c3522a4b38d7f0e974743280ec7e8badd435f",
+      "vertexCount": 469132,
+      "edgeCount": 1407462,
+      "faceCount": 938308,
+      "triangleCount": 938308,
       "boundaryEdgeCount": 0,
       "slots": [
         "_curve",
@@ -121,7 +121,7 @@
         {
           "label": "ring_22",
           "edgeCount": 8,
-          "fingerprint": "a6be8423de81ba99"
+          "fingerprint": "f9841d9ec080dede"
         },
         {
           "label": "ring_23",
@@ -145,8 +145,8 @@
         },
         {
           "label": "ring_27",
-          "edgeCount": 69,
-          "fingerprint": "1242e84162aa4c3f"
+          "edgeCount": 59,
+          "fingerprint": "124481443bc36d8e"
         },
         {
           "label": "ring_28",
@@ -411,7 +411,7 @@
         {
           "label": "ring_80",
           "edgeCount": 42,
-          "fingerprint": "ae068318e4dd6d85"
+          "fingerprint": "1957809321180cb9"
         },
         {
           "label": "ring_81",

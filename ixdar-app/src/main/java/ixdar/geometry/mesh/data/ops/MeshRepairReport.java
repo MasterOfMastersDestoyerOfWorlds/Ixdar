@@ -23,7 +23,7 @@ public final class MeshRepairReport {
     /** Faces whose winding the orientation pass reversed. */
     public int orientedFaceCount;
 
-    /** Orientation contradictions: edges a Mobius walk reached twice with opposite demands. */
+    /** Orientation contradictions: manifold edges both faces still run the same way once oriented. */
     public int mobiusEdgeCount;
 
     /** Edges carrying more than two faces, or two faces that run the edge the same way. */

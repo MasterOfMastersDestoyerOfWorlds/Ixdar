@@ -3,11 +3,11 @@
   "outputs": {
     "geometry": {
       "algorithm": "ixdar-mesh-fingerprint-v1",
-      "sha256": "6a0a646d21cb61b37603e795810699491bfcd82c2ad2037a2a7926887079ee36",
-      "vertexCount": 497988,
-      "edgeCount": 1494084,
-      "faceCount": 996056,
-      "triangleCount": 996056,
+      "sha256": "64bd1028009dfc425433bc7732edab2d9d2082da3fc8524e4ccf09d4683fcfb1",
+      "vertexCount": 480886,
+      "edgeCount": 1442766,
+      "faceCount": 961844,
+      "triangleCount": 961844,
       "boundaryEdgeCount": 0,
       "slots": [
         "_edge_marks",
