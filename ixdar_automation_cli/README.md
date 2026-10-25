@@ -24,7 +24,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | Command | Description |
 | --- | --- |
 | [`click`](#click) | Click at a point, or on a drawn label by its text, on the active mouse handler, then wait for the click to be drawn. |
-| [`control`](#control) | Fire a control row by its action id, a tool's, active or not, or the scene's own, switching to the tool first as its switch key would, and report the outcome as key and click do. |
+| [`control`](#control) | Fire a control row by its action id, a tool's, active or not, the scene's own or a tool switch, switching to the tool first as its switch key would, and report the outcome as key and click do. |
 | [`drag`](#drag) | Drag with the left button from one window point to another, a frame drawn after every step. |
 | [`frame`](#frame) | Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it. |
 | [`health`](#health) | Liveness probe reporting server status, recording/replaying flags, and port. |
@@ -137,7 +137,7 @@ Click at a point, or on a drawn label by its text, on the active mouse handler, 
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/tools/FireControl.java)
 
-Fire a control row by its action id, a tool's, active or not, or the scene's own, switching to the tool first as its switch key would, and report the outcome as key and click do.
+Fire a control row by its action id, a tool's, active or not, the scene's own or a tool switch, switching to the tool first as its switch key would, and report the outcome as key and click do.
 
 - **Route:** `POST /ui/tools/control`
 - **Flags:**
@@ -744,7 +744,7 @@ Synthesize character events on the active key handler, one per character of the 
 Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.
 
 - **Route:** `GET /ui/state`
-- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ringTool?, rings?, errorToasts?, regions?, collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls:[{section, controls}], audio}`
+- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ringTool?, rings?:[{label, liveLabel, bisector, mode, serial, statement, source, wallSerials, anchorCount, authoredCount, unsaved, deleted}], connection?, errorToasts?, regions?:{regionCount, visible, absorbSlivers, hiddenRingCount, summary, rows:[{region, label, faceCount, area, sliver, boundingRings:[{ring, side}], part, creaseShare?, interiorCreaseShare?, peakCurvature?, peakOverSaturation?, creasePoint?, creaseInterior?}]}, collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls:[{section, controls}], audio}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/state`
 
 ### `words`

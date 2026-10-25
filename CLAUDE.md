@@ -97,7 +97,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 
 **Server-backed commands** (generated from the automation routes manifest):
 - `ixdar-cli click [--label] [--within] [--index] [--x] [--y] [--normalized] [--button] [--count] [--mods] [--settle]` — Click at a point, or on a drawn label by its text, on the active mouse handler, then wait for the click to be drawn.
-- `ixdar-cli control [--tool] [--action] [--key] [--settle]` — Fire a control row by its action id, a tool's, active or not, or the scene's own, switching to the tool first as its switch key would, and report the outcome as key and click do.
+- `ixdar-cli control [--tool] [--action] [--key] [--settle]` — Fire a control row by its action id, a tool's, active or not, the scene's own or a tool switch, switching to the tool first as its switch key would, and report the outcome as key and click do.
 - `ixdar-cli drag --fromX --fromY --toX --toY [--steps] [--hold] [--settle]` — Drag with the left button from one window point to another, a frame drawn after every step.
 - `ixdar-cli frame [--selection] [--bounds] [--point] [--radius] [--region] [--ring] [--padding] [--azimuth] [--elevation]` — Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it.
 - `ixdar-cli health` — Liveness probe reporting server status, recording/replaying flags, and port.
