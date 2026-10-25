@@ -96,8 +96,8 @@ _Do not edit by hand; see [ixdar_automation_cli/README.md](ixdar_automation_cli/
 Run any command with `ixdar-cli <command> --help`. Install the global alias with `uv run ixdar-cli install-alias`.
 
 **Server-backed commands** (generated from the automation routes manifest):
-- `ixdar-cli click [--label] [--within] [--index] [--x] [--y] [--normalized] [--button] [--count] [--settle]` — Click at a point, or on a drawn label by its text, on the active mouse handler, then wait for the click to be drawn.
-- `ixdar-cli control [--tool] --key [--settle]` — Fire a tool's control row by its key label, active tool or not, switching to the tool first as its switch key would, and report the outcome as key and click do.
+- `ixdar-cli click [--label] [--within] [--index] [--x] [--y] [--normalized] [--button] [--count] [--mods] [--settle]` — Click at a point, or on a drawn label by its text, on the active mouse handler, then wait for the click to be drawn.
+- `ixdar-cli control [--tool] [--action] [--key] [--settle]` — Fire a control row by its action id, a tool's, active or not, or the scene's own, switching to the tool first as its switch key would, and report the outcome as key and click do.
 - `ixdar-cli drag --fromX --fromY --toX --toY [--steps] [--hold] [--settle]` — Drag with the left button from one window point to another, a frame drawn after every step.
 - `ixdar-cli frame [--selection] [--bounds] [--point] [--radius] [--region] [--ring] [--padding] [--azimuth] [--elevation]` — Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it.
 - `ixdar-cli health` — Liveness probe reporting server status, recording/replaying flags, and port.
@@ -120,12 +120,12 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli mesh-skeleton-compare-detailed --generated --reference [--resolution]` — Detailed skeleton comparison returning per-joint 3D position deltas.
 - `ixdar-cli mesh-skeleton-sensitivity --dsl --reference [--resolution] [--epsilon]` — Compute the Jacobian of skeleton joints w.r.t. DSL parameters.
 - `ixdar-cli mesh-topology [--path] [--duplicate-tolerance]` — Report mesh topology: element counts, shells with their Euler characteristic, boundary loops, non-manifold edges and duplicate-position vertices.
-- `ixdar-cli model <name> [--set ...]` — Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.
+- `ixdar-cli model [<name>] [--path] [--set ...]` — Switch the active model scene to a named model, or open a file by its path, and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.
 - `ixdar-cli multiview [--out] [--inline] [--selection] [--bounds] [--point] [--radius] [--region] [--ring] [--padding]` — Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by default), and composite them into a 4x2 grid PNG.
 - `ixdar-cli node-inspect [<path>] [<field>] [--depth] [--limit]` — Inspect the graph the active model scene ran: the node tree with times and peak heap, one node's inputs, outputs and fields, or a field path below it, with depth and length limits.
 - `ixdar-cli orbit-get` — Report the active scene's camera, its pose in 3D or its pan and zoom in 2D, and a mesh viewer's orbit and mesh radius.
 - `ixdar-cli orbit-set [--azimuth] [--elevation] [--distance] [--target]` — Set the active mesh viewer's camera orbit (azimuth, elevation, distance).
-- `ixdar-cli pick --x --y` — Name the surface under a screenshot pixel: point, face, nearest vertex, normal and ring region, touching no tool and no hover.
+- `ixdar-cli pick --x --y` — Name the surface under a screenshot pixel: point, face, nearest vertex, normal, ring region and its part name, touching no tool and no hover.
 - `ixdar-cli project --point` — Place a surface point in the screenshot: the pixel it lands on and whether the surface in front of it hides it, touching no tool.
 - `ixdar-cli projection-get` — Report whether the active mesh viewer is using orthographic projection.
 - `ixdar-cli projection-set [--orthographic]` — Toggle the active mesh viewer between orthographic and perspective projection.
@@ -142,7 +142,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli screenshot [--out] [--inline] [--crop] [--scale]` — Capture a PNG screenshot of the current framebuffer to a file.
 - `ixdar-cli scroll [--delta] [--deltaX]` — Deliver a synthesized two-axis scroll event to the active mouse handler.
 - `ixdar-cli terminal --line [--settle]` — Run one line in the scene terminal and return the history lines it produced.
-- `ixdar-cli tools` — List every tool the active scene hosts, active or not: switch key, description, modes and full controls with their modifiers, which `control` fires by key label.
+- `ixdar-cli tools` — List every tool the active scene hosts, active or not, with its switch key, description, modes and controls, then the scene's own controls; `control` fires any of them by its action id.
 - `ixdar-cli type [--text]` — Synthesize character events on the active key handler, one per character of the text.
 - `ixdar-cli ui-state` — Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.
 - `ixdar-cli words [--within] [--label] [--index]` — List the words the last frame drew and the labels they make: text, rectangle in framebuffer and window pixels, clickable, visible, culled and owning view; a visible label's click pixel is what click --label clicks.

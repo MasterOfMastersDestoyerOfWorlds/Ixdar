@@ -24,7 +24,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | Command | Description |
 | --- | --- |
 | [`click`](#click) | Click at a point, or on a drawn label by its text, on the active mouse handler, then wait for the click to be drawn. |
-| [`control`](#control) | Fire a tool's control row by its key label, active tool or not, switching to the tool first as its switch key would, and report the outcome as key and click do. |
+| [`control`](#control) | Fire a control row by its action id, a tool's, active or not, or the scene's own, switching to the tool first as its switch key would, and report the outcome as key and click do. |
 | [`drag`](#drag) | Drag with the left button from one window point to another, a frame drawn after every step. |
 | [`frame`](#frame) | Fit the camera to a selection, a region, a ring, a point and radius or an explicit box, filling the view with it. |
 | [`health`](#health) | Liveness probe reporting server status, recording/replaying flags, and port. |
@@ -47,12 +47,12 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`mesh-skeleton-compare-detailed`](#mesh-skeleton-compare-detailed) | Detailed skeleton comparison returning per-joint 3D position deltas. |
 | [`mesh-skeleton-sensitivity`](#mesh-skeleton-sensitivity) | Compute the Jacobian of skeleton joints w.r.t. DSL parameters. |
 | [`mesh-topology`](#mesh-topology) | Report mesh topology: element counts, shells with their Euler characteristic, boundary loops, non-manifold edges and duplicate-position vertices. |
-| [`model`](#model) | Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took. |
+| [`model`](#model) | Switch the active model scene to a named model, or open a file by its path, and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took. |
 | [`multiview`](#multiview) | Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by default), and composite them into a 4x2 grid PNG. |
 | [`node-inspect`](#node-inspect) | Inspect the graph the active model scene ran: the node tree with times and peak heap, one node's inputs, outputs and fields, or a field path below it, with depth and length limits. |
 | [`orbit-get`](#orbit-get) | Report the active scene's camera, its pose in 3D or its pan and zoom in 2D, and a mesh viewer's orbit and mesh radius. |
 | [`orbit-set`](#orbit-set) | Set the active mesh viewer's camera orbit (azimuth, elevation, distance). |
-| [`pick`](#pick) | Name the surface under a screenshot pixel: point, face, nearest vertex, normal and ring region, touching no tool and no hover. |
+| [`pick`](#pick) | Name the surface under a screenshot pixel: point, face, nearest vertex, normal, ring region and its part name, touching no tool and no hover. |
 | [`project`](#project) | Place a surface point in the screenshot: the pixel it lands on and whether the surface in front of it hides it, touching no tool. |
 | [`projection-get`](#projection-get) | Report whether the active mesh viewer is using orthographic projection. |
 | [`projection-set`](#projection-set) | Toggle the active mesh viewer between orthographic and perspective projection. |
@@ -69,7 +69,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`screenshot`](#screenshot) | Capture a PNG screenshot of the current framebuffer to a file. |
 | [`scroll`](#scroll) | Deliver a synthesized two-axis scroll event to the active mouse handler. |
 | [`terminal`](#terminal) | Run one line in the scene terminal and return the history lines it produced. |
-| [`tools`](#tools) | List every tool the active scene hosts, active or not: switch key, description, modes and full controls with their modifiers, which `control` fires by key label. |
+| [`tools`](#tools) | List every tool the active scene hosts, active or not, with its switch key, description, modes and controls, then the scene's own controls; `control` fires any of them by its action id. |
 | [`type`](#type) | Synthesize character events on the active key handler, one per character of the text. |
 | [`ui-state`](#ui-state) | Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio. |
 | [`words`](#words) | List the words the last frame drew and the labels they make: text, rectangle in framebuffer and window pixels, clickable, visible, culled and owning view; a visible label's click pixel is what click --label clicks. |
@@ -128,23 +128,25 @@ Click at a point, or on a drawn label by its text, on the active mouse handler, 
   - `--normalized` (bool, default `false`) — Treat X/Y as fractions of window size rather than pixels., e.g. `true`
   - `--button` (int, default `0`) — GLFW mouse button code., e.g. `1`
   - `--count` (int, default `1`) — Press/release pairs delivered back to back; 2 is a double-click., e.g. `2`
+  - `--mods` (string, default ``) — Modifier keys held down for the click and released after, +-separated: shift, ctrl, alt., e.g. `shift`
   - `--settle` (int, default `2`) — Frames to wait for after the click, so a screenshot needs no sleep; 0 returns at once., e.g. `0`
-- **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, label?, view?}, activeTool, previousTool?, control (the controls-menu row clicked, else null), tool?:{name, lastRow, error, undo/redo heads, mode?}}, or {ok:false, error, candidates} when a label refuses`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"label": "Start New Game", "within": "TERMINAL", "index": 1, "x": 0.5, "y": 0.25, "normalized": true, "button": 1, "count": 2, "settle": 0}'`
+- **Response:** `{ok, settled, event:{xPx, yPx, xNorm, yNorm, button, mods, label?, view?}, activeTool, previousTool?, control (the controls-menu row clicked, else null), tool?:{name, lastRow, error, undo/redo heads, mode?}}, or {ok:false, error, candidates} when a label refuses`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/click -d '{"label": "Start New Game", "within": "TERMINAL", "index": 1, "x": 0.5, "y": 0.25, "normalized": true, "button": 1, "count": 2, "mods": "shift", "settle": 0}'`
 
 ### `control`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/FireControl.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/tools/FireControl.java)
 
-Fire a tool's control row by its key label, active tool or not, switching to the tool first as its switch key would, and report the outcome as key and click do.
+Fire a control row by its action id, a tool's, active or not, or the scene's own, switching to the tool first as its switch key would, and report the outcome as key and click do.
 
 - **Route:** `POST /ui/tools/control`
 - **Flags:**
   - `--tool` (string, default ``) — Tool name as the tools listing gives it; the active tool when left out., e.g. `region tool`
-  - `--key` (string, required) — The row's key label as the tools listing shows it, ignoring case., e.g. `shift+H`
+  - `--action` (string, default ``) — The row's action id exactly as the tools listing gives it., e.g. `save-rings`
+  - `--key` (string, default ``) — The row's key label instead of its action id, ignoring case., e.g. `shift+H`
   - `--settle` (int, default `2`) — Frames to wait for after the row fired; 0 returns at once., e.g. `0`
-- **Response:** `{ok, key, control, settled, activeTool, previousTool?, tool:{name, lastRow, error, undo heads, mode?}}, or {ok:false, error, candidates}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/tools/control -d '{"tool": "region tool", "key": "shift+H", "settle": 0}'`
+- **Response:** `{ok, action, key, control, settled, activeTool, previousTool?, tool:{name, lastRow, error, undo heads, mode?}}, or {ok:false, error, candidates}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/tools/control -d '{"tool": "region tool", "action": "save-rings", "key": "shift+H", "settle": 0}'`
 
 ### `drag`
 
@@ -446,14 +448,15 @@ Report mesh topology: element counts, shells with their Euler characteristic, bo
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/scene/SwitchModel.java)
 
-Switch the active model scene to a named model and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.
+Switch the active model scene to a named model, or open a file by its path, and recompute, as the terminal command ml does, returning once it has loaded or failed, with the failure message and the seconds it took.
 
 - **Route:** `POST /scene/model`
 - **Flags:**
-  - `<name>` (string, required) — Model display name, or part of the name or path of a listed model., e.g. `bolt`
+  - `<name>` (string, default ``) — Model display name, or part of the name or path of a listed model., e.g. `bolt`
+  - `--path` (string, default ``) — A .dsl graph or mesh file to open by its path instead of a name, the scene's own model included, so a saved file can be reopened without a restart., e.g. `tmp/IMG_4111.dsl`
   - `--set` (string_list, default ``) — Scene override path.port=value, kept across model switches; an empty value clears it., e.g. `layout/field.curvature_bias=-0.5`
 - **Response:** `{ok, outcome: loaded|failed, model, path, seconds, error, overrides}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/scene/model -d '{"name": "bolt", "set": "layout/field.curvature_bias=-0.5"}'`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/scene/model -d '{"name": "bolt", "path": "tmp/IMG_4111.dsl", "set": "layout/field.curvature_bias=-0.5"}'`
 
 ### `multiview`
 
@@ -519,13 +522,13 @@ Set the active mesh viewer's camera orbit (azimuth, elevation, distance).
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Pick.java)
 
-Name the surface under a screenshot pixel: point, face, nearest vertex, normal and ring region, touching no tool and no hover.
+Name the surface under a screenshot pixel: point, face, nearest vertex, normal, ring region and its part name, touching no tool and no hover.
 
 - **Route:** `POST /mesh/pick`
 - **Flags:**
   - `--x` (float, required) — Framebuffer x from the left, as in a screenshot; whole numbers are pixel centres., e.g. `512`
   - `--y` (float, required) — Framebuffer y from the top, as in a screenshot., e.g. `384`
-- **Response:** `{ok, hit, point:"x,y,z", normal:[x,y,z], faceId, vertexId, vertex:"x,y,z", region, regionBoundedBy, error}; region is present once the editing scene's regions are built`
+- **Response:** `{ok, hit, point:"x,y,z", normal:[x,y,z], faceId, vertexId, vertex:"x,y,z", region, regionBoundedBy, part, error}; region and part (empty when unlabelled) are present once the editing scene's regions are built`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/pick -d '{"x": 512, "y": 384}'`
 
 ### `project`
@@ -714,12 +717,12 @@ Run one line in the scene terminal and return the history lines it produced.
 
 ### `tools`
 
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/Tools.java)
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/tools/Tools.java)
 
-List every tool the active scene hosts, active or not: switch key, description, modes and full controls with their modifiers, which `control` fires by key label.
+List every tool the active scene hosts, active or not, with its switch key, description, modes and controls, then the scene's own controls; `control` fires any of them by its action id.
 
 - **Route:** `GET /ui/tools`
-- **Response:** `{ok, sceneClass, activeTool, defaultTool, tools:[{the ui-state tool object (name, displayName, shortName, description, lastRow, error, undo heads, mode, modes, controls, draft, preview, hovered, items), active, switchKey:{key, description, keyCode, controlHeld, shiftHeld}|null}]}`
+- **Response:** `{ok, sceneClass, activeTool, defaultTool, tools:[{the ui-state tool object (name, displayName, shortName, description, lastRow, error, undo heads, mode, modes, controls, draft, preview, hovered, items), active, switchKey:{action, key, description, keyCode, controlHeld, shiftHeld}|null}], sceneControls:[the same control objects]}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/tools`
 
 ### `type`
@@ -741,7 +744,7 @@ Synthesize character events on the active key handler, one per character of the 
 Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.
 
 - **Route:** `GET /ui/state`
-- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ringTool?, rings?, errorToasts?, regions?, collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls, audio}`
+- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ringTool?, rings?, errorToasts?, regions?, collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls:[{section, controls}], audio}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/state`
 
 ### `words`
