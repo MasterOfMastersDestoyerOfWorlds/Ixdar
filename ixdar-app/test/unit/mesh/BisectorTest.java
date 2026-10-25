@@ -42,6 +42,7 @@ import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.input.Keys;
+import ixdar.scenes.Scene;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.ring.BisectorTool;
@@ -73,6 +74,12 @@ class BisectorTest {
     private static final int SECOND_RING_ROW = 48;
 
     private static final int MIDDLE_ROW = 32;
+
+    // A ring between the two, which a bisector from the first to the second crosses.
+    private static final int CROSSED_RING_ROW = 40;
+
+    // A ring past the second, which a dragged end moves onto.
+    private static final int FAR_RING_ROW = 56;
 
     private static final int TOP_SIDE = 16;
 
@@ -467,6 +474,192 @@ class BisectorTest {
                 "anchors in click order should double back and cross");
         assertFalse(clicked.confirmDraft(), "a crossing bisector was confirmed");
         assertTrue(clicked.lastError.contains("crosses itself"), clicked.lastError);
+
+        // Esc on the crossing draft, edited, drops it and leaves the bisector; Ctrl+Z restores it.
+        int[] confirmedAnchors = clicked.confirmedRings.get(crossing).authoredVertexId;
+        press(clicked, Keys.T);
+        assertFalse(clicked.bisector.draftSimple, "the crease draft no longer crosses itself");
+        assertTrue(clicked.escapePressed());
+        assertNull(clicked.draft, "Esc kept the crossing bisector open");
+        assertEquals(clicked.closedRing, clicked.activeSubTool,
+                "Esc did not leave the crossing bisector");
+        assertArrayEquals(confirmedAnchors, clicked.confirmedRings.get(crossing).authoredVertexId,
+                "dropping the draft changed the confirmed bisector");
+        assertTrue(clicked.lastRow.contains("dropped"), clicked.lastRow);
+        assertTrue(clicked.undo(), clicked.lastError);
+        assertEquals(clicked.bisector, clicked.activeSubTool,
+                "undo did not return to the crossing bisector");
+        assertEquals(crossing, clicked.draftSourceRing, "undo did not bring the edited draft back");
+    }
+
+    /**
+     * The user's IMG_4111 tail bisector: a re-opened bisector whose end is dragged onto another
+     * wall saves that wall, so the save writes exactly the anchors placed and a reload keeps them,
+     * rather than pulling the moved end back to the old wall and doubling the cut back on itself.
+     */
+    @Test
+    void aReopenedBisectorWhoseEndMovesToAnotherWallSavesAndReloadsThatWall(@TempDir Path folder)
+            throws IOException {
+        MeshTopology tube = tube();
+        Path dsl = folder.resolve(WORKING_DSL);
+        Files.write(dsl, CARRIER.getBytes(StandardCharsets.UTF_8));
+        RingTool tool = toolOn(tube, dsl);
+        int first = ring(tool, FIRST_RING_ROW);
+        ring(tool, SECOND_RING_ROW);
+        int far = ring(tool, FAR_RING_ROW);
+        int bisector = bisect(tool, vertex(FIRST_RING_ROW, TOP_SIDE),
+                vertex(SECOND_RING_ROW, TOP_SIDE), vertex(MIDDLE_ROW, TOP_SIDE + 2));
+        assertTrue(tool.saveRings(), tool.lastError);
+        assertTrue(tool.escapePressed());
+        assertEquals(tool.closedRing, tool.activeSubTool);
+
+        assertTrue(tool.reopenRing(bisector), tool.lastError);
+        assertEquals(tool.bisector, tool.activeSubTool, "the moved bisector re-opened in the rings");
+        assertEquals(tool.bisector, tool.draftOwner, "the rings own the re-opened bisector");
+        int[] held = tool.draftAuthoredVertexId;
+        tool.selectedAnchorVertexId = held[held.length - 1];
+        assertTrue(tool.moveSelectedAnchor(vertex(FAR_RING_ROW, TOP_SIDE)), tool.lastError);
+        tool.releaseAnchor();
+        int[] placed = tool.draftAuthoredVertexId.clone();
+        boolean[] drawn = tool.draft.marks.markedByEdgeId;
+        assertTrue(tool.confirmDraft(), tool.lastError);
+        int[] farEnds = { tool.confirmedRings.get(first).serial, tool.confirmedRings.get(far).serial };
+        assertArrayEquals(farEnds, tool.confirmedRings.get(bisector).bisectorEnds,
+                "the confirmed bisector kept the wall its end was dragged off");
+
+        assertTrue(tool.saveRings(), tool.lastError);
+        String saved = new String(Files.readAllBytes(dsl), StandardCharsets.UTF_8);
+        String bisectorId = tool.confirmedRings.get(bisector).statementId;
+        PythonParser.ParsedNode written = null;
+        for (PythonParser.ParsedNode statement : PythonParser.parse(saved)) {
+            written = bisectorId.equals(statement.id) ? statement : written;
+        }
+        assertEquals(tool.confirmedRings.get(first).statementId + SplineCutNode.END_SEPARATOR + " "
+                + tool.confirmedRings.get(far).statementId,
+                written.arguments.get(SplineCutNode.ENDS.name), saved);
+        float[] points = SurfaceWaypoints.parse(String.valueOf(
+                written.arguments.get(SplineCutNode.POINTS.name)));
+        assertArrayEquals(placed, SurfaceWaypoints.snap(tool.geodesics.metric.nearestVertex, points,
+                points.length / COORDINATES), "the save wrote other anchors than the ones placed");
+
+        for (int ring = 0; ring < tool.confirmedRings.size(); ring++) {
+            tool.scene.ringMarksByLabel.put(tool.confirmedRings.get(ring).statementId,
+                    tool.confirmedRings.get(ring).spline.marks.markedByEdgeId);
+        }
+        tool.scene.graph = NodeGraphRuntime.fromSource(saved);
+        tool.graphRingsChanged();
+        tool.adoptGraphRings(tube);
+        int reloaded = tool.ringOfSourceLabel(bisectorId);
+        assertTrue(reloaded >= 0, "the bisector was not adopted: " + tool.lastError);
+        assertArrayEquals(placed, tool.confirmedRings.get(reloaded).authoredVertexId,
+                "the reload moved an end back onto the wall it was dragged off");
+        assertArrayEquals(drawn, tool.confirmedRings.get(reloaded).spline.marks.markedByEdgeId,
+                "the reloaded bisector runs along other edges than the one confirmed");
+    }
+
+    /**
+     * X on an end hands its place to the anchor next to it when that one lies on a wall the
+     * bisector crosses; with an anchor off every wall in the way it refuses, naming that anchor and
+     * the one on a wall that would take the end's place.
+     */
+    @Test
+    void deletingAnEndPromotesTheAnchorNextToItOntoItsWall() {
+        MeshTopology tube = tube();
+        RingTool tool = toolOn(tube, null);
+        int first = ring(tool, FIRST_RING_ROW);
+        int crossed = ring(tool, CROSSED_RING_ROW);
+        ring(tool, SECOND_RING_ROW);
+        int offWalls = vertex(FIRST_PATCH_ROW, TOP_SIDE + 2);
+        int onCrossed = vertex(CROSSED_RING_ROW, TOP_SIDE);
+        press(tool, Keys.K);
+        assertTrue(click(tool, FIRST_RING_ROW, TOP_SIDE), tool.lastError);
+        assertTrue(click(tool, SECOND_RING_ROW, TOP_SIDE), tool.lastError);
+        assertTrue(tool.addAuthoredAnchor(offWalls), tool.lastError);
+        assertTrue(tool.addAuthoredAnchor(onCrossed), tool.lastError);
+        int[] held = tool.draftAuthoredVertexId.clone();
+        assertEquals(offWalls, held[1], Arrays.toString(held));
+        assertEquals(onCrossed, held[2], Arrays.toString(held));
+
+        tool.selectedAnchorVertexId = held[0];
+        press(tool, Keys.X);
+        assertArrayEquals(held, tool.draftAuthoredVertexId, "X deleted an end with an anchor off "
+                + "every wall next to it");
+        assertTrue(tool.lastError.contains("anchor 1 lies") && tool.lastError.contains("anchor 2 on "
+                + tool.liveLabel(crossed)), tool.lastError);
+
+        tool.selectedAnchorVertexId = held[held.length - 1];
+        press(tool, Keys.X);
+        assertEquals("", tool.lastError);
+        assertEquals(held.length - 1, tool.draftAuthoredVertexId.length);
+        int promoted = tool.draftAuthoredVertexId[held.length - 2];
+        assertTrue(touches(tube, tool.confirmedRings.get(crossed).spline.marks.markedByEdgeId,
+                promoted), "the promoted end is not on the crossed ring");
+        assertArrayEquals(new int[] { tool.confirmedRings.get(first).serial,
+            tool.confirmedRings.get(crossed).serial }, tool.bisector.draftEnds,
+                "the bisector does not end on the crossed ring now");
+        assertEquals(promoted, tool.selectedAnchorVertexId, "the new end is not selected");
+        assertTrue(tool.confirmDraft(), tool.lastError);
+    }
+
+    /**
+     * Esc always leaves the bisector for the rings: an unedited new or re-opened draft closes,
+     * nothing recorded, the waiting end going too; an edited one is confirmed as one edit.
+     */
+    @Test
+    void escLeavesTheBisectorForNewAndReopenedDrafts() {
+        MeshTopology tube = tube();
+        RingTool tool = toolOn(tube, null);
+        ring(tool, FIRST_RING_ROW);
+        ring(tool, SECOND_RING_ROW);
+        tool.scene.switchTool(tool);
+        int rings = tool.confirmedRings.size();
+        press(tool, Keys.K);
+        assertTrue(click(tool, FIRST_RING_ROW, TOP_SIDE), tool.lastError);
+        assertTrue(click(tool, SECOND_RING_ROW, TOP_SIDE), tool.lastError);
+        assertTrue(tool.escapePressed());
+        assertNull(tool.draft, "Esc kept the unedited new bisector");
+        assertEquals(-1, tool.bisector.startVertexId, "Esc left the first end waiting");
+        assertEquals(tool.closedRing, tool.activeSubTool, "Esc did not leave the new bisector");
+        assertEquals(rings, tool.confirmedRings.size());
+        press(tool, Keys.K);
+        assertTrue(tool.escapePressed());
+        assertEquals(tool.closedRing, tool.activeSubTool, "Esc did not leave the empty bisector");
+        List<String> shown = new ArrayList<>();
+        for (ControlHint control : tool.scene.controls.get(Scene.TOOL_SECTION)) {
+            shown.add(control.toString());
+        }
+        assertEquals(rows(tool), shown, "the scene still lists the bisector's rows after Esc");
+
+        press(tool, Keys.K);
+        assertTrue(click(tool, FIRST_RING_ROW, TOP_SIDE), tool.lastError);
+        assertTrue(click(tool, SECOND_RING_ROW, TOP_SIDE), tool.lastError);
+        int steer = vertex(MIDDLE_ROW, TOP_SIDE + 2);
+        assertTrue(tool.addAuthoredAnchor(steer), tool.lastError);
+        assertTrue(tool.escapePressed());
+        assertNull(tool.draft, "Esc kept the edited new bisector open");
+        assertEquals(tool.closedRing, tool.activeSubTool, "Esc did not leave the edited bisector");
+        assertEquals(rings + 1, tool.confirmedRings.size(), "Esc did not confirm the bisector");
+        int bisector = rings;
+        assertEquals(steer, tool.confirmedRings.get(bisector).authoredVertexId[1]);
+
+        assertTrue(tool.reopenRing(bisector), tool.lastError);
+        assertEquals(tool.bisector, tool.activeSubTool);
+        assertTrue(tool.escapePressed());
+        assertNull(tool.draft, "Esc kept the unedited re-opened bisector");
+        assertEquals(tool.closedRing, tool.activeSubTool, "Esc did not leave the re-opened bisector");
+
+        assertTrue(tool.reopenRing(bisector), tool.lastError);
+        int moreSteer = vertex(MIDDLE_ROW + PATCH_HALF_ROWS, TOP_SIDE + 2);
+        assertTrue(tool.addAuthoredAnchor(moreSteer), tool.lastError);
+        int[] edited = tool.draftAuthoredVertexId;
+        press(tool, Keys.K);
+        assertNull(tool.draft, "K kept the edited re-opened bisector open");
+        assertEquals(tool.closedRing, tool.activeSubTool, "K did not leave the re-opened bisector");
+        assertArrayEquals(edited, tool.confirmedRings.get(bisector).authoredVertexId,
+                "leaving did not confirm the edited bisector");
+        assertTrue(tool.undo(), tool.lastError);
+        assertEquals(tool.bisector, tool.activeSubTool, "undo did not return to the bisector");
+        assertArrayEquals(edited, tool.draftAuthoredVertexId, "undo did not bring the draft back");
     }
 
     /** No region is a sliver, and no problem the regions report names the bisector. */

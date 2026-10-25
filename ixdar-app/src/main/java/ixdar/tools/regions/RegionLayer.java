@@ -286,7 +286,7 @@ public final class RegionLayer {
         }
         boolean coloured = visible || scene.activeTool == scene.regionTool
                 || scene.activeTool == scene.ringTool
-                        && scene.ringTool.activeSubTool == scene.ringTool.bisector;
+                        && scene.ringTool.activeRingSubTool().showsRegions();
         boolean exploding = explosion.target > 0f || explosion.exploded();
         if (runtime == null || surface == null || surface.faceCount() == 0
                 || !coloured && hiddenByActiveFace.length == 0 && !exploding) {
@@ -303,6 +303,16 @@ public final class RegionLayer {
         }
         long start = System.nanoTime();
         String rebuilt = null;
+        if (regions != null && regions.mesh == surface && builtAbsorbing == absorbSlivers
+                && builtRingRevision != scene.ringTool.ringRevision) {
+            // An edit that left every live mask as it was, such as a step of a re-opened
+            // bisector's drag (its draft walls nothing until confirmed), leaves the regions be.
+            Map<String, boolean[]> rings = scene.ringTool.liveRingMarks();
+            if (Arrays.equals(rings.keySet().toArray(), regions.ringLabels)
+                    && Arrays.equals(rings.values().toArray(), regions.ringMarksByEdgeId)) {
+                builtRingRevision = scene.ringTool.ringRevision;
+            }
+        }
         if (regions == null || regions.mesh != surface
                 || builtRingRevision != scene.ringTool.ringRevision
                 || builtAbsorbing != absorbSlivers) {

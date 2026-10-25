@@ -1,6 +1,8 @@
 package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Proxy;
@@ -38,6 +40,8 @@ class RegionHidingTest {
     private static final String LOW_RING = "ring_02";
 
     private static final String HIGH_RING = "ring_05";
+
+    private static final String ADDED_RING = "ring_06";
 
     private static final float[] MIDDLE_POINT = { 1f, 0f, 1.75f };
 
@@ -133,6 +137,30 @@ class RegionHidingTest {
     @AfterEach
     void restoreSuitePlatform() {
         Platforms.init(suitePlatform, suiteGl);
+    }
+
+    /**
+     * A ring edit that leaves every live mask as it was, such as a step of a re-opened bisector's
+     * drag on the crawfish, keeps the regions without a rebuild; a changed mask rebuilds them.
+     */
+    @Test
+    void aRingRevisionThatLeavesEveryMaskAsItWasKeepsTheRegions() {
+        scene.updateScene();
+        int[] built = scene.regionLayer.regions.regionByActiveFace;
+        int revision = scene.regionLayer.revision;
+        scene.ringTool.invalidateRings();
+        scene.updateScene();
+        assertSame(built, scene.regionLayer.regions.regionByActiveFace,
+                "an edit that changed no mask rebuilt the regions");
+        assertEquals(revision, scene.regionLayer.revision);
+
+        scene.ringMarksByLabel.put(ADDED_RING,
+                RingRegionsUpdateTest.rowMask(cylinder, HIGH_RING_ROW + 1, false));
+        scene.ringTool.invalidateRings();
+        scene.updateScene();
+        assertNotSame(built, scene.regionLayer.regions.regionByActiveFace,
+                "a new ring left the regions as they were");
+        assertEquals(revision + 1, scene.regionLayer.revision);
     }
 
     @Test

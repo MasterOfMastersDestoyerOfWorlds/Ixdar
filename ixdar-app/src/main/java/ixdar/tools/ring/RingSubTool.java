@@ -107,4 +107,48 @@ public abstract class RingSubTool extends Tool {
 
     /** The draft this sub-tool owned closed: drop what it kept about it. */
     public abstract void draftClosed();
+
+    /**
+     * Whether this sub-tool owns a confirmed ring of its kind, and so re-opens it as its draft.
+     *
+     * @param ring a confirmed ring
+     * @return true when the ring re-opens in this sub-tool
+     */
+    public abstract boolean reopens(ConfirmedRing ring);
+
+    /**
+     * Whether a new draft of this kind walls the regions while it is still being drafted.
+     *
+     * @return true when the region colours preview the draft as a wall
+     */
+    public abstract boolean wallsWhileDrafted();
+
+    /**
+     * Whether the region colours show while this sub-tool is active, in any tool's view.
+     *
+     * @return true to colour the regions
+     */
+    public abstract boolean showsRegions();
+
+    /**
+     * Enter's refusal with no draft open, saying how this sub-tool opens one.
+     *
+     * @return the refusal
+     */
+    public abstract String nothingToConfirm();
+
+    /**
+     * Esc on an edited draft this sub-tool owns.
+     *
+     * @return true when the sub-tool took the key; false leaves it to the scene, the ring tool's
+     *         last row saying what became of the draft
+     */
+    public abstract boolean escapeEditedDraft();
+
+    /**
+     * Esc after an unedited draft closed: whatever else the key does in this sub-tool.
+     *
+     * @return what the closing row adds, starting with a separator, or empty
+     */
+    public abstract String escapeAfterUneditedDraft();
 }

@@ -73,12 +73,6 @@ public final class RingTool extends Tool {
 
     public static final String UNSAVED_RING_PREFIX = "ring #";
 
-    public static final String DRAFT_LABEL = "draft";
-
-    public static final float BISECTOR_REACH_PIXELS = 40f;
-
-    public static final String REMOVE_SELECTED_ANCHOR_HINT = "remove anchor (or ring)";
-
     public static final String REDO_HINT = "redo ring edit";
 
     public static final String REDO_ACTION = "redo";
@@ -115,8 +109,6 @@ public final class RingTool extends Tool {
     public static final Color AUTHORED_ANCHOR_COLOR = Color.TEAL_BLUE;
 
     public static final Color SELECTED_ANCHOR_COLOR = Color.YELLOW_ORANGE;
-
-    public static final float RING_HIT_PIXELS = 8f;
 
     public static final float SUPPORTING_ANCHOR_PIXELS = 3f;
 
@@ -276,9 +268,6 @@ public final class RingTool extends Tool {
     /** Serial a statement label's ring had before the graph re-ran, which its re-adoption keeps. */
     public final Map<String, Integer> retiredSerialByLabel = new HashMap<>();
 
-    /** Serial of the wall the last snap landed on, or -1 when none lay within reach. */
-    public int snappedWall = -1;
-
     /** The default sub-tool, which drafts and edits closed rings. */
     public final ClosedRingTool closedRing = new ClosedRingTool(this);
 
@@ -306,13 +295,6 @@ public final class RingTool extends Tool {
     /** Label of each of {@link #graphRingSegments}. */
     List<String> graphRingLabels = new ArrayList<>();
 
-    private int[] wallSerialByVertex = new int[0];
-    private int[] wallVertexStamp = new int[0];
-    private int wallEpoch;
-    private int wallsBuiltRevision = -1;
-    private int[] snapVisitStamp = new int[0];
-    private int[] snapQueue = new int[0];
-    private int snapEpoch;
     private int uploadedSnap = -1;
     private final Vector3f scratchPosition = new Vector3f();
     private MeshTopology preparedSurface;
@@ -743,9 +725,8 @@ public final class RingTool extends Tool {
                 splines.put(liveLabel(ring), confirmedRings.get(ring).spline);
             }
         }
-        if (draft != null && draftOwner == bisector && draftSourceRing < 0
-                && !bisector.drawsInvalid()) {
-            splines.put(BisectorTool.DRAFT_LABEL, draft);
+        if (draft != null && draftSourceRing < 0 && draftOwner.wallsWhileDrafted()) {
+            splines.put(draftOwner.draftLabel(), draft);
         }
         return splines;
     }
@@ -869,81 +850,6 @@ public final class RingTool extends Tool {
     }
 
     /**
-     * The wall vertex nearest a surface point within {@link #BISECTOR_REACH_PIXELS}, found by a
-     * walk out from the vertex under it; {@link #snappedWall} names its wall. Walls are the live
-     * confirmed rings and bisectors, the draft's own original aside.
-     *
-     * @param vertexId mesh vertex under the point
-     * @param xyz      the point, packed xyz
-     * @return the wall vertex, or -1 when no wall lies within reach
-     */
-    public int snapToWall(int vertexId, float[] xyz) {
-        MeshTopology surface = geodesics.mesh;
-        int vertexIdBound = geodesics.metric.vertexIdBound;
-        if (wallVertexStamp.length != vertexIdBound) {
-            wallVertexStamp = new int[vertexIdBound];
-            wallSerialByVertex = new int[vertexIdBound];
-            snapVisitStamp = new int[vertexIdBound];
-            snapQueue = new int[vertexIdBound];
-            wallsBuiltRevision = -1;
-        }
-        if (wallsBuiltRevision != ringRevision) {
-            wallsBuiltRevision = ringRevision;
-            wallEpoch++;
-            for (int ring = 0; ring < confirmedRings.size(); ring++) {
-                ConfirmedRing wall = confirmedRings.get(ring);
-                if (wall.deleted || ring == draftSourceRing && draft != null) {
-                    continue;
-                }
-                for (int edgeId : wall.spline.marks.markedEdgeIds) {
-                    int halfEdge = surface.edgeHalfEdge(edgeId);
-                    for (int end : new int[] { surface.halfEdgeVertex(halfEdge),
-                        surface.halfEdgeEndVertex(halfEdge) }) {
-                        if (wallVertexStamp[end] != wallEpoch) {
-                            wallVertexStamp[end] = wallEpoch;
-                            wallSerialByVertex[end] = wall.serial;
-                        }
-                    }
-                }
-            }
-        }
-        snappedWall = -1;
-        if (vertexId < 0 || vertexId >= vertexIdBound) {
-            return -1;
-        }
-        double reach = BISECTOR_REACH_PIXELS * scene.worldPerPixel();
-        int stamp = ++snapEpoch;
-        int head = 0;
-        int tail = 0;
-        snapQueue[tail++] = vertexId;
-        snapVisitStamp[vertexId] = stamp;
-        double nearest = Double.POSITIVE_INFINITY;
-        int snapped = -1;
-        while (head < tail) {
-            int here = snapQueue[head++];
-            surface.vertexPosition(here, scratchPosition);
-            double distance = scratchPosition.distance(xyz[0], xyz[1], xyz[2]);
-            if (wallVertexStamp[here] == wallEpoch && distance < nearest) {
-                nearest = distance;
-                snapped = here;
-            }
-            for (int spoke = 0; spoke < surface.vertexEdgeCount(here); spoke++) {
-                int other = surface.edgeOtherVertex(surface.vertexEdgeAt(here, spoke), here);
-                if (snapVisitStamp[other] == stamp) {
-                    continue;
-                }
-                snapVisitStamp[other] = stamp;
-                surface.vertexPosition(other, scratchPosition);
-                if (scratchPosition.distance(xyz[0], xyz[1], xyz[2]) <= reach) {
-                    snapQueue[tail++] = other;
-                }
-            }
-        }
-        snappedWall = snapped < 0 ? -1 : wallSerialByVertex[snapped];
-        return snapped;
-    }
-
-    /**
      * Re-open a confirmed ring as the draft through the anchors and normal it was confirmed with,
      * as one undoable edit; a click on the ring with no draft open lands here, and a bisector
      * re-opens in the {@link #bisector}.
@@ -963,7 +869,9 @@ public final class RingTool extends Tool {
         draftMode = reopened.mode;
         // A confirmed ring with end walls is a bisector, and re-opens as the bisector's draft.
         bisector.draftEnds = reopened.bisectorEnds;
-        draftOwner = reopened.isBisector() ? bisector : closedRing;
+        for (RingSubTool kind : new RingSubTool[] { closedRing, bisector }) {
+            draftOwner = kind.reopens(reopened) ? kind : draftOwner;
+        }
         if (draftMode == RingSegmentMode.CREASE && !readyCreases(scene.halfEdgeSurface())
                 || !draftOwner.retrace(reopened.authoredVertexId, false)) {
             draft = null;
@@ -1226,9 +1134,7 @@ public final class RingTool extends Tool {
     public boolean confirmDraft() {
         lastError = "";
         if (!active || draft == null) {
-            lastError = activeSubTool == bisector
-                    ? "no bisector to confirm - click near a wall for each end"
-                    : "no draft to confirm - click a ring to draft one first";
+            lastError = activeRingSubTool().nothingToConfirm();
             return false;
         }
         if (!draftOwner.confirmable()) {
@@ -1249,10 +1155,14 @@ public final class RingTool extends Tool {
             ConfirmedRing edited = confirmedRings.get(ring);
             boolean changed = !Arrays.equals(edited.authoredVertexId, draftAuthoredVertexId)
                     || !Arrays.equals(edited.baseNormal, normal)
-                    || edited.mode != draftMode;
+                    || edited.mode != draftMode
+                    || !Arrays.equals(edited.bisectorEnds, bisectorEnds);
             if (changed) {
                 edited.spline = draft;
             }
+            // An end dragged onto another wall moves the bisector's end wall with it; a save and
+            // a reload re-attach each end to the wall named here.
+            edited.bisectorEnds = bisectorEnds;
             edited.authoredVertexId = draftAuthoredVertexId;
             edited.baseNormal = normal;
             edited.mode = draftMode;
@@ -1304,11 +1214,10 @@ public final class RingTool extends Tool {
     }
 
     /**
-     * Esc: a draft untouched since the click that opened it closes, that click taken back off the
-     * history; an edited one stays open, and the scene goes on to the orbit tool. With no draft
-     * the active sub-tool takes the key.
+     * Esc: an unedited draft closes, its opening click taken back, the sub-tool finishing the key;
+     * an edited one goes to the sub-tool owning it, which may leave the key to the scene.
      *
-     * @return true when an unedited draft closed or the sub-tool took the key
+     * @return true when the ring tool or its sub-tool took the key
      */
     @Override
     public boolean escapePressed() {
@@ -1319,24 +1228,36 @@ public final class RingTool extends Tool {
         int applied = history.undoDepth;
         if (draggingAnchor || applied == 0 || history.statesBefore.get(applied - 1).draft != null
                 || !history.statesAfter.get(applied - 1).sameEdit(new RingToolState(this))) {
-            lastRow = "draft kept with its edits: Ctrl+R returns to it, Enter confirms, X discards";
+            if (draftOwner.escapeEditedDraft()) {
+                return true;
+            }
             Platforms.get().log(LOG_PREFIX + lastRow);
             return false;
         }
         String opening = history.nextUndoName();
+        String kind = draftOwner.toolName();
         history.retract().restore(this);
+        String after = activeRingSubTool().escapeAfterUneditedDraft();
         scene.refreshControls();
         previewedFace = -1;
-        lastRow = "closed the unedited ring (" + opening + " taken back, nothing recorded)";
+        lastRow = "closed the unedited " + kind + " ("
+                + opening + " taken back, nothing recorded)" + after;
         Platforms.get().log(LOG_PREFIX + lastRow);
         return true;
     }
 
     @Override
     public String escapeDescription() {
-        String own = "close an unedited ring (an edited one stays open)";
-        String sub = activeSubTool.escapeDescription();
-        return sub.isEmpty() ? own : own + ", else " + sub;
+        return activeSubTool.escapeDescription();
+    }
+
+    /**
+     * The sub-tool the ring tool hands its input to.
+     *
+     * @return the active one of {@link #closedRing} and {@link #bisector}
+     */
+    public RingSubTool activeRingSubTool() {
+        return (RingSubTool) activeSubTool;
     }
 
     /** Drop the draft; a re-opened ring stays as it was and a converted graph ring shows again. */

@@ -27,6 +27,12 @@ public final class ClosedRingTool extends RingSubTool {
 
     public static final String TOOL_NAME = "ring";
 
+    public static final String DRAFT_LABEL = "draft";
+
+    public static final String REMOVE_SELECTED_ANCHOR_HINT = "remove anchor (or ring)";
+
+    public static final float RING_HIT_PIXELS = 8f;
+
     /** Skeleton and curvature the preview plane's normal comes from, cached per model. */
     public final LimbAxis limbAxis = new LimbAxis();
 
@@ -84,8 +90,10 @@ public final class ClosedRingTool extends RingSubTool {
         return "Draw closed rings round the limbs and edit their anchors";
     }
 
+    /** The rings take the input back: the controls list their rows, not the bisector's. */
     @Override
     public void activate() {
+        ringTool.scene.refreshControls();
     }
 
     /** Drop the hover: no ring under the cursor and no preview anchors. */
@@ -104,7 +112,7 @@ public final class ClosedRingTool extends RingSubTool {
         // Delete or Backspace removes the selected anchor, or the whole ring with none selected.
         for (int key : new int[] { Keys.DELETE, Keys.BACKSPACE }) {
             controls.add(new ControlHint("remove-anchor", key, key == Keys.DELETE ? "del" : "backspace",
-                    RingTool.REMOVE_SELECTED_ANCHOR_HINT, ringTool.refusalShown(() -> {
+                    REMOVE_SELECTED_ANCHOR_HINT, ringTool.refusalShown(() -> {
                         if (ringTool.draft != null && ringTool.selectedIndex() < 0) {
                             ringTool.deleteDraftRing();
                         } else {
@@ -173,7 +181,7 @@ public final class ClosedRingTool extends RingSubTool {
         long start = System.nanoTime();
         float[] hitPoint = scene.cursorPoint;
         int faceId = scene.cursorFaceId;
-        double reach = RingTool.RING_HIT_PIXELS * scene.worldPerPixel();
+        double reach = RING_HIT_PIXELS * scene.worldPerPixel();
         for (int ring = 0; ring < ringTool.confirmedRings.size(); ring++) {
             if (ringTool.confirmedRings.get(ring).deleted) {
                 continue;
@@ -186,7 +194,7 @@ public final class ClosedRingTool extends RingSubTool {
                 hoveredRing = ring;
             }
         }
-        double graphReach = RingTool.RING_HIT_PIXELS * scene.worldPerPixel();
+        double graphReach = RING_HIT_PIXELS * scene.worldPerPixel();
         List<float[]> graphSegments = ringTool.graphRingSegments;
         for (int ring = 0; hoveredRing < 0 && ring < graphSegments.size(); ring++) {
             float[] segments = graphSegments.get(ring);
@@ -458,7 +466,7 @@ public final class ClosedRingTool extends RingSubTool {
 
     @Override
     public String draftLabel() {
-        return RingTool.DRAFT_LABEL;
+        return DRAFT_LABEL;
     }
 
     @Override
@@ -478,6 +486,53 @@ public final class ClosedRingTool extends RingSubTool {
 
     @Override
     public void draftClosed() {
+    }
+
+    @Override
+    public boolean reopens(ConfirmedRing ring) {
+        return !ring.isBisector();
+    }
+
+    /**
+     * A closed ring draft walls nothing until confirmed.
+     *
+     * @return false
+     */
+    @Override
+    public boolean wallsWhileDrafted() {
+        return false;
+    }
+
+    @Override
+    public boolean showsRegions() {
+        return false;
+    }
+
+    @Override
+    public String nothingToConfirm() {
+        return "no draft to confirm - click a ring to draft one first";
+    }
+
+    /**
+     * An edited ring stays open and the scene goes on to the orbit tool (CRAW-73).
+     *
+     * @return false: the scene takes the key
+     */
+    @Override
+    public boolean escapeEditedDraft() {
+        ringTool.lastRow = "draft kept with its edits: Ctrl+R returns to it, Enter confirms, "
+                + "X discards";
+        return false;
+    }
+
+    @Override
+    public String escapeAfterUneditedDraft() {
+        return "";
+    }
+
+    @Override
+    public String escapeDescription() {
+        return "close an unedited ring (an edited one stays open)";
     }
 
     /**
