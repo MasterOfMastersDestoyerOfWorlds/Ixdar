@@ -3,6 +3,7 @@ package ixdar.platform.gl.web;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import org.joml.Vector4f;
 
@@ -836,8 +837,10 @@ public class WebGL implements GL {
      * <p>WebGL exposes no depth read, so every point reads as visible.
      */
     @Override
-    public float readDepth(int x, int y) {
-        return 1f;
+    public float[] readDepths(int x, int y, int width, int height) {
+        float[] depths = new float[Math.max(0, width * height)];
+        Arrays.fill(depths, 1f);
+        return depths;
     }
 
     /** {@inheritDoc}. */

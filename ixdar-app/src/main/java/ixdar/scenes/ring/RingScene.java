@@ -4,10 +4,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.annotations.command.Subsystem;
@@ -16,6 +18,7 @@ import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.ErrorToasts;
 import ixdar.gui.ui.text.HyperString;
@@ -48,6 +51,14 @@ public class RingScene extends MeshNodeViewerScene {
 
     public static final float HALF = 0.5f;
 
+    public static final Color LABEL_FILL_COLOUR = Color.WHITE;
+
+    public static final Color LABEL_BORDER_COLOUR = Color.BLACK;
+
+    public static final float LABEL_BORDER_PIXELS = 2f;
+
+    public static final float LABEL_ROW_PIXELS = 26f;
+
     public static final String CAMERA_MOVING_REFUSAL =
             "the camera is still moving - click again once it stops";
 
@@ -59,8 +70,6 @@ public class RingScene extends MeshNodeViewerScene {
 
     public static final String NO_SURFACE_REFUSAL =
             "no mesh is shown yet - wait for the model to load, then click";
-
-    public static final float REGION_NUMBER_ROW_PIXELS = 26f;
 
     /** The hover-to-preview ring tool, which holds the rings every tool works over. */
     public final RingTool ringTool = new RingTool(this);
@@ -96,6 +105,15 @@ public class RingScene extends MeshNodeViewerScene {
     /** Surface point under the cursor at the active tool's last {@link #pickCursor}, packed xyz. */
     public final float[] cursorPoint = new float[COORDINATES_PER_POINT];
 
+    /** The labels drawn this frame over the surface: ring numbers and region labels as shown. */
+    public final List<HyperString> shownLabels = new ArrayList<>();
+
+    /**
+     * Whether the camera's view is the one the last frame had: labels keep their anchors while it
+     * moves and are placed afresh once it holds still.
+     */
+    public boolean cameraStill;
+
     /** Direction of the view ray through the cursor at the last pick, packed xyz. */
     public final float[] cursorRayDirection = new float[COORDINATES_PER_POINT];
 
@@ -115,6 +133,7 @@ public class RingScene extends MeshNodeViewerScene {
     public int cursorFramebufferY;
 
     private final SurfacePicker cursorPicker = new SurfacePicker();
+    private final Matrix4f lastFrameView = new Matrix4f();
     private final float[] cursorRayOrigin = new float[COORDINATES_PER_POINT];
     private final float[] anchorPixel = new float[COORDINATES_PER_POINT];
     private final Vector3f anchorPosition = new Vector3f();
@@ -138,25 +157,38 @@ public class RingScene extends MeshNodeViewerScene {
 
     /**
      * Draw the surface through a runtime that also draws general overlays, since the rings are
-     * point sets, coloured line groups and labels over it.
+     * point sets and coloured line groups over it; it also tells the camera what hides a point,
+     * for the ring numbers anchored in 3D.
      *
      * @return the installed overlay runtime
      */
     @Override
     public HalfEdgeMeshRuntime createRuntime() {
         meshRuntime = new MeshOverlayRuntime();
+        camera.pointVisibility = meshRuntime;
         return meshRuntime;
     }
 
     /**
-     * Run one frame of every tool, then bring the region colours up to date with any ring the
-     * tools changed, after any pending model switch and before the mesh is drawn.
+     * Run one frame of every tool and the region layer, then gather the labels shown: ring numbers
+     * while numbered and shown, region labels while the regions are assembled and current.
      */
     @Override
     public void updateScene() {
         super.updateScene();
+        cameraStill = camera.view.equals(lastFrameView);
+        lastFrameView.set(camera.view);
         regionLayer.perFrame();
         errorToasts.perFrame();
+        shownLabels.clear();
+        if (showRingNumbers && ringsShown()) {
+            shownLabels.addAll(ringTool.ringNumbers);
+        }
+        if (!regionLayer.explosion.exploded() && !regionTool.showingExtraction
+                && regionLayer.regions != null && regionLayer.regions.mesh == halfEdgeSurface()
+                && regionLayer.builtRingRevision == ringTool.ringRevision) {
+            shownLabels.addAll(regionLayer.regionLabels);
+        }
     }
 
     /**
@@ -281,13 +313,7 @@ public class RingScene extends MeshNodeViewerScene {
      * @return the span, or 0 before the framebuffer has a size
      */
     public double worldPerPixel() {
-        int height = Platforms.get().getFrameBufferHeight();
-        if (height <= 0) {
-            return 0.0;
-        }
-        double eyeDistance = camera.position.distance(cursorPoint[0], cursorPoint[1],
-                cursorPoint[2]);
-        return 2.0 * eyeDistance * Math.tan(Math.toRadians(camera.fov * HALF)) / height;
+        return camera.worldPerPixel(cursorPoint[0], cursorPoint[1], cursorPoint[2]);
     }
 
     /**
@@ -322,30 +348,16 @@ public class RingScene extends MeshNodeViewerScene {
     }
 
     /**
-     * Draw the ring numbers while {@link #showRingNumbers} is set and the rings are shown, the part
-     * names while the regions are assembled, the region numbers the region layer placed, then the
-     * refusals at the top left.
+     * Draw the labels {@link #updateScene} gathered at their anchors, each ring number hidden where
+     * the surface is in front of it, then the refusals at the top left.
      */
     @Override
     public void drawSceneOverlayText() {
-        if (surfaceRuntime() instanceof MeshOverlayRuntime overlay) {
+        if (surfaceRuntime() != null) {
             if (showRingNumbers && ringsShown()) {
-                overlay.drawLabels(camera, camera2D);
+                ringTool.placeRingNumbers(camera);
             }
-            if (regionLayer.showPartNames && !regionLayer.explosion.exploded()
-                    && !regionTool.showingExtraction) {
-                overlay.drawLabels(camera, camera2D, regionLayer.partNameXyz,
-                        regionLayer.partNameText, regionLayer.partNameColours,
-                        regionLayer.partNameLift);
-            }
-        }
-        for (int region = 0; region < regionLayer.regionNumberText.length; region++) {
-            if (regionLayer.regionNumberText[region] != null) {
-                HyperString number = new HyperString();
-                number.addWord(regionLayer.regionNumberText[region], RegionLayer.REGION_NUMBER_COLOUR);
-                Drawing.getDrawing().font.drawHyperString(number, regionLayer.regionNumberXy[2 * region],
-                        regionLayer.regionNumberXy[2 * region + 1], REGION_NUMBER_ROW_PIXELS, camera2D);
-            }
+            Drawing.getDrawing().font.drawAnchoredStrings(shownLabels, LABEL_ROW_PIXELS, camera2D);
         }
         errorToasts.draw(camera2D);
     }

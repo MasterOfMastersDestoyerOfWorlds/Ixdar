@@ -22,6 +22,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.nodegraph.field.IntField;
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.cameras.PointVisibility;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
@@ -32,7 +33,7 @@ import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.GL;
 import ixdar.geometry.mesh.data.paths.query.SurfaceFaceLocator;
 
-public class HalfEdgeMeshRuntime {
+public class HalfEdgeMeshRuntime implements PointVisibility {
     public static final String MODEL = "model";
     public static final String VIEW = "view";
     public static final String PROJECTION = "projection";
@@ -72,6 +73,10 @@ public class HalfEdgeMeshRuntime {
 
     public static final VertexLayout FACE_PICK_LAYOUT =
             new VertexLayout(new int[] {0, 1}, new int[] {COORDINATES_PER_VERTEX, COORDINATES_PER_VERTEX});
+
+    private static final float DEPTH_LIFT_TIE = 0.25f;
+
+    private static final float ON_SURFACE_LIFTS = 2f;
 
     /** Draws every overlay line: discards fragments on surface facing away from the camera. */
     public final MeshLineShader lineShader;
@@ -136,6 +141,14 @@ public class HalfEdgeMeshRuntime {
 
     private final ShaderProgram meshPickShader;
     private int pickFaceCount;
+
+    private final Vector3f liftedPoint = new Vector3f();
+    private final Vector3f towardEye = new Vector3f();
+    private final Matrix4f inverseProjection = new Matrix4f();
+    private float[] depthSnapshot = new float[0];
+    private boolean depthSnapshotTaken;
+    private final Vector4f surfaceAtPixel = new Vector4f();
+    private final Vector4f pointInView = new Vector4f();
 
     /**
      * Build the runtime: allocate the mesh shader programs (lit, unlit, scalar, line, pick) and
@@ -421,6 +434,7 @@ public class HalfEdgeMeshRuntime {
      * @param camera 3D camera supplying the view matrix and FOV
      */
     public void render(Camera3D camera) {
+        depthSnapshotTaken = false;
         if (compiledMesh == null || compiledMesh.indices.length == 0) {
             return;
         }
@@ -813,24 +827,6 @@ public class HalfEdgeMeshRuntime {
         return faceIndices(camera, pickProjection, framebufferX, bottomY, 1, 1)[0];
     }
 
-    /**
-     * The face the camera sees at the centre of every cell of a coarse grid over the whole view:
-     * the id pass drawn into a {@code columns} by {@code rows} viewport, which keeps a scan-scale
-     * mesh's pass cheap, then the cleared frame restored.
-     *
-     * @param camera  active camera
-     * @param columns grid columns across the view
-     * @param rows    grid rows up the view
-     * @return active face index by cell, row-major from the bottom row, {@code -1} where no
-     *         surface is seen, empty before a face-pick buffer is uploaded
-     */
-    public int[] faceIndexGrid(Camera3D camera, int columns, int rows) {
-        if (facePick.vertexCount == 0 || meshPickShader.ID < 0 || columns <= 0 || rows <= 0) {
-            return new int[0];
-        }
-        updateProjection(camera);
-        return faceIndices(camera, camera.projection, 0, 0, columns, rows);
-    }
 
     /**
      * Draw the face-id pass through {@code projection} into a viewport, read it back and restore
@@ -868,6 +864,66 @@ public class HalfEdgeMeshRuntime {
             faceIndexByPixel[pixel] = faceIndex < pickFaceCount ? faceIndex : -1;
         }
         return faceIndexByPixel;
+    }
+
+    /**
+     * Whether a surface point, pulled {@code depthLift} toward the eye, is what the frame shows at
+     * its pixel: within a few lifts of the drawn depth there, by eye distance. Reads the depth
+     * buffer once per frame, so ask after the surface is drawn.
+     *
+     * @param camera    active camera, whose matrices drew the surface
+     * @param x         world x
+     * @param y         world y
+     * @param z         world z
+     * @param depthLift world distance toward the eye; a quarter of it is the depth tie allowed
+     * @param pixelDest receives framebuffer x from the left and y from the top
+     * @return true when the point is on screen and no nearer surface hides it
+     */
+    @Override
+    public boolean visiblePixel(Camera3D camera, float x, float y, float z, float depthLift,
+            float[] pixelDest) {
+        int width = Platforms.get().getFrameBufferWidth();
+        int height = Platforms.get().getFrameBufferHeight();
+        // Depths read back through the planes the surface was drawn with, so the depth a pixel
+        // holds turns back into that surface's true eye distance.
+        updateProjection(camera);
+        inverseProjection.set(camera.projection).invert();
+        liftedPoint.set(x, y, z);
+        if (depthLift > 0f) {
+            liftedPoint.add(towardEye.set(camera.position).sub(liftedPoint).normalize(depthLift));
+        }
+        boolean inFront = projectToPixels(camera, liftedPoint.x, liftedPoint.y, liftedPoint.z, pixelDest);
+        int pixelX = Math.round(pixelDest[0]);
+        int pixelFromBottom = height - 1 - Math.round(pixelDest[1]);
+        if (!inFront || pixelX < 0 || pixelX >= width || pixelFromBottom < 0 || pixelFromBottom >= height) {
+            return false;
+        }
+        // One read of the whole depth buffer per drawn frame serves every point asked about in it:
+        // a read is a GPU stall, and a frame asks hundreds.
+        if (!depthSnapshotTaken || depthSnapshot.length != width * height) {
+            depthSnapshot = Platforms.gl().readDepths(0, 0, width, height);
+            depthSnapshotTaken = true;
+        }
+        surfaceAtPixel.set(0f, 0f, 2f * depthSnapshot[pixelFromBottom * width + pixelX] - 1f, 1f);
+        inverseProjection.transform(surfaceAtPixel);
+        pointInView.set(liftedPoint, 1f);
+        camera.view.transform(pointInView);
+        // The point is the surface drawn there: no nearer fragment, and none so much farther that
+        // the pixel shows background or another sheet past a silhouette the point sits on.
+        float surfaceDistance = -surfaceAtPixel.z / surfaceAtPixel.w;
+        return -pointInView.z <= surfaceDistance + DEPTH_LIFT_TIE * depthLift
+                && -pointInView.z >= surfaceDistance - ON_SURFACE_LIFTS * depthLift;
+    }
+
+    /**
+     * Rebuild the camera's projection for the overlay passes, its far plane clearing the
+     * bounding-box diagonal rather than the surface pass's sphere diameter: the farther plane
+     * draws the same point nearer, which keeps lines lying on the surface in front of it.
+     *
+     * @param camera active camera
+     */
+    public void updateOverlayProjection(Camera3D camera) {
+        updateProjection(camera, getBoundingBoxMax().distance(getBoundingBoxMin()));
     }
 
     /**

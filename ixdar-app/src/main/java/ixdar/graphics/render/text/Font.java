@@ -3,6 +3,7 @@ package ixdar.graphics.render.text;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.joml.Vector2f;
@@ -22,7 +23,6 @@ public class Font {
     public static final String RES = "res";
     public static final String FONT_ATLAS_INIT_FAILED = "Font atlas init failed";
     public static final float DEFAULT_ATLAS_SIZE_PX = 32f;
-    public static final float SDF_BORDER_DISTANCE_PX = 20f;
     public static final int DEFAULT_MAX_TEXT_WIDTH = 64;
     public static final float BASELINE_OFFSET_RATIO = 0.25f;
     public static final double FLOOR_EPSILON = 0.0001;
@@ -86,7 +86,6 @@ public class Font {
                 this.shader = ShaderType.TextureSDF.getShader();
                 this.sdfTexture = new SDFTexture(this.texture);
                 this.sdfTexture.setSharpCorners(true);
-                this.sdfTexture.setBorderDist(SDF_BORDER_DISTANCE_PX);
                 this.sdfTexture.setPxRange(distanceRange);
             });
             this.maxTextWidth = DEFAULT_MAX_TEXT_WIDTH;
@@ -238,20 +237,8 @@ public class Font {
         sdfTexture.setup(camera);
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             hyperString.draw();
-            ArrayList<HyperWord> words = hyperString.getLine(lineNumber);
-            for (int i = 0; i < words.size(); i++) {
-                HyperWord word = words.get(i);
-                if (word.subWords != null) {
-                    for (HyperWord subWord : word.subWords) {
-                        drawTextNoSetup(subWord.text, subWord.x,
-                                subWord.y, height, subWord.color,
-                                camera);
-                    }
-                } else {
-                    drawTextNoSetup(word.text, word.x,
-                            word.y, height, word.color,
-                            camera);
-                }
+            for (HyperWord word : hyperString.getLine(lineNumber)) {
+                drawWord(word, height, camera);
             }
         }
         sdfTexture.cleanup(camera);
@@ -268,27 +255,36 @@ public class Font {
      */
     public void drawHyperStrings(ArrayList<HyperString> hyperStrings, ArrayList<Vector2f> xLoc, float height,
             Camera2D camera) {
-        sdfTexture.setup(camera);
         for (int j = 0; j < hyperStrings.size(); j++) {
-            Vector2f loc = xLoc.get(j);
-            HyperString hyperString = hyperStrings.get(j);
-            hyperString.setLineOffsetCentered(camera, loc.x, loc.y, this, height, 0);
+            hyperStrings.get(j).anchor.set(xLoc.get(j).x, xLoc.get(j).y, 0f);
+            hyperStrings.get(j).anchorCamera = null;
+        }
+        drawAnchoredStrings(hyperStrings, height, camera);
+    }
+
+    /**
+     * Lay out each string centred on its anchor ({@link HyperString#layoutAtAnchor}) and draw the
+     * shown ones in one SDF shader pass; a hidden string is neither drawn nor registered for hover
+     * and clicks.
+     *
+     * @param hyperStrings strings to render, each anchored in 2D or 3D
+     * @param height       row height in pixels
+     * @param camera       2D camera the strings are drawn through
+     */
+    public void drawAnchoredStrings(List<HyperString> hyperStrings, float height, Camera2D camera) {
+        if (sdfTexture == null) {
+            return;
+        }
+        sdfTexture.setup(camera);
+        for (HyperString hyperString : hyperStrings) {
+            hyperString.layoutAtAnchor(camera, height);
+            if (!hyperString.shown) {
+                continue;
+            }
             hyperString.draw();
             for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
-                ArrayList<HyperWord> words = hyperString.getLine(lineNumber);
-                for (int i = 0; i < words.size(); i++) {
-                    HyperWord word = words.get(i);
-                    if (word.subWords != null) {
-                        for (HyperWord subWord : word.subWords) {
-                            drawTextNoSetup(subWord.text, subWord.x,
-                                    subWord.y, height, subWord.color,
-                                    camera);
-                        }
-                    } else {
-                        drawTextNoSetup(word.text, word.x,
-                                word.y, height, word.color,
-                                camera);
-                    }
+                for (HyperWord word : hyperString.getLine(lineNumber)) {
+                    drawWord(word, height, camera);
                 }
             }
         }
@@ -316,29 +312,28 @@ public class Font {
         hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height);
         hyperString.draw();
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
-            ArrayList<HyperWord> words = hyperString.getLine(lineNumber);
-            for (int i = 0; i < words.size(); i++) {
-                HyperWord word = words.get(i);
-                if (word.culled) {
-                    continue;
-                }
-                if (word.newLine) {
-                    continue;
-                }
-                if (word.subWords != null) {
-                    for (HyperWord subWord : word.subWords) {
-                        drawTextNoSetup(subWord.text, subWord.x,
-                                subWord.y, height, subWord.color,
-                                camera);
-                    }
-                } else {
-                    drawTextNoSetup(word.text, word.x,
-                            word.y, height, word.color,
-                            camera);
+            for (HyperWord word : hyperString.getLine(lineNumber)) {
+                if (!word.culled && !word.newLine) {
+                    drawWord(word, height, camera);
                 }
             }
         }
         sdfTexture.cleanup(camera);
+    }
+
+    /**
+     * Draw one laid-out word, or each sub-word of a dynamic one, in its own style: its fill colour
+     * and the border band it asks for, inside a shader pass already set up.
+     *
+     * @param word   the word, laid out
+     * @param height row height in pixels
+     * @param camera camera providing the z-index
+     */
+    private void drawWord(HyperWord word, float height, Camera camera) {
+        for (HyperWord part : word.subWords != null ? word.subWords : List.of(word)) {
+            sdfTexture.setWordBorder(part.borderColor, part.borderPixels);
+            drawTextNoSetup(part.text, part.x, part.y, height, part.color, camera);
+        }
     }
 
     private static Map<Character, Glyph> buildGlyphs(FontAtlasDTO root) {
@@ -346,8 +341,12 @@ public class Font {
         if (root.glyphs == null)
             return map;
         for (FontAtlasDTO.GlyphEntry ge : root.glyphs) {
-            if (ge.atlasBounds == null)
+            // msdf-atlas-gen leaves a blank glyph such as the space without atlas bounds: it only
+            // advances the pen, and draws nothing.
+            if (ge.atlasBounds == null) {
+                map.put((char) ge.unicode, new Glyph(0, 0, 0, 0, (float) ge.advance, 0f, 0f, 0f, 0f));
                 continue;
+            }
             int x = (int) Math.floor(ge.atlasBounds.left + FLOOR_EPSILON);
             int y = (int) Math.floor(ge.atlasBounds.bottom + FLOOR_EPSILON);
             int width = (int) Math.round(ge.atlasBounds.right - ge.atlasBounds.left);

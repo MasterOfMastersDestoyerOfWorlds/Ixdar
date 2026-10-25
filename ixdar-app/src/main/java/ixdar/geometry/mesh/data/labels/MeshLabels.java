@@ -3,12 +3,15 @@ package ixdar.geometry.mesh.data.labels;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
+import ixdar.graphics.render.color.Palette;
+import ixdar.graphics.render.color.RegionColouring;
 
 /**
  * Named labels on a mesh, each kept as the surface points that select it, never as element
@@ -30,6 +33,18 @@ public final class MeshLabels {
 
     /** Surface points selecting each label's elements, packed xyz, parallel to {@link #names}. */
     public final List<float[]> pointsByLabel = new ArrayList<>();
+
+    /**
+     * Label of each ring region as last {@link #resolve resolved}, {@link #UNLABELLED} where no
+     * point falls; empty before.
+     */
+    public int[] labelByRegion = new int[0];
+
+    /** Labels whose regions touch each label's regions, ascending, as last resolved. */
+    public int[][] neighboursByLabel = new int[0][];
+
+    /** Palette colour of each label as last resolved: touching labels never share one. */
+    public final RegionColouring colouring = new RegionColouring();
 
     /** An empty label set. */
     public MeshLabels() {
@@ -102,12 +117,14 @@ public final class MeshLabels {
     }
 
     /**
-     * The label of each ring region: the last label with a point whose nearest face lies in it.
+     * Resolve the labels against ring regions and colour them: each region takes the last label
+     * with a point whose nearest face lies in it, labels touch where their regions do, and touching
+     * labels take different palette entries, each keeping its colour while no neighbour takes it.
      *
      * @param regions the regions the points are resolved against
-     * @return one label index per region, {@link #UNLABELLED} where no point falls
+     * @param palette the entries {@link #colouring} hands out
      */
-    public int[] labelByRegion(RingRegions regions) {
+    public void resolve(RingRegions regions, Palette palette) {
         int[] labelOf = new int[regions.regionCount];
         Arrays.fill(labelOf, UNLABELLED);
         for (int label = 0; label < names.size(); label++) {
@@ -120,7 +137,32 @@ public final class MeshLabels {
                 }
             }
         }
-        return labelOf;
+        labelByRegion = labelOf;
+        List<TreeSet<Integer>> touching = new ArrayList<>();
+        int[] regionsOf = new int[names.size()];
+        int[] continuing = new int[names.size()];
+        for (int label = 0; label < names.size(); label++) {
+            touching.add(new TreeSet<>());
+            continuing[label] = label;
+        }
+        for (int region = 0; region < regions.regionCount; region++) {
+            int label = labelOf[region];
+            if (label == UNLABELLED) {
+                continue;
+            }
+            regionsOf[label]++;
+            for (int neighbour : regions.neighboursByRegion[region]) {
+                if (labelOf[neighbour] != UNLABELLED && labelOf[neighbour] != label) {
+                    touching.get(label).add(labelOf[neighbour]);
+                }
+            }
+        }
+        int[][] neighbours = new int[names.size()][];
+        for (int label = 0; label < names.size(); label++) {
+            neighbours[label] = touching.get(label).stream().mapToInt(Integer::intValue).toArray();
+        }
+        neighboursByLabel = neighbours;
+        colouring.colour(neighbours, regionsOf, continuing, null, palette);
     }
 
     /**

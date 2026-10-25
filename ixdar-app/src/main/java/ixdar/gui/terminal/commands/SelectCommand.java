@@ -103,9 +103,10 @@ public class SelectCommand extends TerminalCommand {
             String name = field.strip();
             int region = name.matches("\\d+") ? Integer.parseInt(name) : -1;
             int part = layer.partLabels.names.indexOf(name);
-            for (int labelled = 0; part >= 0 && labelled < layer.labelByRegion.length
+            int[] labelByRegion = layer.partLabels.labelByRegion;
+            for (int labelled = 0; part >= 0 && labelled < labelByRegion.length
                     && labelled < regions.regionCount; labelled++) {
-                wanted[labelled] |= layer.labelByRegion[labelled] == part;
+                wanted[labelled] |= labelByRegion[labelled] == part;
             }
             if (part < 0 && (region < 0 || region >= regions.regionCount)) {
                 refusal = "no region or part '" + name + "'; there are " + regions.regionCount

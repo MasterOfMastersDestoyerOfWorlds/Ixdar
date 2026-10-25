@@ -14,6 +14,9 @@ import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
+import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
+import ixdar.graphics.render.color.Palettes;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.data.AddLabelNode;
 import ixdar.nodegraph.syntax.PythonParser;
@@ -43,6 +46,10 @@ class MeshLabelsTest {
     private static final float LOWER_BAND_CEILING = 2f;
 
     private static final float ADDED_RING_HEIGHT = 3.5f;
+
+    private static final float HALF = 0.5f;
+
+    private static final float ROW_HEIGHT = 0.5f;
 
     private static final String RINGS = "carrier = load_mesh(path=\"x.off\")\n"
             + "ring_00 = spline_ring(geometry=carrier.geometry, points=\"0.000000,0.000000,"
@@ -145,9 +152,47 @@ class MeshLabelsTest {
         return new RingRegions(mesh, labels, marks).build();
     }
 
+    /**
+     * Eight bands named in order up the cylinder, more parts than the three-entry palette holds:
+     * colouring by part adjacency gives touching bands different entries and never runs past the
+     * palette into a darker shade, as handing out entries in label order did.
+     */
+    @Test
+    void touchingPartsTakeDifferentPaletteEntriesAndNoneRunsPastThePalette() {
+        MeshTopology cylinder = RingRegionsTest.cappedCylinder();
+        int[] rows = new int[RingRegionsTest.SIDE_ROWS - 1];
+        for (int ring = 0; ring < rows.length; ring++) {
+            rows[ring] = ring + 1;
+        }
+        RingRegions regions = regions(cylinder, rows);
+        MeshLabels labels = new MeshLabels();
+        for (int band = 0; band < RingRegionsTest.SIDE_ROWS; band++) {
+            labels.add("band_" + band, new float[] { 1f, 0f, (band + HALF) * ROW_HEIGHT });
+        }
+        Palette three = new Palette(Color.RED, Color.GREEN, Color.BLUE);
+
+        labels.resolve(regions, three);
+
+        int[] colourByLabel = labels.colouring.colourByNode;
+        assertEquals(RingRegionsTest.SIDE_ROWS, colourByLabel.length);
+        for (int band = 0; band < RingRegionsTest.SIDE_ROWS; band++) {
+            assertTrue(colourByLabel[band] >= 0 && colourByLabel[band] < three.size(),
+                    "band " + band + " took entry " + colourByLabel[band] + " past the palette");
+            int[] expected = band == 0 ? new int[] { 1 }
+                    : band == RingRegionsTest.SIDE_ROWS - 1 ? new int[] { band - 1 }
+                            : new int[] { band - 1, band + 1 };
+            assertArrayEquals(expected, labels.neighboursByLabel[band], "band " + band);
+            for (int neighbour : labels.neighboursByLabel[band]) {
+                assertTrue(colourByLabel[band] != colourByLabel[neighbour],
+                        "touching bands " + band + " and " + neighbour + " share an entry");
+            }
+        }
+    }
+
     /** The label of each face's region, by dense face index. */
     private static int[] labelByFace(MeshLabels labels, RingRegions regions) {
-        int[] labelOf = labels.labelByRegion(regions);
+        labels.resolve(regions, Palettes.BRIGHT_PATCH);
+        int[] labelOf = labels.labelByRegion;
         int[] byFace = new int[regions.regionByActiveFace.length];
         for (int activeFace = 0; activeFace < byFace.length; activeFace++) {
             byFace[activeFace] = labelOf[regions.regionByActiveFace[activeFace]];

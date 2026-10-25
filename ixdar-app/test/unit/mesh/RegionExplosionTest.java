@@ -24,8 +24,6 @@ class RegionExplosionTest {
 
     private static final float TOLERANCE = 1e-5f;
 
-    private static final float HALF = 0.5f;
-
     private static final float QUARTER = 0.25f;
 
     private static final float[] SQUARE_LEFT = { 0f, 2f, 4f };
@@ -51,11 +49,11 @@ class RegionExplosionTest {
         RegionExplosion explosion = measuredSquares();
         Map<String, Vector3f> offsets = new HashMap<>();
 
-        explosion.step(RegionExplosion.SWEEP_SECONDS, 0, offsets);
+        explosion.step(RegionExplosion.SWEEP_SECONDS, offsets);
         assertTrue(offsets.isEmpty());
 
         explosion.toggle();
-        explosion.step(RegionExplosion.SWEEP_SECONDS, 0, offsets);
+        explosion.step(RegionExplosion.SWEEP_SECONDS, offsets);
         float spread = RegionExplosion.FULL_SPREAD;
         assertEquals(spread * (0.5f - 23f / 6f), offsets.get(tag(0)).x, TOLERANCE);
         assertEquals(spread * (0.5f - 5f / 6f), offsets.get(tag(0)).y, TOLERANCE);
@@ -70,7 +68,7 @@ class RegionExplosionTest {
         Map<String, Vector3f> offsets = new HashMap<>();
 
         explosion.toggle();
-        explosion.step(RegionExplosion.SWEEP_SECONDS, 0, offsets);
+        explosion.step(RegionExplosion.SWEEP_SECONDS, offsets);
         for (int region = 0; region < 3; region++) {
             for (int other = region + 1; other < 3; other++) {
                 for (int axis = 0; axis < 3; axis++) {
@@ -90,7 +88,7 @@ class RegionExplosionTest {
         Map<String, Vector3f> offsets = new HashMap<>();
 
         explosion.toggle();
-        explosion.step(QUARTER * RegionExplosion.SWEEP_SECONDS, 0, offsets);
+        explosion.step(QUARTER * RegionExplosion.SWEEP_SECONDS, offsets);
 
         assertEquals(QUARTER, explosion.progress, TOLERANCE);
         // Smoothstep at a quarter: 0.25^2 * (3 - 0.5).
@@ -102,25 +100,31 @@ class RegionExplosionTest {
         assertEquals(spread * (5f - 23f / 6f), offsets.get(tag(2)).x, TOLERANCE);
         assertEquals(spread * (1f - 5f / 6f), offsets.get(tag(2)).y, TOLERANCE);
 
-        explosion.step(RegionExplosion.SWEEP_SECONDS, 0, offsets);
+        explosion.step(RegionExplosion.SWEEP_SECONDS, offsets);
         assertEquals(1f, explosion.progress, TOLERANCE);
         assertEquals(1f, explosion.appliedAmount, TOLERANCE);
     }
 
     @Test
-    void aHeldDirectionMovesTheAmountAndHoldsIt() {
+    void eachNudgeMovesTheTargetOneStepAndTheViewAnimatesThereAndHolds() {
         RegionExplosion explosion = measuredSquares();
         Map<String, Vector3f> offsets = new HashMap<>();
 
-        explosion.step(HALF * RegionExplosion.SWEEP_SECONDS, 1, offsets);
-        assertEquals(HALF, explosion.progress, TOLERANCE);
-        assertEquals(HALF, explosion.target, TOLERANCE);
+        explosion.nudge(1);
+        explosion.nudge(1);
+        assertEquals(2 * RegionExplosion.NUDGE, explosion.target, TOLERANCE);
+        explosion.step(RegionExplosion.SWEEP_SECONDS, offsets);
+        assertEquals(2 * RegionExplosion.NUDGE, explosion.progress, TOLERANCE);
 
-        explosion.step(RegionExplosion.SWEEP_SECONDS, 0, offsets);
-        assertEquals(HALF, explosion.progress, TOLERANCE);
-        assertEquals(HALF, explosion.appliedAmount, TOLERANCE);
+        explosion.step(RegionExplosion.SWEEP_SECONDS, offsets);
+        assertEquals(2 * RegionExplosion.NUDGE, explosion.progress, TOLERANCE);
+        assertTrue(explosion.exploded());
 
-        explosion.step(RegionExplosion.SWEEP_SECONDS, -1, offsets);
+        explosion.nudge(-1);
+        explosion.nudge(-1);
+        explosion.nudge(-1);
+        assertEquals(0f, explosion.target, TOLERANCE);
+        explosion.step(RegionExplosion.SWEEP_SECONDS, offsets);
         assertEquals(0f, explosion.progress, TOLERANCE);
         assertFalse(explosion.exploded());
         assertTrue(offsets.isEmpty());
@@ -133,7 +137,7 @@ class RegionExplosionTest {
 
         explosion.animateTo(2f);
         assertEquals(1f, explosion.target, TOLERANCE);
-        explosion.step(RegionExplosion.SWEEP_SECONDS, 0, offsets);
+        explosion.step(RegionExplosion.SWEEP_SECONDS, offsets);
         assertTrue(explosion.exploded());
 
         explosion.collapse(offsets);

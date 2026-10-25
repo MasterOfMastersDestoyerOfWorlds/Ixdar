@@ -63,7 +63,6 @@ public class MainScene extends Scene {
     public static final String KNOT_FINDING_TIME = "Knot-finding time: ";
     public static final String PACKAGE_SEPARATOR = ".";
     public static final float CAMERA_ZOOM_DEFAULT = 0.9f;
-    public static final float LOGO_SCALE = 0.6f;
     public static final int MAX_SOLVE_ATTEMPTS = 40;
     public static final double MILLIS_PER_SECOND = 1000.0;
     public static final float HOVER_SEGMENT_LERP_SPEED = 4f;
@@ -170,7 +169,7 @@ public class MainScene extends Scene {
         mapEditorTool = new MapEditorTool(this);
         negativeCutMatchViewTool = new NegativeCutMatchViewTool(this);
         neighborViewTool = new NeighborViewTool(this);
-        logo = new SDFTexture("decal_sdf_small.png", Color.IXDAR_DARK, LOGO_SCALE, 0f, true);
+        logo = new SDFTexture("decal_sdf_small.png", true);
 
         Map<String, Bounds> views = new HashMap<>();
         views.put(VIEW_MAIN,

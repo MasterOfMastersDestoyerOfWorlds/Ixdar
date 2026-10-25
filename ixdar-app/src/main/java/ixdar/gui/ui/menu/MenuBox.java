@@ -29,7 +29,6 @@ public class MenuBox implements PointerRegion {
     public static final float MENU_ALPHA = 0.95f;
     public static final float INNER_OFFSET_Y = 0.02f;
     public static final int PIN_STRIPE_COUNT = 5;
-    public static final float LOGO_BORDER_DIST = 0.9f;
     public static final float ITEM_WIDTH_SCALE = 0.91f;
     public static final float ITEM_SPACING_FACTOR = 1.5f;
     public static final float LABEL_Y_OFFSET_FACTOR = 0.075f;
@@ -93,7 +92,7 @@ public class MenuBox implements PointerRegion {
         menuOuterBorder = new SDFUnion("menu_inner.png", Color.BLUE_TEAL_VERY_DARK, MENU_ALPHA, 0, -INNER_OFFSET_Y,
                 "menu_outer.png",
                 Color.BLUE_GREY, alpha, PIN_STRIPE_COUNT, 2);
-        logo = new SDFTexture("decal_sdf.png", Color.IXDAR_DARK, LOGO_BORDER_DIST, 0f, true);
+        logo = new SDFTexture("decal_sdf.png", true);
         boundingBox = new ColorBox();
         // Create both menus and link them
         debugMenu = new Menu.MainMenu();

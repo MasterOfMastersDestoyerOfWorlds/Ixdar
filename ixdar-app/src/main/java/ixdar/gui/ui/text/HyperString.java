@@ -7,18 +7,25 @@ import java.util.function.Supplier;
 
 import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.knot.Segment;
+import org.joml.Vector3f;
+
 import ixdar.graphics.cameras.Bounds;
+import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.cameras.Camera2D;
+import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.text.ColorText;
 import ixdar.graphics.render.text.Font;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.actions.Action;
 import ixdar.input.MouseTrap;
+import ixdar.platform.Platforms;
 import ixdar.scenes.Scene;
 
 public class HyperString {
     public static final int TOOLTIP_CHAR_WRAP = 30;
+
+    private static final int ANCHOR_PIXEL_VALUES = 3;
 
     public ArrayList<HyperWord> words;
     public HashMap<Integer, String> strMap;
@@ -31,8 +38,31 @@ public class HyperString {
     public int charWrap = Integer.MAX_VALUE;
     public Bounds bounds;
     public Object data;
+
+    /**
+     * Where {@link #layoutAtAnchor} centres the string: x and y in the drawing camera's world, or a
+     * world point while {@link #anchorCamera} is a {@link Camera3D}.
+     */
+    public final Vector3f anchor = new Vector3f();
+
+    /**
+     * Camera the anchor is placed through: a {@link Camera3D} projects the world point and hides
+     * the string where the surface does; {@code null} or a 2D camera takes the anchor as it is.
+     */
+    public Camera anchorCamera;
+
+    /** For a 3D anchor, world distance it is pulled toward the eye before the hiding test. */
+    public float anchorDepthLift;
+
+    /**
+     * Whether the string is drawn and takes hover and clicks: a 3D anchor's layout sets it, and
+     * the owner of a 2D-anchored string sets it.
+     */
+    public boolean shown = true;
+
     private int wrappedLines;
     private Font font;
+    private final float[] anchorPixel = new float[ANCHOR_PIXEL_VALUES];
 
     /**
      * Build an empty rich-text string with one blank starting line, using
@@ -84,6 +114,24 @@ public class HyperString {
             addWord(w + " ", c, () -> {
             }, () -> {
             }, null);
+        }
+    }
+
+    /**
+     * Append space-separated words in a fill colour with a border band round their glyphs.
+     *
+     * @param word         whitespace-separated text to append
+     * @param fill         colour of the glyphs
+     * @param border       colour of the band
+     * @param borderPixels width of the band outside the glyph edges, in screen pixels
+     */
+    public void addWord(String word, Color fill, Color border, float borderPixels) {
+        for (String w : word.split(" ")) {
+            addWord(w + " ", fill, () -> {
+            }, () -> {
+            }, null);
+            getLastWord().borderColor = border;
+            getLastWord().borderPixels = borderPixels;
         }
     }
 
@@ -468,6 +516,10 @@ public class HyperString {
             }
             pieces.add(new HyperWord(rest, word.color, word.hoverAction, word.clearHover,
                     word.clickAction, font));
+            for (HyperWord piece : pieces) {
+                piece.borderColor = word.borderColor;
+                piece.borderPixels = word.borderPixels;
+            }
             words.remove(index);
             words.addAll(index, pieces);
             for (int line = 0; line < lineStartMap.size(); line++) {
@@ -583,6 +635,28 @@ public class HyperString {
                         wordWidth, scale * font.getHeight(subWord.charSequence), camera.viewBounds);
                 offset += wordWidth;
             }
+        }
+    }
+
+    /**
+     * Lay out the first line centred on {@link #anchor}: as given for a 2D anchor, or where a 3D
+     * anchor's camera projects it, the string hidden ({@link #shown} false) where nothing shows the
+     * point. A hidden string keeps its last bounds and is left out of the draw.
+     *
+     * @param screen    the 2D camera the string is drawn through, in framebuffer pixels
+     * @param rowHeight glyph height the line is drawn at, in pixels
+     */
+    public void layoutAtAnchor(Camera2D screen, float rowHeight) {
+        float x = anchor.x;
+        float y = anchor.y;
+        if (anchorCamera instanceof Camera3D world) {
+            shown = world.pointVisibility.visiblePixel(world, anchor.x, anchor.y, anchor.z, anchorDepthLift,
+                    anchorPixel);
+            x = anchorPixel[0];
+            y = Platforms.get().getFrameBufferHeight() - anchorPixel[1];
+        }
+        if (shown) {
+            setLineOffsetCentered(screen, x, y, font, rowHeight, 0);
         }
     }
 

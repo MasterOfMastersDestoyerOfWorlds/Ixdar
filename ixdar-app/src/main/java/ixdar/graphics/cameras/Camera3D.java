@@ -68,6 +68,13 @@ public class Camera3D implements Camera, CameraController {
      */
     public final Matrix4f projection = new Matrix4f();
 
+    /**
+     * Answers whether text anchored at a world point is seen: the surface a scene draws through
+     * this camera, else bare projection, which hides nothing.
+     */
+    public PointVisibility pointVisibility = (camera, x, y, z, depthLift, pixelDest) -> camera
+            .projectToPixels(new Matrix4f(), x, y, z, pixelDest);
+
     public Vector3f position;
     public Vector3f target;
     public Vector3f right;
@@ -495,6 +502,20 @@ public class Camera3D implements Camera, CameraController {
             return projection.identity().ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, near, far);
         }
         return projection.identity().perspective((float) Math.toRadians((float) fov), aspect, near, far);
+    }
+
+    /**
+     * World units one framebuffer pixel spans at a point, the scale a pixel reach is in.
+     *
+     * @param x world x
+     * @param y world y
+     * @param z world z
+     * @return the span at the point's eye distance, or 0 before the framebuffer has a size
+     */
+    public double worldPerPixel(float x, float y, float z) {
+        int height = Platforms.get().getFrameBufferHeight();
+        return height <= 0 ? 0.0
+                : 2.0 * position.distance(x, y, z) * Math.tan(Math.toRadians(fov) / 2.0) / height;
     }
 
     /**

@@ -17,6 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.annotations.tool.ToolAnnotation;
@@ -41,12 +42,14 @@ import ixdar.nodegraph.nodes.selection.LoopThroughPointsNode;
 import ixdar.nodegraph.nodes.selection.SelectRingNode;
 import ixdar.nodegraph.nodes.selection.SplineCutNode;
 import ixdar.nodegraph.nodes.selection.SplineRingNode;
+import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.LineSet;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.gui.ui.actions.Action;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.nodegraph.syntax.PythonParser;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.KeyNames;
@@ -121,6 +124,10 @@ public final class RingTool extends Tool {
     public static final int SEGMENT_FLOATS = 2 * COORDINATES_PER_POINT;
 
     public static final float HALF = 0.5f;
+
+    public static final float NUMBER_DEPTH_TIE_PIXELS = 3f;
+
+    public static final int NUMBER_PLACEMENT_TRIES = 8;
 
     public static final String SPLINE_RING_NODE = "spline_ring";
 
@@ -250,6 +257,9 @@ public final class RingTool extends Tool {
     /** Colour each drawn ring takes, parallel to {@link #drawnRingLabel}. */
     public Color[] drawnRingColors = new Color[0];
 
+    /** Each drawn ring's number as text anchored at its centroid, lifted level with its loop. */
+    public List<HyperString> ringNumbers = new ArrayList<>();
+
     /** Bumped whenever the rings change, so a tool built on them knows to rebuild. */
     public int ringRevision;
 
@@ -303,7 +313,11 @@ public final class RingTool extends Tool {
     private LineSet ringLines = new LineSet(0);
     private int[] ringSegmentStart = { 0 };
     private float[] ringLabelXyz = new float[0];
-    private float[] ringLabelLift = new float[0];
+    private final Matrix4f ringNumbersPlacedView = new Matrix4f().zero();
+    private int numbersPlacedWidth;
+    private int numbersPlacedHeight;
+    private final Matrix4f identityModel = new Matrix4f();
+    private final float[] numberPixel = new float[COORDINATES_PER_POINT];
     private boolean ringsStale = true;
     private SurfaceSpline uploadedPreview;
     private SurfaceSpline uploadedDraft;
@@ -2212,7 +2226,21 @@ public final class RingTool extends Tool {
             graphIndex++;
         }
         overlay.setLineGroups(lines, groupStart, groupColor);
-        overlay.setLabels(ringLabelXyz, drawnRingLabel, drawnRingColors, ringLabelLift);
+        List<HyperString> numbers = new ArrayList<>();
+        for (int ring = 0; ring < drawnRingLabel.length && ring + 1 < ringSegmentStart.length; ring++) {
+            if (drawnRingLabel[ring].isEmpty()) {
+                continue;
+            }
+            HyperString number = new HyperString();
+            number.addWord(drawnRingLabel[ring], RingScene.LABEL_FILL_COLOUR, RingScene.LABEL_BORDER_COLOUR,
+                    RingScene.LABEL_BORDER_PIXELS);
+            number.setData(ring);
+            number.shown = false;
+            numbers.add(number);
+        }
+        ringNumbers = numbers;
+        ringNumbersPlacedView.zero();
+        numbersPlacedWidth = 0;
         // Only the draft shows its anchors, as fixed-pixel discs: supporting smallest and white,
         // authored larger and cyan, the selected one largest and yellow. Smaller classes go
         // first so a larger disc wins where two overlap.
@@ -2245,6 +2273,85 @@ public final class RingTool extends Tool {
             anchorColor[cursor++] = SELECTED_ANCHOR_COLOR;
         }
         overlay.setAnchorDiscs(anchorVertexId, anchorColor, anchorDiameter);
+    }
+
+    /**
+     * When the camera or rings changed, anchor each ring number on its loop: the unhidden loop point
+     * facing the camera nearest the centroid on screen; a ring seen only from behind gets none.
+     *
+     * @param camera the camera the surface was drawn through, whose visibility answer tests points
+     */
+    public void placeRingNumbers(Camera3D camera) {
+        int width = Platforms.get().getFrameBufferWidth();
+        int height = Platforms.get().getFrameBufferHeight();
+        boolean placed = numbersPlacedWidth > 0;
+        // While the camera moves each number keeps its loop point and is only reprojected.
+        if (ringNumbers.isEmpty() || placed && !scene.cameraStill
+                || camera.view.equals(ringNumbersPlacedView) && width == numbersPlacedWidth
+                        && height == numbersPlacedHeight) {
+            return;
+        }
+        ringNumbersPlacedView.set(camera.view);
+        numbersPlacedWidth = width;
+        numbersPlacedHeight = height;
+        int stride = 2 * LineSet.FLOATS_PER_VERTEX;
+        for (HyperString number : ringNumbers) {
+            int ring = (Integer) number.getData();
+            number.anchorCamera = null;
+            number.shown = false;
+            if (!camera.projectToPixels(identityModel, ringLabelXyz[COORDINATES_PER_POINT * ring],
+                    ringLabelXyz[COORDINATES_PER_POINT * ring + 1], ringLabelXyz[COORDINATES_PER_POINT * ring + 2],
+                    numberPixel)) {
+                continue;
+            }
+            float centreX = numberPixel[0];
+            float centreY = numberPixel[1];
+            int first = ringSegmentStart[ring];
+            int segments = ringSegmentStart[ring + 1] - first;
+            double[] offCentre = new double[segments];
+            for (int segment = 0; segment < segments; segment++) {
+                int base = (first + segment) * stride;
+                float[] vertex = ringLines.vertices;
+                // Both faces beside the point must face the camera: from inside the body one face of a
+                // crease the ring follows can turn toward the eye.
+                boolean facing = true;
+                for (int side = 1; side <= 2; side++) {
+                    int normal = base + side * COORDINATES_PER_POINT;
+                    facing &= vertex[normal] * (camera.position.x - vertex[base])
+                            + vertex[normal + 1] * (camera.position.y - vertex[base + 1])
+                            + vertex[normal + 2] * (camera.position.z - vertex[base + 2]) > 0f;
+                }
+                offCentre[segment] = facing && camera.projectToPixels(identityModel, vertex[base],
+                        vertex[base + 1], vertex[base + 2], numberPixel)
+                                ? Math.hypot(numberPixel[0] - centreX, numberPixel[1] - centreY)
+                                : Double.POSITIVE_INFINITY;
+            }
+            // Each hiding test reads the depth buffer, so only the few points nearest the centre try.
+            for (int attempt = 0; attempt < NUMBER_PLACEMENT_TRIES && !number.shown; attempt++) {
+                int nearest = -1;
+                for (int segment = 0; segment < segments; segment++) {
+                    if (offCentre[segment] < Double.POSITIVE_INFINITY
+                            && (nearest < 0 || offCentre[segment] < offCentre[nearest])) {
+                        nearest = segment;
+                    }
+                }
+                if (nearest < 0) {
+                    break;
+                }
+                offCentre[nearest] = Double.POSITIVE_INFINITY;
+                int base = (first + nearest) * stride;
+                float[] vertex = ringLines.vertices;
+                float lift = (float) (NUMBER_DEPTH_TIE_PIXELS
+                        * camera.worldPerPixel(vertex[base], vertex[base + 1], vertex[base + 2]));
+                if (camera.pointVisibility.visiblePixel(camera, vertex[base], vertex[base + 1], vertex[base + 2],
+                        lift, numberPixel)) {
+                    number.anchor.set(vertex[base], vertex[base + 1], vertex[base + 2]);
+                    number.anchorDepthLift = lift;
+                    number.anchorCamera = camera;
+                    number.shown = true;
+                }
+            }
+        }
     }
 
     /**
@@ -2325,7 +2432,6 @@ public final class RingTool extends Tool {
         ringSegmentStart = new int[perRing.size() + 1];
         drawnRingColors = new Color[perRing.size()];
         ringLabelXyz = new float[COORDINATES_PER_POINT * perRing.size()];
-        ringLabelLift = new float[perRing.size()];
         for (int ring = 0; ring < perRing.size(); ring++) {
             float[] ringSegments = perRing.get(ring);
             LineSet lines = perRingLines.get(ring);
@@ -2345,9 +2451,8 @@ public final class RingTool extends Tool {
     }
 
     /**
-     * Place one ring's number: the length-weighted centroid of its segments goes in the label
-     * positions, and the ring's outer radius sets how far the number floats toward the eye, which
-     * brings it level with the loop's nearest point so the surface hides only a ring behind it.
+     * Measure one ring's length-weighted centroid, the point on screen its number is placed
+     * nearest to.
      *
      * @param segments the ring's packed segment endpoints
      * @param ring     the ring's position in the overlay
@@ -2376,14 +2481,6 @@ public final class RingTool extends Tool {
         ringLabelXyz[COORDINATES_PER_POINT * ring] = centroidX;
         ringLabelXyz[COORDINATES_PER_POINT * ring + 1] = centroidY;
         ringLabelXyz[COORDINATES_PER_POINT * ring + 2] = centroidZ;
-        double outerRadius = 0.0;
-        for (int base = 0; base + SEGMENT_FLOATS <= segments.length; base += SEGMENT_FLOATS) {
-            double dx = segments[base] - centroidX;
-            double dy = segments[base + 1] - centroidY;
-            double dz = segments[base + 2] - centroidZ;
-            outerRadius = Math.max(outerRadius, Math.sqrt(dx * dx + dy * dy + dz * dz));
-        }
-        ringLabelLift[ring] = (float) outerRadius;
     }
 
     /**
