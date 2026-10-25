@@ -17,6 +17,8 @@ import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
+import ixdar.tools.Draft;
+import ixdar.tools.Preview;
 import ixdar.tools.Tool;
 
 /**
@@ -56,6 +58,17 @@ public final class BisectorTool extends RingSubTool {
 
     public static final String WALLS_NOTHING = "the bisector runs along its wall or does "
             + "not join its two walls; add an anchor to steer it off";
+
+    public static final String DISCARD_ACTION = "discard-draft";
+
+    public static final String DISCARD_HINT = "discard the bisector draft, or its waiting first end";
+
+    public static final String NOTHING_TO_DISCARD = "no bisector draft or waiting first end to "
+            + "discard - click near a wall to start one";
+
+    public static final String WAITING_END = "waiting end";
+
+    public static final String WAITING_LABEL = "bisector first end";
 
     /** Serials of the walls the draft's ends sit on when it is a bisector, else {@code null}. */
     public int[] draftEnds;
@@ -132,6 +145,9 @@ public final class BisectorTool extends RingSubTool {
     @Override
     public void addControls(List<ControlHint> controls) {
         controls.add(new ControlHint(ControlHint.NO_KEY, "click", CLICK_HINT));
+        // Shift+X is listed before X, which also fires with Shift held.
+        controls.add(new ControlHint(DISCARD_ACTION, Keys.X, false, true, "shift+X", DISCARD_HINT,
+                ringTool.refusalShown(() -> discardDraft())));
         for (int key : new int[] { Keys.X, Keys.DELETE, Keys.BACKSPACE }) {
             controls.add(new ControlHint("delete-bisector-point", key, key == Keys.X ? "X"
                     : key == Keys.DELETE ? "del" : "backspace", DELETE_POINT_HINT,
@@ -198,15 +214,19 @@ public final class BisectorTool extends RingSubTool {
         }
         int snapped = snapToWall(vertexId, scene.cursorPoint,
                 END_REACH_PIXELS);
+        // A refused click leaves a waiting first end in place, so the refusal names it.
+        int waitingRing = ringTool.ringOfSerial(startWall);
+        String waiting = startVertexId < 0 || waitingRing < 0 ? "" : "; the first end still waits "
+                + "on " + ringTool.liveLabel(waitingRing) + " - Shift+X drops it";
         if (snapped < 0) {
             ringTool.lastError = String.format(Locale.ROOT, "refused: no ring or bisector within "
-                    + "%.0f px; a bisector's ends sit on walls, so click on or beside one",
-                    END_REACH_PIXELS);
+                    + "%.0f px; a bisector's ends sit on walls, so click on or beside one%s",
+                    END_REACH_PIXELS, waiting);
             return false;
         }
         if (snapped == startVertexId) {
             ringTool.lastError = "refused: the second end lands on the first; click another wall "
-                    + "vertex";
+                    + "vertex" + waiting;
             return false;
         }
         RingToolState stateBefore = new RingToolState(ringTool);
@@ -574,6 +594,67 @@ public final class BisectorTool extends RingSubTool {
                 + " on " + ringTool.liveLabel(ringTool.ringOfSerial(draftEnds[doomed == 0 ? 0 : 1]))
                 + " is the end now");
         return true;
+    }
+
+    /**
+     * Shift+X: drop the bisector draft, a re-opened bisector staying as it was, or with none open
+     * the waiting first end; either is one undoable edit.
+     */
+    @Override
+    public void discardDraft() {
+        if (ringTool.draft != null) {
+            ringTool.discardDraft();
+        } else if (startVertexId >= 0) {
+            deletePoint();
+        } else {
+            ringTool.lastError = NOTHING_TO_DISCARD;
+        }
+    }
+
+    /**
+     * The waiting first end, which the next click near a wall pairs with a second.
+     *
+     * @return the end as a one-point draft that is not valid, or {@code null} while none waits
+     */
+    @Override
+    public Draft pendingDraft() {
+        if (startVertexId < 0) {
+            return null;
+        }
+        Draft waiting = new Draft();
+        waiting.points = ringTool.positionsOf(new int[] { startVertexId });
+        System.arraycopy(waiting.points, 0, waiting.location, 0, RingTool.COORDINATES_PER_POINT);
+        waiting.pointLabels = new String[] { WAITING_END };
+        waiting.size = 1;
+        waiting.label = WAITING_LABEL;
+        int wall = ringTool.ringOfSerial(startWall);
+        waiting.detail = "on " + (wall < 0 ? "a wall that is gone" : ringTool.liveLabel(wall))
+                + "; the next click near a wall puts the second end, Shift+X drops this one";
+        return waiting;
+    }
+
+    /**
+     * Where the cursor hit and the end a click would place there: on which wall, or why none.
+     *
+     * @return the preview, valid when a click would place an end, or the second end of a bisector
+     *         that runs simple
+     */
+    @Override
+    public Preview preview() {
+        RingScene scene = ringTool.scene;
+        int wall = ringTool.ringOfSerial(snappedWall);
+        String detail = ringTool.draft != null ? "a bisector draft is open: a click steers it"
+                : scene.cursorVertexId < 0 ? scene.cursorMissReason
+                : ringTool.previewAuthoredVertexId < 0 || wall < 0
+                        ? String.format(Locale.ROOT, "no ring or bisector within %.0f px",
+                                END_REACH_PIXELS)
+                : (startVertexId < 0 ? "a click puts the first end on " : "a click puts the second "
+                        + "end on ") + ringTool.liveLabel(wall) + (startVertexId < 0 || previewSimple
+                                ? "" : ", but that bisector crosses itself or walls nothing");
+        boolean valid = ringTool.draft == null && scene.cursorVertexId >= 0
+                && ringTool.previewAuthoredVertexId >= 0
+                && (startVertexId < 0 || ringTool.previewValid && previewSimple);
+        return new Preview(ringTool.previewHitPoint, valid, ringTool.previewMillis, detail);
     }
 
     /**

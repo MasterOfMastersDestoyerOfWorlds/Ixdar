@@ -227,6 +227,8 @@ public final class ConnectionTool extends Tool {
             if (pickVertexId[1] >= 0 && !run()) {
                 scene.errorToasts.show(TOOL_NAME, lastError);
             }
+            lastRow = ControlHint.toggled("rings as walls", ringsAreWalls) + (pickVertexId[1] < 0 ? ""
+                    : "; " + lastRow);
         }));
         controls.add(new ControlHint("toggle-repair-fills", Keys.F, "F", "repair_mesh fills (orange-red) on / off",
                 () -> {

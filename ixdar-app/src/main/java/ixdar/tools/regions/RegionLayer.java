@@ -11,6 +11,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.labels.MeshLabels;
+import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RegionExplosion;
 import ixdar.geometry.mesh.data.rings.RingRegions;
@@ -91,8 +92,8 @@ public final class RegionLayer {
     public List<HyperString> regionLabels = new ArrayList<>();
 
     /**
-     * The ring tool's {@code ringRevision} {@link #regions} were last built from; behind it, the
-     * regions and their labels trail the rings until the layer shows again.
+     * The ring tool's {@code ringRevision} {@link #regions} were last built from; the next frame
+     * rebuilds them when it falls behind, in every tool.
      */
     public int builtRingRevision = -1;
 
@@ -101,6 +102,12 @@ public final class RegionLayer {
      * rebuilt; X in the region tool and the terminal's {@code xp} set it.
      */
     public final RegionExplosion explosion = new RegionExplosion(RingRegionTool::regionTag);
+
+    /**
+     * Face graph of the shown surface the regions find where a ring that splits nothing stays
+     * joined on, built the first time one does.
+     */
+    public SurfaceConnection joinPaths;
 
     private boolean shown;
 
@@ -274,9 +281,8 @@ public final class RegionLayer {
     }
 
     /**
-     * One frame: once the camera holds still at a new view, resize the labels' depth ties to it;
-     * show or drop the regions when what wants them changed, rebuild them when the rings or
-     * surface changed, and step the explosion.
+     * One frame: retie the labels to a new still view, rebuild the regions on any ring or surface
+     * change whichever tool is active, so they are current when read, then show, drop or explode them.
      */
     public void perFrame() {
         HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
@@ -288,9 +294,13 @@ public final class RegionLayer {
                         * scene.camera.worldPerPixel(label.anchor.x, label.anchor.y, label.anchor.z));
             }
         }
+        boolean ready = runtime != null && surface != null && surface.faceCount() > 0;
+        if (ready && (regions == null || regions.mesh != surface
+                || builtRingRevision != scene.ringTool.ringRevision)) {
+            rebuild();
+        }
         boolean coloured = coloured();
-        if (runtime == null || surface == null || surface.faceCount() == 0
-                || !coloured && hiddenByActiveFace.length == 0 && explosion.target == 0f
+        if (!ready || !coloured && hiddenByActiveFace.length == 0 && explosion.target == 0f
                         && !explosion.exploded()) {
             if (shown && runtime != null) {
                 runtime.clearTags();
@@ -301,10 +311,6 @@ public final class RegionLayer {
             }
             shown = false;
             return;
-        }
-        if (regions == null || regions.mesh != surface
-                || builtRingRevision != scene.ringTool.ringRevision) {
-            rebuild();
         }
         if (!shown || coloured != shownColoured) {
             if (!shown) {
@@ -351,6 +357,12 @@ public final class RegionLayer {
         }
         regions.rebuild(rings.keySet().toArray(new String[0]), rings.values().toArray(new boolean[0][]),
                 absorbBelow, scene.ringTool.creases, Palettes.REGION);
+        if (!regions.noteByRingLabel.isEmpty() || joinPaths != null && joinPaths.mesh == surface) {
+            if (joinPaths == null || joinPaths.mesh != surface) {
+                joinPaths = new SurfaceConnection(surface);
+            }
+            regions.measureJoins(joinPaths);
+        }
         builtRingRevision = scene.ringTool.ringRevision;
         revision++;
         explosion.measure(surface, regions.regionByActiveFace, regions.regionCount);

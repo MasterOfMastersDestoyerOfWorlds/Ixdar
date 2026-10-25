@@ -45,6 +45,8 @@ import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
+import ixdar.tools.Draft;
+import ixdar.tools.connection.ConnectionTool;
 import ixdar.tools.ring.BisectorTool;
 import ixdar.tools.ring.RingDslWriter;
 import ixdar.tools.ring.RingTool;
@@ -63,6 +65,8 @@ class BisectorTest {
     private static final int TUBE_SIDES = 64;
 
     private static final int TUBE_RINGS = 65;
+
+    private static final int PINCH_SIDES = 3;
 
     private static final float TUBE_HALF_LENGTH = 2f;
 
@@ -160,6 +164,114 @@ class BisectorTest {
         assertEquals(tool.bisector, tool.activeSubTool);
         assertTrue(tool.escapePressed());
         assertEquals(tool.closedRing, tool.activeSubTool, "Esc did not leave the bisector");
+    }
+
+    /**
+     * TOOL-49: discard-draft drops a new bisector draft, then a waiting first end, each one edit
+     * undo brings back; on a re-opened bisector it leaves the confirmed one as it was.
+     */
+    @Test
+    void discardDraftDropsABisectorDraftThenAWaitingEndAndLeavesAReopenedOneConfirmed() {
+        RingTool tool = toolOn(tube(), null);
+        ring(tool, FIRST_RING_ROW);
+        ring(tool, SECOND_RING_ROW);
+        press(tool, Keys.K);
+        assertTrue(click(tool, FIRST_RING_ROW, TOP_SIDE), tool.lastError);
+        assertTrue(click(tool, SECOND_RING_ROW, TOP_SIDE), tool.lastError);
+        assertTrue(tool.addAuthoredAnchor(vertex(MIDDLE_ROW, TOP_SIDE + PATCH_HALF_SIDES)), tool.lastError);
+        fireAction(tool, BisectorTool.DISCARD_ACTION);
+        assertNull(tool.draft, "discard-draft left the bisector draft open: " + tool.lastError);
+        assertEquals(-1, tool.bisector.startVertexId, "the discarded draft left an end waiting");
+        assertEquals(tool.bisector, tool.activeSubTool, "discarding left the bisector");
+        assertTrue(tool.undo(), tool.lastError);
+        assertEquals(COORDINATES, tool.draftAuthoredVertexId.length, "undo did not bring the discarded draft back");
+        fireAction(tool, BisectorTool.DISCARD_ACTION);
+
+        assertTrue(click(tool, FIRST_RING_ROW, TOP_SIDE), tool.lastError);
+        fireAction(tool, BisectorTool.DISCARD_ACTION);
+        assertEquals(-1, tool.bisector.startVertexId, "discard-draft left the first end waiting");
+        fireAction(tool, BisectorTool.DISCARD_ACTION);
+        assertEquals(BisectorTool.NOTHING_TO_DISCARD, tool.lastError);
+
+        int confirmed = bisect(tool, vertex(FIRST_RING_ROW, TOP_SIDE), vertex(SECOND_RING_ROW, TOP_SIDE));
+        int[] anchors = tool.confirmedRings.get(confirmed).authoredVertexId;
+        assertTrue(tool.reopenRing(confirmed), tool.lastError);
+        assertTrue(tool.addAuthoredAnchor(vertex(MIDDLE_ROW, TOP_SIDE + PATCH_HALF_SIDES)), tool.lastError);
+        fireAction(tool, BisectorTool.DISCARD_ACTION);
+        assertNull(tool.draft);
+        assertFalse(tool.confirmedRings.get(confirmed).deleted, "discarding a re-opened bisector deleted it");
+        assertArrayEquals(anchors, tool.confirmedRings.get(confirmed).authoredVertexId,
+                "discarding a re-opened bisector kept its edit");
+    }
+
+    /**
+     * TOOL-49: a click refused while a first end waits says so, and the tool state reports the
+     * waiting end as a one-point draft, so a later click is not silently paired with it.
+     */
+    @Test
+    void aRefusedClickNamesTheWaitingFirstEndWhichTheToolStateReports() {
+        RingTool tool = toolOn(tube(), null);
+        ring(tool, FIRST_RING_ROW);
+        ring(tool, SECOND_RING_ROW);
+        press(tool, Keys.K);
+        assertNull(tool.draft(), "a draft is reported before any end was placed");
+        assertTrue(click(tool, FIRST_RING_ROW, TOP_SIDE), tool.lastError);
+        assertFalse(click(tool, MIDDLE_ROW, TOP_SIDE), "a click far from every wall placed an end");
+        assertTrue(tool.lastError.contains("the first end still waits on " + tool.liveLabel(0)),
+                tool.lastError);
+
+        Draft waiting = tool.draft();
+        assertEquals(BisectorTool.WAITING_LABEL, waiting.label);
+        assertFalse(waiting.valid);
+        assertArrayEquals(new String[] { BisectorTool.WAITING_END }, waiting.pointLabels);
+        assertArrayEquals(tool.positionsOf(new int[] { tool.bisector.startVertexId }), waiting.points);
+        assertTrue(waiting.detail.contains(tool.liveLabel(0)), waiting.detail);
+        assertTrue(tool.escapePressed());
+        assertNull(tool.draft(), "leaving the bisector left the waiting end reported");
+    }
+
+    /**
+     * TOOL-49: a neck of three edges, as at a pinch, is one closed edge loop too short for the
+     * anchor fit; it confirms as a ring through its three vertices.
+     */
+    @Test
+    void aThreeEdgeNeckConfirmsAsARingThroughItsVertices() {
+        int rows = TUBE_RINGS;
+        float[] positions = new float[COORDINATES * PINCH_SIDES * rows];
+        int[] faces = new int[2 * COORDINATES * PINCH_SIDES * (rows - 1)];
+        int corner = 0;
+        for (int row = 0; row < rows; row++) {
+            for (int side = 0; side < PINCH_SIDES; side++) {
+                double angle = 2.0 * Math.PI * side / PINCH_SIDES;
+                int base = COORDINATES * (PINCH_SIDES * row + side);
+                positions[base] = -TUBE_HALF_LENGTH + 2f * TUBE_HALF_LENGTH * row / (rows - 1);
+                positions[base + 1] = (float) (TUBE_RADIUS * Math.cos(angle));
+                positions[base + 2] = (float) (TUBE_RADIUS * Math.sin(angle));
+                int next = (side + 1) % PINCH_SIDES;
+                if (row + 1 < rows) {
+                    int here = PINCH_SIDES * row;
+                    int above = here + PINCH_SIDES;
+                    for (int vertex : new int[] { here + side, above + side, above + next,
+                        here + side, above + next, here + next }) {
+                        faces[corner++] = vertex;
+                    }
+                }
+            }
+        }
+        MeshTopology prism = HalfEdgeMeshOps.buildFromIndexedMesh(positions, faces);
+        RingTool tool = toolOn(prism, null);
+        int[] neck = new int[PINCH_SIDES];
+        for (int side = 0; side < PINCH_SIDES; side++) {
+            neck[side] = PINCH_SIDES * MIDDLE_ROW + side;
+        }
+        int ring = tool.confirmLoop(neck, ConnectionTool.NECK);
+        assertTrue(ring >= 0, tool.lastError);
+        SurfaceSpline confirmed = tool.confirmedRings.get(ring).spline;
+        assertEquals(PINCH_SIDES, confirmed.marks.markedEdgeCount, "the ring is not the three-edge neck");
+        for (int side = 0; side < PINCH_SIDES; side++) {
+            assertTrue(confirmed.marks.markedByEdgeId[prism.edgeBetween(neck[side],
+                    neck[(side + 1) % PINCH_SIDES])], "the ring leaves neck edge " + side);
+        }
     }
 
     /**
@@ -744,17 +856,30 @@ class BisectorTest {
         return false;
     }
 
-    /** Run the action a key is bound to in the ring tool, as pressing it does. */
+    /** Run the action a key is bound to in the ring tool, as pressing it with no modifier does. */
     private static void press(RingTool tool, int key) {
         List<ControlHint> controls = new ArrayList<>();
         tool.addControls(controls);
         for (ControlHint control : controls) {
-            if (control.keyCode == key && !control.controlHeld) {
+            if (control.keyCode == key && !control.controlHeld && !control.shiftHeld) {
                 control.action.perform();
                 return;
             }
         }
         throw new AssertionError("no control for key " + key);
+    }
+
+    /** Run the ring tool's row with an action id, as the control route fires it. */
+    private static void fireAction(RingTool tool, String action) {
+        List<ControlHint> controls = new ArrayList<>();
+        tool.addControls(controls);
+        for (ControlHint control : controls) {
+            if (control.actionName.equals(action)) {
+                control.action.perform();
+                return;
+            }
+        }
+        throw new AssertionError("no control with action " + action);
     }
 
     /** An unsaved ring round the tube through one row, confirmed as the tool confirms a loop. */

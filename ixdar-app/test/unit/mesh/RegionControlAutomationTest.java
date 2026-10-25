@@ -2,6 +2,7 @@ package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,9 +24,11 @@ import com.google.gson.JsonObject;
 
 import ixdar.automation.AutomationRuntime;
 import ixdar.automation.endpoints.input.InjectClick;
+import ixdar.automation.endpoints.input.InjectHover;
 import ixdar.automation.endpoints.ui.SelectionBounds;
 import ixdar.automation.endpoints.ui.State;
 import ixdar.automation.endpoints.ui.tools.FireControl;
+import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.cameras.Camera3D;
@@ -33,6 +36,7 @@ import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.gui.terminal.Terminal;
+import ixdar.gui.terminal.commands.RingDeleteCommand;
 import ixdar.gui.terminal.commands.SelectCommand;
 import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
@@ -45,6 +49,7 @@ import ixdar.tools.ControlHint;
 import ixdar.tools.Tool;
 import ixdar.tools.regions.RegionLayer;
 import ixdar.tools.regions.RingRegionTool;
+import ixdar.tools.ring.RingTool;
 
 /**
  * The ring scene driven as automation drives it, on the cut cylinder of {@link RingRegionsTest}:
@@ -59,6 +64,12 @@ class RegionControlAutomationTest {
     private static final int LOW_RING_ROW = 2;
 
     private static final int HIGH_RING_ROW = 5;
+
+    private static final String LOW_RING = "ring_02";
+
+    private static final String HIGH_RING = "ring_05";
+
+    private static final String REGIONS = "regions";
 
     private static final String GET_PLATFORM_ID = "getPlatformID";
 
@@ -182,8 +193,8 @@ class RegionControlAutomationTest {
 
         };
         scene.meshRuntime.upload(cylinder);
-        scene.ringMarksByLabel.put("ring_02", RingRegionsUpdateTest.rowMask(cylinder, LOW_RING_ROW, false));
-        scene.ringMarksByLabel.put("ring_05", RingRegionsUpdateTest.rowMask(cylinder, HIGH_RING_ROW, false));
+        scene.ringMarksByLabel.put(LOW_RING, RingRegionsUpdateTest.rowMask(cylinder, LOW_RING_ROW, false));
+        scene.ringMarksByLabel.put(HIGH_RING, RingRegionsUpdateTest.rowMask(cylinder, HIGH_RING_ROW, false));
         scene.switchTool(scene.regionTool);
         scene.mouse.active = true;
         scene.updateScene();
@@ -480,7 +491,7 @@ class RegionControlAutomationTest {
             }
         }.endpointHandler(new JsonObject());
         RingRegions regions = scene.regionLayer.regions;
-        JsonArray rows = state.getAsJsonObject("regions").getAsJsonArray("rows");
+        JsonArray rows = state.getAsJsonObject(REGIONS).getAsJsonArray("rows");
         assertEquals(regions.regionCount, rows.size());
         for (int region = 0; region < regions.regionCount; region++) {
             JsonObject row = rows.get(region).getAsJsonObject();
@@ -503,6 +514,117 @@ class RegionControlAutomationTest {
         assertTrue(!handle.has("values") && !handle.has(State.KIND)
                 && !handle.get(State.DETAIL).getAsString().contains(State.AREA),
                 "a region handle still carries the region dataset: " + handle);
+    }
+
+    /**
+     * TOOL-49: rings deleted by label in the ring tool, by live label and by drawn number, show in
+     * the regions dataset while the ring tool stays active, and Ctrl+Z brings the ring back.
+     */
+    @Test
+    void ringsDeletedByLabelInTheRingToolKeepTheRegionsDatasetCurrent() throws Exception {
+        RingTool rings = scene.ringTool;
+        assertEquals(2, rings.confirmedRings.size(), "the graph's rings were not adopted: " + rings.lastError);
+        assertEquals(3, regionCount(state()));
+
+        terminal.run(RingDeleteCommand.cmd + " " + HIGH_RING);
+        assertSame(rings, scene.activeTool, "rd did not switch to the ring tool");
+        assertTrue(rings.confirmedRings.get(rings.ringOfSourceLabel(HIGH_RING)).deleted, rings.lastError);
+        scene.updateScene();
+        JsonObject state = state();
+        assertEquals(2, regionCount(state), "the regions trail the ring tool's edit");
+        assertFalse(state.getAsJsonObject(REGIONS).toString().contains(HIGH_RING),
+                "a region is still bounded by the deleted ring");
+
+        int low = rings.ringOfSourceLabel(LOW_RING);
+        terminal.run(RingDeleteCommand.cmd + " " + rings.drawnRingNumber(low));
+        scene.updateScene();
+        assertEquals(1, regionCount(state()), "the ring deleted by its drawn number still splits");
+        assertTrue(rings.undo(), rings.lastError);
+        scene.updateScene();
+        assertEquals(2, regionCount(state()), "undo did not bring the ring back into the regions");
+
+        terminal.run(RingDeleteCommand.cmd + " 7");
+        assertTrue(rings.lastError.contains("no live ring '7'"), rings.lastError);
+        assertFalse(rings.confirmedRings.get(low).deleted, "a refused list deleted a ring");
+    }
+
+    /** TOOL-49: a toggle's reply says the state it switched to, not an earlier row's outcome. */
+    @Test
+    void aToggleRowsReplySaysWhatItSwitchedTo() throws Exception {
+        JsonObject body = new JsonObject();
+        body.addProperty(FireControl.ACTION, "toggle-part-names");
+        JsonObject reply = control(body);
+        assertEquals("part names shown: " + (scene.regionLayer.showPartNames ? "on" : "off"),
+                reply.getAsJsonObject(State.TOOL).get("lastRow").getAsString());
+    }
+
+    /**
+     * TOOL-49: on a torus, the one ring round its tube splits nothing, and the regions dataset
+     * names a point on the far side, where its two sides stay joined.
+     */
+    @Test
+    void aRingThatSplitsNothingIsListedWithAPointWhereItsSidesStayJoined() throws Exception {
+        cylinder = RingRegionsTest.torus();
+        scene.meshRuntime.upload(cylinder);
+        scene.ringMarksByLabel.clear();
+        scene.ringMarksByLabel.put(LOW_RING, RingRegionsTest.meridian(cylinder, 0));
+        scene.ringTool.graphRingsChanged();
+        scene.updateScene();
+        scene.updateScene();
+
+        JsonArray joined = state().getAsJsonObject(REGIONS).getAsJsonArray("splitsNothing");
+        assertEquals(1, joined.size(), joined.toString());
+        JsonObject ring = joined.get(0).getAsJsonObject();
+        assertEquals(LOW_RING, ring.get(State.RING).getAsString());
+        assertTrue(ring.getAsJsonArray("joinedAt").get(0).getAsFloat() < -1f,
+                "the join is not on the torus's far side: " + ring);
+    }
+
+    /**
+     * TOOL-49: a hover's reply names the surface under the cursor as pick does, with the crease
+     * strength the ring tool's crease mode follows there, whichever tool is active.
+     */
+    @Test
+    void aHoverRepliesWithTheSurfacePointAndItsCreaseStrength() throws Exception {
+        Vector3f centre = new Vector3f(BOTTOM_POINT[0], BOTTOM_POINT[1], BOTTOM_POINT[2]);
+        scene.camera.frame(centre, 1f, Camera3D.DEFAULT_FRAME_PADDING, scene.camera.aspectRatio());
+        scene.updateScene();
+        float[] pixel = new float[BOTTOM_POINT.length];
+        assertTrue(scene.projectPoint(centre.x, centre.y, centre.z, pixel, new SurfacePicker()),
+                "the framed point is behind the camera");
+        JsonObject body = new JsonObject();
+        body.addProperty(InjectHover.X, pixel[0]);
+        body.addProperty(InjectHover.Y, pixel[1]);
+        body.addProperty(InjectHover.SETTLE, 0);
+        JsonObject reply = new InjectHover() {
+            {
+                runtime = AutomationRuntime.get();
+                runtime.renderThreadId = Thread.currentThread().getId();
+            }
+        }.endpointHandler(body);
+
+        JsonObject surface = reply.getAsJsonObject(InjectHover.SURFACE);
+        assertTrue(surface != null && surface.get("hit").getAsBoolean(), reply.toString());
+        int faceId = surface.get("faceId").getAsInt();
+        float[] strength = scene.ringTool.creases.valleyStrength;
+        double mean = 0.0;
+        for (int corner = 0; corner < cylinder.faceVertexCount(faceId); corner++) {
+            mean += strength[cylinder.faceVertexAt(faceId, corner)] / cylinder.faceVertexCount(faceId);
+        }
+        assertEquals(mean, surface.get("creaseStrength").getAsDouble(), 1e-9, surface.toString());
+        assertTrue(surface.has("inCrease") && surface.has("point") && surface.has("region"), surface.toString());
+    }
+
+    private JsonObject state() throws Exception {
+        return new State() {
+            {
+                runtime = AutomationRuntime.get();
+            }
+        }.endpointHandler(new JsonObject());
+    }
+
+    private static int regionCount(JsonObject state) {
+        return state.getAsJsonObject(REGIONS).get("regionCount").getAsInt();
     }
 
     private JsonObject control(JsonObject body) throws Exception {

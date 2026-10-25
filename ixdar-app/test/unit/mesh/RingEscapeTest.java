@@ -158,11 +158,29 @@ class RingEscapeTest {
         assertEquals(confirmed.spline.marks.markedEdgeCount, ring.size);
         assertEquals(confirmed.spline.path.length, ring.length);
         assertTrue(ring.size > 0 && ring.length > 0.0, ring.detail);
-        assertEquals(confirmed.mode.label + " mode", ring.detail);
+        assertEquals(confirmed.mode.label + " mode, " + tool.liveLabel(0), ring.detail);
         assertFalse(ring.saved, "a ring only this session holds reads as saved");
         assertFalse(ring.deleted);
         assertTrue(tool.deleteRing(0), tool.lastError);
         assertTrue(tool.items().get(0).deleted, "a deleted ring's handle does not say so");
+    }
+
+    /**
+     * TOOL-49: a frame that fits no preview, the cursor over a ring or off the surface, left the
+     * last fit's numbers in the preview, so two hovers read the same length.
+     */
+    @Test
+    public void aPreviewNoFrameFittedSaysWhyInsteadOfTheLastFit() {
+        RingScene scene = sceneOn(RingAnchorOrderTest.tube(0f, RADIUS));
+        RingTool tool = scene.ringTool;
+        scene.cursorVertexId = 0;
+        tool.closedRing.hoveredRing = 0;
+        assertEquals("over ring " + tool.drawnRingNumber(0) + ": a click re-opens it",
+                tool.closedRing.preview().detail);
+        tool.closedRing.hoveredRing = -1;
+        scene.cursorVertexId = -1;
+        scene.cursorMissReason = RingScene.MISSED_SURFACE_REFUSAL;
+        assertEquals(RingScene.MISSED_SURFACE_REFUSAL, tool.closedRing.preview().detail);
     }
 
     @Test

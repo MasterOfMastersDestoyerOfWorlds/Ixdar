@@ -329,7 +329,7 @@
       "commandName": "hover",
       "path": "/input/hover",
       "method": "POST",
-      "description": "Move the cursor without clicking, then wait for the hover to be drawn.",
+      "description": "Move the cursor without clicking, wait for the hover to be drawn, and name the surface under it as pick does, its crease strength included.",
       "sourceClass": "ixdar.automation.endpoints.input.InjectHover",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/input/InjectHover.java",
       "params": [
@@ -379,7 +379,7 @@
           "example": "0"
         }
       ],
-      "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, persistent}}"
+      "responseHint": "{ok, settled, event:{xPx, yPx, xNorm, yNorm, persistent}, surface?:{hit, point, normal, faceId, vertexId, creaseStrength, inCrease, region, part}}"
     },
     {
       "commandName": "hover-clear",
@@ -934,7 +934,7 @@
           "type": "string",
           "required": false,
           "default": "",
-          "help": "A .dsl graph or mesh file to open by its path instead of a name, the scene\u0027s own model included, so a saved file can be reopened without a restart.",
+          "help": "A .dsl graph or mesh file to open by its path instead of a name, the scene\u0027s own model included, so a saved file can be reopened without a restart; a relative path is read from the checkout root.",
           "example": "tmp/IMG_4111.dsl"
         },
         {
@@ -1175,7 +1175,7 @@
           "example": "384"
         }
       ],
-      "responseHint": "{ok, hit, point:\"x,y,z\", normal:[x,y,z], faceId, vertexId, vertex:\"x,y,z\", region, regionBoundedBy, part, error}; region and part (empty when unlabelled) are present once the editing scene\u0027s regions are built"
+      "responseHint": "{ok, hit, point:\"x,y,z\", normal:[x,y,z], faceId, vertexId, vertex:\"x,y,z\", creaseStrength, vertexCreaseStrength, inCrease, region, regionBoundedBy, part, error}; the crease strengths (0 to 1) and the region fields are the editing scene\u0027s"
     },
     {
       "commandName": "project",

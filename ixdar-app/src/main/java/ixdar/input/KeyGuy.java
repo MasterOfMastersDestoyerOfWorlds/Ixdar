@@ -24,6 +24,7 @@ import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
 import ixdar.tools.ControlHint;
+import ixdar.tools.Tool;
 
 /**
  * Every scene's key handler: a first press fires the first of the scene's control rows bound to
@@ -183,14 +184,23 @@ public class KeyGuy {
     }
 
     /**
-     * Perform a control row's action and remember it as {@link #lastFiredControl}, the one way a
-     * row fires, whether by its key, its repeat or a click on it in the controls menu.
+     * Perform a control row's action, the one way a row fires, and remember it as
+     * {@link #lastFiredControl}; the active tool's last row is then the row's outcome, its
+     * description when the row writes none.
      *
      * @param hint the row, whose action is not {@code null}
      */
     public void fire(ControlHint hint) {
         lastFiredControl = hint;
+        Tool tool = canvas == null ? null : canvas.activeTool;
+        if (tool != null) {
+            tool.lastRow = "";
+            tool.lastError = "";
+        }
         hint.action.perform();
+        if (tool != null && tool.lastRow.isEmpty() && tool.lastError.isEmpty()) {
+            tool.lastRow = hint.description;
+        }
     }
 
     /**

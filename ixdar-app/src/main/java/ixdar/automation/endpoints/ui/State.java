@@ -111,6 +111,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
 
     public static final String REGION = "region";
 
+    public static final String RING = "ring";
+
     public static final String FACE_COUNT = "faceCount";
 
     public static final String AREA = "area";
@@ -540,7 +542,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 JsonArray bounding = new JsonArray();
                 for (int ring : built.boundingRingsByRegion[region]) {
                     JsonObject side = new JsonObject();
-                    side.addProperty("ring", built.ringLabels[ring]);
+                    side.addProperty(RING, built.ringLabels[ring]);
                     byte sideOfRing = built.sideByRingRegion[ring][region];
                     side.addProperty("side", sideOfRing == RingRegions.SIDE_NONE ? "both"
                             : RingRegions.SIDE_NAMES[sideOfRing]);
@@ -566,6 +568,23 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 regionRows.add(row);
             }
             regions.add("rows", regionRows);
+            // Each ring that splits nothing, by label, with a point on the handle it cannot cut.
+            JsonArray joined = new JsonArray();
+            for (int ring = 0; built != null && ring < built.ringLabels.length; ring++) {
+                if (!built.ringSplitsNothing[ring]) {
+                    continue;
+                }
+                JsonObject row = new JsonObject();
+                row.addProperty(RING, built.ringLabels[ring]);
+                boolean measured = RingRegions.TRIANGLE_CORNERS * ring < built.ringJoinPoint.length
+                        && !Float.isNaN(built.ringJoinPoint[RingRegions.TRIANGLE_CORNERS * ring]);
+                row.add("joinedAt", measured ? floats(Arrays.copyOfRange(built.ringJoinPoint,
+                        RingRegions.TRIANGLE_CORNERS * ring,
+                        RingRegions.TRIANGLE_CORNERS * ring + RingRegions.TRIANGLE_CORNERS)) : new JsonArray());
+                row.addProperty("joinPathLength", measured ? built.ringJoinPathLength[ring] : 0.0);
+                joined.add(row);
+            }
+            regions.add("splitsNothing", joined);
             root.add("regions", regions);
         }
         ModelCollection modelCollection = scene == null ? null

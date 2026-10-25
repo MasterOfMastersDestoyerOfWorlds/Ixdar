@@ -108,7 +108,7 @@ public final class ClosedRingTool extends RingSubTool {
     public void addControls(List<ControlHint> controls) {
         controls.add(new ControlHint(ControlHint.NO_KEY, "click", "draft ring / add or pick anchor"));
         controls.add(new ControlHint("discard-draft", Keys.X, "X", "discard draft",
-                ringTool.refusalShown(() -> ringTool.discardDraft())));
+                ringTool.refusalShown(() -> discardDraft())));
         // Delete or Backspace removes the selected anchor, or the whole ring with none selected.
         for (int key : new int[] { Keys.DELETE, Keys.BACKSPACE }) {
             controls.add(new ControlHint("remove-anchor", key, key == Keys.DELETE ? "del" : "backspace",
@@ -150,16 +150,25 @@ public final class ClosedRingTool extends RingSubTool {
 
     /**
      * The hover preview: where the cursor hit, whether it found a girdling ring, how long the trace
-     * took, and the trace's counts, length and fit as the detail line.
+     * took, and as the detail the trace's counts, length and fit, or why the last frame fitted none.
      *
-     * @return the preview
+     * @return the preview, its detail always the last frame's
      */
     @Override
     public Preview preview() {
-        String detail = String.format(Locale.ROOT, "%d anchors, %d girdle edges, length %.5f, "
-                + "tolerance %.5f, deviation %.5f, %d geodesics%s%s", previewAnchorCount,
-                previewGirdleEdgeCount, previewLength, previewTolerance, previewDeviation,
-                previewGeodesicCount, previewAnchorCapReached ? ", anchor cap reached" : "",
+        RingScene scene = ringTool.scene;
+        // A frame that fits no preview leaves the last fit's numbers, so the detail says why instead.
+        String unfitted = ringTool.draft != null ? "a draft is open: a click adds or picks an anchor"
+                : scene != null && scene.cursorVertexId < 0 ? scene.cursorMissReason
+                : hoveredRing >= 0 ? "over ring " + ringTool.drawnRingNumber(hoveredRing)
+                        + ": a click re-opens it"
+                : hoveredGraphRing != null ? "over graph ring " + hoveredGraphRing
+                        + ": a click converts it into a draft" : "";
+        String detail = !unfitted.isEmpty() ? unfitted : String.format(Locale.ROOT, "%d anchors, "
+                + "%d girdle edges, length %.5f, tolerance %.5f, deviation %.5f, %d geodesics%s%s",
+                previewAnchorCount, previewGirdleEdgeCount, previewLength, previewTolerance,
+                previewDeviation, previewGeodesicCount,
+                previewAnchorCapReached ? ", anchor cap reached" : "",
                 axisFromSkeleton ? ", axis from the skeleton" : "");
         return new Preview(ringTool.previewHitPoint, ringTool.previewValid, ringTool.previewMillis,
                 detail);

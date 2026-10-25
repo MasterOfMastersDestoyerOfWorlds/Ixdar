@@ -444,14 +444,22 @@ public class RingScene extends MeshNodeViewerScene {
      */
     @Override
     public void setControls(List<ControlHint> controls) {
-        controls.add(new ControlHint("toggle-region-colours", Keys.G, "G", "region colours in every tool",
-                regionLayer::toggleVisible));
+        // Each toggle reports its new state as the active tool's last row, which the reply carries.
+        controls.add(new ControlHint("toggle-region-colours", Keys.G, "G", "region colours in every tool", () -> {
+            regionLayer.toggleVisible();
+            activeTool.lastRow = ControlHint.toggled("region colours outside the region tool", regionLayer.visible);
+        }));
         controls.add(new ControlHint("toggle-absorb-slivers", Keys.A, "A", "absorb slivers into largest neighbour",
-                regionLayer::toggleAbsorbSlivers));
+                () -> {
+                    regionLayer.toggleAbsorbSlivers();
+                    activeTool.lastRow = ControlHint.toggled("slivers absorbed", regionLayer.absorbSlivers);
+                }));
         controls.add(new ControlHint("show-hidden-regions", Keys.U, "U", "show hidden regions", regionLayer::showAll));
         controls.add(new ControlHint(SAVE_RINGS_ACTION, Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));
-        controls.add(new ControlHint("toggle-ring-numbers", Keys.N, "N", "ring numbers",
-                () -> showRingNumbers = !showRingNumbers));
+        controls.add(new ControlHint("toggle-ring-numbers", Keys.N, "N", "ring numbers", () -> {
+            showRingNumbers = !showRingNumbers;
+            activeTool.lastRow = ControlHint.toggled("ring numbers shown", showRingNumbers);
+        }));
         // H flips the visibility that applies now: the exploded view's, or the assembled one.
         controls.add(new ControlHint("toggle-rings", Keys.H, "H", "show / hide rings", () -> {
             if (regionLayer.explosion.exploded()) {
@@ -459,6 +467,7 @@ public class RingScene extends MeshNodeViewerScene {
             } else {
                 showRings = !showRings;
             }
+            activeTool.lastRow = ControlHint.toggled("rings shown", ringsShown());
         }));
         super.setControls(controls);
     }

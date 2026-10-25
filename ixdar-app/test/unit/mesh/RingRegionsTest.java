@@ -5,12 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.rings.RingRegions;
@@ -30,6 +32,10 @@ class RingRegionsTest {
     static final int SEGMENTS_AROUND = 12;
 
     static final int SIDE_ROWS = 8;
+
+    static final int TORUS_AROUND = 16;
+
+    static final int TORUS_TUBE = 8;
 
     private static final int[] RING_VERTEX_ROWS = { 2, 4, 6 };
 
@@ -120,34 +126,11 @@ class RingRegionsTest {
 
     @Test
     void twoRingsAroundAHandleCutItIntoTwoStretchesAndAreReported() {
-        int around = 16;
-        int tube = 8;
-        float[] positions = new float[3 * around * tube];
-        int[] triangles = new int[3 * 2 * around * tube];
-        int cursor = 0;
-        for (int major = 0; major < around; major++) {
-            for (int minor = 0; minor < tube; minor++) {
-                double theta = 2 * Math.PI * major / around;
-                double phi = 2 * Math.PI * minor / tube;
-                int vertex = major * tube + minor;
-                positions[3 * vertex] = (float) ((2 + Math.cos(phi)) * Math.cos(theta));
-                positions[3 * vertex + 1] = (float) ((2 + Math.cos(phi)) * Math.sin(theta));
-                positions[3 * vertex + 2] = (float) Math.sin(phi);
-                int nextMajor = (major + 1) % around * tube;
-                int nextMinor = (minor + 1) % tube;
-                cursor = put(triangles, cursor, vertex, nextMajor + minor, nextMajor + nextMinor);
-                cursor = put(triangles, cursor, vertex, nextMajor + nextMinor,
-                        major * tube + nextMinor);
-            }
-        }
-        MeshTopology torus = HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles);
+        MeshTopology torus = torus();
         int[] ringColumns = { 2, 6 };
-        boolean[][] marks = new boolean[2][RingBundle.edgeIdCeiling(torus)];
+        boolean[][] marks = new boolean[2][];
         for (int ring = 0; ring < 2; ring++) {
-            for (int minor = 0; minor < tube; minor++) {
-                marks[ring][torus.edgeBetween(torus.vertexIdAt(ringColumns[ring] * tube + minor),
-                        torus.vertexIdAt(ringColumns[ring] * tube + (minor + 1) % tube))] = true;
-            }
+            marks[ring] = meridian(torus, ringColumns[ring]);
         }
         RingRegions regions = new RingRegions(torus, new String[] { RING_LABELS[0],
             RING_LABELS[1] }, marks).build();
@@ -158,8 +141,76 @@ class RingRegionsTest {
         // The outer equator point at column 4, midway between the rings' columns 2 and 6.
         boolean[] stretch = regions.select("point 0,3,0");
         assertEquals(1, count(stretch));
-        assertEquals(2 * tube * (ringColumns[1] - ringColumns[0]),
+        assertEquals(2 * TORUS_TUBE * (ringColumns[1] - ringColumns[0]),
                 regions.regionFaceCount[stretch[0] ? 0 : 1]);
+    }
+
+    /**
+     * TOOL-49: one ring round the torus's tube splits nothing, and the join it reports lies on the
+     * far side of the torus, the handle that keeps its two sides one region.
+     */
+    @Test
+    void aRingThatSplitsNothingReportsAPointOnTheHandleJoiningItsSides() {
+        MeshTopology torus = torus();
+        RingRegions regions = new RingRegions(torus, new String[] { RING_LABELS[0] },
+                new boolean[][] { meridian(torus, 0) }).build();
+        regions.measureJoins(new SurfaceConnection(torus));
+
+        assertTrue(regions.ringSplitsNothing[0]);
+        float[] joined = Arrays.copyOf(regions.ringJoinPoint, RingRegions.TRIANGLE_CORNERS);
+        // The ring sits at x = 2 + cos(phi) > 1; the far side of the torus at x < -1.
+        assertTrue(joined[0] < -1f, "the join is not on the far side: " + Arrays.toString(joined));
+        // Round the torus the long way: at least the inner equator's span of about 2 pi.
+        assertTrue(regions.ringJoinPathLength[0] > Math.PI,
+                "the path does not go round the handle: " + regions.ringJoinPathLength[0]);
+
+        RingRegions cut = new RingRegions(torus, new String[] { RING_LABELS[0], RING_LABELS[1] },
+                new boolean[][] { meridian(torus, 0), meridian(torus, TORUS_AROUND / 2) }).build();
+        cut.measureJoins(new SurfaceConnection(torus));
+        assertTrue(Float.isNaN(cut.ringJoinPoint[0]) && Float.isNaN(cut.ringJoinPoint[RingRegions.TRIANGLE_CORNERS]),
+                "two rings that cut the torus in two report a join: " + Arrays.toString(cut.ringJoinPoint));
+    }
+
+    /**
+     * A torus of major radius 2 and tube radius 1 round z, {@link #TORUS_AROUND} columns of
+     * {@link #TORUS_TUBE} vertices each; vertex {@code column * TORUS_TUBE + minor}.
+     */
+    static MeshTopology torus() {
+        float[] positions = new float[3 * TORUS_AROUND * TORUS_TUBE];
+        int[] triangles = new int[3 * 2 * TORUS_AROUND * TORUS_TUBE];
+        int cursor = 0;
+        for (int major = 0; major < TORUS_AROUND; major++) {
+            for (int minor = 0; minor < TORUS_TUBE; minor++) {
+                double theta = 2 * Math.PI * major / TORUS_AROUND;
+                double phi = 2 * Math.PI * minor / TORUS_TUBE;
+                int vertex = major * TORUS_TUBE + minor;
+                positions[3 * vertex] = (float) ((2 + Math.cos(phi)) * Math.cos(theta));
+                positions[3 * vertex + 1] = (float) ((2 + Math.cos(phi)) * Math.sin(theta));
+                positions[3 * vertex + 2] = (float) Math.sin(phi);
+                int nextMajor = (major + 1) % TORUS_AROUND * TORUS_TUBE;
+                int nextMinor = (minor + 1) % TORUS_TUBE;
+                cursor = put(triangles, cursor, vertex, nextMajor + minor, nextMajor + nextMinor);
+                cursor = put(triangles, cursor, vertex, nextMajor + nextMinor,
+                        major * TORUS_TUBE + nextMinor);
+            }
+        }
+        return HalfEdgeMeshOps.buildFromIndexedMesh(positions, triangles);
+    }
+
+    /**
+     * The edge loop round the torus's tube at one column, as a ring's mask.
+     *
+     * @param torus  the {@link #torus}
+     * @param column column of the loop's vertices
+     * @return the edge-id-indexed mask
+     */
+    static boolean[] meridian(MeshTopology torus, int column) {
+        boolean[] marks = new boolean[RingBundle.edgeIdCeiling(torus)];
+        for (int minor = 0; minor < TORUS_TUBE; minor++) {
+            marks[torus.edgeBetween(torus.vertexIdAt(column * TORUS_TUBE + minor),
+                    torus.vertexIdAt(column * TORUS_TUBE + (minor + 1) % TORUS_TUBE))] = true;
+        }
+        return marks;
     }
 
     /**

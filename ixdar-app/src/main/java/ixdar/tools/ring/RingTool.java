@@ -27,6 +27,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.spline.SplineAnchorFit;
+import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
@@ -368,12 +369,13 @@ public final class RingTool extends Tool {
      * The open draft ring: its authored anchors then its supporting ones, the selected and hovered
      * authored anchor, the trace's edges, length and fingerprint, and the ring it re-opened.
      *
-     * @return the draft, valid once its trace marks a ring of edges, or {@code null} when none is open
+     * @return the draft, valid once its trace marks a ring of edges; with none open, what the active
+     *         sub-tool holds toward one, such as a bisector's waiting end, or {@code null}
      */
     @Override
     public Draft draft() {
         if (draft == null) {
-            return null;
+            return activeRingSubTool().pendingDraft();
         }
         Draft shown = new Draft();
         float[] authored = positionsOf(draftAuthoredVertexId);
@@ -421,8 +423,8 @@ public final class RingTool extends Tool {
 
     /**
      * A handle on one confirmed ring or bisector: the number drawn beside it, its centroid, marked
-     * edges, length and fingerprint, whether it is saved or deleted, and its mode as the detail;
-     * the rest, whether it is a bisector included, is the ring dataset's.
+     * edges, length and fingerprint, whether it is saved or deleted, and its mode and live label,
+     * which {@code rd} also deletes it by, as the detail; the rest is the ring dataset's.
      *
      * @param index the ring's position in {@link #confirmedRings}
      * @return the ring's item
@@ -430,7 +432,7 @@ public final class RingTool extends Tool {
     public Item ringItem(int index) {
         ConfirmedRing ring = confirmedRings.get(index);
         Item item = new Item();
-        fillFromTrace(item, ring.spline, ring.mode.label + " mode");
+        fillFromTrace(item, ring.spline, ring.mode.label + " mode, " + liveLabel(index));
         item.label = Integer.toString(drawnRingNumber(index));
         item.saved = !ring.unsaved;
         item.deleted = ring.deleted;
@@ -971,15 +973,11 @@ public final class RingTool extends Tool {
             lastRow = "deleted the draft, which was never confirmed";
             return -1;
         }
-        int serial = ring >= 0 ? confirmedRings.get(ring).serial : -1;
-        for (int other = 0; serial >= 0 && other < confirmedRings.size(); other++) {
-            int[] ends = confirmedRings.get(other).bisectorEnds;
-            if (other != ring && ends != null && !confirmedRings.get(other).deleted
-                    && (ends[0] == serial || ends[1] == serial)) {
-                lastError = "bisector " + liveLabel(other) + " ends on " + liveLabel(ring)
-                        + "; delete that bisector first";
-                return -1;
-            }
+        int ending = ring >= 0 ? bisectorEndingOn(ring) : -1;
+        if (ending >= 0) {
+            lastError = "bisector " + liveLabel(ending) + " ends on " + liveLabel(ring)
+                    + "; delete that bisector first";
+            return -1;
         }
         RingToolState stateBefore = new RingToolState(this);
         if (ring < 0) {
@@ -1013,6 +1011,73 @@ public final class RingTool extends Tool {
                 + (sourceLabel == null ? "" : " (" + sourceLabel + ")")
                 + "; Ctrl+S removes it from the working .dsl";
         invalidateRings();
+        return true;
+    }
+
+    /**
+     * The live bisector ending on a confirmed ring, which keeps the ring from being deleted while
+     * it is.
+     *
+     * @param ring index in {@link #confirmedRings}
+     * @return the bisector's index in {@link #confirmedRings}, or -1 when none ends on the ring
+     */
+    public int bisectorEndingOn(int ring) {
+        int serial = confirmedRings.get(ring).serial;
+        for (int other = 0; other < confirmedRings.size(); other++) {
+            int[] ends = confirmedRings.get(other).bisectorEnds;
+            if (other != ring && ends != null && !confirmedRings.get(other).deleted
+                    && (ends[0] == serial || ends[1] == serial)) {
+                return other;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Delete confirmed rings named by drawn number or live label as one undoable edit, refused whole
+     * when one is not live, is open as the draft, or keeps a bisector ending on it.
+     *
+     * @param labels drawn numbers or live labels, such as {@code 12} or {@code ring_07}
+     * @return true when every named ring is now deleted; {@link #lastError} says why not otherwise
+     */
+    public boolean deleteLabelledRings(List<String> labels) {
+        lastError = "";
+        List<Integer> doomed = new ArrayList<>();
+        for (String label : labels) {
+            int found = -1;
+            for (int ring = 0; ring < confirmedRings.size(); ring++) {
+                found = label.equals(Integer.toString(drawnRingNumber(ring)))
+                        || label.equals(liveLabel(ring)) ? ring : found;
+            }
+            if (found < 0 || confirmedRings.get(found).deleted) {
+                lastError = "no live ring '" + label + "'; name a ring by the number drawn beside "
+                        + "it, as its item is labelled, or by its live label";
+                return false;
+            }
+            if (found == draftSourceRing && draft != null) {
+                lastError = "ring " + label + " is open as the draft; Enter or X closes it first";
+                return false;
+            }
+            doomed.add(found);
+        }
+        for (int ring : doomed) {
+            int ending = bisectorEndingOn(ring);
+            if (ending >= 0 && !doomed.contains(ending)) {
+                lastError = "bisector " + liveLabel(ending) + " ends on " + liveLabel(ring)
+                        + "; delete that bisector first, or with it";
+                return false;
+            }
+        }
+        RingToolState stateBefore = new RingToolState(this);
+        List<String> deleted = new ArrayList<>();
+        for (int ring : doomed) {
+            deleted.add(drawnRingNumber(ring) + " (" + liveLabel(ring) + ")");
+            deleteRing(ring);
+        }
+        recordEdit("ring(s) deleted by label", stateBefore);
+        lastRow = "deleted ring(s) " + String.join(", ", deleted)
+                + "; Ctrl+Z restores them, Ctrl+S removes them from the working .dsl";
+        Platforms.get().log(LOG_PREFIX + lastRow);
         return true;
     }
 
@@ -2040,15 +2105,20 @@ public final class RingTool extends Tool {
      */
     public int[] fitLoop(int[] loop, AuthoredSplineRing ring, String name) {
         ring.tracer.maximumDepth = AuthoredSplineRing.SUPPORTING_FIT_DEPTH;
-        if (loop.length < SplineAnchorFit.STARTING_ANCHORS) {
+        if (loop.length < SurfaceSplineTracer.MINIMUM_ANCHORS) {
             lastError = name + " is not one closed edge loop";
             return new int[0];
         }
-        if (!ring.fit.fit(loopPositionsOf(loop), loop.length, loop, 0)) {
-            lastError = "no anchors fit " + name;
-            return new int[0];
+        // A loop too short for the fit to start on, such as a three-edge pinch, is anchored at
+        // every one of its vertices.
+        int[] anchors = loop.clone();
+        if (loop.length >= SplineAnchorFit.STARTING_ANCHORS) {
+            if (!ring.fit.fit(loopPositionsOf(loop), loop.length, loop, 0)) {
+                lastError = "no anchors fit " + name;
+                return new int[0];
+            }
+            anchors = Arrays.copyOf(ring.tracer.anchorVertexId, ring.tracer.anchorCount);
         }
-        int[] anchors = Arrays.copyOf(ring.tracer.anchorVertexId, ring.tracer.anchorCount);
         if (!ring.trace(anchors, anchors.length, null, AuthoredSplineRing.SUPPORTING_FIT_DEPTH)) {
             lastError = name + ": " + ring.failure;
             return new int[0];
@@ -2082,6 +2152,49 @@ public final class RingTool extends Tool {
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
             lastError = what + ": " + anchored.failure;
             return -1;
+        }
+        // A save must name every anchor by a point; one on a vertex repair_mesh split, which no
+        // point tells from its copies, steps along the loop to the nearest vertex a point names.
+        NearestVertex grid = geodesics.metric.nearestVertex;
+        int[] held = anchored.authoredVertexId.clone();
+        try {
+            SurfaceWaypoints.resolvingPoints(grid, held, held.length);
+        } catch (IllegalArgumentException unsavable) {
+            for (int anchor = 0; anchor < held.length; anchor++) {
+                int at = -1;
+                for (int index = 0; index < loop.length; index++) {
+                    at = loop[index] == held[anchor] ? index : at;
+                }
+                boolean named = at < 0;
+                for (int step = 0; !named && step <= loop.length / 2; step++) {
+                    for (int sign = 1; !named && sign >= -1; sign -= 2) {
+                        int candidate = loop[Math.floorMod(at + sign * step, loop.length)];
+                        boolean taken = false;
+                        for (int other = 0; other < held.length; other++) {
+                            taken |= other != anchor && held[other] == candidate;
+                        }
+                        try {
+                            SurfaceWaypoints.resolvingPoints(grid, new int[] { candidate }, 1);
+                            named = !taken;
+                        } catch (IllegalArgumentException onSplit) {
+                            named = false;
+                        }
+                        held[anchor] = named ? candidate : held[anchor];
+                    }
+                }
+            }
+            try {
+                SurfaceWaypoints.resolvingPoints(grid, held, held.length);
+            } catch (IllegalArgumentException stillUnsavable) {
+                lastError = what + ": " + stillUnsavable.getMessage();
+                return -1;
+            }
+            if (!anchored.trace(held, held.length, normal,
+                    SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
+                lastError = what + ", its anchors moved off repair_mesh's split vertices: "
+                        + anchored.failure;
+                return -1;
+            }
         }
         return addConfirmedRing(anchored, normal, what);
     }

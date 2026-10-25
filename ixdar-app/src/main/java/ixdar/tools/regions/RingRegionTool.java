@@ -197,19 +197,23 @@ public final class RingRegionTool extends Tool {
                     terminal.type(LabelCommand.cmd);
                     terminal.keyPress(Keys.SPACE, 0, false);
                 }));
+        // Each toggle reports its new state as the last row, which the reply carries.
         controls.add(new ControlHint("toggle-part-names", Keys.P, false, true, "shift+P", "part names on screen",
                 () -> {
                     layer.showPartNames = !layer.showPartNames;
                     layer.labelsShownChanged();
+                    lastRow = ControlHint.toggled("part names shown", layer.showPartNames);
                 }));
         controls.add(new ControlHint("toggle-region-numbers", Keys.N, false, true, "shift+N",
                 "region numbers on screen (R3 is region 3)", () -> {
                     layer.showRegionNumbers = !layer.showRegionNumbers;
                     layer.labelsShownChanged();
+                    lastRow = ControlHint.toggled("region numbers shown", layer.showRegionNumbers);
                 }));
         controls.add(new ControlHint("toggle-colour-by-part", Keys.P, "P", "colour by part / by region", () -> {
             layer.colourByPart = !layer.colourByPart;
             layer.redraw();
+            lastRow = ControlHint.toggled("colour by part", layer.colourByPart);
         }));
     }
 

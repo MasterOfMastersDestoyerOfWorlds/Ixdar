@@ -14,6 +14,7 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
+import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
@@ -99,6 +100,16 @@ public final class RingRegions {
      * rings in place it parts no region from another.
      */
     public boolean[] ringSplitsNothing;
+
+    /**
+     * Where each ring that splits nothing stays joined, packed xyz: the middle of the shortest
+     * path crossing no ring between the faces either side of one of its edges, a point on the
+     * handle the ring cannot cut. NaN for a ring that splits; filled by {@link #measureJoins}.
+     */
+    public float[] ringJoinPoint = new float[0];
+
+    /** Surface length of the path through each ring's {@link #ringJoinPoint}, 0 where none. */
+    public double[] ringJoinPathLength = new double[0];
 
     /** Marked edge count of each ring on this surface. */
     public int[] ringEdgeCount;
@@ -1224,6 +1235,50 @@ public final class RingRegions {
             text.append(side == SIDE_NONE ? " (both sides)" : " (" + SIDE_NAMES[side] + ")");
         }
         return text.toString();
+    }
+
+    /**
+     * Fills {@link #ringJoinPoint} and {@link #ringJoinPathLength} after a {@link #build} or
+     * {@link #update}: for each ring that splits nothing, the connection's shortest path round it,
+     * every walling ring a wall.
+     *
+     * @param connection face graph of {@link #mesh}, whose walls and path this replaces
+     * @throws IllegalArgumentException when the connection runs over another mesh
+     */
+    public void measureJoins(SurfaceConnection connection) {
+        if (connection.mesh != mesh) {
+            throw new IllegalArgumentException("the connection runs over another mesh than the regions");
+        }
+        int ringCount = ringLabels.length;
+        ringJoinPoint = new float[TRIANGLE_CORNERS * ringCount];
+        Arrays.fill(ringJoinPoint, Float.NaN);
+        ringJoinPathLength = new double[ringCount];
+        boolean[] walls = new boolean[RingBundle.edgeIdCeiling(mesh)];
+        for (int ring = 0; ring < ringCount; ring++) {
+            for (int edgeId : ringIsWall[ring] ? ringEdgeIds[ring] : new int[0]) {
+                walls[edgeId] = true;
+            }
+        }
+        connection.wallByEdgeId = walls;
+        for (int ring = 0; ring < ringCount; ring++) {
+            int[] sides = { MeshTopology.NONE, MeshTopology.NONE };
+            for (int edgeId : ringSplitsNothing[ring] ? ringEdgeIds[ring] : new int[0]) {
+                int left = activeFaceOf(mesh.edgeFace(edgeId, 0));
+                int right = activeFaceOf(mesh.edgeFace(edgeId, 1));
+                if (sides[0] == MeshTopology.NONE && left != MeshTopology.NONE
+                        && right != MeshTopology.NONE) {
+                    sides[0] = left;
+                    sides[1] = right;
+                }
+            }
+            if (sides[0] == MeshTopology.NONE || !connection.findPath(sides[0], sides[1])) {
+                continue;
+            }
+            int middle = connection.pathPolyline.length / TRIANGLE_CORNERS / 2;
+            System.arraycopy(connection.pathPolyline, TRIANGLE_CORNERS * middle, ringJoinPoint,
+                    TRIANGLE_CORNERS * ring, TRIANGLE_CORNERS);
+            ringJoinPathLength[ring] = connection.pathLength;
+        }
     }
 
     /**

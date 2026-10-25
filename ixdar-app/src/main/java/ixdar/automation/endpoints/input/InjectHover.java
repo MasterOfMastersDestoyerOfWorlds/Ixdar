@@ -10,9 +10,12 @@ import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.platform.Clock;
+import ixdar.platform.Platforms;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.InputSettle;
+import ixdar.automation.endpoints.ring.Pick;
 import ixdar.input.MouseTrap;
+import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "input/hover", method = APIMethod.POST)
 public class InjectHover extends AutomationEndpoint implements AutomationRoute {
@@ -23,6 +26,7 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
     public static final String SETTLE = "settle";
     public static final String SETTLED = "settled";
     public static final String COMMAND = "hover";
+    public static final String SURFACE = "surface";
     /**
      * {@code POST /input/hover}: move the cursor without clicking, then wait for the hover to be
      * drawn, optionally pinning it with the mouse handler's automation hover lock so it is
@@ -35,8 +39,9 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
      *             default true) controlling whether the hover lock is set or
      *             cleared, and {@code settle} (frames to wait for; default 2)
      * @throws IOException never thrown directly; declared to satisfy the route contract
-     * @return {@code {"ok": true, "settled": true, "event": {xPx, yPx, xNorm, yNorm, persistent}}}
-     *         on success, or an error object when no mouse handler is active
+     * @return {@code {"ok": true, "settled": true, "event": {...}, "surface": {...}}} on success,
+     *         the surface under the cursor as pick names it in a mesh viewer, or an error object
+     *         when no mouse handler is active
      */
     public JsonObject endpointHandler(JsonObject body) throws IOException {
         try {
@@ -83,6 +88,23 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
                 if (settledResult.has(OK) && settledResult.get(OK).getAsBoolean()) {
                     settledResult.addProperty(SETTLED,
                             InputSettle.awaitFrames(appliedDuringFrame[0], settleFrames));
+                    // What lies under the cursor once the hover is drawn, whichever tool is
+                    // active: pick at the framebuffer pixel the tools read the cursor at.
+                    JsonObject surface = runtime.runOnMainThread(() -> {
+                        MouseTrap mouse = runtime.activeMouse();
+                        int width = Platforms.get().getWindowWidth();
+                        int height = Platforms.get().getWindowHeight();
+                        return mouse == null || width <= 0 || height <= 0
+                                || !(runtime.canvas instanceof MeshNodeViewerScene viewer) ? null
+                                : Pick.surfaceAt(viewer,
+                                        Math.round(mouse.lastX * (float) Platforms.get()
+                                                .getFrameBufferWidth() / width),
+                                        Math.round(mouse.lastY * (float) Platforms.get()
+                                                .getFrameBufferHeight() / height));
+                    });
+                    if (surface != null) {
+                        settledResult.add(SURFACE, surface);
+                    }
                 }
                 return settledResult;
             } catch (Exception e) {
@@ -97,7 +119,8 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
     public RouteDoc describe() {
         return RouteDoc.builder()
                 .commandName(COMMAND)
-                .description("Move the cursor without clicking, then wait for the hover to be drawn.")
+                .description("Move the cursor without clicking, wait for the hover to be drawn, and name "
+                        + "the surface under it as pick does, its crease strength included.")
                 .param(X, RouteParamType.FLOAT, false, String.valueOf(0),
                         "Target X coordinate.", "0.5")
                 .param(Y, RouteParamType.FLOAT, false, String.valueOf(0),
@@ -108,7 +131,8 @@ public class InjectHover extends AutomationEndpoint implements AutomationRoute {
                         "Hold the hover lock so real mouse motion cannot dislodge it; false clears it.", "false")
                 .param(SETTLE, RouteParamType.INT, false, String.valueOf(InputSettle.DEFAULT_FRAMES),
                         "Frames to wait for after the hover, so a screenshot needs no sleep; 0 returns at once.", "0")
-                .responseHint("{ok, settled, event:{xPx, yPx, xNorm, yNorm, persistent}}")
+                .responseHint("{ok, settled, event:{xPx, yPx, xNorm, yNorm, persistent}, surface?:{hit, "
+                        + "point, normal, faceId, vertexId, creaseStrength, inCrease, region, part}}")
                 .build();
     }
 }

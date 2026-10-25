@@ -132,6 +132,17 @@ public final class ControlHint {
     }
 
     /**
+     * What a toggle row reports once fired, so its state can be read from the reply.
+     *
+     * @param what the thing the row switches, as its description names it
+     * @param on   whether it is now on
+     * @return e.g. {@code part names on screen: on}
+     */
+    public static String toggled(String what, boolean on) {
+        return what + (on ? ": on" : ": off");
+    }
+
+    /**
      * The hint as one line: the key label, {@link #KEY_DESCRIPTION_GAP}, then the description, as
      * the controls menu and {@code ls keys} list it.
      *

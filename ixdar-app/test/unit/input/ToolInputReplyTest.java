@@ -482,6 +482,16 @@ class ToolInputReplyTest {
         assertFalse(reply.has(PREVIOUS_TOOL), "firing a scene row switched tools");
     }
 
+    /** TOOL-49: a scene row that writes no outcome reported the row fired before it. */
+    @Test
+    void aSceneRowThatWritesNoOutcomeReportsItselfNotTheRowBeforeIt() throws Exception {
+        assertEquals(DREW, key(DRAW_KEY).getAsJsonObject(TOOL).get(LAST_ROW).getAsString());
+        JsonObject reply = fireAction("", FRAME_ALL_ACTION);
+        assertEquals(Scene.FRAME_ALL_DESCRIPTION, reply.getAsJsonObject(TOOL).get(LAST_ROW).getAsString(),
+                "the reply carried the pen's earlier stroke as the frame-all row's outcome");
+        assertEquals("", reply.getAsJsonObject(TOOL).get(ERROR).getAsString());
+    }
+
     @Test
     void aToolSwitchRowFiresByItsActionIdAndSwitchesTools() throws Exception {
         JsonObject reply = fireAction("", BRUSH);

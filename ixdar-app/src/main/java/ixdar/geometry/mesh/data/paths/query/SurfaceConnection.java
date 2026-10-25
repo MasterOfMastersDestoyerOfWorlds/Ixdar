@@ -191,79 +191,20 @@ public final class SurfaceConnection {
      * @return true when the faces are joined and a neck was found and snapped
      */
     public boolean connect(int startFace, int endFace) {
-        connected = false;
-        failure = "";
-        pathActiveFace = new int[0];
-        pathPolyline = new float[0];
-        pathLength = 0.0;
-        pathFilledFaceCount = 0;
         narrowestGirth = Double.POSITIVE_INFINITY;
         widestGirth = 0.0;
         narrowestPathIndex = -1;
         narrowestMarkedByEdgeId = new boolean[0];
         girthsCrossingWalls = 0;
-        if (startFace < 0 || endFace < 0 || startFace >= faceCount || endFace >= faceCount) {
-            failure = "both ends must lie on the surface";
+        if (!findPath(startFace, endFace)) {
             return false;
         }
-        if (startFace == endFace) {
-            failure = "the two ends are the same face";
-            return false;
-        }
-        // Surface distance of every face from the start over arcs that cross no wall, each
-        // reached face keeping its arc back toward the start.
-        long start = System.nanoTime();
-        faceSearch.start(faceCount);
-        faceSearch.relax(startFace, 0.0, -1);
-        for (int settled = faceSearch.settle(); settled >= 0; settled = faceSearch.settle()) {
-            double key = faceSearch.distance(settled);
-            for (int arc = arcStart[settled]; arc < arcStart[settled + 1]; arc++) {
-                if (!wall(arcEdgeId[arc])) {
-                    faceSearch.relax(arcFace[arc], key + arcLength[arc], arcReverse[arc]);
-                }
-            }
-        }
-        distanceFromStart = new double[faceCount];
-        for (int face = 0; face < faceCount; face++) {
-            distanceFromStart[face] = faceSearch.distance(face);
-        }
-        if (distanceFromStart[endFace] == Double.POSITIVE_INFINITY) {
-            failure = "the two ends are not joined: no path between them crosses no wall";
-            pathMillis = (System.nanoTime() - start) / NANOS_PER_MILLI;
-            return false;
-        }
-        connected = true;
-        pathLength = distanceFromStart[endFace];
-        int steps = 1;
-        for (int face = endFace; face != startFace; face = arcFace[faceSearch.via(face)]) {
-            steps++;
-        }
-        pathActiveFace = new int[steps];
-        pathPolyline = new float[COORDINATES_PER_POINT * (2 * steps - 1)];
-        int face = endFace;
-        Vector3f midpoint = new Vector3f();
-        for (int index = steps - 1; index >= 0; index--) {
-            pathActiveFace[index] = face;
-            System.arraycopy(centroidXyz, COORDINATES_PER_POINT * face, pathPolyline,
-                    2 * COORDINATES_PER_POINT * index, COORDINATES_PER_POINT);
-            pathFilledFaceCount += face < filledByActiveFace.length && filledByActiveFace[face]
-                    ? 1 : 0;
-            if (index > 0) {
-                int arc = faceSearch.via(face);
-                mesh.edgeMidpoint(arcEdgeId[arc], midpoint);
-                int base = COORDINATES_PER_POINT * (2 * index - 1);
-                pathPolyline[base] = midpoint.x;
-                pathPolyline[base + 1] = midpoint.y;
-                pathPolyline[base + 2] = midpoint.z;
-                face = arcFace[arc];
-            }
-        }
-        pathMillis = (System.nanoTime() - start) / NANOS_PER_MILLI;
+        int steps = pathActiveFace.length;
 
         // At evenly spaced path faces, the shortest loop a plane through the face cuts from the
         // surface, the scan starting across the path's direction; a loop crossing a wall leaves
         // the region the walls bound, so it is passed over.
-        start = System.nanoTime();
+        long start = System.nanoTime();
         int samples = Math.min(GIRTH_SAMPLES, steps);
         int reach = Math.max(1, steps / (2 * GIRTH_SAMPLES));
         double[] sampleGirth = new double[samples];
@@ -374,6 +315,81 @@ public final class SurfaceConnection {
             narrowestMarkedByEdgeId = new boolean[0];
             return false;
         }
+        return true;
+    }
+
+    /**
+     * The shortest path between two faces crossing no wall, through face centroids and the crossed
+     * edges' midpoints, with every face's distance from the start; no neck is looked for.
+     *
+     * @param startFace active index of the first face
+     * @param endFace   active index of the second face
+     * @return true when the faces are joined; {@link #failure} says why not otherwise
+     */
+    public boolean findPath(int startFace, int endFace) {
+        connected = false;
+        failure = "";
+        pathActiveFace = new int[0];
+        pathPolyline = new float[0];
+        pathLength = 0.0;
+        pathFilledFaceCount = 0;
+        if (startFace < 0 || endFace < 0 || startFace >= faceCount || endFace >= faceCount) {
+            failure = "both ends must lie on the surface";
+            return false;
+        }
+        if (startFace == endFace) {
+            failure = "the two ends are the same face";
+            return false;
+        }
+        // Surface distance of every face from the start over arcs that cross no wall, each
+        // reached face keeping its arc back toward the start.
+        long start = System.nanoTime();
+        faceSearch.start(faceCount);
+        faceSearch.relax(startFace, 0.0, -1);
+        for (int settled = faceSearch.settle(); settled >= 0; settled = faceSearch.settle()) {
+            double key = faceSearch.distance(settled);
+            for (int arc = arcStart[settled]; arc < arcStart[settled + 1]; arc++) {
+                if (!wall(arcEdgeId[arc])) {
+                    faceSearch.relax(arcFace[arc], key + arcLength[arc], arcReverse[arc]);
+                }
+            }
+        }
+        distanceFromStart = new double[faceCount];
+        for (int face = 0; face < faceCount; face++) {
+            distanceFromStart[face] = faceSearch.distance(face);
+        }
+        if (distanceFromStart[endFace] == Double.POSITIVE_INFINITY) {
+            failure = "the two ends are not joined: no path between them crosses no wall";
+            pathMillis = (System.nanoTime() - start) / NANOS_PER_MILLI;
+            return false;
+        }
+        connected = true;
+        pathLength = distanceFromStart[endFace];
+        int steps = 1;
+        for (int face = endFace; face != startFace; face = arcFace[faceSearch.via(face)]) {
+            steps++;
+        }
+        pathActiveFace = new int[steps];
+        pathPolyline = new float[COORDINATES_PER_POINT * (2 * steps - 1)];
+        int face = endFace;
+        Vector3f midpoint = new Vector3f();
+        for (int index = steps - 1; index >= 0; index--) {
+            pathActiveFace[index] = face;
+            System.arraycopy(centroidXyz, COORDINATES_PER_POINT * face, pathPolyline,
+                    2 * COORDINATES_PER_POINT * index, COORDINATES_PER_POINT);
+            pathFilledFaceCount += face < filledByActiveFace.length && filledByActiveFace[face]
+                    ? 1 : 0;
+            if (index > 0) {
+                int arc = faceSearch.via(face);
+                mesh.edgeMidpoint(arcEdgeId[arc], midpoint);
+                int base = COORDINATES_PER_POINT * (2 * index - 1);
+                pathPolyline[base] = midpoint.x;
+                pathPolyline[base + 1] = midpoint.y;
+                pathPolyline[base + 2] = midpoint.z;
+                face = arcFace[arc];
+            }
+        }
+        pathMillis = (System.nanoTime() - start) / NANOS_PER_MILLI;
         return true;
     }
 

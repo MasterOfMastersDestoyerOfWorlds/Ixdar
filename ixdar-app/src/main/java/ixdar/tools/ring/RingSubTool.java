@@ -1,5 +1,6 @@
 package ixdar.tools.ring;
 
+import ixdar.tools.Draft;
 import ixdar.tools.Tool;
 
 /**
@@ -107,6 +108,24 @@ public abstract class RingSubTool extends Tool {
 
     /** The draft this sub-tool owned closed: drop what it kept about it. */
     public abstract void draftClosed();
+
+    /**
+     * Discard what this sub-tool is drafting, as one undoable edit: the open draft, a re-opened
+     * ring staying as it was; the ring tool's last error says why when there is nothing.
+     */
+    public void discardDraft() {
+        ringTool.discardDraft();
+    }
+
+    /**
+     * What this sub-tool holds toward a draft before one opens, which the tool state reports while
+     * no draft is open.
+     *
+     * @return the waiting points as a draft that is not valid, or {@code null} for none
+     */
+    public Draft pendingDraft() {
+        return null;
+    }
 
     /**
      * Whether this sub-tool owns a confirmed ring of its kind, and so re-opens it as its draft.

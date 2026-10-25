@@ -18,6 +18,7 @@ import ixdar.models.ModelCatalog;
 import ixdar.models.ModelChoice;
 import ixdar.models.ModelLoadLedger;
 import ixdar.automation.AutomationEndpoint;
+import ixdar.automation.AutomationPortFile;
 import ixdar.scenes.model.ModelScene;
 
 /**
@@ -81,10 +82,12 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
                     return failure("the active scene is not a model scene");
                 }
                 ModelScene scene = (ModelScene) runtime.canvas;
-                // A path opens the way -Dixdar.model does; the scene's own model, reopened by its
-                // path, keeps its choice, so its overrides and save target stay the same.
+                // A path opens the way -Dixdar.model does, a relative one from the checkout root
+                // whatever directory the JVM runs in; the scene's own model, reopened by its path,
+                // keeps its choice, so its overrides and save target stay the same.
                 ModelChoice match = file.isEmpty() ? ModelCatalog.resolve(scene.availableModels(), name)
-                        : ModelCatalog.launchChoice(file, null);
+                        : ModelCatalog.launchChoice(
+                                AutomationPortFile.checkoutRoot().resolve(file).toString(), null);
                 if (!file.isEmpty() && !Files.exists(Path.of(match.path))) {
                     return failure("no file at " + match.path);
                 }
@@ -175,7 +178,8 @@ public class SwitchModel extends AutomationEndpoint implements AutomationRoute {
                         "Model display name, or part of the name or path of a listed model.", "bolt")
                 .param(PATH, RouteParamType.STRING, false, "",
                         "A .dsl graph or mesh file to open by its path instead of a name, the scene's own "
-                                + "model included, so a saved file can be reopened without a restart.",
+                                + "model included, so a saved file can be reopened without a restart; "
+                                + "a relative path is read from the checkout root.",
                         "tmp/IMG_4111.dsl")
                 .param(SET, RouteParamType.STRING_LIST, false, "",
                         "Scene override path.port=value, kept across model switches; an empty value"
