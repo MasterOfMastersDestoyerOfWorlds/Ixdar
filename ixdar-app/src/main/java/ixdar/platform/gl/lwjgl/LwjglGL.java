@@ -717,12 +717,13 @@ public class LwjglGL implements GL {
     }
 
     @Override
-    public float readDepth(int x, int y) {
-        FloatBuffer depth = MemoryUtil.memAllocFloat(1);
-        glReadPixels(x, y, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, depth);
-        float value = depth.get(0);
+    public float[] readDepths(int x, int y, int width, int height) {
+        FloatBuffer depth = MemoryUtil.memAllocFloat(width * height);
+        glReadPixels(x, y, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, depth);
+        float[] values = new float[width * height];
+        depth.get(values);
         MemoryUtil.memFree(depth);
-        return value;
+        return values;
     }
 
     @Override

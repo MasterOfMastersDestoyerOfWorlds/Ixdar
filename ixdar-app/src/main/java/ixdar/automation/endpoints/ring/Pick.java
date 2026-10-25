@@ -76,7 +76,7 @@ public class Pick extends AutomationEndpoint implements AutomationRoute {
                     result.addProperty("region", region);
                     result.addProperty("regionBoundedBy",
                             region < 0 ? "" : regions.boundingRingText(region));
-                    int[] labelByRegion = scene.regionLayer.labelByRegion;
+                    int[] labelByRegion = scene.regionLayer.partLabels.labelByRegion;
                     int label = region < 0 || region >= labelByRegion.length
                             ? MeshLabels.UNLABELLED : labelByRegion[region];
                     result.addProperty("part", label == MeshLabels.UNLABELLED ? ""

@@ -17,6 +17,10 @@ public class HyperWord {
     public CharSequence charSequence;
     public ArrayList<HyperChar> text;
     public Color color;
+    /** Colour of the band drawn round the word's glyphs, {@link Color#TRANSPARENT} for none. */
+    public Color borderColor = Color.TRANSPARENT;
+    /** Width of that band outside the glyph edges, in screen pixels. */
+    public float borderPixels;
     public Supplier<ColorText<?>> wordAction;
     public boolean isDynamic = false;
     public Action hoverAction;
@@ -271,9 +275,11 @@ public class HyperWord {
             ArrayList<HyperWord> subWords = new ArrayList<>();
             int i = 0;
             for (String textPart : colorText.text) {
-                subWords.add(
-                        new HyperWord(textPart + " ", colorText.color.get(i), hoverAction, clearHover, clickAction,
-                                font));
+                HyperWord part = new HyperWord(textPart + " ", colorText.color.get(i), hoverAction, clearHover,
+                        clickAction, font);
+                part.borderColor = borderColor;
+                part.borderPixels = borderPixels;
+                subWords.add(part);
                 i++;
                 if (i >= colorText.color.size()) {
                     i = 0;

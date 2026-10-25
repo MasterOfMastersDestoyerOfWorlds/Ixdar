@@ -39,5 +39,17 @@ void main() {
     float screenPxRange = 0.5 * dot(unitRange, vec2(1.0) / fwidth(textureCoord));
     float distance = mix(smp.a, sigDist, clamp(screenPxRange - 1.0, 0.0, 1.0));
     float opacity = clamp(max(screenPxRange, 1.0) * (distance - edgeDist) + 0.5, 0.0, 1.0);
-    fragColor = vec4(vertexColor.r, vertexColor.g, vertexColor.b, vertexColor.a * opacity);
+    float fillAlpha = vertexColor.a * opacity;
+    // The border band runs from borderInner to borderOuter screen pixels outside the glyph edge,
+    // measured on the alpha channel's true distance, which stays valid far from the edge where the
+    // channels' median does not. It reaches only as far as the atlas's distance range, so the atlas
+    // is generated with a range wider than any border drawn. A transparent border leaves the fill.
+    float outsidePixels = max(screenPxRange, 1.0) * (edgeDist - smp.a);
+    float band = clamp(borderOuter - outsidePixels + 0.5, 0.0, 1.0)
+            * clamp(outsidePixels - borderInner + 0.5, 0.0, 1.0);
+    float borderAlpha = borderColor.a * max(band, opacity) * (1.0 - fillAlpha);
+    float alpha = fillAlpha + borderAlpha;
+    vec3 colour = alpha > 0.0 ? (vertexColor.rgb * fillAlpha + borderColor.rgb * borderAlpha) / alpha
+            : vertexColor.rgb;
+    fragColor = vec4(colour, alpha);
 }

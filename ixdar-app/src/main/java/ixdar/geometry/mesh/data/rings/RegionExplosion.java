@@ -23,6 +23,8 @@ public final class RegionExplosion {
 
     public static final float FULL_SPREAD = 0.4f;
 
+    public static final float NUDGE = 0.15f;
+
     /** Names the draw tag each region's offset is written under. */
     public final IntFunction<String> regionTag;
 
@@ -145,20 +147,25 @@ public final class RegionExplosion {
     }
 
     /**
-     * Move the view on by one frame and write each region's offset for the eased amount, only
-     * when that amount changed. A held direction moves the progress and holds it there; otherwise
-     * it runs toward {@link #target}. A full sweep takes {@link #SWEEP_SECONDS}.
+     * Move the target one {@link #NUDGE} further apart or closer together, as each press and
+     * repeat of the region tool's , and . keys does.
      *
-     * @param seconds       time since the last frame
-     * @param heldDirection positive pushes out, negative pulls in, zero animates to the target
-     * @param offsets       draw offsets by tag; emptied when the view is assembled
+     * @param direction positive pushes out, negative pulls in
      */
-    public void step(float seconds, int heldDirection, Map<String, Vector3f> offsets) {
+    public void nudge(int direction) {
+        animateTo(target + Math.signum(direction) * NUDGE);
+    }
+
+    /**
+     * Move the view on by one frame toward {@link #target} and write each region's offset for the
+     * eased amount, only when that amount changed. A full sweep takes {@link #SWEEP_SECONDS}.
+     *
+     * @param seconds time since the last frame
+     * @param offsets draw offsets by tag; emptied when the view is assembled
+     */
+    public void step(float seconds, Map<String, Vector3f> offsets) {
         float sweep = Math.max(0f, seconds) / SWEEP_SECONDS;
-        if (heldDirection != 0) {
-            progress = Math.max(0f, Math.min(1f, progress + Math.signum(heldDirection) * sweep));
-            target = progress;
-        } else if (progress < target) {
+        if (progress < target) {
             progress = Math.min(target, progress + sweep);
         } else {
             progress = Math.max(target, progress - sweep);

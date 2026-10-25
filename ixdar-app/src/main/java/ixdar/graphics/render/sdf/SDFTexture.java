@@ -7,9 +7,11 @@ import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
 import ixdar.platform.Platforms;
 
 public class SDFTexture extends ShaderDrawable {
-    public static final float FEATHER = 0.1f;
     public static final float MIN_EDGE_SHARPNESS = 0.1f;
     public static final float MIN_SCALE_FACTOR = 0.5f;
+    public static final String BORDER_COLOR_UNIFORM = "borderColor";
+    public static final String BORDER_INNER_UNIFORM = "borderInner";
+    public static final String BORDER_OUTER_UNIFORM = "borderOuter";
 
     public Texture texture;
     boolean sharpCorners;
@@ -18,6 +20,8 @@ public class SDFTexture extends ShaderDrawable {
     private float borderOuter;
     private float borderOffsetInner;
     private float borderOffsetOuter;
+    private Color drawnBorderColor = Color.TRANSPARENT;
+    private float drawnBorderOuter;
 
     /**
      * Distance range from MSDF atlas generation (pxRange parameter). Default is 4.0
@@ -56,27 +60,18 @@ public class SDFTexture extends ShaderDrawable {
     }
 
     /**
-     * Asynchronously load the MSDF texture from a resource and configure a
-     * fixed border band.
+     * Asynchronously load the MSDF texture from a resource, drawn without a border band.
      *
      * @param sdfLocation resource path to the MSDF texture
-     * @param borderColor color rendered in the border band
-     * @param borderDist outer border radius (distance from edge)
-     * @param borderOffset offset of the border start from the edge
      * @param sharpCorners {@code true} to disable corner rounding in the shader
      */
-    public SDFTexture(String sdfLocation, Color borderColor,
-            float borderDist, float borderOffset, boolean sharpCorners) {
+    public SDFTexture(String sdfLocation, boolean sharpCorners) {
         int id = Platforms.gl().getPlatformID();
         Platforms.get().loadTexture(sdfLocation, id, (t) -> {
             this.texture = t;
             this.shader = ShaderType.TextureSDF.getShader();
         });
-        this.borderColor = borderColor;
-        this.borderInner = borderDist - FEATHER;
-        this.borderOuter = borderDist;
-        this.borderOffsetInner = borderOffset - FEATHER;
-        this.borderOffsetOuter = borderOffset;
+        this.borderColor = Color.TRANSPARENT;
         this.sharpCorners = sharpCorners;
     }
 
@@ -141,17 +136,38 @@ public class SDFTexture extends ShaderDrawable {
         }
         texture.bind();
         shader.setTexture("innerTexture", texture, gl.TEXTURE0(), 0);
-        shader.setFloat("borderInner", borderInner);
-        shader.setFloat("borderOuter", borderOuter);
+        shader.setFloat(BORDER_INNER_UNIFORM, borderInner);
+        shader.setFloat(BORDER_OUTER_UNIFORM, borderOuter);
         shader.setFloat("borderOffsetInner", borderOffsetInner);
         shader.setFloat("borderOffsetOuter", borderOffsetOuter);
-        shader.setVec4("borderColor", borderColor.toVector4f());
+        shader.setVec4(BORDER_COLOR_UNIFORM, borderColor.toVector4f());
+        drawnBorderColor = borderColor;
+        drawnBorderOuter = borderOuter;
         shader.setBool("sharpCorners", sharpCorners);
         shader.setFloat("pxRange", pxRange);
         shader.setFloat("edgeDist", edgeDist);
         float scaleFactor = camera != null ? camera.getScaleFactor() : 1.0f;
         float edgeSharpness = Math.max(baseEdgeSharpness / Math.max(scaleFactor, MIN_SCALE_FACTOR), MIN_EDGE_SHARPNESS);
         shader.setFloat("edgeSharpness", edgeSharpness);
+    }
+
+    /**
+     * Within a set-up pass, draw what follows with a border band of this colour and width round
+     * each glyph, as a word asks; the glyphs batched so far are drawn first when the band changes.
+     *
+     * @param colour       band colour, {@link Color#TRANSPARENT} for none
+     * @param widthPixels  band width outside the glyph edge, in screen pixels
+     */
+    public void setWordBorder(Color colour, float widthPixels) {
+        if (colour == drawnBorderColor && widthPixels == drawnBorderOuter) {
+            return;
+        }
+        shader.flush();
+        drawnBorderColor = colour;
+        drawnBorderOuter = widthPixels;
+        shader.setVec4(BORDER_COLOR_UNIFORM, colour.toVector4f());
+        shader.setFloat(BORDER_INNER_UNIFORM, 0f);
+        shader.setFloat(BORDER_OUTER_UNIFORM, widthPixels);
     }
 
     /**
@@ -200,16 +216,6 @@ public class SDFTexture extends ShaderDrawable {
         float width = (float) (texture.width * scale);
         float height = (float) (texture.height * scale);
         draw(drawX - (width / 2f), drawY - (height / 2f), width, height, c, camera);
-    }
-
-    /**
-     * Set the border outer radius and a 0.1-unit feather inner edge.
-     *
-     * @param borderDist outer border radius in distance-field units
-     */
-    public void setBorderDist(float borderDist) {
-        this.borderInner = borderDist - FEATHER;
-        this.borderOuter = borderDist;
     }
 
     /**

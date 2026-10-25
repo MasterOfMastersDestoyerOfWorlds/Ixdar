@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +30,8 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
+import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.gui.ui.text.HyperString;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.terminal.commands.SelectCommand;
 import ixdar.platform.Platform;
@@ -67,6 +70,30 @@ class RegionControlAutomationTest {
 
     private static final String PART = "tail";
 
+    private static final String TOGGLE_REGION_NUMBERS = "toggle-region-numbers";
+
+    private static final float SEEN_PIXEL_X = 20f;
+
+    private static final float SEEN_PIXEL_FROM_TOP = 10f;
+
+    private static final float BAND_MIDDLE_Z = 1.75f;
+
+    private static final float ROW_HEIGHT = 0.5f;
+
+    private static final float ORBIT_ELEVATION = 1.2f;
+
+    private static final float OUTSIDE_DISTANCE = 6f;
+
+    private static final float INSIDE_DISTANCE = 0.75f;
+
+    private static final float NEAR_PLANE = 0.01f;
+
+    private static final float FAR_PLANE = 100f;
+
+    private static final double RING_TOLERANCE = 1e-3;
+
+    private static final float DEPTH_LIFT = 0.125f;
+
     private static final float CENTRE_TOLERANCE = 1e-5f;
 
     private static final float[] BOTTOM_POINT = { 1f, 0f, 0.5f };
@@ -96,12 +123,6 @@ class RegionControlAutomationTest {
 
     /** Active face the surface's id pass reports under any pixel, as a click would read it. */
     private final int[] faceUnderCursor = { -1 };
-
-    /** Active face the coarse id pass sees over the lower half of the view. */
-    private final int[] faceSeenBelow = { -1 };
-
-    /** Active face the coarse id pass sees over the upper half of the view. */
-    private final int[] faceSeenAbove = { -1 };
 
     /**
      * A ring scene over the cylinder with its two rings and the region tool active, its regions and
@@ -159,13 +180,6 @@ class RegionControlAutomationTest {
                 return faceUnderCursor[0];
             }
 
-            @Override
-            public int[] faceIndexGrid(Camera3D camera, int columns, int rows) {
-                int[] grid = new int[columns * rows];
-                Arrays.fill(grid, 0, grid.length / 2, faceSeenBelow[0]);
-                Arrays.fill(grid, grid.length / 2, grid.length, faceSeenAbove[0]);
-                return grid;
-            }
         };
         scene.meshRuntime.upload(cylinder);
         scene.ringMarksByLabel.put("ring_02", RingRegionsUpdateTest.rowMask(cylinder, LOW_RING_ROW, false));
@@ -303,34 +317,159 @@ class RegionControlAutomationTest {
         assertEquals(1, scene.regionTool.selectedCount(), "shift stayed held after the shift-click");
     }
 
+    /**
+     * Each region's number hangs on a fixed point of its own region, the face deepest from its
+     * rings, and stays there while the camera moves: the band between the two rings is labelled
+     * at its middle row.
+     */
     @Test
-    void theRegionNumbersRowDrawsEachSeenRegionsNumberInsideTheViewOfIt() throws Exception {
+    void theRegionNumbersRowAnchorsEachNumberDeepInsideItsRegionWhereverTheCameraIs() throws Exception {
         RingRegions regions = scene.regionLayer.regions;
-        faceSeenBelow[0] = regions.nearestActiveFace(BOTTOM_POINT[0], BOTTOM_POINT[1], BOTTOM_POINT[2]);
-        faceSeenAbove[0] = regions.nearestActiveFace(TOP_POINT[0], TOP_POINT[1], TOP_POINT[2]);
-        int below = regions.regionByActiveFace[faceSeenBelow[0]];
-        int above = regions.regionByActiveFace[faceSeenAbove[0]];
         scene.updateScene();
-        assertEquals(0, scene.regionLayer.regionNumberText.length, "numbers drawn before the row turned them on");
+        assertEquals(0, scene.shownLabels.size(), "numbers drawn before the row turned them on");
         JsonObject body = new JsonObject();
-        body.addProperty(FireControl.ACTION, "toggle-region-numbers");
+        body.addProperty(FireControl.ACTION, TOGGLE_REGION_NUMBERS);
         assertTrue(control(body).get(OK).getAsBoolean());
         scene.updateScene();
 
-        String[] text = scene.regionLayer.regionNumberText;
-        float[] xy = scene.regionLayer.regionNumberXy;
-        assertEquals(regions.regionCount, text.length);
-        assertEquals(RegionLayer.REGION_NUMBER_PREFIX + below, text[below]);
-        assertEquals(RegionLayer.REGION_NUMBER_PREFIX + above, text[above]);
-        assertTrue(xy[2 * below + 1] < WINDOW_SIZE / 2f && xy[2 * above + 1] > WINDOW_SIZE / 2f,
-                "a number left the half of the view its region fills: " + Arrays.toString(xy));
-        for (int region = 0; region < regions.regionCount; region++) {
-            assertTrue(region == below || region == above || text[region] == null,
-                    "region " + region + " is numbered but not seen");
+        assertEquals(regions.regionCount, scene.shownLabels.size());
+        float[] anchors = new float[RingRegions.TRIANGLE_CORNERS * regions.regionCount];
+        for (HyperString label : scene.shownLabels) {
+            int region = (Integer) label.getData();
+            assertEquals(RegionLayer.REGION_NUMBER_PREFIX + region, label.plainLines().get(0));
+            assertSame(scene.camera, label.anchorCamera, "a region number is not anchored in 3D");
+            assertEquals(region, regions.regionByActiveFace[regions.nearestActiveFace(label.anchor.x,
+                    label.anchor.y, label.anchor.z)], "R" + region + " sits outside its region");
+            anchors[RingRegions.TRIANGLE_CORNERS * region] = label.anchor.x;
+            anchors[RingRegions.TRIANGLE_CORNERS * region + 1] = label.anchor.y;
+            anchors[RingRegions.TRIANGLE_CORNERS * region + 2] = label.anchor.z;
+        }
+        int between = regions.regionByActiveFace[regions.nearestActiveFace(1f, 0f, BAND_MIDDLE_Z)];
+        assertEquals(BAND_MIDDLE_Z, anchors[RingRegions.TRIANGLE_CORNERS * between + 2], ROW_HEIGHT,
+                "the band's number is not at its middle row");
+
+        scene.camera.setOrbit(1f, 1f, OUTSIDE_DISTANCE);
+        scene.updateScene();
+        scene.updateScene();
+        for (HyperString label : scene.shownLabels) {
+            int base = RingRegions.TRIANGLE_CORNERS * (Integer) label.getData();
+            assertEquals(new Vector3f(anchors[base], anchors[base + 1], anchors[base + 2]), label.anchor,
+                    "a region number moved with the camera");
         }
         assertTrue(control(body).get(OK).getAsBoolean());
         scene.updateScene();
-        assertEquals(0, scene.regionLayer.regionNumberText.length, "the row did not turn the numbers off");
+        assertEquals(0, scene.shownLabels.size(), "the row did not turn the numbers off");
+    }
+
+    /**
+     * A named region's label is its part name, centred on the region, and joins its number when
+     * both are shown, so one label per region never overlaps another on the same region.
+     */
+    @Test
+    void aNamedRegionDrawsOneLabelWithItsNumberAndPartName() throws Exception {
+        RingRegions regions = scene.regionLayer.regions;
+        int below = regions.regionByActiveFace[regions.nearestActiveFace(BOTTOM_POINT[0], BOTTOM_POINT[1],
+                BOTTOM_POINT[2])];
+        scene.regionLayer.partLabels.add(PART, BOTTOM_POINT.clone());
+        scene.regionLayer.labelsChanged();
+        scene.updateScene();
+        assertEquals(1, scene.shownLabels.size());
+        HyperString named = scene.shownLabels.get(0);
+        assertEquals(PART, named.plainLines().get(0));
+        assertEquals(below, named.getData());
+        assertEquals(below, regions.regionByActiveFace[regions.nearestActiveFace(named.anchor.x,
+                named.anchor.y, named.anchor.z)], "the name left its region");
+        assertEquals(RingScene.LABEL_BORDER_COLOUR, named.getWord(0).borderColor,
+                "a label draws in its own bordered style");
+
+        JsonObject body = new JsonObject();
+        body.addProperty(FireControl.ACTION, TOGGLE_REGION_NUMBERS);
+        assertTrue(control(body).get(OK).getAsBoolean());
+        scene.updateScene();
+        assertEquals(regions.regionCount, scene.shownLabels.size(), "one label per region");
+        for (HyperString label : scene.shownLabels) {
+            int region = (Integer) label.getData();
+            assertEquals(RegionLayer.REGION_NUMBER_PREFIX + region + (region == below ? " " + PART : ""),
+                    label.plainLines().get(0));
+        }
+    }
+
+    /**
+     * A string anchored on a world point asks the camera's visibility answer, with its depth lift,
+     * and is not shown while that answer says the point is hidden. The stand-in font has no
+     * metrics, so where it lays out is checked live, not here.
+     */
+    @Test
+    void aWorldAnchoredStringLaysOutWhereItsPointIsSeenAndHidesWhereItIsNot() {
+        HyperString number = new HyperString();
+        number.addWord("7", RingScene.LABEL_FILL_COLOUR, RingScene.LABEL_BORDER_COLOUR, RingScene.LABEL_BORDER_PIXELS);
+        number.anchorCamera = scene.camera;
+        number.anchor.set(1f, 2f, 3f);
+        boolean[] seen = { true };
+        float[] askedLift = { -1f };
+        scene.camera.pointVisibility = (camera, x, y, z, depthLift, pixel) -> {
+            pixel[0] = SEEN_PIXEL_X;
+            pixel[1] = SEEN_PIXEL_FROM_TOP;
+            askedLift[0] = depthLift;
+            return seen[0];
+        };
+        number.anchorDepthLift = DEPTH_LIFT;
+
+        number.layoutAtAnchor(scene.camera2D, RingScene.LABEL_ROW_PIXELS);
+        assertTrue(number.shown);
+        assertEquals(DEPTH_LIFT, askedLift[0], "the anchor's depth lift is what the hiding test gets");
+
+        seen[0] = false;
+        number.layoutAtAnchor(scene.camera2D, RingScene.LABEL_ROW_PIXELS);
+        assertTrue(!number.shown, "a hidden anchor left the string shown");
+    }
+
+    /**
+     * A ring round the tube puts its number on a loop point on the side facing a camera outside,
+     * and shows none from inside the tube or while the surface hides every loop point.
+     */
+    @Test
+    void aRingNumberSitsOnTheLoopFacingTheCameraAndHidesFromInsideAndBehind() {
+        scene.meshRuntime = new MeshOverlayRuntime();
+        scene.meshRuntime.upload(cylinder);
+        scene.ringTool.invalidateRings();
+        scene.ringTool.uploadOverlay();
+        assertTrue(!scene.ringTool.ringNumbers.isEmpty(), "the rings have no numbers");
+        Vector3f eye = new Vector3f();
+        boolean[] surfaceHidesAll = { false };
+        // The near half of the tube is what a depth test would show: points on the eye's side.
+        scene.camera.pointVisibility = (camera, x, y, z, depthLift, pixel) -> camera.projectToPixels(
+                new Matrix4f(), x, y, z, pixel) && !surfaceHidesAll[0] && x * eye.x + y * eye.y > 0f;
+        scene.camera.setTarget(new Vector3f(0f, 0f, 1f));
+
+        scene.camera.setOrbit(0f, ORBIT_ELEVATION, OUTSIDE_DISTANCE);
+        scene.camera.updateProjection(false, NEAR_PLANE, FAR_PLANE);
+        eye.set(scene.camera.position);
+        assertTrue(Math.hypot(eye.x, eye.y) > 1.0, "the camera is not outside the tube: " + eye);
+        scene.ringTool.placeRingNumbers(scene.camera);
+        for (HyperString number : scene.ringTool.ringNumbers) {
+            assertTrue(number.shown, "a ring facing the camera shows no number");
+            assertEquals(1.0, Math.hypot(number.anchor.x, number.anchor.y), RING_TOLERANCE,
+                    "the number is not on its loop: " + number.anchor);
+            assertTrue(number.anchor.x * eye.x + number.anchor.y * eye.y > 0f,
+                    "the number sits on the far side of the tube: " + number.anchor);
+        }
+
+        surfaceHidesAll[0] = true;
+        scene.camera.setOrbit(0f, ORBIT_ELEVATION, OUTSIDE_DISTANCE + 1f);
+        scene.ringTool.placeRingNumbers(scene.camera);
+        for (HyperString number : scene.ringTool.ringNumbers) {
+            assertTrue(!number.shown, "a ring the surface hides still shows its number");
+        }
+
+        surfaceHidesAll[0] = false;
+        scene.camera.setOrbit(0f, ORBIT_ELEVATION, INSIDE_DISTANCE);
+        eye.set(scene.camera.position);
+        assertTrue(Math.hypot(eye.x, eye.y) < 1.0, "the camera is not inside the tube: " + eye);
+        scene.ringTool.placeRingNumbers(scene.camera);
+        for (HyperString number : scene.ringTool.ringNumbers) {
+            assertTrue(!number.shown, "a ring seen from inside the tube shows its number");
+        }
     }
 
     @Test

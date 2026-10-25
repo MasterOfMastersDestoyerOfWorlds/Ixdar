@@ -5,24 +5,20 @@ import java.util.List;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.joml.Vector4f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangleGeometry;
-import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.shaders.MeshLineShader;
 import ixdar.graphics.render.shaders.ShaderProgram;
-import ixdar.gui.ui.Drawing;
-import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.geometry.mesh.data.paths.query.SurfaceFaceLocator;
 
 /**
- * General overlays drawn over a half-edge mesh surface: points, lines, labels and markers.
+ * General overlays drawn over a half-edge mesh surface: points, lines and markers.
  * Each setter converts one value into a {@link LineSet}, a {@link PointSet} or a corner array,
  * and {@link VertexBuffer#upload} is the one upload path per {@link VertexLayout}.
  */
@@ -46,11 +42,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private static final float[] DISC_CORNERS = { -1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1 };
     private static final int DISC_CORNER_COUNT = 6;
     private static final float TEAR_SPHERE_REGION_FRACTION = 0.02f;
-
-    private static final float LABEL_ROW_HEIGHT_PIXELS = 26f;
-    private static final float LABEL_OFFSET_PIXELS = 10f;
-    private static final float LABEL_LIFT_TIE = 0.25f;
-    private static final int LABEL_PIXEL_VALUES = 3;
 
     private static final float PHI = (1f + (float) Math.sqrt(5f)) * 0.5f;
     private static final float[] ICO_VERTICES = {
@@ -81,22 +72,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     /** Radius of the last uploaded diagnostic's geometry around its centroid. */
     public float diagnosticRegionRadius;
 
-    /** Packed world xyz of every label's point, three floats per label. */
-    public float[] labelXyz = new float[0];
-
-    /** Text drawn beside each label's point; an empty entry draws nothing. */
-    public String[] labelText = new String[0];
-
-    /** One colour per label, parallel to {@link #labelText}. */
-    public Color[] labelColors = new Color[0];
-
-    /**
-     * World distance each label's point is pulled toward the eye before its depth test, so a
-     * label sitting inside a shape is not hidden by the shell around it; a quarter of it is the
-     * eye-distance tie the test allows the shell's own front.
-     */
-    public float[] labelDepthLift = new float[0];
-
     private final VertexBuffer sphere = new VertexBuffer();
     /** Every colour group's line segments end to end, two vertices per segment. */
     private final VertexBuffer lineGroups = new VertexBuffer();
@@ -111,11 +86,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     private Color[] lineGroupColors = new Color[0];
 
     private final Matrix4f model = new Matrix4f();
-    private final float[] labelPixel = new float[LABEL_PIXEL_VALUES];
-    private final Vector3f labelPoint = new Vector3f();
-    private final Vector4f labelView = new Vector4f();
-    private final Vector4f labelSurface = new Vector4f();
-    private final Matrix4f inverseProjection = new Matrix4f();
 
     /** Build the runtime and initialise its overlay shaders. */
     public MeshOverlayRuntime() {
@@ -139,14 +109,13 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     }
 
     /**
-     * Drops every overlay tied to one mesh: a tool's diagnostic, labels, line groups, markers and
-     * patch clouds, and the sphere radius cap.
+     * Drops every overlay tied to one mesh: a tool's diagnostic, line groups, markers and patch
+     * clouds, and the sphere radius cap.
      */
     public void clearMeshState() {
         clearDiagnostic();
         clearLineGroups();
         clearMarkers();
-        clearLabels();
         patchClouds.clear();
         showPatchClouds = false;
         sphereRadiusCap = 0f;
@@ -229,35 +198,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     /** Drop the anchor discs. */
     public void clearMarkers() {
         anchorDiscs.delete();
-    }
-
-    /**
-     * Show text beside world points, each drawn by {@link #drawLabels} only while the surface
-     * does not hide its point.
-     *
-     * @param packedXyz packed world xyz of every label's point
-     * @param text      one text per point; empty entries draw nothing
-     * @param colors    one colour per point
-     * @param depthLift world distance each point is pulled toward the eye before its depth test,
-     *                  zero for a point lying on the surface
-     */
-    public void setLabels(float[] packedXyz, String[] text, Color[] colors, float[] depthLift) {
-        if (packedXyz == null || text == null) {
-            clearLabels();
-            return;
-        }
-        labelXyz = packedXyz;
-        labelText = text;
-        labelColors = colors == null ? new Color[0] : colors;
-        labelDepthLift = depthLift == null ? new float[0] : depthLift;
-    }
-
-    /** Drop the labels; nothing is drawn until {@link #setLabels} runs again. */
-    public void clearLabels() {
-        labelXyz = new float[0];
-        labelText = new String[0];
-        labelColors = new Color[0];
-        labelDepthLift = new float[0];
     }
 
     /**
@@ -447,77 +387,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         }
     }
 
-    /**
-     * Draw every label beside its point, in the scene's 2D pass over a frame the 3D passes have
-     * already filled: a point projecting behind the camera, off the framebuffer, or under a
-     * nearer surface fragment draws nothing.
-     *
-     * @param camera active 3D camera, whose matrices placed the surface in the depth buffer
-     * @param screen the 2D camera the text is drawn through
-     */
-    public void drawLabels(Camera3D camera, Camera2D screen) {
-        drawLabels(camera, screen, labelXyz, labelText, labelColors, labelDepthLift);
-    }
-
-    /**
-     * Draw text beside world points the way {@link #drawLabels(Camera3D, Camera2D)} draws the
-     * runtime's own labels, for a caller holding a second set, such as part names over ring
-     * numbers.
-     *
-     * @param camera    active 3D camera, whose matrices placed the surface in the depth buffer
-     * @param screen    the 2D camera the text is drawn through
-     * @param xyz       packed world xyz of every label's point
-     * @param text      text drawn beside each point; an empty entry draws nothing
-     * @param colors    one colour per label, black past its end
-     * @param depthLift world distance each point is pulled toward the eye before its depth test
-     */
-    public void drawLabels(Camera3D camera, Camera2D screen, float[] xyz, String[] text,
-            Color[] colors, float[] depthLift) {
-        if (text.length == 0 || screen == null) {
-            return;
-        }
-        GL gl = Platforms.gl();
-        int width = Platforms.get().getFrameBufferWidth();
-        int height = Platforms.get().getFrameBufferHeight();
-        // Depths read back through the overlay's planes: LABEL_LIFT_TIE is tuned against them.
-        updateOverlayProjection(camera);
-        inverseProjection.set(camera.projection).invert();
-        for (int label = 0; label < text.length; label++) {
-            String shown = text[label];
-            if (shown == null || shown.isEmpty() || 3 * label + 2 >= xyz.length) {
-                continue;
-            }
-            labelPoint.set(xyz[3 * label], xyz[3 * label + 1], xyz[3 * label + 2]);
-            float lift = label < depthLift.length ? depthLift[label] : 0f;
-            if (lift > 0f) {
-                labelPoint.add(new Vector3f(camera.position).sub(labelPoint).normalize(lift));
-            }
-            if (!projectToPixels(camera, labelPoint.x, labelPoint.y, labelPoint.z, labelPixel)) {
-                continue;
-            }
-            int pixelX = Math.round(labelPixel[0]);
-            int pixelFromBottom = height - 1 - Math.round(labelPixel[1]);
-            if (pixelX < 0 || pixelX >= width || pixelFromBottom < 0
-                    || pixelFromBottom >= height) {
-                continue;
-            }
-            // Compare eye distances, not window depths: a fixed window-depth slack spans more of
-            // the model the further the camera backs off, letting labels through nearer limbs.
-            labelSurface.set(0f, 0f, 2f * gl.readDepth(pixelX, pixelFromBottom) - 1f, 1f);
-            inverseProjection.transform(labelSurface);
-            labelView.set(labelPoint, 1f);
-            camera.view.transform(labelView);
-            if (-labelView.z > -labelSurface.z / labelSurface.w + LABEL_LIFT_TIE * lift) {
-                continue;
-            }
-            HyperString drawn = new HyperString();
-            drawn.addWord(shown, label < colors.length ? colors[label] : Color.BLACK);
-            Drawing.getDrawing().font.drawHyperString(drawn,
-                    labelPixel[0] + LABEL_OFFSET_PIXELS,
-                    height - labelPixel[1] + LABEL_OFFSET_PIXELS, LABEL_ROW_HEIGHT_PIXELS, screen);
-        }
-    }
-
     @Override
     public void dispose() {
         super.dispose();
@@ -567,17 +436,6 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
         if (cap > 0) {
             sphereRadius = Math.min(sphereRadius, cap);
         }
-    }
-
-    /**
-     * Rebuild the camera's projection for the overlay passes, its far plane clearing the
-     * bounding-box diagonal rather than the surface pass's sphere diameter: the farther plane
-     * draws the same point nearer, which keeps lines lying on the surface in front of it.
-     *
-     * @param camera active camera
-     */
-    public void updateOverlayProjection(Camera3D camera) {
-        updateProjection(camera, getBoundingBoxMax().distance(getBoundingBoxMin()));
     }
 
     /**

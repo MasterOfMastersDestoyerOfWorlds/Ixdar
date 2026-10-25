@@ -155,8 +155,11 @@ public final class RingRegionTool extends Tool {
         controls.add(new ControlHint("isolate-selected", Keys.I, false, true, "shift+I",
                 "isolate selected regions (hide the rest)",
                 () -> scene.regionLayer.hideSelection(true)));
-        controls.add(new ControlHint(ControlHint.NO_KEY, "hold , / .", "explode less / more"));
         RegionLayer layer = scene.regionLayer;
+        controls.add(ControlHint.repeating("explode-less", Keys.COMMA, ",", "explode less (hold to repeat)",
+                () -> layer.explosion.nudge(-1)));
+        controls.add(ControlHint.repeating("explode-more", Keys.PERIOD, ".", "explode more (hold to repeat)",
+                () -> layer.explosion.nudge(1)));
         controls.add(new ControlHint("drop-part-names", Keys.L, false, true, "shift+L",
                 "drop the selected regions' part names", () -> {
                     RingRegions regions = layer.regions;
@@ -195,9 +198,15 @@ public final class RingRegionTool extends Tool {
                     terminal.keyPress(Keys.SPACE, 0, false);
                 }));
         controls.add(new ControlHint("toggle-part-names", Keys.P, false, true, "shift+P", "part names on screen",
-                () -> layer.showPartNames = !layer.showPartNames));
+                () -> {
+                    layer.showPartNames = !layer.showPartNames;
+                    layer.labelsShownChanged();
+                }));
         controls.add(new ControlHint("toggle-region-numbers", Keys.N, false, true, "shift+N",
-                "region numbers on screen (R3 is region 3)", () -> layer.showRegionNumbers = !layer.showRegionNumbers));
+                "region numbers on screen (R3 is region 3)", () -> {
+                    layer.showRegionNumbers = !layer.showRegionNumbers;
+                    layer.labelsShownChanged();
+                }));
         controls.add(new ControlHint("toggle-colour-by-part", Keys.P, "P", "colour by part / by region", () -> {
             layer.colourByPart = !layer.colourByPart;
             layer.redraw();
@@ -254,7 +263,7 @@ public final class RingRegionTool extends Tool {
         while (firstRegion + 1 < selectedRegions.length && !selectedRegions[firstRegion]) {
             firstRegion++;
         }
-        int[] colourByRegion = scene.regionLayer.colouring.colourByNode;
+        int[] colourByRegion = scene.regionLayer.regions.colouring.colourByNode;
         extractedRuntime.setSolidColor(Palettes.REGION.shadedColor(
                 firstRegion < colourByRegion.length ? colourByRegion[firstRegion] : 0).toVector4f());
         if (!showingOpenCut) {
@@ -563,8 +572,8 @@ public final class RingRegionTool extends Tool {
             }
             item.size = regions.regionFaceCount[region];
             boolean hidden = hiddenFaces[region] == regions.regionFaceCount[region];
-            int label = region < layer.labelByRegion.length ? layer.labelByRegion[region]
-                    : MeshLabels.UNLABELLED;
+            int label = region < layer.partLabels.labelByRegion.length
+                    ? layer.partLabels.labelByRegion[region] : MeshLabels.UNLABELLED;
             item.saved = !layer.labelsUnsaved;
             item.detail = String.format(Locale.ROOT, "%s, bounded by %s%s%s%s",
                     label == MeshLabels.UNLABELLED ? UNLABELLED_PART

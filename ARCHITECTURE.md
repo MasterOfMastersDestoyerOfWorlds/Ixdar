@@ -277,7 +277,7 @@ commas between test names, never `+`.
 - **ixdar.tools.graph**: The DSL graph view: a ran DSL's statements laid out left to right by dependency depth as rounded boxes joined by bezier arrows, each box carrying its run time, toggled over any model scene that ran a graph.
 - **ixdar.tools.knot**: The TSP editor's knot tools, each a `KnotTool` (the shared knot hover and selection behind the merged `Tool`): free inspection, map editing and diagnostic overlays over the editor's knots.
 - **ixdar.tools.orbit**: `OrbitTool`: the look-only tool every model scene opens with; the mouse orbits, pans and zooms the camera and nothing is edited.
-- **ixdar.tools.regions**: Ring regions of the `ring-tool` editing scene: `RegionLayer` keeps the regions the ring tool's rings enclose up to date and colours them through the shared `RegionColouring`, and `RingRegionTool` (the region tool) selects regions by click and Shift+click and extracts them.
+- **ixdar.tools.regions**: Ring regions of the `ring-tool` editing scene: `RegionLayer` shows the regions `RingRegions` builds and colours from the ring tool's rings, with their part names as labels, and `RingRegionTool` (the region tool) selects regions by click and Shift+click and extracts them.
 - **ixdar.tools.ring**: The ring tool of the `ring-tool` editing scene: `RingTool` previews, drafts and confirms rings from authored anchors, `RingToolState` is its undoable snapshot, and `RingDslWriter` appends each ring to the working .dsl graph as one statement.
 - **ixdar.tools.trade**: Trade-game tools on the merged `Tool`: `HeadquartersPickerTool` and `RoutePlanningTool`, which depend on the game model instead of the knot editor.
 <!-- package-map:end -->

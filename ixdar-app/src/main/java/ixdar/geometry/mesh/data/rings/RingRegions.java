@@ -5,6 +5,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 import org.joml.Vector3f;
 
@@ -14,6 +17,8 @@ import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
+import ixdar.graphics.render.color.Palette;
+import ixdar.graphics.render.color.RegionColouring;
 import ixdar.numeric.graph.UnionFind;
 
 
@@ -50,6 +55,8 @@ public final class RingRegions {
     public static final String LABEL_SEPARATORS = "[,\\s]+";
 
     public static final int SLIVER_FACES = 100;
+
+    public static final String SPLITS_NOTHING_NOTE = "splits nothing";
 
     // A face lies near its region's rings within this share of the region's depth, the face steps
     // from its rings to its farthest face: a joint band a ring splits stays within a third of the
@@ -173,6 +180,24 @@ public final class RingRegions {
      * {@link #regionInteriorCreaseShare} counts it.
      */
     public boolean[] regionCreaseInterior = new boolean[0];
+
+    /**
+     * Where each region's label sits, xyz packed: the centroid of its face most face steps from
+     * its rings, fixed for the region whatever the camera does.
+     */
+    public float[] regionLabelPoint = new float[0];
+
+    /** Palette colours of the regions, neighbours always apart, kept across {@link #rebuild}s. */
+    public final RegionColouring colouring = new RegionColouring();
+
+    /**
+     * The note the ring tool draws beside a ring, by label, as of the last {@link #rebuild}:
+     * {@link #SPLITS_NOTHING_NOTE} for a ring with one region on both sides of every edge.
+     */
+    public Map<String, String> noteByRingLabel = Map.of();
+
+    /** How many regions {@link #isSliver} names, as of the last {@link #rebuild}. */
+    public int slivers;
 
     private boolean built;
 
@@ -996,6 +1021,69 @@ public final class RingRegions {
     }
 
     /**
+     * Move to the rings as they stand: re-flood what changed rings bound (everything when the
+     * sliver threshold changed), then measure flatness, recolour, note rings splitting nothing and
+     * count slivers.
+     *
+     * @param labels           one label per ring
+     * @param masks            one edge-id-indexed mask per ring, parallel to {@code labels}
+     * @param absorbBelow      sliver threshold, as {@link #absorbBelowFaces}
+     * @param creases          creases of {@link #mesh} flatness is measured on
+     * @param palette          the entries {@link #colouring} hands out
+     * @return this, rebuilt
+     */
+    public RingRegions rebuild(String[] labels, boolean[][] masks, int absorbBelow,
+            SurfaceCreases creases, Palette palette) {
+        if (absorbBelow != absorbBelowFaces) {
+            absorbBelowFaces = absorbBelow;
+            built = false;
+        }
+        update(labels, masks);
+        measureFlatness(creases);
+        colouring.colour(neighboursByRegion, regionFaceCount, formerRegionByRegion, regionKeptFaces,
+                palette);
+        Map<String, String> notes = new TreeMap<>();
+        for (int ring = 0; ring < ringLabels.length; ring++) {
+            if (ringSplitsNothing[ring]) {
+                notes.put(ringLabels[ring], SPLITS_NOTHING_NOTE);
+            }
+        }
+        noteByRingLabel = notes;
+        slivers = 0;
+        for (int region = 0; region < regionCount; region++) {
+            slivers += isSliver(region) ? 1 : 0;
+        }
+        return this;
+    }
+
+    /**
+     * The rings no shown region borders, which are left undrawn while their regions are hidden.
+     *
+     * @param hiddenByActiveFace hidden faces by dense face index; a mask of another length hides none
+     * @return labels of the rings every region they bound is hidden from
+     */
+    public Set<String> hiddenRingLabels(boolean[] hiddenByActiveFace) {
+        boolean hiding = hiddenByActiveFace.length == regionByActiveFace.length;
+        boolean[] regionShown = new boolean[regionCount];
+        for (int activeFace = 0; activeFace < regionByActiveFace.length; activeFace++) {
+            regionShown[regionByActiveFace[activeFace]] |= !hiding || !hiddenByActiveFace[activeFace];
+        }
+        boolean[] ringShown = new boolean[ringLabels.length];
+        for (int region = 0; region < regionCount; region++) {
+            for (int ring : boundingRingsByRegion[region]) {
+                ringShown[ring] |= regionShown[region];
+            }
+        }
+        Set<String> hidden = new TreeSet<>();
+        for (int ring = 0; ring < ringShown.length; ring++) {
+            if (!ringShown[ring]) {
+                hidden.add(ringLabels[ring]);
+            }
+        }
+        return hidden;
+    }
+
+    /**
      * Whether a region is a sliver: fewer than {@link #SLIVER_FACES} faces, which near-parallel
      * or touching rings pinch off.
      *
@@ -1210,10 +1298,19 @@ public final class RingRegions {
             }
         }
         int[] regionDepth = new int[regionCount];
+        // The deepest face holds the region's label; a region no ring bounds takes its lowest face.
+        int[] deepestFace = new int[regionCount];
+        Arrays.fill(deepestFace, MeshTopology.NONE);
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            int region = regionByActiveFace[activeFace];
             if (ringSteps[activeFace] != Integer.MAX_VALUE) {
-                int region = regionByActiveFace[activeFace];
+                if (deepestFace[region] == MeshTopology.NONE || ringSteps[activeFace] > regionDepth[region]
+                        || ringSteps[deepestFace[region]] == Integer.MAX_VALUE) {
+                    deepestFace[region] = activeFace;
+                }
                 regionDepth[region] = Math.max(regionDepth[region], ringSteps[activeFace]);
+            } else if (deepestFace[region] == MeshTopology.NONE) {
+                deepestFace[region] = activeFace;
             }
         }
         for (int activeFace = 0; activeFace < faceCount; activeFace++) {
@@ -1283,6 +1380,8 @@ public final class RingRegions {
         double[] formerPeakCurvature = regionPeakCurvature;
         float[] formerCreasePoint = regionCreasePoint;
         boolean[] formerCreaseInterior = regionCreaseInterior;
+        float[] formerLabelPoint = regionLabelPoint;
+        regionLabelPoint = new float[TRIANGLE_CORNERS * regionCount];
         regionCreaseShare = new double[regionCount];
         regionInteriorCreaseShare = new double[regionCount];
         regionPeakCurvature = new double[regionCount];
@@ -1298,7 +1397,17 @@ public final class RingRegions {
                 regionCreaseInterior[region] = formerCreaseInterior[former];
                 System.arraycopy(formerCreasePoint, TRIANGLE_CORNERS * former, regionCreasePoint,
                         TRIANGLE_CORNERS * region, TRIANGLE_CORNERS);
+                System.arraycopy(formerLabelPoint, TRIANGLE_CORNERS * former, regionLabelPoint,
+                        TRIANGLE_CORNERS * region, TRIANGLE_CORNERS);
                 continue;
+            }
+            int labelFaceId = mesh.faceIdAt(deepestFace[region]);
+            int labelCorners = mesh.faceVertexCount(labelFaceId);
+            for (int slot = 0; slot < labelCorners; slot++) {
+                mesh.vertexPosition(mesh.faceVertexAt(labelFaceId, slot), corner);
+                regionLabelPoint[TRIANGLE_CORNERS * region] += corner.x / labelCorners;
+                regionLabelPoint[TRIANGLE_CORNERS * region + 1] += corner.y / labelCorners;
+                regionLabelPoint[TRIANGLE_CORNERS * region + 2] += corner.z / labelCorners;
             }
             double area = regionArea[region];
             regionCreaseShare[region] = area > 0.0 ? creaseArea[region] / area : 0.0;

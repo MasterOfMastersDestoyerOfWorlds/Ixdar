@@ -547,8 +547,8 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                     bounding.add(side);
                 }
                 row.add("boundingRings", bounding);
-                int part = region < regionLayer.labelByRegion.length ? regionLayer.labelByRegion[region]
-                        : MeshLabels.UNLABELLED;
+                int[] labelByRegion = regionLayer.partLabels.labelByRegion;
+                int part = region < labelByRegion.length ? labelByRegion[region] : MeshLabels.UNLABELLED;
                 row.addProperty("part", part == MeshLabels.UNLABELLED ? ""
                         : regionLayer.partLabels.names.get(part));
                 if (built.flatnessCreases != null && region < built.regionCreaseShare.length) {
