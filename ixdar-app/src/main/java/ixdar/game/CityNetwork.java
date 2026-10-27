@@ -239,7 +239,18 @@ public class CityNetwork {
         tradeShell.distanceMatrix = new DistanceMatrix(tradeShell.toPointSet());
 
         tradeInitialized = true;
-        System.out.println("Trade routes initialized for " + cities.size() + " cities");
+    }
+
+    /**
+     * Throw away every knot and start again from one singleton per city, the way a replayed route
+     * history starts.
+     */
+    public void resetTradeRoutes() {
+        tradeInitialized = false;
+        for (City city : cities) {
+            city.setKnot(null);
+        }
+        initTradeRoutes();
     }
 
     /**

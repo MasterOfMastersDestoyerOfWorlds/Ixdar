@@ -24,6 +24,7 @@ import ixdar.automation.endpoints.mesh.Fingerprint;
 import ixdar.canvas.IxdarWindow;
 import ixdar.game.City;
 import ixdar.game.CityNetwork;
+import ixdar.game.TradeGame;
 import ixdar.geometry.grid2d.IrregularQuadGrid;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.labels.MeshLabels;
@@ -46,6 +47,7 @@ import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
 import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
+import ixdar.scenes.trade.TradeScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Draft;
 import ixdar.tools.EditHistory;
@@ -422,6 +424,18 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 cities.add(cityState);
             }
             trade.add("cities", cities);
+            if (scene instanceof TradeScene game && game.game != null) {
+                trade.addProperty("level", game.game.level.title);
+                trade.addProperty("lap", game.game.lap);
+                trade.addProperty("gold", game.game.gold[TradeGame.PLAYER]);
+                trade.addProperty("rivalGold", game.game.gold[TradeGame.RIVAL]);
+                trade.addProperty("share", game.game.playerShare());
+                trade.addProperty("outcome", game.game.outcome);
+                trade.addProperty("loops", game.game.loopCities.size());
+                trade.addProperty("selectedCity", game.selectedCity < 0 ? "" : game.game.level.cityNames[game.selectedCity]);
+                trade.addProperty("hoveredCity", game.hoveredCity == null ? "" : game.hoveredCity.name);
+                trade.addProperty("status", game.status);
+            }
         }
         root.add(TRADE, trade);
         if (grid != null) {

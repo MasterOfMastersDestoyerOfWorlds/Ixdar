@@ -15,8 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import ixdar.game.City;
-import ixdar.game.CityNetwork;
-import ixdar.geometry.grid2d.Grid.CartesianGrid;
+import ixdar.game.TradeLevel;
 import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
@@ -24,25 +23,22 @@ import ixdar.platform.input.Keys;
 import ixdar.scenes.trade.TradeScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Draft;
-import ixdar.tools.EditHistory;
 import ixdar.tools.Item;
 import ixdar.tools.Tool;
-import ixdar.tools.trade.RoutePlanningTool.Mode;
+import ixdar.tools.trade.RoutePlanningTool;
 import unit.GlStandIn;
 
 /**
  * Read through the plain {@link Tool} base, the route tool reports in the shape every tool shares:
- * its picked cities as the draft, the route's segments as items, its undo history and its mode.
+ * its picked city as the draft, the loops' legs as items, and its mode.
  */
 class RouteToolAutomationStateTest {
 
-    private static final int CITY_POPULATION = 1000;
-
     private static final int STAND_IN_PLATFORM_ID = 7721;
 
-    private static final String PIPE_MODE = Mode.PIPE.name();
+    private static final String PIPE_MODE = "PIPE";
 
-    private static final String GROW_MODE = Mode.GROW.name();
+    private static final String GROW_MODE = "GROW";
 
     private Platform suitePlatform;
 
@@ -78,35 +74,25 @@ class RouteToolAutomationStateTest {
 
     @Test
     void routeToolReportsThroughTheCommonShape() {
-        ArrayList<City> cities = new ArrayList<>();
-        cities.add(new City("hq", "Headquarters", 100f, 100f, CITY_POPULATION));
-        cities.add(new City("east", "East", 200f, 110f, CITY_POPULATION));
-        cities.add(new City("north", "North", 150f, 200f, CITY_POPULATION));
-        CityNetwork network = new CityNetwork(cities, new CartesianGrid());
-        network.setHeadquarters(cities.get(0));
-        TradeScene scene = new TradeScene(network, null);
-        Tool tool = scene.routePlanningTool;
+        TradeScene scene = new TradeScene(TradeLevel.campaign(), 0, null);
+        scene.setTools();
+        scene.loadLevel(0);
+        RoutePlanningTool route = scene.routePlanningTool;
+        Tool tool = route;
         assertNull(tool.draft(), "a draft before any city was picked");
-        assertTrue(tool.items().isEmpty());
+        assertTrue(tool.items().isEmpty(), "the first tutorial starts with no loop");
 
-        scene.routePlanningTool.onCityClick(cities.get(0));
+        City home = scene.network.cities.get(0);
+        route.firstCity = 0;
         Draft picked = tool.draft();
-        assertArrayEquals(new float[] { cities.get(0).getX(), cities.get(0).getY(), 0f }, picked.points);
-        assertFalse(picked.valid, "one city is not an operation yet");
-        scene.routePlanningTool.onCityClick(cities.get(1));
-        assertTrue(tool.draft().valid, "two picked cities are not previewed");
-        assertEquals("PREVIEW", tool.draft().label);
-        assertArrayEquals(new String[] { cities.get(0).name, cities.get(1).name },
-                tool.draft().pointLabels);
-        scene.routePlanningTool.confirm();
+        assertArrayEquals(new float[] { home.getX(), home.getY(), 0f }, picked.points);
+        assertArrayEquals(new String[] { home.name }, picked.pointLabels);
 
-        EditHistory<?> history = tool.history();
-        assertEquals(1, history.undoDepth);
-        assertFalse(history.nextUndoName().isEmpty(), "the pipe was not recorded");
-        assertEquals(2, tool.items().size(), "one item per route segment");
-        Item segment = tool.items().get(0);
-        assertTrue(segment.saved);
-        assertFalse(segment.deleted);
+        assertTrue(scene.game.pipe(0, 1), scene.game.lastRefusal);
+        assertEquals(2, tool.items().size(), "one item per leg of the out-and-back loop");
+        Item leg = tool.items().get(0);
+        assertTrue(leg.saved);
+        assertEquals(scene.game.legCost[0][1], leg.length, 0.0);
         assertEquals(PIPE_MODE, tool.modes[tool.mode]);
 
         List<ControlHint> controls = new ArrayList<>();
@@ -117,10 +103,9 @@ class RouteToolAutomationStateTest {
             }
         }
         assertEquals(GROW_MODE, tool.modes[tool.mode]);
-        scene.routePlanningTool.undo();
-        assertEquals(0, history.undoDepth);
-        assertEquals(1, history.redoDepth());
-        assertTrue(tool.items().isEmpty(), "undo left the route's segments");
-        assertArrayEquals(new String[] { PIPE_MODE, GROW_MODE, Mode.COLLAPSE.name() }, tool.modes);
+        route.undo();
+        assertTrue(tool.items().isEmpty(), "undo left the loop's legs");
+        assertFalse(scene.game.undone.isEmpty(), "undo keeps the operation for redo");
+        assertArrayEquals(new String[] { PIPE_MODE, GROW_MODE, "COLLAPSE" }, tool.modes);
     }
 }

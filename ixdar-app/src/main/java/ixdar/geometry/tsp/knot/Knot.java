@@ -163,6 +163,26 @@ public class Knot {
     }
 
     /**
+     * Drop the match slot holding exactly {@code segment}. Unlike {@link #removeMatch(Knot)} it tells
+     * apart the two segments of an out-and-back loop, which join the same two knots.
+     *
+     * @param segment the segment whose slot is cleared; a segment in neither slot changes nothing
+     */
+    public void removeMatchSegment(Segment segment) {
+        if (segment == s1) {
+            m1 = null;
+            s1 = null;
+        } else if (segment == s2) {
+            m2 = null;
+            s2 = null;
+        } else {
+            return;
+        }
+        matchCount = Math.max(0, matchCount - 1);
+        matchList.remove(segment.getOther(this));
+    }
+
+    /**
      * Compute the lowest-cost cut/match move that would attach {@code o} to this knot, splitting
      * on how many of the two knots are singletons.
      *
@@ -1099,10 +1119,10 @@ public class Knot {
         record.cutEdgeA = cutEdge;
 
         // Remove the cut edge
-        knot.manifoldSegments.remove(cutEdge);
-        knot.sortedSegments.remove(cutEdge);
-        cutEdge.first.removeMatch(cutEdge.last);
-        cutEdge.last.removeMatch(cutEdge.first);
+        knot.manifoldSegments.removeIf(s -> s == cutEdge);
+        knot.sortedSegments.removeIf(s -> s == cutEdge);
+        cutEdge.first.removeMatchSegment(cutEdge);
+        cutEdge.last.removeMatchSegment(cutEdge);
 
         // Create new segments through the singleton
         Shell shell = knot.shell;
@@ -1175,16 +1195,16 @@ public class Knot {
 
         // Remove cut edges
         if (edgeA != null) {
-            parent.manifoldSegments.remove(edgeA);
-            parent.sortedSegments.remove(edgeA);
-            edgeA.first.removeMatch(edgeA.last);
-            edgeA.last.removeMatch(edgeA.first);
+            parent.manifoldSegments.removeIf(s -> s == edgeA);
+            parent.sortedSegments.removeIf(s -> s == edgeA);
+            edgeA.first.removeMatchSegment(edgeA);
+            edgeA.last.removeMatchSegment(edgeA);
         }
         if (edgeB != null) {
-            parent.manifoldSegments.remove(edgeB);
-            parent.sortedSegments.remove(edgeB);
-            edgeB.first.removeMatch(edgeB.last);
-            edgeB.last.removeMatch(edgeB.first);
+            parent.manifoldSegments.removeIf(s -> s == edgeB);
+            parent.sortedSegments.removeIf(s -> s == edgeB);
+            edgeB.first.removeMatchSegment(edgeB);
+            edgeB.last.removeMatchSegment(edgeB);
         }
 
         // Create pipe segments connecting the cut edge endpoints
@@ -1266,16 +1286,16 @@ public class Knot {
 
         // Remove cut edges from children's manifolds
         if (edgeA != null) {
-            a.manifoldSegments.remove(edgeA);
-            a.sortedSegments.remove(edgeA);
-            edgeA.first.removeMatch(edgeA.last);
-            edgeA.last.removeMatch(edgeA.first);
+            a.manifoldSegments.removeIf(s -> s == edgeA);
+            a.sortedSegments.removeIf(s -> s == edgeA);
+            edgeA.first.removeMatchSegment(edgeA);
+            edgeA.last.removeMatchSegment(edgeA);
         }
         if (edgeB != null) {
-            b.manifoldSegments.remove(edgeB);
-            b.sortedSegments.remove(edgeB);
-            edgeB.first.removeMatch(edgeB.last);
-            edgeB.last.removeMatch(edgeB.first);
+            b.manifoldSegments.removeIf(s -> s == edgeB);
+            b.sortedSegments.removeIf(s -> s == edgeB);
+            edgeB.first.removeMatchSegment(edgeB);
+            edgeB.last.removeMatchSegment(edgeB);
         }
 
         // Create pipe segments
@@ -1388,10 +1408,10 @@ public class Knot {
         record.originalEdge = edge;
 
         // Remove the original edge
-        manifoldSegments.remove(edge);
-        sortedSegments.remove(edge);
-        edge.first.removeMatch(edge.last);
-        edge.last.removeMatch(edge.first);
+        manifoldSegments.removeIf(s -> s == edge);
+        sortedSegments.removeIf(s -> s == edge);
+        edge.first.removeMatchSegment(edge);
+        edge.last.removeMatchSegment(edge);
 
         // Create two new edges through the singleton
         double dist1 = shell.distanceMatrix.getDistance(edge.first.p, singleton.p);
@@ -1637,12 +1657,12 @@ public class Knot {
                 record.removedPipeSegments.add(toRemove);
 
                 // Remove from manifold
-                manifoldSegments.remove(toRemove);
-                sortedSegments.remove(toRemove);
+                manifoldSegments.removeIf(s -> s == toRemove);
+                sortedSegments.removeIf(s -> s == toRemove);
 
                 // Remove match connections
-                toRemove.first.removeMatch(toRemove.last);
-                toRemove.last.removeMatch(toRemove.first);
+                toRemove.first.removeMatchSegment(toRemove);
+                toRemove.last.removeMatchSegment(toRemove);
 
                 // Track which endpoints lost connections
                 if (a.contains(toRemove.first)) {

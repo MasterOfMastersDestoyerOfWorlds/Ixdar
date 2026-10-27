@@ -1,5 +1,4 @@
 /**
- * Trade-game tools on the merged `Tool`: `HeadquartersPickerTool` and `RoutePlanningTool`, which
- * depend on the game model instead of the knot editor.
+ * Trade-game tools on the merged `Tool`: `RoutePlanningTool`, which edits the game's loops as knots.
  */
 package ixdar.tools.trade;

@@ -123,6 +123,7 @@ public class IrregularQuadLayoutGenerator {
         Layout out = new Layout();
         out.points = points;
         out.dualPoints = dualPoints;
+        out.faces = quads;
         out.edges = edges;
         out.rows = 0;
         out.cols = 0;
@@ -481,6 +482,8 @@ public class IrregularQuadLayoutGenerator {
     public static class Layout {
         public ArrayList<Vector2f> points;
         public ArrayList<Vector2f> dualPoints;
+        /** Each face's corner indices into {@link #points}, in the same order as {@link #dualPoints}. */
+        public ArrayList<int[]> faces;
         public ArrayList<int[]> edges;
         public int rows;
         public int cols;
