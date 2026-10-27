@@ -3,9 +3,10 @@ package ixdar.graphics.render.sdf;
 import org.joml.Vector2f;
 
 import ixdar.platform.Clock;
-import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorLerp;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
+import ixdar.scenes.Scene;
 
 public class SDFFluid extends ShaderDrawable {
     public static final String TEXTURE_PIXEL_SIZE = "TEXTURE_PIXEL_SIZE";
@@ -42,10 +43,11 @@ public class SDFFluid extends ShaderDrawable {
         shader.setFloat("spin_rotation", 1);
         shader.setFloat("spin_speed", SPIN_SPEED);
         shader.setVec2("offset", new Vector2f(0f, 0f));
-        shader.setVec4("colour_1",
-                new ColorLerp(Color.PURPLE_DARK, Color.BLUE_TEAL_VERY_DARK, COLOR_MIX_1).toVector4f());
-        shader.setVec4("colour_2", new ColorLerp(Color.IXDAR, Color.BLUE_DARK, COLOR_MIX_2).toVector4f());
-        shader.setVec4("colour_3", new ColorLerp(Color.IXDAR_DARK, Color.GREY_VERY_DARK, COLOR_MIX_3).toVector4f());
+        Palette palette = Scene.activePalette();
+        shader.setVec4("colour_1", new ColorLerp(palette.panel, palette.background, COLOR_MIX_1).toVector4f());
+        shader.setVec4("colour_2", new ColorLerp(palette.accent, palette.surface, COLOR_MIX_2).toVector4f());
+        shader.setVec4("colour_3", new ColorLerp(palette.panelBorder, palette.background, COLOR_MIX_3)
+                .toVector4f());
         shader.setFloat("contrast", CONTRAST);
         shader.setFloat("spin_amount", SPIN_AMOUNT);
         shader.setFloat("pixel_filter", PIXEL_FILTER);

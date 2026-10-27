@@ -10,7 +10,7 @@ import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.platform.Clock;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.ColorLerp;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.sdf.ShaderDrawable;
 import ixdar.graphics.render.sdf.ShaderDrawable.Quad;
 import ixdar.graphics.render.shaders.ShaderProgram;
@@ -31,7 +31,6 @@ import ixdar.platform.input.PointerRegion;
  */
 public class ShaderCodePane implements PointerRegion {
     public static final float CROSSHAIR_LINE_WIDTH = 2f;
-    public static final float FLASH_RADS_PER_SECOND = 8f;
     public static final float CROSSHAIR_SIZE_PX = 20f;
 
     // private ExpressionParser expressionParser;
@@ -108,10 +107,11 @@ public class ShaderCodePane implements PointerRegion {
 
         showCodeButton = new HyperString();
         showCodeButton.addDynamicWordClick(() -> {
-            final ColorText<Float> HIDE = new ColorText<Float>("Hide Code", Color.TEAL);
-            final ColorText<Float> SHOW = new ColorText<Float>("Show Code", Color.TEAL);
+            Color label = canvas.palette.headingText;
+            final ColorText<Float> HIDE = new ColorText<Float>("Hide Code", label);
+            final ColorText<Float> SHOW = new ColorText<Float>("Show Code", label);
             return showCode ? HIDE : SHOW;
-        }, Color.TEAL, () -> {
+        }, canvas.palette.headingText, () -> {
             showCode = !showCode;
             if (showCode) {
                 paneBounds.viewWidth = Platforms.get().getFrameBufferWidth() / 2f;
@@ -126,7 +126,7 @@ public class ShaderCodePane implements PointerRegion {
         showCodeButton.newLine();
         showCodeButton.addDynamicWord(() -> mouseText());
         showCodeButton.addDynamicWord(() -> {
-            return new ColorText<Float>("FPS: " + Clock.fps(), Color.TEAL);
+            return new ColorText<Float>("FPS: " + Clock.fps(), canvas.palette.headingText);
         });
         webViews.put(paneBounds.id, paneBounds);
         PointerDispatcher pointer = PointerDispatcher.current();
@@ -142,7 +142,8 @@ public class ShaderCodePane implements PointerRegion {
             String fs = shader != null ? shader.getFragmentSource() : "";
             shaderBranchInjector = new ShaderBranchInjector(uniformProvider, fs, shader);
             int gIndex = 0;
-            codeText.addDynamicWord(() -> updateCacheIfMouseMoved(), Color.BLUE_GREY);
+            Palette palette = canvas.palette;
+            codeText.addDynamicWord(() -> updateCacheIfMouseMoved(), palette.mutedText);
             for (String ln : fs.split("\n")) {
                 final int idx = gIndex;
                 final boolean isAssignment = GLSLExpressionParser.isAssignmentLine(ln);
@@ -151,13 +152,15 @@ public class ShaderCodePane implements PointerRegion {
                     dyn.resetText();
                     boolean isClicked = (idx == clickedLineIndex);
                     boolean isHoverPulse = (isAssignment && (idx == hoverLineIndex) && (idx != clickedLineIndex));
-                    for (var t : GLSLColorizer.colorize(ln)) {
+                    Palette drawPalette = canvas.palette;
+                    for (var t : GLSLColorizer.colorize(ln, drawPalette)) {
                         int k = 0;
                         for (String w : t.text) {
+                            Color highlight = drawPalette.highlight;
                             if (isClicked) {
-                                dyn.addWord(w, Color.YELLOW);
+                                dyn.addWord(w, highlight);
                             } else if (isHoverPulse) {
-                                dyn.addWord(w, ColorLerp.flashColor(Color.YELLOW, FLASH_RADS_PER_SECOND));
+                                dyn.addWord(w, drawPalette.hovered(highlight));
                             } else {
                                 dyn.addWord(w, t.color.get(Math.min(k, t.color.size() - 1)));
                             }
@@ -165,7 +168,7 @@ public class ShaderCodePane implements PointerRegion {
                         }
                     }
                     return dyn;
-                }, Color.WHITE,
+                }, palette.text,
                         // hover: only set highlight for assignments
                         () -> {
                             if (isAssignment)
@@ -179,13 +182,13 @@ public class ShaderCodePane implements PointerRegion {
                         isAssignment ? () -> onLineClicked(idx) : null);
                 // click targets for this line: gap and suffix, only if assignment
                 if (isAssignment) {
-                    codeText.addWord("  ", Color.WHITE, () -> {
+                    codeText.addWord("  ", palette.text, () -> {
                         hoverLineIndex = idx;
                     }, () -> {
                         if (hoverLineIndex == idx)
                             hoverLineIndex = -1;
                     }, () -> onLineClicked(idx));
-                    codeText.addDynamicWord(() -> dynamicSuffix(idx), Color.BLUE_GREY, () -> {
+                    codeText.addDynamicWord(() -> dynamicSuffix(idx), palette.mutedText, () -> {
                         hoverLineIndex = idx;
                     }, () -> {
                         if (hoverLineIndex == idx)
@@ -193,8 +196,8 @@ public class ShaderCodePane implements PointerRegion {
                     },
                             () -> onLineClicked(idx));
                 } else {
-                    codeText.addWord("  ", Color.WHITE);
-                    codeText.addDynamicWord(() -> dynamicSuffix(idx), Color.BLUE_GREY);
+                    codeText.addWord("  ", palette.text);
+                    codeText.addDynamicWord(() -> dynamicSuffix(idx), palette.mutedText);
                 }
                 codeText.newLine();
                 displayedLines.add(ln);
@@ -210,7 +213,7 @@ public class ShaderCodePane implements PointerRegion {
             lastMouseY = Float.NaN;
             loaded = true;
         } catch (Exception e) {
-            codeText.addLine("Failed to load shader from program", Color.RED);
+            codeText.addLine("Failed to load shader from program", canvas.palette.error);
         }
     }
 
@@ -305,10 +308,11 @@ public class ShaderCodePane implements PointerRegion {
             float cx = crosshairScreenPos.x;
             float cy = crosshairScreenPos.y;
 
+            Color cursor = canvas.palette.highlight;
             d.sdfLine.setStroke(CROSSHAIR_LINE_WIDTH, false, 1f, 0f, false, false, false, camera);
-            d.sdfLine.draw(new Vector2f(cx - crosshairSize, cy), new Vector2f(cx + crosshairSize, cy), Color.TEAL,
+            d.sdfLine.draw(new Vector2f(cx - crosshairSize, cy), new Vector2f(cx + crosshairSize, cy), cursor,
                     camera);
-            d.sdfLine.draw(new Vector2f(cx, cy - crosshairSize), new Vector2f(cx, cy + crosshairSize), Color.TEAL,
+            d.sdfLine.draw(new Vector2f(cx, cy - crosshairSize), new Vector2f(cx, cy + crosshairSize), cursor,
                     camera);
         }
     }

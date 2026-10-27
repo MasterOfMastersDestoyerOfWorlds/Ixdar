@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
-import java.util.Random;
 
 import org.apache.commons.math3.util.Pair;
 
@@ -30,6 +29,7 @@ import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorLerp;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.text.Font;
 import ixdar.gui.terminal.Terminal;
@@ -65,8 +65,6 @@ public class MainScene extends Scene {
     public static final float CAMERA_ZOOM_DEFAULT = 0.9f;
     public static final int MAX_SOLVE_ATTEMPTS = 40;
     public static final double MILLIS_PER_SECOND = 1000.0;
-    public static final float HOVER_SEGMENT_LERP_SPEED = 4f;
-    public static final float HOVER_KNOT_LERP_SPEED = 2f;
 
     public static final String VIEW_MAIN = "MAIN";
     public static final String VIEW_RIGHT_TOP = "RIGHT_TOP";
@@ -94,6 +92,9 @@ public class MainScene extends Scene {
     /** Where the main view sat in the window when last drawn, which the knot tools' hit tests subtract. */
     public float mainViewOffsetX;
     public float mainViewOffsetY;
+
+    /** The palette the knot and layer colours were taken from; wearing another re-takes them. */
+    public Palette knotColoursPalette;
 
     /** The knot this editor shows: the point set, its tour and the knots solved from it. */
     public PointSetPath pointSetPath;
@@ -147,7 +148,7 @@ public class MainScene extends Scene {
         }
         pointSetPath.tempFile = FileManagement.getTempFile(fileName);
         for (String comment : pointSetPath.comments) {
-            terminal.history.addLine(comment, Color.BLUE_GREY);
+            terminal.history.addLine(comment, palette.mutedText);
         }
 
         Platforms.get().setTitle("Ixdar : " + fileName);
@@ -250,14 +251,9 @@ public class MainScene extends Scene {
 
         tourShell.buff.flush();
         pointSetPath.grid.init();
-        Random colorSeed = new Random();
-
-        int numKnots = flatKnots.size();
-        float startHue = colorSeed.nextFloat();
-        float step = 1.0f / ((float) numKnots);
         int i = 0;
         for (Knot k : flatKnots) {
-            pointSetPath.knotGradientColors.add(Color.fullHue((startHue + step * i) % 1.0f));
+            pointSetPath.knotGradientColors.add(Palette.entry(palette.categories, i));
             colorLookup.put((long) k.id, i);
             for (Knot vp : k.knotPoints) {
                 if (vp.isSingleton()) {
@@ -291,11 +287,10 @@ public class MainScene extends Scene {
             knotLayerLookup.put(k.id, layerNum);
         }
 
-        float startHueM = colorSeed.nextFloat();
-        float stepM = 1.0f / ((float) totalLayers);
         for (int j = 0; j <= totalLayers; j++) {
-            pointSetPath.metroColors.add(Color.fullHue((startHueM + stepM * j) % 1.0f));
+            pointSetPath.metroColors.add(Palette.entry(palette.categories, j));
         }
+        knotColoursPalette = palette;
 
         Drawing.initDrawingSizes(tourShell, editorCamera, d);
         double tourLength = tourShell.getLength();
@@ -495,6 +490,17 @@ public class MainScene extends Scene {
      */
     @Override
     public void drawScene() {
+        if (knotColoursPalette != palette) {
+            List<Color> knotColours = pointSetPath.knotGradientColors;
+            for (int knot = 0; knot < knotColours.size(); knot++) {
+                knotColours.set(knot, Palette.entry(palette.categories, knot));
+            }
+            List<Color> layerColours = pointSetPath.metroColors;
+            for (int layer = 0; layer < layerColours.size(); layer++) {
+                layerColours.set(layer, Palette.entry(palette.categories, layer));
+            }
+            knotColoursPalette = palette;
+        }
         try {
             Camera2D camera = editorCamera;
             camera.updateView(VIEW_MAIN);
@@ -509,14 +515,14 @@ public class MainScene extends Scene {
             mainViewOffsetY = camera.ScreenOffsetY;
             activeTool.drawOverlay(camera, Drawing.MIN_THICKNESS);
             if (sbe != null) {
-                Drawing.drawShell(resultShell, true, Drawing.MIN_THICKNESS, Color.PURPLE_PINK, pointSetPath.ps, camera);
+                Drawing.drawShell(resultShell, true, Drawing.MIN_THICKNESS, palette.accent, pointSetPath.ps, camera);
                 if (sbe.cutMatchList != null) {
                     Drawing.drawCutMatch(sbe, Drawing.MIN_THICKNESS, pointSetPath.ps, camera);
                 }
             }
             PointSetPath shown = pointSetPath;
             if (activeTool.canUseToggle(Toggle.DrawMainPath)) {
-                Drawing.drawShell(shown.tsp, false, Drawing.MIN_THICKNESS, Color.BLUE, shown.ps, camera);
+                Drawing.drawShell(shown.tsp, false, Drawing.MIN_THICKNESS, palette.line, shown.ps, camera);
             }
             if (activeTool.canUseToggle(Toggle.DrawDisplayedKnots) && activeTool.canUseToggle(Toggle.DrawMetroDiagram)
                     && shown.tourShell != null) {
@@ -570,7 +576,7 @@ public class MainScene extends Scene {
                         if (!k.contains(s2.last)) {
                             s2 = new Segment(s2.last, s2.first, s2.distance);
                         }
-                        Color c = Color.WHITE;
+                        Color c = palette.text;
                         if (activeTool.canUseToggle(Toggle.DrawKnotGradient)) {
                             c = getKnotGradientColor(s1.last);
                         } else if (activeTool.canUseToggle(Toggle.DrawMetroDiagram)) {
@@ -587,11 +593,11 @@ public class MainScene extends Scene {
             }
 
             if (!(pointSetPath == null) && activeTool.canUseToggle(Toggle.DrawNumberLabels)) {
-                Drawing.drawPath(pointSetPath.tsp, Drawing.MIN_THICKNESS, Color.RED, pointSetPath.ps, false, false, true, false,
-                        camera);
+                Drawing.drawPath(pointSetPath.tsp, Drawing.MIN_THICKNESS, palette.error, pointSetPath.ps,
+                        false, false, true, false, camera);
             }
             camera.updateView(VIEW_RIGHT_BOTTOM);
-            logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, Color.IXDAR, camera);
+            logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, palette.accent, camera);
 
             camera.updateView(VIEW_RIGHT_TOP);
             info.draw(camera, activeTool, this);
@@ -611,9 +617,19 @@ public class MainScene extends Scene {
     }
 
     /**
+     * The colour knots are drawn in when neither diagram is on: the one the color command picked,
+     * else the palette's accent, so a palette swap re-colours knots nobody coloured by hand.
+     *
+     * @return the sticky knot colour
+     */
+    public Color stickyColor() {
+        return pointSetPath.stickyColor != null ? pointSetPath.stickyColor : palette.accent;
+    }
+
+    /**
      * The colour {@code k} is drawn in under the active tool's toggles: its gradient colour, its
      * layer's metro colour, or the sticky colour when neither diagram is on. A null knot, or one
-     * on no layer, is {@link Color#IXDAR} under either diagram.
+     * on no layer, is the palette's accent under either diagram.
      *
      * @param k knot to colour
      * @return the knot's colour
@@ -623,10 +639,10 @@ public class MainScene extends Scene {
             return getKnotGradientColor(k);
         }
         if (!activeTool.canUseToggle(Toggle.DrawMetroDiagram)) {
-            return pointSetPath.stickyColor;
+            return stickyColor();
         }
         if (k == null || knotLayerLookup.get(k.id) < 0) {
-            return Color.IXDAR;
+            return palette.accent;
         }
         return pointSetPath.metroColors.get(knotLayerLookup.get(k.id));
     }
@@ -635,13 +651,12 @@ public class MainScene extends Scene {
      * Look up the gradient color assigned to the given knot.
      *
      * @param displayPoint knot to color
-     * @return assigned gradient color, or {@link Color#IXDAR} if
-     *         {@code displayPoint} is null
+     * @return assigned gradient color, or the palette's accent if {@code displayPoint} is null
      */
     public Color getKnotGradientColor(Knot displayPoint) {
         Knot smallestKnot = displayPoint;
         if (smallestKnot == null) {
-            return Color.IXDAR;
+            return palette.accent;
         }
         return pointSetPath.knotGradientColors.get(colorLookup.get((long) smallestKnot.id));
     }
@@ -712,7 +727,7 @@ public class MainScene extends Scene {
     public void setHoverSegment(Segment segment, Color c) {
         hoverSegment = segment;
         showHoverSegment = true;
-        hoverSegmentColor = new ColorLerp(c, Color.BLACK_25, new byte[] { 0, 0, 0, 1 }, HOVER_SEGMENT_LERP_SPEED);
+        hoverSegmentColor = palette.hovered(c);
 
     }
 
@@ -725,16 +740,14 @@ public class MainScene extends Scene {
     }
 
     /**
-     * Highlight {@code k} on the next frame, fading the knot's current color toward
-     * 25%-transparent over a few frames.
+     * Highlight {@code k} on the next frame: its colour pulses by the theme's one hover rule.
      *
      * @param k knot to highlight
      */
     public void setHoverKnot(Knot k) {
         hoverKnot = k;
         showHoverKnot = true;
-        hoverKnotColor = new ColorLerp(knotColor(hoverKnot), Color.BLACK_25, new byte[] { 0, 0, 0, 1 },
-                HOVER_KNOT_LERP_SPEED);
+        hoverKnotColor = palette.hovered(knotColor(hoverKnot));
     }
 
     /**

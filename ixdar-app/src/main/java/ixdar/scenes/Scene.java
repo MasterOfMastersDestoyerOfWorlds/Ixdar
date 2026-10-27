@@ -17,8 +17,9 @@ import ixdar.geometry.tsp.shell.Shell;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.cameras.Camera3D;
-import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
+import ixdar.graphics.render.color.Palette;
+import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.sdf.ShaderDrawable;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.gui.terminal.Terminal;
@@ -79,6 +80,9 @@ public abstract class Scene extends SceneDrawable {
     public static final int SCENE_SECTION = 2;
 
     public static volatile Scene instance;
+
+    /** The scene's colours; assigning any other of {@link Palettes#OPTIONS} re-colours it. */
+    public Palette palette = Palettes.DARK;
 
     public boolean changedSize = false;
     public boolean active;
@@ -189,6 +193,27 @@ public abstract class Scene extends SceneDrawable {
     }
 
     /**
+     * Wear the next of {@link Palettes#OPTIONS}, wrapping round: every scene can wear every palette.
+     *
+     * @return the palette now worn
+     */
+    public Palette cyclePalette() {
+        List<Palette> options = Palettes.OPTIONS;
+        palette = options.get((options.indexOf(palette) + 1) % options.size());
+        return palette;
+    }
+
+    /**
+     * The palette of the scene on screen, for widgets and tools drawn outside a scene reference.
+     *
+     * @return the active scene's palette; {@link Palettes#DARK} before any scene is up
+     */
+    public static Palette activePalette() {
+        Scene scene = instance;
+        return scene == null ? Palettes.DARK : scene.palette;
+    }
+
+    /**
      * Play a one-shot sound effect; no-op on a platform without audio.
      *
      * @param path asset path of the effect, one of the {@link AudioAssets} constants
@@ -244,7 +269,7 @@ public abstract class Scene extends SceneDrawable {
         gl.enable(gl.POLYGON_OFFSET_FILL());
         gl.polygonOffset(0f, 1f);
 
-        gl.clearColor(Color.RED_DARK);
+        gl.clearColor(palette.error);
         gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
         gl.enable(gl.BLEND());
         AudioBackend audio = Platforms.get().audio();
@@ -276,7 +301,7 @@ public abstract class Scene extends SceneDrawable {
         if (fbw > 0 && fbh > 0) {
             gl.viewport(0, 0, fbw, fbh);
         }
-        gl.clearColor(Color.GREY_VERY_DARK);
+        gl.clearColor(palette.background);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         camera.resetZIndex();
         camera2D.resetZIndex();
@@ -411,7 +436,7 @@ public abstract class Scene extends SceneDrawable {
         }
         if (sceneTerminal != null && terminalShown()) {
             camera2D.updateView(VIEW_SCENE_TERMINAL);
-            chromeBackground.draw(Color.GREY_VERY_DARK, camera2D);
+            chromeBackground.draw(palette.background, camera2D);
             sceneTerminal.draw(camera2D);
         }
         camera2D.resetView();
@@ -473,7 +498,7 @@ public abstract class Scene extends SceneDrawable {
             if (tooltipBackground == null) {
                 tooltipBackground = new ColorBox();
             }
-            tooltipBackground.draw(Color.GREY_VERY_DARK, camera);
+            tooltipBackground.draw(palette.background, camera);
             Drawing.getDrawing().font.drawHyperStringRows(toolTip, 0, 0, rowHeight, camera);
         }
     }

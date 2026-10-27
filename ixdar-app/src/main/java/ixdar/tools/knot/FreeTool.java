@@ -31,7 +31,7 @@ public class FreeTool extends KnotTool {
     @Override
     public void drawOverlay(Camera2D camera, float minLineThickness) {
         if (displayKP != null) {
-            Drawing.drawCircle(displayKP, Color.GREY_DARK, camera, minLineThickness);
+            Drawing.drawCircle(displayKP, editor.palette.mutedText, camera, minLineThickness);
         }
     }
 
@@ -67,6 +67,7 @@ public class FreeTool extends KnotTool {
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
         HyperString pointInfo = new HyperString();
+        Color pointText = editor.palette.mutedText;
         h.addWord("Point: ");
         pointInfo.addDynamicWord(() -> {
             final ColorText NONE = new ColorText(NONE_2);
@@ -81,7 +82,7 @@ public class FreeTool extends KnotTool {
                 return NONE;
             }
             return new ColorText(displayKP.id + "");
-        }, Color.BLUE_GREY, pointInfo, () -> {
+        }, pointText, pointInfo, () -> {
             if (displayKP != null) {
                 editor.editorCamera.centerOnPoint(displayKP.p);
             }
@@ -112,7 +113,7 @@ public class FreeTool extends KnotTool {
         if (containingKnot == null) {
             h.addWord(NONE_2);
         } else {
-            Color c = editor.pointSetPath.stickyColor;
+            Color c = editor.stickyColor();
             if (canUseToggle(Toggle.DrawKnotGradient)) {
                 c = editor.getKnotGradientColor(displayKP);
             } else if (canUseToggle(Toggle.DrawMetroDiagram)) {
@@ -132,7 +133,7 @@ public class FreeTool extends KnotTool {
             minKnotInfo.addLine("FlatID: " + containingKnot.id, c);
             h.addTooltip(containingKnot.beforeString(displayKP.id), c, minKnotInfo,
                     () -> editor.editorCamera.zoomToKnot(reeK));
-            h.addTooltip(pointStr, Color.BLUE_GREY, pointInfo, () -> editor.editorCamera.centerOnPoint(coordPointF));
+            h.addTooltip(pointStr, pointText, pointInfo, () -> editor.editorCamera.centerOnPoint(coordPointF));
             h.addTooltip(containingKnot.afterString(displayKP.id), c, minKnotInfo,
                     () -> editor.editorCamera.zoomToKnot(reeK));
 

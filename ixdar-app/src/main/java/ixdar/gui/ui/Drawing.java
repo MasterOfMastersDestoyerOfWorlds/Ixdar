@@ -21,11 +21,13 @@ import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorFixedLerp;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.graphics.render.sdf.SDFLine;
 import ixdar.graphics.render.text.Font;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
+import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
 
 /**
@@ -150,6 +152,7 @@ public class Drawing {
             PointSet ps, Camera2D camera) {
 
         Drawing d = getDrawing();
+        Palette palette = Scene.activePalette();
         float[] firstCoords = new float[2];
         float[] lastCoords = new float[2];
         float[] midCoords = new float[2];
@@ -164,7 +167,7 @@ public class Drawing {
         lastCoords[1] = camera.pointTransformY((float) last.y);
         midCoords[0] = (firstCoords[0] + lastCoords[0]) / 2.0f;
         midCoords[1] = (firstCoords[1] + lastCoords[1]) / 2.0f;
-        sbe.initDraw();
+        sbe.initDraw(palette);
         d.font.drawHyperString(sbe.x1, midCoords[0], midCoords[1], FONT_HEIGHT_PIXELS, camera);
         // Draw x 2
         first = (cut2.first).p.toVector2d();
@@ -187,11 +190,11 @@ public class Drawing {
         firstCoords[0] = camera.pointTransformX(knotPoint1.x);
         firstCoords[1] = camera.pointTransformY(knotPoint1.y);
 
-        d.circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN,
-                camera);
+        d.circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor,
+                palette.accent, camera);
 
         strokeSegment(ex1, lineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
-        drawSegment(ex1, Color.GREEN, camera);
+        drawSegment(ex1, palette.success, camera);
 
         // Draw external segment 2
 
@@ -202,10 +205,10 @@ public class Drawing {
         firstCoords[0] = camera.pointTransformX(knotPoint2.x);
         firstCoords[1] = camera.pointTransformY(knotPoint2.y);
 
-        d.circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor, Color.GREEN,
-                camera);
+        d.circle.draw(new Vector2f(firstCoords[0], firstCoords[1]), CIRCLE_RADIUS * camera.ScaleFactor,
+                palette.accent, camera);
         strokeSegment(ex2, lineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
-        drawSegment(ex2, Color.GREEN, camera);
+        drawSegment(ex2, palette.success, camera);
 
         // Draw Cuts and Matches
         if (cml != null) {
@@ -215,9 +218,9 @@ public class Drawing {
                     for (Segment s : cutMatch.matchSegments) {
                         strokeSegment(s, lineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
                         if (s.id == cutMatch.c.lowerMatchSegment.id || s.id == cutMatch.c.upperMatchSegment.id) {
-                            drawSegment(s, Color.GREEN, camera);
+                            drawSegment(s, palette.success, camera);
                         } else {
-                            drawSegment(s, Color.TEAL, camera);
+                            drawSegment(s, palette.selected, camera);
                         }
                     }
 
@@ -225,9 +228,9 @@ public class Drawing {
                     for (Segment s : cutMatch.cutSegments) {
                         strokeSegment(s, 2 * lineThickness * camera.ScaleFactor, false, 1f, 0f, camera);
                         if (s.id == cutMatch.c.lowerCutSegment.id || s.id == cutMatch.c.upperCutSegment.id) {
-                            drawSegment(s, Color.PURPLE_PINK, camera);
+                            drawSegment(s, palette.hover, camera);
                         } else {
-                            drawSegment(s, Color.BROWN_DARK, camera);
+                            drawSegment(s, palette.highlight, camera);
                         }
                     }
                 }

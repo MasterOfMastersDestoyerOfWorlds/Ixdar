@@ -4,7 +4,6 @@ import ixdar.annotations.command.CommandAnnotation;
 import ixdar.annotations.command.Subsystem;
 import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.rings.RingRegions;
-import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.PaneTypes;
 import ixdar.platform.Platforms;
@@ -113,7 +112,7 @@ public class LabelCommand extends TerminalCommand {
         tool.lastError = "";
         tool.lastRow = "named " + named + " region(s) " + name + "; unsaved";
         Platforms.get().log(RingRegionTool.LOG_PREFIX + tool.lastRow);
-        terminal.history.addLine(tool.lastRow, Color.TEAL_DARK);
+        terminal.history.addLine(tool.lastRow, terminal.scene.palette.linkText);
         Toggle.setPanelFocus(PaneTypes.KnotView);
         return null;
     }

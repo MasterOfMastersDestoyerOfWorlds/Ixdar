@@ -31,7 +31,8 @@ public class HyperString {
     public HashMap<Integer, String> strMap;
     public ArrayList<Integer> lineStartMap;
     public ArrayList<HyperString> children;
-    public Color defaultColor = Color.IXDAR;
+    /** Colour of words added without one: the active palette's text when the string is built. */
+    public Color defaultColor = Scene.activePalette().text;
     public int lines = 1;
     public boolean debug;
     public boolean wrap;

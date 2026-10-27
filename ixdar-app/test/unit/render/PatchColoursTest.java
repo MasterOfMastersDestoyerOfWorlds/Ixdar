@@ -15,13 +15,15 @@ import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.Test;
 
+import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.color.RegionColouring;
 
 /**
- * Patch colours come from palettes of named colours: {@link Palettes#PATCH} gives every id its
- * own colour, {@link Palettes#BRIGHT_PATCH} hands neighbouring patches contrasting entries through
- * {@link RegionColouring}, and the scalar heat map's shader holds {@link Palettes#SCALAR_RAMP}.
+ * Patch colours come from palette cycles: the patch cycle gives every id its own colour, the
+ * categories hand neighbouring patches contrasting entries through {@link RegionColouring}, and the
+ * scalar heat map's shader holds as many stops as every palette's scalar ramp.
  */
 class PatchColoursTest {
 
@@ -37,24 +39,26 @@ class PatchColoursTest {
     private static final int[][] WHEEL = { { 1, 2, 3, 4, 5 }, { 0, 2, 5 }, { 0, 1, 3 },
         { 0, 2, 4 }, { 0, 3, 5 }, { 0, 4, 1 } };
 
-    private static final int[] WHEEL_COLOURS = { 0, 1, 2, 3, 4, 5 };
+    private static final int[] WHEEL_ENTRIES = { 0, 1, 2, 3, 4, 5 };
 
     @Test
     void everyPatchIdTakesItsOwnColour() {
-        assertTrue(Palettes.PATCH.minimumDistance() > 0, "two PATCH entries are the same colour");
+        Color[] patch = Palettes.DARK.patch;
+        assertTrue(minimumDistance(patch) > 0, "two patch entries are the same colour");
         Set<String> seen = new HashSet<>();
-        for (int patchId = 0; patchId < ROUNDS * Palettes.PATCH.size(); patchId++) {
-            assertTrue(seen.add(Palettes.PATCH.shadedColor(patchId).toVector4f().toString()),
+        for (int patchId = 0; patchId < ROUNDS * patch.length; patchId++) {
+            assertTrue(seen.add(Palette.shadedEntry(patch, patchId).toVector4f().toString()),
                     "patch " + patchId + " repeats an earlier patch's colour");
         }
     }
 
     @Test
-    void brightPatchEntriesAreApartAndConsecutiveOnesContrast() {
-        assertTrue(Palettes.BRIGHT_PATCH.minimumDistance() >= MINIMUM_BRIGHT_DISTANCE);
-        for (int entry = 0; entry < Palettes.BRIGHT_PATCH.size(); entry++) {
-            assertTrue(Palettes.BRIGHT_PATCH.color(entry).distanceTo(Palettes.BRIGHT_PATCH
-                    .color(entry + 1)) >= RegionColouring.MINIMUM_PALETTE_DISTANCE,
+    void categoryEntriesAreApartAndConsecutiveOnesContrast() {
+        Color[] categories = Palettes.DARK.categories;
+        assertTrue(minimumDistance(categories) >= MINIMUM_BRIGHT_DISTANCE);
+        for (int entry = 0; entry < categories.length; entry++) {
+            assertTrue(Palette.entry(categories, entry).distanceTo(Palette.entry(categories, entry + 1))
+                    >= RegionColouring.MINIMUM_PALETTE_DISTANCE,
                     "entries " + entry + " and " + (entry + 1));
         }
     }
@@ -63,8 +67,8 @@ class PatchColoursTest {
     void graphColouringSeparatesNeighboursAndKeepsKeptNodes() {
         int[] sizes = new int[WHEEL.length];
         RegionColouring colouring = new RegionColouring();
-        colouring.colour(WHEEL, sizes, null, null, Palettes.BRIGHT_PATCH);
-        assertArrayEquals(WHEEL_COLOURS, colouring.colourByNode);
+        colouring.colour(WHEEL, sizes, null, null, Palettes.DARK.categories);
+        assertArrayEquals(WHEEL_ENTRIES, colouring.colourByNode);
         for (int node = 0; node < WHEEL.length; node++) {
             for (int neighbour : WHEEL[node]) {
                 assertNotEquals(colouring.colourByNode[node], colouring.colourByNode[neighbour]);
@@ -83,9 +87,9 @@ class PatchColoursTest {
                 reversed[node][index] = WHEEL.length - 1 - WHEEL[old][index];
             }
         }
-        colouring.colour(reversed, sizes, former, kept, Palettes.BRIGHT_PATCH);
+        colouring.colour(reversed, sizes, former, kept, Palettes.DARK.categories);
         for (int node = 0; node < WHEEL.length; node++) {
-            assertEquals(WHEEL_COLOURS[former[node]], colouring.colourByNode[node]);
+            assertEquals(WHEEL_ENTRIES[former[node]], colouring.colourByNode[node]);
         }
     }
 
@@ -93,6 +97,24 @@ class PatchColoursTest {
     void scalarShaderHoldsTheRampPalette() throws Exception {
         Matcher stops = RAMP_STOPS.matcher(Files.readString(SCALAR_SHADER, StandardCharsets.UTF_8));
         assertTrue(stops.find(), "no RAMP_STOPS constant in " + SCALAR_SHADER);
-        assertEquals(Palettes.SCALAR_RAMP.size(), Integer.parseInt(stops.group(1)));
+        for (Palette palette : Palettes.OPTIONS) {
+            assertEquals(palette.scalar.length, Integer.parseInt(stops.group(1)), palette.name);
+        }
+    }
+
+    /**
+     * The smallest RGB distance between any two entries of a cycle.
+     *
+     * @param cycle palette cycle to measure
+     * @return the minimum pairwise distance, infinite for fewer than two entries
+     */
+    private static double minimumDistance(Color[] cycle) {
+        double minimum = Double.POSITIVE_INFINITY;
+        for (int first = 0; first < cycle.length; first++) {
+            for (int second = first + 1; second < cycle.length; second++) {
+                minimum = Math.min(minimum, cycle[first].distanceTo(cycle[second]));
+            }
+        }
+        return minimum;
     }
 }

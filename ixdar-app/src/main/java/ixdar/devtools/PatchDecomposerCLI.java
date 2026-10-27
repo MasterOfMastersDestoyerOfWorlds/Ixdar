@@ -29,6 +29,7 @@ import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.color.RegionColouring;
 
@@ -164,7 +165,8 @@ public final class PatchDecomposerCLI {
             neighboursByPatch[index] = neighbours.stream().mapToInt(Integer::intValue).toArray();
         }
         RegionColouring flatColouring = new RegionColouring();
-        flatColouring.colour(neighboursByPatch, facesByPatch, null, null, Palettes.BRIGHT_PATCH);
+        Color[] flatCycle = Palettes.DARK.categories;
+        flatColouring.colour(neighboursByPatch, facesByPatch, null, null, flatCycle);
         JsonArray patches = new JsonArray();
         for (int index = 0; index < patchList.size(); index++) {
             Patch p = patchList.get(index);
@@ -173,7 +175,7 @@ public final class PatchDecomposerCLI {
             pj.addProperty("branch_id", p.branchId());
             pj.add(COLOR, channels(p.color()));
             pj.add(FLAT_COLOR, channels(
-                    Palettes.BRIGHT_PATCH.shadedColor(flatColouring.colourByNode[index])));
+                    Palette.shadedEntry(flatCycle, flatColouring.colourByNode[index])));
             pj.addProperty("curvature_mean", p.curvatureMean());
             JsonArray centroid = new JsonArray();
             for (float c : p.centroid()) centroid.add(c);

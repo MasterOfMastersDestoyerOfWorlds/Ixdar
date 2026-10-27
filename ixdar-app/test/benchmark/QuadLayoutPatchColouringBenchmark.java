@@ -19,7 +19,7 @@ import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
 /**
  * The quad-layout scene's patch fill on a real layout: colouring the T-mesh's patch adjacency
- * over {@link Palettes#BRIGHT_PATCH}, as the overlay does, never gives two patches across an arc
+ * over the palette's categories, as the overlay does, never gives two patches across an arc
  * the same colour. Pick the mesh with {@code -Dbenchmark.off}.
  */
 public final class QuadLayoutPatchColouringBenchmark {
@@ -48,7 +48,7 @@ public final class QuadLayoutPatchColouringBenchmark {
         }
         int[][] neighbours = layout.tmesh.patchNeighbours();
         RegionColouring colouring = new RegionColouring();
-        colouring.colour(neighbours, facesByPatchId, null, null, Palettes.BRIGHT_PATCH);
+        colouring.colour(neighbours, facesByPatchId, null, null, Palettes.DARK.categories);
         int pairs = 0;
         for (int patchId = 0; patchId < neighbours.length; patchId++) {
             for (int neighbour : neighbours[patchId]) {

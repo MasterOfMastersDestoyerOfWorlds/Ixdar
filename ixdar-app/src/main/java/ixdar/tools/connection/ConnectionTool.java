@@ -15,6 +15,7 @@ import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.platform.Platforms;
@@ -89,6 +90,7 @@ public final class ConnectionTool extends Tool {
     private boolean pendingClick;
     private boolean overlayStale;
     private int uploadedHoveredPick = -1;
+    private Palette uploadedPalette;
     private int grabbedVertexId = -1;
     private HalfEdgeMeshRuntime.ShaderMode shaderModeBefore;
 
@@ -316,12 +318,14 @@ public final class ConnectionTool extends Tool {
         // Draw the connection over the surface, the path yellow and the neck green, and the picks
         // as the ring tool's anchor discs: cyan, the one under the cursor or dragged yellow and
         // larger, drawn last so it wins an overlap.
-        if (!overlayStale && hoveredPick == uploadedHoveredPick
+        Palette palette = scene.palette;
+        if (!overlayStale && hoveredPick == uploadedHoveredPick && palette == uploadedPalette
                 || !(runtime instanceof MeshOverlayRuntime overlay)) {
             return;
         }
         overlayStale = false;
         uploadedHoveredPick = hoveredPick;
+        uploadedPalette = palette;
         if (pickVertexId[0] < 0) {
             overlay.clearDiagnostic();
             overlay.clearMarkers();
@@ -334,7 +338,7 @@ public final class ConnectionTool extends Tool {
         Vector3f position = new Vector3f();
         if (joined) {
             polylines.add(shown.pathPolyline);
-            colors.add(Color.YELLOW_ORANGE);
+            colors.add(palette.accent);
             if (neckLoopVertexId.length > 0) {
                 float[] neck = new float[XYZ * (neckLoopVertexId.length + 1)];
                 for (int index = 0; index <= neckLoopVertexId.length; index++) {
@@ -345,7 +349,7 @@ public final class ConnectionTool extends Tool {
                     neck[XYZ * index + 2] = position.z;
                 }
                 polylines.add(neck);
-                colors.add(Color.GREEN_TEAL);
+                colors.add(palette.selected);
             }
         }
         int emphasised = draggingPick >= 0 ? draggingPick : hoveredPick;
@@ -357,13 +361,13 @@ public final class ConnectionTool extends Tool {
         for (int pick = 0; pick < picked; pick++) {
             if (pick != emphasised) {
                 discVertexId[disc] = pickVertexId[pick];
-                discColor[disc] = RingTool.AUTHORED_ANCHOR_COLOR;
+                discColor[disc] = palette.accent;
                 discDiameter[disc++] = RingTool.AUTHORED_ANCHOR_PIXELS;
             }
         }
         if (emphasised >= 0 && emphasised < picked) {
             discVertexId[disc] = pickVertexId[emphasised];
-            discColor[disc] = RingTool.SELECTED_ANCHOR_COLOR;
+            discColor[disc] = palette.selected;
             discDiameter[disc] = RingTool.SELECTED_ANCHOR_PIXELS;
         }
         overlay.setDiagnostic(List.of(), List.of(), polylines, colors);
@@ -543,7 +547,7 @@ public final class ConnectionTool extends Tool {
         }
         shaderModeBefore = runtime.getShaderMode();
         runtime.clearTagColors();
-        runtime.setTagColor(FILL_TAG, Color.RED_ORANGE.toVector4f());
+        runtime.setTagColor(FILL_TAG, scene.palette.warning.toVector4f());
         runtime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.STAGES);
         runtime.setTags(Map.of(FILL_TAG, mask));
         lastRow = fills + " repair_mesh fill faces coloured";

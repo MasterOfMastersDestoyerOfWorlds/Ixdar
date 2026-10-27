@@ -69,8 +69,8 @@ public class DashedLineScene extends Scene {
         super.drawScene();
         Drawing.strokeSegment(line, lineSegment, STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, true,
                 DASH_LENGTH, 0f, false, false, false, camera2D);
-        Color startColor = Color.RED;
-        Color endColor = Color.GREEN;
+        Color startColor = palette.error;
+        Color endColor = palette.success;
 
         Drawing.drawGradientSegment(line, lineSegment, startColor, endColor, camera2D);
     }

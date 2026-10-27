@@ -19,7 +19,7 @@ import ixdar.geometry.mesh.quadlayout.extraction.PatchSurfaceGeometry;
 import ixdar.geometry.mesh.quadlayout.motorcycle.MotorcycleGraph;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.Palettes;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.color.RegionColouring;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.nodegraph.field.BoolField;
@@ -27,6 +27,7 @@ import ixdar.nodegraph.field.IntField;
 import ixdar.nodegraph.field.UvField;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
+import ixdar.scenes.Scene;
 
 /**
  * The quad-layout pipeline's debug views (parametrization, traces, cross field, T-mesh, layout
@@ -34,6 +35,15 @@ import ixdar.platform.gl.GL;
  * corner array drawn through the generic overlay passes.
  */
 public class QuadLayoutOverlay extends MeshOverlayRuntime {
+
+    public static final int CONSTRAINT_BOUNDARY = 1;
+    public static final int DIRECTION_V = 3;
+    public static final int DIRECTION_U = 4;
+    public static final int CONSTRAINT_CURVATURE = 5;
+    public static final int CONSTRAINT_FEATURE = 8;
+    public static final int CONSTRAINT_ANCHOR = 9;
+    public static final float SINGULARITY_ALPHA = 0.5f;
+    public static final float COPY_WIREFRAME_ALPHA = 0.25f;
 
     private static final VertexLayout ISO_CORNER_LAYOUT = new VertexLayout(
             new int[] { 0, 1, 3, 4, 5, 6, 7, 8 }, new int[] { 3, 3, 2, 1, 4, 4, 4, 4 });
@@ -63,39 +73,16 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
     private static final String FLIPPED_COLOR_UNIFORM = "flippedColor";
     private static final String DRAW_FULL_ISO_GRID_UNIFORM = "drawFullIsoGrid";
 
-    private static final Color COLOR_U_ARM = Color.YELLOW;
-    private static final Color COLOR_V_ARM = Color.TEAL;
-    private static final Color COLOR_INTERSECTION_NODE = Color.WHITE;
-    private static final Color COLOR_BOUNDARY_NODE = Color.YELLOW;
-    private static final Color COLOR_TRUNCATED_NODE = Color.BROWN_DARK;
-    private static final Color COLOR_POSITIVE_INDEX = Color.TEAL_50;
-    private static final Color COLOR_NEGATIVE_INDEX = Color.RED_50;
-    private static final Color COLOR_CONSTRAINT_BOUNDARY = Color.GREEN;
-    private static final Color COLOR_CONSTRAINT_FEATURE = Color.BROWN_DARK;
-    private static final Color COLOR_CONSTRAINT_CURVATURE = Color.PURPLE_PINK;
-    private static final Color COLOR_CONSTRAINT_ANCHOR = Color.WHITE;
     private static final ConstraintSource[] CONSTRAINT_DRAW_ORDER = {
             ConstraintSource.BOUNDARY, ConstraintSource.FEATURE,
             ConstraintSource.CURVATURE, ConstraintSource.ANCHOR
     };
-    private static final Color COLOR_LAYOUT_BOUNDARY = Color.WHITE;
-    private static final Color COLOR_LAYOUT_CORNER = Color.RED_LIGHT;
-    private static final Color COLOR_QUAD_GRID = Color.GREY_VERY_DARK;
-    private static final Color COLOR_EMBEDDED_ARC = Color.ORANGE;
-    private static final Color COLOR_EMBEDDED_ZERO_ARC = Color.RED;
-    private static final Color COLOR_COPY_WIREFRAME = Color.WHITE_25;
-    private static final Color COLOR_EMBEDDED_NODE = Color.TEAL_BLUE_LIGHT;
-    private static final Color COLOR_EMBEDDED_NODE_CRITICAL = Color.YELLOW_ORANGE;
 
     public final ShaderProgram uvShader;
     public final ShaderProgram traceUvShader;
     public final ShaderProgram crossFieldShader;
 
     public float lineHalfWidth = DEFAULT_LINE_HALF_WIDTH;
-    public Color baseColor = Color.BLUE_GREY;
-    public Color uLineColor = Color.TEAL;
-    public Color vLineColor = Color.YELLOW;
-    public Color flippedColor = Color.PURPLE_PINK;
 
     public boolean showIsoLines;
     public boolean showSingularities;
@@ -207,17 +194,18 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         }
         uploadSeamlessSurface();
         graphNodes = new PointSet(graph.nodes.size(), 1f);
+        Palette palette = Scene.activePalette();
         for (EmbeddedNode node : graph.nodes) {
             if (node.position == null) {
                 continue;
             }
-            Color color = COLOR_INTERSECTION_NODE;
+            Color color = palette.text;
             if (node.critical) {
-                color = node.singularityIndex4 > 0 ? COLOR_POSITIVE_INDEX : COLOR_NEGATIVE_INDEX;
+                color = singularityColor(palette, node.singularityIndex4);
             } else if (node.border) {
-                color = COLOR_BOUNDARY_NODE;
+                color = palette.highlight;
             } else if (node.truncated) {
-                color = COLOR_TRUNCATED_NODE;
+                color = palette.warning;
             }
             graphNodes.add(node.position, color, 0f);
         }
@@ -225,7 +213,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
 
     /**
      * Upload a per-patch rectangle parametrization as the iso-surface, shading each flagged
-     * folded face with {@link #flippedColor}. Shows the embedded T-mesh's per-patch maps, whose
+     * folded face in the palette's flipped face colour. Shows the embedded T-mesh's per-patch maps, whose
      * fold is a chart-orientation question the field answers, not the UV signed area.
      *
      * @param gridMap     per-corner grid coordinates over {@code copy}
@@ -316,19 +304,31 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         updateSphereRadius();
         singularities = new PointSet(index4.length(), 1f);
         Vector3f position = new Vector3f();
+        Palette palette = Scene.activePalette();
         for (int vertex = 0; vertex < index4.length(); vertex++) {
             if (index4.get(vertex) == 0) {
                 continue;
             }
             mesh.vertexPosition(mesh.vertexIdAt(vertex), position);
-            singularities.add(position,
-                    index4.get(vertex) > 0 ? COLOR_POSITIVE_INDEX : COLOR_NEGATIVE_INDEX, 0f);
+            singularities.add(position, singularityColor(palette, index4.get(vertex)), 0f);
         }
     }
 
     /**
+     * The half-transparent marker colour of a singularity: success for a positive index, error for
+     * a negative one.
+     *
+     * @param palette the palette drawn with
+     * @param index4  the singularity's index, times four
+     * @return the marker colour
+     */
+    private static Color singularityColor(Palette palette, int index4) {
+        return (index4 > 0 ? palette.success : palette.error).withAlpha(SINGULARITY_ALPHA);
+    }
+
+    /**
      * Upload the finished layout: patch boundary edges then interior quad grid edges in one
-     * line buffer, every patch's grid as triangles in a {@link Palettes#BRIGHT_PATCH} colour no
+     * line buffer, every patch's grid as triangles in a bright patch cycle colour no
      * neighbouring patch shares, and a corner marker at every vertex with one incident face.
      *
      * @param patchGrid per-patch quad-grid geometry with the {@code patch_id} per-face slot
@@ -345,6 +345,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         int[] denseOf = new int[maxVertexId + 1];
         float[] gridVertices = new float[vertexCount * 3];
         layoutCorners = new PointSet(vertexCount, CORNER_SPHERE_SCALE);
+        Palette palette = Scene.activePalette();
         Vector3f position = new Vector3f();
         for (int dense = 0; dense < vertexCount; dense++) {
             int vertexId = mesh.vertexIdAt(dense);
@@ -354,7 +355,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
             gridVertices[dense * 3 + 1] = position.y;
             gridVertices[dense * 3 + 2] = position.z;
             if (mesh.vertexFaceCount(vertexId) == 1) {
-                layoutCorners.add(position, COLOR_LAYOUT_CORNER, 0f);
+                layoutCorners.add(position, palette.accent, 0f);
             }
         }
 
@@ -379,8 +380,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
             facesByPatchId[patchIds.get(face)]++;
         }
         RegionColouring colouring = new RegionColouring();
-        colouring.colour(tmesh.patchNeighbours(), facesByPatchId, null, null,
-                Palettes.BRIGHT_PATCH);
+        colouring.colour(tmesh.patchNeighbours(), facesByPatchId, null, null, palette.categories);
         int patchCount = 0;
         int previousId = -1;
         for (int face = 0; face < faceCount; face++) {
@@ -403,7 +403,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
                 patchCursor++;
                 layoutPatchIndexStart[patchCursor] = cursor;
                 layoutPatchColors[patchCursor] =
-                        Palettes.BRIGHT_PATCH.shadedColor(colouring.colourByNode[patchId])
+                        Palette.shadedEntry(palette.categories, colouring.colourByNode[patchId])
                                 .withAlpha(LAYOUT_PATCH_ALPHA);
             }
             previousId = patchId;
@@ -487,6 +487,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         embeddedZeroArcs.upload(LineSet.LAYOUT, zero.vertices, null);
 
         embeddedNodes = new PointSet(tmesh.nodes.size(), 1f);
+        Palette palette = Scene.activePalette();
         Vector3f nodePosition = new Vector3f();
         for (EmbeddedNode node : tmesh.nodes) {
             if (!node.alive) {
@@ -502,7 +503,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
                 shortestEdge = Math.min(shortestEdge, segmentStart.distance(segmentEnd));
             }
             embeddedNodes.add(nodePosition,
-                    node.critical ? COLOR_EMBEDDED_NODE_CRITICAL : COLOR_EMBEDDED_NODE,
+                    node.critical ? palette.highlight : palette.linkText,
                     shortestEdge == Float.MAX_VALUE ? 0f : shortestEdge / 2f);
         }
         setSphereRadiusCap(hopCount == 0 ? 0f : (float) (totalHopLength / hopCount));
@@ -582,9 +583,12 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
                 || drawCopyWireframe) {
             updateOverlayProjection(camera);
         }
+        Palette palette = Scene.activePalette();
+        Color uDirection = palette.categories[DIRECTION_U];
+        Color vDirection = palette.categories[DIRECTION_V];
         if (drawCopyWireframe) {
-            drawLines(camera, copyWireframe, 0, copyWireframe.vertexCount, COLOR_COPY_WIREFRAME,
-                    DEFAULT_GL_LINE_WIDTH);
+            drawLines(camera, copyWireframe, 0, copyWireframe.vertexCount,
+                    palette.text.withAlpha(COPY_WIREFRAME_ALPHA), DEFAULT_GL_LINE_WIDTH);
         }
         boolean traced = showTraces || showFullIsoGrid;
         ShaderProgram surfaceShader = traced ? traceUvShader : uvShader;
@@ -593,11 +597,11 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
             surfaceShader.setMat4(VIEW, camera.view);
             surfaceShader.setMat4(PROJECTION, camera.projection);
             surfaceShader.setMat4(MODEL, identity.identity());
-            surfaceShader.setVec4(BASE_COLOR, baseColor);
-            surfaceShader.setVec4(U_LINE_COLOR, uLineColor);
-            surfaceShader.setVec4(V_LINE_COLOR, vLineColor);
+            surfaceShader.setVec4(BASE_COLOR, palette.surface);
+            surfaceShader.setVec4(U_LINE_COLOR, uDirection);
+            surfaceShader.setVec4(V_LINE_COLOR, vDirection);
             surfaceShader.setFloat(LINE_HALF_WIDTH, lineHalfWidth);
-            surfaceShader.setVec4(FLIPPED_COLOR_UNIFORM, flippedColor);
+            surfaceShader.setVec4(FLIPPED_COLOR_UNIFORM, palette.error);
             if (traced) {
                 surfaceShader.setFloat(DRAW_FULL_ISO_GRID_UNIFORM, showFullIsoGrid ? 1f : 0f);
             }
@@ -612,29 +616,29 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         }
         if (drawQuadGrid) {
             drawLines(camera, layoutLines, layoutBoundaryVertexCount,
-                    layoutLines.vertexCount - layoutBoundaryVertexCount, COLOR_QUAD_GRID,
+                    layoutLines.vertexCount - layoutBoundaryVertexCount, palette.gridLine,
                     DEFAULT_GL_LINE_WIDTH);
         }
         if (drawLayoutBoundaries) {
-            drawLines(camera, layoutLines, 0, layoutBoundaryVertexCount, COLOR_LAYOUT_BOUNDARY,
+            drawLines(camera, layoutLines, 0, layoutBoundaryVertexCount, palette.text,
                     LAYOUT_LINE_WIDTH);
             if (beginUnlit(camera)) {
                 drawSpheres(layoutCorners);
             }
         }
         if (drawEmbeddedArcs) {
-            drawLines(camera, embeddedArcs, 0, embeddedArcs.vertexCount, COLOR_EMBEDDED_ARC,
+            drawLines(camera, embeddedArcs, 0, embeddedArcs.vertexCount, palette.accent,
                     LAYOUT_LINE_WIDTH);
             drawLines(camera, embeddedZeroArcs, 0, embeddedZeroArcs.vertexCount,
-                    COLOR_EMBEDDED_ZERO_ARC, LAYOUT_LINE_WIDTH);
+                    palette.error, LAYOUT_LINE_WIDTH);
             if (showEmbeddedNodes && beginUnlit(camera)) {
                 drawSpheres(embeddedNodes);
             }
         }
         super.renderOverlays(camera);
         if (drawCross && beginCrossField(camera)) {
-            crossFieldShader.setVec4(U_LINE_COLOR, COLOR_U_ARM);
-            crossFieldShader.setVec4(V_LINE_COLOR, COLOR_V_ARM);
+            crossFieldShader.setVec4(U_LINE_COLOR, uDirection);
+            crossFieldShader.setVec4(V_LINE_COLOR, vDirection);
             drawTriangles(crossField, 0, crossField.indexCount);
         }
         if (drawConstraints && beginCrossField(camera)) {
@@ -644,10 +648,10 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
                     continue;
                 }
                 Color color = switch (source) {
-                case BOUNDARY -> COLOR_CONSTRAINT_BOUNDARY;
-                case FEATURE -> COLOR_CONSTRAINT_FEATURE;
-                case CURVATURE -> COLOR_CONSTRAINT_CURVATURE;
-                default -> COLOR_CONSTRAINT_ANCHOR;
+                case BOUNDARY -> palette.categories[CONSTRAINT_BOUNDARY];
+                case FEATURE -> palette.categories[CONSTRAINT_FEATURE];
+                case CURVATURE -> palette.categories[CONSTRAINT_CURVATURE];
+                default -> palette.categories[CONSTRAINT_ANCHOR];
                 };
                 crossFieldShader.setVec4(U_LINE_COLOR, color);
                 crossFieldShader.setVec4(V_LINE_COLOR, color);

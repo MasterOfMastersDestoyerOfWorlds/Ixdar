@@ -67,8 +67,8 @@ public class LineScene extends Scene {
         super.drawScene();
         Drawing.strokeSegment(line, lineSegment, STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false,
                 1f, 0f, true, false, false, camera2D);
-        Color startColor = Color.RED;
-        Color endColor = Color.GREEN;
+        Color startColor = palette.error;
+        Color endColor = palette.success;
         Drawing.drawGradientSegment(line, lineSegment, startColor, endColor, camera2D);
     }
 

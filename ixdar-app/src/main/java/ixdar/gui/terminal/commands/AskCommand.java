@@ -10,7 +10,7 @@ import ixdar.geometry.tsp.PointSetPath;
 import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.knot.Segment;
 import ixdar.geometry.tsp.points.PointND;
-import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.text.HyperString;
 
@@ -53,6 +53,7 @@ public class AskCommand extends TerminalCommand {
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
         PointSetPath pointSetPath = terminal.dataset(Subsystem.KNOT);
+        Palette palette = terminal.scene.palette;
         String questionName = args[startIdx];
         if (questionName.equals("dist")) {
             int id1 = Integer.parseInt(args[startIdx + 1]);
@@ -60,18 +61,18 @@ public class AskCommand extends TerminalCommand {
             Knot vp1 = pointSetPath.tourShell.pointMap.get(id1);
             Knot vp2 = pointSetPath.tourShell.pointMap.get(id2);
             terminal.history.addLine("distance from " + id1 + " to " + id2 + " " + vp1.getSegment(vp2).distance,
-                    Color.BLUE_GREY);
+                    palette.mutedText);
             return new String[] { "ask dist " + id1 + " " + id2 };
         } else if (questionName.equals("min")) {
             Pair<PointND, Pair<PointND, PointND>> isMinima = pointSetPath.tsp.isLocalMinima();
             if (isMinima == null) {
-                terminal.history.addLine("Calculated answer is a local minima.", Color.BLUE_GREY);
+                terminal.history.addLine("Calculated answer is a local minima.", palette.mutedText);
             } else {
                 PointND mP = isMinima.getFirst();
                 PointND fP = isMinima.getSecond().getFirst();
                 PointND sP = isMinima.getSecond().getSecond();
                 terminal.history.addLine("Calculated answer is not a local minima. Move point: " + mP.getID()
-                        + " between point: " + fP.getID() + " and point: " + sP.getID(), Color.RED);
+                        + " between point: " + fP.getID() + " and point: " + sP.getID(), palette.error);
                 return new String[] { "mv " + mP.getID() + " " + fP.getID() + " " + sP.getID() };
             }
         } else if (questionName.equals("closest")) {
@@ -87,7 +88,7 @@ public class AskCommand extends TerminalCommand {
                 terminal.error("Point does not have " + numPrint + " segments to display");
             } else {
                 for (int i = 0; i < numPrint; i++) {
-                    HyperString seg = vp.sortedSegments.get(i).toHyperString(pointSetPath, Color.BLUE_GREY, false, true);
+                    HyperString seg = vp.sortedSegments.get(i).toHyperString(pointSetPath, palette.mutedText, false, true);
                     seg.addWord(SEGMENT_SEPARATOR);
                     terminal.history.addHyperString(seg);
                 }
@@ -103,7 +104,7 @@ public class AskCommand extends TerminalCommand {
             } else {
                 int i = 0;
                 for (Segment s : pointSetPath.tourShell.sortedSegments) {
-                    HyperString seg = s.toHyperString(pointSetPath, Color.BLUE_GREY, false, true);
+                    HyperString seg = s.toHyperString(pointSetPath, palette.mutedText, false, true);
                     terminal.history.addHyperString(seg);
                     terminal.history.newLine();
                     i++;
@@ -133,7 +134,7 @@ public class AskCommand extends TerminalCommand {
                 }
                 segements.sort(null);
                 for (Segment s : segements) {
-                    HyperString seg = s.toHyperString(pointSetPath, Color.BLUE_GREY, false, true);
+                    HyperString seg = s.toHyperString(pointSetPath, palette.mutedText, false, true);
                     terminal.history.addHyperString(seg);
                     terminal.history.newLine();
                 }
@@ -166,9 +167,9 @@ public class AskCommand extends TerminalCommand {
                     Segment segment = innerVp.sortedSegments.get(i);
                     HyperString str = null;
                     if (green.contains(segment.id)) {
-                        str = segment.toHyperString(pointSetPath, Color.GREEN, false, true);
+                        str = segment.toHyperString(pointSetPath, palette.selected, false, true);
                     } else {
-                        str = segment.toHyperString(pointSetPath, Color.BLUE_GREY, false, true);
+                        str = segment.toHyperString(pointSetPath, palette.mutedText, false, true);
                     }
                     str.addWord(SEGMENT_SEPARATOR);
                     terminal.history.addHyperString(str);

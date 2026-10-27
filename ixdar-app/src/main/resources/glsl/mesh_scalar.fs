@@ -11,7 +11,7 @@ out vec4 FragColor;
 uniform float scalarMin;
 uniform float scalarMax;
 
-// Palettes.SCALAR_RAMP, low to high, at evenly spaced stops; RAMP_STOPS is its size.
+// The worn Palette's scalar ramp, low to high, at evenly spaced stops; RAMP_STOPS is its size.
 const int RAMP_STOPS = 4;
 uniform vec4 rampColors[RAMP_STOPS];
 

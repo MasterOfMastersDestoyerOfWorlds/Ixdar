@@ -23,8 +23,7 @@ import ixdar.geometry.mesh.data.io.ObjMeshParser;
 import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
-import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.Palettes;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.models.ModelCatalog;
@@ -315,9 +314,12 @@ public class MeshNodeViewerScene extends ModelScene {
             return;
         }
         camera.resetView();
+        // A model switch replaces meshRuntime, so it is coloured here rather than through runtime.
+        meshRuntime.setSolidColor(palette.surface.toVector4f());
         meshRuntime.render(camera);
 
         if (overlayRuntime != null) {
+            overlayRuntime.setSolidColor(palette.mutedText.toVector4f());
             GL gl = Platforms.gl();
             gl.enable(gl.BLEND());
             gl.blendFunc(gl.SRC_ALPHA(), gl.ONE_MINUS_SRC_ALPHA());
@@ -505,7 +507,6 @@ public class MeshNodeViewerScene extends ModelScene {
             overlayMesh = refMesh;
             overlayRuntime = new HalfEdgeMeshRuntime();
             overlayRuntime.upload(refMesh);
-            overlayRuntime.setSolidColor(Color.BLUE_GREY.toVector4f());
             Platforms.get().log("[mesh-viewer] overlay loaded: " + objPath
                     + VERTS + refMesh.vertexCount() + FACES + refMesh.faceCount());
         } catch (IOException e) {
@@ -662,7 +663,7 @@ public class MeshNodeViewerScene extends ModelScene {
                 }
             }
             categories.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(
-                    Palettes.EDGE_MARK.color(slot), edgeKeys));
+                    Palette.entry(palette.edgeMark, slot), edgeKeys));
         }
         meshRuntime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.STAGES);
         meshRuntime.setFeatureEdgeOverlay(categories);

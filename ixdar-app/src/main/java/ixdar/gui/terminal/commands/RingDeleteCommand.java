@@ -6,7 +6,6 @@ import java.util.List;
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.annotations.command.Subsystem;
 import ixdar.automation.endpoints.ui.SelectionBounds;
-import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.PaneTypes;
 import ixdar.scenes.main.Toggle;
@@ -98,7 +97,7 @@ public class RingDeleteCommand extends TerminalCommand {
             terminal.error(rings.lastError);
             return null;
         }
-        terminal.history.addLine(rings.lastRow, Color.TEAL_DARK);
+        terminal.history.addLine(rings.lastRow, terminal.scene.palette.linkText);
         Toggle.setPanelFocus(PaneTypes.KnotView);
         return null;
     }

@@ -10,7 +10,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
-import ixdar.graphics.render.color.Palette;
+import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.RegionColouring;
 
 /**
@@ -122,9 +122,9 @@ public final class MeshLabels {
      * labels take different palette entries, each keeping its colour while no neighbour takes it.
      *
      * @param regions the regions the points are resolved against
-     * @param palette the entries {@link #colouring} hands out
+     * @param cycle   the palette cycle whose entries {@link #colouring} hands out
      */
-    public void resolve(RingRegions regions, Palette palette) {
+    public void resolve(RingRegions regions, Color[] cycle) {
         int[] labelOf = new int[regions.regionCount];
         Arrays.fill(labelOf, UNLABELLED);
         for (int label = 0; label < names.size(); label++) {
@@ -162,7 +162,7 @@ public final class MeshLabels {
             neighbours[label] = touching.get(label).stream().mapToInt(Integer::intValue).toArray();
         }
         neighboursByLabel = neighbours;
-        colouring.colour(neighbours, regionsOf, continuing, null, palette);
+        colouring.colour(neighbours, regionsOf, continuing, null, cycle);
     }
 
     /**

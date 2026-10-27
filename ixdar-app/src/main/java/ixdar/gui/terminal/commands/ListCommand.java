@@ -8,7 +8,7 @@ import ixdar.annotations.command.OptionList;
 import ixdar.annotations.command.TerminalOption;
 import ixdar.annotations.tool.ToolRegistry_Tools;
 import ixdar.geometry.tsp.input.PointCollection;
-import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.gui.terminal.Terminal;
 import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
@@ -61,13 +61,14 @@ public class ListCommand extends TerminalCommand {
 
     @Override
     public String[] run(String[] args, int startIdx, Terminal terminal) {
+        Palette palette = terminal.scene.palette;
         if (args.length == startIdx) {
             File[] solutions = new File(terminal.directory).listFiles();
             for (int i = 0; i < solutions.length; i++) {
                 File f = solutions[i];
-                terminal.history.addLine(f.getName(), f.isDirectory() ? Color.BLUE_GREY : Color.IXDAR);
+                terminal.history.addLine(f.getName(), f.isDirectory() ? palette.mutedText : palette.accent);
             }
-            terminal.history.addLine("dir: " + terminal.directory, Color.GREEN);
+            terminal.history.addLine("dir: " + terminal.directory, palette.text);
             return new String[] { "cd " };
         } else {
             String target = args[startIdx];
@@ -79,10 +80,10 @@ public class ListCommand extends TerminalCommand {
             } else if (keyOptionAliases.contains(target)) {
                 for (int section = 0; section < view.controls.size(); section++) {
                     if (!view.controls.get(section).isEmpty()) {
-                        terminal.history.addLine(view.controlSectionName(section), Color.IXDAR);
+                        terminal.history.addLine(view.controlSectionName(section), palette.headingText);
                     }
                     for (ControlHint hint : view.controls.get(section)) {
-                        terminal.history.addLine(hint.toString(), Color.GREEN);
+                        terminal.history.addLine(hint.toString(), palette.text);
                     }
                 }
             } else if (commandOptionAliases.contains(target)) {
@@ -90,13 +91,13 @@ public class ListCommand extends TerminalCommand {
                     if (terminal.refusal(tc) != null) {
                         continue;
                     }
-                    terminal.history.addWord(tc.shortName(), Color.TEAL_DARK);
-                    terminal.history.addLine(" - " + tc.desc(), Color.GREEN);
+                    terminal.history.addWord(tc.shortName(), palette.linkText);
+                    terminal.history.addLine(" - " + tc.desc(), palette.text);
                 }
             } else if (pointCollectionOptionAliases.contains(target)) {
                 for (PointCollection pc : Terminal.pointCollectionList) {
-                    terminal.history.addWord(pc.shortName(), Color.TEAL_DARK);
-                    terminal.history.addLine(" - " + pc.desc(), Color.GREEN);
+                    terminal.history.addWord(pc.shortName(), palette.linkText);
+                    terminal.history.addLine(" - " + pc.desc(), palette.text);
                 }
             } else if (toolOptionAliases.contains(target)) {
                 for (String id : ToolRegistry_Tools.MAP.keySet()) {
@@ -111,13 +112,13 @@ public class ListCommand extends TerminalCommand {
                             desc = t.desc();
                         }
                     }
-                    terminal.history.addWord(shortName, Color.TEAL_DARK);
-                    terminal.history.addLine(" - " + desc, Color.GREEN);
+                    terminal.history.addWord(shortName, palette.linkText);
+                    terminal.history.addLine(" - " + desc, palette.text);
                 }
             } else if (toggleOptionAliases.contains(target)) {
                 for (Toggle t : Toggle.values()) {
-                    terminal.history.addWord(t.shortName(), Color.TEAL_DARK);
-                    terminal.history.addLine(" - " + t.name() + " : " + t.value, Color.GREEN);
+                    terminal.history.addWord(t.shortName(), palette.linkText);
+                    terminal.history.addLine(" - " + t.name() + " : " + t.value, palette.text);
                 }
             } else if (Terminal.commandMap.containsKey(target)) {
 

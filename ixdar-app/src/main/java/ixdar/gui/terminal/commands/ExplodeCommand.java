@@ -2,7 +2,6 @@ package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.annotations.command.Subsystem;
-import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.tools.regions.RegionLayer;
 
@@ -86,7 +85,7 @@ public class ExplodeCommand extends TerminalCommand {
         }
         regions.explosion.animateTo(amount);
         terminal.history.addLine("exploding the regions to " + regions.explosion.target,
-                Color.TEAL_DARK);
+                terminal.scene.palette.linkText);
         return null;
     }
 }

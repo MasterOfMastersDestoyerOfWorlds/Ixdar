@@ -8,6 +8,7 @@ import org.apache.commons.math3.util.Pair;
 import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.knot.Segment;
 import ixdar.graphics.cameras.Camera2D;
+import ixdar.graphics.render.color.Palette;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
@@ -51,6 +52,9 @@ public abstract class KnotTool extends Tool {
 
     /** The info pane text, built on demand and dropped whenever the hover or selection changes. */
     public HyperString infoText;
+
+    /** The palette {@link #infoText} was built in; wearing another rebuilds it. */
+    public Palette infoPalette;
 
     /** Point-space x of the last {@link #segmentAt} query. */
     public float pointX;
@@ -357,7 +361,8 @@ public abstract class KnotTool extends Tool {
      */
     @Override
     public HyperString info() {
-        if (infoText == null) {
+        if (infoText == null || infoPalette != editor.palette) {
+            infoPalette = editor.palette;
             infoText = buildInfoText();
         }
         return infoText;

@@ -5,17 +5,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.text.ColorText;
-import ixdar.gui.ui.code.glsl.GLSLParseText;
 
 /**
  * Lightweight syntax colorizer for a single line of GLSL: recognises
  * whitespace,
  * brackets/braces/commas, numeric literals, identifiers (with member-access
  * chains),
- * and a small palette of operators, mapping each token to its highlight
- * {@link Color}.
+ * and a small palette of operators, mapping each token to its role in the
+ * {@link Palette} field.
  */
 public final class GLSLColorizer {
 
@@ -47,18 +46,18 @@ public final class GLSLColorizer {
      * (whitespace,
      * brackets, numeric literal, identifier with optional member-access tail,
      * operator),
-     * and emit one {@link ColorText} per token tagged with its highlight
-     * {@link Color}.
+     * and emit one {@link ColorText} per token tagged with its code palette role.
      * Identifiers are resolved against the keyword/type sets and against a
      * parenthesis
      * lookahead to flag function calls.
      *
      * @param codeLine single shader line to tokenise; {@code null} or empty returns
      *                 an empty list
+     * @param palette  the palette of the scene drawing the code
      * @return ordered list of coloured token spans that, concatenated, reproduce
      *         {@code codeLine}
      */
-    public static List<ColorText<?>> colorize(String codeLine) {
+    public static List<ColorText<?>> colorize(String codeLine, Palette palette) {
         ArrayList<ColorText<?>> out = new ArrayList<>();
         if (codeLine == null || codeLine.isEmpty()) {
             return out;
@@ -72,24 +71,24 @@ public final class GLSLColorizer {
                 int start = i;
                 while (i < n && Character.isWhitespace(codeLine.charAt(i)))
                     i++;
-                out.add(new ColorText<String>(codeLine.substring(start, i), Color.WHITE));
+                out.add(new ColorText<String>(codeLine.substring(start, i), palette.text));
                 continue;
             }
 
             if (c == '(' || c == ')') {
-                out.add(new ColorText<String>(String.valueOf(c), GLSLParseText.PARENTHESIS_COLOR));
+                out.add(new ColorText<String>(String.valueOf(c), palette.mutedText));
                 i++;
                 continue;
             }
 
             if (c == '{' || c == '}') {
-                out.add(new ColorText<String>(String.valueOf(c), GLSLParseText.BRACE_COLOR));
+                out.add(new ColorText<String>(String.valueOf(c), palette.mutedText));
                 i++;
                 continue;
             }
 
             if (c == ',') {
-                out.add(new ColorText<String>(",", GLSLParseText.COMMA_COLOR));
+                out.add(new ColorText<String>(",", palette.mutedText));
                 i++;
                 continue;
             }
@@ -111,7 +110,7 @@ public final class GLSLColorizer {
                     }
                     break;
                 }
-                out.add(new ColorText<String>(codeLine.substring(start, i), GLSLParseText.FLOAT_COLOR));
+                out.add(new ColorText<String>(codeLine.substring(start, i), palette.headingText));
                 continue;
             }
 
@@ -142,25 +141,25 @@ public final class GLSLColorizer {
                 boolean isCall = (j < n && codeLine.charAt(j) == '(');
 
                 if (KEYWORDS.contains(lower)) {
-                    out.add(new ColorText<String>(ident, GLSLParseText.KEYWORD_COLOR));
+                    out.add(new ColorText<String>(ident, palette.accent));
                 } else if (lower.matches("vec[234]")) {
-                    out.add(new ColorText<String>(ident, GLSLParseText.VECN_COLOR));
+                    out.add(new ColorText<String>(ident, palette.linkText));
                 } else if (TYPES.contains(lower)) {
-                    out.add(new ColorText<String>(ident, GLSLParseText.TYPE_COLOR));
+                    out.add(new ColorText<String>(ident, palette.linkText));
                 } else if (isCall) {
-                    out.add(new ColorText<String>(ident, GLSLParseText.FUNCTION_COLOR));
+                    out.add(new ColorText<String>(ident, palette.success));
                 } else {
-                    out.add(new ColorText<String>(ident, Color.WHITE));
+                    out.add(new ColorText<String>(ident, palette.text));
                 }
                 continue;
             }
 
             if (c == '+' || c == '-' || c == '*' || c == '/') {
-                out.add(new ColorText<String>(String.valueOf(c), GLSLParseText.OPERATOR_COLOR));
+                out.add(new ColorText<String>(String.valueOf(c), palette.mutedText));
             } else if (c == '=') {
-                out.add(new ColorText<String>("=", GLSLParseText.EQUALS_COLOR));
+                out.add(new ColorText<String>("=", palette.mutedText));
             } else {
-                out.add(new ColorText<String>(String.valueOf(c), Color.WHITE));
+                out.add(new ColorText<String>(String.valueOf(c), palette.text));
             }
             i++;
         }

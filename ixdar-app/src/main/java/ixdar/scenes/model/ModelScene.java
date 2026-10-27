@@ -17,7 +17,6 @@ import ixdar.geometry.mesh.data.representation.InvalidMeshTopologyException;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
-import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.terminal.Terminal;
@@ -204,8 +203,9 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Per-frame: apply a pending model switch, run the scene's 3D pass, or the active tool's view
-     * when it replaces that pass, then the UI chrome.
+     * Per-frame: apply a pending model switch, re-colour the surface from the palette worn now so a
+     * swap shows at once, run the scene's 3D pass, or the active tool's view when it replaces that
+     * pass, then the UI chrome.
      */
     @Override
     public void drawScene() {
@@ -213,6 +213,7 @@ public abstract class ModelScene extends Scene {
             return;
         }
         applyPendingModel();
+        runtime.setSolidColor(palette.surface.toVector4f());
         updateScene();
         if (activeTool.replacesView()) {
             activeTool.drawView();
@@ -244,7 +245,7 @@ public abstract class ModelScene extends Scene {
         }
         if (sceneModelMenu != null && sceneModelMenu.isVisible()) {
             camera2D.updateView(VIEW_SCENE_MENU);
-            chromeBackground.draw(Color.GREY_VERY_DARK, camera2D);
+            chromeBackground.draw(palette.background, camera2D);
             sceneModelMenu.draw(camera2D);
             camera2D.resetView();
         }
@@ -511,7 +512,6 @@ public abstract class ModelScene extends Scene {
      * and graph load paths.
      */
     public void frameLoadedModel() {
-        runtime.setSolidColor(Color.BLUE_VERY_DARK.toVector4f());
         runtime.frameCamera(camera);
         frameMesh(halfEdgeMesh);
     }

@@ -10,6 +10,7 @@ import ixdar.platform.Clock;
 import ixdar.platform.Compat;
 
 public class ColorLerp implements Color {
+    public static final float FLASH_ALPHA = 0.25f;
     static HashMap<Color, ColorLerp> flashColors = new HashMap<>();
 
     public Color startColor;
@@ -97,7 +98,7 @@ public class ColorLerp implements Color {
 
     /**
      * Cached lerp that flashes the alpha of {@code c} between full opacity
-     * and {@link Color#BLACK_25}. Subsequent calls with the same
+     * and {@link #FLASH_ALPHA}. Subsequent calls with the same
      * {@code c} return the same instance so callers share its phase.
      *
      * @param c color whose alpha should pulse.
@@ -105,7 +106,8 @@ public class ColorLerp implements Color {
      * @return the cached alpha-only lerp for {@code c}.
      */
     public static ColorLerp flashColor(Color c, float radsPerSecond) {
-        flashColors.putIfAbsent(c, new ColorLerp(c, Color.BLACK_25, new byte[] { 0, 0, 0, 1 }, radsPerSecond));
+        flashColors.putIfAbsent(c, new ColorLerp(c, c.withAlpha(FLASH_ALPHA), new byte[] { 0, 0, 0, 1 },
+                radsPerSecond));
         return flashColors.get(c);
     }
 

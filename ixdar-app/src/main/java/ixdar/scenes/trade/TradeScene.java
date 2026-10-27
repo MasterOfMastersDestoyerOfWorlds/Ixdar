@@ -21,6 +21,7 @@ import ixdar.geometry.tsp.shell.Shell;
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.sdf.SDFBezier;
 import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.graphics.render.sdf.SDFLine;
@@ -72,6 +73,7 @@ public class TradeScene extends Scene {
     public static final float WAGON_RADIUS = 11f;
     public static final float MAP_MARGIN = 30f;
     public static final float FOG_ALPHA = 0.12f;
+    public static final float STATUS_CARD_OPACITY = 0.9f;
     public static final float RIVAL_ALPHA = 0.65f;
     public static final float TERRITORY_ALPHA = 0.28f;
     public static final float TERRITORY_RANGE_IN_CELLS = 6f;
@@ -145,6 +147,7 @@ public class TradeScene extends Scene {
         this.levels = levels;
         this.levelIndex = levelIndex;
         this.backScene = backScene;
+        palette = Palettes.PAPER;
     }
 
     /**
@@ -393,7 +396,7 @@ public class TradeScene extends Scene {
         buttonRectangles.clear();
         buttonActions.clear();
         panelRectangles.clear();
-        box.draw(0, 0, width, height, 0, 0, Color.WHITE_ORANGE, Color.WHITE_ORANGE, mapCamera);
+        box.draw(0, 0, width, height, 0, 0, palette.background, palette.background, mapCamera);
 
         TradeMap map = game.map;
         line.setStroke(GRID_LINE_WIDTH, false);
@@ -402,34 +405,34 @@ public class TradeScene extends Scene {
                 Vector2f a = map.cornerPoints.get(corners[k]);
                 Vector2f b = map.cornerPoints.get(corners[(k + 1) % corners.length]);
                 if (corners[k] < corners[(k + 1) % corners.length]) {
-                    line.draw(screen(a.x, a.y), screen(b.x, b.y), Color.BROWN_GREY_VERY_LIGHT, mapCamera);
+                    line.draw(screen(a.x, a.y), screen(b.x, b.y), palette.gridLine, mapCamera);
                 }
             }
         }
         float moorRadius = map.cellSpacing * 0.5f * scale();
         for (int cell = 0; cell < map.cellX.length; cell++) {
             if (map.cellBlocked[cell]) {
-                circle.draw(screen(map.cellX[cell], map.cellY[cell]), moorRadius, Color.BROWN_GREY_LIGHT, mapCamera);
+                circle.draw(screen(map.cellX[cell], map.cellY[cell]), moorRadius, palette.surface, mapCamera);
             }
         }
         line.setStroke(RIVER_WIDTH, false, 1f, 0f, true, true, false);
         for (int k = 1; k < map.riverX.length; k++) {
-            line.draw(screen(map.riverX[k - 1], map.riverY[k - 1]), screen(map.riverX[k], map.riverY[k]), Color.BLUE_GREY_VERY_LIGHT,
+            line.draw(screen(map.riverX[k - 1], map.riverY[k - 1]), screen(map.riverX[k], map.riverY[k]), palette.linkText,
                     mapCamera);
         }
         for (int[] road : map.roads) {
-            drawPath(road, 0, Color.BROWN_GREY_LIGHT, ROAD_WIDTH, false);
+            drawPath(road, 0, palette.line, ROAD_WIDTH, false);
         }
         for (int[] bridge : map.bridges) {
             Vector2f mid = screen((map.cellX[bridge[0]] + map.cellX[bridge[1]]) * 0.5f,
                     (map.cellY[bridge[0]] + map.cellY[bridge[1]]) * 0.5f);
             box.draw(mid.x - BASE_HALF_SIZE, mid.y - BASE_HALF_SIZE * 0.5f, 2 * BASE_HALF_SIZE, BASE_HALF_SIZE, 2,
-                    1, Color.BROWN, Color.BROWN_VERY_DARK, mapCamera);
+                    1, palette.panelBorder, palette.text, mapCamera);
         }
         for (int village : map.villageCells) {
             Vector2f p = screen(map.cellX[village], map.cellY[village]);
             box.draw(p.x - VILLAGE_HALF_SIZE, p.y - VILLAGE_HALF_SIZE, 2 * VILLAGE_HALF_SIZE, 2 * VILLAGE_HALF_SIZE, 1,
-                    1, Color.BROWN_GREY_LIGHT, Color.BROWN_GREY, mapCamera);
+                    1, palette.surface, palette.mutedText, mapCamera);
         }
 
         if (mapMode == MAP_OWNER) {
@@ -446,7 +449,7 @@ public class TradeScene extends Scene {
                 boolean theirs = rivalSold > youSold || (youSold == rivalSold && game.base[TradeGame.RIVAL][market]);
                 if (yours || theirs) {
                     circle.draw(screen(map.cellX[cell], map.cellY[cell]), tintRadius,
-                            (yours ? Color.IXDAR: Color.BLUE_GREY_DARK).withAlpha(TERRITORY_ALPHA), mapCamera);
+                            (yours ? palette.accent : palette.warning).withAlpha(TERRITORY_ALPHA), mapCamera);
                 }
             }
         }
@@ -460,12 +463,12 @@ public class TradeScene extends Scene {
                     for (int k = 0; k < order.length; k++) {
                         int from = order[k], to = order[(k + 1) % order.length];
                         boolean seen = game.contested(from) || game.contested(to);
-                        drawPath(game.legPath[from][to], LANE_OFFSET, Color.BLUE_GREY_DARK.withAlpha(seen ? alpha : FOG_ALPHA),
+                        drawPath(game.legPath[from][to], LANE_OFFSET, palette.warning.withAlpha(seen ? alpha : FOG_ALPHA),
                                 RIVAL_LANE_WIDTH, seen);
                     }
                 }
             } else if (!rivalPass) {
-                Color laneColor = Color.IXDAR.withAlpha(alpha);
+                Color laneColor = palette.accent.withAlpha(alpha);
                 for (int[] order : game.loopCities) {
                     for (int k = 0; k < order.length; k++) {
                         int from = order[k], to = order[(k + 1) % order.length];
@@ -485,24 +488,25 @@ public class TradeScene extends Scene {
             boolean playerBase = game.base[TradeGame.PLAYER][city];
             boolean rivalBase = game.base[TradeGame.RIVAL][city];
             if (mapMode == MAP_MARKET_SIZE && game.demand[city] > 0) {
-                circle.draw(p, (float) Math.sqrt(game.demand[city]) * HEAT_SCALE, Color.ORANGE_YELLOW_DARK.withAlpha(TERRITORY_ALPHA),
+                circle.draw(p, (float) Math.sqrt(game.demand[city]) * HEAT_SCALE, palette.highlight.withAlpha(TERRITORY_ALPHA),
                         mapCamera);
-                drawText(Integer.toString(game.demand[city]), p.x, p.y - NAME_OFFSET * 2, TEXT_HEIGHT, Color.ORANGE_YELLOW_DARK);
+                drawText(Integer.toString(game.demand[city]), p.x, p.y - NAME_OFFSET * 2, TEXT_HEIGHT, palette.text);
             }
             if (playerBase || rivalBase) {
                 box.draw(p.x - BASE_HALF_SIZE, p.y - BASE_HALF_SIZE, 2 * BASE_HALF_SIZE, 2 * BASE_HALF_SIZE, 2,
-                        BORDER_WIDTH, playerBase ? Color.IXDAR: Color.BLUE_GREY_DARK, Color.BROWN_VERY_DARK, mapCamera);
+                        BORDER_WIDTH, playerBase ? palette.accent : palette.warning, palette.text, mapCamera);
             } else {
                 boolean you = game.station[TradeGame.PLAYER][city];
                 boolean rival = game.station[TradeGame.RIVAL][city];
                 circle.borderThickness = CITY_BORDER_SHARE;
-                circle.draw(p, CITY_RADIUS, you ? Color.IXDAR: rival ? Color.BLUE_GREY_DARK: Color.WHITE_YELLOW, you && rival ? Color.BLUE_GREY_DARK: Color.BROWN_VERY_DARK, mapCamera);
+                circle.draw(p, CITY_RADIUS, you ? palette.accent : rival ? palette.warning : palette.panel,
+                        you && rival ? palette.warning : palette.text, mapCamera);
             }
             if (city == selectedCity) {
                 circle.borderThickness = RING_BORDER_SHARE;
-                circle.draw(p, TARGET_RING_RADIUS + 4, Color.TRANSPARENT, Color.BROWN_VERY_DARK, mapCamera);
+                circle.draw(p, TARGET_RING_RADIUS + 4, Color.TRANSPARENT, palette.text, mapCamera);
             }
-            drawText(game.level.cityNames[city], p.x, p.y + NAME_OFFSET, SMALL_TEXT_HEIGHT, Color.BROWN_VERY_DARK);
+            drawText(game.level.cityNames[city], p.x, p.y + NAME_OFFSET, SMALL_TEXT_HEIGHT, palette.text);
         }
 
         if (animationStart >= 0 && (Clock.time() - animationStart) / ANIMATION_SECONDS > 1f) {
@@ -521,7 +525,7 @@ public class TradeScene extends Scene {
                     Vector2f from = screen(map.cellX[path[cell]], map.cellY[path[cell]]);
                     Vector2f to = screen(map.cellX[path[cell + 1]], map.cellY[path[cell + 1]]);
                     circle.borderThickness = CITY_BORDER_SHARE;
-                    circle.draw(new Vector2f(from).lerp(to, step - cell), WAGON_RADIUS, Color.BROWN_VERY_DARK, Color.ORANGE_YELLOW_DARK, mapCamera);
+                    circle.draw(new Vector2f(from).lerp(to, step - cell), WAGON_RADIUS, palette.text, palette.highlight, mapCamera);
                 }
                 for (int k = 0; k < legs; k++) {
                     int stop = order[k];
@@ -529,60 +533,61 @@ public class TradeScene extends Scene {
                     if (t >= reached && game.lastRevenue[stop] > 0) {
                         Vector2f p = screen(map.cellX[game.cityCell[stop]], map.cellY[game.cityCell[stop]]);
                         drawText(PLUS + String.format(GOLD_FORMAT, game.lastRevenue[stop]) + " gold", p.x,
-                                p.y + NAME_OFFSET * 2 + (t - reached) * GOLD_RISE_PIXELS * 2, TEXT_HEIGHT, Color.ORANGE_YELLOW_DARK);
+                                p.y + NAME_OFFSET * 2 + (t - reached) * GOLD_RISE_PIXELS * 2, TEXT_HEIGHT, palette.highlight);
                     }
                 }
             }
         }
 
         float barTop = height - TOP_BAR_HEIGHT;
-        box.draw(0, barTop, width, TOP_BAR_HEIGHT, 0, 0, Color.BROWN_VERY_DARK, Color.BROWN_VERY_DARK, mapCamera);
+        box.draw(0, barTop, width, TOP_BAR_HEIGHT, 0, 0, palette.text, palette.text, mapCamera);
         panelRectangles.add(new float[] { 0, barTop, width, TOP_BAR_HEIGHT });
         float barMiddle = barTop + TOP_BAR_HEIGHT * 0.5f;
         drawText(String.format(GOLD_FORMAT, game.gold[TradeGame.PLAYER]) + " gold", 90, barMiddle,
-                TITLE_TEXT_HEIGHT, Color.YELLOW_ORANGE_VERY_LIGHT);
+                TITLE_TEXT_HEIGHT, palette.background);
         drawText((game.lastProfit[TradeGame.PLAYER] >= 0 ? PLUS : "")
                 + String.format(GOLD_FORMAT, game.lastProfit[TradeGame.PLAYER]) + " / lap", 230, barMiddle,
-                TEXT_HEIGHT, Color.WHITE_ORANGE);
+                TEXT_HEIGHT, palette.background);
         drawText("Lap " + Math.min(game.lap, game.level.lapLimit) + " / " + game.level.lapLimit, 360, barMiddle,
-                TITLE_TEXT_HEIGHT, Color.WHITE_ORANGE);
-        drawText(game.level.title, 560, barMiddle, TEXT_HEIGHT, Color.WHITE_ORANGE);
+                TITLE_TEXT_HEIGHT, palette.background);
+        drawText(game.level.title, 560, barMiddle, TEXT_HEIGHT, palette.background);
         float shareX = width - SHARE_BAR_WIDTH - PADDING * 2;
         float shareY = barTop + PADDING;
         float shareHeight = TOP_BAR_HEIGHT - 2 * PADDING;
         if (game.level.shareGoal > 0) {
             double youShare = game.playerShare();
             double rivalShare = game.rivalShare();
-            box.draw(shareX, shareY, SHARE_BAR_WIDTH, shareHeight, 0, 0, Color.BROWN_GREY_DARK, Color.BROWN_GREY_DARK, mapCamera);
-            box.draw(shareX, shareY, (float) (youShare * SHARE_BAR_WIDTH), shareHeight, 0, 0, Color.IXDAR, Color.IXDAR, mapCamera);
+            box.draw(shareX, shareY, SHARE_BAR_WIDTH, shareHeight, 0, 0, palette.panelBorder, palette.panelBorder, mapCamera);
+            box.draw(shareX, shareY, (float) (youShare * SHARE_BAR_WIDTH), shareHeight, 0, 0, palette.accent, palette.accent,
+                    mapCamera);
             box.draw(shareX + (float) (youShare * SHARE_BAR_WIDTH), shareY, (float) (rivalShare * SHARE_BAR_WIDTH),
-                    shareHeight, 0, 0, Color.BLUE_GREY_DARK, Color.BLUE_GREY_DARK, mapCamera);
+                    shareHeight, 0, 0, palette.warning, palette.warning, mapCamera);
             float goalX = shareX + (float) game.level.shareGoal * SHARE_BAR_WIDTH;
             line.setStroke(2f, false);
-            line.draw(new Vector2f(goalX, barTop + 2), new Vector2f(goalX, barTop + TOP_BAR_HEIGHT - 2), Color.YELLOW_ORANGE_VERY_LIGHT,
+            line.draw(new Vector2f(goalX, barTop + 2), new Vector2f(goalX, barTop + TOP_BAR_HEIGHT - 2), palette.background,
                     mapCamera);
             drawText("you " + Math.round(youShare * PERCENT) + "%  rival " + Math.round(rivalShare * PERCENT)
                     + "%  goal " + Math.round(game.level.shareGoal * PERCENT) + "%", shareX + SHARE_BAR_WIDTH * 0.5f,
-                    barMiddle, SMALL_TEXT_HEIGHT, Color.WHITE_ORANGE);
+                    barMiddle, SMALL_TEXT_HEIGHT, palette.background);
         } else {
             double earned = game.gold[TradeGame.PLAYER] - game.level.startGold;
             StringBuilder medals = new StringBuilder("earned " + String.format(GOLD_FORMAT, earned) + "  medals");
             for (int threshold : game.level.medalGold) {
                 medals.append(SPACE).append(threshold);
             }
-            drawText(medals.toString(), shareX + SHARE_BAR_WIDTH * 0.5f, barMiddle, TEXT_HEIGHT, Color.YELLOW_ORANGE_VERY_LIGHT);
+            drawText(medals.toString(), shareX + SHARE_BAR_WIDTH * 0.5f, barMiddle, TEXT_HEIGHT, palette.background);
         }
         if (!status.isEmpty()) {
             float statusY = barTop - ROW_HEIGHT * 0.5f - PADDING;
             box.draw(PADDING, statusY - ROW_HEIGHT * 0.5f, width - PANEL_WIDTH - 3 * PADDING, ROW_HEIGHT,
-                    CORNER_RADIUS, 0, Color.WHITE_YELLOW.withAlpha(0.9f), Color.WHITE_YELLOW, mapCamera);
-            drawText(status, (width - PANEL_WIDTH) * 0.5f, statusY, SMALL_TEXT_HEIGHT, Color.BROWN_VERY_DARK);
+                    CORNER_RADIUS, 0, palette.panel.withAlpha(STATUS_CARD_OPACITY), palette.panel, mapCamera);
+            drawText(status, (width - PANEL_WIDTH) * 0.5f, statusY, SMALL_TEXT_HEIGHT, palette.text);
         }
 
         float panelX = width - PANEL_WIDTH - PADDING;
         float panelTop = barTop - PADDING;
         float panelBottom = TOOLBAR_HEIGHT + PADDING;
-        box.draw(panelX, panelBottom, PANEL_WIDTH, panelTop - panelBottom, CORNER_RADIUS, BORDER_WIDTH, Color.WHITE_YELLOW, Color.BROWN_VERY_DARK,
+        box.draw(panelX, panelBottom, PANEL_WIDTH, panelTop - panelBottom, CORNER_RADIUS, BORDER_WIDTH, palette.panel, palette.text,
                 mapCamera);
         panelRectangles.add(new float[] { panelX, panelBottom, PANEL_WIDTH, panelTop - panelBottom });
         float centerX = panelX + PANEL_WIDTH * 0.5f;
@@ -591,16 +596,16 @@ public class TradeScene extends Scene {
         float row = panelTop - ROW_HEIGHT;
         if (selectedCity >= 0) {
             int city = selectedCity;
-            drawText(game.level.cityNames[city], centerX, row, TITLE_TEXT_HEIGHT, Color.BROWN_VERY_DARK);
+            drawText(game.level.cityNames[city], centerX, row, TITLE_TEXT_HEIGHT, palette.text);
             row -= ROW_HEIGHT * 1.2f;
             drawText("needs " + game.demand[city] + " / lap" + SEPARATOR + "pays up to "
-                    + String.format(COST_FORMAT, game.ceiling[city]), centerX, row, SMALL_TEXT_HEIGHT, Color.BROWN_GREY);
+                    + String.format(COST_FORMAT, game.ceiling[city]), centerX, row, SMALL_TEXT_HEIGHT, palette.mutedText);
             row -= ROW_HEIGHT;
             if (game.station[TradeGame.PLAYER][city]) {
                 drawText("you sold " + game.lastSold[TradeGame.PLAYER][city] + " at "
                         + String.format(COST_FORMAT, game.lastPrice[city]) + SEPARATOR + "cost "
                         + String.format(COST_FORMAT, game.unitCost[TradeGame.PLAYER][city]), centerX, row,
-                        SMALL_TEXT_HEIGHT, Color.IXDAR);
+                        SMALL_TEXT_HEIGHT, palette.accent);
                 row -= ROW_HEIGHT;
             }
             if (game.contested(city)) {
@@ -609,21 +614,22 @@ public class TradeScene extends Scene {
                         : rivalGold > 0 ? "strained" : "distressed";
                 drawText("rival sold " + game.lastSold[TradeGame.RIVAL][city] + SEPARATOR + "cost "
                         + String.format(COST_FORMAT, game.unitCost[TradeGame.RIVAL][city]) + SEPARATOR + reserve,
-                        centerX, row, SMALL_TEXT_HEIGHT, Color.BLUE_GREY_DARK);
+                        centerX, row, SMALL_TEXT_HEIGHT, palette.warning);
                 row -= ROW_HEIGHT;
                 int medal = game.marketMedal(city);
                 drawText("market: " + (medal == 0 ? "no medal" : MEDAL_NAMES[medal]), centerX, row,
-                        SMALL_TEXT_HEIGHT, Color.ORANGE_YELLOW_DARK);
+                        SMALL_TEXT_HEIGHT, palette.highlight);
                 row -= ROW_HEIGHT * 1.2f;
                 String[] wars = { "Price war: off", "Price war: at cost", "Price war: half cost" };
+                boolean warOff = game.priceWar[city] == TradeGame.WAR_OFF;
                 button(buttonLeft, row - ROW_HEIGHT * 0.5f, buttonWidth, ROW_HEIGHT, wars[game.priceWar[city]],
-                        game.priceWar[city] == TradeGame.WAR_OFF ? Color.WHITE_YELLOW: Color.YELLOW_ORANGE_VERY_LIGHT, Color.BROWN_VERY_DARK,
+                        warOff ? palette.panel : palette.highlight, warOff ? palette.text : palette.background,
                         () -> game.cyclePriceWar(city));
                 row -= ROW_HEIGHT * 1.3f;
             }
             if (!game.station[TradeGame.PLAYER][city] && !game.base[TradeGame.PLAYER][city]) {
                 button(buttonLeft, row - ROW_HEIGHT * 0.5f, buttonWidth, ROW_HEIGHT,
-                        "Buy station (" + TradeGame.STATION_PRICE + " gold)", Color.YELLOW_ORANGE_VERY_LIGHT, Color.BROWN_VERY_DARK, () -> {
+                        "Buy station (" + TradeGame.STATION_PRICE + " gold)", palette.highlight, palette.background, () -> {
                             if (!game.buyStation(city)) {
                                 status = "Not enough gold for a station";
                             }
@@ -634,12 +640,13 @@ public class TradeScene extends Scene {
             if (!game.base[TradeGame.PLAYER][city]) {
                 button(buttonLeft, row - ROW_HEIGHT * 0.5f, buttonWidth, ROW_HEIGHT,
                         lock.isEmpty() ? "Build base (" + TradeGame.BASE_PRICE + " gold)" : "Base locked: " + lock,
-                        lock.isEmpty() ? Color.YELLOW_ORANGE_VERY_LIGHT: Color.WHITE_ORANGE, lock.isEmpty() ? Color.BROWN_VERY_DARK: Color.BROWN_GREY, () -> game.buildBase(city));
+                        lock.isEmpty() ? palette.highlight : palette.background,
+                        lock.isEmpty() ? palette.background : palette.mutedText, () -> game.buildBase(city));
                 row -= ROW_HEIGHT * 1.3f;
             }
             if (game.loopIndexOf(city) >= 0) {
                 button(buttonLeft, row - ROW_HEIGHT * 0.5f, buttonWidth, ROW_HEIGHT,
-                        "Buy wagon for this loop (" + TradeGame.WAGON_PRICE + " gold)", Color.WHITE_ORANGE, Color.BROWN_VERY_DARK, () -> {
+                        "Buy wagon for this loop (" + TradeGame.WAGON_PRICE + " gold)", palette.background, palette.text, () -> {
                             if (!game.buyWagon(city)) {
                                 status = "Not enough gold for a wagon";
                             }
@@ -648,13 +655,13 @@ public class TradeScene extends Scene {
             }
             row -= ROW_HEIGHT * 0.5f;
         } else {
-            drawText("Click a city to open its menu", centerX, row, SMALL_TEXT_HEIGHT, Color.BROWN_GREY);
+            drawText("Click a city to open its menu", centerX, row, SMALL_TEXT_HEIGHT, palette.mutedText);
             row -= ROW_HEIGHT * 2;
         }
-        drawText("Loops", centerX, row, TEXT_HEIGHT, Color.BROWN_VERY_DARK);
+        drawText("Loops", centerX, row, TEXT_HEIGHT, palette.text);
         row -= ROW_HEIGHT;
         if (game.loopCities.isEmpty()) {
-            drawText("Pipe from home to a town to start one", centerX, row, SMALL_TEXT_HEIGHT, Color.BROWN_GREY);
+            drawText("Pipe from home to a town to start one", centerX, row, SMALL_TEXT_HEIGHT, palette.mutedText);
         }
         for (int loop = 0; loop < game.loopCities.size() && row > panelBottom + ROW_HEIGHT * 2; loop++) {
             StringBuilder name = new StringBuilder();
@@ -664,7 +671,7 @@ public class TradeScene extends Scene {
             double cost = game.loopUnitCost.get(loop);
             drawText(name + SEPARATOR + game.loopWagons.get(loop) + " wagon" + SEPARATOR
                     + (Double.isInfinite(cost) ? "idle" : String.format(COST_FORMAT, cost) + "/unit"), centerX, row,
-                    SMALL_TEXT_HEIGHT, Color.IXDAR);
+                    SMALL_TEXT_HEIGHT, palette.accent);
             row -= ROW_HEIGHT * 0.8f;
             int burn = game.loopBurn.get(loop) * game.loopWagons.get(loop);
             int cargo = game.loopCargo.get(loop);
@@ -672,21 +679,21 @@ public class TradeScene extends Scene {
             float fillWidth = PANEL_WIDTH - 4 * PADDING;
             float fillX = panelX + 2 * PADDING;
             float perUnit = fillWidth / Math.max(capacity, burn + cargo);
-            box.draw(fillX, row - FILL_BAR_HEIGHT * 0.5f, fillWidth, FILL_BAR_HEIGHT, 0, 1, Color.WHITE_YELLOW, Color.BROWN_VERY_DARK, mapCamera);
+            box.draw(fillX, row - FILL_BAR_HEIGHT * 0.5f, fillWidth, FILL_BAR_HEIGHT, 0, 1, palette.panel, palette.text, mapCamera);
             box.draw(fillX, row - FILL_BAR_HEIGHT * 0.5f, burn * perUnit, FILL_BAR_HEIGHT, 0, 0,
-                    burn > capacity ? Color.RED : Color.IXDAR, Color.IXDAR, mapCamera);
+                    burn > capacity ? palette.error : palette.accent, palette.accent, mapCamera);
             box.draw(fillX + burn * perUnit, row - FILL_BAR_HEIGHT * 0.5f, cargo * perUnit, FILL_BAR_HEIGHT, 0, 0,
-                    Color.PINK_VERY_LIGHT, Color.PINK_VERY_LIGHT, mapCamera);
+                    palette.selected, palette.selected, mapCamera);
             row -= ROW_HEIGHT * 0.8f;
             String detail = !game.loopHasBase.get(loop) ? "no base: this loop cannot run"
                     : game.loopFuelDeficit.get(loop) > 0 ? "runs dry by " + game.loopFuelDeficit.get(loop) + " blood"
                             : burn + " burned" + SEPARATOR + cargo + " sold" + SEPARATOR
                                     + Math.max(0, capacity - burn - cargo) + " spare";
-            drawText(detail, centerX, row, SMALL_TEXT_HEIGHT, game.loopFuelDeficit.get(loop) > 0 ? Color.RED : Color.BROWN_GREY);
+            drawText(detail, centerX, row, SMALL_TEXT_HEIGHT, game.loopFuelDeficit.get(loop) > 0 ? palette.error : palette.mutedText);
             row -= ROW_HEIGHT;
         }
 
-        box.draw(0, 0, width, TOOLBAR_HEIGHT, 0, 0, Color.BROWN_VERY_DARK, Color.BROWN_VERY_DARK, mapCamera);
+        box.draw(0, 0, width, TOOLBAR_HEIGHT, 0, 0, palette.text, palette.text, mapCamera);
         panelRectangles.add(new float[] { 0, 0, width, TOOLBAR_HEIGHT });
         float toolY = PADDING;
         float toolHeight = TOOLBAR_HEIGHT - 2 * PADDING;
@@ -695,33 +702,33 @@ public class TradeScene extends Scene {
         for (int index = 0; index < toolNames.length; index++) {
             int chosen = index;
             button(toolX, toolY, BUTTON_WIDTH, toolHeight, toolNames[index],
-                    routePlanningTool.mode == index ? Color.IXDAR: Color.BROWN_GREY_DARK, Color.WHITE_ORANGE,
+                    routePlanningTool.mode == index ? palette.accent : palette.panelBorder, palette.background,
                     () -> routePlanningTool.chooseMode(chosen));
             toolX += BUTTON_WIDTH + PADDING;
         }
-        button(toolX, toolY, BUTTON_WIDTH * 0.6f, toolHeight, "Undo", Color.BROWN_GREY_DARK, Color.WHITE_ORANGE,
+        button(toolX, toolY, BUTTON_WIDTH * 0.6f, toolHeight, "Undo", palette.panelBorder, palette.background,
                 routePlanningTool::undo);
         toolX += BUTTON_WIDTH * 0.6f + PADDING * 3;
         String[] modeNames = { "Network", "Owner", "Market size" };
         for (int index = 0; index < modeNames.length; index++) {
             int chosen = index;
-            button(toolX, toolY, BUTTON_WIDTH, toolHeight, modeNames[index], mapMode == index ? Color.IXDAR: Color.BROWN_GREY_DARK,
-                    Color.WHITE_ORANGE, () -> mapMode = chosen);
+            button(toolX, toolY, BUTTON_WIDTH, toolHeight, modeNames[index], mapMode == index ? palette.accent : palette.panelBorder,
+                    palette.background, () -> mapMode = chosen);
             toolX += BUTTON_WIDTH + PADDING;
         }
         button(toolX, toolY, WIDE_BUTTON_WIDTH, toolHeight, rivalOnTop ? "On top: rival" : "On top: you",
-                Color.BROWN_GREY_DARK, Color.WHITE_ORANGE, () -> rivalOnTop = !rivalOnTop);
+                palette.panelBorder, palette.background, () -> rivalOnTop = !rivalOnTop);
         toolX += WIDE_BUTTON_WIDTH + PADDING;
-        button(toolX, toolY, BUTTON_WIDTH, toolHeight, "Restart", Color.BROWN_GREY_DARK, Color.WHITE_ORANGE,
+        button(toolX, toolY, BUTTON_WIDTH, toolHeight, "Restart", palette.panelBorder, palette.background,
                 () -> loadLevel(levelIndex));
-        button(width - END_LAP_WIDTH - PADDING, toolY, END_LAP_WIDTH, toolHeight, "End lap", Color.ORANGE_YELLOW_DARK, Color.WHITE_ORANGE,
+        button(width - END_LAP_WIDTH - PADDING, toolY, END_LAP_WIDTH, toolHeight, "End lap", palette.highlight, palette.background,
                 this::endLap);
 
         if (game.outcome != TradeGame.PLAYING) {
             float boxX = (width - PANEL_WIDTH - OUTCOME_BOX_WIDTH) * 0.5f;
             float boxY = (height - OUTCOME_BOX_HEIGHT) * 0.5f;
-            box.draw(boxX, boxY, OUTCOME_BOX_WIDTH, OUTCOME_BOX_HEIGHT, CORNER_RADIUS * 2, BORDER_WIDTH * 2, Color.WHITE_YELLOW,
-                    Color.BROWN_VERY_DARK, mapCamera);
+            box.draw(boxX, boxY, OUTCOME_BOX_WIDTH, OUTCOME_BOX_HEIGHT, CORNER_RADIUS * 2, BORDER_WIDTH * 2, palette.panel,
+                    palette.text, mapCamera);
             panelRectangles.add(new float[] { boxX, boxY, OUTCOME_BOX_WIDTH, OUTCOME_BOX_HEIGHT });
             boolean won = game.outcome == TradeGame.WON;
             String headline = won ? "Level won" : "Level lost";
@@ -730,13 +737,13 @@ public class TradeScene extends Scene {
             }
             float boxCenterX = boxX + OUTCOME_BOX_WIDTH * 0.5f;
             drawText(headline, boxCenterX, boxY + OUTCOME_BOX_HEIGHT - ROW_HEIGHT * 1.5f, TITLE_TEXT_HEIGHT,
-                    won ? Color.GREEN_DARK: Color.IXDAR);
-            drawText(game.outcomeText, boxCenterX, boxY + OUTCOME_BOX_HEIGHT - ROW_HEIGHT * 3, TEXT_HEIGHT, Color.BROWN_VERY_DARK);
-            button(boxX + PADDING * 2, boxY + PADDING * 2, WIDE_BUTTON_WIDTH, ROW_HEIGHT * 1.5f, "Retry", Color.WHITE_ORANGE, Color.BROWN_VERY_DARK,
+                    won ? palette.success : palette.accent);
+            drawText(game.outcomeText, boxCenterX, boxY + OUTCOME_BOX_HEIGHT - ROW_HEIGHT * 3, TEXT_HEIGHT, palette.text);
+            button(boxX + PADDING * 2, boxY + PADDING * 2, WIDE_BUTTON_WIDTH, ROW_HEIGHT * 1.5f, "Retry", palette.background, palette.text,
                     () -> loadLevel(levelIndex));
             if (won && levelIndex + 1 < levels.size()) {
                 button(boxX + OUTCOME_BOX_WIDTH - WIDE_BUTTON_WIDTH - PADDING * 2, boxY + PADDING * 2,
-                        WIDE_BUTTON_WIDTH, ROW_HEIGHT * 1.5f, "Next level", Color.ORANGE_YELLOW_DARK, Color.WHITE_ORANGE,
+                        WIDE_BUTTON_WIDTH, ROW_HEIGHT * 1.5f, "Next level", palette.highlight, palette.background,
                         () -> loadLevel(levelIndex + 1));
             }
         }
@@ -824,7 +831,7 @@ public class TradeScene extends Scene {
      * @param action what a click does
      */
     private void button(float x, float y, float w, float h, String label, Color fill, Color text, Runnable action) {
-        box.draw(x, y, w, h, CORNER_RADIUS, 1, fill, Color.BROWN_VERY_DARK, mapCamera);
+        box.draw(x, y, w, h, CORNER_RADIUS, 1, fill, palette.text, mapCamera);
         HyperString words = new HyperString();
         words.addWordClick(label, text, () -> {
         });
@@ -843,7 +850,7 @@ public class TradeScene extends Scene {
      */
     public void drawTag(String label, float x, float y, Color color) {
         float w = label.length() * SMALL_TEXT_HEIGHT * 0.5f + PADDING;
-        box.draw(x - w * 0.5f, y - SMALL_TEXT_HEIGHT * 0.5f, w, SMALL_TEXT_HEIGHT, SMALL_TEXT_HEIGHT * 0.5f, 1, Color.WHITE_YELLOW,
+        box.draw(x - w * 0.5f, y - SMALL_TEXT_HEIGHT * 0.5f, w, SMALL_TEXT_HEIGHT, SMALL_TEXT_HEIGHT * 0.5f, 1, palette.panel,
                 color, mapCamera);
         drawText(label, x, y, SMALL_TEXT_HEIGHT, color);
     }

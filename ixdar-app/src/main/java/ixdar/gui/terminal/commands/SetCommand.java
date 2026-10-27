@@ -85,12 +85,13 @@ public class SetCommand extends TerminalCommand {
     public String[] run(String[] args, int startIdx, Terminal terminal) {
         ModelCollection models = terminal.dataset(Subsystem.MODEL);
         Map<String, Object> overrides = models.overrides;
+        Color subject = terminal.scene.palette.linkText;
         if (startIdx >= args.length) {
             for (Map.Entry<String, Object> override : overrides.entrySet()) {
-                terminal.history.addLine(override.getKey() + "=" + override.getValue(), Color.TEAL_DARK);
+                terminal.history.addLine(override.getKey() + "=" + override.getValue(), subject);
             }
             if (overrides.isEmpty()) {
-                terminal.history.addLine("no overrides", Color.TEAL_DARK);
+                terminal.history.addLine("no overrides", subject);
             }
             return null;
         }
@@ -117,7 +118,7 @@ public class SetCommand extends TerminalCommand {
         ModelChoice current = models.current();
         if (current != null) {
             models.requestLoad.accept(current);
-            terminal.history.addLine("rerunning " + current.displayName, Color.TEAL_DARK);
+            terminal.history.addLine("rerunning " + current.displayName, subject);
         }
         return null;
     }

@@ -4,7 +4,7 @@ import java.util.List;
 
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
-import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.text.HyperString;
@@ -136,15 +136,16 @@ public final class SceneModelMenu implements PointerRegion {
      * @param camera 2D camera whose view is moved to each part in turn
      */
     public void draw(Camera2D camera) {
+        Palette palette = scene.palette;
         controlsBox.clearRows();
         for (int section = 0; section < scene.controls().size(); section++) {
             if (scene.controls().get(section).isEmpty()) {
                 continue;
             }
-            controlsBox.addRow(scene.controlSectionName(section), Color.IXDAR, null);
+            controlsBox.addRow(scene.controlSectionName(section), palette.headingText, null);
             for (ControlHint hint : scene.controls().get(section)) {
                 controlsBox.addRow(hint.toString(),
-                        hint.action == null ? Color.GREY_DARK : Color.BLUE_GREY,
+                        hint.action == null ? palette.disabled : palette.linkText,
                         hint.action == null ? null : () -> scene.keys.fire(hint));
             }
         }
@@ -159,13 +160,13 @@ public final class SceneModelMenu implements PointerRegion {
             String currentPath = current == null ? null : current.path;
             List<ModelChoice> choices = scene.availableModels();
             if (choices.isEmpty()) {
-                modelsBox.addRow("(no models found)", Color.GREY_DARK, null);
+                modelsBox.addRow("(no models found)", palette.mutedText, null);
             }
             for (ModelChoice choice : choices) {
                 boolean isCurrent = currentPath != null && currentPath.equals(choice.path);
                 int row = modelsBox.addRow(
                         (isCurrent ? CURRENT_MARKER : OTHER_MARKER) + choice.displayName,
-                        isCurrent ? Color.GREEN_TEAL_LIGHT : Color.TEAL_DARK,
+                        isCurrent ? palette.selected : palette.linkText,
                         () -> scene.requestModelLoad(choice));
                 if (isCurrent) {
                     currentModelRow = row;
@@ -180,13 +181,13 @@ public final class SceneModelMenu implements PointerRegion {
             }
         }
         HyperString modelsTitle = new HyperString();
-        modelsTitle.addLine(MODELS_HEADER, Color.YELLOW_ORANGE);
+        modelsTitle.addLine(MODELS_HEADER, palette.headingText);
         drawFixedRows(modelsTitle, modelsBox.bounds.offsetY + modelsBox.bounds.viewHeight, 1,
                 camera);
         modelsBox.draw(camera);
 
         betweenBoxes = new HyperString();
-        betweenBoxes.addWordClick(RECOMPUTE_LABEL, Color.TEAL_BLUE_LIGHT, () -> {
+        betweenBoxes.addWordClick(RECOMPUTE_LABEL, palette.linkText, () -> {
             ModelChoice reload = scene.currentModel();
             if (reload != null) {
                 scene.requestModelLoad(reload);
@@ -194,7 +195,7 @@ public final class SceneModelMenu implements PointerRegion {
         });
         betweenBoxes.newLine();
         betweenBoxes.newLine();
-        betweenBoxes.addLine(CONTROLS_HEADER, Color.YELLOW_ORANGE);
+        betweenBoxes.addLine(CONTROLS_HEADER, palette.headingText);
         drawFixedRows(betweenBoxes, controlsBox.bounds.viewHeight,
                 RECOMPUTE_BLANK_AND_CONTROLS_TITLE_ROWS, camera);
         controlsBox.draw(camera);

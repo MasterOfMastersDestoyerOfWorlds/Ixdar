@@ -3,7 +3,7 @@ package ixdar.gui.ui;
 import java.util.function.BooleanSupplier;
 
 import ixdar.graphics.cameras.Camera2D;
-import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Clock;
@@ -52,15 +52,16 @@ public class InfoPane {
         rows.addHyperString(tool.info());
         rows.newLine();
         rows.newLine();
-        rows.addLine("Controls:", Color.IXDAR);
+        Palette palette = Scene.activePalette();
+        rows.addLine("Controls:", palette.headingText);
         for (int section = 0; section < scene.controls.size(); section++) {
             if (scene.controls.get(section).isEmpty()) {
                 continue;
             }
-            rows.addLine(scene.controlSectionName(section), Color.IXDAR);
+            rows.addLine(scene.controlSectionName(section), palette.headingText);
             for (ControlHint hint : scene.controls.get(section)) {
-                rows.addWord(hint.key, Color.BLUE_GREY);
-                rows.addLine(hint.description, Color.WHITE);
+                rows.addWord(hint.key, palette.mutedText);
+                rows.addLine(hint.description, palette.text);
             }
         }
         rows.wrap();

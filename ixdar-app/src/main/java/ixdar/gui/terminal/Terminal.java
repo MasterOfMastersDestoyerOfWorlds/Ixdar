@@ -15,7 +15,6 @@ import ixdar.annotations.geometry.GeometryRegistry_Geometries;
 import ixdar.platform.Compat;
 import ixdar.geometry.tsp.input.PointCollection;
 import ixdar.graphics.cameras.Camera2D;
-import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorLerp;
 import ixdar.gui.terminal.commands.TerminalCommand;
 import ixdar.gui.ui.PaneTypes;
@@ -34,6 +33,8 @@ import ixdar.scenes.main.Toggle;
 public class Terminal {
 
     public static final String VIEW_TERMINAL = "TERMINAL";
+
+    public static final float INSTRUCT_FLASH_RADS_PER_SECOND = 3f;
 
     public static ArrayList<TerminalOption> commandList;
     public static HashMap<String, TerminalOption> commandMap = new HashMap<>();
@@ -92,7 +93,6 @@ public class Terminal {
     int commandHistoryIdx;
     String commandLine;
     String commandLineInstruct;
-    ColorLerp instructColor = ColorLerp.flashColor(Color.BLUE_GREY, 3);
     String[] nextLogicalCommand;
     private int nextLogicalCommandIdx;
 
@@ -259,7 +259,7 @@ public class Terminal {
         }
         TerminalOption command = commandMap.get(args[0]);
         if (command == null) {
-            history.addLine("command not found: " + args[0], Color.RED);
+            history.addLine("command not found: " + args[0], scene.palette.error);
             return;
         }
         remainingArgs--;
@@ -273,7 +273,7 @@ public class Terminal {
         }
         int argLength = command.argLength();
         if (remainingArgs != argLength && argLength >= 0) {
-            history.addLine("exception: not enough args: " + command.usage(), Color.RED);
+            history.addLine("exception: not enough args: " + command.usage(), scene.palette.error);
             return;
         }
         String refusal = refusal(command);
@@ -306,7 +306,8 @@ public class Terminal {
         commandHyperString.addHyperString(history);
         commandHyperString.newLine();
         if (commandLine.isEmpty()) {
-            commandHyperString.addWord(commandLineInstruct, instructColor);
+            commandHyperString.addWord(commandLineInstruct,
+                    ColorLerp.flashColor(scene.palette.mutedText, INSTRUCT_FLASH_RADS_PER_SECOND));
         } else {
             commandHyperString.addWord(commandLine);
         }
@@ -318,7 +319,7 @@ public class Terminal {
     /**
      * Set the instruction placeholder shown in the prompt area when the command line is empty.
      *
-     * @param instruction text rendered in {@link #instructColor} as a hint
+     * @param instruction text rendered as a hint in the theme's muted text, its alpha pulsing
      */
     public void instruct(String instruction) {
         this.commandLineInstruct = instruction;
@@ -338,7 +339,7 @@ public class Terminal {
      * @param string error message body
      */
     public void error(String string) {
-        this.history.addLine("EXCEPTION: " + string, Color.RED);
+        this.history.addLine("EXCEPTION: " + string, scene.palette.error);
     }
 
     /**

@@ -390,7 +390,7 @@ class RegionControlAutomationTest {
         assertEquals(below, named.getData());
         assertEquals(below, regions.regionByActiveFace[regions.nearestActiveFace(named.anchor.x,
                 named.anchor.y, named.anchor.z)], "the name left its region");
-        assertEquals(RingScene.LABEL_BORDER_COLOUR, named.getWord(0).borderColor,
+        assertEquals(scene.palette.background, named.getWord(0).borderColor,
                 "a label draws in its own bordered style");
 
         JsonObject body = new JsonObject();
@@ -413,7 +413,8 @@ class RegionControlAutomationTest {
     @Test
     void aWorldAnchoredStringLaysOutWhereItsPointIsSeenAndHidesWhereItIsNot() {
         HyperString number = new HyperString();
-        number.addWord("7", RingScene.LABEL_FILL_COLOUR, RingScene.LABEL_BORDER_COLOUR, RingScene.LABEL_BORDER_PIXELS);
+        number.addWord("7", scene.palette.text, scene.palette.background,
+                RingScene.LABEL_BORDER_PIXELS);
         number.anchorCamera = scene.camera;
         number.anchor.set(1f, 2f, 3f);
         boolean[] seen = { true };

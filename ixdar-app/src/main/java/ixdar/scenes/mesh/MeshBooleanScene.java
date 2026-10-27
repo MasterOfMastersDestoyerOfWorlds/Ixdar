@@ -14,7 +14,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.nodes.geometry.MeshBooleanNode;
-import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.models.ModelChoice;
 import ixdar.platform.Platforms;
@@ -55,6 +54,12 @@ public class MeshBooleanScene extends ModelScene {
     public static final String INTERSECT_ACTION = "intersect";
 
     public static final int CORNERS_PER_TRIANGLE = 3;
+
+    public static final int BOOLEAN_A = 0;
+
+    public static final int BOOLEAN_B = 1;
+
+    public static final int BOOLEAN_BOTH = 2;
 
     /**
      * DSL source, held so an operation change can re-run the graph without
@@ -114,6 +119,10 @@ public class MeshBooleanScene extends ModelScene {
     @Override
     public void renderScene() {
         camera.resetView();
+        // Tag colours come from the palette worn now, so a swap re-colours A, B and the cut faces.
+        runtime.setTagColor(TAG_FROM_A, palette.categories[BOOLEAN_A].toVector4f());
+        runtime.setTagColor(TAG_FROM_B, palette.categories[BOOLEAN_B].toVector4f());
+        runtime.setTagColor(TAG_INTERSECTION, palette.categories[BOOLEAN_BOTH].toVector4f());
         runtime.render(camera);
     }
 
@@ -247,9 +256,6 @@ public class MeshBooleanScene extends ModelScene {
         tags.put(TAG_FROM_A, fromA);
         tags.put(TAG_FROM_B, fromB);
         tags.put(TAG_INTERSECTION, intersection);
-        runtime.setTagColor(TAG_FROM_A, Color.BLUE_GREY.toVector4f());
-        runtime.setTagColor(TAG_FROM_B, Color.ORANGE.toVector4f());
-        runtime.setTagColor(TAG_INTERSECTION, Color.GREEN_TEAL_LIGHT.toVector4f());
         runtime.setTags(tags);
         Platforms.get().log(LOG_PREFIX + "faces new=" + newFaces + "/" + faceCount);
     }

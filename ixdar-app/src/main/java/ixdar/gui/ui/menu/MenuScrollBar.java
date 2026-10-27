@@ -4,9 +4,10 @@ import org.joml.Vector2f;
 
 import ixdar.graphics.cameras.Bounds;
 import ixdar.graphics.cameras.Camera2D;
-import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.sdf.SDFLine;
 import ixdar.gui.ui.Drawing;
+import ixdar.scenes.Scene;
 
 /**
  * A scroll bar along the right edge (vertical) or bottom edge (horizontal) of a rectangle: track,
@@ -243,15 +244,16 @@ public final class MenuScrollBar {
                     (int) WIDTH_PIXELS, (int) length);
         }
         SDFLine line = Drawing.getDrawing().sdfLine;
+        Palette palette = Scene.activePalette();
         float trackCap = TRACK_STROKE_PIXELS * LINE_CAP_REACH_PAST_ENDPOINT_PER_STROKE_PIXEL;
         line.setStroke(TRACK_STROKE_PIXELS, false, 1f, 0f, false, false, false);
         line.draw(stripPoint(WIDTH_PIXELS + trackCap, 0), stripPoint(length - WIDTH_PIXELS - trackCap, 0),
-                Color.GREY_DARK, camera);
+                palette.gridLine, camera);
         float thumbMiddle = thumbStart() + thumbLength() / 2;
         float thumbHalf = Math.max(1, thumbLength() / 2
                 - THUMB_STROKE_PIXELS * LINE_CAP_REACH_PAST_ENDPOINT_PER_STROKE_PIXEL);
         line.setStroke(THUMB_STROKE_PIXELS, false, 1f, 0f, false, false, false);
-        line.draw(stripPoint(thumbMiddle - thumbHalf, 0), stripPoint(thumbMiddle + thumbHalf, 0), Color.BLUE_GREY,
+        line.draw(stripPoint(thumbMiddle - thumbHalf, 0), stripPoint(thumbMiddle + thumbHalf, 0), palette.line,
                 camera);
         line.setStroke(ARROW_STROKE_PIXELS, false, 1f, 0f, false, false, false);
         for (int end = 0; end < 2; end++) {
@@ -259,8 +261,8 @@ public final class MenuScrollBar {
             float tipDirection = end == 0 ? -1 : 1;
             Vector2f tip = stripPoint(centre + tipDirection * ARROW_HALF_HEIGHT_PIXELS, 0);
             float base = centre - tipDirection * ARROW_HALF_HEIGHT_PIXELS;
-            line.draw(stripPoint(base, -ARROW_HALF_WIDTH_PIXELS), tip, Color.BLUE_GREY, camera);
-            line.draw(tip, stripPoint(base, ARROW_HALF_WIDTH_PIXELS), Color.BLUE_GREY, camera);
+            line.draw(stripPoint(base, -ARROW_HALF_WIDTH_PIXELS), tip, palette.line, camera);
+            line.draw(tip, stripPoint(base, ARROW_HALF_WIDTH_PIXELS), palette.line, camera);
         }
     }
 

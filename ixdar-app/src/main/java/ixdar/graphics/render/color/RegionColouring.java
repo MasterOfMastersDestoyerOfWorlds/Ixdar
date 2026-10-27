@@ -14,8 +14,8 @@ public final class RegionColouring {
     public static final int UNCOLOURED = -1;
 
     /**
-     * Colour of each node: an index into the palette last coloured with, or past it a shade that
-     * {@link Palette#shadedColor} draws.
+     * Colour of each node: an index into the cycle last coloured with, or past it a shade that
+     * {@link Palette#shadedEntry} draws.
      */
     public int[] colourByNode = new int[0];
 
@@ -30,10 +30,10 @@ public final class RegionColouring {
      *                         or {@code null} for a fresh colouring
      * @param keptByNode       whether each node is unchanged since the last colouring, or
      *                         {@code null} for none
-     * @param palette          the entries handed out
+     * @param cycle            the palette cycle whose entries are handed out
      */
     public void colour(int[][] neighboursByNode, int[] sizeByNode, int[] formerNodeByNode,
-            boolean[] keptByNode, Palette palette) {
+            boolean[] keptByNode, Color[] cycle) {
         int[] previous = colourByNode;
         int count = neighboursByNode.length;
         int[] next = new int[count];
@@ -72,7 +72,7 @@ public final class RegionColouring {
                         : 0);
         // How many nodes hold each entry, so a free node takes the least used palette entry its
         // neighbours leave free and the whole palette gets used, not just its first four entries.
-        int[] uses = new int[palette.size() + count];
+        int[] uses = new int[cycle.length + count];
         for (int node = 0; node < count; node++) {
             if (next[node] != UNCOLOURED) {
                 uses[next[node]]++;
@@ -90,14 +90,14 @@ public final class RegionColouring {
                 }
             }
             int chosen = UNCOLOURED;
-            for (int entry = 0; entry < palette.size(); entry++) {
+            for (int entry = 0; entry < cycle.length; entry++) {
                 if (!used[entry] && (chosen == UNCOLOURED || uses[entry] < uses[chosen])) {
                     chosen = entry;
                 }
             }
             // Only a node whose neighbours hold every palette entry goes past it, to a shade.
             if (chosen == UNCOLOURED) {
-                chosen = palette.size();
+                chosen = cycle.length;
                 while (used[chosen]) {
                     chosen++;
                 }

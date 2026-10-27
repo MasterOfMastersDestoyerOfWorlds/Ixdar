@@ -17,6 +17,8 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
+import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.color.RegionColouring;
 
@@ -108,7 +110,14 @@ class RingRegionsUpdateTest {
 
     @Test
     void neighboursGetDistinctColoursThatStayPutAwayFromAnEdit() {
-        assertTrue(Palettes.REGION.minimumDistance() >= RegionColouring.MINIMUM_PALETTE_DISTANCE);
+        Color[] cycle = Palettes.DARK.region;
+        for (int first = 0; first < cycle.length; first++) {
+            for (int second = first + 1; second < cycle.length; second++) {
+                assertTrue(cycle[first].distanceTo(cycle[second])
+                        >= RegionColouring.MINIMUM_PALETTE_DISTANCE,
+                        cycle[first].getName() + " vs " + cycle[second].getName());
+            }
+        }
         MeshTopology cylinder = RingRegionsTest.cappedCylinder();
         List<String> labels = new ArrayList<>(List.of(row(2), row(4), row(6), MERIDIAN));
         List<boolean[]> masks = new ArrayList<>(List.of(rowMask(cylinder, 2, false),
@@ -118,7 +127,7 @@ class RingRegionsUpdateTest {
                 masks.toArray(new boolean[0][])).build();
         RegionColouring colouring = new RegionColouring();
         colouring.colour(regions.neighboursByRegion, regions.regionFaceCount,
-                regions.formerRegionByRegion, regions.regionKeptFaces, Palettes.REGION);
+                regions.formerRegionByRegion, regions.regionKeptFaces, cycle);
         assertEquals(2 * labels.size(), regions.regionCount);
         assertNeighboursDiffer(regions, colouring);
 
@@ -127,7 +136,7 @@ class RingRegionsUpdateTest {
         masks.add(rowMask(cylinder, 7, false));
         update(regions, labels, masks);
         colouring.colour(regions.neighboursByRegion, regions.regionFaceCount,
-                regions.formerRegionByRegion, regions.regionKeptFaces, Palettes.REGION);
+                regions.formerRegionByRegion, regions.regionKeptFaces, cycle);
         assertNeighboursDiffer(regions, colouring);
         int kept = 0;
         for (int region = 0; region < regions.regionCount; region++) {
@@ -218,11 +227,12 @@ class RingRegionsUpdateTest {
     private static void assertNeighboursDiffer(RingRegions regions, RegionColouring colouring) {
         for (int region = 0; region < regions.regionCount; region++) {
             for (int neighbour : regions.neighboursByRegion[region]) {
-                int colour = colouring.colourByNode[region];
-                int other = colouring.colourByNode[neighbour];
-                assertNotEquals(colour, other, region + " and " + neighbour);
-                assertTrue(Palettes.REGION.shadedColor(colour)
-                        .distanceTo(Palettes.REGION.shadedColor(other))
+                int entry = colouring.colourByNode[region];
+                int neighbourEntry = colouring.colourByNode[neighbour];
+                assertNotEquals(entry, neighbourEntry, region + " and " + neighbour);
+                Color[] cycle = Palettes.DARK.region;
+                assertTrue(Palette.shadedEntry(cycle, entry)
+                        .distanceTo(Palette.shadedEntry(cycle, neighbourEntry))
                         >= RegionColouring.MINIMUM_PALETTE_DISTANCE);
             }
         }

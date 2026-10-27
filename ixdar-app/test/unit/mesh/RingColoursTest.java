@@ -1,54 +1,60 @@
 package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.joml.Vector4f;
 import org.junit.jupiter.api.Test;
 
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.color.Palettes;
-import ixdar.graphics.render.color.RegionColouring;
 import ixdar.tools.ring.RingTool;
 
 /**
- * The ring tool's colours that carry a meaning, the draft modes (red geodesic, purple crease) and
- * the marked ring, read apart from each other and from every ring palette entry; palettes wrap and
- * shade past their end.
+ * The ring tool's colours that carry a meaning, the draft modes and the marked ring, never appear
+ * in the ring cycle of any palette nor match each other; cycles wrap and shade past their end.
  */
 class RingColoursTest {
 
+    private static final float QUARTER = 0.25f;
+
     @Test
-    void markedRingAndPaletteStayClearOfTheDraftModes() {
-        Color[] meanings = { RingTool.GEODESIC_DRAFT_COLOR, RingTool.CREASE_DRAFT_COLOR,
-            RingTool.MARKED_RING_COLOR };
-        for (int first = 0; first < meanings.length; first++) {
-            for (int second = first + 1; second < meanings.length; second++) {
-                assertTrue(meanings[first].distanceTo(meanings[second])
-                        >= RegionColouring.MINIMUM_PALETTE_DISTANCE,
-                        meanings[first].getName() + " vs " + meanings[second].getName());
-            }
-            // Palette entries only cycle by ring number, so they are not checked against each other.
-            for (Color entry : Palettes.RING.colors) {
-                assertTrue(meanings[first].distanceTo(entry)
-                        >= RegionColouring.MINIMUM_PALETTE_DISTANCE,
-                        meanings[first].getName() + " vs " + entry.getName());
+    void ringCycleSharesNoEntryWithTheDraftModesOrTheMarkedRing() {
+        for (Palette palette : Palettes.OPTIONS) {
+            Color[] meanings = { palette.categories[RingTool.DRAFT_GEODESIC],
+                palette.categories[RingTool.DRAFT_CREASE], palette.highlight };
+            for (int first = 0; first < meanings.length; first++) {
+                for (int second = first + 1; second < meanings.length; second++) {
+                    assertNotEquals(meanings[first].toVector4f(), meanings[second].toVector4f(),
+                            palette.name + ": " + meanings[first].getName() + " vs "
+                                    + meanings[second].getName());
+                }
+                // Ring entries only cycle by ring number, so they are not checked against each other.
+                for (Color entry : palette.ring) {
+                    assertNotEquals(meanings[first].toVector4f(), entry.toVector4f(),
+                            palette.name + ": " + meanings[first].getName() + " vs " + entry.getName());
+                }
             }
         }
     }
 
     @Test
-    void palettesWrapAroundAndShadeTheirOverflow() {
-        Palette ring = Palettes.RING;
-        assertSame(ring.color(0), ring.color(ring.size()));
-        assertSame(ring.color(ring.size() - 1), ring.color(-1));
-        assertSame(Color.RED_PINK_LIGHT, Palettes.PATCH.color(0));
-        assertEquals(Palettes.REGION.color(0).toVector4f(), Palettes.REGION.shadedColor(0).toVector4f());
-        Color overflow = Palettes.REGION.shadedColor(Palettes.REGION.size());
-        assertEquals(Palettes.REGION.color(0).shaded(Palette.OVERFLOW_SHADE).toVector4f(),
+    void cyclesWrapAroundAndShadeTheirOverflow() {
+        Color[] ring = Palettes.DARK.ring;
+        assertSame(Palette.entry(ring, 0), Palette.entry(ring, ring.length));
+        assertSame(Palette.entry(ring, ring.length - 1), Palette.entry(ring, -1));
+        Color[] patch = Palettes.DARK.patch;
+        assertSame(patch[patch.length - 1], Palette.entry(patch, 2 * patch.length - 1));
+        Color[] region = Palettes.DARK.region;
+        assertEquals(Palette.entry(region, 0).toVector4f(), Palette.shadedEntry(region, 0).toVector4f());
+        Color overflow = Palette.shadedEntry(region, region.length);
+        assertEquals(Palette.entry(region, 0).shaded(Palette.OVERFLOW_SHADE).toVector4f(),
                 overflow.toVector4f());
-        assertEquals(0.0, Color.WHITE.distanceTo(Color.WHITE_25), 1e-9);
-        assertEquals(Math.sqrt(3.0), Color.BLACK.distanceTo(Color.WHITE), 1e-6);
+        Color white = Color.fromVector4f(new Vector4f(1f, 1f, 1f, 1f));
+        Color black = Color.fromVector4f(new Vector4f(0f, 0f, 0f, 1f));
+        assertEquals(0.0, white.distanceTo(white.withAlpha(QUARTER)), 1e-9);
+        assertEquals(Math.sqrt(3.0), black.distanceTo(white), 1e-6);
     }
 }

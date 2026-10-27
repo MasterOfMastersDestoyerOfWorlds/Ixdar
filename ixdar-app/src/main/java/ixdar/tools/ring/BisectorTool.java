@@ -12,7 +12,6 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingAttachment;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
-import ixdar.graphics.render.color.Color;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
@@ -38,8 +37,6 @@ public final class BisectorTool extends RingSubTool {
             + "anchors that steer it";
 
     public static final String DRAFT_LABEL = "bisector draft";
-
-    public static final Color CROSSING_COLOR = Color.BLACK;
 
     public static final int CANDIDATE_SPANS = 3;
 
@@ -774,7 +771,7 @@ public final class BisectorTool extends RingSubTool {
      * A bisector draws as invalid while it crosses itself or walls nothing, and its preview while
      * it crosses itself or ends off a wall.
      *
-     * @return true to draw it in {@link #CROSSING_COLOR}
+     * @return true to draw it in the palette's invalid draft colour
      */
     @Override
     public boolean drawsInvalid() {

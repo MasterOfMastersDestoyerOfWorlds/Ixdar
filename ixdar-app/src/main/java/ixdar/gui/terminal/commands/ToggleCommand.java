@@ -2,7 +2,6 @@ package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.annotations.command.Subsystem;
-import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.scenes.main.Toggle;
 
@@ -43,7 +42,7 @@ public class ToggleCommand extends TerminalCommand {
                 t.value = !t.value;
                 terminal.history.addLine(
                         "Toggle " + t.shortName + " had value: " + !t.value + " and now has value: " + t.value,
-                        Color.BLUE_GREY);
+                        terminal.scene.palette.mutedText);
                 break;
             }
         }

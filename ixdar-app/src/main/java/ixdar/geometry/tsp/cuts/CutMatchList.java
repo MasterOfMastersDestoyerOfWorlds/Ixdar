@@ -11,6 +11,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.geometry.tsp.FileStringable;
 import ixdar.geometry.tsp.PointSetPath;
+import ixdar.scenes.Scene;
 
 public class CutMatchList implements FileStringable {
     public static final String STR_2F = "%.2f";
@@ -596,12 +597,13 @@ public class CutMatchList implements FileStringable {
 
         int internalCount = Math.max(internalCutCount, internalMatchCount);
         h.newLine();
+        Color valueColor = Scene.activePalette().linkText;
         h.addWord("MatchCount: ", matchColor);
-        h.addLine(internalCount + "", Color.TEAL_DARK);
+        h.addLine(internalCount + "", valueColor);
         h.addWord("Delta: ", matchColor);
-        h.addLine(String.format(STR_2F, delta), Color.TEAL_DARK);
+        h.addLine(String.format(STR_2F, delta), valueColor);
         h.addWord("IntDelta: ", matchColor);
-        h.addLine(String.format(STR_2F, internalDelta) + "", Color.TEAL_DARK);
+        h.addLine(String.format(STR_2F, internalDelta) + "", valueColor);
         return h;
     }
 

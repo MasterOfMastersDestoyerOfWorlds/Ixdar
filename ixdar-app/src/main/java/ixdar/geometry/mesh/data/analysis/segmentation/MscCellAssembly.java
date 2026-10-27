@@ -14,6 +14,7 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.color.Palettes;
 
 /**
@@ -168,7 +169,7 @@ public final class MscCellAssembly {
             centroid[0] /= vertCount;
             centroid[1] /= vertCount;
             centroid[2] /= vertCount;
-            Color color = Palettes.PATCH.shadedColor(patchId);
+            Color color = Palette.shadedEntry(Palettes.DARK.patch, patchId);
             patches.add(new Patch(patchId++, verts, faces, /*branch=*/-1,
                     centroid, /*meanCurvature=*/0f, color));
         }

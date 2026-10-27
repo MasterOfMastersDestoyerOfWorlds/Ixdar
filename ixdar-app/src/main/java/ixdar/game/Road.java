@@ -4,7 +4,9 @@ import org.joml.Vector2f;
 
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.sdf.SDFLine;
+import ixdar.scenes.Scene;
 
 /**
  * Represents a road between two cities in the network.
@@ -12,8 +14,6 @@ import ixdar.graphics.render.sdf.SDFLine;
  */
 public class Road {
 
-    private static final Color ROAD_COLOR = Color.BLUE_GREY;
-    private static final Color DISCOVERED_ROAD_COLOR = Color.GREY_DARK;
     public City from;
     public City to;
     public double distance;
@@ -56,7 +56,8 @@ public class Road {
         float x2 = camera.pointTransformX(to.getX());
         float y2 = camera.pointTransformY(to.getY());
 
-        Color color = discovered ? DISCOVERED_ROAD_COLOR : ROAD_COLOR;
+        Palette palette = Scene.activePalette();
+        Color color = discovered ? palette.gridLine : palette.line;
         line.setStroke(2f, false);
         line.draw(new Vector2f(x1, y1), new Vector2f(x2, y2), color, camera);
     }

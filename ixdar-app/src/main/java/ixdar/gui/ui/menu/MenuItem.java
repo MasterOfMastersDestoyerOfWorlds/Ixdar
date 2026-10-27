@@ -1,8 +1,9 @@
 package ixdar.gui.ui.menu;
 
-import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.gui.ui.actions.Action;
 import ixdar.gui.ui.text.HyperString;
+import ixdar.scenes.Scene;
 
 /**
  * One clickable row in a {@link Menu}: a heading label paired with the
@@ -18,7 +19,7 @@ public class MenuItem {
     HyperString label;
 
     /**
-     * Build a menu item, its label blue-grey when it has an action and dark grey when disabled. The
+     * Build a menu item, its label in the theme's muted text when it has an action and its disabled colour when not. The
      * label's words carry the action, though the {@link MenuBox} runs it for a click on the button.
      *
      * @param string the heading text shown to the user
@@ -30,7 +31,8 @@ public class MenuItem {
         subHeading = "";
         String labelText = subHeading.isEmpty() ? heading : heading + ": " + subHeading;
         label = new HyperString();
-        label.addWordClick(labelText, action == null ? Color.GREY_DARK : Color.BLUE_GREY, action);
+        Palette palette = Scene.activePalette();
+        label.addWordClick(labelText, action == null ? palette.disabled : palette.mutedText, action);
         this.action = action;
     }
 

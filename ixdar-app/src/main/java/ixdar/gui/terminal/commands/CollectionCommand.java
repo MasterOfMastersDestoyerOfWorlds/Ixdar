@@ -4,7 +4,7 @@ import java.io.IOException;
 
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.annotations.command.Subsystem;
-import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.gui.terminal.Terminal;
 import ixdar.models.CollectionManifest;
 import ixdar.models.ModelCollection;
@@ -128,9 +128,10 @@ public class CollectionCommand extends TerminalCommand {
      * @param terminal terminal receiving the rows
      */
     private void printMembers(ModelCollection collection, Terminal terminal) {
+        Palette palette = terminal.scene.palette;
         terminal.history.addLine(collection.name + ": " + collection.memberCount() + " members, "
                 + collection.keptCount() + " kept, manifest " + collection.manifestPath,
-                Color.TEAL_DARK);
+                palette.linkText);
         int current = collection.index();
         for (int member = 0; member < collection.memberCount(); member++) {
             boolean keep = collection.memberKeep[member];
@@ -139,7 +140,7 @@ public class CollectionCommand extends TerminalCommand {
                     + (keep ? "[x] " : "[ ] ") + collection.members[member].displayName
                     + "  " + collection.countSummary(member)
                     + (settings.isEmpty() ? "" : "  " + settings);
-            terminal.history.addLine(row, keep ? Color.GREEN_TEAL_LIGHT : Color.GREY_DARK);
+            terminal.history.addLine(row, keep ? palette.selected : palette.mutedText);
         }
     }
 
@@ -166,6 +167,7 @@ public class CollectionCommand extends TerminalCommand {
             }
         }
         terminal.history.addLine(collection.members[member].displayName
-                + (collection.memberKeep[member] ? " kept" : " rejected"), Color.TEAL_DARK);
+                + (collection.memberKeep[member] ? " kept" : " rejected"),
+                terminal.scene.palette.linkText);
     }
 }

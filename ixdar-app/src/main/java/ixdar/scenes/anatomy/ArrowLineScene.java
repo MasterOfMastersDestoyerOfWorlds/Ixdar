@@ -58,8 +58,8 @@ public class ArrowLineScene extends Scene {
         line = new SDFLine();
         Drawing.strokeSegment(line, lineSegment, STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false,
                 1f, 1f, true, false, true, camera2D);
-        line.setBackgroundColor(Color.BLUE_TEAL_VERY_DARK);
-        line.setBorderColor(Color.BLUE_GREY);
+        line.setBackgroundColor(palette.panel);
+        line.setBorderColor(palette.panelBorder);
         line.setBorderBand(BORDER_BAND_WIDTH);
         initCodePane("Arrow Line SDF", line.getShader(), line);
     }
@@ -73,11 +73,11 @@ public class ArrowLineScene extends Scene {
         super.drawScene();
         Drawing.strokeSegment(line, lineSegment, STROKE_WIDTH_SCALE * Drawing.MIN_THICKNESS * camera2D.ScaleFactor, false,
                 1f, 1f, true, false, true, camera2D);
-        line.setBackgroundColor(Color.BLUE_TEAL_VERY_DARK);
-        line.setBorderColor(Color.BLUE_GREY);
+        line.setBackgroundColor(palette.panel);
+        line.setBorderColor(palette.panelBorder);
         line.setBorderBand(BORDER_BAND_WIDTH);
-        Color startColor = Color.RED;
-        Color endColor = Color.GREEN;
+        Color startColor = palette.error;
+        Color endColor = palette.success;
         Drawing.drawGradientSegment(line, lineSegment, startColor, endColor, camera2D);
     }
 

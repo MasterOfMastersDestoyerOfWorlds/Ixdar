@@ -5,8 +5,8 @@ import org.joml.Matrix4f;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.graphics.cameras.Camera3D;
-import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
+import ixdar.scenes.Scene;
 
 /**
  * Renders a low-poly capsule for debugging the player's bounding shape in third-person mode.
@@ -26,14 +26,13 @@ public final class DebugCapsuleRuntime {
     private float builtHalfHeight = -1f;
 
     /**
-     * Allocate the underlying mesh runtime and configure a flat solid color. The capsule mesh
-     * itself is built lazily on the first {@link #render} or {@link #buildIfNeeded} call.
+     * Allocate the underlying mesh runtime. The capsule mesh itself is built lazily on the first
+     * {@link #render} or {@link #buildIfNeeded} call, and drawn flat in the theme's line colour.
      *
      * @throws Exception if the underlying {@link HalfEdgeMeshRuntime} fails to initialize
      */
     public DebugCapsuleRuntime() throws Exception {
         this.runtime = new HalfEdgeMeshRuntime();
-        this.runtime.setSolidColor(Color.BLUE_GREY.toVector4f());
     }
 
     /**
@@ -73,6 +72,7 @@ public final class DebugCapsuleRuntime {
               .translate(px, py, pz)
               .rotateY(yawRadians);
         runtime.setModelMatrix(model);
+        runtime.setSolidColor(Scene.activePalette().line.toVector4f());
         runtime.render(camera);
     }
 

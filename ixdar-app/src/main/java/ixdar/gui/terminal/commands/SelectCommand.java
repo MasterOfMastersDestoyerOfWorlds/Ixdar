@@ -8,7 +8,6 @@ import ixdar.automation.endpoints.ui.SelectionBounds;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.cameras.Camera3D;
-import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.PaneTypes;
 import ixdar.platform.Platforms;
@@ -147,7 +146,7 @@ public class SelectCommand extends TerminalCommand {
         tool.lastRow = "selected and framed " + asked + ": " + tool.selectedCount() + " of "
                 + regions.regionCount + " regions selected";
         Platforms.get().log(RingRegionTool.LOG_PREFIX + tool.lastRow + ", select=\"" + tool.selectQuery + "\"");
-        terminal.history.addLine(tool.lastRow, Color.TEAL_DARK);
+        terminal.history.addLine(tool.lastRow, terminal.scene.palette.linkText);
         Toggle.setPanelFocus(PaneTypes.KnotView);
         return null;
     }

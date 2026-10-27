@@ -1,6 +1,7 @@
 package ixdar.gui.ui.menu.model;
 
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.models.ModelCollection;
 import ixdar.scenes.model.ModelScene;
@@ -50,14 +51,15 @@ public final class SceneCollectionMenu {
         if (!collection.hasManifest()) {
             return;
         }
-        box.addRow(COLLECTION_HEADER + " " + collection.name, Color.YELLOW_ORANGE, null);
+        Palette palette = scene.palette;
+        box.addRow(COLLECTION_HEADER + " " + collection.name, palette.headingText, null);
         box.addRow(collection.memberCount() + " members, " + collection.keptCount() + " kept",
-                Color.GREY_DARK, null);
+                palette.mutedText, null);
         String shared = collection.sharedSettingsSummary();
         if (!shared.isEmpty()) {
-            box.addRow(shared, Color.GREY_DARK, null);
+            box.addRow(shared, palette.mutedText, null);
         }
-        box.addRow(collection.manifestPath.toString(), Color.GREY_DARK, null);
+        box.addRow(collection.manifestPath.toString(), palette.mutedText, null);
 
         int current = collection.index();
         for (int member = 0; member < collection.memberCount(); member++) {
@@ -70,15 +72,15 @@ public final class SceneCollectionMenu {
             if (shared.isEmpty() && !settings.isEmpty()) {
                 row = row + "  " + settings;
             }
-            Color color = isCurrent ? Color.GREEN_TEAL_LIGHT
-                    : (keep ? Color.TEAL_DARK : Color.GREY_DARK);
+            Color color = isCurrent ? palette.selected
+                    : (keep ? palette.linkText : palette.mutedText);
             int target = member;
             box.addRow(row, color, () -> scene.loadMember(target));
         }
 
-        box.addRow(PREV_LABEL, Color.BLUE_GREY, () -> scene.prevMember());
-        box.addRow(NEXT_LABEL, Color.BLUE_GREY, () -> scene.nextMember());
-        box.addRow(KEEP_LABEL, Color.BLUE_GREY, () -> scene.toggleKeepCurrentMember());
-        box.addRow("", Color.GREY_DARK, null);
+        box.addRow(PREV_LABEL, palette.linkText, () -> scene.prevMember());
+        box.addRow(NEXT_LABEL, palette.linkText, () -> scene.nextMember());
+        box.addRow(KEEP_LABEL, palette.linkText, () -> scene.toggleKeepCurrentMember());
+        box.addRow("", palette.mutedText, null);
     }
 }

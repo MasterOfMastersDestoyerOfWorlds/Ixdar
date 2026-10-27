@@ -4,7 +4,6 @@ import org.joml.Vector2f;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.tsp.points.PointND;
-import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFBezier;
 import ixdar.scenes.Scene;
 
@@ -64,8 +63,8 @@ public class BezierCurveScene extends Scene {
 
         Vector2f[] screenSpaceVectors = camera2D.pointsToScreenSpace(point1, control, point2);
         bezier.lineWidth = STROKE_WIDTH_PIXELS;
-        bezier.draw(screenSpaceVectors[0], screenSpaceVectors[1], screenSpaceVectors[2], Color.RED, Color.GREEN,
-                camera2D);
+        bezier.draw(screenSpaceVectors[0], screenSpaceVectors[1], screenSpaceVectors[2], palette.error,
+                palette.success, camera2D);
     }
 
 }

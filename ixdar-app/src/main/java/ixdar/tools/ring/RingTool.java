@@ -46,7 +46,7 @@ import ixdar.nodegraph.nodes.selection.SplineCutNode;
 import ixdar.nodegraph.nodes.selection.SplineRingNode;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.Palettes;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.LineSet;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
@@ -95,12 +95,6 @@ public final class RingTool extends Tool {
 
     public static final String NO_SURFACE_TO_RING = "no surface to ring";
 
-    public static final Color MARKED_RING_COLOR = Color.PINK_LIGHT;
-
-    public static final Color GEODESIC_DRAFT_COLOR = Color.RED;
-
-    public static final Color CREASE_DRAFT_COLOR = Color.PURPLE_BLUE;
-
     public static final String RING_LABEL_PREFIX = "ring";
 
     public static final String[] UNNUMBERED_RING_LABELS = {
@@ -108,12 +102,6 @@ public final class RingTool extends Tool {
         SelectRingNode.SELECTED_LABEL };
 
     public static final int MAXIMUM_RING_DIGITS = 9;
-
-    public static final Color SUPPORTING_ANCHOR_COLOR = Color.WHITE;
-
-    public static final Color AUTHORED_ANCHOR_COLOR = Color.TEAL_BLUE;
-
-    public static final Color SELECTED_ANCHOR_COLOR = Color.YELLOW_ORANGE;
 
     public static final float SUPPORTING_ANCHOR_PIXELS = 3f;
 
@@ -130,6 +118,10 @@ public final class RingTool extends Tool {
     public static final float NUMBER_DEPTH_TIE_PIXELS = 3f;
 
     public static final int NUMBER_PLACEMENT_TRIES = 8;
+
+    public static final int DRAFT_GEODESIC = 0;
+
+    public static final int DRAFT_CREASE = 2;
 
     public static final String SPLINE_RING_NODE = "spline_ring";
 
@@ -266,7 +258,7 @@ public final class RingTool extends Tool {
     public int ringRevision;
 
     /**
-     * Rings drawn in {@link #MARKED_RING_COLOR} with a note after their number, such as one that
+     * Rings drawn in the palette's marked ring colour with a note after their number, such as one that
      * splits nothing, by live ring label.
      */
     public Map<String, String> ringNoteByLabel = Map.of();
@@ -324,6 +316,7 @@ public final class RingTool extends Tool {
     private SurfaceSpline uploadedPreview;
     private SurfaceSpline uploadedDraft;
     private int uploadedHoveredRing = -1;
+    private Palette uploadedPalette;
     private String uploadedHoveredGraphRing;
     private int uploadedSelected = -1;
 
@@ -688,7 +681,7 @@ public final class RingTool extends Tool {
     }
 
     /**
-     * Draw some rings in {@link #MARKED_RING_COLOR} with a note after their number and leave others
+     * Draw some rings in the palette's marked ring colour with a note after their number and leave others
      * undrawn; the rings themselves do not change.
      *
      * @param noteByLabel  note by live ring label, as {@link #liveRingMarks} names them; empty
@@ -2314,6 +2307,11 @@ public final class RingTool extends Tool {
      * Runs when a ring, the draft, the hover or the graph's marks changed, not per frame.
      */
     public void uploadOverlay() {
+        if (uploadedPalette != scene.palette) {
+            // A palette swap re-colours every ring, draft, anchor and number.
+            ringsStale = true;
+            overlayStale = true;
+        }
         if (!overlayStale
                 || !(scene.surfaceRuntime() instanceof MeshOverlayRuntime overlay)) {
             return;
@@ -2322,6 +2320,7 @@ public final class RingTool extends Tool {
             rebuildRings();
         }
         overlayStale = false;
+        uploadedPalette = scene.palette;
         SurfaceSpline editing = draft != null ? draft : previewValid ? previewSpline : null;
         uploadedPreview = previewValid ? previewSpline : null;
         uploadedDraft = draft;
@@ -2349,21 +2348,24 @@ public final class RingTool extends Tool {
         // sub-tool drawing it calls it invalid. Every sub-tool the tool holds is a ring sub-tool,
         // the draft's owner whenever a draft is open.
         RingSubTool drawing = (RingSubTool) activeSubTool;
+        Palette palette = scene.palette;
+        Color creaseDraft = palette.categories[DRAFT_CREASE];
+        Color geodesicDraft = palette.categories[DRAFT_GEODESIC];
         if (drawingEditing) {
             groupStart[rings + 1] = groupStart[rings] + edited.vertexCount() / 2;
-            groupColor[rings] = drawing.drawsInvalid() ? BisectorTool.CROSSING_COLOR
+            groupColor[rings] = drawing.drawsInvalid() ? palette.disabled
                     : (draft != null ? draftMode : newDraftMode())
-                            == RingSegmentMode.CREASE ? CREASE_DRAFT_COLOR : GEODESIC_DRAFT_COLOR;
+                            == RingSegmentMode.CREASE ? creaseDraft : geodesicDraft;
         }
         if (hoveredRing >= 0 && drawnRingNumber(hoveredRing) < rings) {
             groupColor[drawnRingNumber(hoveredRing)] =
-                    confirmedRings.get(hoveredRing).mode == RingSegmentMode.CREASE ? CREASE_DRAFT_COLOR
-                            : GEODESIC_DRAFT_COLOR;
+                    confirmedRings.get(hoveredRing).mode == RingSegmentMode.CREASE ? creaseDraft
+                            : geodesicDraft;
         }
         int graphIndex = 0;
         for (String graphLabel : unownedGraphRingLabels()) {
             if (graphLabel.equals(hoveredGraphRing) && graphIndex < rings) {
-                groupColor[graphIndex] = GEODESIC_DRAFT_COLOR;
+                groupColor[graphIndex] = geodesicDraft;
             }
             graphIndex++;
         }
@@ -2374,7 +2376,7 @@ public final class RingTool extends Tool {
                 continue;
             }
             HyperString number = new HyperString();
-            number.addWord(drawnRingLabel[ring], RingScene.LABEL_FILL_COLOUR, RingScene.LABEL_BORDER_COLOUR,
+            number.addWord(drawnRingLabel[ring], palette.text, palette.background,
                     RingScene.LABEL_BORDER_PIXELS);
             number.setData(ring);
             number.shown = false;
@@ -2404,15 +2406,15 @@ public final class RingTool extends Tool {
                 anchorVertexId[cursor] = vertexId;
                 anchorDiameter[cursor] = diameter;
                 anchorColor[cursor++] = diameter == SUPPORTING_ANCHOR_PIXELS
-                        ? SUPPORTING_ANCHOR_COLOR
-                        : diameter == AUTHORED_ANCHOR_PIXELS ? AUTHORED_ANCHOR_COLOR
-                                : SELECTED_ANCHOR_COLOR;
+                        ? palette.text
+                        : diameter == AUTHORED_ANCHOR_PIXELS ? palette.accent
+                                : palette.selected;
             }
         }
         for (int end : bisectorEnds) {
             anchorVertexId[cursor] = end;
             anchorDiameter[cursor] = SELECTED_ANCHOR_PIXELS;
-            anchorColor[cursor++] = SELECTED_ANCHOR_COLOR;
+            anchorColor[cursor++] = palette.selected;
         }
         overlay.setAnchorDiscs(anchorVertexId, anchorColor, anchorDiameter);
     }
@@ -2574,6 +2576,7 @@ public final class RingTool extends Tool {
         ringSegmentStart = new int[perRing.size() + 1];
         drawnRingColors = new Color[perRing.size()];
         ringLabelXyz = new float[COORDINATES_PER_POINT * perRing.size()];
+        Palette palette = scene.palette;
         for (int ring = 0; ring < perRing.size(); ring++) {
             float[] ringSegments = perRing.get(ring);
             LineSet lines = perRingLines.get(ring);
@@ -2582,7 +2585,7 @@ public final class RingTool extends Tool {
             ringLines.cursor += lines.cursor;
             ringSegmentStart[ring + 1] = ringLines.vertexCount() / 2;
             String note = ringNoteByLabel.get(perRingLiveLabel.get(ring));
-            drawnRingColors[ring] = note != null ? MARKED_RING_COLOR : Palettes.RING.color(ring);
+            drawnRingColors[ring] = note != null ? palette.highlight : Palette.entry(palette.ring, ring);
             if (ringSegments.length == 0 && ring < drawnRingLabel.length) {
                 drawnRingLabel[ring] = "";
             } else if (note != null && ring < drawnRingLabel.length) {

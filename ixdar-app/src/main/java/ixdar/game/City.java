@@ -10,9 +10,11 @@ import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.text.HyperString;
+import ixdar.scenes.Scene;
 
 /**
  * Represents a city in the trade game. Cities are locations on the map where
@@ -35,7 +37,6 @@ public class City {
     public HashMap<String, Integer> produces;
     public HashMap<String, Integer> consumes;
     public boolean hasHeadquarters;
-    private HyperString nameLabel;
     private Knot knot; // Trade route Knot wrapper for this city
 
     /**
@@ -171,15 +172,13 @@ public class City {
     }
 
     /**
-     * Get the cached name label for rendering.
+     * Build the name label for rendering, in the active palette's text colour so a palette swap re-colours it.
      *
      * @return HyperString containing the city name
      */
     public HyperString getNameLabel() {
-        if (nameLabel == null) {
-            nameLabel = new HyperString();
-            nameLabel.addWord(name, Color.WHITE);
-        }
+        HyperString nameLabel = new HyperString();
+        nameLabel.addWord(name, Scene.activePalette().text);
         return nameLabel;
     }
 
@@ -203,11 +202,12 @@ public class City {
      * @param isHovered true if this city is currently hovered
      */
     public void draw(Camera2D camera, boolean isHQ, boolean isHovered) {
-        Color cityColor = Color.TEAL;
+        Palette palette = Scene.activePalette();
+        Color cityColor = palette.accent;
         if (isHQ) {
-            cityColor = Color.YELLOW;
+            cityColor = palette.highlight;
         } else if (isHovered) {
-            cityColor = Color.GREEN;
+            cityColor = palette.hover;
         }
 
         float screenX = camera.pointTransformX(getX());
@@ -229,46 +229,47 @@ public class City {
      */
     public HyperString buildTooltip(City headquartersCity) {
         HyperString tip = new HyperString();
+        Palette palette = Scene.activePalette();
 
-        tip.addWord(name, Color.WHITE);
+        tip.addWord(name, palette.text);
         tip.newLine();
 
-        tip.addWord("Pop: " + population, Color.GREY_DARK);
+        tip.addWord("Pop: " + population, palette.mutedText);
         tip.newLine();
 
         if (!resources.isEmpty()) {
-            tip.addWord("Resources: ", Color.GREY_DARK);
+            tip.addWord("Resources: ", palette.mutedText);
             for (int i = 0; i < resources.size(); i++) {
                 String resource = resources.get(i);
-                tip.addWord(resource, Color.TEAL);
+                tip.addWord(resource, palette.linkText);
                 if (i < resources.size() - 1) {
-                    tip.addWord(LIST_ITEM_SEPARATOR, Color.GREY_DARK);
+                    tip.addWord(LIST_ITEM_SEPARATOR, palette.mutedText);
                 }
             }
             tip.newLine();
         }
 
         if (!produces.isEmpty()) {
-            tip.addWord("Produces: ", Color.GREY_DARK);
+            tip.addWord("Produces: ", palette.mutedText);
             boolean first = true;
             for (Map.Entry<String, Integer> entry : produces.entrySet()) {
                 if (!first) {
-                    tip.addWord(LIST_ITEM_SEPARATOR, Color.GREY_DARK);
+                    tip.addWord(LIST_ITEM_SEPARATOR, palette.mutedText);
                 }
-                tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", Color.GREEN);
+                tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", palette.success);
                 first = false;
             }
             tip.newLine();
         }
 
         if (!consumes.isEmpty()) {
-            tip.addWord("Consumes: ", Color.GREY_DARK);
+            tip.addWord("Consumes: ", palette.mutedText);
             boolean first = true;
             for (Map.Entry<String, Integer> entry : consumes.entrySet()) {
                 if (!first) {
-                    tip.addWord(LIST_ITEM_SEPARATOR, Color.GREY_DARK);
+                    tip.addWord(LIST_ITEM_SEPARATOR, palette.mutedText);
                 }
-                tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", Color.BROWN_DARK);
+                tip.addWord(entry.getKey() + " (" + entry.getValue() + ")", palette.warning);
                 first = false;
             }
             tip.newLine();
@@ -276,7 +277,7 @@ public class City {
 
         if (headquartersCity != null && headquartersCity != this) {
             float distance = getDistanceFrom(headquartersCity);
-            tip.addWord("Distance from HQ: " + String.format("%.1f", distance), Color.YELLOW);
+            tip.addWord("Distance from HQ: " + String.format("%.1f", distance), palette.highlight);
         }
 
         return tip;

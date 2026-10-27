@@ -2,12 +2,14 @@ package ixdar.tools.knot;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.knot.Segment;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.scenes.main.Toggle;
@@ -21,15 +23,13 @@ import ixdar.scenes.main.MainScene;
 @ToolAnnotation(id = NegativeCutMatchViewTool.TOOL_NAME)
 public class NegativeCutMatchViewTool extends KnotTool {
     public static final String TOOL_NAME = "negativecutmatchview";
-    public static ArrayList<Color> colors;
 
     public HashMap<Long, ArrayList<Segment>> negativeSegmentMap;
     public int layerCalculated;
     HashMap<Long, Integer> colorLookup;
 
     /**
-     * Build the tool: disallow rendering toggles that would clutter the
-     * overlay and seed the {@code colors} palette (blue, red).
+     * Build the tool: disallow rendering toggles that would clutter the overlay.
      *
      * @param editor the editor the tool works on
      */
@@ -37,9 +37,6 @@ public class NegativeCutMatchViewTool extends KnotTool {
         super(editor);
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.DrawKnotGradient,
                 Toggle.DrawMetroDiagram, Toggle.DrawDisplayedKnots };
-        colors = new ArrayList<>();
-        colors.add(Color.BLUE);
-        colors.add(Color.RED);
     }
 
     /**
@@ -58,9 +55,9 @@ public class NegativeCutMatchViewTool extends KnotTool {
     }
 
     /**
-     * Draw the orange "cut" segment at the hovered manifold edge, the cyan
-     * candidate match segments with negative net length, and color each
-     * displayed knot's manifold path by whether it has any negative matches.
+     * Draw the cut segment at the hovered manifold edge, the candidate match segments with negative
+     * net length, and colour each displayed knot's manifold path by whether it has any negative
+     * matches.
      *
      * @param camera the scene camera
      * @param minLineThickness base line thickness in pixels
@@ -71,23 +68,25 @@ public class NegativeCutMatchViewTool extends KnotTool {
             initSegmentMap();
             return;
         }
+        Palette palette = editor.palette;
         if (displaySegment != null) {
             long matchId = Segment.idTransformOrdered(displayKP.id, displayCP.id);
             ArrayList<Segment> matchSegments = negativeSegmentMap.get(matchId);
             long cutId = Segment.idTransform(displayKP.id, displayCP.id);
             Segment cutSeg = displayKP.segmentLookup.get(cutId);
-            Drawing.drawScaledSegment(cutSeg, Color.BROWN_DARK, 2 * Drawing.MIN_THICKNESS,
+            Drawing.drawScaledSegment(cutSeg, palette.highlight, 2 * Drawing.MIN_THICKNESS,
                     camera);
             if (matchSegments != null) {
                 for (Segment s : matchSegments) {
                     if (!s.equals(editor.hoverSegment)) {
-                        Drawing.drawScaledSegment(s, Color.TEAL, Drawing.MIN_THICKNESS,
+                        Drawing.drawScaledSegment(s, palette.selected, Drawing.MIN_THICKNESS,
                                 camera);
                     }
                 }
-                Drawing.drawCircle(displayKP, Color.GREEN, camera, minLineThickness);
+                Drawing.drawCircle(displayKP, palette.accent, camera, minLineThickness);
             }
         }
+        ArrayList<Color> colors = new ArrayList<>(List.of(palette.linkText, palette.error));
         for (Knot k : editor.knotsDisplayed) {
             Drawing.drawGradientPath(k, lookupSegmentPairs(k), colorLookup, colors,
                     camera,
@@ -157,23 +156,24 @@ public class NegativeCutMatchViewTool extends KnotTool {
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
         if (displaySegment != null) {
-            h.addWord("Cut: ", Color.IXDAR);
-            h.addHyperString(displaySegment.toHyperString(editor.pointSetPath, Color.BROWN_DARK, false));
+            Palette palette = editor.palette;
+            h.addWord("Cut: ", palette.accent);
+            h.addHyperString(displaySegment.toHyperString(editor.pointSetPath, palette.highlight, false));
             h.newLine();
             h.addWord("Cut Length: ");
-            h.addDistance(displaySegment.distance, Color.BROWN_DARK);
+            h.addDistance(displaySegment.distance, palette.highlight);
             h.newLine();
-            h.addWord("Knot Point: " + displayKP, Color.GREEN);
+            h.addWord("Knot Point: " + displayKP, palette.accent);
             h.newLine();
-            h.addWord("Cut Point: " + displayCP, Color.BROWN_DARK);
+            h.addWord("Cut Point: " + displayCP, palette.highlight);
             long matchId = Segment.idTransformOrdered(displayKP.id, displayCP.id);
             ArrayList<Segment> matchSegments = negativeSegmentMap.get(matchId);
             h.newLine();
             h.addWord("Negative Matches:");
             h.newLine();
             for (Segment s : matchSegments) {
-                h.addHyperString(s.toHyperString(editor.pointSetPath, Color.TEAL, false));
-                h.addDistance(s.distance - displaySegment.distance, Color.RED);
+                h.addHyperString(s.toHyperString(editor.pointSetPath, palette.selected, false));
+                h.addDistance(s.distance - displaySegment.distance, palette.error);
                 h.newLine();
             }
             h.newLine();

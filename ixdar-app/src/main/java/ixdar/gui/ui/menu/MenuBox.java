@@ -12,7 +12,7 @@ import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
-import ixdar.graphics.render.color.ColorLerp;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.sdf.SDFTexture;
 import ixdar.graphics.render.sdf.SDFUnion;
 import ixdar.gui.ui.Drawing;
@@ -40,6 +40,7 @@ public class MenuBox implements PointerRegion {
     public static Menu activeMenu;
     public static boolean menuVisible = true;
 
+
     private static Menu debugMenu;
     private static Menu gameMenu;
 
@@ -66,10 +67,6 @@ public class MenuBox implements PointerRegion {
     float hoverX;
     float hoverY;
     float alpha;
-    Color outerColor;
-    Color outerFlash;
-    Color disabledOuterColor;
-    Color innerColor;
     ColorBox boundingBox;
     private float itemWidth;
     private float itemHeight;
@@ -85,13 +82,10 @@ public class MenuBox implements PointerRegion {
         this.owner = owner;
         alpha = MENU_ALPHA;
 
-        innerColor = Color.BLUE_TEAL_VERY_DARK.withAlpha(alpha);
-        outerColor = Color.BLUE_GREY.withAlpha(alpha);
-        outerFlash = new ColorLerp(Color.BLUE_GREY, Color.BLACK_25, new byte[] { 0, 0, 0, 1 });
-        disabledOuterColor = Color.GREY_DARK.withAlpha(alpha);
-        menuOuterBorder = new SDFUnion("menu_inner.png", Color.BLUE_TEAL_VERY_DARK, MENU_ALPHA, 0, -INNER_OFFSET_Y,
+        Palette palette = owner.palette;
+        menuOuterBorder = new SDFUnion("menu_inner.png", palette.panel, MENU_ALPHA, 0, -INNER_OFFSET_Y,
                 "menu_outer.png",
-                Color.BLUE_GREY, alpha, PIN_STRIPE_COUNT, 2);
+                palette.panelBorder, alpha, PIN_STRIPE_COUNT, 2);
         logo = new SDFTexture("decal_sdf.png", true);
         boundingBox = new ColorBox();
         // Create both menus and link them
@@ -125,10 +119,9 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Draw the logo, then (when {@link #menuVisible}) the stack of menu-item buttons centered on
-     * screen, scrolled up by {@link #ITEM_COLUMN_SCROLL_BAR}, and that bar beside them while they
-     * overflow the screen's lower half. Highlights the enabled button the cursor hovers; disabled
-     * buttons keep a dark grey rim.
+     * Draw the logo, then (when {@link #menuVisible}) the scrolled stack of menu buttons with their
+     * bar. A hovered enabled button's rim flashes towards the theme's hover flash; a disabled one
+     * keeps the disabled rim.
      *
      * @param camera the active camera used for screen-space rendering
      */
@@ -142,7 +135,8 @@ public class MenuBox implements PointerRegion {
         int min = Math.min(Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight());
         int logoWidth = (int) min / 2;
         int halfWidth = logoWidth / 2;
-        logo.draw((centerX - halfWidth), (centerY + centerY / 2 - halfWidth), logoWidth, logoWidth, Color.IXDAR,
+        Palette palette = owner.palette;
+        logo.draw((centerX - halfWidth), (centerY + centerY / 2 - halfWidth), logoWidth, logoWidth, palette.accent,
                 camera);
         if (!menuVisible) {
             return;
@@ -158,13 +152,17 @@ public class MenuBox implements PointerRegion {
         bar.visibleLength = centerY;
         bar.scrollBy(0);
         itemBox.clearRows();
+        Color innerColor = palette.panel.withAlpha(alpha);
+        Color outerColor = palette.panelBorder.withAlpha(alpha);
+        Color outerFlash = palette.hovered(outerColor);
+        Color disabledOuterColor = palette.disabled.withAlpha(alpha);
         for (int i = 0; i < menuItems.size(); i++) {
             float itemCenterY = centerY - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR) + bar.scrollOffset;
             float leftBoundX = centerX - itemWidth / 2;
             float rightBoundX = centerX + itemWidth / 2;
             float upBoundX = itemCenterY + itemHeight / 2;
             float downBoundX = itemCenterY - itemHeight / 2;
-            // A disabled row keeps a dark grey rim and does not flash under the cursor.
+            // A disabled row keeps the disabled rim and does not flash under the cursor.
             Color rim = disabledOuterColor;
             if (menuItems.get(i).action != null) {
                 boolean hovered = hoverX > leftBoundX && hoverX < rightBoundX && hoverY > downBoundX
@@ -173,7 +171,7 @@ public class MenuBox implements PointerRegion {
             }
             menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, rim, camera);
             int firstWord = itemBox.text.words.size();
-            itemBox.addRow(menuItems.get(i).getHeading(), Color.IXDAR, menuItems.get(i).action);
+            itemBox.addRow(menuItems.get(i).getHeading(), palette.accent, menuItems.get(i).action);
             for (HyperWord word : itemBox.text.words.subList(firstWord, itemBox.text.words.size())) {
                 word.xScreenOffset = leftBoundX;
                 word.yScreenOffset = downBoundX;

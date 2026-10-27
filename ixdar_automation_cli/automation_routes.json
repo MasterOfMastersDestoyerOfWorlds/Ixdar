@@ -1149,6 +1149,26 @@
       "responseHint": "{ok, azimuth, elevation, distance, target}"
     },
     {
+      "commandName": "paletteswap",
+      "path": "/ui/paletteswap",
+      "method": "POST",
+      "description": "Step the scene to its next colour palette, or to the one named.",
+      "sourceClass": "ixdar.automation.endpoints.ui.Palette",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/Palette.java",
+      "params": [
+        {
+          "name": "name",
+          "cliName": "name",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "The palette to wear; omitted steps to the next.",
+          "example": "Paper"
+        }
+      ],
+      "responseHint": "{ok, palette, options, error?}"
+    },
+    {
       "commandName": "pick",
       "path": "/mesh/pick",
       "method": "POST",

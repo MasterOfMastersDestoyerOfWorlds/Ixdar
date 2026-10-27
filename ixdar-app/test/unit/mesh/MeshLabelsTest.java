@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.joml.Vector3f;
@@ -15,7 +16,6 @@ import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.data.AddLabelNode;
@@ -169,14 +169,14 @@ class MeshLabelsTest {
         for (int band = 0; band < RingRegionsTest.SIDE_ROWS; band++) {
             labels.add("band_" + band, new float[] { 1f, 0f, (band + HALF) * ROW_HEIGHT });
         }
-        Palette three = new Palette(Color.RED, Color.GREEN, Color.BLUE);
+        Color[] three = Arrays.copyOf(Palettes.DARK.categories, 3);
 
         labels.resolve(regions, three);
 
         int[] colourByLabel = labels.colouring.colourByNode;
         assertEquals(RingRegionsTest.SIDE_ROWS, colourByLabel.length);
         for (int band = 0; band < RingRegionsTest.SIDE_ROWS; band++) {
-            assertTrue(colourByLabel[band] >= 0 && colourByLabel[band] < three.size(),
+            assertTrue(colourByLabel[band] >= 0 && colourByLabel[band] < three.length,
                     "band " + band + " took entry " + colourByLabel[band] + " past the palette");
             int[] expected = band == 0 ? new int[] { 1 }
                     : band == RingRegionsTest.SIDE_ROWS - 1 ? new int[] { band - 1 }
@@ -191,7 +191,7 @@ class MeshLabelsTest {
 
     /** The label of each face's region, by dense face index. */
     private static int[] labelByFace(MeshLabels labels, RingRegions regions) {
-        labels.resolve(regions, Palettes.BRIGHT_PATCH);
+        labels.resolve(regions, Palettes.DARK.categories);
         int[] labelOf = labels.labelByRegion;
         int[] byFace = new int[regions.regionByActiveFace.length];
         for (int activeFace = 0; activeFace < byFace.length; activeFace++) {

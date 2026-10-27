@@ -2,7 +2,6 @@ package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.CommandAnnotation;
 import ixdar.annotations.command.Subsystem;
-import ixdar.graphics.render.color.Color;
 import ixdar.gui.terminal.Terminal;
 import ixdar.models.ModelCatalog;
 import ixdar.models.ModelChoice;
@@ -89,7 +88,7 @@ public class ModelCommand extends TerminalCommand {
             return null;
         }
         models.requestLoad.accept(match);
-        terminal.history.addLine("loading " + match.displayName, Color.TEAL_DARK);
+        terminal.history.addLine("loading " + match.displayName, terminal.scene.palette.linkText);
         return null;
     }
 

@@ -2,12 +2,14 @@ package ixdar.tools.knot;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import ixdar.annotations.tool.ToolAnnotation;
 import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.knot.Segment;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.scenes.main.Toggle;
@@ -21,14 +23,12 @@ import ixdar.scenes.main.MainScene;
 @ToolAnnotation(id = NeighborViewTool.TOOL_NAME)
 public class NeighborViewTool extends KnotTool {
     public static final String TOOL_NAME = "neighborview";
-    public static ArrayList<Color> colors;
 
     public int layerCalculated;
     HashMap<Long, Integer> colorLookup;
 
     /**
-     * Build the tool: disallow rendering toggles that would clutter the
-     * neighbor overlay and seed the {@code colors} palette (green, yellow).
+     * Build the tool: disallow rendering toggles that would clutter the neighbor overlay.
      *
      * @param editor the editor the tool works on
      */
@@ -36,9 +36,6 @@ public class NeighborViewTool extends KnotTool {
         super(editor);
         disallowedToggles = new Toggle[] { Toggle.DrawCutMatch, Toggle.DrawKnotGradient,
                 Toggle.DrawMetroDiagram, Toggle.DrawDisplayedKnots };
-        colors = new ArrayList<>();
-        colors.add(Color.GREEN);
-        colors.add(Color.YELLOW);
     }
 
     /**
@@ -70,6 +67,7 @@ public class NeighborViewTool extends KnotTool {
             initSegmentMap();
             return;
         }
+        List<Color> colors = List.of(editor.palette.success, editor.palette.warning);
         for (Long segmentId : colorLookup.keySet()) {
             Segment s = editor.pointSetPath.tourShell.segmentLookup.get(segmentId);
             Drawing.drawDashedSegment(s, colors.get(colorLookup.get(segmentId)), camera);
@@ -105,15 +103,16 @@ public class NeighborViewTool extends KnotTool {
     public HyperString buildInfoText() {
         HyperString h = new HyperString();
         if (displaySegment != null) {
-            h.addWord("Cut: ", Color.IXDAR);
-            h.addHyperString(displaySegment.toHyperString(editor.pointSetPath, Color.BROWN_DARK, false));
+            Palette palette = editor.palette;
+            h.addWord("Cut: ", palette.accent);
+            h.addHyperString(displaySegment.toHyperString(editor.pointSetPath, palette.highlight, false));
             h.newLine();
             h.addWord("Cut Length: ");
-            h.addDistance(displaySegment.distance, Color.BROWN_DARK);
+            h.addDistance(displaySegment.distance, palette.highlight);
             h.newLine();
-            h.addWord("Knot Point: " + displayKP, Color.GREEN);
+            h.addWord("Knot Point: " + displayKP, palette.accent);
             h.newLine();
-            h.addWord("Cut Point: " + displayCP, Color.BROWN_DARK);
+            h.addWord("Cut Point: " + displayCP, palette.highlight);
             h.newLine();
 
         }

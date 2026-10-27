@@ -4,6 +4,7 @@ import java.util.ArrayList;
 
 import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.text.HyperWord;
+import ixdar.scenes.Scene;
 
 public class ColorText<T> {
     public ArrayList<String> text;
@@ -56,22 +57,22 @@ public class ColorText<T> {
     }
 
     /**
-     * Build a phrase coloured with the default scalar palette and a payload.
+     * Build a phrase in the scene's muted text colour with a payload.
      *
      * @param scalarString whitespace-separated string
      * @param value        caller-defined payload
      */
     public ColorText(String scalarString, T value) {
-        this(scalarString, Color.BLUE_GREY, value);
+        this(scalarString, Scene.activePalette().mutedText, value);
     }
 
     /**
-     * Build a phrase coloured with the default scalar palette and no payload.
+     * Build a phrase in the scene's muted text colour with no payload.
      *
      * @param scalarString whitespace-separated string
      */
     public ColorText(String scalarString) {
-        this(scalarString, Color.BLUE_GREY, null);
+        this(scalarString, Scene.activePalette().mutedText, null);
     }
 
     /**

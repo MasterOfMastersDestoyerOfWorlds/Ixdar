@@ -2,7 +2,7 @@ package ixdar.gui.terminal.commands;
 
 import ixdar.annotations.command.OptionList;
 import ixdar.annotations.command.TerminalOption;
-import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.gui.terminal.Terminal;
 import ixdar.platform.Platforms;
 
@@ -27,18 +27,19 @@ public abstract class TerminalCommand implements TerminalOption {
      */
     public static void help(Terminal terminal, TerminalOption command) {
         String helpFile = command.fullName() + ".help";
-        terminal.history.addWord(command.fullName(), Color.TEAL_DARK);
-        terminal.history.addLine(command.desc(), Color.GREEN);
+        Palette palette = terminal.scene.palette;
+        terminal.history.addWord(command.fullName(), palette.linkText);
+        terminal.history.addLine(command.desc(), palette.text);
         int platformId = Platforms.gl().getPlatformID();
         Platforms.get().loadSourceAsync(HELP_RESOURCE_FOLDER, helpFile, platformId, text -> {
             if (text.isEmpty()) {
                 terminal.error("no help file " + HELP_RESOURCE_FOLDER + "/" + helpFile);
             } else {
                 for (String line : text.split("\n")) {
-                    terminal.history.addLine(line, Color.GREY_DARK);
+                    terminal.history.addLine(line, palette.mutedText);
                 }
             }
-            terminal.history.addLine(command.usage(), Color.GREEN);
+            terminal.history.addLine(command.usage(), palette.text);
         });
     }
 

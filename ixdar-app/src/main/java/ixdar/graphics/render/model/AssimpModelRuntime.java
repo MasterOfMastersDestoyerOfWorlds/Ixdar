@@ -5,11 +5,11 @@ import org.joml.Vector3f;
 
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.Texture;
-import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.file.FileManagement;
+import ixdar.scenes.Scene;
 
 public class AssimpModelRuntime implements ModelRuntime {
     public static final String USETEXTURE = "useTexture";
@@ -105,7 +105,7 @@ public class AssimpModelRuntime implements ModelRuntime {
         meshShader.setMat4("model", modelMatrix);
         meshShader.setMat4("view", camera.view);
         meshShader.setMat4("projection", projection);
-        meshShader.setVec4("solidColor", Color.BLUE_PASTEL.toVector4f());
+        meshShader.setVec4("solidColor", Scene.activePalette().surface.toVector4f());
         meshShader.setVec3("lightDir", new Vector3f(LIGHT_DIR_X, -1.0f, LIGHT_DIR_Z));
         if (handle.texture != null && handle.hasTexCoords) {
             meshShader.setBool(USETEXTURE, true);

@@ -10,12 +10,13 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.Palettes;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.shaders.MeshLineShader;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.geometry.mesh.data.paths.query.SurfaceFaceLocator;
+import ixdar.scenes.Scene;
 
 /**
  * General overlays drawn over a half-edge mesh surface: points, lines and markers.
@@ -212,9 +213,10 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
     public void setDiagnostic(List<float[]> faceGroupCenters, List<float[]> markerPositions,
             List<float[]> polylines) {
         List<Color> palette = new ArrayList<>();
+        Color[] cycle = Scene.activePalette().overlayGroup;
         int groups = faceGroupCenters.size() + polylines.size() + markerPositions.size();
         for (int group = 0; group < groups; group++) {
-            palette.add(Palettes.OVERLAY_GROUP.color(group));
+            palette.add(Palette.entry(cycle, group));
         }
         setDiagnostic(faceGroupCenters, markerPositions, polylines, palette);
     }
@@ -303,8 +305,9 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
      */
     public void setPatchClouds(List<float[]> clouds, float[] dotRadii) {
         patchClouds.clear();
+        Color[] cycle = Scene.activePalette().overlayGroup;
         for (int index = 0; index < clouds.size(); index++) {
-            patchClouds.add(PointSet.cloud(clouds.get(index), Palettes.OVERLAY_GROUP.color(index),
+            patchClouds.add(PointSet.cloud(clouds.get(index), Palette.entry(cycle, index),
                     PATCH_CLOUD_SCALE, index < dotRadii.length ? dotRadii[index] : 0f));
         }
         updateSphereRadius();
@@ -334,7 +337,8 @@ public class MeshOverlayRuntime extends HalfEdgeMeshRuntime {
                 int vertices =
                         2 * (lineGroupSegmentStart[group + 1] - lineGroupSegmentStart[group]);
                 drawLines(camera, lineGroups, firstVertex, vertices,
-                        group < lineGroupColors.length ? lineGroupColors[group] : Color.BLACK,
+                        group < lineGroupColors.length ? lineGroupColors[group]
+                                : Scene.activePalette().line,
                         LAYOUT_LINE_WIDTH);
             }
             Platforms.gl().depthMask(true);

@@ -18,7 +18,7 @@ import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
-import ixdar.graphics.render.color.Palette;
+import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.RegionColouring;
 import ixdar.numeric.graph.UnionFind;
 
@@ -1040,11 +1040,11 @@ public final class RingRegions {
      * @param masks            one edge-id-indexed mask per ring, parallel to {@code labels}
      * @param absorbBelow      sliver threshold, as {@link #absorbBelowFaces}
      * @param creases          creases of {@link #mesh} flatness is measured on
-     * @param palette          the entries {@link #colouring} hands out
+     * @param cycle            the palette cycle whose entries {@link #colouring} hands out
      * @return this, rebuilt
      */
     public RingRegions rebuild(String[] labels, boolean[][] masks, int absorbBelow,
-            SurfaceCreases creases, Palette palette) {
+            SurfaceCreases creases, Color[] cycle) {
         if (absorbBelow != absorbBelowFaces) {
             absorbBelowFaces = absorbBelow;
             built = false;
@@ -1052,7 +1052,7 @@ public final class RingRegions {
         update(labels, masks);
         measureFlatness(creases);
         colouring.colour(neighboursByRegion, regionFaceCount, formerRegionByRegion, regionKeptFaces,
-                palette);
+                cycle);
         Map<String, String> notes = new TreeMap<>();
         for (int ring = 0; ring < ringLabels.length; ring++) {
             if (ringSplitsNothing[ring]) {

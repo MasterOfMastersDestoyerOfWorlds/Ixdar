@@ -15,8 +15,7 @@ import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RegionExplosion;
 import ixdar.geometry.mesh.data.rings.RingRegions;
-import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.Palettes;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Clock;
@@ -32,10 +31,6 @@ import ixdar.tools.ring.RingTool;
 public final class RegionLayer {
 
     public static final String LOG_PREFIX = "[regions] ";
-
-    public static final Vector4f SLIVER_COLOUR = Color.WHITE.toVector4f();
-
-    public static final Vector4f UNLABELLED_COLOUR = Color.GREY_VERY_DARK.toVector4f();
 
     public static final String REGION_NUMBER_PREFIX = "R";
 
@@ -108,6 +103,12 @@ public final class RegionLayer {
      * joined on, built the first time one does.
      */
     public SurfaceConnection joinPaths;
+
+    /**
+     * The scene palette the part colours and labels were last resolved in; a frame that finds the
+     * scene wearing another resolves and redraws them again.
+     */
+    public Palette resolvedPalette;
 
     private boolean shown;
 
@@ -206,6 +207,7 @@ public final class RegionLayer {
     /** Shift+P or Shift+N: rebuild the region labels after a toggle of what they show. */
     public void labelsShownChanged() {
         regionLabels = new ArrayList<>();
+        Palette palette = scene.palette;
         int[] labelByRegion = partLabels.labelByRegion;
         for (int region = 0; regions != null && region < regions.regionCount; region++) {
             int label = region < labelByRegion.length ? labelByRegion[region] : MeshLabels.UNLABELLED;
@@ -214,7 +216,7 @@ public final class RegionLayer {
             String text = number.isEmpty() || name.isEmpty() ? number + name : number + " " + name;
             if (!text.isEmpty()) {
                 HyperString regionLabel = new HyperString();
-                regionLabel.addWord(text, RingScene.LABEL_FILL_COLOUR, RingScene.LABEL_BORDER_COLOUR,
+                regionLabel.addWord(text, palette.text, palette.background,
                         RingScene.LABEL_BORDER_PIXELS);
                 regionLabel.setData(region);
                 regionLabel.anchor.set(regions.regionLabelPoint[RingRegions.TRIANGLE_CORNERS * region],
@@ -237,8 +239,9 @@ public final class RegionLayer {
 
     /** Resolve {@link #partLabels} against the regions, colour the parts and rebuild the labels. */
     private void resolveLabels() {
+        resolvedPalette = scene.palette;
         if (regions != null) {
-            partLabels.resolve(regions, Palettes.BRIGHT_PATCH);
+            partLabels.resolve(regions, resolvedPalette.categories);
         }
         labelsShownChanged();
     }
@@ -298,6 +301,10 @@ public final class RegionLayer {
         if (ready && (regions == null || regions.mesh != surface
                 || builtRingRevision != scene.ringTool.ringRevision)) {
             rebuild();
+        } else if (resolvedPalette != scene.palette) {
+            // A palette swap: its part cycle may differ in length, and every colour is re-read.
+            resolveLabels();
+            redraw();
         }
         boolean coloured = coloured();
         if (!ready || !coloured && hiddenByActiveFace.length == 0 && explosion.target == 0f
@@ -356,7 +363,7 @@ public final class RegionLayer {
             }
         }
         regions.rebuild(rings.keySet().toArray(new String[0]), rings.values().toArray(new boolean[0][]),
-                absorbBelow, scene.ringTool.creases, Palettes.REGION);
+                absorbBelow, scene.ringTool.creases, scene.palette.region);
         if (!regions.noteByRingLabel.isEmpty() || joinPaths != null && joinPaths.mesh == surface) {
             if (joinPaths == null || joinPaths.mesh != surface) {
                 joinPaths = new SurfaceConnection(surface);
@@ -404,7 +411,10 @@ public final class RegionLayer {
                 && tool.selectedRegions.length == regions.regionCount;
         // By part, a labelled region takes its part's colour, touching parts apart, and every
         // unlabelled one the same dark grey, so what is left to name stands out.
-        Vector4f grey = Color.GREY.toVector4f();
+        Palette palette = scene.palette;
+        Vector4f dimmed = palette.mutedText.toVector4f();
+        Vector4f unlabelled = palette.surface.toVector4f();
+        Vector4f sliver = palette.warning.toVector4f();
         int[] labelByRegion = partLabels.labelByRegion;
         boolean byPart = colourByPart && !partLabels.names.isEmpty()
                 && labelByRegion.length == regions.regionCount;
@@ -414,15 +424,15 @@ public final class RegionLayer {
             if (!coloured) {
                 colourByRegion[region] = runtime.solidColor;
             } else if (dimming && !tool.selectedRegions[region]) {
-                colourByRegion[region] = grey;
+                colourByRegion[region] = dimmed;
             } else if (byPart) {
                 colourByRegion[region] = labelByRegion[region] == MeshLabels.UNLABELLED
-                        ? UNLABELLED_COLOUR
-                        : Palettes.BRIGHT_PATCH.shadedColor(
+                        ? unlabelled
+                        : Palette.shadedEntry(palette.categories,
                                 partLabels.colouring.colourByNode[labelByRegion[region]]).toVector4f();
             } else {
-                colourByRegion[region] = regions.isSliver(region) ? SLIVER_COLOUR
-                        : Palettes.REGION.shadedColor(regions.colouring.colourByNode[region])
+                colourByRegion[region] = regions.isSliver(region) ? sliver
+                        : Palette.shadedEntry(palette.region, regions.colouring.colourByNode[region])
                                 .toVector4f();
             }
             tagByRegion[region] = RingRegionTool.regionTag(region);

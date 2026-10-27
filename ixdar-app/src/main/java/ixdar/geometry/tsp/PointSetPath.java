@@ -31,6 +31,7 @@ import ixdar.gui.ui.actions.Action;
 import ixdar.platform.Platforms;
 import ixdar.platform.file.FileManagement;
 import ixdar.platform.file.TextFile;
+import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
 
 /**
@@ -73,8 +74,11 @@ public class PointSetPath {
     /** Length of {@link #tourShell} once solved. */
     public double tourLength;
 
-    /** The colour knots are drawn in when neither the gradient nor the metro diagram is on. */
-    public Color stickyColor = Color.TEAL;
+    /**
+     * The colour knots are drawn in when neither the gradient nor the metro diagram is on, once the
+     * color command picks one; null wears the drawing scene's accent.
+     */
+    public Color stickyColor;
 
     /** One colour per knot layer, the metro diagram's. */
     public ArrayList<Color> metroColors = new ArrayList<>();
@@ -83,7 +87,7 @@ public class PointSetPath {
     public ArrayList<Color> knotGradientColors = new ArrayList<>();
 
     /** The colour the showing view draws a knot in; the view supplies it. */
-    public Function<Knot, Color> knotColor = knot -> Color.IXDAR;
+    public Function<Knot, Color> knotColor = knot -> Scene.activePalette().accent;
 
     /** Brings a knot into the showing view, its layer and its camera; the view supplies it. */
     public Consumer<Knot> focusKnot = knot -> { };

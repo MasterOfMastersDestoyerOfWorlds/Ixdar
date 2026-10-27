@@ -5,7 +5,7 @@ import ixdar.geometry.tsp.cuts.CutMatchList;
 import ixdar.geometry.tsp.knot.Knot;
 import ixdar.geometry.tsp.knot.Segment;
 import ixdar.geometry.tsp.shell.Shell;
-import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.gui.ui.text.HyperString;
 
 /**
@@ -88,17 +88,16 @@ public class SegmentBalanceException extends Exception {
     }
 
     /**
-     * Lazily build the red/orange "X" hyperstrings used to render the failure
-     * markers. No-op if already initialized.
+     * Build the "X" hyperstrings that mark the two failed cuts, in the drawing palette's error and
+     * muted text colours; rebuilt on every draw so a palette swap re-colours them.
+     *
+     * @param palette the palette of the scene drawing the markers
      */
-    public void initDraw() {
-        if(x1 != null){
-            return;
-        }
+    public void initDraw(Palette palette) {
         x1 = new HyperString();
-        x1.addWord(X, Color.RED);
+        x1.addWord(X, palette.error);
         x2 = new HyperString();
-        x2.addWord(X, Color.BROWN_DARK);
+        x2.addWord(X, palette.mutedText);
     }
 
     /**

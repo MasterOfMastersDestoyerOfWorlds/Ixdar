@@ -11,7 +11,6 @@ import ixdar.geometry.grid2d.IrregularQuadGrid;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.geometry.tsp.shell.Shell;
 import ixdar.platform.Clock;
-import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.text.HyperString;
@@ -86,18 +85,18 @@ public class IrregularGridScene extends Scene {
             Vector2f to = grid.anchorPoints().get(edge[1]);
             tmpA.set(camera2D.pointTransformX(from.x), camera2D.pointTransformY(from.y));
             tmpB.set(camera2D.pointTransformX(to.x), camera2D.pointTransformY(to.y));
-            Drawing.getDrawing().sdfLine.draw(tmpA, tmpB, Color.GREY_DARK, camera2D);
+            Drawing.getDrawing().sdfLine.draw(tmpA, tmpB, palette.gridLine, camera2D);
         }
         for (Vector2f pt : grid.anchorPoints()) {
             tmpScreen.set(camera2D.pointTransformX(pt.x), camera2D.pointTransformY(pt.y));
-            Drawing.drawCircle(tmpScreen, Color.TEAL, camera2D, ANCHOR_DOT_RADIUS);
+            Drawing.drawCircle(tmpScreen, palette.accent, camera2D, ANCHOR_DOT_RADIUS);
         }
         for (Vector2f pt : grid.dualPoints()) {
             tmpScreen.set(camera2D.pointTransformX(pt.x), camera2D.pointTransformY(pt.y));
-            Drawing.drawCircle(tmpScreen, Color.BROWN_DARK, camera2D, DUAL_DOT_RADIUS);
+            Drawing.drawCircle(tmpScreen, palette.mutedText, camera2D, DUAL_DOT_RADIUS);
         }
         fpsText = new HyperString();
-        fpsText.addWord("FPS: " + Clock.fps(), Color.TEAL);
+        fpsText.addWord("FPS: " + Clock.fps(), palette.accent);
         Drawing.getDrawing().font.drawHyperStringRows(fpsText, 0, TEXT_Y_OFFSET, Drawing.FONT_HEIGHT_PIXELS, camera2D);
         Drawing.getDrawing().sdfLine.setCulling(true);
     }

@@ -18,6 +18,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.IxBuffer;
 import ixdar.platform.Platform;
+import ixdar.scenes.Scene;
 
 public abstract class ShaderDrawable {
     public static final float CORNERS_PER_QUAD = 4f;
@@ -47,7 +48,7 @@ public abstract class ShaderDrawable {
 
     protected float drawX;
     protected float drawY;
-    protected Color c = Color.PINK_VERY_LIGHT;
+    protected Color c = Scene.activePalette().text;
     protected boolean culled = false;
 
     protected final long drawingId;
@@ -204,7 +205,7 @@ public abstract class ShaderDrawable {
             } else if (value instanceof Boolean) {
                 Boolean b = (Boolean) value;
 
-                map.put(key, new GLSLParseText(b ? "tru" : "false", GLSLParseText.BOOLEAN_COLOR,
+                map.put(key, new GLSLParseText(b ? "tru" : "false", Scene.activePalette().success,
                         new Vector4f(b ? 1f : 0f, 0f, 0f, 0f), 1, key));
             } else if (value instanceof Vector2f) {
                 Vector2f vec2 = (Vector2f) value;

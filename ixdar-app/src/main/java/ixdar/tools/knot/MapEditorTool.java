@@ -14,7 +14,6 @@ import ixdar.geometry.tsp.input.PointCollection;
 import ixdar.geometry.tsp.points.PointND;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.ColorRGB;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.text.HyperString;
@@ -112,7 +111,7 @@ public class MapEditorTool extends KnotTool {
     @Override
     public void drawOverlay(Camera2D camera, float minLineThickness) {
         if (hoverPoint != null) {
-            Drawing.drawCircle(hoverPoint, ColorRGB.RED, camera, minLineThickness);
+            Drawing.drawCircle(hoverPoint, editor.palette.error, camera, minLineThickness);
         }
     }
 

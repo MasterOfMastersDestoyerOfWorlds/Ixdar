@@ -18,7 +18,6 @@ import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
-import ixdar.graphics.render.color.Color;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.ErrorToasts;
 import ixdar.gui.ui.text.HyperString;
@@ -50,10 +49,6 @@ public class RingScene extends MeshNodeViewerScene {
     public static final float ANCHOR_HIT_RADIUS_PIXELS = 8f;
 
     public static final float HALF = 0.5f;
-
-    public static final Color LABEL_FILL_COLOUR = Color.WHITE;
-
-    public static final Color LABEL_BORDER_COLOUR = Color.BLACK;
 
     public static final float LABEL_BORDER_PIXELS = 2f;
 

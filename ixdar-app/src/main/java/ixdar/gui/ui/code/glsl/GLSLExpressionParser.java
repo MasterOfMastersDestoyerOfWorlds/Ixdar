@@ -12,7 +12,9 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.joml.Vector4f;
 
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.text.SpecialGlyphs;
+import ixdar.scenes.Scene;
 
 public class GLSLExpressionParser {
     public static final String COMMENT_MARKER = "//";
@@ -55,8 +57,7 @@ public class GLSLExpressionParser {
     public static final int VEC3_COMPONENTS = 3;
     public static final int MIN_UNIFORM_DECL_TOKENS = 3;
     public static final int COMPONENT_W_INDEX = 3;
-
-    public static final GLSLParseText MISSING = new GLSLParseText("?Missing?", Color.PINK_VERY_LIGHT, -1);
+    public static final String MISSING_TEXT = "?Missing?";
 
     private final String s;
     private int pos;
@@ -141,7 +142,7 @@ public class GLSLExpressionParser {
                         GLSLParseText.putVec(env, var, vec);
                         return env.get(var);
                     } else {
-                        env.put(var, new GLSLParseText(right, Color.BLUE_GREY, -1));
+                        env.put(var, new GLSLParseText(right, GLSLParseText.annotationColor(), -1));
                         return env.get(var);
                     }
                 }
@@ -187,6 +188,7 @@ public class GLSLExpressionParser {
             return;
         }
 
+        Palette palette = Scene.activePalette();
         ArrayList<Boolean> execStack = new ArrayList<>();
         execStack.add(Boolean.TRUE);
 
@@ -244,7 +246,7 @@ public class GLSLExpressionParser {
                 braceDepth++;
 
                 boolean doExecThen = parentExec && thenExec;
-                GLSLParseText boolVal = new GLSLParseText(doExecThen ? TRUE : FALSE, GLSLParseText.BOOLEAN_COLOR);
+                GLSLParseText boolVal = new GLSLParseText(doExecThen ? TRUE : FALSE, palette.success);
                 cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(boolVal));
                 continue;
             }
@@ -265,7 +267,7 @@ public class GLSLExpressionParser {
                 if (doExec) {
                     awaitingElseExec = false;
                 }
-                GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, GLSLParseText.BOOLEAN_COLOR);
+                GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, palette.success);
                 cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(boolVal));
                 continue;
             }
@@ -279,7 +281,7 @@ public class GLSLExpressionParser {
                 braceDepth++;
                 awaitingElseExec = false;
 
-                GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, GLSLParseText.BOOLEAN_COLOR);
+                GLSLParseText boolVal = new GLSLParseText(doExec ? TRUE : FALSE, palette.success);
                 cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(boolVal));
                 continue;
             }
@@ -311,9 +313,9 @@ public class GLSLExpressionParser {
                     if (runThen) {
                         awaitingElseExec = false;
                     }
-                    GLSLParseText boolVal = new GLSLParseText(runThen ? TRUE : FALSE, GLSLParseText.BOOLEAN_COLOR);
+                    GLSLParseText boolVal = new GLSLParseText(runThen ? TRUE : FALSE, palette.success);
                     if (!runThen) {
-                        GLSLParseText skip = new GLSLParseText(SKIP, GLSLParseText.SKIP_COLOR);
+                        GLSLParseText skip = new GLSLParseText(SKIP, palette.disabled);
                         cachedSuffixes.set(i, commentStart(skip).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(skip));
                     } else {
                         cachedSuffixes.set(i, commentStart(boolVal).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(boolVal));
@@ -326,7 +328,7 @@ public class GLSLExpressionParser {
                             out = commentStart(res).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(res);
                         }
                     } else if (!afterElse.isEmpty()) {
-                        GLSLParseText skip = new GLSLParseText(SKIP, GLSLParseText.SKIP_COLOR);
+                        GLSLParseText skip = new GLSLParseText(SKIP, palette.disabled);
                         out = commentStart(skip).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(skip);
                     } else {
                         out = GLSLParseText.BLANK;
@@ -354,7 +356,7 @@ public class GLSLExpressionParser {
                     }
                 }
             } else if (!executing && !skipControlOnlyLine(decl)) {
-                GLSLParseText skip = new GLSLParseText(SKIP, GLSLParseText.SKIP_COLOR);
+                GLSLParseText skip = new GLSLParseText(SKIP, palette.disabled);
                 out = commentStart(skip).join(new GLSLParseText(ASSIGN_DISPLAY_SEPARATOR)).join(skip);
             } else {
                 out = GLSLParseText.BLANK;
@@ -839,7 +841,7 @@ public class GLSLExpressionParser {
         if (match('-')) {
             GLSLParseText f = parseFactor();
             Vector4f out = new Vector4f(f.data).negate();
-            return new GLSLParseText("", GLSLParseText.FLOAT_COLOR, out, f.vectorLength, "");
+            return new GLSLParseText("", Scene.activePalette().headingText, out, f.vectorLength, "");
         }
         if (match('(')) {
             GLSLParseText v = parseExpr();
@@ -1319,9 +1321,11 @@ public class GLSLExpressionParser {
         ArrayList<GLSLParseText> list = new ArrayList<>();
         for (int i = 0; i < sw.length(); i++) {
             int component = componentSuffix(sw.charAt(i));
-            GLSLParseText e = MISSING;
+            GLSLParseText e;
             if (env.get(base) != null) {
                 e = new GLSLParseText(env.get(base).getData().get(component));
+            } else {
+                e = missingValue();
             }
             list.add(e);
         }
@@ -1332,8 +1336,18 @@ public class GLSLExpressionParser {
         try {
             return new GLSLExpressionParser(token, env).parse();
         } catch (Exception e) {
-            return MISSING;
+            return missingValue();
         }
+    }
+
+    /**
+     * The token shown where a value cannot be resolved, built when needed so it wears the active
+     * scene's palette rather than the one up at class load.
+     *
+     * @return a fresh "?Missing?" token in the palette's number colour
+     */
+    private static GLSLParseText missingValue() {
+        return new GLSLParseText(MISSING_TEXT, Scene.activePalette().headingText, -1);
     }
 
     /**

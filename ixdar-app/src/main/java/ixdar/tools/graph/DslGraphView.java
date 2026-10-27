@@ -16,7 +16,6 @@ import ixdar.geometry.tsp.points.PointSet;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palette;
-import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.sdf.SDFBezier;
 import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.graphics.render.sdf.SDFLine;
@@ -40,17 +39,8 @@ import ixdar.tools.Tool;
  */
 @ToolAnnotation(id = DslGraphView.TOOL_NAME)
 public class DslGraphView extends Tool {
-    public static final Palette TINT_BY_SHARE = Palettes.DSL_TIME_SHARE;
-    public static final double[] TINT_SHARE_FLOOR = { 0.0, 0.02, 0.1, 0.3 };
-    public static final Color BOX_BORDER = Color.BLUE_GREY;
-    public static final Color CRITICAL = Color.YELLOW_ORANGE;
-    public static final Color EDGE = Color.BLUE_GREY;
-    public static final Color PORT = Color.TEAL;
-    public static final Color TITLE_TEXT = Color.WHITE;
-    public static final Color TYPE_TEXT = Color.TEAL_BLUE_LIGHT;
-    public static final Color TIMING_TEXT = Color.YELLOW_ORANGE;
-    public static final Color PORT_TEXT = Color.TEAL;
-    public static final Color LITERAL_TEXT = Color.BLUE_GREY;
+    public static final int[] TINT_SHARE_FLOOR_PERCENT = { 0, 2, 10, 30 };
+    public static final double PERCENT = 100.0;
 
     public static final float MIN_EDGE_PX = 1.5f;
     public static final float FRAME_MARGIN = 0.05f;
@@ -66,9 +56,6 @@ public class DslGraphView extends Tool {
     public static final float STRAIGHT_EDGE_PX = 1.5f;
     public static final float MARGIN_SHARE = FRAME_MARGIN / (1 - 2 * FRAME_MARGIN);
     public static final int HOTSPOT_COUNT = 10;
-    public static final Color HOTSPOT_TEXT = Color.YELLOW_ORANGE;
-    public static final Color GROUP_FRAME = Color.TEAL_BLUE_LIGHT;
-    public static final Color GROUP_TEXT = Color.TEAL_BLUE_LIGHT;
     public static final float GROUP_BORDER_WIDTH = 2f;
     public static final String TOOL_NAME = "graph";
 
@@ -101,6 +88,9 @@ public class DslGraphView extends Tool {
 
     /** Graph of the last run, or {@code null} before one has run. */
     public DslGraphLayout layout;
+
+    /** The scene palette {@link #texts} were coloured in; a draw in another rebuilds them. */
+    public Palette builtPalette;
 
     /** Draws the graph; its point set is the graph's bounding box. */
     public final Camera2D camera;
@@ -261,7 +251,7 @@ public class DslGraphView extends Tool {
         }
         focusNode(layout.nodeIndex(path));
         HyperString label = new HyperString();
-        label.addWord("hotspot " + (hotspot + 1) + "/" + count, HOTSPOT_TEXT);
+        label.addWord("hotspot " + (hotspot + 1) + "/" + count, scene.palette.highlight);
         hotspotLabel.set(0, label);
         scene.refreshControls();
     }
@@ -381,10 +371,20 @@ public class DslGraphView extends Tool {
         Font font = Drawing.getDrawing().font;
         layout.place(text -> font.fontHeight == 0 ? 0
                 : DslGraphLayout.TEXT_HEIGHT / font.fontHeight * font.getWidth(text + " "));
-        Color[] roleColors = { TITLE_TEXT, TYPE_TEXT, TIMING_TEXT, PORT_TEXT, PORT_TEXT, LITERAL_TEXT, GROUP_TEXT };
+        // Title text sits on a timeShare fill: every palette pairs light text with dark fills or
+        // dark text with light ones, so text and timeShare are read off the same palette.
+        Palette palette = scene.palette;
+        builtPalette = palette;
         for (int text = 0; text < layout.textString.length; text++) {
+            Color colour = switch (layout.textRole[text]) {
+            case DslGraphLayout.ROLE_TITLE -> palette.text;
+            case DslGraphLayout.ROLE_TYPE -> palette.linkText;
+            case DslGraphLayout.ROLE_TIMING -> palette.headingText;
+            case DslGraphLayout.ROLE_INPUT_PORT, DslGraphLayout.ROLE_OUTPUT_PORT -> palette.accent;
+            default -> palette.mutedText;
+            };
             HyperString string = new HyperString();
-            string.addWord(layout.textString[text], roleColors[layout.textRole[text]]);
+            string.addWord(layout.textString[text], colour);
             texts.add(string);
             textPositions.add(new Vector2f());
         }
@@ -416,19 +416,24 @@ public class DslGraphView extends Tool {
         camera.setZIndex(scene.camera);
         camera.updateView(Scene.DEFAULT_VIEW);
         camera.calculateCameraTransform(camera.ps);
+        if (layout != null && builtPalette != scene.palette) {
+            rebuild();
+        }
         if (layout != null) {
+            Palette palette = scene.palette;
+            Color[] timeShare = palette.timeShare;
             float pixelsPerUnit = camera.width / camera.rangeX;
             for (int group = layout.groupCount - 1; group >= 0; group--) {
                 box.draw(camera.pointTransformX(layout.groupFrameX[group]),
                         camera.pointTransformY(layout.groupFrameY[group]),
                         layout.groupFrameWidth[group] * pixelsPerUnit, layout.groupFrameHeight[group] * pixelsPerUnit,
                         CORNER_RADIUS * pixelsPerUnit, GROUP_BORDER_WIDTH * pixelsPerUnit, Color.TRANSPARENT,
-                        GROUP_FRAME, camera);
+                        palette.mutedText, camera);
             }
             for (int edge = 0; edge < layout.edgeCount; edge++) {
                 boolean critical = layout.edgeCritical[edge];
                 float width = Math.max(MIN_EDGE_PX, (critical ? CRITICAL_EDGE_WIDTH : EDGE_WIDTH) * pixelsPerUnit);
-                Color color = critical ? CRITICAL : EDGE;
+                Color color = critical ? palette.highlight : palette.line;
                 int sourcePort = layout.edgeSourcePort[edge];
                 int targetPort = layout.edgeTargetPort[edge];
                 Vector2f from = new Vector2f(camera.pointTransformX(layout.outputPortX[sourcePort]),
@@ -456,9 +461,9 @@ public class DslGraphView extends Tool {
                 onPath[node] = true;
             }
             for (int node = 0; node < layout.nodeCount; node++) {
-                double share = layout.nodeMs[node] / (double) total;
+                double sharePercent = layout.nodeMs[node] * PERCENT / total;
                 int tint = 0;
-                while (tint + 1 < TINT_BY_SHARE.size() && share >= TINT_SHARE_FLOOR[tint + 1]) {
+                while (tint + 1 < timeShare.length && sharePercent >= TINT_SHARE_FLOOR_PERCENT[tint + 1]) {
                     tint++;
                 }
                 float x = camera.pointTransformX(layout.boxX[node]);
@@ -466,16 +471,17 @@ public class DslGraphView extends Tool {
                 box.draw(x, y, layout.boxWidth[node] * pixelsPerUnit, layout.boxHeight[node] * pixelsPerUnit,
                         CORNER_RADIUS * pixelsPerUnit,
                         (onPath[node] ? CRITICAL_BORDER_WIDTH : BORDER_WIDTH) * pixelsPerUnit,
-                        TINT_BY_SHARE.color(tint), onPath[node] ? CRITICAL : BOX_BORDER, camera);
+                        timeShare[tint], onPath[node] ? palette.highlight : palette.panelBorder,
+                        camera);
             }
             float portRadius = PORT_RADIUS * pixelsPerUnit;
             for (int input = 0; input < layout.inputPortX.length; input++) {
                 port.draw(new Vector2f(camera.pointTransformX(layout.inputPortX[input]),
-                        camera.pointTransformY(layout.inputPortY[input])), portRadius, PORT, camera);
+                        camera.pointTransformY(layout.inputPortY[input])), portRadius, palette.accent, camera);
             }
             for (int output = 0; output < layout.outputPortX.length; output++) {
                 port.draw(new Vector2f(camera.pointTransformX(layout.outputPortX[output]),
-                        camera.pointTransformY(layout.outputPortY[output])), portRadius, PORT, camera);
+                        camera.pointTransformY(layout.outputPortY[output])), portRadius, palette.accent, camera);
             }
             for (int text = 0; text < texts.size(); text++) {
                 textPositions.get(text).set(camera.pointTransformX(layout.textCenterX[text]),

@@ -25,13 +25,14 @@ import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.cameras.PointVisibility;
 import ixdar.graphics.render.Texture;
 import ixdar.graphics.render.color.Color;
-import ixdar.graphics.render.color.Palettes;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.shaders.MeshLineShader;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.DecodedImage;
 import ixdar.platform.gl.GL;
 import ixdar.geometry.mesh.data.paths.query.SurfaceFaceLocator;
+import ixdar.scenes.Scene;
 
 public class HalfEdgeMeshRuntime implements PointVisibility {
     public static final String MODEL = "model";
@@ -108,17 +109,18 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
      */
     public final Map<String, Vector3f> tagOffsets = new HashMap<>();
 
-    /** Colour of an untagged draw, the surface's own colour; {@link #setSolidColor} sets it. */
-    public final Vector4f solidColor = Color.BLUE_VERY_DARK.toVector4f();
+    /**
+     * Colour of an untagged draw, the surface's own colour; {@link #setSolidColor} sets it, and a
+     * model scene re-applies its palette's surface every frame.
+     */
+    public final Vector4f solidColor = Scene.activePalette().surface.toVector4f();
 
     private final ShaderProgram meshShader;
     private final ShaderProgram meshUnlitShader;
     private final ShaderProgram meshScalarShader;
     private final Matrix4f modelMatrix = new Matrix4f();
     private final Matrix4f tagModelMatrix = new Matrix4f();
-    private final Vector4f edgeColor = Color.RED.toVector4f();
     private final Vector3f lightDir = new Vector3f(0.4f, -1.0f, 0.25f);
-    private final Vector3f emissiveColor = Color.BLUE_GREY.toVector3f();
     private final Vector3f minBounds = new Vector3f();
     private final Vector3f maxBounds = new Vector3f();
     private final Vector3f center = new Vector3f();
@@ -458,8 +460,9 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         if (shaderMode == ShaderMode.SCALAR && scalarUploaded) {
             active.setFloat("scalarMin", scalarMin);
             active.setFloat("scalarMax", scalarMax);
-            for (int stop = 0; stop < Palettes.SCALAR_RAMP.size(); stop++) {
-                active.setVec4(RAMP_COLORS + "[" + stop + "]", Palettes.SCALAR_RAMP.color(stop));
+            Color[] ramp = Scene.activePalette().scalar;
+            for (int stop = 0; stop < ramp.length; stop++) {
+                active.setVec4(RAMP_COLORS + "[" + stop + "]", ramp[stop]);
             }
         }
         active.setMat4(MODEL, modelMatrix);
@@ -475,7 +478,7 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
             camera.view.positiveZ(lightDir).negate();
             active.setVec3("lightDir", lightDir);
             active.setBool(USE_TEXTURE_UNIFORM, sampleTexture);
-            active.setVec3("emissiveColor", emissiveColor);
+            active.setVec3("emissiveColor", Scene.activePalette().line.toVector3f());
             active.setFloat("emissiveStrength", EMISSIVE_STRENGTH);
             active.setFloat("rimStrength", RIM_STRENGTH);
         }
@@ -844,7 +847,8 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
     private int[] faceIndices(Camera3D camera, Matrix4f projection, int left, int bottom, int width,
             int height) {
         GL gl = Platforms.gl();
-        gl.clearColor(Color.BLACK);
+        // Transparent black reads back as id 0, no face: the decode below keeps only rgb.
+        gl.clearColor(Color.TRANSPARENT);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         gl.viewport(left, bottom, width, height);
         meshPickShader.use();
@@ -855,7 +859,7 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         gl.drawArrays(gl.TRIANGLES(), 0, facePick.vertexCount);
         int[] pixels = gl.readPixels(left, bottom, width, height, gl.RGBA(), gl.UNSIGNED_BYTE(), 0);
         gl.viewport(0, 0, Platforms.get().getFrameBufferWidth(), Platforms.get().getFrameBufferHeight());
-        gl.clearColor(Color.GREY_VERY_DARK);
+        gl.clearColor(Scene.activePalette().background);
         gl.clear(gl.COLOR_BUFFER_BIT() | gl.DEPTH_BUFFER_BIT());
         gl.bindVertexArray(surface.vao);
         int[] faceIndexByPixel = new int[width * height];
@@ -987,7 +991,7 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
             return;
         }
         lineShader.use(camera.view, camera.projection, modelMatrix);
-        lineShader.setVec4(SOLIDCOLOR, edgeColor);
+        lineShader.setVec4(SOLIDCOLOR, Scene.activePalette().line);
         GL gl = Platforms.gl();
         gl.bindVertexArray(edgeLines.vao);
         gl.lineWidth(EDGE_LINE_WIDTH);
@@ -1234,14 +1238,19 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
 
     /**
      * Explicit colour override for a tag. Takes precedence over the
-     * stable-hash fallback in {@link #resolveColor(String)}. Must be called
-     * before {@link #setTags(Map)} to take effect in the computed ranges.
+     * stable-hash fallback in {@link #resolveColor(String)}, and re-colours the tag's range at
+     * once when {@link #setTags(Map)} already ran, so a palette swap can re-apply it every frame.
      *
      * @param tag tag name to override
      * @param rgba color the tag should render with; copied
      */
     public void setTagColor(String tag, Vector4f rgba) {
         tagColorOverrides.put(tag, new Vector4f(rgba));
+        for (TagRange range : tagRanges) {
+            if (range.tagName().equals(tag)) {
+                range.color().set(rgba);
+            }
+        }
     }
 
     /** Remove all tag colour overrides. */
@@ -1279,7 +1288,7 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
     private Vector4f resolveColor(String tag) {
         Vector4f override = tagColorOverrides.get(tag);
         if (override != null) return new Vector4f(override);
-        return Palettes.PATCH.color(stableHash(tag)).toVector4f();
+        return Palette.entry(Scene.activePalette().patch, stableHash(tag)).toVector4f();
     }
 
     private static int stableHash(String s) {

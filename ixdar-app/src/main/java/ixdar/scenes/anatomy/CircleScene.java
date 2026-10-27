@@ -3,7 +3,6 @@ package ixdar.scenes.anatomy;
 import org.joml.Vector2f;
 
 import ixdar.annotations.scene.SceneAnnotation;
-import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.scenes.Scene;
 
@@ -42,7 +41,7 @@ public class CircleScene extends Scene {
         float radius = Math.min(cx, cy);
 
         Vector2f center = new Vector2f(cx, cy);
-        circle.draw(center, radius, Color.BLUE_GREY, camera2D);
+        circle.draw(center, radius, palette.line, camera2D);
     }
 
 }

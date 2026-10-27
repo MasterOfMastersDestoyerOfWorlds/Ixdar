@@ -29,6 +29,7 @@ import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.color.Palettes;
 import ixdar.numeric.graph.UnionFind;
 
@@ -463,7 +464,7 @@ public final class SemanticPatchDecomposer {
             centroid[0] /= vertCount;
             centroid[1] /= vertCount;
             centroid[2] /= vertCount;
-            Color color = Palettes.PATCH.color(colorIdx[pid]);
+            Color color = Palette.entry(Palettes.DARK.patch, colorIdx[pid]);
             out.add(new Patch(
                     pid,
                     verts,
@@ -1274,7 +1275,7 @@ public final class SemanticPatchDecomposer {
      * @param adj per-face adjacency table
      * @param faceCount number of triangles
      * @param patchCount number of patches
-     * @return per-patch palette index in {@code [0, Palettes.PATCH.size())}
+     * @return per-patch palette index in {@code [0, Palettes.DARK.patch.length]}
      */
     private static int[] welshPowellColoring(
             int[] facePatch, int[][] adj, int faceCount, int patchCount) {
@@ -1297,7 +1298,7 @@ public final class SemanticPatchDecomposer {
         int[] colorIdx = new int[patchCount];
         Arrays.fill(colorIdx, -1);
         for (int p : order) {
-            boolean[] used = new boolean[Palettes.PATCH.size()];
+            boolean[] used = new boolean[Palettes.DARK.patch.length];
             for (int nb : neighbours[p]) {
                 int c = colorIdx[nb];
                 if (c >= 0 && c < used.length) used[c] = true;

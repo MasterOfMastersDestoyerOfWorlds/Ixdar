@@ -10,6 +10,7 @@ import ixdar.game.City;
 import ixdar.game.TradeGame;
 import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Color;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.sdf.SDFCircle;
 import ixdar.graphics.render.sdf.SDFLine;
 import ixdar.gui.ui.text.HyperString;
@@ -147,14 +148,15 @@ public class RoutePlanningTool extends Tool {
         if (firstCity < 0) {
             return;
         }
+        Palette palette = tradeScene.palette;
         Vector2f first = cityPixel(firstCity);
         ring.borderThickness = TradeScene.RING_BORDER_SHARE;
-        ring.draw(first, RING_RADIUS, Color.TRANSPARENT, Color.ORANGE_YELLOW_DARK, camera);
+        ring.draw(first, RING_RADIUS, Color.TRANSPARENT, palette.highlight, camera);
         if (mode == GROW) {
             for (int k = 0; k < game.growCity.size(); k++) {
                 int city = game.growCity.get(k);
                 int deficit = game.growDeficit.get(k);
-                Color color = deficit > 0 ? Color.IXDAR : Color.GREEN_DARK;
+                Color color = deficit > 0 ? palette.error : palette.success;
                 Vector2f p = cityPixel(city);
                 ring.draw(p, RING_RADIUS, Color.TRANSPARENT, color, camera);
                 String label = "+" + game.growDelta.get(k) + (deficit > 0 ? " · dry by " + deficit : CELLS);
@@ -167,9 +169,9 @@ public class RoutePlanningTool extends Tool {
             int city = Integer.parseInt(hovered.id);
             Vector2f p = cityPixel(city);
             previewLine.setStroke(PREVIEW_WIDTH, true, TradeScene.DASH_PIXELS, 0f, true, false, false);
-            previewLine.draw(first, p, Color.ORANGE_YELLOW_DARK, camera);
+            previewLine.draw(first, p, palette.highlight, camera);
             tradeScene.drawTag("+" + game.legCost[firstCity][city] + CELLS, (first.x + p.x) * 0.5f,
-                    (first.y + p.y) * 0.5f, Color.ORANGE_YELLOW_DARK);
+                    (first.y + p.y) * 0.5f, palette.highlight);
         }
     }
 
@@ -310,8 +312,8 @@ public class RoutePlanningTool extends Tool {
     @Override
     public HyperString info() {
         HyperString h = new HyperString();
-        h.addWord("[" + modes[mode] + "] ", Color.TEAL);
-        h.addWord(tradeScene.status, Color.WHITE);
+        h.addWord("[" + modes[mode] + "] ", tradeScene.palette.accent);
+        h.addWord(tradeScene.status, tradeScene.palette.text);
         return h;
     }
 
