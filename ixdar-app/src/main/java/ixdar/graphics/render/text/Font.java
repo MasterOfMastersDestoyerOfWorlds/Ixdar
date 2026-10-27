@@ -26,6 +26,7 @@ public class Font {
     public static final int DEFAULT_MAX_TEXT_WIDTH = 64;
     public static final float BASELINE_OFFSET_RATIO = 0.25f;
     public static final double FLOOR_EPSILON = 0.0001;
+    public static final float MEDIAN_MAX_MIP_LEVEL = 4f;
 
     private static final String ATLAS_JSON_PATH = "opensans.json";
     public Map<Character, Glyph> glyphs;
@@ -87,6 +88,9 @@ public class Font {
                 this.sdfTexture = new SDFTexture(this.texture);
                 this.sdfTexture.setSharpCorners(true);
                 this.sdfTexture.setPxRange(distanceRange);
+                // The atlas's 32 px outer padding keeps mipmap levels up to this one inside each
+                // glyph's cell; FontAtlasPaddingTest holds the atlas to it.
+                this.sdfTexture.setMedianMaxMipLevel(MEDIAN_MAX_MIP_LEVEL);
             });
             this.maxTextWidth = DEFAULT_MAX_TEXT_WIDTH;
         } catch (Throwable e) {

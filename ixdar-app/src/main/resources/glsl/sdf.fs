@@ -18,6 +18,7 @@ uniform vec4 borderColor;
 uniform sampler2D innerTexture;
 
 uniform float pxRange;
+uniform float medianMaxLod;
 uniform float edgeDist;
 uniform float edgeSharpness;
 
@@ -29,13 +30,19 @@ float map(float value, float min1, float max1, float min2, float max2) {
 }
 void main() {
     vec4 smp = texture(innerTexture, textureCoord);
-    float sigDist = median(smp.r, smp.g, smp.b);
+    // A mipmap texel averages the channels under it, and where it spans two glyphs' atlas cells
+    // their median reads as ink on the quad's edge. The channels come from no level coarser than
+    // medianMaxLod, whose reach the atlas's padding holds inside each cell; the alpha stays trilinear.
+    vec2 texels = vec2(textureSize(innerTexture, 0));
+    float lod = log2(max(length(dFdx(textureCoord) * texels), length(dFdy(textureCoord) * texels)));
+    vec3 channels = textureLod(innerTexture, textureCoord, clamp(lod, 0.0, medianMaxLod)).rgb;
+    float sigDist = median(channels.r, channels.g, channels.b);
     // The atlas edge band is pxRange texels wide; measured in screen pixels it shrinks with the
     // text, and below one pixel a smoothstep over fwidth turns binary and drops thin stems. Keep the
     // ramp at least one pixel wide (msdfgen's screenPxRange, github.com/Chlumsky/msdfgen, MIT).
-    // Where the band is under two pixels the sample comes from a mipmap, whose averaged channels
-    // break the median at corners, so fade to the alpha channel's true distance (MTSDF).
-    vec2 unitRange = vec2(pxRange) / vec2(textureSize(innerTexture, 0));
+    // Where the band is under two pixels the averaged channels break the median at corners too, so
+    // fade to the alpha channel's true distance (MTSDF).
+    vec2 unitRange = vec2(pxRange) / texels;
     float screenPxRange = 0.5 * dot(unitRange, vec2(1.0) / fwidth(textureCoord));
     float distance = mix(smp.a, sigDist, clamp(screenPxRange - 1.0, 0.0, 1.0));
     float opacity = clamp(max(screenPxRange, 1.0) * (distance - edgeDist) + 0.5, 0.0, 1.0);

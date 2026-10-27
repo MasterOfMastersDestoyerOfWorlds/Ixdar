@@ -30,6 +30,12 @@ public class SDFTexture extends ShaderDrawable {
     private float pxRange = 4.0f;
 
     /**
+     * Coarsest mipmap level the shader reads the distance channels from; an atlas sets the level
+     * its glyph padding keeps inside each glyph's cell. Unclamped by default.
+     */
+    private float medianMaxMipLevel = 1000f;
+
+    /**
      * Base edge sharpness (like SDFLine's max of 0.1). Controls the transition
      * width for anti-aliasing. Smaller values = sharper edges, larger values =
      * softer/more anti-aliased. Default 0.1 matches SDFLine's maximum for
@@ -145,6 +151,7 @@ public class SDFTexture extends ShaderDrawable {
         drawnBorderOuter = borderOuter;
         shader.setBool("sharpCorners", sharpCorners);
         shader.setFloat("pxRange", pxRange);
+        shader.setFloat("medianMaxLod", medianMaxMipLevel);
         shader.setFloat("edgeDist", edgeDist);
         float scaleFactor = camera != null ? camera.getScaleFactor() : 1.0f;
         float edgeSharpness = Math.max(baseEdgeSharpness / Math.max(scaleFactor, MIN_SCALE_FACTOR), MIN_EDGE_SHARPNESS);
@@ -177,6 +184,15 @@ public class SDFTexture extends ShaderDrawable {
      */
     public void setPxRange(float pxRange) {
         this.pxRange = pxRange;
+    }
+
+    /**
+     * Set the coarsest mipmap level the distance channels are read from.
+     *
+     * @param medianMaxMipLevel mipmap level, 0 the full-resolution image
+     */
+    public void setMedianMaxMipLevel(float medianMaxMipLevel) {
+        this.medianMaxMipLevel = medianMaxMipLevel;
     }
 
     /**
