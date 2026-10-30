@@ -1,0 +1,14 @@
+# A map the generator lays out: home is the only fixed city; the others and the towns are scattered.
+TITLE 6: Open country
+GOAL A generated map. Earn what you can in 12 laps.
+LAPS 12
+MEDALS 950 1500 2200
+MAP 101 900 600 12
+TOWNS 32
+CITIES 8
+MOOR 650 450 70 45
+RIVER 470 -20 455 160 480 330 460 620
+BRIDGE 465 120
+BRIDGE 470 460
+CITY Home 150 300 0 0
+COMPANY You player Home 420 60

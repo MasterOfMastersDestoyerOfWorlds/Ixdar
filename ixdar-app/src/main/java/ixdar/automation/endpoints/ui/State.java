@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
+import org.joml.Vector2f;
 import org.joml.Vector3f;
 
 import com.google.gson.JsonArray;
@@ -22,9 +23,10 @@ import ixdar.audio.AudioSystem;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.endpoints.mesh.Fingerprint;
 import ixdar.canvas.IxdarWindow;
-import ixdar.game.City;
-import ixdar.game.CityNetwork;
-import ixdar.game.TradeGame;
+import ixdar.game.trade.TradeGame;
+import ixdar.game.trade.map.City;
+import ixdar.game.trade.map.Place;
+import ixdar.game.trade.routes.GrowTarget;
 import ixdar.geometry.grid2d.IrregularQuadGrid;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.labels.MeshLabels;
@@ -33,7 +35,6 @@ import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.tsp.PointSetPath;
-import ixdar.graphics.cameras.Camera;
 import ixdar.gui.ui.ErrorToasts;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.menu.MenuItem;
@@ -134,6 +135,25 @@ public class State extends AutomationEndpoint implements AutomationRoute {
     public static final String IDLE_ROUTE_STATE = "IDLE";
 
     public static final String SCROLL_BOX = "scroll_box";
+    public static final String ERROR_TOASTS = "errorToasts";
+
+    /**
+     * A scene's shown refusals, newest first, each with the tool that raised it and how faded it is.
+     *
+     * @param toasts the scene's error toasts
+     * @return one row per shown refusal
+     */
+    private static JsonArray toastRows(ErrorToasts toasts) {
+        JsonArray rows = new JsonArray();
+        for (int toast = 0; toast < toasts.messages.size(); toast++) {
+            JsonObject row = new JsonObject();
+            row.addProperty(SOURCE, toasts.sources.get(toast));
+            row.addProperty("message", toasts.messages.get(toast));
+            row.addProperty("opacity", toasts.colors.get(toast).toVector4f().w);
+            rows.add(row);
+        }
+        return rows;
+    }
 
     /**
      * A packed position list as a JSON array, each value at single precision.
@@ -374,68 +394,53 @@ public class State extends AutomationEndpoint implements AutomationRoute {
         String sceneId = IxdarWindow.getCanvasId();
         root.addProperty("sceneId", sceneId == null ? "" : sceneId);
         root.addProperty("sceneClass", scene == null ? "" : scene.getClass().getSimpleName());
-        CityNetwork network = scene == null ? null : (CityNetwork) scene.dataset(Subsystem.TRADE);
+        TradeGame tradeGame = scene == null ? null : (TradeGame) scene.dataset(Subsystem.TRADE);
         PointSetPath knot = scene == null ? null : (PointSetPath) scene.dataset(Subsystem.KNOT);
         IrregularQuadGrid grid = scene == null ? null : (IrregularQuadGrid) scene.dataset(Subsystem.GRID);
-        root.addProperty(MODE, network != null ? TRADE : knot != null ? "main" : "menu");
+        root.addProperty(MODE, tradeGame != null ? TRADE : knot != null ? "main" : "menu");
         JsonObject trade = new JsonObject();
-        trade.addProperty(ACTIVE, network != null && scene.activeTool != null);
-        if (network != null && scene.activeTool != null) {
+        trade.addProperty(ACTIVE, tradeGame != null && scene.activeTool != null);
+        if (tradeGame != null && scene.activeTool != null && scene instanceof TradeScene game) {
             Tool tool = scene.activeTool;
             trade.addProperty(ACTIVE_TOOL, tool.displayName());
             EditHistory<?> history = tool.history();
-            if (history != null) {
-                // The route tool's state under the trade block's older names, read off the shape
-                // every tool shares: its draft is the operation, labelled by its state.
-                Draft draft = tool.draft();
-                trade.addProperty("routeMode", tool.modes[tool.mode]);
-                trade.addProperty("routeState", draft == null ? IDLE_ROUTE_STATE : draft.label);
-                trade.addProperty("selectedCityA",
-                        draft == null || draft.pointLabels.length < 1 ? "" : draft.pointLabels[0]);
-                trade.addProperty("selectedCityB",
-                        draft == null || draft.pointLabels.length < 2 ? "" : draft.pointLabels[1]);
-                trade.addProperty("hasRoute", !tool.items().isEmpty());
-                trade.addProperty("routeSegmentCount", tool.items().size());
-                trade.addProperty("canUndo", history.undoDepth > 0);
-                trade.addProperty("canRedo", history.redoDepth() > 0);
-                trade.addProperty("inPreview", draft != null && draft.valid);
+            Draft draft = tool.draft();
+            trade.addProperty("routeState", draft == null ? IDLE_ROUTE_STATE : draft.label);
+            trade.addProperty("pendingPlace", draft == null ? "" : draft.pointLabels[0]);
+            trade.addProperty("routeSegmentCount", tool.items().size());
+            trade.addProperty("canUndo", history != null && history.undoDepth > 0);
+            trade.addProperty("canRedo", history != null && history.redoDepth() > 0);
+            trade.addProperty("layer", game.layer);
+            trade.addProperty("deepestLayer", tradeGame.network.deepestLayer());
+            trade.addProperty("level", tradeGame.level.title);
+            trade.addProperty("lap", tradeGame.lap);
+            trade.addProperty("gold", tradeGame.player.gold);
+            trade.addProperty("rivalGold", tradeGame.rival == null ? 0 : tradeGame.rival.gold);
+            trade.addProperty("share", tradeGame.share(tradeGame.player));
+            trade.addProperty("outcome", tradeGame.outcome.name());
+            trade.addProperty("loops", tradeGame.player.loops.size());
+            trade.addProperty("selectedPlace", game.selectedPlace == null ? "" : game.selectedPlace.name);
+            trade.addProperty("hoveredPlace", game.hoveredPlace == null ? "" : game.hoveredPlace.name);
+            trade.addProperty("mapMode", game.mapMode.name());
+            trade.add(ERROR_TOASTS, toastRows(game.errorToasts));
+            JsonArray targets = new JsonArray();
+            for (GrowTarget target : game.growTool.targets()) {
+                targets.add(target.place().name);
             }
-            City headquarters = network.headquartersCity;
-            trade.addProperty("headquartersCity", headquarters == null ? "" : headquarters.name);
-            if (network.grid != null) {
-                trade.addProperty("gridType", network.grid.getClass().getSimpleName());
+            trade.add("growTargets", targets);
+            JsonArray places = new JsonArray();
+            for (Place place : tradeGame.map.places) {
+                JsonObject placeState = new JsonObject();
+                Vector2f pixel = game.placePixel(place);
+                placeState.addProperty(NAME, place.name);
+                placeState.addProperty("market", place.hasMarket());
+                placeState.addProperty(XPX, pixel.x);
+                placeState.addProperty(YPX, pixel.y);
+                placeState.addProperty("facility",
+                        place instanceof City city ? city.facility(tradeGame.player).name() : "");
+                places.add(placeState);
             }
-            if (grid != null) {
-                trade.addProperty("gridSeed", grid.seed());
-                trade.addProperty("gridRelaxIterations", grid.relaxIterations());
-                trade.addProperty("gridRows", grid.rows());
-                trade.addProperty("gridCols", grid.cols());
-                trade.addProperty("gridAnchorCount", grid.anchorCount());
-            }
-            Camera camera = scene.mouse.camera;
-            JsonArray cities = new JsonArray();
-            for (City city : network.cities) {
-                JsonObject cityState = new JsonObject();
-                cityState.addProperty(NAME, city.name);
-                cityState.addProperty("xWorld", city.getX());
-                cityState.addProperty("yWorld", city.getY());
-                cityState.addProperty(XPX, camera.pointTransformX(city.getX()));
-                cityState.addProperty(YPX, camera.pointTransformY(city.getY()));
-                cities.add(cityState);
-            }
-            trade.add("cities", cities);
-            if (scene instanceof TradeScene game && game.game != null) {
-                trade.addProperty("level", game.game.level.title);
-                trade.addProperty("lap", game.game.lap);
-                trade.addProperty("gold", game.game.gold[TradeGame.PLAYER]);
-                trade.addProperty("rivalGold", game.game.gold[TradeGame.RIVAL]);
-                trade.addProperty("share", game.game.playerShare());
-                trade.addProperty("outcome", game.game.outcome);
-                trade.addProperty("loops", game.game.loopCities.size());
-                trade.addProperty("selectedCity", game.selectedCity < 0 ? "" : game.game.level.cityNames[game.selectedCity]);
-                trade.addProperty("hoveredCity", game.hoveredCity == null ? "" : game.hoveredCity.name);
-                trade.addProperty("status", game.status);
-            }
+            trade.add("places", places);
         }
         root.add(TRADE, trade);
         if (grid != null) {
@@ -525,16 +530,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 joined.addProperty("girthMillis", connection.girthMillis);
                 root.add("connection", joined);
             }
-            ErrorToasts toasts = regionLayer.scene.errorToasts;
-            JsonArray toastRows = new JsonArray();
-            for (int toast = 0; toast < toasts.messages.size(); toast++) {
-                JsonObject row = new JsonObject();
-                row.addProperty(SOURCE, toasts.sources.get(toast));
-                row.addProperty("message", toasts.messages.get(toast));
-                row.addProperty("opacity", toasts.colors.get(toast).toVector4f().w);
-                toastRows.add(row);
-            }
-            root.add("errorToasts", toastRows);
+            root.add(ERROR_TOASTS, toastRows(regionLayer.scene.errorToasts));
             JsonObject regions = new JsonObject();
             regions.addProperty("regionCount",
                     regionLayer.regions == null ? 0 : regionLayer.regions.regionCount);
@@ -687,7 +683,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             root.add("menuScroll", menuScroll);
         }
         if (scene != null && scene.toolTip != null && scene.showToolTip) {
-            textElements.add(textElement(network != null ? "trade_tooltip" : "tooltip",
+            textElements.add(textElement(tradeGame != null ? "trade_tooltip" : "tooltip",
                     Scene.VIEW_TOOLTIP, scene.toolTip, 0));
         }
         root.add("textElements", textElements);

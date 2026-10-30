@@ -376,11 +376,11 @@
     },
     {
       "type": "java",
-      "name": "Trade Game: Rival Level",
+      "name": "Trade Game: Blood War",
       "request": "launch",
       "mainClass": "ixdar.canvas.IxdarWindow",
       "projectName": "ixdar-app",
-      "args": "trade-rival-level",
+      "args": "trade-blood-war",
       "vmArgs": "${config:java.profiler.args} -XX:ErrorFile=target/hs_err_pid%p.log -enableassertions -XX:+IgnoreUnrecognizedVMOptions -XstartOnFirstThread -Dsun.awt.noerasebackground=true -Dorg.lwjgl.util.DebugLoader=true",
       "cwd": "${workspaceFolder}/ixdar-app"
     }

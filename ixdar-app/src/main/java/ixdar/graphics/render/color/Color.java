@@ -249,6 +249,21 @@ public interface Color {
     }
 
     /**
+     * This colour at some opacity laid over an opaque background, as one opaque colour, so shapes that
+     * overlap draw at a uniform shade instead of stacking their alpha.
+     *
+     * @param opacity    how much of this colour shows, in [0, 1]
+     * @param background the colour underneath
+     * @return new opaque color
+     */
+    public default Color flattenedOnto(float opacity, Color background) {
+        Vector4f top = toVector4f();
+        Vector4f under = background.toVector4f();
+        return new ColorRGB(top.x * opacity + under.x * (1 - opacity), top.y * opacity + under.y * (1 - opacity),
+                top.z * opacity + under.z * (1 - opacity), 1f);
+    }
+
+    /**
      * This colour with its RGB channels scaled, darker for a factor below one.
      *
      * @param factor multiplier applied to red, green and blue; alpha is kept

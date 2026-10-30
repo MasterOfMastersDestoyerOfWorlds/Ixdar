@@ -1,0 +1,13 @@
+# Tutorial 1: one out-and-back loop and a station.
+TITLE 1: First blood
+GOAL Pipe from your headquarters to Ashby and back, buy a station there, then end the lap.
+LAPS 6
+MEDALS 400 650 900
+MAP 11 780 520 9
+TOWNS 16
+MOOR 560 160 60 40
+CITY Home 250 260 0 0
+CITY Ashby 400 180 40 3.6
+CITY Bramford 470 330 45 3.4
+CITY Cobham 330 380 30 3.8
+COMPANY You player Home 160 60

@@ -422,7 +422,7 @@ public class DslGraphView extends Tool {
         if (layout != null) {
             Palette palette = scene.palette;
             Color[] timeShare = palette.timeShare;
-            float pixelsPerUnit = camera.width / camera.rangeX;
+            float pixelsPerUnit = camera.screenSize(1f);
             for (int group = layout.groupCount - 1; group >= 0; group--) {
                 box.draw(camera.pointTransformX(layout.groupFrameX[group]),
                         camera.pointTransformY(layout.groupFrameY[group]),
@@ -488,13 +488,13 @@ public class DslGraphView extends Tool {
                         camera.pointTransformY(layout.textCenterY[text]));
             }
             Drawing.getDrawing().font.drawHyperStrings(texts, textPositions,
-                    DslGraphLayout.TEXT_HEIGHT * pixelsPerUnit, camera);
+                    camera.screenSize(DslGraphLayout.TEXT_HEIGHT), camera);
             int node = hotspot < 0 ? -1 : layout.nodeIndex(hotspotPaths[hotspot]);
             if (node >= 0) {
                 hotspotLabelPosition.get(0).set(camera.pointTransformX(layout.boxX[node] + layout.boxWidth[node] / 2),
                         camera.pointTransformY(layout.boxY[node] + layout.boxHeight[node] + DslGraphLayout.TEXT_HEIGHT));
                 Drawing.getDrawing().font.drawHyperStrings(hotspotLabel, hotspotLabelPosition,
-                        DslGraphLayout.TEXT_HEIGHT * pixelsPerUnit, camera);
+                        camera.screenSize(DslGraphLayout.TEXT_HEIGHT), camera);
             }
             scroll.drawBars();
             camera.updateView(Scene.DEFAULT_VIEW);

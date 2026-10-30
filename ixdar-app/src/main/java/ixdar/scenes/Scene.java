@@ -216,12 +216,13 @@ public abstract class Scene extends SceneDrawable {
     /**
      * Play a one-shot sound effect; no-op on a platform without audio.
      *
-     * @param path asset path of the effect, one of the {@link AudioAssets} constants
+     * @param path  asset path of the effect, one of the {@link AudioAssets} constants
+     * @param pitch playback rate, 1 for as recorded
      */
-    public static void audioPlaySfx(String path) {
+    public static void audioPlaySfx(String path, float pitch) {
         AudioBackend audio = Platforms.get().audio();
         if (audio != null) {
-            audio.playSfxOnce(path);
+            audio.playSfxOnce(path, pitch);
         }
     }
 

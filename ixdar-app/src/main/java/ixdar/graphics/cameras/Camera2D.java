@@ -24,7 +24,8 @@ public class Camera2D implements Camera {
     public static final int DEFAULT_BOUND_MIN = -10;
     public static final int DEFAULT_BOUND_MAX = 10;
     public static final double MIN_SCALE = 0.1;
-    public static final float WHEEL_NOTCH_SCALE = 100f;
+    public static final double ZOOM_PER_SCROLL_UNIT = 1.15;
+    public static final double HELD_ZOOM_NOTCHES_PER_SECOND = 8;
     public static final String UNNAMED_VIEW = "CAMERA_2D";
 
     public float ZOOM_SPEED = 1f;
@@ -425,6 +426,17 @@ public class Camera2D implements Camera {
     }
 
     /**
+     * How many screen pixels a length in point space covers at the current pan and zoom, as
+     * {@link #pointTransformX(float)} scales it: the one way to size text or strokes given in world units.
+     *
+     * @param worldSize a length in point-space units, such as a label's height
+     * @return its length in screen pixels
+     */
+    public float screenSize(float worldSize) {
+        return worldSize * width / rangeX;
+    }
+
+    /**
      * Double-precision overload of {@link #pointTransformX(float)}.
      *
      * @param x point-space x coordinate
@@ -577,15 +589,16 @@ public class Camera2D implements Camera {
 
     /**
      * A held zoom key's frame: {@link #zoomAbout} the view's centre, in when {@code b} is true and
-     * out otherwise, by {@link #ZOOM_SPEED} times the shift multiplier per notch.
+     * out otherwise, as fast as a wheel turned {@link #HELD_ZOOM_NOTCHES_PER_SECOND} notches a second
+     * with Control held, times {@link #ZOOM_SPEED} and the shift multiplier.
      *
      * @param b true for zoom-in, false for zoom-out
-     * @param delta zoom magnitude in hundredths of a notch
+     * @param delta the frame's length in seconds
      */
     @Override
     public void onScroll(boolean b, double delta) {
-        float step = ZOOM_SPEED * SHIFT_MOD * (float) delta / WHEEL_NOTCH_SCALE;
-        zoomAbout(b ? 1 + step : 1 - step, ScreenWidth / 2, ScreenHeight / 2);
+        double notches = HELD_ZOOM_NOTCHES_PER_SECOND * ZOOM_SPEED * SHIFT_MOD * delta;
+        zoomAbout(Math.pow(ZOOM_PER_SCROLL_UNIT, b ? notches : -notches), ScreenWidth / 2, ScreenHeight / 2);
     }
 
     /**

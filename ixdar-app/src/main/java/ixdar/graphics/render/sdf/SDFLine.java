@@ -274,16 +274,21 @@ public class SDFLine extends ShaderDrawable {
     public void calculateQuad() {
         culled = false;
         if (culling) {
-            boolean containsA = camera.contains(pA);
-            boolean containsB = camera.contains(pB);
+            // Clip to the viewport grown by the stroke's reach (the same margin the quad below adds), so a
+            // moved end and its cap land off screen; clipping at the screen edge itself left a thick line's
+            // rounded end visible wherever it crossed the edge at an angle.
+            float reach = lineWidth * 2;
+            float low = -reach;
+            float width = camera.getWidth() + reach;
+            float height = camera.getHeight() + reach;
+            boolean containsA = pA.x >= low && pA.x <= width && pA.y >= low && pA.y <= height;
+            boolean containsB = pB.x >= low && pB.x <= width && pB.y >= low && pB.y <= height;
             if (!containsA || !containsB) {
                 // Test square intersection
-                float width = camera.getWidth();
-                float height = camera.getHeight();
-                Vector2f botLeft = new Vector2f(0, 0);
-                Vector2f topLeft = new Vector2f(0, height);
+                Vector2f botLeft = new Vector2f(low, low);
+                Vector2f topLeft = new Vector2f(low, height);
                 Vector2f topRight = new Vector2f(width, height);
-                Vector2f botRight = new Vector2f(width, 0);
+                Vector2f botRight = new Vector2f(width, low);
                 Pair<Boolean, Vector2f> right = get_line_intersection(pA, pB, topRight, botRight);
                 Pair<Boolean, Vector2f> left = get_line_intersection(pA, pB, topLeft, botLeft);
                 Pair<Boolean, Vector2f> up = get_line_intersection(pA, pB, topLeft, topRight);
@@ -311,7 +316,7 @@ public class SDFLine extends ShaderDrawable {
                     } else {
                         pA = left.getSecond();
                         pB = new Vector2f(pA).add(dir);
-                        if (pB.x < 0) {
+                        if (pB.x < low) {
                             pB = new Vector2f(pA).add(dir.negate());
                         }
                     }
@@ -336,7 +341,7 @@ public class SDFLine extends ShaderDrawable {
                     } else {
                         pA = down.getSecond();
                         pB = new Vector2f(pA).add(dir);
-                        if (pB.y < 0) {
+                        if (pB.y < low) {
                             pB = new Vector2f(pA).add(dir.negate());
                         }
                     }

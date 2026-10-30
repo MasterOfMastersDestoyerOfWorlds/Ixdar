@@ -156,7 +156,11 @@ commas between test names, never `+`.
 - **ixdar.automation.endpoints.ui.tools**: Endpoints that list the scene's tools and fire their control rows.
 - **ixdar.canvas**: Bootstrap layer. `IxdarWindow` (desktop main: GL on a dedicated render thread, GLFW polling on the main thread, headless mode via `ixdar.headless`), `WebLauncher` (TeaVM main) and `CanvasSceneMap` (the scene registry plus the hand-registered `ixdar-canvas` id).
 - **ixdar.devtools**: Build-time exporters and developer command lines (named apart from the edit-tool `tools`). `ExportAutomationRoutes` and `SpliceArchitectureDoc` run every compile; `ValidateDsl` and `PatchDecomposerCLI` run by hand.
-- **ixdar.game**: Trade-game domain model: `City`, `Road`, and `CityNetwork` (the cities and the player's `Knot` loops over them); the MVP's `TradeMap` (terrain on the irregular grid's dual graph), `TradeMarket` (merit-order clearing), `TradeLevel` (the campaign) and `TradeGame` (loops, economy and laps).
+- **ixdar.game.trade**: The blood trade game: `TradeGame` ties a level's map, companies, route network and economy together and decides the level's outcome.
+- **ixdar.game.trade.economy**: The lap economy: companies, their loops and offers, merit-order markets, tuning rules and settlement.
+- **ixdar.game.trade.level**: Trade levels: the `.ix` level files under `resources/trade/`, and the generator that builds a map from one.
+- **ixdar.game.trade.map**: The trade map on an irregular grid: places (cities with markets, towns without), roads and rivers as grid paths, bridges built from a river side, and moor.
+- **ixdar.game.trade.routes**: Routes: the leg between every pair of places, and the player's loops as a layered knot hierarchy edited by Pipe, Grow and Collapse with snapshot undo.
 - **ixdar.geometry**: Split point between disjoint bodies of geometry code: `mesh` (the current node-graph stack), `tsp` (the knot/cuts/shell lineage and its `.ix` file format) and `grid2d` (the 2D grids). Nothing under `mesh` imports `tsp`.
 - **ixdar.geometry.grid2d**: 2D grids: `Grid` (cartesian and hex, which decide the point types a `.ix` file may hold), `IrregularQuadGrid`, and `IrregularQuadLayoutGenerator` (Townscaper-style quad layouts). The two irregular grids are still separate classes.
 - **ixdar.geometry.mesh**: The mesh subsystem root: mesh data structures and the quad-layout pipeline. Subpackages hold the parts; this level has shared engines like subdivision and boolean backends.
@@ -271,7 +275,9 @@ commas between test names, never `+`.
 - **ixdar.scenes.mesh**: Mesh-centric scenes: the node viewer (`MeshNodeViewerScene`, also the web entry scene) and `MeshBooleanScene`. Both execute .dsl graphs and log node timings.
 - **ixdar.scenes.model**: `ModelScene`: the base class of the scenes that view a switchable model from the `ixdar.models` catalogue, with the ESC model menu, the shared orbit input and the load plumbing.
 - **ixdar.scenes.ring**: Ring authoring: `RingScene` (scene id `ring-tool`) is the mesh editing scene hosting the orbit, ring, region and connection `Tool`s of `ixdar.tools` and the region colour layer, plus the `ring` command's waypoints and the numbered ring overlay.
-- **ixdar.scenes.trade**: `TradeScene`: the trade game's map, loops and HUD over a `TradeGame`, swapped in by the menu's Start New Game; `TradeRivalLevelScene` opens it straight on the rival level.
+- **ixdar.scenes.trade**: `TradeScene`: the trade game's map, lanes and separate HUD panels (`hud`) over a `TradeGame`, drawn by the grid, path and lap renderers (`render`); `TradeBloodWarScene` and `TradeGeneratedScene` open it straight on one level.
+- **ixdar.scenes.trade.hud**: The trade HUD as separate panels: `TopBar`, `PlacePanel` (only while a place is selected), `LoopListPanel`, the `Toolbar` of grouped menus and `OutcomeDialog`, all drawn with the `Hud` kit, whose buttons are the main menu's `MenuButton`. Refusals go to the scene's `ErrorToasts`, as in every other scene.
+- **ixdar.scenes.trade.render**: Trade map rendering: `GridRenderer` (every cell side, zoom-scaled, and cell fills), `PathRenderer` (rivers, roads, bridges, curved lanes with chevrons, places) and `LapAnimation` (wagons and gold).
 - **ixdar.tools**: Tools a scene hosts, 3D and 2D alike: the `Tool` interface (one active tool owns the clicks, drags and tool keys), the `ControlHint` rows that map a key to a function, and `EditHistory`, the undo stack the ring and route-planning tools keep. Each tool family lives in a subpackage.
 - **ixdar.tools.connection**: Hidden connections: `ConnectionTool` is the `ring-tool` editing scene's tool that shows how two picked places of the surface are joined and offers the neck between them as a ring to edit.
 - **ixdar.tools.graph**: The DSL graph view: a ran DSL's statements laid out left to right by dependency depth as rounded boxes joined by bezier arrows, each box carrying its run time, toggled over any model scene that ran a graph.
@@ -279,5 +285,5 @@ commas between test names, never `+`.
 - **ixdar.tools.orbit**: `OrbitTool`: the look-only tool every model scene opens with; the mouse orbits, pans and zooms the camera and nothing is edited.
 - **ixdar.tools.regions**: Ring regions of the `ring-tool` editing scene: `RegionLayer` shows the regions `RingRegions` builds and colours from the ring tool's rings, with their part names as labels, and `RingRegionTool` (the region tool) selects regions by click and Shift+click and extracts them.
 - **ixdar.tools.ring**: The ring tool of the `ring-tool` editing scene: `RingTool` previews, drafts and confirms rings from authored anchors, `RingToolState` is its undoable snapshot, and `RingDslWriter` appends each ring to the working .dsl graph as one statement.
-- **ixdar.tools.trade**: Trade-game tools on the merged `Tool`: `RoutePlanningTool`, which edits the game's loops as knots.
+- **ixdar.tools.trade**: Trade-game route tools on the merged `Tool`: `PipeTool`, `GrowTool` and `CollapseTool`, sharing `TradeRouteTool`'s layer steps, selection and undo.
 <!-- package-map:end -->

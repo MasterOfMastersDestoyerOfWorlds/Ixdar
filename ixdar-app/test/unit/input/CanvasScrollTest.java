@@ -194,7 +194,7 @@ class CanvasScrollTest {
             canvas.onScrollDelta(0, ZOOM_DELTA / PINCH_STEPS, CURSOR_X, CURSOR_Y, KeyNames.MOD_CONTROL);
         }
         camera.calculateCameraTransform(camera.ps);
-        assertEquals(scale * Math.pow(CanvasScroll.ZOOM_PER_SCROLL_UNIT, ZOOM_DELTA), camera.ScaleFactor, EPSILON);
+        assertEquals(scale * Math.pow(Camera2D.ZOOM_PER_SCROLL_UNIT, ZOOM_DELTA), camera.ScaleFactor, EPSILON);
         assertEquals(viewX, camera.pointTransformX(pointX), ZOOM_TOLERANCE,
                 "a pinch's many steps keep the cursor's point in x");
         assertEquals(viewY, camera.pointTransformY(pointY), ZOOM_TOLERANCE, "and in y");

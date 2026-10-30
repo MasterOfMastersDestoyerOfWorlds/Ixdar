@@ -11,12 +11,9 @@ import ixdar.graphics.render.shaders.ShaderProgram.ShaderType;
  * of its own colour along the inside of its edge. Distances are measured in radii.
  */
 public class SDFCircle extends ShaderDrawable {
-    public static final float DEFAULT_EDGE_SHARPNESS = 0.5f;
-
     public final Vector2f circleCenter = new Vector2f();
     public float radius;
     public float edgeDist = 1f;
-    public float edgeSharpness = DEFAULT_EDGE_SHARPNESS;
     public float borderThickness;
     public Color borderColor = Color.TRANSPARENT;
 
@@ -69,14 +66,13 @@ public class SDFCircle extends ShaderDrawable {
     }
 
     /**
-     * Push the center, radius, zoom-adjusted edge sharpness and border band uniforms.
+     * Push the center, radius, edge and border band uniforms; the shader ramps the edge over one pixel.
      */
     @Override
     protected void setUniforms() {
         shader.setVec2("pointA", circleCenter);
         shader.setFloat("radius", radius);
         shader.setFloat("edgeDist", edgeDist);
-        shader.setFloat("edgeSharpness", edgeSharpness / camera.getScaleFactor());
         shader.setFloat("borderThickness", borderThickness);
         shader.setVec4("borderColor", borderColor.toVector4f());
     }

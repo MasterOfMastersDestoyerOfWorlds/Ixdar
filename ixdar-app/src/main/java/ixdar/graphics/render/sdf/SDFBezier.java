@@ -97,17 +97,16 @@ public class SDFBezier extends ShaderDrawable {
         topRight = maRot;
         topLeft = b;
 
-        Vector2f uDirection = new Vector2f(bottomRight).sub(bottomLeft);
-        if (uDirection.lengthSquared() > 0) {
-            uDirection.normalize();
-        } else {
-            uDirection.set(normalizedDirB);
+        // The box is oriented along the chord, so its axes are the chord and its perpendicular. Taking them
+        // from the corners instead fails on a straight piece: the box has no height, the "up" edge is
+        // rounding noise pointing anywhere, and the quad collapses to a sliver that moves as the map pans.
+        Vector2f uDirection = new Vector2f(normalizedDirB);
+        if (new Vector2f(bottomRight).sub(bottomLeft).dot(uDirection) < 0) {
+            uDirection.negate();
         }
-        Vector2f vDirection = new Vector2f(topLeft).sub(bottomLeft);
-        if (vDirection.lengthSquared() > 0) {
-            vDirection.normalize();
-        } else {
-            vDirection.set(-uDirection.y, uDirection.x);
+        Vector2f vDirection = new Vector2f(-uDirection.y, uDirection.x);
+        if (new Vector2f(topLeft).sub(bottomLeft).dot(vDirection) < 0) {
+            vDirection.negate();
         }
 
         float margin = lineWidth * STROKE_MARGIN_PER_WIDTH;

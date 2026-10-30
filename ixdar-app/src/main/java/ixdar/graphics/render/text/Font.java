@@ -239,12 +239,12 @@ public class Font {
     public void drawHyperString(HyperString hyperString, float x, float y, float height, Camera2D camera) {
         hyperString.setLineOffsetCentered(camera, x, y, this, height, 0);
         sdfTexture.setup(camera);
+        ArrayList<HyperWord> words = new ArrayList<>();
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             hyperString.draw();
-            for (HyperWord word : hyperString.getLine(lineNumber)) {
-                drawWord(word, height, camera);
-            }
+            words.addAll(hyperString.getLine(lineNumber));
         }
+        drawWords(words, height, camera);
         sdfTexture.cleanup(camera);
     }
 
@@ -280,6 +280,7 @@ public class Font {
             return;
         }
         sdfTexture.setup(camera);
+        ArrayList<HyperWord> words = new ArrayList<>();
         for (HyperString hyperString : hyperStrings) {
             hyperString.layoutAtAnchor(camera, height);
             if (!hyperString.shown) {
@@ -287,11 +288,10 @@ public class Font {
             }
             hyperString.draw();
             for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
-                for (HyperWord word : hyperString.getLine(lineNumber)) {
-                    drawWord(word, height, camera);
-                }
+                words.addAll(hyperString.getLine(lineNumber));
             }
         }
+        drawWords(words, height, camera);
         sdfTexture.cleanup(camera);
     }
 
@@ -315,28 +315,43 @@ public class Font {
         sdfTexture.setup(camera);
         hyperString.setLineOffsetFromTopRow(camera, row, scrollOffsetY, height);
         hyperString.draw();
+        ArrayList<HyperWord> words = new ArrayList<>();
         for (int lineNumber = 0; lineNumber < hyperString.lines; lineNumber++) {
             for (HyperWord word : hyperString.getLine(lineNumber)) {
                 if (!word.culled && !word.newLine) {
-                    drawWord(word, height, camera);
+                    words.add(word);
                 }
             }
         }
+        drawWords(words, height, camera);
         sdfTexture.cleanup(camera);
     }
 
     /**
-     * Draw one laid-out word, or each sub-word of a dynamic one, in its own style: its fill colour
-     * and the border band it asks for, inside a shader pass already set up.
+     * Draw laid-out words in a pass already set up. If any is outlined, draw all outlines first, then all
+     * fills, so no outline lands on a neighbouring glyph's fill.
      *
-     * @param word   the word, laid out
+     * @param words  the words, laid out
      * @param height row height in pixels
      * @param camera camera providing the z-index
      */
-    private void drawWord(HyperWord word, float height, Camera camera) {
-        for (HyperWord part : word.subWords != null ? word.subWords : List.of(word)) {
-            sdfTexture.setWordBorder(part.borderColor, part.borderPixels);
-            drawTextNoSetup(part.text, part.x, part.y, height, part.color, camera);
+    private void drawWords(List<HyperWord> words, float height, Camera camera) {
+        ArrayList<HyperWord> parts = new ArrayList<>();
+        boolean outlined = false;
+        for (HyperWord word : words) {
+            for (HyperWord part : word.subWords != null ? word.subWords : List.of(word)) {
+                parts.add(part);
+                outlined |= part.borderPixels > 0 && part.borderColor.toVector4f().w > 0;
+            }
+        }
+        int[] layers = outlined ? new int[] { SDFTexture.LAYER_BORDER_ONLY, SDFTexture.LAYER_FILL_ONLY }
+                : new int[] { SDFTexture.LAYER_FILL_OVER_BORDER };
+        for (int layer : layers) {
+            sdfTexture.setLayer(layer);
+            for (HyperWord part : parts) {
+                sdfTexture.setWordBorder(part.borderColor, part.borderPixels);
+                drawTextNoSetup(part.text, part.x, part.y, height, part.color, camera);
+            }
         }
     }
 

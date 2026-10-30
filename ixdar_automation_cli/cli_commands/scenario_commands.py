@@ -33,7 +33,7 @@ def _scan_trade_toolbar_tooltip(
     trade = state.get("trade", {})
     city_clicks: list[tuple[float, float]] = []
     if isinstance(trade, dict):
-        for city in trade.get("cities", []):
+        for city in trade.get("places", []):
             x_value = city.get("xPx")
             y_value = city.get("yPx")
             if x_value is None or y_value is None:

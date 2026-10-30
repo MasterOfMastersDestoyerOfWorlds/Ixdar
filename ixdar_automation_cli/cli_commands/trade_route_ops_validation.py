@@ -23,7 +23,7 @@ def run_validation(client: AutomationClient) -> tuple[int, dict]:
         state = client.call("ui-state")
         require(state.get("mode") == "trade", "Did not enter trade scene")
         trade = state.get("trade", {})
-        cities = trade.get("cities", [])
+        cities = [place for place in trade.get("places", []) if place.get("market")]
         require(len(cities) >= 3, "Need at least 3 cities for route operations validation")
         report["steps"].append({"enter_trade": "ok", "cities": len(cities)})
 

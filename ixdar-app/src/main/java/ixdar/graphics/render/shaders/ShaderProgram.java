@@ -1122,7 +1122,11 @@ public abstract class ShaderProgram {
 
         MeshCrossField(MeshShader.class, "mesh_cross_field.vs", "mesh_cross_field.fs"),
 
-        BezierSDF(SDFShader.class, FONT_VS, "sdf_bezier.fs");
+        BezierSDF(SDFShader.class, FONT_VS, "sdf_bezier.fs"),
+
+        LaneSDF(SDFShader.class, FONT_VS, "sdf_lane.fs"),
+
+        PolygonSDF(SDFShader.class, FONT_VS, "sdf_polygon.fs");
 
         public String vertexShaderLocation;
         public String fragmentShaderLocation;

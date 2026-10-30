@@ -26,11 +26,12 @@ public interface AudioBackend {
     void pauseMenuMusic();
 
     /**
-     * Play a one-shot sound effect.
+     * Play a one-shot sound effect at a pitch; above 1 plays it higher and shorter.
      *
      * @param relativeAssetPath asset path of a WAV file, one of the {@link AudioAssets} constants
+     * @param pitch             playback rate, 1 for as recorded
      */
-    void playSfxOnce(String relativeAssetPath);
+    void playSfxOnce(String relativeAssetPath, float pitch);
 
     /**
      * Release every source and buffer and close the device; safe to call repeatedly.

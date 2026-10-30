@@ -14,6 +14,12 @@ uniform float borderOffsetInner;
 uniform float borderOffsetOuter;
 
 uniform vec4 borderColor;
+// Which part of each glyph to draw. An outlined batch is drawn as LAYER_BORDER_ONLY then LAYER_FILL_ONLY,
+// so no glyph's band lands on a neighbour's fill; SDFTexture holds the same values.
+#define LAYER_FILL_OVER_BORDER 0
+#define LAYER_BORDER_ONLY 1
+#define LAYER_FILL_ONLY 2
+uniform int layer;
 
 uniform sampler2D innerTexture;
 
@@ -54,6 +60,14 @@ void main() {
     float outsidePixels = max(screenPxRange, 1.0) * (edgeDist - smp.a);
     float band = clamp(borderOuter - outsidePixels + 0.5, 0.0, 1.0)
             * clamp(outsidePixels - borderInner + 0.5, 0.0, 1.0);
+    if (layer == LAYER_FILL_ONLY) {
+        fragColor = vec4(vertexColor.rgb, fillAlpha);
+        return;
+    }
+    if (layer == LAYER_BORDER_ONLY) {
+        fragColor = vec4(borderColor.rgb, borderColor.a * max(band, opacity));
+        return;
+    }
     float borderAlpha = borderColor.a * max(band, opacity) * (1.0 - fillAlpha);
     float alpha = fillAlpha + borderAlpha;
     vec3 colour = alpha > 0.0 ? (vertexColor.rgb * fillAlpha + borderColor.rgb * borderAlpha) / alpha

@@ -94,6 +94,17 @@ public final class ErrorToasts {
      * @param screen the 2D camera the overlay text is drawn through
      */
     public void draw(Camera2D screen) {
+        draw(screen, 0f);
+    }
+
+    /**
+     * Draw the shown refusals one per row from the top left, starting on the first row wholly below a
+     * strip the scene keeps at the top, such as a bar.
+     *
+     * @param screen   the 2D camera the overlay text is drawn through
+     * @param topInset height in pixels of the strip at the top to stay below
+     */
+    public void draw(Camera2D screen, float topInset) {
         if (messages.isEmpty() || screen == null) {
             return;
         }
@@ -101,7 +112,8 @@ public final class ErrorToasts {
         for (int toast = 0; toast < messages.size(); toast++) {
             rows.addLine(messages.get(toast), colors.get(toast));
         }
-        Drawing.getDrawing().font.drawHyperStringRows(rows, 0, 0f, Drawing.FONT_HEIGHT_PIXELS,
+        int firstRow = (int) Math.ceil(topInset / Drawing.FONT_HEIGHT_PIXELS);
+        Drawing.getDrawing().font.drawHyperStringRows(rows, firstRow, 0f, Drawing.FONT_HEIGHT_PIXELS,
                 screen);
     }
 }

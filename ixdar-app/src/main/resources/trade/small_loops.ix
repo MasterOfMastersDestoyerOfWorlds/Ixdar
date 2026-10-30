@@ -1,0 +1,24 @@
+# Tutorial 3: one big loop cannot reach everything; small loops piped together can.
+TITLE 3: Small loops
+GOAL One loop from your headquarters cannot reach every market. Start a small loop at your Farrow base, then pipe the loops; [ and ] pick the layer.
+LAPS 10
+MEDALS 700 1200 1700
+MAP 37 780 520 9
+TOWNS 24
+MOOR 260 440 50 30
+RIVER 400 -20 385 120 410 260 390 400 405 540
+BRIDGE 400 190
+BRIDGE 395 330
+CITY Home 170 260 0 0
+CITY Ashby 270 160 35 3.4
+CITY Bramford 300 360 35 3.4
+CITY Cobham 520 150 40 3.8
+CITY Dorrin 600 230 45 3.9
+CITY Elmet 560 380 40 3.8
+CITY Farrow 470 300 30 3.6
+CITY Garth 660 330 35 4.0
+COMPANY You player Home 300 60
+BASE You Farrow
+STATION You Ashby
+STATION You Bramford
+LOOP You 1 Home Ashby Bramford

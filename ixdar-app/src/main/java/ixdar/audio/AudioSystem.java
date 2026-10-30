@@ -179,9 +179,10 @@ public class AudioSystem implements AudioBackend {
      * tracked and freed once playback finishes.
      *
      * @param relativeAssetPath classpath/asset path to a WAV file
+     * @param pitch             playback rate, 1 for as recorded
      */
     @Override
-    public synchronized void playSfxOnce(String relativeAssetPath) {
+    public synchronized void playSfxOnce(String relativeAssetPath, float pitch) {
         if (!ensureReady()) {
             return;
         }
@@ -194,6 +195,7 @@ public class AudioSystem implements AudioBackend {
         AL10.alSourcei(source, AL10.AL_BUFFER, buffer);
         AL10.alSourcei(source, AL10.AL_LOOPING, AL10.AL_FALSE);
         AL10.alSourcef(source, AL10.AL_GAIN, sfxVolume * masterVolume);
+        AL10.alSourcef(source, AL10.AL_PITCH, pitch);
         AL10.alSourcePlay(source);
         transientSources.add(source);
         lastSfxPlayed = relativeAssetPath;

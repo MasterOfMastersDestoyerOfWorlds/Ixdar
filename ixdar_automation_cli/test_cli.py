@@ -1129,7 +1129,7 @@ class CliTest(unittest.TestCase):
             {
                 "windowWidth": 750,
                 "windowHeight": 750,
-                "trade": {"cities": [{"xPx": 120, "yPx": 200}]},
+                "trade": {"places": [{"xPx": 120, "yPx": 200, "market": True}]},
             },
             {"ok": True},
             {"ok": True},

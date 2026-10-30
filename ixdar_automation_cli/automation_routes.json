@@ -1149,12 +1149,12 @@
       "responseHint": "{ok, azimuth, elevation, distance, target}"
     },
     {
-      "commandName": "paletteswap",
+      "commandName": "palette",
       "path": "/ui/paletteswap",
       "method": "POST",
       "description": "Step the scene to its next colour palette, or to the one named.",
-      "sourceClass": "ixdar.automation.endpoints.ui.Palette",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/Palette.java",
+      "sourceClass": "ixdar.automation.endpoints.ui.PaletteSwap",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/PaletteSwap.java",
       "params": [
         {
           "name": "name",

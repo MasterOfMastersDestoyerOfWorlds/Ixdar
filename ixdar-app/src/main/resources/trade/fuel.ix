@@ -1,0 +1,18 @@
+# Tutorial 2: every cell burns blood; a loop too long runs the wagon dry.
+TITLE 2: Fuel
+GOAL Grow your loop through towns on the roads. A place that would run the wagon dry shows red.
+LAPS 8
+MEDALS 650 1050 1500
+MAP 23 780 520 9
+TOWNS 20
+MOOR 420 300 45 35
+CITY Home 200 260 0 0
+CITY Ashby 320 150 35 3.4
+CITY Bramford 420 220 40 3.4
+CITY Cobham 300 380 30 3.6
+CITY Dorrin 520 140 45 4.0
+CITY Elmet 560 330 40 3.8
+CITY Farrow 420 430 35 3.7
+COMPANY You player Home 260 56
+STATION You Ashby
+LOOP You 1 Home Ashby

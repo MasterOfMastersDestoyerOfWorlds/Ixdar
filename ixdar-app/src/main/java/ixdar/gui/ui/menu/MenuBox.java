@@ -10,14 +10,10 @@ import ixdar.graphics.cameras.Bounds;
 import java.util.Map;
 import ixdar.graphics.cameras.Camera;
 import ixdar.graphics.cameras.Camera2D;
-import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.ColorBox;
 import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.sdf.SDFTexture;
-import ixdar.graphics.render.sdf.SDFUnion;
-import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.text.HyperWord;
-import ixdar.audio.AudioAssets;
 import ixdar.scenes.Scene;
 import ixdar.platform.Platforms;
 import ixdar.scenes.main.Toggle;
@@ -26,12 +22,7 @@ import ixdar.input.PointerDispatcher;
 import ixdar.platform.input.PointerRegion;
 
 public class MenuBox implements PointerRegion {
-    public static final float MENU_ALPHA = 0.95f;
-    public static final float INNER_OFFSET_Y = 0.02f;
-    public static final int PIN_STRIPE_COUNT = 5;
-    public static final float ITEM_WIDTH_SCALE = 0.91f;
     public static final float ITEM_SPACING_FACTOR = 1.5f;
-    public static final float LABEL_Y_OFFSET_FACTOR = 0.075f;
     public static final String VIEW_MENU_SCROLL = "MENU_SCROLL";
     public static final String VIEW_MENU_ITEMS = "MENU_ITEMS";
     public static final MenuScrollBar ITEM_COLUMN_SCROLL_BAR = new MenuScrollBar(
@@ -61,15 +52,16 @@ public class MenuBox implements PointerRegion {
 
     public SDFTexture logo;
 
-    SDFUnion menuOuterBorder;
     int hoverItem = -1;
     float scale = 2f;
     float hoverX;
     float hoverY;
-    float alpha;
     ColorBox boundingBox;
     private float itemWidth;
     private float itemHeight;
+    /** This frame's buttons, one per shown item, and the item each stands for. */
+    private final ArrayList<MenuButton> buttons = new ArrayList<>();
+    private final ArrayList<MenuItem> buttonItems = new ArrayList<>();
 
     /**
      * Build the menu-box widget: load button textures, create the debug and game
@@ -80,12 +72,6 @@ public class MenuBox implements PointerRegion {
      */
     public MenuBox(Scene owner) {
         this.owner = owner;
-        alpha = MENU_ALPHA;
-
-        Palette palette = owner.palette;
-        menuOuterBorder = new SDFUnion("menu_inner.png", palette.panel, MENU_ALPHA, 0, -INNER_OFFSET_Y,
-                "menu_outer.png",
-                palette.panelBorder, alpha, PIN_STRIPE_COUNT, 2);
         logo = new SDFTexture("decal_sdf.png", true);
         boundingBox = new ColorBox();
         // Create both menus and link them
@@ -126,7 +112,7 @@ public class MenuBox implements PointerRegion {
      * @param camera the active camera used for screen-space rendering
      */
     public void draw(Camera camera) {
-        if (menuOuterBorder.outerTexture == null) {
+        if (!MenuButton.loaded()) {
             return;
         }
 
@@ -141,46 +127,38 @@ public class MenuBox implements PointerRegion {
         if (!menuVisible) {
             return;
         }
-        itemHeight = menuOuterBorder.outerTexture.height * scale / 2;
-        itemWidth = menuOuterBorder.outerTexture.width * scale * ITEM_WIDTH_SCALE;
+        itemHeight = MenuButton.naturalHeight(scale);
+        itemWidth = MenuButton.naturalWidth(scale);
+        float plateWidth = itemWidth / MenuButton.BUTTON_WIDTH_PER_PLATE_WIDTH;
         MenuScrollBar bar = ITEM_COLUMN_SCROLL_BAR;
         float columnLeft = centerX - itemWidth / 2;
-        float barRight = centerX + menuOuterBorder.outerTexture.width * scale / 2 + MenuScrollBar.WIDTH_PIXELS;
+        float barRight = centerX + plateWidth / 2 + MenuScrollBar.WIDTH_PIXELS;
         bar.bounds.update(columnLeft, 0, barRight - columnLeft, centerY);
         itemColumn.update(columnLeft, 0, barRight - columnLeft, Platforms.get().getFrameBufferHeight());
         bar.contentLength = itemHeight * menuItems.size() * ITEM_SPACING_FACTOR;
         bar.visibleLength = centerY;
         bar.scrollBy(0);
         itemBox.clearRows();
-        Color innerColor = palette.panel.withAlpha(alpha);
-        Color outerColor = palette.panelBorder.withAlpha(alpha);
-        Color outerFlash = palette.hovered(outerColor);
-        Color disabledOuterColor = palette.disabled.withAlpha(alpha);
+        buttons.clear();
+        buttonItems.clear();
         for (int i = 0; i < menuItems.size(); i++) {
-            float itemCenterY = centerY - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR) + bar.scrollOffset;
+            MenuItem item = menuItems.get(i);
             float leftBoundX = centerX - itemWidth / 2;
-            float rightBoundX = centerX + itemWidth / 2;
-            float upBoundX = itemCenterY + itemHeight / 2;
-            float downBoundX = itemCenterY - itemHeight / 2;
-            // A disabled row keeps the disabled rim and does not flash under the cursor.
-            Color rim = disabledOuterColor;
-            if (menuItems.get(i).action != null) {
-                boolean hovered = hoverX > leftBoundX && hoverX < rightBoundX && hoverY > downBoundX
-                        && hoverY < upBoundX;
-                rim = hovered ? outerFlash : outerColor;
-            }
-            menuOuterBorder.drawCentered(centerX, itemCenterY, scale, innerColor, rim, camera);
+            float downBoundX = centerY - itemHeight - (itemHeight * i * ITEM_SPACING_FACTOR) + bar.scrollOffset
+                    - itemHeight / 2;
+            MenuButton button = new MenuButton(item.itemString(), item.action != null, item::performAction);
+            button.draw(leftBoundX, downBoundX, itemWidth, itemHeight, itemHeight / 2, palette, palette.panel,
+                    hoverX, hoverY, (Camera2D) camera);
+            buttons.add(button);
+            buttonItems.add(item);
             int firstWord = itemBox.text.words.size();
-            itemBox.addRow(menuItems.get(i).getHeading(), palette.accent, menuItems.get(i).action);
+            itemBox.addRow(item.getHeading(), palette.accent, item.action);
             for (HyperWord word : itemBox.text.words.subList(firstWord, itemBox.text.words.size())) {
                 word.xScreenOffset = leftBoundX;
                 word.yScreenOffset = downBoundX;
                 word.drawnWidth = itemWidth;
                 word.rowHeight = itemHeight;
             }
-            Drawing.getDrawing().font.drawHyperString(menuItems.get(i).itemString(), centerX,
-                    itemCenterY + itemHeight * LABEL_Y_OFFSET_FACTOR,
-                    itemHeight / 2, (Camera2D) camera);
         }
         if (bar.isNeeded()) {
             bar.draw((Camera2D) camera);
@@ -201,23 +179,19 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * The item whose button, padding included, holds a framebuffer point, enabled or not.
+     * Which of this frame's buttons, padding included, holds a framebuffer point, enabled or not.
      *
      * @param x framebuffer x
      * @param y framebuffer y, y up
-     * @return that item, or {@code null} when the point is on no button
+     * @return the button's index, or -1 when the point is on no button
      */
-    private MenuItem itemAt(float x, float y) {
-        float centerX = Platforms.get().getFrameBufferWidth() / 2;
-        for (int i = 0; i < menuItems.size(); i++) {
-            float centerY = Platforms.get().getFrameBufferHeight() / 2 - itemHeight
-                    - (itemHeight * i * ITEM_SPACING_FACTOR) + ITEM_COLUMN_SCROLL_BAR.scrollOffset;
-            if (x > centerX - itemWidth / 2 && x < centerX + itemWidth / 2 && y > centerY - itemHeight / 2
-                    && y < centerY + itemHeight / 2) {
-                return menuItems.get(i);
+    private int buttonAt(float x, float y) {
+        for (int i = 0; i < buttons.size(); i++) {
+            if (buttons.get(i).contains(x, y)) {
+                return i;
             }
         }
-        return null;
+        return -1;
     }
 
     /**
@@ -286,7 +260,7 @@ public class MenuBox implements PointerRegion {
      */
     @Override
     public boolean claimsPointer(float x, float y) {
-        return claimsWheel() && (itemAt(x, y) != null
+        return claimsWheel() && (buttonAt(x, y) >= 0
                 || ITEM_COLUMN_SCROLL_BAR.isNeeded() && ITEM_COLUMN_SCROLL_BAR.contains(x, y));
     }
 
@@ -313,8 +287,8 @@ public class MenuBox implements PointerRegion {
     }
 
     /**
-     * Let go of the thumb and, for a click on an enabled button, record an automation event, play
-     * the click SFX and run the button's action, the one path a menu action runs by.
+     * Let go of the thumb and, for a click on an enabled button, record an automation event and let
+     * the button answer it, the one path a menu action runs by.
      *
      * @param x framebuffer x of the release
      * @param y framebuffer y of the release, y up
@@ -323,20 +297,19 @@ public class MenuBox implements PointerRegion {
     @Override
     public void onRelease(float x, float y, boolean click) {
         ITEM_COLUMN_SCROLL_BAR.release();
-        MenuItem clickedItem = click ? itemAt(x, y) : null;
-        if (clickedItem == null || clickedItem.action == null) {
+        int clicked = click ? buttonAt(x, y) : -1;
+        if (clicked < 0 || !buttons.get(clicked).enabled) {
             return;
         }
         AutomationBackend automation = Platforms.get().automation();
         if (automation != null) {
             Map<String, Object> payload = new HashMap<>();
-            payload.put("label", clickedItem.getHeading());
+            payload.put("label", buttonItems.get(clicked).getHeading());
             payload.put("xNormalized", x / Platforms.get().getFrameBufferWidth());
             payload.put("yNormalized", 1 - y / Platforms.get().getFrameBufferHeight());
             automation.recordAbstractActionMap("menu_select", payload);
         }
-        Scene.audioPlaySfx(AudioAssets.MENU_CLICK_SFX);
-        clickedItem.performAction();
+        buttons.get(clicked).click(x, y);
     }
 
     /**

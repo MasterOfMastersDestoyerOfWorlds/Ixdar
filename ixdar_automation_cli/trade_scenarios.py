@@ -94,7 +94,7 @@ def ensure_trade_scene(client: AutomationClient, button: int = 0, fallback_scan:
 def place_headquarters(client: AutomationClient, city_name: str | None = None) -> dict:
     state = client.call("ui-state")
     trade = state.get("trade", {})
-    cities = trade.get("cities", [])
+    cities = [place for place in trade.get("places", []) if place.get("market")]
     require(len(cities) > 0, "No cities available for headquarters placement")
 
     target = cities[0]

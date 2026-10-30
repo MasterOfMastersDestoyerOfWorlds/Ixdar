@@ -1,0 +1,21 @@
+# Tutorial 4: a base anywhere refills wagons and makes blood, dearer the further from home.
+TITLE 4: Far bases
+GOAL The far markets are out of a wagon's reach from your headquarters. Build a base out there; it costs more the further it is.
+LAPS 14
+MEDALS 1000 1600 2300
+MAP 53 780 520 9
+TOWNS 26
+MOOR 380 120 55 35
+RIVER 520 -20 510 140 530 300 515 540
+BRIDGE 515 200
+BRIDGE 520 420
+CITY Home 110 260 0 0
+CITY Ashby 230 170 35 3.4
+CITY Bramford 250 380 35 3.4
+CITY Kingsmoor 420 300 45 3.6
+CITY Dorrin 620 150 45 4.0
+CITY Elmet 680 300 40 4.0
+CITY Farrow 610 430 40 3.9
+COMPANY You player Home 420 60
+STATION You Ashby
+LOOP You 1 Home Ashby

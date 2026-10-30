@@ -17,7 +17,6 @@ import ixdar.platform.input.PointerRegion;
  */
 public class CanvasScroll implements CameraController, PointerRegion {
     public static final float SCROLL_PAN_PX_PER_UNIT = 30f;
-    public static final double ZOOM_PER_SCROLL_UNIT = 1.15;
     public static final float BAR_STEP_PX = 40f;
 
     /** The camera scrolled; its main view is the canvas, in framebuffer pixels, y up. */
@@ -230,7 +229,7 @@ public class CanvasScroll implements CameraController, PointerRegion {
     public void onScrollDelta(double deltaX, double deltaY, float x, float y, int mods) {
         if ((mods & KeyNames.MOD_CONTROL) != 0) {
             Bounds view = camera.mainViewBounds;
-            camera.zoomAbout(Math.pow(ZOOM_PER_SCROLL_UNIT, deltaY), x - view.offsetX, y - view.offsetY);
+            camera.zoomAbout(Math.pow(Camera2D.ZOOM_PER_SCROLL_UNIT, deltaY), x - view.offsetX, y - view.offsetY);
             resetRange();
             return;
         }

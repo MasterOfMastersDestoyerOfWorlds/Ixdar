@@ -1,6 +1,10 @@
 package ixdar.geometry.grid2d;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.PriorityQueue;
+import java.util.function.IntPredicate;
+import java.util.function.ToDoubleBiFunction;
 
 import org.joml.Vector2f;
 
@@ -10,6 +14,9 @@ import ixdar.geometry.tsp.input.PointCollection;
 import ixdar.geometry.tsp.points.PointND;
 
 public class IrregularQuadGrid extends Grid {
+    public static final float HEURISTIC_STEP_FACTOR = 3.4f;
+    public static final double STALE_ENTRY_TOLERANCE = 1e-9;
+
     private final ArrayList<Vector2f> anchors;
     private final ArrayList<Vector2f> dualPoints;
     private final ArrayList<int[]> edges;
@@ -22,6 +29,13 @@ public class IrregularQuadGrid extends Grid {
     private final float verticalEdgeMean;
     private final float horizontalEdgeStdDev;
     private final float verticalEdgeStdDev;
+    private final ArrayList<int[]> faces;
+    private final int[][] neighbours;
+    private final float cellSpacing;
+    private final double[] pathCost;
+    private final int[] previousCell;
+    private final int[] visitStamp;
+    private int currentStamp;
 
     /**
      * Bare-bones constructor that records the grid's dimensions and reuses the
@@ -47,6 +61,12 @@ public class IrregularQuadGrid extends Grid {
         this.verticalEdgeMean = 0f;
         this.horizontalEdgeStdDev = 0f;
         this.verticalEdgeStdDev = 0f;
+        this.faces = new ArrayList<>();
+        this.neighbours = new int[0][];
+        this.cellSpacing = 1f;
+        this.pathCost = new double[0];
+        this.previousCell = new int[0];
+        this.visitStamp = new int[0];
     }
 
     /**
@@ -74,6 +94,191 @@ public class IrregularQuadGrid extends Grid {
         this.verticalEdgeMean = layout == null ? 0f : layout.verticalEdgeMean;
         this.horizontalEdgeStdDev = layout == null ? 0f : layout.horizontalEdgeStdDev;
         this.verticalEdgeStdDev = layout == null ? 0f : layout.verticalEdgeStdDev;
+        this.faces = layout == null || layout.faces == null ? new ArrayList<>() : new ArrayList<>(layout.faces);
+        this.neighbours = buildNeighbours();
+        float spacingSum = 0f;
+        int spacingCount = 0;
+        for (int cell = 0; cell < neighbours.length; cell++) {
+            for (int neighbour : neighbours[cell]) {
+                spacingSum += cellDistance(cell, neighbour);
+                spacingCount++;
+            }
+        }
+        this.cellSpacing = spacingCount == 0 ? 1f : spacingSum / spacingCount;
+        this.pathCost = new double[faces.size()];
+        this.previousCell = new int[faces.size()];
+        this.visitStamp = new int[faces.size()];
+    }
+
+    /**
+     * Join every pair of cells that share a side; two cells share a side when both list its corners
+     * consecutively.
+     *
+     * @return each cell's neighbour list, in the order the sides are met
+     */
+    private int[][] buildNeighbours() {
+        HashMap<Long, Integer> firstCellOnSide = new HashMap<>();
+        ArrayList<ArrayList<Integer>> found = new ArrayList<>();
+        for (int cell = 0; cell < faces.size(); cell++) {
+            found.add(new ArrayList<>());
+        }
+        for (int cell = 0; cell < faces.size(); cell++) {
+            int[] corners = faces.get(cell);
+            for (int k = 0; k < corners.length; k++) {
+                int p = corners[k], q = corners[(k + 1) % corners.length];
+                long side = (long) Math.min(p, q) * anchors.size() + Math.max(p, q);
+                Integer other = firstCellOnSide.putIfAbsent(side, cell);
+                if (other != null && other != cell) {
+                    found.get(cell).add(other);
+                    found.get(other).add(cell);
+                }
+            }
+        }
+        int[][] result = new int[faces.size()][];
+        for (int cell = 0; cell < result.length; cell++) {
+            result[cell] = found.get(cell).stream().mapToInt(Integer::intValue).toArray();
+        }
+        return result;
+    }
+
+    /**
+     * Each cell's corner indices into {@link #anchorPoints()}.
+     *
+     * @return live reference to the face list
+     */
+    public ArrayList<int[]> faces() {
+        return faces;
+    }
+
+    /**
+     * The cells sharing a side with a cell.
+     *
+     * @param cell a cell index
+     * @return its neighbours
+     */
+    public int[] neighbours(int cell) {
+        return neighbours[cell];
+    }
+
+    /**
+     * Mean distance between neighbouring cell centres, the grid's unit of length.
+     *
+     * @return the mean step length
+     */
+    public float cellSpacing() {
+        return cellSpacing;
+    }
+
+    /**
+     * Straight-line distance between two cell centres.
+     *
+     * @param a one cell
+     * @param b the other
+     * @return the distance in world units
+     */
+    public float cellDistance(int a, int b) {
+        return dualPoints.get(a).distance(dualPoints.get(b));
+    }
+
+    /**
+     * The side two neighbouring cells share, as its two corner indices.
+     *
+     * @param a one cell
+     * @param b a neighbouring cell
+     * @return the shared side's corners, or null when the cells are not neighbours
+     */
+    public int[] sharedSide(int a, int b) {
+        int[] cornersA = faces.get(a);
+        int[] cornersB = faces.get(b);
+        for (int k = 0; k < cornersA.length; k++) {
+            int p = cornersA[k], q = cornersA[(k + 1) % cornersA.length];
+            for (int j = 0; j < cornersB.length; j++) {
+                int r = cornersB[j], s = cornersB[(j + 1) % cornersB.length];
+                if ((p == r && q == s) || (p == s && q == r)) {
+                    return new int[] { p, q };
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The cell whose centre is nearest a point, among those a filter accepts.
+     *
+     * @param x      world x
+     * @param y      world y
+     * @param usable which cells may be returned
+     * @return the cell index, or -1 when no cell is usable
+     */
+    public int nearestCell(float x, float y, IntPredicate usable) {
+        int best = -1;
+        float bestDistance = Float.MAX_VALUE;
+        for (int cell = 0; cell < dualPoints.size(); cell++) {
+            float d = dualPoints.get(cell).distanceSquared(x, y);
+            if (d < bestDistance && usable.test(cell)) {
+                bestDistance = d;
+                best = cell;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * A* from cell to cell over the dual graph. A step priced infinite is closed; the straight-line
+     * distance over twice the mean step is the heuristic, which stays below any path of steps costing one
+     * or more.
+     *
+     * @param from     start cell
+     * @param to       end cell
+     * @param stepCost the price of stepping from a cell to a neighbour
+     * @return the cheapest path, both ends included, or null when unreachable
+     */
+    public int[] shortestPath(int from, int to, ToDoubleBiFunction<Integer, Integer> stepCost) {
+        if (from == to) {
+            return new int[] { from };
+        }
+        currentStamp++;
+        float longestStep = cellSpacing * HEURISTIC_STEP_FACTOR;
+        PriorityQueue<double[]> frontier = new PriorityQueue<>((p, q) -> Double.compare(p[0], q[0]));
+        visitStamp[from] = currentStamp;
+        pathCost[from] = 0;
+        previousCell[from] = -1;
+        frontier.add(new double[] { cellDistance(from, to) / longestStep, from });
+        while (!frontier.isEmpty()) {
+            double[] entry = frontier.poll();
+            int cell = (int) entry[1];
+            if (cell == to) {
+                break;
+            }
+            if (entry[0] - cellDistance(cell, to) / longestStep > pathCost[cell] + STALE_ENTRY_TOLERANCE) {
+                continue;
+            }
+            for (int neighbour : neighbours[cell]) {
+                double step = stepCost.applyAsDouble(cell, neighbour);
+                if (Double.isInfinite(step)) {
+                    continue;
+                }
+                double candidate = pathCost[cell] + step;
+                if (visitStamp[neighbour] != currentStamp || candidate < pathCost[neighbour]) {
+                    visitStamp[neighbour] = currentStamp;
+                    pathCost[neighbour] = candidate;
+                    previousCell[neighbour] = cell;
+                    frontier.add(new double[] { candidate + cellDistance(neighbour, to) / longestStep, neighbour });
+                }
+            }
+        }
+        if (visitStamp[to] != currentStamp) {
+            return null;
+        }
+        ArrayList<Integer> reversed = new ArrayList<>();
+        for (int cell = to; cell != -1; cell = previousCell[cell]) {
+            reversed.add(cell);
+        }
+        int[] path = new int[reversed.size()];
+        for (int k = 0; k < path.length; k++) {
+            path[k] = reversed.get(path.length - 1 - k);
+        }
+        return path;
     }
 
     /**

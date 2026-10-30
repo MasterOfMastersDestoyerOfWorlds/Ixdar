@@ -12,6 +12,10 @@ public class SDFTexture extends ShaderDrawable {
     public static final String BORDER_COLOR_UNIFORM = "borderColor";
     public static final String BORDER_INNER_UNIFORM = "borderInner";
     public static final String BORDER_OUTER_UNIFORM = "borderOuter";
+    public static final String LAYER_UNIFORM = "layer";
+    public static final int LAYER_FILL_OVER_BORDER = 0;
+    public static final int LAYER_BORDER_ONLY = 1;
+    public static final int LAYER_FILL_ONLY = 2;
 
     public Texture texture;
     boolean sharpCorners;
@@ -22,6 +26,7 @@ public class SDFTexture extends ShaderDrawable {
     private float borderOffsetOuter;
     private Color drawnBorderColor = Color.TRANSPARENT;
     private float drawnBorderOuter;
+    private int drawnLayer = LAYER_FILL_OVER_BORDER;
 
     /**
      * Distance range from MSDF atlas generation (pxRange parameter). Default is 4.0
@@ -149,6 +154,8 @@ public class SDFTexture extends ShaderDrawable {
         shader.setVec4(BORDER_COLOR_UNIFORM, borderColor.toVector4f());
         drawnBorderColor = borderColor;
         drawnBorderOuter = borderOuter;
+        shader.setInt(LAYER_UNIFORM, LAYER_FILL_OVER_BORDER);
+        drawnLayer = LAYER_FILL_OVER_BORDER;
         shader.setBool("sharpCorners", sharpCorners);
         shader.setFloat("pxRange", pxRange);
         shader.setFloat("medianMaxLod", medianMaxMipLevel);
@@ -175,6 +182,22 @@ public class SDFTexture extends ShaderDrawable {
         shader.setVec4(BORDER_COLOR_UNIFORM, colour.toVector4f());
         shader.setFloat(BORDER_INNER_UNIFORM, 0f);
         shader.setFloat(BORDER_OUTER_UNIFORM, widthPixels);
+    }
+
+    /**
+     * Within a set-up pass, draw what follows as one layer of each glyph: {@link #LAYER_BORDER_ONLY},
+     * {@link #LAYER_FILL_ONLY}, or {@link #LAYER_FILL_OVER_BORDER} as a pass starts; the glyphs batched
+     * so far are drawn first when the layer changes.
+     *
+     * @param layer one of the {@code LAYER_} values
+     */
+    public void setLayer(int layer) {
+        if (layer == drawnLayer) {
+            return;
+        }
+        shader.flush();
+        drawnLayer = layer;
+        shader.setInt(LAYER_UNIFORM, layer);
     }
 
     /**

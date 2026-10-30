@@ -1,0 +1,32 @@
+# The market war: take 60% of all demand, or bankrupt the rival.
+TITLE 5: The blood war
+GOAL Reach 60% of all demand, or bankrupt Morrow, within 20 laps.
+LAPS 20
+SHARE 0.6
+MAP 7 780 520 9
+TOWNS 28
+MOOR 390 440 70 40
+RIVER 560 -20 548 90 572 200 552 300 566 410 545 540
+BRIDGE 560 160
+BRIDGE 556 390
+CITY Home 140 280 0 0
+CITY Ashby 250 160 40 3.2
+CITY Exley 160 420 30 3.4
+CITY Kingsmoor 440 250 60 3.2
+CITY Bramford 320 350 40 3.2
+CITY Fenwick 380 100 30 3.5
+CITY Gorham 260 450 25 3.6
+CITY Thornby 500 140 35 3.4
+CITY Morrow 640 190 50 3.1
+CITY Dunmere 610 400 55 3.1
+CITY Eskdale 680 300 45 3.2
+COMPANY You player Home 300 60
+COMPANY Morrow rival Morrow 400 64
+STATION You Ashby
+STATION You Kingsmoor
+STATION You Bramford
+LOOP You 1 Home Ashby
+STATION Morrow Kingsmoor
+STATION Morrow Dunmere
+STATION Morrow Eskdale
+LOOP Morrow 2 Morrow Kingsmoor Dunmere Eskdale
