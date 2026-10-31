@@ -35,6 +35,7 @@ import ixdar.platform.gl.GL;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.model.ModelScene;
 import ixdar.tools.ControlHint;
+import ixdar.tools.sculpt.StrokeSculptTool;
 
 @SceneAnnotation(id = "mesh-viewer")
 public class MeshNodeViewerScene extends ModelScene {
@@ -76,6 +77,9 @@ public class MeshNodeViewerScene extends ModelScene {
 
     /** The palette the scene wore before clay or curvature swapped in the paper one. */
     public Palette paletteBeforeLook = palette;
+
+    /** The tool drawing weighted strokes on the view into the graph's chain of stroke_sculpt passes. */
+    public final StrokeSculptTool strokeSculptTool = new StrokeSculptTool(this);
 
     private final String dslResource;
     private final String dslFinalNode;
@@ -226,6 +230,14 @@ public class MeshNodeViewerScene extends ModelScene {
         logState();
     }
 
+    /** Host the stroke-sculpt tool on ctrl+K, after the model scene's tools. */
+    @Override
+    public void setTools() {
+        super.setTools();
+        addToolSwitch(strokeSculptTool, new ControlHint("stroke-sculpt-tool", Keys.K, true, "ctrl+K",
+                "draw strokes into stroke_sculpt passes", () -> switchTool(strokeSculptTool)));
+    }
+
     /** Hide the main menu, then wire the orbit input and activate the default tool as every model scene does. */
     @Override
     public void initInput() {
@@ -275,7 +287,7 @@ public class MeshNodeViewerScene extends ModelScene {
             loadDslSource(defaultGraph, dslCode -> {
                 Object result;
                 try {
-                    result = executeViewerGraph(dslCode, dslFinalNode, dslFinalPort);
+                    result = executeViewerGraph(dslCode, dslFinalNode, dslFinalPort, Map.of());
                 } catch (Exception e) {
                     for (Throwable t = e; t != null; t = t.getCause()) {
                         Platforms.get().log("[mesh-viewer] " + t.getClass().getName() + ": " + t.getMessage());
@@ -285,7 +297,7 @@ public class MeshNodeViewerScene extends ModelScene {
                                     + " port=" + dslFinalPort,
                             e);
                 }
-                uploadGraphOutput(result);
+                uploadGraphOutput(result, true);
                 if (mesh != null) {
                     Platforms.get().log(
                             "[mesh-viewer] mesh ready " + dslResource + VERTS + mesh.vertexCount() + FACES
@@ -581,12 +593,12 @@ public class MeshNodeViewerScene extends ModelScene {
         loadDslSource(ModelCatalog.packagedGraph(resolvedDslName), dslCode -> {
             Object result;
             try {
-                result = executeViewerGraph(dslCode, finalNode, resolvedPort);
+                result = executeViewerGraph(dslCode, finalNode, resolvedPort, Map.of());
             } catch (Exception e) {
                 Platforms.get().log("[mesh-viewer] DSL reload failed: " + e.getMessage());
                 throw new IllegalStateException("Failed to execute DSL: " + resolvedDslName, e);
             }
-            uploadGraphOutput(result);
+            uploadGraphOutput(result, true);
 
             if (mesh != null) {
                 Platforms.get().log(
@@ -601,12 +613,29 @@ public class MeshNodeViewerScene extends ModelScene {
     }
 
     /**
+     * Show a graph a tool built from source text in place of the loaded one, its overrides on top of
+     * the collection's, keeping the camera where it is and the working .dsl the file it was.
+     *
+     * @param dslSource graph source
+     * @param overrides port values by {@code path.port} key, as {@link NodeGraphRuntime#setOverrides} takes them
+     * @throws Exception when the source does not parse, an override names no port, or a node fails
+     */
+    public void showGraph(String dslSource, Map<String, Object> overrides) throws Exception {
+        Object result = executeViewerGraph(dslSource, DEFAULT_DSL_FINAL_NODE, DEFAULT_DSL_FINAL_PORT, overrides);
+        disposeMeshRuntime();
+        uploadGraphOutput(result, false);
+        applyEdgeMarkOverlay(graph);
+        logState();
+    }
+
+    /**
      * Upload a graph's output as a whole bundle, the way a mesh file is, so a graph that ends in
      * textures (a boolean of two scans, say) draws each region with the material it kept.
      *
      * @param result the value on the graph's final port; anything but a bundle leaves no mesh
+     * @param frame  whether the camera is aimed at the new mesh; false keeps the view as it is
      */
-    private void uploadGraphOutput(Object result) {
+    private void uploadGraphOutput(Object result, boolean frame) {
         meshBundle = result instanceof GeometryBundle bundle ? bundle : null;
         mesh = meshBundle == null ? null : meshBundle.mesh();
         createRuntime();
@@ -619,7 +648,9 @@ public class MeshNodeViewerScene extends ModelScene {
             }
             meshRuntime.setShaderMode(shaderMode);
         }
-        meshRuntime.frameCamera(camera);
+        if (frame) {
+            meshRuntime.frameCamera(camera);
+        }
     }
 
     /**
@@ -1009,7 +1040,7 @@ public class MeshNodeViewerScene extends ModelScene {
             disposeMeshRuntime();
             meshBundle = null;
             uploadGraphOutput(executeViewerGraph(dslCode, DEFAULT_DSL_FINAL_NODE,
-                    DEFAULT_DSL_FINAL_PORT));
+                    DEFAULT_DSL_FINAL_PORT, Map.of()), true);
             if (mesh != null) {
                 noteMemberLoaded(absolutePath, mesh.vertexCount(), mesh.faceCount());
                 Platforms.get().log("[mesh-viewer] dsl loaded: " + file + VERTS + mesh.vertexCount()
@@ -1025,22 +1056,26 @@ public class MeshNodeViewerScene extends ModelScene {
 
     /**
      * Executes a viewer graph as the scene's {@link #graph} with the overrides the collection gives
-     * the current model, logs its timing, and returns the value on the chosen output.
+     * the current model, then {@code extraOverrides} over them, logs its timing, and returns the
+     * value on the chosen output.
      *
-     * @param dslCode   graph source
-     * @param finalNode id of the node whose output is shown, or empty for the last statement
-     * @param finalPort output port of that node
+     * @param dslCode        graph source
+     * @param finalNode      id of the node whose output is shown, or empty for the last statement
+     * @param finalPort      output port of that node
+     * @param extraOverrides port values a tool sets on top of the collection's, usually none
      * @throws Exception if an override is invalid or a node fails
      * @return the value on that port, a bundle for a mesh-producing graph
      */
-    private Object executeViewerGraph(String dslCode, String finalNode, String finalPort)
-            throws Exception {
+    private Object executeViewerGraph(String dslCode, String finalNode, String finalPort,
+            Map<String, Object> extraOverrides) throws Exception {
         NodeGraphRuntime run = NodeGraphRuntime.fromSource(dslCode);
         graph = run;
         String resolvedNode = finalNode != null && !finalNode.isEmpty() ? finalNode : run.lastId();
         ModelChoice current = currentModel();
-        Object result = run.executeGraphResult(resolvedNode, finalPort, current == null
+        Map<String, Object> overrides = new LinkedHashMap<>(current == null
                 ? modelCollection.overrides : modelCollection.overridesFor(current));
+        overrides.putAll(extraOverrides);
+        Object result = run.executeGraphResult(resolvedNode, finalPort, overrides);
         run.logTimings(TIMING_PREFIX);
         return result;
     }

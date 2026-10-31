@@ -4771,7 +4771,7 @@
         {
           "name": "svg",
           "portType": "STRING",
-          "description": "The pass\u0027s drawing: an SVG written by `ixdar-cli multiview --svg` (its root records the camera) with \u003cpolyline\u003e/\u003cpolygon\u003e strokes added. data-strength in [-1, 1], stroke-width the falloff width in pixels, data-kind silhouette/ridge/valley, data-mirror\u003d\"x\", data-op\u003d\"smooth\". Resolved as a file, then under src/main/resources/, then on the classpath (e.g. dsl/skull/pass1.svg).",
+          "description": "The pass\u0027s drawing: an SVG written by `ixdar-cli multiview --svg` (its root records the camera) with \u003cpolyline\u003e/\u003cpolygon\u003e strokes added. data-strength in [-1, 1], stroke-width the falloff width in pixels, data-kind silhouette/ridge/valley, data-mirror\u003d\"x\", data-op\u003d\"smooth\". Resolved as a file, then under src/main/resources/, then on the classpath (e.g. dsl/skull/pass1.svg). A value starting with \u003c is the SVG text itself, as the mesh viewer\u0027s stroke-sculpt tool sets an unsaved pass\u0027s.",
           "defaultValue": ""
         },
         {

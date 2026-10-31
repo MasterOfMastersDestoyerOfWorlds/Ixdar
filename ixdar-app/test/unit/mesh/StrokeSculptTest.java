@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
+import ixdar.graphics.cameras.Camera3D;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.modifier.MergeByDistanceNode;
 import ixdar.nodegraph.nodes.modifier.StrokeSculptNode;
@@ -23,8 +25,8 @@ import ixdar.nodegraph.nodes.primitives.QuadSphereMeshNode;
 
 /**
  * The stroke_sculpt node lifts an SVG through the camera its root records, with no viewer: a
- * symmetric pass stays symmetric, fine strokes refine only the faces they reach, and a chained
- * pass re-lifts onto whatever the pass before it made.
+ * symmetric pass stays symmetric, fine strokes refine only the faces they reach, a chained pass
+ * re-lifts onto whatever the pass before it made, and a live stroke lifts through its own view.
  */
 class StrokeSculptTest {
 
@@ -62,6 +64,14 @@ class StrokeSculptTest {
     private static final float MINIMUM_EDGE = 0.005f;
 
     private static final float MINIMUM_CHEEK_HEIGHT = 0.02f;
+
+    private static final int LIVE_WIDTH = 1280;
+
+    private static final int LIVE_HEIGHT = 960;
+
+    private static final float[] LIVE_STROKE_PIXELS = { 600f, 440f, 640f, 480f, 680f, 520f };
+
+    private static final float RAY_TOLERANCE = 1e-3f;
 
     @TempDir
     Path folder;
@@ -134,6 +144,47 @@ class StrokeSculptTest {
         assertEquals(1, sketch.shapes.size(), "only the outline outside the comments is a stroke");
         sketch.lift(sphere().mesh());
         assertTrue(sketch.liftedByShape[0] > 0, "the outline lifts");
+    }
+
+    @Test
+    void liveStrokesLiftThroughTheViewsTheyWereDrawnOn() {
+        MeshTopology ball = sphere().mesh();
+        float[][] orbits = { { 1.2f, 0.3f, 3.2f, 0.3f, 30f }, { -0.4f, -0.2f, 4f, 0f, 50f } };
+        Camera3D[] views = new Camera3D[orbits.length];
+        StrokeSketch drawn = new StrokeSketch();
+        for (int view = 0; view < orbits.length; view++) {
+            views[view] = new Camera3D(new Vector3f(), 0f, 0f);
+            views[view].setDistanceBounds(0f, Float.MAX_VALUE);
+            views[view].fov = orbits[view][4];
+            views[view].roll = orbits[view][3];
+            views[view].moveTarget(new Vector3f(0.1f, 0.05f, 0f));
+            views[view].setOrbit(orbits[view][0], orbits[view][1], orbits[view][2]);
+            drawn.addStroke(StrokeSketch.RIDGE, 0.5f, 30f, LIVE_STROKE_PIXELS, views[view], false, LIVE_WIDTH,
+                    LIVE_HEIGHT);
+        }
+        StrokeSketch saved = StrokeSketch.parse(drawn.toSvg(), "live strokes");
+        saved.lift(ball);
+        float[] origin = new float[3];
+        float[] direction = new float[3];
+        for (int view = 0; view < orbits.length; view++) {
+            assertArrayEquals(drawn.viewCameras[view], saved.viewCameras[view], 1e-4f, "view " + view + " round trips");
+            float[] lifted = saved.liftedXyzByShape[view];
+            assertTrue(lifted.length > 0, "the stroke on view " + view + " lifts onto the sphere");
+            views[view].updateProjection(false, LIVE_WIDTH / (float) LIVE_HEIGHT, 0.01f, 100f);
+            for (int point = 0; point < lifted.length; point += 3) {
+                Vector3f hit = new Vector3f(lifted[point], lifted[point + 1], lifted[point + 2]);
+                float nearestRay = Float.POSITIVE_INFINITY;
+                for (int pixel = 0; pixel < LIVE_STROKE_PIXELS.length; pixel += 2) {
+                    views[view].rayThroughPixel(new Matrix4f(), LIVE_STROKE_PIXELS[pixel], LIVE_STROKE_PIXELS[pixel + 1],
+                            LIVE_WIDTH, LIVE_HEIGHT, origin, direction);
+                    Vector3f along = new Vector3f(direction[0], direction[1], direction[2]).normalize();
+                    nearestRay = Math.min(nearestRay, new Vector3f(hit).sub(origin[0], origin[1], origin[2])
+                            .cross(along).length());
+                }
+                assertTrue(nearestRay < RAY_TOLERANCE, "a point lifted from view " + view + " lies "
+                        + nearestRay + " off the rays of the pixels drawn there");
+            }
+        }
     }
 
     private GeometryBundle sphere() {

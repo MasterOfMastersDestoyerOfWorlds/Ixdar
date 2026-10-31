@@ -286,5 +286,6 @@ commas between test names, never `+`.
 - **ixdar.tools.orbit**: `OrbitTool`: the look-only tool every model scene opens with; the mouse orbits, pans and zooms the camera and nothing is edited.
 - **ixdar.tools.regions**: Ring regions of the `ring-tool` editing scene: `RegionLayer` shows the regions `RingRegions` builds and colours from the ring tool's rings, with their part names as labels, and `RingRegionTool` (the region tool) selects regions by click and Shift+click and extracts them.
 - **ixdar.tools.ring**: The ring tool of the `ring-tool` editing scene: `RingTool` previews, drafts and confirms rings from authored anchors, `RingToolState` is its undoable snapshot, and `RingDslWriter` appends each ring to the working .dsl graph as one statement.
+- **ixdar.tools.sculpt**: The mesh viewer's stroke-sculpt tool: `StrokeSculptTool` draws weighted strokes on the live view into a chain of `stroke_sculpt` passes with undo and redo, and saves them as DSL statements plus one SVG per pass; `SculptPass` is one pass, the tool's item and the unit its snapshots share.
 - **ixdar.tools.trade**: Trade-game route tools on the merged `Tool`: `PipeTool`, `GrowTool` and `CollapseTool`, sharing `TradeRouteTool`'s layer steps, selection and undo.
 <!-- package-map:end -->

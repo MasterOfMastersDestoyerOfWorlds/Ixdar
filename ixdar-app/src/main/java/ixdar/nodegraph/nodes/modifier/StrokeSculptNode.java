@@ -21,10 +21,12 @@ import ixdar.nodegraph.field.FieldBroadcast;
  * One stroke-sculpt pass: lifts its SVG through the camera stored on the SVG onto the input mesh,
  * then sculpts with the strokes, so chained passes re-lift onto whatever the earlier ones made.
  */
-@MeshNodeAnnotation(id = "stroke_sculpt", category = NodeCategory.MODIFIERS)
+@MeshNodeAnnotation(id = StrokeSculptNode.NODE_ID, category = NodeCategory.MODIFIERS)
 public class StrokeSculptNode implements MeshNode {
     public static final String NO_SYMMETRY = "none";
     public static final String AXES = "xyz";
+    public static final String NODE_ID = "stroke_sculpt";
+    public static final String SVG_TEXT_START = "<";
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort SVG = new InputPort("svg", PortType.STRING, "");
     public static final InputPort STROKES = new InputPort("strokes", PortType.STRING, "");
@@ -55,7 +57,7 @@ public class StrokeSculptNode implements MeshNode {
     public Map<String, String> socketDocs() {
         return Map.ofEntries(
                 Map.entry(GEOMETRY.name, "Input/output. The output carries the strokes' crease marks merged into the float \"crease\" edge marks for subdivision_surface."),
-                Map.entry(SVG.name, "The pass's drawing: an SVG written by `ixdar-cli multiview --svg` (its root records the camera) with <polyline>/<polygon> strokes added. data-strength in [-1, 1], stroke-width the falloff width in pixels, data-kind silhouette/ridge/valley, data-mirror=\"x\", data-op=\"smooth\". Resolved as a file, then under src/main/resources/, then on the classpath (e.g. dsl/skull/pass1.svg)."),
+                Map.entry(SVG.name, "The pass's drawing: an SVG written by `ixdar-cli multiview --svg` (its root records the camera) with <polyline>/<polygon> strokes added. data-strength in [-1, 1], stroke-width the falloff width in pixels, data-kind silhouette/ridge/valley, data-mirror=\"x\", data-op=\"smooth\". Resolved as a file, then under src/main/resources/, then on the classpath (e.g. dsl/skull/pass1.svg). A value starting with < is the SVG text itself, as the mesh viewer's stroke-sculpt tool sets an unsaved pass's."),
                 Map.entry(STROKES.name, "Already-lifted strokes in the text form `stroke-lift` prints, applied with the SVG's: \"s r=R [fill] [mirror] [smooth]: x y z w, ...; ...\"."),
                 Map.entry(STRENGTH.name, "Multiplier on the whole pass (displacement, drag, smoothing, crease), the knob dsl_optimizer tunes."),
                 Map.entry(SYMMETRY.name, "\"x\", \"y\" or \"z\": every stroke also applies reflected across that axis and the pass's displacement is averaged with its mirror; needs a symmetric input. \"none\" (default) leaves it alone."),
@@ -89,7 +91,9 @@ public class StrokeSculptNode implements MeshNode {
         String svgPath = ctx.getInputValue(SVG.name) instanceof String text ? text.trim() : "";
         if (!svgPath.isEmpty() && base.mesh().faceCount() > 0) {
             try {
-                String lifted = StrokeSketch.read(svgPath).lift(base.mesh());
+                StrokeSketch sketch = svgPath.startsWith(SVG_TEXT_START) ? StrokeSketch.parse(svgPath, SVG.name)
+                        : StrokeSketch.read(svgPath);
+                String lifted = sketch.lift(base.mesh());
                 strokes = strokes.isBlank() ? lifted : lifted.isEmpty() ? strokes
                         : strokes + StrokeSculpt.STROKE_SEPARATOR + lifted;
             } catch (IOException failure) {

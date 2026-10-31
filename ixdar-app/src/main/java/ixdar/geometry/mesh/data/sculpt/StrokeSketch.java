@@ -53,11 +53,29 @@ public final class StrokeSketch {
 
     public static final String POLYGON = "polygon";
 
+    public static final String POLYLINE = "polyline";
+
     public static final String SILHOUETTE = "silhouette";
 
     public static final String RIDGE = "ridge";
 
     public static final String VALLEY = "valley";
+
+    public static final String FILL = "fill";
+
+    public static final int VIEW_AZIMUTH = 0;
+
+    public static final int VIEW_ELEVATION = 1;
+
+    public static final int VIEW_DISTANCE = 2;
+
+    public static final int VIEW_ROLL = 3;
+
+    public static final int VIEW_FIELD_OF_VIEW = 4;
+
+    public static final int VIEW_CENTER = 5;
+
+    public static final int VIEW_FIELDS = 8;
 
     public static final String POINT_SEPARATOR = ", ";
 
@@ -124,8 +142,12 @@ public final class StrokeSketch {
     /** Cells per grid row. */
     public int columns;
 
-    /** Azimuth then elevation in radians of each cell's view, cells in reading order. */
-    public float[][] viewAzimuthElevation = new float[0][];
+    /**
+     * Each cell's camera, cells in reading order, indexed by the {@code VIEW_} constants: azimuth
+     * and elevation in radians, distance, roll, field of view in degrees, then the centre. A
+     * multiview cell names only its angles in {@code data-views} and takes the rest from the root.
+     */
+    public float[][] viewCameras = new float[0][];
 
     /** Grid pixels per SVG unit along x, from the viewBox. */
     public float svgScaleX = 1f;
@@ -185,6 +207,19 @@ public final class StrokeSketch {
                 svg = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
             }
         }
+        return parse(svg, path);
+    }
+
+    /**
+     * Parse a pass's SVG text: the camera its root records and its shapes, as {@link #read} does
+     * for a file.
+     *
+     * @param svg    the SVG text
+     * @param source where the text came from, for the refusal
+     * @throws IllegalArgumentException when the root carries no camera
+     * @return the sketch with its camera and shapes
+     */
+    public static StrokeSketch parse(String svg, String source) {
         Matcher root = ROOT_TAG.matcher(svg);
         String rootTag = root.find() ? root.group() : "";
         StrokeSketch sketch = new StrokeSketch();
@@ -196,7 +231,7 @@ public final class StrokeSketch {
             Matcher value = Pattern.compile("\\b" + attributes[attribute] + "\\s*=\\s*\"([^\"]*)\"").matcher(rootTag);
             values[attribute] = value.find() ? value.group(1).trim() : null;
             if (values[attribute] == null && attribute < REQUIRED_ATTRIBUTES) {
-                throw new IllegalArgumentException(path + ": the <svg> root has no " + attributes[attribute]
+                throw new IllegalArgumentException(source + ": the <svg> root has no " + attributes[attribute]
                         + "; draw on a template written by ixdar-cli multiview --svg, which records the camera");
             }
         }
@@ -208,15 +243,19 @@ public final class StrokeSketch {
         sketch.cellWidth = Integer.parseInt(values[2]);
         sketch.cellHeight = Integer.parseInt(values[3]);
         sketch.columns = Integer.parseInt(values[4]);
-        String[] views = values[5].split(VIEW_SEPARATOR);
-        sketch.viewAzimuthElevation = new float[views.length][];
-        for (int view = 0; view < views.length; view++) {
-            String[] angles = views[view].trim().split(NUMBER_SEPARATORS);
-            sketch.viewAzimuthElevation[view] = new float[] { Float.parseFloat(angles[0]),
-                Float.parseFloat(angles[1]) };
-        }
         sketch.fieldOfViewDegrees = values[6] == null ? Camera3D.DEFAULT_FOV : Float.parseFloat(values[6]);
         sketch.orthographic = ORTHOGRAPHIC.equals(values[7]);
+        String[] views = values[5].split(VIEW_SEPARATOR);
+        sketch.viewCameras = new float[views.length][];
+        for (int view = 0; view < views.length; view++) {
+            String[] numbers = views[view].trim().split(NUMBER_SEPARATORS);
+            float[] camera = { 0f, 0f, sketch.distance, 0f, sketch.fieldOfViewDegrees, sketch.center[0],
+                sketch.center[1], sketch.center[2] };
+            for (int field = 0; field < Math.min(numbers.length, VIEW_FIELDS); field++) {
+                camera[field] = Float.parseFloat(numbers[field]);
+            }
+            sketch.viewCameras[view] = camera;
+        }
         Matcher viewBox = VIEWBOX_ATTRIBUTE.matcher(rootTag);
         if (viewBox.find()) {
             String[] box = viewBox.group(1).trim().split(NUMBER_SEPARATORS);
@@ -269,15 +308,14 @@ public final class StrokeSketch {
         int[] stack = new int[Math.max(1, bvh.nodeCount)];
         Camera3D camera = new Camera3D(new Vector3f(), 0f, 0f);
         camera.setDistanceBounds(0f, Float.MAX_VALUE);
-        camera.fov = fieldOfViewDegrees;
-        Vector3f target = new Vector3f(center[0], center[1], center[2]);
+        Vector3f target = new Vector3f();
         Matrix4f model = new Matrix4f();
         Vector3f normal = new Vector3f();
         Vector3f toEye = new Vector3f();
         float[] origin = new float[3];
         float[] direction = new float[3];
         double[] inverse = new double[3];
-        int rows = (viewAzimuthElevation.length + columns - 1) / Math.max(1, columns);
+        int rows = (viewCameras.length + columns - 1) / Math.max(1, columns);
         StringBuilder allStrokes = new StringBuilder();
         for (int stroke = 0; stroke < shapeTotal; stroke++) {
             String shape = shapes.get(stroke);
@@ -305,17 +343,22 @@ public final class StrokeSketch {
             }
             int column = Math.min(columns - 1, Math.max(0, (int) (pixels[0] / cellWidth)));
             int gridRow = Math.min(rows - 1, Math.max(0, (int) (pixels[1] / cellHeight)));
-            int view = Math.min(viewAzimuthElevation.length - 1, gridRow * columns + column);
+            int view = Math.min(viewCameras.length - 1, gridRow * columns + column);
             viewByShape[stroke] = view;
+            float[] viewCamera = viewCameras[view];
+            float viewDistance = viewCamera[VIEW_DISTANCE];
+            target.set(viewCamera[VIEW_CENTER], viewCamera[VIEW_CENTER + 1], viewCamera[VIEW_CENTER + 2]);
+            camera.fov = viewCamera[VIEW_FIELD_OF_VIEW];
+            camera.roll = viewCamera[VIEW_ROLL];
             camera.moveTarget(target);
-            camera.setOrbit(viewAzimuthElevation[view][0], viewAzimuthElevation[view][1], distance);
-            camera.updateProjection(orthographic, cellWidth / (float) cellHeight, distance * NEAR_PLANE_FRACTION,
-                    distance * FAR_PLANE_MULTIPLE);
+            camera.setOrbit(viewCamera[VIEW_AZIMUTH], viewCamera[VIEW_ELEVATION], viewDistance);
+            camera.updateProjection(orthographic, cellWidth / (float) cellHeight, viewDistance * NEAR_PLANE_FRACTION,
+                    viewDistance * FAR_PLANE_MULTIPLE);
             for (int index = 0; index < pixels.length; index += 2) {
                 pixels[index] -= column * cellWidth;
                 pixels[index + 1] -= gridRow * cellHeight;
             }
-            float centerWorldPerPixel = (float) camera.worldPerPixel(center[0], center[1], center[2], cellHeight);
+            float centerWorldPerPixel = (float) camera.worldPerPixel(target.x, target.y, target.z, cellHeight);
             if (SILHOUETTE.equals(kind)) {
                 // An over-sketched outline lifts to the view's eye, axis and one view ray per
                 // point; the sculpt finds the contour against the stroke itself.
@@ -502,5 +545,92 @@ public final class StrokeSketch {
             }
         }
         return allStrokes.toString();
+    }
+
+    /**
+     * Add one stroke drawn on a live view as a new cell recording that view's camera, so the stroke
+     * lifts through the view it was drawn on. The cells of a live sketch run in one row.
+     *
+     * @param kind             {@link #SILHOUETTE}, {@link #RIDGE}, {@link #VALLEY} or {@link #FILL}
+     * @param strength         the stroke's weight in [-1, 1]; ridge and valley take its magnitude
+     * @param widthPixels      falloff width in view pixels
+     * @param pixels           the stroke's points in view pixels from the top left, packed xy
+     * @param view             the camera the stroke was drawn through
+     * @param viewOrthographic whether that view projects orthographically
+     * @param viewWidth        the view's width in pixels
+     * @param viewHeight       the view's height in pixels
+     * @throws IllegalArgumentException when the sketch's cells have another size or projection, or
+     *                                  run in more than one row
+     */
+    public void addStroke(String kind, float strength, float widthPixels, float[] pixels, Camera3D view,
+            boolean viewOrthographic, int viewWidth, int viewHeight) {
+        if (viewCameras.length == 0) {
+            cellWidth = viewWidth;
+            cellHeight = viewHeight;
+            orthographic = viewOrthographic;
+            center[0] = view.orbitTarget.x;
+            center[1] = view.orbitTarget.y;
+            center[2] = view.orbitTarget.z;
+            distance = view.distance;
+            fieldOfViewDegrees = (float) view.fov;
+            svgScaleX = 1f;
+            svgScaleY = 1f;
+        } else if (columns != viewCameras.length) {
+            throw new IllegalArgumentException("this pass was drawn on a multiview grid; live strokes go on "
+                    + "a pass of their own");
+        } else if (viewWidth != cellWidth || viewHeight != cellHeight || viewOrthographic != orthographic) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT,
+                    "this pass was drawn on a %dx%d %s view and the view is now %dx%d %s; commit the pass to "
+                            + "draw on this one", cellWidth, cellHeight, orthographic ? ORTHOGRAPHIC : PERSPECTIVE,
+                    viewWidth, viewHeight, viewOrthographic ? ORTHOGRAPHIC : PERSPECTIVE));
+        }
+        int column = viewCameras.length;
+        viewCameras = Arrays.copyOf(viewCameras, column + 1);
+        viewCameras[column] = new float[] { view.azimuth, view.elevation, view.distance, view.roll, (float) view.fov,
+            view.orbitTarget.x, view.orbitTarget.y, view.orbitTarget.z };
+        columns = column + 1;
+        StringBuilder points = new StringBuilder();
+        for (int index = 0; index + 1 < pixels.length; index += 2) {
+            points.append(index == 0 ? "" : " ").append(String.format(Locale.ROOT, "%.1f,%.1f",
+                    (pixels[index] + column * cellWidth) / svgScaleX, pixels[index + 1] / svgScaleY));
+        }
+        boolean fill = FILL.equals(kind);
+        shapes.add(String.format(Locale.ROOT, "<%s%s data-strength=\"%.2f\" stroke-width=\"%.1f\" points=\"%s\"/>",
+                fill ? POLYGON : POLYLINE, fill ? "" : " data-kind=\"" + kind + "\" fill=\"none\"",
+                Math.max(-1f, Math.min(1f, strength)), widthPixels / svgScaleY, points));
+    }
+
+    /**
+     * The sketch as SVG text {@link #parse} reads back to the same cameras and shapes, every cell's
+     * camera written out in full.
+     *
+     * @return the SVG text
+     */
+    public String toSvg() {
+        int rows = (viewCameras.length + columns - 1) / Math.max(1, columns);
+        int width = columns * cellWidth;
+        int height = rows * cellHeight;
+        StringBuilder views = new StringBuilder();
+        for (float[] camera : viewCameras) {
+            views.append(views.length() == 0 ? "" : VIEW_SEPARATOR).append(String.format(Locale.ROOT,
+                    "%.6f %.6f %.6f %.6f %.4f %.6f %.6f %.6f", camera[VIEW_AZIMUTH], camera[VIEW_ELEVATION],
+                    camera[VIEW_DISTANCE], camera[VIEW_ROLL], camera[VIEW_FIELD_OF_VIEW], camera[VIEW_CENTER],
+                    camera[VIEW_CENTER + 1], camera[VIEW_CENTER + 2]));
+        }
+        StringBuilder svg = new StringBuilder(String.format(Locale.ROOT,
+                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\"%n"
+                        + "     %s=\"%.6f %.6f %.6f\" %s=\"%.6f\" %s=\"%.4f\" %s=\"%s\"%n"
+                        + "     %s=\"%d\" %s=\"%d\" %s=\"%d\"%n     %s=\"%s\">%n"
+                        + "<!-- One cell per view; each data-views entry is that view's azimuth, elevation, "
+                        + "distance, roll, field of view and centre. -->%n",
+                width, height, Math.round(width / svgScaleX), Math.round(height / svgScaleY), CENTER_ATTRIBUTE,
+                center[0], center[1], center[2], DISTANCE_ATTRIBUTE, distance, FIELD_OF_VIEW_ATTRIBUTE,
+                fieldOfViewDegrees, PROJECTION_ATTRIBUTE, orthographic ? ORTHOGRAPHIC : PERSPECTIVE,
+                CELL_WIDTH_ATTRIBUTE, cellWidth, CELL_HEIGHT_ATTRIBUTE, cellHeight, COLUMNS_ATTRIBUTE, columns,
+                VIEWS_ATTRIBUTE, views));
+        for (String shape : shapes) {
+            svg.append(shape).append('\n');
+        }
+        return svg.append("</svg>\n").toString();
     }
 }
