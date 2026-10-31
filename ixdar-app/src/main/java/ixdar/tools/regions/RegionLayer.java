@@ -24,9 +24,8 @@ import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ring.RingTool;
 
 /**
- * The editing scene's ring regions as shown: their colours, in the region tool, while the ring tool
- * bisects, or switched on; the hidden faces no tool draws or picks; and the region labels. Each
- * change rebuilds what it touches; a frame only animates the explosion.
+ * The editing scene's ring regions as shown: their region or part colours, the hidden faces no tool
+ * draws or picks, and the region labels. Each change rebuilds what it touches.
  */
 public final class RegionLayer {
 
@@ -71,18 +70,9 @@ public final class RegionLayer {
     /** Whether {@link #partLabels} differs from what the working .dsl holds. */
     public boolean labelsUnsaved;
 
-    /** Whether labelled regions take their label's colour and the rest one dark grey; P flips it. */
-    public boolean colourByPart = true;
-
-    /** Whether each labelled region's part name is drawn on it; Shift+P flips it. */
-    public boolean showPartNames = true;
-
-    /** Whether each region's number is drawn on it; Shift+N flips it. */
-    public boolean showRegionNumbers;
-
     /**
-     * One label per region with anything to show, centred on the region: its number while
-     * {@link #showRegionNumbers}, then its part name while {@link #showPartNames}.
+     * One label per region with anything to show, centred on the region: its number while the
+     * scene shows numbers, then its part name while it shows labels.
      */
     public List<HyperString> regionLabels = new ArrayList<>();
 
@@ -204,15 +194,15 @@ public final class RegionLayer {
         }
     }
 
-    /** Shift+P or Shift+N: rebuild the region labels after a toggle of what they show. */
+    /** N or P: rebuild the region labels after the scene's numbers or labels were toggled. */
     public void labelsShownChanged() {
         regionLabels = new ArrayList<>();
         Palette palette = scene.palette;
         int[] labelByRegion = partLabels.labelByRegion;
         for (int region = 0; regions != null && region < regions.regionCount; region++) {
             int label = region < labelByRegion.length ? labelByRegion[region] : MeshLabels.UNLABELLED;
-            String name = showPartNames && label != MeshLabels.UNLABELLED ? partLabels.names.get(label) : "";
-            String number = showRegionNumbers ? REGION_NUMBER_PREFIX + region : "";
+            String name = scene.showLabels && label != MeshLabels.UNLABELLED ? partLabels.names.get(label) : "";
+            String number = scene.showNumbers ? REGION_NUMBER_PREFIX + region : "";
             String text = number.isEmpty() || name.isEmpty() ? number + name : number + " " + name;
             if (!text.isEmpty()) {
                 HyperString regionLabel = new HyperString();
@@ -272,15 +262,26 @@ public final class RegionLayer {
     }
 
     /**
-     * Whether the region colours are wanted now: switched on, in the region tool, or while the
-     * ring tool's bisector previews the regions it would split.
+     * Whether the region colours are wanted now: switched on, in the region tool, while the ring
+     * tool's bisector previews the regions it would split, or while the part labels show.
      *
      * @return true when the regions draw in their colours
      */
     public boolean coloured() {
-        return visible || scene.activeTool == scene.regionTool
+        return visible || colouredByPart() || scene.activeTool == scene.regionTool
                 || scene.activeTool == scene.ringTool
                         && scene.ringTool.activeRingSubTool().showsRegions();
+    }
+
+    /**
+     * Whether the regions take their part's colour rather than their own: exactly while the scene
+     * shows the part labels and the regions have parts resolved.
+     *
+     * @return true when coloured regions are coloured by part
+     */
+    public boolean colouredByPart() {
+        return scene.showLabels && !partLabels.names.isEmpty() && regions != null
+                && partLabels.labelByRegion.length == regions.regionCount;
     }
 
     /**
@@ -416,8 +417,7 @@ public final class RegionLayer {
         Vector4f unlabelled = palette.surface.toVector4f();
         Vector4f sliver = palette.warning.toVector4f();
         int[] labelByRegion = partLabels.labelByRegion;
-        boolean byPart = colourByPart && !partLabels.names.isEmpty()
-                && labelByRegion.length == regions.regionCount;
+        boolean byPart = colouredByPart();
         Vector4f[] colourByRegion = new Vector4f[regions.regionCount];
         String[] tagByRegion = new String[regions.regionCount];
         for (int region = 0; region < regions.regionCount; region++) {

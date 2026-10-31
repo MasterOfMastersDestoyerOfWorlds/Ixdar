@@ -17,6 +17,7 @@ import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Draft;
+import ixdar.tools.Item;
 import ixdar.tools.Preview;
 import ixdar.tools.Tool;
 
@@ -192,6 +193,18 @@ public final class BisectorTool extends RingSubTool {
         ringTool.previewedFace = faceId;
         System.arraycopy(hitPoint, 0, ringTool.previewedHit, 0, RingTool.COORDINATES_PER_POINT);
         ringTool.previewMillis = (System.nanoTime() - start) / 1e6;
+    }
+
+    /**
+     * The wall a click would put an end on now: the ring or bisector the cursor's snap reached.
+     *
+     * @return that wall's ring item, or {@code null} with a draft open or no wall within reach
+     */
+    @Override
+    public Item hovered() {
+        int ring = ringTool.ringOfSerial(snappedWall);
+        return ringTool.draft != null || ringTool.scene.cursorVertexId < 0 || ring < 0 ? null
+                : ringTool.ringItem(ring);
     }
 
     /**

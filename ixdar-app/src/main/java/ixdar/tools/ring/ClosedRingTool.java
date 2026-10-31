@@ -130,7 +130,8 @@ public final class ClosedRingTool extends RingSubTool {
     }
 
     /**
-     * The confirmed ring under the cursor, else the graph ring under it by its label.
+     * The confirmed ring under the cursor, else the graph ring under it, each labelled with the
+     * number drawn beside it; a graph ring's own label is its detail.
      *
      * @return the hovered ring, or {@code null} when the cursor is over none
      */
@@ -143,7 +144,9 @@ public final class ClosedRingTool extends RingSubTool {
             return null;
         }
         Item graphRing = new Item();
-        graphRing.label = hoveredGraphRing;
+        // Graph rings draw first, so a graph ring's number is its place among them.
+        graphRing.label = Integer.toString(ringTool.unownedGraphRingLabels().indexOf(hoveredGraphRing));
+        graphRing.detail = "graph ring " + hoveredGraphRing;
         graphRing.saved = true;
         return graphRing;
     }

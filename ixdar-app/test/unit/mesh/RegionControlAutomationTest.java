@@ -15,6 +15,7 @@ import java.util.Map;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,10 +29,12 @@ import ixdar.automation.endpoints.input.InjectHover;
 import ixdar.automation.endpoints.ui.SelectionBounds;
 import ixdar.automation.endpoints.ui.State;
 import ixdar.automation.endpoints.ui.tools.FireControl;
+import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.gui.ui.text.HyperString;
@@ -42,6 +45,7 @@ import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.GL;
 import ixdar.platform.gl.lwjgl.DefaultBuffer;
+import ixdar.platform.input.Keys;
 import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
 import ixdar.scenes.ring.RingScene;
@@ -81,7 +85,11 @@ class RegionControlAutomationTest {
 
     private static final String PART = "tail";
 
-    private static final String TOGGLE_REGION_NUMBERS = "toggle-region-numbers";
+    private static final String TOGGLE_NUMBERS = RingScene.TOGGLE_NUMBERS_ACTION;
+
+    private static final String TOGGLE_LABELS = RingScene.TOGGLE_LABELS_ACTION;
+
+    private static final String TOGGLE_REGION_COLOURS = "toggle-region-colours";
 
     private static final float SEEN_PIXEL_X = 20f;
 
@@ -136,6 +144,15 @@ class RegionControlAutomationTest {
     private final int[] faceUnderCursor = { -1 };
 
     /**
+     * Vertex the tools' cursor pick lands on, at its position, or -1 for the scene's own pick, which
+     * the stand-in GPU misses.
+     */
+    private final int[] cursorOnVertex = { -1 };
+
+    /** The region colours the surface's runtime was last handed. */
+    private Vector4f[] drawnColours = new Vector4f[0];
+
+    /**
      * A ring scene over the cylinder with its two rings and the region tool active, its regions and
      * pick buffer built, bound to the automation runtime.
      */
@@ -180,6 +197,21 @@ class RegionControlAutomationTest {
             @Override
             public MeshTopology halfEdgeSurface() {
                 return cylinder;
+            }
+
+            @Override
+            public boolean pickCursor(HalfEdgeMeshRuntime runtime, MeshTopology surface) {
+                if (cursorOnVertex[0] < 0) {
+                    return super.pickCursor(runtime, surface);
+                }
+                Vector3f position = new Vector3f();
+                surface.vertexPosition(cursorOnVertex[0], position);
+                cursorVertexId = cursorOnVertex[0];
+                cursorFaceId = surface.vertexFaceAt(cursorVertexId, 0);
+                cursorPoint[0] = position.x;
+                cursorPoint[1] = position.y;
+                cursorPoint[2] = position.z;
+                return true;
             }
         };
         scene.initPoints();
@@ -339,7 +371,7 @@ class RegionControlAutomationTest {
         scene.updateScene();
         assertEquals(0, scene.shownLabels.size(), "numbers drawn before the row turned them on");
         JsonObject body = new JsonObject();
-        body.addProperty(FireControl.ACTION, TOGGLE_REGION_NUMBERS);
+        body.addProperty(FireControl.ACTION, TOGGLE_NUMBERS);
         assertTrue(control(body).get(OK).getAsBoolean());
         scene.updateScene();
 
@@ -384,6 +416,11 @@ class RegionControlAutomationTest {
         scene.regionLayer.partLabels.add(PART, BOTTOM_POINT.clone());
         scene.regionLayer.labelsChanged();
         scene.updateScene();
+        assertEquals(0, scene.shownLabels.size(), "a part name drawn before the labels row turned them on");
+        JsonObject labels = new JsonObject();
+        labels.addProperty(FireControl.ACTION, TOGGLE_LABELS);
+        assertTrue(control(labels).get(OK).getAsBoolean());
+        scene.updateScene();
         assertEquals(1, scene.shownLabels.size());
         HyperString named = scene.shownLabels.get(0);
         assertEquals(PART, named.plainLines().get(0));
@@ -394,7 +431,7 @@ class RegionControlAutomationTest {
                 "a label draws in its own bordered style");
 
         JsonObject body = new JsonObject();
-        body.addProperty(FireControl.ACTION, TOGGLE_REGION_NUMBERS);
+        body.addProperty(FireControl.ACTION, TOGGLE_NUMBERS);
         assertTrue(control(body).get(OK).getAsBoolean());
         scene.updateScene();
         assertEquals(regions.regionCount, scene.shownLabels.size(), "one label per region");
@@ -553,10 +590,163 @@ class RegionControlAutomationTest {
     @Test
     void aToggleRowsReplySaysWhatItSwitchedTo() throws Exception {
         JsonObject body = new JsonObject();
-        body.addProperty(FireControl.ACTION, "toggle-part-names");
+        body.addProperty(FireControl.ACTION, TOGGLE_LABELS);
         JsonObject reply = control(body);
-        assertEquals("part names shown: " + (scene.regionLayer.showPartNames ? "on" : "off"),
+        assertEquals("labels shown: " + (scene.showLabels ? "on" : "off"),
                 reply.getAsJsonObject(State.TOOL).get("lastRow").getAsString());
+    }
+
+    /**
+     * CRAW-83: the numbers row and the labels row are the ring scene's own, on N and P, and fire
+     * from every tool over the scene's view and the ring tool's bisector, no tool row taking their
+     * keys; the rows they replace are gone and both start off.
+     */
+    @Test
+    void theNumbersAndLabelsRowsAreSceneRowsThatFireFromEveryToolAndStartOff() throws Exception {
+        assertFalse(new RingScene().showNumbers || new RingScene().showLabels,
+                "a fresh scene shows numbers or labels");
+        List<Tool> modes = new ArrayList<>(scene.tools);
+        modes.removeIf(Tool::replacesView);
+        modes.add(scene.ringTool.bisector);
+        Map<String, Integer> keyByAction = Map.of(TOGGLE_NUMBERS, Keys.N, TOGGLE_LABELS, Keys.P);
+        for (Tool mode : modes) {
+            if (mode == scene.ringTool.bisector) {
+                scene.switchTool(scene.ringTool);
+                scene.ringTool.switchSubTool(mode);
+            } else {
+                scene.switchTool(mode);
+            }
+            for (List<ControlHint> section : scene.controls) {
+                for (ControlHint row : section) {
+                    assertFalse(List.of("toggle-ring-numbers", "toggle-region-numbers", "toggle-part-names",
+                            "toggle-colour-by-part").contains(row.actionName), mode.toolName() + " still has "
+                                    + row.actionName);
+                }
+            }
+            for (Map.Entry<String, Integer> action : keyByAction.entrySet()) {
+                assertTrue(scene.controls.get(Scene.SCENE_SECTION).stream()
+                        .anyMatch(row -> row.actionName.equals(action.getKey())),
+                        action.getKey() + " is not a scene row in " + mode.toolName());
+                boolean numbersBefore = scene.showNumbers;
+                boolean labelsBefore = scene.showLabels;
+                scene.keys.handleSceneKeys(action.getValue(), 0);
+                assertEquals(action.getKey(), scene.keys.lastFiredControl.actionName,
+                        "in " + mode.toolName() + " the key fired another row");
+                JsonObject body = new JsonObject();
+                body.addProperty(FireControl.ACTION, action.getKey());
+                assertTrue(control(body).get(OK).getAsBoolean(), mode.toolName());
+                assertTrue(numbersBefore == scene.showNumbers && labelsBefore == scene.showLabels,
+                        mode.toolName() + ": the key then the id did not flip " + action.getKey() + " and back");
+            }
+        }
+    }
+
+    /**
+     * CRAW-83: G shows the region colours in the ring tool while the labels are off and the part
+     * colours while they are on, whatever the region tool was left showing; with labels on, the
+     * parts are coloured in every tool.
+     */
+    @Test
+    void partColouringFollowsTheLabelsRowAndGShowsRegionColoursWithLabelsOff() throws Exception {
+        scene.meshRuntime = new HalfEdgeMeshRuntime() {
+            @Override
+            public void setFaceGroups(MeshTopology mesh, int[] groupByActiveFace, Vector4f[] colourByGroup,
+                    String[] tagByGroup) {
+                drawnColours = colourByGroup.clone();
+                super.setFaceGroups(mesh, groupByActiveFace, colourByGroup, tagByGroup);
+            }
+        };
+        scene.meshRuntime.upload(cylinder);
+        RegionLayer layer = scene.regionLayer;
+        layer.partLabels.add(PART, TOP_POINT.clone());
+        layer.labelsChanged();
+        RingRegions regions = layer.regions;
+        Vector4f[] regionColours = new Vector4f[regions.regionCount];
+        Vector4f[] partColours = new Vector4f[regions.regionCount];
+        Palette palette = scene.palette;
+        for (int region = 0; region < regions.regionCount; region++) {
+            regionColours[region] = regions.isSliver(region) ? palette.warning.toVector4f()
+                    : Palette.shadedEntry(palette.region, regions.colouring.colourByNode[region]).toVector4f();
+            int label = layer.partLabels.labelByRegion[region];
+            partColours[region] = label == MeshLabels.UNLABELLED ? palette.surface.toVector4f()
+                    : Palette.shadedEntry(palette.categories, layer.partLabels.colouring.colourByNode[label])
+                            .toVector4f();
+        }
+        assertFalse(Arrays.equals(regionColours, partColours), "the fixture cannot tell the colourings apart");
+        JsonObject colours = new JsonObject();
+        colours.addProperty(FireControl.ACTION, TOGGLE_REGION_COLOURS);
+        JsonObject labels = new JsonObject();
+        labels.addProperty(FireControl.ACTION, TOGGLE_LABELS);
+
+        scene.updateScene();
+        assertArrayEquals(regionColours, drawnColours, "the region tool coloured by part with labels off");
+        scene.switchTool(scene.ringTool);
+        assertTrue(control(colours).get(OK).getAsBoolean());
+        scene.updateScene();
+        assertArrayEquals(regionColours, drawnColours, "G in the ring tool coloured by part with labels off");
+        assertTrue(control(labels).get(OK).getAsBoolean());
+        scene.updateScene();
+        assertArrayEquals(partColours, drawnColours, "labels on did not colour the parts");
+        assertTrue(control(labels).get(OK).getAsBoolean());
+        scene.updateScene();
+        assertArrayEquals(regionColours, drawnColours, "labels off did not bring the region colours back");
+
+        assertTrue(control(colours).get(OK).getAsBoolean());
+        scene.switchTool(scene.orbitTool);
+        scene.updateScene();
+        assertFalse(layer.coloured(), "the orbit tool coloured the surface with G and labels off");
+        assertTrue(control(labels).get(OK).getAsBoolean());
+        scene.updateScene();
+        assertTrue(layer.coloured(), "labels on left the orbit tool's surface plain");
+        assertArrayEquals(partColours, drawnColours, "labels on did not colour the parts in the orbit tool");
+    }
+
+    /**
+     * CRAW-83: with the numbers on, the ring the ring sub-tool or the bisector hovers has its number
+     * set aside to draw beside the cursor while the others stay on their loops; leaving the ring,
+     * or a tool that hovers no ring, puts it back.
+     */
+    @Test
+    void theHoveredRingsNumberMovesToTheCursorInRingModeAndReturnsWhenLeft() throws Exception {
+        scene.meshRuntime = new MeshOverlayRuntime();
+        scene.meshRuntime.upload(cylinder);
+        RingTool rings = scene.ringTool;
+        rings.invalidateRings();
+        scene.switchTool(rings);
+        JsonObject numbers = new JsonObject();
+        numbers.addProperty(FireControl.ACTION, TOGGLE_NUMBERS);
+        assertTrue(control(numbers).get(OK).getAsBoolean());
+        int low = rings.ringOfSourceLabel(LOW_RING);
+        int high = rings.ringOfSourceLabel(HIGH_RING);
+        scene.updateScene();
+        assertEquals(2, rings.ringNumbers.size(), rings.lastError);
+        assertEquals(null, scene.hoveredRingNumber, "a number left its loop with the cursor off every ring");
+        assertTrue(scene.shownLabels.containsAll(rings.ringNumbers));
+
+        for (Tool mode : List.of(rings.closedRing, rings.bisector)) {
+            rings.switchSubTool(mode);
+            for (int ring : new int[] { low, high }) {
+                int edgeId = rings.confirmedRings.get(ring).spline.marks.markedEdgeIds[0];
+                cursorOnVertex[0] = cylinder.halfEdgeVertex(cylinder.edgeHalfEdge(edgeId));
+                scene.updateScene();
+                HyperString hovered = scene.hoveredRingNumber;
+                assertTrue(hovered != null && hovered.getData().equals(rings.drawnRingNumber(ring)),
+                        mode.toolName() + ": ring " + rings.drawnRingNumber(ring) + "'s number did not go to the "
+                                + "cursor: " + hovered);
+                assertFalse(scene.shownLabels.contains(hovered), "the hovered number is also on its loop");
+                assertEquals(1, rings.ringNumbers.stream().filter(scene.shownLabels::contains).count(),
+                        "the other ring's number left its loop");
+            }
+            cursorOnVertex[0] = -1;
+            scene.updateScene();
+            assertEquals(null, scene.hoveredRingNumber, mode.toolName() + ": leaving the ring kept its number");
+            assertTrue(scene.shownLabels.containsAll(rings.ringNumbers), "leaving did not put the number back");
+        }
+        int edgeId = rings.confirmedRings.get(low).spline.marks.markedEdgeIds[0];
+        cursorOnVertex[0] = cylinder.halfEdgeVertex(cylinder.edgeHalfEdge(edgeId));
+        scene.switchTool(scene.orbitTool);
+        scene.updateScene();
+        assertEquals(null, scene.hoveredRingNumber, "the orbit tool moved a ring's number");
     }
 
     /**

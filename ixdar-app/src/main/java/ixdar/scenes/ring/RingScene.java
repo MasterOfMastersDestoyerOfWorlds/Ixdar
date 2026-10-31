@@ -18,6 +18,7 @@ import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.graphics.render.text.Font;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.ErrorToasts;
 import ixdar.gui.ui.text.HyperString;
@@ -25,6 +26,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.tools.ControlHint;
+import ixdar.tools.Item;
 import ixdar.tools.Tool;
 import ixdar.tools.connection.ConnectionTool;
 import ixdar.tools.regions.RegionLayer;
@@ -53,6 +55,12 @@ public class RingScene extends MeshNodeViewerScene {
     public static final float LABEL_BORDER_PIXELS = 2f;
 
     public static final float LABEL_ROW_PIXELS = 26f;
+
+    public static final float LABEL_CURSOR_GAP_PIXELS = 14f;
+
+    public static final String TOGGLE_NUMBERS_ACTION = "toggle-numbers";
+
+    public static final String TOGGLE_LABELS_ACTION = "toggle-labels";
 
     public static final String CAMERA_MOVING_REFUSAL =
             "the camera is still moving - click again once it stops";
@@ -84,8 +92,20 @@ public class RingScene extends MeshNodeViewerScene {
     /** The ring-labelled masks the graph left, drawn thick and numbered rather than as edges. */
     public Map<String, boolean[]> ringMarksByLabel = new LinkedHashMap<>();
 
-    /** Whether each ring's number is drawn beside it; the {@code N} key flips it. */
-    public boolean showRingNumbers;
+    /** Whether every number is drawn, each ring's beside it and each region's on it; N flips it. */
+    public boolean showNumbers;
+
+    /**
+     * Whether every label is drawn, each named region's part name on it, the regions then coloured
+     * by part in every tool; P flips it.
+     */
+    public boolean showLabels;
+
+    /**
+     * The shown number of the ring the active tool hovers, drawn beside the cursor instead of on
+     * its loop; {@code null} while the tool hovers no numbered ring.
+     */
+    public HyperString hoveredRingNumber;
 
     /** Whether the rings are drawn, in every tool, while the regions are assembled; H flips it. */
     public boolean showRings = true;
@@ -166,7 +186,8 @@ public class RingScene extends MeshNodeViewerScene {
 
     /**
      * Run one frame of every tool and the region layer, then gather the labels shown: ring numbers
-     * while numbered and shown, region labels while the regions are assembled and current.
+     * while numbered and shown, the hovered ring's set aside for the cursor, and region labels
+     * while the regions are assembled and current.
      */
     @Override
     public void updateScene() {
@@ -176,8 +197,17 @@ public class RingScene extends MeshNodeViewerScene {
         regionLayer.perFrame();
         errorToasts.perFrame();
         shownLabels.clear();
-        if (showRingNumbers && ringsShown()) {
-            shownLabels.addAll(ringTool.ringNumbers);
+        hoveredRingNumber = null;
+        if (showNumbers && ringsShown()) {
+            // A hovered ring's item is labelled with the number drawn beside it.
+            Item hovered = activeTool.hovered();
+            for (HyperString number : ringTool.ringNumbers) {
+                if (hovered != null && hovered.label.equals(String.valueOf(number.getData()))) {
+                    hoveredRingNumber = number;
+                } else {
+                    shownLabels.add(number);
+                }
+            }
         }
         if (!regionLayer.explosion.exploded() && !regionTool.showingExtraction
                 && regionLayer.regions != null && regionLayer.regions.mesh == halfEdgeSurface()
@@ -344,15 +374,23 @@ public class RingScene extends MeshNodeViewerScene {
 
     /**
      * Draw the labels {@link #updateScene} gathered at their anchors, each ring number hidden where
-     * the surface is in front of it, then the refusals at the top left.
+     * the surface is in front of it, and the hovered ring's number just right of the cursor; then
+     * the refusals at the top left.
      */
     @Override
     public void drawSceneOverlayText() {
         if (surfaceRuntime() != null) {
-            if (showRingNumbers && ringsShown()) {
+            if (showNumbers && ringsShown()) {
                 ringTool.placeRingNumbers(camera);
             }
-            Drawing.getDrawing().font.drawAnchoredStrings(shownLabels, LABEL_ROW_PIXELS, camera2D);
+            Font font = Drawing.getDrawing().font;
+            font.drawAnchoredStrings(shownLabels, LABEL_ROW_PIXELS, camera2D);
+            if (hoveredRingNumber != null) {
+                float halfWidth = HALF * LABEL_ROW_PIXELS / font.fontHeight
+                        * font.getWidth(hoveredRingNumber.plainLines().get(0));
+                font.drawHyperString(hoveredRingNumber, mouse.normalizedPosX + LABEL_CURSOR_GAP_PIXELS
+                        + halfWidth, mouse.normalizedPosY, LABEL_ROW_PIXELS, camera2D);
+            }
         }
         errorToasts.draw(camera2D);
     }
@@ -451,10 +489,6 @@ public class RingScene extends MeshNodeViewerScene {
                 }));
         controls.add(new ControlHint("show-hidden-regions", Keys.U, "U", "show hidden regions", regionLayer::showAll));
         controls.add(new ControlHint(SAVE_RINGS_ACTION, Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));
-        controls.add(new ControlHint("toggle-ring-numbers", Keys.N, "N", "ring numbers", () -> {
-            showRingNumbers = !showRingNumbers;
-            activeTool.lastRow = ControlHint.toggled("ring numbers shown", showRingNumbers);
-        }));
         // H flips the visibility that applies now: the exploded view's, or the assembled one.
         controls.add(new ControlHint("toggle-rings", Keys.H, "H", "show / hide rings", () -> {
             if (regionLayer.explosion.exploded()) {
@@ -464,6 +498,21 @@ public class RingScene extends MeshNodeViewerScene {
             }
             activeTool.lastRow = ControlHint.toggled("rings shown", ringsShown());
         }));
+        // N shows or hides every number, P every label; both start off.
+        controls.add(new ControlHint(TOGGLE_NUMBERS_ACTION, Keys.N, "N", "all numbers: rings and regions (R3)",
+                () -> {
+                    showNumbers = !showNumbers;
+                    regionLayer.labelsShownChanged();
+                    activeTool.lastRow = ControlHint.toggled("numbers shown", showNumbers);
+                }));
+        // Part colours go with the part names, so the labels row recolours the regions too.
+        controls.add(new ControlHint(TOGGLE_LABELS_ACTION, Keys.P, "P", "all labels: part names, coloured by part",
+                () -> {
+                    showLabels = !showLabels;
+                    regionLayer.labelsShownChanged();
+                    regionLayer.redraw();
+                    activeTool.lastRow = ControlHint.toggled("labels shown", showLabels);
+                }));
         super.setControls(controls);
     }
 
