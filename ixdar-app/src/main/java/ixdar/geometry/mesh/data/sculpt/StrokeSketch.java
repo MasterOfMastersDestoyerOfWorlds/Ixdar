@@ -18,7 +18,6 @@ import org.joml.Vector3f;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.graphics.cameras.Camera3D;
 
 /**
@@ -94,8 +93,6 @@ public final class StrokeSketch {
     public static final float NEAR_PLANE_FRACTION = 0.01f;
 
     public static final float FAR_PLANE_MULTIPLE = 4f;
-
-    public static final double MINIMUM_RAY_PARAMETER = 1e-6;
 
     public static final int VIEWBOX_FIELDS = 4;
 
@@ -291,20 +288,8 @@ public final class StrokeSketch {
         grazingByShape = new int[shapeTotal];
         radiusByShape = new float[shapeTotal];
         liftedXyzByShape = new float[shapeTotal][];
-        TriangleBvh bvh = new TriangleBvh();
         int[] faceOfTriangle = new int[mesh.triangleCount()];
-        bvh.triangleCorners = mesh.triangulate(TriangulationRule.FAN, faceOfTriangle);
-        bvh.triangleCount = faceOfTriangle.length;
-        bvh.positions = new float[mesh.vertexIdBound() * 3];
-        Vector3f position = new Vector3f();
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            mesh.vertexPosition(vertexId, position);
-            bvh.positions[vertexId * 3] = position.x;
-            bvh.positions[vertexId * 3 + 1] = position.y;
-            bvh.positions[vertexId * 3 + 2] = position.z;
-        }
-        bvh.build();
+        TriangleBvh bvh = TriangleBvh.over(mesh, faceOfTriangle);
         int[] stack = new int[Math.max(1, bvh.nodeCount)];
         Camera3D camera = new Camera3D(new Vector3f(), 0f, 0f);
         camera.setDistanceBounds(0f, Float.MAX_VALUE);
@@ -314,7 +299,6 @@ public final class StrokeSketch {
         Vector3f toEye = new Vector3f();
         float[] origin = new float[3];
         float[] direction = new float[3];
-        double[] inverse = new double[3];
         int rows = (viewCameras.length + columns - 1) / Math.max(1, columns);
         StringBuilder allStrokes = new StringBuilder();
         for (int stroke = 0; stroke < shapeTotal; stroke++) {
@@ -359,14 +343,17 @@ public final class StrokeSketch {
                 pixels[index + 1] -= gridRow * cellHeight;
             }
             float centerWorldPerPixel = (float) camera.worldPerPixel(target.x, target.y, target.z, cellHeight);
+            // Every stroke carries its cell's eye and axis, so the sculpt touches only what this
+            // camera sees.
+            Vector3f forward = new Vector3f(camera.target).sub(camera.position).normalize();
+            String eyeFlag = String.format(Locale.ROOT, " %s%.5f/%.5f/%.5f/%.5f/%.5f/%.5f", StrokeSculpt.EYE_PREFIX,
+                    camera.position.x, camera.position.y, camera.position.z, forward.x, forward.y, forward.z);
             if (SILHOUETTE.equals(kind)) {
                 // An over-sketched outline lifts to the view's eye, axis and one view ray per
                 // point; the sculpt finds the contour against the stroke itself.
-                Vector3f forward = new Vector3f(camera.target).sub(camera.position).normalize();
                 float reach = strokeWidthPixels * centerWorldPerPixel;
-                StringBuilder text = new StringBuilder(String.format(Locale.ROOT,
-                        "%.2f r=%.4f silhouette eye=%.5f/%.5f/%.5f/%.5f/%.5f/%.5f%s:", Math.abs(strength), reach,
-                        camera.position.x, camera.position.y, camera.position.z, forward.x, forward.y, forward.z,
+                StringBuilder text = new StringBuilder(String.format(Locale.ROOT, "%.2f r=%.4f %s%s%s:",
+                        Math.abs(strength), reach, StrokeSculpt.SILHOUETTE_FLAG, eyeFlag,
                         mirror ? " " + StrokeSculpt.MIRROR_FLAG : ""));
                 int rays = 0;
                 for (int point = 0; point < pixels.length / 2; point++) {
@@ -431,72 +418,8 @@ public final class StrokeSketch {
                         missesByShape[stroke]++;
                         continue;
                     }
-                    // Nearest hit through the triangle tree (Moller and Trumbore 1997, "Fast,
-                    // Minimum Storage Ray/Triangle Intersection", JGT 2(1)); boxes the ray misses,
-                    // or enters past the best hit so far, are skipped.
-                    int nearestTriangle = -1;
-                    double nearestParameter = Double.POSITIVE_INFINITY;
-                    for (int axis = 0; axis < 3; axis++) {
-                        inverse[axis] = 1.0 / direction[axis];
-                    }
-                    int top = 0;
-                    stack[top++] = 0;
-                    while (top > 0 && bvh.nodeCount > 0) {
-                        int node = stack[--top];
-                        double enter = MINIMUM_RAY_PARAMETER;
-                        double exit = nearestParameter;
-                        for (int axis = 0; axis < 3 && enter <= exit; axis++) {
-                            double low = (bvh.nodeMin[node * 3 + axis] - origin[axis]) * inverse[axis];
-                            double high = (bvh.nodeMax[node * 3 + axis] - origin[axis]) * inverse[axis];
-                            enter = Math.max(enter, Math.min(low, high));
-                            exit = Math.min(exit, Math.max(low, high));
-                        }
-                        if (enter > exit) {
-                            continue;
-                        }
-                        int left = bvh.nodeLeftChild[node];
-                        if (left >= 0) {
-                            stack[top++] = left;
-                            stack[top++] = left + 1;
-                            continue;
-                        }
-                        int end = bvh.nodeTriangleStart[node] + bvh.nodeTriangleCount[node];
-                        for (int index = bvh.nodeTriangleStart[node]; index < end; index++) {
-                            int triangle = bvh.triangleOrder[index];
-                            int cornerA = bvh.triangleCorners[triangle * 3] * 3;
-                            int cornerB = bvh.triangleCorners[triangle * 3 + 1] * 3;
-                            int cornerC = bvh.triangleCorners[triangle * 3 + 2] * 3;
-                            float[] xyz = bvh.positions;
-                            double edgeOneX = xyz[cornerB] - (double) xyz[cornerA];
-                            double edgeOneY = xyz[cornerB + 1] - (double) xyz[cornerA + 1];
-                            double edgeOneZ = xyz[cornerB + 2] - (double) xyz[cornerA + 2];
-                            double edgeTwoX = xyz[cornerC] - (double) xyz[cornerA];
-                            double edgeTwoY = xyz[cornerC + 1] - (double) xyz[cornerA + 1];
-                            double edgeTwoZ = xyz[cornerC + 2] - (double) xyz[cornerA + 2];
-                            double crossX = direction[1] * edgeTwoZ - direction[2] * edgeTwoY;
-                            double crossY = direction[2] * edgeTwoX - direction[0] * edgeTwoZ;
-                            double crossZ = direction[0] * edgeTwoY - direction[1] * edgeTwoX;
-                            double determinant = edgeOneX * crossX + edgeOneY * crossY + edgeOneZ * crossZ;
-                            if (determinant == 0.0) {
-                                continue;
-                            }
-                            double toOriginX = origin[0] - (double) xyz[cornerA];
-                            double toOriginY = origin[1] - (double) xyz[cornerA + 1];
-                            double toOriginZ = origin[2] - (double) xyz[cornerA + 2];
-                            double first = (toOriginX * crossX + toOriginY * crossY + toOriginZ * crossZ) / determinant;
-                            double turnX = toOriginY * edgeOneZ - toOriginZ * edgeOneY;
-                            double turnY = toOriginZ * edgeOneX - toOriginX * edgeOneZ;
-                            double turnZ = toOriginX * edgeOneY - toOriginY * edgeOneX;
-                            double second = (direction[0] * turnX + direction[1] * turnY + direction[2] * turnZ)
-                                    / determinant;
-                            double parameter = (edgeTwoX * turnX + edgeTwoY * turnY + edgeTwoZ * turnZ) / determinant;
-                            if (first >= 0.0 && second >= 0.0 && first + second <= 1.0
-                                    && parameter >= MINIMUM_RAY_PARAMETER && parameter < nearestParameter) {
-                                nearestParameter = parameter;
-                                nearestTriangle = triangle;
-                            }
-                        }
-                    }
+                    int nearestTriangle = bvh.nearestHit(origin, direction, Double.POSITIVE_INFINITY, stack);
+                    double nearestParameter = bvh.hitParameter;
                     if (nearestTriangle < 0) {
                         missesByShape[stroke]++;
                         continue;
@@ -532,7 +455,7 @@ public final class StrokeSketch {
                 }
                 text.append(fill ? " " + StrokeSculpt.FILL_FLAG : "").append(mirror ? " " + StrokeSculpt.MIRROR_FLAG : "")
                         .append(SMOOTH_ATTRIBUTE.matcher(shape).find() ? " " + StrokeSculpt.SMOOTH_FLAG : "")
-                        .append(StrokeSculpt.HEADER_SEPARATOR);
+                        .append(eyeFlag).append(StrokeSculpt.HEADER_SEPARATOR);
                 for (int point = 0; point < liftedCount; point++) {
                     text.append(point == 0 ? " " : POINT_SEPARATOR).append(String.format(Locale.ROOT,
                             "%.4f %.4f %.4f %.2f", lifted[point * 3], lifted[point * 3 + 1], lifted[point * 3 + 2],

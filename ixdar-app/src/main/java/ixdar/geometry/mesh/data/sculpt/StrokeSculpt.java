@@ -8,6 +8,7 @@ import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
+import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.Vector3Field;
@@ -40,6 +41,8 @@ public final class StrokeSculpt {
 
     public static final String SMOOTH_FLAG = "smooth";
 
+    public static final String SILHOUETTE_FLAG = "silhouette";
+
     public static final String EYE_PREFIX = "eye=";
 
     public static final String EYE_VALUE_SEPARATOR = "/";
@@ -65,6 +68,14 @@ public final class StrokeSculpt {
     public static final float FALLOFF_STEEPEST_SLOPE = 1.5396f;
 
     public static final float MINIMUM_NORMAL_LENGTH = 1e-6f;
+
+    public static final float CONTOUR_DEPTH_SLACK_EDGES = 2f;
+
+    public static final float OUTLINE_PROBE_FRACTION = 0.005f;
+
+    public static final float INNER_CONTOUR_VISIBILITY = 0.5f;
+
+    public static final float SHADOW_FEATHER = 0.5f;
 
     /** Whether strokes move vertices (mode B) or only crease their chains (mode A). */
     public boolean displace = true;
@@ -95,16 +106,19 @@ public final class StrokeSculpt {
 
     /**
      * Sculpt a bundle's mesh with strokes written {@code "s [r=R] [fill] [mirror] [smooth]
-     * [eye=...]: x y z [w], ..."}; same-sign overlaps keep the larger, opposite signs add. A set
-     * {@link #symmetryAxis} needs a symmetric input.
+     * [silhouette] [eye=...]: x y z [w], ..."}; same-sign overlaps keep the larger, opposite signs
+     * add. A stroke with an eye moves only what that eye sees. A set {@link #symmetryAxis} needs a
+     * symmetric input.
      *
      * @param base    geometry to sculpt; its float crease marks are carried over
      * @param strokes strokes, each a header then its lifted points (silhouettes: view rays) with
      *                optional view weights
-     * @throws IllegalArgumentException when a silhouette stroke's eye flag is malformed
+     * @throws IllegalArgumentException when a stroke's eye flag is malformed, or a silhouette has none
      * @return the sculpted geometry with the strokes' crease marks merged in
      */
     public GeometryBundle apply(GeometryBundle base, String strokes) {
+        // This method must stay under HotSpot's 8000-byte HugeMethodLimit (javap -c shows its size):
+        // past it the JIT never compiles it and a skull pass runs about ten times slower.
         MeshTopology mesh = base.mesh();
         if (mesh == null || mesh.vertexCount() == 0 || strokes == null || strokes.isBlank()) {
             return base;
@@ -118,11 +132,13 @@ public final class StrokeSculpt {
         float[] radiusByCopy = new float[copyBound];
         boolean[] fillByCopy = new boolean[copyBound];
         boolean[] smoothByCopy = new boolean[copyBound];
+        boolean[] silhouetteByCopy = new boolean[copyBound];
         int[] sourceByCopy = new int[copyBound];
         float[][] pointXyzByCopy = new float[copyBound][];
         float[][] pointWeightByCopy = new float[copyBound][];
         float[][] eyeForwardByCopy = new float[copyBound][];
         int copies = 0;
+        Vector3f sample = new Vector3f();
         for (int stroke = 0; stroke < strokeTexts.length; stroke++) {
             String strokeText = strokeTexts[stroke];
             int colon = strokeText.indexOf(HEADER_SEPARATOR);
@@ -135,6 +151,7 @@ public final class StrokeSculpt {
             boolean fill = false;
             boolean mirror = false;
             boolean smooth = false;
+            boolean silhouette = false;
             float[] eyeForward = null;
             for (String flag : header) {
                 radius = flag.startsWith(RADIUS_PREFIX)
@@ -142,17 +159,20 @@ public final class StrokeSculpt {
                 fill |= FILL_FLAG.equals(flag);
                 mirror |= MIRROR_FLAG.equals(flag);
                 smooth |= SMOOTH_FLAG.equals(flag);
+                silhouette |= SILHOUETTE_FLAG.equals(flag);
                 if (flag.startsWith(EYE_PREFIX)) {
                     String[] values = flag.substring(EYE_PREFIX.length()).split(EYE_VALUE_SEPARATOR);
                     if (values.length != EYE_AND_FORWARD_VALUES) {
-                        throw new IllegalArgumentException(
-                                "silhouette stroke needs eye=ex/ey/ez/fx/fy/fz: " + flag);
+                        throw new IllegalArgumentException("a stroke's eye is eye=ex/ey/ez/fx/fy/fz: " + flag);
                     }
                     eyeForward = new float[EYE_AND_FORWARD_VALUES];
                     for (int value = 0; value < EYE_AND_FORWARD_VALUES; value++) {
                         eyeForward[value] = Float.parseFloat(values[value]);
                     }
                 }
+            }
+            if (silhouette && eyeForward == null) {
+                throw new IllegalArgumentException("a silhouette stroke needs its view's eye=: " + strokeText);
             }
             String[] pointTexts = strokeText.substring(colon + 1).split(POINT_SEPARATOR);
             float[] pointXyz = new float[pointTexts.length * 3];
@@ -197,11 +217,10 @@ public final class StrokeSculpt {
                         && joined < 0; earlier--) {
                     float[] earlierXyz = pointXyzByCopy[earlier];
                     for (int point = 0; point < reflectedXyz.length && joined < 0; point += 3) {
-                        for (int otherPoint = 0; otherPoint < earlierXyz.length && joined < 0; otherPoint += 3) {
-                            joined = Vector3f.distanceSquared(reflectedXyz[point], reflectedXyz[point + 1],
-                                    reflectedXyz[point + 2], earlierXyz[otherPoint], earlierXyz[otherPoint + 1],
-                                    earlierXyz[otherPoint + 2]) < radius * radius ? earlier : -1;
-                        }
+                        sample.set(reflectedXyz[point], reflectedXyz[point + 1], reflectedXyz[point + 2]);
+                        int nearest = nearestPoint(earlierXyz, sample) * 3;
+                        joined = nearest >= 0 && sample.distanceSquared(earlierXyz[nearest], earlierXyz[nearest + 1],
+                                earlierXyz[nearest + 2]) < radius * radius ? earlier : -1;
                     }
                 }
                 if (joined >= 0) {
@@ -217,6 +236,7 @@ public final class StrokeSculpt {
                 radiusByCopy[copies] = radius;
                 fillByCopy[copies] = fill;
                 smoothByCopy[copies] = smooth;
+                silhouetteByCopy[copies] = silhouette;
                 sourceByCopy[copies] = stroke;
                 pointXyzByCopy[copies] = reflectedXyz;
                 pointWeightByCopy[copies] = Arrays.copyOf(pointWeight, pointCount);
@@ -232,21 +252,18 @@ public final class StrokeSculpt {
             float gap = radiusByCopy[copy];
             float[] points = pointXyzByCopy[copy];
             int pointCount = points.length / 3;
-            for (int other = 0; other < copies && pointCount > 0 && eyeForwardByCopy[copy] == null; other++) {
+            for (int other = 0; other < copies && pointCount > 0 && !silhouetteByCopy[copy]; other++) {
                 float[] otherPoints = pointXyzByCopy[other];
-                if (sourceByCopy[other] == sourceByCopy[copy] || eyeForwardByCopy[other] != null
+                if (sourceByCopy[other] == sourceByCopy[copy] || silhouetteByCopy[other]
                         || otherPoints.length == 0) {
                     continue;
                 }
                 double meanNearest = 0.0;
                 for (int point = 0; point < pointCount; point++) {
-                    float nearest = Float.POSITIVE_INFINITY;
-                    for (int otherPoint = 0; otherPoint < otherPoints.length; otherPoint += 3) {
-                        nearest = Math.min(nearest, Vector3f.distanceSquared(points[point * 3],
-                                points[point * 3 + 1], points[point * 3 + 2], otherPoints[otherPoint],
-                                otherPoints[otherPoint + 1], otherPoints[otherPoint + 2]));
-                    }
-                    meanNearest += Math.sqrt(nearest) / pointCount;
+                    sample.set(points[point * 3], points[point * 3 + 1], points[point * 3 + 2]);
+                    int nearest = nearestPoint(otherPoints, sample) * 3;
+                    meanNearest += sample.distance(otherPoints[nearest], otherPoints[nearest + 1],
+                            otherPoints[nearest + 2]) / pointCount;
                 }
                 gap = Math.min(gap, (float) meanNearest);
             }
@@ -263,15 +280,7 @@ public final class StrokeSculpt {
         for (int round = 0;; round++) {
             int vertexCount = mesh.vertexCount();
             int[] activeVertexById = new int[mesh.vertexIdBound()];
-            float[] vertexXyz = new float[vertexCount * 3];
-            for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-                int vertexId = mesh.vertexIdAt(activeVertex);
-                activeVertexById[vertexId] = activeVertex;
-                mesh.vertexPosition(vertexId, position);
-                vertexXyz[activeVertex * 3] = position.x;
-                vertexXyz[activeVertex * 3 + 1] = position.y;
-                vertexXyz[activeVertex * 3 + 2] = position.z;
-            }
+            float[] vertexXyz = packedPositions(mesh, activeVertexById);
             NearestVertex nearestVertex = NearestVertex.over(mesh);
             if (symmetryAxis >= 0) {
                 twinByActiveVertex = new int[vertexCount];
@@ -291,7 +300,7 @@ public final class StrokeSculpt {
             for (int copy = 0; copy < copies; copy++) {
                 float[] points = pointXyzByCopy[copy];
                 float reach = radiusByCopy[copy];
-                if (eyeForwardByCopy[copy] != null || points.length == 0) {
+                if (silhouetteByCopy[copy] || points.length == 0) {
                     continue;
                 }
                 // Reach is measured across the stroke's direction, as its falloff is, so the
@@ -326,7 +335,13 @@ public final class StrokeSculpt {
                         float along = position.dot(direction);
                         if (Math.abs(along) <= depthReach
                                 && position.lengthSquared() - along * along <= reach * reach) {
-                            requiredByActiveVertex[activeVertex] = targetByCopy[copy];
+                            // Refinement skips only what faces away; the depth test is left to the
+                            // displacement, which casts one ray per vertex instead of one per round.
+                            requiredByActiveVertex[activeVertex] = eyeForwardByCopy[copy] == null
+                                    || visibility(null, copy, mesh, activeVertex,
+                                            mesh.vertexNormal(mesh.vertexIdAt(activeVertex), other), 1f,
+                                            eyeForwardByCopy[copy], null, null) > 0f ? targetByCopy[copy]
+                                                    : requiredByActiveVertex[activeVertex];
                             break;
                         }
                     }
@@ -492,9 +507,7 @@ public final class StrokeSculpt {
 
         int vertexCount = mesh.vertexCount();
         int[] activeVertexById = new int[mesh.vertexIdBound()];
-        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            activeVertexById[mesh.vertexIdAt(activeVertex)] = activeVertex;
-        }
+        packedPositions(mesh, activeVertexById);
         float[] raiseByActiveVertex = new float[vertexCount];
         float[] lowerByActiveVertex = new float[vertexCount];
         float[] smoothByActiveVertex = new float[vertexCount];
@@ -522,33 +535,32 @@ public final class StrokeSculpt {
             normalXyz[activeVertex * 3 + 2] = normal.z;
         }
         for (int pass = 0; pass < NORMAL_SMOOTHING_PASSES; pass++) {
-            float[] averaged = normalXyz.clone();
-            for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-                int vertexId = mesh.vertexIdAt(activeVertex);
-                for (int adjacency = 0; adjacency < mesh.vertexEdgeCount(vertexId); adjacency++) {
-                    int neighbour = activeVertexById[mesh.edgeOtherVertex(
-                            mesh.vertexEdgeAt(vertexId, adjacency), vertexId)];
-                    for (int axis = 0; axis < 3; axis++) {
-                        averaged[activeVertex * 3 + axis] += normalXyz[neighbour * 3 + axis];
-                    }
-                }
-            }
-            normalXyz = averaged;
+            normalXyz = ringSum(mesh, activeVertexById, normalXyz, false);
         }
+        TriangleBvh bvh = displace ? TriangleBvh.over(mesh, new int[mesh.triangleCount()]) : null;
+        int[] bvhStack = new int[bvh == null ? 0 : Math.max(1, bvh.nodeCount)];
+        float[][] visibilityByCopy = new float[copies][];
+        EdgeDistances shadow = new EdgeDistances();
+        int[] hiddenIds = new int[vertexCount];
         for (int copy = 0; copy < copies; copy++) {
             float strokeStrength = strengthByCopy[copy] * strength;
             float radius = radiusByCopy[copy];
             float[] pointXyz = pointXyzByCopy[copy];
             float[] pointWeight = pointWeightByCopy[copy];
             float[] eyeForward = eyeForwardByCopy[copy];
+            boolean silhouette = silhouetteByCopy[copy];
             int pointCount = pointWeight.length;
             int[] sources = new int[Math.max(1, pointCount)];
             float[] dragXyz = new float[0];
             int sourceCount = 0;
-            if (eyeForward != null) {
+            if (silhouette) {
                 // An over-sketched outline: the contour vertices (vertex-normal facing changes
                 // sign across an edge) whose drag onto the stroke, in the plane through the vertex
                 // perpendicular to the view axis, is within reach and inside the stroke's ends.
+                // Only contours the eye sees count, and of those the outline (the view ray just
+                // past it meets nothing) wins over inner contours when the stroke reaches both.
+                boolean[] outlineBySource = new boolean[vertexCount];
+                boolean outlineReached = false;
                 for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
                     int vertexId = mesh.vertexIdAt(activeVertex);
                     mesh.vertexPosition(vertexId, position).sub(eyeForward[0], eyeForward[1], eyeForward[2])
@@ -608,12 +620,24 @@ public final class StrokeSculpt {
                             best[2] = nearestZ - position.z;
                         }
                     }
-                    if (bestClamped || bestDistance > radius) {
+                    float seen = bestClamped || bestDistance > radius ? 0f : visibility(null, copy, mesh,
+                            activeVertex, null, CONTOUR_DEPTH_SLACK_EDGES, eyeForward, bvh, bvhStack);
+                    if (seen == 0f) {
                         continue;
                     }
+                    outlineBySource[sourceCount] = seen == 1f;
+                    outlineReached |= seen == 1f;
                     System.arraycopy(best, 0, dragXyz, sourceCount * 3, 3);
                     sources[sourceCount++] = vertexId;
                 }
+                int kept = 0;
+                for (int source = 0; source < sourceCount; source++) {
+                    if (outlineBySource[source] || !outlineReached) {
+                        System.arraycopy(dragXyz, source * 3, dragXyz, kept * 3, 3);
+                        sources[kept++] = sources[source];
+                    }
+                }
+                sourceCount = kept;
             } else if (fillByCopy[copy]) {
                 // Every vertex within the sample spacing of a sample seeds the search, so a region
                 // refined finer than its samples is reached solid; on a coarser mesh each sample
@@ -655,18 +679,8 @@ public final class StrokeSculpt {
                 sourceCount = sources.length;
                 float meanWeight = 0f;
                 for (int source = 0; source < sourceCount; source++) {
-                    mesh.vertexPosition(sources[source], position);
-                    float nearestDistance = Float.POSITIVE_INFINITY;
-                    float nearestWeight = 0f;
-                    for (int point = 0; point < pointCount; point++) {
-                        float distance = position.distanceSquared(pointXyz[point * 3],
-                                pointXyz[point * 3 + 1], pointXyz[point * 3 + 2]);
-                        if (distance < nearestDistance) {
-                            nearestDistance = distance;
-                            nearestWeight = pointWeight[point];
-                        }
-                    }
-                    meanWeight += nearestWeight / sourceCount;
+                    int nearest = nearestPoint(pointXyz, mesh.vertexPosition(sources[source], position));
+                    meanWeight += (nearest < 0 ? 0f : pointWeight[nearest]) / sourceCount;
                 }
                 for (int edgeId : smoothByCopy[copy] ? new int[0] : chain.edgeIds) {
                     strokeCreaseByEdgeId[edgeId] = Math.max(strokeCreaseByEdgeId[edgeId],
@@ -688,13 +702,28 @@ public final class StrokeSculpt {
             // The edge search only gathers the surface within reach; chains and fills measure their
             // falloff straight to the drawn stroke, since edge paths over mixed-density faces
             // zigzag and turn a smooth rim into the mesh's staircase.
-            falloff.expand(mesh, sources, sourceCount, eyeForward == null ? radius * GATHER_REACH : radius, -1,
-                    eyeForward == null ? direction : null);
+            falloff.expand(mesh, sources, sourceCount, silhouette ? radius : radius * GATHER_REACH, -1,
+                    silhouette ? null : direction);
+            // A chain or fill moves only what its camera sees, and fades out over a feather before
+            // what it cannot, so the edge of an occluder's shadow does not fold; a silhouette's
+            // drag spreads to the far side of the outline it moves.
+            int hiddenCount = 0;
+            boolean seeing = !silhouette && eyeForward != null && bvh != null;
+            for (int settled = 0; settled < falloff.settledLength && seeing; settled++) {
+                int vertexId = falloff.settledVertexIds[settled];
+                int at = activeVertexById[vertexId] * 3;
+                if (falloff.distanceByVertexId[vertexId] < radius && visibility(visibilityByCopy, copy, mesh, at / 3,
+                        normal.set(normalXyz[at], normalXyz[at + 1], normalXyz[at + 2]), 1f, eyeForward, bvh,
+                        bvhStack) == 0f) {
+                    hiddenIds[hiddenCount++] = vertexId;
+                }
+            }
+            shadow.expand(mesh, hiddenIds, hiddenCount, radius * SHADOW_FEATHER, -1, null);
             for (int settled = 0; settled < falloff.settledLength; settled++) {
                 int vertexId = falloff.settledVertexIds[settled];
                 float fraction = falloff.distanceByVertexId[vertexId] / radius;
                 float kernel = (1f - fraction * fraction) * (1f - fraction * fraction);
-                if (eyeForward == null) {
+                if (!silhouette) {
                     // A chain takes the largest weighted bump of its segments. A fill takes the
                     // union of its samples' bumps, one minus the product of what each leaves
                     // uncovered: the largest alone scallops the rim between samples.
@@ -724,9 +753,15 @@ public final class StrokeSculpt {
                     }
                     kernel = fillByCopy[copy] ? 1f - uncovered : kernel;
                 }
-                float offset = strokeStrength * displacementScale * kernel;
                 int activeVertex = activeVertexById[vertexId];
-                if (eyeForward != null) {
+                if (seeing && kernel > 0f) {
+                    int at = activeVertex * 3;
+                    kernel *= visibility(visibilityByCopy, copy, mesh, activeVertex, normal.set(normalXyz[at],
+                            normalXyz[at + 1], normalXyz[at + 2]), 1f, eyeForward, bvh, bvhStack)
+                            * Math.min(1f, shadow.distanceByVertexId[vertexId] / (radius * SHADOW_FEATHER));
+                }
+                float offset = strokeStrength * displacementScale * kernel;
+                if (silhouette) {
                     int origin = falloff.originByVertexId[vertexId] * 3;
                     float scale = Math.abs(strokeStrength) * kernel;
                     float dragX = dragXyz[origin] * scale;
@@ -764,22 +799,7 @@ public final class StrokeSculpt {
             // Each vertex took the drag of its nearest contour vertex, a field with seams between
             // neighbours that pulled different ways; blurring it keeps those seams from folding.
             for (int pass = 0; pass < DRAG_SMOOTHING_PASSES; pass++) {
-                float[] blurred = dragByActiveVertexXyz.clone();
-                for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-                    int vertexId = mesh.vertexIdAt(activeVertex);
-                    int neighbours = mesh.vertexEdgeCount(vertexId);
-                    for (int adjacency = 0; adjacency < neighbours; adjacency++) {
-                        int neighbour = activeVertexById[mesh.edgeOtherVertex(
-                                mesh.vertexEdgeAt(vertexId, adjacency), vertexId)];
-                        for (int axis = 0; axis < 3; axis++) {
-                            blurred[activeVertex * 3 + axis] += dragByActiveVertexXyz[neighbour * 3 + axis];
-                        }
-                    }
-                    for (int axis = 0; axis < 3; axis++) {
-                        blurred[activeVertex * 3 + axis] /= neighbours + 1;
-                    }
-                }
-                dragByActiveVertexXyz = blurred;
+                dragByActiveVertexXyz = ringSum(mesh, activeVertexById, dragByActiveVertexXyz, true);
             }
             float[] offsetXyz = new float[vertexCount * 3];
             for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
@@ -810,35 +830,23 @@ public final class StrokeSculpt {
                 relaxing |= moved || smoothByActiveVertex[activeVertex] > 0f;
             }
             if (relaxing) {
-                float[] original = new float[vertexCount * 3];
                 int[] sculptedActiveById = new int[sculpted.vertexIdBound()];
-                for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-                    sculptedActiveById[sculpted.vertexIdAt(activeVertex)] = activeVertex;
-                    sculpted.vertexPosition(sculpted.vertexIdAt(activeVertex), position);
-                    original[activeVertex * 3] = position.x;
-                    original[activeVertex * 3 + 1] = position.y;
-                    original[activeVertex * 3 + 2] = position.z;
-                }
+                float[] original = packedPositions(sculpted, sculptedActiveById);
                 float[] relaxed = original.clone();
                 Vector3f laplacian = new Vector3f();
                 for (int iteration = 0; iteration < RELAX_ITERATIONS; iteration++) {
                     float[] next = relaxed.clone();
+                    float[] ring = ringSum(sculpted, sculptedActiveById, relaxed, false);
                     for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
                         float smooth = smoothByActiveVertex[activeVertex];
                         if (relaxWeight[activeVertex] == 0f && smooth == 0f) {
                             continue;
                         }
                         int vertexId = sculpted.vertexIdAt(activeVertex);
-                        int neighbours = sculpted.vertexEdgeCount(vertexId);
-                        laplacian.zero();
-                        for (int adjacency = 0; adjacency < neighbours; adjacency++) {
-                            int neighbour = sculptedActiveById[sculpted.edgeOtherVertex(
-                                    sculpted.vertexEdgeAt(vertexId, adjacency), vertexId)];
-                            laplacian.add(relaxed[neighbour * 3], relaxed[neighbour * 3 + 1],
-                                    relaxed[neighbour * 3 + 2]);
-                        }
-                        laplacian.div(Math.max(1, neighbours)).sub(relaxed[activeVertex * 3],
-                                relaxed[activeVertex * 3 + 1], relaxed[activeVertex * 3 + 2]);
+                        int at = activeVertex * 3;
+                        laplacian.set(ring[at], ring[at + 1], ring[at + 2]).sub(relaxed[at], relaxed[at + 1], relaxed[at + 2])
+                                .div(Math.max(1, sculpted.vertexEdgeCount(vertexId)))
+                                .sub(relaxed[at], relaxed[at + 1], relaxed[at + 2]);
                         sculpted.vertexNormal(vertexId, normal);
                         float along = normal.dot(laplacian);
                         for (int axis = 0; axis < 3; axis++) {
@@ -857,13 +865,10 @@ public final class StrokeSculpt {
             // Symmetrise: each vertex's displacement becomes the mean of its own and its mirror
             // twin's reflected displacement, so the pass leaves a symmetric input symmetric.
             if (symmetryAxis >= 0) {
-                float[] moved = new float[vertexCount * 3];
-                for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-                    sculpted.vertexPosition(sculpted.vertexIdAt(activeVertex), position)
-                            .sub(mesh.vertexPosition(mesh.vertexIdAt(activeVertex), other));
-                    moved[activeVertex * 3] = position.x;
-                    moved[activeVertex * 3 + 1] = position.y;
-                    moved[activeVertex * 3 + 2] = position.z;
+                float[] moved = packedPositions(sculpted, null);
+                float[] unmoved = packedPositions(mesh, null);
+                for (int index = 0; index < moved.length; index++) {
+                    moved[index] -= unmoved[index];
                 }
                 float[] symmetric = new float[vertexCount * 3];
                 for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
@@ -893,6 +898,142 @@ public final class StrokeSculpt {
             }
         }
         return EdgeMarks.with(carried.withMesh(sculpted), CREASE_LABEL, creases);
+    }
+
+    /**
+     * The point of a packed set nearest a position.
+     *
+     * @param pointXyz the points, packed xyz
+     * @param position where to measure from
+     * @return the nearest point's index, the first on a tie, or -1 for an empty set
+     */
+    private static int nearestPoint(float[] pointXyz, Vector3f position) {
+        int nearest = -1;
+        float nearestDistance = Float.POSITIVE_INFINITY;
+        for (int point = 0; point < pointXyz.length / 3; point++) {
+            float distance = position.distanceSquared(pointXyz[point * 3], pointXyz[point * 3 + 1],
+                    pointXyz[point * 3 + 2]);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearest = point;
+            }
+        }
+        return nearest;
+    }
+
+    /**
+     * A mesh's vertex positions packed xyz in dense vertex order, the order a vertex offset keeps.
+     *
+     * @param mesh             surface to read
+     * @param activeVertexById receives each sparse vertex id's dense index when not null; at least
+     *                         the mesh's vertex id bound long
+     * @return the packed positions, three floats per vertex
+     */
+    private static float[] packedPositions(MeshTopology mesh, int[] activeVertexById) {
+        Vector3f position = new Vector3f();
+        float[] xyz = new float[mesh.vertexCount() * 3];
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            if (activeVertexById != null) {
+                activeVertexById[vertexId] = activeVertex;
+            }
+            mesh.vertexPosition(vertexId, position);
+            xyz[activeVertex * 3] = position.x;
+            xyz[activeVertex * 3 + 1] = position.y;
+            xyz[activeVertex * 3 + 2] = position.z;
+        }
+        return xyz;
+    }
+
+    /**
+     * One pass of one-ring smoothing over a per-vertex xyz field: each vertex's own value plus its
+     * neighbours', summed or averaged.
+     *
+     * @param mesh             surface whose edges give the rings
+     * @param activeVertexById dense index of each sparse vertex id
+     * @param xyz              the field, packed xyz by dense vertex index; left unchanged
+     * @param mean             whether to divide each sum by the number of values in it
+     * @return the smoothed field, a new array
+     */
+    private static float[] ringSum(MeshTopology mesh, int[] activeVertexById, float[] xyz, boolean mean) {
+        float[] summed = xyz.clone();
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            int neighbours = mesh.vertexEdgeCount(vertexId);
+            for (int adjacency = 0; adjacency < neighbours; adjacency++) {
+                int neighbour = activeVertexById[mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, adjacency), vertexId)];
+                for (int axis = 0; axis < 3; axis++) {
+                    summed[activeVertex * 3 + axis] += xyz[neighbour * 3 + axis];
+                }
+            }
+            for (int axis = 0; axis < 3 && mean; axis++) {
+                summed[activeVertex * 3 + axis] /= neighbours + 1;
+            }
+        }
+        return summed;
+    }
+
+    /**
+     * Whether a stroke's camera sees a vertex: it faces the eye and, as a depth test against the
+     * mesh, no surface lies between them. A grazing wall still counts as seen, so a fill moves it.
+     *
+     * @param cacheByEye   visibility by stroke copy then dense vertex index, NaN where not yet asked,
+     *                     rows made on first use; null to compute without caching
+     * @param eye          the copy's row in {@code cacheByEye}
+     * @param mesh         surface the vertex is on, the one {@code bvh} was built over
+     * @param activeVertex vertex asked about, a dense vertex index
+     * @param normal       the vertex's normal, any length, or null for a contour vertex: then one on
+     *                     the outline, {@link #INNER_CONTOUR_VISIBILITY} in front of more surface
+     * @param slackEdges   how many of the vertex's longest edges in front of it still count as
+     *                     itself, so a grazing ray through its own faces does not hide it
+     * @param eyeForward   the camera's eye then axis
+     * @param bvh          triangle tree over {@code mesh}, or null to test facing only
+     * @param stack        scratch node stack of at least the tree's node count, null with no tree
+     * @return one when seen, zero when not, and for a contour vertex as {@code normal} says
+     */
+    private static float visibility(float[][] cacheByEye, int eye, MeshTopology mesh, int activeVertex,
+            Vector3f normal, float slackEdges, float[] eyeForward, TriangleBvh bvh, int[] stack) {
+        if (cacheByEye != null && cacheByEye[eye] == null) {
+            cacheByEye[eye] = new float[mesh.vertexCount()];
+            Arrays.fill(cacheByEye[eye], Float.NaN);
+        }
+        if (cacheByEye != null && !Float.isNaN(cacheByEye[eye][activeVertex])) {
+            return cacheByEye[eye][activeVertex];
+        }
+        int vertexId = mesh.vertexIdAt(activeVertex);
+        Vector3f position = mesh.vertexPosition(vertexId, new Vector3f());
+        float[] toVertex = { position.x - eyeForward[0], position.y - eyeForward[1], position.z - eyeForward[2] };
+        float distance = (float) Math.sqrt(toVertex[0] * toVertex[0] + toVertex[1] * toVertex[1]
+                + toVertex[2] * toVertex[2]);
+        float facing = normal == null || normal.length() < MINIMUM_NORMAL_LENGTH ? 1f
+                : -(normal.x * toVertex[0] + normal.y * toVertex[1] + normal.z * toVertex[2])
+                        / (normal.length() * distance);
+        float seen = facing > 0f ? 1f : 0f;
+        if (seen > 0f && bvh != null) {
+            float longestEdge = 0f;
+            for (int adjacency = 0; adjacency < mesh.vertexEdgeCount(vertexId); adjacency++) {
+                longestEdge = Math.max(longestEdge, mesh.edgeLength(mesh.vertexEdgeAt(vertexId, adjacency)));
+            }
+            seen = bvh.nearestHit(eyeForward, toVertex, 1.0 - slackEdges * longestEdge / distance, stack) >= 0
+                    ? 0f : seen;
+        }
+        if (seen > 0f && bvh != null && normal == null) {
+            // A seen contour is on the outline when the view ray just past it, outward across the
+            // view, meets nothing; otherwise it is an inner contour in front of more surface.
+            Vector3f outward = mesh.vertexNormal(vertexId, new Vector3f());
+            Vector3f along = new Vector3f(toVertex[0], toVertex[1], toVertex[2]).div(distance);
+            outward.fma(-outward.dot(along), along);
+            seen = INNER_CONTOUR_VISIBILITY;
+            if (outward.length() >= MINIMUM_NORMAL_LENGTH) {
+                outward.normalize(OUTLINE_PROBE_FRACTION * distance).add(toVertex[0], toVertex[1], toVertex[2]);
+                float[] probe = { outward.x, outward.y, outward.z };
+                seen = bvh.nearestHit(eyeForward, probe, Double.POSITIVE_INFINITY, stack) < 0 ? 1f : seen;
+            }
+        }
+        if (cacheByEye != null) {
+            cacheByEye[eye][activeVertex] = seen;
+        }
+        return seen;
     }
 
     /**

@@ -2,7 +2,11 @@ package ixdar.geometry.mesh.data.paths.query;
 
 import java.util.Arrays;
 
+import org.joml.Vector3f;
+
+import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangleGeometry;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 
 /**
  * Axis-aligned bounding-volume hierarchy over a triangle soup held as flat positions and corner
@@ -19,6 +23,8 @@ public final class TriangleBvh {
     public static final int FACING_INTO_VOLUME = -1;
 
     public static final int FACING_UNDECIDED = 0;
+
+    public static final double MINIMUM_RAY_PARAMETER = 1e-6;
 
     private static final int MAX_COLUMNS = 1 << 22;
 
@@ -70,6 +76,9 @@ public final class TriangleBvh {
     /** Length of each leaf's run in {@link #triangleOrder}. */
     public int[] nodeTriangleCount = new int[0];
 
+    /** Ray parameter of the last {@link #nearestHit}'s hit, its bound when it met nothing. */
+    public double hitParameter;
+
     /** Lower then upper box corner of each triangle, six floats per triangle index. */
     private float[] triangleBounds = new float[0];
 
@@ -105,6 +114,109 @@ public final class TriangleBvh {
 
     /** Triangles filed in each column of each axis's grid, column by column. */
     private int[][] columnMembers = new int[0][];
+
+    /**
+     * A built tree over a mesh's fan triangulation, positions indexed by sparse vertex id.
+     *
+     * @param mesh           surface to triangulate
+     * @param faceOfTriangle receives each triangle's face id; at least the mesh's triangle count long
+     * @return the built tree
+     */
+    public static TriangleBvh over(MeshTopology mesh, int[] faceOfTriangle) {
+        TriangleBvh bvh = new TriangleBvh();
+        bvh.triangleCorners = mesh.triangulate(TriangulationRule.FAN, faceOfTriangle);
+        bvh.triangleCount = mesh.triangleCount();
+        bvh.positions = new float[mesh.vertexIdBound() * TriangleGeometry.COMPONENTS];
+        Vector3f position = new Vector3f();
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            mesh.vertexPosition(vertexId, position);
+            bvh.positions[vertexId * TriangleGeometry.COMPONENTS] = position.x;
+            bvh.positions[vertexId * TriangleGeometry.COMPONENTS + 1] = position.y;
+            bvh.positions[vertexId * TriangleGeometry.COMPONENTS + 2] = position.z;
+        }
+        bvh.build();
+        return bvh;
+    }
+
+    /**
+     * The nearest triangle a ray meets before a parameter bound (Moller and Trumbore 1997, "Fast,
+     * Minimum Storage Ray/Triangle Intersection", JGT 2(1)); boxes the ray misses, or enters past
+     * the best hit so far, are skipped.
+     *
+     * @param origin       ray origin xyz, its first three entries read
+     * @param direction    ray direction xyz, its length the parameter's unit
+     * @param maxParameter largest ray parameter a hit may have
+     * @param stack        scratch node stack of at least {@link #nodeCount} entries
+     * @return the triangle hit, or -1; its ray parameter is left in {@link #hitParameter}
+     */
+    public int nearestHit(float[] origin, float[] direction, double maxParameter, int[] stack) {
+        int nearestTriangle = -1;
+        hitParameter = maxParameter;
+        double inverseX = 1.0 / direction[0];
+        double inverseY = 1.0 / direction[1];
+        double inverseZ = 1.0 / direction[2];
+        int top = 0;
+        stack[top++] = 0;
+        while (top > 0 && nodeCount > 0) {
+            int node = stack[--top];
+            int box = node * TriangleGeometry.COMPONENTS;
+            double lowX = (nodeMin[box] - origin[0]) * inverseX;
+            double highX = (nodeMax[box] - origin[0]) * inverseX;
+            double lowY = (nodeMin[box + 1] - origin[1]) * inverseY;
+            double highY = (nodeMax[box + 1] - origin[1]) * inverseY;
+            double lowZ = (nodeMin[box + 2] - origin[2]) * inverseZ;
+            double highZ = (nodeMax[box + 2] - origin[2]) * inverseZ;
+            double enter = Math.max(MINIMUM_RAY_PARAMETER, Math.max(Math.min(lowX, highX),
+                    Math.max(Math.min(lowY, highY), Math.min(lowZ, highZ))));
+            double exit = Math.min(hitParameter, Math.min(Math.max(lowX, highX),
+                    Math.min(Math.max(lowY, highY), Math.max(lowZ, highZ))));
+            if (enter > exit) {
+                continue;
+            }
+            int left = nodeLeftChild[node];
+            if (left >= 0) {
+                stack[top++] = left;
+                stack[top++] = left + 1;
+                continue;
+            }
+            int end = nodeTriangleStart[node] + nodeTriangleCount[node];
+            for (int index = nodeTriangleStart[node]; index < end; index++) {
+                int triangle = triangleOrder[index];
+                int cornerA = triangleCorners[triangle * TRIANGLE_CORNERS] * TriangleGeometry.COMPONENTS;
+                int cornerB = triangleCorners[triangle * TRIANGLE_CORNERS + 1] * TriangleGeometry.COMPONENTS;
+                int cornerC = triangleCorners[triangle * TRIANGLE_CORNERS + 2] * TriangleGeometry.COMPONENTS;
+                double edgeOneX = positions[cornerB] - (double) positions[cornerA];
+                double edgeOneY = positions[cornerB + 1] - (double) positions[cornerA + 1];
+                double edgeOneZ = positions[cornerB + 2] - (double) positions[cornerA + 2];
+                double edgeTwoX = positions[cornerC] - (double) positions[cornerA];
+                double edgeTwoY = positions[cornerC + 1] - (double) positions[cornerA + 1];
+                double edgeTwoZ = positions[cornerC + 2] - (double) positions[cornerA + 2];
+                double crossX = direction[1] * edgeTwoZ - direction[2] * edgeTwoY;
+                double crossY = direction[2] * edgeTwoX - direction[0] * edgeTwoZ;
+                double crossZ = direction[0] * edgeTwoY - direction[1] * edgeTwoX;
+                double determinant = edgeOneX * crossX + edgeOneY * crossY + edgeOneZ * crossZ;
+                if (determinant == 0.0) {
+                    continue;
+                }
+                double toOriginX = origin[0] - (double) positions[cornerA];
+                double toOriginY = origin[1] - (double) positions[cornerA + 1];
+                double toOriginZ = origin[2] - (double) positions[cornerA + 2];
+                double first = (toOriginX * crossX + toOriginY * crossY + toOriginZ * crossZ) / determinant;
+                double turnX = toOriginY * edgeOneZ - toOriginZ * edgeOneY;
+                double turnY = toOriginZ * edgeOneX - toOriginX * edgeOneZ;
+                double turnZ = toOriginX * edgeOneY - toOriginY * edgeOneX;
+                double second = (direction[0] * turnX + direction[1] * turnY + direction[2] * turnZ) / determinant;
+                double parameter = (edgeTwoX * turnX + edgeTwoY * turnY + edgeTwoZ * turnZ) / determinant;
+                if (first >= 0.0 && second >= 0.0 && first + second <= 1.0 && parameter >= MINIMUM_RAY_PARAMETER
+                        && parameter < hitParameter) {
+                    hitParameter = parameter;
+                    nearestTriangle = triangle;
+                }
+            }
+        }
+        return nearestTriangle;
+    }
 
     /**
      * Builds the tree over the triangles the soup offers, splitting each node at the midpoint of

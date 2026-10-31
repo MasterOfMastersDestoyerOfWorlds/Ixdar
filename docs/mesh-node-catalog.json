@@ -4777,7 +4777,7 @@
         {
           "name": "strokes",
           "portType": "STRING",
-          "description": "Already-lifted strokes in the text form `stroke-lift` prints, applied with the SVG\u0027s: \"s r\u003dR [fill] [mirror] [smooth]: x y z w, ...; ...\".",
+          "description": "Already-lifted strokes in the text form `stroke-lift` prints, applied with the SVG\u0027s: \"s r\u003dR [fill] [mirror] [smooth] [silhouette] [eye\u003dex/ey/ez/fx/fy/fz]: x y z w, ...; ...\". A stroke with an eye moves only the surface that eye sees; one without moves everything in reach.",
           "defaultValue": ""
         },
         {

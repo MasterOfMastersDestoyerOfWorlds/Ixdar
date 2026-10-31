@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.sculpt.StrokeSculpt;
 import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.nodegraph.api.MapNodeContext;
@@ -48,6 +50,23 @@ class StrokeSculptTest {
 
     private static final String WIDER_RIGHT_OUTLINE = "<polyline data-kind=\"silhouette\" data-strength=\"1\" "
             + "stroke-width=\"120\" points=\"1040,450 1090,560 1100,640 1090,720 1040,830\"/>\n";
+
+    private static final String WIDE_FRONT_FILL = "<polygon data-strength=\"-1\" stroke-width=\"300\" "
+            + "points=\"660,500 940,500 940,780 660,780\"/>\n";
+
+    private static final float FRONT_HORIZON_Z = 0.15f;
+
+    private static final int PIT_SAMPLES = 3;
+
+    private static final float PIT_SPACING = 0.05f;
+
+    private static final float PIT_DEPTH = 0.4f;
+
+    private static final float FLOOR_FRACTION = 0.75f;
+
+    private static final float FAR_RIM_X = -0.25f;
+
+    private static final Vector3f GRAZING_EYE = new Vector3f(0.651f, 0.389f, 0.651f).mul(3.9f);
 
     private static final String STRENGTH_PLACEHOLDER = "STRENGTH";
 
@@ -85,7 +104,7 @@ class StrokeSculptTest {
         String path = svg(CHEEK_FILE, ONE_SIDED_CHEEK_RIDGE + WIDER_RIGHT_OUTLINE);
         float mirror = mirrorDistance(sculpt(sphere(), path, SYMMETRY_X, 1f).mesh());
         assertTrue(mirror < MIRROR_TOLERANCE, "mean mirror distance over the diagonal is " + mirror);
-        float lopsided = mirrorDistance(sculpt(sphere(), path, "none", 1f).mesh());
+        float lopsided = mirrorDistance(sculpt(sphere(), path, StrokeSculptNode.NO_SYMMETRY, 1f).mesh());
         assertTrue(lopsided > MIRROR_TOLERANCE * 10, "without symmetry the cheek stays one-sided: " + lopsided);
     }
 
@@ -151,6 +170,69 @@ class StrokeSculptTest {
         }
         assertTrue(cheekHeight > MINIMUM_CHEEK_HEIGHT, "the cheek pass still sculpts the edited outline, moving it "
                 + cheekHeight);
+    }
+
+    @Test
+    void aFillMovesNothingItsCameraCannotSee() throws IOException {
+        String path = svg("fill.svg", WIDE_FRONT_FILL);
+        for (String symmetry : new String[] { StrokeSculptNode.NO_SYMMETRY, SYMMETRY_X }) {
+            float[] xyz = positions(sculpt(sphere(), path, symmetry, 1f).mesh());
+            float hiddenMoved = 0f;
+            float frontMoved = 0f;
+            for (int vertex = 0; vertex < xyz.length; vertex += 3) {
+                float offSphere = Math.abs(new Vector3f(xyz[vertex], xyz[vertex + 1], xyz[vertex + 2]).length() - 1f);
+                if (xyz[vertex + 2] < FRONT_HORIZON_Z) {
+                    hiddenMoved = Math.max(hiddenMoved, offSphere);
+                } else {
+                    frontMoved = Math.max(frontMoved, offSphere);
+                }
+            }
+            assertTrue(hiddenMoved < SPHERE_TOLERANCE, "with symmetry " + symmetry + " the fill moved the far side "
+                    + "and underside, hidden from the front camera, by up to " + hiddenMoved);
+            assertTrue(frontMoved > MINIMUM_CHEEK_HEIGHT, "the fill still sinks the front, by " + frontMoved);
+        }
+    }
+
+    @Test
+    void aRidgeLeavesTheFloorOfACavityItsCameraCannotSee() {
+        StringBuilder pitStroke = new StringBuilder("-1 r=0.06 fill:");
+        for (int row = -PIT_SAMPLES; row <= PIT_SAMPLES; row++) {
+            for (int column = -PIT_SAMPLES; column <= PIT_SAMPLES; column++) {
+                float x = column * PIT_SPACING;
+                float y = row * PIT_SPACING;
+                pitStroke.append(pitStroke.charAt(pitStroke.length() - 1) == ':' ? " " : StrokeSketch.POINT_SEPARATOR)
+                        .append(x).append(' ').append(y).append(' ').append((float) Math.sqrt(1 - x * x - y * y));
+            }
+        }
+        StrokeSculpt pit = new StrokeSculpt();
+        pit.displacementScale = PIT_DEPTH;
+        GeometryBundle carved = pit.apply(sphere(), pitStroke.toString());
+        // The eye looks down onto the pit from 49 degrees off its axis, so the near wall hides the floor.
+        Vector3f forward = new Vector3f(GRAZING_EYE).negate().normalize();
+        StringBuilder ridgeStroke = new StringBuilder(String.format(Locale.ROOT, "1 r=0.35 eye=%f/%f/%f/%f/%f/%f:",
+                GRAZING_EYE.x, GRAZING_EYE.y, GRAZING_EYE.z, forward.x, forward.y, forward.z));
+        for (int point = -1; point <= 1; point++) {
+            float y = point * PIT_SPACING * 2;
+            ridgeStroke.append(point == -1 ? " " : StrokeSketch.POINT_SEPARATOR).append(FAR_RIM_X).append(' ').append(y).append(' ')
+                    .append((float) Math.sqrt(1 - FAR_RIM_X * FAR_RIM_X - y * y));
+        }
+        float[] before = positions(carved.mesh());
+        float[] after = positions(new StrokeSculpt().apply(carved, ridgeStroke.toString()).mesh());
+        int floor = 0;
+        float floorMoved = 0f;
+        float ridgeHeight = 0f;
+        for (int vertex = 0; vertex < before.length; vertex += 3) {
+            float moved = Vector3f.distance(before[vertex], before[vertex + 1], before[vertex + 2], after[vertex],
+                    after[vertex + 1], after[vertex + 2]);
+            ridgeHeight = Math.max(ridgeHeight, moved);
+            if (before[vertex + 2] < 1f - PIT_DEPTH * FLOOR_FRACTION) {
+                floor++;
+                floorMoved = Math.max(floorMoved, moved);
+            }
+        }
+        assertTrue(floor > 0, "the pit has a floor");
+        assertTrue(floorMoved < MIRROR_TOLERANCE, "the ridge lifted the hidden floor by " + floorMoved);
+        assertTrue(ridgeHeight > MINIMUM_CHEEK_HEIGHT, "the ridge still rises, by " + ridgeHeight);
     }
 
     @Test
