@@ -4755,6 +4755,72 @@
       "description": "Rings a surface with a closed cubic spline through authored anchor points, in the order given: each anchor snaps to its nearest vertex, and supporting anchors are fitted until every span stays within tolerance of its reference, the geodesic to the next anchor, or for up to three anchors (or where geodesics would make the ring cross itself) the loop of a plane fitted through them, leaning toward the base normal. Segments are traced with b/Surf\u0027s recursive De Casteljau bisection over geodesic midpoints (Mancinelli et al. 2021), both tangent handles at an anchor on one line so the ring turns smoothly. Emits the polyline as curve geometry and the mesh edges nearest it as edge marks."
     },
     {
+      "id": "stroke_sculpt",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. The output carries the strokes\u0027 crease marks merged into the float \"crease\" edge marks for subdivision_surface.",
+          "defaultValue": null
+        },
+        {
+          "name": "strokes",
+          "portType": "STRING",
+          "description": "Strokes as `stroke-lift` prints them: \"s r\u003dR [fill] [mirror]: x y z w, ...; ...\", s in [-1, 1] (positive a ridge, negative a valley), R the falloff radius, w each point\u0027s view weight; fill sculpts the region under the points, mirror repeats the stroke at -x, smooth relaxes the region instead of displacing it.",
+          "defaultValue": ""
+        },
+        {
+          "name": "displace",
+          "portType": "BOOLEAN",
+          "description": "true moves vertices and creases (mode B); false only creases (mode A).",
+          "defaultValue": true
+        },
+        {
+          "name": "scale",
+          "portType": "FLOAT",
+          "description": "Distance along the normal a strength-1 stroke moves its chain.",
+          "defaultValue": 0.2
+        },
+        {
+          "name": "falloff",
+          "portType": "FLOAT",
+          "description": "Falloff radius, as an edge-path distance, of strokes whose header names none.",
+          "defaultValue": 0.4
+        },
+        {
+          "name": "crease",
+          "portType": "FLOAT",
+          "description": "Crease weight a strength-1 stroke writes on its chain\u0027s edges.",
+          "defaultValue": 2.0
+        },
+        {
+          "name": "base",
+          "portType": "STRING",
+          "description": "Cage a previous round stored; when the file exists it replaces `geometry`, so rounds build on each other. Paths resolve as load_mesh\u0027s do.",
+          "defaultValue": ""
+        },
+        {
+          "name": "store",
+          "portType": "STRING",
+          "description": "File the sculpted cage and its creases are written to for the next round\u0027s `base`; empty writes nothing.",
+          "defaultValue": ""
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. The output carries the strokes\u0027 crease marks merged into the float \"crease\" edge marks for subdivision_surface."
+        }
+      ],
+      "description": "Sculpts geometry with weighted strokes: each snaps to an edge chain, moves nearby vertices along the normal by its strength with a smooth falloff, and creases the chain by its absolute strength."
+    },
+    {
       "id": "subdivide_mesh",
       "category": "Modifiers",
       "scopes": [

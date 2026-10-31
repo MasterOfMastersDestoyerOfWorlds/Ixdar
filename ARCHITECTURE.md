@@ -182,6 +182,7 @@ commas between test names, never `+`.
 - **ixdar.geometry.mesh.data.paths.spline**: Cubic splines on a surface: authored waypoints, anchor fitting and tracing a spline through its anchors with geodesic midpoints.
 - **ixdar.geometry.mesh.data.representation**: The mesh representations: `HalfEdgeMesh` (mutable adjacency, what every producer builds) with its engine, and `ArrayMesh`, the indexed form of a loaded or repaired mesh that has no half-edge form; the shared `MeshTopology` interface, plus edge keys, triangle measurements and the unchecked `InvalidMeshTopologyException`.
 - **ixdar.geometry.mesh.data.rings**: Rings around a surface: candidate extraction, authored and cross-section rings, the regions rings cut a surface into, and the exploded view of those regions.
+- **ixdar.geometry.mesh.data.sculpt**: Stroke sculpting: weighted strokes lifted onto a surface, snapped to edge chains, then pushed along the normal with a falloff and creased.
 - **ixdar.geometry.mesh.quadlayout**: Desktop-only quad-layout pipeline, cross field to quantized quad layout (BZK09/LCBK19 lineage). Slated for integration into the node system; until then it is reached from scenes, not from DSL graphs.
 - **ixdar.geometry.mesh.quadlayout.embedding**: Re-embedding of the quantized layout on a refined working copy of the mesh: arc routing, rerouting, carving, collapse operators, and arrangement diagnostics.
 - **ixdar.geometry.mesh.quadlayout.embedding.model**: Value types for the embedding: `ArcNetwork`, arcs, nodes, patches, topology with owner-arc claims per copy edge.

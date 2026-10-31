@@ -38,33 +38,21 @@ public final class MeshDistance {
         float chamfer = 0f;
 
         if (meshA.length > 0 && meshB.length > 0) {
-            // Each direction's nearest-vertex distances give its Hausdorff maximum and its
-            // Chamfer mean; both metrics are symmetric over the two directions.
+            // Each direction's nearest-vertex distances, answered by a KD-tree over the other
+            // mesh, give its Hausdorff maximum and its Chamfer mean.
             float[] directedMax = new float[2];
             double[] directedMean = new double[2];
             for (int direction = 0; direction < 2; direction++) {
                 float[] from = direction == 0 ? meshA : meshB;
                 float[] to = direction == 0 ? meshB : meshA;
                 int fromCount = from.length / FLOATS_PER_VERTEX;
-                int toCount = to.length / FLOATS_PER_VERTEX;
+                KDTree3D nearest = new KDTree3D(to, to.length / FLOATS_PER_VERTEX);
                 float maxMinDist = 0f;
                 double sumMinDist = 0.0;
                 for (int i = 0; i < fromCount; i++) {
                     int oFrom = i * FLOATS_PER_VERTEX;
-                    float x = from[oFrom];
-                    float y = from[oFrom + 1];
-                    float z = from[oFrom + 2];
-                    float minDist = Float.MAX_VALUE;
-                    for (int j = 0; j < toCount; j++) {
-                        int oTo = j * FLOATS_PER_VERTEX;
-                        float dx = x - to[oTo];
-                        float dy = y - to[oTo + 1];
-                        float dz = z - to[oTo + 2];
-                        float distSq = dx * dx + dy * dy + dz * dz;
-                        if (distSq < minDist) {
-                            minDist = (float) Math.sqrt(distSq);
-                        }
-                    }
+                    float minDist = (float) Math.sqrt(nearest.queryNearestSq(
+                            from[oFrom], from[oFrom + 1], from[oFrom + 2]));
                     if (minDist > maxMinDist) {
                         maxMinDist = minDist;
                     }

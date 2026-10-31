@@ -1,0 +1,13 @@
+# MESH-68: a quad sphere sculpted into a crude face by weighted strokes an agent drew on
+# multiview screenshots, lifted with `ixdar-cli stroke-lift`. Mode B: normal displacement with a
+# falloff plus a crease. Set displace=false on every round for mode A (crease only), which is
+# stroke_crease_sphere.dsl.
+# Round 1: brow ridge, nose ridge, mouth valley (Front cell).
+# Round 2: eye sockets, chin ridge (Front cell, lifted onto the round-1 shape).
+# Round 3: nose again at full strength, ears from the Right and Left cells.
+ball = sphere(size=2.0, resolution=48)
+welded = merge_by_distance(geometry=ball.mesh, distance=0.0001)
+round1 = stroke_sculpt(geometry=welded.geometry, strokes="0.80: -0.3469 0.2078 0.9072, -0.2558 0.2509 0.9258, -0.1711 0.2694 0.9398, -0.0822 0.2533 0.9557, 0.0010 0.2380 0.9632, 0.0841 0.2533 0.9555, 0.1730 0.2694 0.9395, 0.2578 0.2510 0.9253, 0.3489 0.2078 0.9064; 0.90: 0.0009 0.1837 0.9746, 0.0009 0.1250 0.9837, 0.0009 0.0667 0.9891, 0.0009 0.0087 0.9914, 0.0058 -0.0493 0.9901, 0.0106 -0.1074 0.9854; -0.70: -0.2214 -0.2876 0.9241, -0.1669 -0.3170 0.9259, -0.1076 -0.3366 0.9278, -0.0533 -0.3463 0.9289, 0.0010 -0.3513 0.9287, 0.0552 -0.3463 0.9288, 0.1096 -0.3366 0.9276, 0.1689 -0.3171 0.9255, 0.2234 -0.2876 0.9237", displace=true)
+round2 = stroke_sculpt(geometry=round1.geometry, strokes="-0.90: -0.2513 0.0645 1.0874, -0.2083 0.0874 1.1003, -0.1611 0.0963 1.1136, -0.1141 0.0865 1.1293, -0.0723 0.0631 1.1457; -0.90: 0.0741 0.0632 1.1450, 0.1160 0.0866 1.1287, 0.1629 0.0963 1.1130, 0.2102 0.0874 1.0999, 0.2532 0.0645 1.0868; 0.60: -0.1797 -0.5174 0.7898, -0.0921 -0.5444 0.7832, 0.0010 -0.5546 0.7841, 0.0942 -0.5444 0.7830, 0.1818 -0.5174 0.7898", displace=true)
+round3 = stroke_sculpt(geometry=round2.geometry, strokes="1.00: 0.0009 0.1695 1.0501, 0.0009 0.1039 1.0313, 0.0009 0.0374 1.0106, 0.0009 -0.0296 1.0214, 0.0009 -0.0865 1.0380, 0.0057 -0.1451 1.0061; 0.80: 0.9612 0.2431 0.0381, 0.9758 0.1739 -0.0301, 0.9852 0.0862 -0.0687, 0.9884 -0.0009 -0.0783, 0.9851 -0.0881 -0.0687, 0.9754 -0.1758 -0.0301, 0.9607 -0.2450 0.0381; 0.80: -0.9611 0.2431 0.0400, -0.9758 0.1739 -0.0282, -0.9854 0.0862 -0.0668, -0.9885 -0.0009 -0.0764, -0.9852 -0.0881 -0.0668, -0.9755 -0.1758 -0.0282, -0.9606 -0.2450 0.0400", displace=true)
+smooth = subdivision_surface(geometry=round3.geometry, levels=2)

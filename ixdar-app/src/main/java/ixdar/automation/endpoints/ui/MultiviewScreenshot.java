@@ -35,6 +35,27 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
     public static final int RGBA_BYTES_PER_PIXEL = 4;
     public static final int SAVED_ORBIT_FIELDS = 4;
     public static final int VIEW_DIST_INDEX = 3;
+    public static final float[][] VIEW_AZIMUTH_ELEVATION_RADIANS = {
+            { (float) (Math.PI / 2), 0 },
+            { 0, 0 },
+            { (float) (-Math.PI / 2), 0 },
+            { (float) Math.PI, 0 },
+            { (float) (Math.PI / 2), (float) (Math.PI / 2) },
+            { (float) (Math.PI / 2), (float) (-Math.PI / 2) },
+            { (float) (Math.PI / QUARTER_TURN_DIVISOR), THREE_QUARTER_ELEVATION_RAD },
+            { (float) ((THREE_QUARTER_TURN_NUMERATOR * Math.PI) / QUARTER_TURN_DIVISOR),
+                    THREE_QUARTER_ELEVATION_RAD },
+    };
+    public static final String[] VIEW_LABELS = {
+            "Front",
+            "Right",
+            "Back",
+            "Left",
+            "Top",
+            "Bottom",
+            "3/4 Front-R",
+            "3/4 Front-L",
+    };
 
     /**
      * Capture 8 viewpoints framed on a selection into a 4x2 grid PNG, in {@code viewOrder}.
@@ -60,26 +81,8 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
         SurfaceShading[] savedLook = new SurfaceShading[1];
         boolean[] savedHeadlight = new boolean[1];
         try {
-            float[][] views = {
-                    { (float) (Math.PI / 2), 0 }, // Front
-                    { 0, 0 }, // Right
-                    { (float) (-Math.PI / 2), 0 }, // Back
-                    { (float) Math.PI, 0 }, // Left
-                    { (float) (Math.PI / 2), (float) (Math.PI / 2) }, // Top
-                    { (float) (Math.PI / 2), (float) (-Math.PI / 2) }, // Bottom
-                    { (float) (Math.PI / QUARTER_TURN_DIVISOR), THREE_QUARTER_ELEVATION_RAD }, // 3/4 Front-R
-                    { (float) ((THREE_QUARTER_TURN_NUMERATOR * Math.PI) / QUARTER_TURN_DIVISOR), THREE_QUARTER_ELEVATION_RAD }, // 3/4 Front-L
-            };
-            String[] labels = {
-                    "Front",
-                    "Right",
-                    "Back",
-                    "Left",
-                    "Top",
-                    "Bottom",
-                    "3/4 Front-R",
-                    "3/4 Front-L",
-            };
+            float[][] views = VIEW_AZIMUTH_ELEVATION_RADIANS;
+            String[] labels = VIEW_LABELS;
 
             // Save the orbit, then aim it at the selection and fit its distance, on the render
             // thread; every view below keeps that centre and distance.

@@ -1529,6 +1529,44 @@
       "responseHint": "{ok, shading, headlight, palette}"
     },
     {
+      "commandName": "stroke-lift",
+      "path": "/mesh/stroke-lift",
+      "method": "POST",
+      "description": "Lift weighted SVG strokes drawn over a multiview grid onto the shown surface, polylines as edge chains and polygons as filled regions, printing them as the stroke_sculpt node reads them.",
+      "sourceClass": "ixdar.automation.endpoints.mesh.StrokeLift",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/StrokeLift.java",
+      "params": [
+        {
+          "name": "svg",
+          "cliName": "svg",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "SVG of \u003cpolyline\u003e or \u003cpolygon\u003e shapes with data-strength in [-1, 1], stroke-width as the falloff width, data-mirror\u003d\"x\" for symmetry, data-op\u003d\"smooth\" to relax instead of displace and data-kind\u003d\"silhouette\" (drag the view\u0027s outline onto the line), \"ridge\" or \"valley\"; a viewBox rescales it to the grid\u0027s pixels.",
+          "example": "tmp/round1.svg"
+        },
+        {
+          "name": "multiview",
+          "cliName": "multiview",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "The multiview response JSON the grid was captured with (center, distance, cellWidth, cellHeight).",
+          "example": "tmp/round1.json"
+        },
+        {
+          "name": "spacing",
+          "cliName": "spacing",
+          "type": "float",
+          "required": false,
+          "default": "0.03",
+          "help": "World distance between kept polyline points and between polygon fill samples.",
+          "example": "0.03"
+        }
+      ],
+      "responseHint": "{ok, strokeRows:[{index, strength, fill, mirror, points, view, lifted, misses, grazing, radius, vertexIds, edgeIds, unresolvedGaps, stroke}], strokes}"
+    },
+    {
       "commandName": "terminal",
       "path": "/input/terminal",
       "method": "POST",

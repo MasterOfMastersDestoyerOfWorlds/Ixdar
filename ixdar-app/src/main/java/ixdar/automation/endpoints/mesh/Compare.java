@@ -1,6 +1,7 @@
 package ixdar.automation.endpoints.mesh;
 
 import java.io.IOException;
+import java.nio.file.Files;
 
 import com.google.gson.JsonObject;
 
@@ -24,6 +25,15 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
     public static final String DISTANCE_TYPE = "distance_type";
     public static final String SCALE = "scale";
     public static final String NORMALIZE = "normalize";
+
+    /** Path of the reference mesh {@link #cachedReferenceMesh} was parsed from. */
+    public static String cachedReferencePath = "";
+
+    /** Modified time of that file when it was parsed; a newer file is parsed again. */
+    public static long cachedReferenceModified = -1L;
+
+    /** The last reference mesh parsed, reused while its file is unchanged. */
+    public static MeshTopology cachedReferenceMesh;
 
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
@@ -59,8 +69,15 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                     // Load reference mesh
                     MeshTopology referenceMesh;
                     try {
-                        referenceMesh = MeshLoader.load(
-                                referencePath);
+                        long modified = Files.getLastModifiedTime(
+                                MeshLoader.resolve(referencePath)).toMillis();
+                        if (cachedReferenceMesh == null || modified != cachedReferenceModified
+                                || !referencePath.equals(cachedReferencePath)) {
+                            cachedReferenceMesh = MeshLoader.load(referencePath);
+                            cachedReferencePath = referencePath;
+                            cachedReferenceModified = modified;
+                        }
+                        referenceMesh = cachedReferenceMesh;
                     } catch (Exception e) {
                         return failure("Failed to load reference mesh: " + e.getMessage());
                     }
