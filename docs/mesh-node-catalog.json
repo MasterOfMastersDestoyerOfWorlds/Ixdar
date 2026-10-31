@@ -4769,10 +4769,28 @@
           "defaultValue": null
         },
         {
+          "name": "svg",
+          "portType": "STRING",
+          "description": "The pass\u0027s drawing: an SVG written by `ixdar-cli multiview --svg` (its root records the camera) with \u003cpolyline\u003e/\u003cpolygon\u003e strokes added. data-strength in [-1, 1], stroke-width the falloff width in pixels, data-kind silhouette/ridge/valley, data-mirror\u003d\"x\", data-op\u003d\"smooth\". Resolved as a file, then under src/main/resources/, then on the classpath (e.g. dsl/skull/pass1.svg).",
+          "defaultValue": ""
+        },
+        {
           "name": "strokes",
           "portType": "STRING",
-          "description": "Strokes as `stroke-lift` prints them: \"s r\u003dR [fill] [mirror]: x y z w, ...; ...\", s in [-1, 1] (positive a ridge, negative a valley), R the falloff radius, w each point\u0027s view weight; fill sculpts the region under the points, mirror repeats the stroke at -x, smooth relaxes the region instead of displacing it.",
+          "description": "Already-lifted strokes in the text form `stroke-lift` prints, applied with the SVG\u0027s: \"s r\u003dR [fill] [mirror] [smooth]: x y z w, ...; ...\".",
           "defaultValue": ""
+        },
+        {
+          "name": "strength",
+          "portType": "FLOAT",
+          "description": "Multiplier on the whole pass (displacement, drag, smoothing, crease), the knob dsl_optimizer tunes.",
+          "defaultValue": 1.0
+        },
+        {
+          "name": "symmetry",
+          "portType": "STRING",
+          "description": "\"x\", \"y\" or \"z\": every stroke also applies reflected across that axis and the pass\u0027s displacement is averaged with its mirror; needs a symmetric input. \"none\" (default) leaves it alone.",
+          "defaultValue": "none"
         },
         {
           "name": "displace",
@@ -4797,18 +4815,6 @@
           "portType": "FLOAT",
           "description": "Crease weight a strength-1 stroke writes on its chain\u0027s edges.",
           "defaultValue": 2.0
-        },
-        {
-          "name": "base",
-          "portType": "STRING",
-          "description": "Cage a previous round stored; when the file exists it replaces `geometry`, so rounds build on each other. Paths resolve as load_mesh\u0027s do.",
-          "defaultValue": ""
-        },
-        {
-          "name": "store",
-          "portType": "STRING",
-          "description": "File the sculpted cage and its creases are written to for the next round\u0027s `base`; empty writes nothing.",
-          "defaultValue": ""
         }
       ],
       "outputs": [
@@ -4818,7 +4824,7 @@
           "description": "Input/output. The output carries the strokes\u0027 crease marks merged into the float \"crease\" edge marks for subdivision_surface."
         }
       ],
-      "description": "Sculpts geometry with weighted strokes: each snaps to an edge chain, moves nearby vertices along the normal by its strength with a smooth falloff, and creases the chain by its absolute strength."
+      "description": "One sculpt pass: lifts the strokes drawn on its SVG onto the input mesh through the camera stored on the SVG, refines the faces they reach, then displaces, drags or smooths with a falloff and creases the chains."
     },
     {
       "id": "subdivide_mesh",

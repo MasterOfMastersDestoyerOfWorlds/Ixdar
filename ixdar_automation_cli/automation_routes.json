@@ -995,6 +995,15 @@
           "example": "true"
         },
         {
+          "name": "svg",
+          "cliName": "svg",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Also write a blank SVG drawing template here, its root recording this capture\u0027s camera, for a stroke_sculpt pass to be drawn on.",
+          "example": "src/main/resources/dsl/skull/pass1.svg"
+        },
+        {
           "name": "selection",
           "cliName": "selection",
           "type": "string",
@@ -1058,7 +1067,7 @@
           "example": "0.25"
         }
       ],
-      "responseHint": "{ok, selection, center, radius, distance, shading, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}"
+      "responseHint": "{ok, selection, center, radius, distance, fov, orthographic, shading, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, svg?, error?, base64?}"
     },
     {
       "commandName": "node-inspect",
@@ -1117,7 +1126,7 @@
       "sourceClass": "ixdar.automation.endpoints.ui.OrbitGet",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/OrbitGet.java",
       "params": [],
-      "responseHint": "{ok, camera, azimuth?, elevation?, distance?, target?, mesh_radius?}"
+      "responseHint": "{ok, camera, azimuth?, elevation?, distance?, roll?, target?, mesh_radius?}"
     },
     {
       "commandName": "orbit-set",
@@ -1162,9 +1171,27 @@
           "default": "",
           "help": "Point the orbit pivots around, as x,y,z; empty leaves the pivot where it is.",
           "example": "0.1,-0.4,0.2"
+        },
+        {
+          "name": "fov",
+          "cliName": "fov",
+          "type": "float",
+          "required": false,
+          "default": "",
+          "help": "Vertical field of view in degrees; omitted keeps the current one.",
+          "example": "30"
+        },
+        {
+          "name": "roll",
+          "cliName": "roll",
+          "type": "float",
+          "required": false,
+          "default": "",
+          "help": "Turn of the camera about its view direction in radians, positive turning the picture counter-clockwise; omitted keeps the current one.",
+          "example": "0.05"
         }
       ],
-      "responseHint": "{ok, azimuth, elevation, distance, target}"
+      "responseHint": "{ok, azimuth, elevation, distance, target, fov, roll}"
     },
     {
       "commandName": "palette",
@@ -1532,7 +1559,7 @@
       "commandName": "stroke-lift",
       "path": "/mesh/stroke-lift",
       "method": "POST",
-      "description": "Lift weighted SVG strokes drawn over a multiview grid onto the shown surface, polylines as edge chains and polygons as filled regions, printing them as the stroke_sculpt node reads them.",
+      "description": "Preview where a pass\u0027s SVG strokes land on the shown surface, lifted through the camera the SVG records exactly as the stroke_sculpt node lifts them; show the pass\u0027s input node (mesh-dsl --node) to preview that pass.",
       "sourceClass": "ixdar.automation.endpoints.mesh.StrokeLift",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/StrokeLift.java",
       "params": [
@@ -1542,17 +1569,8 @@
           "type": "string",
           "required": true,
           "default": "",
-          "help": "SVG of \u003cpolyline\u003e or \u003cpolygon\u003e shapes with data-strength in [-1, 1], stroke-width as the falloff width, data-mirror\u003d\"x\" for symmetry, data-op\u003d\"smooth\" to relax instead of displace and data-kind\u003d\"silhouette\" (drag the view\u0027s outline onto the line), \"ridge\" or \"valley\"; a viewBox rescales it to the grid\u0027s pixels.",
-          "example": "tmp/round1.svg"
-        },
-        {
-          "name": "multiview",
-          "cliName": "multiview",
-          "type": "string",
-          "required": true,
-          "default": "",
-          "help": "The multiview response JSON the grid was captured with (center, distance, cellWidth, cellHeight).",
-          "example": "tmp/round1.json"
+          "help": "SVG drawn on an ixdar-cli multiview --svg template: \u003cpolyline\u003e or \u003cpolygon\u003e shapes with data-strength in [-1, 1], stroke-width as the falloff width, data-kind silhouette/ridge/valley, data-mirror\u003d\"x\", data-op\u003d\"smooth\".",
+          "example": "tmp/pass1.svg"
         },
         {
           "name": "spacing",
@@ -1564,7 +1582,7 @@
           "example": "0.03"
         }
       ],
-      "responseHint": "{ok, strokeRows:[{index, strength, fill, mirror, points, view, lifted, misses, grazing, radius, vertexIds, edgeIds, unresolvedGaps, stroke}], strokes}"
+      "responseHint": "{ok, strokeRows:[{index, view, lifted, misses, grazing, radius, vertexIds, unresolvedGaps, stroke}], strokes}"
     },
     {
       "commandName": "terminal",

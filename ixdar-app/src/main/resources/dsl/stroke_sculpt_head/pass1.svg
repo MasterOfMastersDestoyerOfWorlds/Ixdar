@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="5120" height="2560" viewBox="0 0 5120 2560"
+     data-center="0.000000 0.000000 0.000000" data-distance="3.906623" data-fov="45.0000" data-projection="perspective"
+     data-cell-width="1280" data-cell-height="1280" data-columns="4"
+     data-views="1.570796 0.000000;0.000000 0.000000;-1.570796 0.000000;3.141593 0.000000;1.570796 1.570796;1.570796 -1.570796;0.785398 0.400000;2.356194 0.400000">
+<!-- Pass 1 of the stroke_sculpt_head demo: the outline of an egg-shaped head, drawn on one side
+     only (the node's symmetry="x" mirrors it). Front cell: the jaw narrows and the chin drops.
+     Right cell: the back of the skull bulges out. -->
+<polyline data-kind="silhouette" data-strength="1" stroke-width="120" fill="none" stroke="red"
+          points="1049,600 1040,700 1010,800 960,900 890,990 800,1060 700,1110 645,1125"/>
+<polyline data-kind="silhouette" data-strength="1" stroke-width="120" fill="none" stroke="red"
+          points="2290,330 2350,430 2385,540 2390,650 2370,760 2330,860"/>
+</svg>

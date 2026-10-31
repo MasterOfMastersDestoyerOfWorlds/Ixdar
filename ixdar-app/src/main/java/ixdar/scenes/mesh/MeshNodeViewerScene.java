@@ -93,6 +93,9 @@ public class MeshNodeViewerScene extends ModelScene {
     /** File the last graph was read from, which is also the file an edit is written back into. */
     private String loadedDslFile;
 
+    /** Why the last catalog load failed, null when it succeeded; keys and startup only log it. */
+    private Exception loadFailure;
+
     private SemanticPatchDecomposer.DecompositionDiagnostics cachedDiagnostics;
     private boolean patchOverlayEnabled = false;
     private HalfEdgeMeshRuntime.ShaderMode shaderMode = HalfEdgeMeshRuntime.ShaderMode.LAMBERT;
@@ -349,11 +352,18 @@ public class MeshNodeViewerScene extends ModelScene {
      * graphs, mesh files and collections alike, moving the catalog cursor onto it when listed.
      *
      * @param choice the requested model
+     * @throws IllegalStateException when the graph or mesh file fails to load, so the request
+     *                               reports the failure instead of a load
      */
     @Override
     public void loadModelOrGraph(ModelChoice choice) {
         modelCatalog.select(modelCatalog.indexOfPath(choice.path));
+        loadFailure = null;
         loadModelEntry(choice);
+        if (loadFailure != null) {
+            throw new IllegalStateException(choice.path + " failed to load: " + loadFailure.getMessage(),
+                    loadFailure);
+        }
     }
 
     /**
@@ -1008,6 +1018,7 @@ public class MeshNodeViewerScene extends ModelScene {
             applyEdgeMarkOverlay(graph);
             frameMesh(mesh);
         } catch (Exception e) {
+            loadFailure = e;
             Platforms.get().log("[mesh-viewer] DSL load failed for " + file + ": " + e.getMessage());
         }
     }
@@ -1062,6 +1073,7 @@ public class MeshNodeViewerScene extends ModelScene {
                     + (cached ? " (cached)" : ""));
             frameMesh(mesh);
         } catch (Exception e) {
+            loadFailure = e;
             Platforms.get().log("[mesh-viewer] mesh load failed for " + absolutePath + ": " + e.getMessage());
         }
     }

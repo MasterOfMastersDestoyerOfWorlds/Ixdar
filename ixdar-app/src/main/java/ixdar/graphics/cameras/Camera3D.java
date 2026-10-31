@@ -53,6 +53,9 @@ public class Camera3D implements Camera, CameraController {
     /** Distance from the orbit target, or the third-person camera's from its pivot. */
     public float distance = 3.5f;
 
+    /** Turn of the orbit camera about its view direction in radians; positive turns the picture counter-clockwise. */
+    public float roll;
+
     /** Closest the orbit may come to its target. */
     public float minDistance = DEFAULT_MIN_DISTANCE;
 
@@ -208,8 +211,8 @@ public class Camera3D implements Camera, CameraController {
     }
 
     /**
-     * Scroll-zoom by widening or narrowing the field of view, clamped to
-     * [1°, 45°].
+     * Scroll-zoom by widening or narrowing the field of view, clamped to 1° below and to
+     * 45° or the wider field already set (by {@code orbit-set}, say) above.
      *
      * @param b true to widen fov, false to narrow
      * @param delta wheel notch magnitude (units of 100)
@@ -218,19 +221,13 @@ public class Camera3D implements Camera, CameraController {
     public void onScroll(boolean b, double delta) {
 
         float deltaRee= (float)delta/WHEEL_NOTCH_SCALE;
+        double widest = Math.max(DEFAULT_FOV, fov);
         if (b) {
             fov += (float) ZOOM_SPEED * SHIFT_MOD * deltaRee * fov;
-            if (fov < 1.0f)
-                fov = 1.0f;
-            if (fov > DEFAULT_FOV)
-                fov = DEFAULT_FOV;
         } else {
             fov -= (float) ZOOM_SPEED * SHIFT_MOD * deltaRee * fov;
-            if (fov < 1.0f)
-                fov = 1.0f;
-            if (fov > DEFAULT_FOV)
-                fov = DEFAULT_FOV;
         }
+        fov = Math.max(1.0, Math.min(widest, fov));
     }
 
     /**
@@ -495,7 +492,20 @@ public class Camera3D implements Camera, CameraController {
      * @return {@link #projection}
      */
     public Matrix4f updateProjection(boolean orthographic, float near, float far) {
-        float aspect = aspectRatio();
+        return updateProjection(orthographic, aspectRatio(), near, far);
+    }
+
+    /**
+     * Rebuild {@link #projection} over a given aspect, for a view drawn at a size other than the
+     * framebuffer's, or with no framebuffer at all.
+     *
+     * @param orthographic whether the projection is orthographic
+     * @param aspect       view width over height
+     * @param near         near clip plane distance
+     * @param far          far clip plane distance
+     * @return {@link #projection}
+     */
+    public Matrix4f updateProjection(boolean orthographic, float aspect, float near, float far) {
         if (orthographic) {
             float halfHeight = position.distance(target) * (float) Math.tan(Math.toRadians(fov / 2.0));
             float halfWidth = halfHeight * aspect;
@@ -513,7 +523,19 @@ public class Camera3D implements Camera, CameraController {
      * @return the span at the point's eye distance, or 0 before the framebuffer has a size
      */
     public double worldPerPixel(float x, float y, float z) {
-        int height = Platforms.get().getFrameBufferHeight();
+        return worldPerPixel(x, y, z, Platforms.get().getFrameBufferHeight());
+    }
+
+    /**
+     * World units one pixel of a view {@code height} pixels tall spans at a point.
+     *
+     * @param x      world x
+     * @param y      world y
+     * @param z      world z
+     * @param height view height in pixels
+     * @return the span at the point's eye distance, or 0 for an empty view
+     */
+    public double worldPerPixel(float x, float y, float z, int height) {
         return height <= 0 ? 0.0
                 : 2.0 * position.distance(x, y, z) * Math.tan(Math.toRadians(fov) / 2.0) / height;
     }
@@ -562,14 +584,31 @@ public class Camera3D implements Camera, CameraController {
      */
     public boolean rayThroughPixel(Matrix4f model, float framebufferX, float framebufferY,
             float[] origin, float[] direction) {
-        int width = Platforms.get().getFrameBufferWidth();
-        int height = Platforms.get().getFrameBufferHeight();
+        return rayThroughPixel(model, framebufferX, framebufferY, Platforms.get().getFrameBufferWidth(),
+                Platforms.get().getFrameBufferHeight(), origin, direction);
+    }
+
+    /**
+     * The model-space ray a pixel of a {@code width} by {@code height} view looks along, from the
+     * near plane to the far plane of {@link #projection}; no framebuffer is read.
+     *
+     * @param model     model matrix of the surface the ray is cast at
+     * @param pixelX    pixel x from the left, whole numbers at pixel centres
+     * @param pixelY    pixel y from the top, whole numbers at pixel centres
+     * @param width     view width in pixels
+     * @param height    view height in pixels
+     * @param origin    receives the ray origin, packed xyz
+     * @param direction receives the ray direction, packed xyz, not normalised
+     * @return true when the view has a size
+     */
+    public boolean rayThroughPixel(Matrix4f model, float pixelX, float pixelY, int width, int height,
+            float[] origin, float[] direction) {
         if (width <= 0 || height <= 0) {
             return false;
         }
         Matrix4f inverse = new Matrix4f(projection).mul(view).mul(model).invert();
-        float normalisedX = 2f * (framebufferX + 0.5f) / width - 1f;
-        float normalisedY = 1f - 2f * (framebufferY + 0.5f) / height;
+        float normalisedX = 2f * (pixelX + 0.5f) / width - 1f;
+        float normalisedY = 1f - 2f * (pixelY + 0.5f) / height;
         Vector4f near = inverse.transform(new Vector4f(normalisedX, normalisedY, -1f, 1f));
         Vector4f far = inverse.transform(new Vector4f(normalisedX, normalisedY, 1f, 1f));
         if (near.w == 0f || far.w == 0f) {
@@ -846,6 +885,19 @@ public class Camera3D implements Camera, CameraController {
                 orbitTarget.z + distance * cosElevation * sinAzimuth);
         target.set(orbitTarget);
         up.set(-sinElevation * cosAzimuth, cosElevation, -sinElevation * sinAzimuth);
+        if (roll != 0f) {
+            // Rodrigues about the unit view axis, to which up is perpendicular.
+            float axisX = -cosElevation * cosAzimuth;
+            float axisY = -sinElevation;
+            float axisZ = -cosElevation * sinAzimuth;
+            float cosRoll = (float) Math.cos(roll);
+            float sinRoll = (float) Math.sin(roll);
+            float crossX = axisY * up.z - axisZ * up.y;
+            float crossY = axisZ * up.x - axisX * up.z;
+            float crossZ = axisX * up.y - axisY * up.x;
+            up.set(up.x * cosRoll + crossX * sinRoll, up.y * cosRoll + crossY * sinRoll,
+                    up.z * cosRoll + crossZ * sinRoll);
+        }
         updateViewFirstPerson();
     }
 

@@ -21,6 +21,8 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
     public static final String ELEVATION = "elevation";
     public static final String DISTANCE = "distance";
     public static final String TARGET = "target";
+    public static final String FIELD_OF_VIEW = "fov";
+    public static final String ROLL = "roll";
     public static final float DEFAULT_DISTANCE = 3.5f;
     public static final int TARGET_FIELD_COUNT = 3;
     @Override
@@ -51,6 +53,12 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
                             Float.parseFloat(fields[1]),
                             Float.parseFloat(fields[2])));
                 }
+                if (body.has(FIELD_OF_VIEW) && !body.get(FIELD_OF_VIEW).isJsonNull()) {
+                    orbit.fov = body.get(FIELD_OF_VIEW).getAsFloat();
+                }
+                if (body.has(ROLL) && !body.get(ROLL).isJsonNull()) {
+                    orbit.roll = body.get(ROLL).getAsFloat();
+                }
                 orbit.setOrbit(azimuth, elevation, distance);
                 return null;
             });
@@ -62,6 +70,8 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
                 result.addProperty(DISTANCE, distance);
                 if (runtime.canvas instanceof ModelScene modelScene) {
                     result.add(TARGET, runtime.vector3Array(modelScene.camera.orbitTarget));
+                    result.addProperty(FIELD_OF_VIEW, modelScene.camera.fov);
+                    result.addProperty(ROLL, modelScene.camera.roll);
                 }
                 return result;
             });
@@ -84,7 +94,12 @@ public class OrbitSet extends AutomationEndpoint implements AutomationRoute {
                 .param(TARGET, RouteParamType.STRING, false, "",
                         "Point the orbit pivots around, as x,y,z; empty leaves the pivot where it is.",
                         "0.1,-0.4,0.2")
-                .responseHint("{ok, azimuth, elevation, distance, target}")
+                .param(FIELD_OF_VIEW, RouteParamType.FLOAT, false, "",
+                        "Vertical field of view in degrees; omitted keeps the current one.", "30")
+                .param(ROLL, RouteParamType.FLOAT, false, "",
+                        "Turn of the camera about its view direction in radians, positive turning "
+                                + "the picture counter-clockwise; omitted keeps the current one.", "0.05")
+                .responseHint("{ok, azimuth, elevation, distance, target, fov, roll}")
                 .build();
     }
 }

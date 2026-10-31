@@ -56,6 +56,7 @@ public class OrbitGet extends AutomationEndpoint implements AutomationRoute {
         result.addProperty("azimuth", orbit.azimuth);
         result.addProperty("elevation", orbit.elevation);
         result.addProperty("distance", orbit.distance);
+        result.addProperty(OrbitSet.ROLL, orbit.roll);
         result.add(TARGET, runtime.vector3Array(orbit.orbitTarget));
         if (modelScene instanceof MeshNodeViewerScene mvs && mvs.getMesh() != null) {
             result.addProperty("mesh_radius", mvs.getMeshRadius());
@@ -69,7 +70,7 @@ public class OrbitGet extends AutomationEndpoint implements AutomationRoute {
                 .commandName("orbit-get")
                 .description("Report the active scene's camera, its pose in 3D or its pan and zoom in 2D, "
                         + "and a mesh viewer's orbit and mesh radius.")
-                .responseHint("{ok, camera, azimuth?, elevation?, distance?, target?, mesh_radius?}")
+                .responseHint("{ok, camera, azimuth?, elevation?, distance?, roll?, target?, mesh_radius?}")
                 .build();
     }
 }

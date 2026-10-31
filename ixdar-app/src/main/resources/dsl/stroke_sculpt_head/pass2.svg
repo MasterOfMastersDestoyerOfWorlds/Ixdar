@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="5120" height="2560" viewBox="0 0 5120 2560"
+     data-center="0.000000 0.000000 0.000000" data-distance="3.906623" data-fov="45.0000" data-projection="perspective"
+     data-cell-width="1280" data-cell-height="1280" data-columns="4"
+     data-views="1.570796 0.000000;0.000000 0.000000;-1.570796 0.000000;3.141593 0.000000;1.570796 1.570796;1.570796 -1.570796;0.785398 0.400000;2.356194 0.400000">
+<!-- Pass 2: face features on the Front cell, right half only (symmetry="x"): an eye socket
+     filled as a cavity, a brow ridge over it and a nose ridge on the midline. -->
+<polygon data-kind="valley" data-strength="0.3" stroke-width="45"
+         points="770,510 820,490 875,505 895,540 870,575 815,585 770,565 755,535"/>
+<polyline data-kind="ridge" data-strength="0.2" stroke-width="40" fill="none"
+          points="660,455 740,440 820,440 900,460"/>
+<polyline data-kind="ridge" data-strength="0.35" stroke-width="45" fill="none"
+          points="640,540 640,600 640,660 640,710"/>
+</svg>
