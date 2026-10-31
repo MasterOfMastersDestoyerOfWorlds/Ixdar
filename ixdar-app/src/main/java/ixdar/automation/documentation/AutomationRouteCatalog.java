@@ -15,6 +15,7 @@ import ixdar.annotations.automation.AutomationRouteAnnotation;
 import ixdar.annotations.automation.AutomationRouteRegistry_AutomationRoutes;
 import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParameterDoc;
+import ixdar.automation.endpoints.ui.MultiviewScreenshot;
 
 /**
  * Serializes every registered {@link AutomationRoute} — its path, method, description, parameters,
@@ -42,6 +43,11 @@ public final class AutomationRouteCatalog {
     public static final String WAIT_SECONDS = "waitSeconds";
     public static final String ROUTES = "routes";
     public static final String GENERATED_FROM = "generatedFrom";
+    public static final String MULTIVIEW_CELLS = "multiviewCells";
+    public static final String MULTIVIEW_COLUMNS = "multiviewColumns";
+    public static final String LABEL = "label";
+    public static final String AZIMUTH = "azimuth";
+    public static final String ELEVATION = "elevation";
 
     private static final String PATH_SEPARATOR = "/";
 
@@ -95,6 +101,18 @@ public final class AutomationRouteCatalog {
         root.put(GENERATED_FROM, "ixdar-app/src/main/java/"
                 + AutomationRouteCatalog.class.getName().replace('.', '/') + ".java");
         root.put(ROUTES, routes);
+        // The multiview grid's cells and their orbit angles, so a client can write a template that
+        // reads like one multiview --svg writes without a scene running.
+        List<Map<String, Object>> cells = new ArrayList<>();
+        for (int cell = 0; cell < MultiviewScreenshot.VIEW_LABELS.length; cell++) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put(LABEL, MultiviewScreenshot.VIEW_LABELS[cell]);
+            entry.put(AZIMUTH, MultiviewScreenshot.VIEW_AZIMUTH_ELEVATION_RADIANS[cell][0]);
+            entry.put(ELEVATION, MultiviewScreenshot.VIEW_AZIMUTH_ELEVATION_RADIANS[cell][1]);
+            cells.add(entry);
+        }
+        root.put(MULTIVIEW_CELLS, cells);
+        root.put(MULTIVIEW_COLUMNS, MultiviewScreenshot.GRID_COLUMNS);
         return new GsonBuilder().setPrettyPrinting().serializeNulls().create().toJson(root);
     }
 

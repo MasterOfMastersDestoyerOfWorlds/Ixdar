@@ -31,7 +31,7 @@ CAPTURE_COLOUR_TOLERANCE = 24
 EDGE_MINIMUM_PIXELS = 25
 
 
-def _subject_mask(image: numpy.ndarray, background: numpy.ndarray, tolerance: int) -> numpy.ndarray:
+def subject_mask(image: numpy.ndarray, background: numpy.ndarray, tolerance: int) -> numpy.ndarray:
     """Mask of the largest blob standing out from a background colour, its holes filled.
 
     :param image: BGR picture
@@ -111,12 +111,12 @@ def trace_reference(
         return CliCommandResult(payload={"ok": False, "error": f"no capture at {capture_path or '?'}; pass --capture, "
                                          "the multiview PNG the template was written with"}, exit_code=2)
     sculpt_cell = cv2.imread(capture_path, cv2.IMREAD_COLOR)[top:bottom, left:right]
-    sculpt_mask = _subject_mask(sculpt_cell, sculpt_cell[0, 0], CAPTURE_COLOUR_TOLERANCE)
+    sculpt_mask = subject_mask(sculpt_cell, sculpt_cell[0, 0], CAPTURE_COLOUR_TOLERANCE)
     picture = cv2.imread(reference if os.path.isabs(reference) else os.path.join(root, reference), cv2.IMREAD_COLOR)
     if picture is None:
         return CliCommandResult(payload={"ok": False, "error": f"cannot read {reference}"}, exit_code=2)
     border = numpy.concatenate([picture[0], picture[-1], picture[:, 0], picture[:, -1]])
-    reference_mask = _subject_mask(picture, numpy.median(border, axis=0), tolerance)
+    reference_mask = subject_mask(picture, numpy.median(border, axis=0), tolerance)
     if not sculpt_mask.any() or not reference_mask.any():
         return CliCommandResult(payload={"ok": False, "error": "no subject stands out from the background in the "
                                          + ("capture's cell" if not sculpt_mask.any() else "reference")}, exit_code=3)

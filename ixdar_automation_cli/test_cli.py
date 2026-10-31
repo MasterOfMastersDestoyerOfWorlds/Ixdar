@@ -1934,5 +1934,61 @@ class TraceReferenceTest(unittest.TestCase):
             self.assertAlmostEqual(60, points[:, 0].max() - points[:, 0].min(), delta=3)
 
 
+class TraceOutlinesTest(unittest.TestCase):
+    def test_pictures_at_different_scales_share_one_scale_in_a_new_template(self):
+        # MESH-77: an ellipsoid of radii 0.6, 1.0, 0.8 photographed front, right, top and 3/4 at
+        # unrelated zooms and offsets; the outlines come out at one world scale, the height pinned to
+        # 2, each axis measured alike by the two views across it, and the 3/4 outline sized and
+        # centred on the ellipsoid's own 3/4 silhouette.
+        import cv2
+        import math
+        import numpy
+        import re
+        from ixdar_automation_cli.cli_commands.trace_outlines import _camera_axes, multiview_cells, trace_outlines
+
+        _, angles, _ = multiview_cells()
+
+        radii = numpy.array([0.6, 1.0, 0.8])
+        cream, grey = (227, 239, 245), (124, 123, 125)
+        sphere = numpy.array([[math.cos(t) * math.cos(p), math.sin(p), math.sin(t) * math.cos(p)]
+                              for t in numpy.linspace(0, 2 * math.pi, 120) for p in numpy.linspace(-1.5, 1.5, 60)])
+        surface = sphere * radii
+        pictures = {"Front": (180.0, (300, 220)), "Right": (95.0, (160, 140)), "Top": (240.0, (400, 330)),
+                    "3/4 Front-R": (130.0, (250, 250))}
+        with tempfile.TemporaryDirectory() as directory:
+            references = []
+            for index, (cell, (pixels_per_unit, centre)) in enumerate(pictures.items()):
+                right, up, _ = _camera_axes(*angles[{"Front": 0, "Right": 1, "Top": 4, "3/4 Front-R": 6}[cell]])
+                points = numpy.stack([surface @ right, -(surface @ up)], axis=1) * pixels_per_unit + centre
+                picture = numpy.full((2 * centre[1], 2 * centre[0], 3), cream, numpy.uint8)
+                cv2.fillPoly(picture, [cv2.convexHull(points.astype(numpy.int32))], grey)
+                path = os.path.join(directory, f"view{index}.png")
+                cv2.imwrite(path, picture)
+                references.append(f"{path}={cell}")
+            out = os.path.join(directory, "outlines.svg")
+
+            result = trace_outlines(reference=references, out=out, cell_size=400)
+
+            self.assertTrue(result.payload["ok"], result.payload)
+            with open(out, encoding="utf-8") as handle:
+                text = handle.read()
+            self.assertIn('data-projection="orthographic"', text)
+            distance = float(re.search(r'data-distance="([^"]*)"', text).group(1))
+            world_per_pixel = 2 * distance * math.tan(math.radians(45) / 2) / 400
+            boxes = {}
+            for points in re.findall(r'<polyline[^>]*points="([^"]*)"', text):
+                xy = numpy.array([[float(v) for v in pair.split(",")] for pair in points.split()])
+                cell = int(xy[0, 1] // 400) * 4 + int(xy[0, 0] // 400)
+                boxes[cell] = (xy.max(axis=0) - xy.min(axis=0), (xy.max(axis=0) + xy.min(axis=0)) / 2
+                               - [cell % 4 * 400, cell // 4 * 400])
+            for cell, (across, down) in {0: (0, 1), 1: (2, 1), 4: (0, 2)}.items():
+                self.assertAlmostEqual(2 * radii[across], boxes[cell][0][0] * world_per_pixel, delta=0.03)
+                self.assertAlmostEqual(2 * radii[down], boxes[cell][0][1] * world_per_pixel, delta=0.03)
+                numpy.testing.assert_allclose(boxes[cell][1], [199.5, 199.5], atol=1.5)
+            right, up, _ = _camera_axes(*angles[6])
+            expected = numpy.array([numpy.ptp(surface @ right), numpy.ptp(surface @ up)]) / world_per_pixel
+            numpy.testing.assert_allclose(boxes[6][0], expected, rtol=0.06)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1710,5 +1710,48 @@
       ],
       "responseHint": "{ok, window, framebuffer, words:[{text, view, clickable, culled, visible, label, framebuffer:{x,y,width,height}, window:{x,y,width,height}}], labels:[{id, text, view, clickable, visible, framebuffer, click:{x,y}}]}; framebuffer rectangles are y up, window ones y down; with label {ok, x, y, label, view, match} or {ok:false, error, candidates}"
     }
-  ]
+  ],
+  "multiviewCells": [
+    {
+      "label": "Front",
+      "azimuth": 1.5707964,
+      "elevation": 0.0
+    },
+    {
+      "label": "Right",
+      "azimuth": 0.0,
+      "elevation": 0.0
+    },
+    {
+      "label": "Back",
+      "azimuth": -1.5707964,
+      "elevation": 0.0
+    },
+    {
+      "label": "Left",
+      "azimuth": 3.1415927,
+      "elevation": 0.0
+    },
+    {
+      "label": "Top",
+      "azimuth": 1.5707964,
+      "elevation": 1.5707964
+    },
+    {
+      "label": "Bottom",
+      "azimuth": 1.5707964,
+      "elevation": -1.5707964
+    },
+    {
+      "label": "3/4 Front-R",
+      "azimuth": 0.7853982,
+      "elevation": 0.4
+    },
+    {
+      "label": "3/4 Front-L",
+      "azimuth": 2.3561945,
+      "elevation": 0.4
+    }
+  ],
+  "multiviewColumns": 4
 }

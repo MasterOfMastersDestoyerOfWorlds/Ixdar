@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
 
@@ -83,12 +84,14 @@ public class CoonsPatchNode implements MeshNode {
             return;
         }
 
-        // OOM guard: cap subdivisions so output stays under 600k faces
+        // OOM guard, output under 600k faces: a quad emits n² faces, an N-sided face N·n² triangles.
         int inputFaces = mesh.faceCount();
+        long faceWeight = IntStream.range(0, inputFaces).map(fi -> mesh.faceVertexCount(mesh.faceIdAt(fi)))
+                .mapToLong(vpf -> vpf == 4 ? 1 : vpf).sum();
         if (inputFaces > 0) {
-            long estimated = (long) inputFaces * n * n;
+            long estimated = faceWeight * n * n;
             if (estimated > MAX_OUTPUT_FACES) {
-                int safeN = Math.max(1, (int) Math.sqrt((double) MAX_OUTPUT_FACES / inputFaces));
+                int safeN = Math.max(1, (int) Math.sqrt((double) MAX_OUTPUT_FACES / faceWeight));
                 System.err.println("[coons_patch] Capped subdivisions from " + n + " to " + safeN
                         + " (" + inputFaces + " input faces × " + n + "² = " + estimated
                         + " would exceed 600k limit)");
@@ -190,7 +193,7 @@ public class CoonsPatchNode implements MeshNode {
                     }
                 }
             } else if (vpf >= 3) {
-                // === N-sided path: Charrot-Gregory patch, emitted as N·n tris ===
+                // === N-sided path: Charrot-Gregory patch, emitted as N·n² tris ===
                 emitGregoryFan(mesh, hStart, hEnd, fid, vpf, n,
                         positionsList, faceIndicesList, faceVertexCountsList, vertCountBox);
             }
@@ -253,9 +256,8 @@ public class CoonsPatchNode implements MeshNode {
     }
 
     /**
-     * Emit a Charrot-Gregory-subdivided n-sided fill patch for {@code fid}: one
-     * centroid vertex plus {@code n} evenly spaced samples along each of the
-     * {@code N} canonical edges, fanned into {@code N · n} triangles.
+     * Emit a Charrot-Gregory fill of {@code fid} as {@code n} concentric rings around its centroid,
+     * {@code N · n²} triangles whose outer ring is the boundary at step / n, so seams weld.
      */
     private static void emitGregoryFan(MeshTopology mesh, float[] hStart, float[] hEnd,
                                        int fid, int N, int n,
@@ -296,44 +298,53 @@ public class CoonsPatchNode implements MeshNode {
         positionsList.add(sampled.z);
         vertCountBox[0]++;
 
-        // N · n boundary-step samples. boundarySampleIdx[k * n + step] holds
-        // the flat position-array index of the sample at edge k, step /n.
-        int[] boundarySampleIdx = new int[N * n];
-        for (int k = 0; k < N; k++) {
-            float uA = vertsU[k];
-            float vA = vertsV[k];
-            float uB = vertsU[(k + 1) % N];
-            float vB = vertsV[(k + 1) % N];
-            for (int step = 0; step < n; step++) {
-                float s = (float) step / (float) n;
-                float u = uA + (uB - uA) * s;
-                float v = vA + (vB - vA) * s;
-                CharrotGregoryPatch.evaluate(curves, u, v, sampled);
-                positionsList.add(sampled.x);
-                positionsList.add(sampled.y);
-                positionsList.add(sampled.z);
-                boundarySampleIdx[k * n + step] = vertCountBox[0];
-                vertCountBox[0]++;
+        // Concentric rings: ring r is the domain polygon scaled by 1 - sqrt(1 - r / n) with r
+        // samples per edge, so ring n is the boundary at step / n. The patch's smoothstep blend
+        // crowds evenly spaced rings against the boundary into folded slivers; the square root
+        // spreads them back out. ringStart[r] is the flat index of ring r's first sample, the one at
+        // corner 0; ring 0 is the centroid alone.
+        int[] ringStart = new int[n + 1];
+        ringStart[0] = centroidIdx;
+        for (int ring = 1; ring <= n; ring++) {
+            ringStart[ring] = vertCountBox[0];
+            float scale = 1f - (float) Math.sqrt(1.0 - (double) ring / n);
+            for (int k = 0; k < N; k++) {
+                float uA = vertsU[k];
+                float vA = vertsV[k];
+                float uB = vertsU[(k + 1) % N];
+                float vB = vertsV[(k + 1) % N];
+                for (int step = 0; step < ring; step++) {
+                    float s = (float) step / (float) ring;
+                    CharrotGregoryPatch.evaluate(curves, (uA + (uB - uA) * s) * scale,
+                            (vA + (vB - vA) * s) * scale, sampled);
+                    positionsList.add(sampled.x);
+                    positionsList.add(sampled.y);
+                    positionsList.add(sampled.z);
+                    vertCountBox[0]++;
+                }
             }
         }
 
-        // Emit the fan triangles.
-        for (int k = 0; k < N; k++) {
-            for (int step = 0; step < n - 1; step++) {
-                int a = boundarySampleIdx[k * n + step];
-                int b = boundarySampleIdx[k * n + step + 1];
-                faceIndicesList.add(centroidIdx);
-                faceIndicesList.add(a);
-                faceIndicesList.add(b);
-                faceVertexCountsList.add(3);
+        // Strips between consecutive rings, wound as the centroid fan was: inner, then outer in
+        // boundary order.
+        for (int ring = 1; ring <= n; ring++) {
+            int outerCount = N * ring;
+            int innerCount = Math.max(1, N * (ring - 1));
+            for (int k = 0; k < N; k++) {
+                for (int step = 0; step < ring; step++) {
+                    int inner = ringStart[ring - 1] + (k * (ring - 1) + step) % innerCount;
+                    faceIndicesList.add(inner);
+                    faceIndicesList.add(ringStart[ring] + (k * ring + step) % outerCount);
+                    faceIndicesList.add(ringStart[ring] + (k * ring + step + 1) % outerCount);
+                    faceVertexCountsList.add(3);
+                    if (step < ring - 1) {
+                        faceIndicesList.add(inner);
+                        faceIndicesList.add(ringStart[ring] + (k * ring + step + 1) % outerCount);
+                        faceIndicesList.add(ringStart[ring - 1] + (k * (ring - 1) + step + 1) % innerCount);
+                        faceVertexCountsList.add(3);
+                    }
+                }
             }
-            // Wrap-around: last sample of edge k → first sample of edge (k+1).
-            int a = boundarySampleIdx[k * n + (n - 1)];
-            int b = boundarySampleIdx[((k + 1) % N) * n + 0];
-            faceIndicesList.add(centroidIdx);
-            faceIndicesList.add(a);
-            faceIndicesList.add(b);
-            faceVertexCountsList.add(3);
         }
     }
 

@@ -8,6 +8,7 @@ import ixdar.geometry.mesh.quadlayout.ChartAtlas;
 import ixdar.geometry.mesh.quadlayout.QuadLayout;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
+import ixdar.geometry.volume.VoxelGrid;
 import ixdar.numeric.sparse.system.DofSystem;
 
 import ixdar.nodegraph.field.BoolField;
@@ -44,7 +45,8 @@ public enum PortType {
     /** Atlas of charts covering a surface. */
     CHART_ATLAS(ChartAtlas.class),
     /** Every stage product of one quad layout. */
-    QUAD_LAYOUT(QuadLayout.class);
+    QUAD_LAYOUT(QuadLayout.class),
+    VOLUME(VoxelGrid.class);
 
     private final Class<?> valueType;
 

@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import ixdar.geometry.grid2d.PolygonScan;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -49,6 +50,8 @@ public final class StrokeSketch {
     public static final String VIEW_SEPARATOR = ";";
 
     public static final String RESOURCE_DIRECTORY = "src/main/resources/";
+
+    public static final String SVG_TEXT_START = "<";
 
     public static final String POLYGON = "polygon";
 
@@ -272,6 +275,91 @@ public final class StrokeSketch {
     }
 
     /**
+     * A node's svg input as a sketch: the SVG text itself when it starts with {@code <}, else a path
+     * {@link #read} resolves.
+     *
+     * @param source SVG text or path
+     * @param reader the reading node's name, for the refusal
+     * @throws IllegalStateException    when no location holds the file
+     * @throws IllegalArgumentException when the root carries no camera
+     * @return the sketch
+     */
+    public static StrokeSketch load(String source, String reader) {
+        try {
+            return source.startsWith(SVG_TEXT_START) ? parse(source, reader) : read(source);
+        } catch (IOException failure) {
+            throw new IllegalStateException(reader + " cannot read " + source + ": " + failure.getMessage(), failure);
+        }
+    }
+
+    /**
+     * Each cell's closed outline in that cell's pixels: the cell's shapes joined in drawing order,
+     * repeated points and the closing point dropped.
+     *
+     * @return packed xy per cell in reading order, empty for a cell holding no shape
+     */
+    public float[][] cellOutlines() {
+        float[][] cells = new float[viewCameras.length][0];
+        for (String shape : shapes) {
+            Matcher points = POINTS_ATTRIBUTE.matcher(shape);
+            String[] numbers = points.find() ? points.group(1).trim().split(NUMBER_SEPARATORS) : new String[0];
+            if (numbers.length < 2) {
+                continue;
+            }
+            int cell = cellAt(Float.parseFloat(numbers[0]) * svgScaleX, Float.parseFloat(numbers[1]) * svgScaleY);
+            float[] outline = Arrays.copyOf(cells[cell], cells[cell].length + numbers.length / 2 * 2);
+            int size = cells[cell].length / 2;
+            for (int point = 0; point < numbers.length / 2; point++) {
+                float x = Float.parseFloat(numbers[point * 2]) * svgScaleX - cell % columns * cellWidth;
+                float y = Float.parseFloat(numbers[point * 2 + 1]) * svgScaleY - cell / columns * cellHeight;
+                if (size == 0 || x != outline[size * 2 - 2] || y != outline[size * 2 - 1]) {
+                    outline[size * 2] = x;
+                    outline[size * 2 + 1] = y;
+                    size++;
+                }
+            }
+            boolean closed = size > 1 && outline[0] == outline[size * 2 - 2] && outline[1] == outline[size * 2 - 1];
+            cells[cell] = Arrays.copyOf(outline, (closed ? size - 1 : size) * 2);
+        }
+        return cells;
+    }
+
+    /**
+     * The camera a cell was captured with, its projection set for one cell.
+     *
+     * @param cell the cell, in reading order
+     * @return the cell's orbit camera
+     */
+    public Camera3D cellCamera(int cell) {
+        float[] viewCamera = viewCameras[cell];
+        float viewDistance = viewCamera[VIEW_DISTANCE];
+        Camera3D camera = new Camera3D(new Vector3f(), 0f, 0f);
+        camera.setDistanceBounds(0f, Float.MAX_VALUE);
+        camera.fov = viewCamera[VIEW_FIELD_OF_VIEW];
+        camera.roll = viewCamera[VIEW_ROLL];
+        camera.moveTarget(new Vector3f(viewCamera[VIEW_CENTER], viewCamera[VIEW_CENTER + 1], viewCamera[VIEW_CENTER + 2]));
+        camera.setOrbit(viewCamera[VIEW_AZIMUTH], viewCamera[VIEW_ELEVATION], viewDistance);
+        camera.updateProjection(orthographic, cellWidth / (float) cellHeight, viewDistance * NEAR_PLANE_FRACTION,
+                viewDistance * FAR_PLANE_MULTIPLE);
+        return camera;
+    }
+
+    /**
+     * The cell a grid pixel falls in, clamped to the grid.
+     *
+     * @param gridX grid pixel x from the left
+     * @param gridY grid pixel y from the top
+     * @return the cell in reading order
+     */
+    private int cellAt(float gridX, float gridY) {
+        int gridColumns = Math.max(1, columns);
+        int rows = (viewCameras.length + gridColumns - 1) / gridColumns;
+        int column = Math.min(gridColumns - 1, Math.max(0, (int) (gridX / cellWidth)));
+        int gridRow = Math.min(rows - 1, Math.max(0, (int) (gridY / cellHeight)));
+        return Math.min(viewCameras.length - 1, gridRow * gridColumns + column);
+    }
+
+    /**
      * Lift every shape onto a mesh by casting CPU rays through the stored camera: polylines to
      * points weighted by how face-on the surface is, polygons to fill samples, silhouettes to rays.
      *
@@ -291,22 +379,18 @@ public final class StrokeSketch {
         int[] faceOfTriangle = new int[mesh.triangleCount()];
         TriangleBvh bvh = TriangleBvh.over(mesh, faceOfTriangle);
         int[] stack = new int[Math.max(1, bvh.nodeCount)];
-        Camera3D camera = new Camera3D(new Vector3f(), 0f, 0f);
-        camera.setDistanceBounds(0f, Float.MAX_VALUE);
-        Vector3f target = new Vector3f();
         Matrix4f model = new Matrix4f();
         Vector3f normal = new Vector3f();
         Vector3f toEye = new Vector3f();
         float[] origin = new float[3];
         float[] direction = new float[3];
-        int rows = (viewCameras.length + columns - 1) / Math.max(1, columns);
         StringBuilder allStrokes = new StringBuilder();
         for (int stroke = 0; stroke < shapeTotal; stroke++) {
             String shape = shapes.get(stroke);
             strokeByShape[stroke] = "";
             viewByShape[stroke] = -1;
             liftedXyzByShape[stroke] = new float[0];
-            boolean fill = shape.startsWith("<" + POLYGON);
+            boolean fill = shape.startsWith(SVG_TEXT_START + POLYGON);
             Matcher points = POINTS_ATTRIBUTE.matcher(shape);
             Matcher strengthMatch = STRENGTH_ATTRIBUTE.matcher(shape);
             Matcher widthMatch = WIDTH_ATTRIBUTE.matcher(shape);
@@ -325,22 +409,13 @@ public final class StrokeSketch {
             if (pixels.length < 2) {
                 continue;
             }
-            int column = Math.min(columns - 1, Math.max(0, (int) (pixels[0] / cellWidth)));
-            int gridRow = Math.min(rows - 1, Math.max(0, (int) (pixels[1] / cellHeight)));
-            int view = Math.min(viewCameras.length - 1, gridRow * columns + column);
+            int view = cellAt(pixels[0], pixels[1]);
             viewByShape[stroke] = view;
-            float[] viewCamera = viewCameras[view];
-            float viewDistance = viewCamera[VIEW_DISTANCE];
-            target.set(viewCamera[VIEW_CENTER], viewCamera[VIEW_CENTER + 1], viewCamera[VIEW_CENTER + 2]);
-            camera.fov = viewCamera[VIEW_FIELD_OF_VIEW];
-            camera.roll = viewCamera[VIEW_ROLL];
-            camera.moveTarget(target);
-            camera.setOrbit(viewCamera[VIEW_AZIMUTH], viewCamera[VIEW_ELEVATION], viewDistance);
-            camera.updateProjection(orthographic, cellWidth / (float) cellHeight, viewDistance * NEAR_PLANE_FRACTION,
-                    viewDistance * FAR_PLANE_MULTIPLE);
+            Camera3D camera = cellCamera(view);
+            Vector3f target = camera.orbitTarget;
             for (int index = 0; index < pixels.length; index += 2) {
-                pixels[index] -= column * cellWidth;
-                pixels[index + 1] -= gridRow * cellHeight;
+                pixels[index] -= view % columns * cellWidth;
+                pixels[index + 1] -= view / columns * cellHeight;
             }
             float centerWorldPerPixel = (float) camera.worldPerPixel(target.x, target.y, target.z, cellHeight);
             // Every stroke carries its cell's eye and axis, so the sculpt touches only what this
@@ -368,43 +443,8 @@ public final class StrokeSketch {
                 radiusByShape[stroke] = reach;
                 strokeByShape[stroke] = rays > 0 ? text.toString() : "";
             } else {
-                float[] samples = pixels;
-                if (fill) {
-                    float minimumX = Float.POSITIVE_INFINITY;
-                    float minimumY = Float.POSITIVE_INFINITY;
-                    float maximumX = Float.NEGATIVE_INFINITY;
-                    float maximumY = Float.NEGATIVE_INFINITY;
-                    for (int index = 0; index < pixels.length; index += 2) {
-                        minimumX = Math.min(minimumX, pixels[index]);
-                        maximumX = Math.max(maximumX, pixels[index]);
-                        minimumY = Math.min(minimumY, pixels[index + 1]);
-                        maximumY = Math.max(maximumY, pixels[index + 1]);
-                    }
-                    float step = Math.max(MINIMUM_FILL_STEP_PIXELS, spacing / centerWorldPerPixel);
-                    List<Float> inside = new ArrayList<>();
-                    for (float sampleY = minimumY + step / 2; sampleY < maximumY; sampleY += step) {
-                        for (float sampleX = minimumX + step / 2; sampleX < maximumX; sampleX += step) {
-                            boolean contained = false;
-                            for (int index = 0, previous = pixels.length - 2; index < pixels.length;
-                                    previous = index, index += 2) {
-                                if ((pixels[index + 1] > sampleY) != (pixels[previous + 1] > sampleY)
-                                        && sampleX < pixels[index] + (sampleY - pixels[index + 1])
-                                        * (pixels[previous] - pixels[index])
-                                        / (pixels[previous + 1] - pixels[index + 1])) {
-                                    contained = !contained;
-                                }
-                            }
-                            if (contained) {
-                                inside.add(sampleX);
-                                inside.add(sampleY);
-                            }
-                        }
-                    }
-                    samples = new float[inside.size()];
-                    for (int index = 0; index < samples.length; index++) {
-                        samples[index] = inside.get(index);
-                    }
-                }
+                float[] samples = fill ? PolygonScan.coveredPoints(pixels,
+                        Math.max(MINIMUM_FILL_STEP_PIXELS, spacing / centerWorldPerPixel)) : pixels;
                 float[] lifted = new float[samples.length / 2 * 3];
                 float[] weights = new float[samples.length / 2];
                 int liftedCount = 0;

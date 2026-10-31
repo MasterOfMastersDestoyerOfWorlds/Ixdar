@@ -1,6 +1,5 @@
 package ixdar.nodegraph.nodes.modifier;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -26,7 +25,6 @@ public class StrokeSculptNode implements MeshNode {
     public static final String NO_SYMMETRY = "none";
     public static final String AXES = "xyz";
     public static final String NODE_ID = "stroke_sculpt";
-    public static final String SVG_TEXT_START = "<";
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort SVG = new InputPort("svg", PortType.STRING, "");
     public static final InputPort STROKES = new InputPort("strokes", PortType.STRING, "");
@@ -90,16 +88,9 @@ public class StrokeSculptNode implements MeshNode {
         String strokes = ctx.getInputValue(STROKES.name) instanceof String text ? text : "";
         String svgPath = ctx.getInputValue(SVG.name) instanceof String text ? text.trim() : "";
         if (!svgPath.isEmpty() && base.mesh().faceCount() > 0) {
-            try {
-                StrokeSketch sketch = svgPath.startsWith(SVG_TEXT_START) ? StrokeSketch.parse(svgPath, SVG.name)
-                        : StrokeSketch.read(svgPath);
-                String lifted = sketch.lift(base.mesh());
-                strokes = strokes.isBlank() ? lifted : lifted.isEmpty() ? strokes
-                        : strokes + StrokeSculpt.STROKE_SEPARATOR + lifted;
-            } catch (IOException failure) {
-                throw new IllegalStateException("stroke_sculpt cannot read " + svgPath + ": "
-                        + failure.getMessage(), failure);
-            }
+            String lifted = StrokeSketch.load(svgPath, NODE_ID).lift(base.mesh());
+            strokes = strokes.isBlank() ? lifted : lifted.isEmpty() ? strokes
+                    : strokes + StrokeSculpt.STROKE_SEPARATOR + lifted;
         }
         ctx.setOutput(GEOMETRY.name, sculpt.apply(base, strokes));
     }

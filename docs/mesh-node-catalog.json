@@ -2593,6 +2593,30 @@
       "description": "Combines two geometry inputs into one mesh, merging tags and bone weights. Optionally welds nearby vertices within merge_distance."
     },
     {
+      "id": "keep_largest_part",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Vertex and face order of the kept part follow the input\u0027s; slots are dropped, their indices no longer match.",
+          "defaultValue": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Vertex and face order of the kept part follow the input\u0027s; slots are dropped, their indices no longer match."
+        }
+      ],
+      "description": "Keeps the edge-connected part of a mesh with the most faces, dropping the specks and bubbles an extraction or a weld leaves beside it."
+    },
+    {
       "id": "layout_embedding",
       "category": "Quad Layout",
       "scopes": [
@@ -4535,6 +4559,90 @@
       "description": "Translates all vertices of a geometry by a vector offset, useful for repositioning meshes in world space."
     },
     {
+      "id": "silhouette_hull",
+      "category": "Primitives",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "svg",
+          "portType": "STRING",
+          "description": "An SVG written by `ixdar-cli trace-outlines` or `multiview --svg` with one closed outline in each cell that constrains the hull, in any cells (front, side, top, back, 3/4).",
+          "defaultValue": ""
+        },
+        {
+          "name": "resolution",
+          "portType": "INT",
+          "description": "Lattice points along the hull\u0027s longest side; the time grows with its cube.",
+          "defaultValue": 64
+        },
+        {
+          "name": "misses",
+          "portType": "INT",
+          "description": "Views that may place a kept point outside their outline, so a few percent of disagreement between pictures does not erode the shape; at least three views must still agree. 0 is the strict visual hull.",
+          "defaultValue": 1
+        },
+        {
+          "name": "rounding",
+          "portType": "FLOAT",
+          "description": "Radius, in lattice steps, below which the hull\u0027s edges and bumps are smoothed away; 0 keeps the carved points as they are.",
+          "defaultValue": 8.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "volume",
+          "portType": "VOLUME",
+          "description": "Signed distance in lattice steps, positive inside, smoothed; every point off the carved hull at least half a step outside, so the surface never leaves an outline."
+        }
+      ],
+      "description": "Volume from outlines traced in any cells of a multiview template: carves a lattice keeping points that all but `misses` views place inside their outline, rounds the carved hull by total-variation smoothing that every outline\u0027s rays still touch, and outputs its smoothed signed distance (positive inside) for volume_to_mesh at level 0."
+    },
+    {
+      "id": "smooth_mesh",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output; topology and slots are kept, only positions move.",
+          "defaultValue": null
+        },
+        {
+          "name": "passes",
+          "portType": "INT",
+          "description": "Lambda and mu passes counted together.",
+          "defaultValue": 10
+        },
+        {
+          "name": "lambda",
+          "portType": "FLOAT",
+          "description": "Share of the way toward the neighbours\u0027 mean each odd pass moves.",
+          "defaultValue": 0.5
+        },
+        {
+          "name": "mu",
+          "portType": "FLOAT",
+          "description": "Share each even pass moves, negative and slightly larger than lambda; 0 repeats lambda (plain umbrella smoothing, which shrinks).",
+          "defaultValue": -0.53
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output; topology and slots are kept, only positions move."
+        }
+      ],
+      "description": "Smooths a mesh by umbrella passes over its edge adjacency, alternating a shrinking lambda and an inflating mu (Taubin), so slivers even out without the surface shrinking."
+    },
+    {
       "id": "solidify_mesh",
       "category": "Modifiers",
       "scopes": [
@@ -5330,6 +5438,36 @@
         }
       ],
       "description": "Per-element vector math with operations ADD, SUBTRACT, MULTIPLY, SCALE, NORMALIZE, CROSS, DOT. Outputs both the result vector and its length."
+    },
+    {
+      "id": "volume_to_mesh",
+      "category": "Geometry Operations",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "volume",
+          "portType": "VOLUME",
+          "description": "Scalar volume, e.g. silhouette_hull\u0027s; values above the level are inside.",
+          "defaultValue": null
+        },
+        {
+          "name": "level",
+          "portType": "FLOAT",
+          "description": "Value the surface passes through; 0 for a signed distance.",
+          "defaultValue": 0.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Triangle mesh wound outward, crossing points placed linearly along lattice edges."
+        }
+      ],
+      "description": "Extracts the surface where a volume crosses a level as a triangle mesh, by marching tetrahedra; closed and manifold when the volume\u0027s outer layer lies below the level."
     }
   ]
 }

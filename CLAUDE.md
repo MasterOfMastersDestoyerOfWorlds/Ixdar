@@ -182,6 +182,7 @@ Run any command with `ixdar-cli <command> --help`. Install the global alias with
 - `ixdar-cli shutdown` — Stop every scene ixdar-cli started in this checkout, or the one named, once each is gone.
 - `ixdar-cli start-new-game` — Leave the menu by clicking Start New Game.
 - `ixdar-cli teavm-build` — Package the TeaVM web bundle on a JDK 25, failing on any TeaVM [ERROR] or a stub classes.js.
+- `ixdar-cli trace-outlines` — Write several reference pictures' outlines into one orthographic outlines template at one shared scale.
 - `ixdar-cli trace-reference` — Write a reference picture's silhouette into a template cell as silhouette polylines, fitted to the sculpt.
 - `ixdar-cli trade-hover-scan` — Scan trade cities until the requested toolbar tooltip appears.
 - `ixdar-cli validate-route-ops` — Validate trade route operations against the running app.
