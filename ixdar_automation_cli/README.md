@@ -52,6 +52,7 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`node-inspect`](#node-inspect) | Inspect the graph the active model scene ran: the node tree with times and peak heap, one node's inputs, outputs and fields, or a field path below it, with depth and length limits. |
 | [`orbit-get`](#orbit-get) | Report the active scene's camera, its pose in 3D or its pan and zoom in 2D, and a mesh viewer's orbit and mesh radius. |
 | [`orbit-set`](#orbit-set) | Set the active mesh viewer's camera orbit (azimuth, elevation, distance). |
+| [`palette`](#palette) | Step the scene to its next colour palette, or to the one named. |
 | [`pick`](#pick) | Name the surface under a screenshot pixel: point, face, nearest vertex, normal, ring region and its part name, touching no tool and no hover. |
 | [`project`](#project) | Place a surface point in the screenshot: the pixel it lands on and whether the surface in front of it hides it, touching no tool. |
 | [`projection-get`](#projection-get) | Report whether the active mesh viewer is using orthographic projection. |
@@ -68,6 +69,8 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`rings-list`](#rings-list) | Rank the neck rings a mesh's skeleton proposes, most neck-like first. |
 | [`screenshot`](#screenshot) | Capture a PNG screenshot of the current framebuffer to a file. |
 | [`scroll`](#scroll) | Deliver a synthesized two-axis scroll event to the active mouse handler. |
+| [`shading`](#shading) | Set the mesh viewer's surface look (default, clay or curvature, with an optional headlight) and leave it on; with no arguments, report it. |
+| [`stroke-lift`](#stroke-lift) | Preview where a pass's SVG strokes land on the shown surface, lifted through the camera the SVG records exactly as the stroke_sculpt node lifts them; show the pass's input node (mesh-dsl --node) to preview that pass. |
 | [`terminal`](#terminal) | Run one line in the scene terminal and return the history lines it produced. |
 | [`tools`](#tools) | List every tool the active scene hosts, active or not, with its switch key, description, modes and controls, then the scene's own controls; `control` fires any of them by its action id. |
 | [`type`](#type) | Synthesize character events on the active key handler, one per character of the text. |
@@ -104,9 +107,11 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`profile-report`](#profile-report) | Report self-time hot methods from an async-profiler HTML capture. |
 | [`quilt-mesh-compare`](#quilt-mesh-compare) | Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as Java). |
 | [`run-scene`](#run-scene) | Build, launch, wait for, optionally profile and screenshot, then shut down a scene. |
+| [`sculpt-animate`](#sculpt-animate) | Animate a stroke sculpt, pass by pass through a DSL's stroke_sculpt chain or round by round. |
 | [`shutdown`](#shutdown) | Stop every scene ixdar-cli started in this checkout, or the one named, once each is gone. |
 | [`start-new-game`](#start-new-game) | Leave the menu by clicking Start New Game. |
 | [`teavm-build`](#teavm-build) | Package the TeaVM web bundle on a JDK 25, failing on any TeaVM [ERROR] or a stub classes.js. |
+| [`trace-reference`](#trace-reference) | Write a reference picture's silhouette into a template cell as silhouette polylines, fitted to the sculpt. |
 | [`trade-hover-scan`](#trade-hover-scan) | Scan trade cities until the requested toolbar tooltip appears. |
 | [`validate-route-ops`](#validate-route-ops) | Validate trade route operations against the running app. |
 
@@ -441,7 +446,7 @@ Report mesh topology: element counts, shells with their Euler characteristic, bo
 - **Flags:**
   - `--path` (string, default ``) — Mesh file to analyse; empty analyses the active viewer mesh., e.g. `/home/acw/crawfish/IMG_4109.glb`
   - `--duplicate-tolerance` (float, default `1.0E-6`) — Distance below which two vertices count as one position; 0 skips the scan., e.g. `1e-6`
-- **Response:** `{ok, source, vertex_count, edge_count, face_count, face_side_count, triangle_count, euler_characteristic, boundary_edge_count, non_manifold_edge_count, unoriented_edge_count, isolated_vertex_count, non_manifold_boundary_vertex_count, unwalked_boundary_edge_count, duplicate_position_vertex_count, distinct_position_count, shell_count, boundary_loop_count, shells:[{faces, vertices, edges, boundary_edges, boundary_loops, euler}, ...], text}`
+- **Response:** `{ok, source, vertex_count, edge_count, face_count, face_side_count, triangle_count, euler_characteristic, inward_face_count, boundary_edge_count, non_manifold_edge_count, unoriented_edge_count, isolated_vertex_count, non_manifold_boundary_vertex_count, unwalked_boundary_edge_count, duplicate_position_vertex_count, distinct_position_count, shell_count, boundary_loop_count, shells:[{faces, vertices, edges, boundary_edges, boundary_loops, euler}, ...], orientation_patches:[{faces, inward_faces, bounds}, ...], text}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/topology -d '{"path": "/home/acw/crawfish/IMG_4109.glb", "duplicate_tolerance": 1e-6}'`
 
 ### `model`
@@ -468,6 +473,11 @@ Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by defaul
 - **Flags:**
   - `--out` (string, default ``) — Output file path; empty writes under screenshots/automation/., e.g. `/tmp/multiview.png`
   - `--inline` (bool, default `false`) — Also return the composite PNG as base64 in the response., e.g. `true`
+  - `--shading` (string, default `default`) — Surface look for the capture only: default, clay or curvature; the viewer's own look is restored after., e.g. `curvature`
+  - `--headlight` (bool, default `false`) — Clay and curvature key light from each view's camera., e.g. `true`
+  - `--svg` (string, default ``) — Also write a blank SVG drawing template here, its root recording this capture's camera, for a stroke_sculpt pass to be drawn on., e.g. `src/main/resources/dsl/skull/pass1.svg`
+  - `--outline` (bool, default `false`) — Also return each cell's silhouette of the mesh as closed polylines in the --svg template's coordinates, with each cell's bounding box., e.g. `true`
+  - `--dsl` (string, default ``) — Reload this .dsl file, as model --path does, before capturing; when it fails to load, nothing is captured and the load's error is returned., e.g. `ixdar-app/src/main/resources/dsl/stroke_sculpt_head.dsl`
   - `--selection` (string, default `mesh`) — What to frame: mesh, overlay, tag:NAME, edge-mark:LABEL, ring:LABEL, region:N[,M] or region:selected, or a bare name., e.g. `tag:cranium`
   - `--bounds` (string, default ``) — Explicit box as minX,minY,minZ,maxX,maxY,maxZ; overrides every other selection., e.g. `-1,-1,-1,1,1,1`
   - `--point` (string, default ``) — A point x,y,z to frame with --radius around it., e.g. `0.1,0.4,0`
@@ -475,8 +485,8 @@ Capture 8 orbit viewpoints, each framed on a selection (the whole mesh by defaul
   - `--region` (string, default ``) — Ring regions by the numbers in the region tool's item labels, comma-separated, or 'selected' for the region tool's selection., e.g. `3`
   - `--ring` (string, default ``) — A ring by its label in the ring-tool scene: a graph ring or 'ring #N'., e.g. `ring2`
   - `--padding` (float, default `0.15`) — Margin around the selection as a fraction of its radius., e.g. `0.25`
-- **Response:** `{ok, selection, center, radius, distance, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/multiview -d '{"path": "/tmp/multiview.png", "inline": true, "selection": "tag:cranium", "bounds": "-1,-1,-1,1,1,1", "point": "0.1,0.4,0", "radius": 0.05, "region": "3", "ring": "ring2", "padding": 0.25}'`
+- **Response:** `{ok, selection, center, radius, distance, fov, orthographic, shading, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, svg?, dsl?, seconds?, outline?: [{cell, view, box, polylines}], error?, base64?}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/multiview -d '{"path": "/tmp/multiview.png", "inline": true, "shading": "curvature", "headlight": true, "svg": "src/main/resources/dsl/skull/pass1.svg", "outline": true, "dsl": "ixdar-app/src/main/resources/dsl/stroke_sculpt_head.dsl", "selection": "tag:cranium", "bounds": "-1,-1,-1,1,1,1", "point": "0.1,0.4,0", "radius": 0.05, "region": "3", "ring": "ring2", "padding": 0.25}'`
 
 ### `node-inspect`
 
@@ -500,7 +510,7 @@ Inspect the graph the active model scene ran: the node tree with times and peak 
 Report the active scene's camera, its pose in 3D or its pan and zoom in 2D, and a mesh viewer's orbit and mesh radius.
 
 - **Route:** `GET /ui/orbit`
-- **Response:** `{ok, camera, azimuth?, elevation?, distance?, target?, mesh_radius?}`
+- **Response:** `{ok, camera, azimuth?, elevation?, distance?, roll?, target?, mesh_radius?}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/orbit`
 
 ### `orbit-set`
@@ -515,8 +525,22 @@ Set the active mesh viewer's camera orbit (azimuth, elevation, distance).
   - `--elevation` (float, default `0.0`) — Orbit elevation angle in radians., e.g. `0.6`
   - `--distance` (float, default `3.5`) — Camera distance from the orbit target., e.g. `5.0`
   - `--target` (string, default ``) — Point the orbit pivots around, as x,y,z; empty leaves the pivot where it is., e.g. `0.1,-0.4,0.2`
-- **Response:** `{ok, azimuth, elevation, distance, target}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/orbit -d '{"azimuth": 1.5708, "elevation": 0.6, "distance": 5.0, "target": "0.1,-0.4,0.2"}'`
+  - `--fov` (float, default ``) — Vertical field of view in degrees; omitted keeps the current one., e.g. `30`
+  - `--roll` (float, default ``) — Turn of the camera about its view direction in radians, positive turning the picture counter-clockwise; omitted keeps the current one., e.g. `0.05`
+- **Response:** `{ok, azimuth, elevation, distance, target, fov, roll}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/orbit -d '{"azimuth": 1.5708, "elevation": 0.6, "distance": 5.0, "target": "0.1,-0.4,0.2", "fov": 30, "roll": 0.05}'`
+
+### `palette`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/PaletteSwap.java)
+
+Step the scene to its next colour palette, or to the one named.
+
+- **Route:** `POST /ui/paletteswap`
+- **Flags:**
+  - `--name` (string, default ``) — The palette to wear; omitted steps to the next., e.g. `Paper`
+- **Response:** `{ok, palette, options, error?}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/paletteswap -d '{"name": "Paper"}'`
 
 ### `pick`
 
@@ -701,6 +725,32 @@ Deliver a synthesized two-axis scroll event to the active mouse handler.
   - `--deltaX` (float, default `0`) — Horizontal scroll delta, positive toward the left as GLFW reports it., e.g. `0.5`
 - **Response:** `{ok}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/input/scroll -d '{"delta": -1.5, "deltaX": 0.5}'`
+
+### `shading`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/ShadingSet.java)
+
+Set the mesh viewer's surface look (default, clay or curvature, with an optional headlight) and leave it on; with no arguments, report it.
+
+- **Route:** `POST /ui/shading`
+- **Flags:**
+  - `<shading>` (string, default ``) — default (the palette's look), clay (light clay on a light background) or curvature (clay darkened in concave, brightened on convex surface); omitted keeps the current one., e.g. `curvature`
+  - `--headlight` (bool, default `false`) — Clay and curvature key light from the camera; naming a mode without it turns the headlight off., e.g. `true`
+- **Response:** `{ok, shading, headlight, palette}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/shading -d '{"shading": "curvature", "headlight": true}'`
+
+### `stroke-lift`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/StrokeLift.java)
+
+Preview where a pass's SVG strokes land on the shown surface, lifted through the camera the SVG records exactly as the stroke_sculpt node lifts them; show the pass's input node (mesh-dsl --node) to preview that pass.
+
+- **Route:** `POST /mesh/stroke-lift`
+- **Flags:**
+  - `--svg` (string, required) — SVG drawn on an ixdar-cli multiview --svg template: <polyline> or <polygon> shapes with data-strength in [-1, 1], stroke-width as the falloff width, data-kind silhouette/ridge/valley, data-mirror="x", data-op="smooth"., e.g. `tmp/pass1.svg`
+  - `--spacing` (float, default `0.03`) — World distance between kept polyline points and between polygon fill samples., e.g. `0.03`
+- **Response:** `{ok, strokeRows:[{index, view, lifted, misses, grazing, radius, vertexIds, unresolvedGaps, stroke}], strokes}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/stroke-lift -d '{"svg": "tmp/pass1.svg", "spacing": 0.03}'`
 
 ### `terminal`
 
@@ -1031,6 +1081,20 @@ Build, launch, wait for, optionally profile and screenshot, then shut down a sce
 - `--keep-alive` — Leave the scene running, returning only once it reports ready; stop it with ``ixdar-cli shutdown``.
 - `--top` — How many profile-report hot methods or partly-covered classes to report.
 
+### `sculpt-animate`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/sculpt_animate.py#L213)
+
+Animate a stroke sculpt, pass by pass through a DSL's stroke_sculpt chain or round by round.
+
+- `--dsl` — Path of a DSL whose stroke_sculpt nodes are stepped through as a chain of passes.
+- `--rounds` — Directory of round<NN>/ snapshots of a layered DSL, each holding one .dsl and its SVGs.
+- `--out` — Directory for the frames, the DSLs captured and animation.mp4/gif.
+- `--reference` — Optional OBJ each result is scored against (mesh-compare --normalize).
+- `--shading` — Multiview surface look: default, clay or curvature.
+- `--width` — Frame width in pixels.
+- `--seconds` — Seconds each frame is held.
+
 ### `shutdown`
 
 [↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/shutdown_scene.py#L57)
@@ -1055,6 +1119,24 @@ Leave the menu by clicking Start New Game.
 Package the TeaVM web bundle on a JDK 25, failing on any TeaVM [ERROR] or a stub classes.js.
 
 - `--hugo` — Then run hugo -D in Krieg Eterna's web directory (KRIEG_ETERNA_WEB overrides the sibling KriegEterna/web).
+
+### `trace-reference`
+
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/trace_reference.py#L52)
+
+Write a reference picture's silhouette into a template cell as silhouette polylines, fitted to the sculpt.
+
+- `--reference` — Reference picture (PNG or JPEG) of the subject.
+- `--template` — SVG drawing template written by multiview --svg.
+- `--cell` — Cell to trace into, by its view name (Front, Right, 3/4 Front-R, ...) or index.
+- `--capture` — Multiview PNG the template was written with; default the PNG its comment names, next to it.
+- `--out` — SVG written; default the template itself, the polylines added before its end.
+- `--edges` — Also write the subject's interior edges, placed the same way, to this SVG for viewing (it records no camera, so no node lifts it).
+- `--strength` — data-strength of the silhouette polylines.
+- `--stroke-width` — stroke-width of the silhouette polylines, in template units.
+- `--pieces` — Number of polylines the closed outline is split into.
+- `--simplify` — Largest distance, in template units, a dropped outline point may lie from the kept polyline.
+- `--tolerance` — Largest summed RGB difference from the picture's border colour still counted as background.
 
 ### `trade-hover-scan`
 

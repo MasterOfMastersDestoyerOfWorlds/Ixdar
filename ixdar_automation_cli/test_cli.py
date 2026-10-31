@@ -1886,5 +1886,53 @@ class SceneLimitTest(unittest.TestCase):
         automation_client.refuse_second_scene("run-scene")
 
 
+class TraceReferenceTest(unittest.TestCase):
+    def test_outline_is_fitted_to_the_sculpt_silhouette_in_the_named_cell(self):
+        # MESH-74: a tall ellipse in the reference lands in the Right cell scaled to the capture's
+        # disk height and centred on it, as silhouette polylines that never leave the cell.
+        import cv2
+        import numpy
+        import re
+        from ixdar_automation_cli.cli_commands.trace_reference import trace_reference
+
+        cream, grey = (227, 239, 245), (124, 123, 125)
+        with tempfile.TemporaryDirectory() as directory:
+            capture = numpy.full((400, 800, 3), cream, numpy.uint8)
+            cv2.circle(capture, (300, 100), 60, grey, cv2.FILLED)
+            cv2.imwrite(os.path.join(directory, "input.png"), capture)
+            reference = numpy.full((200, 300, 3), cream, numpy.uint8)
+            cv2.ellipse(reference, (100, 110), (40, 80), 0, 0, 360, grey, cv2.FILLED)
+            cv2.imwrite(os.path.join(directory, "reference.png"), reference)
+            cells = "".join(f"\n  cell {cell} (column {cell % 4}, row {cell // 4}, x {cell % 4 * 200}-"
+                            f"{cell % 4 * 200 + 200}, y {cell // 4 * 200}-{cell // 4 * 200 + 200}): {label}"
+                            for cell, label in enumerate(["Front", "Right", "Back", "Left", "Top", "Bottom",
+                                                          "3/4 Front-R", "3/4 Front-L"]))
+            template = os.path.join(directory, "shape.svg")
+            with open(template, "w", encoding="utf-8") as handle:
+                handle.write('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"\n'
+                             '     data-center="0 0 0" data-distance="5" data-fov="45" data-projection="perspective"\n'
+                             '     data-cell-width="200" data-cell-height="200" data-columns="4"\n'
+                             '     data-views="0 0;0 0;0 0;0 0;0 0;0 0;0 0;0 0">\n'
+                             f"<!-- Drawn over input.png. Add one <polyline>. Cells:{cells}\n-->\n</svg>\n")
+
+            result = trace_reference(reference=os.path.join(directory, "reference.png"), template=template,
+                                     cell="right")
+
+            self.assertTrue(result.payload["ok"], result.payload)
+            self.assertEqual(1, result.payload["cell"])
+            self.assertAlmostEqual(121 / 161, result.payload["scale"], places=2)
+            written = open(template, encoding="utf-8").read()
+            shapes = re.findall(r"<polyline ([^>]*)/>", written)
+            self.assertEqual(4, len(shapes))
+            points = numpy.array([[float(value) for value in pair.split(",")] for shape in shapes
+                                  for pair in re.search(r'points="([^"]*)"', shape).group(1).split()])
+            self.assertTrue(all('data-kind="silhouette"' in shape for shape in shapes))
+            self.assertTrue(((points[:, 0] >= 200) & (points[:, 0] < 400) & (points[:, 1] < 200)).all())
+            self.assertAlmostEqual(300, (points[:, 0].min() + points[:, 0].max()) / 2, delta=2)
+            self.assertAlmostEqual(100, (points[:, 1].min() + points[:, 1].max()) / 2, delta=2)
+            self.assertAlmostEqual(120, points[:, 1].max() - points[:, 1].min(), delta=3)
+            self.assertAlmostEqual(60, points[:, 0].max() - points[:, 0].min(), delta=3)
+
+
 if __name__ == "__main__":
     unittest.main()

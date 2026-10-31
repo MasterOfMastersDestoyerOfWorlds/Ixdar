@@ -18,7 +18,7 @@ public class AutomationEndpoint {
 
     public static final String ERROR = "error";
 
-    protected AutomationRuntime runtime;
+    public AutomationRuntime runtime;
 
     /**
      * Start a successful route response; callers append their fields after {@code ok}.

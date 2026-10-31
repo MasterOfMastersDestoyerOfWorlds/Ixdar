@@ -1004,6 +1004,24 @@
           "example": "src/main/resources/dsl/skull/pass1.svg"
         },
         {
+          "name": "outline",
+          "cliName": "outline",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Also return each cell\u0027s silhouette of the mesh as closed polylines in the --svg template\u0027s coordinates, with each cell\u0027s bounding box.",
+          "example": "true"
+        },
+        {
+          "name": "dsl",
+          "cliName": "dsl",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Reload this .dsl file, as model --path does, before capturing; when it fails to load, nothing is captured and the load\u0027s error is returned.",
+          "example": "ixdar-app/src/main/resources/dsl/stroke_sculpt_head.dsl"
+        },
+        {
           "name": "selection",
           "cliName": "selection",
           "type": "string",
@@ -1067,7 +1085,8 @@
           "example": "0.25"
         }
       ],
-      "responseHint": "{ok, selection, center, radius, distance, fov, orthographic, shading, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, svg?, error?, base64?}"
+      "responseHint": "{ok, selection, center, radius, distance, fov, orthographic, shading, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, svg?, dsl?, seconds?, outline?: [{cell, view, box, polylines}], error?, base64?}",
+      "waitSeconds": 900
     },
     {
       "commandName": "node-inspect",

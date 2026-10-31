@@ -21,6 +21,7 @@ import ixdar.graphics.image.PngWriter;
 import ixdar.platform.Platforms;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.AutomationPortFile;
+import ixdar.automation.endpoints.scene.SwitchModel;
 import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.render.model.SurfaceShading;
@@ -33,6 +34,11 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
     public static final String SVG = "svg";
     public static final String CENTER = "center";
     public static final String FIELD_OF_VIEW = "fov";
+    public static final String DSL = "dsl";
+    public static final String OUTLINE = "outline";
+    public static final int OUTLINE_COLOUR_TOLERANCE = 24;
+    public static final float OUTLINE_SIMPLIFY_PIXELS = 1.5f;
+    public static final int OUTLINE_MINIMUM_AREA = 64;
     public static final float THREE_QUARTER_ELEVATION_RAD = 0.4f;
     public static final int VIEW_COUNT = 8;
     public static final int QUARTER_TURN_DIVISOR = 4;
@@ -84,6 +90,20 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             return failure(e.getMessage());
         }
         boolean headlight = body.has(ShadingSet.HEADLIGHT) && body.get(ShadingSet.HEADLIGHT).getAsBoolean();
+        String dsl = body.has(DSL) ? body.get(DSL).getAsString().trim() : "";
+        JsonObject reloaded = null;
+        if (!dsl.isEmpty()) {
+            // The model route's own load, so a DSL that fails here fails with the error ml reports.
+            SwitchModel reload = new SwitchModel();
+            reload.runtime = runtime;
+            JsonObject request = new JsonObject();
+            request.addProperty(SwitchModel.PATH, dsl);
+            reloaded = reload.endpointHandler(request);
+            if (!reloaded.get(OK).getAsBoolean()) {
+                reloaded.addProperty(DSL, dsl);
+                return reloaded;
+            }
+        }
         // The viewer's own look, put back once every view is read.
         SurfaceShading[] savedLook = new SurfaceShading[1];
         boolean[] savedHeadlight = new boolean[1];
@@ -243,6 +263,51 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             }
             result.add("viewOrder", viewOrder);
             result.addProperty("sha256", sha256(pngBytes));
+            if (reloaded != null) {
+                result.addProperty(DSL, dsl);
+                result.add(SwitchModel.SECONDS, reloaded.get(SwitchModel.SECONDS));
+            }
+            if (body.has(OUTLINE) && body.get(OUTLINE).getAsBoolean()) {
+                // Composite pixels are the template's coordinates: multiview --svg writes its
+                // viewBox as the composite's size.
+                JsonArray outlines = new JsonArray();
+                for (int view = 0; view < VIEW_COUNT; view++) {
+                    if (captures[view] == null) {
+                        continue;
+                    }
+                    int left = (view % GRID_COLUMNS) * cellW;
+                    int top = (view / GRID_COLUMNS) * cellH;
+                    int[] box = { Integer.MAX_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE };
+                    JsonArray polylines = new JsonArray();
+                    for (int[] outline : captures[view].outlines(captures[view].get(0, 0),
+                            OUTLINE_COLOUR_TOLERANCE, OUTLINE_SIMPLIFY_PIXELS, OUTLINE_MINIMUM_AREA)) {
+                        StringBuilder points = new StringBuilder();
+                        for (int index = 0; index < outline.length; index += 2) {
+                            int x = outline[index] + left;
+                            int y = outline[index + 1] + top;
+                            points.append(index == 0 ? "" : " ").append(x).append(',').append(y);
+                            box[0] = Math.min(box[0], x);
+                            box[1] = Math.min(box[1], y);
+                            box[2] = Math.max(box[2], x);
+                            box[3] = Math.max(box[3], y);
+                        }
+                        polylines.add(points.toString());
+                    }
+                    JsonObject cell = new JsonObject();
+                    cell.addProperty("cell", view);
+                    cell.addProperty("view", VIEW_LABELS[view]);
+                    if (!polylines.isEmpty()) {
+                        JsonArray bounds = new JsonArray();
+                        for (int value : box) {
+                            bounds.add(value);
+                        }
+                        cell.add("box", bounds);
+                    }
+                    cell.add("polylines", polylines);
+                    outlines.add(cell);
+                }
+                result.add(OUTLINE, outlines);
+            }
             String svgPath = body.has(SVG) ? body.get(SVG).getAsString() : "";
             if (!svgPath.isBlank()) {
                 // A blank drawing template whose root records this capture's camera, which the
@@ -325,10 +390,19 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 .param(SVG, RouteParamType.STRING, false, "",
                         "Also write a blank SVG drawing template here, its root recording this "
                                 + "capture's camera, for a stroke_sculpt pass to be drawn on.",
-                        "src/main/resources/dsl/skull/pass1.svg"))
+                        "src/main/resources/dsl/skull/pass1.svg")
+                .param(OUTLINE, RouteParamType.BOOL, false, String.valueOf(false),
+                        "Also return each cell's silhouette of the mesh as closed polylines in the "
+                                + "--svg template's coordinates, with each cell's bounding box.",
+                        String.valueOf(true))
+                .param(DSL, RouteParamType.STRING, false, "",
+                        "Reload this .dsl file, as model --path does, before capturing; when it fails "
+                                + "to load, nothing is captured and the load's error is returned.",
+                        "ixdar-app/src/main/resources/dsl/stroke_sculpt_head.dsl"))
                 .responseHint("{ok, selection, center, radius, distance, fov, orthographic, shading, path, "
                         + "width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, svg?, "
-                        + "error?, base64?}")
+                        + "dsl?, seconds?, outline?: [{cell, view, box, polylines}], error?, base64?}")
+                .waitSeconds(SwitchModel.WAIT_SECONDS)
                 .build();
     }
 }

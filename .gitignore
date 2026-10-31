@@ -24,6 +24,7 @@ ixdar_automation_cli.egg-info/SOURCES.txt
 ixdar_automation_cli.egg-info/top_level.txt
 ixdar_automation_cli.egg-info/entry_points.txt
 ixdar_automation_cli.egg-info/dependency_links.txt
+ixdar_automation_cli.egg-info/requires.txt
 # Scratch output of any tool or agent, at every depth (ixdar-app/tmp/ too).
 tmp/
 ixdar-app/${dsl.export}
