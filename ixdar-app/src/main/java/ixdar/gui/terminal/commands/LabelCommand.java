@@ -73,7 +73,8 @@ public class LabelCommand extends TerminalCommand {
 
     /**
      * Give each selected region the part name, in place of any it had, by its picked point; a
-     * name that is no identifier, names a ring, or meets no selection is refused.
+     * name that is no identifier, names a ring, or meets no selection is refused. The scene's labels
+     * are then shown, part names and colours, so the new name shows.
      *
      * @param args     full tokenised command line
      * @param startIdx index of the part name in {@code args}
@@ -107,6 +108,8 @@ public class LabelCommand extends TerminalCommand {
             layer.partLabels.add(name, point);
             named++;
         }
+        layer.scene.showLabels = true;
+        layer.labelsShownChanged();
         layer.labelsChanged();
         tool.clearSelection();
         tool.lastError = "";

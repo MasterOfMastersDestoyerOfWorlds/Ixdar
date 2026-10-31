@@ -49,6 +49,12 @@ public class KeyGuy {
     public ControlHint lastFiredControl;
 
     /**
+     * The held key whose row handed focus to the terminal, whose character must not land on the
+     * command line; {@link ControlHint#NO_KEY} once that character is dropped or the key released.
+     */
+    private int focusHandOffKey = ControlHint.NO_KEY;
+
+    /**
      * Key handler for a scene, firing the rows of its {@link Scene#controls}.
      *
      * @param canvas owning scene, whose controls the keys fire and whose camera they drive
@@ -100,8 +106,13 @@ public class KeyGuy {
         if (KeyActions.ShiftMask.keyPressed(pressedKeys)) {
             shiftMask = true;
         }
+        boolean terminalWasFocused = Toggle.IsTerminalFocused.value;
         if (firstPress) {
             handleSceneKeys(key, mods);
+        }
+        if (!terminalWasFocused && Toggle.IsTerminalFocused.value) {
+            focusHandOffKey = key;
+            return;
         }
         if (Toggle.IsTerminalFocused.value && Terminal.current != null) {
             Terminal.current.keyPress(key, mods, controlMask);
@@ -150,6 +161,9 @@ public class KeyGuy {
         }
         recordAbstractAction("key_release", KEY, key, "mask", mask);
         pressedKeys.remove(key);
+        if (key == focusHandOffKey) {
+            focusHandOffKey = ControlHint.NO_KEY;
+        }
         controlMask = pressedKeys.contains(LEFT_CONTROL) || pressedKeys.contains(RIGHT_CONTROL);
         shiftMask = pressedKeys.contains(LEFT_SHIFT) || pressedKeys.contains(RIGHT_SHIFT);
     }
@@ -244,6 +258,10 @@ public class KeyGuy {
         String currentText = "" + (char) codepoint;
         recordAbstractAction("char_input", "text", currentText, "codepoint", codepoint);
         if (codepoint == '`' || codepoint == '~') {
+            return;
+        }
+        if (focusHandOffKey != ControlHint.NO_KEY) {
+            focusHandOffKey = ControlHint.NO_KEY;
             return;
         }
         if (Toggle.IsTerminalFocused.value && Terminal.current != null) {
