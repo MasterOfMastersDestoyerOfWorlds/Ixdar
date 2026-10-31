@@ -2051,8 +2051,10 @@ public final class RingTool extends Tool {
             if (spline) {
                 float[] points = SurfaceWaypoints.parse(
                         String.valueOf(statement.inputSources.get(SplineRingNode.POINTS.name)));
+                // A statement may leave the normal out, which is no normal, not the text "null".
+                Object normalArgument = statement.inputSources.get(SplineRingNode.NORMAL.name);
                 float[] written = SurfaceWaypoints.parse(
-                        String.valueOf(statement.inputSources.get(SplineRingNode.NORMAL.name)));
+                        normalArgument instanceof String text ? text : null);
                 normal = written.length == COORDINATES_PER_POINT ? written : null;
                 Object modeArgument = statement.inputSources.get(SplineRingNode.MODE.name);
                 anchored.mode = RingSegmentMode.named(
