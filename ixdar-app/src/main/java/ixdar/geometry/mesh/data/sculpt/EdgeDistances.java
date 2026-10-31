@@ -3,6 +3,9 @@ package ixdar.geometry.mesh.data.sculpt;
 import java.util.Arrays;
 import java.util.PriorityQueue;
 
+import org.joml.Vector3f;
+import org.joml.Vector3fc;
+
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
@@ -39,10 +42,14 @@ public final class EdgeDistances {
      * @param sourceCount     how many leading entries of {@code sourceVertexIds} are sources
      * @param cutoff          largest distance settled
      * @param targetVertexId  vertex whose settling ends the search, or -1 to settle the whole ball
+     * @param across          unit direction edges are measured across, their extent along it
+     *                        ignored, or null for full edge lengths
      * @return true when the target settled, or when there was none to wait for
      */
     public boolean expand(MeshTopology mesh, int[] sourceVertexIds, int sourceCount, float cutoff,
-            int targetVertexId) {
+            int targetVertexId, Vector3fc across) {
+        Vector3f from = new Vector3f();
+        Vector3f to = new Vector3f();
         int bound = mesh.vertexIdBound();
         if (distanceByVertexId.length < bound) {
             distanceByVertexId = new float[bound];
@@ -76,7 +83,12 @@ public final class EdgeDistances {
             for (int adjacency = 0; adjacency < mesh.vertexEdgeCount(vertexId); adjacency++) {
                 int edgeId = mesh.vertexEdgeAt(vertexId, adjacency);
                 int neighbourId = mesh.edgeOtherVertex(edgeId, vertexId);
-                float candidate = reached + mesh.edgeLength(edgeId);
+                float length = mesh.edgeLength(edgeId);
+                if (across != null && neighbourId >= 0) {
+                    mesh.vertexPosition(neighbourId, to).sub(mesh.vertexPosition(vertexId, from));
+                    length = to.fma(-to.dot(across), across).length();
+                }
+                float candidate = reached + length;
                 if (neighbourId < 0 || settled[neighbourId] || candidate > cutoff
                         || candidate >= distanceByVertexId[neighbourId]) {
                     continue;

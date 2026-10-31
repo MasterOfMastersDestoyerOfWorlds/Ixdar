@@ -61,7 +61,7 @@ public final class StrokeChain {
                 continue;
             }
             source[0] = vertices[vertexCount - 1];
-            if (!search.expand(mesh, source, 1, Float.POSITIVE_INFINITY, nearestId)) {
+            if (!search.expand(mesh, source, 1, Float.POSITIVE_INFINITY, nearestId, null)) {
                 unresolvedGaps++;
                 vertices = ensureCapacity(vertices, vertexCount + 1);
                 vertices[vertexCount++] = nearestId;

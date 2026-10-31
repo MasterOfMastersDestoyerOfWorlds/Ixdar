@@ -57,6 +57,8 @@ class StrokeSculptTest {
 
     private static final String CHEEK_FILE = "cheek.svg";
 
+    private static final String TEETH_FILE = "teeth.svg";
+
     private static final float MIRROR_TOLERANCE = 1e-4f;
 
     private static final float EDGE_SLACK = 1.25f;
@@ -73,6 +75,8 @@ class StrokeSculptTest {
 
     private static final float RAY_TOLERANCE = 1e-3f;
 
+    private static final float SPHERE_TOLERANCE = 1e-3f;
+
     @TempDir
     Path folder;
 
@@ -88,7 +92,7 @@ class StrokeSculptTest {
     @Test
     void fineStrokesRefineOnlyTheFacesTheyReach() throws IOException {
         GeometryBundle ball = sphere();
-        String path = svg("teeth.svg", THREE_TEETH_RIGHT_OF_MIDLINE.replace(STRENGTH_PLACEHOLDER, FAINT_STRENGTH));
+        String path = svg(TEETH_FILE, THREE_TEETH_RIGHT_OF_MIDLINE.replace(STRENGTH_PLACEHOLDER, FAINT_STRENGTH));
         MeshTopology refined = sculpt(ball, path, SYMMETRY_X, 1f).mesh();
         assertEquals(0, refined.boundaryEdgeCount(), "refinement leaves no open boundary");
         assertTrue(refined.faceCount() > ball.mesh().faceCount(), "the teeth refine the cage");
@@ -116,6 +120,19 @@ class StrokeSculptTest {
                 }
             }
         }
+    }
+
+    @Test
+    void refinementKeepsTheCurvedSurfaceItSplits() throws IOException {
+        String path = svg(TEETH_FILE, THREE_TEETH_RIGHT_OF_MIDLINE.replace(STRENGTH_PLACEHOLDER, "0"));
+        MeshTopology refined = sculpt(sphere(), path, SYMMETRY_X, 1f).mesh();
+        Vector3f position = new Vector3f();
+        float worst = 0f;
+        for (int index = 0; index < refined.vertexCount(); index++) {
+            worst = Math.max(worst, Math.abs(refined.vertexPosition(refined.vertexIdAt(index), position).length() - 1f));
+        }
+        assertTrue(worst < SPHERE_TOLERANCE, "refined vertices leave the unit sphere by up to " + worst
+                + "; flat splits read as patches in curvature shading");
     }
 
     @Test

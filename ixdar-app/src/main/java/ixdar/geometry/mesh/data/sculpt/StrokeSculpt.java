@@ -13,9 +13,9 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.Vector3Field;
 
 /**
- * Sculpts a surface with weighted strokes: chains and fills push nearby vertices along their
- * normals with a geodesic falloff, silhouettes drag the outline onto the stroke, after the faces
- * they reach are refined.
+ * Sculpts a surface with weighted strokes: chains and fills push nearby vertices along the
+ * stroke's mean normal with a falloff measured across it, silhouettes drag the outline onto the
+ * stroke, after the faces they reach are refined.
  *
  * <p>
  * Silhouette drag after SilSketch (Zimmermann, Nealen and Alexa 2007).
@@ -59,6 +59,10 @@ public final class StrokeSculpt {
     public static final int QUAD_CORNERS = 4;
 
     public static final float MAXIMUM_SMOOTH_STEP = 0.6f;
+
+    public static final float GATHER_REACH = 2f;
+
+    public static final float FALLOFF_STEEPEST_SLOPE = 1.5396f;
 
     public static final float MINIMUM_NORMAL_LENGTH = 1e-6f;
 
@@ -186,6 +190,29 @@ public final class StrokeSculpt {
                         }
                     }
                 }
+                // A fill reaching across the mirror plane into its own reflection joins it as one
+                // region, so the two halves union instead of meeting in a groove on the midline.
+                int joined = -1;
+                for (int earlier = copies - 1; earlier >= 0 && sourceByCopy[earlier] == stroke && fill
+                        && joined < 0; earlier--) {
+                    float[] earlierXyz = pointXyzByCopy[earlier];
+                    for (int point = 0; point < reflectedXyz.length && joined < 0; point += 3) {
+                        for (int otherPoint = 0; otherPoint < earlierXyz.length && joined < 0; otherPoint += 3) {
+                            joined = Vector3f.distanceSquared(reflectedXyz[point], reflectedXyz[point + 1],
+                                    reflectedXyz[point + 2], earlierXyz[otherPoint], earlierXyz[otherPoint + 1],
+                                    earlierXyz[otherPoint + 2]) < radius * radius ? earlier : -1;
+                        }
+                    }
+                }
+                if (joined >= 0) {
+                    float[] earlierXyz = pointXyzByCopy[joined];
+                    float[] earlierWeight = pointWeightByCopy[joined];
+                    pointXyzByCopy[joined] = Arrays.copyOf(earlierXyz, earlierXyz.length + reflectedXyz.length);
+                    System.arraycopy(reflectedXyz, 0, pointXyzByCopy[joined], earlierXyz.length, reflectedXyz.length);
+                    pointWeightByCopy[joined] = Arrays.copyOf(earlierWeight, earlierWeight.length + pointCount);
+                    System.arraycopy(pointWeight, 0, pointWeightByCopy[joined], earlierWeight.length, pointCount);
+                    continue;
+                }
                 strengthByCopy[copies] = strokeStrength;
                 radiusByCopy[copies] = radius;
                 fillByCopy[copies] = fill;
@@ -223,7 +250,10 @@ public final class StrokeSculpt {
                 }
                 gap = Math.min(gap, (float) meanNearest);
             }
-            targetByCopy[copy] = Math.max(minimumEdgeLength, gap * edgesPerWidth);
+            // A steep stroke stretches its faces up its slope, so it refines finer by that slope.
+            float slope = smoothByCopy[copy] ? 0f : FALLOFF_STEEPEST_SLOPE * Math.abs(strengthByCopy[copy] * strength)
+                    * displacementScale / radiusByCopy[copy];
+            targetByCopy[copy] = Math.max(minimumEdgeLength, gap * edgesPerWidth / Math.max(1f, slope));
         }
         GeometryBundle carried = base;
         float[] existingCreases = EdgeMarks.floats(base, CREASE_LABEL);
@@ -242,14 +272,14 @@ public final class StrokeSculpt {
                 vertexXyz[activeVertex * 3 + 1] = position.y;
                 vertexXyz[activeVertex * 3 + 2] = position.z;
             }
+            NearestVertex nearestVertex = NearestVertex.over(mesh);
             if (symmetryAxis >= 0) {
-                NearestVertex twins = NearestVertex.over(mesh);
                 twinByActiveVertex = new int[vertexCount];
                 for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
                     position.set(vertexXyz[activeVertex * 3], vertexXyz[activeVertex * 3 + 1],
                             vertexXyz[activeVertex * 3 + 2]);
                     position.setComponent(symmetryAxis, -position.get(symmetryAxis));
-                    twinByActiveVertex[activeVertex] = activeVertexById[twins.find(position.x, position.y,
+                    twinByActiveVertex[activeVertex] = activeVertexById[nearestVertex.find(position.x, position.y,
                             position.z)];
                 }
             }
@@ -264,11 +294,23 @@ public final class StrokeSculpt {
                 if (eyeForwardByCopy[copy] != null || points.length == 0) {
                     continue;
                 }
+                // Reach is measured across the stroke's direction, as its falloff is, so the
+                // walls of an earlier pit under the stroke refine too; depth is bounded by one
+                // full-strength pass beyond the falloff gather.
+                float depthReach = reach * GATHER_REACH + displacementScale;
                 float[] low = { Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY };
                 float[] high = { Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY };
+                Vector3f direction = new Vector3f();
                 for (int coordinate = 0; coordinate < points.length; coordinate++) {
-                    low[coordinate % 3] = Math.min(low[coordinate % 3], points[coordinate] - reach);
-                    high[coordinate % 3] = Math.max(high[coordinate % 3], points[coordinate] + reach);
+                    low[coordinate % 3] = Math.min(low[coordinate % 3], points[coordinate] - depthReach);
+                    high[coordinate % 3] = Math.max(high[coordinate % 3], points[coordinate] + depthReach);
+                    if (coordinate % 3 == 2 && mesh.vertexNormal(nearestVertex.find(points[coordinate - 2],
+                            points[coordinate - 1], points[coordinate]), other).length() >= MINIMUM_NORMAL_LENGTH) {
+                        direction.add(other.normalize());
+                    }
+                }
+                if (direction.length() >= MINIMUM_NORMAL_LENGTH) {
+                    direction.normalize();
                 }
                 for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
                     int at = activeVertex * 3;
@@ -279,8 +321,11 @@ public final class StrokeSculpt {
                         continue;
                     }
                     for (int point = 0; point < points.length; point += 3) {
-                        if (Vector3f.distanceSquared(vertexXyz[at], vertexXyz[at + 1], vertexXyz[at + 2],
-                                points[point], points[point + 1], points[point + 2]) <= reach * reach) {
+                        position.set(vertexXyz[at] - points[point], vertexXyz[at + 1] - points[point + 1],
+                                vertexXyz[at + 2] - points[point + 2]);
+                        float along = position.dot(direction);
+                        if (Math.abs(along) <= depthReach
+                                && position.lengthSquared() - along * along <= reach * reach) {
                             requiredByActiveVertex[activeVertex] = targetByCopy[copy];
                             break;
                         }
@@ -292,6 +337,8 @@ public final class StrokeSculpt {
                         requiredByActiveVertex[twinByActiveVertex[activeVertex]]);
             }
             boolean[] splitByFaceId = new boolean[mesh.faceIdBound()];
+            int[] splitFrontier = new int[mesh.faceCount()];
+            int frontierLength = 0;
             boolean splitting = false;
             for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
                 int faceId = mesh.faceIdAt(activeFace);
@@ -305,43 +352,48 @@ public final class StrokeSculpt {
                     mesh.vertexPosition(mesh.faceVertexAt(faceId, (corner + 1) % corners), other);
                     longest = Math.max(longest, position.distance(other));
                 }
-                splitByFaceId[faceId] = longest > required;
-                splitting |= splitByFaceId[faceId];
+                splitting |= longest > required;
+                splitByFaceId[faceId] = longest > required || corners > QUAD_CORNERS;
+                if (splitByFaceId[faceId]) {
+                    splitFrontier[frontierLength++] = faceId;
+                }
             }
             if (!splitting) {
                 break;
             }
             // Close the split region: a face left whole may have one split edge (a triangle or a
             // quad, closed by transition faces) or two opposite ones (a quad); any other face
-            // splits too, until none changes. The rule reads topology only, so it mirrors.
+            // splits too, worked outward from the split faces. The rule reads topology only, so it
+            // mirrors.
             boolean[] splitByEdgeId = new boolean[mesh.edgeIdBound()];
-            for (boolean promoted = true; promoted;) {
-                promoted = false;
-                for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
-                    int faceId = mesh.faceIdAt(activeFace);
-                    int corners = mesh.faceVertexCount(faceId);
-                    for (int corner = 0; corner < corners && splitByFaceId[faceId]; corner++) {
-                        splitByEdgeId[mesh.edgeBetween(mesh.faceVertexAt(faceId, corner),
-                                mesh.faceVertexAt(faceId, (corner + 1) % corners))] = true;
-                    }
+            while (frontierLength > 0) {
+                int faceId = splitFrontier[--frontierLength];
+                int faceCorners = mesh.faceVertexCount(faceId);
+                for (int corner = 0; corner < faceCorners; corner++) {
+                    splitByEdgeId[mesh.edgeBetween(mesh.faceVertexAt(faceId, corner),
+                            mesh.faceVertexAt(faceId, (corner + 1) % faceCorners))] = true;
                 }
-                for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
-                    int faceId = mesh.faceIdAt(activeFace);
-                    int corners = mesh.faceVertexCount(faceId);
+                for (int corner = 0; corner < faceCorners * 2; corner++) {
+                    int neighbourId = mesh.edgeFace(mesh.edgeBetween(mesh.faceVertexAt(faceId, corner / 2),
+                            mesh.faceVertexAt(faceId, (corner / 2 + 1) % faceCorners)), corner % 2);
+                    if (neighbourId < 0 || splitByFaceId[neighbourId]) {
+                        continue;
+                    }
+                    int corners = mesh.faceVertexCount(neighbourId);
                     int splitEdges = 0;
                     int splitMask = 0;
-                    for (int corner = 0; corner < corners && !splitByFaceId[faceId]; corner++) {
-                        if (splitByEdgeId[mesh.edgeBetween(mesh.faceVertexAt(faceId, corner),
-                                mesh.faceVertexAt(faceId, (corner + 1) % corners))]) {
+                    for (int neighbourCorner = 0; neighbourCorner < corners; neighbourCorner++) {
+                        if (splitByEdgeId[mesh.edgeBetween(mesh.faceVertexAt(neighbourId, neighbourCorner),
+                                mesh.faceVertexAt(neighbourId, (neighbourCorner + 1) % corners))]) {
                             splitEdges++;
-                            splitMask |= 1 << corner;
+                            splitMask |= 1 << neighbourCorner;
                         }
                     }
                     boolean closable = splitEdges <= 1 && corners <= QUAD_CORNERS
                             || corners == QUAD_CORNERS && splitEdges == 2 && (splitMask == 0b0101 || splitMask == 0b1010);
-                    if (!splitByFaceId[faceId] && !closable) {
-                        splitByFaceId[faceId] = true;
-                        promoted = true;
+                    if (!closable) {
+                        splitByFaceId[neighbourId] = true;
+                        splitFrontier[frontierLength++] = neighbourId;
                     }
                 }
             }
@@ -353,26 +405,29 @@ public final class StrokeSculpt {
             }
             int[] midpointByEdgeId = new int[mesh.edgeIdBound()];
             Arrays.fill(midpointByEdgeId, -1);
+            int[] edgeEnds = new int[2];
             for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
                 int edgeId = mesh.edgeIdAt(activeEdge);
                 if (splitByEdgeId[edgeId]) {
-                    midpointByEdgeId[edgeId] = refined.addVertex(mesh.edgeMidpoint(edgeId, position));
+                    edgeEnds[0] = mesh.halfEdgeVertex(mesh.edgeHalfEdge(edgeId));
+                    edgeEnds[1] = mesh.halfEdgeEndVertex(mesh.edgeHalfEdge(edgeId));
+                    midpointByEdgeId[edgeId] = refined.addVertex(curvedCentroid(mesh, edgeEnds, 2, position));
                 }
             }
             for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
                 int faceId = mesh.faceIdAt(activeFace);
                 int corners = mesh.faceVertexCount(faceId);
+                int[] faceVertexIds = new int[corners];
                 int[] cornerIds = new int[corners];
                 int[] midpoints = new int[corners];
                 int splitEdges = 0;
                 int firstSplit = -1;
-                position.zero();
                 for (int corner = 0; corner < corners; corner++) {
                     int vertexId = mesh.faceVertexAt(faceId, corner);
+                    faceVertexIds[corner] = vertexId;
                     cornerIds[corner] = refinedById[vertexId];
                     midpoints[corner] = midpointByEdgeId[mesh.edgeBetween(vertexId,
                             mesh.faceVertexAt(faceId, (corner + 1) % corners))];
-                    position.add(mesh.vertexPosition(vertexId, other));
                     if (midpoints[corner] >= 0) {
                         firstSplit = firstSplit < 0 ? corner : firstSplit;
                         splitEdges++;
@@ -384,7 +439,7 @@ public final class StrokeSculpt {
                     refined.addFace(midpoints[2], midpoints[1], cornerIds[2]);
                     refined.addFace(midpoints[0], midpoints[1], midpoints[2]);
                 } else if (splitByFaceId[faceId]) {
-                    int centerId = refined.addVertex(position.div(corners));
+                    int centerId = refined.addVertex(curvedCentroid(mesh, faceVertexIds, corners, position));
                     for (int corner = 0; corner < corners; corner++) {
                         refined.addFace(cornerIds[corner], midpoints[corner], centerId,
                                 midpoints[(corner + corners - 1) % corners]);
@@ -449,6 +504,37 @@ public final class StrokeSculpt {
         StrokeChain chain = new StrokeChain();
         Vector3f normal = new Vector3f();
         float[] facingById = new float[mesh.vertexIdBound()];
+        float[] raiseDirectionXyz = new float[vertexCount * 3];
+        float[] lowerDirectionXyz = new float[vertexCount * 3];
+        // Normals averaged over the one-ring, NORMAL_SMOOTHING_PASSES times: raw normals of an
+        // already sculpted cage are noisy enough to fold the surface.
+        float[] normalXyz = new float[vertexCount * 3];
+        Vector3f center = mesh.center(new Vector3f());
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            mesh.vertexNormal(vertexId, normal);
+            if (normal.length() < MINIMUM_NORMAL_LENGTH) {
+                mesh.vertexPosition(vertexId, normal).sub(center);
+            }
+            normal.normalize();
+            normalXyz[activeVertex * 3] = normal.x;
+            normalXyz[activeVertex * 3 + 1] = normal.y;
+            normalXyz[activeVertex * 3 + 2] = normal.z;
+        }
+        for (int pass = 0; pass < NORMAL_SMOOTHING_PASSES; pass++) {
+            float[] averaged = normalXyz.clone();
+            for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+                int vertexId = mesh.vertexIdAt(activeVertex);
+                for (int adjacency = 0; adjacency < mesh.vertexEdgeCount(vertexId); adjacency++) {
+                    int neighbour = activeVertexById[mesh.edgeOtherVertex(
+                            mesh.vertexEdgeAt(vertexId, adjacency), vertexId)];
+                    for (int axis = 0; axis < 3; axis++) {
+                        averaged[activeVertex * 3 + axis] += normalXyz[neighbour * 3 + axis];
+                    }
+                }
+            }
+            normalXyz = averaged;
+        }
         for (int copy = 0; copy < copies; copy++) {
             float strokeStrength = strengthByCopy[copy] * strength;
             float radius = radiusByCopy[copy];
@@ -457,7 +543,6 @@ public final class StrokeSculpt {
             float[] eyeForward = eyeForwardByCopy[copy];
             int pointCount = pointWeight.length;
             int[] sources = new int[Math.max(1, pointCount)];
-            float[] sourceWeight = new float[sources.length];
             float[] dragXyz = new float[0];
             int sourceCount = 0;
             if (eyeForward != null) {
@@ -529,11 +614,10 @@ public final class StrokeSculpt {
                     System.arraycopy(best, 0, dragXyz, sourceCount * 3, 3);
                     sources[sourceCount++] = vertexId;
                 }
-                sourceWeight = new float[Math.max(1, sourceCount)];
             } else if (fillByCopy[copy]) {
-                // Every vertex within the sample spacing of a sample is a source, with that
-                // sample's weight, so a region refined finer than its samples fills solid; on a
-                // coarser mesh each sample still takes its nearest vertex.
+                // Every vertex within the sample spacing of a sample seeds the search, so a region
+                // refined finer than its samples is reached solid; on a coarser mesh each sample
+                // still takes its nearest vertex.
                 float spacingSquared = Float.POSITIVE_INFINITY;
                 for (int point = 0; point < pointCount; point++) {
                     for (int otherPoint = point + 1; otherPoint < pointCount; otherPoint++) {
@@ -543,7 +627,6 @@ public final class StrokeSculpt {
                     }
                 }
                 sources = new int[vertexCount];
-                sourceWeight = new float[vertexCount];
                 boolean[] taken = new boolean[mesh.vertexIdBound()];
                 for (int point = 0; point < pointCount; point++) {
                     int nearestId = -1;
@@ -558,34 +641,32 @@ public final class StrokeSculpt {
                         }
                         if (distance <= spacingSquared && !taken[vertexId]) {
                             taken[vertexId] = true;
-                            sourceWeight[sourceCount] = pointWeight[point];
                             sources[sourceCount++] = vertexId;
                         }
                     }
                     if (nearestId >= 0 && !taken[nearestId]) {
                         taken[nearestId] = true;
-                        sourceWeight[sourceCount] = pointWeight[point];
                         sources[sourceCount++] = nearestId;
                     }
                 }
             } else {
                 chain.snap(mesh, pointXyz, pointCount);
                 sources = chain.vertexIds;
-                sourceWeight = new float[sources.length];
                 sourceCount = sources.length;
                 float meanWeight = 0f;
                 for (int source = 0; source < sourceCount; source++) {
                     mesh.vertexPosition(sources[source], position);
                     float nearestDistance = Float.POSITIVE_INFINITY;
+                    float nearestWeight = 0f;
                     for (int point = 0; point < pointCount; point++) {
                         float distance = position.distanceSquared(pointXyz[point * 3],
                                 pointXyz[point * 3 + 1], pointXyz[point * 3 + 2]);
                         if (distance < nearestDistance) {
                             nearestDistance = distance;
-                            sourceWeight[source] = pointWeight[point];
+                            nearestWeight = pointWeight[point];
                         }
                     }
-                    meanWeight += sourceWeight[source] / sourceCount;
+                    meanWeight += nearestWeight / sourceCount;
                 }
                 for (int edgeId : smoothByCopy[copy] ? new int[0] : chain.edgeIds) {
                     strokeCreaseByEdgeId[edgeId] = Math.max(strokeCreaseByEdgeId[edgeId],
@@ -595,13 +676,55 @@ public final class StrokeSculpt {
             if (!displace || sourceCount == 0) {
                 continue;
             }
-            falloff.expand(mesh, sources, sourceCount, radius, -1);
+            // One direction for the whole stroke, its seeds' mean normal, and a falloff measured
+            // across it: per-vertex normals over an earlier pass's walls point sideways, and
+            // distances through an earlier pit's depth cut a second stroke short of its rim.
+            Vector3f direction = new Vector3f();
+            for (int source = 0; source < sourceCount; source++) {
+                int at = activeVertexById[sources[source]] * 3;
+                direction.add(normal.set(normalXyz[at], normalXyz[at + 1], normalXyz[at + 2]).normalize());
+            }
+            direction.normalize();
+            // The edge search only gathers the surface within reach; chains and fills measure their
+            // falloff straight to the drawn stroke, since edge paths over mixed-density faces
+            // zigzag and turn a smooth rim into the mesh's staircase.
+            falloff.expand(mesh, sources, sourceCount, eyeForward == null ? radius * GATHER_REACH : radius, -1,
+                    eyeForward == null ? direction : null);
             for (int settled = 0; settled < falloff.settledLength; settled++) {
                 int vertexId = falloff.settledVertexIds[settled];
                 float fraction = falloff.distanceByVertexId[vertexId] / radius;
                 float kernel = (1f - fraction * fraction) * (1f - fraction * fraction);
-                float offset = strokeStrength * displacementScale * kernel
-                        * sourceWeight[falloff.originByVertexId[vertexId]];
+                if (eyeForward == null) {
+                    // A chain takes the largest weighted bump of its segments. A fill takes the
+                    // union of its samples' bumps, one minus the product of what each leaves
+                    // uncovered: the largest alone scallops the rim between samples.
+                    kernel = 0f;
+                    float uncovered = 1f;
+                    int elements = fillByCopy[copy] || pointCount == 1 ? pointCount : pointCount - 1;
+                    for (int element = 0; element < elements; element++) {
+                        int start = element * 3;
+                        int end = fillByCopy[copy] || pointCount == 1 ? start : start + 3;
+                        mesh.vertexPosition(vertexId, position).sub(pointXyz[start], pointXyz[start + 1],
+                                pointXyz[start + 2]);
+                        position.fma(-position.dot(direction), direction);
+                        other.set(pointXyz[end] - pointXyz[start], pointXyz[end + 1] - pointXyz[start + 1],
+                                pointXyz[end + 2] - pointXyz[start + 2]);
+                        other.fma(-other.dot(direction), direction);
+                        float lengthSquared = other.lengthSquared();
+                        float along = lengthSquared == 0f ? 0f
+                                : Math.max(0f, Math.min(1f, position.dot(other) / lengthSquared));
+                        float elementFraction = position.fma(-along, other).length() / radius;
+                        if (elementFraction < 1f) {
+                            float weight = pointWeight[element] + (pointWeight[end / 3] - pointWeight[element]) * along;
+                            float bump = weight * (1f - elementFraction * elementFraction)
+                                    * (1f - elementFraction * elementFraction);
+                            kernel = Math.max(kernel, bump);
+                            uncovered *= 1f - bump;
+                        }
+                    }
+                    kernel = fillByCopy[copy] ? 1f - uncovered : kernel;
+                }
+                float offset = strokeStrength * displacementScale * kernel;
                 int activeVertex = activeVertexById[vertexId];
                 if (eyeForward != null) {
                     int origin = falloff.originByVertexId[vertexId] * 3;
@@ -625,42 +748,19 @@ public final class StrokeSculpt {
                             Math.min(1f, MAXIMUM_SMOOTH_STEP * Math.abs(offset) / displacementScale));
                     continue;
                 }
+                // Same-sign strokes keep the larger offset but blend their directions by offset, so
+                // a stroke meeting its mirror copy on the midline leaves no seam.
+                float[] directionXyz = offset > 0f ? raiseDirectionXyz : lowerDirectionXyz;
                 raiseByActiveVertex[activeVertex] = Math.max(raiseByActiveVertex[activeVertex], offset);
                 lowerByActiveVertex[activeVertex] = Math.min(lowerByActiveVertex[activeVertex], offset);
+                directionXyz[activeVertex * 3] += Math.abs(offset) * direction.x;
+                directionXyz[activeVertex * 3 + 1] += Math.abs(offset) * direction.y;
+                directionXyz[activeVertex * 3 + 2] += Math.abs(offset) * direction.z;
             }
         }
 
         MeshTopology sculpted = mesh;
         if (displace) {
-            // Displace along normals averaged over the one-ring, NORMAL_SMOOTHING_PASSES times:
-            // raw normals of an already sculpted cage are noisy enough to fold the surface.
-            float[] normalXyz = new float[vertexCount * 3];
-            Vector3f center = mesh.center(new Vector3f());
-            for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-                int vertexId = mesh.vertexIdAt(activeVertex);
-                mesh.vertexNormal(vertexId, normal);
-                if (normal.length() < MINIMUM_NORMAL_LENGTH) {
-                    mesh.vertexPosition(vertexId, normal).sub(center);
-                }
-                normal.normalize();
-                normalXyz[activeVertex * 3] = normal.x;
-                normalXyz[activeVertex * 3 + 1] = normal.y;
-                normalXyz[activeVertex * 3 + 2] = normal.z;
-            }
-            for (int pass = 0; pass < NORMAL_SMOOTHING_PASSES; pass++) {
-                float[] averaged = normalXyz.clone();
-                for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-                    int vertexId = mesh.vertexIdAt(activeVertex);
-                    for (int adjacency = 0; adjacency < mesh.vertexEdgeCount(vertexId); adjacency++) {
-                        int neighbour = activeVertexById[mesh.edgeOtherVertex(
-                                mesh.vertexEdgeAt(vertexId, adjacency), vertexId)];
-                        for (int axis = 0; axis < 3; axis++) {
-                            averaged[activeVertex * 3 + axis] += normalXyz[neighbour * 3 + axis];
-                        }
-                    }
-                }
-                normalXyz = averaged;
-            }
             // Each vertex took the drag of its nearest contour vertex, a field with seams between
             // neighbours that pulled different ways; blurring it keeps those seams from folding.
             for (int pass = 0; pass < DRAG_SMOOTHING_PASSES; pass++) {
@@ -683,12 +783,16 @@ public final class StrokeSculpt {
             }
             float[] offsetXyz = new float[vertexCount * 3];
             for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-                normal.set(normalXyz[activeVertex * 3], normalXyz[activeVertex * 3 + 1],
-                        normalXyz[activeVertex * 3 + 2]).normalize(
-                        raiseByActiveVertex[activeVertex] + lowerByActiveVertex[activeVertex]);
-                offsetXyz[activeVertex * 3] = normal.x + dragByActiveVertexXyz[activeVertex * 3];
-                offsetXyz[activeVertex * 3 + 1] = normal.y + dragByActiveVertexXyz[activeVertex * 3 + 1];
-                offsetXyz[activeVertex * 3 + 2] = normal.z + dragByActiveVertexXyz[activeVertex * 3 + 2];
+                int at = activeVertex * 3;
+                normal.set(raiseDirectionXyz[at], raiseDirectionXyz[at + 1], raiseDirectionXyz[at + 2]);
+                normal.mul(normal.length() < MINIMUM_NORMAL_LENGTH ? 0f
+                        : raiseByActiveVertex[activeVertex] / normal.length());
+                other.set(lowerDirectionXyz[at], lowerDirectionXyz[at + 1], lowerDirectionXyz[at + 2]);
+                normal.fma(other.length() < MINIMUM_NORMAL_LENGTH ? 0f
+                        : lowerByActiveVertex[activeVertex] / other.length(), other);
+                offsetXyz[at] = normal.x + dragByActiveVertexXyz[at];
+                offsetXyz[at + 1] = normal.y + dragByActiveVertexXyz[at + 1];
+                offsetXyz[at + 2] = normal.z + dragByActiveVertexXyz[at + 2];
             }
             sculpted = MeshVertexOffset.apply(mesh, Vector3Field.copyOf(offsetXyz));
 
@@ -789,5 +893,44 @@ public final class StrokeSculpt {
             }
         }
         return EdgeMarks.with(carried.withMesh(sculpted), CREASE_LABEL, creases);
+    }
+
+    /**
+     * Place a split vertex on the curved surface its corners sample, not their flat centroid, so
+     * refined faces keep the surrounding curvature. Phong tessellation (Boubekeur and Alexa 2008),
+     * shape factor one half.
+     *
+     * @param mesh      surface whose vertex normals give the corners' tangent planes
+     * @param vertexIds corners, sparse vertex ids
+     * @param count     how many leading entries of {@code vertexIds} are corners
+     * @param dest      receives the position
+     * @return {@code dest}: the centroid moved by half the mean of its projections onto the corners'
+     *         tangent planes
+     */
+    private static Vector3f curvedCentroid(MeshTopology mesh, int[] vertexIds, int count, Vector3f dest) {
+        Vector3f corner = new Vector3f();
+        Vector3f normal = new Vector3f();
+        dest.zero();
+        for (int index = 0; index < count; index++) {
+            dest.add(mesh.vertexPosition(vertexIds[index], corner));
+        }
+        dest.div(count);
+        float liftX = 0f;
+        float liftY = 0f;
+        float liftZ = 0f;
+        for (int index = 0; index < count; index++) {
+            mesh.vertexPosition(vertexIds[index], corner);
+            mesh.vertexNormal(vertexIds[index], normal);
+            if (normal.length() < MINIMUM_NORMAL_LENGTH) {
+                continue;
+            }
+            normal.normalize();
+            float height = (dest.x - corner.x) * normal.x + (dest.y - corner.y) * normal.y
+                    + (dest.z - corner.z) * normal.z;
+            liftX -= height * normal.x;
+            liftY -= height * normal.y;
+            liftZ -= height * normal.z;
+        }
+        return dest.add(liftX * 0.5f / count, liftY * 0.5f / count, liftZ * 0.5f / count);
     }
 }
