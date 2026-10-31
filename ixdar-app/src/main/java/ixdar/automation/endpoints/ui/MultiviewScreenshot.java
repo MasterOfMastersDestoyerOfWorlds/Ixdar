@@ -2,6 +2,7 @@ package ixdar.automation.endpoints.ui;
 
 import java.io.File;
 import java.util.Base64;
+import java.util.Locale;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -19,6 +20,7 @@ import ixdar.platform.Platforms;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.AutomationPortFile;
 import ixdar.graphics.cameras.Camera3D;
+import ixdar.graphics.render.model.SurfaceShading;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 
 @AutomationRouteAnnotation(path = "ui/multiview", method = APIMethod.POST)
@@ -46,6 +48,17 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
         String selection = Frame.selectionExpression(body);
         float padding = body.has(Frame.PADDING) ? body.get(Frame.PADDING).getAsFloat()
                 : Camera3D.DEFAULT_FRAME_PADDING;
+        SurfaceShading look;
+        try {
+            String name = body.has(ShadingSet.SHADING) ? body.get(ShadingSet.SHADING).getAsString() : "";
+            look = name.isBlank() ? SurfaceShading.DEFAULT : SurfaceShading.named(name);
+        } catch (IllegalArgumentException e) {
+            return failure(e.getMessage());
+        }
+        boolean headlight = body.has(ShadingSet.HEADLIGHT) && body.get(ShadingSet.HEADLIGHT).getAsBoolean();
+        // The viewer's own look, put back once every view is read.
+        SurfaceShading[] savedLook = new SurfaceShading[1];
+        boolean[] savedHeadlight = new boolean[1];
         try {
             float[][] views = {
                     { (float) (Math.PI / 2), 0 }, // Front
@@ -95,6 +108,10 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 framed.add("center", runtime.vector3Array(center));
                 framed.addProperty(Frame.RADIUS, radius);
                 framed.addProperty(Frame.DISTANCE, saved[VIEW_DIST_INDEX]);
+                framed.addProperty(ShadingSet.SHADING, look.name().toLowerCase(Locale.ROOT));
+                savedLook[0] = mvs.surfaceShading;
+                savedHeadlight[0] = mvs.headlight;
+                mvs.setSurfaceLook(look, headlight);
                 return framed;
             });
             if (framing.has(ERROR)) {
@@ -222,6 +239,13 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
 
         } catch (Exception e) {
             return failure(e.getMessage());
+        } finally {
+            runtime.runOnMainThread(() -> {
+                if (savedLook[0] != null && runtime.canvas instanceof MeshNodeViewerScene mvs) {
+                    mvs.setSurfaceLook(savedLook[0], savedHeadlight[0]);
+                }
+                return new JsonObject();
+            });
         }
     }
 
@@ -234,8 +258,13 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 .paramAliased(PATH, "out", RouteParamType.STRING, false, "",
                         "Output file path; empty writes under screenshots/automation/.", "/tmp/multiview.png")
                 .param(INLINE, RouteParamType.BOOL, false, "false",
-                        "Also return the composite PNG as base64 in the response.", "true"))
-                .responseHint("{ok, selection, center, radius, distance, path, width, height, views, "
+                        "Also return the composite PNG as base64 in the response.", "true")
+                .param(ShadingSet.SHADING, RouteParamType.STRING, false, "default",
+                        "Surface look for the capture only: default, clay or curvature; the "
+                                + "viewer's own look is restored after.", "curvature")
+                .param(ShadingSet.HEADLIGHT, RouteParamType.BOOL, false, String.valueOf(false),
+                        "Clay and curvature key light from each view's camera.", String.valueOf(true)))
+                .responseHint("{ok, selection, center, radius, distance, shading, path, width, height, views, "
                         + "blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}")
                 .build();
     }

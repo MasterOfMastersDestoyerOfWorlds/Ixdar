@@ -53,6 +53,10 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
     public static final int SCALAR_ATTRIB_LOCATION = 3;
     public static final float EDGE_LINE_WIDTH = 2.0f;
     public static final int HASH_PRIME = 31;
+    public static final String SHADING_STYLE = "shadingStyle";
+    public static final float CLAY_RED = 0.80f;
+    public static final float CLAY_GREEN = 0.78f;
+    public static final float CLAY_BLUE = 0.74f;
 
     public static final float NEAR_PLANE_DISTANCE_FRACTION = 0.01f;
 
@@ -114,6 +118,15 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
      * model scene re-applies its palette's surface every frame.
      */
     public final Vector4f solidColor = Scene.activePalette().surface.toVector4f();
+
+    /**
+     * Look of the lit surface draw; anything but {@link SurfaceShading#DEFAULT} draws every mode
+     * through the lit shader in clay, ignoring tag colours and textures.
+     */
+    public SurfaceShading surfaceShading = SurfaceShading.DEFAULT;
+
+    /** Clay and curvature key light straight from the camera instead of from its upper left. */
+    public boolean headlight;
 
     private final ShaderProgram meshShader;
     private final ShaderProgram meshUnlitShader;
@@ -448,15 +461,25 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
 
         // STAGES uses LAMBERT base; CREST_VS_BOUNDARY uses FLAT unlit base.
         // SCALAR swaps in the heat-map fragment shader.
+        boolean capturedLook = surfaceShading != SurfaceShading.DEFAULT;
         boolean useUnlitBase = shaderMode == ShaderMode.FLAT
                 || shaderMode == ShaderMode.CREST_VS_BOUNDARY;
         ShaderProgram active;
-        if (shaderMode == ShaderMode.SCALAR && scalarUploaded) {
+        if (capturedLook) {
+            active = meshShader;
+        } else if (shaderMode == ShaderMode.SCALAR && scalarUploaded) {
             active = meshScalarShader;
         } else {
             active = useUnlitBase ? meshUnlitShader : meshShader;
         }
         active.use();
+        if (active == meshShader) {
+            // The lit program is shared with other runtimes, so every draw sets its style.
+            active.setInt(SHADING_STYLE, surfaceShading.ordinal());
+            active.setVec3("clayColor", CLAY_RED, CLAY_GREEN, CLAY_BLUE);
+            active.setBool("headlight", headlight);
+            active.setFloat("meshRadius", compiledMesh.radius);
+        }
         if (shaderMode == ShaderMode.SCALAR && scalarUploaded) {
             active.setFloat("scalarMin", scalarMin);
             active.setFloat("scalarMax", scalarMax);
@@ -470,7 +493,7 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         active.setMat4(PROJECTION, camera.projection);
         active.setVec4(SOLIDCOLOR, solidColor);
 
-        boolean sampleTexture = samplesTexture(shaderMode, hasTexturedDraw());
+        boolean sampleTexture = !capturedLook && samplesTexture(shaderMode, hasTexturedDraw());
         if (shaderMode == ShaderMode.LAMBERT || shaderMode == ShaderMode.STAGES
                 || shaderMode == ShaderMode.TEXTURED) {
             // The light points along the view direction (into the scene; the shader uses -lightDir),

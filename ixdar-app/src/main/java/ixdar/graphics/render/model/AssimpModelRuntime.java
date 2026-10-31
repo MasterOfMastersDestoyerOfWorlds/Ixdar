@@ -107,6 +107,7 @@ public class AssimpModelRuntime implements ModelRuntime {
         meshShader.setMat4("projection", projection);
         meshShader.setVec4("solidColor", Scene.activePalette().surface.toVector4f());
         meshShader.setVec3("lightDir", new Vector3f(LIGHT_DIR_X, -1.0f, LIGHT_DIR_Z));
+        meshShader.setInt(HalfEdgeMeshRuntime.SHADING_STYLE, SurfaceShading.DEFAULT.ordinal());
         if (handle.texture != null && handle.hasTexCoords) {
             meshShader.setBool(USETEXTURE, true);
             meshShader.setTexture("albedoTex", handle.texture, Platforms.gl().TEXTURE0(), 0);

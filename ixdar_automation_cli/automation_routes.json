@@ -977,6 +977,24 @@
           "example": "true"
         },
         {
+          "name": "shading",
+          "cliName": "shading",
+          "type": "string",
+          "required": false,
+          "default": "default",
+          "help": "Surface look for the capture only: default, clay or curvature; the viewer\u0027s own look is restored after.",
+          "example": "curvature"
+        },
+        {
+          "name": "headlight",
+          "cliName": "headlight",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Clay and curvature key light from each view\u0027s camera.",
+          "example": "true"
+        },
+        {
           "name": "selection",
           "cliName": "selection",
           "type": "string",
@@ -1040,7 +1058,7 @@
           "example": "0.25"
         }
       ],
-      "responseHint": "{ok, selection, center, radius, distance, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}"
+      "responseHint": "{ok, selection, center, radius, distance, shading, path, width, height, views, blankViews, cellWidth, cellHeight, viewOrder, sha256, error?, base64?}"
     },
     {
       "commandName": "node-inspect",
@@ -1479,6 +1497,36 @@
         }
       ],
       "responseHint": "{ok}"
+    },
+    {
+      "commandName": "shading",
+      "path": "/ui/shading",
+      "method": "POST",
+      "description": "Set the mesh viewer\u0027s surface look (default, clay or curvature, with an optional headlight) and leave it on; with no arguments, report it.",
+      "sourceClass": "ixdar.automation.endpoints.ui.ShadingSet",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/ShadingSet.java",
+      "params": [
+        {
+          "name": "shading",
+          "cliName": "shading",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "default (the palette\u0027s look), clay (light clay on a light background) or curvature (clay darkened in concave, brightened on convex surface); omitted keeps the current one.",
+          "example": "curvature",
+          "positional": true
+        },
+        {
+          "name": "headlight",
+          "cliName": "headlight",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Clay and curvature key light from the camera; naming a mode without it turns the headlight off.",
+          "example": "true"
+        }
+      ],
+      "responseHint": "{ok, shading, headlight, palette}"
     },
     {
       "commandName": "terminal",
