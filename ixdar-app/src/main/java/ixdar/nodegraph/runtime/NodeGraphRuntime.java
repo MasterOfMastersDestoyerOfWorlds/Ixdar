@@ -855,6 +855,7 @@ public class NodeGraphRuntime {
         if (record.declared.isEmpty()) {
             throw new RuntimeException(FUNCTION + record.type + "' has empty body");
         }
+        group.requireParameters(record);
         if (!evaluateWholeGroups) {
             return record;
         }

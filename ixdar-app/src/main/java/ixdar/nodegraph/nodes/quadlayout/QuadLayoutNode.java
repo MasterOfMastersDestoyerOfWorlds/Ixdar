@@ -1,11 +1,15 @@
 package ixdar.nodegraph.nodes.quadlayout;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import org.joml.Vector3f;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.GroupBuilder;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
@@ -45,6 +49,8 @@ public class QuadLayoutNode extends NodeGroup {
 
     public static final String QUANTIZE_NODE = "quantize";
 
+    public static final int FOLDED_FACE_IDS_NAMED = 8;
+
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort ALPHA_DEGREES = new InputPort("alpha_degrees", PortType.FLOAT,
             MotorcycleGraph.DEFAULT_ALPHA_DEGREES);
@@ -68,6 +74,8 @@ public class QuadLayoutNode extends NodeGroup {
 
     public static final String ALPHA_DEGREES_OVERRIDE = LAYOUT_CALL
             + NodeGraphRuntime.PORT_SEPARATOR + ALPHA_DEGREES.name;
+
+    private static final int XYZ = 3;
 
     /**
      * The reference a scene pulls one output of the layout call in {@link #overSceneModel} by.
@@ -196,6 +204,67 @@ public class QuadLayoutNode extends NodeGroup {
         group.output(EMBEDDED.name, embed, LayoutEmbeddingNode.TMESH.name);
         group.output(SURFACES.name, surfaces, PatchSurfacesNode.GEOMETRY.name);
         group.output(COONS.name, surfaces, PatchSurfacesNode.COONS.name);
+    }
+
+    /**
+     * Refuses a pleated surface before any stage runs, since a locally injective seamless map
+     * (LCK21a §4.1, BCE13 §3.1) cannot exist: a face whose unit normal opposes the summed unit
+     * normals around its corners.
+     *
+     * @param ctx the call's record, its geometry bound
+     * @throws IllegalArgumentException naming the folded faces' count and first ids
+     */
+    @Override
+    public void requireParameters(NodeContext ctx) {
+        if (!(ctx.getInput(GEOMETRY.name, GeometryBundle.class) instanceof GeometryBundle bundle)
+                || !(bundle.mesh() instanceof HalfEdgeMesh surface)) {
+            return;
+        }
+        float[] faceNormal = new float[surface.faceCount() * XYZ];
+        float[] vertexNormal = new float[surface.vertexIdBound() * XYZ];
+        Vector3f origin = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        for (int activeFace = 0; activeFace < surface.faceCount(); activeFace++) {
+            int faceId = surface.faceIdAt(activeFace);
+            surface.vertexPosition(surface.faceVertexAt(faceId, 0), origin);
+            surface.vertexPosition(surface.faceVertexAt(faceId, 1), first).sub(origin);
+            surface.vertexPosition(surface.faceVertexAt(faceId, 2), second).sub(origin);
+            first.cross(second);
+            if (first.lengthSquared() > 0f) {
+                first.normalize();
+            }
+            for (int axis = 0; axis < XYZ; axis++) {
+                faceNormal[activeFace * XYZ + axis] = first.get(axis);
+                for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+                    vertexNormal[surface.faceVertexAt(faceId, corner) * XYZ + axis] +=
+                            first.get(axis);
+                }
+            }
+        }
+        List<Integer> foldedFaceIds = new ArrayList<>();
+        for (int activeFace = 0; activeFace < surface.faceCount(); activeFace++) {
+            int faceId = surface.faceIdAt(activeFace);
+            float alignment = 0f;
+            for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
+                int vertexOffset = surface.faceVertexAt(faceId, corner) * XYZ;
+                for (int axis = 0; axis < XYZ; axis++) {
+                    alignment += faceNormal[activeFace * XYZ + axis]
+                            * vertexNormal[vertexOffset + axis];
+                }
+            }
+            if (alignment < 0f) {
+                foldedFaceIds.add(faceId);
+            }
+        }
+        if (!foldedFaceIds.isEmpty()) {
+            throw new IllegalArgumentException(TYPE + ": " + foldedFaceIds.size()
+                    + " faces fold back against the faces around their corners (face ids "
+                    + foldedFaceIds.subList(0, Math.min(foldedFaceIds.size(),
+                            FOLDED_FACE_IDS_NAMED))
+                    + "); a pleated surface has no locally injective seamless parametrization"
+                    + " (LCK21a §4.1, BCE13 §3.1), so fix the mesh where it is produced");
+        }
     }
 
     /**

@@ -47,6 +47,15 @@ public abstract class NodeGroup implements MeshNode {
     }
 
     /**
+     * Refuses parameters that break a precondition of the group's body, once they are bound and
+     * before any body node runs. The default accepts everything.
+     *
+     * @param ctx the group call's record, its parameters bound
+     */
+    public void requireParameters(NodeContext ctx) {
+    }
+
+    /**
      * Declares the inner nodes, e.g. {@code group.node("field", NDirectionField::new)
      * .input("geometry", group.scope, "geometry")}, and the outputs wired to them. The runtime
      * calls it once per call of the group on every run, building that call's body records.
