@@ -543,6 +543,18 @@ Step the scene to its next colour palette, or to the one named.
 - **Response:** `{ok, palette, options, error?}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/paletteswap -d '{"name": "Paper"}'`
 
+### `palette`
+
+[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ui/PaletteSwap.java)
+
+Step the scene to its next colour palette, or to the one named.
+
+- **Route:** `POST /ui/paletteswap`
+- **Flags:**
+  - `--name` (string, default ``) — The palette to wear; omitted steps to the next., e.g. `Paper`
+- **Response:** `{ok, palette, options, error?}`
+- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/ui/paletteswap -d '{"name": "Paper"}'`
+
 ### `pick`
 
 [↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/Pick.java)
@@ -795,7 +807,7 @@ Synthesize character events on the active key handler, one per character of the 
 Snapshot the full UI state: window, frames, scene, trade, mesh, text, menu, and audio.
 
 - **Route:** `GET /ui/state`
-- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ringTool?, rings?:[{label, liveLabel, bisector, mode, serial, statement, source, wallSerials, anchorCount, authoredCount, unsaved, deleted}], connection?, errorToasts?, regions?:{regionCount, visible, absorbSlivers, hiddenRingCount, summary, rows:[{region, label, faceCount, area, sliver, boundingRings:[{ring, side}], part, creaseShare?, interiorCreaseShare?, peakCurvature?, peakOverSaturation?, creasePoint?, creaseInterior?}]}, collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls:[{section, controls}], audio}`
+- **Response:** `{timestamp, windowWidth, windowHeight, framebufferWidth, framebufferHeight, menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, mode, trade, irregularGrid?, mesh?, ringTool?, rings?:[{label, liveLabel, bisector, mode, serial, statement, source, wallSerials, anchorCount, authoredCount, unsaved, deleted}], connection?, errorToasts?, regions?:{regionCount, visible, hiddenRingCount, summary, rows:[{region, label, faceCount, area, sliver, boundingRings:[{ring, side}], part, creaseShare?, interiorCreaseShare?, peakCurvature?, peakOverSaturation?, creasePoint?, creaseInterior?}]}, collection?, knotEditor?, tool?, textElements, menuItems, menuScroll?, controls:[{section, controls}], audio}`
 - **Direct call:** `curl -s http://127.0.0.1:47832/ui/state`
 
 ### `words`

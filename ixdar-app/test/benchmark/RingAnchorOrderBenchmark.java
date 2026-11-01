@@ -233,7 +233,7 @@ public final class RingAnchorOrderBenchmark {
                     spline.anchorCount, spline.authoredCount(), spline.marks.markedEdgeCount,
                     EdgeMarks.fingerprint(mesh, marks), crossings.crossings,
                     crossings.revisitedVertices,
-                    RingTool.orderedLoop(mesh, marks).length > 0 ? YES : NO, spline.path.length,
+                    EdgeMarks.orderedLoop(mesh, marks).length > 0 ? YES : NO, spline.path.length,
                     moved));
         }
         Path table = shapes.resolve(graphName + "_fingerprints.tsv");
@@ -333,7 +333,7 @@ public final class RingAnchorOrderBenchmark {
         }
         SurfaceSpline spline = SurfaceSpline.of(ring.tracer);
         boolean snappedSimple =
-                RingTool.orderedLoop(surface, spline.marks.markedByEdgeId).length > 0;
+                EdgeMarks.orderedLoop(surface, spline.marks.markedByEdgeId).length > 0;
         rows.add(String.format(Locale.ROOT, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t%.4f\t%d\t%d\t%.1f\t%d\t%d"
                 + "\t%.1f\t%s\t%.0f", run, mode, joined(clicked), ringOrder,
                 ringOrder.equals(savedRingOrder) ? YES : NO, skipped, steps, ring.cut.path.length,

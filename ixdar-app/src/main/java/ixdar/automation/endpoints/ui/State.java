@@ -535,7 +535,6 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             regions.addProperty("regionCount",
                     regionLayer.regions == null ? 0 : regionLayer.regions.regionCount);
             regions.addProperty("visible", regionLayer.visible);
-            regions.addProperty("absorbSlivers", regionLayer.absorbSlivers);
             regions.addProperty("hiddenRingCount", regionLayer.hiddenRingLabels.size());
             regions.addProperty("summary", regionLayer.summary);
             // Each region by its number, as its item's tag names it: area, bounding rings with
@@ -732,7 +731,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                         + "menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, "
                         + "mode, trade, irregularGrid?, mesh?, ringTool?, rings?:[{label, liveLabel, bisector, mode, "
                         + "serial, statement, source, wallSerials, anchorCount, authoredCount, unsaved, deleted}], "
-                        + "connection?, errorToasts?, regions?:{regionCount, visible, absorbSlivers, "
+                        + "connection?, errorToasts?, regions?:{regionCount, visible, "
                         + "hiddenRingCount, summary, rows:[{region, label, faceCount, area, sliver, "
                         + "boundingRings:[{ring, side}], part, creaseShare?, interiorCreaseShare?, peakCurvature?, "
                         + "peakOverSaturation?, creasePoint?, creaseInterior?}]}, "

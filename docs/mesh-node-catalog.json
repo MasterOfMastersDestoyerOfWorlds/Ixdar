@@ -4765,6 +4765,12 @@
           "defaultValue": ""
         },
         {
+          "name": "stretch",
+          "portType": "STRING",
+          "description": "Optional, for a bisector that is a stretch of a closed ring, whose points are that ring\u0027s anchors over the stretch and one past each wall: four points \"before; start; end; after\", the ring\u0027s anchor before the first point, where the stretch meets the first wall, where it meets the last wall, and the ring\u0027s anchor after the last point. The end points are not attached to their walls; each end\u0027s tangent takes before or after as the ring\u0027s took its neighbour, so every segment is traced as the ring traced it. The meeting points re-attach to their walls\u0027 nearest vertex on every evaluation, and the edge path is kept between the touches of the walls nearest them, outside the second and the second-to-last point. Mode is ignored.",
+          "defaultValue": ""
+        },
+        {
           "name": "label",
           "portType": "STRING",
           "description": "Name the bisector\u0027s edge path is stored under in the edge-marks slot.",
@@ -4801,7 +4807,7 @@
           "description": "Per-edge BoolField, true on every edge of the bisector."
         }
       ],
-      "description": "A bisector: an open geodesic spline through authored anchors, traced like a spline_ring, or in crease mode the cheapest crease path joining them, its first and last anchor attached to the walls named in ends, rings or earlier bisectors on the bundle. It may cross other walls, and splits every region it crosses. The ends are linked: each is re-attached to its wall\u0027s nearest vertex on every evaluation, so editing the wall moves the end. Emits the snapped edge path, trimmed to touch its end walls only at its two ends, as edge marks the region flood takes as a wall."
+      "description": "A bisector: an open geodesic spline through authored anchors, traced like a spline_ring, or in crease mode the cheapest crease path joining them, its first and last anchor attached to the walls named in ends, rings or earlier bisectors on the bundle. It may cross other walls, and splits every region it crosses. The ends are linked: each is re-attached to its wall\u0027s nearest vertex on every evaluation, so editing the wall moves the end. Emits the snapped edge path, trimmed to touch its end walls only at its two ends, as edge marks the region flood takes as a wall. Given stretch, it is a stretch of a closed ring: its points stay where written and the path is trimmed where it meets its walls instead."
     },
     {
       "id": "spline_ring",

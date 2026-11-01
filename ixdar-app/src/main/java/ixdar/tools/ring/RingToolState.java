@@ -47,6 +47,9 @@ public final class RingToolState {
     /** Serials of the walls the draft's ends sit on when it is a bisector, or null. */
     public final int[] draftBisectorEnds;
 
+    /** The stretch vertices of a re-opened ring stretch, or null. */
+    public final int[] draftBisectorStretch;
+
     /** Whether the bisector draft ran without crossing itself. */
     public final boolean draftSimple;
 
@@ -74,6 +77,7 @@ public final class RingToolState {
         convertedGraphLabels = new HashSet<>(tool.convertedGraphLabels);
         draft = tool.draft;
         draftBisectorEnds = tool.bisector.draftEnds;
+        draftBisectorStretch = tool.bisector.draftStretch;
         draftSimple = tool.bisector.draftSimple;
         bisectorStartVertexId = tool.bisector.startVertexId;
         bisectorStartWall = tool.bisector.startWall;
@@ -162,12 +166,18 @@ public final class RingToolState {
         tool.draftSourceLabel = draftSourceLabel;
         tool.draftDepth = draftDepth;
         tool.bisector.draftEnds = draftBisectorEnds;
+        tool.bisector.draftStretch = draftBisectorStretch;
         tool.bisector.draftSimple = draftSimple;
         tool.bisector.startVertexId = bisectorStartVertexId;
         tool.bisector.startWall = bisectorStartWall;
         // Back in the sub-tool the state was captured in, so a bisector draft is edited in the
-        // bisector and a ring draft in the rings.
-        tool.switchSubTool(activeSubTool);
+        // bisector and a ring draft in the rings. An inactive tool only notes it: the sub-tool
+        // starts when the tool does.
+        if (tool.active) {
+            tool.switchSubTool(activeSubTool);
+        } else {
+            tool.activeSubTool = activeSubTool;
+        }
         tool.draftOwner = draftOwner;
         boolean selectionKept = false;
         for (int held : draftAuthoredVertexId) {

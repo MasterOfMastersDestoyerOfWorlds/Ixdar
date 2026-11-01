@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.rings.RingCandidates;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
@@ -97,11 +98,9 @@ public final class RingDslWriter {
     public static String append(String dslSource, float[] packedXyz, int waypointCount,
             boolean tighten, boolean pin) {
         List<PythonParser.ParsedNode> statements = upstreamStatements(dslSource);
-        PythonParser.ParsedNode upstream = statements.get(statements.size() - 1);
         String id = mintRingId(statements, dslSource, List.of());
-        return appended(dslSource, statement(id,
-                upstream.id + "." + geometryPort(upstream.type), packedXyz, waypointCount, tighten,
-                pin));
+        return appended(dslSource, statement(id, lastGeometry(statements), packedXyz,
+                waypointCount, tighten, pin));
     }
 
     /**
@@ -152,11 +151,9 @@ public final class RingDslWriter {
     public static String appendSpline(String dslSource, float[] packedXyz, int anchorCount,
             float[] baseNormal, Collection<String> liveLabels) {
         List<PythonParser.ParsedNode> statements = upstreamStatements(dslSource);
-        PythonParser.ParsedNode upstream = statements.get(statements.size() - 1);
         String id = mintRingId(statements, dslSource, liveLabels);
-        return appended(dslSource, splineStatement(id,
-                upstream.id + "." + geometryPort(upstream.type), packedXyz, anchorCount,
-                baseNormal));
+        return appended(dslSource, splineStatement(id, lastGeometry(statements), packedXyz,
+                anchorCount, baseNormal));
     }
 
     /**
@@ -168,19 +165,21 @@ public final class RingDslWriter {
      * @param packedXyz   the bisector's anchors as packed xyz, end to end
      * @param anchorCount anchors to write from the front of the array
      * @param ends        labels of the walls the first and the last anchor sit on
+     * @param stretchXyz  for a stretch of a closed ring, its four stretch points as packed xyz,
+     *                    as {@link SplineCutNode#STRETCH} reads them; {@code null} for none
      * @throws IllegalArgumentException when the source holds no statement to chain onto
      * @return the source with the statement and a trailing newline appended
      */
     public static String appendBisector(String dslSource, String id, float[] packedXyz,
-            int anchorCount, String[] ends) {
-        List<PythonParser.ParsedNode> statements = upstreamStatements(dslSource);
-        PythonParser.ParsedNode upstream = statements.get(statements.size() - 1);
+            int anchorCount, String[] ends, float[] stretchXyz) {
         return appended(dslSource, id + " = " + SplineCutNode.NODE_ID + "(geometry="
-                + upstream.id + "." + geometryPort(upstream.type) + ", " + POINTS_ARGUMENT
+                + lastGeometry(upstreamStatements(dslSource)) + ", " + POINTS_ARGUMENT
                 + SurfaceWaypoints.format(packedXyz, anchorCount) + "\", "
-                + SplineCutNode.ENDS.name + "=\""
-                + String.join(SplineCutNode.END_SEPARATOR + " ", ends) + "\", label=\"" + id
-                + "\")");
+                + SplineCutNode.ENDS.name + "=\"" + EdgeMarks.formatLabels(ends) + "\", "
+                + (stretchXyz == null ? "" : SplineCutNode.STRETCH.name + "=\""
+                        + SurfaceWaypoints.format(stretchXyz, SplineCutNode.STRETCH_POINTS)
+                        + "\", ")
+                + "label=\"" + id + "\")");
     }
 
     /**
@@ -574,12 +573,10 @@ public final class RingDslWriter {
                 throw new IllegalArgumentException("the working graph already binds " + id
                         + ", the id label " + name + " is saved under; rename one of them");
             }
-            List<PythonParser.ParsedNode> statements = upstreamStatements(source);
-            PythonParser.ParsedNode upstream = statements.get(statements.size() - 1);
             float[] points = labels.pointsByLabel.get(label);
             source = appended(source, id + " = " + AddLabelNode.NODE_ID + "("
-                    + AddLabelNode.GEOMETRY.name + "=" + upstream.id + "."
-                    + geometryPort(upstream.type) + ", " + AddLabelNode.LABEL.name + "=\"" + name
+                    + AddLabelNode.GEOMETRY.name + "=" + lastGeometry(upstreamStatements(source))
+                    + ", " + AddLabelNode.LABEL.name + "=\"" + name
                     + "\", " + POINTS_ARGUMENT + SurfaceWaypoints.format(points,
                             points.length / MeshLabels.XYZ) + "\")");
         }
@@ -710,6 +707,17 @@ public final class RingDslWriter {
                 + (baseNormal == null ? ""
                         : "\", " + NORMAL_ARGUMENT + SurfaceWaypoints.format(baseNormal, 1))
                 + "\", label=\"" + id + "\")";
+    }
+
+    /**
+     * Where a statement appended to a graph reads its geometry: the last statement's surface.
+     *
+     * @param statements the graph's parsed statements, never empty
+     * @return the reference, as {@code node.port}
+     */
+    private static String lastGeometry(List<PythonParser.ParsedNode> statements) {
+        PythonParser.ParsedNode upstream = statements.get(statements.size() - 1);
+        return upstream.id + "." + geometryPort(upstream.type);
     }
 
     /**

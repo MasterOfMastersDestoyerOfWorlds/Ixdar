@@ -102,6 +102,28 @@ public abstract class Tool {
     }
 
     /**
+     * Step back over the last edit of {@link #history}, which the scene's ctrl+Z fires. A tool with
+     * a history restores its own snapshots here; one without refuses with a reason.
+     *
+     * @return true when an edit was undone; {@link #lastError} says why not
+     */
+    public boolean undo() {
+        lastError = "nothing to undo in the " + toolName();
+        return false;
+    }
+
+    /**
+     * Re-apply the edit the last {@link #undo} stepped back over, which the scene's ctrl+Y and
+     * ctrl+shift+Z fire.
+     *
+     * @return true when an edit was redone; {@link #lastError} says why not
+     */
+    public boolean redo() {
+        lastError = "nothing to redo in the " + toolName();
+        return false;
+    }
+
+    /**
      * What the tool is building and has not committed yet.
      *
      * @return the draft, or {@code null} when nothing is being built

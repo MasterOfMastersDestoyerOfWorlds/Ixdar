@@ -447,7 +447,7 @@ public final class ConnectionTool extends Tool {
             return false;
         }
         if (found) {
-            neckLoopVertexId = RingTool.orderedLoop(joined.mesh, joined.narrowestMarkedByEdgeId);
+            neckLoopVertexId = EdgeMarks.orderedLoop(joined.mesh, joined.narrowestMarkedByEdgeId);
             found = neckLoopVertexId.length > 0;
         }
         if (!found) {

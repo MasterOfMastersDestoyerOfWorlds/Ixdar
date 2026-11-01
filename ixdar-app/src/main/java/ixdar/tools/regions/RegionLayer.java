@@ -42,9 +42,6 @@ public final class RegionLayer {
     /** Whether the colours show outside the region tool too; G flips it. */
     public boolean visible;
 
-    /** Whether slivers are merged into their largest neighbour; A flips it. */
-    public boolean absorbSlivers;
-
     /** Bumped whenever {@link #regions} changes, so the region tool re-resolves its selection. */
     public int revision;
 
@@ -182,16 +179,6 @@ public final class RegionLayer {
             markRings();
         }
         redraw();
-    }
-
-    /** A: merge slivers into their largest neighbour, or split them out again. */
-    public void toggleAbsorbSlivers() {
-        absorbSlivers = !absorbSlivers;
-        Platforms.get().log(LOG_PREFIX + (absorbSlivers ? "absorbing" : "showing")
-                + " regions under " + RingRegions.SLIVER_FACES + " faces");
-        if (regions != null) {
-            rebuild();
-        }
     }
 
     /** N or P: rebuild the region labels after the scene's numbers or labels were toggled. */
@@ -344,9 +331,7 @@ public final class RegionLayer {
         long start = System.nanoTime();
         Map<String, boolean[]> rings = scene.ringTool.liveRingMarks();
         boolean fresh = regions == null || regions.mesh != surface;
-        int absorbBelow = absorbSlivers ? RingRegions.SLIVER_FACES : 0;
-        if (!fresh && regions.absorbBelowFaces == absorbBelow
-                && Arrays.equals(rings.keySet().toArray(), regions.ringLabels)
+        if (!fresh && Arrays.equals(rings.keySet().toArray(), regions.ringLabels)
                 && Arrays.equals(rings.values().toArray(), regions.ringMarksByEdgeId)) {
             // An edit that left every live mask as it was, such as a step of a re-opened
             // bisector's drag (its draft walls nothing until confirmed), leaves the regions be.
@@ -364,7 +349,7 @@ public final class RegionLayer {
             }
         }
         regions.rebuild(rings.keySet().toArray(new String[0]), rings.values().toArray(new boolean[0][]),
-                absorbBelow, scene.ringTool.creases, scene.palette.region);
+                scene.ringTool.creases, scene.palette.region);
         if (!regions.noteByRingLabel.isEmpty() || joinPaths != null && joinPaths.mesh == surface) {
             if (joinPaths == null || joinPaths.mesh != surface) {
                 joinPaths = new SurfaceConnection(surface);
@@ -381,11 +366,10 @@ public final class RegionLayer {
             markRings();
             redraw();
         }
-        summary = String.format(Locale.ROOT, "%d regions, %d slivers under %d faces (white)%s; "
+        summary = String.format(Locale.ROOT, "%d regions, %d slivers under %d faces (white); "
                 + "rings in pink: %d split nothing; %s and drawn in %.0f ms, "
                 + "%d faces re-flooded; %s", regions.regionCount, regions.slivers,
-                RingRegions.SLIVER_FACES, absorbSlivers ? " absorbed" : "",
-                regions.noteByRingLabel.size(), fresh ? "built" : "updated",
+                RingRegions.SLIVER_FACES, regions.noteByRingLabel.size(), fresh ? "built" : "updated",
                 (System.nanoTime() - start) / 1e6, regions.refloodedFaces, partsSummary());
         Platforms.get().log(LOG_PREFIX + summary);
     }

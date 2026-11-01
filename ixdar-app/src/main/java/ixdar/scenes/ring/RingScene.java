@@ -26,6 +26,7 @@ import ixdar.platform.Platforms;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
 import ixdar.tools.ControlHint;
+import ixdar.tools.EditHistory;
 import ixdar.tools.Item;
 import ixdar.tools.Tool;
 import ixdar.tools.connection.ConnectionTool;
@@ -469,6 +470,20 @@ public class RingScene extends MeshNodeViewerScene {
     }
 
     /**
+     * Undo or redo the active tool's own history while it has a step, else the ring tool's, which
+     * holds ring edits and A's collapse; refusals show as toasts.
+     *
+     * @param backward true for an undo, false for a redo
+     */
+    @Override
+    public void stepHistory(boolean backward) {
+        EditHistory<?> own = activeTool.history();
+        boolean ownStep = own != null && (backward ? own.undoDepth > 0 : own.redoDepth() > 0);
+        stepHistoryOf(ownStep ? activeTool : ringTool, backward);
+        errorToasts.show(activeTool.toolName(), activeTool.lastError);
+    }
+
+    /**
      * The hints every tool shares, after the tool keys and the active tool's own hints the scene
      * lists first. Ctrl+I and Esc come from the model scene, so no tool may bind either; a tool
      * takes Esc through {@link Tool#escapePressed} instead.
@@ -482,12 +497,13 @@ public class RingScene extends MeshNodeViewerScene {
             regionLayer.toggleVisible();
             activeTool.lastRow = ControlHint.toggled("region colours outside the region tool", regionLayer.visible);
         }));
-        controls.add(new ControlHint("toggle-absorb-slivers", Keys.A, "A", "absorb slivers into largest neighbour",
+        controls.add(new ControlHint("collapse-slivers", Keys.A, "A",
+                "collapse slivers: one ring keeps each lens, the other becomes bisectors",
                 () -> {
-                    regionLayer.toggleAbsorbSlivers();
-                    activeTool.lastRow = ControlHint.toggled("slivers absorbed", regionLayer.absorbSlivers);
-                }));
-        controls.add(new ControlHint("show-hidden-regions", Keys.U, "U", "show hidden regions", regionLayer::showAll));
+                    ringTool.collapseSlivers();
+                    activeTool.lastRow = ringTool.lastRow;
+                    errorToasts.show(ringTool.toolName(), ringTool.lastError);
+                }));        controls.add(new ControlHint("show-hidden-regions", Keys.U, "U", "show hidden regions", regionLayer::showAll));
         controls.add(new ControlHint(SAVE_RINGS_ACTION, Keys.S, true, "ctrl+S", "save rings", this::saveRingsPressed));
         // H flips the visibility that applies now: the exploded view's, or the assembled one.
         controls.add(new ControlHint("toggle-rings", Keys.H, "H", "show / hide rings", () -> {

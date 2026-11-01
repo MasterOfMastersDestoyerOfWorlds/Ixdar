@@ -7,10 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.tools.ring.RingTool;
 
 /**
  * The connection between two points on two spheres joined by a thin tube: the path runs through
@@ -99,7 +99,7 @@ class SurfaceConnectionTest {
         double tubeGirth = 2.0 * Math.PI * TUBE_RADIUS;
         assertEquals(tubeGirth, connection.narrowestGirth, tubeGirth * CIRCUMFERENCE_TOLERANCE);
 
-        int[] neck = RingTool.orderedLoop(dumbbell, connection.narrowestMarkedByEdgeId);
+        int[] neck = EdgeMarks.orderedLoop(dumbbell, connection.narrowestMarkedByEdgeId);
         assertTrue(neck.length >= AROUND, "the neck snaps to one closed edge loop");
         Vector3f position = new Vector3f();
         Vector3f following = new Vector3f();

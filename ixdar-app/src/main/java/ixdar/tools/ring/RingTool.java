@@ -27,6 +27,8 @@ import ixdar.geometry.mesh.data.analysis.curvature.LimbAxis;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
+import ixdar.geometry.mesh.data.rings.RingRegions;
+import ixdar.geometry.mesh.data.rings.SliverCollapse;
 import ixdar.geometry.mesh.data.paths.spline.SplineAnchorFit;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
@@ -63,6 +65,7 @@ import ixdar.tools.EditHistory;
 import ixdar.tools.Item;
 import ixdar.tools.Preview;
 import ixdar.tools.Tool;
+import ixdar.tools.regions.RegionLayer;
 
 /**
  * The rings and bisectors its two sub-tools draw, {@link ClosedRingTool} and {@link BisectorTool},
@@ -77,10 +80,6 @@ public final class RingTool extends Tool {
     public static final String TOOL_NAME = "ring tool";
 
     public static final String UNSAVED_RING_PREFIX = "ring #";
-
-    public static final String REDO_HINT = "redo ring edit";
-
-    public static final String REDO_ACTION = "redo";
 
     public static final String BISECT_ACTION = "bisect";
 
@@ -516,11 +515,6 @@ public final class RingTool extends Tool {
     @Override
     public void addControls(List<ControlHint> controls) {
         controls.add(new ControlHint(ControlHint.NO_KEY, "drag anchor", "move it"));
-        controls.add(new ControlHint(REDO_ACTION, Keys.Z, true, true, "ctrl+shift+Z", REDO_HINT,
-                refusalShown(() -> redo())));
-        controls.add(new ControlHint("undo", Keys.Z, true, "ctrl+Z", "undo ring edit",
-                refusalShown(() -> undo())));
-        controls.add(new ControlHint(REDO_ACTION, Keys.Y, true, "ctrl+Y", REDO_HINT, refusalShown(() -> redo())));
         controls.add(new ControlHint("confirm-draft", Keys.ENTER, "enter", "confirm draft",
                 refusalShown(() -> confirmDraft())));
         // T switches between the geodesic spline and the crease path: the open draft, as one
@@ -879,6 +873,7 @@ public final class RingTool extends Tool {
         draftMode = reopened.mode;
         // A confirmed ring with end walls is a bisector, and re-opens as the bisector's draft.
         bisector.draftEnds = reopened.bisectorEnds;
+        bisector.draftStretch = reopened.bisectorStretch;
         for (RingSubTool kind : new RingSubTool[] { closedRing, bisector }) {
             draftOwner = kind.reopens(reopened) ? kind : draftOwner;
         }
@@ -1080,6 +1075,7 @@ public final class RingTool extends Tool {
      *
      * @return true when an edit was undone
      */
+    @Override
     public boolean undo() {
         return stepHistory(true);
     }
@@ -1089,20 +1085,18 @@ public final class RingTool extends Tool {
      *
      * @return true when an edit was redone
      */
+    @Override
     public boolean redo() {
         return stepHistory(false);
     }
 
     /**
      * One undo or redo: restore the snapshot the history hands back and say which edit moved.
-     * Refused while a drag is still moving an anchor, since the drag is not recorded yet.
+     * Refused while a drag is still moving an anchor, since the drag is not recorded yet; works
+     * while another tool is active, where no drag can be under way.
      */
     private boolean stepHistory(boolean backward) {
         lastError = "";
-        if (!active) {
-            lastError = "the ring tool is not running - Ctrl+R switches to it";
-            return false;
-        }
         if (draggingAnchor) {
             lastError = "an anchor is being dragged - release it first";
             return false;
@@ -1214,6 +1208,7 @@ public final class RingTool extends Tool {
             return false;
         }
         int[] bisectorEnds = bisector.draftEnds;
+        int[] bisectorStretch = bisector.draftStretch;
         RingSubTool owner = draftOwner;
         long start = System.nanoTime();
         RingToolState stateBefore = new RingToolState(this);
@@ -1236,6 +1231,7 @@ public final class RingTool extends Tool {
             // An end dragged onto another wall moves the bisector's end wall with it; a save and
             // a reload re-attach each end to the wall named here.
             edited.bisectorEnds = bisectorEnds;
+            edited.bisectorStretch = bisectorStretch;
             edited.authoredVertexId = draftAuthoredVertexId;
             edited.baseNormal = normal;
             edited.mode = draftMode;
@@ -1250,7 +1246,8 @@ public final class RingTool extends Tool {
                     continue;
                 }
                 int[] anchors = follower.authoredVertexId.clone();
-                SurfaceSpline followed = bisector.traced(anchors, ends, follower.mode);
+                SurfaceSpline followed = bisector.traced(anchors, ends, follower.mode,
+                        follower.bisectorStretch);
                 lastError = followed != null && followed.marks.markedEdgeCount == 0
                         ? BisectorTool.WALLS_NOTHING : lastError;
                 if (followed == null || followed.marks.markedEdgeCount == 0) {
@@ -1366,63 +1363,6 @@ public final class RingTool extends Tool {
         hoveredAnchor = -1;
         draggingAnchor = false;
         dragBefore = null;
-    }
-
-    /**
-     * The vertices of a closed loop of marked edges in walking order, or an empty array when the
-     * marks do not form exactly one simple cycle.
-     *
-     * @param mesh          surface the mask indexes by edge id
-     * @param marksByEdgeId edge-id-indexed mask
-     * @return the loop's vertices, each once
-     */
-    public static int[] orderedLoop(MeshTopology mesh, boolean[] marksByEdgeId) {
-        if (mesh == null || marksByEdgeId == null) {
-            return new int[0];
-        }
-        int marked = 0;
-        int firstEdgeId = -1;
-        for (int index = 0; index < mesh.edgeCount(); index++) {
-            int edgeId = mesh.edgeIdAt(index);
-            if (edgeId < marksByEdgeId.length && marksByEdgeId[edgeId]) {
-                marked++;
-                firstEdgeId = firstEdgeId < 0 ? edgeId : firstEdgeId;
-            }
-        }
-        if (firstEdgeId < 0) {
-            return new int[0];
-        }
-        int[] loop = new int[marked];
-        int halfEdge = mesh.edgeHalfEdge(firstEdgeId);
-        int start = mesh.halfEdgeVertex(halfEdge);
-        int vertexId = mesh.halfEdgeEndVertex(halfEdge);
-        int cameFrom = firstEdgeId;
-        loop[0] = start;
-        int length = 1;
-        while (vertexId != start) {
-            if (length >= marked) {
-                return new int[0];
-            }
-            loop[length++] = vertexId;
-            int next = -1;
-            for (int side = 0; side < mesh.vertexEdgeCount(vertexId); side++) {
-                int edgeId = mesh.vertexEdgeAt(vertexId, side);
-                if (edgeId != cameFrom && edgeId < marksByEdgeId.length
-                        && marksByEdgeId[edgeId]) {
-                    next = edgeId;
-                    break;
-                }
-            }
-            if (next < 0) {
-                return new int[0];
-            }
-            int nextHalfEdge = mesh.edgeHalfEdge(next);
-            vertexId = mesh.halfEdgeVertex(nextHalfEdge) == vertexId
-                    ? mesh.halfEdgeEndVertex(nextHalfEdge)
-                    : mesh.halfEdgeVertex(nextHalfEdge);
-            cameFrom = next;
-        }
-        return length == marked ? loop : new int[0];
     }
 
     /**
@@ -1687,7 +1627,7 @@ public final class RingTool extends Tool {
                         continue;
                     }
                     if (ring == candidateRingByLabel.get(label)) {
-                        int[] loop = orderedLoop(scene.halfEdgeSurface(),
+                        int[] loop = EdgeMarks.orderedLoop(scene.halfEdgeSurface(),
                                 ring.marks.markedByEdgeId);
                         if (loop.length == 0) {
                             throw new IllegalArgumentException("proposed ring " + label
@@ -1808,10 +1748,15 @@ public final class RingTool extends Tool {
                     savedId[ring] = savedId[ring] != null ? savedId[ring]
                             : RingDslWriter.nextRingId(source, liveLabels);
                     int[] authored = written.authoredVertexId;
+                    int[] stretch = written.bisectorStretch;
                     source = RingDslWriter.withMode(RingDslWriter.appendBisector(source,
                             savedId[ring], SurfaceWaypoints.resolvingPoints(
                                     geodesics.metric.nearestVertex, authored, authored.length),
-                            authored.length, walls), savedId[ring], written.mode);
+                            authored.length, walls, stretch == null ? null
+                                    : SurfaceWaypoints.resolvingPoints(
+                                            geodesics.metric.nearestVertex, stretch,
+                                            stretch.length)),
+                            savedId[ring], written.mode);
                     waiting.remove();
                     wrote = true;
                 }
@@ -2010,12 +1955,11 @@ public final class RingTool extends Tool {
                 // walls; from here on it names them by serial, not by label.
                 float[] points = SurfaceWaypoints.parse(
                         String.valueOf(statement.inputSources.get(SplineCutNode.POINTS.name)));
-                String[] endLabels = String.valueOf(
-                        statement.inputSources.get(SplineCutNode.ENDS.name))
-                        .split(SplineCutNode.END_SEPARATOR);
+                String[] endLabels = EdgeMarks.parseLabels(String.valueOf(
+                        statement.inputSources.get(SplineCutNode.ENDS.name)));
                 int[] ends = new int[endLabels.length];
                 for (int end = 0; end < ends.length; end++) {
-                    int wall = ringOfSourceLabel(endLabels[end].strip());
+                    int wall = ringOfSourceLabel(endLabels[end]);
                     ends[end] = wall < 0 ? -1 : confirmedRings.get(wall).serial;
                 }
                 boolean walled = ends.length == 2 && ends[0] >= 0 && ends[1] >= 0;
@@ -2025,10 +1969,18 @@ public final class RingTool extends Tool {
                 Object modeArgument = statement.inputSources.get(SplineCutNode.MODE.name);
                 RingSegmentMode bisectorMode = RingSegmentMode.named(
                         modeArgument instanceof String text ? text : null);
+                Object stretchArgument = statement.inputSources.get(SplineCutNode.STRETCH.name);
+                float[] stretchPoints = SurfaceWaypoints.parse(
+                        stretchArgument instanceof String text ? text : null);
+                int[] stretch = stretchPoints.length
+                        == SplineCutNode.STRETCH_POINTS * COORDINATES_PER_POINT
+                                ? SurfaceWaypoints.snap(geodesics.metric.nearestVertex,
+                                        stretchPoints, SplineCutNode.STRETCH_POINTS)
+                                : null;
                 lastError = "it needs two points and two end walls";
                 SurfaceSpline traced = walled && graphSpline != null ? graphSpline
                         : ends.length == 2 && anchors.length >= 2
-                                ? bisector.traced(anchors, ends, bisectorMode) : null;
+                                ? bisector.traced(anchors, ends, bisectorMode, stretch) : null;
                 lastError = traced != null && traced.marks.markedEdgeCount == 0
                         ? BisectorTool.WALLS_NOTHING : lastError;
                 if (traced == null || traced.marks.markedEdgeCount == 0) {
@@ -2040,6 +1992,7 @@ public final class RingTool extends Tool {
                 confirmedRings.add(new ConfirmedRing(traced, anchors, new float[COORDINATES_PER_POINT],
                         bisectorMode, statement.nodeAssignmentId(), false, label,
                         retired != null ? retired : nextRingSerial++, ends));
+                confirmedRings.get(confirmedRings.size() - 1).bisectorStretch = stretch;
                 adopted++;
                 continue;
             }
@@ -2068,7 +2021,7 @@ public final class RingTool extends Tool {
                                 points.length / COORDINATES_PER_POINT);
             } else {
                 graphSpline = null;
-                anchors = fitLoop(orderedLoop(surface, entry.getValue()), anchored,
+                anchors = fitLoop(EdgeMarks.orderedLoop(surface, entry.getValue()), anchored,
                         "graph ring " + label);
                 normal = anchors.length > 0 ? written(anchored.planeNormal) : null;
             }
@@ -2087,7 +2040,7 @@ public final class RingTool extends Tool {
                 anchors = anchored.authoredVertexId;
             }
             if (!spline) {
-                int[] loop = orderedLoop(surface, entry.getValue());
+                int[] loop = EdgeMarks.orderedLoop(surface, entry.getValue());
                 int[] noEdge = new int[loop.length];
                 double[] noFraction = new double[loop.length];
                 Arrays.fill(noEdge, -1);
@@ -2148,6 +2101,154 @@ public final class RingTool extends Tool {
             return new int[0];
         }
         return anchors;
+    }
+
+    /**
+     * A: collapse every lens sliver two rings pinch, one ring keeping each run of lenses and the
+     * other deleted, its stretches outside the runs new bisectors ending on the keepers, as one
+     * undoable edit.
+     *
+     * @return slivers removed; {@link #lastError} says why any stayed
+     */
+    public int collapseSlivers() {
+        lastError = "";
+        long start = System.nanoTime();
+        MeshTopology surface = scene.halfEdgeSurface();
+        if (surface == null || surface.faceCount() == 0 || !readyGeodesics(surface)) {
+            lastError = lastError.isEmpty() ? NO_SURFACE_TO_RING : lastError;
+            return 0;
+        }
+        if (draft != null) {
+            lastError = "confirm or drop the draft before collapsing slivers";
+            return 0;
+        }
+        RegionLayer layer = scene.regionLayer;
+        if (layer.regions == null || layer.regions.mesh != surface
+                || layer.builtRingRevision != ringRevision) {
+            layer.rebuild();
+        }
+        RingRegions regions = layer.regions;
+        if (regions == null || regions.mesh != surface) {
+            lastError = "the regions of these rings are not built yet";
+            return 0;
+        }
+        // The regions' rings by label; only a confirmed closed ring keeps or drops a lens, and a
+        // confirmed bisector names its walls by ring index, so it can move off a dropped one.
+        String[] labels = regions.ringLabels;
+        int[] confirmedOfRing = new int[labels.length];
+        int[][] anchors = new int[labels.length][];
+        int[][] splineAnchors = new int[labels.length][];
+        RingSegmentMode[] modes = new RingSegmentMode[labels.length];
+        boolean[] closed = new boolean[labels.length];
+        int[][] wallsOfBisector = new int[labels.length][];
+        int[][] stretchOfBisector = new int[labels.length][];
+        boolean creaseRing = false;
+        for (int index = 0; index < labels.length; index++) {
+            confirmedOfRing[index] = -1;
+            for (int ring = 0; ring < confirmedRings.size(); ring++) {
+                if (!confirmedRings.get(ring).deleted && liveLabel(ring).equals(labels[index])) {
+                    confirmedOfRing[index] = ring;
+                }
+            }
+            ConfirmedRing held = confirmedOfRing[index] < 0 ? null
+                    : confirmedRings.get(confirmedOfRing[index]);
+            closed[index] = held != null && !held.isBisector();
+            anchors[index] = held == null ? new int[0] : held.authoredVertexId;
+            splineAnchors[index] = held == null ? new int[0]
+                    : Arrays.copyOf(held.spline.anchorVertexId, held.spline.anchorCount);
+            modes[index] = held == null ? RingSegmentMode.GEODESIC : held.mode;
+            creaseRing |= modes[index] == RingSegmentMode.CREASE;
+        }
+        for (int index = 0; index < labels.length; index++) {
+            ConfirmedRing held = confirmedOfRing[index] < 0 ? null
+                    : confirmedRings.get(confirmedOfRing[index]);
+            if (held == null || !held.isBisector()) {
+                continue;
+            }
+            wallsOfBisector[index] = new int[] { -1, -1 };
+            stretchOfBisector[index] = held.bisectorStretch;
+            for (int end = 0; end < 2; end++) {
+                int wall = ringOfSerial(held.bisectorEnds[end]);
+                for (int other = 0; wall >= 0 && other < labels.length; other++) {
+                    wallsOfBisector[index][end] = confirmedOfRing[other] == wall ? other
+                            : wallsOfBisector[index][end];
+                }
+            }
+        }
+        if (creaseRing && !readyCreases(surface)) {
+            return 0;
+        }
+        SliverCollapse collapse = new SliverCollapse(geodesics, creaseRing ? creases : null);
+        int removed = collapse.collapse(regions, anchors, splineAnchors, modes, closed,
+                wallsOfBisector, stretchOfBisector);
+        RingToolState stateBefore = new RingToolState(this);
+        // Every new bisector is a confirmed bisector like the bisector tool's, its walls named by
+        // serial; serials come first, since one may end on another.
+        int newBisectors = collapse.bisectorSplines.size();
+        int[] serialOfWall = new int[labels.length + newBisectors];
+        for (int wall = 0; wall < serialOfWall.length; wall++) {
+            serialOfWall[wall] = wall >= labels.length ? nextRingSerial++
+                    : confirmedOfRing[wall] < 0 ? -1 : confirmedRings.get(confirmedOfRing[wall]).serial;
+        }
+        // A ring stretch runs on its ring's anchors whatever the ring's mode, so it is written
+        // without one.
+        for (int bisectorIndex = 0; bisectorIndex < newBisectors; bisectorIndex++) {
+            int[] walls = collapse.bisectorWalls.get(bisectorIndex);
+            confirmedRings.add(new ConfirmedRing(collapse.bisectorSplines.get(bisectorIndex),
+                    collapse.bisectorAnchors.get(bisectorIndex), new float[COORDINATES_PER_POINT],
+                    RingSegmentMode.GEODESIC, null, true, null,
+                    serialOfWall[labels.length + bisectorIndex],
+                    new int[] { serialOfWall[walls[0]], serialOfWall[walls[1]] }));
+            confirmedRings.get(confirmedRings.size() - 1).bisectorStretch =
+                    collapse.bisectorStretches.get(bisectorIndex);
+        }
+        int creaseStretches = 0;
+        for (int source : collapse.bisectorSource) {
+            creaseStretches += modes[source] == RingSegmentMode.CREASE ? 1 : 0;
+        }
+        List<String> dropped = new ArrayList<>();
+        for (int index = 0; index < labels.length; index++) {
+            if (collapse.ringDropped[index]) {
+                confirmedRings.get(confirmedOfRing[index]).deleted = true;
+                dropped.add(labels[index]);
+            }
+        }
+        // A bisector that ended on a dropped ring now ends on the new wall nearest that end.
+        int movedEnds = 0;
+        for (int index = 0; index < labels.length; index++) {
+            int[] walls = collapse.movedWalls[index];
+            if (walls == null) {
+                continue;
+            }
+            ConfirmedRing follower = confirmedRings.get(confirmedOfRing[index]);
+            int[] ends = { serialOfWall[walls[0]], serialOfWall[walls[1]] };
+            movedEnds += (ends[0] != follower.bisectorEnds[0] ? 1 : 0)
+                    + (ends[1] != follower.bisectorEnds[1] ? 1 : 0);
+            follower.bisectorEnds = ends;
+            follower.authoredVertexId = collapse.movedAnchors[index];
+            follower.spline = collapse.movedSplines[index];
+            follower.unsaved = true;
+        }
+        if (!dropped.isEmpty()) {
+            recordEdit("slivers collapsed", stateBefore);
+            invalidateRings();
+        }
+        lastRow = String.format(Locale.ROOT, "collapsed %d sliver(s) in %.0f ms: dropped %s, "
+                + "their stretches outside the runs now %d bisector(s) on their old routes (%d "
+                + "from crease rings), %d of them off their old edges%s; %d bisector end(s) "
+                + "moved; %d left; %d single-ring region(s) left on purpose%s", removed,
+                (System.nanoTime() - start) / 1e6,
+                dropped.isEmpty() ? "no ring" : dropped.toString(), newBisectors, creaseStretches,
+                collapse.routeDifferences.size(), collapse.routeDifferences.isEmpty() ? ""
+                        : " " + collapse.routeDifferences, movedEnds,
+                collapse.refusals.size(), collapse.singleRingRegions.size(),
+                dropped.isEmpty() ? "" : "; ctrl+S saves them");
+        lastError = collapse.refusals.isEmpty() ? ""
+                : "slivers left in place: " + collapse.refusals;
+        Platforms.get().log(LOG_PREFIX + lastRow + (lastError.isEmpty() ? "" : "; " + lastError)
+                + (collapse.singleRingRegions.isEmpty() ? "" : "; single-ring regions: "
+                        + collapse.singleRingRegions));
+        return removed;
     }
 
     /**

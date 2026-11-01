@@ -47,6 +47,15 @@ public final class SurfaceSplineTracer {
      */
     public boolean open;
 
+    /**
+     * For an {@link #open} spline, the vertex its first anchor's tangent takes as the anchor
+     * before it, as a closed ring's would, or -1 to follow the first chord alone.
+     */
+    public int leadInVertexId = -1;
+
+    /** For an {@link #open} spline, the vertex after its last anchor, as {@link #leadInVertexId}. */
+    public int leadOutVertexId = -1;
+
     /** Bisections a segment may reach. */
     public int maximumDepth = DEFAULT_MAXIMUM_DEPTH;
 
@@ -355,11 +364,19 @@ public final class SurfaceSplineTracer {
                     previousPosition);
             mesh.vertexPosition(anchorVertexId[(anchor + 1) % anchorCount], nextPosition);
             // An open spline's end has one chord, which its tangent follows: the anchor stands in
-            // for the missing neighbour, so that side weighs nothing.
+            // for the missing neighbour, so that side weighs nothing. A lead vertex is that
+            // neighbour, so the end turns as the closed ring it was cut from did.
             if (open && anchor == 0) {
                 previousPosition.set(anchorPosition);
-            } else if (open && anchor == anchorCount - 1) {
+                if (leadInVertexId >= 0) {
+                    mesh.vertexPosition(leadInVertexId, previousPosition);
+                }
+            }
+            if (open && anchor == anchorCount - 1) {
                 nextPosition.set(anchorPosition);
+                if (leadOutVertexId >= 0) {
+                    mesh.vertexPosition(leadOutVertexId, nextPosition);
+                }
             }
             incoming.set(anchorPosition).sub(previousPosition);
             outgoing.set(nextPosition).sub(anchorPosition);

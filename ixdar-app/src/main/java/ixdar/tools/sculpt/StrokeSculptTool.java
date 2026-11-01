@@ -67,10 +67,6 @@ public final class StrokeSculptTool extends Tool {
 
     public static final String SYMMETRY_AXIS = "x";
 
-    public static final String REDO_ACTION = "redo";
-
-    public static final String REDO_HINT = "redo stroke or pass";
-
     public static final String NOT_ACTIVE = "the stroke-sculpt tool is not active - ctrl+K switches to it";
 
     public static final float DEFAULT_STRENGTH = 0.5f;
@@ -373,23 +369,35 @@ public final class StrokeSculptTool extends Tool {
         return last != null && last.open ? last : null;
     }
 
+    /** Step back over the last stroke, commit or symmetry switch, re-running the graph. */
+    @Override
+    public boolean undo() {
+        return stepHistory(true);
+    }
+
+    /** Re-apply the stroke, commit or symmetry switch the last undo stepped back over. */
+    @Override
+    public boolean redo() {
+        return stepHistory(false);
+    }
+
     /**
-     * Step back over the last stroke, commit or symmetry switch, or with {@code backward} false
-     * re-apply the one the last undo stepped back over, re-running the graph.
+     * One undo or redo of the passes, re-running the graph.
      *
      * @param backward true to undo, false to redo
+     * @return true when an edit moved
      */
-    private void stepHistory(boolean backward) {
+    private boolean stepHistory(boolean backward) {
         lastError = "";
         if (!active || drawing) {
             lastError = drawing ? "a stroke is being drawn - release it first" : NOT_ACTIVE;
-            return;
+            return false;
         }
         String what = backward ? history.nextUndoName() : history.nextRedoName();
         List<SculptPass> restored = backward ? history.undo() : history.redo();
         if (restored == null) {
             lastError = backward ? "nothing to undo" : "nothing to redo";
-            return;
+            return false;
         }
         passes = restored;
         SculptPass open = openPass();
@@ -400,6 +408,7 @@ public final class StrokeSculptTool extends Tool {
                 scene.getMeshVertexCount());
         Platforms.get().log(LOG_PREFIX + lastRow);
         scene.refreshControls();
+        return true;
     }
 
     /**
@@ -583,10 +592,6 @@ public final class StrokeSculptTool extends Tool {
                         symmetric = !symmetric;
                     }
                 }));
-        controls.add(new ControlHint(REDO_ACTION, Keys.Z, true, true, "ctrl+shift+Z", REDO_HINT,
-                () -> stepHistory(false)));
-        controls.add(new ControlHint("undo", Keys.Z, true, "ctrl+Z", "undo stroke or pass", () -> stepHistory(true)));
-        controls.add(new ControlHint(REDO_ACTION, Keys.Y, true, "ctrl+Y", REDO_HINT, () -> stepHistory(false)));
         controls.add(new ControlHint("save-sculpt", Keys.S, true, "ctrl+S", "save the .dsl and pass SVGs", () -> {
             lastError = "";
             if (documentFile == null) {

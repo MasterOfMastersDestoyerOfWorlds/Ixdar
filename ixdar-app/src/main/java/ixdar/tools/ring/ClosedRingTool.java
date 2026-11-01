@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Locale;
 
 import ixdar.geometry.mesh.data.analysis.curvature.LimbAxis;
+import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.paths.query.GirdlingPlane;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
@@ -318,7 +319,7 @@ public final class ClosedRingTool extends RingSubTool {
             // plane they fit as the base normal, so a save writes a spline_ring.
             String label = hoveredGraphRing;
             AuthoredSplineRing converted = new AuthoredSplineRing(ringTool.geodesics);
-            int[] anchors = ringTool.fitLoop(RingTool.orderedLoop(ringTool.geodesics.mesh,
+            int[] anchors = ringTool.fitLoop(EdgeMarks.orderedLoop(ringTool.geodesics.mesh,
                     scene.ringMarksByLabel.get(label)), converted, "graph ring " + label);
             if (anchors.length > 0) {
                 System.arraycopy(RingTool.written(converted.planeNormal), 0,

@@ -25,6 +25,7 @@ import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.PaneTypes;
+import ixdar.gui.ui.actions.Action;
 import ixdar.gui.ui.code.ShaderCodePane;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.menu.MenuScrollBox;
@@ -70,6 +71,12 @@ public abstract class Scene extends SceneDrawable {
     public static final String FRAME_ALL_DESCRIPTION = "frame all: back to the tool's home view";
 
     public static final String FRAME_ALL_ACTION = "frame-all";
+
+    public static final String UNDO_ACTION = "undo";
+
+    public static final String REDO_ACTION = "redo";
+
+    public static final String REDO_DESCRIPTION = "redo the last undone edit";
 
     public static final String VIEW_TOOLTIP = "TOOLTIP";
 
@@ -631,6 +638,13 @@ public abstract class Scene extends SceneDrawable {
             setControls(sceneRows);
         }
         if (activeTool != null) {
+            // Undo and redo are every scene's, whatever tool is up; redo comes first, since a
+            // ctrl+Z row also answers ctrl+shift+Z.
+            Action redone = () -> stepHistory(false);
+            sceneRows.add(new ControlHint(REDO_ACTION, Keys.Z, true, true, "ctrl+shift+Z", REDO_DESCRIPTION, redone));
+            sceneRows.add(new ControlHint(UNDO_ACTION, Keys.Z, true, "ctrl+Z", "undo the last edit",
+                    () -> stepHistory(true)));
+            sceneRows.add(new ControlHint(REDO_ACTION, Keys.Y, true, "ctrl+Y", REDO_DESCRIPTION, redone));
             boolean bindsF = false;
             for (List<ControlHint> section : controls) {
                 for (ControlHint hint : section) {
@@ -642,6 +656,35 @@ public abstract class Scene extends SceneDrawable {
                         this::frameAll));
             }
         }
+    }
+
+    /**
+     * One undo or redo, ctrl+Z, ctrl+Y or ctrl+shift+Z: the active tool's. A scene whose edits
+     * outlive a tool switch steps the tool keeping them instead, through {@link #stepHistoryOf}.
+     *
+     * @param backward true for an undo, false for a redo
+     */
+    public void stepHistory(boolean backward) {
+        stepHistoryOf(activeTool, backward);
+    }
+
+    /**
+     * One undo or redo of a tool's history, its outcome reported as the active tool's last row
+     * and error.
+     *
+     * @param target   the tool whose history steps
+     * @param backward true for an undo, false for a redo
+     */
+    public void stepHistoryOf(Tool target, boolean backward) {
+        target.lastRow = "";
+        target.lastError = "";
+        if (backward) {
+            target.undo();
+        } else {
+            target.redo();
+        }
+        activeTool.lastRow = target.lastRow;
+        activeTool.lastError = target.lastError;
     }
 
     /**

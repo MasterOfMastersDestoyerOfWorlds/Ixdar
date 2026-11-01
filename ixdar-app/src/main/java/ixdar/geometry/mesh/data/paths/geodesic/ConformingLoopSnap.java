@@ -29,6 +29,9 @@ public final class ConformingLoopSnap {
     /** Gaps the bounded walk could not close, left unmarked in the output. */
     public int unresolvedGaps;
 
+    /** Traced point each vertex of the last {@link #orderedWalk} came from or led toward. */
+    public int[] walkPoint = new int[0];
+
     /** Vertices one gap-closing walk may settle. */
     public int searchBudget = DEFAULT_SEARCH_BUDGET;
 
@@ -39,7 +42,8 @@ public final class ConformingLoopSnap {
 
     /**
      * Marks the edges of the conforming path nearest a traced geodesic, only ever the mesh's own
-     * edges: a point inside a polygon snaps to that polygon's nearest corner.
+     * edges: a point inside a polygon snaps to that polygon's nearest corner. A closed path's marks
+     * lose their dead-end spurs and the small loops hanging off them at one vertex.
      *
      * @param mesh source mesh the trace was taken on
      * @param path traced polyline with its per-point vertex, edge or face correspondence
@@ -60,26 +64,7 @@ public final class ConformingLoopSnap {
         vertexIdBound = mesh.vertexIdBound();
 
         for (int index = 0; index < path.pointCount; index++) {
-            int vertexId = path.vertexId[index];
-            int faceId = path.faceId[index];
-            if (vertexId < 0 && faceId < 0) {
-                vertexId = nearerEdgeEnd(mesh, path.edgeId[index], path.fraction[index]);
-            }
-            double nearest = Double.POSITIVE_INFINITY;
-            int corners = vertexId < 0 ? mesh.faceVertexCount(faceId) : 0;
-            for (int corner = 0; corner < corners; corner++) {
-                int cornerVertexId = mesh.faceVertexAt(faceId, corner);
-                mesh.vertexPosition(cornerVertexId, scratchPosition);
-                double distance = scratchPosition.distanceSquared(
-                        (float) path.surfacePositions[3 * index],
-                        (float) path.surfacePositions[3 * index + 1],
-                        (float) path.surfacePositions[3 * index + 2]);
-                if (distance < nearest) {
-                    nearest = distance;
-                    vertexId = cornerVertexId;
-                }
-            }
-            appendVertex(vertexId);
+            appendVertex(snappedVertex(mesh, path, index));
         }
         if (path.closed && vertexCycleLength > 1
                 && vertexCycle[0] == vertexCycle[vertexCycleLength - 1]) {
@@ -132,6 +117,52 @@ public final class ConformingLoopSnap {
                 }
             }
         }
+        // A walk that crosses a polygon round two of its sides and back can close a small loop that
+        // hangs off the ring at one vertex. Each loop leaving a junction and returning to it through
+        // plain ring vertices is a side loop; the shortest go until the junction is plain again.
+        boolean[] walked = new boolean[marks.length];
+        int[] sideLoop = new int[0];
+        for (int junction = 0; junction < markedDegree.length; junction++) {
+            while (markedDegree[junction] > 2) {
+                int shortest = -1;
+                int[] shortestLoop = new int[0];
+                for (int start = 0; start < mesh.vertexEdgeCount(junction); start++) {
+                    int edgeId = mesh.vertexEdgeAt(junction, start);
+                    if (edgeId >= marks.length || !marks[edgeId] || walked[edgeId]) {
+                        continue;
+                    }
+                    int length = 0;
+                    int vertexId = mesh.edgeOtherVertex(edgeId, junction);
+                    int cameFrom = edgeId;
+                    sideLoop = length < sideLoop.length ? sideLoop : new int[2 * sideLoop.length + 2];
+                    sideLoop[length++] = edgeId;
+                    walked[edgeId] = true;
+                    while (vertexId != junction && markedDegree[vertexId] == 2) {
+                        int next = EdgeMarks.nextMarkedEdge(mesh, vertexId, cameFrom, marks);
+                        sideLoop = length < sideLoop.length ? sideLoop
+                                : Arrays.copyOf(sideLoop, 2 * sideLoop.length);
+                        sideLoop[length++] = next;
+                        walked[next] = true;
+                        vertexId = mesh.edgeOtherVertex(next, vertexId);
+                        cameFrom = next;
+                    }
+                    if (vertexId == junction && (shortest < 0 || length < shortest)) {
+                        shortest = length;
+                        shortestLoop = Arrays.copyOf(sideLoop, length);
+                    }
+                }
+                Arrays.fill(walked, false);
+                if (shortest < 0) {
+                    break;
+                }
+                for (int edgeId : shortestLoop) {
+                    marks[edgeId] = false;
+                    int halfEdge = mesh.edgeHalfEdge(edgeId);
+                    markedDegree[mesh.halfEdgeVertex(halfEdge)]--;
+                    markedDegree[mesh.halfEdgeEndVertex(halfEdge)]--;
+                }
+            }
+        }
         return marks;
     }
 
@@ -148,9 +179,82 @@ public final class ConformingLoopSnap {
         return new EdgeMarks(marks, unresolvedGaps);
     }
 
+    /**
+     * The vertex walk an open traced path snaps to, in travel order: each point's vertex as
+     * {@link #snap} picks it, joined to the next by the same shortest edge walk, so over any run of
+     * points it marks what {@link #snap} marks. {@link #walkPoint} gives each walk vertex's point.
+     *
+     * @param mesh source mesh the trace was taken on
+     * @param path traced polyline with its per-point vertex, edge or face correspondence
+     * @return the walk's vertex ids, consecutive ones joined by a mesh edge where no gap was left
+     */
+    public int[] orderedWalk(MeshTopology mesh, TracedSurfacePath path) {
+        vertexIdBound = mesh.vertexIdBound();
+        unresolvedGaps = 0;
+        int[] walked = new int[Math.max(1, path.pointCount)];
+        int[] pointOf = new int[walked.length];
+        int count = 0;
+        int[] between = new int[0];
+        for (int index = 0; index < path.pointCount; index++) {
+            int vertexId = snappedVertex(mesh, path, index);
+            if (count > 0 && walked[count - 1] == vertexId) {
+                continue;
+            }
+            int steps = 0;
+            if (count > 0 && reachShortest(mesh, walked[count - 1], vertexId)) {
+                for (int step = walk.via(vertexId); step != walked[count - 1]; step = walk.via(step)) {
+                    between = steps < between.length ? between
+                            : Arrays.copyOf(between, 2 * between.length + 2);
+                    between[steps++] = step;
+                }
+            } else if (count > 0) {
+                unresolvedGaps++;
+            }
+            if (count + steps + 1 > walked.length) {
+                walked = Arrays.copyOf(walked, 2 * (count + steps + 1));
+                pointOf = Arrays.copyOf(pointOf, walked.length);
+            }
+            for (int step = steps - 1; step >= 0; step--) {
+                pointOf[count] = index;
+                walked[count++] = between[step];
+            }
+            pointOf[count] = index;
+            walked[count++] = vertexId;
+        }
+        walkPoint = Arrays.copyOf(pointOf, count);
+        return Arrays.copyOf(walked, count);
+    }
+
     private int nearerEdgeEnd(MeshTopology mesh, int edgeId, double fraction) {
         int halfEdge = mesh.edgeHalfEdge(edgeId);
         return fraction <= 0.5 ? mesh.halfEdgeVertex(halfEdge) : mesh.halfEdgeEndVertex(halfEdge);
+    }
+
+    /**
+     * The vertex one traced point snaps to: its own vertex, the nearer end of the edge it crosses,
+     * or the nearest corner of the polygon it lies inside.
+     */
+    private int snappedVertex(MeshTopology mesh, TracedSurfacePath path, int index) {
+        int vertexId = path.vertexId[index];
+        int faceId = path.faceId[index];
+        if (vertexId < 0 && faceId < 0) {
+            vertexId = nearerEdgeEnd(mesh, path.edgeId[index], path.fraction[index]);
+        }
+        double nearest = Double.POSITIVE_INFINITY;
+        int corners = vertexId < 0 ? mesh.faceVertexCount(faceId) : 0;
+        for (int corner = 0; corner < corners; corner++) {
+            int cornerVertexId = mesh.faceVertexAt(faceId, corner);
+            mesh.vertexPosition(cornerVertexId, scratchPosition);
+            double distance = scratchPosition.distanceSquared(
+                    (float) path.surfacePositions[3 * index],
+                    (float) path.surfacePositions[3 * index + 1],
+                    (float) path.surfacePositions[3 * index + 2]);
+            if (distance < nearest) {
+                nearest = distance;
+                vertexId = cornerVertexId;
+            }
+        }
+        return vertexId;
     }
 
     private void appendVertex(int vertexId) {
@@ -172,6 +276,22 @@ public final class ConformingLoopSnap {
         if (fromVertex == toVertex) {
             return true;
         }
+        if (!reachShortest(mesh, fromVertex, toVertex)) {
+            return false;
+        }
+        for (int vertexId = toVertex; vertexId != fromVertex; vertexId = walk.via(vertexId)) {
+            marks[mesh.edgeBetween(vertexId, walk.via(vertexId))] = true;
+        }
+        return true;
+    }
+
+    /**
+     * Runs the bounded shortest edge walk from one vertex to another, leaving its back pointers
+     * in the walk.
+     *
+     * @return true when the walk reached the target inside the budget
+     */
+    private boolean reachShortest(MeshTopology mesh, int fromVertex, int toVertex) {
         walk.start(vertexIdBound);
         walk.relax(fromVertex, 0.0, -1);
         int settled = 0;
@@ -199,12 +319,6 @@ public final class ConformingLoopSnap {
                 walk.relax(other, here + scratchPosition.distance(otherPosition), vertexId);
             }
         }
-        if (!reached) {
-            return false;
-        }
-        for (int vertexId = toVertex; vertexId != fromVertex; vertexId = walk.via(vertexId)) {
-            marks[mesh.edgeBetween(vertexId, walk.via(vertexId))] = true;
-        }
-        return true;
+        return reached;
     }
 }

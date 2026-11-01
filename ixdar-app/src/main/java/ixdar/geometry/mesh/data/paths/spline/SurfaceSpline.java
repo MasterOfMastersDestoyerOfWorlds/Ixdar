@@ -273,6 +273,102 @@ public final class SurfaceSpline {
     }
 
     /**
+     * A stretch of a closed ring as a bisector, every segment traced as the ring traced it, its
+     * walk kept between the touches of its walls nearest the two points where it meets them.
+     *
+     * @param geodesics       engine over the surface the ring lay on
+     * @param anchorVertexIds the ring's anchors in its order, the first and last past the walls
+     * @param stretch         the ring's anchor before the first, the vertex where the stretch
+     *                        meets its start wall, where it meets its end wall, and the ring's
+     *                        anchor after the last
+     * @param startWall       edge-id-indexed wall the stretch starts on
+     * @param endWall         edge-id-indexed wall it ends on, possibly the same
+     * @return the bisector, with no marked edge when its anchors trace nothing
+     */
+    public static SurfaceSpline ringStretch(SurfaceGeodesics geodesics, int[] anchorVertexIds,
+            int[] stretch, boolean[] startWall, boolean[] endWall) {
+        MeshTopology mesh = geodesics.mesh;
+        SurfaceSplineTracer tracer = new SurfaceSplineTracer(geodesics);
+        tracer.open = true;
+        tracer.leadInVertexId = stretch[0];
+        tracer.leadOutVertexId = stretch[stretch.length - 1];
+        boolean traced = tracer.setAnchors(anchorVertexIds, anchorVertexIds.length);
+        SurfaceSpline spline = unsnapped(tracer);
+        boolean[] marks = new boolean[RingBundle.edgeIdCeiling(mesh)];
+        ConformingLoopSnap snap = new ConformingLoopSnap();
+        int[] walk = traced ? snap.orderedWalk(mesh, spline.path) : new int[0];
+        int steps = walk.length;
+        // The walk passes its meeting points once on the stretch, and again where its ends run
+        // on past the walls along the ring: the start is the touch of the start wall nearest its
+        // meeting point before the first inner anchor, the end the one after the last.
+        int first = steps - 1;
+        int last = 0;
+        int inner = anchorVertexIds.length - 1;
+        for (int step = steps - 1; step >= 0 && inner > 1; step--) {
+            first = walk[step] == anchorVertexIds[1] ? step : first;
+        }
+        for (int step = first; step < steps && inner > 1; step++) {
+            last = walk[step] == anchorVertexIds[inner - 1] ? step : last;
+        }
+        int from = 0;
+        int to = steps - 1;
+        Vector3f meeting = new Vector3f();
+        Vector3f position = new Vector3f();
+        for (int end = 0; end < 2; end++) {
+            boolean[] wall = end == 0 ? startWall : endWall;
+            mesh.vertexPosition(stretch[1 + end], meeting);
+            double nearest = Double.POSITIVE_INFINITY;
+            for (int step = end == 0 ? 0 : steps - 1; end == 0 ? step <= first
+                    : step >= Math.max(last, from); step += end == 0 ? 1 : -1) {
+                double away = walk[step] == stretch[1 + end] ? 0.0
+                        : mesh.vertexPosition(walk[step], position).distance(meeting);
+                if (away < nearest && EdgeMarks.markedAt(mesh, walk[step], wall, null) > 0) {
+                    nearest = away;
+                    from = end == 0 ? step : from;
+                    to = end == 0 ? to : step;
+                }
+            }
+        }
+        // A closed ring's snap drops the spurs and side loops a walk leaves; here a vertex met
+        // again cuts the walk back to its first visit.
+        int[] kept = new int[Math.max(0, to - from + 1)];
+        int keptCount = 0;
+        for (int step = from; step <= to && steps > 0; step++) {
+            int again = keptCount - 1;
+            while (again >= 0 && kept[again] != walk[step]) {
+                again--;
+            }
+            keptCount = again >= 0 ? again : keptCount;
+            kept[keptCount++] = walk[step];
+        }
+        for (int step = 0; step + 1 < keptCount; step++) {
+            int edgeId = mesh.edgeBetween(kept[step], kept[step + 1]);
+            if (edgeId != MeshTopology.NONE) {
+                marks[edgeId] = true;
+            }
+        }
+        if (steps > 0) {
+            // The drawn curve is the traced points between the two trim vertices.
+            TracedSurfacePath whole = spline.path;
+            int fromPoint = snap.walkPoint[from];
+            int points = snap.walkPoint[to] - fromPoint + 1;
+            int xyz = COORDINATES_PER_POINT;
+            spline.path = new TracedSurfacePath(
+                    Arrays.copyOfRange(whole.positions, xyz * fromPoint, xyz * (fromPoint + points)),
+                    Arrays.copyOfRange(whole.surfacePositions, xyz * fromPoint,
+                            xyz * (fromPoint + points)),
+                    Arrays.copyOfRange(whole.vertexId, fromPoint, fromPoint + points),
+                    Arrays.copyOfRange(whole.edgeId, fromPoint, fromPoint + points),
+                    Arrays.copyOfRange(whole.faceId, fromPoint, fromPoint + points),
+                    Arrays.copyOfRange(whole.fraction, fromPoint, fromPoint + points), points,
+                    false).measure();
+        }
+        spline.marks = new EdgeMarks(marks, snap.unresolvedGaps);
+        spline.measureCorners(geodesics.metric.meanEdgeLength);
+        return spline;
+    }
+
+    /**
      * The drawn parts of a traced tracer only, its anchors in both classes and its measured path,
      * without the edge-cycle snap and corner measure a hover frame has no use for.
      *

@@ -410,7 +410,7 @@ class QuadRingToolTest {
             assertEquals(2, vertex.getValue(), what + ": vertex " + vertex.getKey()
                     + " is on " + vertex.getValue() + " marked edges");
         }
-        assertEquals(marked, RingTool.orderedLoop(quads, marks).length,
+        assertEquals(marked, EdgeMarks.orderedLoop(quads, marks).length,
                 what + " is not one loop");
     }
 

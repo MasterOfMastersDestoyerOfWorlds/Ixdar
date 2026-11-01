@@ -46,6 +46,13 @@ public final class ConfirmedRing {
     public int[] bisectorEnds;
 
     /**
+     * For a bisector that is a stretch of a closed ring, the ring's anchor before its first, the
+     * vertices where it met its two walls when written, and the ring's anchor after its last;
+     * {@code null} for any other bisector.
+     */
+    public int[] bisectorStretch;
+
+    /**
      * A confirmed ring holding every fact a save and an undo need.
      *
      * @param spline           the traced spline
@@ -82,6 +89,7 @@ public final class ConfirmedRing {
         this(other.spline, other.authoredVertexId, other.baseNormal, other.mode, other.statementId,
                 other.unsaved, other.sourceLabel, other.serial, other.bisectorEnds);
         deleted = other.deleted;
+        bisectorStretch = other.bisectorStretch;
     }
 
     /**

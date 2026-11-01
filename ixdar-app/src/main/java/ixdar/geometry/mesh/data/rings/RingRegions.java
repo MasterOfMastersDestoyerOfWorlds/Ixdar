@@ -972,12 +972,8 @@ public final class RingRegions {
                     boolean pinchesNothing = isBisector[ring]
                             && Arrays.binarySearch(looseEnds[ring], vertexId) >= 0
                             || isBisector[other] && Arrays.binarySearch(looseEnds[other], vertexId) >= 0;
-                    for (int slot = 0; vertexStamp[vertexId] == stamp && !pinchesNothing
-                            && slot < mesh.vertexEdgeCount(vertexId); slot++) {
-                        int edgeId = mesh.vertexEdgeAt(vertexId, slot);
-                        pinchesNothing = edgeId < marks.length && edgeId < otherMarks.length
-                                && marks[edgeId] && otherMarks[edgeId];
-                    }
+                    pinchesNothing |= vertexStamp[vertexId] == stamp
+                            && EdgeMarks.markedAt(mesh, vertexId, marks, otherMarks) > 0;
                     // A bisector passing through a wall at a vertex crosses it there, which pinches
                     // nothing.
                     boolean[] bisectorMarks = isBisector[ring] ? marks : otherMarks;
@@ -1032,23 +1028,17 @@ public final class RingRegions {
     }
 
     /**
-     * Move to the rings as they stand: re-flood what changed rings bound (everything when the
-     * sliver threshold changed), then measure flatness, recolour, note rings splitting nothing and
-     * count slivers.
+     * Move to the rings as they stand: re-flood what changed rings bound, then measure flatness,
+     * recolour, note rings splitting nothing and count slivers.
      *
      * @param labels           one label per ring
      * @param masks            one edge-id-indexed mask per ring, parallel to {@code labels}
-     * @param absorbBelow      sliver threshold, as {@link #absorbBelowFaces}
      * @param creases          creases of {@link #mesh} flatness is measured on
      * @param cycle            the palette cycle whose entries {@link #colouring} hands out
      * @return this, rebuilt
      */
-    public RingRegions rebuild(String[] labels, boolean[][] masks, int absorbBelow,
-            SurfaceCreases creases, Color[] cycle) {
-        if (absorbBelow != absorbBelowFaces) {
-            absorbBelowFaces = absorbBelow;
-            built = false;
-        }
+    public RingRegions rebuild(String[] labels, boolean[][] masks, SurfaceCreases creases,
+            Color[] cycle) {
         update(labels, masks);
         measureFlatness(creases);
         colouring.colour(neighboursByRegion, regionFaceCount, formerRegionByRegion, regionKeptFaces,

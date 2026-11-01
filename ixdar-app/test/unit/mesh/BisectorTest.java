@@ -402,7 +402,7 @@ class BisectorTest {
         PythonParser.ParsedNode written = statements.get(statements.size() - 1);
         assertEquals(SplineCutNode.NODE_ID, written.type, saved);
         assertEquals(bisectorId, written.id, saved);
-        assertEquals(firstId + SplineCutNode.END_SEPARATOR + " " + secondId,
+        assertEquals(firstId + EdgeMarks.LABEL_SEPARATOR + " " + secondId,
                 written.arguments.get(SplineCutNode.ENDS.name), saved);
         assertTrue(written.arguments.get(SplineCutNode.METRIC.name)
                 instanceof PythonParser.NodeReference, "the save left the bisector unwired:\n"
@@ -576,7 +576,7 @@ class BisectorTest {
                 + SplineCutNode.NODE_ID + "(geometry=carrier.geometry, points=\""
                 + SurfaceWaypoints.format(clicked.positionsOf(new int[] { start, far, near, end }),
                         COORDINATES + 1)
-                + "\", ends=\"" + FIRST_WALL + SplineCutNode.END_SEPARATOR + " " + SECOND_WALL
+                + "\", ends=\"" + FIRST_WALL + EdgeMarks.LABEL_SEPARATOR + " " + SECOND_WALL
                 + "\", label=\"" + CLICKED_ORDER + "\")\n");
         clicked.scene.ringMarksByLabel.put(CLICKED_ORDER, new boolean[0]);
         clicked.adoptGraphRings(tube);
@@ -649,7 +649,7 @@ class BisectorTest {
         for (PythonParser.ParsedNode statement : PythonParser.parse(saved)) {
             written = bisectorId.equals(statement.id) ? statement : written;
         }
-        assertEquals(tool.confirmedRings.get(first).statementId + SplineCutNode.END_SEPARATOR + " "
+        assertEquals(tool.confirmedRings.get(first).statementId + EdgeMarks.LABEL_SEPARATOR + " "
                 + tool.confirmedRings.get(far).statementId,
                 written.arguments.get(SplineCutNode.ENDS.name), saved);
         float[] points = SurfaceWaypoints.parse(String.valueOf(
@@ -1027,7 +1027,7 @@ class BisectorTest {
             vertex(row, TOP_SIDE + PATCH_HALF_SIDES) };
         assertTrue(loop.trace(corners, corners.length, null,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), loop.failure);
-        int ring = tool.confirmLoop(RingTool.orderedLoop(tool.geodesics.mesh,
+        int ring = tool.confirmLoop(EdgeMarks.orderedLoop(tool.geodesics.mesh,
                 SurfaceSpline.of(loop.tracer).marks.markedByEdgeId), "patch at row " + row);
         assertTrue(ring >= 0, tool.lastError);
         return ring;

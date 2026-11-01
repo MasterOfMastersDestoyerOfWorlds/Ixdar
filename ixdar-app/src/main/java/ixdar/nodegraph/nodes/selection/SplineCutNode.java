@@ -32,11 +32,11 @@ public class SplineCutNode implements MeshNode {
 
     public static final String NODE_ID = "spline_cut";
 
-    public static final String END_SEPARATOR = ";";
-
     public static final InputPort GEOMETRY = InputPort.manifoldGeometry("geometry");
     public static final InputPort POINTS = new InputPort("points", PortType.STRING, "");
     public static final InputPort ENDS = new InputPort("ends", PortType.STRING, "");
+    public static final InputPort STRETCH = new InputPort("stretch", PortType.STRING, "");
+    public static final int STRETCH_POINTS = 4;
     public static final InputPort LABEL = new InputPort("label", PortType.STRING, NODE_ID);
     public static final InputPort METRIC = SplineRingNode.METRIC;
     public static final InputPort MODE = SplineRingNode.MODE;
@@ -47,7 +47,7 @@ public class SplineCutNode implements MeshNode {
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(GEOMETRY, POINTS, ENDS, LABEL, METRIC, MODE, CREASES);
+        return List.of(GEOMETRY, POINTS, ENDS, STRETCH, LABEL, METRIC, MODE, CREASES);
     }
 
     @Override
@@ -63,7 +63,9 @@ public class SplineCutNode implements MeshNode {
                 + "every region it crosses. The ends are linked: each is re-attached to its "
                 + "wall's nearest vertex on every evaluation, so editing the wall moves the end. "
                 + "Emits the snapped edge path, trimmed to touch its end walls only at its two "
-                + "ends, as edge marks the region flood takes as a wall.";
+                + "ends, as edge marks the region flood takes as a wall. Given stretch, it is a "
+                + "stretch of a closed ring: its points stay where written and the path is "
+                + "trimmed where it meets its walls instead.";
     }
 
     @Override
@@ -82,6 +84,18 @@ public class SplineCutNode implements MeshNode {
                 ENDS.name,
                 "The edge-mark labels of the walls the first and the last anchor sit on, as "
                         + "\"ring_61; ring_62\"; both may name the same wall.",
+                STRETCH.name,
+                "Optional, for a bisector that is a stretch of a closed ring, whose points are "
+                        + "that ring's anchors over the stretch and one past each wall: four "
+                        + "points \"before; start; end; after\", the ring's anchor before the "
+                        + "first point, where the stretch meets the first wall, where it meets the "
+                        + "last wall, and the ring's anchor after the last point. The end points "
+                        + "are not attached to their walls; each end's tangent takes before or "
+                        + "after as the ring's took its neighbour, so every segment is traced as "
+                        + "the ring traced it. The meeting points re-attach to their walls' "
+                        + "nearest vertex on every evaluation, and the edge path is kept between "
+                        + "the touches of the walls nearest them, outside the second and the "
+                        + "second-to-last point. Mode is ignored.",
                 LABEL.name,
                 "Name the bisector's edge path is stored under in the edge-marks slot.",
                 METRIC.name,
@@ -129,25 +143,46 @@ public class SplineCutNode implements MeshNode {
         }
         float[] points = SurfaceWaypoints.parse(ctx.getInput(POINTS.name, String.class));
         int anchorCount = points.length / SurfaceWaypoints.COORDINATES_PER_WAYPOINT;
-        String[] ends = String.valueOf(ctx.getInput(ENDS.name, String.class)).split(END_SEPARATOR);
+        String[] ends = EdgeMarks.parseLabels(ctx.getInput(ENDS.name, String.class));
         if (anchorCount < SurfaceWaypoints.OPEN_PATH_MINIMUM || ends.length != 2) {
             throw new IllegalArgumentException(NODE_ID + " " + label + " needs at least two "
                     + "points and two end walls written ends=\"ring_a; ring_b\"");
         }
+        float[] stretchPoints = SurfaceWaypoints.parse(ctx.getInput(STRETCH.name, String.class));
+        boolean stretch = stretchPoints.length > 0;
+        if (stretch && stretchPoints.length != STRETCH_POINTS
+                * SurfaceWaypoints.COORDINATES_PER_WAYPOINT) {
+            throw new IllegalArgumentException(NODE_ID + " " + label + ": stretch takes four "
+                    + "points, the ring's anchor before, the two meeting points and the anchor "
+                    + "after");
+        }
         boolean[][] walls = new boolean[2][];
         int[] anchors = SurfaceWaypoints.snap(metric.nearestVertex, points, anchorCount);
         for (int end = 0; end < 2; end++) {
-            String wall = ends[end].strip();
+            String wall = ends[end];
             walls[end] = EdgeMarks.bools(bundle, wall);
             int anchor = end == 0 ? 0 : anchorCount - 1;
             int base = SurfaceWaypoints.COORDINATES_PER_WAYPOINT * anchor;
-            anchors[anchor] = walls[end] == null ? -1 : RingAttachment.attach(mesh, walls[end],
-                    points[base], points[base + 1], points[base + 2]);
+            anchors[anchor] = walls[end] == null ? -1 : stretch ? anchors[anchor]
+                    : RingAttachment.attach(mesh, walls[end], points[base], points[base + 1],
+                            points[base + 2]);
             if (anchors[anchor] < 0) {
                 throw new IllegalArgumentException(NODE_ID + " " + label + ": the bundle carries "
                         + "no wall " + wall + " for its " + (end == 0 ? "first" : "last")
                         + " end to sit on");
             }
+        }
+        if (stretch) {
+            int[] frame = SurfaceWaypoints.snap(metric.nearestVertex, stretchPoints,
+                    STRETCH_POINTS);
+            for (int end = 0; end < 2; end++) {
+                int base = SurfaceWaypoints.COORDINATES_PER_WAYPOINT * (1 + end);
+                frame[1 + end] = RingAttachment.attach(mesh, walls[end], stretchPoints[base],
+                        stretchPoints[base + 1], stretchPoints[base + 2]);
+            }
+            publish(ctx, bundle, label, SurfaceSpline.ringStretch(SurfaceGeodesics.over(metric),
+                    anchors, frame, walls[0], walls[1]));
+            return;
         }
         RingSegmentMode mode = RingSegmentMode.named(ctx.getInput(MODE.name, String.class));
         SurfaceCreases creases = ctx.getInput(CREASES.name, SurfaceCreases.class);
@@ -156,8 +191,23 @@ public class SplineCutNode implements MeshNode {
                     + "has no creases of its mesh; wire creases = surface_creases(geometry=...) on "
                     + "the surface it bisects and pass creases=creases.creases");
         }
-        SurfaceSpline bisector = SurfaceSpline.bisector(SurfaceGeodesics.over(metric),
-                mode == RingSegmentMode.CREASE ? creases : null, anchors, walls[0], walls[1]);
+        publish(ctx, bundle, label, SurfaceSpline.bisector(SurfaceGeodesics.over(metric),
+                mode == RingSegmentMode.CREASE ? creases : null, anchors, walls[0], walls[1]));
+    }
+
+    /**
+     * Emit a traced bisector: its edge path under its label, its curve and its spline, and the
+     * per-edge selection.
+     *
+     * @param ctx      the evaluation the outputs go to
+     * @param bundle   the bundle it was traced on
+     * @param label    its edge-marks label
+     * @param bisector the traced bisector
+     * @throws IllegalArgumentException when its edge path marks nothing
+     */
+    private static void publish(NodeContext ctx, GeometryBundle bundle, String label,
+            SurfaceSpline bisector) {
+        MeshTopology mesh = bundle.mesh();
         if (bisector.marks.markedEdgeCount == 0) {
             throw new IllegalArgumentException(NODE_ID + " " + label + ": its snapped path does "
                     + "not join its two ends");

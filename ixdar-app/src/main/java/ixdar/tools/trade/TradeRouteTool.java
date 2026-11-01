@@ -57,20 +57,30 @@ public abstract class TradeRouteTool extends Tool {
 
     /**
      * Undo the last route edit, however many laps ago it was made.
+     *
+     * @return true when an edit was undone
      */
-    public void undo() {
+    @Override
+    public boolean undo() {
+        boolean done = scene.game != null && scene.game.network.undo();
         if (scene.game != null) {
-            report(scene.game.network.undo(), "Nothing to undo");
+            report(done, "Nothing to undo");
         }
+        return done;
     }
 
     /**
      * Redo the last undone route edit.
+     *
+     * @return true when an edit was redone
      */
-    public void redo() {
+    @Override
+    public boolean redo() {
+        boolean done = scene.game != null && scene.game.network.redo();
         if (scene.game != null) {
-            report(scene.game.network.redo(), "Nothing to redo");
+            report(done, "Nothing to redo");
         }
+        return done;
     }
 
     /**

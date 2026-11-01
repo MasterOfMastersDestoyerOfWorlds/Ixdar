@@ -23,6 +23,8 @@ public final class EdgeMarks {
 
     public static final EdgeMarks NONE = new EdgeMarks(new boolean[0], 0);
 
+    public static final String LABEL_SEPARATOR = ";";
+
     private static final long FINGERPRINT_OFFSET_BASIS = 0xcbf29ce484222325L;
 
     private static final long FINGERPRINT_PRIME = 0x100000001b3L;
@@ -97,6 +99,124 @@ public final class EdgeMarks {
             hash = (hash ^ ';') * FINGERPRINT_PRIME;
         }
         return String.format(Locale.ROOT, "%016x", hash);
+    }
+
+    /**
+     * A statement's list of mark labels, such as a bisector's end walls or the rings a ring is
+     * cut along, written {@code "ring_a; ring_b"}.
+     *
+     * @param text the argument's text, or {@code null}
+     * @return the labels, stripped, in order; none for blank text
+     */
+    public static String[] parseLabels(String text) {
+        if (text == null || text.isBlank()) {
+            return new String[0];
+        }
+        String[] labels = text.split(LABEL_SEPARATOR);
+        for (int index = 0; index < labels.length; index++) {
+            labels[index] = labels[index].strip();
+        }
+        return labels;
+    }
+
+    /**
+     * Mark labels as one statement argument, as {@link #parseLabels} reads it back.
+     *
+     * @param labels the labels, in order
+     * @return them joined by {@link #LABEL_SEPARATOR} and a space
+     */
+    public static String formatLabels(String[] labels) {
+        return String.join(LABEL_SEPARATOR + " ", labels);
+    }
+
+    /**
+     * How many edges at a vertex a mask marks, counting only those another mask marks too when
+     * one is given.
+     *
+     * @param mesh          surface the masks index by edge id
+     * @param vertexId      the vertex
+     * @param marksByEdgeId edge-id-indexed mask
+     * @param alsoMarked    a second mask every counted edge must also be marked in, or
+     *                      {@code null} for none
+     * @return the count, 0 for none
+     */
+    public static int markedAt(MeshTopology mesh, int vertexId, boolean[] marksByEdgeId,
+            boolean[] alsoMarked) {
+        int count = 0;
+        for (int spoke = 0; spoke < mesh.vertexEdgeCount(vertexId); spoke++) {
+            int edgeId = mesh.vertexEdgeAt(vertexId, spoke);
+            count += edgeId < marksByEdgeId.length && marksByEdgeId[edgeId]
+                    && (alsoMarked == null || edgeId < alsoMarked.length && alsoMarked[edgeId])
+                    ? 1 : 0;
+        }
+        return count;
+    }
+
+    /**
+     * The next marked edge of a walk at a vertex: one the mask marks other than the edge the walk
+     * came in on, or -1 for a dead end.
+     *
+     * @param mesh          surface the mask indexes by edge id
+     * @param vertexId      the vertex the walk stands on
+     * @param cameFrom      edge id the walk arrived by
+     * @param marksByEdgeId edge-id-indexed mask
+     * @return the first such edge round the vertex, or -1
+     */
+    public static int nextMarkedEdge(MeshTopology mesh, int vertexId, int cameFrom,
+            boolean[] marksByEdgeId) {
+        for (int spoke = 0; spoke < mesh.vertexEdgeCount(vertexId); spoke++) {
+            int edgeId = mesh.vertexEdgeAt(vertexId, spoke);
+            if (edgeId != cameFrom && edgeId < marksByEdgeId.length && marksByEdgeId[edgeId]) {
+                return edgeId;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * The vertices of a closed loop of marked edges in walking order, or an empty array when the
+     * marks do not form exactly one simple cycle.
+     *
+     * @param mesh          surface the mask indexes by edge id
+     * @param marksByEdgeId edge-id-indexed mask
+     * @return the loop's vertices, each once
+     */
+    public static int[] orderedLoop(MeshTopology mesh, boolean[] marksByEdgeId) {
+        if (mesh == null || marksByEdgeId == null) {
+            return new int[0];
+        }
+        int marked = 0;
+        int firstEdgeId = -1;
+        for (int index = 0; index < mesh.edgeCount(); index++) {
+            int edgeId = mesh.edgeIdAt(index);
+            if (edgeId < marksByEdgeId.length && marksByEdgeId[edgeId]) {
+                marked++;
+                firstEdgeId = firstEdgeId < 0 ? edgeId : firstEdgeId;
+            }
+        }
+        if (firstEdgeId < 0) {
+            return new int[0];
+        }
+        int[] loop = new int[marked];
+        int halfEdge = mesh.edgeHalfEdge(firstEdgeId);
+        int start = mesh.halfEdgeVertex(halfEdge);
+        int vertexId = mesh.halfEdgeEndVertex(halfEdge);
+        int cameFrom = firstEdgeId;
+        loop[0] = start;
+        int length = 1;
+        while (vertexId != start) {
+            if (length >= marked) {
+                return new int[0];
+            }
+            loop[length++] = vertexId;
+            int next = nextMarkedEdge(mesh, vertexId, cameFrom, marksByEdgeId);
+            if (next < 0) {
+                return new int[0];
+            }
+            vertexId = mesh.edgeOtherVertex(next, vertexId);
+            cameFrom = next;
+        }
+        return length == marked ? loop : new int[0];
     }
 
     /**

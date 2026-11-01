@@ -71,6 +71,12 @@ public final class BisectorTool extends RingSubTool {
     /** Serials of the walls the draft's ends sit on when it is a bisector, else {@code null}. */
     public int[] draftEnds;
 
+    /**
+     * The draft's {@link ConfirmedRing#bisectorStretch} when it re-opened a stretch of a ring;
+     * {@code null} for any other draft.
+     */
+    public int[] draftStretch;
+
     /** Whether the bisector draft runs without crossing itself; Enter refuses it otherwise. */
     public boolean draftSimple = true;
 
@@ -256,6 +262,7 @@ public final class BisectorTool extends RingSubTool {
         boolean startLeads = startVertexId < snapped;
         draftEnds = startLeads ? new int[] { startWall, snappedWall }
                 : new int[] { snappedWall, startWall };
+        draftStretch = null;
         ringTool.draftMode = ringTool.newDraftMode();
         ringTool.draftSourceRing = -1;
         ringTool.draftSourceLabel = null;
@@ -323,7 +330,7 @@ public final class BisectorTool extends RingSubTool {
             System.arraycopy(held, 0, grown, 0, before + 1);
             grown[before + 1] = vertexId;
             System.arraycopy(held, before + 1, grown, before + 2, held.length - before - 1);
-            SurfaceSpline traced = traced(grown, draftEnds, ringTool.draftMode);
+            SurfaceSpline traced = traced(grown, draftEnds, ringTool.draftMode, draftStretch);
             if (traced != null && traced.marks.markedEdgeCount > 0
                     && (shortest == null || traced.path.length < shortest.path.length)
                     && crossings.isSimple(ringTool.geodesics.mesh, traced.path)) {
@@ -360,7 +367,7 @@ public final class BisectorTool extends RingSubTool {
     public boolean retrace(int[] authored, boolean keepSimple) {
         long start = System.nanoTime();
         int[] anchors = authored.clone();
-        SurfaceSpline bisector = traced(anchors, draftEnds, ringTool.draftMode);
+        SurfaceSpline bisector = traced(anchors, draftEnds, ringTool.draftMode, draftStretch);
         if (bisector == null) {
             return false;
         }
@@ -465,22 +472,31 @@ public final class BisectorTool extends RingSubTool {
      * @param anchors anchor vertices end to end; the two ends are re-attached in place
      * @param ends    serials of the walls the first and the last anchor sit on
      * @param mode    how it runs between its anchors
+     * @param stretch for a stretch of a closed ring, its {@link ConfirmedRing#bisectorStretch},
+     *                its ends then left in place and its meeting points re-attached to the walls;
+     *                {@code null} for any other bisector
      * @return the bisector, with no marked edge when it walls nothing ({@link #WALLS_NOTHING}), or
      *         {@code null} with the ring tool's last error saying which wall is gone
      */
-    public SurfaceSpline traced(int[] anchors, int[] ends, RingSegmentMode mode) {
+    public SurfaceSpline traced(int[] anchors, int[] ends, RingSegmentMode mode, int[] stretch) {
         MeshTopology surface = ringTool.geodesics.mesh;
-        if (mode == RingSegmentMode.CREASE && !ringTool.readyCreases(surface)) {
+        if (stretch == null && mode == RingSegmentMode.CREASE && !ringTool.readyCreases(surface)) {
             return null;
         }
         boolean[][] marks = new boolean[2][];
+        int[] frame = stretch == null ? null : stretch.clone();
         for (int end = 0; end < 2; end++) {
             int ring = ringTool.ringOfSerial(ends[end]);
             int anchor = end == 0 ? 0 : anchors.length - 1;
             marks[end] = ring < 0 || ringTool.confirmedRings.get(ring).deleted ? null
                     : ringTool.confirmedRings.get(ring).spline.marks.markedByEdgeId;
-            boolean onWall = false;
-            for (int spoke = 0; marks[end] != null
+            if (frame != null && marks[end] != null) {
+                surface.vertexPosition(frame[1 + end], scratchPosition);
+                frame[1 + end] = RingAttachment.attach(surface, marks[end], scratchPosition.x,
+                        scratchPosition.y, scratchPosition.z);
+            }
+            boolean onWall = frame != null;
+            for (int spoke = 0; marks[end] != null && !onWall
                     && spoke < surface.vertexEdgeCount(anchors[anchor]); spoke++) {
                 int edgeId = surface.vertexEdgeAt(anchors[anchor], spoke);
                 onWall |= edgeId < marks[end].length && marks[end][edgeId];
@@ -496,9 +512,11 @@ public final class BisectorTool extends RingSubTool {
                 return null;
             }
         }
-        return SurfaceSpline.bisector(ringTool.geodesics,
-                mode == RingSegmentMode.CREASE ? ringTool.creases : null, anchors, marks[0],
-                marks[1]);
+        return frame != null
+                ? SurfaceSpline.ringStretch(ringTool.geodesics, anchors, frame, marks[0], marks[1])
+                : SurfaceSpline.bisector(ringTool.geodesics,
+                        mode == RingSegmentMode.CREASE ? ringTool.creases : null, anchors,
+                        marks[0], marks[1]);
     }
 
     /**
@@ -807,6 +825,7 @@ public final class BisectorTool extends RingSubTool {
     @Override
     public void draftClosed() {
         draftEnds = null;
+        draftStretch = null;
         draftSimple = true;
     }
 

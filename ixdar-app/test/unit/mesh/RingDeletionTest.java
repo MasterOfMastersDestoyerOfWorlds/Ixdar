@@ -142,7 +142,7 @@ class RingDeletionTest {
         List<String> block = new ArrayList<>();
         Vector3f position = new Vector3f();
         for (String label : kept) {
-            int[] loop = RingTool.orderedLoop(mesh, marks.get(label));
+            int[] loop = EdgeMarks.orderedLoop(mesh, marks.get(label));
             assertTrue(loop.length > 0, label + " is not one closed edge loop");
             float[] loopXyz = new float[RingTool.COORDINATES_PER_POINT * loop.length];
             for (int vertex = 0; vertex < loop.length; vertex++) {
