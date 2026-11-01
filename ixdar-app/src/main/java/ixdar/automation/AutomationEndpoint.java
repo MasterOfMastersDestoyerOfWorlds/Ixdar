@@ -1,12 +1,16 @@
 package ixdar.automation;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.graphics.image.PixelImage;
 import ixdar.graphics.image.PngWriter;
 import ixdar.platform.Platforms;
@@ -123,20 +127,34 @@ public class AutomationEndpoint {
     // ====================
 
     /**
-     * Resolve a user-supplied path against the current working directory and verify
-     * that it exists.
+     * Resolve a path a CLI flag names as every path resolves ({@link MeshLoader#resolve}: the
+     * checkout, then the module and its resources) and check it exists.
      *
-     * @param path filesystem path; absolute paths are used as-is, relative paths are
-     *             resolved against {@code user.dir}
-     * @return existing {@link File}, or {@code null} when {@code path} is blank or
-     *         the resolved file does not exist
+     * @param path absolute, relative to the checkout, or a resource name ({@code dsl/skull3/outlines.svg})
+     * @return the existing file, absolute, or {@code null} when {@code path} is blank or names nothing
      */
-    public File resolvePath(String path) {
-        if (path == null || path.isBlank())
+    public static File resolvePath(String path) {
+        if (path == null || path.isBlank()) {
             return null;
-        File f = new File(path);
-        if (!f.isAbsolute())
-            f = new File(System.getProperty("user.dir"), path);
-        return f.exists() ? f : null;
+        }
+        Path found = MeshLoader.resolve(path);
+        return Files.exists(found) ? found.toFile() : null;
+    }
+
+    /**
+     * The file a required CLI flag names, resolved as {@link #resolvePath} does.
+     *
+     * @param flag the flag, for the message ({@code --template})
+     * @param path the flag's value
+     * @throws FileNotFoundException naming the flag and path when it names nothing
+     * @return the existing file, absolute
+     */
+    public static Path existingFile(String flag, String path) throws FileNotFoundException {
+        File file = resolvePath(path);
+        if (file == null) {
+            throw new FileNotFoundException(flag + " " + path + " names no file (relative paths start at the "
+                    + "checkout " + MeshLoader.checkoutRoot() + ")");
+        }
+        return file.toPath();
     }
 }

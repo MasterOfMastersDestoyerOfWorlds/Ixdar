@@ -11,6 +11,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import ixdar.geometry.mesh.data.io.MeshLoader;
+
 
 public class AutomationReplayEngine {
     public static final String RUNNING = "running";
@@ -103,10 +105,7 @@ public class AutomationReplayEngine {
 
     private void runReplay(String filePath, ReplayMode mode) {
         try {
-            File file = new File(filePath);
-            if (!file.isAbsolute()) {
-                file = new File(System.getProperty("user.dir"), filePath);
-            }
+            File file = MeshLoader.resolve(filePath).toFile();
             JsonObject root = GSON.fromJson(new FileReader(file), JsonObject.class);
             JsonArray source = mode == ReplayMode.RAW ? root.getAsJsonArray("rawEvents")
                     : root.getAsJsonArray("abstractActions");

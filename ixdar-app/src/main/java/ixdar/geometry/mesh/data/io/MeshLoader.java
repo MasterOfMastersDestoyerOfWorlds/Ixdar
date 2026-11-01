@@ -33,6 +33,12 @@ public final class MeshLoader {
 
     public static final String MODULE_DIRECTORY = "ixdar-app";
 
+    public static final String RESOURCE_DIRECTORY = "src/main/resources";
+
+    public static final String POM_FILE = "pom.xml";
+
+    public static final String WORKING_DIRECTORY_PROPERTY = "user.dir";
+
     public static final String DATA_ROOT_VARIABLE = "IXDAR_DATA_ROOT";
     public static final String DATA_ROOT_PROPERTY = "ixdar.data.root";
     public static final String DATA_ROOT_PLACEHOLDER = "${" + DATA_ROOT_VARIABLE + "}";
@@ -135,22 +141,48 @@ public final class MeshLoader {
     }
 
     /**
-     * Resolve a path against the working directory, retrying under {@link #MODULE_DIRECTORY}; a
-     * path starting with {@link #DATA_ROOT_PLACEHOLDER} resolves below {@link #dataRoot()} instead.
+     * Resolve a path as every file the program reads or writes does: against the checkout, then
+     * under {@link #MODULE_DIRECTORY}, then under its {@link #RESOURCE_DIRECTORY}, so
+     * {@code dsl/skull/base.ply} works; a {@link #DATA_ROOT_PLACEHOLDER} path resolves below
+     * {@link #dataRoot()}. A file that exists nowhere resolves in the checkout, so there is one
+     * {@code tmp/}.
      *
      * @param path file name or path as the caller wrote it
-     * @return the data-root path, else the path that exists, else the working-directory one
+     * @return the data-root path, else the first candidate that exists, else the checkout one, absolute
      */
     public static Path resolve(String path) {
         if (path.startsWith(DATA_ROOT_PLACEHOLDER)) {
             String below = path.substring(DATA_ROOT_PLACEHOLDER.length()).replaceFirst("^[/\\\\]+", "");
             return dataRoot().resolve(below);
         }
-        Path file = Paths.get(path);
-        if (!Files.exists(file) && Files.exists(Paths.get(MODULE_DIRECTORY, path))) {
-            return Paths.get(MODULE_DIRECTORY, path);
+        Path checkout = checkoutRoot();
+        Path module = checkout.resolve(MODULE_DIRECTORY);
+        Path file = checkout.resolve(path);
+        for (Path candidate : new Path[] { file, module.resolve(path), module.resolve(RESOURCE_DIRECTORY).resolve(path) }) {
+            if (Files.exists(candidate)) {
+                return candidate;
+            }
         }
         return file;
+    }
+
+    /**
+     * The checkout the program runs in: the nearest ancestor of the working directory (the module,
+     * when launched as F5 and the CLI launch it) holding a {@value #POM_FILE} whose
+     * {@link #MODULE_DIRECTORY} holds its own, else the working directory.
+     *
+     * @return absolute path to the checkout root
+     */
+    public static Path checkoutRoot() {
+        Path workingDirectory = Paths.get(System.getProperty(WORKING_DIRECTORY_PROPERTY, ".")).toAbsolutePath()
+                .normalize();
+        for (Path candidate = workingDirectory; candidate != null; candidate = candidate.getParent()) {
+            if (Files.isRegularFile(candidate.resolve(POM_FILE))
+                    && Files.isRegularFile(candidate.resolve(MODULE_DIRECTORY).resolve(POM_FILE))) {
+                return candidate;
+            }
+        }
+        return workingDirectory;
     }
 
     /**

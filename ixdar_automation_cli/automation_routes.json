@@ -480,7 +480,7 @@
       "commandName": "mesh-dsl",
       "path": "/mesh/dsl",
       "method": "POST",
-      "description": "Load and execute a named DSL skill graph, making its output geometry the active mesh.",
+      "description": "Load and execute a DSL graph, a packaged one by name or any .dsl file by path, making its output geometry, or one node\u0027s, the active mesh.",
       "sourceClass": "ixdar.automation.endpoints.mesh.dsl.LoadDSL",
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/dsl/LoadDSL.java",
       "params": [
@@ -490,7 +490,7 @@
           "type": "string",
           "required": true,
           "default": "",
-          "help": "Name of the DSL skill graph to run.",
+          "help": "A graph under the dsl resource folder by name (skeleton-decompose), or a .dsl file path, absolute or relative to the checkout (tmp/rounds/round03/skull.dsl).",
           "example": "skeleton-decompose"
         },
         {
@@ -499,7 +499,7 @@
           "type": "string",
           "required": false,
           "default": "",
-          "help": "Graph node whose output geometry becomes the active mesh.",
+          "help": "Graph node (its statement\u0027s id) whose output geometry becomes the active mesh. To see what a stroke_sculpt layer draws on, name the node its geometry\u003d reads.",
           "example": "output"
         },
         {
@@ -597,7 +597,7 @@
           "type": "string",
           "required": true,
           "default": "",
-          "help": "File to write; missing parent directories are created.",
+          "help": "File to write, relative to the checkout like every CLI path; missing parent directories are created.",
           "example": "/home/acw/crawfish/repaired/IMG_4109.glb"
         },
         {
@@ -1004,6 +1004,15 @@
           "example": "src/main/resources/dsl/skull/pass1.svg"
         },
         {
+          "name": "camera",
+          "cliName": "camera",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Capture through the camera an SVG template records (multiview --svg, trace-outlines, a pass\u0027s SVG): its centre, framed at its distance, instead of the selection.",
+          "example": "dsl/skull3/outlines.svg"
+        },
+        {
           "name": "outline",
           "cliName": "outline",
           "type": "bool",
@@ -1211,6 +1220,35 @@
         }
       ],
       "responseHint": "{ok, azimuth, elevation, distance, target, fov, roll}"
+    },
+    {
+      "commandName": "outline-compare",
+      "path": "/ui/outline-compare",
+      "method": "POST",
+      "description": "Capture the shown mesh through an outlines template\u0027s camera and report, per traced cell, IoU, the mean and largest distance in template pixels from the traced outline to the mesh\u0027s silhouette, and the area the mesh falls short of (inside the trace only) or overdraws, with an overlay PNG (short red, over blue).",
+      "sourceClass": "ixdar.automation.endpoints.ui.OutlineCompare",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/OutlineCompare.java",
+      "params": [
+        {
+          "name": "outlines",
+          "cliName": "outlines",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Outlines template SVG (trace-outlines or multiview --svg) with closed outlines drawn in the cells to compare, its root recording the camera.",
+          "example": "dsl/skull3/outlines.svg"
+        },
+        {
+          "name": "out",
+          "cliName": "out",
+          "type": "string",
+          "required": false,
+          "default": "tmp/outline-compare",
+          "help": "Directory for the capture and the overlay.",
+          "example": "tmp/outline-compare"
+        }
+      ],
+      "responseHint": "{ok, cells:[{cell, view, iou, meanPixels, maxPixels, shortPixels, overPixels}], sumMeanPixels, capture, overlay, cameraMismatch:{distance, fov}}"
     },
     {
       "commandName": "palette",
@@ -1588,7 +1626,7 @@
           "type": "string",
           "required": true,
           "default": "",
-          "help": "SVG drawn on an ixdar-cli multiview --svg template: \u003cpolyline\u003e or \u003cpolygon\u003e shapes with data-strength in [-1, 1], stroke-width as the falloff width, data-kind silhouette/ridge/valley, data-mirror\u003d\"x\", data-op\u003d\"smooth\".",
+          "help": "SVG drawn on an ixdar-cli multiview --svg template: \u003cpolyline\u003e or \u003cpolygon\u003e shapes with data-radius and data-depth in world units, data-kind silhouette/ridge/valley, data-mirror\u003d\"x\", data-op\u003d\"smooth\", data-profile\u003d\"bowl\".",
           "example": "tmp/pass1.svg"
         },
         {
@@ -1601,7 +1639,7 @@
           "example": "0.03"
         }
       ],
-      "responseHint": "{ok, strokeRows:[{index, view, lifted, misses, grazing, radius, vertexIds, unresolvedGaps, stroke}], strokes}"
+      "responseHint": "{ok, strokeRows:[{index, view, lifted, kind, misses, outOfCell, grazing, radius, depth, strokeWidthRadius (world radius a stroke-width meant before MESH-80), vertexIds, unresolvedGaps, stroke}], strokes}"
     },
     {
       "commandName": "terminal",
@@ -1641,6 +1679,199 @@
       "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ui/tools/Tools.java",
       "params": [],
       "responseHint": "{ok, sceneClass, activeTool, defaultTool, tools:[{the ui-state tool object (name, displayName, shortName, description, lastRow, error, undo heads, mode, modes, controls, draft, preview, hovered, items), active, switchKey:{action, key, description, keyCode, controlHeld, shiftHeld}|null}], sceneControls:[the same control objects]}"
+    },
+    {
+      "commandName": "trace-outlines",
+      "path": "/mesh/trace-outlines",
+      "method": "POST",
+      "description": "Write several reference pictures\u0027 outlines into one orthographic outlines template at one shared scale: the scales are fitted so the axis two views share agrees (height from front/back/side, width from front/top, depth from side/top), the subject\u0027s height being --height, and each outline is centred on its cell; a 3/4 view is fitted to the silhouette the axis views carve. Without --template the template is written too.",
+      "sourceClass": "ixdar.automation.endpoints.mesh.TraceOutlines",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/TraceOutlines.java",
+      "params": [
+        {
+          "name": "reference",
+          "cliName": "reference",
+          "type": "string_list",
+          "required": true,
+          "default": "",
+          "help": "Picture and cell as picture\u003dcell, cell by name (Front, Right, 3/4 Front-R, ...) or index; repeat per view.",
+          "example": "tmp/references/ref_01_front.png\u003dFront"
+        },
+        {
+          "name": "out",
+          "cliName": "out",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "SVG written: the template\u0027s root and cell list, then one silhouette polyline per picture.",
+          "example": "tmp/skull/outlines.svg"
+        },
+        {
+          "name": "template",
+          "cliName": "template",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Existing orthographic outlines template whose root (cameras, cell size) to keep; default a new orthographic one.",
+          "example": "tmp/skull/outlines.svg"
+        },
+        {
+          "name": "height",
+          "cliName": "height",
+          "type": "float",
+          "required": false,
+          "default": "2.0",
+          "help": "World height the subject\u0027s outlines are scaled to.",
+          "example": "2.0"
+        },
+        {
+          "name": "fill",
+          "cliName": "fill",
+          "type": "float",
+          "required": false,
+          "default": "0.45",
+          "help": "Share of a new template\u0027s cell height the subject\u0027s height fills.",
+          "example": "0.45"
+        },
+        {
+          "name": "cell_size",
+          "cliName": "cell_size",
+          "type": "int",
+          "required": false,
+          "default": "1280",
+          "help": "Cell width and height in pixels of a new template.",
+          "example": "1280"
+        },
+        {
+          "name": "simplify",
+          "cliName": "simplify",
+          "type": "float",
+          "required": false,
+          "default": "1.0",
+          "help": "Largest distance, in template units, a dropped outline point may lie from the kept polyline.",
+          "example": "1.0"
+        },
+        {
+          "name": "tolerance",
+          "cliName": "tolerance",
+          "type": "int",
+          "required": false,
+          "default": "40",
+          "help": "Largest summed RGB difference from a picture\u0027s border colour still counted as background.",
+          "example": "40"
+        }
+      ],
+      "responseHint": "{ok, svg, outlines:[{picture, cell, view, worldPerPicturePixel, points, aligned}], extents, distance}"
+    },
+    {
+      "commandName": "trace-reference",
+      "path": "/mesh/trace-reference",
+      "method": "POST",
+      "description": "Write a reference picture\u0027s silhouette into a template cell as silhouette polylines, fitted to the sculpt\u0027s silhouette in that cell of the capture, or with --height to a world height, so a size shortfall shows. The subject is whatever stands out from the picture\u0027s border colour; no camera of the reference is read.",
+      "sourceClass": "ixdar.automation.endpoints.mesh.TraceReference",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/TraceReference.java",
+      "params": [
+        {
+          "name": "reference",
+          "cliName": "reference",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Reference picture (PNG or JPEG) of the subject.",
+          "example": "tmp/references/ref_04_right.png"
+        },
+        {
+          "name": "template",
+          "cliName": "template",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "SVG drawing template written by multiview --svg.",
+          "example": "tmp/shape.svg"
+        },
+        {
+          "name": "cell",
+          "cliName": "cell",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Cell to trace into, by its view name (Front, Right, 3/4 Front-R, ...) or index.",
+          "example": "Right"
+        },
+        {
+          "name": "capture",
+          "cliName": "capture",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Multiview PNG the template was written with; default the PNG its comment names, next to it.",
+          "example": "tmp/shape.png"
+        },
+        {
+          "name": "out",
+          "cliName": "out",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "SVG written; default the template itself, the polylines added before its end.",
+          "example": "tmp/out.svg"
+        },
+        {
+          "name": "edges",
+          "cliName": "edges",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Also write the subject\u0027s interior edges, placed the same way, to this SVG for viewing (it records no camera, so no node lifts it).",
+          "example": "tmp/edges.svg"
+        },
+        {
+          "name": "radius",
+          "cliName": "radius",
+          "type": "float",
+          "required": false,
+          "default": "0.15",
+          "help": "data-radius of the silhouette polylines: how far, in world units, an outline is reached and dragged onto them.",
+          "example": "0.15"
+        },
+        {
+          "name": "pieces",
+          "cliName": "pieces",
+          "type": "int",
+          "required": false,
+          "default": "4",
+          "help": "Number of polylines the closed outline is split into.",
+          "example": "4"
+        },
+        {
+          "name": "simplify",
+          "cliName": "simplify",
+          "type": "float",
+          "required": false,
+          "default": "2.0",
+          "help": "Largest distance, in template units, a dropped outline point may lie from the kept polyline.",
+          "example": "2.0"
+        },
+        {
+          "name": "tolerance",
+          "cliName": "tolerance",
+          "type": "int",
+          "required": false,
+          "default": "40",
+          "help": "Largest summed RGB difference from the picture\u0027s border colour still counted as background.",
+          "example": "40"
+        },
+        {
+          "name": "height",
+          "cliName": "height",
+          "type": "float",
+          "required": false,
+          "default": "0",
+          "help": "World height of the subject in this view; 0 fits it to the sculpt\u0027s own silhouette height.",
+          "example": "1.8"
+        }
+      ],
+      "responseHint": "{ok, svg, cell, view, capture, polylines, points, scale, sculptBox, referenceBox, edges?, edgeLines?}"
     },
     {
       "commandName": "type",

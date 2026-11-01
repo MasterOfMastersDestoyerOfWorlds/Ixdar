@@ -40,7 +40,8 @@ public class LoadMeshNode implements MeshNode {
     @Override
     public String description() {
         return "Loads a mesh from an OBJ, PLY, OFF or glTF (.glb/.gltf) file, resolving relative paths"
-                + " against the working directory and the ixdar-app module directory, and a "
+                + " against the working directory, the ixdar-app module directory and its src/main/resources"
+                + " (so dsl/<subject>/base.ply resolves as stroke_sculpt's svg does), and a "
                 + MeshLoader.DATA_ROOT_PLACEHOLDER + " prefix against this machine's data root.";
     }
 

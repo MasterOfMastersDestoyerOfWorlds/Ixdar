@@ -59,7 +59,14 @@ class SilhouetteHullNodeTest {
     private static final float SPHERE_RADIUS = 1f;
     private static final float SPHERE_RADIUS_TOLERANCE = 0.02f;
     private static final int SPHERE_EULER_CHARACTERISTIC = 2;
-    private static final String VIEW_ERROR = "%s along axis %d: mean %.2f px, max %.2f px; ";
+    private static final float LOPSIDED_WIDE = 1.0f;
+    private static final float LOPSIDED_NARROW = 0.7f;
+    private static final float LOPSIDED_HEIGHT = 1.2f;
+    private static final float LOPSIDED_DEPTH = 0.8f;
+    private static final float LOPSIDED_TOP_WIDTH = 0.85f;
+    private static final float LOPSIDED_TRACED_ASYMMETRY = 0.1f;
+    private static final float LOPSIDED_MIRRORED_ASYMMETRY = 0.06f;
+    private static final String VIEW_ERROR ="%s along axis %d: mean %.2f px, max %.2f px; ";
 
     @Test
     void hullFollowsNotchedAndConcaveOutlines() {
@@ -90,6 +97,51 @@ class SilhouetteHullNodeTest {
             float outside = silhouetteError(surface, outlines[axis], axis)[2];
             assertTrue(outside <= STRICT_OUTSIDE_PIXELS, "view along axis " + axis + " stands " + outside + " px out");
         }
+    }
+
+    @Test
+    void symmetryXEvensOutALopsidedTrace() {
+        // MESH-80: the front trace bulges right (+x reaches 1.0, -x only 0.7) while top and side agree
+        // on a symmetric body; mirrored, the hull keeps a point by the mean of its own and its mirror
+        // image's depth inside the outlines, so it comes out symmetric about x = 0.
+        float[][] outlines = new float[3][OUTLINE_POINTS * 3];
+        for (int point = 0; point < OUTLINE_POINTS; point++) {
+            double angle = 2.0 * Math.PI * point / OUTLINE_POINTS;
+            float cosine = (float) Math.cos(angle);
+            float sine = (float) Math.sin(angle);
+            int at = point * 3;
+            outlines[2][at] = cosine * (cosine > 0f ? LOPSIDED_WIDE : LOPSIDED_NARROW);
+            outlines[2][at + 1] = LOPSIDED_HEIGHT * sine;
+            outlines[0][at + 1] = LOPSIDED_HEIGHT * sine;
+            outlines[0][at + 2] = LOPSIDED_DEPTH * cosine;
+            outlines[1][at] = LOPSIDED_TOP_WIDTH * cosine;
+            outlines[1][at + 2] = LOPSIDED_DEPTH * sine;
+        }
+        float[] asymmetry = new float[2];
+        String[] symmetries = { SilhouetteHullNode.NO_SYMMETRY, SilhouetteHullNode.MIRROR_X };
+        for (int variant = 0; variant < symmetries.length; variant++) {
+            VoxelGrid volume = new MapNodeContext(new SilhouetteHullNode()).with(SilhouetteHullNode.SVG, template(outlines))
+                    .with(SilhouetteHullNode.MISSES, 0).with(SilhouetteHullNode.SYMMETRY, symmetries[variant]).eval()
+                    .output(SilhouetteHullNode.VOLUME_OUT, VoxelGrid.class);
+            MeshTopology surface = new MapNodeContext(new VolumeToMeshNode()).with(VolumeToMeshNode.VOLUME, volume)
+                    .eval().output(VolumeToMeshNode.GEOMETRY_OUT, GeometryBundle.class).mesh();
+            Vector3f position = new Vector3f();
+            Vector3f other = new Vector3f();
+            float worst = 0f;
+            for (int index = 0; index < surface.vertexCount(); index++) {
+                surface.vertexPosition(surface.vertexIdAt(index), position);
+                float nearest = Float.POSITIVE_INFINITY;
+                for (int candidate = 0; candidate < surface.vertexCount(); candidate++) {
+                    surface.vertexPosition(surface.vertexIdAt(candidate), other);
+                    nearest = Math.min(nearest, other.distance(-position.x, position.y, position.z));
+                }
+                worst = Math.max(worst, nearest);
+            }
+            asymmetry[variant] = worst;
+        }
+        assertTrue(asymmetry[0] > LOPSIDED_TRACED_ASYMMETRY, "as traced the hull is lopsided: " + asymmetry[0]);
+        assertTrue(asymmetry[1] < LOPSIDED_MIRRORED_ASYMMETRY, "mirrored the hull is symmetric to a lattice step: "
+                + asymmetry[1] + " (as traced " + asymmetry[0] + ")");
     }
 
     @Test

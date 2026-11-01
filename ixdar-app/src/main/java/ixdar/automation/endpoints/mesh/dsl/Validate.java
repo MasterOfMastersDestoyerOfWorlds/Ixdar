@@ -15,7 +15,6 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.devtools.ValidateDsl;
 import ixdar.automation.AutomationEndpoint;
-import ixdar.automation.AutomationPortFile;
 
 @AutomationRouteAnnotation(path = "/mesh/dsl/validate", method = APIMethod.POST)
 public class Validate extends AutomationEndpoint implements AutomationRoute {
@@ -63,16 +62,8 @@ public class Validate extends AutomationEndpoint implements AutomationRoute {
         if (dslValue.indexOf('\n') >= 0 || dslValue.length() > MAX_PATH_LENGTH) {
             return null;
         }
-        File named = new File(dslValue);
-        if (named.isAbsolute()) {
-            return named.isFile() ? named : null;
-        }
-        File fromWorkingDirectory = new File(System.getProperty("user.dir"), dslValue);
-        if (fromWorkingDirectory.isFile()) {
-            return fromWorkingDirectory;
-        }
-        File fromCheckout = AutomationPortFile.checkoutRoot().resolve(dslValue).toFile();
-        return fromCheckout.isFile() ? fromCheckout : null;
+        File named = resolvePath(dslValue);
+        return named != null && named.isFile() ? named : null;
     }
 
     @Override

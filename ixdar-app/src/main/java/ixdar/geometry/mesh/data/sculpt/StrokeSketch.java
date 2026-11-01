@@ -49,8 +49,6 @@ public final class StrokeSketch {
 
     public static final String VIEW_SEPARATOR = ";";
 
-    public static final String RESOURCE_DIRECTORY = "src/main/resources/";
-
     public static final String SVG_TEXT_START = "<";
 
     public static final String POLYGON = "polygon";
@@ -89,8 +87,6 @@ public final class StrokeSketch {
 
     public static final float GRAZING_COSINE = 0.25f;
 
-    public static final float FACE_ON_COSINE = 0.65f;
-
     public static final float MINIMUM_FILL_STEP_PIXELS = 3f;
 
     public static final float NEAR_PLANE_FRACTION = 0.01f;
@@ -109,15 +105,22 @@ public final class StrokeSketch {
 
     public static final Pattern POINTS_ATTRIBUTE = Pattern.compile("\\bpoints\\s*=\\s*\"([^\"]*)\"");
 
-    public static final Pattern STRENGTH_ATTRIBUTE = Pattern.compile("\\bdata-strength\\s*=\\s*\"([^\"]*)\"");
+    public static final Pattern LEGACY_STRENGTH_ATTRIBUTE = Pattern.compile("\\bdata-strength\\s*=");
+
+    public static final Pattern DEPTH_ATTRIBUTE = Pattern.compile("\\bdata-depth\\s*=\\s*\"([^\"]*)\"");
+
+    public static final Pattern RADIUS_ATTRIBUTE = Pattern.compile("\\bdata-radius\\s*=\\s*\"([^\"]*)\"");
+
+    public static final Pattern BOWL_ATTRIBUTE = Pattern.compile("\\bdata-profile\\s*=\\s*\"bowl\"");
+
+    public static final String MIGRATION_HINT = "; since MESH-80 a stroke's size is data-radius and its strength "
+            + "data-depth, both in world units: run ixdar-cli sculpt-migrate --dsl <the layer's DSL> to convert it";
 
     public static final Pattern MIRROR_ATTRIBUTE = Pattern.compile("\\bdata-mirror\\s*=\\s*\"x\"");
 
     public static final Pattern KIND_ATTRIBUTE = Pattern.compile("\\bdata-kind\\s*=\\s*\"([a-z]+)\"");
 
     public static final Pattern SMOOTH_ATTRIBUTE = Pattern.compile("\\bdata-op\\s*=\\s*\"smooth\"");
-
-    public static final Pattern WIDTH_ATTRIBUTE = Pattern.compile("\\bstroke-width\\s*[=:]\\s*\"?([0-9.]+)");
 
     public static final Pattern VIEWBOX_ATTRIBUTE = Pattern.compile("\\bviewBox\\s*=\\s*\"([^\"]*)\"");
 
@@ -170,21 +173,30 @@ public final class StrokeSketch {
     /** Points (silhouettes: view rays) each shape lifted to. */
     public int[] liftedByShape = new int[0];
 
-    /** Points of each shape whose ray met no surface. */
+    /** Points (fill samples) of each shape whose ray met no surface. */
     public int[] missesByShape = new int[0];
+
+    /** Points of each shape lying outside the cell its first point is in. */
+    public int[] outOfCellByShape = new int[0];
 
     /** Points of each shape dropped as too grazing to the view. */
     public int[] grazingByShape = new int[0];
 
-    /** Falloff radius each shape lifted to, world units. */
+    /** Each shape's data-radius, its falloff radius (silhouettes: reach) in world units. */
     public float[] radiusByShape = new float[0];
+
+    /** Each shape's data-depth, its signed displacement in world units; 0 for a silhouette. */
+    public float[] depthByShape = new float[0];
+
+    /** Each shape's kind: silhouette, fill, smooth, or the sign's ridge or valley. */
+    public String[] kindByShape = new String[0];
 
     /** Each shape's lifted surface points, packed xyz; silhouettes hold none. */
     public float[][] liftedXyzByShape = new float[0][];
 
     /**
-     * Read a pass's SVG: the file at {@code path}, else under {@link #RESOURCE_DIRECTORY}, else the
-     * classpath resource, so {@code dsl/skull/pass1.svg} works from either module root or a jar.
+     * Read a pass's SVG: the file {@link MeshLoader#resolve} finds, as load_mesh finds its mesh, else
+     * the classpath resource, so {@code dsl/skull/pass1.svg} works from either module root or a jar.
      *
      * @param path file path or resource path
      * @throws IOException              when no location holds the file
@@ -193,11 +205,9 @@ public final class StrokeSketch {
      */
     public static StrokeSketch read(String path) throws IOException {
         String svg = null;
-        for (String candidate : new String[] { path, RESOURCE_DIRECTORY + path }) {
-            Path file = MeshLoader.resolve(candidate);
-            if (svg == null && Files.isRegularFile(file)) {
-                svg = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
-            }
+        Path file = MeshLoader.resolve(path);
+        if (Files.isRegularFile(file)) {
+            svg = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
         }
         if (svg == null) {
             try (InputStream stream = StrokeSketch.class.getClassLoader().getResourceAsStream(path)) {
@@ -301,17 +311,16 @@ public final class StrokeSketch {
     public float[][] cellOutlines() {
         float[][] cells = new float[viewCameras.length][0];
         for (String shape : shapes) {
-            Matcher points = POINTS_ATTRIBUTE.matcher(shape);
-            String[] numbers = points.find() ? points.group(1).trim().split(NUMBER_SEPARATORS) : new String[0];
-            if (numbers.length < 2) {
+            float[] pixels = gridPixels(shape);
+            if (pixels.length < 2) {
                 continue;
             }
-            int cell = cellAt(Float.parseFloat(numbers[0]) * svgScaleX, Float.parseFloat(numbers[1]) * svgScaleY);
-            float[] outline = Arrays.copyOf(cells[cell], cells[cell].length + numbers.length / 2 * 2);
+            int cell = cellAt(pixels[0], pixels[1]);
+            float[] outline = Arrays.copyOf(cells[cell], cells[cell].length + pixels.length);
             int size = cells[cell].length / 2;
-            for (int point = 0; point < numbers.length / 2; point++) {
-                float x = Float.parseFloat(numbers[point * 2]) * svgScaleX - cell % columns * cellWidth;
-                float y = Float.parseFloat(numbers[point * 2 + 1]) * svgScaleY - cell / columns * cellHeight;
+            for (int point = 0; point < pixels.length / 2; point++) {
+                float x = pixels[point * 2] - cell % columns * cellWidth;
+                float y = pixels[point * 2 + 1] - cell / columns * cellHeight;
                 if (size == 0 || x != outline[size * 2 - 2] || y != outline[size * 2 - 1]) {
                     outline[size * 2] = x;
                     outline[size * 2 + 1] = y;
@@ -345,6 +354,22 @@ public final class StrokeSketch {
     }
 
     /**
+     * A shape's points in grid pixels, its SVG units scaled by the viewBox.
+     *
+     * @param shape the shape's tag
+     * @return packed xy, empty when the tag has no points
+     */
+    private float[] gridPixels(String shape) {
+        Matcher points = POINTS_ATTRIBUTE.matcher(shape);
+        String[] numbers = points.find() ? points.group(1).trim().split(NUMBER_SEPARATORS) : new String[0];
+        float[] pixels = new float[numbers.length / 2 * 2];
+        for (int index = 0; index < pixels.length; index++) {
+            pixels[index] = Float.parseFloat(numbers[index]) * (index % 2 == 0 ? svgScaleX : svgScaleY);
+        }
+        return pixels;
+    }
+
+    /**
      * The cell a grid pixel falls in, clamped to the grid.
      *
      * @param gridX grid pixel x from the left
@@ -361,9 +386,13 @@ public final class StrokeSketch {
 
     /**
      * Lift every shape onto a mesh by casting CPU rays through the stored camera: polylines to
-     * points weighted by how face-on the surface is, polygons to fill samples, silhouettes to rays.
+     * points, polygons to fill samples (weighted by depth below the outline when bowl-shaped),
+     * silhouettes to rays. Size and depth are the shape's own world-unit attributes.
      *
      * @param mesh surface the rays are cast at
+     * @throws IllegalArgumentException when a shape lacks data-radius, or data-depth off a
+     *                                  silhouette, still carries data-strength, or its kind
+     *                                  contradicts its depth's sign
      * @return all lifted strokes in {@link StrokeSculpt}'s text form; per-shape results land in the
      *         {@code ...ByShape} fields
      */
@@ -373,8 +402,11 @@ public final class StrokeSketch {
         viewByShape = new int[shapeTotal];
         liftedByShape = new int[shapeTotal];
         missesByShape = new int[shapeTotal];
+        outOfCellByShape = new int[shapeTotal];
         grazingByShape = new int[shapeTotal];
         radiusByShape = new float[shapeTotal];
+        depthByShape = new float[shapeTotal];
+        kindByShape = new String[shapeTotal];
         liftedXyzByShape = new float[shapeTotal][];
         int[] faceOfTriangle = new int[mesh.triangleCount()];
         TriangleBvh bvh = TriangleBvh.over(mesh, faceOfTriangle);
@@ -382,6 +414,8 @@ public final class StrokeSketch {
         Matrix4f model = new Matrix4f();
         Vector3f normal = new Vector3f();
         Vector3f toEye = new Vector3f();
+        Vector3f ray = new Vector3f();
+        Vector3f hit = new Vector3f();
         float[] origin = new float[3];
         float[] direction = new float[3];
         StringBuilder allStrokes = new StringBuilder();
@@ -391,21 +425,27 @@ public final class StrokeSketch {
             viewByShape[stroke] = -1;
             liftedXyzByShape[stroke] = new float[0];
             boolean fill = shape.startsWith(SVG_TEXT_START + POLYGON);
-            Matcher points = POINTS_ATTRIBUTE.matcher(shape);
-            Matcher strengthMatch = STRENGTH_ATTRIBUTE.matcher(shape);
-            Matcher widthMatch = WIDTH_ATTRIBUTE.matcher(shape);
+            Matcher depthMatch = DEPTH_ATTRIBUTE.matcher(shape);
+            Matcher radiusMatch = RADIUS_ATTRIBUTE.matcher(shape);
             Matcher kindMatch = KIND_ATTRIBUTE.matcher(shape);
             boolean mirror = MIRROR_ATTRIBUTE.matcher(shape).find();
-            float strength = strengthMatch.find()
-                    ? Math.max(-1f, Math.min(1f, Float.parseFloat(strengthMatch.group(1)))) : 1f;
+            boolean smooth = SMOOTH_ATTRIBUTE.matcher(shape).find();
             String kind = kindMatch.find() ? kindMatch.group(1) : "";
-            strength = RIDGE.equals(kind) ? Math.abs(strength) : VALLEY.equals(kind) ? -Math.abs(strength) : strength;
-            float strokeWidthPixels = widthMatch.find() ? Float.parseFloat(widthMatch.group(1)) * svgScaleY : 0f;
-            String[] numbers = points.find() ? points.group(1).trim().split(NUMBER_SEPARATORS) : new String[0];
-            float[] pixels = new float[numbers.length / 2 * 2];
-            for (int index = 0; index < pixels.length; index++) {
-                pixels[index] = Float.parseFloat(numbers[index]) * (index % 2 == 0 ? svgScaleX : svgScaleY);
+            boolean silhouette = SILHOUETTE.equals(kind);
+            if (LEGACY_STRENGTH_ATTRIBUTE.matcher(shape).find() || !radiusMatch.find()
+                    || !silhouette && !smooth && !depthMatch.find()) {
+                throw new IllegalArgumentException("stroke " + stroke + " needs data-radius" + (silhouette || smooth
+                        ? "" : " and data-depth") + " and no data-strength: " + shape + MIGRATION_HINT);
             }
+            float radius = radiusByShape[stroke] = Float.parseFloat(radiusMatch.group(1));
+            float depth = depthByShape[stroke] = silhouette || smooth ? 0f : Float.parseFloat(depthMatch.group(1));
+            if (RIDGE.equals(kind) && depth < 0f || VALLEY.equals(kind) && depth > 0f) {
+                throw new IllegalArgumentException("stroke " + stroke + " is a " + kind + " with data-depth " + depth
+                        + "; the sign of data-depth alone says raise (+) or sink (-): " + shape);
+            }
+            kindByShape[stroke] = silhouette ? SILHOUETTE : fill ? FILL : smooth ? StrokeSculpt.SMOOTH_FLAG
+                    : depth >= 0f ? RIDGE : VALLEY;
+            float[] pixels = gridPixels(shape);
             if (pixels.length < 2) {
                 continue;
             }
@@ -423,86 +463,82 @@ public final class StrokeSketch {
             Vector3f forward = new Vector3f(camera.target).sub(camera.position).normalize();
             String eyeFlag = String.format(Locale.ROOT, " %s%.5f/%.5f/%.5f/%.5f/%.5f/%.5f", StrokeSculpt.EYE_PREFIX,
                     camera.position.x, camera.position.y, camera.position.z, forward.x, forward.y, forward.z);
-            if (SILHOUETTE.equals(kind)) {
-                // An over-sketched outline lifts to the view's eye, axis and one view ray per
-                // point; the sculpt finds the contour against the stroke itself.
-                float reach = strokeWidthPixels * centerWorldPerPixel;
-                StringBuilder text = new StringBuilder(String.format(Locale.ROOT, "%.2f r=%.4f %s%s%s:",
-                        Math.abs(strength), reach, StrokeSculpt.SILHOUETTE_FLAG, eyeFlag,
-                        mirror ? " " + StrokeSculpt.MIRROR_FLAG : ""));
-                int rays = 0;
-                for (int point = 0; point < pixels.length / 2; point++) {
-                    if (camera.rayThroughPixel(model, pixels[point * 2], pixels[point * 2 + 1], cellWidth,
-                            cellHeight, origin, direction)) {
-                        Vector3f ray = new Vector3f(direction[0], direction[1], direction[2]).normalize();
-                        text.append(rays++ == 0 ? " " : POINT_SEPARATOR)
-                                .append(String.format(Locale.ROOT, "%.5f %.5f %.5f 1", ray.x, ray.y, ray.z));
-                    }
+            // A silhouette lifts to one view ray per point, the sculpt finding the contour against the
+            // stroke and dragging it all the way on; a polyline to surface points, a polygon to fill
+            // samples, which a bowl weights t(2 - t) by their distance in from the outline over the
+            // deepest one's, so the cavity's floor curves up to its rim.
+            float[] samples = fill ? PolygonScan.coveredPoints(pixels,
+                    Math.max(MINIMUM_FILL_STEP_PIXELS, spacing / centerWorldPerPixel)) : pixels;
+            float[] lifted = new float[samples.length / 2 * 3];
+            float[] weights = new float[samples.length / 2];
+            float[] insetBySample = new float[fill && BOWL_ATTRIBUTE.matcher(shape).find() ? weights.length : 0];
+            float deepestInset = 0f;
+            for (int point = 0; point < insetBySample.length; point++) {
+                insetBySample[point] = Float.POSITIVE_INFINITY;
+                for (int corner = 0; corner < pixels.length; corner += 2) {
+                    int next = (corner + 2) % pixels.length;
+                    float edgeX = pixels[next] - pixels[corner];
+                    float edgeY = pixels[next + 1] - pixels[corner + 1];
+                    float offsetX = samples[point * 2] - pixels[corner];
+                    float offsetY = samples[point * 2 + 1] - pixels[corner + 1];
+                    float along = Math.max(0f, Math.min(1f, (offsetX * edgeX + offsetY * edgeY)
+                            / Math.max(Float.MIN_NORMAL, edgeX * edgeX + edgeY * edgeY)));
+                    insetBySample[point] = Math.min(insetBySample[point],
+                            (float) Math.hypot(offsetX - along * edgeX, offsetY - along * edgeY));
                 }
-                liftedByShape[stroke] = rays;
-                radiusByShape[stroke] = reach;
-                strokeByShape[stroke] = rays > 0 ? text.toString() : "";
-            } else {
-                float[] samples = fill ? PolygonScan.coveredPoints(pixels,
-                        Math.max(MINIMUM_FILL_STEP_PIXELS, spacing / centerWorldPerPixel)) : pixels;
-                float[] lifted = new float[samples.length / 2 * 3];
-                float[] weights = new float[samples.length / 2];
-                int liftedCount = 0;
-                float radiusSum = 0f;
-                for (int point = 0; point < samples.length / 2; point++) {
-                    float localX = samples[point * 2];
-                    float localY = samples[point * 2 + 1];
-                    if (localX < 0 || localY < 0 || localX >= cellWidth || localY >= cellHeight
-                            || !camera.rayThroughPixel(model, localX, localY, cellWidth, cellHeight, origin,
-                                    direction)) {
-                        missesByShape[stroke]++;
-                        continue;
-                    }
-                    int nearestTriangle = bvh.nearestHit(origin, direction, Double.POSITIVE_INFINITY, stack);
-                    double nearestParameter = bvh.hitParameter;
-                    if (nearestTriangle < 0) {
-                        missesByShape[stroke]++;
-                        continue;
-                    }
-                    float hitX = (float) (origin[0] + nearestParameter * direction[0]);
-                    float hitY = (float) (origin[1] + nearestParameter * direction[1]);
-                    float hitZ = (float) (origin[2] + nearestParameter * direction[2]);
-                    mesh.faceNormal(faceOfTriangle[nearestTriangle], normal);
-                    toEye.set(camera.position).sub(hitX, hitY, hitZ).normalize();
-                    float facing = Math.abs(normal.normalize().dot(toEye));
+                deepestInset = Math.max(deepestInset, insetBySample[point]);
+            }
+            int liftedCount = 0;
+            for (int point = 0; point < samples.length / 2; point++) {
+                float localX = samples[point * 2];
+                float localY = samples[point * 2 + 1];
+                if (localX < 0 || localY < 0 || localX >= cellWidth || localY >= cellHeight) {
+                    outOfCellByShape[stroke]++;
+                    continue;
+                }
+                if (!camera.rayThroughPixel(model, localX, localY, cellWidth, cellHeight, origin, direction)) {
+                    missesByShape[stroke]++;
+                    continue;
+                }
+                int nearestTriangle = silhouette ? -1 : bvh.nearestHit(origin, direction, Double.POSITIVE_INFINITY, stack);
+                ray.set(direction[0], direction[1], direction[2]);
+                hit.set(ray).normalize();
+                if (!silhouette && nearestTriangle < 0) {
+                    missesByShape[stroke]++;
+                    continue;
+                }
+                if (!silhouette) {
+                    hit.set(origin[0], origin[1], origin[2]).fma((float) bvh.hitParameter, ray);
+                    float facing = Math.abs(mesh.faceNormal(faceOfTriangle[nearestTriangle], normal).normalize()
+                            .dot(toEye.set(camera.position).sub(hit).normalize()));
                     if (facing < GRAZING_COSINE) {
                         grazingByShape[stroke]++;
                         continue;
                     }
-                    if (!fill && liftedCount > 0 && Vector3f.distance(hitX, hitY, hitZ, lifted[liftedCount * 3 - 3],
+                    if (!fill && liftedCount > 0 && hit.distance(lifted[liftedCount * 3 - 3],
                             lifted[liftedCount * 3 - 2], lifted[liftedCount * 3 - 1]) < spacing) {
                         continue;
                     }
-                    lifted[liftedCount * 3] = hitX;
-                    lifted[liftedCount * 3 + 1] = hitY;
-                    lifted[liftedCount * 3 + 2] = hitZ;
-                    weights[liftedCount] = Math.min(1f, (facing - GRAZING_COSINE) / (FACE_ON_COSINE - GRAZING_COSINE));
-                    radiusSum += strokeWidthPixels * (float) camera.worldPerPixel(hitX, hitY, hitZ, cellHeight);
-                    liftedCount++;
                 }
-                float radius = liftedCount == 0 ? 0f : radiusSum / liftedCount;
-                liftedByShape[stroke] = liftedCount;
-                radiusByShape[stroke] = radius;
-                liftedXyzByShape[stroke] = Arrays.copyOf(lifted, liftedCount * 3);
-                StringBuilder text = new StringBuilder(String.format(Locale.ROOT, "%.2f", strength));
-                if (radius > 0f) {
-                    text.append(String.format(Locale.ROOT, " r=%.4f", radius));
-                }
-                text.append(fill ? " " + StrokeSculpt.FILL_FLAG : "").append(mirror ? " " + StrokeSculpt.MIRROR_FLAG : "")
-                        .append(SMOOTH_ATTRIBUTE.matcher(shape).find() ? " " + StrokeSculpt.SMOOTH_FLAG : "")
-                        .append(eyeFlag).append(StrokeSculpt.HEADER_SEPARATOR);
-                for (int point = 0; point < liftedCount; point++) {
-                    text.append(point == 0 ? " " : POINT_SEPARATOR).append(String.format(Locale.ROOT,
-                            "%.4f %.4f %.4f %.2f", lifted[point * 3], lifted[point * 3 + 1], lifted[point * 3 + 2],
-                            weights[point]));
-                }
-                strokeByShape[stroke] = liftedCount > 0 ? text.toString() : "";
+                lifted[liftedCount * 3] = hit.x;
+                lifted[liftedCount * 3 + 1] = hit.y;
+                lifted[liftedCount * 3 + 2] = hit.z;
+                float inset = deepestInset > 0f ? insetBySample[point] / deepestInset : 1f;
+                weights[liftedCount++] = inset * (2f - inset);
             }
+            liftedByShape[stroke] = liftedCount;
+            liftedXyzByShape[stroke] = silhouette ? new float[0] : Arrays.copyOf(lifted, liftedCount * 3);
+            StringBuilder text = new StringBuilder(String.format(Locale.ROOT, "%.5f r=%.5f", silhouette ? 1f : depth,
+                    radius)).append(silhouette ? " " + StrokeSculpt.SILHOUETTE_FLAG : "")
+                    .append(fill ? " " + StrokeSculpt.FILL_FLAG : "").append(mirror ? " " + StrokeSculpt.MIRROR_FLAG : "")
+                    .append(smooth ? " " + StrokeSculpt.SMOOTH_FLAG : "").append(eyeFlag)
+                    .append(StrokeSculpt.HEADER_SEPARATOR);
+            for (int point = 0; point < liftedCount; point++) {
+                text.append(point == 0 ? " " : POINT_SEPARATOR).append(String.format(Locale.ROOT,
+                        "%.5f %.5f %.5f %.3f", lifted[point * 3], lifted[point * 3 + 1], lifted[point * 3 + 2],
+                        weights[point]));
+            }
+            strokeByShape[stroke] = liftedCount > 0 ? text.toString() : "";
             if (!strokeByShape[stroke].isEmpty()) {
                 allStrokes.append(allStrokes.length() == 0 ? "" : STROKE_SEPARATOR).append(strokeByShape[stroke]);
             }
@@ -515,8 +551,10 @@ public final class StrokeSketch {
      * lifts through the view it was drawn on. The cells of a live sketch run in one row.
      *
      * @param kind             {@link #SILHOUETTE}, {@link #RIDGE}, {@link #VALLEY} or {@link #FILL}
-     * @param strength         the stroke's weight in [-1, 1]; ridge and valley take its magnitude
-     * @param widthPixels      falloff width in view pixels
+     * @param strength         depth over radius, the depth written as data-depth; ridge and valley
+     *                         take its magnitude
+     * @param widthPixels      falloff radius in view pixels at the view's target, written as
+     *                         data-radius in world units
      * @param pixels           the stroke's points in view pixels from the top left, packed xy
      * @param view             the camera the stroke was drawn through
      * @param viewOrthographic whether that view projects orthographically
@@ -558,9 +596,14 @@ public final class StrokeSketch {
                     (pixels[index] + column * cellWidth) / svgScaleX, pixels[index + 1] / svgScaleY));
         }
         boolean fill = FILL.equals(kind);
-        shapes.add(String.format(Locale.ROOT, "<%s%s data-strength=\"%.2f\" stroke-width=\"%.1f\" points=\"%s\"/>",
-                fill ? POLYGON : POLYLINE, fill ? "" : " data-kind=\"" + kind + "\" fill=\"none\"",
-                Math.max(-1f, Math.min(1f, strength)), widthPixels / svgScaleY, points));
+        Vector3f target = view.orbitTarget;
+        float radius = widthPixels * (float) view.worldPerPixel(target.x, target.y, target.z, viewHeight);
+        String depth = SILHOUETTE.equals(kind) ? ""
+                : String.format(Locale.ROOT, " data-depth=\"%.5f\"", (RIDGE.equals(kind) ? Math.abs(strength)
+                        : VALLEY.equals(kind) ? -Math.abs(strength) : strength) * radius);
+        shapes.add(String.format(Locale.ROOT, "<%s%s data-radius=\"%.5f\"%s stroke-width=\"%.1f\" points=\"%s\"/>",
+                fill ? POLYGON : POLYLINE, fill ? "" : " data-kind=\"" + kind + "\" fill=\"none\"", radius, depth,
+                widthPixels / svgScaleY, points));
     }
 
     /**

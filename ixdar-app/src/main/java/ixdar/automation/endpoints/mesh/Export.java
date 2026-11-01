@@ -13,6 +13,7 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.GltfMeshWriter;
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.io.MeshExport;
 import ixdar.geometry.mesh.data.io.PlyMeshWriter;
 import ixdar.nodegraph.nodes.data.ExportMeshNode;
@@ -28,7 +29,8 @@ public class Export extends AutomationEndpoint implements AutomationRoute {
      * {@code POST /mesh/export}: write the active viewer's mesh, with its normals and per-corner
      * UVs, to a {@code .glb} or {@code .ply} file.
      *
-     * @param body {@code path} to write, and an optional {@code format} overriding the extension
+     * @param body {@code path} to write (relative to the checkout), and an optional {@code format}
+     *             overriding the extension
      * @throws IOException when the file cannot be written
      * @return what was written, or an error object when no mesh is loaded
      */
@@ -49,7 +51,7 @@ public class Export extends AutomationEndpoint implements AutomationRoute {
                 if (bundle == null || bundle.mesh() == null) {
                     return failure("Mesh not loaded yet");
                 }
-                return write(bundle, Path.of(path), format);
+                return write(bundle, MeshLoader.resolve(path), format);
             });
         } catch (Exception failed) {
             return failure(failed.getMessage() == null ? failed.toString() : failed.getMessage());
@@ -62,7 +64,8 @@ public class Export extends AutomationEndpoint implements AutomationRoute {
                 .description("Write the active viewer mesh, with normals and per-corner UVs, to a "
                         + "glTF binary or ASCII PLY file.")
                 .param(PATH, RouteParamType.STRING, true, "",
-                        "File to write; missing parent directories are created.",
+                        "File to write, relative to the checkout like every CLI path; missing parent "
+                                + "directories are created.",
                         "/home/acw/crawfish/repaired/IMG_4109.glb")
                 .param(FORMAT, RouteParamType.STRING, false, "",
                         "GLB or PLY; empty takes the format from the path's extension.", "glb")

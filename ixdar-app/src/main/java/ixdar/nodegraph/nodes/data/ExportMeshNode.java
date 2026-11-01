@@ -91,7 +91,7 @@ public class ExportMeshNode implements MeshNode {
         String requested = formatInput instanceof String text ? text : "";
         String format = formatOf(path, requested);
         try {
-            Path file = Path.of(path);
+            Path file = MeshLoader.resolve(path);
             if (FORMAT_PLY.equals(format)) {
                 PlyMeshWriter.write(base, file);
             } else {

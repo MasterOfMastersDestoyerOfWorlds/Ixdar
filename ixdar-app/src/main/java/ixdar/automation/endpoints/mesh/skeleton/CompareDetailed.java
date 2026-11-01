@@ -28,7 +28,6 @@ public class CompareDetailed extends AutomationEndpoint implements AutomationRou
     public static final String GENERATED = "generated";
     public static final String REFERENCE = "reference";
     public static final String RESOLUTION = "resolution";
-    public static final String USER_DIR = "user.dir";
     public static final int DEFAULT_VOXEL_RESOLUTION = 128;
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
@@ -39,23 +38,8 @@ public class CompareDetailed extends AutomationEndpoint implements AutomationRou
             if (generatedPath.isEmpty() || referencePath.isEmpty()) {
                 return failure("Provide 'generated' and 'reference' OBJ paths");
             }
-            File genFile = new File(generatedPath);
-            if (!genFile.isAbsolute())
-                genFile = new File(
-                        System.getProperty(USER_DIR),
-                        generatedPath);
-            if (!genFile.exists()) {
-                return failure("Generated mesh not found: " + genFile.getAbsolutePath());
-            }
-            File refFile = new File(referencePath);
-            if (!refFile.isAbsolute())
-                refFile = new File(
-                        System.getProperty(USER_DIR),
-                        referencePath);
-            if (!refFile.exists()) {
-                return failure("Reference mesh not found: " + refFile.getAbsolutePath());
-            }
-
+            File genFile = existingFile("--generated", generatedPath).toFile();
+            File refFile = existingFile("--reference", referencePath).toFile();
             MeshTopology genMesh = MeshLoader.load(genFile.getAbsolutePath());
             MeshTopology refMesh = MeshLoader.load(refFile.getAbsolutePath());
 

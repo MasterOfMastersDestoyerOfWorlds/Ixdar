@@ -4,37 +4,24 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import com.google.gson.JsonObject;
+
+import ixdar.geometry.mesh.data.io.MeshLoader;
 
 public class AutomationPortFile {
     public static final String TMP_DIRECTORY = "tmp";
     public static final String RECORD_DIRECTORY = "automation";
     public static final String RECORD_SUFFIX = ".json";
-    public static final String MODULE_DIRECTORY = "ixdar-app";
-    public static final String POM_FILE = "pom.xml";
-    public static final String WORKING_DIRECTORY_PROPERTY = "user.dir";
     public static final String CLI_LAUNCHER_PROPERTY = "ixdar.automation.launcher";
 
     /**
-     * The checkout the JVM was launched from: the nearest ancestor of the working
-     * directory holding both a {@value #POM_FILE} and an {@value #MODULE_DIRECTORY}
-     * directory, else the working directory itself.
+     * The checkout the JVM was launched from, as every path the program reads or writes resolves.
      *
-     * @return absolute path to the checkout root
+     * @return absolute path to the checkout root, {@link MeshLoader#checkoutRoot()}
      */
     public static Path checkoutRoot() {
-        Path workingDirectory = Paths.get(System.getProperty(WORKING_DIRECTORY_PROPERTY, "."))
-                .toAbsolutePath()
-                .normalize();
-        for (Path candidate = workingDirectory; candidate != null; candidate = candidate.getParent()) {
-            if (Files.isRegularFile(candidate.resolve(POM_FILE))
-                    && Files.isDirectory(candidate.resolve(MODULE_DIRECTORY))) {
-                return candidate;
-            }
-        }
-        return workingDirectory;
+        return MeshLoader.checkoutRoot();
     }
 
     /**

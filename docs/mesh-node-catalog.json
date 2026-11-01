@@ -2670,7 +2670,7 @@
           "description": "The loaded mesh as a geometry bundle; glTF files weld duplicate positions and add the _uv slot holding TEXCOORD_0 as a per-corner UvField."
         }
       ],
-      "description": "Loads a mesh from an OBJ, PLY, OFF or glTF (.glb/.gltf) file, resolving relative paths against the working directory and the ixdar-app module directory, and a ${IXDAR_DATA_ROOT} prefix against this machine\u0027s data root."
+      "description": "Loads a mesh from an OBJ, PLY, OFF or glTF (.glb/.gltf) file, resolving relative paths against the working directory, the ixdar-app module directory and its src/main/resources (so dsl/\u003csubject\u003e/base.ply resolves as stroke_sculpt\u0027s svg does), and a ${IXDAR_DATA_ROOT} prefix against this machine\u0027s data root."
     },
     {
       "id": "loop_cut",
@@ -4589,6 +4589,12 @@
           "portType": "FLOAT",
           "description": "Radius, in lattice steps, below which the hull\u0027s edges and bumps are smoothed away; 0 keeps the carved points as they are.",
           "defaultValue": 8.0
+        },
+        {
+          "name": "symmetry",
+          "portType": "STRING",
+          "description": "\"x\" for a subject symmetric across the template\u0027s x \u003d centre plane: a lattice point is kept by the mean of its own and its mirror image\u0027s depth inside the outlines (each view\u0027s signed pixel distance, the deciding view\u0027s when misses allow some), so traces that disagree a little cannot turn or lopside the hull. \"none\" (default) votes as traced.",
+          "defaultValue": "none"
         }
       ],
       "outputs": [
@@ -4879,25 +4885,19 @@
         {
           "name": "svg",
           "portType": "STRING",
-          "description": "The pass\u0027s drawing: an SVG written by `ixdar-cli multiview --svg` (its root records the camera) with \u003cpolyline\u003e/\u003cpolygon\u003e strokes added. data-strength in [-1, 1], stroke-width the falloff width in pixels, data-kind silhouette/ridge/valley, data-mirror\u003d\"x\", data-op\u003d\"smooth\". Resolved as a file, then under src/main/resources/, then on the classpath (e.g. dsl/skull/pass1.svg). A value starting with \u003c is the SVG text itself, as the mesh viewer\u0027s stroke-sculpt tool sets an unsaved pass\u0027s.",
+          "description": "The pass\u0027s drawing: an SVG written by `ixdar-cli multiview --svg` (its root records the camera) with \u003cpolyline\u003e/\u003cpolygon\u003e strokes added, each with data-radius (falloff radius, world units) and, unless a silhouette or smooth, data-depth (signed displacement at the stroke, world units, + raises). Optional data-kind silhouette/ridge/valley (ridge and valley only label the sign), data-mirror\u003d\"x\", data-op\u003d\"smooth\", data-profile\u003d\"bowl\" on a polygon; stroke-width is only drawn. Resolved as a file, then under ixdar-app and src/main/resources/, then on the classpath (e.g. dsl/skull/pass1.svg). A value starting with \u003c is the SVG text itself, as the mesh viewer\u0027s stroke-sculpt tool sets an unsaved pass\u0027s.",
           "defaultValue": ""
         },
         {
           "name": "strokes",
           "portType": "STRING",
-          "description": "Already-lifted strokes in the text form `stroke-lift` prints, applied with the SVG\u0027s: \"s r\u003dR [fill] [mirror] [smooth] [silhouette] [eye\u003dex/ey/ez/fx/fy/fz]: x y z w, ...; ...\". A stroke with an eye moves only the surface that eye sees; one without moves everything in reach.",
+          "description": "Already-lifted strokes in the text form `stroke-lift` prints, applied with the SVG\u0027s: \"d r\u003dR [fill] [mirror] [smooth] [silhouette] [eye\u003dex/ey/ez/fx/fy/fz]: x y z w, ...; ...\", d and R in world units. A stroke with an eye moves only the surface that eye sees; one without moves everything in reach.",
           "defaultValue": ""
-        },
-        {
-          "name": "strength",
-          "portType": "FLOAT",
-          "description": "Multiplier on the whole pass (displacement, drag, smoothing, crease), the knob dsl_optimizer tunes.",
-          "defaultValue": 1.0
         },
         {
           "name": "symmetry",
           "portType": "STRING",
-          "description": "\"x\", \"y\" or \"z\": every stroke also applies reflected across that axis and the pass\u0027s displacement is averaged with its mirror; needs a symmetric input. \"none\" (default) leaves it alone.",
+          "description": "\"x\", \"y\" or \"z\": every stroke also applies reflected across that axis, and each vertex with a mirror twin averages its displacement with the twin\u0027s. \"none\" (default) leaves it alone.",
           "defaultValue": "none"
         },
         {
@@ -4907,21 +4907,9 @@
           "defaultValue": true
         },
         {
-          "name": "scale",
-          "portType": "FLOAT",
-          "description": "Distance along the normal a strength-1 stroke moves its chain.",
-          "defaultValue": 0.2
-        },
-        {
-          "name": "falloff",
-          "portType": "FLOAT",
-          "description": "Falloff radius, as an edge-path distance, of strokes whose header names none.",
-          "defaultValue": 0.4
-        },
-        {
           "name": "crease",
           "portType": "FLOAT",
-          "description": "Crease weight a strength-1 stroke writes on its chain\u0027s edges.",
+          "description": "Crease weight every ridge or valley chain writes on its edges.",
           "defaultValue": 2.0
         }
       ],
@@ -4930,9 +4918,14 @@
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
           "description": "Input/output. The output carries the strokes\u0027 crease marks merged into the float \"crease\" edge marks for subdivision_surface."
+        },
+        {
+          "name": "report",
+          "portType": "STRING",
+          "description": "One line for the pass (vertices in and after refinement), then one per stroke: its kind, cell, radius, depth, points lifted and dropped (grazing, off-surface, out of cell), vertices moved and peak displacement; a stroke that moved nothing is marked DROPPED with the reason."
         }
       ],
-      "description": "One sculpt pass: lifts the strokes drawn on its SVG onto the input mesh through the camera stored on the SVG, refines the faces they reach, then displaces, drags or smooths with a falloff and creases the chains."
+      "description": "One sculpt pass: lifts the strokes drawn on its SVG onto the input mesh through the camera stored on the SVG, refines the faces they reach, then displaces, drags or smooths and creases the chains. The stroke alone sets what moves, in world units: a ridge, valley or fill moves each vertex it sees along the stroke\u0027s mean normal by data-depth x w x (1 - (d / data-radius)^2)^2, d the vertex\u0027s distance across that normal to the stroke (a fill: the union of its samples\u0027 bumps), w 1 except inside a data-profile\u003d\"bowl\" fill, where it is t(2 - t) of the sample\u0027s depth in from the outline over the deepest\u0027s. A silhouette drags the outline it reaches, within data-radius, all the way onto the stroke; data-op\u003d\"smooth\" smooths within data-radius. Mirror copies of a stroke never add to it; the report output lists every stroke\u0027s effect."
     },
     {
       "id": "subdivide_mesh",

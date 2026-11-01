@@ -36,6 +36,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
     public static final String FIELD_OF_VIEW = "fov";
     public static final String DSL = "dsl";
     public static final String OUTLINE = "outline";
+    public static final String CAMERA = "camera";
     public static final int OUTLINE_COLOUR_TOLERANCE = 24;
     public static final float OUTLINE_SIMPLIFY_PIXELS = 1.5f;
     public static final int OUTLINE_MINIMUM_AREA = 64;
@@ -91,6 +92,9 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
         }
         boolean headlight = body.has(ShadingSet.HEADLIGHT) && body.get(ShadingSet.HEADLIGHT).getAsBoolean();
         String dsl = body.has(DSL) ? body.get(DSL).getAsString().trim() : "";
+        String cameraPath = body.has(CAMERA) ? body.get(CAMERA).getAsString().trim() : "";
+        StrokeSketch cameraTemplate = cameraPath.isEmpty() ? null
+                : StrokeSketch.read(existingFile("--camera", cameraPath).toString());
         JsonObject reloaded = null;
         if (!dsl.isEmpty()) {
             // The model route's own load, so a DSL that fails here fails with the error ml reports.
@@ -133,6 +137,13 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 savedTarget.set(orbit.orbitTarget);
                 Vector3f center = new Vector3f();
                 float radius = selected.sphere(center);
+                if (cameraTemplate != null) {
+                    // The sphere whose fit distance is the template's, about its centre.
+                    double half = Math.toRadians(cameraTemplate.fieldOfViewDegrees) / 2.0;
+                    center.set(cameraTemplate.center[0], cameraTemplate.center[1], cameraTemplate.center[2]);
+                    radius = (float) (cameraTemplate.distance * Math.sin(Math.min(half,
+                            Math.atan(Math.tan(half) * orbit.aspectRatio()))) / (1.0 + padding));
+                }
                 saved[VIEW_DIST_INDEX] = orbit.frame(center, radius, padding,
                         mvs.camera.aspectRatio());
                 JsonObject framed = new JsonObject();
@@ -328,9 +339,11 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                                 + "     %s=\"%.6f %.6f %.6f\" %s=\"%.6f\" %s=\"%.4f\" %s=\"%s\"%n"
                                 + "     %s=\"%d\" %s=\"%d\" %s=\"%d\"%n     %s=\"%s\">%n"
                                 + "<!-- Drawn over %s. Add one <polyline points=\"x,y ...\"> or <polygon> per stroke, "
-                                + "all points of a stroke inside one cell, with data-strength=\"-1..1\", stroke-width "
-                                + "(falloff width in pixels), optional data-kind=\"silhouette|ridge|valley\", "
-                                + "data-mirror=\"x\", data-op=\"smooth\". Cells:%s%n-->%n</svg>%n",
+                                + "all points of a stroke inside one cell, with data-radius (falloff radius) and "
+                                + "data-depth (signed displacement, + raises; not on silhouettes or smooth strokes), "
+                                + "both in world units (one pixel at the centre spans %.5f), optional "
+                                + "data-kind=\"silhouette|ridge|valley\", data-mirror=\"x\", data-op=\"smooth\", "
+                                + "data-profile=\"bowl\" on a polygon; stroke-width is only drawn. Cells:%s%n-->%n</svg>%n",
                         GRID_COLUMNS * cellW, 2 * cellH, GRID_COLUMNS * cellW, 2 * cellH,
                         StrokeSketch.CENTER_ATTRIBUTE, center.get(0).getAsFloat(), center.get(1).getAsFloat(),
                         center.get(2).getAsFloat(), StrokeSketch.DISTANCE_ATTRIBUTE, viewDist,
@@ -339,7 +352,8 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                                 ? StrokeSketch.ORTHOGRAPHIC : StrokeSketch.PERSPECTIVE,
                         StrokeSketch.CELL_WIDTH_ATTRIBUTE, cellW, StrokeSketch.CELL_HEIGHT_ATTRIBUTE, cellH,
                         StrokeSketch.COLUMNS_ATTRIBUTE, GRID_COLUMNS, StrokeSketch.VIEWS_ATTRIBUTE, viewTable,
-                        out.getName(), layout);
+                        out.getName(), 2.0 * viewDist * Math.tan(Math.toRadians(framing.get(FIELD_OF_VIEW).getAsFloat()) / 2.0)
+                                / cellH, layout);
                 File svgFile = new File(svgPath);
                 if (!svgFile.isAbsolute()) {
                     svgFile = new File(checkout, svgPath);
@@ -391,6 +405,10 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                         "Also write a blank SVG drawing template here, its root recording this "
                                 + "capture's camera, for a stroke_sculpt pass to be drawn on.",
                         "src/main/resources/dsl/skull/pass1.svg")
+                .param(CAMERA, RouteParamType.STRING, false, "",
+                        "Capture through the camera an SVG template records (multiview --svg, trace-outlines, a "
+                                + "pass's SVG): its centre, framed at its distance, instead of the selection.",
+                        "dsl/skull3/outlines.svg")
                 .param(OUTLINE, RouteParamType.BOOL, false, String.valueOf(false),
                         "Also return each cell's silhouette of the mesh as closed polylines in the "
                                 + "--svg template's coordinates, with each cell's bounding box.",

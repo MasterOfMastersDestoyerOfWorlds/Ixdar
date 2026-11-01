@@ -33,7 +33,6 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
     public static final String RESOLUTION = "resolution";
     public static final String EPSILON = "epsilon";
     public static final String DSL_2 = ".dsl";
-    public static final String USER_DIR = "user.dir";
     public static final int DEFAULT_VOXEL_RESOLUTION = 128;
     @Override
     public JsonObject endpointHandler(JsonObject body) throws IOException {
@@ -46,38 +45,9 @@ public class Sensitivity extends AutomationEndpoint implements AutomationRoute {
                 return failure("Provide 'dsl' name and 'reference' OBJ path");
             }
             try {
-                // Resolve DSL file — try multiple locations
-                String dslFileName = dslName;
-                if (!dslFileName.endsWith(DSL_2))
-                    dslFileName += DSL_2;
-                Path dslPath = null;
-                for (String base : new String[] {
-                        "src/main/resources/dsl",
-                        "ixdar-app/src/main/resources/dsl",
-                }) {
-                    Path candidate = Path.of(
-                            System.getProperty(USER_DIR),
-                            base,
-                            dslFileName);
-                    if (Files.exists(candidate)) {
-                        dslPath = candidate;
-                        break;
-                    }
-                }
-                if (dslPath == null) {
-                    return failure("DSL file not found: " + dslFileName + " (searched from "
-                            + System.getProperty(USER_DIR) + ")");
-                }
-
-                // Resolve reference mesh
-                File refFile = new File(referencePath);
-                if (!refFile.isAbsolute())
-                    refFile = new File(
-                            System.getProperty(USER_DIR),
-                            referencePath);
-                if (!refFile.exists()) {
-                    return failure("Reference mesh not found: " + refFile.getAbsolutePath());
-                }
+                String dslFileName = dslName.endsWith(DSL_2) ? dslName : dslName + DSL_2;
+                Path dslPath = existingFile("--dsl", "dsl/" + dslFileName);
+                File refFile = existingFile("--reference", referencePath).toFile();
 
                 String source = Files.readString(dslPath);
                 List<PythonParser.ParsedNode> parsed = new PythonParser(

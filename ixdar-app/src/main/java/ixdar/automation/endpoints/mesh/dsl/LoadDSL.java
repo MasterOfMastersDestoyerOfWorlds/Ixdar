@@ -1,5 +1,6 @@
 package ixdar.automation.endpoints.mesh.dsl;
 
+import java.io.File;
 import java.io.IOException;
 
 import com.google.gson.JsonObject;
@@ -45,7 +46,11 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
     @Override
     public JsonObject endpointHandler(JsonObject body)
             throws IOException {
-        String dslName = body.has(NAME) ? body.get(NAME).getAsString() : "";
+        String requested = body.has(NAME) ? body.get(NAME).getAsString() : "";
+        // A .dsl file path, relative to the checkout as every CLI path is, runs that file; a bare
+        // name is a graph under the dsl resource folder.
+        File file = resolvePath(requested);
+        String dslName = file != null && file.isFile() ? file.getPath() : requested;
         String node = body.has(NODE) ? body.get(NODE).getAsString() : "";
         String port = body.has(PORT)
                 ? body.get(PORT).getAsString()
@@ -54,7 +59,6 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
         if (dslName.isEmpty()) {
             return failure("Missing required field: name");
         }
-
         synchronized (this) {
             if (runningGraph != null) {
                 JsonObject busy = failure("graph " + runningGraph + " has been running for "
@@ -106,11 +110,15 @@ public class LoadDSL extends AutomationEndpoint implements AutomationRoute {
     @Override
     public RouteDoc describe() {
         return RouteDoc.builder()
-                .description("Load and execute a named DSL skill graph, making its output geometry the active mesh.")
+                .description("Load and execute a DSL graph, a packaged one by name or any .dsl file by path, making "
+                        + "its output geometry, or one node's, the active mesh.")
                 .param(NAME, RouteParamType.STRING, true, "",
-                        "Name of the DSL skill graph to run.", "skeleton-decompose")
+                        "A graph under the dsl resource folder by name (skeleton-decompose), or a .dsl file path, "
+                                + "absolute or relative to the checkout (tmp/rounds/round03/skull.dsl).",
+                        "skeleton-decompose")
                 .param(NODE, RouteParamType.STRING, false, "",
-                        "Graph node whose output geometry becomes the active mesh.", "output")
+                        "Graph node (its statement's id) whose output geometry becomes the active mesh. To see "
+                                + "what a stroke_sculpt layer draws on, name the node its geometry= reads.", "output")
                 .param(PORT, RouteParamType.STRING, false, GEOMETRY,
                         "Output port on the selected node to read geometry from.", GEOMETRY)
                 .responseHint("{ok, dsl, node, port, vertices, faces, fingerprint:{statement, outputs}, timing...};"

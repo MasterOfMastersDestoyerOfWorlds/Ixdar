@@ -175,6 +175,57 @@ public final class NearestVertex {
     }
 
     /**
+     * The indexed vertex nearest a point within a reach, for callers that any of several tied
+     * vertices serves (a sculpt stroke's sample, a mirror twin); a tie goes to the first in index
+     * order instead of being refused as {@link #find} refuses it.
+     *
+     * @param x     point x
+     * @param y     point y
+     * @param z     point z
+     * @param reach largest distance a returned vertex may lie from the point; infinite for any
+     * @return the nearest vertex's id, or -1 when none lies within reach
+     */
+    public int nearest(float x, float y, float z, float reach) {
+        int centerX = cellCoordinate(x, 0);
+        int centerY = cellCoordinate(y, 1);
+        int centerZ = cellCoordinate(z, 2);
+        int widestAxis = Math.max(cellsPerAxis[0], Math.max(cellsPerAxis[1], cellsPerAxis[2]));
+        double bestSquared = (double) reach * reach;
+        int bestEntry = -1;
+        for (int radius = 0; radius <= widestAxis; radius++) {
+            double unvisitedBound = ((radius - 1) * (double) cellSize) * (1.0 - CELL_BOUND_SLACK);
+            if (radius > 1 && unvisitedBound * unvisitedBound > bestSquared) {
+                break;
+            }
+            for (int cellX = Math.max(0, centerX - radius);
+                    cellX <= Math.min(cellsPerAxis[0] - 1, centerX + radius); cellX++) {
+                for (int cellY = Math.max(0, centerY - radius);
+                        cellY <= Math.min(cellsPerAxis[1] - 1, centerY + radius); cellY++) {
+                    for (int cellZ = Math.max(0, centerZ - radius);
+                            cellZ <= Math.min(cellsPerAxis[2] - 1, centerZ + radius); cellZ++) {
+                        if (Math.abs(cellX - centerX) != radius && Math.abs(cellY - centerY) != radius
+                                && Math.abs(cellZ - centerZ) != radius) {
+                            continue;
+                        }
+                        int cell = (cellX * cellsPerAxis[1] + cellY) * cellsPerAxis[2] + cellZ;
+                        for (int entry = cellStart[cell]; entry < cellStart[cell + 1]; entry++) {
+                            double dx = entryXyz[3 * entry] - x;
+                            double dy = entryXyz[3 * entry + 1] - y;
+                            double dz = entryXyz[3 * entry + 2] - z;
+                            double squared = dx * dx + dy * dy + dz * dz;
+                            if (squared < bestSquared || bestEntry < 0 && squared <= bestSquared) {
+                                bestSquared = squared;
+                                bestEntry = entry;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return bestEntry < 0 ? -1 : entryVertexId[bestEntry];
+    }
+
+    /**
      * The vertices a point may name: the one nearest it, or, among coincident copies there,
      * every copy with a face within {@link #SHEET_TOLERANCE} of the point's distance.
      *

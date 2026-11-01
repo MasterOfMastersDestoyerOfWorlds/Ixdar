@@ -12,6 +12,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 
+import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.platform.Platforms;
 
 public class AutomationRecorder {
@@ -128,10 +129,7 @@ public class AutomationRecorder {
         if (targetPath == null || targetPath.isBlank()) {
             targetPath = "recordings/automation/demo-" + startMillis + ".json";
         }
-        File out = new File(targetPath);
-        if (!out.isAbsolute()) {
-            out = new File(System.getProperty("user.dir"), targetPath);
-        }
+        File out = MeshLoader.resolve(targetPath).toFile();
         File parent = out.getParentFile();
         if (parent != null) {
             parent.mkdirs();

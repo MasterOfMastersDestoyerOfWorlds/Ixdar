@@ -18,7 +18,6 @@ Usage:
     uv run ixdar-cli sculpt-animate --rounds tmp/rounds
 """
 
-import math
 import os
 import re
 import shutil
@@ -27,49 +26,26 @@ import subprocess
 from ..automation_client import AutomationClient
 from ..checkout import checkout_root
 from ..cli_registry import CliCommandResult, cli_command
+from .sculpt_dsl import dsl_nodes, resolve_resource
 
 NODE_LINE = re.compile(r"^\s*([A-Za-z_]\w*)\s*=\s*(\w+)\s*\(")
 SVG_ARGUMENT = re.compile(r"\bsvg\s*=\s*\"([^\"]+)\"")
 GEOMETRY_ARGUMENT = re.compile(r"\bgeometry\s*=\s*([A-Za-z_]\w*)\.")
 ROUND_DIRECTORY = re.compile(r"^round(\d+)$")
 ROOT_ATTRIBUTE = r"\b{}\s*=\s*\"([^\"]*)\""
-FRAME_PADDING = 0.15
-DEFAULT_FIELD_OF_VIEW = 45.0
 STROKE_STYLE = ("<style>polyline,polygon{fill:none;stroke:#e0301e;stroke-opacity:0.55;"
                 "stroke-linecap:round;stroke-linejoin:round}polygon{fill:#e0301e;fill-opacity:0.25}"
                 "[data-kind=silhouette]{stroke:#1e6ee0}[data-kind=valley]{stroke:#7a1ee0}</style>")
 
 
-def _resolve_svg(path: str, root: str) -> str:
-    """Find a node's SVG the way the node does: as given, then under the module's resources.
-
-    :param path: the node's ``svg`` argument
-    :param root: checkout root
-    :return: the file's path
-    """
-    for candidate in (path, os.path.join("ixdar-app", path), os.path.join("ixdar-app", "src", "main", "resources", path)):
-        full = candidate if os.path.isabs(candidate) else os.path.join(root, candidate)
-        if os.path.isfile(full):
-            return full
-    raise FileNotFoundError(f"no SVG at {path}")
-
-
-def _svg_camera(text: str) -> dict | None:
-    """Read the camera a multiview template records as the multiview flags that reproduce it.
+def _records_camera(text: str) -> bool:
+    """Whether an SVG's root records a camera the multiview route's ``camera`` flag can capture through.
 
     :param text: the SVG's text
-    :return: ``point`` and ``radius`` for the multiview route, or None when the root records no camera
+    :return: True when the root has data-center and data-distance
     """
     root_tag = re.search(r"<svg\b[^>]*>", text).group()
-    attribute = {name: (re.search(ROOT_ATTRIBUTE.format(name), root_tag) or [None, ""])[1]
-                 for name in ("data-center", "data-distance", "data-fov", "data-cell-width", "data-cell-height")}
-    if not attribute["data-center"] or not attribute["data-distance"]:
-        return None
-    half_fov = math.radians(float(attribute["data-fov"] or DEFAULT_FIELD_OF_VIEW)) / 2
-    aspect = float(attribute["data-cell-width"] or 1) / float(attribute["data-cell-height"] or 1)
-    narrow = min(half_fov, math.atan(math.tan(half_fov) * aspect))
-    return {"point": ",".join(attribute["data-center"].split()),
-            "radius": float(attribute["data-distance"]) * math.sin(narrow) / (1 + FRAME_PADDING)}
+    return all(re.search(ROOT_ATTRIBUTE.format(name), root_tag) for name in ("data-center", "data-distance"))
 
 
 def _styled_overlay(text: str, path: str) -> str:
@@ -156,12 +132,17 @@ def _animate_rounds(client: AutomationClient, ffmpeg: str, rounds_dir: str, out_
     previous: dict[str, str] = {}
     for number, name in numbered:
         snapshot = os.path.join(rounds_dir, name)
-        dsl_files = sorted(entry for entry in os.listdir(snapshot) if entry.endswith(".dsl"))
+        # The round's sculpt is the DSL with stroke_sculpt layers; a base.dsl beside it (how the base
+        # mesh was built) is not a round.
+        dsl_files = sorted(entry for entry in os.listdir(snapshot) if entry.endswith(".dsl")
+                           and any(node["type"] == "stroke_sculpt" for node in dsl_nodes(
+                               open(os.path.join(snapshot, entry), encoding="utf-8").read().splitlines())))
         if len(dsl_files) != 1:
-            return frames, rows, f"{snapshot} holds {len(dsl_files)} .dsl files; a round snapshot holds one"
+            return frames, rows, (f"{snapshot} holds {len(dsl_files)} .dsl files with stroke_sculpt layers; a round "
+                                  "snapshot holds one (write it with ixdar-cli sculpt-snapshot)")
         lines = open(os.path.join(snapshot, dsl_files[0]), encoding="utf-8").read().splitlines()
         layers: dict[str, str] = {}
-        changed, changed_svgs = [], []
+        changed, changed_svgs, changed_paths = [], [], []
         for index, line in enumerate(lines):
             node = NODE_LINE.match(line)
             svg = SVG_ARGUMENT.search(line)
@@ -177,15 +158,15 @@ def _animate_rounds(client: AutomationClient, ffmpeg: str, rounds_dir: str, out_
             if previous.get(node.group(1)) != text:
                 changed.append(node.group(1))
                 changed_svgs.append(text)
+                changed_paths.append(os.path.abspath(local))
         removed = [layer for layer in previous if layer not in layers]
         round_dsl = os.path.join(out_dir, f"{name}.dsl")
         with open(round_dsl, "w", encoding="utf-8") as handle:
             handle.write("\n".join(lines) + "\n")
-        camera = next((found for found in map(_svg_camera, changed_svgs) if found), None)
+        camera = next((path for path, text in zip(changed_paths, changed_svgs) if _records_camera(text)), None)
         capture = os.path.join(out_dir, f"{name}.png")
         if camera:
-            captured = client.call("multiview", path=capture, dsl=round_dsl, shading=shading,
-                                   point=camera["point"], radius=camera["radius"])
+            captured = client.call("multiview", path=capture, dsl=round_dsl, shading=shading, camera=camera)
         else:
             captured = client.call("multiview", path=capture, dsl=round_dsl, shading=shading)
         row = {"round": number, "snapshot": snapshot, "changed": changed, "removed": removed}
@@ -231,7 +212,7 @@ def sculpt_animate(
     slightly off). Writes the frames and animation.mp4/gif under ``--out``.
 
     :param dsl: Path of a DSL whose stroke_sculpt nodes are stepped through as a chain of passes.
-    :param rounds: Directory of round<NN>/ snapshots of a layered DSL, each holding one .dsl and its SVGs.
+    :param rounds: Directory of round<NN>/ snapshots (sculpt-snapshot writes them), each holding one .dsl with stroke_sculpt layers and its SVGs.
     :param out: Directory for the frames, the DSLs captured and animation.mp4/gif.
     :param reference: Optional OBJ each result is scored against (mesh-compare --normalize).
     :param shading: Multiview surface look: default, clay or curvature.
@@ -275,9 +256,9 @@ def sculpt_animate(
     frames = []
     rows = []
     for number, (node, source, svg, index) in enumerate(passes, start=1):
-        text = open(_resolve_svg(svg, root), encoding="utf-8").read()
-        camera = _svg_camera(text)
-        if camera is None:
+        camera = resolve_resource(svg, root)
+        text = open(camera, encoding="utf-8").read()
+        if not _records_camera(text):
             return CliCommandResult(payload={"ok": False, "error": f"{svg} records no camera"}, exit_code=2)
         overlay = _styled_overlay(text, os.path.join(out_dir, f"pass{number}_{node}.svg"))
         row = {"pass": number, "node": node, "svg": svg}
@@ -286,8 +267,7 @@ def sculpt_animate(
             with open(prefix, "w", encoding="utf-8") as handle:
                 handle.write("\n".join(lines[:last_line + 1]) + "\n")
             capture = os.path.join(out_dir, f"pass{number}_{stage}.png")
-            captured = client.call("multiview", path=capture, dsl=prefix, shading=shading,
-                                   point=camera["point"], radius=camera["radius"])
+            captured = client.call("multiview", path=capture, dsl=prefix, shading=shading, camera=camera)
             if not captured.get("ok", False):
                 return CliCommandResult(payload={"ok": False, "error": captured.get("error", captured), "pass": row},
                                         exit_code=3)

@@ -134,7 +134,13 @@ def main(argv: list[str]) -> int:
         print(json.dumps(_with_target({"ok": False, "error": str(exc)}, client)))
         return 6
     except urllib.error.HTTPError as exc:
-        print(json.dumps(_with_target({"ok": False, "error": f"HTTP {exc.code}"}, client)))
+        # The scene answers a failed route with {"error": message}; show it, not just the status.
+        try:
+            message = json.loads(exc.read().decode("utf-8")).get("error", "")
+        except (ValueError, AttributeError):
+            message = ""
+        error = f"HTTP {exc.code}: {message}" if message else f"HTTP {exc.code}"
+        print(json.dumps(_with_target({"ok": False, "error": error}, client)))
         return 2
     except urllib.error.URLError as exc:
         print(json.dumps(_with_target({"ok": False, "error": str(exc.reason)}, client)))

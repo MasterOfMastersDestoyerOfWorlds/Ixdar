@@ -5,7 +5,7 @@
 <!-- Pass 3: a row of teeth on the Front cell, three drawn right of the midline and mirrored by
      symmetry="x". Each is a short narrow ridge, far finer than the cage, so the node refines the
      faces around them until each tooth gets its own bump. -->
-<polyline data-kind="ridge" data-strength="0.15" stroke-width="14" fill="none" points="658,800 658,818 658,836"/>
-<polyline data-kind="ridge" data-strength="0.15" stroke-width="14" fill="none" points="694,798 694,816 694,834"/>
-<polyline data-kind="ridge" data-strength="0.15" stroke-width="14" fill="none" points="730,794 730,812 730,830"/>
+<polyline data-radius="0.02710" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="658,800 658,818 658,836"/>
+<polyline data-radius="0.02714" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="694,798 694,816 694,834"/>
+<polyline data-radius="0.02725" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="730,794 730,812 730,830"/>
 </svg>

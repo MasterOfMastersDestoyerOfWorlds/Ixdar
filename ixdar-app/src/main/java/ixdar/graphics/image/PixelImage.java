@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import ixdar.geometry.grid2d.PolylineSimplify;
+
 /**
  * A CPU-side ARGB8888 image, one packed int per pixel in row-major order from the top row down.
  * Pixels are stored non-premultiplied, alpha in the high byte.
@@ -261,54 +263,16 @@ public final class PixelImage {
                 boundary[length++] = current % width;
                 boundary[length++] = current / width;
             }
-            boundary = Arrays.copyOf(boundary, length + 2);
-            boundary[length] = boundary[0];
-            boundary[length + 1] = boundary[1];
-            int points = boundary.length / 2;
-            boolean[] keep = new boolean[points];
-            keep[0] = true;
-            keep[points - 1] = true;
-            int[] ranges = new int[2 * points];
-            int pending = 0;
-            ranges[pending++] = 0;
-            ranges[pending++] = points - 1;
-            while (pending > 0) {
-                int last = ranges[--pending];
-                int first = ranges[--pending];
-                float chordX = boundary[last * 2] - boundary[first * 2];
-                float chordY = boundary[last * 2 + 1] - boundary[first * 2 + 1];
-                float chordSquared = chordX * chordX + chordY * chordY;
-                float farthest = 0f;
-                int farthestPoint = -1;
-                for (int point = first + 1; point < last; point++) {
-                    float offsetX = boundary[point * 2] - boundary[first * 2];
-                    float offsetY = boundary[point * 2 + 1] - boundary[first * 2 + 1];
-                    float along = chordSquared == 0f ? 0f
-                            : Math.max(0f, Math.min(1f, (offsetX * chordX + offsetY * chordY) / chordSquared));
-                    float distance = (float) Math.hypot(offsetX - along * chordX, offsetY - along * chordY);
-                    if (distance > farthest) {
-                        farthest = distance;
-                        farthestPoint = point;
-                    }
-                }
-                if (farthestPoint >= 0 && farthest > simplifyPixels) {
-                    keep[farthestPoint] = true;
-                    ranges[pending++] = first;
-                    ranges[pending++] = farthestPoint;
-                    ranges[pending++] = farthestPoint;
-                    ranges[pending++] = last;
-                }
+            float[] closed = new float[length + 2];
+            for (int index = 0; index < length; index++) {
+                closed[index] = boundary[index];
             }
-            int kept = 0;
-            for (boolean point : keep) {
-                kept += point ? 1 : 0;
-            }
-            int[] outline = new int[kept * 2];
-            for (int point = 0, written = 0; point < points; point++) {
-                if (keep[point]) {
-                    outline[written++] = boundary[point * 2];
-                    outline[written++] = boundary[point * 2 + 1];
-                }
+            closed[length] = boundary[0];
+            closed[length + 1] = boundary[1];
+            float[] kept = PolylineSimplify.douglasPeucker(closed, simplifyPixels);
+            int[] outline = new int[kept.length];
+            for (int index = 0; index < kept.length; index++) {
+                outline[index] = Math.round(kept[index]);
             }
             outlines.add(outline);
         }

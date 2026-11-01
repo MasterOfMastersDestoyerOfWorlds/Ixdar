@@ -15,8 +15,6 @@ import ixdar.tools.Item;
  */
 public final class SculptPass extends Item {
 
-    public static final String PASS_STRENGTH = "1.0";
-
     /** Statement id the pass is written under, which its output is read by. */
     public final String id;
 
@@ -66,8 +64,8 @@ public final class SculptPass extends Item {
      * camera so the saved pass lifts it through that view again.
      *
      * @param kind         {@link StrokeSketch#SILHOUETTE}, {@code RIDGE}, {@code VALLEY} or {@code FILL}
-     * @param strength     the stroke's weight in [-1, 1]
-     * @param widthPixels  falloff width in view pixels
+     * @param strength     the stroke's depth over its radius
+     * @param widthPixels  falloff radius in view pixels, stored in world units
      * @param pixels       the stroke's points in view pixels from the top left, packed xy
      * @param view         the camera the stroke was drawn through
      * @param orthographic whether the view projects orthographically
@@ -84,13 +82,13 @@ public final class SculptPass extends Item {
     }
 
     /**
-     * The pass's DSL statement, one line, at the node's default strength.
+     * The pass's DSL statement, one line; its strokes alone set their size and depth.
      *
-     * @return {@code id = stroke_sculpt(geometry=..., svg="...", symmetry="...", strength=1.0)}
+     * @return {@code id = stroke_sculpt(geometry=..., svg="...", symmetry="...")}
      */
     public String statement() {
-        return String.format(Locale.ROOT, "%s = %s(%s=%s, %s=\"%s\", %s=\"%s\", %s=%s)", id, StrokeSculptNode.NODE_ID,
+        return String.format(Locale.ROOT, "%s = %s(%s=%s, %s=\"%s\", %s=\"%s\")", id, StrokeSculptNode.NODE_ID,
                 StrokeSculptNode.GEOMETRY.name, upstream, StrokeSculptNode.SVG.name, svgPath,
-                StrokeSculptNode.SYMMETRY.name, symmetry, StrokeSculptNode.STRENGTH.name, PASS_STRENGTH);
+                StrokeSculptNode.SYMMETRY.name, symmetry);
     }
 }

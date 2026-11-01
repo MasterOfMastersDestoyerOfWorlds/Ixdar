@@ -1,6 +1,7 @@
 package ixdar.nodegraph.nodes.patch;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -10,6 +11,7 @@ import org.joml.Vector4f;
 
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
+import ixdar.geometry.grid2d.DistanceTransform;
 import ixdar.geometry.grid2d.PolygonScan;
 import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
 import ixdar.geometry.volume.VoxelGrid;
@@ -44,11 +46,15 @@ public class SilhouetteHullNode implements MeshNode {
     public static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, DEFAULT_RESOLUTION, 16f, 256f);
     public static final InputPort MISSES = new InputPort("misses", PortType.INT, 1, 0f, 8f);
     public static final InputPort ROUNDING = new InputPort("rounding", PortType.FLOAT, DEFAULT_ROUNDING, 0f, 40f);
+    public static final String NO_SYMMETRY = "none";
+    public static final String MIRROR_X = "x";
+    public static final float OFF_PICTURE = -1e9f;
+    public static final InputPort SYMMETRY = new InputPort("symmetry", PortType.STRING, NO_SYMMETRY);
     public static final OutputPort VOLUME_OUT = new OutputPort("volume", PortType.VOLUME);
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(SVG, RESOLUTION, MISSES, ROUNDING);
+        return List.of(SVG, RESOLUTION, MISSES, ROUNDING, SYMMETRY);
     }
 
     @Override
@@ -67,7 +73,11 @@ public class SilhouetteHullNode implements MeshNode {
     @Override
     public Map<String, String> socketDocs() {
         return Map.of(
-                SVG.name, "An SVG written by `ixdar-cli trace-outlines` or `multiview --svg` with one closed outline "
+                SYMMETRY.name, "\"x\" for a subject symmetric across the template's x = centre plane: a lattice point is "
+                        + "kept by the mean of its own and its mirror image's depth inside the outlines (each view's "
+                        + "signed pixel distance, the deciding view's when misses allow some), so traces that "
+                        + "disagree a little cannot turn or lopside the hull. \"none\" (default) votes as traced.",
+                SVG.name,"An SVG written by `ixdar-cli trace-outlines` or `multiview --svg` with one closed outline "
                         + "in each cell that constrains the hull, in any cells (front, side, top, back, 3/4).",
                 RESOLUTION.name, "Lattice points along the hull's longest side; the time grows with its cube.",
                 MISSES.name, "Views that may place a kept point outside their outline, so a few percent of "
@@ -103,7 +113,6 @@ public class SilhouetteHullNode implements MeshNode {
         float[][] cells = sketch.cellOutlines();
         int width = sketch.cellWidth;
         int height = sketch.cellHeight;
-
         // Views: every cell holding an outline, its camera, projection and outline mask by pixel centre.
         List<Integer> viewCells = new ArrayList<>();
         for (int cell = 0; cell < cells.length; cell++) {
@@ -115,15 +124,22 @@ public class SilhouetteHullNode implements MeshNode {
         if (viewCount == 0) {
             throw new IllegalArgumentException(NODE_ID + ": no closed outline in " + source);
         }
+        String symmetry = ctx.getInputValue(SYMMETRY.name) instanceof String text ? text.trim() : NO_SYMMETRY;
+        boolean mirrored = MIRROR_X.equals(symmetry);
+        if (!mirrored && !symmetry.isEmpty() && !NO_SYMMETRY.equals(symmetry)) {
+            throw new IllegalArgumentException(NODE_ID + " symmetry must be x or none: " + symmetry);
+        }
         Camera3D[] cameras = new Camera3D[viewCount];
         Matrix4f[] projections = new Matrix4f[viewCount];
         boolean[][] masks = new boolean[viewCount][];
+        float[][] depths = new float[viewCount][];
+        float[] viewDepths = new float[viewCount];
         for (int view = 0; view < viewCount; view++) {
             cameras[view] = sketch.cellCamera(viewCells.get(view));
             projections[view] = new Matrix4f(cameras[view].projection).mul(cameras[view].view);
             masks[view] = PolygonScan.covered(cells[viewCells.get(view)], 0f, 0f, 1f, width, height);
+            depths[view] = DistanceTransform.signed(masks[view], width, height);
         }
-
         // Carve twice: over the cube the cells frame, to find the hull's box, then over that box. A
         // lattice point is kept when all but `misses` views see it inside their outline, never fewer
         // than three: with only front, side and top, one miss would let two refill the third's notch.
@@ -146,19 +162,26 @@ public class SilhouetteHullNode implements MeshNode {
             }
             grid = new VoxelGrid(size, lower, spacing);
             hull = new boolean[grid.values.length];
-            float[] found = { Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE,
-                -Float.MAX_VALUE };
+            float max = Float.MAX_VALUE;
+            float[] found = { max, max, max, -max, -max, -max };
             for (int index = 0; index < hull.length; index++) {
                 grid.position(index, point);
-                int votes = 0;
-                for (int view = 0; view < viewCount && votes + viewCount - view >= required; view++) {
-                    projections[view].transform(clip.set(point, 1f));
-                    int column = (int) Math.floor((clip.x / clip.w + 1f) / 2f * width);
-                    int row = (int) Math.floor((1f - clip.y / clip.w) / 2f * height);
-                    votes += column >= 0 && row >= 0 && column < width && row < height
-                            && masks[view][row * width + column] ? 1 : 0;
+                // Score: the required-th deepest signed depth inside the outlines, positive exactly when
+                // enough views vote; mirrored, its mirror image's is added.
+                float score = 0f;
+                for (int side = 0; side < (mirrored ? 2 : 1); side++) {
+                    float x = side == 0 ? point.x : 2f * sketch.center[0] - point.x;
+                    for (int view = 0; view < viewCount; view++) {
+                        projections[view].transform(clip.set(x, point.y, point.z, 1f));
+                        int column = (int) Math.floor((clip.x / clip.w + 1f) / 2f * width);
+                        int row = (int) Math.floor((1f - clip.y / clip.w) / 2f * height);
+                        viewDepths[view] = column >= 0 && row >= 0 && column < width && row < height
+                                ? depths[view][row * width + column] : OFF_PICTURE;
+                    }
+                    Arrays.sort(viewDepths);
+                    score += viewDepths[viewCount - required];
                 }
-                hull[index] = votes >= required;
+                hull[index] = score > 0f;
                 for (int axis = 0; axis < VoxelGrid.AXES && hull[index]; axis++) {
                     found[axis] = Math.min(found[axis], point.get(axis));
                     found[axis + VoxelGrid.AXES] = Math.max(found[axis + VoxelGrid.AXES], point.get(axis));
@@ -173,7 +196,6 @@ public class SilhouetteHullNode implements MeshNode {
                 upper[axis] = found[axis + VoxelGrid.AXES] + spacing;
             }
         }
-
         // Pins: every outline's rays, one per lattice step across the picture, pin the middle of their
         // longest run of kept points, so each ray still meets the rounded surface (after Kolev and
         // Cremers' silhouette constraint, PAMI 2011, as a pinned point instead of a sum along the ray).
