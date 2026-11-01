@@ -18,6 +18,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
+import ixdar.geometry.mesh.data.ops.MeshTopologyAnalysis;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
@@ -130,6 +131,16 @@ class StrokeSculptTest {
     private static final float RAY_TOLERANCE = 1e-3f;
 
     private static final float SPHERE_TOLERANCE = 1e-3f;
+
+    private static final float THROUGH_DEPTH = 2.5f;
+
+    private static final float CONVERGING_DEPTH = 1.5f;
+
+    private static final float PIT_OFFSET = 0.3f;
+
+    private static final float AXIS_RADIUS = 0.05f;
+
+    private static final float PIT_FLOOR_CEILING = 0.5f;
 
     @TempDir
     Path folder;
@@ -260,6 +271,40 @@ class StrokeSculptTest {
         assertTrue(floor > 0, "the pit has a floor");
         assertTrue(floorMoved < MIRROR_TOLERANCE, "the ridge lifted the hidden floor by " + floorMoved);
         assertTrue(ridgeHeight > MINIMUM_CHEEK_HEIGHT, "the ridge still rises, by " + ridgeHeight);
+    }
+
+    @Test
+    void aPitDeeperThanTheBodyStopsShortOfTheFarSide() {
+        MeshTopology pitted = new StrokeSculpt().apply(sphere(), -THROUGH_DEPTH + " r=0.3: 0 0 1").mesh();
+        assertEquals(0, inwardFaces(pitted), "a pit pushed past the far side of the ball turns faces inside out");
+        // On the axis the pit's floor is the higher of the two surfaces left, the far side the lower.
+        Vector3f position = new Vector3f();
+        float floor = -1f;
+        for (int index = 0; index < pitted.vertexCount(); index++) {
+            pitted.vertexPosition(pitted.vertexIdAt(index), position);
+            if (position.x * position.x + position.y * position.y < AXIS_RADIUS * AXIS_RADIUS) {
+                floor = Math.max(floor, position.z);
+            }
+        }
+        assertTrue(floor < PIT_FLOOR_CEILING, "the pit still sinks deep, to z " + floor);
+        assertTrue(floor > -1f + MINIMUM_CHEEK_HEIGHT, "the pit stops inside the far side, at z " + floor);
+    }
+
+    @Test
+    void twoPitsSunkTowardEachOtherDoNotPassThrough() {
+        float height = (float) Math.sqrt(1 - PIT_OFFSET * PIT_OFFSET);
+        String pit = -CONVERGING_DEPTH + " r=0.25: ";
+        MeshTopology pits = new StrokeSculpt().apply(sphere(), pit + PIT_OFFSET + " 0 " + height + ";" + pit
+                + -PIT_OFFSET + " 0 " + height).mesh();
+        assertEquals(0, inwardFaces(pits), "two pits sunk along their own normals meet inside the ball and pass "
+                + "through each other");
+        float[] after = positions(pits);
+        float deepest = 1f;
+        for (int vertex = 0; vertex < after.length; vertex += 3) {
+            deepest = after[vertex + 2] > 0f ? Math.min(deepest, new Vector3f(after[vertex], after[vertex + 1],
+                    after[vertex + 2]).length()) : deepest;
+        }
+        assertTrue(deepest < PIT_FLOOR_CEILING, "the pits still sink, to radius " + deepest);
     }
 
     @Test
@@ -481,6 +526,12 @@ class StrokeSculptTest {
             faces += behind ? 1 : 0;
         }
         return faces;
+    }
+
+    private static int inwardFaces(MeshTopology mesh) {
+        MeshTopologyAnalysis analysis = new MeshTopologyAnalysis();
+        analysis.analyze(mesh);
+        return analysis.inwardFaceCount;
     }
 
     private static float[] positions(MeshTopology mesh) {

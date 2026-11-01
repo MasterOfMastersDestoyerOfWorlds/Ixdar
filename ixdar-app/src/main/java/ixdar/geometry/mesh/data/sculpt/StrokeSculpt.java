@@ -7,6 +7,7 @@ import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.ops.MeshSmoothing;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.nodegraph.field.Vector3Field;
@@ -47,6 +48,8 @@ public final class StrokeSculpt {
     public static final int WEIGHTED_POINT_FIELDS = 4;
 
     public static final int REFLECTIONS = 4;
+
+    public static final int UNFOLD_HALVINGS = 6;
 
     public static final String SCULPT_SLOT = "_stroke_sculpt";
 
@@ -154,11 +157,11 @@ public final class StrokeSculpt {
         movedVerticesByStroke = sum.movedVerticesBySource;
         MeshTopology sculpted = displace ? sum.sculpted(tangentialRelax) : refined;
         int[] twins = refinement.twinByActiveVertex;
+        float[] unmoved = packedPositions(refined, null);
         if (displace && symmetryAxis >= 0) {
             // Each vertex's displacement becomes the mean of its own and its mirror twin's reflected
             // displacement, so the pass leaves a symmetric input symmetric.
             float[] moved = packedPositions(sculpted, null);
-            float[] unmoved = packedPositions(refined, null);
             for (int index = 0; index < moved.length; index++) {
                 moved[index] -= unmoved[index];
             }
@@ -173,8 +176,17 @@ public final class StrokeSculpt {
             }
             sculpted = MeshVertexOffset.apply(refined, Vector3Field.copyOf(symmetric));
         }
-        // MESH-78's fold and crossing limiter (MeshSmoothing.unfold) runs here, on this final step,
-        // once it lands.
+        if (displace) {
+            // The pass must not turn the mesh inside out: each vertex's step stops short of the
+            // surface it would cross, and is pulled back where it would still fold a face. The sum's
+            // tree is over the unmoved refined surface, which is what the limiter starts from.
+            float[] stepXyz = packedPositions(sculpted, null);
+            MeshSmoothing.unfold(refined, sum.activeVertexById, unmoved, stepXyz, sum.bvh, UNFOLD_HALVINGS);
+            for (int index = 0; index < stepXyz.length; index++) {
+                stepXyz[index] -= unmoved[index];
+            }
+            sculpted = MeshVertexOffset.apply(refined, Vector3Field.copyOf(stepXyz));
+        }
         float[] existingCreases = refinement.creases;
         float[] creases = new float[sculpted.edgeIdBound()];
         for (int edgeId = 0; edgeId < sum.strokeCreaseByEdgeId.length; edgeId++) {

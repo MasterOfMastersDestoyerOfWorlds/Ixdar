@@ -4,12 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.joml.Vector3f;
-
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.ops.MeshFolds;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
+import ixdar.geometry.mesh.data.sculpt.StrokeSculpt;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.GroupBuilder;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
@@ -74,8 +74,6 @@ public class QuadLayoutNode extends NodeGroup {
 
     public static final String ALPHA_DEGREES_OVERRIDE = LAYOUT_CALL
             + NodeGraphRuntime.PORT_SEPARATOR + ALPHA_DEGREES.name;
-
-    private static final int XYZ = 3;
 
     /**
      * The reference a scene pulls one output of the layout call in {@link #overSceneModel} by.
@@ -220,41 +218,13 @@ public class QuadLayoutNode extends NodeGroup {
                 || !(bundle.mesh() instanceof HalfEdgeMesh surface)) {
             return;
         }
-        float[] faceNormal = new float[surface.faceCount() * XYZ];
-        float[] vertexNormal = new float[surface.vertexIdBound() * XYZ];
-        Vector3f origin = new Vector3f();
-        Vector3f first = new Vector3f();
-        Vector3f second = new Vector3f();
-        for (int activeFace = 0; activeFace < surface.faceCount(); activeFace++) {
-            int faceId = surface.faceIdAt(activeFace);
-            surface.vertexPosition(surface.faceVertexAt(faceId, 0), origin);
-            surface.vertexPosition(surface.faceVertexAt(faceId, 1), first).sub(origin);
-            surface.vertexPosition(surface.faceVertexAt(faceId, 2), second).sub(origin);
-            first.cross(second);
-            if (first.lengthSquared() > 0f) {
-                first.normalize();
-            }
-            for (int axis = 0; axis < XYZ; axis++) {
-                faceNormal[activeFace * XYZ + axis] = first.get(axis);
-                for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
-                    vertexNormal[surface.faceVertexAt(faceId, corner) * XYZ + axis] +=
-                            first.get(axis);
-                }
-            }
-        }
+        int[] activeVertexById = new int[surface.vertexIdBound()];
+        float[] positions = StrokeSculpt.packedPositions(surface, activeVertexById);
+        boolean[] folded = new MeshFolds(surface, activeVertexById, positions).foldedAtStart;
         List<Integer> foldedFaceIds = new ArrayList<>();
         for (int activeFace = 0; activeFace < surface.faceCount(); activeFace++) {
-            int faceId = surface.faceIdAt(activeFace);
-            float alignment = 0f;
-            for (int corner = 0; corner < HalfEdgeMesh.TRIANGLE_CORNERS; corner++) {
-                int vertexOffset = surface.faceVertexAt(faceId, corner) * XYZ;
-                for (int axis = 0; axis < XYZ; axis++) {
-                    alignment += faceNormal[activeFace * XYZ + axis]
-                            * vertexNormal[vertexOffset + axis];
-                }
-            }
-            if (alignment < 0f) {
-                foldedFaceIds.add(faceId);
+            if (folded[surface.faceIdAt(activeFace)]) {
+                foldedFaceIds.add(surface.faceIdAt(activeFace));
             }
         }
         if (!foldedFaceIds.isEmpty()) {

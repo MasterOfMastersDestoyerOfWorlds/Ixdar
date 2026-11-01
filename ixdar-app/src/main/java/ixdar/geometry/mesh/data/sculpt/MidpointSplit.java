@@ -4,6 +4,7 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.ops.MeshSmoothing;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
@@ -86,12 +87,16 @@ public final class MidpointSplit {
         midpointByEdgeId = new int[mesh.edgeIdBound()];
         Arrays.fill(midpointByEdgeId, -1);
         int[] edgeEnds = new int[2];
+        // The refined mesh's ids are its dense indices; split vertices also keep their flat place.
+        float[] flatXyz = Arrays.copyOf(StrokeSculpt.packedPositions(mesh, null),
+                (mesh.vertexCount() + mesh.edgeCount() + mesh.faceCount()) * 3);
         for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
             int edgeId = mesh.edgeIdAt(activeEdge);
             if (splitByEdgeId[edgeId]) {
                 edgeEnds[0] = mesh.halfEdgeVertex(mesh.edgeHalfEdge(edgeId));
                 edgeEnds[1] = mesh.halfEdgeEndVertex(mesh.edgeHalfEdge(edgeId));
-                midpointByEdgeId[edgeId] = refined.addVertex(curvedCentroid(mesh, edgeEnds, 2, position));
+                midpointByEdgeId[edgeId] = refined.addVertex(curvedCentroid(mesh, edgeEnds, 2, position, flatXyz,
+                        refined.vertexIdBound() * 3));
             }
         }
         for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
@@ -119,7 +124,8 @@ public final class MidpointSplit {
                 refined.addFace(midpoints[2], midpoints[1], cornerIds[2]);
                 refined.addFace(midpoints[0], midpoints[1], midpoints[2]);
             } else if (splitByFaceId[faceId]) {
-                int centerId = refined.addVertex(curvedCentroid(mesh, faceVertexIds, corners, position));
+                int centerId = refined.addVertex(curvedCentroid(mesh, faceVertexIds, corners, position, flatXyz,
+                        refined.vertexIdBound() * 3));
                 for (int corner = 0; corner < corners; corner++) {
                     refined.addFace(cornerIds[corner], midpoints[corner], centerId,
                             midpoints[(corner + corners - 1) % corners]);
@@ -147,6 +153,12 @@ public final class MidpointSplit {
                 }
             }
         }
+        // The curved lift folds faces across a sharp rim, where the corners' normals diverge; there
+        // it is pulled back toward the flat split.
+        int[] refinedActiveById = new int[refined.vertexIdBound()];
+        float[] curvedXyz = StrokeSculpt.packedPositions(refined, refinedActiveById);
+        MeshSmoothing.unfold(refined, refinedActiveById, flatXyz, curvedXyz, null, StrokeSculpt.UNFOLD_HALVINGS);
+        System.arraycopy(curvedXyz, 0, refined.vertexPositions, 0, curvedXyz.length);
         refined.computeNormals();
         return refined;
     }
@@ -190,10 +202,13 @@ public final class MidpointSplit {
      * @param vertexIds corners, sparse vertex ids
      * @param count     how many leading entries of {@code vertexIds} are corners
      * @param dest      receives the position
+     * @param flatXyz   receives the flat centroid at {@code flatAt}
+     * @param flatAt    where in {@code flatXyz} the flat centroid goes
      * @return {@code dest}: the centroid moved by half the mean of its projections onto the corners'
      *         tangent planes
      */
-    private static Vector3f curvedCentroid(MeshTopology mesh, int[] vertexIds, int count, Vector3f dest) {
+    private static Vector3f curvedCentroid(MeshTopology mesh, int[] vertexIds, int count, Vector3f dest,
+            float[] flatXyz, int flatAt) {
         Vector3f corner = new Vector3f();
         Vector3f normal = new Vector3f();
         dest.zero();
@@ -217,6 +232,9 @@ public final class MidpointSplit {
             liftY -= height * normal.y;
             liftZ -= height * normal.z;
         }
+        flatXyz[flatAt] = dest.x;
+        flatXyz[flatAt + 1] = dest.y;
+        flatXyz[flatAt + 2] = dest.z;
         return dest.add(liftX * 0.5f / count, liftY * 0.5f / count, liftZ * 0.5f / count);
     }
 }
