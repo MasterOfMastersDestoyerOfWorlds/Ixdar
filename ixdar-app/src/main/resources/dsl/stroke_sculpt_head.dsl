@@ -1,13 +1,10 @@
 # sculpt-migrate: strokes carry their own world-unit data-depth and data-radius (MESH-80)
-# MESH-70: a sphere sculpted into a simple head by three chained stroke_sculpt passes. Each pass
-# reads its own SVG, drawn on a template `ixdar-cli multiview --svg` wrote from the previous node's
-# output, and lifts it through the camera recorded on the SVG root onto its input mesh, so editing
-# an earlier pass carries the later ones along. symmetry="x" mirrors every stroke and symmetrises
-# the pass. Pass 1: head outline (silhouettes). Pass 2: eye sockets, brow, nose. Pass 3: six
-# teeth, finer than the cage, which the node refines around before carving them.
+# MESH-70: a sphere sculpted into a simple head by stroke_sculpt; since MESH-86 one pass on the base.
+# Its SVG's <g id> groups are the layers: outline (silhouettes), face (eye socket, brow, nose) and
+# teeth (finer than the cage, which the node refines around). head.strokes beside the SVG holds every
+# stroke as a curve on the base sphere under a stable id; ixdar-cli sculpt-sync writes both files and
+# folds SVG edits in any cell back. symmetry="x" mirrors every stroke and symmetrises the pass.
 ball = sphere(size=2.0, resolution=64)
 welded = merge_by_distance(geometry=ball.mesh, distance=0.0001)
-pass1 = stroke_sculpt(geometry=welded.geometry, svg="dsl/stroke_sculpt_head/pass1.svg", symmetry="x")
-pass2 = stroke_sculpt(geometry=pass1.geometry, svg="dsl/stroke_sculpt_head/pass2.svg", symmetry="x")
-pass3 = stroke_sculpt(geometry=pass2.geometry, svg="dsl/stroke_sculpt_head/pass3.svg", symmetry="x")
-smooth = subdivision_surface(geometry=pass3.geometry, levels=1)
+head = stroke_sculpt(geometry=welded.geometry, svg="dsl/stroke_sculpt_head/head.svg", symmetry="x")
+smooth = subdivision_surface(geometry=head.geometry, levels=1)

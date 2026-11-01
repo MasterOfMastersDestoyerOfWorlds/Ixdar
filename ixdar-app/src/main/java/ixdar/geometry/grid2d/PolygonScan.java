@@ -85,4 +85,31 @@ public final class PolygonScan {
         }
         return Arrays.copyOf(points, found * 2);
     }
+
+    /**
+     * Each point's distance to the polygon's outline, the nearest of its edges, the closing edge
+     * included.
+     *
+     * @param polygon packed xy of the closed polygon
+     * @param points  packed xy of the points measured
+     * @return one distance per point, infinite for a polygon with no corner
+     */
+    public static float[] outlineDistances(float[] polygon, float[] points) {
+        float[] distances = new float[points.length / 2];
+        for (int point = 0; point < distances.length; point++) {
+            distances[point] = Float.POSITIVE_INFINITY;
+            for (int corner = 0; corner + 1 < polygon.length; corner += 2) {
+                int next = (corner + 2) % polygon.length;
+                float edgeX = polygon[next] - polygon[corner];
+                float edgeY = polygon[next + 1] - polygon[corner + 1];
+                float offsetX = points[point * 2] - polygon[corner];
+                float offsetY = points[point * 2 + 1] - polygon[corner + 1];
+                float along = Math.max(0f, Math.min(1f, (offsetX * edgeX + offsetY * edgeY)
+                        / Math.max(Float.MIN_NORMAL, edgeX * edgeX + edgeY * edgeY)));
+                distances[point] = Math.min(distances[point],
+                        (float) Math.hypot(offsetX - along * edgeX, offsetY - along * edgeY));
+            }
+        }
+        return distances;
+    }
 }

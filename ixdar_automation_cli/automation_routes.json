@@ -1583,6 +1583,35 @@
       "responseHint": "{ok}"
     },
     {
+      "commandName": "sculpt-sync",
+      "path": "/mesh/sculpt-sync",
+      "method": "POST",
+      "description": "Fold a sculpt DSL\u0027s stroke SVG edits (moved points, shapes with no data-id, deleted ids, in one cell per stroke) into each layer\u0027s sidecar of strokes held on the base, then redraw every stroke into every cell that sees it on the finished sculpt, under its id, hidden spans dashed; refuses conflicting or id-less edits with the fix.",
+      "sourceClass": "ixdar.automation.endpoints.mesh.SculptSyncRoute",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/SculptSyncRoute.java",
+      "params": [
+        {
+          "name": "dsl",
+          "cliName": "dsl",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Sculpt DSL file, relative to the checkout or as its own file inputs resolve.",
+          "example": "ixdar-app/src/main/resources/dsl/stroke_sculpt_head.dsl"
+        },
+        {
+          "name": "layer",
+          "cliName": "layer",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Sync only this stroke_sculpt node (its statement id); default every one.",
+          "example": "head"
+        }
+      ],
+      "responseHint": "{ok, layers:[{layer, svg, changes:[\"s3: moved 1 point(s)\", ...]}]} | {ok:false, error: every refusal with its fix}"
+    },
+    {
       "commandName": "shading",
       "path": "/ui/shading",
       "method": "POST",

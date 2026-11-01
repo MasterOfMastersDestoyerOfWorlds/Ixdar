@@ -190,20 +190,14 @@ class StrokeSculptTest {
     }
 
     @Test
-    void chainedPassRelandsOnAnEditedEarlierPass() throws IOException {
-        String outline = svg("outline.svg", WIDER_RIGHT_OUTLINE);
-        String cheek = svg(CHEEK_FILE, ONE_SIDED_CHEEK_RIDGE);
-        MeshTopology first = sculpt(sculpt(sphere(), outline, SYMMETRY_X), cheek, SYMMETRY_X).mesh();
-        MeshTopology again = sculpt(sculpt(sphere(), outline, SYMMETRY_X), cheek, SYMMETRY_X).mesh();
-        assertArrayEquals(positions(first), positions(again), "re-running the passes replays them exactly");
-        GeometryBundle edited = sculpt(sphere(), svg("narrower.svg", NARROWER_RIGHT_OUTLINE), SYMMETRY_X);
-        float[] before = positions(edited.mesh());
-        float[] after = positions(sculpt(edited, cheek, SYMMETRY_X).mesh());
-        float cheekHeight = 0f;
-        for (int index = 0; index < Math.min(before.length, after.length); index++) {
-            cheekHeight = Math.max(cheekHeight, Math.abs(after[index] - before[index]));
-        }
-        assertTrue(cheekHeight > MINIMUM_CHEEK_HEIGHT, "the cheek pass still sculpts the edited outline, moving it "
+    void onePassReplaysExactlyAndKeepsItsCheekWhenTheOutlineIsEdited() throws IOException {
+        String both = svg("both.svg", WIDER_RIGHT_OUTLINE + ONE_SIDED_CHEEK_RIDGE);
+        assertArrayEquals(positions(sculpt(sphere(), both, SYMMETRY_X).mesh()),
+                positions(sculpt(sphere(), both, SYMMETRY_X).mesh()), "re-running the pass replays it exactly");
+        GeometryBundle edited = sculpt(sphere(), svg("narrower.svg", NARROWER_RIGHT_OUTLINE + ONE_SIDED_CHEEK_RIDGE),
+                SYMMETRY_X);
+        float cheekHeight = ((StrokeSculpt) edited.slots().get(StrokeSculpt.SCULPT_SLOT)).peakDisplacementByStroke[1];
+        assertTrue(cheekHeight > MINIMUM_CHEEK_HEIGHT, "the cheek still rises beside the edited outline, by "
                 + cheekHeight);
     }
 
@@ -432,7 +426,7 @@ class StrokeSculptTest {
 
     @Test
     void loadMeshAndSvgResolveOneResourcePath() {
-        assertTrue(Files.isRegularFile(MeshLoader.resolve("dsl/stroke_sculpt_head/pass1.svg")),
+        assertTrue(Files.isRegularFile(MeshLoader.resolve("dsl/stroke_sculpt_head/head.svg")),
                 "a resources-relative path resolves for load_mesh as for stroke_sculpt's svg");
     }
 

@@ -1,0 +1,81 @@
+# Stroke sidecar (MESH-86): every stroke of the SVG beside it as a curve on the base mesh, a face, fan triangle and barycentric u v per point (a silhouette: pixels in its cell).
+# ixdar-cli sculpt-sync writes this file and the SVG from it; edit the SVG, then sync.
+base 1538 1536
+stroke s1 cell=0 layer=outline shape=polyline
+attributes data-radius="0.30341" data-kind="silhouette" stroke-width="120" fill="none" stroke="red"
+pixels 1049.000000 600.000000; 1040.000000 700.000000; 1010.000000 800.000000; 960.000000 900.000000; 890.000000 990.000000; 800.000000 1060.000000; 700.000000 1110.000000; 645.000000 1125.000000
+stroke s2 cell=1 layer=outline shape=polyline
+attributes data-radius="0.30341" data-kind="silhouette" stroke-width="120" fill="none" stroke="red"
+pixels 1010.000000 330.000000; 1070.000000 430.000000; 1105.000000 540.000000; 1110.000000 650.000000; 1090.000000 760.000000; 1050.000000 860.000000
+stroke s3 cell=0 layer=face shape=polygon
+attributes data-radius="0.08825" data-depth="-0.06000" data-kind="valley" stroke-width="45"
+anchors 170 0 0.016886 0.142140; 186 1 0.191581 0.454929; 202 1 0.466884 0.091124; 201 1 0.856128 0.038330; 201 1 0.096811 0.054329; 168 1 0.895469 0.006244; 169 1 0.088535 0.107061; 153 0 0.174719 0.685524
+stroke s4 cell=0 layer=face shape=polyline
+attributes data-radius="0.07995" data-depth="0.04000" data-kind="ridge" stroke-width="40" fill="none"
+anchors 139 0 0.290746 0.051007; 155 0 0.277767 0.475065; 187 1 0.406052 0.355328; 219 1 0.565033 0.268516
+stroke s5 cell=0 layer=face shape=polyline
+attributes data-radius="0.08499" data-depth="0.07000" data-kind="ridge" stroke-width="45" fill="none"
+anchors 137 1 0.007869 0.535867; 136 1 0.007657 0.592450; 135 1 0.007593 0.681228; 134 1 0.007669 0.916144
+stroke s6 cell=0 layer=teeth shape=polyline
+attributes data-radius="0.02710" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none"
+anchors 133 1 0.294289 0.103940; 133 0 0.235995 0.067508; 132 1 0.307452 0.388371
+stroke s7 cell=0 layer=teeth shape=polyline
+attributes data-radius="0.02714" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none"
+anchors 133 0 0.465579 0.418303; 133 0 0.812396 0.086653; 132 0 0.198924 0.716457
+stroke s8 cell=0 layer=teeth shape=polyline
+attributes data-radius="0.02725" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none"
+anchors 149 0 0.031018 0.454809; 149 0 0.400106 0.115210; 148 1 0.542781 0.201195
+written
+<svg xmlns="http://www.w3.org/2000/svg" width="5120" height="2560" viewBox="0 0 5120 2560"
+     data-center="0.000000 0.000000 0.000000" data-distance="3.906623" data-fov="45.0000" data-projection="perspective"
+     data-cell-width="1280" data-cell-height="1280" data-columns="4"
+     data-views="1.570796 0.000000 3.906623 0.000000 45.0000 0.000000 0.000000 0.000000;0.000000 0.000000 3.906623 0.000000 45.0000 0.000000 0.000000 0.000000;-1.570796 0.000000 3.906623 0.000000 45.0000 0.000000 0.000000 0.000000;3.141593 0.000000 3.906623 0.000000 45.0000 0.000000 0.000000 0.000000;1.570796 1.570796 3.906623 0.000000 45.0000 0.000000 0.000000 0.000000;1.570796 -1.570796 3.906623 0.000000 45.0000 0.000000 0.000000 0.000000;0.785398 0.400000 3.906623 0.000000 45.0000 0.000000 0.000000 0.000000;2.356194 0.400000 3.906623 0.000000 45.0000 0.000000 0.000000 0.000000">
+<!-- One cell per view; each data-views entry is that view's azimuth, elevation, distance, roll, field of view and centre. -->
+<!-- Written by ixdar-cli sculpt-sync from the strokes beside this file: every stroke in every cell that sees it, under one data-id; data-pts names each point's index on the stroke and dashed data-hidden spans run behind the surface. Move points, add shapes with no data-id, or delete one, in any one cell per stroke, then sync again. -->
+<g id="outline">
+<polyline data-id="s1" data-cell="0" data-pts="0 1 2 3 4 5 6 7" data-radius="0.30341" data-kind="silhouette" stroke-width="120" fill="none" stroke="red" points="1049.0,600.0 1040.0,700.0 1010.0,800.0 960.0,900.0 890.0,990.0 800.0,1060.0 700.0,1110.0 645.0,1125.0"/>
+<polyline data-id="s2" data-cell="1" data-pts="0 1 2 3 4 5" data-radius="0.30341" data-kind="silhouette" stroke-width="120" fill="none" stroke="red" points="2290.0,330.0 2350.0,430.0 2385.0,540.0 2390.0,650.0 2370.0,760.0 2330.0,860.0"/>
+</g>
+<g id="face">
+<polygon data-id="s3" data-cell="0" data-pts="0 1 2 3 4 5 6 7" data-radius="0.08825" data-depth="-0.06000" data-kind="valley" stroke-width="45" points="756.9,518.2 806.4,498.2 860.0,511.9 880.7,547.5 856.0,582.6 801.1,592.0 756.7,572.4 742.1,542.7"/>
+<polyline data-id="s3" data-cell="1" data-pts="0 1 2 3 4 5 6 7 0" data-radius="0.08825" data-depth="-0.06000" data-kind="valley" stroke-width="45" data-hidden="true" stroke-dasharray="12 8" points="1549.5,539.6 1559.2,518.1 1567.6,524.5 1565.1,555.5 1551.1,589.1 1540.6,599.5 1540.2,584.7 1544.5,561.0 1549.5,539.6"/>
+<polygon data-id="s3" data-cell="6" data-pts="0 1 2 3 4 5 6 7" data-radius="0.08825" data-depth="-0.06000" data-kind="valley" stroke-width="45" points="2969.6,1962.9 3019.1,1951.1 3074.6,1972.2 3091.5,2011.5 3056.8,2042.7 3000.1,2041.5 2963.0,2014.3 2954.2,1983.5"/>
+<polyline data-id="s3" data-cell="7" data-pts="0 1 2 3" data-radius="0.08825" data-depth="-0.06000" data-kind="valley" stroke-width="45" data-hidden="true" stroke-dasharray="12 8" points="4837.3,1901.4 4846.4,1865.8 4855.6,1857.9 4861.1,1881.5"/>
+<polyline data-id="s3" data-cell="7" data-pts="3 4 5" data-radius="0.08825" data-depth="-0.06000" data-kind="valley" stroke-width="45" points="4861.1,1881.5 4861.5,1921.6 4852.8,1950.2"/>
+<polyline data-id="s3" data-cell="7" data-pts="5 6 7 0" data-radius="0.08825" data-depth="-0.06000" data-kind="valley" stroke-width="45" data-hidden="true" stroke-dasharray="12 8" points="4852.8,1950.2 4841.2,1949.3 4835.1,1928.3 4837.3,1901.4"/>
+<polyline data-id="s4" data-cell="0" data-pts="0 1 2 3" data-radius="0.07995" data-depth="0.04000" data-kind="ridge" stroke-width="40" fill="none" points="664.6,444.5 746.7,428.8 827.9,429.1 908.9,451.0"/>
+<polyline data-id="s4" data-cell="1" data-pts="0 1 2" data-radius="0.07995" data-depth="0.04000" data-kind="ridge" stroke-width="40" fill="none" data-hidden="true" stroke-dasharray="12 8" points="1531.8,491.0 1529.2,470.3 1535.0,459.5"/>
+<polyline data-id="s4" data-cell="1" data-pts="2 3" data-radius="0.07995" data-depth="0.04000" data-kind="ridge" stroke-width="40" fill="none" points="1535.0,459.5 1553.8,465.2"/>
+<polyline data-id="s4" data-cell="4" data-pts="0 1 2 3" data-radius="0.07995" data-depth="0.04000" data-kind="ridge" stroke-width="40" fill="none" points="660.3,2342.6 730.5,2332.0 802.6,2308.7 877.0,2268.4"/>
+<polyline data-id="s4" data-cell="6" data-pts="0 1 2 3" data-radius="0.07995" data-depth="0.04000" data-kind="ridge" stroke-width="40" fill="none" points="2875.1,1888.7 2934.7,1889.2 3009.0,1900.8 3103.3,1929.7"/>
+<polyline data-id="s4" data-cell="7" data-pts="0 1 2" data-radius="0.07995" data-depth="0.04000" data-kind="ridge" stroke-width="40" fill="none" points="4830.5,1876.5 4860.2,1838.1 4879.4,1811.4"/>
+<polyline data-id="s4" data-cell="7" data-pts="2 3" data-radius="0.07995" data-depth="0.04000" data-kind="ridge" stroke-width="40" fill="none" data-hidden="true" stroke-dasharray="12 8" points="4879.4,1811.4 4886.5,1799.3"/>
+<polyline data-id="s5" data-cell="0" data-pts="0 1 2 3" data-radius="0.08499" data-depth="0.07000" data-kind="ridge" stroke-width="45" fill="none" points="640.1,535.5 640.1,597.9 640.1,659.8 640.1,711.9"/>
+<polyline data-id="s5" data-cell="1" data-pts="0 1 2 3" data-radius="0.08499" data-depth="0.07000" data-kind="ridge" stroke-width="45" fill="none" points="1504.1,563.4 1497.5,609.3 1496.7,654.3 1500.3,692.3"/>
+<polyline data-id="s5" data-cell="3" data-pts="0 1" data-radius="0.08499" data-depth="0.07000" data-kind="ridge" stroke-width="45" fill="none" data-hidden="true" stroke-dasharray="12 8" points="4894.7,563.4 4901.3,609.3"/>
+<polyline data-id="s5" data-cell="3" data-pts="1 2" data-radius="0.08499" data-depth="0.07000" data-kind="ridge" stroke-width="45" fill="none" points="4901.3,609.3 4902.1,654.3"/>
+<polyline data-id="s5" data-cell="3" data-pts="2 3" data-radius="0.08499" data-depth="0.07000" data-kind="ridge" stroke-width="45" fill="none" data-hidden="true" stroke-dasharray="12 8" points="4902.1,654.3 4898.4,692.3"/>
+<polyline data-id="s5" data-cell="4" data-pts="0 1 2 3" data-radius="0.08499" data-depth="0.07000" data-kind="ridge" stroke-width="45" fill="none" data-hidden="true" stroke-dasharray="12 8" points="640.0,2356.3 639.9,2349.8 639.9,2338.2 639.9,2324.7"/>
+<polyline data-id="s5" data-cell="5" data-pts="0 1 2 3" data-radius="0.08499" data-depth="0.07000" data-kind="ridge" stroke-width="45" fill="none" data-hidden="true" stroke-dasharray="12 8" points="1919.9,1523.7 1919.9,1505.7 1919.9,1492.7 1919.9,1485.6"/>
+<polyline data-id="s5" data-cell="6" data-pts="0 1 2 3" data-radius="0.08499" data-depth="0.07000" data-kind="ridge" stroke-width="45" fill="none" points="2835.4,1974.6 2833.5,2028.1 2837.7,2077.1 2845.6,2115.7"/>
+<polyline data-id="s5" data-cell="7" data-pts="0 1 2 3" data-radius="0.08499" data-depth="0.07000" data-kind="ridge" stroke-width="45" fill="none" points="4844.2,1974.3 4846.0,2027.8 4841.9,2076.8 4834.0,2115.4"/>
+</g>
+<g id="teeth">
+<polyline data-id="s6" data-cell="0" data-pts="0 1 2" data-radius="0.02710" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="658.9,806.3 658.9,825.4 658.8,844.6"/>
+<polyline data-id="s6" data-cell="5" data-pts="0 1" data-radius="0.02710" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" data-hidden="true" stroke-dasharray="12 8" points="1935.4,1499.1 1935.6,1499.4"/>
+<polyline data-id="s6" data-cell="5" data-pts="1 2" data-radius="0.02710" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="1935.6,1499.4 1935.8,1501.4"/>
+<polyline data-id="s6" data-cell="6" data-pts="0 1 2" data-radius="0.02710" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="2894.7,2181.1 2900.2,2193.8 2907.2,2206.0"/>
+<polyline data-id="s6" data-cell="7" data-pts="0 1 2" data-radius="0.02710" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="4803.5,2168.2 4798.1,2180.8 4791.1,2192.9"/>
+<polyline data-id="s7" data-cell="0" data-pts="0 1 2" data-radius="0.02714" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="696.0,804.2 696.0,823.0 696.2,841.7"/>
+<polyline data-id="s7" data-cell="5" data-pts="0 1" data-radius="0.02714" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" data-hidden="true" stroke-dasharray="12 8" points="1965.6,1501.1 1966.3,1502.0"/>
+<polyline data-id="s7" data-cell="5" data-pts="1 2" data-radius="0.02714" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="1966.3,1502.0 1967.2,1504.4"/>
+<polyline data-id="s7" data-cell="6" data-pts="0 1 2" data-radius="0.02714" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="2914.9,2191.6 2920.9,2204.1 2928.3,2216.1"/>
+<polyline data-id="s7" data-cell="7" data-pts="0 1 2" data-radius="0.02714" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="4820.3,2154.3 4814.4,2166.4 4807.4,2177.9"/>
+<polyline data-id="s8" data-cell="0" data-pts="0 1 2" data-radius="0.02725" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="733.9,800.3 733.6,819.2 733.8,837.9"/>
+<polyline data-id="s8" data-cell="1" data-pts="0 1 2" data-radius="0.02725" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="1519.4,766.5 1524.4,781.9 1530.7,797.6"/>
+<polyline data-id="s8" data-cell="5" data-pts="0 1" data-radius="0.02725" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" data-hidden="true" stroke-dasharray="12 8" points="1996.6,1505.4 1997.5,1506.3"/>
+<polyline data-id="s8" data-cell="5" data-pts="1 2" data-radius="0.02725" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="1997.5,1506.3 1998.9,1508.7"/>
+<polyline data-id="s8" data-cell="6" data-pts="0 1 2" data-radius="0.02725" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="2937.9,2200.8 2943.8,2213.4 2951.1,2225.6"/>
+<polyline data-id="s8" data-cell="7" data-pts="0 1 2" data-radius="0.02725" data-depth="0.03000" data-kind="ridge" stroke-width="14" fill="none" points="4835.3,2138.6 4829.4,2150.7 4822.6,2162.1"/>
+</g>
+</svg>

@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import ixdar.geometry.grid2d.PolygonScan;
 import ixdar.geometry.mesh.data.io.MeshLoader;
@@ -195,6 +196,18 @@ public final class StrokeSketch {
     public float[][] liftedXyzByShape = new float[0][];
 
     /**
+     * Each chain's points on the base its sidecar holds them at, packed xyz, which {@link #lift}
+     * takes instead of casting its pixels; null for a shape lifted from its pixels.
+     */
+    public float[][] anchoredXyzByShape = new float[0][];
+
+    /** Each shape's stable stroke id from its sidecar, null for a shape no sync has seen. */
+    public String[] idByShape = new String[0];
+
+    /** The SVG text the sketch was parsed from, empty for one built stroke by stroke. */
+    public String text = "";
+
+    /**
      * Read a pass's SVG: the file {@link MeshLoader#resolve} finds, as load_mesh finds its mesh, else
      * the classpath resource, so {@code dsl/skull/pass1.svg} works from either module root or a jar.
      *
@@ -281,7 +294,74 @@ public final class StrokeSketch {
         while (tag.find()) {
             sketch.shapes.add(tag.group());
         }
+        sketch.text = svg;
         return sketch;
+    }
+
+    /**
+     * Where a world point lands in a cell: its pixel from the cell's top left, as
+     * {@link Camera3D#rayThroughPixel} counts them, so a ray through that pixel passes the point.
+     *
+     * @param camera the cell's camera, {@link #cellCamera}
+     * @param point  the world point
+     * @param dest   receives x and y
+     * @return false when the point lies behind the camera
+     */
+    public boolean cellPixel(Camera3D camera, Vector3f point, float[] dest) {
+        Vector4f clip = new Vector4f(point, 1f);
+        camera.view.transform(clip);
+        camera.projection.transform(clip);
+        if (clip.w <= 0f) {
+            return false;
+        }
+        dest[0] = (clip.x / clip.w + 1f) * cellWidth * 0.5f - 0.5f;
+        dest[1] = (1f - clip.y / clip.w) * cellHeight * 0.5f - 0.5f;
+        return true;
+    }
+
+    /**
+     * A shape's points attribute for points in one cell's pixels: grid pixels in SVG units.
+     *
+     * @param cell   the cell, in reading order
+     * @param pixels packed xy from the cell's top left
+     * @param count  how many points to write
+     * @return {@code "x,y x,y ..."} at one decimal
+     */
+    public String gridPoints(int cell, float[] pixels, int count) {
+        StringBuilder points = new StringBuilder();
+        for (int point = 0; point < count; point++) {
+            points.append(point == 0 ? "" : " ").append(String.format(Locale.ROOT, "%.1f,%.1f",
+                    (pixels[point * 2] + cell % columns * cellWidth) / svgScaleX,
+                    (pixels[point * 2 + 1] + cell / columns * cellHeight) / svgScaleY));
+        }
+        return points.toString();
+    }
+
+    /**
+     * A shape's points in its cell's pixels, the inverse of {@link #gridPoints}.
+     *
+     * @param shape the shape's tag
+     * @param cell  the cell its points are measured from
+     * @return packed xy from the cell's top left
+     */
+    public float[] cellPixels(String shape, int cell) {
+        float[] pixels = gridPixels(shape);
+        for (int index = 0; index < pixels.length; index += 2) {
+            pixels[index] -= cell % columns * cellWidth;
+            pixels[index + 1] -= cell / columns * cellHeight;
+        }
+        return pixels;
+    }
+
+    /**
+     * The cell a shape's first point is in.
+     *
+     * @param shape the shape's tag
+     * @return the cell in reading order, -1 for a shape with no points
+     */
+    public int shapeCell(String shape) {
+        float[] pixels = gridPixels(shape);
+        return pixels.length < 2 ? -1 : cellAt(pixels[0], pixels[1]);
     }
 
     /**
@@ -469,27 +549,25 @@ public final class StrokeSketch {
             // deepest one's, so the cavity's floor curves up to its rim.
             float[] samples = fill ? PolygonScan.coveredPoints(pixels,
                     Math.max(MINIMUM_FILL_STEP_PIXELS, spacing / centerWorldPerPixel)) : pixels;
-            float[] lifted = new float[samples.length / 2 * 3];
-            float[] weights = new float[samples.length / 2];
-            float[] insetBySample = new float[fill && BOWL_ATTRIBUTE.matcher(shape).find() ? weights.length : 0];
+            // A chain its sidecar holds on the base takes those points as they are, whatever this
+            // cell sees of them.
+            float[] anchored = stroke < anchoredXyzByShape.length && !fill && !silhouette
+                    ? anchoredXyzByShape[stroke] : null;
+            int pointBound = Math.max(samples.length / 2, anchored == null ? 0 : anchored.length / 3);
+            float[] lifted = new float[pointBound * 3];
+            float[] weights = new float[pointBound];
+            float[] insetBySample = fill && BOWL_ATTRIBUTE.matcher(shape).find()
+                    ? PolygonScan.outlineDistances(pixels, samples) : new float[0];
             float deepestInset = 0f;
-            for (int point = 0; point < insetBySample.length; point++) {
-                insetBySample[point] = Float.POSITIVE_INFINITY;
-                for (int corner = 0; corner < pixels.length; corner += 2) {
-                    int next = (corner + 2) % pixels.length;
-                    float edgeX = pixels[next] - pixels[corner];
-                    float edgeY = pixels[next + 1] - pixels[corner + 1];
-                    float offsetX = samples[point * 2] - pixels[corner];
-                    float offsetY = samples[point * 2 + 1] - pixels[corner + 1];
-                    float along = Math.max(0f, Math.min(1f, (offsetX * edgeX + offsetY * edgeY)
-                            / Math.max(Float.MIN_NORMAL, edgeX * edgeX + edgeY * edgeY)));
-                    insetBySample[point] = Math.min(insetBySample[point],
-                            (float) Math.hypot(offsetX - along * edgeX, offsetY - along * edgeY));
-                }
-                deepestInset = Math.max(deepestInset, insetBySample[point]);
+            for (float inset : insetBySample) {
+                deepestInset = Math.max(deepestInset, inset);
             }
-            int liftedCount = 0;
-            for (int point = 0; point < samples.length / 2; point++) {
+            int liftedCount = anchored == null ? 0 : anchored.length / 3;
+            if (anchored != null) {
+                System.arraycopy(anchored, 0, lifted, 0, anchored.length);
+                Arrays.fill(weights, 1f);
+            }
+            for (int point = 0; anchored == null && point < samples.length / 2; point++) {
                 float localX = samples[point * 2];
                 float localY = samples[point * 2 + 1];
                 if (localX < 0 || localY < 0 || localX >= cellWidth || localY >= cellHeight) {
@@ -590,11 +668,7 @@ public final class StrokeSketch {
         viewCameras[column] = new float[] { view.azimuth, view.elevation, view.distance, view.roll, (float) view.fov,
             view.orbitTarget.x, view.orbitTarget.y, view.orbitTarget.z };
         columns = column + 1;
-        StringBuilder points = new StringBuilder();
-        for (int index = 0; index + 1 < pixels.length; index += 2) {
-            points.append(index == 0 ? "" : " ").append(String.format(Locale.ROOT, "%.1f,%.1f",
-                    (pixels[index] + column * cellWidth) / svgScaleX, pixels[index + 1] / svgScaleY));
-        }
+        String points = gridPoints(column, pixels, pixels.length / 2);
         boolean fill = FILL.equals(kind);
         Vector3f target = view.orbitTarget;
         float radius = widthPixels * (float) view.worldPerPixel(target.x, target.y, target.z, viewHeight);

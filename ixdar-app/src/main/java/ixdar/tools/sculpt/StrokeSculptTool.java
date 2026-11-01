@@ -30,7 +30,7 @@ import ixdar.tools.ring.RingDslWriter;
 
 /**
  * Sculpts the viewer's graph with weighted strokes drawn on the live view: each stroke goes on the
- * open {@code stroke_sculpt} pass, chained after the graph's own, and the graph re-runs. The pass
+ * open {@code stroke_sculpt} pass, the one pass on the graph's base, and the graph re-runs. The pass
  * list is the state undo and redo step through; Ctrl+S writes the .dsl and each pass's SVG.
  */
 @ToolAnnotation(id = StrokeSculptTool.TOOL_NAME)
@@ -166,7 +166,7 @@ public final class StrokeSculptTool extends Tool {
 
     @Override
     public String desc() {
-        return "Draw silhouette, ridge, valley and fill strokes on the view into chained stroke_sculpt passes, "
+        return "Draw silhouette, ridge, valley and fill strokes on the view into the sculpt's one stroke_sculpt pass, "
                 + "with undo, redo and a save to the .dsl and pass SVGs";
     }
 
@@ -452,8 +452,8 @@ public final class StrokeSculptTool extends Tool {
     }
 
     /**
-     * End the stroke being drawn and put it on the open pass, or on a new pass chained after the
-     * last, as one edit; its cell records the camera it was drawn through. A click draws nothing.
+     * End the stroke being drawn and put it on the open pass, or on a new pass on the base when the
+     * graph has none, as one edit; a second pass is refused, and a click draws nothing.
      *
      * @param x     framebuffer x of the release
      * @param y     framebuffer y of the release, y up
@@ -487,6 +487,14 @@ public final class StrokeSculptTool extends Tool {
         }
         SculptPass open = openPass();
         List<SculptPass> after = new ArrayList<>(passes);
+        if (open == null && !passes.isEmpty()) {
+            // One pass sums every stroke on its base (MESH-86); a second would sculpt a sculpt.
+            lastError = "one stroke_sculpt pass per base: " + passes.get(passes.size() - 1).id + " already sculpts it. "
+                    + "Edit its SVG and run ixdar-cli sculpt-sync, or save the sculpt as a new base (mesh-export) "
+                    + "and start a new DSL that loads it";
+            strokePointsDrawn = 0;
+            return true;
+        }
         if (open == null) {
             Matcher ids = PASS_ID.matcher(source());
             int serial = 0;
@@ -494,8 +502,7 @@ public final class StrokeSculptTool extends Tool {
                 serial = Math.max(serial, Integer.parseInt(ids.group(1)));
             }
             String id = PASS_ID_PREFIX + (serial + 1);
-            String upstream = passes.size() > loadedPasses
-                    ? passes.get(passes.size() - 1).id + PORT_SEPARATOR + StrokeSculptNode.GEOMETRY_OUT.name : anchor;
+            String upstream = anchor;
             // A .dsl under the resources folder names its SVGs as resources, any other one by path.
             String normalized = documentFile.replace('\\', '/');
             String stem = Path.of(documentFile).getFileName().toString().replaceFirst(DSL_EXTENSION, "");

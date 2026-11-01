@@ -78,7 +78,7 @@ public class MeshNodeViewerScene extends ModelScene {
     /** The palette the scene wore before clay or curvature swapped in the paper one. */
     public Palette paletteBeforeLook = palette;
 
-    /** The tool drawing weighted strokes on the view into the graph's chain of stroke_sculpt passes. */
+    /** The tool drawing weighted strokes on the view into the graph's one stroke_sculpt pass. */
     public final StrokeSculptTool strokeSculptTool = new StrokeSculptTool(this);
 
     private final String dslResource;
