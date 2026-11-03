@@ -69,10 +69,11 @@ public final class SlotCarry {
      * Reads the output's provenance layers. An edge's source joins its ends' sources; a corner's
      * is the source face's corner at its vertex's source, else the same corner (a weld).
      *
-     * @param inputs the op's inputs
-     * @param mesh   the output mesh
+     * @param inputs     the op's inputs
+     * @param mesh       the output mesh
+     * @param traceEdges whether to trace edge provenance, which only edge-domain slots read
      */
-    private SlotCarry(List<GeometryBundle> inputs, MeshTopology mesh) {
+    private SlotCarry(List<GeometryBundle> inputs, MeshTopology mesh, boolean traceEdges) {
         this.inputs = inputs;
         this.mesh = mesh;
         if (!(mesh instanceof HalfEdgeMesh layered)) {
@@ -97,7 +98,9 @@ public final class SlotCarry {
             return;
         }
 
-        edgeSource = new int[mesh.edgeIdBound()];
+        // Edge provenance asks the inputs for their edges, which an indexed input builds whole
+        // on first use; only edge-domain slots read it.
+        edgeSource = new int[traceEdges ? mesh.edgeIdBound() : 0];
         edgeOperand = new int[edgeSource.length];
         edgeDirected = new boolean[edgeSource.length];
         edgeReversed = new boolean[edgeSource.length];
@@ -140,7 +143,7 @@ public final class SlotCarry {
             }
             // A face side whose two corners both resolved names its input edge exactly, even
             // where a weld left the side's ends with sources from different input faces.
-            for (int corner = 0; corner < corners; corner++) {
+            for (int corner = 0; corner < corners && traceEdges; corner++) {
                 int from = cornerSource[cornerStart[activeFace] + corner];
                 int to = cornerSource[cornerStart[activeFace] + (corner + 1) % corners];
                 int fromVertex = mesh.faceVertexAt(faceId, corner);
@@ -166,7 +169,7 @@ public final class SlotCarry {
             }
         }
 
-        for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
+        for (int activeEdge = 0; traceEdges && activeEdge < mesh.edgeCount(); activeEdge++) {
             int edgeId = mesh.edgeIdAt(activeEdge);
             if (edgeSource[edgeId] != MeshTopology.NONE) {
                 continue;
@@ -222,7 +225,6 @@ public final class SlotCarry {
      */
     @SuppressWarnings("unchecked")
     public static GeometryBundle carry(List<GeometryBundle> inputs, GeometryBundle output) {
-        SlotCarry trace = new SlotCarry(inputs, output.mesh());
         MeshTopology mesh = output.mesh();
         Map<String, Object> slots = new HashMap<>(output.slots());
 
@@ -274,6 +276,7 @@ public final class SlotCarry {
             }
         }
 
+        SlotCarry trace = new SlotCarry(inputs, mesh, !markLabels.isEmpty() || anyHandles);
         if (trace.sourceVertex != null) {
             int vertexBound = mesh.vertexIdBound();
             if (!tagNames.isEmpty() && !slots.containsKey(TagGeometryNode.TAGS_SLOT)) {

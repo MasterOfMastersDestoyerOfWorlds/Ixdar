@@ -44,8 +44,10 @@ class CoincidentAnchorSaveTest {
             + "inner_base = icosphere(radius=1.0, subdivisions=2)\n"
             + "inner = transform_geometry(geometry=inner_base.mesh, translation=<0.0, 1.0, 0.0>)\n"
             + "nested = join_geometry(a=outer_base.mesh, b=inner.geometry)\n"
+            // Faceted, the inner sphere's pole fan pokes through the outer one, which pruning
+            // would cut away along with the overlap this test holds rings on.
             + "repaired = repair_mesh(geometry=nested.geometry, weld_epsilon=0.0001, "
-            + "max_hole_edges=0, min_shell_faces=1)\n"
+            + "max_hole_edges=0, min_shell_faces=1, prune_exposed=false)\n"
             + "surface = surface_metric(geometry=repaired.geometry)\n";
 
     private static final String SURFACE = "surface";

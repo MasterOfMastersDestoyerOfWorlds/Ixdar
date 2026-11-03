@@ -22,9 +22,7 @@ import ixdar.platform.Platforms;
 
 /**
  * Repairs a triangle mesh's topology so the half-edge build and the quad-layout pipeline can run
- * on it: epsilon weld, consistent winding, non-manifold edges split apart, degenerate faces
- * resolved, shells classified, small boundary loops filled. Removes no surface beyond degenerate
- * faces and the debris shells the caller asked to drop.
+ * on it; {@link MeshRepair} lists the stages.
  */
 @MeshNodeAnnotation(id = "repair_mesh", category = NodeCategory.MODIFIERS)
 public class RepairMeshNode implements MeshNode {
@@ -49,12 +47,15 @@ public class RepairMeshNode implements MeshNode {
 
     public static final InputPort STRICT = new InputPort("strict", PortType.BOOLEAN, false);
 
+    public static final InputPort PRUNE_EXPOSED =
+            new InputPort("prune_exposed", PortType.BOOLEAN, true);
+
     public static final OutputPort GEOMETRY_OUT =
             new OutputPort(GEOMETRY.name, PortType.GEOMETRY_BUNDLE);
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(GEOMETRY, WELD_EPSILON, MAX_HOLE_EDGES, MIN_SHELL_FACES, STRICT);
+        return List.of(GEOMETRY, WELD_EPSILON, MAX_HOLE_EDGES, MIN_SHELL_FACES, STRICT, PRUNE_EXPOSED);
     }
 
     @Override
@@ -66,7 +67,8 @@ public class RepairMeshNode implements MeshNode {
     public String description() {
         return "Repairs mesh topology in place of a rebuild: welds near-coincident vertices, makes"
                 + " the winding consistent, splits non-manifold edges apart, resolves degenerate"
-                + " faces, drops only debris and enclosed shells, and fills small boundary loops.";
+                + " faces, drops only debris and enclosed shells, fills small boundary loops, and"
+                + " prunes faces that show their back to the outside.";
     }
 
     @Override
@@ -104,7 +106,13 @@ public class RepairMeshNode implements MeshNode {
                 STRICT.name, "When true, evaluation fails with the full report if a boundary loop"
                         + " was left open or an orientation contradiction survived the split."
                         + " Debris and bubble shells are a deliberate drop, not a tear, so they do"
-                        + " not fail it."
+                        + " not fail it.",
+                PRUNE_EXPOSED.name, "When true (the default) and the filled surface is closed,"
+                        + " faces whose back sees out along their normal, such as a fold poking"
+                        + " through the skin or two fills overlapping with opposite windings, are"
+                        + " deleted with a widening ring round them and the holes refilled until"
+                        + " none is left. False keeps every face, for meshes built to touch or"
+                        + " overlap on purpose."
         );
     }
 
@@ -125,6 +133,8 @@ public class RepairMeshNode implements MeshNode {
         repair.minShellFaces = FieldBroadcast.intScalarOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, MIN_SHELL_FACES.name, MIN_SHELL_FACES.defaultValue),
                 DEFAULT_MIN_SHELL_FACES);
+        repair.pruneExposed = FieldBroadcast.boolAt(FieldBroadcast.getInputOrDefault(ctx,
+                PRUNE_EXPOSED.name, PRUNE_EXPOSED.defaultValue), 0, true);
         repair.build();
         Platforms.log(LOG_PREFIX + repair.report.summaryLine());
 

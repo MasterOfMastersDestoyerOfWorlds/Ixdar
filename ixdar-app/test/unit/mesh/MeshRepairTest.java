@@ -77,6 +77,22 @@ class MeshRepairTest {
 
     private static final double AREA_TOLERANCE = 1e-3;
 
+    private static final int PIT_FIRST_CELL = 3;
+
+    private static final float PIT_HALF_WIDTH = 0.25f;
+
+    private static final int TUBE_ROWS = 2;
+
+    private static final float CHAMBER_HALF_WIDTH = 0.75f;
+
+    private static final float CHAMBER_ROOF = 0.5f;
+
+    private static final float CHAMBER_FLOOR = -1.15f;
+
+    private static final int CHAMBER_CELLS = 6;
+
+    private static final int CHAMBER_ROWS = 5;
+
     @Test
     void seamSplitSquareWeldsToFourVerticesWithUvsIntactPerCorner() {
         float[] positions = {
@@ -231,6 +247,72 @@ class MeshRepairTest {
         }
         assertEquals(CUBE_TOP_HALF_AREA, regions.regionArea[top], AREA_TOLERANCE,
                 "the top region is the cube's top half, with no second sheet over the patch");
+    }
+
+    @Test
+    void aChamberFoldedOutThroughTheSkinIsTurnedToFaceOut() {
+        MeshRepair welded = repair(cubeWithChamberThroughTheBottom(), WELD_EPSILON, 0, 1);
+        MeshTopologyAnalysis before = new MeshTopologyAnalysis();
+        before.analyze(welded.weldedMesh);
+        assertEquals(0, before.unorientedEdgeCount,
+                "the chamber is wound consistently with the skin, so no seam can turn it");
+
+        MeshRepair repair = repair(cubeWithChamberThroughTheBottom(), WELD_EPSILON,
+                SCAN_HOLE_EDGES, 1);
+
+        MeshTopology cube = repair.output.mesh();
+        Vector3f[] corners = { new Vector3f(), new Vector3f(), new Vector3f() };
+        int floorFaces = 0;
+        for (int activeFace = 0; activeFace < cube.faceCount(); activeFace++) {
+            int faceId = cube.faceIdAt(activeFace);
+            boolean onFloor = true;
+            for (int index = 0; index < TRIANGLE_CORNERS; index++) {
+                cube.vertexPosition(cube.faceVertexAt(faceId, index), corners[index]);
+                onFloor &= corners[index].z < CHAMBER_FLOOR + SURFACE_EPSILON;
+            }
+            if (onFloor) {
+                Vector3f normal = new Vector3f(corners[1]).sub(corners[0])
+                        .cross(new Vector3f(corners[2]).sub(corners[0]));
+                assertTrue(normal.z < 0, "floor face " + faceId
+                        + " below the skin winds down, out of the solid, not into the chamber");
+                floorFaces++;
+            }
+        }
+        assertEquals(CHAMBER_CELLS * CHAMBER_CELLS * 2, floorFaces,
+                "the whole floor was checked");
+        assertHalfEdgeBuildable(repair);
+    }
+
+    /**
+     * Turning the chamber out cuts its seam to the skin, and the two loops of the cut are filled
+     * with opposite windings on top of each other; the pruning removes the fill that shows its
+     * back, so from every repaired face every ray into its back hemisphere meets the surface.
+     */
+    @Test
+    void noRepairedFaceShowsItsBackToTheOutside() {
+        MeshRepair repair = repair(cubeWithChamberThroughTheBottom(), WELD_EPSILON,
+                SCAN_HOLE_EDGES, 1);
+        assertTrue(repair.report.exposedFaceCount > 0, "the overlapping fills were found exposed");
+
+        MeshTopology mesh = repair.output.mesh();
+        TriangleBvh bvh = TriangleBvh.over(mesh, new int[mesh.triangleCount()]);
+        int[] stack = new int[Math.max(1, bvh.nodeCount)];
+        Vector3f[] corners = { new Vector3f(), new Vector3f(), new Vector3f() };
+        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            for (int index = 0; index < TRIANGLE_CORNERS; index++) {
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, index), corners[index]);
+            }
+            Vector3f back = new Vector3f(corners[2]).sub(corners[0])
+                    .cross(new Vector3f(corners[1]).sub(corners[0])).normalize();
+            Vector3f centroid = new Vector3f(corners[0]).add(corners[1]).add(corners[2])
+                    .div(TRIANGLE_CORNERS);
+            assertFalse(bvh.hemisphereEscapes(new float[] {centroid.x, centroid.y, centroid.z},
+                    new float[] {back.x, back.y, back.z}, stack),
+                    "face " + faceId + " shows its back to the outside, straight on or at a slant");
+        }
+        assertEquals(0, repair.report.refillOpenHoleCount, "every loop the pruning opened is closed");
+        assertHalfEdgeBuildable(repair);
     }
 
     /**
@@ -488,6 +570,128 @@ class MeshRepairTest {
         return GeometryBundle.ofMesh(new ArrayMesh(Arrays.copyOf(positions,
                 vertexCount * TRIANGLE_CORNERS), null, Arrays.copyOf(faces,
                         faceCount * TRIANGLE_CORNERS), TRIANGLE_CORNERS));
+    }
+
+    /**
+     * An outward cube whose top pit opens into a chamber bulging out through the bottom, wound
+     * consistently throughout, as IMG_4113's eyes fold through its head.
+     *
+     * @return the fixture bundle
+     */
+    private static GeometryBundle cubeWithChamberThroughTheBottom() {
+        GridSoup soup = new GridSoup();
+        soup.add(new float[] { -1, -1, 1 }, new float[] { 2, 0, 0 }, new float[] { 0, 2, 0 },
+                CUBE_GRID, CUBE_GRID, PIT_FIRST_CELL);
+        soup.add(new float[] { -1, -1, -1 }, new float[] { 0, 2, 0 }, new float[] { 2, 0, 0 },
+                CUBE_GRID, CUBE_GRID, -1);
+        soup.add(new float[] { 1, -1, -1 }, new float[] { 0, 2, 0 }, new float[] { 0, 0, 2 },
+                CUBE_GRID, CUBE_GRID, -1);
+        soup.add(new float[] { -1, -1, -1 }, new float[] { 0, 0, 2 }, new float[] { 0, 2, 0 },
+                CUBE_GRID, CUBE_GRID, -1);
+        soup.add(new float[] { -1, 1, -1 }, new float[] { 0, 0, 2 }, new float[] { 2, 0, 0 },
+                CUBE_GRID, CUBE_GRID, -1);
+        soup.add(new float[] { -1, -1, -1 }, new float[] { 2, 0, 0 }, new float[] { 0, 0, 2 },
+                CUBE_GRID, CUBE_GRID, -1);
+        // The tube's walls and the chamber's sides wind into the air they hold, so the chamber's
+        // floor, below the cube's bottom, faces up into the chamber.
+        float pit = PIT_HALF_WIDTH;
+        float tubeHeight = 1 - CHAMBER_ROOF;
+        soup.add(new float[] { pit, -pit, CHAMBER_ROOF }, new float[] { 0, 0, tubeHeight },
+                new float[] { 0, 2 * pit, 0 }, TUBE_ROWS, 2, -1);
+        soup.add(new float[] { -pit, -pit, CHAMBER_ROOF }, new float[] { 0, 2 * pit, 0 },
+                new float[] { 0, 0, tubeHeight }, 2, TUBE_ROWS, -1);
+        soup.add(new float[] { -pit, pit, CHAMBER_ROOF }, new float[] { 2 * pit, 0, 0 },
+                new float[] { 0, 0, tubeHeight }, 2, TUBE_ROWS, -1);
+        soup.add(new float[] { -pit, -pit, CHAMBER_ROOF }, new float[] { 0, 0, tubeHeight },
+                new float[] { 2 * pit, 0, 0 }, TUBE_ROWS, 2, -1);
+        float half = CHAMBER_HALF_WIDTH;
+        float width = 2 * half;
+        float height = CHAMBER_ROOF - CHAMBER_FLOOR;
+        soup.add(new float[] { -half, -half, CHAMBER_ROOF }, new float[] { 0, width, 0 },
+                new float[] { width, 0, 0 }, CHAMBER_CELLS, CHAMBER_CELLS,
+                (CHAMBER_CELLS - 2) / 2);
+        soup.add(new float[] { -half, -half, CHAMBER_FLOOR }, new float[] { width, 0, 0 },
+                new float[] { 0, width, 0 }, CHAMBER_CELLS, CHAMBER_CELLS, -1);
+        soup.add(new float[] { half, -half, CHAMBER_FLOOR }, new float[] { 0, 0, height },
+                new float[] { 0, width, 0 }, CHAMBER_ROWS, CHAMBER_CELLS, -1);
+        soup.add(new float[] { -half, -half, CHAMBER_FLOOR }, new float[] { 0, width, 0 },
+                new float[] { 0, 0, height }, CHAMBER_CELLS, CHAMBER_ROWS, -1);
+        soup.add(new float[] { -half, half, CHAMBER_FLOOR }, new float[] { width, 0, 0 },
+                new float[] { 0, 0, height }, CHAMBER_CELLS, CHAMBER_ROWS, -1);
+        soup.add(new float[] { -half, -half, CHAMBER_FLOOR }, new float[] { 0, 0, height },
+                new float[] { width, 0, 0 }, CHAMBER_ROWS, CHAMBER_CELLS, -1);
+        return soup.bundle();
+    }
+
+    /** Gridded parallelograms emitted as unwelded triangles, for fixtures the weld joins. */
+    private static final class GridSoup {
+
+        /** Packed xyz triples. */
+        private float[] positions = new float[0];
+
+        /** Vertices written. */
+        private int vertexCount;
+
+        /** Flat triangle index buffer. */
+        private int[] faces = new int[0];
+
+        /** Faces written. */
+        private int faceCount;
+
+        /**
+         * Appends one gridded parallelogram wound along {@code along x across}, leaving out the
+         * central two-by-two cells when asked.
+         *
+         * @param origin first corner
+         * @param along first edge
+         * @param across second edge
+         * @param alongCells cells along the first edge
+         * @param acrossCells cells along the second edge
+         * @param holeFirstCell first of the two skipped cells on both edges, or -1 for none
+         */
+        void add(float[] origin, float[] along, float[] across, int alongCells, int acrossCells,
+                int holeFirstCell) {
+            int first = vertexCount;
+            int columns = acrossCells + 1;
+            positions = Arrays.copyOf(positions,
+                    (vertexCount + (alongCells + 1) * columns) * TRIANGLE_CORNERS);
+            for (int step = 0; step <= alongCells; step++) {
+                for (int cross = 0; cross <= acrossCells; cross++) {
+                    for (int component = 0; component < TRIANGLE_CORNERS; component++) {
+                        positions[vertexCount * TRIANGLE_CORNERS + component] = origin[component]
+                                + along[component] * step / alongCells
+                                + across[component] * cross / acrossCells;
+                    }
+                    vertexCount++;
+                }
+            }
+            faces = Arrays.copyOf(faces,
+                    (faceCount + alongCells * acrossCells * 2) * TRIANGLE_CORNERS);
+            for (int step = 0; step < alongCells; step++) {
+                for (int cross = 0; cross < acrossCells; cross++) {
+                    if (holeFirstCell >= 0 && step - holeFirstCell >= 0 && step - holeFirstCell < 2
+                            && cross - holeFirstCell >= 0 && cross - holeFirstCell < 2) {
+                        continue;
+                    }
+                    int corner = first + step * columns + cross;
+                    faceCount = appendFace(faces, faceCount, corner, corner + columns,
+                            corner + columns + 1);
+                    faceCount = appendFace(faces, faceCount, corner, corner + columns + 1,
+                            corner + 1);
+                }
+            }
+        }
+
+        /**
+         * The soup written so far.
+         *
+         * @return a bundle over the unwelded triangles
+         */
+        GeometryBundle bundle() {
+            return GeometryBundle.ofMesh(new ArrayMesh(Arrays.copyOf(positions,
+                    vertexCount * TRIANGLE_CORNERS), null, Arrays.copyOf(faces,
+                            faceCount * TRIANGLE_CORNERS), TRIANGLE_CORNERS));
+        }
     }
 
     /**

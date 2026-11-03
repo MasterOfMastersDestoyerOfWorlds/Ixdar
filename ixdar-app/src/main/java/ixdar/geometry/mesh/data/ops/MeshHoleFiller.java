@@ -3,6 +3,7 @@ package ixdar.geometry.mesh.data.ops;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.numeric.sparse.AdaptiveSolver;
@@ -35,6 +36,18 @@ public final class MeshHoleFiller {
     private static final int GROWTH = 2;
 
     private static final double HALF = 0.5;
+
+    private static final int PARALLEL_LOOP_LENGTH = 256;
+
+    // Longest polygon the triangulation searches whole; longer ones are cut along a chord first.
+    private static final int SPLIT_LOOP_LENGTH = 256;
+
+    // A cut leaves at least this fraction of the polygon's vertices on each side, as a divisor.
+    private static final int CUT_SHARE = 4;
+
+    private static final int PACKED_VERTEX_BITS = 20;
+
+    private static final int PACKED_POSITION_BITS = 23;
 
     /** Loop vertex positions in traversal order, x. */
     public double[] loopX = new double[0];
@@ -112,6 +125,12 @@ public final class MeshHoleFiller {
     /** Neighbour vertex indices used by the fairing pass. */
     private int[] neighbours = new int[0];
 
+    /** The minted vertices and their neighbours, whose umbrellas the fairing operator forms. */
+    private int[] umbrellaRows = new int[0];
+
+    /** Umbrella per local vertex, written for {@link #umbrellaRows} only. */
+    private double[] umbrellaScratch = new double[0];
+
     /**
      * Triangulate, refine and fair the loop. Leaves {@link #filled} false when no triangulation
      * avoids the chords the mesh already carries.
@@ -147,27 +166,89 @@ public final class MeshHoleFiller {
      * @return whether a triangulation exists under those chord restrictions
      */
     private boolean triangulate() {
-        int n = loopLength;
+        triangles = new int[(loopLength - 2) * TRIANGLE_CORNERS];
+        triangleCount = 0;
+        return triangulate(IntStream.range(0, loopLength).toArray());
+    }
+
+    /**
+     * Appends a minimum-area triangulation of one polygon over loop vertices, cutting a polygon
+     * longer than {@link #SPLIT_LOOP_LENGTH} along a short chord first.
+     *
+     * @param polygon loop indices in loop order; its last vertex joins back to its first
+     * @return whether a triangulation exists under the chord restrictions
+     */
+    private boolean triangulate(int[] polygon) {
+        int n = polygon.length;
+        // The cut is the shortest chord leaving both sides at least a quarter of the polygon, so a
+        // long loop costs a few small cubic searches instead of one large one; if a side has no
+        // triangulation, the whole polygon is searched instead.
+        if (n > SPLIT_LOOP_LENGTH) {
+            int cutFrom = -1;
+            int cutTo = -1;
+            double shortest = Double.POSITIVE_INFINITY;
+            for (int from = 0; from < n; from++) {
+                for (int to = from + n / CUT_SHARE; to <= from + n - n / CUT_SHARE && to < n; to++) {
+                    double deltaX = loopX[polygon[to]] - loopX[polygon[from]];
+                    double deltaY = loopY[polygon[to]] - loopY[polygon[from]];
+                    double deltaZ = loopZ[polygon[to]] - loopZ[polygon[from]];
+                    double length = deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ;
+                    if (length < shortest && Arrays.binarySearch(forbiddenChords,
+                            EdgeKey.undirected(polygon[from], polygon[to])) < 0) {
+                        shortest = length;
+                        cutFrom = from;
+                        cutTo = to;
+                    }
+                }
+            }
+            if (cutFrom >= 0) {
+                int before = triangleCount;
+                int[] other = new int[n - (cutTo - cutFrom) + 1];
+                System.arraycopy(polygon, cutTo, other, 0, n - cutTo);
+                System.arraycopy(polygon, 0, other, n - cutTo, cutFrom + 1);
+                if (triangulate(Arrays.copyOfRange(polygon, cutFrom, cutTo + 1)) && triangulate(other)) {
+                    return true;
+                }
+                triangleCount = before;
+            }
+        }
         double[][] cost = new double[n][n];
+        // The same costs indexed [end][start], so the inner loop reads both halves in order.
+        double[][] costToEnd = new double[n][n];
         int[][] split = new int[n][n];
         boolean[][] feasible = new boolean[n][n];
+        boolean[][] feasibleToEnd = new boolean[n][n];
         for (int start = 0; start + 1 < n; start++) {
             feasible[start][start + 1] = true;
+            feasibleToEnd[start + 1][start] = true;
         }
         for (int span = 2; span < n; span++) {
-            for (int start = 0; start + span < n; start++) {
-                int end = start + span;
-                if (!chordAllowed(start, end, n)) {
-                    continue;
+            int spanLength = span;
+            // Every interval of one span reads only shorter spans, so they solve independently.
+            IntStream starts = IntStream.range(0, n - span);
+            (n >= PARALLEL_LOOP_LENGTH ? starts.parallel() : starts).forEach(start -> {
+                int end = start + spanLength;
+                // The polygon's own sides are loop sides or the chord it was cut along.
+                if (!(start == 0 && end == n - 1) && Arrays.binarySearch(forbiddenChords,
+                        EdgeKey.undirected(polygon[start], polygon[end])) >= 0) {
+                    return;
                 }
                 double best = Double.POSITIVE_INFINITY;
                 int bestSplit = -1;
+                double[] fromStart = cost[start];
+                double[] toEnd = costToEnd[end];
+                boolean[] feasibleFromStart = feasible[start];
+                boolean[] feasibleToEndRow = feasibleToEnd[end];
                 for (int middle = start + 1; middle < end; middle++) {
-                    if (!feasible[start][middle] || !feasible[middle][end]) {
+                    if (!feasibleFromStart[middle] || !feasibleToEndRow[middle]) {
                         continue;
                     }
-                    double candidate = cost[start][middle] + cost[middle][end]
-                            + triangleArea(start, middle, end);
+                    // An area is never negative, so halves already costing the best cannot win.
+                    double halves = fromStart[middle] + toEnd[middle];
+                    if (halves >= best) {
+                        continue;
+                    }
+                    double candidate = halves + triangleArea(polygon[start], polygon[middle], polygon[end]);
                     if (candidate < best) {
                         best = candidate;
                         bestSplit = middle;
@@ -175,52 +256,38 @@ public final class MeshHoleFiller {
                 }
                 if (bestSplit >= 0) {
                     feasible[start][end] = true;
+                    feasibleToEnd[end][start] = true;
                     cost[start][end] = best;
+                    costToEnd[end][start] = best;
                     split[start][end] = bestSplit;
                 }
-            }
+            });
         }
         if (!feasible[0][n - 1]) {
             return false;
         }
-        triangles = new int[(n - 2) * TRIANGLE_CORNERS];
-        emit(split, 0, n - 1);
+        emit(polygon, split, 0, n - 1);
         return true;
-    }
-
-    /**
-     * Whether the pair may carry a triangulation chord: loop edges always may, and an interior
-     * chord may unless the mesh already has that edge somewhere else.
-     *
-     * @param start lower local loop index
-     * @param end higher local loop index
-     * @param loopSize vertices in the loop
-     * @return true when the dynamic program may use the pair
-     */
-    private boolean chordAllowed(int start, int end, int loopSize) {
-        if (end == start + 1 || (start == 0 && end == loopSize - 1)) {
-            return true;
-        }
-        return Arrays.binarySearch(forbiddenChords, EdgeKey.undirected(start, end)) < 0;
     }
 
     /**
      * Walks the dynamic program's split table, appending one triangle per interval.
      *
-     * @param split best split index per interval
+     * @param polygon loop index per polygon position
+     * @param split best split position per interval
      * @param start interval start
      * @param end interval end
      */
-    private void emit(int[][] split, int start, int end) {
+    private void emit(int[] polygon, int[][] split, int start, int end) {
         if (end <= start + 1) {
             return;
         }
         int middle = split[start][end];
-        emit(split, start, middle);
-        emit(split, middle, end);
-        triangles[triangleCount * TRIANGLE_CORNERS] = start;
-        triangles[triangleCount * TRIANGLE_CORNERS + 1] = middle;
-        triangles[triangleCount * TRIANGLE_CORNERS + 2] = end;
+        emit(polygon, split, start, middle);
+        emit(polygon, split, middle, end);
+        triangles[triangleCount * TRIANGLE_CORNERS] = polygon[start];
+        triangles[triangleCount * TRIANGLE_CORNERS + 1] = polygon[middle];
+        triangles[triangleCount * TRIANGLE_CORNERS + 2] = polygon[end];
         triangleCount++;
     }
 
@@ -418,6 +485,16 @@ public final class MeshHoleFiller {
             return;
         }
         buildNeighbours();
+        boolean[] needed = new boolean[vertexCount];
+        for (int vertex = fixedCount; vertex < vertexCount; vertex++) {
+            needed[vertex] = true;
+            for (int index = neighbourStart[vertex]; index < neighbourStart[vertex + 1]; index++) {
+                needed[neighbours[index]] = true;
+            }
+        }
+        umbrellaRows = IntStream.range(0, vertexCount)
+                .filter(vertex -> needed[vertex]).toArray();
+        umbrellaScratch = new double[vertexCount];
         solveCoordinate(vertexX, fixedCount);
         solveCoordinate(vertexY, fixedCount);
         solveCoordinate(vertexZ, fixedCount);
@@ -468,7 +545,7 @@ public final class MeshHoleFiller {
      */
     private void applyToUnknowns(double[] unknownValues, double[] full, double[] scratch,
             int fixedCount, double[] destination) {
-        Arrays.fill(full, 0, fixedCount, 0.0);
+        // The held entries of the embedded vector stay zero; only the unknowns are written.
         System.arraycopy(unknownValues, 0, full, fixedCount, unknownValues.length);
         applyNormalOperator(full, scratch);
         System.arraycopy(scratch, fixedCount, destination, 0, unknownValues.length);
@@ -481,8 +558,11 @@ public final class MeshHoleFiller {
      * @param destination filled with the operator's output, one value per local vertex
      */
     private void applyNormalOperator(double[] source, double[] destination) {
-        double[] umbrella = new double[vertexCount];
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
+        // Only the minted vertices' rows are read back, and they read the umbrella of themselves
+        // and their neighbours alone, so only those umbrellas are formed.
+        int fixedCount = loopLength + ringCount;
+        double[] umbrella = umbrellaScratch;
+        for (int vertex : umbrellaRows) {
             int start = neighbourStart[vertex];
             int end = neighbourStart[vertex + 1];
             if (end == start) {
@@ -495,7 +575,7 @@ public final class MeshHoleFiller {
             }
             umbrella[vertex] = sum / (end - start) - source[vertex];
         }
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
+        for (int vertex = fixedCount; vertex < vertexCount; vertex++) {
             int start = neighbourStart[vertex];
             int end = neighbourStart[vertex + 1];
             double sum = 0;
@@ -631,6 +711,29 @@ public final class MeshHoleFiller {
      * @param payload values to permute the same way
      */
     private static void sortByKey(long[] keys, int[] payload) {
+        // While the vertex indices and positions fit, each (key, position) pair packs into one long
+        // whose ascending order is the stable order by key, and a primitive sort finds it.
+        long vertexLimit = 1L << PACKED_VERTEX_BITS;
+        boolean packable = keys.length < 1 << PACKED_POSITION_BITS;
+        for (int index = 0; index < keys.length && packable; index++) {
+            packable = EdgeKey.maxVertex(keys[index]) < vertexLimit;
+        }
+        if (packable) {
+            long[] packed = new long[keys.length];
+            for (int index = 0; index < keys.length; index++) {
+                packed[index] = (long) EdgeKey.minVertex(keys[index]) << (PACKED_VERTEX_BITS + PACKED_POSITION_BITS)
+                        | (long) EdgeKey.maxVertex(keys[index]) << PACKED_POSITION_BITS | index;
+            }
+            Arrays.sort(packed);
+            long[] originalKeys = keys.clone();
+            int[] originalPayload = payload.clone();
+            for (int index = 0; index < keys.length; index++) {
+                int from = (int) (packed[index] & ((1L << PACKED_POSITION_BITS) - 1));
+                keys[index] = originalKeys[from];
+                payload[index] = originalPayload[from];
+            }
+            return;
+        }
         long[] originalKeys = keys.clone();
         Integer[] order = new Integer[keys.length];
         for (int index = 0; index < keys.length; index++) {

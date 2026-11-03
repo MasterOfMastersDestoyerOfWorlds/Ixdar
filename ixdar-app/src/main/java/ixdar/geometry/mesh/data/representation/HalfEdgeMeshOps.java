@@ -1,8 +1,11 @@
 package ixdar.geometry.mesh.data.representation;
 
 import java.util.Arrays;
+import java.util.function.IntUnaryOperator;
+import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
+
 
 
 /**
@@ -15,6 +18,8 @@ public class HalfEdgeMeshOps {
     public static final String EDGE = "Edge ";
     public static final String POSITION_DATA_MUST_BE_XYZ_TRIPLES = "Position data must be XYZ triples";
     public static final String AND = " and ";
+
+    private static final int PARALLEL_BUILD_CORNERS = 100_000;
 
     /**
      * Allocates a new vertex slot at the given world-space position.
@@ -652,15 +657,70 @@ public class HalfEdgeMeshOps {
      * @return populated half-edge mesh with normals computed
      */
     public static HalfEdgeMesh buildFromIndexedMesh(float[] positions, int[] faceIndices) {
+        return buildFromIndexedMesh(positions, faceIndices, null);
+    }
+
+    /**
+     * {@link #buildFromIndexedMesh(float[], int[])} for a caller that already knows which corner
+     * shares each corner's side, so the build skips finding the pairs; the mesh is the same id for
+     * id.
+     *
+     * @param positions   packed xyz triples
+     * @param faceIndices vertex indices in groups of three
+     * @param cornerTwin  per corner, the corner running its side the other way, or
+     *                    {@link MeshTopology#NONE} on an open side; null finds the pairs
+     * @throws IllegalArgumentException if {@code positions.length} is not divisible by 3 or
+     *         {@code faceIndices.length} is not divisible by 3
+     * @return populated half-edge mesh with normals computed
+     */
+    public static HalfEdgeMesh buildFromIndexedMesh(float[] positions, int[] faceIndices,
+            int[] cornerTwin) {
         if (positions.length % HalfEdgeMesh.FLOATS_PER_VERTEX != 0) {
             throw new IllegalArgumentException(POSITION_DATA_MUST_BE_XYZ_TRIPLES);
         }
         if (faceIndices.length % 3 != 0) {
             throw new IllegalArgumentException("Face indices must be triangles");
         }
-        HalfEdgeMesh mesh = packedBuild(positions, uniformFaceStarts(faceIndices.length, 3),
-                faceIndices);
-        computeNormals(mesh);
+        HalfEdgeMesh mesh = cornerTwin != null ? triangleBuildWithTwins(positions, faceIndices, cornerTwin)
+                : packedBuild(positions, uniformFaceStarts(faceIndices.length, 3), faceIndices, null);
+        // A packed build numbers faces and vertices by index, so the normals are read straight off
+        // the flat arrays, in computeNormals' order and arithmetic.
+        Vector3f p0 = new Vector3f();
+        Vector3f p1 = new Vector3f();
+        Vector3f p2 = new Vector3f();
+        Vector3f edgeA = new Vector3f();
+        Vector3f edgeB = new Vector3f();
+        Vector3f areaNormal = new Vector3f();
+        Vector3f normalized = new Vector3f();
+        for (int faceId = 0; faceId < faceIndices.length / 3; faceId++) {
+            int a = faceIndices[faceId * 3] * HalfEdgeMesh.FLOATS_PER_VERTEX;
+            int b = faceIndices[faceId * 3 + 1] * HalfEdgeMesh.FLOATS_PER_VERTEX;
+            int c = faceIndices[faceId * 3 + 2] * HalfEdgeMesh.FLOATS_PER_VERTEX;
+            p0.set(positions[a], positions[a + 1], positions[a + 2]);
+            p1.set(positions[b], positions[b + 1], positions[b + 2]);
+            p2.set(positions[c], positions[c + 1], positions[c + 2]);
+            edgeA.set(p1).sub(p0);
+            edgeB.set(p2).sub(p0);
+            edgeA.cross(edgeB, areaNormal);
+            if (areaNormal.lengthSquared() == 0f) {
+                continue;
+            }
+            normalized.set(areaNormal).normalize();
+            setVector(mesh.faceNormals, faceId, normalized.x, normalized.y, normalized.z);
+            for (int corner = 0; corner < 3; corner++) {
+                addVector(mesh.vertexNormals, faceIndices[faceId * 3 + corner], areaNormal.x,
+                        areaNormal.y, areaNormal.z);
+            }
+        }
+        for (int vertexId = 0; vertexId < positions.length / HalfEdgeMesh.FLOATS_PER_VERTEX; vertexId++) {
+            int offset = vertexId * HalfEdgeMesh.FLOATS_PER_VERTEX;
+            p0.set(mesh.vertexNormals[offset], mesh.vertexNormals[offset + 1],
+                    mesh.vertexNormals[offset + 2]);
+            if (p0.lengthSquared() > 0f) {
+                p0.normalize();
+                setVector(mesh.vertexNormals, vertexId, p0.x, p0.y, p0.z);
+            }
+        }
         return mesh;
     }
 
@@ -684,7 +744,7 @@ public class HalfEdgeMeshOps {
             throw new IllegalArgumentException("Face indices must be groups of " + vertsPerFace);
         }
         return packedBuild(positions, uniformFaceStarts(faceIndices.length, vertsPerFace),
-                faceIndices);
+                faceIndices, null);
     }
 
     /**
@@ -721,7 +781,7 @@ public class HalfEdgeMeshOps {
         for (int faceId = 0; faceId < faceVertexCounts.length; faceId++) {
             faceStarts[faceId + 1] = faceStarts[faceId] + faceVertexCounts[faceId];
         }
-        return packedBuild(positions, faceStarts, faceIndicesFlat);
+        return packedBuild(positions, faceStarts, faceIndicesFlat, null);
     }
 
     /**
@@ -740,6 +800,179 @@ public class HalfEdgeMeshOps {
     }
 
     /**
+     * The indices below a bound, on every thread when asked.
+     *
+     * @param count    one past the last index
+     * @param parallel whether to split the range across threads
+     * @return the stream
+     */
+    private static IntStream range(int count, boolean parallel) {
+        IntStream indices = IntStream.range(0, count);
+        return parallel ? indices.parallel() : indices;
+    }
+
+    /**
+     * Files the items below a bound into buckets laid out by start offsets, each bucket in
+     * ascending item order. One serial pass: atomics shared by every thread cost more than the
+     * threads save until the JIT has compiled them, which the first build in a session never sees.
+     *
+     * @param count       items to file
+     * @param bucketStart one start offset per bucket plus a tail
+     * @param bucketOf    the bucket of each item
+     * @param filed       receives the items, bucket by bucket
+     */
+    private static void fillBuckets(int count, int[] bucketStart, IntUnaryOperator bucketOf,
+            int[] filed) {
+        int[] cursor = Arrays.copyOf(bucketStart, bucketStart.length - 1);
+        for (int item = 0; item < count; item++) {
+            filed[cursor[bucketOf.applyAsInt(item)]++] = item;
+        }
+    }
+
+    /**
+     * {@link #packedBuild} for triangles whose corner twins are known, the same mesh id for id in
+     * five passes: one counts, one numbers every side and writes everything a corner or a face
+     * decides, and the rest file the vertices' rows.
+     *
+     * @param positions   packed xyz triples
+     * @param faceIndices vertex ids in groups of three
+     * @param cornerTwin  per corner, the corner running its side the other way or
+     *                    {@link MeshTopology#NONE}
+     * @throws InvalidMeshTopologyException when a corner names a missing vertex or an edge is
+     *         degenerate
+     * @return the populated mesh, every adjacency row packed, normals left zero
+     */
+    private static HalfEdgeMesh triangleBuildWithTwins(float[] positions, int[] faceIndices, int[] cornerTwin) {
+        int vertexCount = positions.length / HalfEdgeMesh.FLOATS_PER_VERTEX;
+        int cornerCount = faceIndices.length;
+        int faceCount = cornerCount / 3;
+        int[] faceRowStart = new int[vertexCount + 1];
+        int edgeCount = 0;
+        for (int corner = 0; corner < cornerCount; corner++) {
+            int startVertex = faceIndices[corner];
+            int endVertex = faceIndices[corner % 3 == 2 ? corner - 2 : corner + 1];
+            if (startVertex < 0 || startVertex >= vertexCount || endVertex < 0 || endVertex >= vertexCount) {
+                throw new InvalidMeshTopologyException("Face " + corner / 3
+                        + " names a vertex outside the " + vertexCount + " given");
+            }
+            validateDistinctVertices(startVertex, endVertex);
+            faceRowStart[startVertex + 1]++;
+            int twin = cornerTwin[corner];
+            edgeCount += twin == MeshTopology.NONE || twin >= corner ? 1 : 0;
+        }
+        int halfEdgeCount = 2 * edgeCount;
+        int[] halfEdgeOfCorner = new int[cornerCount];
+        int[] halfEdgeVertex = new int[halfEdgeCount];
+        int[] halfEdgeFace = new int[halfEdgeCount];
+        int[] halfEdgeNext = new int[halfEdgeCount];
+        int[] halfEdgePrev = new int[halfEdgeCount];
+        int[] halfEdgeTwin = new int[halfEdgeCount];
+        int[] halfEdgeEdge = new int[halfEdgeCount];
+        int[] edgeHalfEdge = new int[edgeCount];
+        int[] faceHalfEdge = new int[faceCount];
+        int[] faceEdgeIds = new int[cornerCount];
+        int[] faceStarts = new int[faceCount + 1];
+        int[] outgoingStart = new int[vertexCount + 1];
+        // Sides are numbered in the order of the corners that open them; an opener always comes
+        // before the corner that pairs with it, so a pairing corner finds its side numbered.
+        int forward = 0;
+        for (int faceId = 0; faceId < faceCount; faceId++) {
+            int first = faceId * 3;
+            faceStarts[faceId + 1] = first + 3;
+            for (int corner = first; corner < first + 3; corner++) {
+                int twin = cornerTwin[corner];
+                int halfEdgeId;
+                if (twin != MeshTopology.NONE && twin < corner) {
+                    halfEdgeId = halfEdgeOfCorner[twin] + 1;
+                } else {
+                    halfEdgeId = forward;
+                    int endVertex = faceIndices[corner < first + 2 ? corner + 1 : first];
+                    halfEdgeVertex[forward] = faceIndices[corner];
+                    halfEdgeVertex[forward + 1] = endVertex;
+                    halfEdgeFace[forward + 1] = MeshTopology.NONE;
+                    halfEdgeNext[forward + 1] = MeshTopology.NONE;
+                    halfEdgePrev[forward + 1] = MeshTopology.NONE;
+                    halfEdgeTwin[forward] = forward + 1;
+                    halfEdgeTwin[forward + 1] = forward;
+                    halfEdgeEdge[forward] = forward >> 1;
+                    halfEdgeEdge[forward + 1] = forward >> 1;
+                    edgeHalfEdge[forward >> 1] = forward;
+                    outgoingStart[faceIndices[corner] + 1]++;
+                    outgoingStart[endVertex + 1]++;
+                    forward += 2;
+                }
+                halfEdgeOfCorner[corner] = halfEdgeId;
+                faceEdgeIds[corner] = halfEdgeId >> 1;
+            }
+            faceHalfEdge[faceId] = halfEdgeOfCorner[first];
+            for (int corner = first; corner < first + 3; corner++) {
+                int halfEdgeId = halfEdgeOfCorner[corner];
+                halfEdgeFace[halfEdgeId] = faceId;
+                halfEdgeNext[halfEdgeId] = halfEdgeOfCorner[corner < first + 2 ? corner + 1 : first];
+                halfEdgePrev[halfEdgeId] = halfEdgeOfCorner[corner > first ? corner - 1 : first + 2];
+            }
+        }
+        for (int vertexId = 0; vertexId < vertexCount; vertexId++) {
+            faceRowStart[vertexId + 1] += faceRowStart[vertexId];
+            outgoingStart[vertexId + 1] += outgoingStart[vertexId];
+        }
+        int[] vertexFaceIds = new int[cornerCount];
+        int[] faceCursor = Arrays.copyOf(faceRowStart, vertexCount);
+        for (int corner = 0; corner < cornerCount; corner++) {
+            vertexFaceIds[faceCursor[faceIndices[corner]]++] = corner / 3;
+        }
+        int[] outgoingHalfEdges = new int[halfEdgeCount];
+        int[] outgoingEdges = new int[halfEdgeCount];
+        int[] outgoingCursor = Arrays.copyOf(outgoingStart, vertexCount);
+        for (int halfEdgeId = 0; halfEdgeId < halfEdgeCount; halfEdgeId++) {
+            int slot = outgoingCursor[halfEdgeVertex[halfEdgeId]]++;
+            outgoingHalfEdges[slot] = halfEdgeId;
+            outgoingEdges[slot] = halfEdgeId >> 1;
+        }
+        int[] vertexOutgoing = new int[vertexCount];
+        for (int vertexId = 0; vertexId < vertexCount; vertexId++) {
+            vertexOutgoing[vertexId] = outgoingStart[vertexId] < outgoingStart[vertexId + 1]
+                    ? outgoingHalfEdges[outgoingStart[vertexId]] : MeshTopology.NONE;
+        }
+        HalfEdgeMesh mesh = new HalfEdgeMesh();
+        mesh.vertexPositions = Arrays.copyOf(positions, vertexCount * HalfEdgeMesh.FLOATS_PER_VERTEX);
+        mesh.vertexNormals = new float[mesh.vertexPositions.length];
+        mesh.vertexOutgoing = vertexOutgoing;
+        mesh.vertexActive = new boolean[vertexCount];
+        Arrays.fill(mesh.vertexActive, true);
+        mesh.edgeHalfEdge = edgeHalfEdge;
+        mesh.edgeActive = new boolean[edgeCount];
+        Arrays.fill(mesh.edgeActive, true);
+        mesh.faceHalfEdge = faceHalfEdge;
+        mesh.faceNormals = new float[faceCount * HalfEdgeMesh.FLOATS_PER_VERTEX];
+        mesh.faceActive = new boolean[faceCount];
+        Arrays.fill(mesh.faceActive, true);
+        mesh.halfEdgeTwin = halfEdgeTwin;
+        mesh.halfEdgeNext = halfEdgeNext;
+        mesh.halfEdgePrev = halfEdgePrev;
+        mesh.halfEdgeVertex = halfEdgeVertex;
+        mesh.halfEdgeFace = halfEdgeFace;
+        mesh.halfEdgeEdge = halfEdgeEdge;
+        mesh.halfEdgeActive = new boolean[halfEdgeCount];
+        Arrays.fill(mesh.halfEdgeActive, true);
+        mesh.nextVertexId = vertexCount;
+        mesh.nextEdgeId = edgeCount;
+        mesh.nextFaceId = faceCount;
+        mesh.nextHalfEdgeId = halfEdgeCount;
+        mesh.activeVertexIds.addFirstIds(vertexCount);
+        mesh.activeEdgeIds.addFirstIds(edgeCount);
+        mesh.activeFaceIds.addFirstIds(faceCount);
+        mesh.activeHalfEdgeIds.addFirstIds(halfEdgeCount);
+        mesh.vertexOutgoingHalfEdges.pack(outgoingStart, outgoingHalfEdges);
+        mesh.vertexEdges.pack(outgoingStart, outgoingEdges);
+        mesh.vertexFaces.pack(faceRowStart, vertexFaceIds);
+        mesh.faceHalfEdges.pack(faceStarts, halfEdgeOfCorner);
+        mesh.faceVertices.pack(faceStarts, Arrays.copyOf(faceIndices, cornerCount));
+        mesh.faceEdges.pack(faceStarts, faceEdgeIds);
+        return mesh;
+    }
+
+    /**
      * Builds a half-edge mesh in linear passes over whole-mesh arrays, identical id for id to
      * adding every vertex and then every face through {@link #addFace}. Normals are left zero.
      *
@@ -747,18 +980,22 @@ public class HalfEdgeMeshOps {
      * @param faceStarts  {@code faceCount + 1} offsets of each face's first corner in
      *                    {@code faceIndices}
      * @param faceIndices every face's vertex ids, end to end
+     * @param cornerTwin  per corner, the corner running its side the other way or
+     *                    {@link MeshTopology#NONE}; null finds the pairs
      * @throws InvalidMeshTopologyException when a corner names a missing vertex, an edge is
      *         degenerate, or directed half-edges collide; a collision lists every offender
      * @return the populated mesh, every adjacency row packed
      */
-    private static HalfEdgeMesh packedBuild(float[] positions, int[] faceStarts, int[] faceIndices) {
+    private static HalfEdgeMesh packedBuild(float[] positions, int[] faceStarts, int[] faceIndices,
+            int[] cornerTwin) {
         int vertexCount = positions.length / HalfEdgeMesh.FLOATS_PER_VERTEX;
         int faceCount = faceStarts.length - 1;
         int cornerCount = faceIndices.length;
 
+        // Large meshes run each pass on every thread. Every bucket a thread fills is sorted back
+        // into ascending order afterwards, so the result matches the serial walk id for id.
+        boolean parallel = cornerCount >= PARALLEL_BUILD_CORNERS;
         int[] cornerEnd = new int[cornerCount];
-        int[] lowVertexStart = new int[vertexCount + 1];
-        int[] faceRowStart = new int[vertexCount + 1];
         for (int faceId = 0; faceId < faceCount; faceId++) {
             int first = faceStarts[faceId];
             int end = faceStarts[faceId + 1];
@@ -772,91 +1009,52 @@ public class HalfEdgeMeshOps {
                 }
                 validateDistinctVertices(startVertex, endVertex);
                 cornerEnd[corner] = endVertex;
-                lowVertexStart[Math.min(startVertex, endVertex) + 1]++;
-                faceRowStart[startVertex + 1]++;
             }
+        }
+        int[] faceRowStart = new int[vertexCount + 1];
+        for (int corner = 0; corner < cornerCount; corner++) {
+            faceRowStart[faceIndices[corner] + 1]++;
         }
         for (int vertexId = 0; vertexId < vertexCount; vertexId++) {
-            lowVertexStart[vertexId + 1] += lowVertexStart[vertexId];
             faceRowStart[vertexId + 1] += faceRowStart[vertexId];
         }
-        int[] cornersByLowVertex = new int[cornerCount];
-        int[] highVertexBySlot = new int[cornerCount];
-        boolean[] runsUpwardBySlot = new boolean[cornerCount];
-        int[] fillCursor = Arrays.copyOf(lowVertexStart, vertexCount);
-        for (int corner = 0; corner < cornerCount; corner++) {
-            int startVertex = faceIndices[corner];
-            int endVertex = cornerEnd[corner];
-            int slot = fillCursor[Math.min(startVertex, endVertex)]++;
-            cornersByLowVertex[slot] = corner;
-            highVertexBySlot[slot] = Math.max(startVertex, endVertex);
-            runsUpwardBySlot[slot] = startVertex < endVertex;
-        }
-
         int[] firstCornerOfEdge = new int[cornerCount];
-        int[] highVertexSeenAtLow = fillCursor;
-        Arrays.fill(highVertexSeenAtLow, MeshTopology.NONE);
-        int[] firstCornerAtHighVertex = new int[vertexCount];
-        boolean[] firstRunsUpwardAtHighVertex = new boolean[vertexCount];
-        boolean[] pairedAtHighVertex = new boolean[vertexCount];
-        IntIdList collidingCorners = new IntIdList(0);
         int edgeCount = 0;
-        for (int lowVertex = 0; lowVertex < vertexCount; lowVertex++) {
-            for (int slot = lowVertexStart[lowVertex]; slot < lowVertexStart[lowVertex + 1]; slot++) {
-                int corner = cornersByLowVertex[slot];
-                int highVertex = highVertexBySlot[slot];
-                if (highVertexSeenAtLow[highVertex] != lowVertex) {
-                    highVertexSeenAtLow[highVertex] = lowVertex;
-                    firstCornerAtHighVertex[highVertex] = corner;
-                    firstRunsUpwardAtHighVertex[highVertex] = runsUpwardBySlot[slot];
-                    pairedAtHighVertex[highVertex] = false;
-                    firstCornerOfEdge[corner] = corner;
-                    edgeCount++;
-                } else if (!pairedAtHighVertex[highVertex]
-                        && firstRunsUpwardAtHighVertex[highVertex] != runsUpwardBySlot[slot]) {
-                    pairedAtHighVertex[highVertex] = true;
-                    firstCornerOfEdge[corner] = firstCornerAtHighVertex[highVertex];
-                } else {
-                    firstCornerOfEdge[corner] = MeshTopology.NONE;
-                    collidingCorners.add(corner);
-                }
+        if (cornerTwin == null) {
+            edgeCount = pairByLowVertex(faceIndices, cornerEnd, vertexCount, parallel, firstCornerOfEdge);
+        } else {
+            // A side opens at its lower corner, as the walk in corner order would open it.
+            for (int corner = 0; corner < cornerCount; corner++) {
+                int twin = cornerTwin[corner];
+                firstCornerOfEdge[corner] = twin != MeshTopology.NONE && twin < corner ? twin : corner;
+                edgeCount += firstCornerOfEdge[corner] == corner ? 1 : 0;
             }
         }
-        if (!collidingCorners.isEmpty()) {
-            int[] colliding = collidingCorners.toArray();
-            Arrays.sort(colliding);
-            StringBuilder message = new StringBuilder().append(colliding.length)
-                    .append(" non-manifold or duplicate directed half-edges:");
-            for (int corner : colliding) {
-                message.append(' ').append(faceIndices[corner]).append("->").append(cornerEnd[corner]);
-            }
-            throw new InvalidMeshTopologyException(message.toString());
-        }
-
         int halfEdgeCount = 2 * edgeCount;
         int[] halfEdgeOfCorner = new int[cornerCount];
         int[] halfEdgeVertex = new int[halfEdgeCount];
         int[] halfEdgeFace = new int[halfEdgeCount];
         int[] halfEdgeNext = new int[halfEdgeCount];
         int[] halfEdgePrev = new int[halfEdgeCount];
-        int nextEdgeId = 0;
+        // Edges are numbered in the order of the corners that open them, in one serial walk: an
+        // opener always comes before the corners that pair with it.
+        int forward = 0;
         for (int corner = 0; corner < cornerCount; corner++) {
-            int firstCorner = firstCornerOfEdge[corner];
-            if (firstCorner != corner) {
-                halfEdgeOfCorner[corner] = halfEdgeOfCorner[firstCorner] + 1;
+            if (firstCornerOfEdge[corner] != corner) {
+                halfEdgeOfCorner[corner] = halfEdgeOfCorner[firstCornerOfEdge[corner]] + 1;
                 continue;
             }
-            int forward = 2 * nextEdgeId++;
             halfEdgeOfCorner[corner] = forward;
             halfEdgeVertex[forward] = faceIndices[corner];
             halfEdgeVertex[forward + 1] = cornerEnd[corner];
             halfEdgeFace[forward + 1] = MeshTopology.NONE;
             halfEdgeNext[forward + 1] = MeshTopology.NONE;
             halfEdgePrev[forward + 1] = MeshTopology.NONE;
+            forward += 2;
         }
 
         int[] faceHalfEdge = new int[faceCount];
-        for (int faceId = 0; faceId < faceCount; faceId++) {
+        range(faceCount, parallel).forEach(faceId -> {
             int first = faceStarts[faceId];
             int last = faceStarts[faceId + 1] - 1;
             faceHalfEdge[faceId] = halfEdgeOfCorner[first];
@@ -866,17 +1064,15 @@ public class HalfEdgeMeshOps {
                 halfEdgeNext[halfEdgeId] = halfEdgeOfCorner[corner < last ? corner + 1 : first];
                 halfEdgePrev[halfEdgeId] = halfEdgeOfCorner[corner > first ? corner - 1 : last];
             }
-        }
+        });
         int[] halfEdgeTwin = new int[halfEdgeCount];
         int[] halfEdgeEdge = new int[halfEdgeCount];
         int[] edgeHalfEdge = new int[edgeCount];
-        for (int halfEdgeId = 0; halfEdgeId < halfEdgeCount; halfEdgeId++) {
+        range(halfEdgeCount, parallel).forEach(halfEdgeId -> {
             halfEdgeTwin[halfEdgeId] = halfEdgeId ^ 1;
             halfEdgeEdge[halfEdgeId] = halfEdgeId >> 1;
-        }
-        for (int edgeId = 0; edgeId < edgeCount; edgeId++) {
-            edgeHalfEdge[edgeId] = 2 * edgeId;
-        }
+        });
+        range(edgeCount, parallel).forEach(edgeId -> edgeHalfEdge[edgeId] = 2 * edgeId);
 
         int[] outgoingStart = new int[vertexCount + 1];
         for (int halfEdgeId = 0; halfEdgeId < halfEdgeCount; halfEdgeId++) {
@@ -886,30 +1082,23 @@ public class HalfEdgeMeshOps {
             outgoingStart[vertexId + 1] += outgoingStart[vertexId];
         }
         int[] outgoingHalfEdges = new int[halfEdgeCount];
+        fillBuckets(halfEdgeCount, outgoingStart, halfEdgeId -> halfEdgeVertex[halfEdgeId],
+                outgoingHalfEdges);
         int[] outgoingEdges = new int[halfEdgeCount];
-        System.arraycopy(outgoingStart, 0, fillCursor, 0, vertexCount);
-        for (int halfEdgeId = 0; halfEdgeId < halfEdgeCount; halfEdgeId++) {
-            int slot = fillCursor[halfEdgeVertex[halfEdgeId]]++;
-            outgoingHalfEdges[slot] = halfEdgeId;
-            outgoingEdges[slot] = halfEdgeId >> 1;
-        }
+        range(halfEdgeCount, parallel).forEach(slot -> outgoingEdges[slot] = outgoingHalfEdges[slot] >> 1);
         int[] vertexOutgoing = new int[vertexCount];
-        for (int vertexId = 0; vertexId < vertexCount; vertexId++) {
-            vertexOutgoing[vertexId] = outgoingStart[vertexId] < outgoingStart[vertexId + 1]
-                    ? outgoingHalfEdges[outgoingStart[vertexId]]
-                    : MeshTopology.NONE;
-        }
+        range(vertexCount, parallel).forEach(vertexId ->
+                vertexOutgoing[vertexId] = outgoingStart[vertexId] < outgoingStart[vertexId + 1]
+                        ? outgoingHalfEdges[outgoingStart[vertexId]]
+                        : MeshTopology.NONE);
+        int[] faceOfCorner = new int[cornerCount];
+        range(faceCount, parallel).forEach(faceId -> Arrays.fill(faceOfCorner, faceStarts[faceId],
+                faceStarts[faceId + 1], faceId));
         int[] vertexFaceIds = new int[cornerCount];
-        System.arraycopy(faceRowStart, 0, fillCursor, 0, vertexCount);
-        for (int faceId = 0; faceId < faceCount; faceId++) {
-            for (int corner = faceStarts[faceId]; corner < faceStarts[faceId + 1]; corner++) {
-                vertexFaceIds[fillCursor[faceIndices[corner]]++] = faceId;
-            }
-        }
+        fillBuckets(cornerCount, faceRowStart, corner -> faceIndices[corner], vertexFaceIds);
+        range(cornerCount, parallel).forEach(slot -> vertexFaceIds[slot] = faceOfCorner[vertexFaceIds[slot]]);
         int[] faceEdgeIds = new int[cornerCount];
-        for (int corner = 0; corner < cornerCount; corner++) {
-            faceEdgeIds[corner] = halfEdgeOfCorner[corner] >> 1;
-        }
+        range(cornerCount, parallel).forEach(corner -> faceEdgeIds[corner] = halfEdgeOfCorner[corner] >> 1);
 
         HalfEdgeMesh mesh = new HalfEdgeMesh();
         mesh.vertexPositions = Arrays.copyOf(positions, vertexCount * HalfEdgeMesh.FLOATS_PER_VERTEX);
@@ -947,6 +1136,81 @@ public class HalfEdgeMeshOps {
         mesh.faceVertices.pack(faceStarts, Arrays.copyOf(faceIndices, cornerCount));
         mesh.faceEdges.pack(faceStarts, faceEdgeIds);
         return mesh;
+    }
+
+    /**
+     * Pairs every corner with the corner running its side the other way, by bucketing the corners
+     * under each side's lower vertex: within a bucket, in corner order, the first use of a higher
+     * vertex opens an edge, the first opposite-running use after it pairs it, any other collides.
+     *
+     * @param faceIndices       every face's vertex ids, end to end
+     * @param cornerEnd         per corner, the vertex its side runs to
+     * @param vertexCount       vertices given
+     * @param parallel          whether to run the passes on every thread
+     * @param firstCornerOfEdge receives, per corner, the corner that opened its edge
+     * @throws InvalidMeshTopologyException when directed half-edges collide, listing every offender
+     * @return the number of edges opened
+     */
+    private static int pairByLowVertex(int[] faceIndices, int[] cornerEnd, int vertexCount,
+            boolean parallel, int[] firstCornerOfEdge) {
+        int cornerCount = faceIndices.length;
+        int[] lowVertexStart = new int[vertexCount + 1];
+        for (int corner = 0; corner < cornerCount; corner++) {
+            lowVertexStart[Math.min(faceIndices[corner], cornerEnd[corner]) + 1]++;
+        }
+        for (int vertexId = 0; vertexId < vertexCount; vertexId++) {
+            lowVertexStart[vertexId + 1] += lowVertexStart[vertexId];
+        }
+        int[] cornersByLowVertex = new int[cornerCount];
+        int[] highVertexBySlot = new int[cornerCount];
+        boolean[] runsUpwardBySlot = new boolean[cornerCount];
+        fillBuckets(cornerCount, lowVertexStart,
+                corner -> Math.min(faceIndices[corner], cornerEnd[corner]), cornersByLowVertex);
+        range(cornerCount, parallel).forEach(slot -> {
+            int corner = cornersByLowVertex[slot];
+            highVertexBySlot[slot] = Math.max(faceIndices[corner], cornerEnd[corner]);
+            runsUpwardBySlot[slot] = faceIndices[corner] < cornerEnd[corner];
+        });
+        int edgeCount = range(vertexCount, parallel).map(lowVertex -> {
+            int opened = 0;
+            int bucketStart = lowVertexStart[lowVertex];
+            for (int slot = bucketStart; slot < lowVertexStart[lowVertex + 1]; slot++) {
+                int corner = cornersByLowVertex[slot];
+                int opener = -1;
+                boolean paired = false;
+                for (int earlier = bucketStart; earlier < slot; earlier++) {
+                    if (highVertexBySlot[earlier] != highVertexBySlot[slot]) {
+                        continue;
+                    }
+                    int earlierCorner = cornersByLowVertex[earlier];
+                    if (opener < 0) {
+                        opener = earlier;
+                    } else if (firstCornerOfEdge[earlierCorner] == cornersByLowVertex[opener]) {
+                        paired = true;
+                    }
+                }
+                if (opener < 0) {
+                    firstCornerOfEdge[corner] = corner;
+                    opened++;
+                } else if (!paired && runsUpwardBySlot[opener] != runsUpwardBySlot[slot]) {
+                    firstCornerOfEdge[corner] = cornersByLowVertex[opener];
+                } else {
+                    firstCornerOfEdge[corner] = MeshTopology.NONE;
+                }
+            }
+            return opened;
+        }).sum();
+        int[] colliding = range(cornerCount, parallel)
+                .filter(corner -> firstCornerOfEdge[corner] == MeshTopology.NONE).toArray();
+        if (colliding.length > 0) {
+            StringBuilder message = new StringBuilder().append(colliding.length)
+                    .append(" non-manifold or duplicate directed half-edges:");
+            for (int corner : colliding) {
+                message.append(' ').append(faceIndices[corner]).append("->").append(cornerEnd[corner]);
+            }
+            throw new InvalidMeshTopologyException(message.toString());
+        }
+        return edgeCount;
     }
 
     static int addFaceInternal(HalfEdgeMesh mesh, int[] vertexIds, boolean recomputeNormals) {

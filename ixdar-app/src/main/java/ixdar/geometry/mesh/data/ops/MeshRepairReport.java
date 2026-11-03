@@ -77,6 +77,21 @@ public final class MeshRepairReport {
     /** Face corners left without a texture coordinate because hole filling minted them. */
     public int unsetUvCornerCount;
 
+    /** Faces found with their back to the outside, summed over the pruning rounds. */
+    public int exposedFaceCount;
+
+    /** Faces the pruning deleted: the exposed ones and the rings grown round them. */
+    public int prunedFaceCount;
+
+    /** Pruning rounds that deleted faces. */
+    public int pruneRoundCount;
+
+    /** Boundary loops the pruning opened that the hole filling closed again. */
+    public int refilledHoleCount;
+
+    /** Boundary loops the pruning opened that stayed open, which stops the pruning. */
+    public int refillOpenHoleCount;
+
     /** Vertices in the repaired mesh. */
     public int outputVertexCount;
 
@@ -125,7 +140,7 @@ public final class MeshRepairReport {
      * @return true when a hole stayed open or a contradiction survived
      */
     public boolean hasUnrepaired() {
-        return openHoleCount > 0 || unorientedEdgeCount > 0;
+        return openHoleCount > 0 || refillOpenHoleCount > 0 || unorientedEdgeCount > 0;
     }
 
     /**
@@ -147,6 +162,7 @@ public final class MeshRepairReport {
                 + " open=" + openHoleCount
                 + " oversized=" + oversizedHoleCount
                 + " unfillable=" + unfillableHoleCount
+                + " exposed=" + exposedFaceCount + " pruned=" + prunedFaceCount
                 + " boundaryEdges=" + outputBoundaryEdgeCount;
     }
 
@@ -181,6 +197,11 @@ public final class MeshRepairReport {
         appendCount(text, "fillFaceCount", fillFaceCount);
         appendCount(text, "fillVertexCount", fillVertexCount);
         appendCount(text, "unsetUvCornerCount", unsetUvCornerCount);
+        appendCount(text, "exposedFaceCount", exposedFaceCount);
+        appendCount(text, "prunedFaceCount", prunedFaceCount);
+        appendCount(text, "pruneRoundCount", pruneRoundCount);
+        appendCount(text, "refilledHoleCount", refilledHoleCount);
+        appendCount(text, "refillOpenHoleCount", refillOpenHoleCount);
         appendCount(text, "outputVertexCount", outputVertexCount);
         appendCount(text, "outputFaceCount", outputFaceCount);
         appendCount(text, "outputBoundaryEdgeCount", outputBoundaryEdgeCount);
