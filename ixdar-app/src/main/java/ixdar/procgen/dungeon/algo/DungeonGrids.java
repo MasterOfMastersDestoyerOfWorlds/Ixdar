@@ -93,15 +93,7 @@ public final class DungeonGrids {
      * @return flat pairs of dense vertex indices in dense edge order
      */
     public static int[] selectedEdgePairs(MeshTopology mesh, BoolField selection) {
-        int n = mesh.vertexCount();
-        int maxId = 0;
-        for (int i = 0; i < n; i++) {
-            maxId = Math.max(maxId, mesh.vertexIdAt(i));
-        }
-        int[] denseOf = new int[maxId + 1];
-        for (int i = 0; i < n; i++) {
-            denseOf[mesh.vertexIdAt(i)] = i;
-        }
+        int[] denseOf = mesh.activeIndexById();
         int e = mesh.edgeCount();
         int kept = 0;
         for (int ei = 0; ei < e; ei++) {

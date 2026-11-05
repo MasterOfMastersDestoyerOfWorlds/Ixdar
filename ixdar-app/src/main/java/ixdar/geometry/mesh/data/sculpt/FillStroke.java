@@ -4,12 +4,49 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.paths.query.NearestVertex;
+
 /**
  * A polygon's fill samples: seeded by every vertex within the sample spacing, and shaped by the
  * union of the samples' bumps at their bump-weighted mean weight, so a bowl's weights curve its
  * floor.
  */
 public final class FillStroke extends SculptStroke {
+
+    public static final float CLOSEST_SPACING_FRACTION = 0.1f;
+
+    public static final int RIM_STEPS_PER_RADIUS = 200;
+
+    public static final float NEAR_QUERY_SLACK = 1e-4f;
+
+    /**
+     * The steepest slope, per unit depth over radius, of a fill's rim: the union of its samples'
+     * bumps across the edge of a square grid of them, steeper than one bump the denser they lie.
+     *
+     * @param spacingOverRadius the samples' spacing over the radius
+     * @return the slope factor, at least {@link #FALLOFF_STEEPEST_SLOPE}
+     */
+    public static float rimSlope(float spacingOverRadius) {
+        float spacing = Math.max(CLOSEST_SPACING_FRACTION, spacingOverRadius);
+        int reach = (int) Math.ceil(1f / spacing);
+        float steepest = FALLOFF_STEEPEST_SLOPE;
+        float previous = 0f;
+        for (int step = -RIM_STEPS_PER_RADIUS; step <= RIM_STEPS_PER_RADIUS; step++) {
+            float across = step / (float) RIM_STEPS_PER_RADIUS;
+            float uncovered = 1f;
+            for (int column = -reach; column <= 0; column++) {
+                for (int row = -reach; row <= reach; row++) {
+                    float fraction = (float) Math.hypot(across - column * spacing, row * spacing);
+                    uncovered *= fraction < 1f ? 1f - (1f - fraction * fraction) * (1f - fraction * fraction) : 1f;
+                }
+            }
+            float union = 1f - uncovered;
+            steepest = step > -RIM_STEPS_PER_RADIUS ? Math.max(steepest, Math.abs(union - previous)
+                    * RIM_STEPS_PER_RADIUS) : steepest;
+            previous = union;
+        }
+        return steepest;
+    }
 
     /**
      * A fill reaching across the mirror plane into its own reflection joins it as one region, so
@@ -59,12 +96,29 @@ public final class FillStroke extends SculptStroke {
         sum.ensureSources(vertexCount);
         boolean[] taken = new boolean[sum.mesh.vertexIdBound()];
         Vector3f position = new Vector3f();
+        // Only vertices within the spacing of a sample seed from it, so each sample asks the pass's
+        // vertex grid for those, visited in dense order as a scan of every vertex would; a lone
+        // sample has no spacing and every vertex is within it.
+        float margin = (float) Math.sqrt(spacingSquared);
+        NearestVertex index = Float.isFinite(margin) ? sum.chain.nearestVertex(sum.mesh) : null;
         int count = 0;
         for (int point = 0; point < pointCount; point++) {
+            if (!(pointWeight[point] > 0f)) {
+                continue;
+            }
+            int[] near = index == null ? null : index.within(pointXyz[point * 3], pointXyz[point * 3 + 1],
+                    pointXyz[point * 3 + 2], margin * (1f + NEAR_QUERY_SLACK));
+            for (int slot = 0; near != null && slot < near.length; slot++) {
+                near[slot] = sum.activeVertexById[near[slot]];
+            }
+            if (near != null) {
+                Arrays.sort(near);
+            }
+            int nearCount = near == null ? vertexCount : near.length;
             int nearestId = -1;
             float nearestDistance = Float.POSITIVE_INFINITY;
-            for (int activeVertex = 0; activeVertex < vertexCount && pointWeight[point] > 0f; activeVertex++) {
-                int vertexId = sum.mesh.vertexIdAt(activeVertex);
+            for (int slot = 0; slot < nearCount; slot++) {
+                int vertexId = sum.mesh.vertexIdAt(near == null ? slot : near[slot]);
                 float distance = sum.mesh.vertexPosition(vertexId, position).distanceSquared(pointXyz[point * 3],
                         pointXyz[point * 3 + 1], pointXyz[point * 3 + 2]);
                 if (distance < nearestDistance) {
@@ -74,6 +128,17 @@ public final class FillStroke extends SculptStroke {
                 if (distance <= spacingSquared && !taken[vertexId]) {
                     taken[vertexId] = true;
                     sum.sources[count++] = vertexId;
+                }
+            }
+            // No vertex within the spacing of this sample: it still takes its nearest, wherever it lies.
+            for (int activeVertex = 0; activeVertex < vertexCount && nearestDistance > spacingSquared;
+                    activeVertex++) {
+                int vertexId = sum.mesh.vertexIdAt(activeVertex);
+                float distance = sum.mesh.vertexPosition(vertexId, position).distanceSquared(pointXyz[point * 3],
+                        pointXyz[point * 3 + 1], pointXyz[point * 3 + 2]);
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestId = vertexId;
                 }
             }
             if (nearestId >= 0 && !taken[nearestId]) {
@@ -100,7 +165,12 @@ public final class FillStroke extends SculptStroke {
         float uncovered = 1f;
         float weightedBumps = 0f;
         float bumps = 0f;
-        for (int sample = 0; sample < pointWeight.length; sample++) {
+        // Only samples whose bump reaches the vertex add to the union; the grid lists them in order.
+        StrokeElementGrid grid = elementGrid(direction);
+        int cell = grid == null ? 0 : grid.cellOf(vertex.x, vertex.y, vertex.z);
+        int samples = grid == null ? pointWeight.length : cell < 0 ? 0 : grid.first(cell + 1) - grid.first(cell);
+        for (int slot = 0; slot < samples; slot++) {
+            int sample = grid == null ? slot : grid.element(grid.first(cell) + slot);
             float fraction = elementFraction(sample * 3, sample * 3, position.set(vertex), direction, scratch);
             if (fraction < 1f) {
                 float bump = (1f - fraction * fraction) * (1f - fraction * fraction);

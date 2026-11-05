@@ -349,7 +349,7 @@ public final class ValidateDsl {
         probe.put("boundsMin", vec3Json(mn));
         probe.put("boundsMax", vec3Json(mx));
 
-        float extent = mn.distance(mx);
+        float extent = mesh.boundsDiagonal();
         probe.put("extent", floatJson(extent));
 
         float rad = mesh.radius();

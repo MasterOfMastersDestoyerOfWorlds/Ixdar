@@ -88,7 +88,7 @@ public final class MidpointSplit {
         Arrays.fill(midpointByEdgeId, -1);
         int[] edgeEnds = new int[2];
         // The refined mesh's ids are its dense indices; split vertices also keep their flat place.
-        float[] flatXyz = Arrays.copyOf(StrokeSculpt.packedPositions(mesh, null),
+        float[] flatXyz = Arrays.copyOf(mesh.packedPositions(null),
                 (mesh.vertexCount() + mesh.edgeCount() + mesh.faceCount()) * 3);
         for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
             int edgeId = mesh.edgeIdAt(activeEdge);
@@ -156,9 +156,13 @@ public final class MidpointSplit {
         // The curved lift folds faces across a sharp rim, where the corners' normals diverge; there
         // it is pulled back toward the flat split.
         int[] refinedActiveById = new int[refined.vertexIdBound()];
-        float[] curvedXyz = StrokeSculpt.packedPositions(refined, refinedActiveById);
+        float[] curvedXyz = refined.packedPositions(refinedActiveById);
         MeshSmoothing.unfold(refined, refinedActiveById, flatXyz, curvedXyz, null, StrokeSculpt.UNFOLD_HALVINGS);
-        System.arraycopy(curvedXyz, 0, refined.vertexPositions, 0, curvedXyz.length);
+        for (int activeVertex = 0; activeVertex < refined.vertexCount(); activeVertex++) {
+            int at = activeVertex * 3;
+            refined.setVertexPosition(refined.vertexIdAt(activeVertex), curvedXyz[at], curvedXyz[at + 1],
+                    curvedXyz[at + 2]);
+        }
         refined.computeNormals();
         return refined;
     }

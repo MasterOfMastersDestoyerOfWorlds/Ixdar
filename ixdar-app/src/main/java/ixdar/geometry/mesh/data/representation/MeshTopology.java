@@ -1,5 +1,7 @@
 package ixdar.geometry.mesh.data.representation;
 
+import java.util.Arrays;
+
 import org.joml.Vector3f;
 
 /**
@@ -11,6 +13,8 @@ public interface MeshTopology {
     int NONE = -1;
 
     int QUAD_CORNERS = 4;
+
+    double TETRAHEDRA_PER_PARALLELEPIPED = 6.0;
 
     /**
      * Live vertex count for this mesh.
@@ -144,6 +148,62 @@ public interface MeshTopology {
      * @return {@code dest} for chaining
      */
     Vector3f vertexPosition(int vertexId, Vector3f dest);
+
+    /**
+     * Every live vertex's position packed xyz by dense index, the {@link #vertexIdAt} order.
+     *
+     * @param activeVertexById receives each vertex id's dense index when not null; sized to
+     *                         {@link #vertexIdBound}
+     * @return packed positions, three floats per vertex
+     */
+    default float[] packedPositions(int[] activeVertexById) {
+        Vector3f position = new Vector3f();
+        float[] xyz = new float[vertexCount() * 3];
+        for (int activeVertex = 0; activeVertex < vertexCount(); activeVertex++) {
+            int vertexId = vertexIdAt(activeVertex);
+            if (activeVertexById != null) {
+                activeVertexById[vertexId] = activeVertex;
+            }
+            vertexPosition(vertexId, position);
+            xyz[activeVertex * 3] = position.x;
+            xyz[activeVertex * 3 + 1] = position.y;
+            xyz[activeVertex * 3 + 2] = position.z;
+        }
+        return xyz;
+    }
+
+    /**
+     * Each vertex id's dense index, the {@link #vertexIdAt} order.
+     *
+     * @return dense index by vertex id, {@link #vertexIdBound} long; {@link #NONE} for ids not live
+     */
+    default int[] activeIndexById() {
+        int[] activeVertexById = new int[vertexIdBound()];
+        Arrays.fill(activeVertexById, NONE);
+        for (int activeVertex = 0; activeVertex < vertexCount(); activeVertex++) {
+            activeVertexById[vertexIdAt(activeVertex)] = activeVertex;
+        }
+        return activeVertexById;
+    }
+
+    /**
+     * Each live vertex's neighbours across its edges, in {@link #vertexEdgeAt} order.
+     *
+     * @return neighbours by dense vertex index, as dense indices
+     */
+    default int[][] oneRings() {
+        int[] activeVertexById = activeIndexById();
+        int[][] neighbours = new int[vertexCount()][];
+        for (int activeVertex = 0; activeVertex < neighbours.length; activeVertex++) {
+            int vertexId = vertexIdAt(activeVertex);
+            neighbours[activeVertex] = new int[vertexEdgeCount(vertexId)];
+            for (int adjacency = 0; adjacency < neighbours[activeVertex].length; adjacency++) {
+                neighbours[activeVertex][adjacency] = activeVertexById[edgeOtherVertex(
+                        vertexEdgeAt(vertexId, adjacency), vertexId)];
+            }
+        }
+        return neighbours;
+    }
 
     /**
      * Read the (cached) per-vertex normal into {@code dest}.
@@ -485,11 +545,89 @@ public interface MeshTopology {
     Vector3f center(Vector3f dest);
 
     /**
-     * Convenience scale derived from the bounding box.
+     * Bounding-sphere radius about {@link #center}, the default scene scale.
      *
-     * @return half-length of the bounding-box diagonal (used as a default scene scale)
+     * @return the largest vertex distance from the box centre, at most half the box diagonal
      */
     float radius();
+
+    /**
+     * The bounding box's diagonal length, the scale mesh-relative tolerances are fractions of.
+     *
+     * @return the diagonal, 0 for a mesh with no vertices
+     */
+    default float boundsDiagonal() {
+        return boundsMax(new Vector3f()).distance(boundsMin(new Vector3f()));
+    }
+
+    /**
+     * Volume the faces enclose, summed over {@link TriangulationRule#FAN} triangles: positive when a
+     * closed mesh winds outward, negative when inside out. Recomputed each call unless the
+     * implementation caches it.
+     *
+     * @return the signed enclosed volume
+     */
+    default double signedVolume() {
+        int[] corners = triangulate(TriangulationRule.FAN, null);
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        Vector3f third = new Vector3f();
+        double tripleProducts = 0.0;
+        for (int corner = 0; corner + 2 < corners.length; corner += 3) {
+            vertexPosition(corners[corner], first);
+            vertexPosition(corners[corner + 1], second);
+            vertexPosition(corners[corner + 2], third);
+            tripleProducts += first.dot(second.cross(third));
+        }
+        return tripleProducts / TETRAHEDRA_PER_PARALLELEPIPED;
+    }
+
+    /**
+     * A face's area, summed over its {@link TriangulationRule#FAN} triangles: exact for a planar
+     * polygon.
+     *
+     * @param faceId live face to measure
+     * @return the area, 0 for a face of fewer than three corners
+     */
+    default double faceArea(int faceId) {
+        int[] corners = new int[3 * Math.max(3, faceVertexCount(faceId))];
+        int triangles = faceTriangleCorners(faceId, TriangulationRule.FAN, corners);
+        Vector3f anchor = new Vector3f();
+        Vector3f first = new Vector3f();
+        Vector3f second = new Vector3f();
+        double area = 0.0;
+        for (int slot = 0; slot < 3 * triangles; slot += 3) {
+            vertexPosition(faceVertexAt(faceId, corners[slot]), anchor);
+            vertexPosition(faceVertexAt(faceId, corners[slot + 1]), first).sub(anchor);
+            vertexPosition(faceVertexAt(faceId, corners[slot + 2]), second).sub(anchor);
+            area += 0.5 * first.cross(second).length();
+        }
+        return area;
+    }
+
+    /**
+     * Each live vertex's lumped area, a third of every {@link TriangulationRule#FAN} triangle it is
+     * a corner of, so the areas sum to the surface area. Recomputed each call unless the
+     * implementation caches it.
+     *
+     * @return area by dense vertex index, the {@link #packedPositions} order; the caller's to keep
+     */
+    default float[] vertexAreas() {
+        int[] activeVertexById = new int[vertexIdBound()];
+        float[] xyz = packedPositions(activeVertexById);
+        int[] corners = triangulate(TriangulationRule.FAN, null);
+        float[] area = new float[vertexCount()];
+        for (int corner = 0; corner + 2 < corners.length; corner += 3) {
+            int first = activeVertexById[corners[corner]];
+            int second = activeVertexById[corners[corner + 1]];
+            int third = activeVertexById[corners[corner + 2]];
+            float share = (float) (TriangleGeometry.area(xyz, first, second, third) / 3.0);
+            area[first] += share;
+            area[second] += share;
+            area[third] += share;
+        }
+        return area;
+    }
 
     /**
      * Number of edges with a face on one side only.

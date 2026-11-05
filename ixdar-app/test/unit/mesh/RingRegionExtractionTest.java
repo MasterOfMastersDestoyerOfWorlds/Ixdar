@@ -105,7 +105,7 @@ class RingRegionExtractionTest {
         }
         // The faired caps continue the surface's tangent, so each domes out by at most a radius.
         double prism = polygonArea() * (HIGH_RING_HEIGHT - LOW_RING_HEIGHT);
-        double volume = signedVolume(extraction.closedMesh);
+        double volume = extraction.closedMesh.signedVolume();
         assertTrue(volume > (1 - VOLUME_SHARE_TOLERANCE) * prism, volume + LINE_BREAK + report);
         assertTrue(volume < polygonArea() * (HIGH_RING_HEIGHT - LOW_RING_HEIGHT + 2),
                 volume + LINE_BREAK + report);
@@ -168,7 +168,7 @@ class RingRegionExtractionTest {
             assertTrue(report.contains("manifold " + MeshBooleanBackend.ACCEPTED_SOLID), report);
             pieces[piece] = context.output(ExtractRingRegionNode.GEOMETRY_OUT,
                     GeometryBundle.class);
-            volumes[piece] = signedVolume(pieces[piece].mesh());
+            volumes[piece] = pieces[piece].mesh().signedVolume();
         }
 
         GeometryBundle union = new MapNodeContext(new MeshBooleanNode())
@@ -176,7 +176,7 @@ class RingRegionExtractionTest {
                 .with(MeshBooleanNode.MESH_B, pieces[1])
                 .with(MeshBooleanNode.OPERATION, MeshBooleanNode.UNION)
                 .eval().output(MeshBooleanNode.GEOMETRY, GeometryBundle.class);
-        double unionVolume = signedVolume(union.mesh());
+        double unionVolume = union.mesh().signedVolume();
         assertTrue(unionVolume > Math.max(volumes[0], volumes[1]));
         assertTrue(unionVolume <= volumes[0] + volumes[1] + POSITION_TOLERANCE);
         assertEquals(polygonArea() * HIGH_RING_HEIGHT, unionVolume,
@@ -254,23 +254,6 @@ class RingRegionExtractionTest {
             smallest = Math.min(smallest, 0.5 * edge.cross(other).length());
         }
         return smallest;
-    }
-
-    private static double signedVolume(MeshTopology mesh) {
-        double volume = 0;
-        Vector3f first = new Vector3f();
-        Vector3f second = new Vector3f();
-        Vector3f third = new Vector3f();
-        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
-            int faceId = mesh.faceIdAt(activeFace);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), first);
-            for (int corner = 2; corner < mesh.faceVertexCount(faceId); corner++) {
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, corner - 1), second);
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, corner), third);
-                volume += first.dot(new Vector3f(second).cross(third)) / 6.0;
-            }
-        }
-        return volume;
     }
 
     /** Area of the cylinder's regular polygonal cross-section. */

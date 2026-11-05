@@ -707,6 +707,15 @@ class LaunchEntryTest(unittest.TestCase):
         self.assertEqual("mesh-viewer", command[-1])
         self.assertEqual("ixdar.canvas.IxdarWindow", command[-2])
 
+    def test_launch_expands_user_home_and_environment_variables_as_vs_code_does(self):
+        # An entry names files outside the checkout through ${userHome}; left unexpanded the JVM
+        # reads it as a relative path under the entry's cwd.
+        with patch.dict(os.environ, {"IXDAR_TEST_VARIABLE": "value"}):
+            self.assertEqual(os.path.expanduser("~") + "/.cache/key.dsl in /root and value and ",
+                             launch_entry.expand_variables(
+                                 "${userHome}/.cache/key.dsl in ${workspaceFolder} and ${env:IXDAR_TEST_VARIABLE}"
+                                 " and ${env:IXDAR_TEST_UNSET_VARIABLE}", "/root"))
+
     def test_launch_command_swaps_the_entry_s_profiler_for_this_run_s_capture(self):
         with tempfile.TemporaryDirectory() as directory:
             root = self._checkout(directory)
@@ -849,6 +858,48 @@ class RunLogsTest(unittest.TestCase):
             self.assertEqual(expected, payload["log"])
             self.assertEqual(expected, os.path.realpath(
                 os.path.join(root, "tmp", "logs", "latest-mesh-viewer.log")))
+
+
+class SculptSnapshotTest(unittest.TestCase):
+    SYNCED_SVG = '<svg data-center="0 0 0"><polyline data-id="jaw.1" data-cell="0" data-pts="0 1" points="1,1 2,2"/></svg>'
+
+    def _sculpt(self, root: str) -> str:
+        layer = os.path.join(root, "ixdar-app", "src", "main", "resources", "dsl", "skull")
+        os.makedirs(layer)
+        with open(os.path.join(layer, "base.ply"), "w", encoding="utf-8") as handle:
+            handle.write("ply\n")
+        with open(os.path.join(layer, "skull.svg"), "w", encoding="utf-8") as handle:
+            handle.write(self.SYNCED_SVG)
+        dsl = os.path.join(layer, "skull.dsl")
+        with open(dsl, "w", encoding="utf-8") as handle:
+            handle.write('base = load_mesh(path="dsl/skull/base.ply")\n'
+                         'sculpt = stroke_sculpt(geometry=base.geometry, svg="dsl/skull/skull.svg", symmetry="x")\n')
+        return dsl
+
+    def test_the_sidecar_beside_a_stroke_svg_is_copied_with_it(self):
+        from ixdar_automation_cli.cli_commands import sculpt_snapshot
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(sculpt_snapshot, "checkout_root", return_value=Path(make_checkout(directory))):
+            root = os.path.realpath(directory)
+            dsl = self._sculpt(root)
+            with open(os.path.join(os.path.dirname(dsl), "skull.strokes"), "w", encoding="utf-8") as handle:
+                handle.write("base 1 1\nwritten\n" + self.SYNCED_SVG)
+            payload = sculpt_snapshot.sculpt_snapshot(dsl=dsl, rounds="tmp/rounds").payload
+            self.assertTrue(payload["ok"], payload)
+            self.assertEqual(["base.ply", "skull.strokes", "skull.svg"], payload["files"])
+            snapshot = payload["snapshot"]
+            self.assertEqual(sorted(payload["files"] + ["skull.dsl"]), sorted(os.listdir(snapshot)))
+            copied = Path(payload["dsl"]).read_text(encoding="utf-8")
+            self.assertIn(f'svg="{os.path.join(snapshot, "skull.svg")}"', copied)
+
+    def test_a_synced_svg_without_its_sidecar_is_refused(self):
+        from ixdar_automation_cli.cli_commands import sculpt_snapshot
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(sculpt_snapshot, "checkout_root", return_value=Path(make_checkout(directory))):
+            dsl = self._sculpt(os.path.realpath(directory))
+            result = sculpt_snapshot.sculpt_snapshot(dsl=dsl, rounds="tmp/rounds")
+            self.assertEqual(2, result.exit_code)
+            self.assertIn("skull.svg", result.payload["error"])
 
 
 class CliTest(unittest.TestCase):

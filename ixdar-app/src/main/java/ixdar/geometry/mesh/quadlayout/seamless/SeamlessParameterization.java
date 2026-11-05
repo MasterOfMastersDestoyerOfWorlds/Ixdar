@@ -133,7 +133,7 @@ public final class SeamlessParameterization {
         uv.faceIdToActive = field.faceIdToActive;
         uv.edgeIdToActive = field.edgeIdToActive;
         uv.targetQuadEdgeLength = targetEdgeLengthFractionOfBounds
-                * mesh.computeBoundingBoxDiagonal();
+                * mesh.boundsDiagonal();
         uv.cutGraph = new CutGraph(mesh, field, uv);
         Platforms.log("[seamless] Building seamless parameterization");
         for (int ae2 = 0; ae2 < uv.edgeCount; ae2++) {

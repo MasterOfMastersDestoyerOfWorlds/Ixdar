@@ -19,6 +19,7 @@ import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.numeric.graph.Dijkstra;
 import ixdar.numeric.graph.UnionFind;
@@ -312,23 +313,7 @@ public final class RingCandidateExtractor {
             if (regionByVertex[second] == regionByVertex[third]) {
                 region = regionByVertex[second];
             }
-            float ax = positions[COORDINATES_PER_POINT * second]
-                    - positions[COORDINATES_PER_POINT * first];
-            float ay = positions[COORDINATES_PER_POINT * second + 1]
-                    - positions[COORDINATES_PER_POINT * first + 1];
-            float az = positions[COORDINATES_PER_POINT * second + 2]
-                    - positions[COORDINATES_PER_POINT * first + 2];
-            float bx = positions[COORDINATES_PER_POINT * third]
-                    - positions[COORDINATES_PER_POINT * first];
-            float by = positions[COORDINATES_PER_POINT * third + 1]
-                    - positions[COORDINATES_PER_POINT * first + 1];
-            float bz = positions[COORDINATES_PER_POINT * third + 2]
-                    - positions[COORDINATES_PER_POINT * first + 2];
-            float crossX = ay * bz - az * by;
-            float crossY = az * bx - ax * bz;
-            float crossZ = ax * by - ay * bx;
-            regionArea[region] += 0.5f
-                    * (float) Math.sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
+            regionArea[region] += (float) TriangleGeometry.area(positions, first, second, third);
         }
     }
 

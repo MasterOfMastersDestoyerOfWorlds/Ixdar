@@ -37,7 +37,6 @@ public class HalfEdgeMesh implements MeshTopology {
     public final IntIdTable faceVertices;
     public final IntIdTable faceEdges;
 
-    public float[] vertexPositions;
     public float[] vertexNormals;
     public int[] vertexOutgoing;
     public boolean[] vertexActive;
@@ -100,6 +99,27 @@ public class HalfEdgeMesh implements MeshTopology {
     boolean[] edgeActive;
     boolean[] faceActive;
     boolean[] halfEdgeActive;
+
+    /** Packed xyz by vertex id; written only through methods that advance {@link #geometryVersion}. */
+    private float[] vertexPositions;
+
+    /** Advanced by every position write and every vertex or face added or removed. */
+    private int geometryVersion;
+
+    /**
+     * Cached bounding box, minimum xyz then maximum xyz, valid while {@link #boundsVersion} equals
+     * {@link #geometryVersion}.
+     *
+     * <p>Each cache's volatile version is written after its value, so a reader seeing the current
+     * version sees the whole value.
+     */
+    private final float[] boundsCache = new float[2 * FLOATS_PER_VERTEX];
+    private float radiusCache;
+    private volatile int boundsVersion = -1;
+    private double signedVolumeCache;
+    private volatile int signedVolumeVersion = -1;
+    private float[] vertexAreasCache;
+    private volatile int vertexAreasVersion = -1;
 
     /**
      * Creates an empty mesh with small default capacity for incremental
@@ -897,81 +917,120 @@ public class HalfEdgeMesh implements MeshTopology {
         return halfEdgeFace[halfEdgeId] == NONE;
     }
 
-    /**
-     * {@inheritDoc} Recomputed on every call by linear scan over active vertices.
-     */
+    /** {@inheritDoc} Cached until the geometry next changes. */
     @Override
     public Vector3f boundsMin(Vector3f dest) {
-        if (activeVertexIds.isEmpty()) {
-            return dest.zero();
-        }
-
-        int firstVertexId = activeVertexIds.get(0);
-        int offset = vertexOffset(firstVertexId);
-        dest.set(vertexPositions[offset], vertexPositions[offset + 1], vertexPositions[offset + 2]);
-        for (int i = 1; i < activeVertexIds.size(); i++) {
-            int vertexId = activeVertexIds.get(i);
-            int vertexOffset = vertexOffset(vertexId);
-            dest.x = Math.min(dest.x, vertexPositions[vertexOffset]);
-            dest.y = Math.min(dest.y, vertexPositions[vertexOffset + 1]);
-            dest.z = Math.min(dest.z, vertexPositions[vertexOffset + 2]);
-        }
-        return dest;
+        float[] box = bounds();
+        return dest.set(box[0], box[1], box[2]);
     }
 
-    /**
-     * {@inheritDoc} Recomputed on every call by linear scan over active vertices.
-     */
+    /** {@inheritDoc} Cached until the geometry next changes. */
     @Override
     public Vector3f boundsMax(Vector3f dest) {
-        if (activeVertexIds.isEmpty()) {
-            return dest.zero();
-        }
-
-        int firstVertexId = activeVertexIds.get(0);
-        int offset = vertexOffset(firstVertexId);
-        dest.set(vertexPositions[offset], vertexPositions[offset + 1], vertexPositions[offset + 2]);
-        for (int i = 1; i < activeVertexIds.size(); i++) {
-            int vertexId = activeVertexIds.get(i);
-            int vertexOffset = vertexOffset(vertexId);
-            dest.x = Math.max(dest.x, vertexPositions[vertexOffset]);
-            dest.y = Math.max(dest.y, vertexPositions[vertexOffset + 1]);
-            dest.z = Math.max(dest.z, vertexPositions[vertexOffset + 2]);
-        }
-        return dest;
+        float[] box = bounds();
+        return dest.set(box[3], box[4], box[5]);
     }
 
-    /** {@inheritDoc} Returns the center of the axis-aligned bounding box. */
+    /** {@inheritDoc} Cached until the geometry next changes. */
     @Override
     public Vector3f center(Vector3f dest) {
-        Vector3f min = boundsMin(new Vector3f());
-        Vector3f max = boundsMax(new Vector3f());
-        return dest.set(min).add(max).mul(0.5f);
+        float[] box = bounds();
+        return dest.set(box[0] + box[3], box[1] + box[4], box[2] + box[5]).mul(0.5f);
+    }
+
+    /** {@inheritDoc} Cached until the geometry next changes. */
+    @Override
+    public float radius() {
+        bounds();
+        return radiusCache;
+    }
+
+    /** {@inheritDoc} Cached until the geometry next changes. */
+    @Override
+    public double signedVolume() {
+        int version = geometryVersion;
+        if (signedVolumeVersion != version) {
+            signedVolumeCache = MeshTopology.super.signedVolume();
+            signedVolumeVersion = version;
+        }
+        return signedVolumeCache;
+    }
+
+    /** {@inheritDoc} Cached until the geometry next changes; each call returns a fresh copy. */
+    @Override
+    public float[] vertexAreas() {
+        int version = geometryVersion;
+        if (vertexAreasVersion != version) {
+            vertexAreasCache = MeshTopology.super.vertexAreas();
+            vertexAreasVersion = version;
+        }
+        return vertexAreasCache.clone();
     }
 
     /**
-     * {@inheritDoc} Bounding-sphere radius about {@link #center(Vector3f)};
-     * recomputed each call.
+     * Move one vertex.
+     *
+     * @param vertexId active vertex to move
+     * @param x        new x coordinate
+     * @param y        new y coordinate
+     * @param z        new z coordinate
      */
-    @Override
-    public float radius() {
-        if (activeVertexIds.isEmpty()) {
-            return 0f;
+    public void setVertexPosition(int vertexId, float x, float y, float z) {
+        setVector(vertexPositions, vertexId, x, y, z);
+        geometryVersion++;
+    }
+
+    /**
+     * Replace the position storage with a copy of a bulk build's positions, indexed by vertex id.
+     *
+     * @param positions   packed xyz by vertex id, at least {@code vertexCount} triples
+     * @param vertexCount number of vertex ids the copy addresses
+     */
+    public void setPositionsById(float[] positions, int vertexCount) {
+        vertexPositions = Arrays.copyOf(positions, vertexCount * FLOATS_PER_VERTEX);
+        geometryVersion++;
+    }
+
+    /**
+     * The cached box at the current geometry version, refilled when stale: one pass for the box,
+     * one for the radius about its centre; all zero for a mesh with no vertices.
+     *
+     * @return {@link #boundsCache}
+     */
+    private float[] bounds() {
+        int version = geometryVersion;
+        if (boundsVersion == version) {
+            return boundsCache;
         }
-        Vector3f center = center(new Vector3f());
-        float maxDistanceSquared = 0f;
-        for (int i = 0; i < activeVertexIds.size(); i++) {
-            int vertexId = activeVertexIds.get(i);
-            int offset = vertexOffset(vertexId);
-            float dx = vertexPositions[offset] - center.x;
-            float dy = vertexPositions[offset + 1] - center.y;
-            float dz = vertexPositions[offset + 2] - center.z;
-            float distanceSquared = dx * dx + dy * dy + dz * dz;
-            if (distanceSquared > maxDistanceSquared) {
-                maxDistanceSquared = distanceSquared;
+        Vector3f min = new Vector3f();
+        Vector3f max = new Vector3f();
+        Vector3f position = new Vector3f();
+        int vertexCount = vertexCount();
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            vertexPosition(vertexIdAt(activeVertex), position);
+            if (activeVertex == 0) {
+                min.set(position);
+                max.set(position);
+            } else {
+                min.min(position);
+                max.max(position);
             }
         }
-        return (float) Math.sqrt(maxDistanceSquared);
+        Vector3f center = new Vector3f(min).add(max).mul(0.5f);
+        float farthestSquared = 0f;
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            farthestSquared = Math.max(farthestSquared,
+                    vertexPosition(vertexIdAt(activeVertex), position).distanceSquared(center));
+        }
+        boundsCache[0] = min.x;
+        boundsCache[1] = min.y;
+        boundsCache[2] = min.z;
+        boundsCache[FLOATS_PER_VERTEX] = max.x;
+        boundsCache[FLOATS_PER_VERTEX + 1] = max.y;
+        boundsCache[FLOATS_PER_VERTEX + 2] = max.z;
+        radiusCache = (float) Math.sqrt(farthestSquared);
+        boundsVersion = version;
+        return boundsCache;
     }
 
     /**
@@ -990,6 +1049,7 @@ public class HalfEdgeMesh implements MeshTopology {
         activeVertexIds.add(vertexId);
         vertexOutgoing[vertexId] = NONE;
         setVector(vertexPositions, vertexId, x, y, z);
+        geometryVersion++;
         setVector(vertexNormals, vertexId, 0f, 0f, 0f);
         vertexOutgoingHalfEdges.clear(vertexId);
         vertexEdges.clear(vertexId);
@@ -1022,6 +1082,7 @@ public class HalfEdgeMesh implements MeshTopology {
         ensureFaceCapacity(faceId + 1);
         faceActive[faceId] = true;
         activeFaceIds.add(faceId);
+        geometryVersion++;
         faceHalfEdge[faceId] = NONE;
         setVector(faceNormals, faceId, 0f, 0f, 0f);
         faceHalfEdges.clear(faceId);
@@ -1059,6 +1120,7 @@ public class HalfEdgeMesh implements MeshTopology {
     public void deactivateFace(int faceId) {
         faceActive[faceId] = false;
         activeFaceIds.remove(faceId);
+        geometryVersion++;
         faceHalfEdge[faceId] = NONE;
         setVector(faceNormals, faceId, 0f, 0f, 0f);
         faceHalfEdges.clear(faceId);
@@ -1104,6 +1166,7 @@ public class HalfEdgeMesh implements MeshTopology {
         activeVertexIds.remove(vertexId);
         vertexOutgoing[vertexId] = NONE;
         setVector(vertexPositions, vertexId, 0f, 0f, 0f);
+        geometryVersion++;
         setVector(vertexNormals, vertexId, 0f, 0f, 0f);
         vertexOutgoingHalfEdges.clear(vertexId);
         vertexEdges.clear(vertexId);
@@ -1111,8 +1174,8 @@ public class HalfEdgeMesh implements MeshTopology {
     }
 
     /**
-     * Index of the first float for this vertex within {@link #vertexPositions} or
-     * {@link #vertexNormals}.
+     * Index of the first float for this vertex within the packed position or
+     * {@link #vertexNormals} arrays.
      *
      * @param vertexId vertex id
      * @return base offset into the packed xyz array
@@ -1346,92 +1409,6 @@ public class HalfEdgeMesh implements MeshTopology {
             count++;
         }
         return count == 0 ? 1f : (float) (sum / count);
-    }
-
-    /**
-     * Bounding-sphere radius proxy from the active vertices.
-     *
-     * @return half-diagonal of the active vertices' bounding box (used as a
-     *         bounding-sphere proxy), or 1 for an empty mesh
-     */
-    public float computeBoundingSphereRadius() {
-        int vertexCount = vertexCount();
-        if (vertexCount == 0)
-            return 1f;
-        Vector3f p = new Vector3f();
-        vertexPosition(vertexIdAt(0), p);
-        float minX = p.x, minY = p.y, minZ = p.z;
-        float maxX = p.x, maxY = p.y, maxZ = p.z;
-        for (int vAi = 1; vAi < vertexCount; vAi++) {
-            vertexPosition(vertexIdAt(vAi), p);
-            if (p.x < minX)
-                minX = p.x;
-            if (p.y < minY)
-                minY = p.y;
-            if (p.z < minZ)
-                minZ = p.z;
-            if (p.x > maxX)
-                maxX = p.x;
-            if (p.y > maxY)
-                maxY = p.y;
-            if (p.z > maxZ)
-                maxZ = p.z;
-        }
-        float dx = maxX - minX;
-        float dy = maxY - minY;
-        float dz = maxZ - minZ;
-        return 0.5f * (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    /**
-     * Bounding-box diagonal length over active vertices.
-     *
-     * @return diagonal of the axis-aligned bounding box of the active vertices, or
-     *         0 for an empty mesh
-     */
-    public float computeBoundingBoxDiagonal() {
-        if (vertexCount() == 0) {
-            return 0f;
-        }
-        Vector3f p = new Vector3f();
-        float minX = Float.POSITIVE_INFINITY;
-        float minY = Float.POSITIVE_INFINITY;
-        float minZ = Float.POSITIVE_INFINITY;
-        float maxX = Float.NEGATIVE_INFINITY;
-        float maxY = Float.NEGATIVE_INFINITY;
-        float maxZ = Float.NEGATIVE_INFINITY;
-        for (int i = 0; i < activeVertexIds.size(); i++) {
-            vertexPosition(activeVertexIds.get(i), p);
-            minX = Math.min(minX, p.x);
-            minY = Math.min(minY, p.y);
-            minZ = Math.min(minZ, p.z);
-            maxX = Math.max(maxX, p.x);
-            maxY = Math.max(maxY, p.y);
-            maxZ = Math.max(maxZ, p.z);
-        }
-        float dx = maxX - minX;
-        float dy = maxY - minY;
-        float dz = maxZ - minZ;
-        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-    }
-
-    /**
-     * Euclidean area of a triangular face.
-     *
-     * @param faceId face id (assumed triangular)
-     * @return Euclidean area of the triangle whose first half-edge starts the face
-     */
-    public float faceArea(int faceId) {
-        int halfEdgeId = faceHalfEdge[faceId];
-        int v0 = halfEdgeVertex[halfEdgeId];
-        int v1 = halfEdgeEndVertex(halfEdgeId);
-        int v2 = halfEdgeEndVertex(halfEdgeNext(halfEdgeId));
-        Vector3f a = vertexPosition(v0);
-        Vector3f b = vertexPosition(v1);
-        Vector3f c = vertexPosition(v2);
-        b.sub(a);
-        c.sub(a);
-        return 0.5f * b.cross(c).length();
     }
 
     /**

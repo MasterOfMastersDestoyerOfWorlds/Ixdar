@@ -190,7 +190,7 @@ public class CurvatureConstraints {
             faceVertex0[faceId] = mesh.faceVertexAt(faceId, 0);
             faceVertex1[faceId] = mesh.faceVertexAt(faceId, 1);
             faceVertex2[faceId] = mesh.faceVertexAt(faceId, 2);
-            faceArea[faceId] = mesh.faceArea(faceId);
+            faceArea[faceId] = (float) mesh.faceArea(faceId);
         }
 
         edgeStartVertex = new int[edgeCount];
@@ -239,7 +239,7 @@ public class CurvatureConstraints {
         }
 
         float averageEdgeLength = mesh.computeAverageEdgeLength();
-        float curvatureK = CURVATURE_SCALE_K / Math.max(mesh.computeBoundingSphereRadius(), CrossField.EPSILON);
+        float curvatureK = CURVATURE_SCALE_K / Math.max(0.5f * mesh.boundsDiagonal(), CrossField.EPSILON);
         Vector3f e1 = new Vector3f();
         Vector3f e2 = new Vector3f();
 

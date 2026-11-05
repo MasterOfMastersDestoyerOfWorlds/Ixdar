@@ -3,6 +3,7 @@ package ixdar.automation.endpoints.mesh;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Locale;
 
 import com.google.gson.JsonArray;
@@ -45,7 +46,6 @@ public class TraceOutlines extends AutomationEndpoint implements AutomationRoute
 
     public static final String TOLERANCE = "tolerance";
 
-    public static final String PICTURE_SEPARATOR = "=";
 
     public static final String EXAMPLE_OUTLINES = "tmp/skull/outlines.svg";
 
@@ -115,16 +115,11 @@ public class TraceOutlines extends AutomationEndpoint implements AutomationRoute
         int tolerance = body.has(TOLERANCE) ? body.get(TOLERANCE).getAsInt() : DEFAULT_TOLERANCE;
         for (int view = 0; view < pictures.length; view++) {
             String pair = references.get(view).getAsString();
-            int split = pair.lastIndexOf(PICTURE_SEPARATOR);
-            String cellName = pair.substring(split + 1);
-            pictures[view] = split > 0 ? pair.substring(0, split) : "";
-            int cell = -1;
-            for (int candidate = 0; candidate < Math.min(labels.length, angles.length); candidate++) {
-                cell = labels[candidate].equalsIgnoreCase(cellName) || String.valueOf(candidate).equals(cellName)
-                        ? candidate : cell;
-            }
+            pictures[view] = ReferenceOutlines.pictureNamed(pair);
+            int cell = ReferenceOutlines.cellNamed(pair, Arrays.copyOf(labels, Math.min(labels.length, angles.length)));
             if (pictures[view].isEmpty() || cell < 0) {
-                return failure("--reference " + pair + " is not picture=cell");
+                return failure("--reference " + pair + " is not picture=cell, nor a picture whose name ends in a "
+                        + "view's (ref_01_front.png)");
             }
             for (int earlier = 0; earlier < view; earlier++) {
                 if (traced.cellByView[earlier] == cell) {
@@ -230,8 +225,9 @@ public class TraceOutlines extends AutomationEndpoint implements AutomationRoute
                         + "--height, and each outline is centred on its cell; a 3/4 view is fitted to the silhouette "
                         + "the axis views carve. Without --template the template is written too.")
                 .param(REFERENCE, RouteParamType.STRING_LIST, true, "",
-                        "Picture and cell as picture=cell, cell by name (Front, Right, 3/4 Front-R, ...) or index; "
-                                + "repeat per view.", "tmp/references/ref_01_front.png=Front")
+                        "Picture and cell as picture=cell, cell by name (Front, Right, 3/4 Front-R, ...) or index, or a "
+                                + "bare picture whose file name ends in the view's (ref_02_front_right.png); repeat per "
+                                + "view.", "tmp/references/ref_01_front.png=Front")
                 .param(OUT, RouteParamType.STRING, true, "",
                         "SVG written: the template's root and cell list, then one silhouette polyline per picture.",
                         EXAMPLE_OUTLINES)

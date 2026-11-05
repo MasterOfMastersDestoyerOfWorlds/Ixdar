@@ -146,6 +146,24 @@ class OutlineTracingTest {
     }
 
     @Test
+    void aReferenceNamesItsCellByPictureEqualsCellOrByItsFileName() {
+        // reference-compare and trace-outlines take a bare picture named by its view: the longest
+        // view name the file name ends in wins, so front_right is the 3/4 view, not Right.
+        String[] labels = MultiviewScreenshot.VIEW_LABELS;
+        int threeQuarterRight = ReferenceOutlines.cellNamed("x=3/4 Front-R", labels);
+        assertTrue(threeQuarterRight >= 0, "picture=label names a cell");
+        assertEquals(threeQuarterRight, ReferenceOutlines.cellNamed("tmp/references/ref_02_front_right.png", labels));
+        int right = ReferenceOutlines.cellNamed("x=Right", labels);
+        assertTrue(right >= 0 && right != threeQuarterRight);
+        assertEquals(right, ReferenceOutlines.cellNamed("tmp/references/ref_04_right.png", labels));
+        assertEquals(1, ReferenceOutlines.cellNamed("a.png=1", labels), "a cell by index");
+        assertEquals(-1, ReferenceOutlines.cellNamed("tmp/references/skull.png", labels), "no view named");
+        String picture = "tmp/a.png";
+        assertEquals(picture, ReferenceOutlines.pictureNamed(picture + "=Front"));
+        assertEquals(picture, ReferenceOutlines.pictureNamed(picture));
+    }
+
+    @Test
     void picturesAtDifferentZoomsShareOneWorldScale() {
         // An ellipsoid of radii 0.6, 1.0, 0.8 pictured front, right, top and 3/4 at unrelated zooms:
         // each axis comes out measured alike by the two views across it, the height pinned to 2, and

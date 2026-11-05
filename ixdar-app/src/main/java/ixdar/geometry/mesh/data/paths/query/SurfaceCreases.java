@@ -150,21 +150,7 @@ public final class SurfaceCreases {
         // The estimate counts bending away from the normal as negative, so with outward normals
         // a groove is the positive maximum curvature; a surface wound inward, whose fan triangles
         // enclose a negative signed volume, is read with the signs swapped.
-        float[] positions = dihedrals.positions();
-        int[] triangles = dihedrals.triangles();
-        double signedVolume = 0.0;
-        for (int corner = 0; corner < triangles.length; corner += 3) {
-            int first = triangles[corner] * 3;
-            int second = triangles[corner + 1] * 3;
-            int third = triangles[corner + 2] * 3;
-            signedVolume += positions[first] * (positions[second + 1] * positions[third + 2]
-                    - positions[second + 2] * positions[third + 1])
-                    + positions[first + 1] * (positions[second + 2] * positions[third]
-                    - positions[second] * positions[third + 2])
-                    + positions[first + 2] * (positions[second] * positions[third + 1]
-                    - positions[second + 1] * positions[third]);
-        }
-        boolean outward = signedVolume >= 0.0;
+        boolean outward = mesh.signedVolume() >= 0.0;
         float[] signal = new float[mesh.vertexIdBound()];
         float[] magnitude = new float[mesh.vertexCount()];
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {

@@ -2,13 +2,13 @@ package ixdar.geometry.mesh.data.sculpt;
 
 import java.util.Arrays;
 
-import org.joml.Vector3f;
-
+import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
 /**
  * A stroke snapped onto a mesh: the vertices nearest its lifted points, joined into one chain of
- * edges by shortest edge paths.
+ * edges by shortest edge paths. The vertex index is built once per mesh, which must not move
+ * while the chain snaps to it.
  */
 public final class StrokeChain {
 
@@ -24,6 +24,22 @@ public final class StrokeChain {
     /** Search that joins consecutive snapped vertices. */
     public final EdgeDistances search = new EdgeDistances();
 
+    private NearestVertex nearestVertex;
+
+    /**
+     * The vertex grid over a surface, built on the first call for it and kept until another
+     * surface is asked about: one per sum, shared by chain snapping and fill seeding.
+     *
+     * @param mesh the surface
+     * @return its vertex index
+     */
+    public NearestVertex nearestVertex(MeshTopology mesh) {
+        if (nearestVertex == null || nearestVertex.mesh != mesh) {
+            nearestVertex = NearestVertex.over(mesh);
+        }
+        return nearestVertex;
+    }
+
     /**
      * Snap packed lifted points to their nearest vertices and join them by shortest edge paths;
      * the chain's vertices and edges replace {@link #vertexIds} and {@link #edgeIds}.
@@ -38,21 +54,11 @@ public final class StrokeChain {
         int vertexCount = 0;
         int edgeCount = 0;
         unresolvedGaps = 0;
-        Vector3f position = new Vector3f();
+        NearestVertex index = nearestVertex(mesh);
         int[] source = new int[1];
         for (int point = 0; point < pointCount; point++) {
-            int nearestId = -1;
-            float nearestDistance = Float.POSITIVE_INFINITY;
-            for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-                int vertexId = mesh.vertexIdAt(activeVertex);
-                mesh.vertexPosition(vertexId, position);
-                float distance = position.distanceSquared(pointXyz[point * 3],
-                        pointXyz[point * 3 + 1], pointXyz[point * 3 + 2]);
-                if (distance < nearestDistance) {
-                    nearestDistance = distance;
-                    nearestId = vertexId;
-                }
-            }
+            int nearestId = index.nearest(pointXyz[point * 3], pointXyz[point * 3 + 1], pointXyz[point * 3 + 2],
+                    Float.POSITIVE_INFINITY);
             if (nearestId < 0 || vertexCount > 0 && vertices[vertexCount - 1] == nearestId) {
                 continue;
             }
@@ -68,15 +74,15 @@ public final class StrokeChain {
                 continue;
             }
             int pathLength = 0;
-            for (int walk = nearestId; search.arrivalEdgeByVertexId[walk] >= 0;
-                    walk = mesh.edgeOtherVertex(search.arrivalEdgeByVertexId[walk], walk)) {
+            for (int walk = nearestId; search.arrivalEdge(walk) >= 0;
+                    walk = mesh.edgeOtherVertex(search.arrivalEdge(walk), walk)) {
                 pathLength++;
             }
             vertices = ensureCapacity(vertices, vertexCount + pathLength);
             edges = ensureCapacity(edges, edgeCount + pathLength);
             int walk = nearestId;
             for (int step = pathLength - 1; step >= 0; step--) {
-                int edgeId = search.arrivalEdgeByVertexId[walk];
+                int edgeId = search.arrivalEdge(walk);
                 vertices[vertexCount + step] = walk;
                 edges[edgeCount + step] = edgeId;
                 walk = mesh.edgeOtherVertex(edgeId, walk);

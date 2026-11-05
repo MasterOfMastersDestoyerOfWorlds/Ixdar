@@ -415,7 +415,7 @@ public class HalfEdgeMeshOps {
             removeFaceKeepingNormals(mesh, faceId);
         }
         removeVertex(mesh, removed);
-        setVector(mesh.vertexPositions, kept, x, y, z);
+        mesh.setVertexPosition(kept, x, y, z);
         int edgeIdBound = mesh.nextEdgeId;
         int firstFaceId = mesh.nextFaceId;
         for (int index = 0; index < fan.length; index++) {
@@ -935,8 +935,8 @@ public class HalfEdgeMeshOps {
                     ? outgoingHalfEdges[outgoingStart[vertexId]] : MeshTopology.NONE;
         }
         HalfEdgeMesh mesh = new HalfEdgeMesh();
-        mesh.vertexPositions = Arrays.copyOf(positions, vertexCount * HalfEdgeMesh.FLOATS_PER_VERTEX);
-        mesh.vertexNormals = new float[mesh.vertexPositions.length];
+        mesh.setPositionsById(positions, vertexCount);
+        mesh.vertexNormals = new float[vertexCount * HalfEdgeMesh.FLOATS_PER_VERTEX];
         mesh.vertexOutgoing = vertexOutgoing;
         mesh.vertexActive = new boolean[vertexCount];
         Arrays.fill(mesh.vertexActive, true);
@@ -1101,8 +1101,8 @@ public class HalfEdgeMeshOps {
         range(cornerCount, parallel).forEach(corner -> faceEdgeIds[corner] = halfEdgeOfCorner[corner] >> 1);
 
         HalfEdgeMesh mesh = new HalfEdgeMesh();
-        mesh.vertexPositions = Arrays.copyOf(positions, vertexCount * HalfEdgeMesh.FLOATS_PER_VERTEX);
-        mesh.vertexNormals = new float[mesh.vertexPositions.length];
+        mesh.setPositionsById(positions, vertexCount);
+        mesh.vertexNormals = new float[vertexCount * HalfEdgeMesh.FLOATS_PER_VERTEX];
         mesh.vertexOutgoing = vertexOutgoing;
         mesh.vertexActive = new boolean[vertexCount];
         Arrays.fill(mesh.vertexActive, true);

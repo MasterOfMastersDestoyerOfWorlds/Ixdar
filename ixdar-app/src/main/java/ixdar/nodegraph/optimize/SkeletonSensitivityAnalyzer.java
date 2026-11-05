@@ -19,6 +19,9 @@ import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.Skeleton
 import ixdar.geometry.mesh.data.io.MeshLoader;
 
 import ixdar.nodegraph.optimize.InputParameterDescriptor.InputParameterKind;
+import ixdar.numeric.sparse.DirectSolver;
+import ixdar.numeric.sparse.matrix.NormalMatrix;
+import ixdar.numeric.sparse.ordering.OrderingMethod;
 
 import ixdar.nodegraph.runtime.GroupLibrary;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
@@ -36,7 +39,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
  */
 public final class SkeletonSensitivityAnalyzer {
     public static final int MAX_BACKOFF_ATTEMPTS = 4;
-    public static final float SINGULAR_PIVOT_EPSILON = 1e-12f;
 
     private static final float DEFAULT_EPSILON_RELATIVE = 0.02f; // 2% of parameter range
     private static final float MIN_EPSILON = 1e-3f;
@@ -406,92 +408,48 @@ public final class SkeletonSensitivityAnalyzer {
             e[ji * 3 + 2] = jd.delta()[2];
         }
 
-        float[] JTe = new float[N];
+        double[] JTe = new double[N];
         for (int pi = 0; pi < N; pi++) {
-            float sum = 0;
+            double sum = 0;
             for (int r = 0; r < rows; r++) {
                 sum += J[r][pi] * e[r];
             }
             JTe[pi] = sum;
         }
 
-        float[][] JTJ = new float[N][N];
+        // J^T J + lambda I through the sparse Cholesky path: diagonal, then the upper triangle in
+        // row-major order, which is the sorted key order NormalMatrix expects.
+        double[] diagonal = new double[N];
+        long[] upperKeys = new long[N * (N - 1) / 2];
+        double[] upperValues = new double[upperKeys.length];
+        int slot = 0;
         for (int i = 0; i < N; i++) {
-            for (int j = 0; j < N; j++) {
-                float sum = 0;
+            for (int j = i; j < N; j++) {
+                double sum = 0;
                 for (int r = 0; r < rows; r++) {
                     sum += J[r][i] * J[r][j];
                 }
-                JTJ[i][j] = sum;
+                if (j == i) {
+                    diagonal[i] = sum + lambda;
+                } else {
+                    upperKeys[slot] = ((long) i << NormalMatrix.KEY_ROW_SHIFT) | j;
+                    upperValues[slot++] = sum;
+                }
             }
-            JTJ[i][i] += lambda;
         }
 
-        float[] dp = solveLinearSystem(JTJ, JTe, N);
+        double[] dp = DirectSolver.solve(new NormalMatrix(diagonal, upperKeys, upperValues, JTe), new double[N],
+                new boolean[N], OrderingMethod.NATURAL);
 
         Map<String, Float> deltas = new LinkedHashMap<>();
         for (int pi = 0; pi < N; pi++) {
             OptimizableParameter param = params.get(pi);
-            float delta = dp[pi];
+            float delta = (float) dp[pi];
             float current = param.defaultValue();
             delta = Math.max(param.minValue() - current, Math.min(param.maxValue() - current, delta));
             deltas.put(param.overrideKey(), delta);
         }
         return deltas;
-    }
-
-    /**
-     * Solve Ax = b via Gaussian elimination with partial pivoting.
-     *
-     * @param A square coefficient matrix of size {@code n x n}
-     * @param b right-hand-side vector of length {@code n}
-     * @param n system dimension
-     * @return solution vector {@code x}; entries with a singular pivot are zeroed
-     */
-    private static float[] solveLinearSystem(float[][] A, float[] b, int n) {
-        // Augmented matrix
-        float[][] aug = new float[n][n + 1];
-        for (int i = 0; i < n; i++) {
-            System.arraycopy(A[i], 0, aug[i], 0, n);
-            aug[i][n] = b[i];
-        }
-
-        // Forward elimination with partial pivoting
-        for (int col = 0; col < n; col++) {
-            // Find pivot
-            int maxRow = col;
-            float maxVal = Math.abs(aug[col][col]);
-            for (int row = col + 1; row < n; row++) {
-                float val = Math.abs(aug[row][col]);
-                if (val > maxVal) { maxVal = val; maxRow = row; }
-            }
-            // Swap rows
-            float[] tmp = aug[col];
-            aug[col] = aug[maxRow];
-            aug[maxRow] = tmp;
-
-            float pivot = aug[col][col];
-            if (Math.abs(pivot) < SINGULAR_PIVOT_EPSILON) continue; // singular column
-
-            for (int row = col + 1; row < n; row++) {
-                float factor = aug[row][col] / pivot;
-                for (int j = col; j <= n; j++) {
-                    aug[row][j] -= factor * aug[col][j];
-                }
-            }
-        }
-
-        // Back substitution
-        float[] x = new float[n];
-        for (int i = n - 1; i >= 0; i--) {
-            float sum = aug[i][n];
-            for (int j = i + 1; j < n; j++) {
-                sum -= aug[i][j] * x[j];
-            }
-            float diag = aug[i][i];
-            x[i] = Math.abs(diag) > SINGULAR_PIVOT_EPSILON ? sum / diag : 0;
-        }
-        return x;
     }
 
     // ─── Helper methods ───

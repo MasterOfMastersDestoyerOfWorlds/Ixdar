@@ -67,12 +67,12 @@ public final class HalfEdgeBuildBenchmark {
     @Test
     public void buildFertilityAndRepairedScan() throws IOException {
         HalfEdgeMesh fertility = assertInstanceOf(HalfEdgeMesh.class, MeshLoader.load(FERTILITY_OFF));
-        measure(FERTILITY, Arrays.copyOf(fertility.vertexPositions, fertility.vertexCount() * 3),
+        measure(FERTILITY, fertility.packedPositions(null),
                 triangleCorners(fertility));
 
         String glbPath = System.getProperty(GLB_PROPERTY, DEFAULT_GLB);
         HalfEdgeMesh repaired = repairScan(MeshLoader.loadBundle(glbPath));
-        float[] positions = Arrays.copyOf(repaired.vertexPositions, repaired.vertexCount() * 3);
+        float[] positions = repaired.packedPositions(null);
         measure("repaired " + glbPath, positions, triangleCorners(repaired));
     }
 
@@ -102,7 +102,7 @@ public final class HalfEdgeBuildBenchmark {
         }
         Platforms.log("[representation] %s repair_mesh median %.1fms over %d runs %s%n", glbPath,
                 median(repairMilliseconds), REPAIR_RUNS, Arrays.toString(repairMilliseconds));
-        float[] positions = Arrays.copyOf(repaired.vertexPositions, repaired.vertexCount() * 3);
+        float[] positions = repaired.packedPositions(null);
         float[] normals = Arrays.copyOf(repaired.vertexNormals, repaired.vertexCount() * 3);
         int[] triangles = triangleCorners(repaired);
         repaired = null;

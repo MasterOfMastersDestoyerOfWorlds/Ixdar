@@ -1,6 +1,9 @@
 package ixdar.graphics.image;
 
+import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -26,6 +29,22 @@ public final class ReferenceOutlines {
     public static final int RIGHT = 0;
 
     public static final int UP = 3;
+
+    public static final String PICTURE_SEPARATOR = "=";
+
+    public static final Pattern WORD_SEPARATORS = Pattern.compile("[^a-z0-9]+");
+
+    public static final String WORD_JOIN = "_";
+
+    public static final String THREE_QUARTER = "3/4";
+
+    public static final String SIDE_RIGHT = "-r";
+
+    public static final String SIDE_LEFT = "-l";
+
+    public static final String RIGHT_WORD = " right";
+
+    public static final String LEFT_WORD = " left";
 
     /** World units one cell pixel spans. */
     public float worldPerCellPixel;
@@ -235,6 +254,58 @@ public final class ReferenceOutlines {
             scaleByView[view] = pixelsPerPicturePixelByView[view] * worldPerCellPixel;
         }
         return -1;
+    }
+
+    /**
+     * The cell a reference names: {@code picture=cell}, the cell by label or index, or a bare
+     * picture whose file name ends in a view's name ({@code ref_02_front_right.png} is 3/4 Front-R).
+     *
+     * @param reference the reference as given
+     * @param labels    the cells' labels, in cell order
+     * @return the cell, or -1 when it names none
+     */
+    public static int cellNamed(String reference, String[] labels) {
+        int split = reference.lastIndexOf(PICTURE_SEPARATOR);
+        String name = split > 0 ? reference.substring(split + 1)
+                : Path.of(reference).getFileName().toString().replaceFirst("\\.[^.]*$", "");
+        String words = WORD_SEPARATORS.matcher(name.toLowerCase(Locale.ROOT)).replaceAll(WORD_JOIN);
+        int best = -1;
+        int bestLength = 0;
+        for (int cell = 0; cell < labels.length; cell++) {
+            String key = viewName(labels[cell]);
+            boolean named = split > 0 ? labels[cell].equalsIgnoreCase(name) || String.valueOf(cell).equals(name)
+                    : words.equals(key) || words.endsWith(WORD_JOIN + key);
+            // The longest view name the file name ends in: front_right is not right.
+            if (named && key.length() > bestLength) {
+                best = cell;
+                bestLength = key.length();
+            }
+        }
+        return best;
+    }
+
+    /**
+     * A cell label as one lower-case word run, the form file and group names use: {@code 3/4
+     * Front-R} is {@code front_right}.
+     *
+     * @param label the cell's label
+     * @return its name
+     */
+    public static String viewName(String label) {
+        return WORD_SEPARATORS.matcher(label.toLowerCase(Locale.ROOT).replace(THREE_QUARTER, "")
+                .replace(SIDE_RIGHT, RIGHT_WORD).replace(SIDE_LEFT, LEFT_WORD)).replaceAll(WORD_JOIN)
+                .replaceAll("^_|_$", "");
+    }
+
+    /**
+     * The picture a reference names, the part before {@code =cell} when there is one.
+     *
+     * @param reference the reference as given
+     * @return the picture's path
+     */
+    public static String pictureNamed(String reference) {
+        int split = reference.lastIndexOf(PICTURE_SEPARATOR);
+        return split > 0 ? reference.substring(0, split) : reference;
     }
 
     /**

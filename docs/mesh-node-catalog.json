@@ -4565,6 +4565,42 @@
       "description": "Translates all vertices of a geometry by a vector offset, useful for repositioning meshes in world space."
     },
     {
+      "id": "shrinkwrap",
+      "category": "Modifiers",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Each vertex is cast along its vertex normal both ways; topology is kept.",
+          "defaultValue": null
+        },
+        {
+          "name": "target",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "The surface projected onto, in the same coordinates as the geometry.",
+          "defaultValue": null
+        },
+        {
+          "name": "offset",
+          "portType": "FLOAT",
+          "description": "Distance kept from the target along each vertex\u0027s normal (-1..1): positive stands outside it, 0 lands on it.",
+          "defaultValue": 0.0
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input/output. Each vertex is cast along its vertex normal both ways; topology is kept."
+        }
+      ],
+      "description": "Moves every vertex along its normal onto the target surface, to the nearer hit forward or backward; vertices whose normal misses the target stay where they are."
+    },
+    {
       "id": "silhouette_hull",
       "category": "Primitives",
       "scopes": [
@@ -4937,7 +4973,7 @@
           "description": "One line for the pass (vertices in and after refinement), then one per stroke: its kind, cell, radius, depth, points lifted and dropped (grazing, off-surface, out of cell), vertices moved and peak displacement; a stroke that moved nothing is marked DROPPED with the reason."
         }
       ],
-      "description": "A sculpt\u0027s one stroke pass on its base: every stroke is a curve held on the base mesh by the sidecar beside the SVG (ixdar-cli sculpt-sync writes both; without one the SVG\u0027s strokes are lifted onto the base through the camera the SVG stores), the faces they reach are refined once, then every stroke\u0027s move is summed on the base, distinct strokes adding. It refuses an input that is already a stroke_sculpt output: a second pass is a new DSL on the sculpt saved as a new base. The stroke alone sets what moves, in world units: a ridge, valley or fill moves each vertex it sees along the stroke\u0027s mean normal by data-depth x w x (1 - (d / data-radius)^2)^2, d the vertex\u0027s distance across that normal to the stroke (a fill: the union of its samples\u0027 bumps), w 1 except inside a data-profile\u003d\"bowl\" fill, where it is t(2 - t) of the sample\u0027s depth in from the outline over the deepest\u0027s. A silhouette drags the outline it reaches, within data-radius, all the way onto the stroke; data-op\u003d\"smooth\" smooths within data-radius. Mirror copies of a stroke never add to it; the report output lists every stroke\u0027s effect. A chain\u0027s points may lie far apart: its falloff and refinement follow the segments between them. Refinement stops at edges of 0.005 (or the base\u0027s mean edge / 16), and a falloff of slope 1.54 x |data-depth| / data-radius stairs on edges more than twice data-radius / (3 x that slope), so keep |data-depth| \u003c\u003d data-radius^2 / (2.31 x 0.005): about 0.14 at radius 0.04, 0.55 at 0.08; a steeper stroke terraces and the report marks it TOO STEEP."
+      "description": "A sculpt\u0027s one stroke pass on its base: every stroke is a curve held on the base mesh by the sidecar beside the SVG (ixdar-cli sculpt-sync writes both; without one the SVG\u0027s strokes are lifted onto the base through the camera the SVG stores), the faces they reach are refined once, then every stroke\u0027s move is summed on the base, distinct strokes adding. It refuses an input that is already a stroke_sculpt output: a second pass is a new DSL on the sculpt saved as a new base. The stroke alone sets what moves, in world units: a ridge, valley or fill moves each vertex it sees along the stroke\u0027s mean normal by data-depth x w x (1 - (d / data-radius)^2)^2, d the vertex\u0027s distance across that normal to the stroke (a fill: the union of its samples\u0027 bumps), w 1 except inside a data-profile\u003d\"bowl\" fill, where it is t(2 - t) of the sample\u0027s depth in from the outline over the deepest\u0027s; the move fades from full where the surface faces the stroke\u0027s camera within 60 degrees to none where it turns past 75 degrees, edge-on. A silhouette drags the outline it reaches, within data-radius, all the way onto the stroke; data-op\u003d\"smooth\" smooths within data-radius. Mirror copies of a stroke never add to it; the report output lists every stroke\u0027s effect. A chain\u0027s points may lie far apart: its falloff and refinement follow the segments between them. Refinement stops at edges of 0.005 (or the base\u0027s mean edge / 16), and a falloff of slope 1.54 x |data-depth| / data-radius stairs on edges more than twice data-radius / (3 x that slope), so keep |data-depth| \u003c\u003d data-radius^2 / (2.31 x 0.005): about 0.14 at radius 0.04, 0.55 at 0.08; a fill\u0027s samples union into a rim up to twice as steep (about 2.1 x |data-depth| / data-radius at the default spacing) and a bowl\u0027s floor rises at 2 x |data-depth| / its deepest inset, so their limits are lower; a steeper stroke terraces and the report marks it TOO STEEP, with the limit. A stroke whose moves would turn faces inside out is marked FOLDS with how many the pass held back and how many stay."
     },
     {
       "id": "subdivide_mesh",

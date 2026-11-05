@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangleSoup;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.numeric.graph.Dijkstra;
@@ -59,8 +60,8 @@ public final class BoundarySnap {
         int nv = mesh.vertexIdBound();
         float[] positions = SemanticPatchDecomposer.positionsById(mesh);
 
-        int[][] ring = buildOneRing(faceIdx, nv);
-        Map<Long, int[]> edgeFaces = buildEdgeFaceMap(faceIdx);
+        int[][] ring = TriangleSoup.oneRings(faceIdx, nv);
+        Map<Long, int[]> edgeFaces = TriangleSoup.edgeFaces(faceIdx);
         int[][] vertFaces = buildVertexFaces(faceIdx, nv);
 
         int[][] vertLabels = collectVertexLabels(vertFaces, faceLabels);
@@ -360,42 +361,6 @@ public final class BoundarySnap {
     }
 
     // ---------------- helpers ----------------
-
-    private static int[][] buildOneRing(int[] faceIdx, int nv) {
-        int faceCount = faceIdx.length / 3;
-        List<HashSet<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new HashSet<>(MIN_BAND_VERTS));
-        for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f*3], b = faceIdx[f*3+1], c = faceIdx[f*3+2];
-            tmp.get(a).add(b); tmp.get(a).add(c);
-            tmp.get(b).add(a); tmp.get(b).add(c);
-            tmp.get(c).add(a); tmp.get(c).add(b);
-        }
-        int[][] out = new int[nv][];
-        for (int i = 0; i < nv; i++) {
-            HashSet<Integer> set = tmp.get(i);
-            int[] arr = new int[set.size()];
-            int j = 0;
-            for (int n : set) arr[j++] = n;
-            out[i] = arr;
-        }
-        return out;
-    }
-
-    private static Map<Long, int[]> buildEdgeFaceMap(int[] faceIdx) {
-        int faceCount = faceIdx.length / 3;
-        Map<Long, int[]> edgeFaces = new HashMap<>();
-        for (int f = 0; f < faceCount; f++) {
-            for (int e = 0; e < 3; e++) {
-                int u = faceIdx[f*3+e], v = faceIdx[f*3+(e+1)%3];
-                long ek = edgeKey(u, v);
-                int[] arr = edgeFaces.get(ek);
-                if (arr == null) edgeFaces.put(ek, new int[]{f, -1});
-                else if (arr[1] == -1) arr[1] = f;
-            }
-        }
-        return edgeFaces;
-    }
 
     private static int[][] buildVertexFaces(int[] faceIdx, int nv) {
         int faceCount = faceIdx.length / 3;

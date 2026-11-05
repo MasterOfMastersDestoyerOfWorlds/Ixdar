@@ -41,8 +41,20 @@ public final class MeshFolds {
     /** Visit stamp of each dense vertex for the current {@link #update}. */
     private final int[] stampByVertex;
 
-    /** Vertex ids whose summed normal the current {@link #update} recomputes. */
+    /** Dense vertices whose summed normal the current {@link #update} recomputes. */
     private final int[] refreshed;
+
+    /** Where each dense vertex's faces start in {@link #vertexFaces}; the next vertex's start ends them. */
+    private final int[] vertexFaceStart;
+
+    /** Face ids around each dense vertex, in the mesh's order, end to end. */
+    private final int[] vertexFaces;
+
+    /** Where each face id's corners start in {@link #faceCorners}; the next id's start ends them. */
+    private final int[] faceCornerStart;
+
+    /** Each face's corners as dense vertex indices, in the mesh's order, end to end by face id. */
+    private final int[] faceCorners;
 
     /** The last stamp handed out. */
     private int stamp;
@@ -65,6 +77,35 @@ public final class MeshFolds {
         stampByFaceId = new int[mesh.faceIdBound()];
         stampByVertex = new int[vertexCount];
         refreshed = new int[vertexCount];
+        // The adjacency is read four times a sculpt pass; flat arrays read once from the mesh's
+        // per-element lists keep those passes off its scattered adjacency objects.
+        vertexFaceStart = new int[vertexCount + 1];
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            vertexFaceStart[activeVertex + 1] = vertexFaceStart[activeVertex]
+                    + mesh.vertexFaceCount(mesh.vertexIdAt(activeVertex));
+        }
+        vertexFaces = new int[vertexFaceStart[vertexCount]];
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            for (int slot = 0; slot < vertexFaceStart[activeVertex + 1] - vertexFaceStart[activeVertex]; slot++) {
+                vertexFaces[vertexFaceStart[activeVertex] + slot] = mesh.vertexFaceAt(vertexId, slot);
+            }
+        }
+        faceCornerStart = new int[mesh.faceIdBound() + 1];
+        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            faceCornerStart[faceId + 1] = mesh.faceVertexCount(faceId);
+        }
+        for (int faceId = 0; faceId < mesh.faceIdBound(); faceId++) {
+            faceCornerStart[faceId + 1] += faceCornerStart[faceId];
+        }
+        faceCorners = new int[faceCornerStart[mesh.faceIdBound()]];
+        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            for (int corner = 0; corner < faceCornerStart[faceId + 1] - faceCornerStart[faceId]; corner++) {
+                faceCorners[faceCornerStart[faceId] + corner] = activeOf[mesh.faceVertexAt(faceId, corner)];
+            }
+        }
         int[] every = new int[vertexCount];
         for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
             every[activeVertex] = activeVertex;
@@ -87,27 +128,28 @@ public final class MeshFolds {
         int normalStamp = ++stamp;
         int refreshedLength = 0;
         for (int index = 0; index < changedLength; index++) {
-            int vertexId = mesh.vertexIdAt(changed[index]);
-            for (int slot = 0; slot < mesh.vertexFaceCount(vertexId); slot++) {
-                int faceId = mesh.vertexFaceAt(vertexId, slot);
+            int vertex = changed[index];
+            for (int slot = vertexFaceStart[vertex]; slot < vertexFaceStart[vertex + 1]; slot++) {
+                int faceId = vertexFaces[slot];
                 if (stampByFaceId[faceId] == normalStamp) {
                     continue;
                 }
                 stampByFaceId[faceId] = normalStamp;
-                int size = mesh.faceVertexCount(faceId);
+                int first = faceCornerStart[faceId];
+                int size = faceCornerStart[faceId + 1] - first;
                 float normalX = 0f;
                 float normalY = 0f;
                 float normalZ = 0f;
                 for (int corner = 0; corner < size; corner++) {
-                    int cornerId = mesh.faceVertexAt(faceId, corner);
-                    int from = activeOf[cornerId] * 3;
-                    int to = activeOf[mesh.faceVertexAt(faceId, (corner + 1) % size)] * 3;
+                    int cornerVertex = faceCorners[first + corner];
+                    int from = cornerVertex * 3;
+                    int to = faceCorners[first + (corner + 1) % size] * 3;
                     normalX += (xyz[from + 1] - xyz[to + 1]) * (xyz[from + 2] + xyz[to + 2]);
                     normalY += (xyz[from + 2] - xyz[to + 2]) * (xyz[from] + xyz[to]);
                     normalZ += (xyz[from] - xyz[to]) * (xyz[from + 1] + xyz[to + 1]);
-                    if (stampByVertex[activeOf[cornerId]] != normalStamp) {
-                        stampByVertex[activeOf[cornerId]] = normalStamp;
-                        refreshed[refreshedLength++] = cornerId;
+                    if (stampByVertex[cornerVertex] != normalStamp) {
+                        stampByVertex[cornerVertex] = normalStamp;
+                        refreshed[refreshedLength++] = cornerVertex;
                     }
                 }
                 float length = (float) Math.sqrt(normalX * normalX + normalY * normalY + normalZ * normalZ);
@@ -118,13 +160,13 @@ public final class MeshFolds {
             }
         }
         for (int index = 0; index < refreshedLength; index++) {
-            int vertexId = refreshed[index];
-            int at = activeOf[vertexId] * 3;
+            int vertex = refreshed[index];
+            int at = vertex * 3;
             cornerXyz[at] = 0f;
             cornerXyz[at + 1] = 0f;
             cornerXyz[at + 2] = 0f;
-            for (int slot = 0; slot < mesh.vertexFaceCount(vertexId); slot++) {
-                int faceId = mesh.vertexFaceAt(vertexId, slot);
+            for (int slot = vertexFaceStart[vertex]; slot < vertexFaceStart[vertex + 1]; slot++) {
+                int faceId = vertexFaces[slot];
                 cornerXyz[at] += normalByFaceId[faceId * 3];
                 cornerXyz[at + 1] += normalByFaceId[faceId * 3 + 1];
                 cornerXyz[at + 2] += normalByFaceId[faceId * 3 + 2];
@@ -132,8 +174,9 @@ public final class MeshFolds {
         }
         int foldStamp = ++stamp;
         for (int index = 0; index < refreshedLength; index++) {
-            for (int slot = 0; slot < mesh.vertexFaceCount(refreshed[index]); slot++) {
-                int faceId = mesh.vertexFaceAt(refreshed[index], slot);
+            int vertex = refreshed[index];
+            for (int slot = vertexFaceStart[vertex]; slot < vertexFaceStart[vertex + 1]; slot++) {
+                int faceId = vertexFaces[slot];
                 if (stampByFaceId[faceId] != foldStamp) {
                     stampByFaceId[faceId] = foldStamp;
                     // Against its start a face may turn past a right angle, as a steep pit's wall does,
@@ -157,8 +200,8 @@ public final class MeshFolds {
         float sumX = 0f;
         float sumY = 0f;
         float sumZ = 0f;
-        for (int corner = 0; corner < mesh.faceVertexCount(faceId); corner++) {
-            int vertex = activeOf[mesh.faceVertexAt(faceId, corner)] * 3;
+        for (int slot = faceCornerStart[faceId]; slot < faceCornerStart[faceId + 1]; slot++) {
+            int vertex = faceCorners[slot] * 3;
             sumX += corners[vertex];
             sumY += corners[vertex + 1];
             sumZ += corners[vertex + 2];

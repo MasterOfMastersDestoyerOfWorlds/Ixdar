@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import java.util.Map;
-import org.joml.Vector3f;
 
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -118,16 +117,7 @@ public class SubdivisionMeshNode implements MeshNode {
         int nv = mesh.vertexCount();
         int nf = mesh.faceCount();
         int[] activeVertexOfId = new int[mesh.vertexIdBound()];
-        float[] positions = new float[nv * 3];
-        Vector3f position = new Vector3f();
-        for (int activeVertex = 0; activeVertex < nv; activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            activeVertexOfId[vertexId] = activeVertex;
-            mesh.vertexPosition(vertexId, position);
-            positions[activeVertex * 3] = position.x;
-            positions[activeVertex * 3 + 1] = position.y;
-            positions[activeVertex * 3 + 2] = position.z;
-        }
+        float[] positions = mesh.packedPositions(activeVertexOfId);
 
         int cornerCount = 0;
         for (int activeFace = 0; activeFace < nf; activeFace++) {

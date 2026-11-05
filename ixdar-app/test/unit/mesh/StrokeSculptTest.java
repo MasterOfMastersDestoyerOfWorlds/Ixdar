@@ -23,6 +23,9 @@ import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.paths.query.NearestVertex;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.sculpt.DisplacementSum;
+import ixdar.geometry.mesh.data.sculpt.FillStroke;
+import ixdar.geometry.mesh.data.sculpt.SculptStroke;
 import ixdar.geometry.mesh.data.sculpt.StrokeSculpt;
 import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
 import ixdar.graphics.cameras.Camera3D;
@@ -75,7 +78,32 @@ class StrokeSculptTest {
     private static final String BROAD_SMOOTH = "<polyline data-op=\"smooth\" data-radius=\"0.3\" "
             + "points=\"560,640 640,640 720,640\"/>\n";
 
-    private static final String LEGACY_STROKE = "<polyline data-kind=\"ridge\" data-strength=\"0.6\" "
+    private static final String STEEP_BOWL = "<polygon data-depth=\"-0.17\" data-radius=\"0.05\" data-profile=\"bowl\" "
+            + "points=\"560,560 720,560 720,720 560,720\"/>\n";
+
+    private static final String STEEP_CHAIN = "<polyline data-kind=\"valley\" data-depth=\"-0.17\" data-radius=\"0.05\" "
+            + "points=\"760,800 800,820 840,840\"/>\n";
+
+    private static final String FOLDING_DEPTH = "-0.5";
+
+    private static final int ARC_POINTS = 12;
+
+    private static final double ARC_HALF_ANGLE = Math.PI / 3;
+
+    private static final String BACK_FILL = "<polygon data-depth=\"-0.1\" data-radius=\"0.15\" "
+            + "points=\"3050,760 3350,760 3350,1020 3050,1020\"/>\n";
+
+    private static final Vector3f BACK_EYE = new Vector3f(0f, 0f, -3.906623f);
+
+    private static final float DENSE_SAMPLES = 0.3f;
+
+    private static final float SPARSE_SAMPLES = 1.5f;
+
+    private static final float EDGE_ON_COSINE = 0.2f;
+
+    private static final String LINE_BREAK = "\n";
+
+    private static final String LEGACY_STROKE ="<polyline data-kind=\"ridge\" data-strength=\"0.6\" "
             + "stroke-width=\"60\" points=\"800,600 860,640 900,700\"/>\n";
 
     private static final String MIRROR_PLACEHOLDER = "MIRROR";
@@ -365,7 +393,7 @@ class StrokeSculptTest {
         MapNodeContext pass = sculptContext(sphere(), svg("edge.svg", RIDGE_ON_THE_OUTLINE + ONE_SIDED_CHEEK_RIDGE),
                 StrokeSculptNode.NO_SYMMETRY);
         String report = pass.output(StrokeSculptNode.REPORT, String.class);
-        String[] lines = report.split("\n");
+        String[] lines = report.split(LINE_BREAK);
         assertEquals(3, lines.length, report);
         assertTrue(lines[1].contains(StrokeSculptNode.DROPPED) && lines[1].contains("silhouette"),
                 "the ridge drawn on the sphere's outline lands on edge-on surface, is dropped and the report "
@@ -475,6 +503,65 @@ class StrokeSculptTest {
                 "a resources-relative path resolves for load_mesh as for stroke_sculpt's svg");
     }
 
+    @Test
+    void aFillIsTooSteepWhereAChainOfTheSameDepthAndRadiusIsNot() throws IOException {
+        // Run 4's rippled bowl: radius 0.05, depth 0.21, under the one-falloff limit of about 0.2.
+        String report = sculptContext(sphere(), svg("steep.svg", STEEP_BOWL + STEEP_CHAIN), StrokeSculptNode.NO_SYMMETRY)
+                .output(StrokeSculptNode.REPORT, String.class);
+        String[] lines = report.split(LINE_BREAK);
+        assertTrue(lines[1].contains("(fill") && lines[1].contains(StrokeSculptNode.STEEP), "the union of a fill's "
+                + "samples rises faster than one falloff, so the bowl terraces: " + lines[1]);
+        assertTrue(lines[2].contains("(valley") && !lines[2].contains(StrokeSculptNode.STEEP), "a chain of the same "
+                + "depth and radius does not: " + lines[2]);
+        assertTrue(FillStroke.rimSlope(DENSE_SAMPLES) > FillStroke.rimSlope(SPARSE_SAMPLES)
+                && FillStroke.rimSlope(SPARSE_SAMPLES) >= SculptStroke.FALLOFF_STEEPEST_SLOPE, "denser samples union "
+                        + "into a steeper rim, never gentler than one falloff");
+    }
+
+    @Test
+    void theReportNamesTheFacesAStrokeWouldFoldInsideOut() {
+        // A narrow groove bent a third of the way round the ball sinks along its mean normal, which
+        // its ends meet at a slant, so the groove's walls there shear over.
+        StringBuilder groove = new StringBuilder(FOLDING_DEPTH + " r=0.05:");
+        StringBuilder gentle = new StringBuilder("0.01 r=0.2:");
+        for (int point = -ARC_POINTS; point <= ARC_POINTS; point++) {
+            double angle = point * ARC_HALF_ANGLE / ARC_POINTS;
+            groove.append(point == -ARC_POINTS ? " " : StrokeSketch.POINT_SEPARATOR).append(String.format(Locale.ROOT,
+                    "%.5f 0 %.5f", Math.sin(angle), Math.cos(angle)));
+            gentle.append(point == -ARC_POINTS ? " " : StrokeSketch.POINT_SEPARATOR).append(String.format(Locale.ROOT,
+                    "0 %.5f %.5f", Math.sin(angle), -Math.cos(angle)));
+        }
+        String report = new MapNodeContext(new StrokeSculptNode()).with(StrokeSculptNode.GEOMETRY, sphere())
+                .with(StrokeSculptNode.STROKES, groove + StrokeSculpt.STROKE_SEPARATOR + gentle).eval()
+                .output(StrokeSculptNode.REPORT, String.class);
+        String[] lines = report.split(LINE_BREAK);
+        assertTrue(lines[1].contains(StrokeSculptNode.FOLDS), "the bent groove folds its walls: " + lines[1]);
+        assertTrue(!lines[2].contains(StrokeSculptNode.FOLDS), "the gentle swell folds nothing: " + lines[2]);
+    }
+
+    @Test
+    void aBackFillLeavesTheUndersideItsCameraSeesEdgeOn() throws IOException {
+        float[] ball = positions(sphere().mesh());
+        float[] filled = positions(sculpt(sphere(), svg("back.svg", BACK_FILL), StrokeSculptNode.NO_SYMMETRY).mesh());
+        float edgeOnMoved = 0f;
+        float facingMoved = 0f;
+        Vector3f toEye = new Vector3f();
+        for (int vertex = 0; vertex < ball.length; vertex += 3) {
+            Vector3f position = new Vector3f(ball[vertex], ball[vertex + 1], ball[vertex + 2]);
+            float facing = position.dot(toEye.set(BACK_EYE).sub(position).normalize());
+            float moved = Vector3f.distance(ball[vertex], ball[vertex + 1], ball[vertex + 2], filled[vertex],
+                    filled[vertex + 1], filled[vertex + 2]);
+            if (facing < StrokeSketch.GRAZING_COSINE) {
+                edgeOnMoved = Math.max(edgeOnMoved, moved);
+            } else if (facing > DisplacementSum.FULL_FACING_COSINE) {
+                facingMoved = Math.max(facingMoved, moved);
+            }
+        }
+        assertTrue(facingMoved > MINIMUM_CHEEK_HEIGHT, "the fill sinks what faces the back camera, by " + facingMoved);
+        assertTrue(edgeOnMoved < SPHERE_TOLERANCE, "the fill moved surface the back camera sees edge-on by "
+                + edgeOnMoved);
+    }
+
     private GeometryBundle sphere() {
         MapNodeContext ball = new MapNodeContext(new QuadSphereMeshNode())
                 .with(QuadSphereMeshNode.SIZE, 2f).with(QuadSphereMeshNode.RESOLUTION, 64).eval();
@@ -501,7 +588,7 @@ class StrokeSculptTest {
 
     private static float mirrorDistance(MeshTopology mesh) {
         float[] xyz = positions(mesh);
-        float diagonal = mesh.boundsMax(new Vector3f()).distance(mesh.boundsMin(new Vector3f()));
+        float diagonal = mesh.boundsDiagonal();
         double total = 0.0;
         for (int vertex = 0; vertex < xyz.length; vertex += 3) {
             float nearest = Float.POSITIVE_INFINITY;

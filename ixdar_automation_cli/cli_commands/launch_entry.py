@@ -55,6 +55,10 @@ SETTINGS_JSON_RELATIVE = os.path.join(".vscode", "settings.json")
 
 WORKSPACE_FOLDER_TOKEN = "${workspaceFolder}"
 
+USER_HOME_TOKEN = "${userHome}"
+
+ENVIRONMENT_TOKEN = re.compile(r"\$\{env:(?P<name>[^}]+)\}")
+
 CONFIG_TOKEN = re.compile(r"^\$\{config:(?P<setting>[^}]+)\}$")
 
 # An entry's own profiler agent, which the launch replaces with one writing this run's capture.
@@ -164,12 +168,25 @@ def _tokens(value) -> list[str]:
     return str(value or "").split()
 
 
+def expand_variables(value: str, root: str) -> str:
+    """Substitute the VS Code variables launch entries use: ``${workspaceFolder}``,
+    ``${userHome}`` and ``${env:NAME}`` (empty when unset, as VS Code makes it).
+
+    :param value: One launch.json string.
+    :param root: Checkout root, substituted for ``${workspaceFolder}``.
+    :return: The string with every such variable replaced.
+    """
+    value = value.replace(WORKSPACE_FOLDER_TOKEN, root).replace(USER_HOME_TOKEN, os.path.expanduser("~"))
+    return ENVIRONMENT_TOKEN.sub(lambda match: os.environ.get(match.group("name"), ""), value)
+
+
 def resolve_vm_arguments(configuration: dict, root: str) -> list[str]:
     """Expand a launch entry's ``vmArgs`` the way VS Code does.
 
     ``${config:…}`` tokens are looked up in the workspace settings and dropped when unset, which
-    is what VS Code effectively does with an empty profiler-args setting. ``${workspaceFolder}``
-    is substituted in the setting's value too, since that is where the profiler agent path lives.
+    is what VS Code effectively does with an empty profiler-args setting. The variables of
+    :func:`expand_variables` are substituted in the setting's value too, since that is where the
+    profiler agent path lives.
 
     :param configuration: The launch configuration.
     :param root: Checkout root, substituted for ``${workspaceFolder}``.
@@ -180,7 +197,7 @@ def resolve_vm_arguments(configuration: dict, root: str) -> list[str]:
     for token in _tokens(configuration.get("vmArgs")):
         reference = CONFIG_TOKEN.match(token)
         tokens = _tokens(settings.get(reference.group("setting"), "")) if reference else [token]
-        resolved.extend(one.replace(WORKSPACE_FOLDER_TOKEN, root) for one in tokens)
+        resolved.extend(expand_variables(one, root) for one in tokens)
     return resolved
 
 
@@ -243,7 +260,7 @@ def working_directory(configuration: dict, root: str) -> str:
     :param root: Checkout root, substituted for ``${workspaceFolder}``.
     :return: An absolute directory.
     """
-    declared = str(configuration.get("cwd", "")).replace(WORKSPACE_FOLDER_TOKEN, root)
+    declared = expand_variables(str(configuration.get("cwd", "")), root)
     if not declared:
         return IXDAR_APP_DIR
     return declared if os.path.isabs(declared) else os.path.join(root, declared)

@@ -189,6 +189,12 @@ public final class StrokeSketch {
     /** Each shape's data-depth, its signed displacement in world units; 0 for a silhouette. */
     public float[] depthByShape = new float[0];
 
+    /** Each bowl fill's deepest sample's distance in from its outline, world units at the cell's centre; 0 otherwise. */
+    public float[] bowlInsetByShape = new float[0];
+
+    /** Each fill's sample spacing, world units at the cell's centre; 0 for other shapes. */
+    public float[] sampleSpacingByShape = new float[0];
+
     /** Each shape's kind: silhouette, fill, smooth, or the sign's ridge or valley. */
     public String[] kindByShape = new String[0];
 
@@ -486,6 +492,8 @@ public final class StrokeSketch {
         grazingByShape = new int[shapeTotal];
         radiusByShape = new float[shapeTotal];
         depthByShape = new float[shapeTotal];
+        bowlInsetByShape = new float[shapeTotal];
+        sampleSpacingByShape = new float[shapeTotal];
         kindByShape = new String[shapeTotal];
         liftedXyzByShape = new float[shapeTotal][];
         int[] faceOfTriangle = new int[mesh.triangleCount()];
@@ -547,12 +555,11 @@ public final class StrokeSketch {
             // stroke and dragging it all the way on; a polyline to surface points, a polygon to fill
             // samples, which a bowl weights t(2 - t) by their distance in from the outline over the
             // deepest one's, so the cavity's floor curves up to its rim.
-            float[] samples = fill ? PolygonScan.coveredPoints(pixels,
-                    Math.max(MINIMUM_FILL_STEP_PIXELS, spacing / centerWorldPerPixel)) : pixels;
-            // A chain its sidecar holds on the base takes those points as they are, whatever this
-            // cell sees of them.
-            float[] anchored = stroke < anchoredXyzByShape.length && !fill && !silhouette
-                    ? anchoredXyzByShape[stroke] : null;
+            float stepPixels = Math.max(MINIMUM_FILL_STEP_PIXELS, spacing / centerWorldPerPixel);
+            float[] samples = fill ? PolygonScan.coveredPoints(pixels, stepPixels) : pixels;
+            sampleSpacingByShape[stroke] = fill ? stepPixels * centerWorldPerPixel : 0f;
+            // A chain its sidecar holds on the base takes those points as they are, whatever this cell sees.
+            float[] anchored = stroke < anchoredXyzByShape.length && !fill && !silhouette ? anchoredXyzByShape[stroke] : null;
             int pointBound = Math.max(samples.length / 2, anchored == null ? 0 : anchored.length / 3);
             float[] lifted = new float[pointBound * 3];
             float[] weights = new float[pointBound];
@@ -562,6 +569,7 @@ public final class StrokeSketch {
             for (float inset : insetBySample) {
                 deepestInset = Math.max(deepestInset, inset);
             }
+            bowlInsetByShape[stroke] = deepestInset * centerWorldPerPixel;
             int liftedCount = anchored == null ? 0 : anchored.length / 3;
             if (anchored != null) {
                 System.arraycopy(anchored, 0, lifted, 0, anchored.length);

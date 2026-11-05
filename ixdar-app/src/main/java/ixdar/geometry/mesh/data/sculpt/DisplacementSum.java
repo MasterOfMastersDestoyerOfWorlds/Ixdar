@@ -1,6 +1,8 @@
 package ixdar.geometry.mesh.data.sculpt;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.joml.Vector3f;
 
@@ -30,6 +32,8 @@ public final class DisplacementSum {
     public static final float INNER_CONTOUR_VISIBILITY = 0.5f;
 
     public static final float SHADOW_FEATHER = 0.5f;
+
+    public static final float FULL_FACING_COSINE = 0.5f;
 
     /** The refined surface every stroke moves, unmoved. */
     public final MeshTopology mesh;
@@ -112,6 +116,15 @@ public final class DisplacementSum {
     /** Gathered vertex ids the stroke's camera cannot see. */
     public final int[] hiddenIds;
 
+    /** Visibility by dense vertex index, NaN where not yet asked, for each camera's eye and forward. */
+    public final Map<String, float[]> visibilityByCamera = new HashMap<>();
+
+    /** Per vertex by dense index, the stroke of the pass's text that moved it farthest, -1 for none. */
+    public final int[] strongestSourceByActiveVertex;
+
+    /** Per vertex by dense index, how far {@link #strongestSourceByActiveVertex} moved it. */
+    public final float[] strongestMoveByActiveVertex;
+
     /**
      * An empty sum over a refined surface, its normals smoothed and, when displacing, its triangle
      * tree built.
@@ -122,12 +135,25 @@ public final class DisplacementSum {
      * @param strokes     how many strokes the pass's text holds
      */
     public DisplacementSum(MeshTopology mesh, boolean displace, float creaseScale, int strokes) {
+        this(mesh, displace, creaseScale, strokes, null);
+    }
+
+    /**
+     * An empty sum over a refined surface, sharing another sum's triangle tree so sums that split a
+     * pass's strokes between them do not each build one.
+     *
+     * @param mesh        the refined surface
+     * @param displace    whether strokes move vertices
+     * @param creaseScale crease weight a chain writes
+     * @param strokes     how many strokes the pass's text holds
+     * @param tree        a triangle tree over the same surface, read-only here; null builds one
+     */
+    public DisplacementSum(MeshTopology mesh, boolean displace, float creaseScale, int strokes, TriangleBvh tree) {
         this.mesh = mesh;
         this.displace = displace;
         this.creaseScale = creaseScale;
         int vertexCount = mesh.vertexCount();
-        activeVertexById = new int[mesh.vertexIdBound()];
-        StrokeSculpt.packedPositions(mesh, activeVertexById);
+        activeVertexById = mesh.activeIndexById();
         normalXyz = new float[vertexCount * 3];
         Vector3f normal = new Vector3f();
         Vector3f center = mesh.center(new Vector3f());
@@ -145,7 +171,7 @@ public final class DisplacementSum {
         for (int pass = 0; pass < NORMAL_SMOOTHING_PASSES; pass++) {
             normalXyz = ringSum(mesh, activeVertexById, normalXyz, false);
         }
-        bvh = displace ? TriangleBvh.over(mesh, new int[mesh.triangleCount()]) : null;
+        bvh = !displace ? null : tree != null ? tree : TriangleBvh.over(mesh, new int[mesh.triangleCount()]);
         bvhStack = new int[bvh == null ? 0 : Math.max(1, bvh.nodeCount)];
         strokeCreaseByEdgeId = new float[mesh.edgeIdBound()];
         offsetXyz = new float[vertexCount * 3];
@@ -160,6 +186,9 @@ public final class DisplacementSum {
         peakDisplacementBySource = new float[strokes];
         movedVerticesBySource = new int[strokes];
         hiddenIds = new int[vertexCount];
+        strongestSourceByActiveVertex = new int[vertexCount];
+        Arrays.fill(strongestSourceByActiveVertex, -1);
+        strongestMoveByActiveVertex = new float[vertexCount];
     }
 
     /**
@@ -195,7 +224,7 @@ public final class DisplacementSum {
         for (int settled = 0; settled < falloff.settledLength && seeing; settled++) {
             int vertexId = falloff.settledVertexIds[settled];
             int at = activeVertexById[vertexId] * 3;
-            if (falloff.distanceByVertexId[vertexId] < stroke.radius && visibility(stroke, at / 3,
+            if (falloff.distance(vertexId) < stroke.radius && visibility(stroke, at / 3,
                     normal.set(normalXyz[at], normalXyz[at + 1], normalXyz[at + 2]), 1f) == 0f) {
                 hiddenIds[hiddenCount++] = vertexId;
             }
@@ -210,15 +239,22 @@ public final class DisplacementSum {
             int vertexId = falloff.settledVertexIds[settled];
             int activeVertex = activeVertexById[vertexId];
             float kernel = stroke.kernel(mesh.vertexPosition(vertexId, position), direction,
-                    falloff.distanceByVertexId[vertexId] / stroke.radius);
+                    falloff.distance(vertexId) / stroke.radius);
             if (seeing && kernel > 0f) {
                 int at = activeVertex * 3;
                 kernel *= visibility(stroke, activeVertex, normal.set(normalXyz[at], normalXyz[at + 1],
-                        normalXyz[at + 2]), 1f) * Math.min(1f, shadow.distanceByVertexId[vertexId]
+                        normalXyz[at + 2]), 1f) * Math.min(1f, shadow.distance(vertexId)
                                 / (stroke.radius * SHADOW_FEATHER));
+                // A camera sees a surface turning edge-on ever worse: the move fades out as the
+                // surface turns from facing it to grazing, the lift's own cut-off.
+                float[] eye = stroke.eyeForward;
+                mesh.vertexPosition(vertexId, position).sub(eye[0], eye[1], eye[2]).normalize();
+                float facing = -normal.dot(position) / Math.max(SculptStroke.MINIMUM_NORMAL_LENGTH, normal.length());
+                kernel *= Math.max(0f, Math.min(1f, (facing - StrokeSketch.GRAZING_COSINE)
+                        / (FULL_FACING_COSINE - StrokeSketch.GRAZING_COSINE)));
             }
             moved += kernel > 0f ? 1 : 0;
-            peak = Math.max(peak, stroke.deposit(this, activeVertex, kernel, falloff.originByVertexId[vertexId],
+            peak = Math.max(peak, stroke.deposit(this, activeVertex, kernel, falloff.origin(vertexId),
                     direction));
         }
         peakDisplacementBySource[stroke.source] = Math.max(peakDisplacementBySource[stroke.source], peak);
@@ -293,8 +329,7 @@ public final class DisplacementSum {
         // Relax what moved tangentially, which evens out stretched quads without shrinking the
         // bumps, and smooth fully where smooth strokes asked for it.
         int[] sculptedActiveById = new int[sculpted.vertexIdBound()];
-        float[] original = StrokeSculpt.packedPositions(sculpted, sculptedActiveById);
-        float[] relaxed = original.clone();
+        float[] relaxed = sculpted.packedPositions(sculptedActiveById);
         Vector3f laplacian = new Vector3f();
         Vector3f normal = new Vector3f();
         for (int iteration = 0; iteration < RELAX_ITERATIONS; iteration++) {
@@ -319,10 +354,7 @@ public final class DisplacementSum {
             }
             relaxed = next;
         }
-        for (int index = 0; index < relaxed.length; index++) {
-            relaxed[index] -= original[index];
-        }
-        return MeshVertexOffset.apply(sculpted, Vector3Field.copyOf(relaxed));
+        return MeshVertexOffset.atPositions(sculpted, relaxed);
     }
 
     /**
@@ -339,8 +371,12 @@ public final class DisplacementSum {
      */
     public float visibility(SculptStroke stroke, int activeVertex, Vector3f normal, float slackEdges) {
         if (stroke.visibilityByActiveVertex == null || stroke.visibilityByActiveVertex.length != mesh.vertexCount()) {
-            stroke.visibilityByActiveVertex = new float[mesh.vertexCount()];
-            Arrays.fill(stroke.visibilityByActiveVertex, Float.NaN);
+            // What a camera sees of this surface is the same for every stroke drawn through it, so
+            // strokes share it; a silhouette also asks about contours and keeps its own.
+            float[] fresh = new float[mesh.vertexCount()];
+            Arrays.fill(fresh, Float.NaN);
+            stroke.visibilityByActiveVertex = stroke instanceof SilhouetteStroke ? fresh
+                    : visibilityByCamera.computeIfAbsent(Arrays.toString(stroke.eyeForward), camera -> fresh);
         }
         if (!Float.isNaN(stroke.visibilityByActiveVertex[activeVertex])) {
             return stroke.visibilityByActiveVertex[activeVertex];
@@ -396,13 +432,19 @@ public final class DisplacementSum {
 
     /**
      * Fold the stroke just added into {@link #offsetXyz}: its largest raise and deepest sink per
-     * vertex along their blended directions, then clear its scratch for the next stroke.
+     * vertex along their blended directions, then clear its scratch for the next stroke. The
+     * vertices it folds are {@link #touched}'s first {@link #touchedLength} entries until it runs.
      */
-    private void finishStroke() {
+    public void finishStroke() {
         Vector3f direction = new Vector3f();
         for (int index = 0; index < touchedLength; index++) {
             int activeVertex = touched[index];
             int at = activeVertex * 3;
+            float move = raiseByActiveVertex[activeVertex] - lowerByActiveVertex[activeVertex];
+            if (move > strongestMoveByActiveVertex[activeVertex]) {
+                strongestMoveByActiveVertex[activeVertex] = move;
+                strongestSourceByActiveVertex[activeVertex] = currentSource;
+            }
             direction.set(raiseDirectionXyz[at], raiseDirectionXyz[at + 1], raiseDirectionXyz[at + 2]);
             if (direction.length() >= SculptStroke.MINIMUM_NORMAL_LENGTH) {
                 direction.mul(raiseByActiveVertex[activeVertex] / direction.length());

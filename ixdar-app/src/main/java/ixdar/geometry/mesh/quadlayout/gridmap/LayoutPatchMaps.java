@@ -3,8 +3,6 @@ package ixdar.geometry.mesh.quadlayout.gridmap;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.joml.Vector3f;
-
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.quadlayout.embedding.ArcNetwork;
 import ixdar.geometry.mesh.quadlayout.embedding.model.EmbeddedPatch;
@@ -199,15 +197,9 @@ public final class LayoutPatchMaps {
      */
     private double regionArea(List<Integer> faces) {
         HalfEdgeMesh copy = tmesh.topology.copy;
-        Vector3f first = new Vector3f();
-        Vector3f second = new Vector3f();
-        Vector3f third = new Vector3f();
         double area = 0.0;
         for (int faceId : faces) {
-            copy.vertexPosition(copy.faceVertexAt(faceId, 0), first);
-            copy.vertexPosition(copy.faceVertexAt(faceId, 1), second);
-            copy.vertexPosition(copy.faceVertexAt(faceId, 2), third);
-            area += second.sub(first).cross(third.sub(first)).length() / 2.0;
+            area += copy.faceArea(faceId);
         }
         return area;
     }

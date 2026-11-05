@@ -5,12 +5,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangleSoup;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.graphics.render.color.Color;
@@ -64,7 +63,7 @@ public final class MscCellAssembly {
         // every vertex once. Faces then aggregate from their three
         // vertex labels (majority-vote with bias toward the highest-
         // scalar vertex's choice in case of three-way ties).
-        int[][] ring = buildOneRingFromFaces(faceIdx, nv);
+        int[][] ring = TriangleSoup.oneRings(faceIdx, nv);
         int[] vertexLabel = new int[nv];
         Arrays.fill(vertexLabel, -1);
 
@@ -250,28 +249,5 @@ public final class MscCellAssembly {
         if (scalar[va] >= scalar[vb] && scalar[va] >= scalar[vc]) return a;
         if (scalar[vb] >= scalar[va] && scalar[vb] >= scalar[vc]) return b;
         return c;
-    }
-
-    private static int[][] buildOneRingFromFaces(int[] faceIdx, int nv) {
-        int faceCount = faceIdx.length / 3;
-        List<HashSet<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new HashSet<>(6));
-        for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f * 3];
-            int b = faceIdx[f * 3 + 1];
-            int c = faceIdx[f * 3 + 2];
-            tmp.get(a).add(b); tmp.get(a).add(c);
-            tmp.get(b).add(a); tmp.get(b).add(c);
-            tmp.get(c).add(a); tmp.get(c).add(b);
-        }
-        int[][] out = new int[nv][];
-        for (int i = 0; i < nv; i++) {
-            HashSet<Integer> set = tmp.get(i);
-            int[] arr = new int[set.size()];
-            int j = 0;
-            for (int n : set) arr[j++] = n;
-            out[i] = arr;
-        }
-        return out;
     }
 }

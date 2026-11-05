@@ -51,6 +51,45 @@ public final class PolygonScan {
     }
 
     /**
+     * The convex hull of 2D points by Andrew's monotone chain: the indices of the points on it,
+     * counter-clockwise in a y-up frame, collinear points left out.
+     *
+     * @param points packed xy
+     * @return the hull's point indices in order, fewer than three for degenerate input
+     */
+    public static int[] convexHull(float[] points) {
+        int count = points.length / 2;
+        Integer[] order = new Integer[count];
+        for (int index = 0; index < count; index++) {
+            order[index] = index;
+        }
+        Arrays.sort(order, (left, right) -> points[left * 2] != points[right * 2]
+                ? Float.compare(points[left * 2], points[right * 2])
+                : Float.compare(points[left * 2 + 1], points[right * 2 + 1]));
+        int[] chain = new int[count * 2 + 1];
+        int size = 0;
+        for (int pass = 0; pass < 2 && count > 0; pass++) {
+            int start = size;
+            for (int step = 0; step < count; step++) {
+                int index = order[pass == 0 ? step : count - 1 - step];
+                while (size >= start + 2) {
+                    int first = chain[size - 2] * 2;
+                    int corner = chain[size - 1] * 2;
+                    float turn = (points[corner] - points[first]) * (points[index * 2 + 1] - points[first + 1])
+                            - (points[corner + 1] - points[first + 1]) * (points[index * 2] - points[first]);
+                    if (turn > 0f) {
+                        break;
+                    }
+                    size--;
+                }
+                chain[size++] = index;
+            }
+            size--;
+        }
+        return Arrays.copyOf(chain, Math.max(0, size));
+    }
+
+    /**
      * The covered points of a lattice laid over the polygon's bounding box, its first point half a
      * step inside the box's corner.
      *

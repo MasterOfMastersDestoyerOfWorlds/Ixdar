@@ -10,6 +10,7 @@ import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.Ed
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.representation.TriangleSoup;
 
 /**
  * Saddle-point separator detection: at vertices where one principal curvature is strongly
@@ -55,7 +56,7 @@ public final class SaddlePointDetector {
     public static SaddleSeparators detect(MeshTopology mesh, EdgeDihedrals ed, PrincipalDirectionField pdf) {
         int vertexIdBound = mesh.vertexIdBound();
         float[] positions = ed.positions();
-        int[][] ring = PrincipalDirectionField.oneRings(ed, vertexIdBound);
+        int[][] ring = TriangleSoup.oneRings(ed.triangles(), vertexIdBound);
 
         // Adaptive per-mesh thresholds on κMax and −κMin. Top 10% of each.
         float kMaxT = percentile(mesh, pdf, /*max=*/true, KMAX_PERCENTILE);

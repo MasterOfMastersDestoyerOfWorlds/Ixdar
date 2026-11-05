@@ -1,37 +1,28 @@
 package ixdar.geometry.mesh.data.sculpt;
 
-import java.util.Arrays;
-import java.util.PriorityQueue;
-
 import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.numeric.graph.Dijkstra;
 
 /**
  * Shortest distances along mesh edges from a set of source vertices: the graph search the stroke
- * snap joins its vertices with and the displacement falloff measures from.
+ * snap joins its vertices with and the displacement falloff measures from. A search costs what it
+ * settles, never the mesh's size, so a pass's many small searches stay small.
  */
 public final class EdgeDistances {
-
-    public static final int VERTEX_BITS = 32;
-
-    public static final long VERTEX_MASK = 0xffffffffL;
-
-    /** Edge-path distance by vertex id, infinite where the search never reached. */
-    public float[] distanceByVertexId = new float[0];
-
-    /** Edge each reached vertex was entered through by vertex id, -1 for sources and the unreached. */
-    public int[] arrivalEdgeByVertexId = new int[0];
-
-    /** Index into the sources of the source each reached vertex is nearest, by vertex id. */
-    public int[] originByVertexId = new int[0];
 
     /** Vertex ids the last search settled, in settling order. */
     public int[] settledVertexIds = new int[0];
 
     /** How many of {@link #settledVertexIds} the last search filled. */
     public int settledLength;
+
+    private final Dijkstra walk = new Dijkstra();
+
+    /** Index into the sources of the source each reached vertex is nearest, by vertex id. */
+    private int[] originByVertexId = new int[0];
 
     /**
      * Run Dijkstra over edge lengths from the sources, settling vertices up to {@code cutoff} and
@@ -51,54 +42,70 @@ public final class EdgeDistances {
         Vector3f from = new Vector3f();
         Vector3f to = new Vector3f();
         int bound = mesh.vertexIdBound();
-        if (distanceByVertexId.length < bound) {
-            distanceByVertexId = new float[bound];
-            arrivalEdgeByVertexId = new int[bound];
+        if (originByVertexId.length < bound) {
             originByVertexId = new int[bound];
             settledVertexIds = new int[bound];
         }
-        Arrays.fill(distanceByVertexId, Float.POSITIVE_INFINITY);
-        Arrays.fill(arrivalEdgeByVertexId, -1);
+        walk.start(bound);
         settledLength = 0;
-        boolean[] settled = new boolean[bound];
-        PriorityQueue<Long> frontier = new PriorityQueue<>();
         for (int source = 0; source < sourceCount; source++) {
-            int vertexId = sourceVertexIds[source];
-            distanceByVertexId[vertexId] = 0f;
-            originByVertexId[vertexId] = source;
-            frontier.add((long) vertexId);
-        }
-        while (!frontier.isEmpty()) {
-            long entry = frontier.poll();
-            int vertexId = (int) (entry & VERTEX_MASK);
-            if (settled[vertexId]) {
-                continue;
+            if (walk.relax(sourceVertexIds[source], 0.0, -1)) {
+                originByVertexId[sourceVertexIds[source]] = source;
             }
-            settled[vertexId] = true;
+        }
+        for (int vertexId = walk.settle(); vertexId >= 0; vertexId = walk.settle()) {
             settledVertexIds[settledLength++] = vertexId;
             if (vertexId == targetVertexId) {
                 return true;
             }
-            float reached = distanceByVertexId[vertexId];
+            float reached = (float) walk.distance(vertexId);
             for (int adjacency = 0; adjacency < mesh.vertexEdgeCount(vertexId); adjacency++) {
                 int edgeId = mesh.vertexEdgeAt(vertexId, adjacency);
                 int neighbourId = mesh.edgeOtherVertex(edgeId, vertexId);
+                if (neighbourId < 0 || walk.isSettled(neighbourId)) {
+                    continue;
+                }
                 float length = mesh.edgeLength(edgeId);
-                if (across != null && neighbourId >= 0) {
+                if (across != null) {
                     mesh.vertexPosition(neighbourId, to).sub(mesh.vertexPosition(vertexId, from));
                     length = to.fma(-to.dot(across), across).length();
                 }
                 float candidate = reached + length;
-                if (neighbourId < 0 || settled[neighbourId] || candidate > cutoff
-                        || candidate >= distanceByVertexId[neighbourId]) {
-                    continue;
+                if (candidate <= cutoff && walk.relax(neighbourId, candidate, edgeId)) {
+                    originByVertexId[neighbourId] = originByVertexId[vertexId];
                 }
-                distanceByVertexId[neighbourId] = candidate;
-                arrivalEdgeByVertexId[neighbourId] = edgeId;
-                originByVertexId[neighbourId] = originByVertexId[vertexId];
-                frontier.add(((long) Float.floatToIntBits(candidate) << VERTEX_BITS) | neighbourId);
             }
         }
         return targetVertexId < 0;
+    }
+
+    /**
+     * A vertex's edge-path distance in the last search.
+     *
+     * @param vertexId vertex to read
+     * @return its distance, infinite where the search never reached
+     */
+    public float distance(int vertexId) {
+        return (float) walk.distance(vertexId);
+    }
+
+    /**
+     * The edge the last search entered a vertex through.
+     *
+     * @param vertexId vertex to read
+     * @return the edge id, -1 for a source or a vertex never reached
+     */
+    public int arrivalEdge(int vertexId) {
+        return walk.via(vertexId);
+    }
+
+    /**
+     * Which source a vertex the last search reached is nearest.
+     *
+     * @param vertexId a reached vertex
+     * @return its index into the sources
+     */
+    public int origin(int vertexId) {
+        return originByVertexId[vertexId];
     }
 }

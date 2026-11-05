@@ -265,8 +265,29 @@ public final class TriangleBvh {
      */
     public int nearestHitAvoiding(float[] origin, float[] direction, double maxParameter, int[] markByCorner,
             int mark, int[] stack) {
+        return nearestHitAvoiding(origin, direction, maxParameter, markByCorner, mark, stack, null);
+    }
+
+    /**
+     * {@link #nearestHitAvoiding}, also giving the hit's ray parameter to the caller, so threads that
+     * share the tree need not read {@link #hitParameter}.
+     *
+     * @param origin       ray origin xyz, its first three entries read
+     * @param direction    ray direction xyz, its length the parameter's unit
+     * @param maxParameter largest ray parameter a hit may have
+     * @param markByCorner mark by position index; null ignores nothing
+     * @param mark         the value that marks a corner
+     * @param stack        scratch node stack of at least {@link #nodeCount} entries
+     * @param hitOut       receives the hit's parameter, or {@code maxParameter} without one, in its
+     *                     first entry; null leaves it only in {@link #hitParameter}
+     * @return the triangle hit, or -1
+     */
+    public int nearestHitAvoiding(float[] origin, float[] direction, double maxParameter, int[] markByCorner,
+            int mark, int[] stack, double[] hitOut) {
         int nearestTriangle = -1;
-        hitParameter = maxParameter;
+        // The search keeps its nearest parameter local and only publishes it at the end, so threads
+        // that share the tree and read only the returned triangle do not race.
+        double nearest = maxParameter;
         double inverseX = 1.0 / direction[0];
         double inverseY = 1.0 / direction[1];
         double inverseZ = 1.0 / direction[2];
@@ -295,7 +316,7 @@ public final class TriangleBvh {
             double highZ = (nodeMax[box + 2] - origin[2]) * inverseZ;
             double enter = Math.max(MINIMUM_RAY_PARAMETER, Math.max(Math.min(lowX, highX),
                     Math.max(Math.min(lowY, highY), Math.min(lowZ, highZ))));
-            double exit = Math.min(hitParameter, Math.min(Math.max(lowX, highX),
+            double exit = Math.min(nearest, Math.min(Math.max(lowX, highX),
                     Math.min(Math.max(lowY, highY), Math.max(lowZ, highZ))));
             if (enter > exit) {
                 continue;
@@ -323,11 +344,16 @@ public final class TriangleBvh {
                     continue;
                 }
                 double parameter = rayParameter(triangle, origin, direction);
-                if (parameter < hitParameter) {
-                    hitParameter = parameter;
+                if (parameter < nearest) {
+                    nearest = parameter;
                     nearestTriangle = triangle;
                 }
             }
+        }
+        if (hitOut != null) {
+            hitOut[0] = nearest;
+        } else {
+            hitParameter = nearest;
         }
         return nearestTriangle;
     }

@@ -146,7 +146,7 @@ public final class RingRegionExtractionBenchmark {
             assertTrue(extraction.boundaryToSplineDistance
                     < extraction.snappedLoopToSplineDistance);
             pieces[piece] = GeometryBundle.ofMesh(extraction.closedMesh);
-            volumes[piece] = signedVolume(extraction.closedMesh);
+            volumes[piece] = extraction.closedMesh.signedVolume();
         }
 
         GeometryBundle union = new MapNodeContext(new MeshBooleanNode())
@@ -154,7 +154,7 @@ public final class RingRegionExtractionBenchmark {
                 .with(MeshBooleanNode.MESH_B, pieces[1])
                 .with(MeshBooleanNode.OPERATION, MeshBooleanNode.UNION)
                 .eval().output(MeshBooleanNode.GEOMETRY, GeometryBundle.class);
-        double unionVolume = signedVolume(union.mesh());
+        double unionVolume = union.mesh().signedVolume();
         System.out.printf(Locale.ROOT, "[extract] union of regions %d and %d: %d faces, volume "
                 + "%.1f from %.1f and %.1f, manifold %s%n", limb, neighbour,
                 union.mesh().faceCount(), unionVolume, volumes[0], volumes[1],
@@ -166,22 +166,6 @@ public final class RingRegionExtractionBenchmark {
         assertArrayEquals(regionsBefore, regions.regionByActiveFace, "the regions changed");
     }
 
-    private static double signedVolume(MeshTopology mesh) {
-        double volume = 0;
-        Vector3f first = new Vector3f();
-        Vector3f second = new Vector3f();
-        Vector3f third = new Vector3f();
-        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
-            int faceId = mesh.faceIdAt(activeFace);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), first);
-            for (int corner = 2; corner < mesh.faceVertexCount(faceId); corner++) {
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, corner - 1), second);
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, corner), third);
-                volume += first.dot(new Vector3f(second).cross(third)) / 6.0;
-            }
-        }
-        return volume;
-    }
 
     private static float[] positionsOf(MeshTopology mesh) {
         float[] xyz = new float[XYZ * mesh.vertexCount()];

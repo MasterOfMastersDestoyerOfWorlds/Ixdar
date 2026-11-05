@@ -1390,6 +1390,136 @@
       "responseHint": "{recording, rawEventCount, abstractActionCount, startedAtIso, lastSavedFile, saved, file}"
     },
     {
+      "commandName": "reference-compare",
+      "path": "/mesh/reference-compare",
+      "method": "POST",
+      "description": "Put each multiview cell beside the reference picture of its view: one row per picture, the cell, the picture scaled and centred so its subject\u0027s height and box centre match the cell\u0027s, and the two blended half and half.",
+      "sourceClass": "ixdar.automation.endpoints.mesh.ReferenceCompare",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/ReferenceCompare.java",
+      "params": [
+        {
+          "name": "capture",
+          "cliName": "capture",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Multiview PNG, 4 cells across (multiview --out).",
+          "example": "tmp/rounds/round05/multiview.png"
+        },
+        {
+          "name": "reference",
+          "cliName": "reference",
+          "type": "string_list",
+          "required": true,
+          "default": "",
+          "help": "A reference picture, as picture\u003dcell or named by its view (ref_02_front_right.png); repeat per row.",
+          "example": "tmp/references/ref_01_front.png"
+        },
+        {
+          "name": "out",
+          "cliName": "out",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "PNG written.",
+          "example": "tmp/compare.png"
+        },
+        {
+          "name": "panel",
+          "cliName": "panel",
+          "type": "int",
+          "required": false,
+          "default": "640",
+          "help": "Side of each square panel in pixels.",
+          "example": "640"
+        },
+        {
+          "name": "tolerance",
+          "cliName": "tolerance",
+          "type": "int",
+          "required": false,
+          "default": "40",
+          "help": "Largest summed RGB difference from a picture\u0027s border colour still counted as background.",
+          "example": "40"
+        }
+      ],
+      "responseHint": "{ok, out, rows:[{picture, view, cell, scale}]}"
+    },
+    {
+      "commandName": "reference-strokes",
+      "path": "/mesh/reference-strokes",
+      "method": "POST",
+      "description": "Turn reference pictures into the stroke SVG a sculpt starts from: the pictures are fitted as trace-outlines fits them, every shading edge of enough contrast inside the subject becomes a ridge or valley chain (signed by the light the subject\u0027s rim shows, or, lit along the view, a thin dark band a valley and a bright band or plain step a ridge; radius from the edge\u0027s width, depth from its contrast, under the terrace limit) and every hollow a bowl fill: a dark patch ringed by lit surface, or a dark blob grown out to the edges walling it in (an eye socket), about as deep as its mouth is wide when round and dark. Each is cast along its view onto the base where the base faces it within 60 degrees, axis pictures first and strongest lines first, a point dropped where an earlier mark already lies, and drawn through the template\u0027s camera in a \u003cg id\u003d\"edges_\u003cview\u003e\"\u003e group, ready for sculpt-sync.",
+      "sourceClass": "ixdar.automation.endpoints.mesh.ReferenceStrokesRoute",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/ReferenceStrokesRoute.java",
+      "params": [
+        {
+          "name": "reference",
+          "cliName": "reference",
+          "type": "string_list",
+          "required": true,
+          "default": "",
+          "help": "Every reference picture, as for trace-outlines: picture\u003dcell or a picture named by its view; repeat per view (the fit needs them all).",
+          "example": "tmp/references/ref_01_front.png"
+        },
+        {
+          "name": "mesh",
+          "cliName": "mesh",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "The base mesh the strokes land on, in the world trace-outlines fits (the base built from its outlines).",
+          "example": "tmp/base.ply"
+        },
+        {
+          "name": "template",
+          "cliName": "template",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "The sculpt\u0027s SVG whose root camera the strokes are drawn through: a multiview --svg capture of the base.",
+          "example": "tmp/edges/template.svg"
+        },
+        {
+          "name": "out",
+          "cliName": "out",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "SVG written: the template with one edges_\u003cview\u003e group per picture.",
+          "example": "tmp/edges/edges.svg"
+        },
+        {
+          "name": "pictures",
+          "cliName": "pictures",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Folder for each picture\u0027s strokes in its own pixels (\u003cview\u003e_strokes.svg, groups ridges, valleys, fills; every mark found drawn faint, data-hidden, under the pieces placed from it) to draw over it with strokes_overlay.py.",
+          "example": "tmp/edges"
+        },
+        {
+          "name": "height",
+          "cliName": "height",
+          "type": "float",
+          "required": false,
+          "default": "2.0",
+          "help": "The subject\u0027s world height, as trace-outlines was given it.",
+          "example": "2.0"
+        },
+        {
+          "name": "tolerance",
+          "cliName": "tolerance",
+          "type": "int",
+          "required": false,
+          "default": "40",
+          "help": "Largest summed RGB difference from a picture\u0027s border colour still counted as background.",
+          "example": "40"
+        }
+      ],
+      "responseHint": "{ok, svg, views:[{picture, view, cell, ridges, valleys, fills, light, overlay}], strokes}"
+    },
+    {
       "commandName": "replay-cancel",
       "path": "/replay/cancel",
       "method": "POST",
@@ -1642,6 +1772,144 @@
       "responseHint": "{ok, shading, headlight, palette}"
     },
     {
+      "commandName": "stroke-key",
+      "path": "/mesh/stroke-key",
+      "method": "POST",
+      "description": "Judge-side stroke answer key: refine the sculpt\u0027s base, cast each vertex\u0027s normal both ways onto the goal (moved into the base\u0027s frame as mesh-compare --normalize does) for the offset a stroke must make, marking vertices a miss or back face leaves unreachable, then choose strokes by matching pursuit scored with the stroke engine itself (fills from offset regions at several scales, chains along the offset\u0027s ridge and valley lines), refining depth and shape every 25 and pruning; each count\u0027s key is written as a synced stroke layer (key_NNN.svg, .strokes, .dsl) and scored by chamfer against the reference. Also writes offset_map.svg and unreachable_map.svg (dots for strokes_overlay over the base), the largest key over the reference pictures\u0027 cameras (--manifest), and grades another stroke SVG against the largest key (--compare).",
+      "sourceClass": "ixdar.automation.endpoints.mesh.StrokeKeyRoute",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/StrokeKeyRoute.java",
+      "params": [
+        {
+          "name": "base",
+          "cliName": "base",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "The sculpt\u0027s base mesh file, as its load_mesh reads it.",
+          "example": "~/.cache/ixdar-sculpt-judge/skull/key-mesh91/base.ply"
+        },
+        {
+          "name": "goal",
+          "cliName": "goal",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "The goal mesh (OBJ) the offsets are measured to.",
+          "example": "~/.cache/ixdar-sculpt-judge/skull/Skull.obj"
+        },
+        {
+          "name": "template",
+          "cliName": "template",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "The multiview SVG template (multiview --svg of the base) whose cells the key is drawn in.",
+          "example": "~/.cache/ixdar-sculpt-judge/skull/key-mesh91/template.svg"
+        },
+        {
+          "name": "out",
+          "cliName": "out",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "Directory the key\u0027s files are written to.",
+          "example": "~/.cache/ixdar-sculpt-judge/skull/key-mesh91"
+        },
+        {
+          "name": "reference",
+          "cliName": "reference",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Mesh chamfer is scored against (the judge\u0027s decimated goal); default the goal.",
+          "example": "~/.cache/ixdar-sculpt-judge/skull/skull57k.obj"
+        },
+        {
+          "name": "counts",
+          "cliName": "counts",
+          "type": "string",
+          "required": false,
+          "default": "25,50,100,200,400",
+          "help": "Stroke counts to keep a key at.",
+          "example": "25,50,100"
+        },
+        {
+          "name": "symmetry",
+          "cliName": "symmetry",
+          "type": "string",
+          "required": false,
+          "default": "x",
+          "help": "The sculpt\u0027s stroke_sculpt symmetry axis, or none.",
+          "example": "x"
+        },
+        {
+          "name": "surface_rounds",
+          "cliName": "surface_rounds",
+          "type": "int",
+          "required": false,
+          "default": "2",
+          "help": "Rounds of midpoint subdivision of the base the offsets are measured on.",
+          "example": "1"
+        },
+        {
+          "name": "resume",
+          "cliName": "resume",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "A key SVG this route wrote (its .strokes beside it): keep its strokes at their depths and add strokes up to --counts, so a long curve is built one bounded call at a time.",
+          "example": "~/.cache/ixdar-sculpt-judge/skull/key-mesh91/key_025.svg"
+        },
+        {
+          "name": "ridge_levels",
+          "cliName": "ridge_levels",
+          "type": "int",
+          "required": false,
+          "default": "0",
+          "help": "Offer chains along the goal\u0027s own ridge and valley lines (OBS04, surface-ridges) fitted at this many levels, carried onto the base, instead of the offset field\u0027s lines; 0 keeps those.",
+          "example": "6"
+        },
+        {
+          "name": "goal_line_radius",
+          "cliName": "goal_line_radius",
+          "type": "float",
+          "required": false,
+          "default": "0.06",
+          "help": "Falloff radius chains along the goal\u0027s lines are offered at, base units.",
+          "example": "0.04"
+        },
+        {
+          "name": "maps",
+          "cliName": "maps",
+          "type": "bool",
+          "required": false,
+          "default": "false",
+          "help": "Also write offset_map.svg and unreachable_map.svg.",
+          "example": "true"
+        },
+        {
+          "name": "manifest",
+          "cliName": "manifest",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "The reference pictures\u0027 manifest; draws the largest key through their cameras.",
+          "example": "~/.cache/ixdar-sculpt-judge/skull/references_manifest_mesh88.json"
+        },
+        {
+          "name": "compare",
+          "cliName": "compare",
+          "type": "string",
+          "required": false,
+          "default": "",
+          "help": "Another stroke SVG on the same base to grade against the largest key by location and kind.",
+          "example": "tmp/edges_r4/edges.svg"
+        }
+      ],
+      "responseHint": "{ok, seconds, unreachable_share, initial_residual, base_chamfer, counts:[{strokes, chamfer, hausdorff, residual, layers, dsl}], match?:{...by_cell_kind tables}, files} | {ok:false, error}",
+      "waitSeconds": 7200
+    },
+    {
       "commandName": "stroke-lift",
       "path": "/mesh/stroke-lift",
       "method": "POST",
@@ -1669,6 +1937,63 @@
         }
       ],
       "responseHint": "{ok, strokeRows:[{index, view, lifted, kind, misses, outOfCell, grazing, radius, depth, strokeWidthRadius (world radius a stroke-width meant before MESH-80), vertexIds, unresolvedGaps, stroke}], strokes}"
+    },
+    {
+      "commandName": "surface-ridges",
+      "path": "/mesh/surface-ridges",
+      "method": "POST",
+      "description": "A mesh\u0027s own ridge and valley lines after OBS04: fit a multi-level implicit surface (local quadratics blended, compactly supported RBFs pinning the zero set), project each vertex onto it for its principal curvatures and their derivatives, trace the zero crossings at maxima through the triangles and keep the strong lines; written into every cell of a multiview template that sees them, layers ridges and valleys.",
+      "sourceClass": "ixdar.automation.endpoints.mesh.SurfaceRidgesRoute",
+      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/mesh/SurfaceRidgesRoute.java",
+      "params": [
+        {
+          "name": "mesh",
+          "cliName": "mesh",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "The mesh file, as load_mesh reads it.",
+          "example": "~/.cache/ixdar-sculpt-judge/skull/skull57k.obj"
+        },
+        {
+          "name": "template",
+          "cliName": "template",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "A multiview SVG template of this mesh (multiview --svg) the lines are drawn through.",
+          "example": "~/.cache/ixdar-sculpt-judge/skull/key-mesh91/goal_frame/goal_template.svg"
+        },
+        {
+          "name": "out",
+          "cliName": "out",
+          "type": "string",
+          "required": true,
+          "default": "",
+          "help": "The SVG file written.",
+          "example": "~/.cache/ixdar-sculpt-judge/skull/key-mesh91/goal_frame/ridges.svg"
+        },
+        {
+          "name": "levels",
+          "cliName": "levels",
+          "type": "int",
+          "required": false,
+          "default": "6",
+          "help": "Most fit levels; fewer give a smoother surface and fewer, longer lines (OBS04 figure 1).",
+          "example": "5"
+        },
+        {
+          "name": "strength",
+          "cliName": "strength",
+          "type": "float",
+          "required": false,
+          "default": "2",
+          "help": "Least curvature integral a kept line has, at a main diagonal of 20 sqrt 3 (OBS04\u0027s T).",
+          "example": "0.5"
+        }
+      ],
+      "responseHint": "{ok, ridges, valleys, levels_fitted, centres_by_level, seconds_fit, seconds_curvature, seconds_trace, file} | {ok:false, error}",
+      "waitSeconds": 600
     },
     {
       "commandName": "terminal",
@@ -1723,7 +2048,7 @@
           "type": "string_list",
           "required": true,
           "default": "",
-          "help": "Picture and cell as picture\u003dcell, cell by name (Front, Right, 3/4 Front-R, ...) or index; repeat per view.",
+          "help": "Picture and cell as picture\u003dcell, cell by name (Front, Right, 3/4 Front-R, ...) or index, or a bare picture whose file name ends in the view\u0027s (ref_02_front_right.png); repeat per view.",
           "example": "tmp/references/ref_01_front.png\u003dFront"
         },
         {
@@ -1851,7 +2176,7 @@
           "type": "string",
           "required": false,
           "default": "",
-          "help": "Also write the subject\u0027s interior edges, placed the same way, to this SVG for viewing (it records no camera, so no node lifts it).",
+          "help": "Also write the subject\u0027s interior edges, one thin line each, placed the same way, to this SVG for viewing (it records no camera, so no node lifts it; reference-strokes turns the same edges into strokes).",
           "example": "tmp/edges.svg"
         },
         {

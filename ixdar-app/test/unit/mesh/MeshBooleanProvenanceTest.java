@@ -52,11 +52,11 @@ public class MeshBooleanProvenanceTest {
         MeshBooleanResult difference = boolean3d(cubeA, cubeB, BooleanOperation.DIFFERENCE);
         MeshBooleanResult intersection = boolean3d(cubeA, cubeB, BooleanOperation.INTERSECTION);
 
-        assertEquals(2 - OVERLAP_VOLUME, signedVolume(union.mesh), VOLUME_TOLERANCE,
+        assertEquals(2 - OVERLAP_VOLUME, union.mesh.signedVolume(), VOLUME_TOLERANCE,
                 "union is both cubes less their shared octant");
-        assertEquals(1 - OVERLAP_VOLUME, signedVolume(difference.mesh), VOLUME_TOLERANCE,
+        assertEquals(1 - OVERLAP_VOLUME, difference.mesh.signedVolume(), VOLUME_TOLERANCE,
                 "difference is cube A less the shared octant");
-        assertEquals(OVERLAP_VOLUME, signedVolume(intersection.mesh), VOLUME_TOLERANCE,
+        assertEquals(OVERLAP_VOLUME, intersection.mesh.signedVolume(), VOLUME_TOLERANCE,
                 "intersection is exactly the shared octant");
 
         for (MeshBooleanResult result : new MeshBooleanResult[] {union, difference, intersection}) {
@@ -282,28 +282,6 @@ public class MeshBooleanProvenanceTest {
         HalfEdgeMesh cube = HalfEdgeMeshOps.bulkAllocate(positions, quads, QUAD_CORNERS);
         cube.computeNormals();
         return cube;
-    }
-
-    /**
-     * Volume enclosed by a closed triangle mesh, as the signed tetrahedra its faces span with the
-     * origin. Also catches inconsistent winding, which flips the sign.
-     *
-     * @param mesh closed triangle mesh
-     * @return the enclosed volume
-     */
-    private static double signedVolume(HalfEdgeMesh mesh) {
-        Vector3f cornerA = new Vector3f();
-        Vector3f cornerB = new Vector3f();
-        Vector3f cornerC = new Vector3f();
-        double total = 0.0;
-        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
-            int faceId = mesh.faceIdAt(activeFace);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), cornerA);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 1), cornerB);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 2), cornerC);
-            total += (double) cornerA.dot(new Vector3f(cornerB).cross(cornerC)) / SIX;
-        }
-        return Math.abs(total);
     }
 
     /**

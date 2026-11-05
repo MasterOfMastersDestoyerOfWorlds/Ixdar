@@ -34,7 +34,15 @@ public final class ChainStroke extends SculptStroke {
         Vector3f vertex = new Vector3f(position);
         Vector3f scratch = new Vector3f();
         float largest = 0f;
-        for (int segment = 0; segment < segments; segment++) {
+        // The grid's elements are the segments plus the last point alone, which a kernel skips.
+        StrokeElementGrid grid = elementGrid(direction);
+        int cell = grid == null ? 0 : grid.cellOf(vertex.x, vertex.y, vertex.z);
+        int elements = grid == null ? segments : cell < 0 ? 0 : grid.first(cell + 1) - grid.first(cell);
+        for (int slot = 0; slot < elements; slot++) {
+            int segment = grid == null ? slot : grid.element(grid.first(cell) + slot);
+            if (segment >= segments) {
+                continue;
+            }
             int start = segment * 3;
             int end = pointCount == 1 ? start : start + 3;
             float fraction = elementFraction(start, end, position.set(vertex), direction, scratch);

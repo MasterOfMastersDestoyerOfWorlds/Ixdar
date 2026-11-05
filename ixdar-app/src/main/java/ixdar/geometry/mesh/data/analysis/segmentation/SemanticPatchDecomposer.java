@@ -27,6 +27,8 @@ import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.patches.CoonsReconstructionError;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangleGeometry;
+import ixdar.geometry.mesh.data.representation.TriangleSoup;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palette;
@@ -89,7 +91,7 @@ public final class SemanticPatchDecomposer {
 
     // PATCH-16 Coons reconstruction-error base case. A 4-sided patch is
     // "done" iff a cubic Coons fit to its boundary sits within this
-    // fraction of the mesh bounding-sphere diameter at p95 per-vertex
+    // fraction of the mesh's largest bounding-box axis span at p95 per-vertex
     // distance. Raised to 0.025 after PATCH-19 recursive split landed:
     // at 0.008 the recursion over-fragments the skull into ~5600 sub-
     // patches because organic curvature can't be Coons-fit that tightly
@@ -170,12 +172,9 @@ public final class SemanticPatchDecomposer {
         // Per-vertex barycentric area, a third of the incident triangle areas: normalizes the
         // cotangent-Laplacian H and the angle-defect K so both have units of 1/length.
         float[] barycentricArea = new float[nv];
-        for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f * 3], b = faceIdx[f * 3 + 1], c = faceIdx[f * 3 + 2];
-            float tri = (float) triangleArea(positions, a, b, c);
-            barycentricArea[a] += tri / 3f;
-            barycentricArea[b] += tri / 3f;
-            barycentricArea[c] += tri / 3f;
+        float[] areaByActiveVertex = mesh.vertexAreas();
+        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
+            barycentricArea[mesh.vertexIdAt(activeVertex)] = areaByActiveVertex[activeVertex];
         }
         float[] meanH = computeMeanCurvature(mesh, positions, faceIdx, ed, barycentricArea);
         float[] gaussK = computeGaussianCurvature(mesh, positions, faceIdx, barycentricArea);
@@ -695,20 +694,7 @@ public final class SemanticPatchDecomposer {
                 faceN[f * 3 + 2] = nz / len;
             }
         }
-        Map<Long, int[]> edgeFaces = new HashMap<>();
-        for (int f = 0; f < faceCount; f++) {
-            for (int e = 0; e < 3; e++) {
-                int u = faceIdx[f * 3 + e];
-                int v = faceIdx[f * 3 + (e + 1) % 3];
-                long key = edgeKey(u, v);
-                int[] arr = edgeFaces.get(key);
-                if (arr == null) {
-                    edgeFaces.put(key, new int[]{f, -1});
-                } else if (arr[1] == -1) {
-                    arr[1] = f;
-                }
-            }
-        }
+        Map<Long, int[]> edgeFaces = TriangleSoup.edgeFaces(faceIdx);
         Map<Long, Float> dihedrals = new HashMap<>();
         for (Map.Entry<Long, int[]> e : edgeFaces.entrySet()) {
             int[] pair = e.getValue();
@@ -867,25 +853,7 @@ public final class SemanticPatchDecomposer {
         }
         // Normalize by 1/(2 A_v) and compute signed magnitude via dot with
         // vertex normal (we reuse face normals averaged per vertex).
-        float[] faceNormals = ed.faceNormals();
-        float[] vertexNormals = new float[nv * 3];
-        for (int f = 0; f < faceCount; f++) {
-            for (int k = 0; k < 3; k++) {
-                int v = faceIdx[f * 3 + k];
-                vertexNormals[v * 3]     += faceNormals[f * 3];
-                vertexNormals[v * 3 + 1] += faceNormals[f * 3 + 1];
-                vertexNormals[v * 3 + 2] += faceNormals[f * 3 + 2];
-            }
-        }
-        for (int v = 0; v < nv; v++) {
-            float nx = vertexNormals[v * 3], ny = vertexNormals[v * 3 + 1], nz = vertexNormals[v * 3 + 2];
-            float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (len > VECTOR_LENGTH_EPSILON) {
-                vertexNormals[v * 3]     = nx / len;
-                vertexNormals[v * 3 + 1] = ny / len;
-                vertexNormals[v * 3 + 2] = nz / len;
-            }
-        }
+        float[] vertexNormals = ed.vertexNormals(nv);
         float[] meanH = new float[nv];
         for (int v = 0; v < nv; v++) {
             float Av = Math.max(barycentricArea[v], MIN_BARYCENTRIC_AREA);
@@ -1576,7 +1544,7 @@ public final class SemanticPatchDecomposer {
             int[] faceIdx, int[][] adj, float[] positions) {
         double area = 0, perimeter = 0;
         for (int f : faces) {
-            area += triangleArea(positions, faceIdx[f * 3], faceIdx[f * 3 + 1], faceIdx[f * 3 + 2]);
+            area += TriangleGeometry.area(positions, faceIdx[f * 3], faceIdx[f * 3 + 1], faceIdx[f * 3 + 2]);
             for (int e = 0; e < 3; e++) {
                 int nb = adj[f][e];
                 if (nb >= 0 && facePatch[nb] == patchId) continue;
@@ -1593,18 +1561,6 @@ public final class SemanticPatchDecomposer {
         return (float) Math.max(0, Math.min(1, ratio));
     }
 
-    private static double triangleArea(float[] positions, int a, int b, int c) {
-        double ax = positions[b * 3]     - positions[a * 3];
-        double ay = positions[b * 3 + 1] - positions[a * 3 + 1];
-        double az = positions[b * 3 + 2] - positions[a * 3 + 2];
-        double bx = positions[c * 3]     - positions[a * 3];
-        double by = positions[c * 3 + 1] - positions[a * 3 + 1];
-        double bz = positions[c * 3 + 2] - positions[a * 3 + 2];
-        double cx = ay * bz - az * by;
-        double cy = az * bx - ax * bz;
-        double cz = ax * by - ay * bx;
-        return 0.5 * Math.sqrt(cx * cx + cy * cy + cz * cz);
-    }
 
     /**
      * Feature-aware multi-source BFS that assigns each face to the seed reaching it first over
@@ -1807,7 +1763,7 @@ public final class SemanticPatchDecomposer {
              */
             float[] coonsError,
             /**
-             * {@link #T_COONS_ERROR_FRAC} × mesh bounding-sphere diameter.
+             * {@link #T_COONS_ERROR_FRAC} × the mesh's largest bounding-box axis span.
              *  Use as "above this value is failing" when displaying the
              *  error vector — typically feed to {@code
              *  HalfEdgeMeshRuntime.setPerVertexScalar(err, 0, 2*threshold)}
@@ -1833,5 +1789,34 @@ public final class SemanticPatchDecomposer {
             float[] faceNormals,
             float[] positions,
             int[] triangles,
-            int[] triangleFaces) {}
+            int[] triangleFaces) {
+
+        /**
+         * Each vertex's normal: the unit sum of its incident triangles' normals, triangle by
+         * triangle; zero where they cancel or none meets it.
+         *
+         * @param vertexIdBound one past the largest vertex id
+         * @return packed xyz by vertex id
+         */
+        public float[] vertexNormals(int vertexIdBound) {
+            float[] normals = new float[vertexIdBound * 3];
+            for (int corner = 0; corner < triangles.length; corner++) {
+                int at = triangles[corner] * 3;
+                int triangle = corner / 3 * 3;
+                normals[at] += faceNormals[triangle];
+                normals[at + 1] += faceNormals[triangle + 1];
+                normals[at + 2] += faceNormals[triangle + 2];
+            }
+            for (int at = 0; at < normals.length; at += 3) {
+                float length = (float) Math.sqrt(normals[at] * normals[at] + normals[at + 1] * normals[at + 1]
+                        + normals[at + 2] * normals[at + 2]);
+                if (length > VECTOR_LENGTH_EPSILON) {
+                    normals[at] /= length;
+                    normals[at + 1] /= length;
+                    normals[at + 2] /= length;
+                }
+            }
+            return normals;
+        }
+    }
 }

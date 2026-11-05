@@ -9,6 +9,7 @@ import java.util.Set;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.sculpt.FillStroke;
 import ixdar.geometry.mesh.data.sculpt.SculptStroke;
 import ixdar.geometry.mesh.data.sculpt.SculptSync;
 import ixdar.geometry.mesh.data.sculpt.StrokeAnchors;
@@ -32,7 +33,8 @@ public class StrokeSculptNode implements MeshNode {
     public static final String NODE_ID = "stroke_sculpt";
     public static final String DROPPED = "DROPPED";
     public static final String STEEP = "TOO STEEP";
-    public static final float STEEPNESS_LIMIT = SculptStroke.FALLOFF_STEEPEST_SLOPE * 3f / 2f;
+    public static final String FOLDS = "FOLDS";
+    public static final float STEEPNESS_LIMIT = SculptStroke.FALLOFF_STEEPEST_SLOPE * SculptStroke.EDGES_PER_SLOPE;
     public static final InputPort GEOMETRY = new InputPort("geometry", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort SVG = new InputPort("svg", PortType.STRING, "");
     public static final InputPort STROKES = new InputPort("strokes", PortType.STRING, "");
@@ -63,14 +65,18 @@ public class StrokeSculptNode implements MeshNode {
                 + "sees along the stroke's mean normal by data-depth x w x (1 - (d / data-radius)^2)^2, d the "
                 + "vertex's distance across that normal to the stroke (a fill: the union of its samples' bumps), w "
                 + "1 except inside a data-profile=\"bowl\" fill, where it is t(2 - t) of the sample's depth in from "
-                + "the outline over the deepest's. A silhouette drags the outline it reaches, within data-radius, "
+                + "the outline over the deepest's; the move fades from full where the surface faces the stroke's "
+                + "camera within 60 degrees to none where it turns past 75 degrees, edge-on. A silhouette drags the outline it reaches, within data-radius, "
                 + "all the way onto the stroke; data-op=\"smooth\" smooths within data-radius. Mirror copies of a "
                 + "stroke never add to it; the report output lists every stroke's effect. A chain's points may lie "
                 + "far apart: its falloff and refinement follow the segments between them. Refinement stops at "
                 + "edges of 0.005 (or the base's mean edge / 16), and a falloff of slope 1.54 x |data-depth| / "
                 + "data-radius stairs on edges more than twice data-radius / (3 x that slope), so keep |data-depth| <= "
-                + "data-radius^2 / (2.31 x 0.005): about 0.14 at radius 0.04, 0.55 at 0.08; a steeper stroke "
-                + "terraces and the report marks it " + STEEP + ".";
+                + "data-radius^2 / (2.31 x 0.005): about 0.14 at radius 0.04, 0.55 at 0.08; a fill's samples union "
+                + "into a rim up to twice as steep (about 2.1 x |data-depth| / data-radius at the default spacing) and "
+                + "a bowl's floor rises at 2 x |data-depth| / its deepest inset, so their limits are lower; a steeper "
+                + "stroke terraces and the report marks it " + STEEP + ", with the limit. A stroke whose moves would "
+                + "turn faces inside out is marked " + FOLDS + " with how many the pass held back and how many stay.";
     }
 
     @Override
@@ -118,7 +124,7 @@ public class StrokeSculptNode implements MeshNode {
                 anchors.checkBase(base.mesh(), StrokeAnchors.sidecarPath(svgPath));
                 unsynced = !anchors.written.equals(sketch.text);
                 sketch = anchors.sketch(sketch, base.mesh());
-            } else if (sketch.shapes.stream().anyMatch(shape -> shape.contains(SculptSync.ID_ATTRIBUTE + "="))) {
+            } else if (sketch.shapes.stream().anyMatch(shape -> shape.contains(SculptSync.POINT_INDEX_ATTRIBUTE + "="))) {
                 throw new IllegalArgumentException(svgPath + " was written by sculpt-sync, but its stroke sidecar "
                         + StrokeAnchors.sidecarPath(svgPath) + " is missing: restore it from git");
             } else {
@@ -146,10 +152,13 @@ public class StrokeSculptNode implements MeshNode {
                     strokeIndex, sculpt.movedVerticesByStroke[strokeIndex],
                     sculpt.peakDisplacementByStroke[strokeIndex],
                     sculpt.movedVerticesByStroke[strokeIndex] == 0 ? " " + DROPPED + ": it reaches no surface it sees" : ""));
+            report.append(foldNote(sculpt.foldedFacesByStroke[strokeIndex], sculpt.heldFoldsByStroke[strokeIndex]));
         }
         for (int shape = 0; sketch != null && shape < sketch.shapes.size(); shape++) {
             boolean lifted = !sketch.strokeByShape[shape].isEmpty();
             int moved = lifted ? sculpt.movedVerticesByStroke[strokeIndex] : 0;
+            String folds = lifted ? foldNote(sculpt.foldedFacesByStroke[strokeIndex], sculpt.heldFoldsByStroke[strokeIndex])
+                    : "";
             float peak = lifted ? sculpt.peakDisplacementByStroke[strokeIndex++] : 0f;
             String dropped = !lifted ? " " + DROPPED + ": no point lifted onto surface the cell sees face-on enough"
                     : moved == 0 ? " " + DROPPED + ": its points lifted but every vertex in reach is hidden from or edge-on to "
@@ -163,17 +172,40 @@ public class StrokeSculptNode implements MeshNode {
                 report.append("; near a cell's outline the surface is seen edge-on, so move the outline itself with a "
                         + "data-kind=\"silhouette\" stroke drawn where it should be");
             }
-            // A falloff of slope 1.54 |depth| / radius needs about three edges per radius / slope;
-            // refinement stops at finestEdgeLength, and twice too coarse stairs the slope.
+            // A falloff of slope k |depth| / radius needs about three edges per radius / slope;
+            // refinement stops at finestEdgeLength, and twice too coarse stairs the slope. One bump's
+            // k is 1.54; a fill's samples union into a steeper rim, and a bowl's floor rises over its
+            // deepest inset at 2 |depth| / inset.
             float radius = sketch.radiusByShape[shape];
-            float steepest = radius * radius / (STEEPNESS_LIMIT * sculpt.finestEdgeLength);
+            float slope = sketch.sampleSpacingByShape[shape] > 0f
+                    ? FillStroke.rimSlope(sketch.sampleSpacingByShape[shape] / radius) : SculptStroke.FALLOFF_STEEPEST_SLOPE;
+            float limit = SculptStroke.EDGES_PER_SLOPE * slope;
+            float steepest = SculptStroke.steepestDepth(radius, slope, sculpt.finestEdgeLength);
+            float inset = sketch.bowlInsetByShape[shape];
+            steepest = inset > 0f ? Math.min(steepest, SculptStroke.steepestDepth(inset, SculptStroke.BOWL_RIM_SLOPE,
+                    sculpt.finestEdgeLength)) : steepest;
             if (moved > 0 && Math.abs(sketch.depthByShape[shape]) > steepest) {
                 report.append(String.format(Locale.ROOT, "; %s: depth %.4f at radius %.4f is too steep for edges of "
-                        + "%.4f, the finest refinement reaches, so it terraces: keep |data-depth| <= data-radius^2 / "
-                        + "(%.2f x %.4f) = %.4f, or widen data-radius", STEEP, sketch.depthByShape[shape], radius,
-                        sculpt.finestEdgeLength, STEEPNESS_LIMIT, sculpt.finestEdgeLength, steepest));
+                        + "%.4f, the finest refinement reaches, so it terraces: keep |data-depth| <= %.4f (data-radius^2"
+                        + " / (%.2f x %.4f)%s), or widen data-radius", STEEP, sketch.depthByShape[shape], radius,
+                        sculpt.finestEdgeLength, steepest, limit, sculpt.finestEdgeLength, sketch.sampleSpacingByShape[shape]
+                                > 0f ? ", a fill's samples rising faster than one falloff" : ""));
             }
+            report.append(folds);
         }
         ctx.setOutput(REPORT.name, report.toString());
+    }
+
+    /**
+     * The report's note on a stroke whose moves would turn faces inside out.
+     *
+     * @param folded faces still folded in the output under the stroke
+     * @param held   faces it would have folded that the pass held back
+     * @return the note, empty when it folds nothing
+     */
+    private static String foldNote(int folded, int held) {
+        return folded + held == 0 ? "" : String.format(Locale.ROOT, "; %s: its moves turn %d face(s) inside out; the "
+                + "pass held %d back, flattening the stroke there, and %d stay folded: make it shallower or wider", FOLDS,
+                folded + held, held, folded);
     }
 }

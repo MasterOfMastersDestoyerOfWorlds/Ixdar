@@ -27,10 +27,7 @@ public final class MeshLargestPart {
      */
     public static HalfEdgeMesh keep(MeshTopology mesh) {
         int vertexCount = mesh.vertexCount();
-        int[] activeOf = new int[mesh.vertexIdBound()];
-        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            activeOf[mesh.vertexIdAt(activeVertex)] = activeVertex;
-        }
+        int[] activeOf = mesh.activeIndexById();
         int[] parent = UnionFind.singletons(vertexCount);
         int[] rank = new int[vertexCount];
         for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {

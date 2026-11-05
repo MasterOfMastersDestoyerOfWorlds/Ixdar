@@ -9,7 +9,6 @@ import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.ops.MeshFolds;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
-import ixdar.geometry.mesh.data.sculpt.StrokeSculpt;
 import ixdar.nodegraph.runtime.GraphNodeContext;
 import ixdar.nodegraph.runtime.GroupBuilder;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
@@ -219,7 +218,7 @@ public class QuadLayoutNode extends NodeGroup {
             return;
         }
         int[] activeVertexById = new int[surface.vertexIdBound()];
-        float[] positions = StrokeSculpt.packedPositions(surface, activeVertexById);
+        float[] positions = surface.packedPositions(activeVertexById);
         boolean[] folded = new MeshFolds(surface, activeVertexById, positions).foldedAtStart;
         List<Integer> foldedFaceIds = new ArrayList<>();
         for (int activeFace = 0; activeFace < surface.faceCount(); activeFace++) {

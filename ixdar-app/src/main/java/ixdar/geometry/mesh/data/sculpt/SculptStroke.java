@@ -17,9 +17,15 @@ public abstract class SculptStroke {
 
     public static final float FALLOFF_STEEPEST_SLOPE = 1.5396f;
 
+    public static final float EDGES_PER_SLOPE = 1.5f;
+
+    public static final float BOWL_RIM_SLOPE = 2f;
+
     public static final float GATHER_REACH = 2f;
 
     public static final float MINIMUM_NORMAL_LENGTH = 1e-6f;
+
+    public static final float UNIT_LENGTH_SQUARED_TOLERANCE = 1e-3f;
 
     /** Signed displacement at the stroke in world units, + raising; 1 for a silhouette. */
     public float depth;
@@ -55,6 +61,8 @@ public abstract class SculptStroke {
 
     /** Where along the element the last {@link #elementFraction} found the nearest point, in [0, 1]. */
     public float elementAlong;
+
+    private StrokeElementGrid elementGrid;
 
     /**
      * Read one stroke of the text form: its header's depth, radius and flags, then its points with
@@ -119,6 +127,19 @@ public abstract class SculptStroke {
     }
 
     /**
+     * The deepest a profile of some width and steepest slope (per unit depth over width) may be
+     * before edges of a length stair it: its width must span {@link #EDGES_PER_SLOPE} edges per unit slope.
+     *
+     * @param width       how wide the profile rises, world units: a falloff's radius, a bowl's inset
+     * @param slopeFactor its steepest slope times width over depth
+     * @param edgeLength  the finest edge refinement reaches
+     * @return the largest |depth| that does not terrace
+     */
+    public static float steepestDepth(float width, float slopeFactor, float edgeLength) {
+        return width * width / (EDGES_PER_SLOPE * slopeFactor * edgeLength);
+    }
+
+    /**
      * Reflect the stroke in place across one axis: its points and its eye.
      *
      * @param axis 0, 1 or 2 for x, y or z
@@ -128,6 +149,7 @@ public abstract class SculptStroke {
         for (int coordinate = axis; coordinate < pointXyz.length; coordinate += 3) {
             pointXyz[coordinate] = -pointXyz[coordinate];
         }
+        elementGrid = null;
         if (eyeForward != null) {
             eyeForward[axis] = -eyeForward[axis];
             eyeForward[axis + 3] = -eyeForward[axis + 3];
@@ -228,6 +250,7 @@ public abstract class SculptStroke {
         }
         Vector3f offset = new Vector3f();
         Vector3f scratch = new Vector3f();
+        StrokeElementGrid grid = elementGrid(direction);
         for (int activeVertex = 0; activeVertex < requiredByActiveVertex.length; activeVertex++) {
             int at = activeVertex * 3;
             if (requiredByActiveVertex[activeVertex] <= refineTarget || vertexXyz[at] < low[0]
@@ -235,9 +258,12 @@ public abstract class SculptStroke {
                     || vertexXyz[at + 2] < low[2] || vertexXyz[at + 2] > high[2]) {
                 continue;
             }
+            int cell = grid == null ? 0 : grid.cellOf(vertexXyz[at], vertexXyz[at + 1], vertexXyz[at + 2]);
+            int elements = grid == null ? pointXyz.length / 3 : cell < 0 ? 0 : grid.first(cell + 1) - grid.first(cell);
             // Reach is measured to the stroke's elements, as its kernel is: a chain's segments, so
             // the surface between points drawn farther apart than the radius refines too.
-            for (int point = 0; point < pointXyz.length; point += 3) {
+            for (int slot = 0; slot < elements; slot++) {
+                int point = 3 * (grid == null ? slot : grid.element(grid.first(cell) + slot));
                 int end = joinsPoints && point + 3 < pointXyz.length ? point + 3 : point;
                 float across = elementFraction(point, end, offset.set(vertexXyz[at], vertexXyz[at + 1],
                         vertexXyz[at + 2]), direction, scratch);
@@ -285,6 +311,25 @@ public abstract class SculptStroke {
      * @return the kernel, in [0, the largest point weight]
      */
     public abstract float kernel(Vector3f position, Vector3f direction, float edgeFraction);
+
+    /**
+     * The stroke's elements bucketed across a direction, rebuilt when its points or the direction
+     * changed since the last call.
+     *
+     * @param direction the direction distances are measured across
+     * @return the grid, or null when the direction is not unit length and every element is measured
+     */
+    public StrokeElementGrid elementGrid(Vector3f direction) {
+        if (Math.abs(direction.lengthSquared() - 1f) > UNIT_LENGTH_SQUARED_TOLERANCE) {
+            return null;
+        }
+        StrokeElementGrid grid = elementGrid;
+        if (grid == null || !grid.fits(this, direction)) {
+            grid = new StrokeElementGrid(this, direction);
+            elementGrid = grid;
+        }
+        return grid;
+    }
 
     /**
      * A vertex's distance across the stroke's direction to one element (a segment, or a sample when

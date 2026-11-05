@@ -17,7 +17,6 @@ import ixdar.geometry.mesh.data.bundle.RingBundle;
 import ixdar.geometry.mesh.data.paths.query.SurfaceConnection;
 import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.RegionColouring;
 import ixdar.numeric.graph.UnionFind;
@@ -367,27 +366,10 @@ public final class RingRegions {
             activeFaceByFaceId = new int[faceIdCeiling];
             Arrays.fill(activeFaceByFaceId, MeshTopology.NONE);
             faceArea = new double[faceCount];
-            Vector3f anchor = new Vector3f();
-            Vector3f first = new Vector3f();
-            Vector3f second = new Vector3f();
-            int[] faceCorners = new int[0];
             for (int activeFace = 0; activeFace < faceCount; activeFace++) {
                 int faceId = mesh.faceIdAt(activeFace);
                 activeFaceByFaceId[faceId] = activeFace;
-                if (faceCorners.length < TRIANGLE_CORNERS * mesh.faceVertexCount(faceId)) {
-                    faceCorners = new int[TRIANGLE_CORNERS * mesh.faceVertexCount(faceId)];
-                }
-                int triangles = mesh.faceTriangleCorners(faceId, TriangulationRule.FAN,
-                        faceCorners);
-                for (int slot = 0; slot < TRIANGLE_CORNERS * triangles;
-                        slot += TRIANGLE_CORNERS) {
-                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot]), anchor);
-                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 1]), first)
-                            .sub(anchor);
-                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 2]), second)
-                            .sub(anchor);
-                    faceArea[activeFace] += 0.5 * first.cross(second).length();
-                }
+                faceArea[activeFace] = mesh.faceArea(faceId);
             }
             // Each face's sides as flat slots: the edge crossed and the face across it, so the
             // floods below never go back through the half-edge accessors.

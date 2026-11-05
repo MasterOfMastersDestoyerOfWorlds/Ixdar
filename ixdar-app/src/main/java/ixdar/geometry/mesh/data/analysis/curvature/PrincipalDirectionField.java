@@ -1,13 +1,9 @@
 package ixdar.geometry.mesh.data.analysis.curvature;
-import java.util.Map;
-import java.util.List;
-
-import java.util.ArrayList;
 
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.representation.TriangleSoup;
 
 /**
  * Per-vertex principal curvatures {@code κMax ≥ κMin} and their directions, estimated from the shape
@@ -19,7 +15,6 @@ import ixdar.geometry.mesh.data.representation.EdgeKey;
 public final class PrincipalDirectionField {
     public static final float ZERO_VECTOR_EPSILON = 1e-20f;
     public static final float MIN_WEIGHT_EPSILON = 1e-12f;
-    public static final int TYPICAL_VALENCE = 6;
 
     private final float[] kappaMax;
     private final float[] kappaMin;
@@ -110,31 +105,10 @@ public final class PrincipalDirectionField {
         float[] positions = ed.positions();
 
         // Per-vertex normal: average of the incident fan triangles' normals, triangle by triangle.
-        float[] vertexNormals = new float[vertexIdBound * 3];
-        float[] faceN = ed.faceNormals();
-        int[] triangles = ed.triangles();
-        for (int corner = 0; corner < triangles.length; corner++) {
-            int vertexId = triangles[corner];
-            int triangle = corner / 3;
-            vertexNormals[vertexId * 3]     += faceN[triangle * 3];
-            vertexNormals[vertexId * 3 + 1] += faceN[triangle * 3 + 1];
-            vertexNormals[vertexId * 3 + 2] += faceN[triangle * 3 + 2];
-        }
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            float nx = vertexNormals[vertexId * 3];
-            float ny = vertexNormals[vertexId * 3 + 1];
-            float nz = vertexNormals[vertexId * 3 + 2];
-            float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (len > ZERO_VECTOR_EPSILON) {
-                vertexNormals[vertexId * 3]     = nx / len;
-                vertexNormals[vertexId * 3 + 1] = ny / len;
-                vertexNormals[vertexId * 3 + 2] = nz / len;
-            }
-        }
+        float[] vertexNormals = ed.vertexNormals(vertexIdBound);
 
         // Build 1-ring vertex neighbourhoods from edge map.
-        int[][] ring = oneRings(ed, vertexIdBound);
+        int[][] ring = TriangleSoup.oneRings(ed.triangles(), vertexIdBound);
 
         float[] kappaMax = new float[vertexIdBound];
         float[] kappaMin = new float[vertexIdBound];
@@ -277,33 +251,4 @@ public final class PrincipalDirectionField {
         t2[2] = n[0] * t1[1] - n[1] * t1[0];
     }
 
-    /**
-     * Each vertex's 1-ring neighbours, in the iteration order of {@code ed}'s edge map, which the
-     * curvature sums and the crest and saddle walks depend on.
-     *
-     * @param ed edge map whose keys join vertex ids
-     * @param vertexIdBound the mesh's vertex id bound, the length of the result
-     * @return neighbour vertex ids per vertex id; empty for ids the mesh does not hold
-     */
-    public static int[][] oneRings(EdgeDihedrals ed, int vertexIdBound) {
-        List<List<Integer>> neighbours = new ArrayList<>(vertexIdBound);
-        for (int vertexId = 0; vertexId < vertexIdBound; vertexId++) {
-            neighbours.add(new ArrayList<>(TYPICAL_VALENCE));
-        }
-        for (Map.Entry<Long, int[]> entry : ed.edgeFaces().entrySet()) {
-            long key = entry.getKey();
-            int lowerId = EdgeKey.minVertex(key);
-            int upperId = EdgeKey.maxVertex(key);
-            neighbours.get(lowerId).add(upperId);
-            neighbours.get(upperId).add(lowerId);
-        }
-        int[][] out = new int[vertexIdBound][];
-        for (int vertexId = 0; vertexId < vertexIdBound; vertexId++) {
-            List<Integer> list = neighbours.get(vertexId);
-            int[] arr = new int[list.size()];
-            for (int slot = 0; slot < list.size(); slot++) arr[slot] = list.get(slot);
-            out[vertexId] = arr;
-        }
-        return out;
-    }
 }

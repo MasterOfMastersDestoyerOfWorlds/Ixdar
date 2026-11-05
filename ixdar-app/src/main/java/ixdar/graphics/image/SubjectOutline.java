@@ -19,10 +19,6 @@ public final class SubjectOutline {
 
     public static final int BOX_FIELDS = 4;
 
-    public static final int EDGE_BLUR_RADIUS = 2;
-
-    public static final int EDGE_INSET_RADIUS = 3;
-
     /** The outer boundary, packed x then y in pixel indices, its first point repeated last. */
     public float[] outline;
 
@@ -138,90 +134,5 @@ public final class SubjectOutline {
         subject.box[3] = bounds[3] - bounds[1] + 1;
         subject.outline = simplify > 0f ? PolylineSimplify.douglasPeucker(xy, simplify) : xy;
         return subject;
-    }
-
-    /**
-     * Edges inside the subject, for viewing: pixels whose blurred luminance gradient (Sobel) passes
-     * the high threshold, grown along neighbours above the low one (Canny's hysteresis, without
-     * thinning), more than a few pixels inside the subject's outline.
-     *
-     * @param picture the picture
-     * @param inside  the subject's interior per pixel, row by row
-     * @param low     gradient magnitude an edge continues through
-     * @param high    gradient magnitude an edge starts at
-     * @return the edge pixels as a black-on-white picture, for {@link PixelImage#outlines}
-     */
-    public static PixelImage interiorEdges(PixelImage picture, boolean[] inside, float low, float high) {
-        int width = picture.width;
-        int height = picture.height;
-        float[] luminance = new float[width * height];
-        for (int pixel = 0; pixel < luminance.length; pixel++) {
-            int sample = picture.pixels[pixel];
-            luminance[pixel] = ((sample >> PixelImage.RED_SHIFT & PixelImage.CHANNEL_MASK)
-                    + (sample >> PixelImage.CHANNEL_BITS & PixelImage.CHANNEL_MASK) + (sample & PixelImage.CHANNEL_MASK)) / 3f;
-        }
-        float[] blurred = new float[luminance.length];
-        for (int pixel = 0; pixel < luminance.length; pixel++) {
-            float sum = 0f;
-            int samples = 0;
-            for (int dy = -EDGE_BLUR_RADIUS; dy <= EDGE_BLUR_RADIUS; dy++) {
-                for (int dx = -EDGE_BLUR_RADIUS; dx <= EDGE_BLUR_RADIUS; dx++) {
-                    int x = Math.min(width - 1, Math.max(0, pixel % width + dx));
-                    int y = Math.min(height - 1, Math.max(0, pixel / width + dy));
-                    sum += luminance[y * width + x];
-                    samples++;
-                }
-            }
-            blurred[pixel] = sum / samples;
-        }
-        float[] magnitude = new float[luminance.length];
-        boolean[] deepInside = new boolean[luminance.length];
-        for (int pixel = 0; pixel < luminance.length; pixel++) {
-            int x = pixel % width;
-            int y = pixel / width;
-            boolean interior = x >= EDGE_INSET_RADIUS && y >= EDGE_INSET_RADIUS && x < width - EDGE_INSET_RADIUS
-                    && y < height - EDGE_INSET_RADIUS;
-            for (int dy = -EDGE_INSET_RADIUS; dy <= EDGE_INSET_RADIUS && interior; dy++) {
-                for (int dx = -EDGE_INSET_RADIUS; dx <= EDGE_INSET_RADIUS && interior; dx++) {
-                    interior = inside[(y + dy) * width + x + dx];
-                }
-            }
-            deepInside[pixel] = interior;
-            if (x == 0 || y == 0 || x == width - 1 || y == height - 1) {
-                continue;
-            }
-            float gradientX = blurred[pixel - width + 1] + 2f * blurred[pixel + 1] + blurred[pixel + width + 1]
-                    - blurred[pixel - width - 1] - 2f * blurred[pixel - 1] - blurred[pixel + width - 1];
-            float gradientY = blurred[pixel + width - 1] + 2f * blurred[pixel + width] + blurred[pixel + width + 1]
-                    - blurred[pixel - width - 1] - 2f * blurred[pixel - width] - blurred[pixel - width + 1];
-            magnitude[pixel] = (float) Math.hypot(gradientX, gradientY);
-        }
-        boolean[] edge = new boolean[luminance.length];
-        int[] frontier = new int[luminance.length];
-        int top = 0;
-        for (int pixel = 0; pixel < luminance.length; pixel++) {
-            if (deepInside[pixel] && magnitude[pixel] >= high) {
-                edge[pixel] = true;
-                frontier[top++] = pixel;
-            }
-        }
-        while (top > 0) {
-            int pixel = frontier[--top];
-            for (int direction = 0; direction < PixelImage.NEIGHBOUR_X.length; direction++) {
-                int x = pixel % width + PixelImage.NEIGHBOUR_X[direction];
-                int y = pixel / width + PixelImage.NEIGHBOUR_Y[direction];
-                int neighbour = y * width + x;
-                if (x >= 0 && y >= 0 && x < width && y < height && !edge[neighbour] && deepInside[neighbour]
-                        && magnitude[neighbour] >= low) {
-                    edge[neighbour] = true;
-                    frontier[top++] = neighbour;
-                }
-            }
-        }
-        PixelImage edges = new PixelImage(width, height);
-        for (int pixel = 0; pixel < edge.length; pixel++) {
-            edges.pixels[pixel] = edge[pixel] ? PixelImage.OPAQUE : PixelImage.OPAQUE | PixelImage.RGB_MASK;
-        }
-        return edges;
     }
 }

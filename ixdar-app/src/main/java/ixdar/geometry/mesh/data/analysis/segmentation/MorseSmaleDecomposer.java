@@ -12,6 +12,7 @@ import java.util.Set;
 
 import ixdar.geometry.mesh.data.patches.CoonsReconstructionError;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangleSoup;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
 
@@ -97,20 +98,7 @@ public final class MorseSmaleDecomposer {
         // Cranium remains as a single MSC cell for now — visible but
         // not Coons-fittable until the refinement layer lands.
         float[] positions = SemanticPatchDecomposer.positionsById(mesh);
-        // Bounding-box diagonal over the live vertices.
-        float minX = Float.POSITIVE_INFINITY, minY = Float.POSITIVE_INFINITY, minZ = Float.POSITIVE_INFINITY;
-        float maxX = Float.NEGATIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            int i = mesh.vertexIdAt(activeVertex) * 3;
-            if (positions[i] < minX) minX = positions[i];
-            if (positions[i] > maxX) maxX = positions[i];
-            if (positions[i + 1] < minY) minY = positions[i + 1];
-            if (positions[i + 1] > maxY) maxY = positions[i + 1];
-            if (positions[i + 2] < minZ) minZ = positions[i + 2];
-            if (positions[i + 2] > maxZ) maxZ = positions[i + 2];
-        }
-        float dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
-        float meshExtent = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        float meshExtent = mesh.boundsDiagonal();
 
         // Compact labels (no-op when there's no refinement, but keeps
         // the downstream code symmetric with the refinement-on path).
@@ -267,21 +255,7 @@ public final class MorseSmaleDecomposer {
      */
     private static int[][] buildFaceAdjacency(int[] faceIdx, Set<Long> highConf) {
         int faceCount = faceIdx.length / 3;
-        // First pass: edge → up to 2 incident faces.
-        Map<Long, int[]> edgeFaces = new HashMap<>();
-        for (int f = 0; f < faceCount; f++) {
-            for (int e = 0; e < 3; e++) {
-                int u = faceIdx[f * 3 + e];
-                int v = faceIdx[f * 3 + (e + 1) % 3];
-                long key = EdgeKey.undirected(u, v);
-                int[] arr = edgeFaces.get(key);
-                if (arr == null) {
-                    edgeFaces.put(key, new int[]{f, -1});
-                } else if (arr[1] == -1) {
-                    arr[1] = f;
-                }
-            }
-        }
+        Map<Long, int[]> edgeFaces = TriangleSoup.edgeFaces(faceIdx);
         int[][] adj = new int[faceCount][3];
         for (int f = 0; f < faceCount; f++) {
             for (int e = 0; e < 3; e++) {
@@ -298,18 +272,7 @@ public final class MorseSmaleDecomposer {
     }
 
     private static Set<Long> computePatchBoundaryEdges(int[] faceIdx, int[] labels) {
-        int faceCount = faceIdx.length / 3;
-        Map<Long, int[]> edgeFaces = new HashMap<>();
-        for (int f = 0; f < faceCount; f++) {
-            for (int e = 0; e < 3; e++) {
-                int u = faceIdx[f * 3 + e];
-                int v = faceIdx[f * 3 + (e + 1) % 3];
-                long key = EdgeKey.undirected(u, v);
-                int[] arr = edgeFaces.get(key);
-                if (arr == null) edgeFaces.put(key, new int[]{f, -1});
-                else if (arr[1] == -1) arr[1] = f;
-            }
-        }
+        Map<Long, int[]> edgeFaces = TriangleSoup.edgeFaces(faceIdx);
         Set<Long> boundary = new HashSet<>();
         for (Map.Entry<Long, int[]> e : edgeFaces.entrySet()) {
             int[] faces = e.getValue();

@@ -7,9 +7,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import ixdar.geometry.mesh.data.analysis.curvature.PrincipalDirectionField;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.representation.TriangleSoup;
 
 /**
  * Morse-Smale complex over a mesh's triangle fan: critical vertices of a Morse scalar, filtered by
@@ -61,7 +63,7 @@ public final class MorseSmaleComplex {
                                  EdgeDihedrals ed, float prominenceFrac,
                                  boolean useB1Classifier) {
         int nv = mesh.vertexIdBound();
-        int[][] ring = buildOneRing(ed, nv);
+        int[][] ring = TriangleSoup.oneRings(ed.triangles(), nv);
 
         // Laplacian-smooth the scalar field before classification. A raw
         // per-vertex curvature on a real mesh has triangulation noise at
@@ -684,26 +686,6 @@ public final class MorseSmaleComplex {
                 for (int i = 0; i < ringList.size(); i++) arr[i] = ringList.get(i);
                 out[v] = arr;
             }
-        }
-        return out;
-    }
-
-    private static int[][] buildOneRing(EdgeDihedrals ed, int nv) {
-        List<List<Integer>> tmp = new ArrayList<>(nv);
-        for (int i = 0; i < nv; i++) tmp.add(new ArrayList<>(6));
-        for (Map.Entry<Long, int[]> e : ed.edgeFaces().entrySet()) {
-            long key = e.getKey();
-            int u = EdgeKey.minVertex(key);
-            int v = EdgeKey.maxVertex(key);
-            tmp.get(u).add(v);
-            tmp.get(v).add(u);
-        }
-        int[][] out = new int[nv][];
-        for (int i = 0; i < nv; i++) {
-            List<Integer> list = tmp.get(i);
-            int[] arr = new int[list.size()];
-            for (int j = 0; j < list.size(); j++) arr[j] = list.get(j);
-            out[i] = arr;
         }
         return out;
     }

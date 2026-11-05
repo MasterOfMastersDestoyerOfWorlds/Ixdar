@@ -43,12 +43,9 @@ public final class MeshVertexOffset {
         }
 
         float[] positions = new float[n * 3];
-        int[] activeVertexOfId = new int[mesh.vertexIdBound()];
         Vector3f position = new Vector3f();
         for (int activeVertex = 0; activeVertex < n; activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            activeVertexOfId[vertexId] = activeVertex;
-            mesh.vertexPosition(vertexId, position);
+            mesh.vertexPosition(mesh.vertexIdAt(activeVertex), position);
             int offset = activeVertex * 3;
             if (field != null) {
                 positions[offset] = position.x + field.getX(activeVertex);
@@ -60,6 +57,21 @@ public final class MeshVertexOffset {
                 positions[offset + 2] = position.z + uniform.z();
             }
         }
+        return atPositions(mesh, positions);
+    }
+
+    /**
+     * {@code mesh} with every vertex moved to a given place: a new mesh with the input's vertex and
+     * face order, normals recomputed and each element's source recorded.
+     *
+     * @param mesh      source mesh, not empty
+     * @param positions packed xyz by dense vertex index, the {@link MeshTopology#vertexIdAt} order;
+     *                  taken over by the new mesh
+     * @return new mesh
+     */
+    public static HalfEdgeMesh atPositions(MeshTopology mesh, float[] positions) {
+        int n = mesh.vertexCount();
+        int[] activeVertexOfId = mesh.activeIndexById();
         int[] faceSizes = new int[mesh.faceCount()];
         int corners = 0;
         for (int activeFace = 0; activeFace < faceSizes.length; activeFace++) {

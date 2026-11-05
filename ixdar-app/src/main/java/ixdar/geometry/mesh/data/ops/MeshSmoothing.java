@@ -4,8 +4,10 @@ import java.util.Arrays;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.paths.query.RayBatch;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.numeric.graph.Dijkstra;
 
 /**
  * Umbrella smoothing over a mesh's own edge adjacency: each pass moves a vertex a weight of the way
@@ -15,6 +17,10 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 public final class MeshSmoothing {
 
     public static final float CLEARANCE_KEPT = 0.5f;
+
+    public static final float RAMP_SLOPE = 1f;
+
+    public static final int RAMP_EASING_PASSES = 4;
 
     private MeshSmoothing() {
     }
@@ -34,16 +40,7 @@ public final class MeshSmoothing {
     public static float[] umbrella(MeshTopology mesh, float lambda, float mu, int passes, boolean[] movable) {
         int vertexCount = mesh.vertexCount();
         int[] activeOf = new int[mesh.vertexIdBound()];
-        float[] start = new float[vertexCount * 3];
-        Vector3f position = new Vector3f();
-        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            activeOf[vertexId] = activeVertex;
-            mesh.vertexPosition(vertexId, position);
-            start[activeVertex * 3] = position.x;
-            start[activeVertex * 3 + 1] = position.y;
-            start[activeVertex * 3 + 2] = position.z;
-        }
+        float[] start = mesh.packedPositions(activeOf);
         float[] current = start.clone();
         float[] next = start.clone();
         float[] mean = new float[current.length];
@@ -83,19 +80,42 @@ public final class MeshSmoothing {
      */
     public static int unfold(MeshTopology mesh, int[] activeOf, float[] from, float[] to, TriangleBvh surface,
             int halvings) {
+        return unfold(mesh, activeOf, from, to, surface, halvings, new MeshFolds(mesh, activeOf, from));
+    }
+
+    /**
+     * {@link #unfold(MeshTopology, int[], float[], float[], TriangleBvh, int)} with the caller's fold
+     * test, so a caller that counts folds around the move builds it once. Its first round refreshes
+     * every vertex, so only the test's start state matters.
+     *
+     * @param mesh     the surface's topology
+     * @param activeOf active vertex index by vertex id
+     * @param from     packed positions before the move, read-only
+     * @param to       packed positions after the move, shortened in place
+     * @param surface  triangle tree over the mesh at {@code from}, or null to skip crossings
+     * @param halvings rounds that halve the steps around a failure before rounds that cancel them
+     * @param folds    fold test built at {@code from}, in any later state; left at the accepted move
+     * @return how many faces and edges the whole move would have folded or crossed
+     */
+    public static int unfold(MeshTopology mesh, int[] activeOf, float[] from, float[] to, TriangleBvh surface,
+            int halvings, MeshFolds folds) {
         int vertexCount = mesh.vertexCount();
         float[] step = new float[vertexCount * 3];
         for (int index = 0; index < step.length; index++) {
             step[index] = to[index] - from[index];
         }
         float[] kept = new float[vertexCount];
-        float[] ringCut = new float[vertexCount];
-        int[] stack = new int[surface == null ? 0 : Math.max(1, surface.nodeCount)];
-        int[] markById = new int[mesh.vertexIdBound()];
-        int mark = 0;
-        float[] origin = new float[3];
-        float[] direction = new float[3];
-        MeshFolds folds = new MeshFolds(mesh, activeOf, from);
+        float[] stepLength = new float[vertexCount];
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            int at = activeVertex * 3;
+            stepLength[activeVertex] = (float) Math.sqrt(
+                    step[at] * step[at] + step[at + 1] * step[at + 1] + step[at + 2] * step[at + 2]);
+        }
+        boolean[] listed = new boolean[vertexCount];
+        int[] seeds = new int[vertexCount];
+        Dijkstra walk = new Dijkstra();
+        RayBatch rays = surface == null ? null : new RayBatch(surface, mesh.vertexIdBound());
+        int[] hitByEdgeId = new int[mesh.edgeIdBound()];
         boolean[] crossedBefore = new boolean[mesh.edgeIdBound()];
         // Only faces and edges near a vertex whose step changed are tested again, until a round finds
         // nothing; then every edge is, once, before the move is accepted.
@@ -141,6 +161,26 @@ public final class MeshSmoothing {
             if (surface != null && round >= 0) {
                 surface.refit();
             }
+            // Edge rays are cast in parallel, then their hits are read in order.
+            if (rays != null) {
+                rays.forEach(mesh.edgeCount(), (scratch, activeEdge) -> {
+                    int edgeId = mesh.edgeIdAt(activeEdge);
+                    if (!retestByEdgeId[edgeId]) {
+                        return;
+                    }
+                    int halfEdge = mesh.edgeHalfEdge(edgeId);
+                    int startId = mesh.halfEdgeVertex(halfEdge);
+                    int endId = mesh.halfEdgeEndVertex(halfEdge);
+                    for (int axis = 0; axis < 3; axis++) {
+                        scratch.origin[axis] = to[activeOf[startId] * 3 + axis];
+                        scratch.direction[axis] = to[activeOf[endId] * 3 + axis] - scratch.origin[axis];
+                    }
+                    scratch.markById[startId] = ++scratch.mark;
+                    scratch.markById[endId] = scratch.mark;
+                    hitByEdgeId[edgeId] = surface.nearestHitAvoiding(scratch.origin, scratch.direction, 1.0,
+                            scratch.markById, scratch.mark, scratch.stack, scratch.parameter);
+                });
+            }
             for (int activeEdge = 0; activeEdge < mesh.edgeCount() && surface != null; activeEdge++) {
                 int edgeId = mesh.edgeIdAt(activeEdge);
                 if (!retestByEdgeId[edgeId]) {
@@ -149,13 +189,7 @@ public final class MeshSmoothing {
                 int halfEdge = mesh.edgeHalfEdge(edgeId);
                 int startId = mesh.halfEdgeVertex(halfEdge);
                 int endId = mesh.halfEdgeEndVertex(halfEdge);
-                for (int axis = 0; axis < 3; axis++) {
-                    origin[axis] = to[activeOf[startId] * 3 + axis];
-                    direction[axis] = to[activeOf[endId] * 3 + axis] - origin[axis];
-                }
-                markById[startId] = ++mark;
-                markById[endId] = mark;
-                int hit = surface.nearestHitAvoiding(origin, direction, 1.0, markById, mark, stack);
+                int hit = hitByEdgeId[edgeId];
                 crossedBefore[edgeId] |= round < 0 && hit >= 0;
                 if (round < 0 || hit < 0 || crossedBefore[edgeId]) {
                     continue;
@@ -173,19 +207,30 @@ public final class MeshSmoothing {
             }
             // Each step starts at part of its clearance from the unmoved surface, so a push through a
             // thin wall stops short of it whole instead of being cut back piece by piece.
-            for (int activeVertex = 0; activeVertex < vertexCount && round < 0 && surface != null; activeVertex++) {
-                int vertexId = mesh.vertexIdAt(activeVertex);
-                System.arraycopy(from, activeVertex * 3, origin, 0, 3);
-                System.arraycopy(step, activeVertex * 3, direction, 0, 3);
-                if (direction[0] == 0f && direction[1] == 0f && direction[2] == 0f) {
-                    continue;
+            if (round < 0 && rays != null) {
+                rays.forEach(vertexCount, (scratch, activeVertex) -> {
+                    int vertexId = mesh.vertexIdAt(activeVertex);
+                    System.arraycopy(from, activeVertex * 3, scratch.origin, 0, 3);
+                    System.arraycopy(step, activeVertex * 3, scratch.direction, 0, 3);
+                    if (stepLength[activeVertex] == 0f) {
+                        return;
+                    }
+                    scratch.markById[vertexId] = ++scratch.mark;
+                    for (int slot = 0; slot < mesh.vertexEdgeCount(vertexId); slot++) {
+                        scratch.markById[mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, slot), vertexId)] = scratch.mark;
+                    }
+                    kept[activeVertex] = surface.nearestHitAvoiding(scratch.origin, scratch.direction, 1.0,
+                            scratch.markById, scratch.mark, scratch.stack, scratch.parameter) < 0 ? 1f
+                                    : (float) Math.min(1.0, scratch.parameter[0] * CLEARANCE_KEPT);
+                });
+            }
+            if (round < 0 && surface != null && halvings > 0) {
+                int seedLength = 0;
+                for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+                    seeds[seedLength] = activeVertex;
+                    seedLength += kept[activeVertex] < 1f ? 1 : 0;
                 }
-                markById[vertexId] = ++mark;
-                for (int slot = 0; slot < mesh.vertexEdgeCount(vertexId); slot++) {
-                    markById[mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, slot), vertexId)] = mark;
-                }
-                kept[activeVertex] = surface.nearestHitAvoiding(origin, direction, 1.0, markById, mark, stack) < 0 ? 1f
-                        : (float) Math.min(1.0, surface.hitParameter * CLEARANCE_KEPT);
+                ramp(mesh, activeOf, from, stepLength, kept, seeds, seedLength, listed, walk);
             }
             if (round < 0) {
                 continue;
@@ -201,33 +246,92 @@ public final class MeshSmoothing {
             if (failing == 0) {
                 continue;
             }
-            // This round's cut tapers into the ring around it, so the shortened region leaves no crease;
-            // an earlier cut has tapered already and does not spread further.
             for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-                next[activeVertex] = kept[activeVertex] - next[activeVertex];
+                if (next[activeVertex] < kept[activeVertex]) {
+                    kept[activeVertex] = next[activeVertex];
+                    changed[changedLength++] = activeVertex;
+                }
             }
             if (halvings > 0) {
-                neighbourMean(mesh, activeOf, next, 1, ringCut);
+                changedLength = ramp(mesh, activeOf, from, stepLength, kept, changed, changedLength, listed, walk);
             }
-            for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
-                int vertexId = mesh.vertexIdAt(activeVertex);
-                int degree = mesh.vertexEdgeCount(vertexId);
-                float cutHere = halvings > 0 ? Math.max(next[activeVertex],
-                        (next[activeVertex] + degree * ringCut[activeVertex]) / (degree + 1)) : next[activeVertex];
-                float tapered = Math.max(0f, kept[activeVertex] - cutHere);
-                if (tapered == kept[activeVertex]) {
-                    continue;
-                }
-                changed[changedLength++] = activeVertex;
+            for (int index = 0; index < changedLength; index++) {
+                int vertexId = mesh.vertexIdAt(changed[index]);
                 for (int face = 0; face < mesh.vertexFaceCount(vertexId); face++) {
                     int faceId = mesh.vertexFaceAt(vertexId, face);
                     for (int side = 0; side < mesh.faceEdgeCount(faceId); side++) {
                         retestByEdgeId[mesh.faceEdgeAt(faceId, side)] = true;
                     }
                 }
-                kept[activeVertex] = tapered;
             }
         }
+    }
+
+    /**
+     * Spread cuts as a ramp: no vertex keeps more of its step than a neighbour keeps plus
+     * {@link #RAMP_SLOPE} edge lengths of its own step, so a cut cannot leave a vertex behind its
+     * neighbours and fold the faces between them.
+     *
+     * @param mesh          the surface's topology
+     * @param activeOf      active vertex index by vertex id
+     * @param from          packed positions before the move, read-only
+     * @param stepLength    each vertex's step length
+     * @param kept          the fraction of its step each vertex keeps, lowered in place
+     * @param changed       the cut vertices first; vertices the ramp lowers are appended
+     * @param changedLength how many leading entries of {@code changed} are cut
+     * @param listed        scratch, all false, per active vertex; left all false
+     * @param walk          scratch search, reused across calls
+     * @return how many entries of {@code changed} are now in use
+     */
+    private static int ramp(MeshTopology mesh, int[] activeOf, float[] from, float[] stepLength, float[] kept,
+            int[] changed, int changedLength, boolean[] listed, Dijkstra walk) {
+        // Dijkstra from the cut vertices over active indices, each settled at the fraction it keeps.
+        walk.start(kept.length);
+        for (int index = 0; index < changedLength; index++) {
+            listed[changed[index]] = true;
+            walk.relax(changed[index], kept[changed[index]], -1);
+        }
+        int length = changedLength;
+        for (int activeVertex = walk.settle(); activeVertex >= 0; activeVertex = walk.settle()) {
+            float value = kept[activeVertex];
+            int vertexId = mesh.vertexIdAt(activeVertex);
+            for (int slot = 0; slot < mesh.vertexEdgeCount(vertexId); slot++) {
+                int neighbour = activeOf[mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, slot), vertexId)];
+                if (stepLength[neighbour] == 0f) {
+                    continue;
+                }
+                float edge = (float) Math.sqrt(Vector3f.distanceSquared(from[activeVertex * 3],
+                        from[activeVertex * 3 + 1], from[activeVertex * 3 + 2], from[neighbour * 3],
+                        from[neighbour * 3 + 1], from[neighbour * 3 + 2]));
+                float bound = value + RAMP_SLOPE * edge / stepLength[neighbour];
+                if (bound < kept[neighbour]) {
+                    kept[neighbour] = bound;
+                    walk.relax(neighbour, bound, activeVertex);
+                    if (!listed[neighbour]) {
+                        listed[neighbour] = true;
+                        changed[length++] = neighbour;
+                    }
+                }
+            }
+        }
+        // A distance ramp is straight-sided and creases where two meet; easing each vertex down to
+        // its ring's mean rounds the creases off and never undoes a cut.
+        for (int pass = 0; pass < RAMP_EASING_PASSES; pass++) {
+            for (int index = 0; index < length; index++) {
+                int activeVertex = changed[index];
+                int vertexId = mesh.vertexIdAt(activeVertex);
+                int degree = mesh.vertexEdgeCount(vertexId);
+                float mean = 0f;
+                for (int slot = 0; slot < degree; slot++) {
+                    mean += kept[activeOf[mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, slot), vertexId)]] / degree;
+                }
+                kept[activeVertex] = degree == 0 ? kept[activeVertex] : Math.min(kept[activeVertex], mean);
+            }
+        }
+        for (int index = 0; index < length; index++) {
+            listed[changed[index]] = false;
+        }
+        return length;
     }
 
     /**

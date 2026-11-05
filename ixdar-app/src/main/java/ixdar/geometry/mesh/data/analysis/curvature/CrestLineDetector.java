@@ -9,6 +9,7 @@ import java.util.Set;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.EdgeKey;
+import ixdar.geometry.mesh.data.representation.TriangleSoup;
 
 /**
  * Crest-line detection from a {@link PrincipalDirectionField}: marks vertices where a principal
@@ -50,7 +51,7 @@ public final class CrestLineDetector {
         float[] positions = ed.positions();
 
         // 1-ring neighbourhoods.
-        int[][] ring = PrincipalDirectionField.oneRings(ed, vertexIdBound);
+        int[][] ring = TriangleSoup.oneRings(ed.triangles(), vertexIdBound);
 
         // --- Candidate selection (adaptive thresholds) ---
         float ridgeT = thresholdFromMedian(mesh, pdf, /*ridge=*/true) * T_RIDGE_SCALE;

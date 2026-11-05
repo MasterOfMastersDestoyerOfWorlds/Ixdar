@@ -34,6 +34,8 @@ public final class ArrayMesh implements MeshTopology {
     private final Vector3f boundsMax = new Vector3f();
     private final Vector3f centerVec = new Vector3f();
     private boolean boundsDirty = true;
+    private double signedVolumeCached = Double.NaN;
+    private volatile float[] vertexAreasCached;
 
     /**
      * Wraps caller-owned arrays without copying. {@code normals} may be null and is
@@ -516,6 +518,26 @@ public final class ArrayMesh implements MeshTopology {
         }
         radiusCached = (float) Math.sqrt(maxD);
         return radiusCached;
+    }
+
+    /** {@inheritDoc} Cached after the first call, like the bounds. */
+    @Override
+    public double signedVolume() {
+        if (Double.isNaN(signedVolumeCached)) {
+            signedVolumeCached = MeshTopology.super.signedVolume();
+        }
+        return signedVolumeCached;
+    }
+
+    /** {@inheritDoc} Cached after the first call; each call returns a fresh copy. */
+    @Override
+    public float[] vertexAreas() {
+        float[] areas = vertexAreasCached;
+        if (areas == null) {
+            areas = MeshTopology.super.vertexAreas();
+            vertexAreasCached = areas;
+        }
+        return areas.clone();
     }
 
     private void recomputeBoundsIfNeeded() {

@@ -25,7 +25,6 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.sculpt.AnchoredStroke;
 import ixdar.geometry.mesh.data.sculpt.FaceAnchors;
 import ixdar.geometry.mesh.data.sculpt.StrokeAnchors;
-import ixdar.geometry.mesh.data.sculpt.StrokeSculpt;
 import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.nodes.modifier.MergeByDistanceNode;
 import ixdar.nodegraph.nodes.modifier.StrokeSculptNode;
@@ -61,6 +60,34 @@ class SculptSyncTest {
 
     private static final String ACROSS_PIT = "<polyline data-kind=\"ridge\" data-depth=\"0.02\" data-radius=\"0.05\" "
             + "points=\"740,620 820,620 900,620\"/>\n";
+
+    private static final String FACE_GROUP = "<g id=\"face\">";
+
+    private static final String TWO_IN_FACE = FACE_GROUP + "<polyline data-kind=\"ridge\" data-depth=\"0.08\" "
+            + "data-radius=\"0.1\" points=\"800,600 860,640 900,700\"/>\n<polyline data-kind=\"ridge\" "
+            + "data-depth=\"0.05\" data-radius=\"0.08\" points=\"420,520 520,500 620,500\"/></g>\n";
+
+    private static final String NOSE_SHAPE = "<polyline data-kind=\"ridge\" data-depth=\"0.06\" data-radius=\"0.06\" "
+            + "points=\"640,560 640,620 640,680\"/>\n";
+
+    private static final String INSERTED_PLACEHOLDER = "INSERTED";
+
+    private static final String NAMED_CHEEK = "face.cheek";
+
+    private static final String NAMED_BROW = "face.brow";
+
+    private static final String NAMED_FACE = FACE_GROUP + "<polyline data-id=\"" + NAMED_CHEEK + "\" data-kind=\"ridge\" "
+            + "data-depth=\"0.08\" data-radius=\"0.1\" points=\"800,600 860,640 900,700\"/>\n" + INSERTED_PLACEHOLDER
+            + "<polyline data-id=\"" + NAMED_BROW + "\" data-kind=\"ridge\" data-depth=\"0.05\" data-radius=\"0.08\" "
+            + "points=\"420,520 520,500 620,500\"/></g>\n";
+
+    private static final String SECOND_FACE_ID = "face.2";
+
+    private static final String INSERTED_ID = "face.3";
+
+    private static final float OFF_SURFACE_PIXELS = 900f;
+
+    private static final float CELL_SIZE = 1280f;
 
     private static final String CHEEK_ID = "face.1";
 
@@ -107,7 +134,7 @@ class SculptSyncTest {
         assertNotNull(anchors);
         assertEquals("face", anchors.stroke(CHEEK_ID).layer, "the <g id> is the stroke's layer");
         String drawn = read(svg);
-        assertTrue(drawn.contains("<g id=\"face\">"), "the layer is drawn as a group");
+        assertTrue(drawn.contains(FACE_GROUP), "the layer is drawn as a group");
         for (int cell : new int[] { FRONT, RIGHT }) {
             assertNotNull(span(CHEEK_ID, cell, drawn, false), "the cheek is drawn, solid, in cell " + cell);
         }
@@ -245,9 +272,8 @@ class SculptSyncTest {
         List<String> changes = sync(svg);
         assertTrue(changes.contains(PIT_ID + ": redrawn, held on the base anew from cell 0")
                 && changes.contains(CHEEK_ID + ": redrawn, held on the base anew from cell 0"), changes.toString());
-        float[] camera = StrokeSculpt.packedPositions(lifted.output(StrokeSculptNode.GEOMETRY_OUT,
-                GeometryBundle.class).mesh(), null);
-        float[] anchored = StrokeSculpt.packedPositions(sculpt(base, svg.toString()).mesh(), null);
+        float[] camera = lifted.output(StrokeSculptNode.GEOMETRY_OUT, GeometryBundle.class).mesh().packedPositions(null);
+        float[] anchored = sculpt(base, svg.toString()).mesh().packedPositions(null);
         assertEquals(camera.length, anchored.length, "the same refinement");
         float farthest = 0f;
         for (int index = 0; index < camera.length; index++) {
@@ -255,6 +281,61 @@ class SculptSyncTest {
         }
         assertTrue(farthest < 1e-3f, "the pit held in the sidecar is the pit lifted through the camera, its walls "
                 + "where they were: farthest vertex apart " + farthest);
+    }
+
+    @Test
+    void aShapeInsertedMidGroupTakesTheNextNumberAndRenumbersNoOther() throws IOException {
+        Path svg = layer(TWO_IN_FACE);
+        sync(svg);
+        StrokeAnchors before = StrokeAnchors.beside(svg.toString());
+        String written = read(svg);
+        Files.write(svg, written.replace(FACE_GROUP, FACE_GROUP + NOSE_SHAPE).getBytes(StandardCharsets.UTF_8));
+        List<String> changes = sync(svg);
+        assertTrue(changes.contains(INSERTED_ID + ": added from cell 0"), "the shape drawn first in the group takes "
+                + "the number past every one the group holds: " + changes);
+        StrokeAnchors after = StrokeAnchors.beside(svg.toString());
+        for (String id : new String[] { CHEEK_ID, SECOND_FACE_ID }) {
+            assertArrayEquals(before.stroke(id).anchors, after.stroke(id).anchors, 1e-6f, id + " keeps its id and place");
+        }
+        assertTrue(read(svg).contains("data-id=\"" + INSERTED_ID + "\""), "sync records the new id in the SVG");
+    }
+
+    @Test
+    void aDrawingRegeneratedWithItsOwnIdsKeepsThemWhenAShapeIsInserted() throws IOException {
+        Path svg = layer(NAMED_FACE.replace(INSERTED_PLACEHOLDER, ""));
+        sync(svg);
+        Files.write(svg, (ROOT + NAMED_FACE.replace(INSERTED_PLACEHOLDER, NOSE_SHAPE) + SVG_END + "\n")
+                .getBytes(StandardCharsets.UTF_8));
+        List<String> changes = sync(svg);
+        assertTrue(changes.contains(NAMED_CHEEK + ": redrawn, held on the base anew from cell 0")
+                && changes.contains(NAMED_BROW + ": redrawn, held on the base anew from cell 0"), "each named shape "
+                        + "is its stroke redrawn: " + changes);
+        assertTrue(changes.contains(CHEEK_ID + ": added from cell 0"), "the id-less shape numbers past the group's "
+                + "numbered ids, of which it has none: " + changes);
+        StrokeAnchors anchors = StrokeAnchors.beside(svg.toString());
+        assertNotNull(anchors.stroke(NAMED_CHEEK));
+        assertNotNull(anchors.stroke(NAMED_BROW));
+        Files.write(svg, (ROOT + NAMED_FACE.replace(INSERTED_PLACEHOLDER, NOSE_SHAPE.replace("<polyline ",
+                "<polyline data-id=\"" + NAMED_CHEEK + "\" ")) + SVG_END + "\n").getBytes(StandardCharsets.UTF_8));
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> sync(svg));
+        assertTrue(refused.getMessage().contains("data-id=\"" + NAMED_CHEEK + "\" is drawn by two shapes"),
+                refused.getMessage());
+    }
+
+    @Test
+    void aPointMovedOffTheSurfaceIsRefusedWithItsSheetCoordinatesAndStroke() throws IOException {
+        Path svg = layer(TWO_IN_FACE);
+        sync(svg);
+        Files.write(svg, movePoint(read(svg), CHEEK_ID, RIGHT, 1, 0f, -OFF_SURFACE_PIXELS)
+                .getBytes(StandardCharsets.UTF_8));
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> sync(svg));
+        assertTrue(refused.getMessage().contains("point 1 of stroke " + CHEEK_ID + " in group face in cell 1")
+                && refused.getMessage().contains("in the SVG (cell pixel"), refused.getMessage());
+        Matcher sheet = Pattern.compile("point (-?\\d+\\.\\d),-?\\d+\\.\\d in the SVG \\(cell pixel (-?\\d+\\.\\d),")
+                .matcher(refused.getMessage());
+        assertTrue(sheet.find(), refused.getMessage());
+        assertEquals(Float.parseFloat(sheet.group(2)) + CELL_SIZE, Float.parseFloat(sheet.group(1)), 0.11f,
+                "the SVG point is the cell pixel plus the right cell's offset on the sheet");
     }
 
     @Test

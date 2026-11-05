@@ -82,41 +82,56 @@ public final class MeshDistance {
      * @return normalized packed xyz positions in active-vertex order
      */
     public static float[] normalizedPositions(MeshTopology mesh) {
-        float[] pos = extractPositions(mesh);
-        int n = mesh.vertexCount();
-        if (n == 0) {
-            return pos;
+        return normalizedPositions(mesh, mesh);
+    }
+
+    /**
+     * A mesh's packed positions in another mesh's normalized frame: centered on the frame mesh's
+     * bounding-box center and scaled by its inverse diagonal, so a sculpt and its base share one.
+     *
+     * @param mesh  mesh to read
+     * @param frame mesh whose bounding box defines the frame
+     * @return packed xyz positions in active-vertex order, in the frame's unit-diagonal coordinates
+     */
+    public static float[] normalizedPositions(MeshTopology mesh, MeshTopology frame) {
+        return normalized(mesh.packedPositions(null), frame);
+    }
+
+    /**
+     * Carry packed positions into a mesh's normalized frame, as {@link #normalizedPositions} does a
+     * mesh's own: points read off a goal (its ridge lines) then share the frame its sculpt is in.
+     *
+     * @param xyz   packed positions in the frame mesh's coordinates, overwritten
+     * @param frame mesh whose bounding box defines the frame
+     * @return {@code xyz}, now in the frame's unit-diagonal coordinates
+     */
+    public static float[] normalized(float[] xyz, MeshTopology frame) {
+        float diagonal = frame.boundsDiagonal();
+        float scale = diagonal > MIN_DIAGONAL ? 1.0f / diagonal : 1.0f;
+        Vector3f center = frame.center(new Vector3f());
+        for (int o = 0; o < xyz.length; o += FLOATS_PER_VERTEX) {
+            xyz[o] = (xyz[o] - center.x) * scale;
+            xyz[o + 1] = (xyz[o + 1] - center.y) * scale;
+            xyz[o + 2] = (xyz[o + 2] - center.z) * scale;
         }
-        float minX = Float.MAX_VALUE;
-        float minY = Float.MAX_VALUE;
-        float minZ = Float.MAX_VALUE;
-        float maxX = -Float.MAX_VALUE;
-        float maxY = -Float.MAX_VALUE;
-        float maxZ = -Float.MAX_VALUE;
-        for (int i = 0; i < n; i++) {
-            int o = i * FLOATS_PER_VERTEX;
-            minX = Math.min(minX, pos[o]);
-            maxX = Math.max(maxX, pos[o]);
-            minY = Math.min(minY, pos[o + 1]);
-            maxY = Math.max(maxY, pos[o + 1]);
-            minZ = Math.min(minZ, pos[o + 2]);
-            maxZ = Math.max(maxZ, pos[o + 2]);
+        return xyz;
+    }
+
+    /**
+     * Carry normalized positions out into a frame, the inverse of {@link #normalizedPositions}.
+     *
+     * @param unitXyz  packed positions in unit-diagonal coordinates, overwritten
+     * @param center   the frame's bounding-box center
+     * @param diagonal the frame's bounding-box diagonal
+     * @return {@code unitXyz}, now in the frame's coordinates
+     */
+    public static float[] inFrame(float[] unitXyz, Vector3f center, float diagonal) {
+        for (int o = 0; o < unitXyz.length; o += FLOATS_PER_VERTEX) {
+            unitXyz[o] = unitXyz[o] * diagonal + center.x;
+            unitXyz[o + 1] = unitXyz[o + 1] * diagonal + center.y;
+            unitXyz[o + 2] = unitXyz[o + 2] * diagonal + center.z;
         }
-        float cx = (minX + maxX) * 0.5f;
-        float cy = (minY + maxY) * 0.5f;
-        float cz = (minZ + maxZ) * 0.5f;
-        float dx = maxX - minX;
-        float dy = maxY - minY;
-        float dz = maxZ - minZ;
-        float diagonal = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        float invDiag = diagonal > MIN_DIAGONAL ? 1.0f / diagonal : 1.0f;
-        for (int i = 0; i < n; i++) {
-            int o = i * FLOATS_PER_VERTEX;
-            pos[o] = (pos[o] - cx) * invDiag;
-            pos[o + 1] = (pos[o + 1] - cy) * invDiag;
-            pos[o + 2] = (pos[o + 2] - cz) * invDiag;
-        }
-        return pos;
+        return unitXyz;
     }
 
     /**
@@ -196,26 +211,6 @@ public final class MeshDistance {
 
         return new CompareResult(chamfer, hausdorff, similarity, coverage, proximity,
                 genSpans, ref.spans, centroidOffset);
-    }
-
-    /**
-     * Extract flat XYZ positions from a MeshTopology.
-     *
-     * @param mesh source topology
-     * @return packed xyz of every active vertex, in the mesh's iteration order
-     */
-    public static float[] extractPositions(MeshTopology mesh) {
-        float[] pos = new float[mesh.vertexCount() * FLOATS_PER_VERTEX];
-        Vector3f p = new Vector3f();
-        for (int i = 0; i < mesh.vertexCount(); i++) {
-            int vid = mesh.vertexIdAt(i);
-            mesh.vertexPosition(vid, p);
-            int o = i * FLOATS_PER_VERTEX;
-            pos[o] = p.x;
-            pos[o + 1] = p.y;
-            pos[o + 2] = p.z;
-        }
-        return pos;
     }
 
     // ─── helpers ────────────────────────────────────────────────────

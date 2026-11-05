@@ -89,10 +89,10 @@ public class Compare extends AutomationEndpoint implements AutomationRoute {
                     // Normalize: center both meshes to origin, scale to unit bounding box diagonal
                     float[] currentPositions = normalize
                             ? MeshDistance.normalizedPositions(currentMesh)
-                            : MeshDistance.extractPositions(currentMesh);
+                            : currentMesh.packedPositions(null);
                     float[] referencePositions = normalize
                             ? MeshDistance.normalizedPositions(referenceMesh)
-                            : MeshDistance.extractPositions(referenceMesh);
+                            : referenceMesh.packedPositions(null);
 
                     float effectiveScale = (Float.isNaN(scale) || scale <= 0f)
                             ? 1.0f

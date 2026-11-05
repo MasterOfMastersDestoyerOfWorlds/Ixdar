@@ -37,7 +37,7 @@ class FoldedInputRefusalTest {
     void quadLayoutRefusesAPleatBeforeAnyStage() {
         HalfEdgeMesh sphere = icosphere();
         int vertexCount = sphere.vertexCount();
-        float[] positions = Arrays.copyOf(sphere.vertexPositions, (vertexCount + 1) * 3);
+        float[] positions = Arrays.copyOf(sphere.packedPositions(null), (vertexCount + 1) * 3);
         int[] corners = new int[(sphere.faceCount() + 2) * 3];
         for (int activeFace = 0; activeFace < sphere.faceCount(); activeFace++) {
             for (int corner = 0; corner < 3; corner++) {

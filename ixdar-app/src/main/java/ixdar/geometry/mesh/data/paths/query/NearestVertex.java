@@ -87,15 +87,8 @@ public final class NearestVertex {
         index.mesh = mesh;
         int vertexCount = mesh.vertexCount();
         int[] vertexIds = new int[vertexCount];
-        float[] xyz = new float[3 * vertexCount];
-        Vector3f position = new Vector3f();
-        for (int vertex = 0; vertex < vertexCount; vertex++) {
-            vertexIds[vertex] = mesh.vertexIdAt(vertex);
-            mesh.vertexPosition(vertexIds[vertex], position);
-            xyz[3 * vertex] = position.x;
-            xyz[3 * vertex + 1] = position.y;
-            xyz[3 * vertex + 2] = position.z;
-        }
+        Arrays.setAll(vertexIds, mesh::vertexIdAt);
+        float[] xyz = mesh.packedPositions(null);
         float[] maximum = { Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY,
             Float.NEGATIVE_INFINITY };
         Arrays.fill(index.origin, Float.POSITIVE_INFINITY);
@@ -172,6 +165,45 @@ public final class NearestVertex {
                     + "apart");
         }
         return copies[0];
+    }
+
+    /**
+     * Every indexed vertex within a radius of a point, in no particular order.
+     *
+     * @param x      point x
+     * @param y      point y
+     * @param z      point z
+     * @param radius largest distance a returned vertex may lie from the point, finite
+     * @return the vertex ids within it
+     */
+    public int[] within(float x, float y, float z, float radius) {
+        int[] low = new int[3];
+        int[] high = new int[3];
+        float[] point = { x, y, z };
+        for (int axis = 0; axis < 3; axis++) {
+            low[axis] = cellCoordinate(point[axis] - radius, axis);
+            high[axis] = cellCoordinate(point[axis] + radius, axis);
+        }
+        double radiusSquared = (double) radius * radius;
+        int[] found = new int[0];
+        int count = 0;
+        for (int cellX = low[0]; cellX <= high[0]; cellX++) {
+            for (int cellY = low[1]; cellY <= high[1]; cellY++) {
+                for (int cellZ = low[2]; cellZ <= high[2]; cellZ++) {
+                    int cell = (cellX * cellsPerAxis[1] + cellY) * cellsPerAxis[2] + cellZ;
+                    for (int entry = cellStart[cell]; entry < cellStart[cell + 1]; entry++) {
+                        double dx = entryXyz[3 * entry] - x;
+                        double dy = entryXyz[3 * entry + 1] - y;
+                        double dz = entryXyz[3 * entry + 2] - z;
+                        if (dx * dx + dy * dy + dz * dz <= radiusSquared) {
+                            found = count < found.length ? found : Arrays.copyOf(found, 2 * count + 8);
+                            found[count++] = entryVertexId[entry];
+                        }
+                    }
+                }
+            }
+        }
+        return Arrays.copyOf(found, count);
     }
 
     /**

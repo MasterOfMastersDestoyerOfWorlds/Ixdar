@@ -351,9 +351,9 @@ class RingCandidatesTest {
         ctx.setInput("subdivisions", SUBDIVISIONS);
         node.evaluate(ctx);
         HalfEdgeMesh mesh = (HalfEdgeMesh) ctx.getOutput("mesh", GeometryBundle.class).mesh();
-        float[] positions = mesh.vertexPositions;
+        float[] positions = mesh.packedPositions(null);
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            int base = COORDINATES_PER_POINT * mesh.vertexIdAt(activeVertex);
+            int base = COORDINATES_PER_POINT * activeVertex;
             float length = (float) Math.sqrt(positions[base] * positions[base]
                     + positions[base + 1] * positions[base + 1]
                     + positions[base + 2] * positions[base + 2]);
@@ -361,9 +361,8 @@ class RingCandidatesTest {
             float directionY = positions[base + 1] / length;
             float directionZ = positions[base + 2] / length;
             float reach = surfaceReach(segments, radii, directionX, directionY, directionZ);
-            positions[base] = reach * directionX;
-            positions[base + 1] = reach * directionY;
-            positions[base + 2] = reach * directionZ;
+            mesh.setVertexPosition(mesh.vertexIdAt(activeVertex), reach * directionX, reach * directionY,
+                    reach * directionZ);
         }
         mesh.computeNormals();
         return mesh;

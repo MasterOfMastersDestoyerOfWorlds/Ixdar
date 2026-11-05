@@ -129,7 +129,8 @@ public final class SculptSync {
 
     /**
      * Fold the SVG's edits since the last sync into the strokes: moved points are cast onto the
-     * sculpt and held on the base again, a shape with no id is added, an id gone from a cell deleted.
+     * sculpt and held on the base again, a shape with no data-pts is added (under its own data-id when
+     * it has one), an id gone from a cell deleted.
      *
      * @param anchors the layer's strokes, changed in place only when nothing is refused
      * @param svg     the SVG as edited
@@ -149,7 +150,9 @@ public final class SculptSync {
         for (int index = 0; index < shapes.size(); index++) {
             String shape = shapes.get(index);
             String id = attribute(shape, ID_ATTRIBUTE);
-            if (id == null) {
+            // A shape with no data-pts is a fresh drawing, under its own data-id when it names one: a
+            // script regenerating the drawing keeps each stroke's id by writing it.
+            if (id == null || attribute(shape, POINT_INDEX_ATTRIBUTE) == null) {
                 added.add(shape);
                 addedLayers.add(layerByShape.get(index));
             } else {
@@ -184,7 +187,8 @@ public final class SculptSync {
                 int point = move.getKey() / sketch.viewCameras.length;
                 float[] hit = stroke.silhouette() ? move.getValue() : castAll(sculptedTriangles,
                         move.getKey() % sketch.viewCameras.length, move.getValue(), refusals, "point " + point
-                                + " of stroke " + stroke.id);
+                                + " of stroke " + stroke.id + (stroke.layer.isEmpty() ? "" : " in group "
+                                        + stroke.layer));
                 int fields = stroke.silhouette() ? 2 : FaceAnchors.FIELDS;
                 if (hit.length > 0) {
                     System.arraycopy(stroke.silhouette() ? hit : toBase(hit), 0, moved, point * fields, fields);
@@ -198,6 +202,12 @@ public final class SculptSync {
         }
         List<AnchoredStroke> created = new ArrayList<>();
         List<String> addedIds = stableIds(added, addedLayers, keptIds);
+        for (int index = 0; index < added.size(); index++) {
+            if (keptIds.contains(addedIds.get(index)) || addedIds.indexOf(addedIds.get(index)) != index) {
+                refusals.add("data-id=\"" + addedIds.get(index) + "\" is drawn by two shapes, a new one with no "
+                        + "data-pts among them: give the new shape another data-id, or none");
+            }
+        }
         for (int index = 0; index < added.size(); index++) {
             String shape = added.get(index);
             AnchoredStroke stroke = new AnchoredStroke();
@@ -225,10 +235,11 @@ public final class SculptSync {
                     continue;
                 }
                 float[] onBase = stroke.polygon ? castAll(baseTriangles, stroke.cell, pixels, refusals,
-                        "the new polygon") : single.liftedXyzByShape[0];
+                        "the new polygon " + stroke.id + (stroke.layer.isEmpty() ? "" : " in group " + stroke.layer))
+                        : single.liftedXyzByShape[0];
                 if (onBase.length == 0) {
-                    refusals.add("the new " + (stroke.polygon ? "polygon" : "polyline") + " in cell " + stroke.cell
-                            + " lands nowhere on the base its cell sees face-on: move it onto the surface");
+                    refusals.add("the new " + (stroke.polygon ? "polygon " : "polyline ") + stroke.id + " in cell "
+                            + stroke.cell + " lands nowhere on the base its cell sees face-on: move it onto the surface");
                     continue;
                 }
                 stroke.anchors = new float[onBase.length / 3 * FaceAnchors.FIELDS];
@@ -274,9 +285,9 @@ public final class SculptSync {
         drawing.shapes = new ArrayList<>();
         drawing.shapes.add("<!-- Written by ixdar-cli sculpt-sync from the strokes beside this file: every stroke in "
                 + "every cell that sees it, under one data-id; data-pts names each point's index on the stroke and "
-                + "dashed data-hidden spans run behind the surface. Move points, add shapes with no data-id, or "
-                + "delete one, in any one cell per stroke, then sync again. -->");
-        float extent = sculpted.boundsMax(new Vector3f()).distance(sculpted.boundsMin(new Vector3f()));
+                + "dashed data-hidden spans run behind the surface. Move points, add shapes with no data-pts (a "
+                + "data-id you give one is kept), or delete one, in any one cell per stroke, then sync again. -->");
+        float extent = sculpted.boundsDiagonal();
         Vector3f position = new Vector3f();
         float[] anchor = new float[FaceAnchors.FIELDS];
         String layer = "";
@@ -407,8 +418,12 @@ public final class SculptSync {
             camera.rayThroughPixel(new Matrix4f(), pixels[point * 2], pixels[point * 2 + 1], sketch.cellWidth,
                     sketch.cellHeight, origin, direction);
             if (surface.nearestHit(origin, direction, Double.POSITIVE_INFINITY, surfaceStack) < 0) {
-                refusals.add(String.format(Locale.ROOT, "%s in cell %d: pixel %.1f,%.1f misses the surface; move it "
-                        + "onto the surface", what, cell, pixels[point * 2], pixels[point * 2 + 1]));
+                // The SVG holds whole-sheet coordinates in its own units, which is what the author
+                // searches for; the cell pixel is what the camera casts.
+                refusals.add(String.format(Locale.ROOT, "%s in cell %d: point %s in the SVG (cell pixel %.1f,%.1f) "
+                        + "misses the surface; move it onto the surface", what, cell, sketch.gridPoints(cell,
+                                new float[] { pixels[point * 2], pixels[point * 2 + 1] }, 1), pixels[point * 2],
+                        pixels[point * 2 + 1]));
                 return new float[0];
             }
             for (int axis = 0; axis < 3; axis++) {
@@ -446,50 +461,50 @@ public final class SculptSync {
     }
 
     /**
-     * The stable ids of an SVG's shapes with no data-id, in document order: the {@code <g id>} and
-     * the shape's place among the group's id-less shapes ({@code eyes-2}), {@code s<n>} outside any
-     * group, passing over ids still held. A drawing regenerated without ids gets the same ids again.
+     * The stable id of every shape of an SVG, in document order: its own data-id, else the
+     * {@code <g id>} and the next number past every one its group holds ({@code eyes.3}), {@code s<n>}
+     * outside any group. Inserting a shape never renumbers another.
      *
      * @param svg  the SVG text
      * @param held ids of strokes the SVG still draws, which no new shape takes
-     * @return one id per id-less shape
+     * @return one id per shape
      */
     public static List<String> stableIds(String svg, Set<String> held) {
         List<String> layerByShape = new ArrayList<>();
-        List<String> idless = new ArrayList<>();
-        List<String> layers = new ArrayList<>();
-        List<String> shapes = groupedShapes(svg, layerByShape);
-        for (int index = 0; index < shapes.size(); index++) {
-            if (attribute(shapes.get(index), ID_ATTRIBUTE) == null) {
-                idless.add(shapes.get(index));
-                layers.add(layerByShape.get(index));
-            }
-        }
-        return stableIds(idless, layers, held);
+        return stableIds(groupedShapes(svg, layerByShape), layerByShape, held);
     }
 
     /**
-     * The stable ids of id-less shapes, as {@link #stableIds(String, Set)} gives them.
+     * The stable ids of shapes, as {@link #stableIds(String, Set)} gives them.
      *
-     * @param shapes the id-less shapes, in document order
+     * @param shapes the shapes, in document order
      * @param layers each one's {@code <g id>}, empty for none
      * @param held   ids no new shape takes
      * @return one id per shape
      */
     private static List<String> stableIds(List<String> shapes, List<String> layers, Set<String> held) {
         Set<String> taken = new HashSet<>(held);
-        Map<String, Integer> placeByPrefix = new HashMap<>();
+        for (String shape : shapes) {
+            String own = attribute(shape, ID_ATTRIBUTE);
+            taken.add(own == null ? "" : own);
+        }
+        Map<String, Integer> highestByPrefix = new HashMap<>();
+        for (String id : taken) {
+            int separator = id.lastIndexOf(StrokeAnchors.LAYER_ID_SEPARATOR);
+            String prefix = separator >= 0 ? id.substring(0, separator + 1) : StrokeAnchors.ID_PREFIX;
+            String number = id.substring(separator >= 0 ? separator + 1
+                    : id.startsWith(StrokeAnchors.ID_PREFIX) ? StrokeAnchors.ID_PREFIX.length() : id.length());
+            if (!number.isEmpty() && number.chars().allMatch(Character::isDigit) && number.length() < Integer.toString(
+                    Integer.MAX_VALUE).length()) {
+                highestByPrefix.merge(prefix, Integer.parseInt(number), Math::max);
+            }
+        }
         List<String> ids = new ArrayList<>();
         for (int index = 0; index < shapes.size(); index++) {
+            String own = attribute(shapes.get(index), ID_ATTRIBUTE);
             String layer = layers.get(index);
             String prefix = layer.isEmpty() ? StrokeAnchors.ID_PREFIX : layer + StrokeAnchors.LAYER_ID_SEPARATOR;
-            int place = placeByPrefix.getOrDefault(prefix, 0) + 1;
-            while (taken.contains(prefix + place)) {
-                place++;
-            }
-            placeByPrefix.put(prefix, place);
-            taken.add(prefix + place);
-            ids.add(prefix + place);
+            ids.add(own != null ? own : prefix + highestByPrefix.merge(prefix, 1, Integer::sum));
         }
         return ids;
     }

@@ -27,6 +27,7 @@ import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.graphics.image.PixelImage;
+import ixdar.graphics.image.ShadingEdges;
 import ixdar.graphics.image.SubjectOutline;
 
 /**
@@ -69,12 +70,6 @@ public class TraceReference extends AutomationEndpoint implements AutomationRout
     public static final Pattern DRAWN_OVER = Pattern.compile("Drawn over (\\S+?)\\.\\s");
 
     public static final int CAPTURE_TOLERANCE = 24;
-
-    public static final int EDGE_MINIMUM_PIXELS = 25;
-
-    public static final float EDGE_LOW = 30f;
-
-    public static final float EDGE_HIGH = 90f;
 
     public static final int DEFAULT_PIECES = 4;
 
@@ -214,8 +209,9 @@ public class TraceReference extends AutomationEndpoint implements AutomationRout
         if (!edges.isEmpty()) {
             boolean[] inside = PolygonScan.covered(subject.outline, 0f, 0f, 1f, picture.width, picture.height);
             List<String> lines = new ArrayList<>();
-            for (int[] edge : SubjectOutline.interiorEdges(picture, inside, EDGE_LOW, EDGE_HIGH)
-                    .outlines(PixelImage.OPAQUE | PixelImage.RGB_MASK, 0, 0f, EDGE_MINIMUM_PIXELS)) {
+            // One thin line per shading edge (MESH-89): tracing the boundary of each thick edge band
+            // drew every edge twice, as a loop out along one side and back along the other.
+            for (float[] edge : ShadingEdges.of(picture, inside).lines) {
                 float[] line = new float[edge.length];
                 for (int index = 0; index < edge.length; index += 2) {
                     line[index] = Math.max(left, Math.min(left + cellWidth - 1, edge[index] * scale + offsetX)) * unitsPerPixel;
@@ -278,8 +274,9 @@ public class TraceReference extends AutomationEndpoint implements AutomationRout
                 .param(OUT, RouteParamType.STRING, false, "",
                         "SVG written; default the template itself, the polylines added before its end.", "tmp/out.svg")
                 .param(EDGES, RouteParamType.STRING, false, "",
-                        "Also write the subject's interior edges, placed the same way, to this SVG for viewing (it "
-                                + "records no camera, so no node lifts it).", "tmp/edges.svg")
+                        "Also write the subject's interior edges, one thin line each, placed the same way, to this SVG "
+                                + "for viewing (it records no camera, so no node lifts it; reference-strokes turns the "
+                                + "same edges into strokes).", "tmp/edges.svg")
                 .param(RADIUS, RouteParamType.FLOAT, false, String.valueOf(DEFAULT_RADIUS),
                         "data-radius of the silhouette polylines: how far, in world units, an outline is reached and "
                                 + "dragged onto them.", "0.15")

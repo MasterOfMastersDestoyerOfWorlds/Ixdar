@@ -190,15 +190,7 @@ public final class RingRegionExtraction {
         mesh = regions.mesh;
         sourceVertexCount = mesh.vertexCount();
         int ringCount = regions.ringLabels.length;
-        int vertexIdCeiling = 0;
-        for (int activeVertex = 0; activeVertex < sourceVertexCount; activeVertex++) {
-            vertexIdCeiling = Math.max(vertexIdCeiling, mesh.vertexIdAt(activeVertex) + 1);
-        }
-        activeVertexByVertexId = new int[vertexIdCeiling];
-        Arrays.fill(activeVertexByVertexId, MeshTopology.NONE);
-        for (int activeVertex = 0; activeVertex < sourceVertexCount; activeVertex++) {
-            activeVertexByVertexId[mesh.vertexIdAt(activeVertex)] = activeVertex;
-        }
+        activeVertexByVertexId = mesh.activeIndexById();
         int faceIdCeiling = 0;
         for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
             faceIdCeiling = Math.max(faceIdCeiling, mesh.faceIdAt(activeFace) + 1);

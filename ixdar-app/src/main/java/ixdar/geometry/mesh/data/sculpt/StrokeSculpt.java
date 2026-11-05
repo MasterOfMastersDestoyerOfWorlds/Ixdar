@@ -1,16 +1,16 @@
 package ixdar.geometry.mesh.data.sculpt;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-
-import org.joml.Vector3f;
+import java.util.stream.IntStream;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
+import ixdar.geometry.mesh.data.ops.MeshFolds;
 import ixdar.geometry.mesh.data.ops.MeshSmoothing;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.nodegraph.field.Vector3Field;
 
 /**
  * Sculpts a surface with weighted strokes in one pass: the faces they reach are refined once, then
@@ -51,6 +51,8 @@ public final class StrokeSculpt {
 
     public static final int UNFOLD_HALVINGS = 6;
 
+    public static final int SUM_WORKERS = 6;
+
     public static final String SCULPT_SLOT = "_stroke_sculpt";
 
     /** Whether strokes move vertices (mode B) or only crease their chains (mode A). */
@@ -70,6 +72,15 @@ public final class StrokeSculpt {
 
     /** Per stroke of the last {@link #apply}'s text: how many vertices it moved, its mirror copies included. */
     public int[] movedVerticesByStroke = new int[0];
+
+    /** Per stroke of the last {@link #apply}'s text: faces of the output still folded inside out under it. */
+    public int[] foldedFacesByStroke = new int[0];
+
+    /**
+     * Per stroke of the last {@link #apply}'s text: faces its moves would have folded that the
+     * limiter held back, flattening the stroke there.
+     */
+    public int[] heldFoldsByStroke = new int[0];
 
     /**
      * The finest edges the last {@link #apply}'s refinement reaches: its floor, or the input's mean
@@ -105,13 +116,135 @@ public final class StrokeSculpt {
         String[] strokeTexts = strokes == null || strokes.isBlank() ? new String[0] : strokes.split(STROKE_SEPARATOR);
         peakDisplacementByStroke = new float[strokeTexts.length];
         movedVerticesByStroke = new int[strokeTexts.length];
+        foldedFacesByStroke = new int[strokeTexts.length];
+        heldFoldsByStroke = new int[strokeTexts.length];
         refinedVertices = mesh == null ? 0 : mesh.vertexCount();
         refined = mesh;
         if (mesh == null || mesh.vertexCount() == 0 || strokeTexts.length == 0) {
             return base;
         }
-        // Every stroke and its reflections: across the symmetry axis, and across x for its own
-        // mirror flag, less those that repeat it or that a fill joins.
+        List<SculptStroke> copies = copies(strokeTexts, symmetryAxis);
+        SculptStroke.refineTargets(copies, refinement.minimumEdgeLength, refinement.edgesPerWidth);
+        double meanEdge = 0.0;
+        for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
+            meanEdge += mesh.edgeLength(mesh.edgeIdAt(activeEdge)) / (double) mesh.edgeCount();
+        }
+        finestEdgeLength = Math.max(refinement.minimumEdgeLength,
+                (float) meanEdge / (1 << StrokeRefinement.MAXIMUM_ROUNDS));
+        refinement.symmetryAxis = symmetryAxis;
+        refined = refinement.refine(mesh, copies, displace, EdgeMarks.floats(base, CREASE_LABEL));
+        refinedVertices = refined.vertexCount();
+        DisplacementSum sum = new DisplacementSum(refined, displace, creaseScale, strokeTexts.length);
+        // Strokes are summed independently, so workers each sum a share of them over the same
+        // surface and their sums merge: moves add, and drags, smoothing and creases keep the largest.
+        int workers = Math.min(SUM_WORKERS, strokeTexts.length);
+        DisplacementSum[] parts = new DisplacementSum[workers];
+        MeshTopology surface = refined;
+        IntStream.range(0, workers).parallel().forEach(worker -> {
+            DisplacementSum part = worker == 0 ? sum
+                    : new DisplacementSum(surface, displace, creaseScale, strokeTexts.length, sum.bvh);
+            for (SculptStroke copy : copies) {
+                if (copy.source % workers == worker) {
+                    part.add(copy);
+                }
+            }
+            part.finishStroke();
+            parts[worker] = part;
+        });
+        for (int worker = 1; worker < workers; worker++) {
+            DisplacementSum part = parts[worker];
+            for (int index = 0; index < sum.offsetXyz.length; index += 3) {
+                float[] drag = sum.dragByActiveVertexXyz;
+                float[] partDrag = part.dragByActiveVertexXyz;
+                boolean longer = partDrag[index] * partDrag[index] + partDrag[index + 1] * partDrag[index + 1]
+                        + partDrag[index + 2] * partDrag[index + 2] > drag[index] * drag[index]
+                                + drag[index + 1] * drag[index + 1] + drag[index + 2] * drag[index + 2];
+                for (int axis = 0; axis < 3; axis++) {
+                    sum.offsetXyz[index + axis] += part.offsetXyz[index + axis];
+                    drag[index + axis] = longer ? partDrag[index + axis] : drag[index + axis];
+                }
+                sum.smoothByActiveVertex[index / 3] = Math.max(sum.smoothByActiveVertex[index / 3],
+                        part.smoothByActiveVertex[index / 3]);
+            }
+            for (int edgeId = 0; edgeId < sum.strokeCreaseByEdgeId.length; edgeId++) {
+                sum.strokeCreaseByEdgeId[edgeId] = Math.max(sum.strokeCreaseByEdgeId[edgeId],
+                        part.strokeCreaseByEdgeId[edgeId]);
+            }
+            for (int source = 0; source < strokeTexts.length; source++) {
+                sum.peakDisplacementBySource[source] = Math.max(sum.peakDisplacementBySource[source],
+                        part.peakDisplacementBySource[source]);
+                sum.movedVerticesBySource[source] += part.movedVerticesBySource[source];
+            }
+        }
+        peakDisplacementByStroke = sum.peakDisplacementBySource;
+        movedVerticesByStroke = sum.movedVerticesBySource;
+        MeshTopology sculpted = displace ? sum.sculpted(tangentialRelax) : refined;
+        if (displace) {
+            float[] unmoved = refined.packedPositions(null);
+            float[] stepXyz = sculpted.packedPositions(null);
+            int[] twins = refinement.twinByActiveVertex;
+            if (symmetryAxis >= 0) {
+                // Each vertex's displacement becomes the mean of its own and its mirror twin's
+                // reflected displacement, so the pass leaves a symmetric input symmetric.
+                float[] moved = stepXyz.clone();
+                for (int activeVertex = 0; activeVertex < twins.length; activeVertex++) {
+                    int twin = twins[activeVertex];
+                    for (int axis = 0; axis < 3; axis++) {
+                        int at = activeVertex * 3 + axis;
+                        int twinAt = twin * 3 + axis;
+                        float own = moved[at] - unmoved[at];
+                        float reflected = twin < 0 ? own
+                                : (axis == symmetryAxis ? -1f : 1f) * (moved[twinAt] - unmoved[twinAt]);
+                        stepXyz[at] = unmoved[at] + (own + reflected) * 0.5f;
+                    }
+                }
+            }
+            // The pass must not turn the mesh inside out: each vertex's step stops short of the
+            // surface it would cross, and is pulled back where it would still fold a face. The sum's
+            // tree is over the unmoved refined surface, which is what the limiter starts from.
+            int[] every = new int[refined.vertexCount()];
+            Arrays.setAll(every, index -> index);
+            MeshFolds folds = new MeshFolds(refined, sum.activeVertexById, unmoved);
+            folds.update(stepXyz, every, every.length);
+            countFolds(folds, sum, heldFoldsByStroke);
+            MeshSmoothing.unfold(refined, sum.activeVertexById, unmoved, stepXyz, sum.bvh, UNFOLD_HALVINGS, folds);
+            folds.update(stepXyz, every, every.length);
+            countFolds(folds, sum, foldedFacesByStroke);
+            for (int stroke = 0; stroke < strokeTexts.length; stroke++) {
+                heldFoldsByStroke[stroke] = Math.max(0, heldFoldsByStroke[stroke] - foldedFacesByStroke[stroke]);
+            }
+            sculpted = MeshVertexOffset.atPositions(refined, stepXyz);
+        }
+        float[] existingCreases = refinement.creases;
+        float[] creases = new float[sculpted.edgeIdBound()];
+        for (int edgeId = 0; edgeId < sum.strokeCreaseByEdgeId.length; edgeId++) {
+            float crease = Math.max(sum.strokeCreaseByEdgeId[edgeId],
+                    existingCreases != null && edgeId < existingCreases.length ? existingCreases[edgeId] : 0f);
+            if (crease > 0f && refined.hasEdge(edgeId)) {
+                // The vertex offset keeps vertex order but not ids, so find the edge by its ends.
+                int halfEdge = refined.edgeHalfEdge(edgeId);
+                int sculptedEdge = sculpted == refined ? edgeId : sculpted.edgeBetween(
+                        sculpted.vertexIdAt(sum.activeVertexById[refined.halfEdgeVertex(halfEdge)]),
+                        sculpted.vertexIdAt(sum.activeVertexById[refined.halfEdgeEndVertex(halfEdge)]));
+                if (sculptedEdge >= 0) {
+                    creases[sculptedEdge] = Math.max(creases[sculptedEdge], crease);
+                }
+            }
+        }
+        GeometryBundle carried = refined == mesh ? base : GeometryBundle.ofMesh(refined);
+        return EdgeMarks.with(carried.withMesh(sculpted), CREASE_LABEL, creases);
+    }
+
+    /**
+     * Every stroke of a pass and its reflections, as a pass sums them: across the symmetry axis, and
+     * across x for a stroke's own mirror flag, less copies that repeat it or that a fill joins.
+     *
+     * @param strokeTexts  the pass's strokes in text form, each its source index
+     * @param symmetryAxis 0, 1 or 2 for the axis the pass mirrors across, -1 for none
+     * @throws IllegalArgumentException when a stroke names no radius or its eye is malformed
+     * @return the copies, those of one stroke consecutive
+     */
+    public static List<SculptStroke> copies(String[] strokeTexts, int symmetryAxis) {
         List<SculptStroke> copies = new ArrayList<>();
         for (int stroke = 0; stroke < strokeTexts.length; stroke++) {
             SculptStroke parsed = SculptStroke.parse(strokeTexts[stroke], stroke);
@@ -139,95 +272,37 @@ public final class StrokeSculpt {
                 }
             }
         }
-        SculptStroke.refineTargets(copies, refinement.minimumEdgeLength, refinement.edgesPerWidth);
-        double meanEdge = 0.0;
-        for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
-            meanEdge += mesh.edgeLength(mesh.edgeIdAt(activeEdge)) / (double) mesh.edgeCount();
-        }
-        finestEdgeLength = Math.max(refinement.minimumEdgeLength,
-                (float) meanEdge / (1 << StrokeRefinement.MAXIMUM_ROUNDS));
-        refinement.symmetryAxis = symmetryAxis;
-        refined = refinement.refine(mesh, copies, displace, EdgeMarks.floats(base, CREASE_LABEL));
-        refinedVertices = refined.vertexCount();
-        DisplacementSum sum = new DisplacementSum(refined, displace, creaseScale, strokeTexts.length);
-        for (SculptStroke copy : copies) {
-            sum.add(copy);
-        }
-        peakDisplacementByStroke = sum.peakDisplacementBySource;
-        movedVerticesByStroke = sum.movedVerticesBySource;
-        MeshTopology sculpted = displace ? sum.sculpted(tangentialRelax) : refined;
-        int[] twins = refinement.twinByActiveVertex;
-        float[] unmoved = packedPositions(refined, null);
-        if (displace && symmetryAxis >= 0) {
-            // Each vertex's displacement becomes the mean of its own and its mirror twin's reflected
-            // displacement, so the pass leaves a symmetric input symmetric.
-            float[] moved = packedPositions(sculpted, null);
-            for (int index = 0; index < moved.length; index++) {
-                moved[index] -= unmoved[index];
-            }
-            float[] symmetric = new float[moved.length];
-            for (int activeVertex = 0; activeVertex < twins.length; activeVertex++) {
-                int twin = twins[activeVertex];
-                for (int axis = 0; axis < 3; axis++) {
-                    float own = moved[activeVertex * 3 + axis];
-                    float reflected = twin < 0 ? own : axis == symmetryAxis ? -moved[twin * 3 + axis] : moved[twin * 3 + axis];
-                    symmetric[activeVertex * 3 + axis] = (own + reflected) * 0.5f;
-                }
-            }
-            sculpted = MeshVertexOffset.apply(refined, Vector3Field.copyOf(symmetric));
-        }
-        if (displace) {
-            // The pass must not turn the mesh inside out: each vertex's step stops short of the
-            // surface it would cross, and is pulled back where it would still fold a face. The sum's
-            // tree is over the unmoved refined surface, which is what the limiter starts from.
-            float[] stepXyz = packedPositions(sculpted, null);
-            MeshSmoothing.unfold(refined, sum.activeVertexById, unmoved, stepXyz, sum.bvh, UNFOLD_HALVINGS);
-            for (int index = 0; index < stepXyz.length; index++) {
-                stepXyz[index] -= unmoved[index];
-            }
-            sculpted = MeshVertexOffset.apply(refined, Vector3Field.copyOf(stepXyz));
-        }
-        float[] existingCreases = refinement.creases;
-        float[] creases = new float[sculpted.edgeIdBound()];
-        for (int edgeId = 0; edgeId < sum.strokeCreaseByEdgeId.length; edgeId++) {
-            float crease = Math.max(sum.strokeCreaseByEdgeId[edgeId],
-                    existingCreases != null && edgeId < existingCreases.length ? existingCreases[edgeId] : 0f);
-            if (crease > 0f && refined.hasEdge(edgeId)) {
-                // The vertex offset keeps vertex order but not ids, so find the edge by its ends.
-                int halfEdge = refined.edgeHalfEdge(edgeId);
-                int sculptedEdge = sculpted == refined ? edgeId : sculpted.edgeBetween(
-                        sculpted.vertexIdAt(sum.activeVertexById[refined.halfEdgeVertex(halfEdge)]),
-                        sculpted.vertexIdAt(sum.activeVertexById[refined.halfEdgeEndVertex(halfEdge)]));
-                if (sculptedEdge >= 0) {
-                    creases[sculptedEdge] = Math.max(creases[sculptedEdge], crease);
-                }
-            }
-        }
-        GeometryBundle carried = refined == mesh ? base : GeometryBundle.ofMesh(refined);
-        return EdgeMarks.with(carried.withMesh(sculpted), CREASE_LABEL, creases);
+        return copies;
     }
 
     /**
-     * A mesh's vertex positions packed xyz in dense vertex order, the order a vertex offset keeps.
+     * Count the faces folding now that did not at the start, each charged to the stroke that moved
+     * its corners farthest.
      *
-     * @param mesh             surface to read
-     * @param activeVertexById receives each sparse vertex id's dense index when not null; at least
-     *                         the mesh's vertex id bound long
-     * @return the packed positions, three floats per vertex
+     * @param folds   the folds at the positions to count
+     * @param sum     the pass's sum, which knows each vertex's strongest stroke
+     * @param byStroke receives the counts, one per stroke of the pass's text, cleared first
      */
-    public static float[] packedPositions(MeshTopology mesh, int[] activeVertexById) {
-        Vector3f position = new Vector3f();
-        float[] xyz = new float[mesh.vertexCount() * 3];
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            if (activeVertexById != null) {
-                activeVertexById[vertexId] = activeVertex;
+    private static void countFolds(MeshFolds folds, DisplacementSum sum, int[] byStroke) {
+        Arrays.fill(byStroke, 0);
+        MeshTopology mesh = folds.mesh;
+        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
+            int faceId = mesh.faceIdAt(activeFace);
+            if (!folds.failedByFaceId[faceId] || folds.foldedAtStart[faceId]) {
+                continue;
             }
-            mesh.vertexPosition(vertexId, position);
-            xyz[activeVertex * 3] = position.x;
-            xyz[activeVertex * 3 + 1] = position.y;
-            xyz[activeVertex * 3 + 2] = position.z;
+            int source = -1;
+            float farthest = 0f;
+            for (int corner = 0; corner < mesh.faceVertexCount(faceId); corner++) {
+                int activeVertex = sum.activeVertexById[mesh.faceVertexAt(faceId, corner)];
+                if (sum.strongestMoveByActiveVertex[activeVertex] > farthest) {
+                    farthest = sum.strongestMoveByActiveVertex[activeVertex];
+                    source = sum.strongestSourceByActiveVertex[activeVertex];
+                }
+            }
+            if (source >= 0) {
+                byStroke[source]++;
+            }
         }
-        return xyz;
     }
 }
