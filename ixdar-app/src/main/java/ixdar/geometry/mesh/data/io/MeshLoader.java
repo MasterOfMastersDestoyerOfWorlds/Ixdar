@@ -27,7 +27,6 @@ public final class MeshLoader {
     public static final String END_HEADER = "end_header";
     public static final String ELEMENT_VERTEX = "element vertex";
     public static final String OFF_HEADER = "OFF";
-    public static final float NORMAL_LENGTH_EPSILON = 1e-20f;
 
     public static final int FLOATS_PER_VERTEX = 3;
 

@@ -4976,41 +4976,6 @@
       "description": "A sculpt\u0027s one stroke pass on its base: every stroke is a curve held on the base mesh by the sidecar beside the SVG (ixdar-cli sculpt-sync writes both; without one the SVG\u0027s strokes are lifted onto the base through the camera the SVG stores), the faces they reach are refined once, then every stroke\u0027s move is summed on the base, distinct strokes adding. It refuses an input that is already a stroke_sculpt output: a second pass is a new DSL on the sculpt saved as a new base. The stroke alone sets what moves, in world units: a ridge, valley or fill moves each vertex it sees along the stroke\u0027s mean normal by data-depth x w x (1 - (d / data-radius)^2)^2, d the vertex\u0027s distance across that normal to the stroke (a fill: the union of its samples\u0027 bumps), w 1 except inside a data-profile\u003d\"bowl\" fill, where it is t(2 - t) of the sample\u0027s depth in from the outline over the deepest\u0027s; the move fades from full where the surface faces the stroke\u0027s camera within 60 degrees to none where it turns past 75 degrees, edge-on. A silhouette drags the outline it reaches, within data-radius, all the way onto the stroke; data-op\u003d\"smooth\" smooths within data-radius. Mirror copies of a stroke never add to it; the report output lists every stroke\u0027s effect. A chain\u0027s points may lie far apart: its falloff and refinement follow the segments between them. Refinement stops at edges of 0.005 (or the base\u0027s mean edge / 16), and a falloff of slope 1.54 x |data-depth| / data-radius stairs on edges more than twice data-radius / (3 x that slope), so keep |data-depth| \u003c\u003d data-radius^2 / (2.31 x 0.005): about 0.14 at radius 0.04, 0.55 at 0.08; a fill\u0027s samples union into a rim up to twice as steep (about 2.1 x |data-depth| / data-radius at the default spacing) and a bowl\u0027s floor rises at 2 x |data-depth| / its deepest inset, so their limits are lower; a steeper stroke terraces and the report marks it TOO STEEP, with the limit. A stroke whose moves would turn faces inside out is marked FOLDS with how many the pass held back and how many stay."
     },
     {
-      "id": "subdivide_mesh",
-      "category": "Modifiers",
-      "scopes": [
-        "mesh",
-        "dungeon"
-      ],
-      "inputs": [
-        {
-          "name": "mesh",
-          "portType": "GEOMETRY_BUNDLE",
-          "description": "Input topology to subdivide. Each face becomes 4^levels faces.",
-          "defaultValue": null
-        },
-        {
-          "name": "levels",
-          "portType": "INT",
-          "description": "Subdivision iterations, 0..N. Each level quadruples face count. DESTRUCTIVE: consumes bezier handle slots — use BEFORE assign_bezier_handles.",
-          "defaultValue": 1
-        }
-      ],
-      "outputs": [
-        {
-          "name": "geometry",
-          "portType": "GEOMETRY_BUNDLE",
-          "description": "Output geometry bundle wrapping the subdivided mesh (slots dropped per destructive contract)."
-        }
-      ],
-      "description": "Linearly subdivides each face by inserting edge midpoints and face centroids without smoothing, increasing mesh resolution while preserving the original shape.",
-      "destructive": true,
-      "consumes": [
-        "_bezier_handles_start",
-        "_bezier_handles_end"
-      ]
-    },
-    {
       "id": "subdivision_surface",
       "category": "Modifiers",
       "scopes": [
@@ -5033,8 +4998,14 @@
         {
           "name": "levels",
           "portType": "INT",
-          "description": "Catmull-Clark iterations. Each level quadruples face count AND smooths toward the limit surface.",
+          "description": "Iterations, 0..N. Each level quadruples face count; levels past 600k output faces are dropped. DESTRUCTIVE: consumes bezier handle slots — use BEFORE assign_bezier_handles.",
           "defaultValue": 1
+        },
+        {
+          "name": "smooth",
+          "portType": "BOOLEAN",
+          "description": "On: Catmull-Clark, smoothing toward the limit surface. Off: split only, every vertex kept, edges cut at their midpoints, creases ignored.",
+          "defaultValue": true
         }
       ],
       "outputs": [
@@ -5044,7 +5015,12 @@
           "description": "Input/output geometry bundle. Carries crease weights written by mark_crease so semi-sharp edges subdivide smoothly."
         }
       ],
-      "description": "Applies Catmull-Clark subdivision surface smoothing, supporting crease weights for semi-sharp edges. Handles mixed tri/quad input."
+      "description": "Subdivides every face into quads: Catmull-Clark smoothing with crease weights for semi-sharp edges, or with smooth off, plain splitting at edge midpoints and face centroids that keeps the shape. Handles mixed tri/quad input.",
+      "destructive": true,
+      "consumes": [
+        "_bezier_handles_start",
+        "_bezier_handles_end"
+      ]
     },
     {
       "id": "surface_creases",

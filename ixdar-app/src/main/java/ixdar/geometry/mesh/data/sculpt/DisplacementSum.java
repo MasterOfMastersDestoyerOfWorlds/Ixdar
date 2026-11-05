@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.ops.MeshSmoothing;
 import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -168,8 +169,11 @@ public final class DisplacementSum {
             normalXyz[activeVertex * 3 + 1] = normal.y;
             normalXyz[activeVertex * 3 + 2] = normal.z;
         }
+        int[][] rings = mesh.oneRings();
         for (int pass = 0; pass < NORMAL_SMOOTHING_PASSES; pass++) {
-            normalXyz = ringSum(mesh, activeVertexById, normalXyz, false);
+            float[] smoothed = new float[normalXyz.length];
+            MeshSmoothing.ringMean(rings, normalXyz, 3, true, smoothed);
+            normalXyz = smoothed;
         }
         bvh = !displace ? null : tree != null ? tree : TriangleBvh.over(mesh, new int[mesh.triangleCount()]);
         bvhStack = new int[bvh == null ? 0 : Math.max(1, bvh.nodeCount)];
@@ -305,8 +309,11 @@ public final class DisplacementSum {
         finishStroke();
         // Each vertex took the drag of its nearest contour vertex, a field with seams between
         // neighbours that pulled different ways; blurring it keeps those seams from folding.
+        int[][] rings = mesh.oneRings();
         for (int pass = 0; pass < DRAG_SMOOTHING_PASSES; pass++) {
-            dragByActiveVertexXyz = ringSum(mesh, activeVertexById, dragByActiveVertexXyz, true);
+            float[] smoothed = new float[dragByActiveVertexXyz.length];
+            MeshSmoothing.ringMean(rings, dragByActiveVertexXyz, 3, true, smoothed);
+            dragByActiveVertexXyz = smoothed;
         }
         int vertexCount = mesh.vertexCount();
         float[] combinedXyz = new float[vertexCount * 3];
@@ -332,9 +339,11 @@ public final class DisplacementSum {
         float[] relaxed = sculpted.packedPositions(sculptedActiveById);
         Vector3f laplacian = new Vector3f();
         Vector3f normal = new Vector3f();
+        float[] ring = new float[relaxed.length];
+        int[][] sculptedRings = sculpted.oneRings();
         for (int iteration = 0; iteration < RELAX_ITERATIONS; iteration++) {
             float[] next = relaxed.clone();
-            float[] ring = ringSum(sculpted, sculptedActiveById, relaxed, false);
+            MeshSmoothing.ringMean(sculptedRings, relaxed, 3, false, ring);
             for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
                 float smooth = smoothByActiveVertex[activeVertex];
                 if (relaxWeight[activeVertex] == 0f && smooth == 0f) {
@@ -342,9 +351,7 @@ public final class DisplacementSum {
                 }
                 int vertexId = sculpted.vertexIdAt(activeVertex);
                 int at = activeVertex * 3;
-                laplacian.set(ring[at], ring[at + 1], ring[at + 2]).sub(relaxed[at], relaxed[at + 1], relaxed[at + 2])
-                        .div(Math.max(1, sculpted.vertexEdgeCount(vertexId)))
-                        .sub(relaxed[at], relaxed[at + 1], relaxed[at + 2]);
+                laplacian.set(ring[at], ring[at + 1], ring[at + 2]).sub(relaxed[at], relaxed[at + 1], relaxed[at + 2]);
                 sculpted.vertexNormal(vertexId, normal);
                 float along = normal.dot(laplacian);
                 for (int axis = 0; axis < 3; axis++) {
@@ -466,34 +473,5 @@ public final class DisplacementSum {
             touchedByActiveVertex[activeVertex] = false;
         }
         touchedLength = 0;
-    }
-
-    /**
-     * One pass of one-ring smoothing over a per-vertex xyz field: each vertex's own value plus its
-     * neighbours', summed or averaged.
-     *
-     * @param surface          surface whose edges give the rings
-     * @param activeVertexById dense index of each sparse vertex id
-     * @param xyz              the field, packed xyz by dense vertex index; left unchanged
-     * @param mean             whether to divide each sum by the number of values in it
-     * @return the smoothed field, a new array
-     */
-    private static float[] ringSum(MeshTopology surface, int[] activeVertexById, float[] xyz, boolean mean) {
-        float[] summed = xyz.clone();
-        for (int activeVertex = 0; activeVertex < surface.vertexCount(); activeVertex++) {
-            int vertexId = surface.vertexIdAt(activeVertex);
-            int neighbours = surface.vertexEdgeCount(vertexId);
-            for (int adjacency = 0; adjacency < neighbours; adjacency++) {
-                int neighbour = activeVertexById[surface.edgeOtherVertex(surface.vertexEdgeAt(vertexId, adjacency),
-                        vertexId)];
-                for (int axis = 0; axis < 3; axis++) {
-                    summed[activeVertex * 3 + axis] += xyz[neighbour * 3 + axis];
-                }
-            }
-            for (int axis = 0; axis < 3 && mean; axis++) {
-                summed[activeVertex * 3 + axis] /= neighbours + 1;
-            }
-        }
-        return summed;
     }
 }

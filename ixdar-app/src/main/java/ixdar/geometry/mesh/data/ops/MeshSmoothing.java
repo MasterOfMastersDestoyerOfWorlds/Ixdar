@@ -44,9 +44,10 @@ public final class MeshSmoothing {
         float[] current = start.clone();
         float[] next = start.clone();
         float[] mean = new float[current.length];
+        int[][] rings = mesh.oneRings();
         for (int pass = 0; pass < passes; pass++) {
             float weight = pass % 2 == 1 && mu != 0f ? mu : lambda;
-            neighbourMean(mesh, activeOf, current, 3, mean);
+            ringMean(rings, current, 3, false, mean);
             for (int index = 0; index < current.length; index++) {
                 if (movable == null || movable[index / 3]) {
                     next[index] = current[index] + weight * (mean[index] - current[index]);
@@ -335,29 +336,35 @@ public final class MeshSmoothing {
     }
 
     /**
-     * Each vertex's edge neighbours' mean of a per-vertex field; a vertex with none keeps its own.
+     * Each vertex's one-ring mean of a per-vertex field: its edge neighbours' values, and its own as
+     * well when {@code countSelf}; a vertex with no neighbours keeps its own.
      *
-     * @param mesh       surface whose edges give the rings
-     * @param activeOf   active vertex index by vertex id
+     * @param rings      each active vertex's neighbours, {@link MeshTopology#oneRings}
      * @param values     the field, {@code components} floats per active vertex; read-only
      * @param components floats per vertex
-     * @param dest       receives the means, laid out as {@code values}
+     * @param countSelf  whether a vertex's own value joins its neighbours' in the mean
+     * @param dest       receives the means, laid out as {@code values}; not {@code values} itself
      */
-    private static void neighbourMean(MeshTopology mesh, int[] activeOf, float[] values, int components,
+    public static void ringMean(int[][] rings, float[] values, int components, boolean countSelf,
             float[] dest) {
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            int degree = mesh.vertexEdgeCount(vertexId);
+        for (int activeVertex = 0; activeVertex < rings.length; activeVertex++) {
+            int degree = rings[activeVertex].length;
             int at = activeVertex * components;
-            Arrays.fill(dest, at, at + components, 0f);
-            for (int slot = 0; slot < degree; slot++) {
-                int neighbour = activeOf[mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, slot), vertexId)];
-                for (int component = 0; component < components; component++) {
-                    dest[at + component] += values[neighbour * components + component] / degree;
-                }
-            }
             if (degree == 0) {
                 System.arraycopy(values, at, dest, at, components);
+                continue;
+            }
+            for (int component = 0; component < components; component++) {
+                dest[at + component] = countSelf ? values[at + component] : 0f;
+            }
+            for (int neighbour : rings[activeVertex]) {
+                for (int component = 0; component < components; component++) {
+                    dest[at + component] += values[neighbour * components + component];
+                }
+            }
+            int count = countSelf ? degree + 1 : degree;
+            for (int component = 0; component < components; component++) {
+                dest[at + component] /= count;
             }
         }
     }

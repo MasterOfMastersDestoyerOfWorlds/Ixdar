@@ -6,8 +6,6 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.joml.Vector3f;
-
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
@@ -15,8 +13,8 @@ import ixdar.geometry.mesh.data.representation.TriangulationRule;
 public final class ObjMeshParser {
     /**
      * Load an OBJ file into a triangle mesh ({@link MeshLoader#indexedMesh}).
-     * Supports vertex positions (v x y z) and normals (vn x y z).
-     * Generates face normals if not provided.
+     * Supports vertex positions (v x y z) and normals (vn x y z); a file without normals gets the
+     * mesh's own area-weighted ones.
      *
      * @param content raw OBJ content
      * @throws RuntimeException wraps any {@link IOException} from the underlying reader
@@ -96,7 +94,6 @@ public final class ObjMeshParser {
         for (int i = 0; i < Math.min(normals.size(), normArray.length); i++)
             normArray[i] = normals.get(i);
 
-        // Generate face normals if vertex normals are zero
         boolean hasVertexNormals = false;
         for (int i = 0; i < normals.size(); i++) {
             if (normals.get(i) != 0f) {
@@ -120,55 +117,10 @@ public final class ObjMeshParser {
             }
         }
 
-        if (!hasVertexNormals) {
-            // Compute face normals and assign to vertices
-            Vector3f e1 = new Vector3f();
-            Vector3f e2 = new Vector3f();
-            Vector3f fn = new Vector3f();
-
-            for (int corner = 0; corner < faceIndices.length;
-                    corner += MeshLoader.FLOATS_PER_VERTEX) {
-                int v0 = faceIndices[corner];
-                int v1 = faceIndices[corner + 1];
-                int v2 = faceIndices[corner + 2];
-                int p0o = v0 * MeshLoader.FLOATS_PER_VERTEX;
-                int p1o = v1 * MeshLoader.FLOATS_PER_VERTEX;
-                int p2o = v2 * MeshLoader.FLOATS_PER_VERTEX;
-                e1.set(posArray[p1o], posArray[p1o + 1], posArray[p1o + 2])
-                        .sub(posArray[p0o], posArray[p0o + 1], posArray[p0o + 2]);
-                e2.set(posArray[p2o], posArray[p2o + 1], posArray[p2o + 2])
-                        .sub(posArray[p0o], posArray[p0o + 1], posArray[p0o + 2]);
-                e1.cross(e2, fn);
-                float len = fn.length();
-                if (len > MeshLoader.NORMAL_LENGTH_EPSILON) {
-                    fn.mul(1.0f / len);
-                }
-                // Assign to all three vertices
-                for (int v : new int[] { v0, v1, v2 }) {
-                    int vo = v * MeshLoader.FLOATS_PER_VERTEX;
-                    normArray[vo] += fn.x;
-                    normArray[vo + 1] += fn.y;
-                    normArray[vo + 2] += fn.z;
-                }
-            }
-
-            // Normalize vertex normals
-            for (int i = 0; i < normArray.length; i += MeshLoader.FLOATS_PER_VERTEX) {
-                float nx = normArray[i];
-                float ny = normArray[i + 1];
-                float nz = normArray[i + 2];
-                float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-                if (len > MeshLoader.NORMAL_LENGTH_EPSILON) {
-                    normArray[i] = nx / len;
-                    normArray[i + 1] = ny / len;
-                    normArray[i + 2] = nz / len;
-                }
-            }
-        }
-
         if (faceIndices.length == 0) {
             return new HalfEdgeMesh();
         }
-        return MeshLoader.indexedMesh(posArray, normArray, faceIndices, MeshLoader.FLOATS_PER_VERTEX);
+        return MeshLoader.indexedMesh(posArray, hasVertexNormals ? normArray : null, faceIndices,
+                MeshLoader.FLOATS_PER_VERTEX);
     }
 }

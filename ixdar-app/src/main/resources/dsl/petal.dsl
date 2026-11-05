@@ -12,7 +12,7 @@ subdivisions = input_int(name="subdivisions", default=4, min=1, max=8)
 half_pi = float_math(operation=MULTIPLY, a=3.14159265, b=0.5)
 
 base_grid = mesh_grid(u_tiles=24, v_tiles=24, u_total_size=petal_width.result, v_total_size=petal_length.result)
-subdivided = subdivide_mesh(mesh=base_grid.mesh, levels=subdivisions.result)
+subdivided = subdivision_surface(mesh=base_grid.mesh, levels=subdivisions.result, smooth=false)
 
 pos = input_position()
 separated = separate_xyz(vector=pos.vector)

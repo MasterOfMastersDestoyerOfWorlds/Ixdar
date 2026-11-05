@@ -54,7 +54,6 @@ public final class SemanticPatchDecomposer {
     public static final float MORSE_SMALE_PERSISTENCE_THRESHOLD = 0.10f;
     public static final float MIN_JOINT_RADIUS = 1e-4f;
     public static final float VECTOR_LENGTH_EPSILON = 1e-20f;
-    public static final float MIN_BARYCENTRIC_AREA = 1e-12f;
     public static final double SPLIT_VERT_BATCH_SIZE = 2500.0;
     public static final float MIN_MESH_EXTENT = 1e-6f;
     public static final long KMEANS_SEED_SALT = 0x53D5L;
@@ -151,8 +150,9 @@ public final class SemanticPatchDecomposer {
         SkeletonResult skel = MeshSkeletonExtractor.extract(mesh, resolution);
         int[] vertexBranchId = assignByNearestBranch(mesh, skel);
 
-        // Per-vertex principal curvatures (Meyer 2003 cotangent Laplacian for
-        // H, angle-defect over barycentric area for K, then κ₁,₂ = H ± √(H² - K)).
+        // Per-vertex principal curvatures from the 1-ring shape operator, the one
+        // estimator every stage reads: the crest and saddle detectors, the Morse-Smale
+        // field (H = mean of the two, K = their product) and the cuts below.
         // Edges where BOTH endpoints have strongly-positive κ₁ (convex ridge)
         // or strongly-negative κ₂ (concave valley) are promoted to feature cuts
         // alongside the high-dihedral set. This catches ridge/valley lines
@@ -169,18 +169,17 @@ public final class SemanticPatchDecomposer {
             if (x > maxX) maxX = x; if (y > maxY) maxY = y; if (z > maxZ) maxZ = z;
         }
         float meshExtent = Math.max(maxX - minX, Math.max(maxY - minY, maxZ - minZ));
-        // Per-vertex barycentric area, a third of the incident triangle areas: normalizes the
-        // cotangent-Laplacian H and the angle-defect K so both have units of 1/length.
-        float[] barycentricArea = new float[nv];
-        float[] areaByActiveVertex = mesh.vertexAreas();
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            barycentricArea[mesh.vertexIdAt(activeVertex)] = areaByActiveVertex[activeVertex];
+        PrincipalDirectionField pdf = PrincipalDirectionField.compute(mesh, ed);
+        float[] kappa1 = new float[nv];
+        float[] kappa2 = new float[nv];
+        float[] meanH = new float[nv];
+        float[] gaussK = new float[nv];
+        for (int vertexId = 0; vertexId < nv; vertexId++) {
+            kappa1[vertexId] = pdf.kappaMax(vertexId);
+            kappa2[vertexId] = pdf.kappaMin(vertexId);
+            meanH[vertexId] = 0.5f * (kappa1[vertexId] + kappa2[vertexId]);
+            gaussK[vertexId] = kappa1[vertexId] * kappa2[vertexId];
         }
-        float[] meanH = computeMeanCurvature(mesh, positions, faceIdx, ed, barycentricArea);
-        float[] gaussK = computeGaussianCurvature(mesh, positions, faceIdx, barycentricArea);
-        float[][] principal = computePrincipalCurvatures(meanH, gaussK);
-        float[] kappa1 = principal[0];
-        float[] kappa2 = principal[1];
         // Adaptive principal-magnitude threshold: the hardcoded
         // T_PRINCIPAL=12/extent fired on ~34% of skull edges (25k of 75k),
         // flooding the face with spurious feature cuts that fragment region
@@ -199,7 +198,6 @@ public final class SemanticPatchDecomposer {
         // principal direction eigenvector. Produces continuous polylines
         // along real ridges (nose rim, eye-socket rim, tooth gaps) that the
         // magnitude-only principalFeatureEdges test was missing.
-        PrincipalDirectionField pdf = PrincipalDirectionField.compute(mesh, ed);
         CrestLineDetector.CrestLines crest = CrestLineDetector.detect(mesh, ed, pdf);
 
         // PATCH-13: saddle-point separator detection. At inter-tooth saddles
@@ -811,138 +809,6 @@ public final class SemanticPatchDecomposer {
         Arrays.sort(values);
         int idx = Math.min(n - 1, Math.max(0, (int) (n * p)));
         return values[idx];
-    }
-
-    /**
-     * Cotangent-Laplacian mean curvature, signed positive where the curvature vector runs along the
-     * outward normal and negative where it opposes it. A boundary edge contributes only one
-     * cotangent.
-     *
-     * <p>See also: Meyer 2003
-     *
-     * @param mesh triangle mesh (used only for vertex count)
-     * @param positions packed XYZ vertex positions
-     * @param faceIdx flat triangle index buffer
-     * @param ed precomputed edge / dihedral data; supplies face normals for the sign convention
-     * @param barycentricArea per-vertex barycentric area (already normalized)
-     * @return signed per-vertex mean curvature {@code H} in 1/length units
-     */
-    private static float[] computeMeanCurvature(
-            MeshTopology mesh, float[] positions, int[] faceIdx,
-            EdgeDihedrals ed, float[] barycentricArea) {
-        int nv = mesh.vertexIdBound();
-        int faceCount = faceIdx.length / 3;
-        // Per-vertex mean-curvature vector components.
-        float[] hx = new float[nv];
-        float[] hy = new float[nv];
-        float[] hz = new float[nv];
-        // For each triangle, contribute (cot α) · (p_j - p_i) to the accumulator
-        // for each of its three edges, with α being the angle at the third
-        // vertex. Each edge collects contributions from both incident triangles.
-        for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f * 3], b = faceIdx[f * 3 + 1], c = faceIdx[f * 3 + 2];
-            // Cotangent of angle at each vertex of this triangle.
-            float cotA = cotAtVertex(positions, a, b, c);
-            float cotB = cotAtVertex(positions, b, c, a);
-            float cotC = cotAtVertex(positions, c, a, b);
-            // Edge (b,c) opposite a contributes cotA · (b - c) to b's accum
-            // and cotA · (c - b) to c's accum.
-            accumCot(hx, hy, hz, positions, b, c, cotA);
-            accumCot(hx, hy, hz, positions, c, a, cotB);
-            accumCot(hx, hy, hz, positions, a, b, cotC);
-        }
-        // Normalize by 1/(2 A_v) and compute signed magnitude via dot with
-        // vertex normal (we reuse face normals averaged per vertex).
-        float[] vertexNormals = ed.vertexNormals(nv);
-        float[] meanH = new float[nv];
-        for (int v = 0; v < nv; v++) {
-            float Av = Math.max(barycentricArea[v], MIN_BARYCENTRIC_AREA);
-            float nx = hx[v] / (2f * Av);
-            float ny = hy[v] / (2f * Av);
-            float nz = hz[v] / (2f * Av);
-            float magnitude = (float) Math.sqrt(nx * nx + ny * ny + nz * nz) * 0.5f;
-            // Sign via dot product with vertex normal: positive = convex.
-            float dot = nx * vertexNormals[v * 3]
-                      + ny * vertexNormals[v * 3 + 1]
-                      + nz * vertexNormals[v * 3 + 2];
-            meanH[v] = dot > 0 ? magnitude : -magnitude;
-        }
-        return meanH;
-    }
-
-    private static void accumCot(float[] hx, float[] hy, float[] hz,
-                                 float[] positions, int u, int w, float cotVal) {
-        float dx = positions[w * 3]     - positions[u * 3];
-        float dy = positions[w * 3 + 1] - positions[u * 3 + 1];
-        float dz = positions[w * 3 + 2] - positions[u * 3 + 2];
-        // (p_w - p_u) contributes to u's accum, (p_u - p_w) to w's.
-        hx[u] += cotVal * dx;
-        hy[u] += cotVal * dy;
-        hz[u] += cotVal * dz;
-        hx[w] -= cotVal * dx;
-        hy[w] -= cotVal * dy;
-        hz[w] -= cotVal * dz;
-    }
-
-    private static float cotAtVertex(float[] positions, int at, int b, int c) {
-        float ax = positions[b * 3]     - positions[at * 3];
-        float ay = positions[b * 3 + 1] - positions[at * 3 + 1];
-        float az = positions[b * 3 + 2] - positions[at * 3 + 2];
-        float bx = positions[c * 3]     - positions[at * 3];
-        float by = positions[c * 3 + 1] - positions[at * 3 + 1];
-        float bz = positions[c * 3 + 2] - positions[at * 3 + 2];
-        float dot = ax * bx + ay * by + az * bz;
-        float crossX = ay * bz - az * by;
-        float crossY = az * bx - ax * bz;
-        float crossZ = ax * by - ay * bx;
-        float crossLen = (float) Math.sqrt(crossX * crossX + crossY * crossY + crossZ * crossZ);
-        if (crossLen < VECTOR_LENGTH_EPSILON) return 0f;
-        return dot / crossLen;
-    }
-
-    /**
-     * Per-vertex Gaussian curvature K = (2π - Σθ)/A_v, using the same
-     * barycentric area normalization as mean curvature so the κ₁,₂ formula
-     * behaves dimensionally correctly.
-     *
-     * @param mesh triangle mesh (used only for vertex count)
-     * @param positions packed XYZ vertex positions
-     * @param faceIdx flat triangle index buffer
-     * @param barycentricArea per-vertex barycentric area (denominator)
-     * @return per-vertex Gaussian curvature {@code K} in 1/length^2 units
-     */
-    private static float[] computeGaussianCurvature(
-            MeshTopology mesh, float[] positions, int[] faceIdx, float[] barycentricArea) {
-        float[] defect = computeAngleDefect(mesh, positions, faceIdx);
-        int nv = mesh.vertexIdBound();
-        float[] K = new float[nv];
-        for (int v = 0; v < nv; v++) {
-            float Av = Math.max(barycentricArea[v], MIN_BARYCENTRIC_AREA);
-            K[v] = defect[v] / Av;
-        }
-        return K;
-    }
-
-    /**
-     * Principal curvatures from mean H and Gaussian K:
-     * κ₁,₂ = H ± √(max(0, H² - K)). Returns [kappa1[], kappa2[]] with
-     * κ₁ ≥ κ₂ pointwise.
-     *
-     * @param H per-vertex mean curvature
-     * @param K per-vertex Gaussian curvature
-     * @return two-row array {@code [κ₁[], κ₂[]]} with {@code κ₁ >= κ₂} pointwise
-     */
-    private static float[][] computePrincipalCurvatures(float[] H, float[] K) {
-        int nv = H.length;
-        float[] k1 = new float[nv];
-        float[] k2 = new float[nv];
-        for (int v = 0; v < nv; v++) {
-            float discriminant = Math.max(0f, H[v] * H[v] - K[v]);
-            float s = (float) Math.sqrt(discriminant);
-            k1[v] = H[v] + s;
-            k2[v] = H[v] - s;
-        }
-        return new float[][]{k1, k2};
     }
 
     /**

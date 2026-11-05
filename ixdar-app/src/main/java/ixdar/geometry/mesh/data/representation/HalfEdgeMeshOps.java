@@ -591,9 +591,9 @@ public class HalfEdgeMeshOps {
     }
 
     /**
-     * Recomputes per-face and per-vertex normals in place. Face normal is the
-     * unit cross of the first two edges; vertex normals accumulate area-weighted
-     * face normals (via the unnormalized cross product) and are then normalized.
+     * Recomputes per-face and per-vertex normals in place. A face's normal is its unit vector
+     * area, the sum of its fan triangles' crosses; vertex normals sum the faces' vector areas,
+     * normalized.
      *
      * @param mesh target mesh
      */
@@ -617,12 +617,21 @@ public class HalfEdgeMeshOps {
                 continue;
             }
 
+            // The fan from the first corner sums to the polygon's vector area, so a quad folded
+            // across its first diagonal is weighed by both halves, not by the first alone. The
+            // first cross seeds the sum, keeping a triangle's bit for bit (0 + -0 would be +0).
             mesh.vertexPosition(mesh.faceVertexAt(faceId, 0), p0);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 1), p1);
-            mesh.vertexPosition(mesh.faceVertexAt(faceId, 2), p2);
-            edgeA.set(p1).sub(p0);
-            edgeB.set(p2).sub(p0);
-            edgeA.cross(edgeB, areaNormal);
+            for (int corner = 1; corner + 1 < mesh.faceVertexCount(faceId); corner++) {
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, corner), p1);
+                mesh.vertexPosition(mesh.faceVertexAt(faceId, corner + 1), p2);
+                edgeA.set(p1).sub(p0);
+                edgeB.set(p2).sub(p0);
+                if (corner == 1) {
+                    edgeA.cross(edgeB, areaNormal);
+                } else {
+                    areaNormal.add(edgeA.cross(edgeB));
+                }
+            }
             if (areaNormal.lengthSquared() == 0f) {
                 continue;
             }

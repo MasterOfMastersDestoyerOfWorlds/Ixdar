@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.grid2d.PolylineSimplify;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.numeric.graph.Dijkstra;
@@ -392,12 +393,16 @@ public final class MeshSkeletonExtractor {
             for (int j = 1; j < worldPos.length; j++) rawLength += dist3(worldPos[j - 1], worldPos[j]);
             if (rawLength < vs * MIN_BRANCH_VOXELS) continue;  // skip branches shorter than ~15 voxels
 
-            // RDP simplification
-            List<Integer> kept = rdpSimplify(worldPos, vs * RDP_EPSILON_VOXELS);
+            float[] packedPath = new float[worldPos.length * 3];
+            for (int i = 0; i < worldPos.length; i++) {
+                System.arraycopy(worldPos[i], 0, packedPath, i * 3, 3);
+            }
+            boolean[] kept = PolylineSimplify.keptPoints(packedPath, 3, vs * RDP_EPSILON_VOXELS);
 
             // Build joints
             List<SkeletonJoint> joints = new ArrayList<>();
-            for (int k : kept) {
+            for (int k = 0; k < kept.length; k++) {
+                if (!kept[k]) continue;
                 float r = dfb[path.get(k)[MIN_PATH_LENGTH]];
                 if (r == Float.MAX_VALUE) r = 0;
                 joints.add(new SkeletonJoint(worldPos[k], r * vs));
@@ -468,54 +473,6 @@ public final class MeshSkeletonExtractor {
     }
 
     // ───────── Utilities ─────────
-
-    private static List<Integer> rdpSimplify(float[][] points, float epsilon) {
-        if (points.length <= 2) {
-            List<Integer> r = new ArrayList<>();
-            for (int i = 0; i < points.length; i++) r.add(i);
-            return r;
-        }
-        boolean[] keep = new boolean[points.length];
-        keep[0] = true;
-        keep[points.length - 1] = true;
-        rdpRecurse(points, 0, points.length - 1, epsilon, keep);
-        List<Integer> result = new ArrayList<>();
-        for (int i = 0; i < points.length; i++) {
-            if (keep[i]) result.add(i);
-        }
-        return result;
-    }
-
-    private static void rdpRecurse(float[][] pts, int lo, int hi, float eps, boolean[] keep) {
-        if (hi - lo < 2) return;
-        float[] a = pts[lo], b = pts[hi];
-        float abx = b[0] - a[0], aby = b[1] - a[1], abz = b[2] - a[2];
-        float abLen = (float) Math.sqrt(abx * abx + aby * aby + abz * abz);
-
-        float maxDist = 0;
-        int maxIdx = lo;
-        for (int i = lo + 1; i < hi; i++) {
-            float d;
-            if (abLen < ZERO_LENGTH_EPSILON) {
-                float dx = pts[i][0] - a[0], dy = pts[i][1] - a[1], dz = pts[i][2] - a[2];
-                d = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-            } else {
-                float t = ((pts[i][0] - a[0]) * abx + (pts[i][1] - a[1]) * aby + (pts[i][2] - a[2]) * abz) / (abLen * abLen);
-                t = Math.max(0, Math.min(1, t));
-                float px = a[0] + t * abx - pts[i][0];
-                float py = a[1] + t * aby - pts[i][1];
-                float pz = a[2] + t * abz - pts[i][2];
-                d = (float) Math.sqrt(px * px + py * py + pz * pz);
-            }
-            if (d > maxDist) { maxDist = d; maxIdx = i; }
-        }
-
-        if (maxDist > eps) {
-            keep[maxIdx] = true;
-            rdpRecurse(pts, lo, maxIdx, eps, keep);
-            rdpRecurse(pts, maxIdx, hi, eps, keep);
-        }
-    }
 
     private static float dist3(float[] a, float[] b) {
         float dx = a[0] - b[0], dy = a[1] - b[1], dz = a[2] - b[2];

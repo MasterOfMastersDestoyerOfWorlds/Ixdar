@@ -2,20 +2,19 @@ package ixdar.geometry.grid2d;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.PriorityQueue;
 import java.util.function.IntPredicate;
 import java.util.function.ToDoubleBiFunction;
 
 import org.joml.Vector2f;
 
 import ixdar.graphics.cameras.Camera2D;
+import ixdar.numeric.graph.Dijkstra;
 import ixdar.scenes.main.MainScene;
 import ixdar.geometry.tsp.input.PointCollection;
 import ixdar.geometry.tsp.points.PointND;
 
 public class IrregularQuadGrid extends Grid {
     public static final float HEURISTIC_STEP_FACTOR = 3.4f;
-    public static final double STALE_ENTRY_TOLERANCE = 1e-9;
 
     private final ArrayList<Vector2f> anchors;
     private final ArrayList<Vector2f> dualPoints;
@@ -32,10 +31,7 @@ public class IrregularQuadGrid extends Grid {
     private final ArrayList<int[]> faces;
     private final int[][] neighbours;
     private final float cellSpacing;
-    private final double[] pathCost;
-    private final int[] previousCell;
-    private final int[] visitStamp;
-    private int currentStamp;
+    private final Dijkstra frontier = new Dijkstra();
 
     /**
      * Bare-bones constructor that records the grid's dimensions and reuses the
@@ -64,9 +60,6 @@ public class IrregularQuadGrid extends Grid {
         this.faces = new ArrayList<>();
         this.neighbours = new int[0][];
         this.cellSpacing = 1f;
-        this.pathCost = new double[0];
-        this.previousCell = new int[0];
-        this.visitStamp = new int[0];
     }
 
     /**
@@ -105,9 +98,6 @@ public class IrregularQuadGrid extends Grid {
             }
         }
         this.cellSpacing = spacingCount == 0 ? 1f : spacingSum / spacingCount;
-        this.pathCost = new double[faces.size()];
-        this.previousCell = new int[faces.size()];
-        this.visitStamp = new int[faces.size()];
     }
 
     /**
@@ -237,41 +227,24 @@ public class IrregularQuadGrid extends Grid {
         if (from == to) {
             return new int[] { from };
         }
-        currentStamp++;
         float longestStep = cellSpacing * HEURISTIC_STEP_FACTOR;
-        PriorityQueue<double[]> frontier = new PriorityQueue<>((p, q) -> Double.compare(p[0], q[0]));
-        visitStamp[from] = currentStamp;
-        pathCost[from] = 0;
-        previousCell[from] = -1;
-        frontier.add(new double[] { cellDistance(from, to) / longestStep, from });
-        while (!frontier.isEmpty()) {
-            double[] entry = frontier.poll();
-            int cell = (int) entry[1];
-            if (cell == to) {
-                break;
-            }
-            if (entry[0] - cellDistance(cell, to) / longestStep > pathCost[cell] + STALE_ENTRY_TOLERANCE) {
-                continue;
-            }
+        frontier.start(faces.size());
+        frontier.relax(from, 0.0, cellDistance(from, to) / longestStep, -1);
+        for (int cell = frontier.settle(); cell >= 0 && cell != to; cell = frontier.settle()) {
             for (int neighbour : neighbours[cell]) {
                 double step = stepCost.applyAsDouble(cell, neighbour);
                 if (Double.isInfinite(step)) {
                     continue;
                 }
-                double candidate = pathCost[cell] + step;
-                if (visitStamp[neighbour] != currentStamp || candidate < pathCost[neighbour]) {
-                    visitStamp[neighbour] = currentStamp;
-                    pathCost[neighbour] = candidate;
-                    previousCell[neighbour] = cell;
-                    frontier.add(new double[] { candidate + cellDistance(neighbour, to) / longestStep, neighbour });
-                }
+                double candidate = frontier.distance(cell) + step;
+                frontier.relax(neighbour, candidate, candidate + cellDistance(neighbour, to) / longestStep, cell);
             }
         }
-        if (visitStamp[to] != currentStamp) {
+        if (!frontier.isReached(to)) {
             return null;
         }
         ArrayList<Integer> reversed = new ArrayList<>();
-        for (int cell = to; cell != -1; cell = previousCell[cell]) {
+        for (int cell = to; cell != -1; cell = frontier.via(cell)) {
             reversed.add(cell);
         }
         int[] path = new int[reversed.size()];

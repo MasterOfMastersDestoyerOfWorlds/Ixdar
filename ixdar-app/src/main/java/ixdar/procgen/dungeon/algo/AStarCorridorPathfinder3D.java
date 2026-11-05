@@ -1,11 +1,11 @@
 package ixdar.procgen.dungeon.algo;
 
 import java.util.Arrays;
-import java.util.PriorityQueue;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.numeric.graph.Dijkstra;
 import ixdar.nodegraph.field.Vector3Field;
 import ixdar.procgen.dungeon.values.CellType;
 
@@ -101,26 +101,14 @@ public final class AStarCorridorPathfinder3D {
                          int sx, int sy, int sz, int tx, int ty, int tz,
                          double hallwayReuseCost, double emptyCellCost, double throughRoomCost) {
         int total = gridW * gridH * gridD;
-        double[] g = new double[total];
-        double[] f = new double[total];
-        int[] parent = new int[total];
         int[] kindIn = new int[total];
-        boolean[] queued = new boolean[total];
-        Arrays.fill(g, Double.POSITIVE_INFINITY);
-        Arrays.fill(f, Double.POSITIVE_INFINITY);
-        Arrays.fill(parent, -1);
         int start = idx(sx, sy, sz, gridW, gridD);
         int target = idx(tx, ty, tz, gridW, gridD);
-        g[start] = 0;
         double hUnit = Math.min(hallwayReuseCost, Math.min(emptyCellCost, throughRoomCost));
-        f[start] = heuristic(sx, sy, sz, tx, ty, tz, hUnit);
-        PriorityQueue<Integer> open = new PriorityQueue<>(AStarCorridorPathfinder2D.cellOrder(f, g));
-        open.add(start);
-        queued[start] = true;
-        while (!open.isEmpty()) {
-            int cur = open.poll();
-            queued[cur] = false;
-            if (cur == target) break;
+        Dijkstra walk = new Dijkstra();
+        walk.start(total);
+        walk.relax(start, 0.0, heuristic(sx, sy, sz, tx, ty, tz, hUnit), -1);
+        for (int cur = walk.settle(); cur >= 0 && cur != target; cur = walk.settle()) {
             int cx = cur % gridW;
             int rest = cur / gridW;
             int cz = rest % gridD;
@@ -132,23 +120,20 @@ public final class AStarCorridorPathfinder3D {
                 if (nx < 0 || nx >= gridW || nz < 0 || nz >= gridD) continue;
                 int nIdx = idx(nx, cy, nz, gridW, gridD);
                 double step = enterCost(cells[nIdx], hallwayReuseCost, emptyCellCost, throughRoomCost);
-                relax(open, queued, g, f, parent, kindIn, cur, nIdx, step, 0,
-                        nx, cy, nz, tx, ty, tz, hUnit);
+                relax(walk, kindIn, cur, nIdx, step, 0, nx, cy, nz, tx, ty, tz, hUnit);
             }
             // Stair moves: up one floor, two cells horizontal.
             for (int d = 0; d < 4; d++) {
                 int dx = DX[d], dz = DZ[d];
-                if (cy + 1 < gridH) trySairStep(cells, gridW, gridH, gridD,
-                        open, queued, g, f, parent, kindIn, cur,
+                if (cy + 1 < gridH) trySairStep(cells, gridW, gridH, gridD, walk, kindIn, cur,
                         hallwayReuseCost, emptyCellCost, throughRoomCost,
                         cx, cy, cz, dx, dz, +1, tx, ty, tz, hUnit);
-                if (cy - 1 >= 0)    trySairStep(cells, gridW, gridH, gridD,
-                        open, queued, g, f, parent, kindIn, cur,
+                if (cy - 1 >= 0)    trySairStep(cells, gridW, gridH, gridD, walk, kindIn, cur,
                         hallwayReuseCost, emptyCellCost, throughRoomCost,
                         cx, cy, cz, dx, dz, -1, tx, ty, tz, hUnit);
             }
         }
-        if (parent[target] < 0 && start != target) return null;
+        if (!walk.isReached(target)) return null;
         // Reconstruct path: list of (x, y, z, kind) where kind=1 means destination of stair.
         int[][] tmp = new int[total][];
         int len = 0;
@@ -159,8 +144,7 @@ public final class AStarCorridorPathfinder3D {
             int z = rest % gridD;
             int y = rest / gridD;
             tmp[len++] = new int[] { x, y, z, kindIn[node] };
-            if (node == start) break;
-            node = parent[node];
+            node = walk.via(node);
         }
         int[][] path = new int[len][];
         for (int i = 0; i < len; i++) path[i] = tmp[len - 1 - i];
@@ -168,9 +152,7 @@ public final class AStarCorridorPathfinder3D {
     }
 
     private static void trySairStep(
-            CellType[] cells, int gridW, int gridH, int gridD,
-            PriorityQueue<Integer> open, boolean[] queued, double[] g, double[] f,
-            int[] parent, int[] kindIn, int cur,
+            CellType[] cells, int gridW, int gridH, int gridD, Dijkstra walk, int[] kindIn, int cur,
             double hallwayReuseCost, double emptyCellCost, double throughRoomCost,
             int cx, int cy, int cz, int dx, int dz, int dy,
             int tx, int ty, int tz, double hUnit) {
@@ -190,26 +172,18 @@ public final class AStarCorridorPathfinder3D {
                     + enterCost(cells[upperIdx], hallwayReuseCost, emptyCellCost, throughRoomCost)
                     + enterCost(cells[destIdx], hallwayReuseCost, emptyCellCost, throughRoomCost)
                     + STAIR_BUILD_PREMIUM;
-        relax(open, queued, g, f, parent, kindIn, cur, destIdx, step, 1,
-                destX, destY, destZ, tx, ty, tz, hUnit);
+        relax(walk, kindIn, cur, destIdx, step, 1, destX, destY, destZ, tx, ty, tz, hUnit);
     }
 
     private static boolean stairBuildable(CellType c) {
         return c == CellType.EMPTY || c == CellType.STAIR_UP || c == CellType.STAIR_DOWN;
     }
 
-    private static void relax(PriorityQueue<Integer> open, boolean[] queued, double[] g, double[] f,
-                              int[] parent, int[] kindIn, int cur, int nIdx, double step, int kind,
+    private static void relax(Dijkstra walk, int[] kindIn, int cur, int nIdx, double step, int kind,
                               int nx, int ny, int nz, int tx, int ty, int tz, double hUnit) {
-        double ng = g[cur] + step;
-        if (ng < g[nIdx]) {
-            if (queued[nIdx]) open.remove(Integer.valueOf(nIdx));
-            g[nIdx] = ng;
-            f[nIdx] = ng + heuristic(nx, ny, nz, tx, ty, tz, hUnit);
-            parent[nIdx] = cur;
+        double ng = walk.distance(cur) + step;
+        if (walk.relax(nIdx, ng, ng + heuristic(nx, ny, nz, tx, ty, tz, hUnit), cur)) {
             kindIn[nIdx] = kind;
-            open.add(nIdx);
-            queued[nIdx] = true;
         }
     }
 

@@ -44,7 +44,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def _add_command_parser(subparsers: argparse._SubParsersAction, command_name: str, command: CliCommand) -> None:
     command_parser = subparsers.add_parser(
         command_name,
-        help=command.summary,
+        help=command.summary.replace("%", "%%"),
         description=_command_description(command),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -65,7 +65,8 @@ def _command_description(command: CliCommand) -> str:
 
 
 def _add_command_argument(command_parser: argparse.ArgumentParser, parameter: CliParameter) -> None:
-    kwargs: dict = {"help": parameter.help_text}
+    # argparse %-formats help text, so a literal % in a docstring (``%p``, "50%") is doubled.
+    kwargs: dict = {"help": parameter.help_text.replace("%", "%%")}
     if parameter.choices is not None:
         kwargs["choices"] = parameter.choices
 

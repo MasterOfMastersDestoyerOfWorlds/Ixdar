@@ -150,23 +150,13 @@ public class TraceOutlines extends AutomationEndpoint implements AutomationRoute
             svg.append(templateText.substring(0, templateText.lastIndexOf(TraceReference.SVG_END))
                     .replaceAll("<polyline\\b[^>]*/>\\n?|<!-- trace-(reference|outlines):.*?-->\\n?", ""));
         } else {
-            StringBuilder layout = new StringBuilder();
-            StringBuilder views = new StringBuilder();
-            for (int cell = 0; cell < angles.length; cell++) {
-                layout.append(String.format(Locale.ROOT, "%n  cell %d (column %d, row %d, x %d-%d, y %d-%d): %s", cell,
-                        cell % columns, cell / columns, cell % columns * cellWidth, (cell % columns + 1) * cellWidth,
-                        cell / columns * cellHeight, (cell / columns + 1) * cellHeight, labels[cell]));
-                views.append(cell == 0 ? "" : StrokeSketch.VIEW_SEPARATOR).append(String.format(Locale.ROOT, "%.6f %.6f",
-                        angles[cell][0], angles[cell][1]));
-            }
             int rows = (angles.length + columns - 1) / columns;
-            svg.append(String.format(Locale.ROOT, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%d\" height=\"%d\" "
-                    + "viewBox=\"0 0 %d %d\"%n     data-center=\"0.000000 0.000000 0.000000\" data-distance=\"%.6f\" "
-                    + "data-fov=\"%.4f\" data-projection=\"orthographic\"%n     data-cell-width=\"%d\" "
-                    + "data-cell-height=\"%d\" data-columns=\"%d\"%n     data-views=\"%s\">%n<!-- Outlines written by "
-                    + "ixdar-cli trace-outlines at one shared scale, subject height %s. Cells:%s%n-->%n",
-                    columns * cellWidth, rows * cellHeight, columns * cellWidth, rows * cellHeight, distance, fieldOfView,
-                    cellWidth, cellHeight, columns, views, height, layout));
+            svg.append(StrokeSketch.svgRoot(columns * cellWidth, rows * cellHeight, columns * cellWidth,
+                    rows * cellHeight, new float[3], distance, fieldOfView, true, cellWidth, cellHeight, columns,
+                    StrokeSketch.angleViews(angles)));
+            svg.append(String.format(Locale.ROOT, "<!-- Outlines written by ixdar-cli trace-outlines at one shared "
+                    + "scale, subject height %s. Cells:%s%n-->%n", height,
+                    StrokeSketch.cellLayout(labels, columns, cellWidth, cellHeight)));
         }
         float simplify = body.has(SIMPLIFY) ? body.get(SIMPLIFY).getAsFloat() : Float.parseFloat(DEFAULT_SIMPLIFY);
         JsonArray placedRows = new JsonArray();

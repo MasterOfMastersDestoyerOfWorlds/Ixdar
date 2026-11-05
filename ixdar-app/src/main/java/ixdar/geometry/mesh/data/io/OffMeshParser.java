@@ -7,8 +7,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.joml.Vector3f;
-
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
@@ -291,8 +289,8 @@ public final class OffMeshParser {
     }
 
     /**
-     * Assemble the mesh both bodies produce: positions, synthesized vertex normals, and either
-     * the quads as authored or a fan triangulation of every face.
+     * Assemble the mesh both bodies produce: positions, the mesh's own area-weighted normals, and
+     * either the quads as authored or a fan triangulation of every face.
      *
      * @param positions three floats per vertex, in file order
      * @param faces     vertex indices of each face, in file order
@@ -306,10 +304,27 @@ public final class OffMeshParser {
         float[] posArray = new float[positions.size()];
         for (int i = 0; i < positions.size(); i++)
             posArray[i] = positions.get(i);
-        float[] normArray = new float[positions.size()];
 
-        // Fan every face into triangles; the triangles carry the normals, and the mesh too unless
-        // every face is a quad.
+        // An all-quad file keeps its quads; any other is fan-triangulated.
+        boolean uniformQuads = !faces.isEmpty();
+        for (int[] face : faces) {
+            if (face.length != 4) {
+                uniformQuads = false;
+                break;
+            }
+        }
+        if (uniformQuads) {
+            int[] faceIndices = new int[faces.size() * 4];
+            int fi = 0;
+            for (int[] face : faces) {
+                faceIndices[fi++] = face[0];
+                faceIndices[fi++] = face[1];
+                faceIndices[fi++] = face[2];
+                faceIndices[fi++] = face[MeshLoader.FLOATS_PER_VERTEX];
+            }
+            return MeshLoader.indexedMesh(posArray, null, faceIndices, 4);
+        }
+
         int totalTriIndices = 0;
         for (int[] face : faces) {
             if (face.length >= MeshLoader.FLOATS_PER_VERTEX) {
@@ -330,72 +345,9 @@ public final class OffMeshParser {
             }
         }
 
-        // Synthesize vertex normals by accumulating face normals (matches parseObj's
-        // behavior).
-        Vector3f e1 = new Vector3f();
-        Vector3f e2 = new Vector3f();
-        Vector3f fn = new Vector3f();
-        for (int corner = 0; corner < triangleIndices.length;
-                corner += MeshLoader.FLOATS_PER_VERTEX) {
-            int v0 = triangleIndices[corner];
-            int v1 = triangleIndices[corner + 1];
-            int v2 = triangleIndices[corner + 2];
-            int p0o = v0 * MeshLoader.FLOATS_PER_VERTEX;
-            int p1o = v1 * MeshLoader.FLOATS_PER_VERTEX;
-            int p2o = v2 * MeshLoader.FLOATS_PER_VERTEX;
-            e1.set(posArray[p1o], posArray[p1o + 1], posArray[p1o + 2])
-                    .sub(posArray[p0o], posArray[p0o + 1], posArray[p0o + 2]);
-            e2.set(posArray[p2o], posArray[p2o + 1], posArray[p2o + 2])
-                    .sub(posArray[p0o], posArray[p0o + 1], posArray[p0o + 2]);
-            e1.cross(e2, fn);
-            float len = fn.length();
-            if (len > MeshLoader.NORMAL_LENGTH_EPSILON) {
-                fn.mul(1.0f / len);
-            }
-            for (int v : new int[] { v0, v1, v2 }) {
-                int vo = v * MeshLoader.FLOATS_PER_VERTEX;
-                normArray[vo] += fn.x;
-                normArray[vo + 1] += fn.y;
-                normArray[vo + 2] += fn.z;
-            }
-        }
-        for (int i = 0; i < normArray.length; i += MeshLoader.FLOATS_PER_VERTEX) {
-            float nx = normArray[i];
-            float ny = normArray[i + 1];
-            float nz = normArray[i + 2];
-            float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (len > MeshLoader.NORMAL_LENGTH_EPSILON) {
-                normArray[i] = nx / len;
-                normArray[i + 1] = ny / len;
-                normArray[i + 2] = nz / len;
-            }
-        }
-
-        // Determine vertsPerFace from the first face; fan-triangulate everything else.
-        int vertsPerFace = MeshLoader.FLOATS_PER_VERTEX;
-        boolean uniformQuads = !faces.isEmpty();
-        for (int[] face : faces) {
-            if (face.length != 4) {
-                uniformQuads = false;
-                break;
-            }
-        }
-        if (uniformQuads) {
-            vertsPerFace = 4;
-            int[] faceIndices = new int[faces.size() * 4];
-            int fi = 0;
-            for (int[] face : faces) {
-                faceIndices[fi++] = face[0];
-                faceIndices[fi++] = face[1];
-                faceIndices[fi++] = face[2];
-                faceIndices[fi++] = face[MeshLoader.FLOATS_PER_VERTEX];
-            }
-            return MeshLoader.indexedMesh(posArray, normArray, faceIndices, vertsPerFace);
-        }
-
         if (triangleIndices.length == 0) {
             return new HalfEdgeMesh();
         }
-        return MeshLoader.indexedMesh(posArray, normArray, triangleIndices, vertsPerFace);
+        return MeshLoader.indexedMesh(posArray, null, triangleIndices, MeshLoader.FLOATS_PER_VERTEX);
     }
 }

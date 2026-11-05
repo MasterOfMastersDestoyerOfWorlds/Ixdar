@@ -14,7 +14,6 @@ import java.util.regex.Pattern;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.joml.Vector4f;
 
 import ixdar.geometry.grid2d.PolygonScan;
 import ixdar.geometry.mesh.data.io.MeshLoader;
@@ -124,6 +123,9 @@ public final class StrokeSketch {
     public static final Pattern SMOOTH_ATTRIBUTE = Pattern.compile("\\bdata-op\\s*=\\s*\"smooth\"");
 
     public static final Pattern VIEWBOX_ATTRIBUTE = Pattern.compile("\\bviewBox\\s*=\\s*\"([^\"]*)\"");
+
+    // Sketch points are world points: the model matrix they project through is the identity.
+    private static final Matrix4f WORLD = new Matrix4f();
 
     /** Point the camera orbits, the multiview capture's centre. */
     public final float[] center = new float[3];
@@ -314,14 +316,12 @@ public final class StrokeSketch {
      * @return false when the point lies behind the camera
      */
     public boolean cellPixel(Camera3D camera, Vector3f point, float[] dest) {
-        Vector4f clip = new Vector4f(point, 1f);
-        camera.view.transform(clip);
-        camera.projection.transform(clip);
-        if (clip.w <= 0f) {
+        if (!camera.projectToPixels(WORLD, point.x, point.y, point.z, cellWidth, cellHeight, dest)) {
             return false;
         }
-        dest[0] = (clip.x / clip.w + 1f) * cellWidth * 0.5f - 0.5f;
-        dest[1] = (1f - clip.y / clip.w) * cellHeight * 0.5f - 0.5f;
+        // projectToPixels puts a pixel's centre half a pixel past its whole number.
+        dest[0] -= 0.5f;
+        dest[1] -= 0.5f;
         return true;
     }
 
@@ -705,20 +705,80 @@ public final class StrokeSketch {
                     camera[VIEW_DISTANCE], camera[VIEW_ROLL], camera[VIEW_FIELD_OF_VIEW], camera[VIEW_CENTER],
                     camera[VIEW_CENTER + 1], camera[VIEW_CENTER + 2]));
         }
-        StringBuilder svg = new StringBuilder(String.format(Locale.ROOT,
-                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\"%n"
-                        + "     %s=\"%.6f %.6f %.6f\" %s=\"%.6f\" %s=\"%.4f\" %s=\"%s\"%n"
-                        + "     %s=\"%d\" %s=\"%d\" %s=\"%d\"%n     %s=\"%s\">%n"
-                        + "<!-- One cell per view; each data-views entry is that view's azimuth, elevation, "
-                        + "distance, roll, field of view and centre. -->%n",
-                width, height, Math.round(width / svgScaleX), Math.round(height / svgScaleY), CENTER_ATTRIBUTE,
-                center[0], center[1], center[2], DISTANCE_ATTRIBUTE, distance, FIELD_OF_VIEW_ATTRIBUTE,
-                fieldOfViewDegrees, PROJECTION_ATTRIBUTE, orthographic ? ORTHOGRAPHIC : PERSPECTIVE,
-                CELL_WIDTH_ATTRIBUTE, cellWidth, CELL_HEIGHT_ATTRIBUTE, cellHeight, COLUMNS_ATTRIBUTE, columns,
-                VIEWS_ATTRIBUTE, views));
+        StringBuilder svg = new StringBuilder(svgRoot(width, height, Math.round(width / svgScaleX),
+                Math.round(height / svgScaleY), center, distance, fieldOfViewDegrees, orthographic, cellWidth,
+                cellHeight, columns, views.toString()));
+        svg.append(String.format(Locale.ROOT, "<!-- One cell per view; each data-views entry is that view's "
+                + "azimuth, elevation, distance, roll, field of view and centre. -->%n"));
         for (String shape : shapes) {
             svg.append(shape).append('\n');
         }
         return svg.append("</svg>\n").toString();
+    }
+
+    /**
+     * A sketch's opening {@code <svg>} tag, carrying the shared camera, the cell grid and the
+     * {@link #VIEWS_ATTRIBUTE} table {@link #parse} reads back, then a line break.
+     *
+     * @param width              width in pixels
+     * @param height             height in pixels
+     * @param viewBoxWidth       viewBox width, in SVG units
+     * @param viewBoxHeight      viewBox height, in SVG units
+     * @param center             orbit centre every cell looks at, xyz
+     * @param distance           orbit distance
+     * @param fieldOfViewDegrees vertical field of view
+     * @param orthographic       whether the cells were captured orthographically
+     * @param cellWidth          cell width in pixels
+     * @param cellHeight         cell height in pixels
+     * @param columns            cells per row
+     * @param views              one entry per cell, joined by {@link #VIEW_SEPARATOR}
+     * @return the tag text
+     */
+    public static String svgRoot(int width, int height, int viewBoxWidth, int viewBoxHeight, float[] center,
+            float distance, float fieldOfViewDegrees, boolean orthographic, int cellWidth, int cellHeight,
+            int columns, String views) {
+        return String.format(Locale.ROOT,
+                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\"%n"
+                        + "     %s=\"%.6f %.6f %.6f\" %s=\"%.6f\" %s=\"%.4f\" %s=\"%s\"%n"
+                        + "     %s=\"%d\" %s=\"%d\" %s=\"%d\"%n     %s=\"%s\">%n",
+                width, height, viewBoxWidth, viewBoxHeight, CENTER_ATTRIBUTE, center[0], center[1], center[2],
+                DISTANCE_ATTRIBUTE, distance, FIELD_OF_VIEW_ATTRIBUTE, fieldOfViewDegrees, PROJECTION_ATTRIBUTE,
+                orthographic ? ORTHOGRAPHIC : PERSPECTIVE, CELL_WIDTH_ATTRIBUTE, cellWidth, CELL_HEIGHT_ATTRIBUTE,
+                cellHeight, COLUMNS_ATTRIBUTE, columns, VIEWS_ATTRIBUTE, views);
+    }
+
+    /**
+     * A {@link #VIEWS_ATTRIBUTE} table of azimuth and elevation pairs alone, the rest of each camera
+     * shared from the root.
+     *
+     * @param angles azimuth then elevation, in radians, per cell in reading order
+     * @return the table, for {@link #svgRoot}
+     */
+    public static String angleViews(float[][] angles) {
+        StringBuilder views = new StringBuilder();
+        for (int cell = 0; cell < angles.length; cell++) {
+            views.append(cell == 0 ? "" : VIEW_SEPARATOR)
+                    .append(String.format(Locale.ROOT, "%.6f %.6f", angles[cell][0], angles[cell][1]));
+        }
+        return views.toString();
+    }
+
+    /**
+     * One line per cell, each starting on a new line: its index, column, row, pixel span and label.
+     *
+     * @param labels     what each cell shows, in reading order
+     * @param columns    cells per row
+     * @param cellWidth  cell width in pixels
+     * @param cellHeight cell height in pixels
+     * @return the lines, for a template's comment
+     */
+    public static String cellLayout(String[] labels, int columns, int cellWidth, int cellHeight) {
+        StringBuilder layout = new StringBuilder();
+        for (int cell = 0; cell < labels.length; cell++) {
+            layout.append(String.format(Locale.ROOT, "%n  cell %d (column %d, row %d, x %d-%d, y %d-%d): %s", cell,
+                    cell % columns, cell / columns, cell % columns * cellWidth, (cell % columns + 1) * cellWidth,
+                    cell / columns * cellHeight, (cell / columns + 1) * cellHeight, labels[cell]));
+        }
+        return layout.toString();
     }
 }

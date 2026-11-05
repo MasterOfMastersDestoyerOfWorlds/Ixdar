@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
+import ixdar.geometry.grid2d.PolylineResample;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonJoint;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonResult;
@@ -271,42 +272,14 @@ public final class MeshSkeletonComparator {
     }
 
     private static float[][] resampleJoints(List<SkeletonJoint> joints, int n) {
-        if (joints.size() == 1) {
-            float[][] result = new float[n][];
-            Arrays.fill(result, joints.get(0).position());
-            return result;
+        float[] packed = new float[joints.size() * 3];
+        for (int joint = 0; joint < joints.size(); joint++) {
+            System.arraycopy(joints.get(joint).position(), 0, packed, joint * 3, 3);
         }
-
-        // Compute cumulative arc length
-        float[] arcLen = new float[joints.size()];
-        for (int i = 1; i < joints.size(); i++) {
-            arcLen[i] = arcLen[i - 1] + dist3(joints.get(i - 1).position(), joints.get(i).position());
-        }
-        float totalLen = arcLen[joints.size() - 1];
-        if (totalLen < EPSILON) {
-            float[][] result = new float[n][];
-            Arrays.fill(result, joints.get(0).position());
-            return result;
-        }
-
+        float[] sampled = PolylineResample.uniform(packed, 0, joints.size(), 3, false, n);
         float[][] result = new float[n][];
-        for (int i = 0; i < n; i++) {
-            float targetLen = totalLen * i / (n - 1);
-            // Find segment
-            int seg = 0;
-            for (int s = 1; s < joints.size(); s++) {
-                if (arcLen[s] >= targetLen) { seg = s - 1; break; }
-                if (s == joints.size() - 1) seg = s - 1;
-            }
-            float segLen = arcLen[seg + 1] - arcLen[seg];
-            float t = segLen < EPSILON ? 0 : (targetLen - arcLen[seg]) / segLen;
-            float[] a = joints.get(seg).position();
-            float[] b = joints.get(seg + 1).position();
-            result[i] = new float[]{
-                    a[0] + t * (b[0] - a[0]),
-                    a[1] + t * (b[1] - a[1]),
-                    a[2] + t * (b[2] - a[2])
-            };
+        for (int sample = 0; sample < n; sample++) {
+            result[sample] = Arrays.copyOfRange(sampled, sample * 3, sample * 3 + 3);
         }
         return result;
     }

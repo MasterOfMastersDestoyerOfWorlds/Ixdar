@@ -222,10 +222,7 @@ public class MeshNodeViewerScene extends ModelScene {
                 "[mesh-viewer] model catalog: " + catalogSize + " entries from " + modelCatalog.root
                         + " and " + ModelCatalog.stagingRoot());
         if (catalogSize > 0) {
-            Platforms.get().log("[mesh-viewer] cycle models with [ and ]; P = patch overlay; "
-                    + "Shift+P cycles shader mode "
-                    + "(LAMBERT \u2192 FLAT \u2192 STAGES \u2192 CREST_VS_BOUNDARY \u2192 SCALAR/Coons-error \u2192 MSC); "
-                    + "D toggles decomposer (SEMANTIC \u2194 MORSE_SMALE)");
+            Platforms.get().log("[mesh-viewer] cycle models with [ and ]");
         }
         logState();
     }

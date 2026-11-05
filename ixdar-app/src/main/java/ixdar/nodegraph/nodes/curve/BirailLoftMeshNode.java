@@ -1,10 +1,13 @@
 package ixdar.nodegraph.nodes.curve;
 
+import java.util.Arrays;
 import java.util.List;
 
 import org.joml.Vector3f;
 
 import java.util.Map;
+
+import ixdar.geometry.grid2d.PolylineResample;
 
 import ixdar.nodegraph.api.InputPort;
 import ixdar.nodegraph.api.MeshNode;
@@ -31,7 +34,6 @@ public class BirailLoftMeshNode implements MeshNode {
     public static final float MIN_CLOSED_EPSILON = 1e-5f;
     public static final float CLOSED_EPSILON_PER_LENGTH = 1e-4f;
     public static final float MIN_ARC_LENGTH = 1e-20f;
-    public static final float ARC_LENGTH_EPSILON = 1e-8f;
 
     public static final InputPort RAIL_A = new InputPort("rail_a", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort RAIL_B = new InputPort("rail_b", PortType.GEOMETRY_BUNDLE, null);
@@ -85,39 +87,34 @@ public class BirailLoftMeshNode implements MeshNode {
         uSeg = Math.max(2, uSeg);
         vSeg = Math.max(2, vSeg);
 
-        Polyline pa = extractPolyline(cga);
-        Polyline pb = extractPolyline(cgb);
-        if (pa == null || pb == null) {
+        float[] railA = railPoints(cga);
+        float[] railB = railPoints(cgb);
+        if (railA == null || railB == null) {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
-        if (pa.closed != pb.closed) {
+        boolean closed = isClosed(railA);
+        if (closed != isClosed(railB)) {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
 
-        Vector3f[] aRes = resampleArcLength(pa.points, pa.closed, uSeg);
-        Vector3f[] bRes = resampleArcLength(pb.points, pb.closed, uSeg);
-        if (aRes == null || bRes == null) {
-            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
-            return;
-        }
+        float[] aRes = PolylineResample.uniform(railA, 0, railA.length / 3, 3, closed, uSeg);
+        float[] bRes = PolylineResample.uniform(railB, 0, railB.length / 3, 3, closed, uSeg);
 
         HalfEdgeMesh mesh = new HalfEdgeMesh();
         int[][] vid = new int[uSeg][vSeg];
         for (int i = 0; i < uSeg; i++) {
-            Vector3f pA = aRes[i];
-            Vector3f pB = bRes[i];
             for (int j = 0; j < vSeg; j++) {
                 float t = j / (float) (vSeg - 1);
-                float x = pA.x + t * (pB.x - pA.x);
-                float y = pA.y + t * (pB.y - pA.y);
-                float z = pA.z + t * (pB.z - pA.z);
+                float x = aRes[i * 3] + t * (bRes[i * 3] - aRes[i * 3]);
+                float y = aRes[i * 3 + 1] + t * (bRes[i * 3 + 1] - aRes[i * 3 + 1]);
+                float z = aRes[i * 3 + 2] + t * (bRes[i * 3 + 2] - aRes[i * 3 + 2]);
                 vid[i][j] = mesh.addVertex(x, y, z);
             }
         }
 
-        if (pa.closed) {
+        if (closed) {
             for (int i = 0; i < uSeg; i++) {
                 int i1 = (i + 1) % uSeg;
                 for (int j = 0; j < vSeg - 1; j++) {
@@ -144,106 +141,47 @@ public class BirailLoftMeshNode implements MeshNode {
         return fallback;
     }
 
-    private static Polyline extractPolyline(CurveGeometry cg) {
+    /**
+     * A rail's first polyline, packed xyz.
+     *
+     * @param cg the rail curve
+     * @return its points, or null when it has fewer than two, a non-finite one, or no extent
+     */
+    private static float[] railPoints(CurveGeometry cg) {
         int off0 = cg.curveOffsets()[0];
-        int off1 = cg.curveOffsets()[1];
-        int n = off1 - off0;
+        int n = cg.curveOffsets()[1] - off0;
         if (n < 2) {
             return null;
         }
-        float[] pos = cg.positions();
-        Vector3f[] pts = new Vector3f[n];
-        float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
-        float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
-        for (int i = 0; i < n; i++) {
-            int b = 3 * (off0 + i);
-            float x = pos[b];
-            float y = pos[b + 1];
-            float z = pos[b + 2];
-            if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(z)) {
+        float[] points = Arrays.copyOfRange(cg.positions(), off0 * 3, (off0 + n) * 3);
+        for (float coordinate : points) {
+            if (!Float.isFinite(coordinate)) {
                 return null;
             }
-            pts[i] = new Vector3f(x, y, z);
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            minZ = Math.min(minZ, z);
-            maxX = Math.max(maxX, x);
-            maxY = Math.max(maxY, y);
-            maxZ = Math.max(maxZ, z);
         }
-        float diag = new Vector3f(maxX - minX, maxY - minY, maxZ - minZ).length();
-        float eps = Math.max(MIN_CLOSED_EPSILON, diag * CLOSED_EPSILON_PER_LENGTH);
-        boolean closed = pts[0].distance(pts[n - 1]) < eps;
-        return new Polyline(pts, closed);
+        return boundingDiagonal(points) < MIN_ARC_LENGTH ? null : points;
     }
 
-    private static Vector3f[] resampleArcLength(Vector3f[] src, boolean closed, int count) {
-        if (count < 2 || src.length < 2) {
-            return null;
-        }
-        int segCount = closed ? src.length : src.length - 1;
-        float[] lens = new float[segCount];
-        float total = 0f;
-        int n = src.length;
-        for (int i = 0; i < segCount; i++) {
-            int j = closed ? (i + 1) % n : i + 1;
-            float L = src[i].distance(src[j]);
-            lens[i] = L;
-            total += L;
-        }
-        if (total < MIN_ARC_LENGTH) {
-            return null;
-        }
-
-        Vector3f[] out = new Vector3f[count];
-        for (int k = 0; k < count; k++) {
-            float dist = closed ? (k / (float) count) * total : (k / (float) (count - 1)) * total;
-            out[k] = pointAtArcLength(src, lens, total, dist, closed, n, segCount);
-        }
-        return out;
+    /**
+     * Whether a rail closes: its ends meet within a ten-thousandth of its bounding diagonal.
+     *
+     * @param points the rail, packed xyz
+     * @return true for a loop
+     */
+    private static boolean isClosed(float[] points) {
+        float eps = Math.max(MIN_CLOSED_EPSILON, boundingDiagonal(points) * CLOSED_EPSILON_PER_LENGTH);
+        int last = points.length - 3;
+        return new Vector3f(points[0], points[1], points[2]).distance(points[last], points[last + 1],
+                points[last + 2]) < eps;
     }
 
-    private static Vector3f pointAtArcLength(
-            Vector3f[] src,
-            float[] lens,
-            float total,
-            float dist,
-            boolean closed,
-            int n,
-            int segCount) {
-        if (dist <= 0f) {
-            return new Vector3f(src[0]);
+    private static float boundingDiagonal(float[] points) {
+        Vector3f min = new Vector3f(Float.MAX_VALUE);
+        Vector3f max = new Vector3f(-Float.MAX_VALUE);
+        for (int at = 0; at < points.length; at += 3) {
+            min.min(new Vector3f(points[at], points[at + 1], points[at + 2]));
+            max.max(new Vector3f(points[at], points[at + 1], points[at + 2]));
         }
-        if (!closed && dist >= total - ARC_LENGTH_EPSILON) {
-            return new Vector3f(src[n - 1]);
-        }
-        if (closed) {
-            dist = dist % total;
-            if (dist < ARC_LENGTH_EPSILON) {
-                return new Vector3f(src[0]);
-            }
-        }
-        float acc = 0f;
-        for (int i = 0; i < segCount; i++) {
-            float L = lens[i];
-            if (acc + L >= dist - ARC_LENGTH_EPSILON) {
-                float t = L > MIN_ARC_LENGTH ? (dist - acc) / L : 0f;
-                int i1 = closed ? (i + 1) % n : i + 1;
-                return new Vector3f(src[i1]).sub(src[i]).mul(t).add(src[i]);
-            }
-            acc += L;
-        }
-        int last = closed ? 0 : n - 1;
-        return new Vector3f(src[last]);
-    }
-
-    private static final class Polyline {
-        final Vector3f[] points;
-        final boolean closed;
-
-        Polyline(Vector3f[] points, boolean closed) {
-            this.points = points;
-            this.closed = closed;
-        }
+        return max.sub(min).length();
     }
 }

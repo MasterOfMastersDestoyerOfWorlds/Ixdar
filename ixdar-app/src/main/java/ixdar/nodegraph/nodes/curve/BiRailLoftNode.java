@@ -14,6 +14,7 @@ import ixdar.nodegraph.api.NodeContext;
 import ixdar.nodegraph.field.FloatCurveKernel;
 import ixdar.nodegraph.api.OutputPort;
 import ixdar.nodegraph.api.PortType;
+import ixdar.geometry.grid2d.PolylineResample;
 import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -120,14 +121,14 @@ public class BiRailLoftNode implements MeshNode {
         yRes = Math.max(2, Math.min(MAX_RESOLUTION, yRes));
 
         // Resample rails to xRes uniform points
-        float[] railA = resampleToUniform(railACg, xRes);
-        float[] railB = resampleToUniform(railBCg, xRes);
+        float[] railA = firstPolylineResampled(railACg, xRes);
+        float[] railB = firstPolylineResampled(railBCg, xRes);
 
         // Extract and normalize profile A
         float[] profileA = extractProfilePoints(profileCg);
         int profileAN = profileA.length / 3;
         if (profileAN != yRes) {
-            profileA = resampleArray(profileA, profileAN, yRes);
+            profileA = PolylineResample.uniform(profileA, 0, profileAN, 3, false, yRes);
         }
         float[] profileAU = new float[yRes];
         float[] profileAV = new float[yRes];
@@ -140,7 +141,7 @@ public class BiRailLoftNode implements MeshNode {
             float[] profileB = extractProfilePoints(profileBCg);
             int profileBN = profileB.length / 3;
             if (profileBN != yRes) {
-                profileB = resampleArray(profileB, profileBN, yRes);
+                profileB = PolylineResample.uniform(profileB, 0, profileBN, 3, false, yRes);
             }
             profileBU = new float[yRes];
             profileBV = new float[yRes];
@@ -219,43 +220,11 @@ public class BiRailLoftNode implements MeshNode {
     }
 
     /**
-     * Resample a CurveGeometry's first polyline to n uniformly spaced points.
+     * A CurveGeometry's first polyline resampled to n points evenly spaced by arc length.
      */
-    private static float[] resampleToUniform(CurveGeometry cg, int n) {
-        float[] pos = cg.positions();
+    private static float[] firstPolylineResampled(CurveGeometry cg, int n) {
         int off0 = cg.curveOffsets()[0];
-        int off1 = cg.curveOffsets()[1];
-        int nPts = off1 - off0;
-
-        // Compute arc lengths
-        float[] arcLen = new float[nPts];
-        arcLen[0] = 0;
-        for (int i = 1; i < nPts; i++) {
-            int b0 = 3 * (off0 + i - 1);
-            int b1 = 3 * (off0 + i);
-            float dx = pos[b1] - pos[b0];
-            float dy = pos[b1 + 1] - pos[b0 + 1];
-            float dz = pos[b1 + 2] - pos[b0 + 2];
-            arcLen[i] = arcLen[i - 1] + (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        }
-        float totalLen = arcLen[nPts - 1];
-
-        float[] result = new float[n * 3];
-        int seg = 0;
-        for (int i = 0; i < n; i++) {
-            float targetLen = (n == 1) ? 0 : totalLen * i / (n - 1);
-            while (seg < nPts - 2 && arcLen[seg + 1] < targetLen) seg++;
-
-            float segLen = arcLen[seg + 1] - arcLen[seg];
-            float t = segLen < MIN_LENGTH ? 0f : (targetLen - arcLen[seg]) / segLen;
-
-            int b0 = 3 * (off0 + seg);
-            int b1 = 3 * (off0 + seg + 1);
-            result[i * 3] = pos[b0] + t * (pos[b1] - pos[b0]);
-            result[i * 3 + 1] = pos[b0 + 1] + t * (pos[b1 + 1] - pos[b0 + 1]);
-            result[i * 3 + 2] = pos[b0 + 2] + t * (pos[b1 + 2] - pos[b0 + 2]);
-        }
-        return result;
+        return PolylineResample.uniform(cg.positions(), off0, cg.curveOffsets()[1] - off0, 3, false, n);
     }
 
     private static float[] extractProfilePoints(CurveGeometry cg) {
@@ -266,36 +235,6 @@ public class BiRailLoftNode implements MeshNode {
         float[] out = new float[nPts * 3];
         System.arraycopy(pos, off0 * 3, out, 0, nPts * 3);
         return out;
-    }
-
-    /**
-     * Resample a flat XYZ array from srcN points to dstN points by arc-length interpolation.
-     */
-    private static float[] resampleArray(float[] src, int srcN, int dstN) {
-        float[] arcLen = new float[srcN];
-        arcLen[0] = 0;
-        for (int i = 1; i < srcN; i++) {
-            float dx = src[i * 3] - src[(i - 1) * 3];
-            float dy = src[i * 3 + 1] - src[(i - 1) * 3 + 1];
-            float dz = src[i * 3 + 2] - src[(i - 1) * 3 + 2];
-            arcLen[i] = arcLen[i - 1] + (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        }
-        float total = arcLen[srcN - 1];
-
-        float[] result = new float[dstN * 3];
-        int seg = 0;
-        for (int i = 0; i < dstN; i++) {
-            float target = (dstN == 1) ? 0 : total * i / (dstN - 1);
-            while (seg < srcN - 2 && arcLen[seg + 1] < target) seg++;
-
-            float segLen = arcLen[seg + 1] - arcLen[seg];
-            float t = segLen < MIN_LENGTH ? 0f : (target - arcLen[seg]) / segLen;
-
-            result[i * 3] = src[seg * 3] + t * (src[(seg + 1) * 3] - src[seg * 3]);
-            result[i * 3 + 1] = src[seg * 3 + 1] + t * (src[(seg + 1) * 3 + 1] - src[seg * 3 + 1]);
-            result[i * 3 + 2] = src[seg * 3 + 2] + t * (src[(seg + 1) * 3 + 2] - src[seg * 3 + 2]);
-        }
-        return result;
     }
 
     /**

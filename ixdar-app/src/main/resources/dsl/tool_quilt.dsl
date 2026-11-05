@@ -13,7 +13,7 @@ edge_profile = float_curve(points="0.005,1,1,1,0.505,0.512")
 
 # --- Base mesh: size=2 spans -1..1 per axis ---
 base_cube = cube(size=2.0)
-subdivided = subdivide_mesh(mesh=base_cube.mesh, levels=subdivisions.result)
+subdivided = subdivision_surface(mesh=base_cube.mesh, levels=subdivisions.result, smooth=false)
 
 # --- Tangent frame ---
 norm = input_normal()

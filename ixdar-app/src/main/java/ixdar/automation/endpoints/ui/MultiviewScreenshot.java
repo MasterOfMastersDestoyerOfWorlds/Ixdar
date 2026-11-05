@@ -324,36 +324,20 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 // A blank drawing template whose root records this capture's camera, which the
                 // stroke_sculpt node lifts the strokes drawn on it through.
                 JsonArray center = framing.getAsJsonArray(CENTER);
-                StringBuilder viewTable = new StringBuilder();
-                StringBuilder layout = new StringBuilder();
-                for (int view = 0; view < VIEW_COUNT; view++) {
-                    viewTable.append(view == 0 ? "" : StrokeSketch.VIEW_SEPARATOR).append(String.format(Locale.ROOT,
-                            "%.6f %.6f", VIEW_AZIMUTH_ELEVATION_RADIANS[view][0], VIEW_AZIMUTH_ELEVATION_RADIANS[view][1]));
-                    layout.append(String.format(Locale.ROOT, "%n  cell %d (column %d, row %d, x %d-%d, y %d-%d): %s",
-                            view, view % GRID_COLUMNS, view / GRID_COLUMNS, (view % GRID_COLUMNS) * cellW,
-                            (view % GRID_COLUMNS + 1) * cellW, (view / GRID_COLUMNS) * cellH,
-                            (view / GRID_COLUMNS + 1) * cellH, VIEW_LABELS[view]));
-                }
-                String template = String.format(Locale.ROOT,
-                        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\"%n"
-                                + "     %s=\"%.6f %.6f %.6f\" %s=\"%.6f\" %s=\"%.4f\" %s=\"%s\"%n"
-                                + "     %s=\"%d\" %s=\"%d\" %s=\"%d\"%n     %s=\"%s\">%n"
-                                + "<!-- Drawn over %s. Add one <polyline points=\"x,y ...\"> or <polygon> per stroke, "
+                String template = StrokeSketch.svgRoot(GRID_COLUMNS * cellW, 2 * cellH, GRID_COLUMNS * cellW,
+                        2 * cellH, new float[] { center.get(0).getAsFloat(), center.get(1).getAsFloat(),
+                            center.get(2).getAsFloat() }, viewDist, framing.get(FIELD_OF_VIEW).getAsFloat(),
+                        framing.get(StrokeSketch.ORTHOGRAPHIC).getAsBoolean(), cellW, cellH, GRID_COLUMNS,
+                        StrokeSketch.angleViews(VIEW_AZIMUTH_ELEVATION_RADIANS))
+                        + String.format(Locale.ROOT,
+                        "<!-- Drawn over %s. Add one <polyline points=\"x,y ...\"> or <polygon> per stroke, "
                                 + "all points of a stroke inside one cell, with data-radius (falloff radius) and "
                                 + "data-depth (signed displacement, + raises; not on silhouettes or smooth strokes), "
                                 + "both in world units (one pixel at the centre spans %.5f), optional "
                                 + "data-kind=\"silhouette|ridge|valley\", data-mirror=\"x\", data-op=\"smooth\", "
                                 + "data-profile=\"bowl\" on a polygon; stroke-width is only drawn. Cells:%s%n-->%n</svg>%n",
-                        GRID_COLUMNS * cellW, 2 * cellH, GRID_COLUMNS * cellW, 2 * cellH,
-                        StrokeSketch.CENTER_ATTRIBUTE, center.get(0).getAsFloat(), center.get(1).getAsFloat(),
-                        center.get(2).getAsFloat(), StrokeSketch.DISTANCE_ATTRIBUTE, viewDist,
-                        StrokeSketch.FIELD_OF_VIEW_ATTRIBUTE, framing.get(FIELD_OF_VIEW).getAsFloat(),
-                        StrokeSketch.PROJECTION_ATTRIBUTE, framing.get(StrokeSketch.ORTHOGRAPHIC).getAsBoolean()
-                                ? StrokeSketch.ORTHOGRAPHIC : StrokeSketch.PERSPECTIVE,
-                        StrokeSketch.CELL_WIDTH_ATTRIBUTE, cellW, StrokeSketch.CELL_HEIGHT_ATTRIBUTE, cellH,
-                        StrokeSketch.COLUMNS_ATTRIBUTE, GRID_COLUMNS, StrokeSketch.VIEWS_ATTRIBUTE, viewTable,
                         out.getName(), 2.0 * viewDist * Math.tan(Math.toRadians(framing.get(FIELD_OF_VIEW).getAsFloat()) / 2.0)
-                                / cellH, layout);
+                                / cellH, StrokeSketch.cellLayout(VIEW_LABELS, GRID_COLUMNS, cellW, cellH));
                 File svgFile = new File(svgPath);
                 if (!svgFile.isAbsolute()) {
                     svgFile = new File(checkout, svgPath);

@@ -2,7 +2,7 @@
 # Rail B is rail A shifted in +Y; birail_loft linearly interpolates across.
 
 base_strip = mesh_grid(u_tiles=10, v_tiles=1, u_total_size=2.0, v_tile_size=0.04)
-base_geo = subdivide_mesh(mesh=base_strip.mesh, levels=0)
+base_geo = subdivision_surface(mesh=base_strip.mesh, levels=0, smooth=false)
 rail_a = mesh_to_curve(geometry=base_geo.geometry, source=BOUNDARY)
 rail_offset = combine_xyz(x=0.0, y=0.28, z=0.0)
 strip_b = set_position(geometry=base_geo.geometry, offset=rail_offset.vector)

@@ -553,8 +553,27 @@ public class Camera3D implements Camera, CameraController {
      * @return true when the framebuffer has a size and the point lies in front of the camera
      */
     public boolean projectToPixels(Matrix4f model, float x, float y, float z, float[] pixelDest) {
-        int width = Platforms.get().getFrameBufferWidth();
-        int height = Platforms.get().getFrameBufferHeight();
+        return projectToPixels(model, x, y, z, Platforms.get().getFrameBufferWidth(),
+                Platforms.get().getFrameBufferHeight(), pixelDest);
+    }
+
+    /**
+     * Project a model-space point onto a {@code width} by {@code height} view, no framebuffer read.
+     * Pixel centres land on half-integers, half a pixel past the whole numbers
+     * {@link #rayThroughPixel(Matrix4f, float, float, int, int, float[], float[])} takes.
+     *
+     * @param model     model matrix of the surface the point belongs to
+     * @param x         model-space x
+     * @param y         model-space y
+     * @param z         model-space z
+     * @param width     view width in pixels
+     * @param height    view height in pixels
+     * @param pixelDest receives x from the left, y from the top, and, when it has a third slot, the
+     *                  window-space depth in {@code [0, 1]}
+     * @return true when the view has a size and the point lies in front of the camera
+     */
+    public boolean projectToPixels(Matrix4f model, float x, float y, float z, int width, int height,
+            float[] pixelDest) {
         if (width <= 0 || height <= 0) {
             return false;
         }
@@ -567,7 +586,9 @@ public class Camera3D implements Camera, CameraController {
         }
         pixelDest[0] = (point.x / point.w * 0.5f + 0.5f) * width;
         pixelDest[1] = (0.5f - point.y / point.w * 0.5f) * height;
-        pixelDest[2] = point.z / point.w * 0.5f + 0.5f;
+        if (pixelDest.length > 2) {
+            pixelDest[2] = point.z / point.w * 0.5f + 0.5f;
+        }
         return true;
     }
 
