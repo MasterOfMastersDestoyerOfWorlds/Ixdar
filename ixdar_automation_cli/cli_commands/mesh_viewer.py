@@ -23,6 +23,7 @@ from ..automation_client import (
 )
 from ..build_state import IXDAR_APP_DIR, ensure_build, launch_classpath
 from ..cli_registry import CliCommandResult, cli_command
+from .link_profiler import capture_path, profiler_agent_argument
 
 
 def _wait_for_server(client: AutomationClient, known_pids: set, timeout: float = 60.0) -> bool:
@@ -52,16 +53,20 @@ def _wait_for_server(client: AutomationClient, known_pids: set, timeout: float =
     return False
 
 
-def _java_command(dsl: str) -> list[str]:
+def _java_command(dsl: str, profiler_argument: str) -> list[str]:
     """Assemble the JVM command line for a windowed mesh viewer on this checkout's classes.
 
     :param dsl: Model passed as ``ixdar.model``, or empty for the viewer's default.
+    :param profiler_argument: The ``-agentpath`` from :func:`profiler_agent_argument`, empty only
+        when async-profiler is not installed.
     :return: The full argv.
     """
     command = ["java", "-enableassertions", f"-D{LAUNCHER_PROPERTY}={CLI_LAUNCHER}"]
     if sys.platform == "darwin":
         # GLFW refuses to initialise unless main() is on the process's first thread.
         command.append("-XstartOnFirstThread")
+    if profiler_argument:
+        command.append(profiler_argument)
     if dsl:
         command.append(f"-Dixdar.model={dsl}")
     command.extend([
@@ -99,19 +104,25 @@ def run(
     :return: ``{"ok": True, "overlay"?: ..., "screenshot"?: ...}``
     """
     proc = None
+    result = {"ok": True}
 
     if not no_launch:
         refuse_second_scene("mesh-viewer")
         ensure_build(skip_build=False)
         known_pids = {record["pid"] for record in live_scenes()}
         print(f"Starting mesh-viewer (model: {dsl or 'default'})", file=sys.stderr)
+        profiler_argument, profile_pattern = profiler_agent_argument("mesh-viewer")
         proc = subprocess.Popen(
-            _java_command(dsl),
+            _java_command(dsl, profiler_argument),
             cwd=IXDAR_APP_DIR,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
         )
         register_launch(proc.pid, "mesh-viewer", headless=False)
+        if profiler_argument:
+            result["profile"] = capture_path(profile_pattern, proc.pid)
+        else:
+            result["profileError"] = f"run unprofiled: {profile_pattern}"
 
         print(f"Waiting for automation server (timeout={timeout}s)...", file=sys.stderr)
         if not _wait_for_server(client, known_pids, timeout):
@@ -135,8 +146,6 @@ def run(
             time.sleep(1.0)
         else:
             print("WARNING: Mesh did not load within 30s (may be empty or DSL error).", file=sys.stderr)
-
-    result = {"ok": True}
 
     if overlay:
         overlay_path = os.path.abspath(os.path.expanduser(overlay))
@@ -185,6 +194,9 @@ def mesh_viewer(
     keep_alive: bool = False,
 ) -> CliCommandResult:
     """Launch the mesh viewer, optionally overlay a reference OBJ, and screenshot.
+
+    The viewer it launches is profiled like every scene; the output names its capture under
+    ``tmp/profiles/`` as ``profile``, written when the viewer exits.
 
     :param dsl: Model to open: a DSL resource name or a .dsl or mesh path (empty uses skull.dsl).
     :param overlay: Path to a reference OBJ to overlay.

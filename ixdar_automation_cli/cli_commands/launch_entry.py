@@ -3,8 +3,9 @@
 A launch entry is the only definition of how a scene is meant to start on the desktop — its
 ``vmArgs`` (profiler agent included), its arguments, its working directory — and until now nothing
 could exercise one except a person pressing F5. That made a launch entry the one part of a change
-an agent could write but never check. This command reads the entry, launches exactly it with one
-difference, the off-screen platform instead of a window, waits for the scene to report ready, and
+an agent could write but never check. This command reads the entry, launches exactly it with two
+differences, the off-screen platform instead of a window and a profiler agent writing this run's
+own capture (added when the entry carries none), waits for the scene to report ready, and
 hands back the opening log lines and a screenshot. Headless is deliberate: a window opened from an
 agent session is never shown on the desktop, so it never receives frame callbacks and the run
 stalls; off-screen, the same main class, arguments and JVM flags run to the same ready state, and
@@ -35,6 +36,8 @@ from ..build_state import ANNOTATIONS_CLASSES, CLASSES_DIR, CLASSPATH_FILE, IXDA
 from ..checkout import checkout_root
 from ..cli_registry import CliCommandResult, CliOption, cli_command
 from ..run_logs import next_log_path, point_latest
+from .link_profiler import capture_path, profiler_agent_argument
+from .profile_report import profile_report
 from .run_scene import (
     AUTOMATION_PORT_PROPERTY,
     _await_scene,
@@ -53,6 +56,10 @@ SETTINGS_JSON_RELATIVE = os.path.join(".vscode", "settings.json")
 WORKSPACE_FOLDER_TOKEN = "${workspaceFolder}"
 
 CONFIG_TOKEN = re.compile(r"^\$\{config:(?P<setting>[^}]+)\}$")
+
+# An entry's own profiler agent, which the launch replaces with one writing this run's capture.
+AGENT_PREFIX = "-agentpath:"
+PROFILER_LIBRARY_MARK = "asyncProfiler"
 
 LINE_COMMENT = re.compile(r"(^|\s)//[^\n]*")
 
@@ -177,17 +184,21 @@ def resolve_vm_arguments(configuration: dict, root: str) -> list[str]:
     return resolved
 
 
-def launch_command(configuration: dict, root: str, port: int) -> list[str]:
+def launch_command(configuration: dict, root: str, port: int, profiler_argument: str) -> list[str]:
     """Assemble the JVM command line for a launch entry.
 
     The classpath is this checkout's built one rather than the one the IDE computes, and the
-    only arguments added are the automation port, the launcher mark and the headless switch, so what runs is
-    otherwise the entry verbatim, with its own ``vmArgs``. The headless switch comes after the
-    entry's own arguments so it wins over anything the entry says.
+    only arguments added are the profiler agent, the automation port, the launcher mark and the
+    headless switch, so what runs is otherwise the entry verbatim, with its own ``vmArgs``. The
+    entry's own async-profiler agent, if it has one, gives way to ``profiler_argument``, the same
+    agent writing this run's own capture. The headless switch comes after the entry's own
+    arguments so it wins over anything the entry says.
 
     :param configuration: The launch configuration.
     :param root: Checkout root.
     :param port: Automation port for the scene to bind.
+    :param profiler_argument: The ``-agentpath`` from :func:`profiler_agent_argument`, empty only
+        when async-profiler is not installed (the entry's own agent is then kept).
     :return: The full argv.
     :raises ValueError: When the entry names no main class.
     """
@@ -196,7 +207,12 @@ def launch_command(configuration: dict, root: str, port: int) -> list[str]:
         raise ValueError(f"launch entry {configuration.get('name', '')!r} has no mainClass")
     with open(CLASSPATH_FILE, encoding="utf-8") as handle:
         classpath = handle.read().strip()
-    command = ["java", *resolve_vm_arguments(configuration, root)]
+    arguments = resolve_vm_arguments(configuration, root)
+    if profiler_argument:
+        arguments = [argument for argument in arguments
+                     if not (argument.startswith(AGENT_PREFIX) and PROFILER_LIBRARY_MARK in argument)]
+        arguments.insert(0, profiler_argument)
+    command = ["java", *arguments]
     command.append(f"-D{HEADLESS_PROPERTY}=true")
     command.append(f"-D{AUTOMATION_PORT_PROPERTY}={port}")
     command.append(f"-D{LAUNCHER_PROPERTY}={CLI_LAUNCHER}")
@@ -246,9 +262,10 @@ def launch(
 ) -> CliCommandResult:
     """Run a .vscode/launch.json entry headless, then report its first log lines and a screenshot.
 
-    This is the F5 path, driven: same main class, args, vmArgs (profiler agent included) and
-    working directory, plus an automation port so the scene can be waited on and photographed,
-    and the off-screen platform in place of a window so it runs from an agent session.
+    This is the F5 path, driven: same main class, args, vmArgs and working directory, plus an
+    automation port so the scene can be waited on and photographed, and the off-screen platform in
+    place of a window so it runs from an agent session. It is profiled like every scene, into its
+    own ``tmp/profiles/<scene>-<time>-<pid>.html``, named in the output as ``profile``.
     Like run-scene it records the JVM in ``tmp/automation/`` the moment it starts and refuses while
     a scene ixdar-cli launched in this checkout is still alive.
 
@@ -283,7 +300,8 @@ def launch(
     port = free_port()
     base_url = f"http://{LOOPBACK_HOST}:{port}"
     client = AutomationClient(base_url=base_url)
-    command = launch_command(configuration, root, port)
+    profiler_argument, profile_pattern = profiler_agent_argument(scene, root=root)
+    command = launch_command(configuration, root, port, profiler_argument)
     cwd = working_directory(configuration, root)
     print(f"Launching entry {name!r} in {cwd}", file=sys.stderr)
     print(f"  automation: {base_url}", file=sys.stderr)
@@ -319,8 +337,16 @@ def launch(
                                 else "scene did not become ready within timeout")
         if status["ready"] and screenshot:
             payload["screenshot"] = client.call("screenshot", path=os.path.abspath(screenshot))
+        if profiler_argument:
+            payload["profile"] = capture_path(profile_pattern, process.pid)
+        else:
+            payload["profileError"] = f"run unprofiled: {profile_pattern}"
         if not keep_alive:
             _terminate(process, client)
+            if profiler_argument and os.path.exists(payload["profile"]):
+                payload["hotMethods"] = profile_report(path=payload["profile"]).payload["report"]
+            elif profiler_argument:
+                payload["profileError"] = "async-profiler wrote no file (was the JVM shut down cleanly?)"
     return CliCommandResult(payload=payload, exit_code=0 if payload["ok"] else 1)
 
 

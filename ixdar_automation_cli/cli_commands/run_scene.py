@@ -7,7 +7,7 @@ contains that string, so it kills the caller. This command replaces the whole lo
 
 Usage:
     uv run ixdar-cli run-scene --scene embedded-tmesh
-    uv run ixdar-cli run-scene --scene embedded-tmesh --profile --timeout 400 \
+    uv run ixdar-cli run-scene --scene embedded-tmesh --timeout 400 \
         --property embeddedTMesh.off=path/to/mesh.off --property embeddedTMesh.contractFail=true
     uv run ixdar-cli run-scene --scene embedded-tmesh --coverage \
         --key "C=contracted to fixed point" --key "M=flip-surface uploaded|cannot show flips"
@@ -46,10 +46,9 @@ from ..cli_registry import CliCommandResult, cli_command
 from ..jacoco_coverage import DEFAULT_PACKAGE_FILTER, agent_argument, build_report, format_coverage
 from ..mesh_catalog import MODEL_PROPERTY, mesh_size, resolve_mesh, resolve_scene_properties
 from ..run_logs import mesh_label, next_log_path, point_latest
-from .link_profiler import async_profiler_library
+from .link_profiler import capture_path, profiler_agent_argument
 from .profile_report import profile_report
 
-DEFAULT_PROFILE_PATH = os.path.join(REPO_DIR, "profile.html")
 DEFAULT_COVERAGE_PATH = os.path.join(REPO_DIR, "jacoco.exec")
 COVERAGE_XML_PATH = os.path.join(REPO_DIR, "target", "jacoco", "coverage.xml")
 COVERAGE_HTML_DIR = os.path.join(REPO_DIR, "target", "jacoco", "html")
@@ -78,8 +77,7 @@ DEFAULT_KEY_SETTLE_SECONDS = 0.0
 def _java_command(
     scene: str,
     properties: list[str],
-    profile_path: str,
-    profile_event: str,
+    profiler_argument: str,
     coverage_path: str,
 ) -> list[str]:
     """Assemble the JVM command line for a scene.
@@ -91,8 +89,8 @@ def _java_command(
 
     :param scene: Scene id, passed to IxdarWindow as its argument.
     :param properties: ``key=value`` system properties.
-    :param profile_path: async-profiler output path, or empty to run unprofiled.
-    :param profile_event: async-profiler event, e.g. ``cpu`` or ``alloc``.
+    :param profiler_argument: The ``-agentpath`` from :func:`profiler_agent_argument`, empty only
+        when async-profiler is not installed.
     :param coverage_path: JaCoCo ``.exec`` output path, or empty to run without coverage.
     :return: The full argv.
     """
@@ -102,10 +100,8 @@ def _java_command(
         # otherwise starts main() on a spawned one. Headless still goes through GLFW.
         command.append("-XstartOnFirstThread")
     command.extend(f"-D{prop}" for prop in properties)
-    if profile_path:
-        command.append(
-            f"-agentpath:{async_profiler_library()}=start,event={profile_event},file={profile_path}"
-        )
+    if profiler_argument:
+        command.append(profiler_argument)
     if coverage_path:
         command.append(agent_argument(coverage_path))
     command.extend([
@@ -410,7 +406,6 @@ def run(
     scene: str,
     property: list[str] | None = None,
     mesh: str = "",
-    profile: bool = False,
     profile_path: str = "",
     profile_event: str = "cpu",
     coverage: bool = False,
@@ -437,7 +432,7 @@ def run(
     if mesh:
         properties.append(f"{MODEL_PROPERTY}={resolve_mesh(mesh)}")
     key_specs = list(key or [])
-    resolved_profile = (profile_path or DEFAULT_PROFILE_PATH) if (profile or profile_path) else ""
+    profiler_argument, profile_pattern = profiler_agent_argument(scene, profile_event, profile_path)
     resolved_coverage = ((coverage_path or DEFAULT_COVERAGE_PATH)
                          if (coverage or coverage_path) else "")
     log_path = os.path.abspath(log) if log else next_log_path(
@@ -453,8 +448,7 @@ def run(
     properties.append(f"{AUTOMATION_PORT_PROPERTY}={port}")
     properties.append(f"{LAUNCHER_PROPERTY}={CLI_LAUNCHER}")
     client = AutomationClient(base_url=base_url)
-    command = _java_command(scene, properties, resolved_profile, profile_event,
-                            resolved_coverage)
+    command = _java_command(scene, properties, profiler_argument, resolved_coverage)
     print(f"Launching: {' '.join(command[:4])} … {scene}", file=sys.stderr)
     print(f"  automation: {base_url}", file=sys.stderr)
 
@@ -467,6 +461,7 @@ def run(
             start_new_session=True,
         )
         register_launch(process.pid, scene, headless=True)
+        profile = capture_path(profile_pattern, process.pid) if profiler_argument else ""
 
         status = _await_scene(client, process, log_path, await_log, timeout)
         result: dict = {
@@ -478,6 +473,11 @@ def run(
             "log": log_path,
             "waitedSeconds": status["waited"],
         }
+        if profile:
+            # Named up front so a kept-alive scene's caller knows where `shutdown` will leave it.
+            result["profile"] = profile
+        else:
+            result["profileError"] = f"run unprofiled: {profile_pattern}"
         if synced:
             result["syncedResources"] = len(synced)
         if status["matched"]:
@@ -507,12 +507,11 @@ def run(
         else:
             result["next"] = KEEP_ALIVE_HINT
 
-    if resolved_profile and not keep_alive:
-        result["profile"] = resolved_profile
-        if os.path.exists(resolved_profile):
+    if profile and not keep_alive:
+        if os.path.exists(profile):
             # The profile-report command, not its parsing library: one code path means a profiled run
             # and a re-read of the same capture can never print different numbers.
-            result["hotMethods"] = profile_report(path=resolved_profile, top=top).payload["report"]
+            result["hotMethods"] = profile_report(path=profile, top=top).payload["report"]
         else:
             result["profileError"] = "async-profiler wrote no file (was the JVM shut down cleanly?)"
 
@@ -537,7 +536,6 @@ def run_scene(
     scene: str = "embedded-tmesh",
     property: list[str] | None = None,
     mesh: str = "",
-    profile: bool = False,
     profile_path: str = "",
     profile_event: str = "cpu",
     coverage: bool = False,
@@ -554,7 +552,7 @@ def run_scene(
     keep_alive: bool = False,
     top: int = 25,
 ) -> CliCommandResult:
-    """Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
+    """Build, launch, profile, wait for, optionally screenshot, then shut down a scene.
 
     The scene binds a free port of its own and publishes it in its own ``tmp/automation/<pid>.json``
     record under this checkout, so parallel scenes never collide; while it is the checkout's one
@@ -562,15 +560,16 @@ def run_scene(
     The record is written the moment the JVM starts, so it refuses to start while a scene
     ixdar-cli launched in this checkout is still alive, naming its pid; ``ixdar-cli shutdown``
     stops them all.
+    Every run is profiled with async-profiler into its own ``tmp/profiles/<scene>-<time>-<pid>.html``,
+    named in the output as ``profile``; a run that shuts its scene down ends with that capture's
+    self-time top-N table, and a kept-alive scene's capture is written when ``shutdown`` stops it.
 
     :param scene: Scene id passed to IxdarWindow (see @SceneAnnotation ids).
     :param property: Repeatable ``key=value`` JVM system property; a ``*.off`` or ``ixdar.model``
         value may be a mesh name such as ``fertility``, and a relative ``*.save`` value resolves
         against the module resources directory.
     :param mesh: Mesh name, alias or path to load as ``ixdar.model`` (see list-meshes).
-    :param profile: Capture an async-profiler flame graph and end the output with the same
-        self-time top-N table the profile-report command prints; no second command is needed.
-    :param profile_path: Profile output path (default: profile.html at the repo root).
+    :param profile_path: Capture path instead of the per-run one under tmp/profiles; ``%p`` is the pid.
     :param profile_event: async-profiler event: ``cpu`` for time, ``alloc`` to attribute GC pressure
         to allocation sites.
     :param coverage: Record JaCoCo line coverage and report which code the run never executed.
@@ -598,7 +597,6 @@ def run_scene(
         scene=scene,
         property=property,
         mesh=mesh,
-        profile=profile,
         profile_path=profile_path,
         profile_event=profile_event,
         coverage=coverage,

@@ -30,12 +30,17 @@ from ..automation_client import (
     process_alive,
 )
 from ..cli_registry import CliCommandResult, cli_command
+from .link_profiler import profile_capture
 
 POLL_SECONDS = 0.2
 
 DEFAULT_SHUTDOWN_TIMEOUT = 30.0
 
 KILL_WAIT_SECONDS = 5.0
+
+# A SIGTERM still runs the JVM's exit, which is when async-profiler writes its capture; a SIGKILL
+# loses it, so the kill is only the last resort.
+TERM_WAIT_SECONDS = 10.0
 
 
 def await_exit(pid: int, timeout: float) -> tuple[bool, float]:
@@ -63,7 +68,9 @@ def shutdown(
 
     Every scene is asked to exit (one still starting, with no port yet, is sent SIGTERM), then
     each pid from its ``tmp/automation/`` record is watched until it disappears; one still alive
-    after ``--timeout`` is killed and confirmed gone, and its record removed. Only pids recorded in
+    after ``--timeout`` is sent SIGTERM, which still lets async-profiler write its capture, then
+    killed if that fails, and its record removed. Each stopped scene's capture under
+    ``tmp/profiles/`` is named as ``profile`` (read it with ``profile-report``). Only pids recorded in
     this checkout are ever signalled, so a scene another worktree started is never touched, and
     with no target named a window the user opened with F5 is left running and listed.
 
@@ -106,13 +113,22 @@ def shutdown(
         entry["exited"], entry["waitedSeconds"] = await_exit(
             int(pid), max(0.0, deadline - time.monotonic()))
         if not entry["exited"]:
+            os.kill(int(pid), signal.SIGTERM)
+            entry["terminated"] = True
+            entry["exited"], _ = await_exit(int(pid), TERM_WAIT_SECONDS)
+        if not entry["exited"]:
             os.kill(int(pid), signal.SIGKILL)
             entry["killed"] = True
             entry["exited"], _ = await_exit(int(pid), KILL_WAIT_SECONDS)
         if entry["exited"]:
             forget_scene(int(pid))
-            how = "killed after the timeout" if entry.get("killed") else "exited"
+            how = ("killed after the timeout" if entry.get("killed")
+                   else "terminated after the timeout" if entry.get("terminated") else "exited")
             print(f"pid {pid} ({entry['scene']}): {how}", file=sys.stderr)
+            entry["profile"] = profile_capture(int(pid))
+            if not entry["profile"]:
+                entry["profileError"] = ("no capture: the JVM was killed or crashed before it could write one"
+                                         if entry.get("killed") else "no capture under tmp/profiles for this pid")
         else:
             entry["error"] = f"process {pid} still alive after {timeout}s and a SIGKILL"
             print(f"pid {pid} ({entry['scene']}): STILL ALIVE", file=sys.stderr)

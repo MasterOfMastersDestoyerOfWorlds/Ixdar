@@ -34,7 +34,7 @@
   "github.copilot.nextEditSuggestions.fixes": false,
   "github.copilot.renameSuggestions.triggerAutomatically": false,
   "java.compile.nullAnalysis.mode": "disabled",
-  "java.profiler.args": "-agentpath:${workspaceFolder}/.profiler/libasyncProfiler=start,event=cpu,file=${workspaceFolder}/profile.html",
+  "java.profiler.args": "-agentpath:${workspaceFolder}/.profiler/libasyncProfiler=start,event=cpu,file=${workspaceFolder}/tmp/profiles/f5-%t-%p.html",
   "java.profiler.off": "",
   "java.import.generatesMetadataFilesAtProjectRoot": true
 }

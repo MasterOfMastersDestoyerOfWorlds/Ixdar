@@ -26,6 +26,7 @@ from ixdar_automation_cli.cli_commands import gen_docs
 from ixdar_automation_cli.cli_commands import install_alias
 from ixdar_automation_cli.cli_commands import launch_entry
 from ixdar_automation_cli.cli_commands import link_profiler
+from ixdar_automation_cli.cli_commands import mesh_viewer
 from ixdar_automation_cli.cli_commands import teavm_build
 from ixdar_automation_cli import png_image
 from ixdar_automation_cli import quilt_mesh_fingerprint
@@ -491,7 +492,7 @@ class SceneLifecycleTest(unittest.TestCase):
     def test_run_scene_mesh_sets_the_common_model_property_for_every_scene(self):
         captured: list[list[str]] = []
 
-        def capture(scene, properties, profile_path, profile_event, coverage_path):
+        def capture(scene, properties, profiler_argument, coverage_path):
             captured.append(properties)
             return ["java", "-version"]
 
@@ -527,6 +528,55 @@ class SceneLifecycleTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertIn("ixdar-cli model <name>", result["next"])
 
+    def test_run_scene_profiles_every_run_into_a_capture_named_by_its_pid(self):
+        captured: list[str] = []
+
+        def capture(scene, properties, profiler_argument, coverage_path):
+            captured.append(profiler_argument)
+            return ["java", "-version"]
+
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(run_scene, "ensure_build", return_value=[]), \
+                patch.object(run_scene, "profiler_agent_argument", return_value=(
+                    "-agentpath:/lib/libasyncProfiler.so=start,event=cpu,file=/p/quad-layout-%p.html",
+                    "/p/quad-layout-%p.html")), \
+                patch.object(run_scene, "_java_command", side_effect=capture), \
+                patch.object(run_scene, "free_port", return_value=47910), \
+                patch.object(run_scene, "register_launch"), \
+                patch.object(run_scene, "_mesh_summary", return_value={}), \
+                patch.object(subprocess, "Popen", return_value=FakeProcess()), \
+                patch.object(run_scene, "_await_scene", return_value={
+                    "ready": True, "exited": False, "matched": [], "crash": [], "waited": 1.0}):
+            result = run_scene.run(scene="quad-layout", keep_alive=True,
+                                   log=os.path.join(directory, "scene.log"))
+        # No flag asks for it: the agent is on the command line of a plain run.
+        self.assertTrue(captured[0].startswith("-agentpath:"))
+        self.assertEqual(f"/p/quad-layout-{FakeProcess().pid}.html", result["profile"])
+
+    def test_run_scene_still_starts_unprofiled_when_async_profiler_is_missing(self):
+        captured: list[str] = []
+
+        def capture(scene, properties, profiler_argument, coverage_path):
+            captured.append(profiler_argument)
+            return ["java", "-version"]
+
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(run_scene, "ensure_build", return_value=[]), \
+                patch.object(run_scene, "profiler_agent_argument",
+                             return_value=("", "async-profiler library not found")), \
+                patch.object(run_scene, "_java_command", side_effect=capture), \
+                patch.object(run_scene, "free_port", return_value=47911), \
+                patch.object(run_scene, "register_launch"), \
+                patch.object(run_scene, "_mesh_summary", return_value={}), \
+                patch.object(subprocess, "Popen", return_value=FakeProcess()), \
+                patch.object(run_scene, "_await_scene", return_value={
+                    "ready": True, "exited": False, "matched": [], "crash": [], "waited": 1.0}):
+            result = run_scene.run(scene="quad-layout", keep_alive=True,
+                                   log=os.path.join(directory, "scene.log"))
+        self.assertEqual("", captured[0])
+        self.assertNotIn("profile", result)
+        self.assertIn("not found", result["profileError"])
+
     def test_relative_save_property_resolves_against_the_module_resources(self):
         resolved = mesh_catalog.resolve_scene_properties(["quadLayout.save=quadlayout/probe.qlay"])
         self.assertEqual(
@@ -558,14 +608,17 @@ class SceneLifecycleTest(unittest.TestCase):
         with patch.object(shutdown_scene, "live_scenes", return_value=[scene]), \
                 patch.object(shutdown_scene, "process_alive", return_value=True), \
                 patch.object(shutdown_scene.os, "kill") as kill, \
+                patch.object(shutdown_scene, "TERM_WAIT_SECONDS", 0.01), \
                 patch.object(shutdown_scene, "KILL_WAIT_SECONDS", 0.01), \
                 patch("time.sleep"), \
                 patch("sys.stdout", output), \
                 patch("urllib.request.urlopen",
                       return_value=FakeResponse({"ok": True, "accepted": True})):
             exit_code = ixdar_cli.main(["shutdown", "--timeout", "0.01"])
-        # The fake pid never dies, even to SIGKILL, so the command says so instead of claiming it.
-        kill.assert_called_once_with(9912, shutdown_scene.signal.SIGKILL)
+        # SIGTERM first, which still lets async-profiler write its capture; the fake pid never dies,
+        # even to SIGKILL, so the command says so instead of claiming it.
+        self.assertEqual([(9912, shutdown_scene.signal.SIGTERM), (9912, shutdown_scene.signal.SIGKILL)],
+                         [call.args for call in kill.call_args_list])
         self.assertEqual(1, exit_code)
         stopped = json.loads(output.getvalue())["stopped"][0]
         self.assertTrue(stopped["killed"])
@@ -639,7 +692,7 @@ class LaunchEntryTest(unittest.TestCase):
             configurations = launch_entry.read_configurations(root)
             configuration = launch_entry.find_configuration(configurations, "Mesh Node Viewer")
             with patch.object(launch_entry, "CLASSPATH_FILE", classpath_file):
-                command = launch_entry.launch_command(configuration, root, 47909)
+                command = launch_entry.launch_command(configuration, root, 47909, "")
             self.assertEqual(os.path.join(root, "ixdar-app"),
                              launch_entry.working_directory(configuration, root))
             # ${workspaceFolder} is substituted inside the ${config:…} value, where the profiler
@@ -653,6 +706,24 @@ class LaunchEntryTest(unittest.TestCase):
         self.assertLess(command.index("-Xmx4g"), command.index("-Dixdar.headless=true"))
         self.assertEqual("mesh-viewer", command[-1])
         self.assertEqual("ixdar.canvas.IxdarWindow", command[-2])
+
+    def test_launch_command_swaps_the_entry_s_profiler_for_this_run_s_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._checkout(directory)
+            with open(os.path.join(root, ".vscode", "settings.json"), "w", encoding="utf-8") as handle:
+                handle.write('{"java.profiler.args": "-agentpath:${workspaceFolder}/.profiler/'
+                             'libasyncProfiler=start,event=cpu,file=${workspaceFolder}/tmp/profiles/f5-%t-%p.html"}')
+            classpath_file = os.path.join(directory, "CP")
+            with open(classpath_file, "w", encoding="utf-8") as handle:
+                handle.write("/lib/gson.jar\n")
+            configuration = launch_entry.find_configuration(
+                launch_entry.read_configurations(root), "Mesh Node Viewer")
+            ours = "-agentpath:/lib/libasyncProfiler.so=start,event=cpu,file=/p/mesh-viewer-%p.html"
+            with patch.object(launch_entry, "CLASSPATH_FILE", classpath_file):
+                command = launch_entry.launch_command(configuration, root, 47912, ours)
+        agents = [argument for argument in command if argument.startswith("-agentpath:")]
+        self.assertEqual([ours], agents)
+        self.assertIn("-Xmx4g", command)
 
     def test_launch_takes_its_entry_as_a_positional_argument(self):
         parsed = ixdar_cli._build_parser().parse_args(["launch", "Mesh Node Viewer"])
@@ -853,6 +924,46 @@ class CliTest(unittest.TestCase):
             self.assertEqual("", output.getvalue())
             self.assertIn("async-profiler library not found", errors.getvalue())
             self.assertFalse(os.path.lexists(link))
+
+    def test_profiler_agent_argument_writes_one_capture_per_run_under_tmp_profiles(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(link_profiler, "async_profiler_library", return_value="/lib/libasyncProfiler.so"):
+            argument, pattern = link_profiler.profiler_agent_argument("Ring Tool (IMG_4110)", root=directory)
+            self.assertTrue(os.path.isdir(os.path.join(directory, "tmp", "profiles")))
+        self.assertTrue(argument.startswith("-agentpath:/lib/libasyncProfiler.so=start,event=cpu,file="))
+        self.assertTrue(argument.endswith(pattern))
+        self.assertEqual(os.path.join(directory, "tmp", "profiles"), os.path.dirname(pattern))
+        # The label is made file-safe and the pid is left to async-profiler, so two runs never share a file.
+        self.assertRegex(os.path.basename(pattern), r"^Ring_Tool__IMG_4110_-\d{8}-\d{6}-%p\.html$")
+        self.assertTrue(link_profiler.capture_path(pattern, 77).endswith("-77.html"))
+
+    def test_profiler_agent_argument_without_async_profiler_returns_the_reason(self):
+        with patch.object(link_profiler, "async_profiler_library",
+                          side_effect=FileNotFoundError("async-profiler library not found")):
+            self.assertEqual(("", "async-profiler library not found"),
+                             link_profiler.profiler_agent_argument("quad-layout"))
+
+    def test_mesh_viewer_command_carries_the_profiler_agent(self):
+        agent = "-agentpath:/lib/libasyncProfiler.so=start,event=cpu,file=/p/mesh-viewer-%p.html"
+        with patch.object(mesh_viewer, "launch_classpath", return_value="/cp"):
+            command = mesh_viewer._java_command("skull.dsl", agent)
+            unprofiled = mesh_viewer._java_command("skull.dsl", "")
+        self.assertIn(agent, command)
+        self.assertLess(command.index(agent), command.index("ixdar.canvas.IxdarWindow"))
+        self.assertFalse([argument for argument in unprofiled if argument.startswith("-agentpath:")])
+
+    def test_profile_capture_finds_a_scene_s_capture_by_pid_or_the_newest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            profiles = os.path.join(directory, "tmp", "profiles")
+            os.makedirs(profiles)
+            older = os.path.join(profiles, "mesh-viewer-20261102-080000-11.html")
+            newer = os.path.join(profiles, "f5-20261102-090000-22.html")
+            for path, stamp in ((older, 1000), (newer, 2000)):
+                open(path, "w").close()
+                os.utime(path, (stamp, stamp))
+            self.assertEqual(older, link_profiler.profile_capture(11, root=directory))
+            self.assertEqual(newer, link_profiler.profile_capture(root=directory))
+            self.assertEqual("", link_profiler.profile_capture(33, root=directory))
 
     def test_install_alias_writes_a_posix_wrapper_or_a_windows_cmd(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1841,7 +1952,9 @@ class SceneLimitTest(unittest.TestCase):
         self.assertEqual(0, exit_code, report)
         by_pid = {entry["pid"]: entry for entry in report["stopped"]}
         self.assertEqual(sorted(launched), sorted(by_pid))
-        self.assertTrue(by_pid[stray.pid]["killed"])
+        # The hung scene is forced down by SIGTERM, which still lets a profiler write its capture.
+        self.assertTrue(by_pid[stray.pid]["terminated"])
+        self.assertNotIn("terminated", by_pid[launched[0]])
         self.assertNotIn("killed", by_pid[launched[0]])
 
         for scene in ("bolt", "fertility", "crawfish"):
