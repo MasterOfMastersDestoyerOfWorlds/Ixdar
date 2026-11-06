@@ -34,6 +34,7 @@ from ..automation_client import (
     refuse_second_scene,
     register_launch,
 )
+from ..scene_host import SceneHost, collect_remote_outputs, scene_host, signal_remote_scene
 from ..build_state import (
     CLASSES_DIR,
     IXDAR_APP_DIR,
@@ -294,17 +295,43 @@ def _drive_keys(client: AutomationClient, process: subprocess.Popen, log_path: s
     return results
 
 
+def start_scene(command: list[str], cwd: str, log_handle, scene: str, port: int,
+                host: SceneHost | None, root: str = "") -> subprocess.Popen:
+    """Start a scene's JVM, here or on the checkout's scene host, and record it.
+
+    :param command: The JVM argv as it would run here.
+    :param cwd: Its working directory here.
+    :param log_handle: The open log its output goes to.
+    :param scene: Scene id or launch entry name for the record.
+    :param port: The automation port the command asks for.
+    :param host: The checkout's scene host, or None to run locally.
+    :param root: Checkout root; empty uses the checkout this call was made from.
+    :return: The local process: the JVM, or the ssh session carrying a remote one.
+    :raises SceneHostError: When the scene host cannot take the build or a path.
+    """
+    if host is None:
+        process = subprocess.Popen(command, cwd=cwd, stdout=log_handle, stderr=subprocess.STDOUT,
+                                   start_new_session=True)
+        register_launch(process.pid, scene, headless=True, root=root)
+        return process
+    process, fields = host.start(command, cwd, port, log_handle)
+    register_launch(process.pid, scene, headless=True, root=root, remote=fields)
+    return process
+
+
 def _terminate(process: subprocess.Popen, client: AutomationClient) -> None:
     """Shut the scene down cleanly, then by PID — never by name.
 
     async-profiler flushes its HTML at JVM exit, so an orderly shutdown is what makes a profiled run
     usable. Falls back to signalling the process group this command created, which is safe because it
-    targets a captured PID rather than a command-line pattern. Once the process is gone its record
+    targets a captured PID rather than a command-line pattern; a remote scene's JVM is killed on its
+    host first. Once the process is gone, what a remote scene wrote is copied back and its record
     leaves the checkout's registry.
 
-    :param process: The launched JVM.
+    :param process: The launched JVM, or the ssh session carrying a remote one.
     :param client: Automation client used to request shutdown.
     """
+    record = read_port_file(os.path.join(records_directory(), f"{process.pid}{RECORD_SUFFIX}"))
     if process.poll() is None:
         try:
             client.call("request-exit")
@@ -313,12 +340,14 @@ def _terminate(process: subprocess.Popen, client: AutomationClient) -> None:
         try:
             process.wait(timeout=30)
         except subprocess.TimeoutExpired:
+            signal_remote_scene(record, signal.SIGKILL)
             try:
                 os.killpg(os.getpgid(process.pid), signal.SIGTERM)
                 process.wait(timeout=10)
             except Exception:
                 process.kill()
     if process.poll() is not None:
+        collect_remote_outputs(record)
         forget_scene(process.pid)
 
 
@@ -426,8 +455,12 @@ def run(
 
     :return: Summary dict: outcome, scene, mesh, port, base URL, screenshot and log excerpts.
     :raises SceneResolutionError: When this checkout already has a live scene.
+    :raises SceneHostError: When the checkout's scene host is unreachable or refuses a step.
     """
     refuse_second_scene("run-scene")
+    host = scene_host()
+    if host:
+        host.prepare()
     properties = resolve_scene_properties(list(property or []))
     if mesh:
         properties.append(f"{MODEL_PROPERTY}={resolve_mesh(mesh)}")
@@ -453,16 +486,8 @@ def run(
     print(f"  automation: {base_url}", file=sys.stderr)
 
     with open(log_path, "w", encoding="utf-8") as log_handle:
-        process = subprocess.Popen(
-            command,
-            cwd=IXDAR_APP_DIR,
-            stdout=log_handle,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
-        register_launch(process.pid, scene, headless=True)
+        process = start_scene(command, IXDAR_APP_DIR, log_handle, scene, port, host)
         profile = capture_path(profile_pattern, process.pid) if profiler_argument else ""
-
         status = _await_scene(client, process, log_path, await_log, timeout)
         result: dict = {
             "ok": status["ready"],
@@ -563,6 +588,9 @@ def run_scene(
     Every run is profiled with async-profiler into its own ``tmp/profiles/<scene>-<time>-<pid>.html``,
     named in the output as ``profile``; a run that shuts its scene down ends with that capture's
     self-time top-N table, and a kept-alive scene's capture is written when ``shutdown`` stops it.
+    When the checkout's ``tmp/scene-host.json`` names a scene host (``ixd wt new`` writes it), the
+    JVM runs there behind an ssh tunnel with the same output, paths and exit codes, and an
+    unreachable host is refused rather than run locally.
 
     :param scene: Scene id passed to IxdarWindow (see @SceneAnnotation ids).
     :param property: Repeatable ``key=value`` JVM system property; a ``*.off`` or ``ixdar.model``

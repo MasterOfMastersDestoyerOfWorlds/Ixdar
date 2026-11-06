@@ -1070,7 +1070,7 @@ Compare mesh viewer canonical fingerprint to a reference OBJ (same algorithm as 
 
 ### `run-scene`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L535)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/run_scene.py#L560)
 
 Build, launch, wait for, optionally profile and screenshot, then shut down a scene.
 
@@ -1110,7 +1110,7 @@ Animate a stroke sculpt, pass by pass through a DSL's stroke_sculpt chain or rou
 
 ### `shutdown`
 
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/shutdown_scene.py#L57)
+[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/shutdown_scene.py#L58)
 
 Stop every scene ixdar-cli started in this checkout, or the one named, once each is gone.
 

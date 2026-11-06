@@ -20,7 +20,6 @@ Usage:
 import json
 import os
 import re
-import subprocess
 import sys
 from typing import Annotated
 
@@ -30,12 +29,12 @@ from ..automation_client import (
     LOOPBACK_HOST,
     AutomationClient,
     refuse_second_scene,
-    register_launch,
 )
 from ..build_state import ANNOTATIONS_CLASSES, CLASSES_DIR, CLASSPATH_FILE, IXDAR_APP_DIR, ensure_build
 from ..checkout import checkout_root
 from ..cli_registry import CliCommandResult, CliOption, cli_command
 from ..run_logs import next_log_path, point_latest
+from ..scene_host import scene_host
 from .link_profiler import capture_path, profiler_agent_argument
 from .profile_report import profile_report
 from .run_scene import (
@@ -44,6 +43,7 @@ from .run_scene import (
     _terminate,
     crash_headline,
     free_port,
+    start_scene,
 )
 
 LAUNCH_JSON_RELATIVE = os.path.join(".vscode", "launch.json")
@@ -306,6 +306,9 @@ def launch(
 
     configuration = find_configuration(configurations, entry)
     refuse_second_scene("launch", root)
+    host = scene_host(root)
+    if host:
+        host.prepare()
     name = configuration.get("name", entry)
     scene = entry_scene(configuration)
     log_path = os.path.abspath(log) if log else next_log_path(scene, name, root)
@@ -324,14 +327,7 @@ def launch(
     print(f"  automation: {base_url}", file=sys.stderr)
 
     with open(log_path, "w", encoding="utf-8") as log_handle:
-        process = subprocess.Popen(
-            command,
-            cwd=cwd,
-            stdout=log_handle,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
-        register_launch(process.pid, name, headless=True, root=root)
+        process = start_scene(command, cwd, log_handle, name, port, host, root)
         status = _await_scene(client, process, log_path, "", timeout)
         payload: dict = {
             "port": int(client.base_url.rsplit(":", 1)[1]),

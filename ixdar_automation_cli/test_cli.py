@@ -31,6 +31,7 @@ from ixdar_automation_cli.cli_commands import teavm_build
 from ixdar_automation_cli import png_image
 from ixdar_automation_cli import quilt_mesh_fingerprint
 from ixdar_automation_cli import run_logs
+from ixdar_automation_cli import scene_host
 from ixdar_automation_cli.cli_commands import image_commands
 from ixdar_automation_cli.cli_commands import new_scene
 from ixdar_automation_cli.cli_commands import run_scene
@@ -224,6 +225,14 @@ class SceneResolutionTest(unittest.TestCase):
 
 
 class SceneLifecycleTest(unittest.TestCase):
+    def setUp(self):
+        # These runs act on the checkout the tests run in, whose tmp/scene-host.json may name a
+        # scene host; SceneHostTest covers that path with ssh faked.
+        for module in (run_scene, launch_entry):
+            patcher = patch.object(module, "scene_host", return_value=None)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
     def test_checkout_root_is_the_working_directory_s_checkout(self):
         with tempfile.TemporaryDirectory() as directory:
             root = os.path.realpath(directory)
@@ -1865,7 +1874,7 @@ class SceneLimitTest(unittest.TestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.root = make_checkout(directory.name)
-        for module in (automation_client, launch_entry):
+        for module in (automation_client, launch_entry, scene_host):
             patcher = patch.object(module, "checkout_root", return_value=self.root)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -2048,6 +2057,241 @@ class SceneLimitTest(unittest.TestCase):
         self.assertTrue(automation_client.process_alive(elsewhere.pid))
         # The user's F5 window, left running, is no reason to refuse a launch.
         automation_client.refuse_second_scene("run-scene")
+
+
+class SceneHostTest(unittest.TestCase):
+    """A checkout whose ``tmp/scene-host.json`` names a host runs its scenes there unnoticed.
+
+    ssh and rsync are mocked at ``subprocess.run``, which answers the prepare script with the
+    host's home and data root; the ssh session that carries a scene is a real ``sleep``, so the
+    scene limit and shutdown act on a live local pid as they do for a remote scene.
+    """
+
+    HOST = "me@mac"
+    REMOTE_HOME = "/Users/me"
+    DIRECTORY = "ixd-scenes/tool-x"
+    REMOTE_ROOT = REMOTE_HOME + "/" + DIRECTORY
+    JAR = os.path.join("org", "lwjgl", "lwjgl", "3.3.6", "lwjgl-3.3.6-natives-macos-arm64.jar")
+    ANNOTATIONS_JAR = os.path.join("IXDAR", "annotations", "0.0.1", "annotations-0.0.1.jar")
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = make_checkout(os.path.join(directory.name, "tool-x"))
+        self.data_root = os.path.realpath(os.path.join(directory.name, "data"))
+        self.jars = os.path.realpath(os.path.join(directory.name, "m2"))
+        for module in (automation_client, launch_entry, scene_host, run_logs):
+            patcher = patch.object(module, "checkout_root", return_value=self.root)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        for patcher in (patch.object(scene_host, "LOCAL_JARS_DIRECTORY", self.jars),
+                        patch.dict(os.environ, {scene_host.DATA_ROOT_VARIABLE: self.data_root})):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        os.makedirs(os.path.join(self.root, "tmp"))
+        with open(os.path.join(self.root, scene_host.SCENE_HOST_FILE), "w", encoding="utf-8") as handle:
+            json.dump({"host": self.HOST, "directory": self.DIRECTORY}, handle)
+        target = os.path.join(self.root, "ixdar-app", "target")
+        os.makedirs(target)
+        for name, entries in (("CP", ["linux.jar"]),
+                              ("CP-macos-arm64", [os.path.join(self.jars, self.JAR),
+                                                  os.path.join(self.jars, self.ANNOTATIONS_JAR)])):
+            with open(os.path.join(target, name), "w", encoding="utf-8") as handle:
+                handle.write(os.pathsep.join(entries))
+        self.runs: list[dict] = []
+        self.reachable = True
+        self.sessions: dict[int, subprocess.Popen] = {}
+        self.hung: set[int] = set()
+        self.scene_answer: dict = {}
+
+    def run_command(self, command, **kwargs):
+        """Answer ssh and rsync as a reachable host would, or ssh as an unreachable one.
+
+        :param command: The argv the CLI ran.
+        :param kwargs: Its ``subprocess.run`` keywords; ``input`` is kept for assertions.
+        :return: A completed process.
+        """
+        self.runs.append({"command": command, "input": kwargs.get("input")})
+        if command[0] == "ssh" and not self.reachable:
+            return subprocess.CompletedProcess(command, 255, "", "ssh: connect to host mac port 22: "
+                                               "No route to host\n")
+        prepare = command[0] == "ssh" and "mkdir -p" in command[-1]
+        output = f"{self.REMOTE_HOME}\n{self.REMOTE_HOME}/data\n" if prepare else ""
+        return subprocess.CompletedProcess(command, 0, output, "")
+
+    def spawn_session(self, command, hung: bool = False, **kwargs) -> subprocess.Popen:
+        """Start a fake ssh session standing in for the remote JVM, keeping its argv.
+
+        :param command: The ssh argv the CLI built.
+        :param hung: Whether the session ignores SIGTERM, as a stuck JVM does, so only SIGKILL ends it.
+        :param kwargs: The CLI's ``Popen`` keywords; ignored.
+        :return: The running fake.
+        """
+        self.session_command = command
+        sleeper = ["sh", "-c", "trap '' TERM; exec sleep 60"] if hung else ["sleep", "60"]
+        process = REAL_POPEN(sleeper, start_new_session=True)
+        threading.Thread(target=process.wait, daemon=True).start()
+        self.addCleanup(lambda: process.poll() is None and process.kill())
+        return process
+
+    def answer(self, request, timeout=0):
+        """Answer a route through the tunnel: request-exit ends the session unless it hangs.
+
+        :param request: The urllib request the CLI sent.
+        :param timeout: Ignored.
+        :return: An answer naming the host's copy of whatever path the request carried.
+        """
+        self.requests.append(request)
+        port = int(request.full_url.split(":")[2].split("/")[0])
+        process = self.sessions[port]
+        if request.full_url.endswith("/shutdown") and process.pid not in self.hung:
+            process.terminate()
+        body = json.loads(request.data) if request.data else {}
+        return FakeResponse({"ok": True, "accepted": True, **body, **self.scene_answer})
+
+    def remote_session(self, hung: bool = False) -> dict:
+        """Record a live remote scene the way run-scene registers one.
+
+        :param hung: Whether the scene ignores request-exit.
+        :return: The record.
+        """
+        process = self.spawn_session(["ssh"], hung=hung)
+        port = 48200 + len(self.sessions)
+        self.sessions[port] = process
+        if hung:
+            self.hung.add(process.pid)
+        record = {"pid": process.pid, "scene": "ring-tool", "headless": True, "launcher": "ixdar-cli",
+                  "port": port, "host": self.HOST, "remoteDirectory": self.DIRECTORY,
+                  "remoteHome": self.REMOTE_HOME, "remoteDataRoot": self.REMOTE_HOME + "/data",
+                  "remotePidFile": f"{self.REMOTE_ROOT}/tmp/automation/{port}.pid",
+                  "outputs": [os.path.join(self.root, "profile.html")]}
+        write_scene_record(self.root, record)
+        return record
+
+    def cli(self, *arguments) -> tuple[int, dict]:
+        """Run ixdar-cli with ssh, rsync and the tunnel faked.
+
+        :param arguments: Command line.
+        :return: ``(exitCode, report)``.
+        """
+        self.requests = []
+        output = io.StringIO()
+        with patch.object(subprocess, "run", side_effect=self.run_command), \
+                patch("urllib.request.urlopen", side_effect=self.answer), patch("sys.stdout", output):
+            exit_code = ixdar_cli.main(list(arguments))
+        return exit_code, json.loads(output.getvalue())
+
+    def pulls(self) -> list[list[str]]:
+        """The rsync runs that copied the host's copy back into the checkout.
+
+        :return: Their argvs.
+        """
+        return [run["command"] for run in self.runs if run["command"][0] == "rsync"
+                and run["command"][-2] == f"{self.HOST}:{self.REMOTE_ROOT}/"]
+
+    def test_run_scene_ships_the_build_tunnels_the_port_and_records_the_host(self):
+        scan = os.path.join(self.data_root, "crawfish", "IMG_4112.glb")
+
+        def java_command(scene, properties, profiler_argument, coverage_path):
+            return ["java", "-Dixdar.headless=true", *(f"-D{entry}" for entry in properties),
+                    f"-XX:ErrorFile={self.root}/ixdar-app/target/hs_err_pid%p.log", "-cp", "linux.jar",
+                    "ixdar.canvas.IxdarWindow", scene]
+
+        def ready(client, process, log_path, await_log, timeout):
+            self.sessions[int(client.base_url.rsplit(":", 1)[1])] = process
+            return {"ready": True, "exited": False, "matched": [], "crash": [], "waited": 0.1}
+
+        with patch.object(subprocess, "run", side_effect=self.run_command), \
+                patch.object(run_scene, "IXDAR_APP_DIR", os.path.join(self.root, "ixdar-app")), \
+                patch.object(run_scene, "ensure_build", return_value=[]), \
+                patch.object(run_scene, "_java_command", side_effect=java_command), \
+                patch.object(run_scene, "_mesh_summary", return_value={}), \
+                patch.object(run_scene, "_await_scene", side_effect=ready), \
+                patch.object(subprocess, "Popen", side_effect=self.spawn_session):
+            result = run_scene.run(scene="ring-tool", property=[f"ixdar.model={scan}"],
+                                   keep_alive=True, log=os.path.join(self.root, "tmp", "ring.log"))
+        self.assertTrue(result["ok"])
+        port = result["port"]
+        ssh, remote = self.session_command[:-1], self.session_command[-1]
+        self.assertEqual("ssh", ssh[0])
+        self.assertIn(f"127.0.0.1:{port}:127.0.0.1:{port}", ssh)
+        self.assertEqual(self.HOST, ssh[-1])
+        self.assertNotIn(self.root, remote)
+        for expected in (f"-Dixdar.model={self.REMOTE_HOME}/data/crawfish/IMG_4112.glb",
+                         "-XstartOnFirstThread", f"{self.REMOTE_ROOT}/ixdar-app/target/classes:"
+                         f"{self.REMOTE_ROOT}/annotations/target/classes:"
+                         f"{self.REMOTE_HOME}/ixd-scenes/m2/{self.JAR}",
+                         f"-XX:ErrorFile={self.REMOTE_ROOT}/ixdar-app/target/hs_err_pid%p.log",
+                         f"{self.REMOTE_ROOT}/ixdar-app"):
+            self.assertIn(expected, remote)
+        self.assertNotIn("annotations-0.0.1.jar", remote)
+
+        copies = [run for run in self.runs if run["command"][0] == "rsync"]
+        self.assertIn("--include=/ixdar-app/target/classes/***", copies[0]["command"])
+        self.assertIn("--delete", copies[0]["command"])
+        self.assertEqual(self.JAR + "\n", copies[1]["input"])
+        record = automation_client.read_port_file(
+            os.path.join(automation_client.records_directory(self.root), f"{result['pid']}.json"))
+        self.assertEqual((self.HOST, port, f"{self.REMOTE_ROOT}/tmp/automation/{port}.pid"),
+                         (record["host"], record["port"], record["remotePidFile"]))
+
+        exit_code, report = self.cli("shutdown", "--timeout", "5")
+        self.assertEqual(0, exit_code, report)
+        self.assertTrue(report["stopped"][0]["exited"])
+        self.assertEqual([], os.listdir(automation_client.records_directory(self.root)))
+        self.assertTrue(self.pulls(), "what the scene wrote is copied back once it is gone")
+
+    def test_an_unreachable_host_refuses_and_runs_nothing_locally(self):
+        self.reachable = False
+        with patch.object(subprocess, "Popen") as popen:
+            exit_code, report = self.cli("run-scene", "--scene", "ring-tool")
+        popen.assert_not_called()
+        self.assertEqual(ixdar_cli.SCENE_HOST_EXIT_CODE, exit_code)
+        self.assertIn(f"scene host {self.HOST}", report["error"])
+        self.assertIn("No route to host", report["error"])
+        self.assertIn("nothing was run locally", report["error"])
+
+    def test_route_paths_map_onto_the_host_and_answers_map_back(self):
+        self.remote_session()
+        local = os.path.join(self.root, "tmp", "shot.png")
+        exit_code, report = self.cli("screenshot", "--out", local)
+        self.assertEqual(0, exit_code, report)
+        self.assertEqual(f"{self.REMOTE_ROOT}/tmp/shot.png", json.loads(self.requests[0].data)["path"])
+        self.assertEqual(local, report["path"])
+        self.assertIn("--include=/tmp/shot.png", self.pulls()[0])
+
+        exit_code, report = self.cli("screenshot", "--out", "/etc/shot.png")
+        self.assertEqual(ixdar_cli.SCENE_HOST_EXIT_CODE, exit_code)
+        self.assertIn("/etc/shot.png is outside this checkout", report["error"])
+        self.assertEqual([], self.requests)
+
+    def test_a_file_the_scene_names_outside_tmp_is_copied_back(self):
+        self.remote_session()
+        self.scene_answer = {"path": f"{self.REMOTE_ROOT}/screenshots/automation/screenshot-1.png"}
+        exit_code, report = self.cli("screenshot")
+        self.assertEqual(0, exit_code, report)
+        self.assertEqual(os.path.join(self.root, "screenshots", "automation", "screenshot-1.png"),
+                         report["path"])
+        self.assertIn("--include=/screenshots/automation/screenshot-1.png", self.pulls()[0])
+        self.assertNotIn("--include=/***", self.pulls()[0])
+
+    def test_a_remote_scene_that_outlives_shutdown_is_killed_on_its_host(self):
+        record = self.remote_session(hung=True)
+        with patch.object(shutdown_scene, "TERM_WAIT_SECONDS", 0.5):
+            exit_code, report = self.cli("shutdown", "--timeout", "0.5")
+        self.assertEqual(0, exit_code, report)
+        self.assertTrue(report["stopped"][0]["killed"])
+        kills = [run["command"] for run in self.runs
+                 if run["command"][0] == "ssh" and "kill -KILL" in run["command"][-1]]
+        self.assertEqual(1, len(kills))
+        self.assertIn(record["remotePidFile"], kills[0][-1])
+        self.assertFalse(automation_client.process_alive(record["pid"]))
+        self.assertIn("--include=/profile.html", self.pulls()[-1])
+
+    def test_rsync_filters_select_exactly_the_named_paths(self):
+        self.assertEqual(["--include=/tmp/", "--include=/tmp/a.png", "--include=/tmp/a.png/***",
+                          "--include=/pom.xml", "--include=/pom.xml/***", "--exclude=*"],
+                         scene_host.rsync_filters([os.path.join("tmp", "a.png"), "pom.xml"]))
 
 
 if __name__ == "__main__":

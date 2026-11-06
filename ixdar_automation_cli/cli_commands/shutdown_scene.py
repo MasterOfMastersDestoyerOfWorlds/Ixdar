@@ -30,6 +30,7 @@ from ..automation_client import (
     process_alive,
 )
 from ..cli_registry import CliCommandResult, cli_command
+from ..scene_host import collect_remote_outputs, signal_remote_scene
 from .link_profiler import profile_capture
 
 POLL_SECONDS = 0.2
@@ -72,7 +73,9 @@ def shutdown(
     killed if that fails, and its record removed. Each stopped scene's capture under
     ``tmp/profiles/`` is named as ``profile`` (read it with ``profile-report``). Only pids recorded in
     this checkout are ever signalled, so a scene another worktree started is never touched, and
-    with no target named a window the user opened with F5 is left running and listed.
+    with no target named a window the user opened with F5 is left running and listed. A scene on
+    the checkout's scene host is killed there too when it outlives the timeout, and what it wrote
+    is copied back once it is gone, so neither machine keeps a JVM or a tunnel.
 
     :param timeout: Seconds to wait for each process to exit before killing it.
     """
@@ -89,6 +92,7 @@ def shutdown(
     for record in targets:
         entry = {"pid": record.get("pid"), "port": record.get("port"), "scene": record.get("scene")}
         if "baseUrl" not in record:
+            signal_remote_scene(record, signal.SIGTERM)
             os.kill(int(record["pid"]), signal.SIGTERM)
             entry["accepted"] = False
             entry["note"] = "still starting, so sent SIGTERM"
@@ -103,7 +107,7 @@ def shutdown(
         stopped.append(entry)
 
     deadline = time.monotonic() + timeout
-    for entry in stopped:
+    for entry, record in zip(stopped, targets):
         pid = entry["pid"]
         if not pid:
             entry["exited"] = None
@@ -113,14 +117,17 @@ def shutdown(
         entry["exited"], entry["waitedSeconds"] = await_exit(
             int(pid), max(0.0, deadline - time.monotonic()))
         if not entry["exited"]:
+            signal_remote_scene(record, signal.SIGTERM)
             os.kill(int(pid), signal.SIGTERM)
             entry["terminated"] = True
             entry["exited"], _ = await_exit(int(pid), TERM_WAIT_SECONDS)
         if not entry["exited"]:
+            signal_remote_scene(record, signal.SIGKILL)
             os.kill(int(pid), signal.SIGKILL)
             entry["killed"] = True
             entry["exited"], _ = await_exit(int(pid), KILL_WAIT_SECONDS)
         if entry["exited"]:
+            collect_remote_outputs(record)
             forget_scene(int(pid))
             how = ("killed after the timeout" if entry.get("killed")
                    else "terminated after the timeout" if entry.get("terminated") else "exited")

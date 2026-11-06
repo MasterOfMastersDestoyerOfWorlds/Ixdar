@@ -6,7 +6,10 @@ import urllib.error
 
 from .automation_client import AutomationClient, SceneResolutionError, describe_scene, load_manifest
 from .cli_registry import CliCommand, CliCommandResult, CliParameter, get_registry
+from .scene_host import SceneHostError
 from .server_routes import add_server_parsers, dispatch_server_command, server_command_map
+
+SCENE_HOST_EXIT_CODE = 8
 
 
 def _server_commands() -> dict:
@@ -131,6 +134,9 @@ def main(argv: list[str]) -> int:
         print(json.dumps({"ok": False, "error": str(exc),
                           "scenes": [describe_scene(record) for record in exc.scenes]}, indent=2))
         return 4
+    except SceneHostError as exc:
+        print(json.dumps(_with_target({"ok": False, "error": str(exc)}, client), indent=2))
+        return SCENE_HOST_EXIT_CODE
     except ValueError as exc:
         print(json.dumps(_with_target({"ok": False, "error": str(exc)}, client)))
         return 6

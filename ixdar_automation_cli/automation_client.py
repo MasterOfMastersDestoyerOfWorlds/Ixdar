@@ -8,6 +8,7 @@ import urllib.request
 from pathlib import Path
 
 from .checkout import checkout_root
+from .scene_host import SceneHost
 
 MANIFEST_PATH = Path(__file__).with_name("automation_routes.json")
 LOOPBACK_HOST = "127.0.0.1"
@@ -85,22 +86,26 @@ def process_alive(pid: int) -> bool:
     return True
 
 
-def register_launch(pid: int, scene: str, headless: bool, root: str = "") -> None:
+def register_launch(pid: int, scene: str, headless: bool, root: str = "",
+                    remote: dict | None = None) -> None:
     """Record a scene JVM ixdar-cli just started, before it has bound a port.
 
     The scene rewrites this same ``<pid>.json`` with its port once its server is up, keeping the
-    launcher mark, so the pid is in the registry for the JVM's whole life.
+    launcher mark, so the pid is in the registry for the JVM's whole life. A scene on a scene host
+    writes its own record there instead, so this one, keyed by the local ssh session's pid, carries
+    the tunnelled port and the host fields from the start.
 
-    :param pid: The JVM's pid.
+    :param pid: The JVM's pid, or for a remote scene its ssh session's.
     :param scene: Scene id or launch entry name.
     :param headless: Whether it runs off-screen.
     :param root: Checkout root; empty uses :func:`checkout_root`.
+    :param remote: The port and :meth:`SceneHost.record_fields` of a remote scene, or None.
     """
     directory = records_directory(root)
     os.makedirs(directory, exist_ok=True)
     with open(os.path.join(directory, f"{pid}{RECORD_SUFFIX}"), "w", encoding="utf-8") as handle:
-        json.dump({"pid": pid, "scene": scene, "headless": headless, "launcher": CLI_LAUNCHER},
-                  handle)
+        json.dump({"pid": pid, "scene": scene, "headless": headless, "launcher": CLI_LAUNCHER,
+                   **(remote or {})}, handle)
 
 
 def forget_scene(pid: int, root: str = "") -> None:
@@ -391,12 +396,17 @@ class AutomationClient:
         """Request the route the manifest names ``command``, so no route path is copied here.
 
         Only the parameters passed are sent; the route applies its own defaults to the rest. The
-        wait is the default plus the route's declared ``waitSeconds``.
+        wait is the default plus the route's declared ``waitSeconds``. For a scene on a scene host
+        the call reads as a local one: absolute path parameters map onto the host's copy (checkout
+        files are copied there first), a POST is followed by copying back what the scene wrote (``tmp/``,
+        the resources, and every checkout file the answer names, such as a screenshot), and
+        the host's paths in the answer are mapped back to this machine's.
 
         :param command: The route's ``commandName`` in ``automation_routes.json``, e.g. ``ui-state``.
         :param params: Body fields, each one of the route's declared parameter names.
         :return: The decoded response.
         :raises ValueError: When no route has that name or a parameter is not one it declares.
+        :raises SceneHostError: When a remote scene's host cannot take a path or a copy fails.
         """
         route = self.routes.get(command)
         if route is None:
@@ -405,6 +415,18 @@ class AutomationClient:
         if undeclared:
             raise ValueError(f"route {command!r} declares no parameter {', '.join(undeclared)}")
         timeout = DEFAULT_REQUEST_TIMEOUT + route.get("waitSeconds", 0)
+        if not self.resolve().get("host"):
+            if route["method"] == "GET":
+                return self.request_json(route["path"], timeout=timeout)
+            return self.request_json(route["path"], params, timeout=timeout)
+        host = SceneHost.from_record(self.target)
         if route["method"] == "GET":
-            return self.request_json(route["path"], timeout=timeout)
-        return self.request_json(route["path"], params, timeout=timeout)
+            return host.localize(self.request_json(route["path"], timeout=timeout))
+        paths = [value for value in params.values()
+                 if isinstance(value, str) and os.path.isabs(value)]
+        host.push([path for path in paths if path.startswith(host.root + os.sep)])
+        remote = {name: host.remote_value(value) if isinstance(value, str) else value
+                  for name, value in params.items()}
+        answer = host.localize(self.request_json(route["path"], remote, timeout=timeout))
+        host.pull([*paths, *host.named_paths(answer)])
+        return answer
