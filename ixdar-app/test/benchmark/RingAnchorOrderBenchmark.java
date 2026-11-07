@@ -225,7 +225,7 @@ public final class RingAnchorOrderBenchmark {
                 }
                 moved = String.format(Locale.ROOT, "%.2f", farthest / meanEdge);
             } else {
-                float[] drawn = spline.path.drawnPolyline(cubic);
+                float[] drawn = spline.path.curve(cubic).drawnPositions(0);
                 Files.write(baseline, SurfaceWaypoints.format(drawn, drawn.length / XYZ)
                         .getBytes(StandardCharsets.UTF_8));
             }

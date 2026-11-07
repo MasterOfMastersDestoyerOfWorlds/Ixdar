@@ -172,7 +172,7 @@ public class SplineRingNode implements MeshNode {
         SurfaceSpline spline = SurfaceSpline.of(ring.tracer);
 
         GeometryBundle out = SurfaceSpline.with(bundle.withSlot(CurveGeometry.SLOT,
-                CurveGeometry.singlePolyline(spline.path.drawnPolyline(spline.path.positions))),
+                spline.path.curve(spline.path.positions)),
                 label, spline);
         ctx.setOutput(GEOMETRY.name, EdgeMarks.with(out, label, spline.marks.markedByEdgeId));
         boolean[] selection = new boolean[surface.edgeCount()];

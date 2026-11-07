@@ -22,7 +22,7 @@ import ixdar.annotations.automation.RouteParamType;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.AutomationPortFile;
 import ixdar.geometry.grid2d.PolygonScan;
-import ixdar.geometry.grid2d.PolylineSimplify;
+import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
 import ixdar.graphics.cameras.Camera3D;
@@ -154,7 +154,7 @@ public class TraceReference extends AutomationEndpoint implements AutomationRout
                     * unitsPerPixel;
         }
         float simplify = body.has(SIMPLIFY) ? body.get(SIMPLIFY).getAsFloat() : DEFAULT_SIMPLIFY;
-        float[] closed = PolylineSimplify.douglasPeucker(placed, simplify);
+        float[] closed = CurveGeometry.planarLoop(placed).simplified(simplify).drawnPlanar(0);
         int points = closed.length / 2;
         float[] lengths = new float[points];
         for (int point = 1; point < points; point++) {
@@ -220,7 +220,7 @@ public class TraceReference extends AutomationEndpoint implements AutomationRout
                 }
                 StringBuilder polyline = new StringBuilder("<polyline fill=\"none\" stroke=\"#e08a1e\" stroke-width=\"2\" "
                         + "points=\"");
-                float[] simplified = PolylineSimplify.douglasPeucker(line, simplify);
+                float[] simplified = CurveGeometry.planar(line, false).simplified(simplify).drawnPlanar(0);
                 for (int index = 0; index < simplified.length; index += 2) {
                     polyline.append(index == 0 ? "" : " ").append(String.format(Locale.ROOT, POINT_FORMAT,
                             simplified[index], simplified[index + 1]));

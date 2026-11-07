@@ -1,11 +1,13 @@
 package ixdar.geometry.mesh.data.analysis.skeleton;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import org.joml.Vector3f;
 
-import ixdar.geometry.grid2d.PolylineSimplify;
+import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.numeric.graph.Dijkstra;
@@ -31,6 +33,8 @@ public final class MeshSkeletonExtractor {
     public static final int DEFAULT_RESOLUTION = 128;
 
     public static final int DEFAULT_BRANCH_BUDGET = 50;
+
+    public static final String RADIUS = "radius";
 
     private static final int MIN_PATH_LENGTH = 3;
     private static final float INVALIDATION_SCALE = 0.3f;
@@ -394,18 +398,20 @@ public final class MeshSkeletonExtractor {
             if (rawLength < vs * MIN_BRANCH_VOXELS) continue;  // skip branches shorter than ~15 voxels
 
             float[] packedPath = new float[worldPos.length * 3];
+            float[] radius = new float[worldPos.length];
             for (int i = 0; i < worldPos.length; i++) {
                 System.arraycopy(worldPos[i], 0, packedPath, i * 3, 3);
+                float r = dfb[path.get(i)[MIN_PATH_LENGTH]];
+                radius[i] = (r == Float.MAX_VALUE ? 0 : r) * vs;
             }
-            boolean[] kept = PolylineSimplify.keptPoints(packedPath, 3, vs * RDP_EPSILON_VOXELS);
+            CurveGeometry simplified = new CurveGeometry(packedPath, new int[] { 0, worldPos.length },
+                    new boolean[1], Map.of(RADIUS, radius), Map.of()).simplified(vs * RDP_EPSILON_VOXELS);
 
             // Build joints
             List<SkeletonJoint> joints = new ArrayList<>();
-            for (int k = 0; k < kept.length; k++) {
-                if (!kept[k]) continue;
-                float r = dfb[path.get(k)[MIN_PATH_LENGTH]];
-                if (r == Float.MAX_VALUE) r = 0;
-                joints.add(new SkeletonJoint(worldPos[k], r * vs));
+            for (int k = 0; k < simplified.pointCount(); k++) {
+                joints.add(new SkeletonJoint(Arrays.copyOfRange(simplified.positions, k * 3, k * 3 + 3),
+                        simplified.pointAttributes.get(RADIUS)[k]));
             }
 
             // Direction and length

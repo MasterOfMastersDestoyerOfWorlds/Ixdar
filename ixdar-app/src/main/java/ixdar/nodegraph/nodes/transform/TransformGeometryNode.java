@@ -175,7 +175,7 @@ public class TransformGeometryNode implements MeshNode {
         // Transform curve geometry if present in slots
         Object curveObj = base.slots().get(CurveGeometry.SLOT);
         if (curveObj instanceof CurveGeometry cg) {
-            float[] srcPos = cg.positions();
+            float[] srcPos = cg.positions;
             float[] dstPos = new float[srcPos.length];
             for (int ci = 0; ci < srcPos.length / VECTOR_STRIDE; ci++) {
                 tmp.set(srcPos[ci * VECTOR_STRIDE], srcPos[ci * VECTOR_STRIDE + 1], srcPos[ci * VECTOR_STRIDE + 2]);
@@ -184,7 +184,7 @@ public class TransformGeometryNode implements MeshNode {
                 dstPos[ci * VECTOR_STRIDE + 1] = tmp.y;
                 dstPos[ci * VECTOR_STRIDE + 2] = tmp.z;
             }
-            result = result.withSlot(CurveGeometry.SLOT, new CurveGeometry(dstPos, cg.curveOffsets()));
+            result = result.withSlot(CurveGeometry.SLOT, cg.withPositions(dstPos));
         }
 
         ctx.setOutput(GEOMETRY.name, result);

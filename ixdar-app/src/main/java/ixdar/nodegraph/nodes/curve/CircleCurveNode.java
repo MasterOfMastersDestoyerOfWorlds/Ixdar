@@ -86,15 +86,7 @@ public class CircleCurveNode implements MeshNode {
             positions[base + 2] = cz + radius * (float) Math.sin(theta);
         }
 
-        // Close the curve by repeating the first point at the end
-        // This allows downstream nodes to detect the curve as closed
-        float[] closedPositions = new float[(resolution + 1) * 3];
-        System.arraycopy(positions, 0, closedPositions, 0, resolution * 3);
-        closedPositions[resolution * 3] = positions[0];
-        closedPositions[resolution * 3 + 1] = positions[1];
-        closedPositions[resolution * 3 + 2] = positions[2];
-
-        CurveGeometry curve = CurveGeometry.singlePolyline(closedPositions);
+        CurveGeometry curve = CurveGeometry.singlePolyline(positions, true);
         GeometryBundle curveBundle = GeometryBundle.empty().withSlot(CurveGeometry.SLOT, curve);
 
         ctx.setOutput(GEOMETRY.name, curveBundle);

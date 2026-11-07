@@ -96,7 +96,7 @@ public class InstanceOnPointsNode implements MeshNode {
     private static float[] positionsFromBundle(GeometryBundle gb) {
         Object c = gb.slots().get(CurveGeometry.SLOT);
         if (c instanceof CurveGeometry cg) {
-            return cg.positions();
+            return cg.positions;
         }
         MeshTopology m = gb.mesh();
         if (m == null || m.vertexCount() == 0) {

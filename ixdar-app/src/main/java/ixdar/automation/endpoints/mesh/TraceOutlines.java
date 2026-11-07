@@ -17,7 +17,7 @@ import ixdar.annotations.automation.RouteParamType;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.AutomationPortFile;
 import ixdar.automation.endpoints.ui.MultiviewScreenshot;
-import ixdar.geometry.grid2d.PolylineSimplify;
+import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
 import ixdar.graphics.image.PixelImage;
 import ixdar.graphics.image.ReferenceOutlines;
@@ -170,7 +170,7 @@ public class TraceOutlines extends AutomationEndpoint implements AutomationRoute
                 outline[index + 1] = Math.max(top, Math.min(top + cellHeight - 1, outline[index + 1] + top))
                         * unitsPerPixel;
             }
-            float[] closed = PolylineSimplify.douglasPeucker(outline, simplify);
+            float[] closed = CurveGeometry.planarLoop(outline).simplified(simplify).drawnPlanar(0);
             svg.append(String.format(Locale.ROOT, "<!-- trace-outlines: %s into cell %d (%s), %.6f world units per "
                     + "picture pixel -->%n<polyline data-kind=\"silhouette\" fill=\"none\" stroke=\"blue\" points=\"",
                     Path.of(pictures[view]).getFileName(), cell, labels[cell], traced.scaleByView[view]));

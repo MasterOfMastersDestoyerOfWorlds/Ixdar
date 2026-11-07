@@ -162,7 +162,7 @@ commas between test names, never `+`.
 - **ixdar.game.trade.map**: The trade map on an irregular grid: places (cities with markets, towns without), roads and rivers as grid paths, bridges built from a river side, and moor.
 - **ixdar.game.trade.routes**: Routes: the leg between every pair of places, and the player's loops as a layered knot hierarchy edited by Pipe, Grow and Collapse with snapshot undo.
 - **ixdar.geometry**: Split point between disjoint bodies of geometry code: `mesh` (the current node-graph stack), `tsp` (the knot/cuts/shell lineage and its `.ix` file format) and `grid2d` (the 2D grids). Nothing under `mesh` imports `tsp`.
-- **ixdar.geometry.grid2d**: 2D grids: `Grid` (cartesian and hex, which decide the point types a `.ix` file may hold), `IrregularQuadGrid`, and `IrregularQuadLayoutGenerator` (Townscaper-style quad layouts). The two irregular grids are still separate classes. `PolylineSimplify` and `PolylineResample` work on polylines of any dimension, the mesh code's 3D ones included.
+- **ixdar.geometry.grid2d**: 2D grids: `Grid` (cartesian and hex, which decide the point types a `.ix` file may hold), `IrregularQuadGrid`, and `IrregularQuadLayoutGenerator` (Townscaper-style quad layouts). The two irregular grids are still separate classes.
 - **ixdar.geometry.mesh**: The mesh subsystem root: mesh data structures and the quad-layout pipeline. Subpackages hold the parts; this level has shared engines like subdivision and boolean backends.
 - **ixdar.geometry.mesh.csg**: CSG support code: the Manifold-backed boolean backend (FFM bindings) and quad triangulation of boolean output.
 - **ixdar.geometry.mesh.data**: Mesh data and the algorithms over it, one sub-package per concern; no class lives at this root. The conventions in ARCHITECTURE.md's constraints section are enforced from here.
@@ -230,7 +230,7 @@ commas between test names, never `+`.
 - **ixdar.nodegraph.nodes**: Every DSL node pack, one subpackage each; the algorithms the nodes call stay in their domains.
 - **ixdar.nodegraph.nodes.closure**: Nodes wrapping reusable sub-graph closures defined in the DSL (`def` group support).
 - **ixdar.nodegraph.nodes.control**: Graph control-flow nodes: switches and selection between inputs by index or condition.
-- **ixdar.nodegraph.nodes.curve**: Curve nodes: primitives (circle, bezier, function), conversion to and from meshes, sweep, loft, resample, deform. Curves travel between nodes as `CurveGeometry` under `CurveGeometry.SLOT`.
+- **ixdar.nodegraph.nodes.curve**: Curve nodes: primitives (circle, bezier, function), conversion to and from meshes, sweep, loft, resample, deform. Curves travel between nodes as `CurveGeometry` under `CurveGeometry.SLOT`; a node reads a curve through its per-curve accessors and closed flag, never from raw offsets, and sets the flag on every curve it makes.
 - **ixdar.nodegraph.nodes.data**: Data-attachment nodes: tagging geometry (`TagGeometryNode` owns the `_tags` slot), named attributes, and inputs that surface external data to a graph.
 - **ixdar.nodegraph.nodes.dungeon**: Thin `MeshNode` adapters wrapping each algorithm stage for the DSL, all in the `dungeon` scope. Every stage is one node for 2D and 3D: `grid_d` on rooms and corridors chooses 3D, and grid-to-mesh reads the dimension off the tiles it is given.
 - **ixdar.nodegraph.nodes.geometry**: Geometry-level operations: mesh boolean (desktop-only, Manifold FFM backend; owns the provenance slots), join, transform-level ops on whole bundles.

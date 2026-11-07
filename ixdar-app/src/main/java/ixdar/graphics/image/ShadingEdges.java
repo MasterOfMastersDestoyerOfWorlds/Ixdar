@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import ixdar.geometry.grid2d.PolylineSimplify;
+import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 
 /**
  * The shading of a picture's subject read as sculpt marks: every luminance edge inside it as one
@@ -400,7 +400,7 @@ public final class ShadingEdges {
                     vote += lightLength >= LIGHT_MINIMUM ? (Math.abs(facing) < SIGN_MINIMUM_COSINE ? 0f : facing)
                             : darkBand && !brightBand ? -1f : 1f;
                 }
-                lines.add(PolylineSimplify.douglasPeucker(xy, SIMPLIFY_PIXELS));
+                lines.add(CurveGeometry.planar(xy, false).simplified(SIMPLIFY_PIXELS).drawnPlanar(0));
                 widths.add(lineWidths);
                 contrasts.add(lineContrasts);
                 votes.add(vote);

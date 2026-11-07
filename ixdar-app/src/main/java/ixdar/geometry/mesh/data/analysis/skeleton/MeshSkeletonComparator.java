@@ -5,10 +5,10 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
-import ixdar.geometry.grid2d.PolylineResample;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonJoint;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonResult;
+import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 
 import ixdar.nodegraph.optimize.SkeletonSensitivityAnalyzer;
 /**
@@ -276,7 +276,7 @@ public final class MeshSkeletonComparator {
         for (int joint = 0; joint < joints.size(); joint++) {
             System.arraycopy(joints.get(joint).position(), 0, packed, joint * 3, 3);
         }
-        float[] sampled = PolylineResample.uniform(packed, 0, joints.size(), 3, false, n);
+        float[] sampled = CurveGeometry.singlePolyline(packed, false).resampled(n).positions;
         float[][] result = new float[n][];
         for (int sample = 0; sample < n; sample++) {
             result[sample] = Arrays.copyOfRange(sampled, sample * 3, sample * 3 + 3);

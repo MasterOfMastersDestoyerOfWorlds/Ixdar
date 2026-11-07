@@ -61,7 +61,7 @@ public class MeshToCurveNode implements MeshNode {
         }
         MeshTopology mesh = gb.mesh();
         if (mesh == null || mesh.edgeCount() == 0) {
-            ctx.setOutput(GEOMETRY.name,gb.withSlot(CurveGeometry.SLOT, CurveGeometry.singlePolyline(new float[0])));
+            ctx.setOutput(GEOMETRY.name,gb.withSlot(CurveGeometry.SLOT, CurveGeometry.singlePolyline(new float[0], false)));
             return;
         }
 
@@ -108,8 +108,11 @@ public class MeshToCurveNode implements MeshNode {
     }
 
     /**
-     * One ordered loop / polyline along manifold boundary edges. Closed loops repeat the first vertex at
-     * the end so downstream nodes (e.g. {@code curve_sweep}) can detect closure.
+     * One ordered loop or polyline along manifold boundary edges, marked closed when the walk
+     * returns to its start.
+     *
+     * @param mesh the mesh whose boundary is walked
+     * @return the boundary curve, or null when there is no boundary or it has fewer than two points
      */
     private static CurveGeometry boundaryPolyline(MeshTopology mesh) {
         HashMap<Integer, ArrayList<Integer>> adj = new HashMap<>();
@@ -141,6 +144,7 @@ public class MeshToCurveNode implements MeshNode {
         int cur = start;
         int guard = 0;
         int maxGuard = mesh.vertexCount() * BOUNDARY_WALK_GUARD_MULTIPLIER + BOUNDARY_WALK_GUARD_PADDING;
+        boolean closed = false;
         while (true) {
             order.add(cur);
             ArrayList<Integer> nbs = adj.get(cur);
@@ -158,7 +162,7 @@ public class MeshToCurveNode implements MeshNode {
                 break;
             }
             if (next == start && order.size() > 1) {
-                order.add(start);
+                closed = true;
                 break;
             }
             prev = cur;
@@ -180,6 +184,6 @@ public class MeshToCurveNode implements MeshNode {
             pos[b + 1] = p.y;
             pos[b + 2] = p.z;
         }
-        return CurveGeometry.singlePolyline(pos);
+        return CurveGeometry.singlePolyline(pos, closed);
     }
 }

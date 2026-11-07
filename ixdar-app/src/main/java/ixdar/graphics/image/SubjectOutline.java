@@ -6,7 +6,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 
-import ixdar.geometry.grid2d.PolylineSimplify;
+import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.DecodedImage;
 
@@ -132,7 +132,7 @@ public final class SubjectOutline {
         subject.box[1] = bounds[1];
         subject.box[2] = bounds[2] - bounds[0] + 1;
         subject.box[3] = bounds[3] - bounds[1] + 1;
-        subject.outline = simplify > 0f ? PolylineSimplify.douglasPeucker(xy, simplify) : xy;
+        subject.outline = simplify > 0f ? CurveGeometry.planarLoop(xy).simplified(simplify).drawnPlanar(0) : xy;
         return subject;
     }
 }

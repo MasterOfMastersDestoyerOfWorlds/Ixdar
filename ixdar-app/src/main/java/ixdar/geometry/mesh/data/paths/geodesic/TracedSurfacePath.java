@@ -2,6 +2,8 @@ package ixdar.geometry.mesh.data.paths.geodesic;
 
 import java.util.Arrays;
 
+import ixdar.geometry.mesh.data.bundle.CurveGeometry;
+
 /**
  * A path traced onto a mesh surface: packed xyz positions plus, per point, the vertex it sits on,
  * the edge it crosses and where, or the face it passes inside.
@@ -137,21 +139,17 @@ public final class TracedSurfacePath {
     }
 
     /**
-     * Packed single-precision xyz of the points, a closed path's first point repeated at the end,
-     * the form curve geometry and the GL overlays draw.
+     * The path as one curve, each point stored once and closed when the path is: the only form
+     * the path leaves the double-precision geodesic maths in.
      *
      * @param packedXyz {@link #positions} or {@link #surfacePositions}
-     * @return a fresh {@code float[]}
+     * @return a fresh single-curve geometry
      */
-    public float[] drawnPolyline(double[] packedXyz) {
-        int drawn = closed && pointCount > 0 ? pointCount + 1 : pointCount;
-        float[] packed = new float[COORDINATES_PER_POINT * drawn];
-        for (int point = 0; point < drawn; point++) {
-            for (int axis = 0; axis < COORDINATES_PER_POINT; axis++) {
-                packed[COORDINATES_PER_POINT * point + axis] =
-                        (float) packedXyz[COORDINATES_PER_POINT * (point % pointCount) + axis];
-            }
+    public CurveGeometry curve(double[] packedXyz) {
+        float[] packed = new float[COORDINATES_PER_POINT * pointCount];
+        for (int coordinate = 0; coordinate < packed.length; coordinate++) {
+            packed[coordinate] = (float) packedXyz[coordinate];
         }
-        return packed;
+        return CurveGeometry.singlePolyline(packed, closed);
     }
 }

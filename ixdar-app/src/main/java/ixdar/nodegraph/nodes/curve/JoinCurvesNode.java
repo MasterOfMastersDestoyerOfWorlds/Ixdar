@@ -5,6 +5,9 @@ import java.util.List;
 import ixdar.nodegraph.api.InputPort;
 
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import ixdar.nodegraph.api.MeshNode;
 import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
@@ -16,10 +19,8 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.nodegraph.field.FieldBroadcast;
 
 /**
- * Concatenates two curve polylines into a single continuous curve.
- * Extracts the first polyline from each input bundle and appends them.
- * When deduplicate is true (default), removes the duplicate point at the join
- * if the last point of curve A matches the first point of curve B.
+ * Appends the first polyline of curve B to the first of curve A as one open curve carrying both
+ * inputs' attributes, dropping B's start where it repeats A's end unless told not to.
  */
 @MeshNodeAnnotation(id = "join_curves", category = NodeCategory.CURVE_OPERATIONS)
 public class JoinCurvesNode implements MeshNode {
@@ -81,15 +82,13 @@ public class JoinCurvesNode implements MeshNode {
         if (dedupObj instanceof Boolean b) dedup = b;
 
         // Extract first polyline from each
-        float[] posA = cgA.positions();
-        int offA0 = cgA.curveOffsets()[0];
-        int offA1 = cgA.curveOffsets()[1];
-        int nA = offA1 - offA0;
+        float[] posA = cgA.positions;
+        int offA0 = cgA.firstPoint(0);
+        int nA = cgA.pointCount(0);
 
-        float[] posB = cgB.positions();
-        int offB0 = cgB.curveOffsets()[0];
-        int offB1 = cgB.curveOffsets()[1];
-        int nB = offB1 - offB0;
+        float[] posB = cgB.positions;
+        int offB0 = cgB.firstPoint(0);
+        int nB = cgB.pointCount(0);
 
         // Check if endpoint of A matches startpoint of B
         int skipB = 0;
@@ -116,7 +115,30 @@ public class JoinCurvesNode implements MeshNode {
         int copyCount = (nB - skipB) * 3;
         System.arraycopy(posB, srcOffset, combined, dstOffset, copyCount);
 
-        CurveGeometry joined = CurveGeometry.singlePolyline(combined);
+        // An attribute only one side carries reads 0 on the other side's points.
+        Map<String, float[]> pointAttributes = new TreeMap<>();
+        Map<String, float[]> curveAttributes = new TreeMap<>();
+        Set<String> pointNames = new TreeSet<>(cgA.pointAttributes.keySet());
+        pointNames.addAll(cgB.pointAttributes.keySet());
+        for (String name : pointNames) {
+            float[] values = new float[totalPoints];
+            if (cgA.pointAttributes.containsKey(name)) {
+                System.arraycopy(cgA.pointAttributes.get(name), offA0, values, 0, nA);
+            }
+            if (cgB.pointAttributes.containsKey(name)) {
+                System.arraycopy(cgB.pointAttributes.get(name), offB0 + skipB, values, nA, nB - skipB);
+            }
+            pointAttributes.put(name, values);
+        }
+        Set<String> curveNames = new TreeSet<>(cgA.curveAttributes.keySet());
+        curveNames.addAll(cgB.curveAttributes.keySet());
+        for (String name : curveNames) {
+            float[] source = cgA.curveAttributes.getOrDefault(name, cgB.curveAttributes.get(name));
+            curveAttributes.put(name, new float[] { source[0] });
+        }
+
+        CurveGeometry joined = new CurveGeometry(combined, new int[] { 0, totalPoints }, new boolean[1],
+                pointAttributes, curveAttributes);
         ctx.setOutput(GEOMETRY.name,GeometryBundle.empty().withSlot(CurveGeometry.SLOT, joined));
     }
 

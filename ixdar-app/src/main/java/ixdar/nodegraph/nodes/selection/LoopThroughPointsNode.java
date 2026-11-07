@@ -133,8 +133,7 @@ public class LoopThroughPointsNode implements MeshNode {
             return;
         }
 
-        GeometryBundle out = bundle.withSlot(CurveGeometry.SLOT,
-                CurveGeometry.singlePolyline(ring.path.drawnPolyline(ring.path.positions)));
+        GeometryBundle out = bundle.withSlot(CurveGeometry.SLOT, ring.path.curve(ring.path.positions));
         boolean[] marks = ring.marks.markedByEdgeId;
         ctx.setOutput(GEOMETRY.name, EdgeMarks.with(out, label, marks));
         boolean[] selection = new boolean[mesh.edgeCount()];

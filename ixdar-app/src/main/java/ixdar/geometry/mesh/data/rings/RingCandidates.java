@@ -1,6 +1,7 @@
 package ixdar.geometry.mesh.data.rings;
 
 import java.util.Locale;
+import java.util.Map;
 
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
 import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonJoint;
@@ -175,26 +176,28 @@ public final class RingCandidates {
     }
 
     /**
-     * Every ring as one curve geometry, each loop closed by repeating its first point.
+     * Every ring as one curve geometry, each loop stored once and closed as its path is.
      *
      * @return curve geometry with {@link #ringCount} polylines, in ring order
      */
     public CurveGeometry curves() {
         if (ringCount == 0) {
-            return CurveGeometry.singlePolyline(new float[0]);
+            return CurveGeometry.singlePolyline(new float[0], false);
         }
-        float[][] drawn = new float[ringCount][];
+        float[][] points = new float[ringCount][];
         int[] offsets = new int[ringCount + 1];
+        boolean[] closed = new boolean[ringCount];
         for (int ring = 0; ring < ringCount; ring++) {
-            drawn[ring] = path[ring].drawnPolyline(path[ring].positions);
-            offsets[ring + 1] = offsets[ring] + drawn[ring].length / COORDINATES_PER_POINT;
+            points[ring] = path[ring].curve(path[ring].positions).positions;
+            closed[ring] = path[ring].closed;
+            offsets[ring + 1] = offsets[ring] + points[ring].length / COORDINATES_PER_POINT;
         }
-        float[] packed = new float[COORDINATES_PER_POINT * Math.max(1, offsets[ringCount])];
+        float[] packed = new float[COORDINATES_PER_POINT * offsets[ringCount]];
         for (int ring = 0; ring < ringCount; ring++) {
-            System.arraycopy(drawn[ring], 0, packed, COORDINATES_PER_POINT * offsets[ring],
-                    drawn[ring].length);
+            System.arraycopy(points[ring], 0, packed, COORDINATES_PER_POINT * offsets[ring],
+                    points[ring].length);
         }
-        return new CurveGeometry(packed, offsets);
+        return new CurveGeometry(packed, offsets, closed, Map.of(), Map.of());
     }
 
     /**

@@ -2665,7 +2665,7 @@ public final class RingTool extends Tool {
                     || confirmedRings.get(ring).deleted || hiddenRingLabels.contains(liveLabel);
             SurfaceSpline spline = confirmedRings.get(ring).spline;
             perRing.add(hidden ? new float[0] : closedPolylineSegments(
-                    spline.path.drawnPolyline(spline.path.surfacePositions)));
+                    spline.path.curve(spline.path.surfacePositions).drawnPositions(0)));
             perRingLines.add(hidden ? new LineSet(0) : splineLines(surface, spline));
             perRingLiveLabel.add(liveLabel);
         }

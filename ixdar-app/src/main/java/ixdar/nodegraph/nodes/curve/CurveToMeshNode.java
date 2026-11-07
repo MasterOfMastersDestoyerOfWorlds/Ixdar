@@ -30,8 +30,6 @@ public class CurveToMeshNode implements MeshNode {
     public static final int DEFAULT_RESOLUTION = 12;
     public static final int MIN_RESOLUTION = 3;
     public static final int MAX_RESOLUTION = 128;
-    public static final float MIN_CLOSED_EPSILON = 1e-5f;
-    public static final float CLOSED_EPSILON_PER_LENGTH = 1e-4f;
     public static final float DEGENERATE_TANGENT_LENGTH_SQ = 1e-20f;
     public static final float DEGENERATE_TRANSPORT_LENGTH_SQ = 1e-12f;
     public static final float NEAR_PARALLEL_DOT = 0.9f;
@@ -104,7 +102,7 @@ public class CurveToMeshNode implements MeshNode {
             Object rawProfile = profileGb.slots().get(CurveGeometry.SLOT);
             if (rawProfile instanceof CurveGeometry profileCg && profileCg.pointCount() >= 3) {
                 int pn = profileCg.pointCount();
-                float[] ppos = profileCg.positions();
+                float[] ppos = profileCg.positions;
                 profileU = new float[pn];
                 profileV = new float[pn];
                 for (int i = 0; i < pn; i++) {
@@ -122,12 +120,11 @@ public class CurveToMeshNode implements MeshNode {
 
         // Build mesh by sweeping profile along each curve segment
         HalfEdgeMesh mesh = new HalfEdgeMesh();
-        float[] pos = cg.positions();
+        float[] pos = cg.positions;
 
         for (int ci = 0; ci < cg.curveCount(); ci++) {
-            int off0 = cg.curveOffsets()[ci];
-            int off1 = cg.curveOffsets()[ci + 1];
-            int nPts = off1 - off0;
+            int off0 = cg.firstPoint(ci);
+            int nPts = cg.pointCount(ci);
             if (nPts < 2) continue;
 
             Vector3f[] pts = new Vector3f[nPts];
@@ -136,19 +133,9 @@ public class CurveToMeshNode implements MeshNode {
                 pts[i] = new Vector3f(pos[b], pos[b + 1], pos[b + 2]);
             }
 
-            float closedEps = MIN_CLOSED_EPSILON;
-            if (nPts > 2) {
-                float pathLen = 0;
-                for (int i = 1; i < nPts; i++) pathLen += pts[i].distance(pts[i - 1]);
-                closedEps = Math.max(MIN_CLOSED_EPSILON, pathLen * CLOSED_EPSILON_PER_LENGTH);
-            }
-            boolean closed = nPts > 2 && pts[0].distance(pts[nPts - 1]) < closedEps;
-
-            int nSamples = closed ? nPts - 1 : nPts;
-            if (nSamples < 2) continue;
-
+            boolean closed = cg.closed[ci] && nPts > 2;
             int m = profileU.length;
-            sweepAlongCurve(mesh, pts, nSamples, closed, profileU, profileV, m, fillCaps, radiusClosure);
+            sweepAlongCurve(mesh, pts, nPts, closed, profileU, profileV, m, fillCaps, radiusClosure);
         }
 
         mesh.computeNormals();

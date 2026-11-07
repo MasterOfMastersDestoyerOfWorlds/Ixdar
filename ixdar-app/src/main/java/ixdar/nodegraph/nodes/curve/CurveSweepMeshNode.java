@@ -29,8 +29,6 @@ import ixdar.nodegraph.field.FieldBroadcast;
 @MeshNodeAnnotation(id = "curve_sweep", category = NodeCategory.CURVE_OPERATIONS)
 public class CurveSweepMeshNode implements MeshNode {
     public static final int MIN_FACE_VERTICES = 3;
-    public static final float MIN_CLOSED_EPSILON = 1e-5f;
-    public static final float CLOSED_EPSILON_PER_LENGTH = 1e-4f;
     public static final float MIN_LENGTH_SQUARED = 1e-20f;
     public static final float PARALLEL_DOT_EPSILON = 1e-6f;
     public static final float MIN_PROJECTED_LENGTH_SQUARED = 1e-14f;
@@ -85,19 +83,17 @@ public class CurveSweepMeshNode implements MeshNode {
             return;
         }
 
-        int off0 = cg.curveOffsets()[0];
-        int off1 = cg.curveOffsets()[1];
-        int ptTotal = (off1 - off0);
-        if (ptTotal < 2) {
+        int off0 = cg.firstPoint(0);
+        int nSamples = cg.pointCount(0);
+        if (nSamples < 2) {
             ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
             return;
         }
+        boolean closedCurve = cg.closed[0];
 
-        float[] pos = cg.positions();
-        Vector3f[] pts = new Vector3f[ptTotal];
-        float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
-        float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
-        for (int i = 0; i < ptTotal; i++) {
+        float[] pos = cg.positions;
+        Vector3f[] samplePts = new Vector3f[nSamples];
+        for (int i = 0; i < nSamples; i++) {
             int b = 3 * (off0 + i);
             float x = pos[b];
             float y = pos[b + 1];
@@ -106,27 +102,7 @@ public class CurveSweepMeshNode implements MeshNode {
                 ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
                 return;
             }
-            pts[i] = new Vector3f(x, y, z);
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            minZ = Math.min(minZ, z);
-            maxX = Math.max(maxX, x);
-            maxY = Math.max(maxY, y);
-            maxZ = Math.max(maxZ, z);
-        }
-        float diag = new Vector3f(maxX - minX, maxY - minY, maxZ - minZ).length();
-        float closedEps = Math.max(MIN_CLOSED_EPSILON, diag * CLOSED_EPSILON_PER_LENGTH);
-        boolean closedCurve = pts[0].distance(pts[ptTotal - 1]) < closedEps;
-
-        int nSamples = closedCurve ? ptTotal - 1 : ptTotal;
-        if (nSamples < 2) {
-            ctx.setOutput(GEOMETRY.name, GeometryBundle.empty());
-            return;
-        }
-
-        Vector3f[] samplePts = new Vector3f[nSamples];
-        for (int i = 0; i < nSamples; i++) {
-            samplePts[i] = pts[i];
+            samplePts[i] = new Vector3f(x, y, z);
         }
 
         int fid = prof.faceIdAt(0);

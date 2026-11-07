@@ -98,7 +98,7 @@ public class CurveDeformNode implements MeshNode {
         float range = fromMax - fromMin;
         if (Math.abs(range) < MIN_RANGE) range = 1f;
 
-        float[] srcPos = cg.positions();
+        float[] srcPos = cg.positions;
         float[] dstPos = srcPos.clone();
         int nPts = srcPos.length / 3;
 
@@ -111,7 +111,7 @@ public class CurveDeformNode implements MeshNode {
             dstPos[base3 + tgtIdx] += offset;
         }
 
-        CurveGeometry deformed = new CurveGeometry(dstPos, cg.curveOffsets());
+        CurveGeometry deformed = cg.withPositions(dstPos);
         ctx.setOutput(GEOMETRY.name, base.withSlot(CurveGeometry.SLOT, deformed));
     }
 

@@ -213,7 +213,7 @@ public class SplineCutNode implements MeshNode {
                     + "not join its two ends");
         }
         GeometryBundle out = SurfaceSpline.with(bundle.withSlot(CurveGeometry.SLOT,
-                CurveGeometry.singlePolyline(bisector.path.drawnPolyline(bisector.path.positions))),
+                bisector.path.curve(bisector.path.positions)),
                 label, bisector);
         boolean[] marks = bisector.marks.markedByEdgeId;
         ctx.setOutput(GEOMETRY.name, EdgeMarks.with(out, label, marks));

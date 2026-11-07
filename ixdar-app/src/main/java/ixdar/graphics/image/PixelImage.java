@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import ixdar.geometry.grid2d.PolylineSimplify;
+import ixdar.geometry.mesh.data.bundle.CurveGeometry;
 
 /**
  * A CPU-side ARGB8888 image, one packed int per pixel in row-major order from the top row down.
@@ -263,13 +263,11 @@ public final class PixelImage {
                 boundary[length++] = current % width;
                 boundary[length++] = current / width;
             }
-            float[] closed = new float[length + 2];
+            float[] loop = new float[length];
             for (int index = 0; index < length; index++) {
-                closed[index] = boundary[index];
+                loop[index] = boundary[index];
             }
-            closed[length] = boundary[0];
-            closed[length + 1] = boundary[1];
-            float[] kept = PolylineSimplify.douglasPeucker(closed, simplifyPixels);
+            float[] kept = CurveGeometry.planar(loop, true).simplified(simplifyPixels).drawnPlanar(0);
             int[] outline = new int[kept.length];
             for (int index = 0; index < kept.length; index++) {
                 outline[index] = Math.round(kept[index]);
