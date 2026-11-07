@@ -2,6 +2,7 @@ package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -186,8 +187,7 @@ class RegionHidingTest {
         scene.updateScene();
         assertEquals(XYZ * regions.regionFaceCount[middle], lastIndexUploadLength,
                 "another tool, colours off, still draws only the middle");
-        assertEquals(HalfEdgeMeshRuntime.ShaderMode.LAMBERT, scene.meshRuntime.getShaderMode(),
-                "with the colours off the surface keeps its own shading");
+        assertNull(scene.looks.override, "with the colours off the surface keeps its own look");
         scene.switchTool(scene.regionTool);
 
         select(MIDDLE_POINT);

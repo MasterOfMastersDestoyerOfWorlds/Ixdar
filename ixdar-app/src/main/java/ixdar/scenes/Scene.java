@@ -719,15 +719,6 @@ public abstract class Scene extends SceneDrawable {
     }
 
     /**
-     * The name of the shading the scene's surface is drawn with.
-     *
-     * @return the shader mode's name, empty for a scene with no shaded surface
-     */
-    public String shaderModeName() {
-        return "";
-    }
-
-    /**
      * Whether the scene's surface draws with its textures.
      *
      * @return false for a scene with no textured surface

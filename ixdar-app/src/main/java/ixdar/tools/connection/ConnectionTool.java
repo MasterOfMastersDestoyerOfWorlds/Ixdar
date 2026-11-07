@@ -92,7 +92,6 @@ public final class ConnectionTool extends Tool {
     private int uploadedHoveredPick = -1;
     private Palette uploadedPalette;
     private int grabbedVertexId = -1;
-    private HalfEdgeMeshRuntime.ShaderMode shaderModeBefore;
 
     /**
      * Binds the tool to its scene.
@@ -516,9 +515,7 @@ public final class ConnectionTool extends Tool {
         if (!show) {
             runtime.clearTags();
             runtime.clearTagColors();
-            if (shaderModeBefore != null) {
-                runtime.setShaderMode(shaderModeBefore);
-            }
+            scene.looks.clearOverride(RingScene.REGIONS_LOOK);
             return;
         }
         int fills = 0;
@@ -545,10 +542,10 @@ public final class ConnectionTool extends Tool {
                 mask[activeVertexById.get(surface.faceVertexAt(faceId, corner))] = true;
             }
         }
-        shaderModeBefore = runtime.getShaderMode();
         runtime.clearTagColors();
         runtime.setTagColor(FILL_TAG, scene.palette.warning.toVector4f());
-        runtime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.STAGES);
+        // The fills draw as face-group colours, as the regions do, so they show in that look.
+        scene.looks.override(RingScene.REGIONS_LOOK);
         runtime.setTags(Map.of(FILL_TAG, mask));
         lastRow = fills + " repair_mesh fill faces coloured";
         Platforms.get().log(LOG_PREFIX + lastRow);

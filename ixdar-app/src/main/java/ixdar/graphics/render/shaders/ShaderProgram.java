@@ -1114,8 +1114,6 @@ public abstract class ShaderProgram {
 
         MeshPick(MeshShader.class, "mesh_pick.vs", "mesh_pick.fs"),
 
-        MeshScalar(MeshShader.class, "mesh_scalar.vs", "mesh_scalar.fs"),
-
         MeshUv(MeshShader.class, "mesh_uv.vs", "mesh_uv.fs"),
 
         MeshUvTraces(MeshShader.class, "mesh_uv_traces.vs", "mesh_uv_traces.fs"),

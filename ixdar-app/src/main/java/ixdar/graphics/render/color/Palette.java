@@ -50,7 +50,7 @@ public class Palette {
     public Color[] patch;
     public Color[] overlayGroup;
     public Color[] edgeMark;
-    /** The scalar heat map, low to high at evenly spaced stops; mesh_scalar.fs holds exactly this many. */
+    /** The scalar heat map, low to high at evenly spaced stops; mesh.fs holds exactly this many. */
     public Color[] scalar;
     /** A DSL graph node's box by its share of the run's total time, coolest (least) first. */
     public Color[] timeShare;

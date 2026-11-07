@@ -269,7 +269,6 @@ public final class RingRegionTool extends Tool {
                         activeVertexById.get(shown.halfEdgeEndVertex(halfEdge))));
             }
         }
-        extractedRuntime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.STAGES);
         extractedRuntime.setFeatureEdgeOverlay(List.of(
                 new HalfEdgeMeshRuntime.FeatureEdgeCategory(palette.line, boundaryKeys)));
     }

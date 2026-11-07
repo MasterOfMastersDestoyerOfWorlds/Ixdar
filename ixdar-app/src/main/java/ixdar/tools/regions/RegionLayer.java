@@ -39,9 +39,6 @@ public final class RegionLayer {
     /** Regions of the shown surface, or {@code null} before the layer first showed. */
     public RingRegions regions;
 
-    /** Whether the colours show outside the region tool too; G flips it. */
-    public boolean visible;
-
     /** Bumped whenever {@link #regions} changes, so the region tool re-resolves its selection. */
     public int revision;
 
@@ -103,7 +100,7 @@ public final class RegionLayer {
 
     private boolean shownColoured;
 
-    private HalfEdgeMeshRuntime.ShaderMode shaderModeBefore;
+    private boolean shownByPart;
 
     /**
      * Binds the layer to its scene.
@@ -112,12 +109,6 @@ public final class RegionLayer {
      */
     public RegionLayer(RingScene scene) {
         this.scene = scene;
-    }
-
-    /** G: show or hide the colours outside the region tool. */
-    public void toggleVisible() {
-        visible = !visible;
-        Platforms.get().log(LOG_PREFIX + "region colours " + (visible ? "on" : "off"));
     }
 
     /**
@@ -249,25 +240,26 @@ public final class RegionLayer {
     }
 
     /**
-     * Whether the region colours are wanted now: switched on, in the region tool, while the ring
-     * tool's bisector previews the regions it would split, or while the part labels show.
+     * Whether the region colours are wanted now: a region look picked, in the region tool, while
+     * the ring tool's bisector previews the regions it would split, or while the part labels show.
      *
      * @return true when the regions draw in their colours
      */
     public boolean coloured() {
-        return visible || colouredByPart() || scene.activeTool == scene.regionTool
+        return scene.regionLookPicked() || colouredByPart() || scene.activeTool == scene.regionTool
                 || scene.activeTool == scene.ringTool
                         && scene.ringTool.activeRingSubTool().showsRegions();
     }
 
     /**
      * Whether the regions take their part's colour rather than their own: exactly while the scene
-     * shows the part labels and the regions have parts resolved.
+     * shows the part labels or has the parts look picked, and the regions have parts resolved.
      *
      * @return true when coloured regions are coloured by part
      */
     public boolean colouredByPart() {
-        return scene.showLabels && !partLabels.names.isEmpty() && regions != null
+        return (scene.showLabels || scene.looks.isPicked(RingScene.PARTS_LOOK))
+                && !partLabels.names.isEmpty() && regions != null
                 && partLabels.labelByRegion.length == regions.regionCount;
     }
 
@@ -291,7 +283,12 @@ public final class RegionLayer {
             rebuild();
         } else if (resolvedPalette != scene.palette) {
             // A palette swap: its part cycle may differ in length, and every colour is re-read.
-            resolveLabels();
+            // The label points still name the regions they did, so they are not resolved again.
+            resolvedPalette = scene.palette;
+            if (regions != null && partLabels.labelByRegion.length == regions.regionCount) {
+                partLabels.recolour(resolvedPalette.categories);
+            }
+            labelsShownChanged();
             redraw();
         }
         boolean coloured = coloured();
@@ -299,7 +296,7 @@ public final class RegionLayer {
                         && !explosion.exploded()) {
             if (shown && runtime != null) {
                 runtime.clearTags();
-                runtime.setShaderMode(shaderModeBefore);
+                overrideLook(false);
             }
             if (shown) {
                 scene.ringTool.markRings(Map.of(), Set.of());
@@ -307,9 +304,8 @@ public final class RegionLayer {
             shown = false;
             return;
         }
-        if (!shown || coloured != shownColoured) {
+        if (!shown || coloured != shownColoured || colouredByPart() != shownByPart) {
             if (!shown) {
-                shaderModeBefore = runtime.getShaderMode();
                 markRings();
             }
             shown = true;
@@ -402,6 +398,7 @@ public final class RegionLayer {
         Vector4f sliver = palette.warning.toVector4f();
         int[] labelByRegion = partLabels.labelByRegion;
         boolean byPart = colouredByPart();
+        shownByPart = byPart;
         Vector4f[] colourByRegion = new Vector4f[regions.regionCount];
         String[] tagByRegion = new String[regions.regionCount];
         for (int region = 0; region < regions.regionCount; region++) {
@@ -430,7 +427,22 @@ public final class RegionLayer {
                 }
             }
         }
-        runtime.setShaderMode(coloured ? HalfEdgeMeshRuntime.ShaderMode.STAGES : shaderModeBefore);
+        overrideLook(coloured);
         runtime.setFaceGroups(surface, groupByActiveFace, colourByRegion, tagByRegion);
+    }
+
+    /**
+     * Draw the region look in place of the picked one while the colours are wanted, and stop
+     * drawing it, leaving another tool's override alone, once they are not.
+     *
+     * @param coloured whether the region colours are wanted
+     */
+    private void overrideLook(boolean coloured) {
+        if (coloured) {
+            scene.looks.override(colouredByPart() ? RingScene.PARTS_LOOK : RingScene.REGIONS_LOOK);
+        } else {
+            scene.looks.clearOverride(RingScene.REGIONS_LOOK);
+            scene.looks.clearOverride(RingScene.PARTS_LOOK);
+        }
     }
 }

@@ -53,7 +53,8 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
     public static final int SCALAR_ATTRIB_LOCATION = 3;
     public static final float EDGE_LINE_WIDTH = 2.0f;
     public static final int HASH_PRIME = 31;
-    public static final String SHADING_STYLE = "shadingStyle";
+    public static final String COLOUR_SOURCE = "colourSource";
+    public static final String LIGHTING = "lighting";
     public static final float CLAY_RED = 0.80f;
     public static final float CLAY_GREEN = 0.78f;
     public static final float CLAY_BLUE = 0.74f;
@@ -120,17 +121,15 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
     public final Vector4f solidColor = Scene.activePalette().surface.toVector4f();
 
     /**
-     * Look of the lit surface draw; anything but {@link SurfaceShading#DEFAULT} draws every mode
-     * through the lit shader in clay, ignoring tag colours and textures.
+     * How the surface is drawn; the owning scene sets it every frame from its {@link SurfaceLooks},
+     * and {@code null} draws the surface colour under the view light.
      */
-    public SurfaceShading surfaceShading = SurfaceShading.DEFAULT;
+    public SurfaceLook look;
 
-    /** Clay and curvature key light straight from the camera instead of from its upper left. */
+    /** The clay lights key straight from the camera instead of from its upper left. */
     public boolean headlight;
 
     private final ShaderProgram meshShader;
-    private final ShaderProgram meshUnlitShader;
-    private final ShaderProgram meshScalarShader;
     private final Matrix4f modelMatrix = new Matrix4f();
     private final Matrix4f tagModelMatrix = new Matrix4f();
     private final Vector3f lightDir = new Vector3f(0.4f, -1.0f, 0.25f);
@@ -149,7 +148,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
     private boolean xray = true;
     private final Map<String, Vector4f> tagColorOverrides = new HashMap<>();
     private List<TagRange> tagRanges = List.of();
-    private ShaderMode shaderMode = ShaderMode.LAMBERT;
     private Texture[] materialTextures = new Texture[0];
     private int[] materialRangeStart = new int[0];
     private int[] materialRangeCount = new int[0];
@@ -166,18 +164,13 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
     private final Vector4f pointInView = new Vector4f();
 
     /**
-     * Build the runtime: allocate the mesh shader programs (lit, unlit, scalar, line, pick) and
-     * the buffer name for the per-vertex scalar attribute. No mesh is uploaded yet — call
-     * {@link #upload(MeshTopology)}.
+     * Build the runtime: allocate the mesh shader programs (surface, line, pick) and the buffer
+     * name for the per-vertex field. No mesh is uploaded yet — call {@link #upload(MeshTopology)}.
      */
     public HalfEdgeMeshRuntime() {
         this.meshShader = ShaderProgram.ShaderType.Mesh.getShader();
-        this.meshUnlitShader = ShaderProgram.ShaderType.MeshUnlit.getShader();
-        this.meshScalarShader = ShaderProgram.ShaderType.MeshScalar.getShader();
         this.lineShader = (MeshLineShader) ShaderProgram.ShaderType.MeshLine.getShader();
         this.meshShader.init();
-        this.meshUnlitShader.init();
-        this.meshScalarShader.init();
         this.lineShader.init();
         this.scalarVbo = Platforms.gl().genBuffers();
         this.meshPickShader = ShaderProgram.ShaderType.MeshPick.getShader();
@@ -210,7 +203,7 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
     /**
      * Upload a whole bundle: the mesh as {@link #upload(MeshTopology)} does, plus a second set of
      * buffers for the textured draw and the base-color texture, when the bundle carries both. An
-     * absent slot leaves {@link ShaderMode#TEXTURED} in its solid-colour fallback.
+     * absent slot leaves a textured look in its solid-colour fallback.
      *
      * @param bundle source bundle, or {@code null} to clear
      */
@@ -331,18 +324,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
     }
 
     /**
-     * Whether a draw in {@code mode} samples the base-color texture. The one place the TEXTURED
-     * fallback is decided, so it can be checked without a GPU.
-     *
-     * @param mode requested shading mode
-     * @param texturedDrawReady whether both the texture and the split geometry are resident
-     * @return true only for {@link ShaderMode#TEXTURED} with something to sample
-     */
-    public static boolean samplesTexture(ShaderMode mode, boolean texturedDrawReady) {
-        return mode == ShaderMode.TEXTURED && texturedDrawReady;
-    }
-
-    /**
      * Whether the textured draw is ready: a base-color texture and the UV-split geometry both
      * uploaded.
      *
@@ -441,8 +422,8 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
 
     /**
      * Render the current mesh: builds the projection matrix
-     * (perspective or orthographic per {@link #isOrthographic()}), picks the
-     * shader for the active {@link ShaderMode}, draws either as a single
+     * (perspective or orthographic per {@link #isOrthographic()}), sets the
+     * surface shader up for {@link #look}, draws either as a single
      * call or per tag range, then layers the wireframe and feature-edge
      * overlay passes when enabled. No-op when no mesh is uploaded.
      *
@@ -459,28 +440,21 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
 
         updateProjection(camera);
 
-        // STAGES uses LAMBERT base; CREST_VS_BOUNDARY uses FLAT unlit base.
-        // SCALAR swaps in the heat-map fragment shader.
-        boolean capturedLook = surfaceShading != SurfaceShading.DEFAULT;
-        boolean useUnlitBase = shaderMode == ShaderMode.FLAT
-                || shaderMode == ShaderMode.CREST_VS_BOUNDARY;
-        ShaderProgram active;
-        if (capturedLook) {
-            active = meshShader;
-        } else if (shaderMode == ShaderMode.SCALAR && scalarUploaded) {
-            active = meshScalarShader;
-        } else {
-            active = useUnlitBase ? meshUnlitShader : meshShader;
-        }
+        // The program is shared with other runtimes, so every draw sets the whole look. A field
+        // or texture look with nothing uploaded to show draws the surface colour meanwhile.
+        ShaderProgram active = meshShader;
         active.use();
-        if (active == meshShader) {
-            // The lit program is shared with other runtimes, so every draw sets its style.
-            active.setInt(SHADING_STYLE, surfaceShading.ordinal());
-            active.setVec3("clayColor", CLAY_RED, CLAY_GREEN, CLAY_BLUE);
-            active.setBool("headlight", headlight);
-            active.setFloat("meshRadius", compiledMesh.radius);
+        SurfaceLook.Colour colour = look == null ? SurfaceLook.Colour.SURFACE : look.colour;
+        if (colour == SurfaceLook.Colour.FIELD && !scalarUploaded
+                || colour == SurfaceLook.Colour.TEXTURE && !hasTexturedDraw()) {
+            colour = SurfaceLook.Colour.SURFACE;
         }
-        if (shaderMode == ShaderMode.SCALAR && scalarUploaded) {
+        active.setInt(COLOUR_SOURCE, colour.ordinal());
+        active.setInt(LIGHTING, (look == null ? SurfaceLook.Light.VIEW : look.light).ordinal());
+        active.setVec3("clayColor", CLAY_RED, CLAY_GREEN, CLAY_BLUE);
+        active.setBool("headlight", headlight);
+        active.setFloat("meshRadius", compiledMesh.radius);
+        if (colour == SurfaceLook.Colour.FIELD) {
             active.setFloat("scalarMin", scalarMin);
             active.setFloat("scalarMax", scalarMax);
             Color[] ramp = Scene.activePalette().scalar;
@@ -493,18 +467,15 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         active.setMat4(PROJECTION, camera.projection);
         active.setVec4(SOLIDCOLOR, solidColor);
 
-        boolean sampleTexture = !capturedLook && samplesTexture(shaderMode, hasTexturedDraw());
-        if (shaderMode == ShaderMode.LAMBERT || shaderMode == ShaderMode.STAGES
-                || shaderMode == ShaderMode.TEXTURED) {
-            // The light points along the view direction (into the scene; the shader uses -lightDir),
-            // read from the view matrix so it always matches what is drawn.
-            camera.view.positiveZ(lightDir).negate();
-            active.setVec3("lightDir", lightDir);
-            active.setBool(USE_TEXTURE_UNIFORM, sampleTexture);
-            active.setVec3("emissiveColor", Scene.activePalette().line.toVector3f());
-            active.setFloat("emissiveStrength", EMISSIVE_STRENGTH);
-            active.setFloat("rimStrength", RIM_STRENGTH);
-        }
+        boolean sampleTexture = colour == SurfaceLook.Colour.TEXTURE;
+        // The light points along the view direction (into the scene; the shader uses -lightDir),
+        // read from the view matrix so it always matches what is drawn.
+        camera.view.positiveZ(lightDir).negate();
+        active.setVec3("lightDir", lightDir);
+        active.setBool(USE_TEXTURE_UNIFORM, sampleTexture);
+        active.setVec3("emissiveColor", Scene.activePalette().line.toVector3f());
+        active.setFloat("emissiveStrength", EMISSIVE_STRENGTH);
+        active.setFloat("rimStrength", RIM_STRENGTH);
         if (sampleTexture) {
             // The textured draw has its own UV-split vertices, so it ignores the welded mesh's tag
             // ranges: the texture is what colours the surface. One draw per material, since each
@@ -558,11 +529,7 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         if (wireframe) {
             renderEdges(camera);
         }
-        if (shaderMode == ShaderMode.STAGES
-                || shaderMode == ShaderMode.CREST_VS_BOUNDARY
-                || shaderMode == ShaderMode.MSC) {
-            renderFeatureEdgeOverlay(camera);
-        }
+        renderFeatureEdgeOverlay(camera);
     }
 
     /**
@@ -683,9 +650,9 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
     }
 
     /**
-     * Upload a per-vertex scalar buffer for the SCALAR shader mode, normalized to the color ramp
-     * by {@code min} and {@code max}; passing {@code Float.NaN} for {@code min} autoscales from
-     * the array.
+     * Upload the per-vertex field a {@link SurfaceLook.Colour#FIELD} look shows, normalized to the
+     * color ramp by {@code min} and {@code max}; passing {@code Float.NaN} for {@code min}
+     * autoscales from the array.
      *
      * <p>The call is a no-op when {@code values} is shorter than the current vertex count.
      *
@@ -730,7 +697,7 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         scalarUploaded = true;
     }
 
-    /** Clear the per-vertex scalar; SCALAR mode renders fall back to meshShader until another upload. */
+    /** Clear the per-vertex field; a field look draws the surface's own colour until another upload. */
     public void clearPerVertexScalar() {
         scalarUploaded = false;
     }
@@ -743,15 +710,15 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
      */
     public boolean hasPerVertexScalar() { return scalarUploaded; }
     /**
-     * Lower bound used by the SCALAR-mode shader ramp.
+     * Lower bound of a field look's colour ramp.
      *
-     * @return lower bound of the SCALAR-mode color ramp, in scalar units
+     * @return lower bound of the field's color ramp, in field units
      */
     public float getScalarMin() { return scalarMin; }
     /**
-     * Upper bound used by the SCALAR-mode shader ramp.
+     * Upper bound of a field look's colour ramp.
      *
-     * @return upper bound of the SCALAR-mode color ramp, in scalar units
+     * @return upper bound of the field's color ramp, in field units
      */
     public float getScalarMax() { return scalarMax; }
 
@@ -1289,25 +1256,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         }
     }
 
-    /**
-     * Currently selected shading mode for the main mesh draw.
-     *
-     * @return active {@link ShaderMode} driving the main mesh draw
-     */
-    public ShaderMode getShaderMode() {
-        return shaderMode;
-    }
-
-    /**
-     * Pick the shading mode for the main mesh draw. {@code null} resets to
-     * {@link ShaderMode#LAMBERT}.
-     *
-     * @param mode new shader mode, or {@code null} for the default
-     */
-    public void setShaderMode(ShaderMode mode) {
-        this.shaderMode = mode == null ? ShaderMode.LAMBERT : mode;
-    }
-
     private Vector4f resolveColor(String tag) {
         Vector4f override = tagColorOverrides.get(tag);
         if (override != null) return new Vector4f(override);
@@ -1374,20 +1322,6 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
         maxBounds.set(compiledMesh.maxBounds);
         center.set(compiledMesh.center);
     }
-
-    /**
-     * Shading mode for the main mesh draw.
-     * <ul>
-     *   <li>{@link #LAMBERT} — default lit look.</li>
-     *   <li>{@link #FLAT} — unlit, each tag's exact color.</li>
-     *   <li>{@link #STAGES} — LAMBERT plus feature edges.</li>
-     *   <li>{@link #CREST_VS_BOUNDARY} — FLAT plus boundaries.</li>
-     *   <li>{@link #SCALAR} — ramp over {@link #setPerVertexScalar(float[])}.</li>
-     *   <li>{@link #MSC} — Morse-Smale arcs.</li>
-     *   <li>{@link #TEXTURED} — LAMBERT sampling the base-color texture.</li>
-     * </ul>
-     */
-    public enum ShaderMode { LAMBERT, FLAT, STAGES, CREST_VS_BOUNDARY, SCALAR, MSC, TEXTURED }
 
     /**
      * A contiguous range inside the current EBO that all belongs to one tag.

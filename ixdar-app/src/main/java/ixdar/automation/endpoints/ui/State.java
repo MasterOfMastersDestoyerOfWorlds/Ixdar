@@ -48,6 +48,7 @@ import ixdar.platform.Clock;
 import ixdar.platform.Platforms;
 import ixdar.scenes.Scene;
 import ixdar.scenes.main.Toggle;
+import ixdar.scenes.model.ModelScene;
 import ixdar.scenes.trade.TradeScene;
 import ixdar.tools.ControlHint;
 import ixdar.tools.Draft;
@@ -474,7 +475,9 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             mesh.addProperty("repairReport", slots.get(MeshRepairReport.SLOT)
                     instanceof MeshRepairReport report ? report.toText() : "");
             mesh.addProperty("radius", shown.radius());
-            mesh.addProperty("shaderMode", scene.shaderModeName());
+            if (scene instanceof ModelScene modelScene) {
+                ShadingSet.addLook(mesh, modelScene);
+            }
             mesh.addProperty("texturedDraw", scene.texturedDraw());
             mesh.addProperty("slots", String.join(",", new TreeSet<>(slots.keySet())));
             mesh.add("center", runtime.vector3Array(shown.center(new Vector3f())));
@@ -534,7 +537,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
             JsonObject regions = new JsonObject();
             regions.addProperty("regionCount",
                     regionLayer.regions == null ? 0 : regionLayer.regions.regionCount);
-            regions.addProperty("visible", regionLayer.visible);
+            regions.addProperty("visible", regionLayer.scene.regionLookPicked());
             regions.addProperty("hiddenRingCount", regionLayer.hiddenRingLabels.size());
             regions.addProperty("summary", regionLayer.summary);
             // Each region by its number, as its item's tag names it: area, bounding rings with

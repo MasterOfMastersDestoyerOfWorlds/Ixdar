@@ -40,7 +40,7 @@ public final class Palettes {
         Color.BROWN_RED, Color.BLUE_GREY_LIGHT, Color.GREEN_YELLOW_LIGHT, Color.PINK_RED_VERY_LIGHT,
         Color.PURPLE_GREY_DARK, Color.PURPLE_GREY_VERY_LIGHT };
 
-    // mesh_scalar.fs holds exactly this many stops.
+    // mesh.fs holds exactly this many stops.
     private static final Color[] SCALAR = { Color.BLUE_VERY_DARK, Color.IXDAR, Color.RED_ORANGE,
         Color.YELLOW_VERY_LIGHT };
 

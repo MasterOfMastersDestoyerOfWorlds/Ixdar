@@ -22,7 +22,6 @@ import ixdar.nodegraph.api.MapNodeContext;
 import ixdar.nodegraph.field.Vector3Value;
 import ixdar.nodegraph.nodes.modifier.MirrorGeometryNode;
 import ixdar.nodegraph.nodes.transform.TransformGeometryNode;
-import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 
 /**
  * The hand-written {@code textured_square.gltf} fixture embeds a 2x2 base-colour PNG and a 1x1
@@ -103,20 +102,6 @@ class GltfMaterialSlotTest {
 
         assertNull(MaterialData.of(bundle), "the untextured fixture carries no material");
         assertFalse(bundle.slots().containsKey(MaterialData.SLOT), "no material slot either");
-    }
-
-    /**
-     * The TEXTURED draw is chosen by {@link HalfEdgeMeshRuntime#samplesTexture} alone, so the
-     * fallback to the solid colour is checkable without a GL context.
-     */
-    @Test
-    void texturedModeFallsBackToSolidWhenTheDrawIsNotReady() {
-        assertTrue(HalfEdgeMeshRuntime.samplesTexture(HalfEdgeMeshRuntime.ShaderMode.TEXTURED, true),
-                "TEXTURED with texture and split geometry samples it");
-        assertFalse(HalfEdgeMeshRuntime.samplesTexture(HalfEdgeMeshRuntime.ShaderMode.TEXTURED, false),
-                "TEXTURED without them falls back to the solid colour");
-        assertFalse(HalfEdgeMeshRuntime.samplesTexture(HalfEdgeMeshRuntime.ShaderMode.LAMBERT, true),
-                "LAMBERT never samples the base colour");
     }
 
     @Test

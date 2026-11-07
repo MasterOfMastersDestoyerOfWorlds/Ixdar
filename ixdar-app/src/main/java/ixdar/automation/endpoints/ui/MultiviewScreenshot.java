@@ -25,8 +25,9 @@ import ixdar.automation.AutomationPortFile;
 import ixdar.automation.endpoints.scene.SwitchModel;
 import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
 import ixdar.graphics.cameras.Camera3D;
-import ixdar.graphics.render.model.SurfaceShading;
+import ixdar.graphics.render.model.SurfaceLook;
 import ixdar.scenes.mesh.MeshNodeViewerScene;
+import ixdar.scenes.model.ModelScene;
 
 @AutomationRouteAnnotation(path = "ui/multiview", method = APIMethod.POST)
 public class MultiviewScreenshot extends AutomationEndpoint implements AutomationRoute {
@@ -62,13 +63,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
         String selection = Frame.selectionExpression(body);
         float padding = body.has(Frame.PADDING) ? body.get(Frame.PADDING).getAsFloat()
                 : Camera3D.DEFAULT_FRAME_PADDING;
-        SurfaceShading look;
-        try {
-            String name = body.has(ShadingSet.SHADING) ? body.get(ShadingSet.SHADING).getAsString() : "";
-            look = name.isBlank() ? SurfaceShading.DEFAULT : SurfaceShading.named(name);
-        } catch (IllegalArgumentException e) {
-            return failure(e.getMessage());
-        }
+        String lookName = body.has(ShadingSet.SHADING) ? body.get(ShadingSet.SHADING).getAsString() : "";
         boolean headlight = body.has(ShadingSet.HEADLIGHT) && body.get(ShadingSet.HEADLIGHT).getAsBoolean();
         String dsl = body.has(DSL) ? body.get(DSL).getAsString().trim() : "";
         String cameraPath = body.has(CAMERA) ? body.get(CAMERA).getAsString().trim() : "";
@@ -88,7 +83,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             }
         }
         // The viewer's own look, put back once every view is read.
-        SurfaceShading[] savedLook = new SurfaceShading[1];
+        String[] savedLook = new String[1];
         boolean[] savedHeadlight = new boolean[1];
         try {
             float[][] views = VIEW_AZIMUTH_ELEVATION_RADIANS;
@@ -101,6 +96,12 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             JsonObject framing = runtime.runOnMainThread(() -> {
                 if (!(runtime.canvas instanceof MeshNodeViewerScene mvs)) {
                     return failure("MeshNodeViewerScene is not active");
+                }
+                SurfaceLook look;
+                try {
+                    look = mvs.looks.named(lookName.isBlank() ? ModelScene.DEFAULT_LOOK : lookName);
+                } catch (IllegalArgumentException unknown) {
+                    return failure(unknown.getMessage());
                 }
                 SelectionBounds selected = new SelectionBounds();
                 if (selection == null || !selected.resolve(mvs, selection)) {
@@ -131,12 +132,12 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 framed.add(CENTER, runtime.vector3Array(center));
                 framed.addProperty(Frame.RADIUS, radius);
                 framed.addProperty(Frame.DISTANCE, saved[VIEW_DIST_INDEX]);
-                framed.addProperty(ShadingSet.SHADING, look.name().toLowerCase(Locale.ROOT));
+                framed.addProperty(ShadingSet.SHADING, look.id);
                 framed.addProperty(FIELD_OF_VIEW, orbit.fov);
                 framed.addProperty(StrokeSketch.ORTHOGRAPHIC, mvs.isOrthographic());
-                savedLook[0] = mvs.surfaceShading;
+                savedLook[0] = mvs.looks.picked.id;
                 savedHeadlight[0] = mvs.headlight;
-                mvs.setSurfaceLook(look, headlight);
+                mvs.setLook(look.id, headlight);
                 return framed;
             });
             if (framing.has(ERROR)) {
@@ -342,7 +343,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
         } finally {
             runtime.runOnMainThread(() -> {
                 if (savedLook[0] != null && runtime.canvas instanceof MeshNodeViewerScene mvs) {
-                    mvs.setSurfaceLook(savedLook[0], savedHeadlight[0]);
+                    mvs.setLook(savedLook[0], savedHeadlight[0]);
                 }
                 return new JsonObject();
             });
@@ -360,8 +361,9 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 .param(INLINE, RouteParamType.BOOL, false, "false",
                         "Also return the composite PNG as base64 in the response.", "true")
                 .param(ShadingSet.SHADING, RouteParamType.STRING, false, "default",
-                        "Surface look for the capture only: default, clay or curvature; the "
-                                + "viewer's own look is restored after.", "curvature")
+                        "Surface look for the capture only, any the scene registered (default, "
+                                + "clay, curvature; the ring scene adds regions and parts); the "
+                                + "scene's own look is restored after.", "curvature")
                 .param(ShadingSet.HEADLIGHT, RouteParamType.BOOL, false, String.valueOf(false),
                         "Clay and curvature key light from each view's camera.", String.valueOf(true))
                 .param(SVG, RouteParamType.STRING, false, "",

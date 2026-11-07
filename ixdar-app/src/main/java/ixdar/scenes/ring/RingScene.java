@@ -18,6 +18,9 @@ import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.graphics.render.model.SurfaceLook;
+import ixdar.graphics.render.model.SurfaceLook.Colour;
+import ixdar.graphics.render.model.SurfaceLook.Light;
 import ixdar.graphics.render.text.Font;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.ErrorToasts;
@@ -63,6 +66,10 @@ public class RingScene extends MeshNodeViewerScene {
 
     public static final String TOGGLE_LABELS_ACTION = "toggle-labels";
 
+    public static final String REGIONS_LOOK = "regions";
+
+    public static final String PARTS_LOOK = "parts";
+
     public static final String CAMERA_MOVING_REFUSAL =
             "the camera is still moving - click again once it stops";
 
@@ -86,6 +93,9 @@ public class RingScene extends MeshNodeViewerScene {
 
     /** The region colours, shown in the region tool and, switched on, in every tool. */
     public final RegionLayer regionLayer = new RegionLayer(this);
+
+    /** Id of the look G picks and back. */
+    public String lookBeforeRegions = DEFAULT_LOOK;
 
     /** Why the tools refused the last clicks and keys, shown at the top left until they fade. */
     public final ErrorToasts errorToasts = new ErrorToasts(this);
@@ -169,6 +179,27 @@ public class RingScene extends MeshNodeViewerScene {
     @Override
     public String windowTitle() {
         return "Ixdar : Mesh Edit";
+    }
+
+    /**
+     * The model scene's looks, then the region and part colours.
+     *
+     * @param looks the scene's looks
+     */
+    @Override
+    public void setLooks(List<SurfaceLook> looks) {
+        super.setLooks(looks);
+        looks.add(new SurfaceLook(REGIONS_LOOK, "each ring region in its own colour, in every tool", Colour.SURFACE, Light.VIEW, null));
+        looks.add(new SurfaceLook(PARTS_LOOK, "each region in its part's colour, unlabelled ones grey", Colour.SURFACE, Light.VIEW, null));
+    }
+
+    /**
+     * Whether the picked look is one of the region looks, which colour the regions in every tool.
+     *
+     * @return true while regions or parts is picked
+     */
+    public boolean regionLookPicked() {
+        return looks.isPicked(REGIONS_LOOK) || looks.isPicked(PARTS_LOOK);
     }
 
     /**
@@ -493,9 +524,15 @@ public class RingScene extends MeshNodeViewerScene {
     @Override
     public void setControls(List<ControlHint> controls) {
         // Each toggle reports its new state as the active tool's last row, which the reply carries.
+        // G picks the regions look and back to the look picked before it.
         controls.add(new ControlHint("toggle-region-colours", Keys.G, "G", "region colours in every tool", () -> {
-            regionLayer.toggleVisible();
-            activeTool.lastRow = ControlHint.toggled("region colours outside the region tool", regionLayer.visible);
+            boolean on = !regionLookPicked();
+            if (on) {
+                lookBeforeRegions = looks.picked.id;
+            }
+            setLook(on ? REGIONS_LOOK : lookBeforeRegions, headlight);
+            refreshControls();
+            activeTool.lastRow = ControlHint.toggled("region colours outside the region tool", on);
         }));
         controls.add(new ControlHint("collapse-slivers", Keys.A, "A",
                 "collapse slivers: one ring keeps each lens, the other becomes bisectors",

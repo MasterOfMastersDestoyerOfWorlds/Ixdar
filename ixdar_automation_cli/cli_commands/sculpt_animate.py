@@ -215,7 +215,7 @@ def sculpt_animate(
     :param rounds: Directory of round<NN>/ snapshots (sculpt-snapshot writes them), each holding one .dsl with stroke_sculpt layers and its SVGs.
     :param out: Directory for the frames, the DSLs captured and animation.mp4/gif.
     :param reference: Optional OBJ each result is scored against (mesh-compare --normalize).
-    :param shading: Multiview surface look: default, clay or curvature.
+    :param shading: Multiview surface look: any the scene registered (default, clay, curvature).
     :param width: Frame width in pixels.
     :param seconds: Seconds each frame is held.
     """

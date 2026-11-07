@@ -139,18 +139,14 @@ public final class MeshLabels {
         }
         labelByRegion = labelOf;
         List<TreeSet<Integer>> touching = new ArrayList<>();
-        int[] regionsOf = new int[names.size()];
-        int[] continuing = new int[names.size()];
         for (int label = 0; label < names.size(); label++) {
             touching.add(new TreeSet<>());
-            continuing[label] = label;
         }
         for (int region = 0; region < regions.regionCount; region++) {
             int label = labelOf[region];
             if (label == UNLABELLED) {
                 continue;
             }
-            regionsOf[label]++;
             for (int neighbour : regions.neighboursByRegion[region]) {
                 if (labelOf[neighbour] != UNLABELLED && labelOf[neighbour] != label) {
                     touching.get(label).add(labelOf[neighbour]);
@@ -162,7 +158,28 @@ public final class MeshLabels {
             neighbours[label] = touching.get(label).stream().mapToInt(Integer::intValue).toArray();
         }
         neighboursByLabel = neighbours;
-        colouring.colour(neighbours, regionsOf, continuing, null, cycle);
+        recolour(cycle);
+    }
+
+    /**
+     * Colour the labels as last resolved from another palette cycle, without resolving their
+     * points again: touching labels take different entries, each keeping its colour while no
+     * neighbour takes it.
+     *
+     * @param cycle the palette cycle whose entries {@link #colouring} hands out
+     */
+    public void recolour(Color[] cycle) {
+        int[] regionsOf = new int[names.size()];
+        int[] continuing = new int[names.size()];
+        for (int label = 0; label < names.size(); label++) {
+            continuing[label] = label;
+        }
+        for (int label : labelByRegion) {
+            if (label != UNLABELLED) {
+                regionsOf[label]++;
+            }
+        }
+        colouring.colour(neighboursByLabel, regionsOf, continuing, null, cycle);
     }
 
     /**

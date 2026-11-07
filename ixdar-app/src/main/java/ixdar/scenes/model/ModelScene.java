@@ -18,7 +18,13 @@ import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.nodegraph.nodes.data.SceneModelNode;
 import ixdar.graphics.render.color.ColorBox;
+import ixdar.graphics.render.color.Palette;
+import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
+import ixdar.graphics.render.model.SurfaceLook;
+import ixdar.graphics.render.model.SurfaceLook.Colour;
+import ixdar.graphics.render.model.SurfaceLook.Light;
+import ixdar.graphics.render.model.SurfaceLooks;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.menu.model.SceneModelMenu;
@@ -68,6 +74,10 @@ public abstract class ModelScene extends Scene {
     public static final float FOCUS_ORBIT_RADIUS_MUL = 3f;
 
     public static final float FOCUS_ORBIT_MIN_MUL = 0.5f;
+
+    public static final String DEFAULT_LOOK = "default";
+
+    public static final String TEXTURED_LOOK = "textured";
 
     /** Model menu of this scene's models. */
     public SceneModelMenu sceneModelMenu;
@@ -126,6 +136,19 @@ public abstract class ModelScene extends Scene {
      */
     public float framedDistance = CAMERA_DISTANCE_DEFAULT;
 
+    /** The looks {@link #setLooks} registered, the one picked and a tool's override. */
+    public final SurfaceLooks looks = new SurfaceLooks();
+
+    /** The clay lights key straight from the camera instead of from its upper left. */
+    public boolean headlight;
+
+    /** The palette worn before a paper look swapped in the paper one, restored when it goes. */
+    public Palette paletteBeforeLook;
+
+    private SurfaceLook fieldShown;
+
+    private HalfEdgeMeshRuntime fieldRuntime;
+
     /**
      * Hand {@link #modelCollection} the scene's model list, its loader and its override check,
      * which the terminal's model commands reach the scene through.
@@ -137,12 +160,15 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Host the orbit tool as the default, and the DSL graph tool on ctrl+G, which toggles back to
-     * the default tool; scenes add their own tools after these.
+     * Offer the scene's looks, the first drawn until another is picked, then host the orbit tool
+     * as the default and the DSL graph tool on ctrl+G; scenes add their own tools after these.
      */
     @Override
     public void setTools() {
         super.setTools();
+        looks.registered.clear();
+        setLooks(looks.registered);
+        looks.picked = looks.registered.get(0);
         tools.add(orbitTool);
         defaultTool = orbitTool;
         graphTool = new DslGraphView(this);
@@ -164,6 +190,33 @@ public abstract class ModelScene extends Scene {
         initPanes();
         refreshControls();
         initModel();
+    }
+
+    /**
+     * Offer the looks M cycles, in order, one line each; the first is drawn until another is
+     * picked. Scenes call {@code super.setLooks(looks)} first, then add their own.
+     *
+     * @param looks the scene's looks, empty on entry
+     */
+    public void setLooks(List<SurfaceLook> looks) {
+        looks.add(new SurfaceLook(DEFAULT_LOOK, "the surface colour under the view light", Colour.SURFACE, Light.VIEW, null));
+        looks.add(new SurfaceLook(TEXTURED_LOOK, "the model's own base-colour texture", Colour.TEXTURE, Light.VIEW, null));
+        looks.add(new SurfaceLook("clay", "light grey clay, so shallow relief reads", Colour.CLAY, Light.CLAY, Palettes.PAPER));
+        looks.add(new SurfaceLook("curvature", "concave dark, convex light", Colour.CURVATURE, Light.SOFT_CLAY, Palettes.PAPER));
+    }
+
+    /**
+     * Pick the look the surface is drawn in until the next pick, and the light the clay looks key
+     * from. A tool's override still draws in its place while set.
+     *
+     * @param id        an offered look's id
+     * @param headlight whether the clay lights key from the camera
+     * @throws IllegalArgumentException naming every offered look when none has that id
+     */
+    public void setLook(String id, boolean headlight) {
+        looks.picked = looks.named(id);
+        this.headlight = headlight;
+        Platforms.get().log("[look] " + looks.picked.id + (headlight ? " with headlight" : ""));
     }
 
     /**
@@ -203,9 +256,8 @@ public abstract class ModelScene extends Scene {
     }
 
     /**
-     * Per-frame: apply a pending model switch, re-colour the surface from the palette worn now so a
-     * swap shows at once, run the scene's 3D pass, or the active tool's view when it replaces that
-     * pass, then the UI chrome.
+     * Per-frame: apply a pending model switch, run the tools, hand the surface the shown look and
+     * its palette, then draw the 3D pass, or the active tool's view when it replaces it, and the UI.
      */
     @Override
     public void drawScene() {
@@ -213,8 +265,27 @@ public abstract class ModelScene extends Scene {
             return;
         }
         applyPendingModel();
-        runtime.setSolidColor(palette.surface.toVector4f());
         updateScene();
+        SurfaceLook shown = looks.shown();
+        if (shown != null && shown.palette != null && palette != shown.palette) {
+            paletteBeforeLook = paletteBeforeLook == null ? palette : paletteBeforeLook;
+            palette = shown.palette;
+        } else if ((shown == null || shown.palette == null) && paletteBeforeLook != null) {
+            palette = paletteBeforeLook;
+            paletteBeforeLook = null;
+        }
+        HalfEdgeMeshRuntime surface = surfaceRuntime();
+        if (surface != null && shown != null) {
+            surface.look = shown;
+            surface.headlight = headlight;
+            if (shown.field != null && (fieldShown != shown || fieldRuntime != surface
+                    || !surface.hasPerVertexScalar())) {
+                fieldShown = shown;
+                fieldRuntime = surface;
+                surface.setPerVertexScalar(shown.field.values(), Float.NaN, Float.NaN);
+            }
+        }
+        runtime.setSolidColor(palette.surface.toVector4f());
         if (activeTool.replacesView()) {
             activeTool.drawView();
         } else {
@@ -863,6 +934,13 @@ public abstract class ModelScene extends Scene {
         if (!controlRBound) {
             controls.add(new ControlHint("recentre-orbit", Keys.R, true, "ctrl+R",
                     "re-centre the orbit on the model", camera::resetTarget));
+        }
+        if (looks.registered.size() > 1) {
+            controls.add(new ControlHint("cycle-look", Keys.M, "M", "cycle the look: "
+                    + looks.names() + " (now " + looks.picked.id + ")", () -> {
+                setLook(looks.next().id, headlight);
+                refreshControls();
+            }));
         }
         controls.add(new ControlHint("toggle-menu", Keys.I, true, "ctrl+I", "menu", () -> sceneModelMenu.toggle()));
         controls.add(new ControlHint("escape", Keys.ESCAPE, "esc", escapeDescription(), this::escapePressed));

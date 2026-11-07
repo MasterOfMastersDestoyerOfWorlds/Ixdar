@@ -194,7 +194,7 @@ public class MeshBooleanScene extends ModelScene {
         if (CornerUvField.of(bundle) != null) {
             runtime.clearTags();
             runtime.uploadBundle(bundle);
-            runtime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.TEXTURED);
+            setLook(TEXTURED_LOOK, headlight);
         } else {
             applyProvenanceTags(bundle, mesh);
         }

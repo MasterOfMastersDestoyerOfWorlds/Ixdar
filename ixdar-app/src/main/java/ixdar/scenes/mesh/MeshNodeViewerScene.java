@@ -24,9 +24,7 @@ import ixdar.geometry.mesh.data.ops.MeshRepairReport;
 import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.graphics.render.color.Palette;
-import ixdar.graphics.render.color.Palettes;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
-import ixdar.graphics.render.model.SurfaceShading;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.models.ModelCatalog;
 import ixdar.models.ModelChoice;
@@ -69,15 +67,6 @@ public class MeshNodeViewerScene extends ModelScene {
     /** The runtime the surface is drawn through, replaced by {@link #createRuntime} per model. */
     public volatile HalfEdgeMeshRuntime meshRuntime;
 
-    /** The surface look {@link #setSurfaceLook} set, drawn by every runtime the scene installs. */
-    public SurfaceShading surfaceShading = SurfaceShading.DEFAULT;
-
-    /** Whether clay and curvature key light from the camera. */
-    public boolean headlight;
-
-    /** The palette the scene wore before clay or curvature swapped in the paper one. */
-    public Palette paletteBeforeLook = palette;
-
     /** The tool drawing weighted strokes on the view into the graph's one stroke_sculpt pass. */
     public final StrokeSculptTool strokeSculptTool = new StrokeSculptTool(this);
 
@@ -102,7 +91,6 @@ public class MeshNodeViewerScene extends ModelScene {
 
     private SemanticPatchDecomposer.DecompositionDiagnostics cachedDiagnostics;
     private boolean patchOverlayEnabled = false;
-    private HalfEdgeMeshRuntime.ShaderMode shaderMode = HalfEdgeMeshRuntime.ShaderMode.LAMBERT;
     private DecomposerKind activeDecomposer = DecomposerKind.SEMANTIC;
 
     /**
@@ -147,12 +135,11 @@ public class MeshNodeViewerScene extends ModelScene {
         ModelChoice current = currentModel();
         sb.append("model=").append(current == null ? "(initial)" : current.displayName);
         sb.append(PATCHES).append(patchOverlayEnabled ? ON : OFF);
-        sb.append("  shader=").append(shaderMode.name());
-        sb.append("  look=").append(surfaceShading.name()).append(headlight ? "+headlight" : "");
+        sb.append("  look=").append(looks.shown() == null ? "" : looks.shown().id)
+                .append(headlight ? "+headlight" : "");
         sb.append("  texture=").append(texturedDraw() ? ON : OFF);
         sb.append("  slots=").append(bundleSlotNames());
         if (patchOverlayEnabled) {
-            sb.append("  mode=").append(shaderMode.name());
             sb.append("  decomposer=").append(activeDecomposer.name());
             if (cachedDiagnostics != null) {
                 sb.append(PATCHES).append(cachedDiagnostics.decomposition().patches().size());
@@ -340,8 +327,6 @@ public class MeshNodeViewerScene extends ModelScene {
         camera.resetView();
         // A model switch replaces meshRuntime, so it is coloured here rather than through runtime.
         meshRuntime.setSolidColor(palette.surface.toVector4f());
-        meshRuntime.surfaceShading = surfaceShading;
-        meshRuntime.headlight = headlight;
         meshRuntime.render(camera);
 
         if (overlayRuntime != null) {
@@ -640,10 +625,6 @@ public class MeshNodeViewerScene extends ModelScene {
             meshRuntime.upload(mesh);
         } else {
             meshRuntime.uploadBundle(meshBundle);
-            if (meshRuntime.hasTexturedDraw()) {
-                shaderMode = HalfEdgeMeshRuntime.ShaderMode.TEXTURED;
-            }
-            meshRuntime.setShaderMode(shaderMode);
         }
         if (frame) {
             meshRuntime.frameCamera(camera);
@@ -717,7 +698,6 @@ public class MeshNodeViewerScene extends ModelScene {
             categories.add(new HalfEdgeMeshRuntime.FeatureEdgeCategory(
                     Palette.entry(palette.edgeMark, slot), edgeKeys));
         }
-        meshRuntime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.STAGES);
         meshRuntime.setFeatureEdgeOverlay(categories);
         Platforms.get().log("[mesh-viewer] edge-mark overlay: " + labels);
     }
@@ -943,33 +923,7 @@ public class MeshNodeViewerScene extends ModelScene {
         controls.add(new ControlHint("previous-model", Keys.LEFT_BRACKET, "[", "previous model", this::prevModel));
         controls.add(new ControlHint("next-model", Keys.RIGHT_BRACKET, "]", "next model", this::nextModel));
         controls.add(new ControlHint("toggle-wireframe", Keys.Z, "Z", "toggle wireframe", this::toggleMeshWireframe));
-        controls.add(new ControlHint("cycle-surface-shading", Keys.M, "M",
-                "cycle the look: default, clay, curvature", () -> setSurfaceLook(
-                        SurfaceShading.values()[(surfaceShading.ordinal() + 1)
-                                % SurfaceShading.values().length], headlight)));
-        controls.add(new ControlHint("toggle-headlight", Keys.H, "H",
-                "clay and curvature lit from the camera", () -> setSurfaceLook(surfaceShading, !headlight)));
         super.setControls(controls);
-    }
-
-    /**
-     * Wear a surface look until the next call: the runtime draws it every frame, across model
-     * switches, and clay or curvature wear the light paper palette while the scene's own returns
-     * with {@link SurfaceShading#DEFAULT}.
-     *
-     * @param shading   the look to draw the surface in
-     * @param headlight whether clay and curvature key light from the camera
-     */
-    public void setSurfaceLook(SurfaceShading shading, boolean headlight) {
-        if (shading != SurfaceShading.DEFAULT && surfaceShading == SurfaceShading.DEFAULT) {
-            paletteBeforeLook = palette;
-            palette = Palettes.PAPER;
-        } else if (shading == SurfaceShading.DEFAULT && surfaceShading != SurfaceShading.DEFAULT) {
-            palette = paletteBeforeLook;
-        }
-        surfaceShading = shading;
-        this.headlight = headlight;
-        logState();
     }
 
     /**
@@ -1079,8 +1033,8 @@ public class MeshNodeViewerScene extends ModelScene {
 
     /**
      * Load a mesh file with the attributes its format carries (glTF texture coordinates and
-     * material), upload the whole bundle, and switch to {@link HalfEdgeMeshRuntime.ShaderMode#TEXTURED}
-     * when a base-colour texture came with it.
+     * material) and upload the whole bundle, which the default look draws with its base-colour
+     * texture when one came with it.
      *
      * @param absolutePath resolved path of the mesh file
      */
@@ -1093,10 +1047,6 @@ public class MeshNodeViewerScene extends ModelScene {
             mesh = bundle.mesh();
             createRuntime();
             meshRuntime.uploadBundle(bundle);
-            if (meshRuntime.hasTexturedDraw()) {
-                shaderMode = HalfEdgeMeshRuntime.ShaderMode.TEXTURED;
-            }
-            meshRuntime.setShaderMode(shaderMode);
             meshRuntime.frameCamera(camera);
             noteMemberLoaded(absolutePath, mesh.vertexCount(), mesh.faceCount());
             Platforms.get().log("[mesh-viewer] mesh loaded: " + absolutePath
@@ -1122,15 +1072,6 @@ public class MeshNodeViewerScene extends ModelScene {
         return meshBundle.slots().keySet().stream().sorted().collect(Collectors.joining(","));
     }
 
-    /**
-     * Name of the active shading mode.
-     *
-     * @return the {@link HalfEdgeMeshRuntime.ShaderMode} the viewer is drawing with
-     */
-    @Override
-    public String shaderModeName() {
-        return shaderMode.name();
-    }
 
     /**
      * Whether the runtime can draw the mesh textured: a material and a UV field both uploaded.

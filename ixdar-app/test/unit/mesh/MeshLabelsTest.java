@@ -189,6 +189,33 @@ class MeshLabelsTest {
         }
     }
 
+    /**
+     * A palette swap recolours the parts without resolving their points again, and gives what
+     * resolving them again in the new palette gave: the same label per region, the same entries.
+     */
+    @Test
+    void recolouringMatchesResolvingAgainInTheNewPalette() {
+        MeshTopology cylinder = RingRegionsTest.cappedCylinder();
+        int[] rows = new int[RingRegionsTest.SIDE_ROWS - 1];
+        for (int ring = 0; ring < rows.length; ring++) {
+            rows[ring] = ring + 1;
+        }
+        RingRegions regions = regions(cylinder, rows);
+        MeshLabels resolvedAgain = new MeshLabels();
+        for (int band = 0; band < RingRegionsTest.SIDE_ROWS; band++) {
+            resolvedAgain.add("band_" + band, new float[] { 1f, 0f, (band + HALF) * ROW_HEIGHT });
+        }
+        MeshLabels recoloured = new MeshLabels(resolvedAgain);
+        resolvedAgain.resolve(regions, Palettes.DARK.categories);
+        recoloured.resolve(regions, Palettes.DARK.categories);
+
+        resolvedAgain.resolve(regions, Palettes.PAPER.categories);
+        recoloured.recolour(Palettes.PAPER.categories);
+
+        assertArrayEquals(resolvedAgain.labelByRegion, recoloured.labelByRegion);
+        assertArrayEquals(resolvedAgain.colouring.colourByNode, recoloured.colouring.colourByNode);
+    }
+
     /** The label of each face's region, by dense face index. */
     private static int[] labelByFace(MeshLabels labels, RingRegions regions) {
         labels.resolve(regions, Palettes.DARK.categories);

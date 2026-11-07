@@ -16,6 +16,8 @@ import ixdar.geometry.mesh.quadlayout.embedding.NetworkContraction;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
 import ixdar.graphics.render.model.QuadLayoutOverlay;
+import ixdar.graphics.render.model.SurfaceLook;
+import ixdar.graphics.render.model.SurfaceLook.Light;
 import ixdar.models.ModelChoice;
 import ixdar.nodegraph.runtime.NodeGroup;
 import ixdar.platform.Platforms;
@@ -35,6 +37,8 @@ import ixdar.tools.ControlHint;
 public class EmbeddedTMeshScene extends ModelScene {
 
     private static final int DENSE_FIXTURE_SCALE = 4;
+
+    private static final String SPLIT_DENSITY_LOOK = "split_density";
 
     /** Whether a full contraction (all three operators to a fixed point) was requested by keypress. */
     public volatile boolean pendingContract;
@@ -244,14 +248,19 @@ public class EmbeddedTMeshScene extends ModelScene {
         }
         if (pendingSplitDensity) {
             pendingSplitDensity = false;
-            if (quadRuntime.hasPerVertexScalar()) {
-                quadRuntime.clearPerVertexScalar();
-                quadRuntime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.LAMBERT);
-                Platforms.get().log("[refinement] density map off");
-            } else {
-                showSplitDensity();
-            }
+            setLook(looks.isPicked(SPLIT_DENSITY_LOOK) ? DEFAULT_LOOK : SPLIT_DENSITY_LOOK, headlight);
         }
+    }
+
+    /**
+     * The model scene's looks, then the refinement-density heat map R toggles.
+     *
+     * @param looks the scene's looks
+     */
+    @Override
+    public void setLooks(List<SurfaceLook> looks) {
+        super.setLooks(looks);
+        looks.add(new SurfaceLook(SPLIT_DENSITY_LOOK, "how many times the contraction doubled each source triangle", Light.SOFT_CLAY, this::splitDensity));
     }
 
     /**
@@ -434,13 +443,15 @@ public class EmbeddedTMeshScene extends ModelScene {
     }
 
     /**
-     * Paints each source triangle by how many times the contraction doubled it, and logs
-     * that distribution with the worst offender.
+     * How many times the contraction doubled each source triangle, per vertex: the larger count of
+     * the triangles round it, the field the split-density look shows.
      *
      * <p>Refinement never leaves a source triangle, so this is where the splits landed.
      * The scale counts doublings because the tail spans four orders of magnitude.
+     *
+     * @return doublings per active vertex of the source mesh
      */
-    private void showSplitDensity() {
+    private float[] splitDensity() {
         int sourceFaceCount = halfEdgeMesh.faceCount();
         Map<Integer, Integer> denseByVertexId = new HashMap<>(halfEdgeMesh.vertexCount() * 2);
         for (int dense = 0; dense < halfEdgeMesh.vertexCount(); dense++) {
@@ -463,9 +474,7 @@ public class EmbeddedTMeshScene extends ModelScene {
                 }
             }
         }
-        quadRuntime.setShaderMode(HalfEdgeMeshRuntime.ShaderMode.SCALAR);
-        quadRuntime.setPerVertexScalar(childrenByVertex, 0f, Float.NaN);
-        Platforms.get().log("[refinement] density map on");
+        return childrenByVertex;
     }
 
     @Override
