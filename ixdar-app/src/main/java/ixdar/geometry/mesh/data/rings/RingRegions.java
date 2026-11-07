@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
 
@@ -71,6 +72,8 @@ public final class RingRegions {
     // Interior crease under this share of a region is surface texture, not a joint: on IMG_4111
     // the halves of a split claw joint read under 1%, the region left unsplit about 8%.
     public static final double INTERIOR_JOINT_SHARE = 0.02;
+
+    public static final int FACES_PER_TASK = 8192;
 
     private static final int PAIR_SHIFT = 32;
 
@@ -215,6 +218,8 @@ public final class RingRegions {
 
     private double[] faceArea = new double[0];
 
+    private float[] faceCentroid = new float[0];
+
     private int[] slotStart = new int[0];
 
     private int[] slotEdgeId = new int[0];
@@ -223,13 +228,15 @@ public final class RingRegions {
 
     private boolean[] edgeActive = new boolean[0];
 
+    private boolean[] noEdges = new boolean[0];
+
     private int[] wallsByEdgeId = new int[0];
+
+    private boolean[] slotWalled = new boolean[0];
 
     private int[] edgeStamp = new int[0];
 
     private int edgeEpoch;
-
-    private int[] vertexDegree = new int[0];
 
     private int[] vertexStamp = new int[0];
 
@@ -353,42 +360,60 @@ public final class RingRegions {
         int edgeIdCeiling = RingBundle.edgeIdCeiling(mesh);
         if (!built) {
             int faceIdCeiling = 0;
-            int slots = 0;
+            slotStart = new int[faceCount + 1];
             for (int activeFace = 0; activeFace < faceCount; activeFace++) {
                 int faceId = mesh.faceIdAt(activeFace);
                 faceIdCeiling = Math.max(faceIdCeiling, faceId + 1);
-                slots += mesh.faceHalfEdgeCount(faceId);
+                slotStart[activeFace + 1] = slotStart[activeFace] + mesh.faceHalfEdgeCount(faceId);
             }
+            int slots = slotStart[faceCount];
             int vertexIdCeiling = 0;
             for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
                 vertexIdCeiling = Math.max(vertexIdCeiling, mesh.vertexIdAt(activeVertex) + 1);
             }
             activeFaceByFaceId = new int[faceIdCeiling];
             Arrays.fill(activeFaceByFaceId, MeshTopology.NONE);
-            faceArea = new double[faceCount];
             for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-                int faceId = mesh.faceIdAt(activeFace);
-                activeFaceByFaceId[faceId] = activeFace;
-                faceArea[activeFace] = mesh.faceArea(faceId);
+                activeFaceByFaceId[mesh.faceIdAt(activeFace)] = activeFace;
             }
-            // Each face's sides as flat slots: the edge crossed and the face across it, so the
-            // floods below never go back through the half-edge accessors.
-            slotStart = new int[faceCount + 1];
+            // Each face's area and centroid, and its sides as flat slots: the edge crossed and
+            // the face across it, so the floods below never go back through the half-edge
+            // accessors. Every face writes only its own entries, so blocks of faces run in parallel.
+            faceArea = new double[faceCount];
+            faceCentroid = new float[TRIANGLE_CORNERS * faceCount];
             slotEdgeId = new int[slots];
             slotNeighbour = new int[slots];
-            int slot = 0;
-            for (int activeFace = 0; activeFace < faceCount; activeFace++) {
-                int faceId = mesh.faceIdAt(activeFace);
-                slotStart[activeFace] = slot;
-                for (int side = 0; side < mesh.faceHalfEdgeCount(faceId); side++) {
-                    int halfEdge = mesh.faceHalfEdgeAt(faceId, side);
-                    int twin = mesh.halfEdgeTwin(halfEdge);
-                    slotEdgeId[slot] = mesh.halfEdgeEdge(halfEdge);
-                    slotNeighbour[slot++] = twin == MeshTopology.NONE ? MeshTopology.NONE
-                            : activeFaceOf(mesh.halfEdgeFace(twin));
+            IntStream.range(0, (faceCount + FACES_PER_TASK - 1) / FACES_PER_TASK).parallel()
+                    .forEach(task -> {
+                Vector3f anchor = new Vector3f();
+                for (int activeFace = task * FACES_PER_TASK;
+                        activeFace < Math.min(faceCount, (task + 1) * FACES_PER_TASK); activeFace++) {
+                    int faceId = mesh.faceIdAt(activeFace);
+                    int corners = mesh.faceVertexCount(faceId);
+                    faceArea[activeFace] = mesh.faceArea(faceId);
+                    float sumX = 0f;
+                    float sumY = 0f;
+                    float sumZ = 0f;
+                    for (int slot = 0; slot < corners; slot++) {
+                        mesh.vertexPosition(mesh.faceVertexAt(faceId, slot), anchor);
+                        sumX += anchor.x;
+                        sumY += anchor.y;
+                        sumZ += anchor.z;
+                    }
+                    faceCentroid[TRIANGLE_CORNERS * activeFace] = sumX / corners;
+                    faceCentroid[TRIANGLE_CORNERS * activeFace + 1] = sumY / corners;
+                    faceCentroid[TRIANGLE_CORNERS * activeFace + 2] = sumZ / corners;
+                    int slot = slotStart[activeFace];
+                    for (int side = 0; side < mesh.faceHalfEdgeCount(faceId); side++) {
+                        int halfEdge = mesh.faceHalfEdgeAt(faceId, side);
+                        int twin = mesh.halfEdgeTwin(halfEdge);
+                        slotEdgeId[slot] = mesh.halfEdgeEdge(halfEdge);
+                        slotNeighbour[slot++] = twin == MeshTopology.NONE ? MeshTopology.NONE
+                                : activeFaceOf(mesh.halfEdgeFace(twin));
+                    }
                 }
-            }
-            slotStart[faceCount] = slot;
+            });
+            noEdges = new boolean[edgeIdCeiling];
             edgeActive = new boolean[edgeIdCeiling];
             for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
                 edgeActive[mesh.edgeIdAt(activeEdge)] = true;
@@ -396,7 +421,6 @@ public final class RingRegions {
             wallsByEdgeId = new int[edgeIdCeiling];
             edgeStamp = new int[edgeIdCeiling];
             edgeEpoch = 0;
-            vertexDegree = new int[vertexIdCeiling];
             vertexStamp = new int[vertexIdCeiling];
             vertexEpoch = 0;
             frontier = new int[faceCount];
@@ -435,50 +459,66 @@ public final class RingRegions {
                 vertexIds[ring] = ringVertexIds[former];
                 looseEnds[ring] = ringLooseEnds[former];
                 junctions[ring] = ringJunctions[former];
-                continue;
             }
+        }
+        // Each new ring's edges, vertices, loose ends and junctions from its mask alone, so the
+        // rings are read in parallel; a vertex's degree is the run its ids make once sorted.
+        IntStream.range(0, ringCount).parallel().forEach(ring -> {
+            if (formerRingOf[ring] != MeshTopology.NONE) {
+                return;
+            }
+            // A mask is mostly clear, so each marked edge is found by a vectorised search for the
+            // next entry that differs from a clear mask.
             boolean[] marks = masks[ring];
             int scanned = Math.min(marks.length, edgeIdCeiling);
+            int[] ringEdges = new int[0];
             int edges = 0;
-            for (int edgeId = 0; edgeId < scanned; edgeId++) {
-                edges += marks[edgeId] && edgeActive[edgeId] ? 1 : 0;
-            }
-            int[] ringEdges = new int[edges];
-            int[] ringVertices = new int[2 * edges];
-            int vertices = 0;
-            int cursor = 0;
-            for (int edgeId = 0; edgeId < scanned; edgeId++) {
-                if (!marks[edgeId] || !edgeActive[edgeId]) {
+            for (int from = 0; from < scanned;) {
+                int clearRun = Arrays.mismatch(marks, from, scanned, noEdges, from, scanned);
+                if (clearRun < 0) {
+                    break;
+                }
+                int edgeId = from + clearRun;
+                from = edgeId + 1;
+                if (!edgeActive[edgeId]) {
                     continue;
                 }
-                ringEdges[cursor++] = edgeId;
-                int halfEdge = mesh.edgeHalfEdge(edgeId);
-                for (int end = 0; end < 2; end++) {
-                    int vertexId = end == 0 ? mesh.halfEdgeVertex(halfEdge)
-                            : mesh.halfEdgeEndVertex(halfEdge);
-                    if (vertexDegree[vertexId]++ == 0) {
-                        ringVertices[vertices++] = vertexId;
-                    }
+                if (edges == ringEdges.length) {
+                    ringEdges = Arrays.copyOf(ringEdges, Math.max(1, 2 * edges));
                 }
+                ringEdges[edges++] = edgeId;
             }
+            ringEdges = Arrays.copyOf(ringEdges, edges);
+            int[] ends = new int[2 * edges];
+            for (int edge = 0; edge < edges; edge++) {
+                int halfEdge = mesh.edgeHalfEdge(ringEdges[edge]);
+                ends[2 * edge] = mesh.halfEdgeVertex(halfEdge);
+                ends[2 * edge + 1] = mesh.halfEdgeEndVertex(halfEdge);
+            }
+            Arrays.sort(ends);
             // A vertex on a single ring edge is a loose end: the loop never closed there.
-            int[] ends = new int[vertices];
-            int endCount = 0;
-            for (int index = 0; index < vertices; index++) {
-                int vertexId = ringVertices[index];
-                if (vertexDegree[vertexId] == 1) {
-                    ends[endCount++] = vertexId;
-                } else if (vertexDegree[vertexId] > 2) {
+            int[] ringVertices = new int[ends.length];
+            int[] loose = new int[ends.length];
+            int vertices = 0;
+            int looseCount = 0;
+            for (int run = 0; run < ends.length;) {
+                int next = run + 1;
+                while (next < ends.length && ends[next] == ends[run]) {
+                    next++;
+                }
+                ringVertices[vertices++] = ends[run];
+                if (next - run == 1) {
+                    loose[looseCount++] = ends[run];
+                } else if (next - run > 2) {
                     junctions[ring]++;
                 }
-                vertexDegree[vertexId] = 0;
+                run = next;
             }
-            looseEnds[ring] = Arrays.copyOf(ends, endCount);
-            Arrays.sort(looseEnds[ring]);
+            looseEnds[ring] = Arrays.copyOf(loose, looseCount);
             edgeCount[ring] = edges;
             edgeIds[ring] = ringEdges;
             vertexIds[ring] = Arrays.copyOf(ringVertices, vertices);
-        }
+        });
 
         // A closed ring walls the flood. An open one walls it as a bisector once every loose end
         // lies on another wall, settled until none is added so a bisector may end on an earlier
@@ -533,6 +573,13 @@ public final class RingRegions {
                 }
             }
         }
+        // Each face side's wall, read in face order by the floods below and in measureFlatness.
+        if (slotWalled.length != slotEdgeId.length) {
+            slotWalled = new boolean[slotEdgeId.length];
+        }
+        IntStream.range(0, slotWalled.length).parallel().forEach(slot -> {
+            slotWalled[slot] = wallsByEdgeId[slotEdgeId[slot]] > 0;
+        });
 
         // Clear the components beside a changed edge and flood them again; every other component
         // keeps its faces, since each of its borders is still a wall and nothing inside became one.
@@ -572,7 +619,7 @@ public final class RingRegions {
                     for (int slot = slotStart[activeFace]; slot < slotStart[activeFace + 1];
                             slot++) {
                         int neighbour = slotNeighbour[slot];
-                        if (neighbour == MeshTopology.NONE || wallsByEdgeId[slotEdgeId[slot]] > 0
+                        if (neighbour == MeshTopology.NONE || slotWalled[slot]
                                 || componentByActiveFace[neighbour] != MeshTopology.NONE) {
                             continue;
                         }
@@ -1086,28 +1133,35 @@ public final class RingRegions {
      * @return dense index of the nearest face, or {@link MeshTopology#NONE} on an empty surface
      */
     public int nearestActiveFace(float x, float y, float z) {
+        // Blocks of faces are searched in parallel; the first block holding the smallest
+        // distance wins, and within a block the first face, so a tie goes to the lowest face.
+        int faceCount = faceCentroid.length / TRIANGLE_CORNERS;
+        int tasks = (faceCount + FACES_PER_TASK - 1) / FACES_PER_TASK;
+        int[] nearestOfTask = new int[tasks];
+        double[] distanceOfTask = new double[tasks];
+        IntStream.range(0, tasks).parallel().forEach(task -> {
+            int nearest = MeshTopology.NONE;
+            double nearestDistance = Double.POSITIVE_INFINITY;
+            for (int activeFace = task * FACES_PER_TASK;
+                    activeFace < Math.min(faceCount, (task + 1) * FACES_PER_TASK); activeFace++) {
+                double dx = faceCentroid[TRIANGLE_CORNERS * activeFace] - x;
+                double dy = faceCentroid[TRIANGLE_CORNERS * activeFace + 1] - y;
+                double dz = faceCentroid[TRIANGLE_CORNERS * activeFace + 2] - z;
+                double distance = dx * dx + dy * dy + dz * dz;
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearest = activeFace;
+                }
+            }
+            nearestOfTask[task] = nearest;
+            distanceOfTask[task] = nearestDistance;
+        });
         int nearest = MeshTopology.NONE;
         double nearestDistance = Double.POSITIVE_INFINITY;
-        Vector3f corner = new Vector3f();
-        for (int activeFace = 0; activeFace < mesh.faceCount(); activeFace++) {
-            int faceId = mesh.faceIdAt(activeFace);
-            float sumX = 0f;
-            float sumY = 0f;
-            float sumZ = 0f;
-            int corners = mesh.faceVertexCount(faceId);
-            for (int slot = 0; slot < corners; slot++) {
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, slot), corner);
-                sumX += corner.x;
-                sumY += corner.y;
-                sumZ += corner.z;
-            }
-            double dx = sumX / corners - x;
-            double dy = sumY / corners - y;
-            double dz = sumZ / corners - z;
-            double distance = dx * dx + dy * dy + dz * dz;
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearest = activeFace;
+        for (int task = 0; task < tasks; task++) {
+            if (distanceOfTask[task] < nearestDistance) {
+                nearestDistance = distanceOfTask[task];
+                nearest = nearestOfTask[task];
             }
         }
         return nearest;
@@ -1267,9 +1321,9 @@ public final class RingRegions {
         }
         int faceCount = regionByActiveFace.length;
         if (faceCurvatureCreases != creases) {
-            faceCurvature = new float[faceCount];
-            faceInCrease = new boolean[faceCount];
-            for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            float[] curvatureOfFace = new float[faceCount];
+            boolean[] inCrease = new boolean[faceCount];
+            IntStream.range(0, faceCount).parallel().forEach(activeFace -> {
                 int faceId = mesh.faceIdAt(activeFace);
                 int corners = mesh.faceVertexCount(faceId);
                 float strength = 0f;
@@ -1279,9 +1333,11 @@ public final class RingRegions {
                     strength += creases.valleyStrength[vertexId];
                     curvature += creases.valleyCurvature[vertexId];
                 }
-                faceCurvature[activeFace] = curvature / corners;
-                faceInCrease[activeFace] = strength / corners >= SurfaceCreases.CREASE_STRENGTH;
-            }
+                curvatureOfFace[activeFace] = curvature / corners;
+                inCrease[activeFace] = strength / corners >= SurfaceCreases.CREASE_STRENGTH;
+            });
+            faceCurvature = curvatureOfFace;
+            faceInCrease = inCrease;
             faceCurvatureCreases = creases;
         }
         // A region that kept its faces and walls since the last measure keeps its flatness.
@@ -1305,7 +1361,7 @@ public final class RingRegions {
                 continue;
             }
             for (int slot = slotStart[activeFace]; slot < slotStart[activeFace + 1]; slot++) {
-                if (wallsByEdgeId[slotEdgeId[slot]] > 0) {
+                if (slotWalled[slot]) {
                     ringSteps[activeFace] = 0;
                     frontier[tail++] = activeFace;
                     break;
@@ -1316,7 +1372,7 @@ public final class RingRegions {
             int activeFace = frontier[head];
             for (int slot = slotStart[activeFace]; slot < slotStart[activeFace + 1]; slot++) {
                 int neighbour = slotNeighbour[slot];
-                if (neighbour == MeshTopology.NONE || wallsByEdgeId[slotEdgeId[slot]] > 0
+                if (neighbour == MeshTopology.NONE || slotWalled[slot]
                         || ringSteps[neighbour] != Integer.MAX_VALUE) {
                     continue;
                 }
@@ -1380,7 +1436,7 @@ public final class RingRegions {
                         : steepest;
                 for (int slot = slotStart[activeFace]; slot < slotStart[activeFace + 1]; slot++) {
                     int neighbour = slotNeighbour[slot];
-                    if (neighbour == MeshTopology.NONE || wallsByEdgeId[slotEdgeId[slot]] > 0
+                    if (neighbour == MeshTopology.NONE || slotWalled[slot]
                             || !faceInCrease[neighbour] || faceVisited[neighbour]
                             || faceInterior[neighbour] != faceInterior[seed]) {
                         continue;

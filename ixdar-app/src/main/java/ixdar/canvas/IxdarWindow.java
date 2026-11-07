@@ -144,6 +144,9 @@ public class IxdarWindow {
         try {
             while (true) {
                 canvas = canvas.paintFrame();
+                if (Clock.framesRendered() == 1) {
+                    System.out.println("Time to First Paint: " + (Clock.time() - startTime));
+                }
                 Thread.sleep(POLL_INTERVAL_MS);
             }
         } catch (InterruptedException interrupted) {
@@ -282,8 +285,6 @@ public class IxdarWindow {
     }
 
     private void loop() throws InterruptedException {
-        System.out.println("Time to First Paint" + (Clock.time() - startTime));
-
         glfwMakeContextCurrent(NULL);
         Thread renderThread = new Thread(() -> {
             glfwMakeContextCurrent(window);
@@ -292,6 +293,9 @@ public class IxdarWindow {
                 Platforms.get().processInputQueue();
                 canvas = canvas.paintFrame();
                 glfwSwapBuffers(window);
+                if (Clock.framesRendered() == 1) {
+                    System.out.println("Time to First Paint: " + (Clock.time() - startTime));
+                }
             }
         });
         renderThread.start();

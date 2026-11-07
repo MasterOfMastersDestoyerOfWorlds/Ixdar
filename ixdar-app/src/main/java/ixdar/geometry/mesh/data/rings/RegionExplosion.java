@@ -2,6 +2,7 @@ package ixdar.geometry.mesh.data.rings;
 
 import java.util.Map;
 import java.util.function.IntFunction;
+import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
 
@@ -24,6 +25,8 @@ public final class RegionExplosion {
     public static final float FULL_SPREAD = 0.4f;
 
     public static final float NUDGE = 0.15f;
+
+    public static final int FACES_PER_TASK = 8192;
 
     /** Names the draw tag each region's offset is written under. */
     public final IntFunction<String> regionTag;
@@ -74,33 +77,57 @@ public final class RegionExplosion {
         modelCentroid.zero();
         double[] weightedSum = new double[XYZ];
         double[] regionWeightedSum = new double[XYZ * regions];
-        Vector3f anchor = new Vector3f();
-        Vector3f first = new Vector3f();
-        Vector3f second = new Vector3f();
-        Vector3f edgeFirst = new Vector3f();
-        Vector3f edgeSecond = new Vector3f();
-        int[] faceCorners = new int[0];
-        for (int activeFace = 0; activeFace < regionByActiveFace.length; activeFace++) {
-            int faceId = mesh.faceIdAt(activeFace);
-            int base = XYZ * regionByActiveFace[activeFace];
-            if (faceCorners.length < TRIANGLE_CORNERS * mesh.faceVertexCount(faceId)) {
-                faceCorners = new int[TRIANGLE_CORNERS * mesh.faceVertexCount(faceId)];
-            }
-            int triangles = mesh.faceTriangleCorners(faceId, TriangulationRule.FAN, faceCorners);
-            for (int slot = 0; slot < TRIANGLE_CORNERS * triangles; slot += TRIANGLE_CORNERS) {
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot]), anchor);
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 1]), first);
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 2]), second);
-                edgeFirst.set(first).sub(anchor);
-                edgeSecond.set(second).sub(anchor);
-                double area = 0.5 * edgeFirst.cross(edgeSecond).length();
-                for (int axis = 0; axis < XYZ; axis++) {
-                    double moment = area * (anchor.get(axis) + first.get(axis) + second.get(axis))
-                            / XYZ;
-                    regionWeightedSum[base + axis] += moment;
-                    weightedSum[axis] += moment;
+        // Each fan triangle's area and moments are found in parallel blocks of faces, then summed
+        // in face order, so the sums are the ones a single pass makes.
+        int faceCount = regionByActiveFace.length;
+        int[] triangleStart = new int[faceCount + 1];
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            triangleStart[activeFace + 1] = triangleStart[activeFace]
+                    + Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(activeFace)) - 2);
+        }
+        double[] triangleArea = new double[triangleStart[faceCount]];
+        double[] triangleMoment = new double[XYZ * triangleStart[faceCount]];
+        IntStream.range(0, (faceCount + FACES_PER_TASK - 1) / FACES_PER_TASK).parallel()
+                .forEach(task -> {
+            Vector3f anchor = new Vector3f();
+            Vector3f first = new Vector3f();
+            Vector3f second = new Vector3f();
+            Vector3f edgeFirst = new Vector3f();
+            Vector3f edgeSecond = new Vector3f();
+            int[] faceCorners = new int[0];
+            for (int activeFace = task * FACES_PER_TASK;
+                    activeFace < Math.min(faceCount, (task + 1) * FACES_PER_TASK); activeFace++) {
+                int faceId = mesh.faceIdAt(activeFace);
+                if (faceCorners.length < TRIANGLE_CORNERS * mesh.faceVertexCount(faceId)) {
+                    faceCorners = new int[TRIANGLE_CORNERS * mesh.faceVertexCount(faceId)];
                 }
-                regionArea[base / XYZ] += area;
+                int triangles = mesh.faceTriangleCorners(faceId, TriangulationRule.FAN, faceCorners);
+                for (int triangle = 0; triangle < triangles; triangle++) {
+                    int slot = TRIANGLE_CORNERS * triangle;
+                    int index = triangleStart[activeFace] + triangle;
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot]), anchor);
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 1]), first);
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot + 2]), second);
+                    edgeFirst.set(first).sub(anchor);
+                    edgeSecond.set(second).sub(anchor);
+                    double area = 0.5 * edgeFirst.cross(edgeSecond).length();
+                    triangleArea[index] = area;
+                    for (int axis = 0; axis < XYZ; axis++) {
+                        triangleMoment[XYZ * index + axis] = area
+                                * (anchor.get(axis) + first.get(axis) + second.get(axis)) / XYZ;
+                    }
+                }
+            }
+        });
+        for (int activeFace = 0; activeFace < faceCount; activeFace++) {
+            int base = XYZ * regionByActiveFace[activeFace];
+            for (int index = triangleStart[activeFace]; index < triangleStart[activeFace + 1];
+                    index++) {
+                for (int axis = 0; axis < XYZ; axis++) {
+                    regionWeightedSum[base + axis] += triangleMoment[XYZ * index + axis];
+                    weightedSum[axis] += triangleMoment[XYZ * index + axis];
+                }
+                regionArea[base / XYZ] += triangleArea[index];
             }
         }
         double totalArea = 0;

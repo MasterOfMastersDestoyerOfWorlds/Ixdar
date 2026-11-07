@@ -534,15 +534,18 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                 root.add("connection", joined);
             }
             root.add(ERROR_TOASTS, toastRows(regionLayer.scene.errorToasts));
+            // While the regions are building for the surface and rings as they stand, they are
+            // reported as building, never read stale.
+            boolean building = regionLayer.building();
+            RingRegions built = building ? null : regionLayer.regions;
             JsonObject regions = new JsonObject();
-            regions.addProperty("regionCount",
-                    regionLayer.regions == null ? 0 : regionLayer.regions.regionCount);
+            regions.addProperty("building", building);
+            regions.addProperty("regionCount", built == null ? 0 : built.regionCount);
             regions.addProperty("visible", regionLayer.scene.regionLookPicked());
             regions.addProperty("hiddenRingCount", regionLayer.hiddenRingLabels.size());
             regions.addProperty("summary", regionLayer.summary);
             // Each region by its number, as its item's tag names it: area, bounding rings with
             // the side the region lies on, part label and flatness.
-            RingRegions built = regionLayer.regions;
             JsonArray regionRows = new JsonArray();
             for (int region = 0; built != null && region < built.regionCount; region++) {
                 JsonObject row = new JsonObject();
@@ -734,7 +737,7 @@ public class State extends AutomationEndpoint implements AutomationRoute {
                         + "menuVisible, framesRendered, terminalFocused, sceneMenuVisible, sceneId, sceneClass, "
                         + "mode, trade, irregularGrid?, mesh?, ringTool?, rings?:[{label, liveLabel, bisector, mode, "
                         + "serial, statement, source, wallSerials, anchorCount, authoredCount, unsaved, deleted}], "
-                        + "connection?, errorToasts?, regions?:{regionCount, visible, "
+                        + "connection?, errorToasts?, regions?:{building, regionCount, visible, "
                         + "hiddenRingCount, summary, rows:[{region, label, faceCount, area, sliver, "
                         + "boundingRings:[{ring, side}], part, creaseShare?, interiorCreaseShare?, peakCurvature?, "
                         + "peakOverSaturation?, creasePoint?, creaseInterior?}]}, "

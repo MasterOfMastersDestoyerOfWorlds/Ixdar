@@ -94,6 +94,12 @@ public final class RegionLayer {
      */
     public Palette resolvedPalette;
 
+    /**
+     * The surface the last frame drew; a new surface is drawn once before its regions are built,
+     * so its first frame never waits for them.
+     */
+    public MeshTopology drawnSurface;
+
     private boolean shown;
 
     private final Matrix4f labelsTiedView = new Matrix4f().zero();
@@ -264,8 +270,22 @@ public final class RegionLayer {
     }
 
     /**
+     * Whether {@link #regions} are not yet current for the shown surface and rings: a new surface
+     * before its first build, or a ring change until the next frame rebuilds them. A reader that
+     * finds them building reports that rather than reading them.
+     *
+     * @return true while the regions do not describe the surface and rings as they stand
+     */
+    public boolean building() {
+        MeshTopology surface = scene.halfEdgeSurface();
+        return surface != null && surface.faceCount() > 0 && (regions == null
+                || regions.mesh != surface || builtRingRevision != scene.ringTool.ringRevision);
+    }
+
+    /**
      * One frame: retie the labels to a new still view, rebuild the regions on any ring or surface
-     * change whichever tool is active, so they are current when read, then show, drop or explode them.
+     * change whichever tool is active, so they are current when read, then show, drop or explode
+     * them. A new surface's first frame only draws it; its regions build on the next.
      */
     public void perFrame() {
         HalfEdgeMeshRuntime runtime = scene.surfaceRuntime();
@@ -278,10 +298,12 @@ public final class RegionLayer {
             }
         }
         boolean ready = runtime != null && surface != null && surface.faceCount() > 0;
-        if (ready && (regions == null || regions.mesh != surface
-                || builtRingRevision != scene.ringTool.ringRevision)) {
+        boolean drawnBefore = drawnSurface == surface;
+        drawnSurface = ready ? surface : null;
+        boolean stale = ready && building();
+        if (stale && drawnBefore) {
             rebuild();
-        } else if (resolvedPalette != scene.palette) {
+        } else if (!stale && resolvedPalette != scene.palette) {
             // A palette swap: its part cycle may differ in length, and every colour is re-read.
             // The label points still name the regions they did, so they are not resolved again.
             resolvedPalette = scene.palette;
@@ -292,7 +314,7 @@ public final class RegionLayer {
             redraw();
         }
         boolean coloured = coloured();
-        if (!ready || !coloured && hiddenByActiveFace.length == 0 && explosion.target == 0f
+        if (!ready || regions == null || !coloured && hiddenByActiveFace.length == 0 && explosion.target == 0f
                         && !explosion.exploded()) {
             if (shown && runtime != null) {
                 runtime.clearTags();
@@ -335,6 +357,7 @@ public final class RegionLayer {
             return;
         }
         if (fresh) {
+            builtRingRevision = -1;
             regions = new RingRegions(surface, new String[0], new boolean[0][]);
             // A new surface is a model the graph just ran: its labels are the ones it saved.
             partLabels = new MeshLabels(MeshLabels.inBundle(scene.getGeometryBundle()));
@@ -352,12 +375,13 @@ public final class RegionLayer {
             }
             regions.measureJoins(joinPaths);
         }
-        builtRingRevision = scene.ringTool.ringRevision;
         revision++;
         explosion.measure(surface, regions.regionByActiveFace, regions.regionCount);
         hiddenRingLabels = regions.hiddenRingLabels(hiddenByActiveFace);
         // Points name regions, not region numbers, so every rebuild resolves them again.
         resolveLabels();
+        // Current only now that their labels are resolved too, so no reader sees them half built.
+        builtRingRevision = scene.ringTool.ringRevision;
         if (shown) {
             markRings();
             redraw();

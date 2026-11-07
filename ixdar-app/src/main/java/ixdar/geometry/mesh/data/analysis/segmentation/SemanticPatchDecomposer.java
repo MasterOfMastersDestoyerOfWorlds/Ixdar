@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 
 import java.util.Random;
+import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
 
@@ -54,6 +55,7 @@ public final class SemanticPatchDecomposer {
     public static final float MORSE_SMALE_PERSISTENCE_THRESHOLD = 0.10f;
     public static final float MIN_JOINT_RADIUS = 1e-4f;
     public static final float VECTOR_LENGTH_EPSILON = 1e-20f;
+    public static final int TRIANGLES_PER_TASK = 8192;
     public static final double SPLIT_VERT_BATCH_SIZE = 2500.0;
     public static final float MIN_MESH_EXTENT = 1e-6f;
     public static final long KMEANS_SEED_SALT = 0x53D5L;
@@ -669,29 +671,8 @@ public final class SemanticPatchDecomposer {
     public static EdgeDihedrals computeEdgeDihedrals(MeshTopology mesh) {
         int[] triangleFaces = new int[mesh.triangleCount()];
         int[] faceIdx = mesh.triangulate(TriangulationRule.FAN, triangleFaces);
-        int faceCount = faceIdx.length / 3;
         float[] positions = positionsById(mesh);
-        float[] faceN = new float[faceCount * 3];
-        for (int f = 0; f < faceCount; f++) {
-            int a = faceIdx[f * 3] * 3;
-            int b = faceIdx[f * 3 + 1] * 3;
-            int c = faceIdx[f * 3 + 2] * 3;
-            float ax = positions[b] - positions[a];
-            float ay = positions[b + 1] - positions[a + 1];
-            float az = positions[b + 2] - positions[a + 2];
-            float bx = positions[c] - positions[a];
-            float by = positions[c + 1] - positions[a + 1];
-            float bz = positions[c + 2] - positions[a + 2];
-            float nx = ay * bz - az * by;
-            float ny = az * bx - ax * bz;
-            float nz = ax * by - ay * bx;
-            float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-            if (len > VECTOR_LENGTH_EPSILON) {
-                faceN[f * 3] = nx / len;
-                faceN[f * 3 + 1] = ny / len;
-                faceN[f * 3 + 2] = nz / len;
-            }
-        }
+        float[] faceN = triangleNormals(faceIdx, positions);
         Map<Long, int[]> edgeFaces = TriangleSoup.edgeFaces(faceIdx);
         Map<Long, Float> dihedrals = new HashMap<>();
         for (Map.Entry<Long, int[]> e : edgeFaces.entrySet()) {
@@ -707,6 +688,43 @@ public final class SemanticPatchDecomposer {
             dihedrals.put(e.getKey(), dihedral);
         }
         return new EdgeDihedrals(edgeFaces, dihedrals, faceN, positions, faceIdx, triangleFaces);
+    }
+
+    /**
+     * Unit normal of each triangle, zero for a degenerate one, computed in parallel blocks.
+     *
+     * @param triangles corner vertex ids, three per triangle
+     * @param positions vertex positions by vertex id, three floats each
+     * @return three floats per triangle
+     */
+    public static float[] triangleNormals(int[] triangles, float[] positions) {
+        int triangleCount = triangles.length / 3;
+        float[] faceN = new float[triangleCount * 3];
+        IntStream.range(0, (triangleCount + TRIANGLES_PER_TASK - 1) / TRIANGLES_PER_TASK).parallel()
+                .forEach(task -> {
+            for (int f = task * TRIANGLES_PER_TASK;
+                    f < Math.min(triangleCount, (task + 1) * TRIANGLES_PER_TASK); f++) {
+                int a = triangles[f * 3] * 3;
+                int b = triangles[f * 3 + 1] * 3;
+                int c = triangles[f * 3 + 2] * 3;
+                float ax = positions[b] - positions[a];
+                float ay = positions[b + 1] - positions[a + 1];
+                float az = positions[b + 2] - positions[a + 2];
+                float bx = positions[c] - positions[a];
+                float by = positions[c + 1] - positions[a + 1];
+                float bz = positions[c + 2] - positions[a + 2];
+                float nx = ay * bz - az * by;
+                float ny = az * bx - ax * bz;
+                float nz = ax * by - ay * bx;
+                float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+                if (len > VECTOR_LENGTH_EPSILON) {
+                    faceN[f * 3] = nx / len;
+                    faceN[f * 3 + 1] = ny / len;
+                    faceN[f * 3 + 2] = nz / len;
+                }
+            }
+        });
+        return faceN;
     }
 
     /**
@@ -1665,24 +1683,37 @@ public final class SemanticPatchDecomposer {
          * @return packed xyz by vertex id
          */
         public float[] vertexNormals(int vertexIdBound) {
-            float[] normals = new float[vertexIdBound * 3];
-            for (int corner = 0; corner < triangles.length; corner++) {
-                int at = triangles[corner] * 3;
-                int triangle = corner / 3 * 3;
-                normals[at] += faceNormals[triangle];
-                normals[at + 1] += faceNormals[triangle + 1];
-                normals[at + 2] += faceNormals[triangle + 2];
-            }
-            for (int at = 0; at < normals.length; at += 3) {
-                float length = (float) Math.sqrt(normals[at] * normals[at] + normals[at + 1] * normals[at + 1]
-                        + normals[at + 2] * normals[at + 2]);
-                if (length > VECTOR_LENGTH_EPSILON) {
-                    normals[at] /= length;
-                    normals[at + 1] /= length;
-                    normals[at + 2] /= length;
-                }
-            }
-            return normals;
+            return SemanticPatchDecomposer.vertexNormals(triangles, faceNormals, vertexIdBound);
         }
+    }
+
+    /**
+     * Each vertex's normal: the unit sum of its incident triangles' normals, triangle by
+     * triangle; zero where they cancel or none meets it.
+     *
+     * @param triangles     corner vertex ids, three per triangle
+     * @param faceNormals   unit normal per triangle, three floats each
+     * @param vertexIdBound one past the largest vertex id
+     * @return packed xyz by vertex id
+     */
+    public static float[] vertexNormals(int[] triangles, float[] faceNormals, int vertexIdBound) {
+        float[] normals = new float[vertexIdBound * 3];
+        for (int corner = 0; corner < triangles.length; corner++) {
+            int at = triangles[corner] * 3;
+            int triangle = corner / 3 * 3;
+            normals[at] += faceNormals[triangle];
+            normals[at + 1] += faceNormals[triangle + 1];
+            normals[at + 2] += faceNormals[triangle + 2];
+        }
+        for (int at = 0; at < normals.length; at += 3) {
+            float length = (float) Math.sqrt(normals[at] * normals[at] + normals[at + 1] * normals[at + 1]
+                    + normals[at + 2] * normals[at + 2]);
+            if (length > VECTOR_LENGTH_EPSILON) {
+                normals[at] /= length;
+                normals[at + 1] /= length;
+                normals[at + 2] /= length;
+            }
+        }
+        return normals;
     }
 }

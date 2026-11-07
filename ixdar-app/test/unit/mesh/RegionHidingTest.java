@@ -146,6 +146,8 @@ class RegionHidingTest {
      */
     @Test
     void aRingRevisionThatLeavesEveryMaskAsItWasKeepsTheRegions() {
+        // The first frame only draws the new surface; the second builds its regions.
+        scene.updateScene();
         scene.updateScene();
         int[] built = scene.regionLayer.regions.regionByActiveFace;
         int revision = scene.regionLayer.revision;

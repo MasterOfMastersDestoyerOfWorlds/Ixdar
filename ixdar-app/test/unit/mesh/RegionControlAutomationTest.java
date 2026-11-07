@@ -75,6 +75,8 @@ class RegionControlAutomationTest {
 
     private static final String REGIONS = "regions";
 
+    private static final String ROWS = "rows";
+
     private static final String GET_PLATFORM_ID = "getPlatformID";
 
     private static final String SELECT = SelectCommand.cmd + " ";
@@ -529,7 +531,7 @@ class RegionControlAutomationTest {
             }
         }.endpointHandler(new JsonObject());
         RingRegions regions = scene.regionLayer.regions;
-        JsonArray rows = state.getAsJsonObject(REGIONS).getAsJsonArray("rows");
+        JsonArray rows = state.getAsJsonObject(REGIONS).getAsJsonArray(ROWS);
         assertEquals(regions.regionCount, rows.size());
         for (int region = 0; region < regions.regionCount; region++) {
             JsonObject row = rows.get(region).getAsJsonObject();
@@ -804,6 +806,50 @@ class RegionControlAutomationTest {
         }
         assertEquals(mean, surface.get("creaseStrength").getAsDouble(), 1e-9, surface.toString());
         assertTrue(surface.has("inCrease") && surface.has("point") && surface.has("region"), surface.toString());
+    }
+
+    /**
+     * CRAW-87: a new surface's first frame only draws it, so ui-state reports its regions as
+     * building, with no rows, until the next frame builds them; a ring change reads as building
+     * until a frame rebuilds them. A read never gets the regions of another surface or ring set.
+     */
+    @Test
+    void uiStateReportsTheRegionsBuildingUntilTheyStandForTheSurfaceAndRings() throws Exception {
+        cylinder = RingRegionsTest.cappedCylinder();
+        scene.meshRuntime.upload(cylinder);
+        scene.ringTool.graphRingsChanged();
+        assertBuilding(true);
+        scene.updateScene();
+        assertBuilding(true);
+        assertTrue(scene.regionLayer.regions.mesh != cylinder, "the first frame built the regions");
+        scene.updateScene();
+        JsonObject built = assertBuilding(false);
+        assertSame(cylinder, scene.regionLayer.regions.mesh);
+        assertEquals(scene.regionLayer.regions.regionCount, built.getAsJsonArray(ROWS).size());
+
+        scene.ringMarksByLabel.remove(HIGH_RING);
+        scene.ringTool.graphRingsChanged();
+        assertBuilding(true);
+        scene.updateScene();
+        assertEquals(scene.regionLayer.regions.regionCount,
+                assertBuilding(false).getAsJsonArray(ROWS).size());
+        assertFalse(state().getAsJsonObject(REGIONS).toString().contains(HIGH_RING),
+                "the rows still name the removed ring");
+    }
+
+    /**
+     * The regions dataset of ui-state, asserted to be building or current; a building one has no
+     * rows and no region count.
+     */
+    private JsonObject assertBuilding(boolean building) throws Exception {
+        JsonObject state = state();
+        JsonObject regions = state.getAsJsonObject(REGIONS);
+        assertEquals(building, regions.get("building").getAsBoolean(), regions.toString());
+        if (building) {
+            assertEquals(0, regions.getAsJsonArray(ROWS).size(), regions.toString());
+            assertEquals(0, regionCount(state), regions.toString());
+        }
+        return regions;
     }
 
     private JsonObject state() throws Exception {

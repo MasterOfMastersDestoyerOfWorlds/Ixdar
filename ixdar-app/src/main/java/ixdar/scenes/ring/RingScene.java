@@ -242,8 +242,7 @@ public class RingScene extends MeshNodeViewerScene {
             }
         }
         if (!regionLayer.explosion.exploded() && !regionTool.showingExtraction
-                && regionLayer.regions != null && regionLayer.regions.mesh == halfEdgeSurface()
-                && regionLayer.builtRingRevision == ringTool.ringRevision) {
+                && regionLayer.regions != null && !regionLayer.building()) {
             shownLabels.addAll(regionLayer.regionLabels);
         }
     }

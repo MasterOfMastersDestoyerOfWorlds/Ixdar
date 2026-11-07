@@ -1,13 +1,15 @@
 package ixdar.geometry.mesh.data.paths.query;
 
 import java.util.Arrays;
+import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
 
 import ixdar.geometry.mesh.data.analysis.curvature.PrincipalDirectionField;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
-import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer.EdgeDihedrals;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.representation.TriangleSoup;
+import ixdar.geometry.mesh.data.representation.TriangulationRule;
 import ixdar.numeric.graph.Dijkstra;
 import ixdar.numeric.graph.ShortestPathForest;
 
@@ -67,19 +69,24 @@ public final class SurfaceCreases {
         long start = System.nanoTime();
         this.sourceMesh = mesh;
         int vertexIdBound = valleySignal.length;
-        Vector3f from = new Vector3f();
-        Vector3f to = new Vector3f();
-        double[] edgeLength = new double[0];
-        for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
-            int edgeId = mesh.edgeIdAt(activeEdge);
-            int halfEdge = mesh.edgeHalfEdge(edgeId);
-            mesh.vertexPosition(mesh.halfEdgeVertex(halfEdge), from);
-            mesh.vertexPosition(mesh.halfEdgeEndVertex(halfEdge), to);
-            if (edgeLength.length <= edgeId) {
-                edgeLength = Arrays.copyOf(edgeLength, Math.max(edgeId + 1, 2 * edgeLength.length));
-            }
-            edgeLength[edgeId] = from.distance(to);
+        int vertexCount = mesh.vertexCount();
+        // Every vertex's spokes as flat arrays, in the mesh's spoke order the sums follow; each
+        // pass below then reads only primitive arrays, one vertex or edge per parallel step.
+        int[] vertexIds = new int[vertexCount];
+        int[] spokeStart = new int[vertexCount + 1];
+        for (int activeVertex = 0; activeVertex < vertexCount; activeVertex++) {
+            vertexIds[activeVertex] = mesh.vertexIdAt(activeVertex);
+            spokeStart[activeVertex + 1] = spokeStart[activeVertex]
+                    + mesh.vertexEdgeCount(vertexIds[activeVertex]);
         }
+        int[] spokeVertex = new int[spokeStart[vertexCount]];
+        IntStream.range(0, vertexCount).parallel().forEach(activeVertex -> {
+            int vertexId = vertexIds[activeVertex];
+            for (int spoke = spokeStart[activeVertex]; spoke < spokeStart[activeVertex + 1]; spoke++) {
+                spokeVertex[spoke] = mesh.edgeOtherVertex(
+                        mesh.vertexEdgeAt(vertexId, spoke - spokeStart[activeVertex]), vertexId);
+            }
+        });
         // Jacobi neighbour averaging spreads a value about one edge per step, so a disc of r edges
         // takes r squared steps.
         int steps = (int) Math.ceil(SMOOTHING_EDGES * SMOOTHING_EDGES);
@@ -89,49 +96,59 @@ public final class SurfaceCreases {
             smoothed[vertexId] = Math.max(0.0, valleySignal[vertexId]);
         }
         for (int step = 0; step < steps; step++) {
-            for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-                int vertexId = mesh.vertexIdAt(activeVertex);
-                int spokes = mesh.vertexEdgeCount(vertexId);
-                double sum = smoothed[vertexId];
-                for (int spoke = 0; spoke < spokes; spoke++) {
-                    sum += smoothed[mesh.edgeOtherVertex(mesh.vertexEdgeAt(vertexId, spoke),
-                            vertexId)];
+            double[] source = smoothed;
+            double[] target = next;
+            IntStream.range(0, vertexCount).parallel().forEach(activeVertex -> {
+                int vertexId = vertexIds[activeVertex];
+                double sum = source[vertexId];
+                for (int spoke = spokeStart[activeVertex]; spoke < spokeStart[activeVertex + 1];
+                        spoke++) {
+                    sum += source[spokeVertex[spoke]];
                 }
-                next[vertexId] = sum / (spokes + 1);
-            }
-            double[] swap = smoothed;
-            smoothed = next;
-            next = swap;
+                target[vertexId] = sum / (spokeStart[activeVertex + 1] - spokeStart[activeVertex] + 1);
+            });
+            smoothed = target;
+            next = source;
         }
-        double[] positive = new double[mesh.vertexCount()];
+        double[] positive = new double[vertexCount];
         int positiveCount = 0;
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            double value = smoothed[mesh.vertexIdAt(activeVertex)];
+        for (int vertexId : vertexIds) {
+            double value = smoothed[vertexId];
             if (value > 0.0) {
                 positive[positiveCount++] = value;
             }
         }
-        Arrays.sort(positive, 0, positiveCount);
         saturation = Math.max(saturationFloor, positiveCount == 0 ? 0.0
-                : positive[(int) Math.min(positiveCount - 1,
-                        Math.floor(SATURATION_QUANTILE * positiveCount))]);
+                : smallest(positive, positiveCount, (int) Math.min(positiveCount - 1,
+                        Math.floor(SATURATION_QUANTILE * positiveCount))));
         valleyStrength = new float[vertexIdBound];
         valleyCurvature = new float[vertexIdBound];
-        for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
-            int vertexId = mesh.vertexIdAt(activeVertex);
-            valleyCurvature[vertexId] = (float) smoothed[vertexId];
+        double[] signal = smoothed;
+        IntStream.range(0, vertexCount).parallel().forEach(activeVertex -> {
+            int vertexId = vertexIds[activeVertex];
+            valleyCurvature[vertexId] = (float) signal[vertexId];
             valleyStrength[vertexId] = (float) Math.min(1.0,
-                    saturation > 0.0 ? smoothed[vertexId] / saturation : 0.0);
-        }
-        edgeCost = new double[edgeLength.length];
+                    saturation > 0.0 ? signal[vertexId] / saturation : 0.0);
+        });
+        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        int edgeIdBound = 0;
         for (int activeEdge = 0; activeEdge < mesh.edgeCount(); activeEdge++) {
+            edgeIdBound = Math.max(edgeIdBound, mesh.edgeIdAt(activeEdge) + 1);
+        }
+        edgeCost = new double[edgeIdBound];
+        IntStream.range(0, mesh.edgeCount()).parallel().forEach(activeEdge -> {
             int edgeId = mesh.edgeIdAt(activeEdge);
             int halfEdge = mesh.edgeHalfEdge(edgeId);
-            double groove = HALF * (valleyStrength[mesh.halfEdgeVertex(halfEdge)]
-                    + valleyStrength[mesh.halfEdgeEndVertex(halfEdge)]);
-            edgeCost[edgeId] = edgeLength[edgeId]
+            int fromVertexId = mesh.halfEdgeVertex(halfEdge);
+            int toVertexId = mesh.halfEdgeEndVertex(halfEdge);
+            double length = Vector3f.distance(positions[3 * fromVertexId],
+                    positions[3 * fromVertexId + 1], positions[3 * fromVertexId + 2],
+                    positions[3 * toVertexId], positions[3 * toVertexId + 1],
+                    positions[3 * toVertexId + 2]);
+            double groove = HALF * (valleyStrength[fromVertexId] + valleyStrength[toVertexId]);
+            edgeCost[edgeId] = length
                     * (GROOVE_COST_OF_LENGTH + (1.0 - GROOVE_COST_OF_LENGTH) * (1.0 - groove));
-        }
+        });
         buildMillis = (System.nanoTime() - start) / 1e6;
     }
 
@@ -145,14 +162,17 @@ public final class SurfaceCreases {
      */
     public static SurfaceCreases of(MeshTopology mesh) {
         long start = System.nanoTime();
-        EdgeDihedrals dihedrals = SemanticPatchDecomposer.computeEdgeDihedrals(mesh);
-        PrincipalDirectionField curvature = PrincipalDirectionField.compute(mesh, dihedrals);
+        int[] triangles = mesh.triangulate(TriangulationRule.FAN, null);
+        float[] positions = SemanticPatchDecomposer.positionsById(mesh);
+        PrincipalDirectionField curvature = PrincipalDirectionField.compute(mesh, positions,
+                triangles, SemanticPatchDecomposer.triangleNormals(triangles, positions),
+                TriangleSoup.oneRings(triangles, mesh.vertexIdBound()));
         // The estimate counts bending away from the normal as negative, so with outward normals
         // a groove is the positive maximum curvature; a surface wound inward, whose fan triangles
         // enclose a negative signed volume, is read with the signs swapped.
         boolean outward = mesh.signedVolume() >= 0.0;
         float[] signal = new float[mesh.vertexIdBound()];
-        float[] magnitude = new float[mesh.vertexCount()];
+        double[] magnitude = new double[mesh.vertexCount()];
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
             signal[vertexId] = outward ? curvature.kappaMax(vertexId)
@@ -160,11 +180,50 @@ public final class SurfaceCreases {
             magnitude[activeVertex] = Math.max(Math.abs(curvature.kappaMax(vertexId)),
                     Math.abs(curvature.kappaMin(vertexId)));
         }
-        Arrays.sort(magnitude);
-        SurfaceCreases creases = new SurfaceCreases(mesh, signal,
-                magnitude.length == 0 ? 0.0 : magnitude[magnitude.length / 2]);
+        SurfaceCreases creases = new SurfaceCreases(mesh, signal, magnitude.length == 0 ? 0.0
+                : smallest(magnitude, magnitude.length, magnitude.length / 2));
         creases.buildMillis = (System.nanoTime() - start) / 1e6;
         return creases;
+    }
+
+    /**
+     * The value a sort of the first {@code count} values would put at {@code rank}, found by
+     * quickselect in linear time; those values are reordered.
+     *
+     * @param values values to select among, partly reordered on return
+     * @param count  how many leading values take part
+     * @param rank   index into their ascending order, in {@code [0, count)}
+     * @return the value of that rank, in {@link Double#compare} order as a sort orders them
+     */
+    private static double smallest(double[] values, int count, int rank) {
+        int low = 0;
+        int high = count - 1;
+        while (low < high) {
+            double pivot = values[(low + high) >>> 1];
+            int left = low;
+            int right = high;
+            while (left <= right) {
+                while (Double.compare(values[left], pivot) < 0) {
+                    left++;
+                }
+                while (Double.compare(values[right], pivot) > 0) {
+                    right--;
+                }
+                if (left <= right) {
+                    double swap = values[left];
+                    values[left++] = values[right];
+                    values[right--] = swap;
+                }
+            }
+            if (rank <= right) {
+                high = right;
+            } else if (rank >= left) {
+                low = left;
+            } else {
+                return values[rank];
+            }
+        }
+        return values[rank];
     }
 
     /**

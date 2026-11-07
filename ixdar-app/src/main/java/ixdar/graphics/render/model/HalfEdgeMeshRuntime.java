@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -58,6 +59,7 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
     public static final float CLAY_RED = 0.80f;
     public static final float CLAY_GREEN = 0.78f;
     public static final float CLAY_BLUE = 0.74f;
+    public static final int PICK_FACES_PER_TASK = 8192;
 
     public static final float NEAR_PLANE_DISTANCE_FRACTION = 0.01f;
 
@@ -736,43 +738,50 @@ public class HalfEdgeMeshRuntime implements PointVisibility {
             facePick.delete();
             return;
         }
-        boolean[] hidden = hiddenByActiveFace.length == mesh.faceCount() ? hiddenByActiveFace
-                : new boolean[mesh.faceCount()];
-        int triangles = 0;
-        for (int index = 0; index < mesh.faceCount(); index++) {
-            triangles += hidden[index] ? 0
-                    : Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(index)) - 2);
+        int faceCount = mesh.faceCount();
+        boolean[] hidden = hiddenByActiveFace.length == faceCount ? hiddenByActiveFace
+                : new boolean[faceCount];
+        int[] triangleStart = new int[faceCount + 1];
+        for (int index = 0; index < faceCount; index++) {
+            triangleStart[index + 1] = triangleStart[index] + (hidden[index] ? 0
+                    : Math.max(0, mesh.faceVertexCount(mesh.faceIdAt(index)) - 2));
         }
-        // Interleaved per corner: position, then the face's id as a colour.
-        float[] corners = new float[FACE_PICK_LAYOUT.floatsPerVertex * 3 * triangles];
-        pickFaceCount = mesh.faceCount();
-        Vector3f corner = new Vector3f();
-        int[] faceCorners = new int[0];
-        int cursor = 0;
-        for (int index = 0; index < mesh.faceCount(); index++) {
-            if (hidden[index]) {
-                continue;
+        // Interleaved per corner: position, then the face's id as a colour. Each face fills its
+        // own span, so blocks of faces fill in parallel.
+        int floatsPerTriangle = FACE_PICK_LAYOUT.floatsPerVertex * 3;
+        float[] corners = new float[floatsPerTriangle * triangleStart[faceCount]];
+        pickFaceCount = faceCount;
+        IntStream.range(0, (faceCount + PICK_FACES_PER_TASK - 1) / PICK_FACES_PER_TASK).parallel()
+                .forEach(task -> {
+            Vector3f corner = new Vector3f();
+            int[] faceCorners = new int[0];
+            for (int index = task * PICK_FACES_PER_TASK;
+                    index < Math.min(faceCount, (task + 1) * PICK_FACES_PER_TASK); index++) {
+                if (hidden[index]) {
+                    continue;
+                }
+                int faceId = mesh.faceIdAt(index);
+                int code = index + 1;
+                float red = ((code >> (2 * PICK_CHANNEL_BITS)) & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
+                float green = ((code >> PICK_CHANNEL_BITS) & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
+                float blue = (code & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
+                if (faceCorners.length < 3 * mesh.faceVertexCount(faceId)) {
+                    faceCorners = new int[3 * mesh.faceVertexCount(faceId)];
+                }
+                int faceTriangles = mesh.faceTriangleCorners(faceId, TriangulationRule.FAN,
+                        faceCorners);
+                int cursor = floatsPerTriangle * triangleStart[index];
+                for (int slot = 0; slot < 3 * faceTriangles; slot++) {
+                    mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot]), corner);
+                    corners[cursor++] = corner.x;
+                    corners[cursor++] = corner.y;
+                    corners[cursor++] = corner.z;
+                    corners[cursor++] = red;
+                    corners[cursor++] = green;
+                    corners[cursor++] = blue;
+                }
             }
-            int faceId = mesh.faceIdAt(index);
-            int code = index + 1;
-            float red = ((code >> (2 * PICK_CHANNEL_BITS)) & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
-            float green = ((code >> PICK_CHANNEL_BITS) & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
-            float blue = (code & PICK_CHANNEL_MAX) / CHANNEL_NORMALIZE;
-            if (faceCorners.length < 3 * mesh.faceVertexCount(faceId)) {
-                faceCorners = new int[3 * mesh.faceVertexCount(faceId)];
-            }
-            int faceTriangles = mesh.faceTriangleCorners(faceId, TriangulationRule.FAN,
-                    faceCorners);
-            for (int slot = 0; slot < 3 * faceTriangles; slot++) {
-                mesh.vertexPosition(mesh.faceVertexAt(faceId, faceCorners[slot]), corner);
-                corners[cursor++] = corner.x;
-                corners[cursor++] = corner.y;
-                corners[cursor++] = corner.z;
-                corners[cursor++] = red;
-                corners[cursor++] = green;
-                corners[cursor++] = blue;
-            }
-        }
+        });
         facePick.upload(FACE_PICK_LAYOUT, corners, null);
         Platforms.gl().bindVertexArray(surface.vao);
     }
