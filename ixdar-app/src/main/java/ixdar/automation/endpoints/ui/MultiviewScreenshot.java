@@ -18,6 +18,7 @@ import ixdar.annotations.automation.RouteDoc;
 import ixdar.annotations.automation.RouteParamType;
 import ixdar.graphics.image.PixelImage;
 import ixdar.graphics.image.PngWriter;
+import ixdar.graphics.image.ReferenceOutlines;
 import ixdar.platform.Platforms;
 import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.AutomationPortFile;
@@ -40,36 +41,14 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
     public static final int OUTLINE_COLOUR_TOLERANCE = 24;
     public static final float OUTLINE_SIMPLIFY_PIXELS = 1.5f;
     public static final int OUTLINE_MINIMUM_AREA = 64;
-    public static final float THREE_QUARTER_ELEVATION_RAD = 0.4f;
     public static final int VIEW_COUNT = 8;
-    public static final int QUARTER_TURN_DIVISOR = 4;
-    public static final int THREE_QUARTER_TURN_NUMERATOR = 3;
     public static final int GRID_COLUMNS = 4;
     public static final int RGBA_BYTES_PER_PIXEL = 4;
     public static final int SAVED_ORBIT_FIELDS = 5;
     public static final int VIEW_ROLL_INDEX = 4;
     public static final int VIEW_DIST_INDEX = 3;
-    public static final float[][] VIEW_AZIMUTH_ELEVATION_RADIANS = {
-            { (float) (Math.PI / 2), 0 },
-            { 0, 0 },
-            { (float) (-Math.PI / 2), 0 },
-            { (float) Math.PI, 0 },
-            { (float) (Math.PI / 2), (float) (Math.PI / 2) },
-            { (float) (Math.PI / 2), (float) (-Math.PI / 2) },
-            { (float) (Math.PI / QUARTER_TURN_DIVISOR), THREE_QUARTER_ELEVATION_RAD },
-            { (float) ((THREE_QUARTER_TURN_NUMERATOR * Math.PI) / QUARTER_TURN_DIVISOR),
-                    THREE_QUARTER_ELEVATION_RAD },
-    };
-    public static final String[] VIEW_LABELS = {
-            "Front",
-            "Right",
-            "Back",
-            "Left",
-            "Top",
-            "Bottom",
-            "3/4 Front-R",
-            "3/4 Front-L",
-    };
+    public static final float[][] VIEW_AZIMUTH_ELEVATION_RADIANS = ReferenceOutlines.VIEW_AZIMUTH_ELEVATION_RADIANS;
+    public static final String[] VIEW_LABELS = ReferenceOutlines.VIEW_LABELS;
 
     /**
      * Capture 8 viewpoints framed on a selection into a 4x2 grid PNG, in {@code viewOrder}.
@@ -390,7 +369,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                                 + "capture's camera, for a stroke_sculpt pass to be drawn on.",
                         "src/main/resources/dsl/skull/pass1.svg")
                 .param(CAMERA, RouteParamType.STRING, false, "",
-                        "Capture through the camera an SVG template records (multiview --svg, trace-outlines, a "
+                        "Capture through the camera an SVG template records (multiview --svg, fit_references, a "
                                 + "pass's SVG): its centre, framed at its distance, instead of the selection.",
                         "dsl/skull3/outlines.svg")
                 .param(OUTLINE, RouteParamType.BOOL, false, String.valueOf(false),

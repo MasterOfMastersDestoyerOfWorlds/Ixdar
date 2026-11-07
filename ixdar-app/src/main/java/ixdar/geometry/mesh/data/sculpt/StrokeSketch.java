@@ -16,6 +16,8 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import ixdar.geometry.grid2d.PolygonScan;
+import ixdar.geometry.mesh.data.bundle.CurveGeometry;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.paths.query.TriangleBvh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
@@ -51,11 +53,21 @@ public final class StrokeSketch {
 
     public static final String SVG_TEXT_START = "<";
 
+    public static final String TEMPLATE_SLOT = "_template_svg";
+
+    public static final String VIEW_ATTRIBUTE = "view";
+
+    public static final String DEPTH_CURVE_ATTRIBUTE = "depth";
+
+    public static final String RADIUS_CURVE_ATTRIBUTE = "radius";
+
     public static final String POLYGON = "polygon";
 
     public static final String POLYLINE = "polyline";
 
     public static final String SILHOUETTE = "silhouette";
+
+    public static final String SILHOUETTE_CURVE_ATTRIBUTE = SILHOUETTE;
 
     public static final String RIDGE = "ridge";
 
@@ -322,6 +334,94 @@ public final class StrokeSketch {
         // projectToPixels puts a pixel's centre half a pixel past its whole number.
         dest[0] -= 0.5f;
         dest[1] -= 0.5f;
+        return true;
+    }
+
+    /**
+     * The template a bundle of placed curves carries, as fit_references and svg_to_curves leave it.
+     *
+     * @param bundle the bundle, or null
+     * @param reader the reading node's name, for the refusal
+     * @return the template's sketch, or null when the bundle carries no curves
+     * @throws IllegalArgumentException when it carries curves but no template
+     */
+    public static StrokeSketch templateOf(GeometryBundle bundle, String reader) {
+        if (bundle == null || !(bundle.slots().get(CurveGeometry.SLOT) instanceof CurveGeometry)) {
+            return null;
+        }
+        if (!(bundle.slots().get(TEMPLATE_SLOT) instanceof String template)) {
+            throw new IllegalArgumentException(reader + ": its curves carry no template camera; take them from "
+                    + "fit_references, svg_to_curves or place_in_cell");
+        }
+        return parse(template, reader);
+    }
+
+    /**
+     * Each cell's closed outline in that cell's pixels from world curves tagged with their cell, the
+     * last curve of a cell winning.
+     *
+     * @param curves world curves, each with its cell as the {@code view} curve attribute
+     * @return packed xy per cell in reading order, empty for a cell no closed curve names
+     */
+    public float[][] cellOutlines(CurveGeometry curves) {
+        float[][] cells = new float[viewCameras.length][0];
+        float[] views = curves.curveAttributes.get(VIEW_ATTRIBUTE);
+        for (int curve = 0; curve < curves.curveCount(); curve++) {
+            int cell = views == null ? -1 : (int) views[curve];
+            if (cell >= 0 && cell < cells.length && curves.closed[curve]) {
+                cells[cell] = cellPixels(cell, curves, curve);
+            }
+        }
+        return cells;
+    }
+
+    /**
+     * One world curve seen through a cell's camera, in that cell's pixels.
+     *
+     * @param cell   the cell, in reading order
+     * @param curves world curves
+     * @param curve  which curve
+     * @return packed xy from the cell's top left, each point stored once
+     */
+    public float[] cellPixels(int cell, CurveGeometry curves, int curve) {
+        Camera3D camera = cellCamera(cell);
+        float[] pixel = new float[2];
+        Vector3f at = new Vector3f();
+        float[] projected = new float[curves.pointCount(curve) * 2];
+        for (int point = 0; point < curves.pointCount(curve); point++) {
+            int base = (curves.firstPoint(curve) + point) * CurveGeometry.XYZ;
+            cellPixel(camera, at.set(curves.positions[base], curves.positions[base + 1], curves.positions[base + 2]),
+                    pixel);
+            projected[point * 2] = pixel[0];
+            projected[point * 2 + 1] = pixel[1];
+        }
+        return projected;
+    }
+
+    /**
+     * Where a cell pixel lies on the plane through the cell's orbit centre facing its camera, the
+     * inverse of {@link #cellPixel}: how a curve drawn or traced in a cell is placed in the world.
+     *
+     * @param camera the cell's camera, {@link #cellCamera}
+     * @param x      pixel x from the cell's left
+     * @param y      pixel y from the cell's top
+     * @param dest   receives the world point
+     * @return false when the pixel's ray runs along the plane
+     */
+    public boolean cellPlanePoint(Camera3D camera, float x, float y, Vector3f dest) {
+        float[] origin = new float[3];
+        float[] direction = new float[3];
+        if (!camera.rayThroughPixel(WORLD, x, y, cellWidth, cellHeight, origin, direction)) {
+            return false;
+        }
+        Vector3f normal = new Vector3f(camera.position).sub(camera.orbitTarget);
+        float along = normal.dot(direction[0], direction[1], direction[2]);
+        if (along == 0f) {
+            return false;
+        }
+        float reach = normal.dot(camera.orbitTarget.x - origin[0], camera.orbitTarget.y - origin[1],
+                camera.orbitTarget.z - origin[2]) / along;
+        dest.set(origin[0] + reach * direction[0], origin[1] + reach * direction[1], origin[2] + reach * direction[2]);
         return true;
     }
 

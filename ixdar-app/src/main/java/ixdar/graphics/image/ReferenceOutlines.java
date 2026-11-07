@@ -18,6 +18,8 @@ import ixdar.graphics.cameras.Camera3D;
  */
 public final class ReferenceOutlines {
 
+    public static final String SLOT = "_reference_fit";
+
     public static final float AXIS_ALIGNED = 0.99f;
 
     public static final int HULL_LATTICE = 96;
@@ -45,6 +47,26 @@ public final class ReferenceOutlines {
     public static final String RIGHT_WORD = " right";
 
     public static final String LEFT_WORD = " left";
+
+    public static final float THREE_QUARTER_ELEVATION_RAD = 0.4f;
+
+    public static final int QUARTER_TURN_DIVISOR = 4;
+
+    public static final int THREE_QUARTER_TURN_NUMERATOR = 3;
+
+    public static final float[][] VIEW_AZIMUTH_ELEVATION_RADIANS = {
+        { (float) (Math.PI / 2), 0 },
+        { 0, 0 },
+        { (float) (-Math.PI / 2), 0 },
+        { (float) Math.PI, 0 },
+        { (float) (Math.PI / 2), (float) (Math.PI / 2) },
+        { (float) (Math.PI / 2), (float) (-Math.PI / 2) },
+        { (float) (Math.PI / QUARTER_TURN_DIVISOR), THREE_QUARTER_ELEVATION_RAD },
+        { (float) ((THREE_QUARTER_TURN_NUMERATOR * Math.PI) / QUARTER_TURN_DIVISOR), THREE_QUARTER_ELEVATION_RAD },
+    };
+
+    public static final String[] VIEW_LABELS = { "Front", "Right", "Back", "Left", "Top", "Bottom", "3/4 Front-R",
+        "3/4 Front-L" };
 
     /** World units one cell pixel spans. */
     public float worldPerCellPixel;

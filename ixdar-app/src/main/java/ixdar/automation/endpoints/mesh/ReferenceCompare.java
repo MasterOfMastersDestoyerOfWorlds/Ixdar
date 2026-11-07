@@ -18,6 +18,7 @@ import ixdar.graphics.image.PixelImage;
 import ixdar.graphics.image.PngWriter;
 import ixdar.graphics.image.ReferenceOutlines;
 import ixdar.graphics.image.SubjectOutline;
+import ixdar.nodegraph.nodes.picture.TraceOutlineNode;
 
 /**
  * Puts each multiview cell beside the reference picture of its view, the picture scaled and
@@ -45,6 +46,8 @@ public class ReferenceCompare extends AutomationEndpoint implements AutomationRo
 
     public static final int CHANNEL_SHIFTS = 3;
 
+    public static final int CAPTURE_TOLERANCE = 24;
+
     /**
      * {@code POST /mesh/reference-compare}: one row per picture, its cell, the picture placed on the
      * cell's subject, and their blend.
@@ -59,7 +62,7 @@ public class ReferenceCompare extends AutomationEndpoint implements AutomationRo
         PixelImage capture = SubjectOutline.read(existingFile("--capture", body.get(CAPTURE).getAsString()));
         int cellSize = capture.width / COLUMNS;
         int panel = body.has(PANEL) ? body.get(PANEL).getAsInt() : DEFAULT_PANEL;
-        int tolerance = body.has(TOLERANCE) ? body.get(TOLERANCE).getAsInt() : TraceOutlines.DEFAULT_TOLERANCE;
+        int tolerance = body.has(TOLERANCE) ? body.get(TOLERANCE).getAsInt() : TraceOutlineNode.DEFAULT_TOLERANCE;
         JsonArray references = body.getAsJsonArray(REFERENCE);
         PixelImage sheet = new PixelImage(panel * PANELS, panel * references.size());
         JsonArray rows = new JsonArray();
@@ -73,7 +76,7 @@ public class ReferenceCompare extends AutomationEndpoint implements AutomationRo
             PixelImage cellPicture = capture.region(cell % COLUMNS * cellSize, cell / COLUMNS * cellSize, cellSize,
                     cellSize);
             SubjectOutline sculpt = SubjectOutline.of(cellPicture, cellPicture.get(0, 0),
-                    TraceReference.CAPTURE_TOLERANCE, 0f);
+                    CAPTURE_TOLERANCE, 0f);
             String picturePath = ReferenceOutlines.pictureNamed(reference);
             PixelImage picture = SubjectOutline.read(existingFile("--reference", picturePath));
             int background = SubjectOutline.borderMedian(picture);
@@ -140,7 +143,7 @@ public class ReferenceCompare extends AutomationEndpoint implements AutomationRo
                 .param(OUT, RouteParamType.STRING, true, "", "PNG written.", "tmp/compare.png")
                 .param(PANEL, RouteParamType.INT, false, String.valueOf(DEFAULT_PANEL),
                         "Side of each square panel in pixels.", "640")
-                .param(TOLERANCE, RouteParamType.INT, false, String.valueOf(TraceOutlines.DEFAULT_TOLERANCE),
+                .param(TOLERANCE, RouteParamType.INT, false, String.valueOf(TraceOutlineNode.DEFAULT_TOLERANCE),
                         "Largest summed RGB difference from a picture's border colour still counted as background.",
                         "40")
                 .responseHint("{ok, out, rows:[{picture, view, cell, scale}]}")

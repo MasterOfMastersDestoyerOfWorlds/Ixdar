@@ -24,7 +24,7 @@ import ixdar.nodegraph.nodes.modifier.MergeByDistanceNode;
 import ixdar.nodegraph.nodes.primitives.QuadSphereMeshNode;
 
 /**
- * reference-strokes' conversion (MESH-89) on hand-made pictures of a lit ball carrying a ridge, a
+ * reference_strokes' conversion (MESH-89) on hand-made pictures of a lit ball carrying a ridge, a
  * groove and a hole: one thin line per shading edge, signed by the lit side, a fill for the hole,
  * and strokes placed on a ball base under the terrace limit.
  */

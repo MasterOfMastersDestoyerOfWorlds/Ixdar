@@ -1,10 +1,7 @@
 # MESH-77: a skull's starting shape carved from seven reference pictures, remeshed into quads.
-# outlines.svg was written in one step by
-#   ixdar-cli trace-outlines --out .../outlines.svg --reference ref_01_front.png=Front \
-#       --reference ref_04_right.png=Right --reference ref_07_top.png=Top --reference ref_06_back.png=Back \
-#       --reference ref_05_left.png=Left --reference "ref_02_front_right.png=3/4 Front-R" \
-#       --reference "ref_03_front_left.png=3/4 Front-L"
-# which fits every picture to one shared scale; the top trace's jaw, seen past the brow because that
+# outlines.svg was written in one step by the trace-outlines command, since replaced by the
+# fit_references node (skull_from_pictures.dsl runs the same fit from the pictures, and its svg output
+# matches what the command wrote), which fits every picture to one shared scale; the top trace's jaw, seen past the brow because that
 # picture is taken at about 70 degrees, was then replaced by hand with a cubic continuing the cranium.
 # silhouette_hull carves and rounds the volume the outlines enclose (strict: with traces at one shared
 # scale it agrees with them best); volume_to_mesh extracts its surface, keep_largest_part drops stray

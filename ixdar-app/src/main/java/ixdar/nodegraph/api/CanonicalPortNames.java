@@ -35,7 +35,8 @@ public final class CanonicalPortNames {
         ROLE_NAMES.put(PortType.INT,
                 Set.of("index", "int_out", "next_vertex", "singularity_count",
                         "flipped_triangles", "id", "singularities"));
-        ROLE_NAMES.put(PortType.STRING, Set.of("report"));
+        ROLE_NAMES.put(PortType.STRING, Set.of("report", "svg"));
+        ROLE_NAMES.put(PortType.VECTOR3, Set.of("light"));
     }
 
     private CanonicalPortNames() {

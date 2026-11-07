@@ -13,6 +13,8 @@ import ixdar.annotations.meshnode.MeshNodeAnnotation;
 import ixdar.annotations.meshnode.NodeCategory;
 import ixdar.geometry.grid2d.DistanceTransform;
 import ixdar.geometry.grid2d.PolygonScan;
+import ixdar.geometry.mesh.data.bundle.CurveGeometry;
+import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
 import ixdar.geometry.volume.VoxelGrid;
 import ixdar.graphics.cameras.Camera3D;
@@ -43,6 +45,7 @@ public class SilhouetteHullNode implements MeshNode {
     public static final float SOLID_LEVEL = 0.5f;
     public static final float SURFACE_OFFSET = 0.5f;
     public static final InputPort SVG = new InputPort("svg", PortType.STRING, "");
+    public static final InputPort OUTLINES = new InputPort("outlines", PortType.GEOMETRY_BUNDLE, null);
     public static final InputPort RESOLUTION = new InputPort("resolution", PortType.INT, DEFAULT_RESOLUTION, 16f, 256f);
     public static final InputPort MISSES = new InputPort("misses", PortType.INT, 1, 0f, 8f);
     public static final InputPort ROUNDING = new InputPort("rounding", PortType.FLOAT, DEFAULT_ROUNDING, 0f, 40f);
@@ -54,7 +57,7 @@ public class SilhouetteHullNode implements MeshNode {
 
     @Override
     public List<InputPort> inputs() {
-        return List.of(SVG, RESOLUTION, MISSES, ROUNDING, SYMMETRY);
+        return List.of(SVG, OUTLINES, RESOLUTION, MISSES, ROUNDING, SYMMETRY);
     }
 
     @Override
@@ -77,8 +80,11 @@ public class SilhouetteHullNode implements MeshNode {
                         + "kept by the mean of its own and its mirror image's depth inside the outlines (each view's "
                         + "signed pixel distance, the deciding view's when misses allow some), so traces that "
                         + "disagree a little cannot turn or lopside the hull. \"none\" (default) votes as traced.",
-                SVG.name,"An SVG written by `ixdar-cli trace-outlines` or `multiview --svg` with one closed outline "
-                        + "in each cell that constrains the hull, in any cells (front, side, top, back, 3/4).",
+                SVG.name, "An SVG template (fit_references' svg, or `multiview --svg` with outlines drawn in) with "
+                        + "one closed outline in each cell that constrains the hull, in any cells (front, side, top, "
+                        + "back, 3/4).",
+                OUTLINES.name, "Closed world curves tagged with their cell, carrying the template whose cameras see "
+                        + "them: fit_references' or svg_to_curves' geometry. Read instead of svg when connected.",
                 RESOLUTION.name, "Lattice points along the hull's longest side; the time grows with its cube.",
                 MISSES.name, "Views that may place a kept point outside their outline, so a few percent of "
                         + "disagreement between pictures does not erode the shape; at least three views must "
@@ -99,7 +105,9 @@ public class SilhouetteHullNode implements MeshNode {
     @Override
     public void evaluate(NodeContext ctx) {
         String source = ctx.getInputValue(SVG.name) instanceof String text ? text.trim() : "";
-        if (source.isEmpty()) {
+        GeometryBundle outlines = ctx.getInput(OUTLINES.name, GeometryBundle.class);
+        StrokeSketch placed = StrokeSketch.templateOf(outlines, NODE_ID);
+        if (source.isEmpty() && placed == null) {
             ctx.setOutput(VOLUME_OUT.name, null);
             return;
         }
@@ -109,8 +117,11 @@ public class SilhouetteHullNode implements MeshNode {
                 FieldBroadcast.getInputOrDefault(ctx, MISSES.name, MISSES.defaultValue), 1));
         float rounding = Math.max(0f, FieldBroadcast.floatScalarOrDefault(
                 FieldBroadcast.getInputOrDefault(ctx, ROUNDING.name, ROUNDING.defaultValue), DEFAULT_ROUNDING));
-        StrokeSketch sketch = StrokeSketch.load(source, NODE_ID);
-        float[][] cells = sketch.cellOutlines();
+        // Outline curves win over an svg: each is seen through its cell's camera.
+        StrokeSketch sketch = placed != null ? placed : StrokeSketch.load(source, NODE_ID);
+        float[][] cells = placed != null ? placed.cellOutlines((CurveGeometry) outlines.slots().get(CurveGeometry.SLOT))
+                : sketch.cellOutlines();
+        source = placed != null ? NODE_ID + " " + OUTLINES.name : source;
         int width = sketch.cellWidth;
         int height = sketch.cellHeight;
         // Views: every cell holding an outline, its camera, projection and outline mask by pixel centre.

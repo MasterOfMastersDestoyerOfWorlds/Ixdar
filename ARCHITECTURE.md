@@ -238,6 +238,7 @@ commas between test names, never `+`.
 - **ixdar.nodegraph.nodes.modifier**: Mesh modifiers: subdivide, extrude, inset, solidify, mirror, loop cut, bridge loops, instance-on- points, mark_edges. Nodes read their input in place by active ids, keep per-element data in id-indexed arrays, and build a new output mesh with the half-edge bulk builders.
 - **ixdar.nodegraph.nodes.network**: Desktop-only arc-network authoring nodes: a network over a carrier mesh, then its nodes, arcs and patches.
 - **ixdar.nodegraph.nodes.patch**: Coons-patch nodes: patch fill, extrude and inset with bezier handle preservation (handles built by `ixdar.geometry.mesh.data.patches.CoonsHandleBuilder`, slots owned by `AssignBezierHandlesNode`).
+- **ixdar.nodegraph.nodes.picture**: Picture nodes: reference pictures traced into `CurveGeometry` in the picture plane (pixels, z = 0, view and measurements as curve attributes), then placed in the world and onto a sculpt.
 - **ixdar.nodegraph.nodes.primitives**: Primitive generators: cube, grid, icosphere, UV sphere, cylinder, cone, disk, torus, segments. `GridMeshNode` is the reference node shape and exposes static helpers (`triangulated`, `vertexId`, `rowCoordinate`) that tests build fixture geometry with.
 - **ixdar.nodegraph.nodes.quadlayout**: Desktop-only graph nodes over the quad-layout pipeline: its stages as independent capabilities, each a thin node over its algorithm class, `XNode` over `X`.
 - **ixdar.nodegraph.nodes.selection**: Selection nodes producing per-element masks consumed by modifiers.

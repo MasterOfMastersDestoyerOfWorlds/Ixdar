@@ -147,7 +147,7 @@ class OutlineTracingTest {
 
     @Test
     void aReferenceNamesItsCellByPictureEqualsCellOrByItsFileName() {
-        // reference-compare and trace-outlines take a bare picture named by its view: the longest
+        // reference-compare takes a bare picture named by its view: the longest
         // view name the file name ends in wins, so front_right is the 3/4 view, not Right.
         String[] labels = MultiviewScreenshot.VIEW_LABELS;
         int threeQuarterRight = ReferenceOutlines.cellNamed("x=3/4 Front-R", labels);

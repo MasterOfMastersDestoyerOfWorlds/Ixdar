@@ -111,8 +111,6 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`shutdown`](#shutdown) | Stop every scene ixdar-cli started in this checkout, or the one named, once each is gone. |
 | [`start-new-game`](#start-new-game) | Leave the menu by clicking Start New Game. |
 | [`teavm-build`](#teavm-build) | Package the TeaVM web bundle on a JDK 25, failing on any TeaVM [ERROR] or a stub classes.js. |
-| [`trace-outlines`](#trace-outlines) | Write several reference pictures' outlines into one orthographic outlines template at one shared scale. |
-| [`trace-reference`](#trace-reference) | Write a reference picture's silhouette into a template cell as silhouette polylines, fitted to the sculpt. |
 | [`trade-hover-scan`](#trade-hover-scan) | Scan trade cities until the requested toolbar tooltip appears. |
 | [`validate-route-ops`](#validate-route-ops) | Validate trade route operations against the running app. |
 
@@ -1132,39 +1130,6 @@ Leave the menu by clicking Start New Game.
 Package the TeaVM web bundle on a JDK 25, failing on any TeaVM [ERROR] or a stub classes.js.
 
 - `--hugo` — Then run hugo -D in Krieg Eterna's web directory (KRIEG_ETERNA_WEB overrides the sibling KriegEterna/web).
-
-### `trace-outlines`
-
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/trace_outlines.py#L76)
-
-Write several reference pictures' outlines into one orthographic outlines template at one shared scale.
-
-- `--reference` — Picture and cell as picture=cell, cell by name (Front, Right, 3/4 Front-R, ...) or index; repeat per view.
-- `--out` — SVG written: the template's root and cell list, then one silhouette polyline per picture.
-- `--template` — Existing outlines template whose root (cameras, cell size) to keep; default a new orthographic one.
-- `--height` — World height the subject's outlines are scaled to.
-- `--fill` — Share of a new template's cell height the subject's height fills.
-- `--cell-size` — Cell width and height in pixels of a new template.
-- `--simplify` — Largest distance, in template units, a dropped outline point may lie from the kept polyline.
-- `--tolerance` — Largest summed RGB difference from a picture's border colour still counted as background.
-
-### `trace-reference`
-
-[↑ Contents](#contents) · [link to code](../ixdar_automation_cli/cli_commands/trace_reference.py#L52)
-
-Write a reference picture's silhouette into a template cell as silhouette polylines, fitted to the sculpt.
-
-- `--reference` — Reference picture (PNG or JPEG) of the subject.
-- `--template` — SVG drawing template written by multiview --svg.
-- `--cell` — Cell to trace into, by its view name (Front, Right, 3/4 Front-R, ...) or index.
-- `--capture` — Multiview PNG the template was written with; default the PNG its comment names, next to it.
-- `--out` — SVG written; default the template itself, the polylines added before its end.
-- `--edges` — Also write the subject's interior edges, placed the same way, to this SVG for viewing (it records no camera, so no node lifts it).
-- `--strength` — data-strength of the silhouette polylines.
-- `--stroke-width` — stroke-width of the silhouette polylines, in template units.
-- `--pieces` — Number of polylines the closed outline is split into.
-- `--simplify` — Largest distance, in template units, a dropped outline point may lie from the kept polyline.
-- `--tolerance` — Largest summed RGB difference from the picture's border colour still counted as background.
 
 ### `trade-hover-scan`
 

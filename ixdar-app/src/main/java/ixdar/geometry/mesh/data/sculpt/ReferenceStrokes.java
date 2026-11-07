@@ -18,7 +18,7 @@ import ixdar.graphics.image.ShadingEdges;
 
 /**
  * Reference pictures' shading as a stroke SVG on a sculpt's camera: each edge a ridge or valley
- * chain, each dark region a bowl fill, placed through the trace-outlines fit onto the base.
+ * chain, each dark region a bowl fill, placed through the fit_references fit onto the base.
  */
 public final class ReferenceStrokes {
 

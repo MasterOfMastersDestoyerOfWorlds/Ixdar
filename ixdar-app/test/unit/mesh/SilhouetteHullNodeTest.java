@@ -332,7 +332,7 @@ class SilhouetteHullNodeTest {
     }
 
     /**
-     * An orthographic multiview template, as {@code ixdar-cli trace-outlines} writes one, with each
+     * An orthographic multiview template, as fit_references writes one, with each
      * outline projected into its view's cell.
      *
      * @param outlines outlines indexed by view axis, packed xyz

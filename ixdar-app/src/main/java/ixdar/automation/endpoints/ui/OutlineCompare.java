@@ -216,7 +216,7 @@ public class OutlineCompare extends AutomationEndpoint implements AutomationRout
                         + "mesh's silhouette, and the area the mesh falls short of (inside the trace only) or overdraws, "
                         + "with an overlay PNG (short red, over blue).")
                 .param(OUTLINES, RouteParamType.STRING, true, "",
-                        "Outlines template SVG (trace-outlines or multiview --svg) with closed outlines drawn in the "
+                        "Outlines template SVG (fit_references' svg or multiview --svg) with closed outlines drawn in the "
                                 + "cells to compare, its root recording the camera.", "dsl/skull3/outlines.svg")
                 .param(OUT, RouteParamType.STRING, false, DEFAULT_OUT,
                         "Directory for the capture and the overlay.", DEFAULT_OUT)
