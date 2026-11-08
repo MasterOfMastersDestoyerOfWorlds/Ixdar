@@ -42,6 +42,10 @@ Default to none; identifiers carry the *what*. Write a comment only for a non-ob
 
 Never add a `System.getProperty` knob: it is untyped, unchecked, invisible to tests and stack traces, and rots. Two behaviours that both need to exist are a `public` field on the owning class with a behaviour-describing name (`coupleSeams`), a boolean for two states, an enum only for three or more. Never a speculative switch; when one behaviour lost an experiment, delete it. The existing properties that choose an *input file* (`ixdar.model`, `benchmark.off`) are the one case this does not cover.
 
+## No tuned thresholds or scales
+
+A number picked until results look right (a cut-off, a radius, a smoothing amount, a join strength) is a design smell: decide with comparisons, signs, structure, or a quantity the data fixes (the mesh's own spacing, the largest gap in a distribution). When a number seems unavoidable, say so in the ticket and let the user decide.
+
 ## Checkstyle
 
 Never skip it and never comment a rule out: a red checkstyle is a red build. Fix every violation regardless of who wrote it or how long it has been red; the fixes are mechanical, and a non-mechanical one is surfaced, not skipped. The rules are `~/Code/autofix/src/main/resources/checkstyle.xml`, and a rule change is made there, not in a review checklist. The ones that bite most:
