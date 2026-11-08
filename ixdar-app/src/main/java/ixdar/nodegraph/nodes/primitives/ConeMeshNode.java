@@ -76,7 +76,7 @@ public class ConeMeshNode implements MeshNode {
         }
         for (int i = 0; i < segments; i++) {
             int nextI = (i + 1) % segments;
-            mesh.addFace(topPole, bottomRingVertices[nextI], bottomRingVertices[i]);
+            mesh.addFace(topPole, bottomRingVertices[i], bottomRingVertices[nextI]);
             mesh.addFace(bottomPole, bottomRingVertices[nextI], bottomRingVertices[i]);
         }
 

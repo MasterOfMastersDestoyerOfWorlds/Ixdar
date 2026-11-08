@@ -1,5 +1,6 @@
 package ixdar.nodegraph.nodes.primitives;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import ixdar.nodegraph.api.InputPort;
@@ -39,7 +40,7 @@ public class QuadSphereMeshNode implements MeshNode {
         return Map.of(
                 SIZE.name, "Diameter. sphere(size=s) has extent s on each axis (vertices at ±s/2). Note: this is diameter, NOT radius — unlike icosphere/uv_sphere which use radius.",
                 RESOLUTION.name, "Quads around the circumference (equator). Higher = smoother. Default 16.",
-                MESH.name, "All-quad sphere, centered at origin."
+                MESH.name, "All-quad closed sphere, one welded surface, centered at origin."
         );
     }
 
@@ -66,23 +67,15 @@ public class QuadSphereMeshNode implements MeshNode {
         };
 
         HalfEdgeMesh mesh = new HalfEdgeMesh();
+        Map<Long, Integer> vertexAtLatticePoint = new HashMap<>();
 
         for (float[][] face : faces) {
-            float[] n = face[0];
-            float[] r = face[1];
-            float[] u = face[2];
-
             for (int i = 0; i < divisions; i++) {
                 for (int j = 0; j < divisions; j++) {
-                    float u0 = (i / (float) divisions) * 2.0f - 1.0f;
-                    float u1 = ((i + 1) / (float) divisions) * 2.0f - 1.0f;
-                    float v0 = (j / (float) divisions) * 2.0f - 1.0f;
-                    float v1 = ((j + 1) / (float) divisions) * 2.0f - 1.0f;
-
-                    int v00 = addVertex(n, r, u, u0, v0, radius, mesh);
-                    int v10 = addVertex(n, r, u, u1, v0, radius, mesh);
-                    int v11 = addVertex(n, r, u, u1, v1, radius, mesh);
-                    int v01 = addVertex(n, r, u, u0, v1, radius, mesh);
+                    int v00 = vertexAt(face, divisions, i, j, radius, mesh, vertexAtLatticePoint);
+                    int v10 = vertexAt(face, divisions, i + 1, j, radius, mesh, vertexAtLatticePoint);
+                    int v11 = vertexAt(face, divisions, i + 1, j + 1, radius, mesh, vertexAtLatticePoint);
+                    int v01 = vertexAt(face, divisions, i, j + 1, radius, mesh, vertexAtLatticePoint);
 
                     mesh.addFace(v00, v10, v11, v01);
                 }
@@ -93,19 +86,36 @@ public class QuadSphereMeshNode implements MeshNode {
         ctx.setOutput(MESH.name, GeometryBundle.ofMesh(mesh));
     }
 
-    private int addVertex(float[] n, float[] r, float[] u, float uCoord, float vCoord, float radius, HalfEdgeMesh mesh) {
-
-        // Map 2D face coordinate to 3D cube surface
-        float x = n[0] + r[0] * uCoord + u[0] * vCoord;
-        float y = n[1] + r[1] * uCoord + u[1] * vCoord;
-        float z = n[2] + r[2] * uCoord + u[2] * vCoord;
-
-        // Spherize by normalizing the vector and scaling by radius
-        float len = (float) Math.sqrt(x * x + y * y + z * z);
-        float nx = (x / len) * radius;
-        float ny = (y / len) * radius;
-        float nz = (z / len) * radius;
-
-        return mesh.addVertex(nx, ny, nz);
+    /**
+     * The sphere vertex over one grid corner of a cube face, added the first time any face reaches
+     * that corner.
+     *
+     * @param face      the face's normal, right and up axes
+     * @param divisions grid cells along a face edge
+     * @param column    corner column, 0 to divisions
+     * @param row       corner row, 0 to divisions
+     * @param radius    sphere radius
+     * @param mesh      mesh being built
+     * @param vertexAt  vertex id by packed lattice point, shared by all six faces
+     * @return the corner's vertex id
+     */
+    private static int vertexAt(float[][] face, int divisions, int column, int row, float radius,
+            HalfEdgeMesh mesh, Map<Long, Integer> vertexAt) {
+        int[] lattice = new int[3];
+        for (int axis = 0; axis < 3; axis++) {
+            lattice[axis] = Math.round(face[0][axis] * divisions + face[1][axis] * (2 * column - divisions)
+                    + face[2][axis] * (2 * row - divisions));
+        }
+        int span = 2 * divisions + 1;
+        long key = ((long) (lattice[0] + divisions) * span + lattice[1] + divisions) * span + lattice[2]
+                + divisions;
+        return vertexAt.computeIfAbsent(key, unused -> {
+            // Spherize the cube point by normalizing it and scaling by the radius.
+            float x = lattice[0];
+            float y = lattice[1];
+            float z = lattice[2];
+            float scale = radius / (float) Math.sqrt(x * x + y * y + z * z);
+            return mesh.addVertex(x * scale, y * scale, z * scale);
+        });
     }
 }

@@ -263,8 +263,12 @@ class SliverCollapseTest {
         for (int slot = 0; slot < anchors.length; slot++) {
             anchors[slot] = circleSpline.anchorVertexId[carried.get(slot)];
         }
-        // The anchors may run along the path or against it, which says which meridian it starts on.
-        boolean alongPath = anchors.length < 2 + 2 || onPath[carried.get(2)] > onPath[carried.get(1)];
+        // The anchors may run along the path or against it, which says which meridian it starts on:
+        // the anchor before the stretch lies past the meridian nearer it. One inner anchor alone
+        // cannot say which way the ring runs.
+        Vector3f before = mesh.vertexPosition(anchors[0], new Vector3f());
+        boolean alongPath = before.distance(mesh.vertexPosition(path[0], new Vector3f()))
+                < before.distance(mesh.vertexPosition(path[length], new Vector3f()));
         int[] frame = { circleSpline.anchorVertexId[Math.floorMod(carried.get(0) - 1, count)],
             alongPath ? path[0] : path[length], alongPath ? path[length] : path[0],
             circleSpline.anchorVertexId[(carried.get(carried.size() - 1) + 1) % count] };

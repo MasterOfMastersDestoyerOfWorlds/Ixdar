@@ -119,20 +119,20 @@ public class IcosphereMeshNode implements MeshNode {
         for (int i = 0; i < 5; i++) {
             int next = (i + 1) % 5;
             faces[f++] = topPole;
-            faces[f++] = topRingVertices[i];
             faces[f++] = topRingVertices[next];
+            faces[f++] = topRingVertices[i];
 
             faces[f++] = topRingVertices[i];
-            faces[f++] = bottomRingVertices[i];
             faces[f++] = topRingVertices[next];
+            faces[f++] = bottomRingVertices[i];
 
             faces[f++] = bottomRingVertices[i];
+            faces[f++] = topRingVertices[next];
             faces[f++] = bottomRingVertices[next];
-            faces[f++] = topRingVertices[next];
 
             faces[f++] = bottomPole;
-            faces[f++] = bottomRingVertices[next];
             faces[f++] = bottomRingVertices[i];
+            faces[f++] = bottomRingVertices[next];
         }
         return faces;
     }

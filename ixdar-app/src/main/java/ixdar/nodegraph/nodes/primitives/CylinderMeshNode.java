@@ -79,9 +79,9 @@ public class CylinderMeshNode implements MeshNode {
         }
         for (int i = 0; i < segments; i++) {
             int nextI = (i + 1) % segments;
-            mesh.addFace(topRingVertices[i], topRingVertices[nextI], bottomRingVertices[nextI], bottomRingVertices[i]);
-            mesh.addFace(topPole, topRingVertices[nextI], topRingVertices[i]);
-            mesh.addFace(bottomPole, bottomRingVertices[i], bottomRingVertices[nextI]);
+            mesh.addFace(topRingVertices[i], bottomRingVertices[i], bottomRingVertices[nextI], topRingVertices[nextI]);
+            mesh.addFace(topPole, topRingVertices[i], topRingVertices[nextI]);
+            mesh.addFace(bottomPole, bottomRingVertices[nextI], bottomRingVertices[i]);
         }
 
         mesh.computeNormals();

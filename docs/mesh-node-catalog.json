@@ -3877,7 +3877,7 @@
         {
           "name": "segments",
           "portType": "INT",
-          "description": "Divisions around the circumference. Higher \u003d smoother barrel. Default 8.",
+          "description": "Divisions around the circumference. Higher \u003d smoother barrel. Default 8. An odd count closes each cap with one triangle, since a disk bounded by an odd ring cannot be all quads.",
           "defaultValue": 8
         },
         {
@@ -3889,7 +3889,7 @@
         {
           "name": "cap_rings",
           "portType": "INT",
-          "description": "Concentric quad rings per cap (converging toward the pole). 0 leaves the cap open; higher values give cleaner subdivision at the cap. Default 2.",
+          "description": "Concentric quad rings per cap, evenly spaced toward the center, which a fan of quads round one center vertex closes. 0 leaves the cap open; higher values give cleaner subdivision at the cap. Default 2.",
           "defaultValue": 2
         }
       ],
@@ -3897,7 +3897,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "All-quad cylinder, Y-aligned, centered at origin."
+          "description": "All-quad cylinder, Y-aligned, centered at origin; closed unless cap_rings is 0."
         }
       ],
       "description": "Generates an all-quad cylinder with concentric quad-ring caps suitable for Catmull-Clark subdivision, controlled by radius, height, barrel segments/rings, and cap_rings for cap density."
@@ -4978,7 +4978,7 @@
         {
           "name": "mesh",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "All-quad sphere, centered at origin."
+          "description": "All-quad closed sphere, one welded surface, centered at origin."
         }
       ],
       "description": "Generates an all-quad sphere by projecting a subdivided cube onto a sphere surface, controlled by size and resolution (quads around the circumference); ideal for Catmull-Clark subdivision."

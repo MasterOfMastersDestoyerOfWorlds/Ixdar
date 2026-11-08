@@ -14,16 +14,12 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 
 /**
- * All-quad cylinder primitive suitable for Catmull-Clark subdivision.
- * <p>
- * The barrel is built from quad rings (segments x rings). Each cap is made of
- * concentric quad rings converging toward the center, avoiding triangle fans
- * so the output is fully quad and subdivides cleanly.
+ * All-quad cylinder for Catmull-Clark subdivision: a barrel of quad rings, and caps of concentric
+ * quad rings closed by a center fan of quads.
  */
 @MeshNodeAnnotation(id = "quad_cylinder", category = NodeCategory.PRIMITIVES)
 public class QuadCylinderMeshNode implements MeshNode {
     public static final int MIN_SEGMENTS = 3;
-    public static final float MIN_CAP_RADIUS_FRACTION = 0.05f;
 
     public static final InputPort RADIUS = new InputPort("radius", PortType.FLOAT, 0.5f, 0.001f, 100f);
     public static final InputPort HEIGHT = new InputPort("height", PortType.FLOAT, 2.0f, 0.001f, 100f);
@@ -52,10 +48,12 @@ public class QuadCylinderMeshNode implements MeshNode {
         return Map.of(
                 RADIUS.name, "Distance from the central Y-axis to the side surface. Default 0.5 (diameter 1).",
                 HEIGHT.name, "Total Y-axis extent. quad_cylinder(height=h) spans y=±h/2.",
-                SEGMENTS.name, "Divisions around the circumference. Higher = smoother barrel. Default 8.",
+                SEGMENTS.name, "Divisions around the circumference. Higher = smoother barrel. Default 8. An odd"
+                        + " count closes each cap with one triangle, since a disk bounded by an odd ring"
+                        + " cannot be all quads.",
                 RINGS.name, "Number of quad rings along the barrel length (between the two caps). Default 1.",
-                CAP_RINGS.name, "Concentric quad rings per cap (converging toward the pole). 0 leaves the cap open; higher values give cleaner subdivision at the cap. Default 2.",
-                GEOMETRY.name, "All-quad cylinder, Y-aligned, centered at origin."
+                CAP_RINGS.name, "Concentric quad rings per cap, evenly spaced toward the center, which a fan of quads round one center vertex closes. 0 leaves the cap open; higher values give cleaner subdivision at the cap. Default 2.",
+                GEOMETRY.name, "All-quad cylinder, Y-aligned, centered at origin; closed unless cap_rings is 0."
         );
     }
 
@@ -74,7 +72,7 @@ public class QuadCylinderMeshNode implements MeshNode {
         int rings = Math.max(1, ringsIn == null ? 1 : ringsIn.intValue());
 
         Number capIn = ctx.getInput(CAP_RINGS.name, Number.class);
-        int capRings = Math.max(1, capIn == null ? 2 : capIn.intValue());
+        int capRings = Math.max(0, capIn == null ? 2 : capIn.intValue());
 
         HalfEdgeMesh mesh = buildQuadCylinder(radius, height, segments, rings, capRings);
         mesh.computeNormals();
@@ -107,42 +105,40 @@ public class QuadCylinderMeshNode implements MeshNode {
                 int b = barrelVerts[row][nextSeg];
                 int c = barrelVerts[row + 1][nextSeg];
                 int d = barrelVerts[row + 1][seg];
-                mesh.addFace(a, b, c, d);
+                mesh.addFace(a, d, c, b);
             }
         }
 
         // Build quad caps
         // Bottom cap: ring 0 (y = -halfH), facing -Y
-        buildQuadCap(mesh, barrelVerts[0], segments, capRings, radius, -halfH, true);
+        buildQuadCap(mesh, barrelVerts[0], segments, capRings, radius, -halfH, false);
         // Top cap: ring (barrelRows-1) (y = +halfH), facing +Y
-        buildQuadCap(mesh, barrelVerts[barrelRows - 1], segments, capRings, radius, halfH, false);
+        buildQuadCap(mesh, barrelVerts[barrelRows - 1], segments, capRings, radius, halfH, true);
 
         return mesh;
     }
 
     /**
-     * Build a quad cap from the boundary ring inward.
-     * Creates concentric rings of quads. The innermost ring converges to a small
-     * quad grid near the center (not a single pole vertex).
+     * Build a quad cap from the boundary ring inward: concentric rings of quads, evenly spaced, then
+     * a fan of quads round one center vertex, each spanning two segments of the innermost ring (a
+     * valence-4 center at the default 8 segments). An odd segment count leaves one triangle.
      *
      * @param outerRing  vertex IDs of the outermost ring (from barrel)
      * @param segments   number of vertices around the ring
-     * @param capRings   number of concentric quad rings
+     * @param capRings   number of concentric quad rings; 0 leaves the cap open
      * @param radius     radius of the outermost ring
      * @param y          y coordinate of the cap
-     * @param flipWinding true for bottom cap (reverse winding)
+     * @param flipWinding true for the top cap, whose quads run against the ring's turn to face +Y
      */
     private static void buildQuadCap(HalfEdgeMesh mesh, int[] outerRing, int segments,
                                       int capRings, float radius, float y, boolean flipWinding) {
+        if (capRings == 0) {
+            return;
+        }
         int[] prevRing = outerRing;
 
         for (int ring = 1; ring <= capRings; ring++) {
-            float t = (float) ring / capRings;
-            float r = radius * (1.0f - t);
-            // Tiny offset to avoid degenerate zero-radius ring at center
-            if (ring == capRings) {
-                r = radius * MIN_CAP_RADIUS_FRACTION;
-            }
+            float r = radius * (1.0f - (float) ring / (capRings + 1));
 
             int[] currentRing = new int[segments];
             for (int seg = 0; seg < segments; seg++) {
@@ -162,6 +158,24 @@ public class QuadCylinderMeshNode implements MeshNode {
                 }
             }
             prevRing = currentRing;
+        }
+
+        int center = mesh.addVertex(0f, y, 0f);
+        for (int seg = 0; seg + 1 < segments; seg += 2) {
+            int third = prevRing[(seg + 2) % segments];
+            if (flipWinding) {
+                mesh.addFace(third, prevRing[seg + 1], prevRing[seg], center);
+            } else {
+                mesh.addFace(prevRing[seg], prevRing[seg + 1], third, center);
+            }
+        }
+        if (segments % 2 == 1) {
+            int last = prevRing[segments - 1];
+            if (flipWinding) {
+                mesh.addFace(prevRing[0], last, center);
+            } else {
+                mesh.addFace(last, prevRing[0], center);
+            }
         }
     }
 }

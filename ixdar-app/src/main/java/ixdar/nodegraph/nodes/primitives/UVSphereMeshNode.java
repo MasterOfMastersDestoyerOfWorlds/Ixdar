@@ -84,9 +84,11 @@ public class UVSphereMeshNode implements MeshNode {
             }
         }
 
+        // The rings turn from +x toward +z, clockwise seen from +y, so every face lists its ring
+        // vertices against that turn to wind counter-clockwise seen from outside.
         for (int j = 0; j < segments; j++) {
             int nextJ = (j + 1) % segments;
-            mesh.addFace(topPole, ringVertices[0][j], ringVertices[0][nextJ]); 
+            mesh.addFace(topPole, ringVertices[0][nextJ], ringVertices[0][j]);
         }
 
         // Build Middle Bands (Quads)
@@ -97,14 +99,14 @@ public class UVSphereMeshNode implements MeshNode {
                 int v1 = ringVertices[i + 1][j];
                 int v2 = ringVertices[i + 1][nextJ];
                 int v3 = ringVertices[i][nextJ];
-                mesh.addFace(v0, v1, v2, v3);
+                mesh.addFace(v0, v3, v2, v1);
             }
         }
 
         // Build Bottom Cap (Triangles)
         for (int j = 0; j < segments; j++) {
             int nextJ = (j + 1) % segments;
-            mesh.addFace(bottomPole, ringVertices[rings - 2][nextJ], ringVertices[rings - 2][j]);
+            mesh.addFace(bottomPole, ringVertices[rings - 2][j], ringVertices[rings - 2][nextJ]);
         }
         mesh.computeNormals();
         ctx.setOutput(MESH.name, GeometryBundle.ofMesh(mesh));

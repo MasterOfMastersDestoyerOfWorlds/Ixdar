@@ -1,0 +1,28 @@
+# Every closed primitive at its default parameters, plus a seven-sided quad_cylinder whose caps
+# close with a triangle. PrimitiveWindingTest holds each to Ixdar's face convention: one closed
+# surface wound counter-clockwise seen from outside, so the signed volume is positive.
+cube_shape = cube()
+sphere_shape = sphere()
+icosphere_shape = icosphere()
+uv_sphere_shape = uv_sphere()
+cylinder_shape = cylinder()
+quad_cylinder_shape = quad_cylinder()
+odd_quad_cylinder_shape = quad_cylinder(segments=7)
+cone_shape = cone()
+torus_shape = torus()
+# A row of all eight, two units apart, so the viewer shows each one lit from outside.
+cube_at = transform_geometry(geometry=cube_shape.mesh, translation=<-7.0, 0.0, 0.0>)
+sphere_at = transform_geometry(geometry=sphere_shape.mesh, translation=<-5.0, 0.0, 0.0>)
+icosphere_at = transform_geometry(geometry=icosphere_shape.mesh, translation=<-3.0, 0.0, 0.0>)
+uv_sphere_at = transform_geometry(geometry=uv_sphere_shape.mesh, translation=<-1.0, 0.0, 0.0>)
+cylinder_at = transform_geometry(geometry=cylinder_shape.mesh, translation=<1.0, 0.0, 0.0>)
+quad_cylinder_at = transform_geometry(geometry=quad_cylinder_shape.geometry, translation=<3.0, 0.0, 0.0>)
+cone_at = transform_geometry(geometry=cone_shape.mesh, translation=<5.0, 0.0, 0.0>)
+torus_at = transform_geometry(geometry=torus_shape.mesh, translation=<7.5, 0.0, 0.0>)
+row_1 = join_geometry(a=cube_at.geometry, b=sphere_at.geometry)
+row_2 = join_geometry(a=row_1.geometry, b=icosphere_at.geometry)
+row_3 = join_geometry(a=row_2.geometry, b=uv_sphere_at.geometry)
+row_4 = join_geometry(a=row_3.geometry, b=cylinder_at.geometry)
+row_5 = join_geometry(a=row_4.geometry, b=quad_cylinder_at.geometry)
+row_6 = join_geometry(a=row_5.geometry, b=cone_at.geometry)
+row = join_geometry(a=row_6.geometry, b=torus_at.geometry)
