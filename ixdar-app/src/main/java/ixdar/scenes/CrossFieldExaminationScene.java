@@ -5,7 +5,12 @@ import java.util.List;
 
 import ixdar.annotations.scene.SceneAnnotation;
 import ixdar.geometry.mesh.data.io.CrossFieldLoader;
+import ixdar.nodegraph.nodes.data.SceneModelNode;
+import ixdar.nodegraph.nodes.quadlayout.NDirectionFieldNode;
 import ixdar.nodegraph.nodes.quadlayout.QuadLayoutNode;
+import ixdar.nodegraph.runtime.GraphNodeContext;
+import ixdar.nodegraph.runtime.GroupBuilder;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.geometry.mesh.data.fields.crossfield.CrossField;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.QuadLayoutOverlay;
@@ -31,6 +36,8 @@ public class CrossFieldExaminationScene extends ModelScene {
     public static final String IN_TRI_OFF_SUFFIX = "_in_tri.off";
     public static final String IN_CF_NDF_SUFFIX = "_in_cf.ndf";
     public static final float CROSS_SCALE = 1f;
+    public static final String FIELD_CALL = "field";
+    public static final String FIELD_TYPE = "cross_field";
 
     private CrossField oursField;
     private CrossField referenceField;
@@ -53,9 +60,24 @@ public class CrossFieldExaminationScene extends ModelScene {
         return "Ixdar : Cross Field Examination";
     }
 
+    /**
+     * The scene's model through the cross field stage alone, as {@code model = scene_model()} then
+     * {@code field = cross_field(geometry=model.geometry)}: the field needs no unfolded surface,
+     * so the layout's fold check, which guards its later stages, does not refuse a scan.
+     *
+     * @return the graph
+     */
     @Override
     public NodeGroup sceneGraph() {
-        return QuadLayoutNode.overSceneModel();
+        return new NodeGroup() {
+            @Override
+            public void build(GroupBuilder graph) {
+                GraphNodeContext model = graph.node(QuadLayoutNode.MODEL_CALL, SceneModelNode::new);
+                // By registered id: the field node is desktop-only, as the layout graph notes.
+                graph.node(FIELD_CALL, FIELD_TYPE)
+                        .input(NDirectionFieldNode.GEOMETRY.name, model, SceneModelNode.GEOMETRY.name);
+            }
+        };
     }
 
     /**
@@ -69,7 +91,8 @@ public class CrossFieldExaminationScene extends ModelScene {
     public void loadModel(String path) throws IOException {
         super.loadModel(path);
         runSceneGraph();
-        oursField = (CrossField) sceneOutput(QuadLayoutNode.sceneOutput(QuadLayoutNode.FIELD));
+        oursField = (CrossField) sceneOutput(FIELD_CALL + NodeGraphRuntime.PORT_SEPARATOR
+                + NDirectionFieldNode.FIELD.name);
         referenceField = null;
         showingReference = false;
 

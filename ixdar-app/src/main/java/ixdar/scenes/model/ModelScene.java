@@ -282,7 +282,7 @@ public abstract class ModelScene extends Scene {
                     || !surface.hasPerVertexScalar())) {
                 fieldShown = shown;
                 fieldRuntime = surface;
-                surface.setPerVertexScalar(shown.field.values(), Float.NaN, Float.NaN);
+                surface.setPerVertexScalar(shown.field.values(), shown.fieldMin, shown.fieldMax);
             }
         }
         runtime.setSolidColor(palette.surface.toVector4f());
@@ -650,16 +650,14 @@ public abstract class ModelScene extends Scene {
      * Re-centres the orbit on a group of dot clouds and pulls the camera in to frame them.
      *
      * @param clouds flat-xyz position arrays to frame together
-     * @return the framed region's radius: the farthest point's distance from the centroid
      */
-    public float focusOrbitOn(List<float[]> clouds) {
+    public void focusOrbitOn(List<float[]> clouds) {
         Vector3f centroid = new Vector3f();
         float radius = HalfEdgeMeshRuntime.cloudRadius(clouds, centroid);
         camera.setTarget(centroid);
         camera.setDistanceBounds(radius * FOCUS_ORBIT_MIN_MUL,
                 Math.max(CAMERA_DISTANCE_MIN, halfEdgeMesh.radius() * CAMERA_DISTANCE_RADIUS_MUL));
         camera.setOrbit(orbitAzimuth, orbitElevation, radius * FOCUS_ORBIT_RADIUS_MUL);
-        return radius;
     }
 
     /**

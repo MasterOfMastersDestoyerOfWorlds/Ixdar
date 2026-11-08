@@ -14,6 +14,7 @@ import org.joml.Vector3f;
 
 import ixdar.annotations.command.Subsystem;
 import ixdar.annotations.scene.SceneAnnotation;
+import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.paths.query.SurfacePicker;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
@@ -69,6 +70,10 @@ public class RingScene extends MeshNodeViewerScene {
     public static final String REGIONS_LOOK = "regions";
 
     public static final String PARTS_LOOK = "parts";
+
+    public static final String CREASES_LOOK = "creases";
+
+    public static final String ALONG_LOOK = "crease-along";
 
     public static final String CAMERA_MOVING_REFUSAL =
             "the camera is still moving - click again once it stops";
@@ -182,7 +187,7 @@ public class RingScene extends MeshNodeViewerScene {
     }
 
     /**
-     * The model scene's looks, then the region and part colours.
+     * The model scene's looks, then the region and part colours and the two crease looks.
      *
      * @param looks the scene's looks
      */
@@ -191,6 +196,22 @@ public class RingScene extends MeshNodeViewerScene {
         super.setLooks(looks);
         looks.add(new SurfaceLook(REGIONS_LOOK, "each ring region in its own colour, in every tool", Colour.SURFACE, Light.VIEW, null));
         looks.add(new SurfaceLook(PARTS_LOOK, "each region in its part's colour, unlabelled ones grey", Colour.SURFACE, Light.VIEW, null));
+        // Lambdas: the looks are set before this scene's ring tool exists, and read it when shown.
+        looks.add(new SurfaceLook(CREASES_LOOK, "groove strength, the field crease rings follow", Light.SOFT_CLAY,
+                () -> shownCreases() == null ? null : shownCreases().strengthField()));
+        looks.add(new SurfaceLook(ALONG_LOOK, "bend along the groove: low convex (a saddle-shaped groove, as round a limb), mid flat, high concave", Light.SOFT_CLAY,
+                () -> shownCreases() == null ? null : shownCreases().alongBendField(), -1f, 1f));
+    }
+
+    /**
+     * The ring tool's one crease lookup on the shown surface, measured the first time a crease
+     * look asks.
+     *
+     * @return the creases, or {@code null} while there is no surface or they cannot be measured
+     */
+    private SurfaceCreases shownCreases() {
+        MeshTopology surface = halfEdgeSurface();
+        return surface != null && ringTool.readyCreases(surface) ? ringTool.creases : null;
     }
 
     /**

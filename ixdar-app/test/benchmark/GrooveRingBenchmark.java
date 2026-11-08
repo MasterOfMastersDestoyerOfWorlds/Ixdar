@@ -192,8 +192,8 @@ public final class GrooveRingBenchmark {
                     Math.abs(curvature.kappaMin(activeVertex)));
         }
         Arrays.sort(magnitude);
-        candidates.put("valley crest lines", new SurfaceCreases(surface, onValley, 0.0));
-        candidates.put("convex curvature (ridges)", new SurfaceCreases(surface, convex,
+        candidates.put("valley crest lines", new SurfaceCreases(surface, onValley, null, 0.0));
+        candidates.put("convex curvature (ridges)", new SurfaceCreases(surface, convex, null,
                 magnitude[magnitude.length / 2]));
         start = System.nanoTime();
         NDirectionField field = new NDirectionField();
@@ -207,7 +207,7 @@ public final class GrooveRingBenchmark {
         }
         Arrays.sort(bendSorted);
         double bendFieldMillis = (System.nanoTime() - start) / 1e6;
-        candidates.put("Hopf bend (unsigned)", new SurfaceCreases(surface, bend,
+        candidates.put("Hopf bend (unsigned)", new SurfaceCreases(surface, bend, null,
                 bendSorted[bendSorted.length / 2]));
         summary.add(String.format(Locale.ROOT, "curvature + crest lines %.0f ms, cross field for "
                 + "the bend %.0f ms", curvatureMillis, bendFieldMillis));

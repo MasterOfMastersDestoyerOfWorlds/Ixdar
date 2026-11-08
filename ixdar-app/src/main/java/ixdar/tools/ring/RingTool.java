@@ -52,6 +52,7 @@ import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.LineSet;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.graphics.render.model.SurfaceDots;
 import ixdar.gui.ui.actions.Action;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.nodegraph.syntax.PythonParser;
@@ -107,6 +108,11 @@ public final class RingTool extends Tool {
     public static final float AUTHORED_ANCHOR_PIXELS = 5f;
 
     public static final float SELECTED_ANCHOR_PIXELS = 7f;
+
+    public static final String ANCHOR_DOTS = "ring-anchors";
+
+    // Above every other layer: an anchor shows over another layer's dot on the same vertex.
+    public static final int ANCHOR_DOTS_ORDER = 10;
 
     public static final int COORDINATES_PER_POINT = 3;
 
@@ -2494,32 +2500,25 @@ public final class RingTool extends Tool {
         int anchors = draft == null ? 0 : draft.anchorCount;
         // Then the vertices the active sub-tool marks, such as a bisector's waiting end.
         int[] bisectorEnds = drawing.markedVertices();
-        int discs = anchors + bisectorEnds.length;
-        int[] anchorVertexId = new int[discs];
-        Color[] anchorColor = new Color[discs];
-        float[] anchorDiameter = new float[discs];
-        int cursor = 0;
+        MeshTopology surface = overlay.surfaceMesh;
+        SurfaceDots anchorDots = new SurfaceDots();
         for (float diameter : new float[] { SUPPORTING_ANCHOR_PIXELS, AUTHORED_ANCHOR_PIXELS,
             SELECTED_ANCHOR_PIXELS }) {
-            for (int anchor = 0; anchor < anchors; anchor++) {
+            for (int anchor = 0; surface != null && anchor < anchors; anchor++) {
                 int vertexId = draft.anchorVertexId[anchor];
                 if (anchorDiameterPixels(vertexId, draft.anchorAuthored[anchor]) != diameter) {
                     continue;
                 }
-                anchorVertexId[cursor] = vertexId;
-                anchorDiameter[cursor] = diameter;
-                anchorColor[cursor++] = diameter == SUPPORTING_ANCHOR_PIXELS
+                anchorDots.addVertex(surface, vertexId, diameter == SUPPORTING_ANCHOR_PIXELS
                         ? palette.text
                         : diameter == AUTHORED_ANCHOR_PIXELS ? palette.accent
-                                : palette.selected;
+                                : palette.selected, diameter);
             }
         }
-        for (int end : bisectorEnds) {
-            anchorVertexId[cursor] = end;
-            anchorDiameter[cursor] = SELECTED_ANCHOR_PIXELS;
-            anchorColor[cursor++] = palette.selected;
+        for (int end : surface == null ? new int[0] : bisectorEnds) {
+            anchorDots.addVertex(surface, end, palette.selected, SELECTED_ANCHOR_PIXELS);
         }
-        overlay.setAnchorDiscs(anchorVertexId, anchorColor, anchorDiameter);
+        overlay.setDots(ANCHOR_DOTS, ANCHOR_DOTS_ORDER, anchorDots);
     }
 
     /**

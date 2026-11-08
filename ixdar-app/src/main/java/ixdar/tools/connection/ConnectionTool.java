@@ -18,6 +18,7 @@ import ixdar.graphics.render.color.Color;
 import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.graphics.render.model.MeshOverlayRuntime;
+import ixdar.graphics.render.model.SurfaceDots;
 import ixdar.platform.Platforms;
 import ixdar.platform.input.KeyNames;
 import ixdar.platform.input.Keys;
@@ -45,6 +46,8 @@ public final class ConnectionTool extends Tool {
     public static final int XYZ = SurfaceConnection.COORDINATES_PER_POINT;
 
     public static final int PICKS = 2;
+
+    public static final String PICK_DOTS = "connection-picks";
 
     public static final String START_PICK = "start";
 
@@ -206,7 +209,7 @@ public final class ConnectionTool extends Tool {
         hoveredPick = -1;
         if (scene.surfaceRuntime() instanceof MeshOverlayRuntime overlay) {
             overlay.clearDiagnostic();
-            overlay.clearMarkers();
+            overlay.clearDots(PICK_DOTS);
         }
         if (showingFills) {
             showFills(false);
@@ -327,7 +330,7 @@ public final class ConnectionTool extends Tool {
         uploadedPalette = palette;
         if (pickVertexId[0] < 0) {
             overlay.clearDiagnostic();
-            overlay.clearMarkers();
+            overlay.clearDots(PICK_DOTS);
             return;
         }
         SurfaceConnection shown = connection;
@@ -353,27 +356,20 @@ public final class ConnectionTool extends Tool {
         }
         int emphasised = draggingPick >= 0 ? draggingPick : hoveredPick;
         int picked = pickVertexId[1] >= 0 ? PICKS : 1;
-        int[] discVertexId = new int[picked];
-        Color[] discColor = new Color[picked];
-        float[] discDiameter = new float[picked];
-        int disc = 0;
-        for (int pick = 0; pick < picked; pick++) {
+        // The emphasised pick last, so it shows over the other where the two discs overlap.
+        SurfaceDots pickDots = new SurfaceDots();
+        for (int pick = 0; overlay.surfaceMesh != null && pick < picked; pick++) {
             if (pick != emphasised) {
-                discVertexId[disc] = pickVertexId[pick];
-                discColor[disc] = palette.accent;
-                discDiameter[disc++] = RingTool.AUTHORED_ANCHOR_PIXELS;
+                pickDots.addVertex(overlay.surfaceMesh, pickVertexId[pick], palette.accent,
+                        RingTool.AUTHORED_ANCHOR_PIXELS);
             }
         }
-        if (emphasised >= 0 && emphasised < picked) {
-            discVertexId[disc] = pickVertexId[emphasised];
-            discColor[disc] = palette.selected;
-            discDiameter[disc] = RingTool.SELECTED_ANCHOR_PIXELS;
+        if (overlay.surfaceMesh != null && emphasised >= 0 && emphasised < picked) {
+            pickDots.addVertex(overlay.surfaceMesh, pickVertexId[emphasised], palette.selected,
+                    RingTool.SELECTED_ANCHOR_PIXELS);
         }
         overlay.setDiagnostic(List.of(), List.of(), polylines, colors);
-        overlay.setAnchorDiscs(discVertexId, discColor, discDiameter);
-        if (joined) {
-            overlay.capDiagnosticRegion((float) shown.pathLength);
-        }
+        overlay.setDots(PICK_DOTS, RingTool.ANCHOR_DOTS_ORDER, pickDots);
     }
 
     /**

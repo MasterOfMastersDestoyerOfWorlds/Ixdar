@@ -27,7 +27,7 @@ import ixdar.graphics.render.color.RegionColouring;
  */
 class PatchColoursTest {
 
-    private static final Path SCALAR_SHADER = Path.of("src/main/resources/glsl/mesh_scalar.fs");
+    private static final Path SCALAR_SHADER = Path.of("src/main/resources/glsl/mesh.fs");
 
     private static final Pattern RAMP_STOPS = Pattern.compile("const int RAMP_STOPS = (\\d+);");
 

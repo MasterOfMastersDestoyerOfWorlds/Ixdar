@@ -31,7 +31,7 @@ import ixdar.scenes.Scene;
 
 /**
  * The quad-layout pipeline's debug views (parametrization, traces, cross field, T-mesh, layout
- * patches), each setter turning one pipeline value into a {@link LineSet}, {@link PointSet} or
+ * patches), each setter turning one pipeline value into a {@link LineSet}, {@link SurfaceDots} or
  * corner array drawn through the generic overlay passes.
  */
 public class QuadLayoutOverlay extends MeshOverlayRuntime {
@@ -64,7 +64,13 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
     private static final float CONSTRAINT_NORMAL_LIFT = 0.25f;
     private static final float DEFAULT_LINE_HALF_WIDTH = 1.0f;
     private static final float LAYOUT_PATCH_ALPHA = 0.55f;
-    private static final float CORNER_SPHERE_SCALE = 0.7f;
+    private static final float CORNER_DOT_PIXELS = 7f;
+    private static final float NODE_DOT_PIXELS = 10f;
+    private static final float SINGULARITY_DOT_PIXELS = 12f;
+    private static final String SINGULARITY_DOTS = "quad-singularities";
+    private static final String GRAPH_NODE_DOTS = "quad-graph-nodes";
+    private static final String LAYOUT_CORNER_DOTS = "quad-layout-corners";
+    private static final String EMBEDDED_NODE_DOTS = "quad-embedded-nodes";
 
     private static final String BASE_COLOR = "baseColor";
     private static final String U_LINE_COLOR = "uLineColor";
@@ -111,10 +117,6 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
     private final VertexBuffer copyWireframe = new VertexBuffer();
     private final VertexBuffer embeddedArcs = new VertexBuffer();
     private final VertexBuffer embeddedZeroArcs = new VertexBuffer();
-    private PointSet singularities;
-    private PointSet graphNodes;
-    private PointSet layoutCorners;
-    private PointSet embeddedNodes;
     private int layoutBoundaryVertexCount;
     private int[] constraintRangeStart;
     private int[] constraintRangeCount;
@@ -154,10 +156,6 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         copyWireframe.delete();
         embeddedArcs.delete();
         embeddedZeroArcs.delete();
-        singularities = null;
-        graphNodes = null;
-        layoutCorners = null;
-        embeddedNodes = null;
         layoutBoundaryVertexCount = 0;
         constraintRangeStart = null;
         constraintRangeCount = null;
@@ -193,7 +191,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
             return;
         }
         uploadSeamlessSurface();
-        graphNodes = new PointSet(graph.nodes.size(), 1f);
+        SurfaceDots graphNodes = new SurfaceDots();
         Palette palette = Scene.activePalette();
         for (EmbeddedNode node : graph.nodes) {
             if (node.position == null) {
@@ -207,8 +205,9 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
             } else if (node.truncated) {
                 color = palette.warning;
             }
-            graphNodes.add(node.position, color, 0f);
+            graphNodes.add(node.position, color, NODE_DOT_PIXELS);
         }
+        setDots(GRAPH_NODE_DOTS, 0, graphNodes);
     }
 
     /**
@@ -294,24 +293,23 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
     }
 
     /**
-     * Capture singularity vertices as coloured sphere markers.
+     * Capture singularity vertices as coloured dots.
      *
      * @param index4 per-vertex singularity index4 in dense active-vertex order; nonzero entries
      *               are rendered
      * @param mesh   the underlying triangle mesh
      */
     public void setSingularities(IntField index4, HalfEdgeMesh mesh) {
-        updateSphereRadius();
-        singularities = new PointSet(index4.length(), 1f);
-        Vector3f position = new Vector3f();
+        SurfaceDots singularities = new SurfaceDots();
         Palette palette = Scene.activePalette();
         for (int vertex = 0; vertex < index4.length(); vertex++) {
             if (index4.get(vertex) == 0) {
                 continue;
             }
-            mesh.vertexPosition(mesh.vertexIdAt(vertex), position);
-            singularities.add(position, singularityColor(palette, index4.get(vertex)), 0f);
+            singularities.addVertex(mesh, mesh.vertexIdAt(vertex),
+                    singularityColor(palette, index4.get(vertex)), SINGULARITY_DOT_PIXELS);
         }
+        setDots(SINGULARITY_DOTS, 1, singularities);
     }
 
     /**
@@ -344,7 +342,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         }
         int[] denseOf = new int[maxVertexId + 1];
         float[] gridVertices = new float[vertexCount * 3];
-        layoutCorners = new PointSet(vertexCount, CORNER_SPHERE_SCALE);
+        SurfaceDots layoutCorners = new SurfaceDots();
         Palette palette = Scene.activePalette();
         Vector3f position = new Vector3f();
         for (int dense = 0; dense < vertexCount; dense++) {
@@ -355,9 +353,10 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
             gridVertices[dense * 3 + 1] = position.y;
             gridVertices[dense * 3 + 2] = position.z;
             if (mesh.vertexFaceCount(vertexId) == 1) {
-                layoutCorners.add(position, palette.accent, 0f);
+                layoutCorners.addVertex(mesh, vertexId, palette.accent, CORNER_DOT_PIXELS);
             }
         }
+        setDots(LAYOUT_CORNER_DOTS, 0, layoutCorners);
 
         // Patch boundary edges first, then the interior grid edges.
         LineSet lines = new LineSet(mesh.edgeCount());
@@ -420,7 +419,6 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
             layoutPatchIndexCount[patchCursor] = cursor - layoutPatchIndexStart[patchCursor];
         }
         layoutFill.upload(POSITION_LAYOUT, gridVertices, fillIndices);
-        updateSphereRadius();
     }
 
     /**
@@ -442,9 +440,8 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
     }
 
     /**
-     * Upload an embedded T-mesh: arcs as lines split positive/zero, live nodes as spheres capped
-     * to half their shortest incident copy edge, the sphere radius capped to the mean arc hop,
-     * and the copy wireframe refreshed when shown. One call per mutation.
+     * Upload an embedded T-mesh: arcs as lines split positive/zero, live nodes as dots on their
+     * copy vertices, and the copy wireframe refreshed when shown. One call per mutation.
      *
      * <p>See also: LCBK19 Figure 9
      *
@@ -467,10 +464,6 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         }
         LineSet positive = new LineSet(positiveSegments);
         LineSet zero = new LineSet(zeroSegments);
-        Vector3f segmentStart = new Vector3f();
-        Vector3f segmentEnd = new Vector3f();
-        double totalHopLength = 0;
-        int hopCount = 0;
         for (EmbeddedArc arc : tmesh.arcs) {
             List<Integer> path = arc.path.copyVertexPath;
             if (!arc.alive || path.size() < 2) {
@@ -479,35 +472,20 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
             LineSet target = arc.quantizedLength == 0 ? zero : positive;
             for (int index = 1; index < path.size(); index++) {
                 target.vertexStep(copy, path.get(index - 1), path.get(index));
-                totalHopLength += target.start.distance(target.end);
-                hopCount++;
             }
         }
         embeddedArcs.upload(LineSet.LAYOUT, positive.vertices, null);
         embeddedZeroArcs.upload(LineSet.LAYOUT, zero.vertices, null);
 
-        embeddedNodes = new PointSet(tmesh.nodes.size(), 1f);
+        SurfaceDots embeddedNodes = new SurfaceDots();
         Palette palette = Scene.activePalette();
-        Vector3f nodePosition = new Vector3f();
         for (EmbeddedNode node : tmesh.nodes) {
-            if (!node.alive) {
-                continue;
+            if (node.alive) {
+                embeddedNodes.addVertex(copy, node.copyVertex,
+                        node.critical ? palette.highlight : palette.linkText, NODE_DOT_PIXELS);
             }
-            copy.vertexPosition(node.copyVertex, nodePosition);
-            float shortestEdge = Float.MAX_VALUE;
-            for (int adjacency = 0; adjacency < copy.vertexEdgeCount(node.copyVertex);
-                    adjacency++) {
-                int halfEdge = copy.edgeHalfEdge(copy.vertexEdgeAt(node.copyVertex, adjacency));
-                copy.vertexPosition(copy.halfEdgeVertex(halfEdge), segmentStart);
-                copy.vertexPosition(copy.halfEdgeVertex(copy.halfEdgeTwin(halfEdge)), segmentEnd);
-                shortestEdge = Math.min(shortestEdge, segmentStart.distance(segmentEnd));
-            }
-            embeddedNodes.add(nodePosition,
-                    node.critical ? palette.highlight : palette.linkText,
-                    shortestEdge == Float.MAX_VALUE ? 0f : shortestEdge / 2f);
         }
-        setSphereRadiusCap(hopCount == 0 ? 0f : (float) (totalHopLength / hopCount));
-        updateSphereRadius();
+        setDots(EMBEDDED_NODE_DOTS, 1, embeddedNodes);
         if (showCopyWireframe) {
             setCopyWireframe(copy);
         }
@@ -515,8 +493,7 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
     }
 
     /**
-     * Shows the cover of each given patch as a face-centre dot cloud, the dot radius half the
-     * shortest covered edge so a dot never swallows an edge.
+     * Shows the cover of each given patch as a face-centre dot cloud.
      *
      * @param tmesh    embedded T-mesh whose covers are shown
      * @param patchIds live patches to show, coloured in palette order
@@ -524,24 +501,17 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
     public void showPatchCovers(ArcNetwork tmesh, List<Integer> patchIds) {
         HalfEdgeMesh copy = tmesh.topology.copy;
         List<float[]> clouds = new ArrayList<>();
-        float[] dotRadii = new float[patchIds.size()];
         Vector3f corner = new Vector3f();
-        Vector3f nextCorner = new Vector3f();
         Vector3f center = new Vector3f();
         for (int index = 0; index < patchIds.size(); index++) {
             IntIdList faces = tmesh.corridor.patchFaces(patchIds.get(index));
             float[] centers = new float[faces.size() * 3];
-            float smallest = Float.MAX_VALUE;
             for (int face = 0; face < faces.size(); face++) {
                 int faceId = faces.get(face);
                 int corners = copy.faceHalfEdgeCount(faceId);
                 center.zero();
                 for (int cornerIndex = 0; cornerIndex < corners; cornerIndex++) {
-                    copy.vertexPosition(copy.faceVertexAt(faceId, cornerIndex), corner);
-                    copy.vertexPosition(copy.faceVertexAt(faceId, (cornerIndex + 1) % corners),
-                            nextCorner);
-                    center.add(corner);
-                    smallest = Math.min(smallest, corner.distance(nextCorner));
+                    center.add(copy.vertexPosition(copy.faceVertexAt(faceId, cornerIndex), corner));
                 }
                 center.div(Math.max(1, corners));
                 centers[face * 3] = center.x;
@@ -549,9 +519,8 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
                 centers[face * 3 + 2] = center.z;
             }
             clouds.add(centers);
-            dotRadii[index] = smallest == Float.MAX_VALUE ? 0f : smallest / 2f;
         }
-        setPatchClouds(clouds, dotRadii);
+        setPatchClouds(clouds);
     }
 
     /**
@@ -568,19 +537,19 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         boolean drawCross = showCrossField && crossField.indexCount > 0;
         boolean drawConstraints = showConstraints && constraints.indexCount > 0
                 && constraintRangeCount != null;
-        boolean drawSingularities = showSingularities && singularities != null
-                && singularities.count > 0;
-        boolean drawNodes = showNodes && graphNodes != null && graphNodes.count > 0;
+        showDots(SINGULARITY_DOTS, showSingularities);
+        showDots(GRAPH_NODE_DOTS, showNodes);
+        showDots(LAYOUT_CORNER_DOTS, showLayoutBoundaries);
+        showDots(EMBEDDED_NODE_DOTS, showEmbeddedArcs && showEmbeddedNodes);
         boolean drawLayoutFill = showLayoutPatches
                 && layoutPatchIndexCount != null && layoutPatchIndexCount.length > 0;
         boolean drawLayoutBoundaries = showLayoutBoundaries && layoutBoundaryVertexCount > 0;
         boolean drawQuadGrid = showQuadGrid && layoutLines.vertexCount > layoutBoundaryVertexCount;
         boolean drawEmbeddedArcs = showEmbeddedArcs && (embeddedArcs.vertexCount > 0
-                || embeddedZeroArcs.vertexCount > 0 || embeddedNodes != null);
+                || embeddedZeroArcs.vertexCount > 0);
         boolean drawCopyWireframe = showCopyWireframe && copyWireframe.vertexCount > 0;
-        if (drawSurface || drawCross || drawConstraints || drawSingularities || drawNodes
-                || drawLayoutFill || drawLayoutBoundaries || drawQuadGrid || drawEmbeddedArcs
-                || drawCopyWireframe) {
+        if (drawSurface || drawCross || drawConstraints || drawLayoutFill || drawLayoutBoundaries
+                || drawQuadGrid || drawEmbeddedArcs || drawCopyWireframe) {
             updateOverlayProjection(camera);
         }
         Palette palette = Scene.activePalette();
@@ -622,20 +591,13 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
         if (drawLayoutBoundaries) {
             drawLines(camera, layoutLines, 0, layoutBoundaryVertexCount, palette.text,
                     LAYOUT_LINE_WIDTH);
-            if (beginUnlit(camera)) {
-                drawSpheres(layoutCorners);
-            }
         }
         if (drawEmbeddedArcs) {
             drawLines(camera, embeddedArcs, 0, embeddedArcs.vertexCount, palette.accent,
                     LAYOUT_LINE_WIDTH);
             drawLines(camera, embeddedZeroArcs, 0, embeddedZeroArcs.vertexCount,
                     palette.error, LAYOUT_LINE_WIDTH);
-            if (showEmbeddedNodes && beginUnlit(camera)) {
-                drawSpheres(embeddedNodes);
-            }
         }
-        super.renderOverlays(camera);
         if (drawCross && beginCrossField(camera)) {
             crossFieldShader.setVec4(U_LINE_COLOR, uDirection);
             crossFieldShader.setVec4(V_LINE_COLOR, vDirection);
@@ -658,12 +620,8 @@ public class QuadLayoutOverlay extends MeshOverlayRuntime {
                 drawTriangles(constraints, constraintRangeStart[source.ordinal()], count);
             }
         }
-        if (drawSingularities && beginUnlit(camera)) {
-            drawSpheres(singularities);
-        }
-        if (drawNodes && beginUnlit(camera)) {
-            drawSpheres(graphNodes);
-        }
+        // The line groups and every dot layer last, so the markers sit over the glyphs.
+        super.renderOverlays(camera);
     }
 
     @Override

@@ -67,7 +67,7 @@ SUPERVISOR_FILE = ".ixd-scene-supervisor.sh"
 # launch entries load, and the two roots paths map onto, $HOME and the host's data root.
 REMOTE_PREPARE = """set -e
 root="$HOME/$1"
-mkdir -p "$root/tmp/automation" "$root/.profiler" "$HOME/$2"
+mkdir -p "$root/tmp/automation" "$root/tmp/profiles" "$root/.profiler" "$HOME/$2"
 printf '%s' "$3" > "$root/$4"
 for library in /opt/homebrew/lib/libasyncProfiler.dylib /usr/local/lib/libasyncProfiler.dylib; do
   if [ -e "$library" ]; then ln -sfn "$library" "$root/.profiler/libasyncProfiler"; break; fi

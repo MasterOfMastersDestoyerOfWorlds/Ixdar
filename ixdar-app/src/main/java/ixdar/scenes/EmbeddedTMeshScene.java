@@ -160,7 +160,7 @@ public class EmbeddedTMeshScene extends ModelScene {
         contractOpsSinceLoad = 0;
         quadRuntime.setEmbeddedTMesh(tmesh);
         quadRuntime.clearDiagnostic();
-        quadRuntime.setPatchClouds(List.of(), new float[0]);
+        quadRuntime.setPatchClouds(List.of());
         Platforms.get().log(String.format(
                 "[embedded-tmesh] fixture=%s nodes=%d arcs=%d patches=%d",
                 choice.displayName, tmesh.nodes.size(), tmesh.arcs.size(),
@@ -178,7 +178,7 @@ public class EmbeddedTMeshScene extends ModelScene {
         contraction = new NetworkContraction(tmesh);
         quadRuntime.setEmbeddedTMesh(tmesh);
         quadRuntime.clearDiagnostic();
-        quadRuntime.setPatchClouds(List.of(), new float[0]);
+        quadRuntime.setPatchClouds(List.of());
     }
 
     @Override
@@ -344,11 +344,9 @@ public class EmbeddedTMeshScene extends ModelScene {
                         + contraction.collapseArc.fan.size() + " arcs waits on node "
                         + contraction.collapseArc.movedNodeId);
                 showStepDiagnostic(contraction.collapseArc.stepDiagnostic());
-                quadRuntime.capDiagnosticRegion(quadRuntime.diagnosticRegionRadius);
             } else if (contraction.collapseArc.dragNextArc()) {
                 quadRuntime.setEmbeddedTMesh(tmesh);
                 showStepDiagnostic(contraction.collapseArc.stepDiagnostic());
-                quadRuntime.capDiagnosticRegion(quadRuntime.diagnosticRegionRadius);
                 Platforms.get().log("[drag] dragged arc " + contraction.collapseArc.lastDraggedArcId
                         + " onto vertex " + contraction.collapseArc.targetVertex);
             } else {
@@ -401,8 +399,7 @@ public class EmbeddedTMeshScene extends ModelScene {
      */
     private void displayDiagnostic(ArrangementDiagnosticException failure) {
         failedContractOps = contractOpsSinceLoad;
-        float regionRadius = focusOrbitOn(showStepDiagnostic(failure.diagnostic));
-        quadRuntime.capDiagnosticRegion(regionRadius);
+        focusOrbitOn(showStepDiagnostic(failure.diagnostic));
         Platforms.get().log("[diagnostic] " + failure.getMessage());
         Platforms.get().log("[diagnostic] " + failure.diagnostic.describeGroups()
                 + "; palette " + MeshOverlayRuntime.GROUP_PALETTE_ORDER);

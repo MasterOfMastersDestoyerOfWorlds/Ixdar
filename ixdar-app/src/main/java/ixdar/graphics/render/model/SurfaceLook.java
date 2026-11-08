@@ -63,6 +63,12 @@ public final class SurfaceLook {
     /** The field a {@link Colour#FIELD} look shows, {@code null} for any other. */
     public final FieldSource field;
 
+    /** Field value at the ramp's low end; NaN with {@link #fieldMax} scales to the field's own range. */
+    public final float fieldMin;
+
+    /** Field value at the ramp's high end; NaN scales to the field's own range. */
+    public final float fieldMax;
+
     /**
      * A look in one line.
      *
@@ -73,7 +79,7 @@ public final class SurfaceLook {
      * @param palette     the palette the scene wears with it, {@code null} for the scene's own
      */
     public SurfaceLook(String id, String description, Colour colour, Light light, Palette palette) {
-        this(id, description, colour, light, palette, null);
+        this(id, description, colour, light, palette, null, Float.NaN, Float.NaN);
     }
 
     /**
@@ -85,16 +91,34 @@ public final class SurfaceLook {
      * @param field       its values, read when the look is shown
      */
     public SurfaceLook(String id, String description, Light light, FieldSource field) {
-        this(id, description, Colour.FIELD, light, null, field);
+        this(id, description, Colour.FIELD, light, null, field, Float.NaN, Float.NaN);
+    }
+
+    /**
+     * A field look over a fixed range, so a value means the same colour on every surface: a signed
+     * field from minus to plus the same bound puts zero mid-ramp.
+     *
+     * @param id          id it is known by
+     * @param description what the field is
+     * @param light       how it is lit
+     * @param field       its values, read when the look is shown
+     * @param fieldMin    value at the ramp's low end; lower values clamp to it
+     * @param fieldMax    value at the ramp's high end; higher values clamp to it
+     */
+    public SurfaceLook(String id, String description, Light light, FieldSource field,
+            float fieldMin, float fieldMax) {
+        this(id, description, Colour.FIELD, light, null, field, fieldMin, fieldMax);
     }
 
     private SurfaceLook(String id, String description, Colour colour, Light light, Palette palette,
-            FieldSource field) {
+            FieldSource field, float fieldMin, float fieldMax) {
         this.id = id;
         this.description = description;
         this.colour = colour;
         this.light = light;
         this.palette = palette;
         this.field = field;
+        this.fieldMin = fieldMin;
+        this.fieldMax = fieldMax;
     }
 }

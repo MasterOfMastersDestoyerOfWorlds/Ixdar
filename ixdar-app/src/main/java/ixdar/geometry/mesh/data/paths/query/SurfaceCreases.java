@@ -1,6 +1,5 @@
 package ixdar.geometry.mesh.data.paths.query;
 
-import java.util.Arrays;
 import java.util.stream.IntStream;
 
 import org.joml.Vector3f;
@@ -47,6 +46,13 @@ public final class SurfaceCreases {
     /** Diffused valley signal per mesh vertex id, never negative: the curvature strength ranks. */
     public final float[] valleyCurvature;
 
+    /**
+     * Diffused curvature along the groove per mesh vertex id, signed as the valley signal is:
+     * negative where the surface bends convex along the groove, so a groove there is saddle shaped;
+     * {@code null} when the creases were ranked from a bare signal.
+     */
+    public final float[] alongCurvature;
+
     /** Signal at which {@link #valleyStrength} saturates to one. */
     public final double saturation;
 
@@ -63,9 +69,13 @@ public final class SurfaceCreases {
      *
      * @param mesh            surface the signal lives on
      * @param valleySignal    per mesh vertex id, larger in a groove; negative values count as none
+     * @param alongSignal     per mesh vertex id, the other principal curvature in the valley
+     *                        signal's sign, diffused the same way with its sign kept; or
+     *                        {@code null} for none
      * @param saturationFloor smallest signal a saturated groove may have
      */
-    public SurfaceCreases(MeshTopology mesh, float[] valleySignal, double saturationFloor) {
+    public SurfaceCreases(MeshTopology mesh, float[] valleySignal, float[] alongSignal,
+            double saturationFloor) {
         long start = System.nanoTime();
         this.sourceMesh = mesh;
         int vertexIdBound = valleySignal.length;
@@ -87,28 +97,15 @@ public final class SurfaceCreases {
                         mesh.vertexEdgeAt(vertexId, spoke - spokeStart[activeVertex]), vertexId);
             }
         });
-        // Jacobi neighbour averaging spreads a value about one edge per step, so a disc of r edges
-        // takes r squared steps.
-        int steps = (int) Math.ceil(SMOOTHING_EDGES * SMOOTHING_EDGES);
-        double[] smoothed = new double[vertexIdBound];
-        double[] next = new double[vertexIdBound];
-        for (int vertexId = 0; vertexId < vertexIdBound; vertexId++) {
-            smoothed[vertexId] = Math.max(0.0, valleySignal[vertexId]);
-        }
-        for (int step = 0; step < steps; step++) {
-            double[] source = smoothed;
-            double[] target = next;
-            IntStream.range(0, vertexCount).parallel().forEach(activeVertex -> {
-                int vertexId = vertexIds[activeVertex];
-                double sum = source[vertexId];
-                for (int spoke = spokeStart[activeVertex]; spoke < spokeStart[activeVertex + 1];
-                        spoke++) {
-                    sum += source[spokeVertex[spoke]];
-                }
-                target[vertexId] = sum / (spokeStart[activeVertex + 1] - spokeStart[activeVertex] + 1);
-            });
-            smoothed = target;
-            next = source;
+        double[] smoothed = diffuse(valleySignal, true, vertexIds, spokeStart, spokeVertex);
+        if (alongSignal == null) {
+            alongCurvature = null;
+        } else {
+            double[] along = diffuse(alongSignal, false, vertexIds, spokeStart, spokeVertex);
+            alongCurvature = new float[vertexIdBound];
+            for (int vertexId = 0; vertexId < vertexIdBound; vertexId++) {
+                alongCurvature[vertexId] = (float) along[vertexId];
+            }
         }
         double[] positive = new double[vertexCount];
         int positiveCount = 0;
@@ -153,6 +150,45 @@ public final class SurfaceCreases {
     }
 
     /**
+     * A per-vertex signal diffused over {@link #SMOOTHING_EDGES} mean edges, so scan noise at the
+     * edge scale averages out while a feature a few edges wide survives.
+     *
+     * @param signal        per mesh vertex id
+     * @param positivesOnly whether negative values count as zero rather than keeping their sign
+     * @param vertexIds     the active vertex ids, in the order the spokes follow
+     * @param spokeStart    each active vertex's first spoke, plus a closing total
+     * @param spokeVertex   the vertex at the far end of each spoke
+     * @return the diffused signal per mesh vertex id
+     */
+    private static double[] diffuse(float[] signal, boolean positivesOnly, int[] vertexIds,
+            int[] spokeStart, int[] spokeVertex) {
+        // Jacobi neighbour averaging spreads a value about one edge per step, so a disc of r edges
+        // takes r squared steps.
+        int steps = (int) Math.ceil(SMOOTHING_EDGES * SMOOTHING_EDGES);
+        double[] smoothed = new double[signal.length];
+        double[] next = new double[signal.length];
+        for (int vertexId = 0; vertexId < signal.length; vertexId++) {
+            smoothed[vertexId] = positivesOnly ? Math.max(0.0, signal[vertexId]) : signal[vertexId];
+        }
+        for (int step = 0; step < steps; step++) {
+            double[] source = smoothed;
+            double[] target = next;
+            IntStream.range(0, vertexIds.length).parallel().forEach(activeVertex -> {
+                int vertexId = vertexIds[activeVertex];
+                double sum = source[vertexId];
+                for (int spoke = spokeStart[activeVertex]; spoke < spokeStart[activeVertex + 1];
+                        spoke++) {
+                    sum += source[spokeVertex[spoke]];
+                }
+                target[vertexId] = sum / (spokeStart[activeVertex + 1] - spokeStart[activeVertex] + 1);
+            });
+            smoothed = target;
+            next = source;
+        }
+        return smoothed;
+    }
+
+    /**
      * Measures a surface's grooves from its most concave principal curvature, the curvature
      * across a valley, so concave grooves attract and convex ridges do not. Saturation is floored
      * at the median curvature magnitude.
@@ -171,16 +207,21 @@ public final class SurfaceCreases {
         // a groove is the positive maximum curvature; a surface wound inward, whose fan triangles
         // enclose a negative signed volume, is read with the signs swapped.
         boolean outward = mesh.signedVolume() >= 0.0;
+        // The other principal curvature, in the same sign, is the bend along the groove: negative
+        // where the surface turns convex along it, as around a limb.
         float[] signal = new float[mesh.vertexIdBound()];
+        float[] along = new float[mesh.vertexIdBound()];
         double[] magnitude = new double[mesh.vertexCount()];
         for (int activeVertex = 0; activeVertex < mesh.vertexCount(); activeVertex++) {
             int vertexId = mesh.vertexIdAt(activeVertex);
             signal[vertexId] = outward ? curvature.kappaMax(vertexId)
                     : -curvature.kappaMin(vertexId);
+            along[vertexId] = outward ? curvature.kappaMin(vertexId)
+                    : -curvature.kappaMax(vertexId);
             magnitude[activeVertex] = Math.max(Math.abs(curvature.kappaMax(vertexId)),
                     Math.abs(curvature.kappaMin(vertexId)));
         }
-        SurfaceCreases creases = new SurfaceCreases(mesh, signal, magnitude.length == 0 ? 0.0
+        SurfaceCreases creases = new SurfaceCreases(mesh, signal, along, magnitude.length == 0 ? 0.0
                 : smallest(magnitude, magnitude.length, magnitude.length / 2));
         creases.buildMillis = (System.nanoTime() - start) / 1e6;
         return creases;
@@ -251,5 +292,36 @@ public final class SurfaceCreases {
             path[--slot] = vertexId;
         }
         return path;
+    }
+
+    /**
+     * {@link #valleyStrength} as a field look shows it: one value per active vertex of
+     * {@link #sourceMesh}, in active order.
+     *
+     * @return the strength per active vertex
+     */
+    public float[] strengthField() {
+        return activeOrdered(valleyStrength, 1.0);
+    }
+
+    /**
+     * {@link #alongCurvature} as a field look shows it, in units of {@link #saturation} so minus
+     * one is as convex as a saturated groove is concave: one value per active vertex of
+     * {@link #sourceMesh}, in active order.
+     *
+     * @return the bend per active vertex, or {@code null} when the creases carry no along
+     *         curvature
+     */
+    public float[] alongBendField() {
+        return alongCurvature == null ? null
+                : activeOrdered(alongCurvature, saturation > 0.0 ? saturation : 1.0);
+    }
+
+    private float[] activeOrdered(float[] byVertexId, double scale) {
+        float[] activeOrdered = new float[sourceMesh.vertexCount()];
+        for (int index = 0; index < activeOrdered.length; index++) {
+            activeOrdered[index] = (float) (byVertexId[sourceMesh.vertexIdAt(index)] / scale);
+        }
+        return activeOrdered;
     }
 }
