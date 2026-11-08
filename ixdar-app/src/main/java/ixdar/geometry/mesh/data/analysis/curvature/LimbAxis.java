@@ -2,9 +2,6 @@ package ixdar.geometry.mesh.data.analysis.curvature;
 
 import ixdar.geometry.mesh.csg.QuadTriangulation;
 import ixdar.geometry.mesh.data.analysis.segmentation.SemanticPatchDecomposer;
-import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonBranch;
-import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor.SkeletonResult;
-import ixdar.geometry.mesh.data.analysis.skeleton.MeshSkeletonExtractor;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMeshOps;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 
@@ -13,36 +10,27 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
  * girdles it.
  *
  * <p>
- * Two independent estimates: the tangent of the nearest skeleton segment, and the
- * minimum-curvature principal direction, which on any tube is the axis.
+ * The minimum-curvature principal direction, which on any tube is the axis. It only seeds the
+ * girdling plane's scan, which keeps the shortest closed cut whatever the seed.
  */
 public final class LimbAxis {
 
     public static final int COORDINATES_PER_POINT = 3;
 
-    /** Voxel-grid resolution handed to {@link MeshSkeletonExtractor}. */
-    public int resolution = MeshSkeletonExtractor.DEFAULT_RESOLUTION;
-
-    /** Branch-extraction rounds the skeleton may spend, as the ring producers set. */
-    public int skeletonBranchBudget = 4 * MeshSkeletonExtractor.DEFAULT_BRANCH_BUDGET;
-
-    /** Surface the cached skeleton and curvature belong to. */
+    /** Surface the cached curvature belongs to. */
     public MeshTopology surface;
 
-    /** Skeleton of {@link #surface}, or null when extraction found no branch. */
-    public SkeletonResult skeleton;
-
-    /** Principal directions of {@link #surface}, built only when the skeleton is missing. */
+    /** Principal directions of {@link #surface}. */
     public PrincipalDirectionField curvature;
 
     /** Wall time the last {@link #cacheFor} spent, in milliseconds. */
     public double buildMillis;
 
-    private MeshTopology dense;
     private int[] denseIndexByVertexId = new int[0];
 
     /**
-     * Builds the skeleton for {@code mesh}, or reuses the cache when it is the same surface.
+     * Builds the principal directions for {@code mesh}, or reuses the cache when it is the same
+     * surface.
      *
      * @param mesh surface the tool is previewing loops on
      */
@@ -52,9 +40,7 @@ public final class LimbAxis {
         }
         long start = System.nanoTime();
         surface = mesh;
-        skeleton = null;
         curvature = null;
-        dense = null;
         denseIndexByVertexId = new int[0];
         if (mesh == null || mesh.faceCount() == 0) {
             buildMillis = 0.0;
@@ -68,67 +54,22 @@ public final class LimbAxis {
         for (int activeFace = 1; uniform && activeFace < mesh.faceCount(); activeFace++) {
             uniform = mesh.faceVertexCount(mesh.faceIdAt(activeFace)) == corners;
         }
-        if (uniform) {
-            dense = mesh;
-        } else {
+        MeshTopology dense = mesh;
+        if (!uniform) {
             QuadTriangulation split = new QuadTriangulation(mesh).build();
             dense = HalfEdgeMeshOps.buildFromIndexedMesh(split.positions, split.triangles);
         }
-        SkeletonResult extracted =
-                MeshSkeletonExtractor.extract(dense, resolution, skeletonBranchBudget);
-        if (!extracted.branches().isEmpty()) {
-            skeleton = extracted;
+        curvature = PrincipalDirectionField.compute(dense,
+                SemanticPatchDecomposer.computeEdgeDihedrals(dense));
+        denseIndexByVertexId = new int[mesh.vertexIdBound()];
+        for (int index = 0; index < denseIndexByVertexId.length; index++) {
+            denseIndexByVertexId[index] = -1;
+        }
+        for (int index = 0; index < mesh.vertexCount(); index++) {
+            int vertexId = mesh.vertexIdAt(index);
+            denseIndexByVertexId[vertexId] = uniform ? vertexId : index;
         }
         buildMillis = (System.nanoTime() - start) / 1e6;
-    }
-
-    /**
-     * The direction of the skeleton segment the point belongs to: the one whose distance best
-     * matches its own inscribed radius, so a limb passing close by does not claim the point, and
-     * segments rather than samples, since the branches are RDP-simplified to a handful of joints.
-     *
-     * @param x       hit point x
-     * @param y       hit point y
-     * @param z       hit point z
-     * @param outAxis receives the unit axis, packed xyz
-     * @return true when the surface has a skeleton to read a tangent from
-     */
-    public boolean skeletonAxisAt(float x, float y, float z, float[] outAxis) {
-        if (skeleton == null) {
-            return false;
-        }
-        double nearestDistance = Double.POSITIVE_INFINITY;
-        for (SkeletonBranch branch : skeleton.branches()) {
-            for (int joint = 0; joint + 1 < branch.joints().size(); joint++) {
-                float[] from = branch.joints().get(joint).position();
-                float[] to = branch.joints().get(joint + 1).position();
-                double spanX = to[0] - from[0];
-                double spanY = to[1] - from[1];
-                double spanZ = to[2] - from[2];
-                double spanSquared = spanX * spanX + spanY * spanY + spanZ * spanZ;
-                if (spanSquared <= 0.0) {
-                    continue;
-                }
-                double along = ((x - from[0]) * spanX + (y - from[1]) * spanY
-                        + (z - from[2]) * spanZ) / spanSquared;
-                along = Math.max(0.0, Math.min(1.0, along));
-                double gapX = from[0] + along * spanX - x;
-                double gapY = from[1] + along * spanY - y;
-                double gapZ = from[2] + along * spanZ - z;
-                double gap = Math.sqrt(gapX * gapX + gapY * gapY + gapZ * gapZ);
-                double thickness = branch.joints().get(joint).radius()
-                        + along * (branch.joints().get(joint + 1).radius()
-                                - branch.joints().get(joint).radius());
-                double distance = Math.abs(gap - thickness);
-                if (distance < nearestDistance) {
-                    nearestDistance = distance;
-                    outAxis[0] = (float) spanX;
-                    outAxis[1] = (float) spanY;
-                    outAxis[2] = (float) spanZ;
-                }
-            }
-        }
-        return nearestDistance < Double.POSITIVE_INFINITY && normalise(outAxis);
     }
 
     /**
@@ -140,18 +81,7 @@ public final class LimbAxis {
      * @return true when a direction could be averaged
      */
     public boolean curvatureAxisAt(int faceId, float[] outAxis) {
-        if (surface == null) {
-            return false;
-        }
-        if (curvature == null) {
-            if (dense == null) {
-                return false;
-            }
-            curvature = PrincipalDirectionField.compute(dense,
-                    SemanticPatchDecomposer.computeEdgeDihedrals(dense));
-            denseIndexByVertexId = denseIndexMap();
-        }
-        if (faceId < 0 || !surface.hasFace(faceId)) {
+        if (curvature == null || faceId < 0 || !surface.hasFace(faceId)) {
             return false;
         }
         float[] sample = new float[COORDINATES_PER_POINT];
@@ -185,18 +115,6 @@ public final class LimbAxis {
         outAxis[0] += sign * sample[0];
         outAxis[1] += sign * sample[1];
         outAxis[2] += sign * sample[2];
-    }
-
-    private int[] denseIndexMap() {
-        int[] map = new int[surface.vertexIdBound()];
-        for (int index = 0; index < map.length; index++) {
-            map[index] = -1;
-        }
-        for (int index = 0; index < surface.vertexCount(); index++) {
-            int vertexId = surface.vertexIdAt(index);
-            map[vertexId] = dense == surface ? vertexId : index;
-        }
-        return map;
     }
 
     private static boolean normalise(float[] axis) {

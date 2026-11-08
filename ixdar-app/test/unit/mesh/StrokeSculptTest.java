@@ -170,6 +170,13 @@ class StrokeSculptTest {
 
     private static final float PIT_FLOOR_CEILING = 0.5f;
 
+    // A sculpt pass returns a new mesh and leaves its input alone, so every test shares one ball.
+    private static final GeometryBundle BALL = ball(64);
+
+    // Pits wider than a tenth of the ball, and a pass checked only for replaying and keeping a
+    // broad cheek, need no fine cage.
+    private static final GeometryBundle COARSE_BALL = ball(32);
+
     @TempDir
     Path folder;
 
@@ -231,9 +238,9 @@ class StrokeSculptTest {
     @Test
     void onePassReplaysExactlyAndKeepsItsCheekWhenTheOutlineIsEdited() throws IOException {
         String both = svg("both.svg", WIDER_RIGHT_OUTLINE + ONE_SIDED_CHEEK_RIDGE);
-        assertArrayEquals(positions(sculpt(sphere(), both, SYMMETRY_X).mesh()),
-                positions(sculpt(sphere(), both, SYMMETRY_X).mesh()), "re-running the pass replays it exactly");
-        GeometryBundle edited = sculpt(sphere(), svg("narrower.svg", NARROWER_RIGHT_OUTLINE + ONE_SIDED_CHEEK_RIDGE),
+        assertArrayEquals(positions(sculpt(COARSE_BALL, both, SYMMETRY_X).mesh()),
+                positions(sculpt(COARSE_BALL, both, SYMMETRY_X).mesh()), "re-running the pass replays it exactly");
+        GeometryBundle edited = sculpt(COARSE_BALL, svg("narrower.svg", NARROWER_RIGHT_OUTLINE + ONE_SIDED_CHEEK_RIDGE),
                 SYMMETRY_X);
         float cheekHeight = ((StrokeSculpt) edited.slots().get(StrokeSculpt.SCULPT_SLOT)).peakDisplacementByStroke[1];
         assertTrue(cheekHeight > MINIMUM_CHEEK_HEIGHT, "the cheek still rises beside the edited outline, by "
@@ -303,7 +310,7 @@ class StrokeSculptTest {
 
     @Test
     void aPitDeeperThanTheBodyStopsShortOfTheFarSide() {
-        MeshTopology pitted = new StrokeSculpt().apply(sphere(), -THROUGH_DEPTH + " r=0.3: 0 0 1").mesh();
+        MeshTopology pitted = new StrokeSculpt().apply(COARSE_BALL, -THROUGH_DEPTH + " r=0.3: 0 0 1").mesh();
         assertEquals(0, inwardFaces(pitted), "a pit pushed past the far side of the ball turns faces inside out");
         // On the axis the pit's floor is the higher of the two surfaces left, the far side the lower.
         Vector3f position = new Vector3f();
@@ -322,7 +329,7 @@ class StrokeSculptTest {
     void twoPitsSunkTowardEachOtherDoNotPassThrough() {
         float height = (float) Math.sqrt(1 - PIT_OFFSET * PIT_OFFSET);
         String pit = -CONVERGING_DEPTH + " r=0.25: ";
-        MeshTopology pits = new StrokeSculpt().apply(sphere(), pit + PIT_OFFSET + " 0 " + height + ";" + pit
+        MeshTopology pits = new StrokeSculpt().apply(COARSE_BALL, pit + PIT_OFFSET + " 0 " + height + ";" + pit
                 + -PIT_OFFSET + " 0 " + height).mesh();
         assertEquals(0, inwardFaces(pits), "two pits sunk along their own normals meet inside the ball and pass "
                 + "through each other");
@@ -562,11 +569,15 @@ class StrokeSculptTest {
                 + edgeOnMoved);
     }
 
-    private GeometryBundle sphere() {
-        MapNodeContext ball = new MapNodeContext(new QuadSphereMeshNode())
-                .with(QuadSphereMeshNode.SIZE, 2f).with(QuadSphereMeshNode.RESOLUTION, 64).eval();
+    private static GeometryBundle sphere() {
+        return BALL;
+    }
+
+    private static GeometryBundle ball(int resolution) {
         return new MapNodeContext(new MergeByDistanceNode())
-                .with(MergeByDistanceNode.GEOMETRY, ball.output(QuadSphereMeshNode.MESH, GeometryBundle.class))
+                .with(MergeByDistanceNode.GEOMETRY, new MapNodeContext(new QuadSphereMeshNode())
+                        .with(QuadSphereMeshNode.SIZE, 2f).with(QuadSphereMeshNode.RESOLUTION, resolution).eval()
+                        .output(QuadSphereMeshNode.MESH, GeometryBundle.class))
                 .with(MergeByDistanceNode.DISTANCE, 1e-4f).eval()
                 .output(MergeByDistanceNode.GEOMETRY_OUT, GeometryBundle.class);
     }
@@ -589,14 +600,13 @@ class StrokeSculptTest {
     private static float mirrorDistance(MeshTopology mesh) {
         float[] xyz = positions(mesh);
         float diagonal = mesh.boundsDiagonal();
+        NearestVertex grid = NearestVertex.over(mesh);
+        Vector3f twin = new Vector3f();
         double total = 0.0;
         for (int vertex = 0; vertex < xyz.length; vertex += 3) {
-            float nearest = Float.POSITIVE_INFINITY;
-            for (int other = 0; other < xyz.length; other += 3) {
-                nearest = Math.min(nearest, Vector3f.distanceSquared(-xyz[vertex], xyz[vertex + 1], xyz[vertex + 2],
-                        xyz[other], xyz[other + 1], xyz[other + 2]));
-            }
-            total += Math.sqrt(nearest);
+            mesh.vertexPosition(grid.nearest(-xyz[vertex], xyz[vertex + 1], xyz[vertex + 2], Float.POSITIVE_INFINITY),
+                    twin);
+            total += twin.distance(-xyz[vertex], xyz[vertex + 1], xyz[vertex + 2]);
         }
         return (float) (total / (xyz.length / 3) / diagonal);
     }

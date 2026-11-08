@@ -62,7 +62,7 @@ public class RingRegionsNode implements MeshNode {
         return Map.of(
                 GEOMETRY.name,
                 "Input: a surface carrying ring edge marks (spline_ring, loop_through_points, "
-                        + "ring_candidates). Output: the same bundle with the regions in the "
+                        + "spline_cut). Output: the same bundle with the regions in the "
                         + RingRegions.SLOT + " slot and, when `tag` is set, the selection as a "
                         + "vertex tag.",
                 LABELS.name,

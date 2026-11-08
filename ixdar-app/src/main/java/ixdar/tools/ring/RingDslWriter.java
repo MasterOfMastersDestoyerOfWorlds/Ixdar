@@ -18,7 +18,6 @@ import java.util.function.Supplier;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.labels.MeshLabels;
-import ixdar.geometry.mesh.data.rings.RingCandidates;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceWaypoints;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
@@ -39,7 +38,7 @@ import ixdar.nodegraph.syntax.PythonParser;
  */
 public final class RingDslWriter {
 
-    public static final String STATEMENT_ID_PREFIX = RingCandidates.MARK_LABEL_PREFIX;
+    public static final String STATEMENT_ID_PREFIX = "ring_";
 
     public static final String DEFAULT_UPSTREAM_PORT = "geometry";
 
@@ -50,8 +49,6 @@ public final class RingDslWriter {
     public static final String NORMAL_ARGUMENT = "normal=\"";
 
     public static final String LABEL_ARGUMENT = "label";
-
-    public static final String CANDIDATES_NODE = "ring_candidates";
 
     public static final String SPLINE_RING_NODE = "spline_ring";
 
@@ -119,8 +116,7 @@ public final class RingDslWriter {
 
     /**
      * The DSL source with one more spline ring appended, its id also clear of the ring labels a
-     * running graph produced without naming them in the text, such as {@code ring_candidates}
-     * output.
+     * running graph produced without naming them in the text.
      *
      * @param dslSource   working graph the ring is added to
      * @param packedXyz   spline anchors as packed xyz
@@ -338,68 +334,6 @@ public final class RingDslWriter {
     }
 
     /**
-     * The DSL source with a chain of statements inserted after the statement a reference names,
-     * every later reader of that reference rewired to read the chain's output.
-     *
-     * @param dslSource         working graph to insert into
-     * @param upstreamReference {@code node.port} the chain reads, such as {@code carrier.geometry}
-     * @param statements        statement lines to insert, in chain order
-     * @param outputReference   {@code node.port} the chain's last statement produces
-     * @throws IllegalArgumentException when no line, or more than one line, binds the node
-     * @return the source with the chain inserted
-     */
-    public static String insertAfter(String dslSource, String upstreamReference,
-            List<String> statements, String outputReference) {
-        String[] lines = dslSource.split(LINE_BREAK, -1);
-        int target = bindingLine(lines, upstreamReference.substring(0,
-                upstreamReference.indexOf('.')));
-        List<String> out = new ArrayList<>();
-        for (int line = 0; line < lines.length; line++) {
-            out.add(line > target ? rewired(lines[line], upstreamReference, outputReference)
-                    : lines[line]);
-            if (line == target) {
-                out.addAll(statements);
-            }
-        }
-        return String.join(LINE_BREAK, out);
-    }
-
-    /**
-     * The DSL source with a block of statements swapped for another, the new block where the
-     * first old statement was and the readers of every old one reading its output; with none
-     * left, it goes after its upstream.
-     *
-     * @param dslSource         working graph holding the block
-     * @param blockIds          ids of the statements that make up the old block, in any order
-     * @param block             statement lines of the new block, in chain order; may be empty
-     * @param upstreamReference {@code node.port} the block reads its geometry from
-     * @param outputReference   {@code node.port} the new block produces, its upstream when empty
-     * @throws IllegalArgumentException when a statement outside the block reads an output that
-     *                                  nothing produces afterwards
-     * @return the source with the block swapped
-     */
-    public static String replaceBlock(String dslSource, Collection<String> blockIds,
-            List<String> block, String upstreamReference, String outputReference) {
-        String source = dslSource;
-        String anchor = null;
-        for (PythonParser.ParsedNode statement : PythonParser.parse(dslSource)) {
-            if (!blockIds.contains(statement.id)) {
-                continue;
-            }
-            if (anchor == null) {
-                anchor = statement.id;
-            } else {
-                source = remove(source, statement.id);
-            }
-        }
-        if (anchor != null) {
-            return replace(source, anchor, block, outputReference);
-        }
-        return block.isEmpty() ? source
-                : insertAfter(source, upstreamReference, block, outputReference);
-    }
-
-    /**
      * The DSL source with every spline ring and bisector wired to its {@code surface_metric}, made
      * when missing, and every crease-mode ring and bisector to that surface's
      * {@code surface_creases}.
@@ -584,19 +518,6 @@ public final class RingDslWriter {
     }
 
     /**
-     * The text of the one line binding a statement id.
-     *
-     * @param dslSource working graph holding the statement
-     * @param id        statement id
-     * @throws IllegalArgumentException when no line, or more than one line, binds the id
-     * @return the line, without its line break
-     */
-    public static String statementLine(String dslSource, String id) {
-        String[] lines = dslSource.split(LINE_BREAK, -1);
-        return lines[bindingLine(lines, id)];
-    }
-
-    /**
      * The {@code node.port} a statement reads its geometry from.
      *
      * @param statement parsed statement, or {@code null}
@@ -626,29 +547,6 @@ public final class RingDslWriter {
             }
         }
         return labelled;
-    }
-
-    /**
-     * The graph's one {@code ring_candidates} statement, the owner of every proposed ring.
-     *
-     * @param statements a graph's parsed statements
-     * @throws IllegalArgumentException when the graph has more than one
-     * @return the statement, or {@code null} when the graph has none
-     */
-    public static PythonParser.ParsedNode candidatesStatement(
-            List<PythonParser.ParsedNode> statements) {
-        PythonParser.ParsedNode found = null;
-        for (PythonParser.ParsedNode statement : statements) {
-            if (!CANDIDATES_NODE.equals(statement.type)) {
-                continue;
-            }
-            if (found != null) {
-                throw new IllegalArgumentException("the working graph has more than one "
-                        + CANDIDATES_NODE + " statement, so a proposed ring has no one owner");
-            }
-            found = statement;
-        }
-        return found;
     }
 
     /**
@@ -741,22 +639,6 @@ public final class RingDslWriter {
     }
 
     /**
-     * One ring statement that reproduces an edge loop element-exact: every loop vertex is a
-     * pinned waypoint, so each arc is the single mesh edge between neighbours and FlipOut has no
-     * free vertex to move.
-     *
-     * @param id            statement id, also the mark label
-     * @param geometryInput reference the ring reads its geometry from, as {@code node.port}
-     * @param loopXyz       the loop's vertex positions in walking order, packed xyz
-     * @param vertexCount   loop vertices to write from the front of the array
-     * @return the statement text, without a trailing newline
-     */
-    public static String exactLoopStatement(String id, String geometryInput, float[] loopXyz,
-            int vertexCount) {
-        return statement(id, geometryInput, loopXyz, vertexCount, true, true);
-    }
-
-    /**
      * The output port a downstream node should read a node type's surface from.
      *
      * @param nodeType DSL id of the upstream node
@@ -821,8 +703,8 @@ public final class RingDslWriter {
 
     /**
      * The highest ring number the text carries, over {@code ring_NN} and legacy {@code ringN} ids,
-     * labels and comments alike, or {@code -1} when it carries none. {@code rings} and
-     * {@code ring_candidates} are not ring numbers and do not count.
+     * labels and comments alike, or {@code -1} when it carries none. A word such as
+     * {@code rings} is not a ring number and does not count.
      *
      * @param dslSource text to scan
      * @return the highest number found, or {@code -1}

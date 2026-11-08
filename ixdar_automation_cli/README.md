@@ -66,7 +66,6 @@ uv run ixdar-cli gen-docs --check  # CI/pre-commit drift gate
 | [`replay-start`](#replay-start) | Launch a replay from a previously saved recording file. |
 | [`replay-status`](#replay-status) | Snapshot of the replay engine: running flag, status, current file, paused flag. |
 | [`request-exit`](#request-exit) | Acknowledge, then asynchronously close the canvas and exit the process. |
-| [`rings-list`](#rings-list) | Rank the neck rings a mesh's skeleton proposes, most neck-like first. |
 | [`screenshot`](#screenshot) | Capture a PNG screenshot of the current framebuffer to a file. |
 | [`scroll`](#scroll) | Deliver a synthesized two-axis scroll event to the active mouse handler. |
 | [`shading`](#shading) | Set the mesh viewer's surface look (default, clay or curvature, with an optional headlight) and leave it on; with no arguments, report it. |
@@ -694,20 +693,6 @@ Acknowledge, then asynchronously close the canvas and exit the process.
 - **Route:** `POST /shutdown`
 - **Response:** `{ok, accepted}`
 - **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/shutdown -d '{}'`
-
-### `rings-list`
-
-[↑ Contents](#contents) · [link to code](../ixdar-app/src/main/java/ixdar/automation/endpoints/ring/ListRings.java)
-
-Rank the neck rings a mesh's skeleton proposes, most neck-like first.
-
-- **Route:** `POST /mesh/rings/list`
-- **Flags:**
-  - `--path` (string, required) — Path to the mesh file to propose rings on., e.g. `ixdar-app/test/resources/quadlayout/figure_8/fertility_in_tri.off`
-  - `--resolution` (int, default `128`) — Voxel resolution for the skeleton., e.g. `128`
-  - `--min-neckness` (float, default `0.6`) — Neckness a ring must reach: the skeleton's local circumference over the ring's length., e.g. `0.6`
-- **Response:** `{ok, path, resolution, ring_count, rings:[{ring, neckness, length, seed_length, centroid, edge_count, ...}], rejected:{...}}`
-- **Direct call:** `curl -s -XPOST http://127.0.0.1:47832/mesh/rings/list -d '{"path": "ixdar-app/test/resources/quadlayout/figure_8/fertility_in_tri.off", "resolution": 128, "min_neckness": 0.6}'`
 
 ### `screenshot`
 

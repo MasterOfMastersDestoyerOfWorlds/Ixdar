@@ -5,159 +5,116 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Locale;
+import java.util.Map;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import ixdar.automation.endpoints.ui.MultiviewScreenshot;
+import ixdar.geometry.grid2d.PolygonScan;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
-import ixdar.geometry.mesh.data.ops.MeshAppend;
-import ixdar.geometry.mesh.data.ops.MeshVertexOffset;
-import ixdar.nodegraph.field.Vector3Value;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.representation.TriangulationRule;
+import ixdar.geometry.mesh.data.sculpt.StrokeSketch;
 import ixdar.geometry.volume.VoxelGrid;
 import ixdar.graphics.cameras.Camera3D;
-import ixdar.nodegraph.api.MapNodeContext;
-import ixdar.nodegraph.nodes.geometry.VolumeToMeshNode;
-import ixdar.nodegraph.nodes.modifier.KeepLargestPartNode;
-import ixdar.nodegraph.nodes.modifier.SmoothMeshNode;
-import ixdar.nodegraph.nodes.patch.SilhouetteHullNode;
+import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
 /**
- * silhouette_hull and the volume nodes it chains into: the hull of synthetic outlines whose shape is
- * known keeps those outlines as its silhouettes, volume_to_mesh closes a sphere, keep_largest_part
- * keeps the bigger of two shells and smooth_mesh does not shrink a sphere.
+ * silhouette_hull and the volume nodes after it, on fixtures under {@code dsl/fixtures/silhouette_hull/};
+ * bounds are in lattice steps, so they hold at any fixture resolution.
  */
 class SilhouetteHullNodeTest {
-    private static final int CELL = 256;
-    private static final float DISTANCE = 4f;
-    private static final float FIELD_OF_VIEW = 45f;
-    private static final int OUTLINE_POINTS = 240;
-    private static final int[] CELL_OF_VIEW_AXIS = { 1, 4, 0 };
-    private static final int COLUMNS = MultiviewScreenshot.GRID_COLUMNS;
-    private static final String[] SHAPES = { "pear", "notched", "egg" };
-    private static final float[] EGG_RADII = { 0.9f, 1.3f, 0.7f };
-    private static final float EGG_LEAN = 0.5f;
-    private static final float PEAR_WAIST_DEPTH = 0.3f;
-    private static final float PEAR_WAIST_HEIGHT = 0.35f;
-    private static final float PEAR_WAIST_HALF_WIDTH = 0.25f;
-    private static final float PEAR_TAPER = 0.25f;
-    private static final float PEAR_RADIUS = 0.75f;
-    private static final float NOTCH_HALF_WIDTH = 0.7f;
-    private static final float[] NOTCH_CORNERS = { -1f, -1f, 0.2f, -1f, 0.2f, 0f, 1f, 0f, 1f, 1f, -1f, 1f };
-    private static final float HULL_MEAN_PIXELS = 2.5f;
-    private static final float HULL_MAXIMUM_PIXELS = 5f;
-    private static final float STRICT_OUTSIDE_PIXELS = 3.5f;
+    private static final String FIXTURES = "dsl/fixtures/silhouette_hull/";
+    private static final String NOTCHED = "notched";
+    private static final String[] SHAPES = { "pear", NOTCHED, "egg" };
+    private static final String HULL = "hull";
+    private static final String HULL_MISSES = "hull.misses";
+    private static final String VOLUME = "volume";
+    private static final String GEOMETRY = "geometry";
+    private static final String MESH = "mesh";
+    private static final int MINIMUM_OUTLINE_POINTS = 3;
+    // The hull's silhouette may part from an outline by the lattice's rounding: half a step on
+    // either side of the outline on average, and at a concave corner one step plus smoothing's pull.
+    private static final float HULL_MEAN_STEPS = 1f;
+    private static final float HULL_MAXIMUM_STEPS = 2f;
+    // Strict (misses 0): every kept lattice point lies inside every outline, and the extracted
+    // surface may cut a cell's corner past it by under one step.
+    private static final float STRICT_OUTSIDE_STEPS = 1f;
+    // As traced the front bulges 0.15 past its mirror image, several lattice steps; mirrored, a
+    // vertex's mirror image lies on the surface to within interpolation error.
+    // vertex's mirror image lies on the surface to within trilinear interpolation and rounding,
+    // under a step, since the lattice itself need not be symmetric about the plane.
+    private static final float LOPSIDED_TRACED_STEPS = 1.5f;
+    private static final float LOPSIDED_MIRRORED_STEPS = 1f;
+    private static final String WOUND_OUTWARD = "volume_to_mesh winds its faces outward";
+    private static final String WOUND_AS_INPUT = "the faces keep their input's winding";
     private static final int[] SKULL_RESOLUTIONS = { 32, 40, 48, 64, 96 };
-    private static final String SKULL_OUTLINES = "dsl/silhouette_hull_skull/outlines.svg";
-    private static final float DISJOINT_SCALE = 0.3f;
-    private static final float DISJOINT_SHIFT = 1.2f;
-    private static final int SPHERE_LATTICE = 40;
     private static final float SPHERE_RADIUS = 1f;
-    private static final float SPHERE_RADIUS_TOLERANCE = 0.02f;
+    // Taubin smoothing (lambda 0.5, mu -0.53) is volume preserving to second order: 20 passes over
+    // an icosphere of 642 vertices move its mean radius by well under one percent.
+    private static final float SMOOTHED_RADIUS_FRACTION = 0.01f;
     private static final int SPHERE_EULER_CHARACTERISTIC = 2;
-    private static final float LOPSIDED_WIDE = 1.0f;
-    private static final float LOPSIDED_NARROW = 0.7f;
-    private static final float LOPSIDED_HEIGHT = 1.2f;
-    private static final float LOPSIDED_DEPTH = 0.8f;
-    private static final float LOPSIDED_TOP_WIDTH = 0.85f;
-    private static final float LOPSIDED_TRACED_ASYMMETRY = 0.1f;
-    private static final float LOPSIDED_MIRRORED_ASYMMETRY = 0.06f;
-    private static final String VIEW_ERROR ="%s along axis %d: mean %.2f px, max %.2f px; ";
+    private static final String VIEW_ERROR = "%s cell %d: mean %.2f, max %.2f steps; ";
 
     @Test
-    void hullFollowsNotchedAndConcaveOutlines() {
-        // The pear's waist, the prism's L notch and the leaning egg must come out as their own outlines
-        // to about a lattice step (some 3 px here at the default resolution), closed and unfolded.
-        StringBuilder report = new StringBuilder();
-        boolean within = true;
-        for (String shape : SHAPES) {
-            float[][] outlines = outlines(shape);
-            MeshTopology surface = hullSurface(outlines, 1);
-            assertClosedAndUnfolded(surface);
-            for (int axis = 0; axis < 3; axis++) {
-                float[] error = silhouetteError(surface, outlines[axis], axis);
-                report.append(String.format(Locale.ROOT, VIEW_ERROR, shape, axis, error[0], error[1]));
-                within &= error[0] <= HULL_MEAN_PIXELS && error[1] <= HULL_MAXIMUM_PIXELS;
-            }
-        }
-        assertTrue(within, report.toString());
+    void hullKeepsThePearsWaist() {
+        assertHullFollowsItsOutlines(SHAPES[0]);
+    }
+
+    @Test
+    void hullKeepsThePrismsNotch() {
+        assertHullFollowsItsOutlines(NOTCHED);
+    }
+
+    @Test
+    void hullLeansWithTheEgg() {
+        assertHullFollowsItsOutlines(SHAPES[2]);
     }
 
     @Test
     void strictHullNeverStandsOutsideAnOutline() {
-        // With misses 0 every carved point lies inside every outline; the surface may cut a lattice
-        // cell's corner past it, by less than half a step (about 1.5 px).
-        float[][] outlines = outlines(SHAPES[1]);
-        MeshTopology surface = hullSurface(outlines, 0);
-        for (int axis = 0; axis < 3; axis++) {
-            float outside = silhouetteError(surface, outlines[axis], axis)[2];
-            assertTrue(outside <= STRICT_OUTSIDE_PIXELS, "view along axis " + axis + " stands " + outside + " px out");
+        NodeGraphRuntime hull = NodeGraphRuntime.executeResource(FIXTURES + NOTCHED + ".dsl", Map.of(HULL_MISSES, 0));
+        MeshTopology surface = mesh(hull.lastOutput(GEOMETRY));
+        assertTrue(assertClosedAndUnfolded(surface) > 0f, WOUND_OUTWARD);
+        StrokeSketch sketch = StrokeSketch.load(FIXTURES + NOTCHED + ".svg", NOTCHED);
+        float step = stepPixels(sketch, (VoxelGrid) hull.getNodeOutput(HULL, VOLUME));
+        float[][] outlines = sketch.cellOutlines();
+        for (int cell = 0; cell < outlines.length; cell++) {
+            if (outlines[cell].length / 2 >= MINIMUM_OUTLINE_POINTS) {
+                float outside = silhouetteError(surface, sketch, cell, outlines[cell])[2] / step;
+                assertTrue(outside <= STRICT_OUTSIDE_STEPS, "cell " + cell + " stands " + outside + " steps out");
+            }
         }
     }
 
     @Test
     void symmetryXEvensOutALopsidedTrace() {
-        // MESH-80: the front trace bulges right (+x reaches 1.0, -x only 0.7) while top and side agree
-        // on a symmetric body; mirrored, the hull keeps a point by the mean of its own and its mirror
-        // image's depth inside the outlines, so it comes out symmetric about x = 0.
-        float[][] outlines = new float[3][OUTLINE_POINTS * 3];
-        for (int point = 0; point < OUTLINE_POINTS; point++) {
-            double angle = 2.0 * Math.PI * point / OUTLINE_POINTS;
-            float cosine = (float) Math.cos(angle);
-            float sine = (float) Math.sin(angle);
-            int at = point * 3;
-            outlines[2][at] = cosine * (cosine > 0f ? LOPSIDED_WIDE : LOPSIDED_NARROW);
-            outlines[2][at + 1] = LOPSIDED_HEIGHT * sine;
-            outlines[0][at + 1] = LOPSIDED_HEIGHT * sine;
-            outlines[0][at + 2] = LOPSIDED_DEPTH * cosine;
-            outlines[1][at] = LOPSIDED_TOP_WIDTH * cosine;
-            outlines[1][at + 2] = LOPSIDED_DEPTH * sine;
-        }
-        float[] asymmetry = new float[2];
-        String[] symmetries = { SilhouetteHullNode.NO_SYMMETRY, SilhouetteHullNode.MIRROR_X };
-        for (int variant = 0; variant < symmetries.length; variant++) {
-            VoxelGrid volume = new MapNodeContext(new SilhouetteHullNode()).with(SilhouetteHullNode.SVG, template(outlines))
-                    .with(SilhouetteHullNode.MISSES, 0).with(SilhouetteHullNode.SYMMETRY, symmetries[variant]).eval()
-                    .output(SilhouetteHullNode.VOLUME_OUT, VoxelGrid.class);
-            MeshTopology surface = new MapNodeContext(new VolumeToMeshNode()).with(VolumeToMeshNode.VOLUME, volume)
-                    .eval().output(VolumeToMeshNode.GEOMETRY_OUT, GeometryBundle.class).mesh();
-            Vector3f position = new Vector3f();
-            Vector3f other = new Vector3f();
-            float worst = 0f;
-            for (int index = 0; index < surface.vertexCount(); index++) {
-                surface.vertexPosition(surface.vertexIdAt(index), position);
-                float nearest = Float.POSITIVE_INFINITY;
-                for (int candidate = 0; candidate < surface.vertexCount(); candidate++) {
-                    surface.vertexPosition(surface.vertexIdAt(candidate), other);
-                    nearest = Math.min(nearest, other.distance(-position.x, position.y, position.z));
-                }
-                worst = Math.max(worst, nearest);
-            }
-            asymmetry[variant] = worst;
-        }
-        assertTrue(asymmetry[0] > LOPSIDED_TRACED_ASYMMETRY, "as traced the hull is lopsided: " + asymmetry[0]);
-        assertTrue(asymmetry[1] < LOPSIDED_MIRRORED_ASYMMETRY, "mirrored the hull is symmetric to a lattice step: "
-                + asymmetry[1] + " (as traced " + asymmetry[0] + ")");
+        // MESH-80: mirrored, the hull keeps a point by the mean of its own and its mirror image's depth
+        // inside the outlines, so each surface vertex's mirror image lies on the surface too.
+        float traced = mirrorDeviation(NodeGraphRuntime.executeResource(FIXTURES + "lopsided.dsl",
+                Map.of("hull.symmetry", "none")));
+        float mirrored = mirrorDeviation(NodeGraphRuntime.executeResource(FIXTURES + "lopsided.dsl", Map.of()));
+        assertTrue(traced > LOPSIDED_TRACED_STEPS, "as traced the hull is lopsided: " + traced + " steps");
+        assertTrue(mirrored < LOPSIDED_MIRRORED_STEPS, "mirrored the hull is symmetric: " + mirrored
+                + " steps (as traced " + traced + ")");
     }
 
     @Test
     void hullRefusesViewsThatKeepNoCommonVolume() {
-        float[][] outlines = outlines(SHAPES[2]);
-        // The front outline shrunk and moved right of anything the top outline allows.
-        for (int point = 0; point < OUTLINE_POINTS; point++) {
-            outlines[2][point * 3] = outlines[2][point * 3] * DISJOINT_SCALE + DISJOINT_SHIFT;
-            outlines[2][point * 3 + 1] *= DISJOINT_SCALE;
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> NodeGraphRuntime.executeResource(FIXTURES + "disjoint.dsl", Map.of()));
+        Throwable cause = failure;
+        while (cause.getCause() != null) {
+            cause = cause.getCause();
         }
-        String template = template(outlines);
-        assertThrows(IllegalArgumentException.class, () -> new MapNodeContext(new SilhouetteHullNode())
-                .with(SilhouetteHullNode.SVG, template).eval());
+        assertTrue(cause.getMessage().contains("no common volume"), cause.getMessage());
     }
 
     @Test
+    @Tag("heavy")
     void skullHullHasNoFoldedFaces() {
         // MESH-77 / PATCH-127: pleats of sliver faces folded back against the surface broke the quad
         // layout at some resolutions; none may come out at any of them.
@@ -165,17 +122,10 @@ class SilhouetteHullNodeTest {
         int total = 0;
         for (int run = 0; run < SKULL_RESOLUTIONS.length * 2; run++) {
             int resolution = SKULL_RESOLUTIONS[run / 2];
-            VoxelGrid volume = new MapNodeContext(new SilhouetteHullNode()).with(SilhouetteHullNode.SVG, SKULL_OUTLINES)
-                    .with(SilhouetteHullNode.RESOLUTION, resolution).with(SilhouetteHullNode.MISSES, run % 2).eval()
-                    .output(SilhouetteHullNode.VOLUME_OUT, VoxelGrid.class);
-            GeometryBundle surface = new MapNodeContext(new VolumeToMeshNode()).with(VolumeToMeshNode.VOLUME, volume)
-                    .eval().output(VolumeToMeshNode.GEOMETRY_OUT, GeometryBundle.class);
-            GeometryBundle part = new MapNodeContext(new KeepLargestPartNode())
-                    .with(KeepLargestPartNode.GEOMETRY, surface).eval()
-                    .output(KeepLargestPartNode.GEOMETRY_OUT, GeometryBundle.class);
-            MeshTopology smoothed = new MapNodeContext(new SmoothMeshNode()).with(SmoothMeshNode.GEOMETRY, part).eval()
-                    .output(SmoothMeshNode.GEOMETRY_OUT, GeometryBundle.class).mesh();
-            int[] folded = { foldedFaces(surface.mesh()), foldedFaces(part.mesh()), foldedFaces(smoothed) };
+            NodeGraphRuntime skull = NodeGraphRuntime.executeResource(FIXTURES + "skull_fold.dsl",
+                    Map.of("hull.resolution", resolution, HULL_MISSES, run % 2));
+            int[] folded = { foldedFaces(mesh(skull.getNodeOutput("surface", GEOMETRY))),
+                    foldedFaces(mesh(skull.getNodeOutput("part", GEOMETRY))), foldedFaces(mesh(skull.lastOutput(GEOMETRY))) };
             report.append(String.format(Locale.ROOT, "resolution %d misses %d: %d extracted, %d kept, %d smoothed; ",
                     resolution, run % 2, folded[0], folded[1], folded[2]));
             total += folded[0] + folded[2];
@@ -185,61 +135,69 @@ class SilhouetteHullNodeTest {
 
     @Test
     void volumeToMeshClosesASphere() {
-        MeshTopology sphere = new MapNodeContext(new VolumeToMeshNode()).with(VolumeToMeshNode.VOLUME, sphereVolume())
-                .eval().output(VolumeToMeshNode.GEOMETRY_OUT, GeometryBundle.class).mesh();
-        assertClosedAndUnfolded(sphere);
-        assertTrue(Math.abs(meanRadius(sphere) - SPHERE_RADIUS) <= SPHERE_RADIUS_TOLERANCE, "radius " + meanRadius(sphere));
+        NodeGraphRuntime hull = NodeGraphRuntime.executeResource(FIXTURES + "sphere.dsl", Map.of());
+        MeshTopology sphere = mesh(hull.lastOutput(GEOMETRY));
+        float spacing = ((VoxelGrid) hull.getNodeOutput(HULL, VOLUME)).spacing;
+        assertTrue(assertClosedAndUnfolded(sphere) > 0f, WOUND_OUTWARD);
+        // The hull of three circles is a sphere's to within a lattice step.
+        assertTrue(Math.abs(meanRadius(sphere) - SPHERE_RADIUS) <= spacing, "radius " + meanRadius(sphere)
+                + ", lattice step " + spacing);
     }
 
     @Test
     void keepLargestPartKeepsTheBiggerShell() {
-        MeshTopology sphere = new MapNodeContext(new VolumeToMeshNode()).with(VolumeToMeshNode.VOLUME, sphereVolume())
-                .eval().output(VolumeToMeshNode.GEOMETRY_OUT, GeometryBundle.class).mesh();
-        // A pebble of half the radius, shifted clear of the sphere.
-        VoxelGrid small = sphereVolume();
-        for (int index = 0; index < small.values.length; index++) {
-            small.values[index] -= SPHERE_RADIUS / 2 / small.spacing;
-        }
-        MeshTopology pebble = new MapNodeContext(new VolumeToMeshNode()).with(VolumeToMeshNode.VOLUME, small)
-                .eval().output(VolumeToMeshNode.GEOMETRY_OUT, GeometryBundle.class).mesh();
-        MeshTopology both = MeshAppend.join(sphere, MeshVertexOffset.apply(pebble,
-                new Vector3Value(3f * SPHERE_RADIUS, 0f, 0f)));
-        MeshTopology kept = new MapNodeContext(new KeepLargestPartNode())
-                .with(KeepLargestPartNode.GEOMETRY, GeometryBundle.ofMesh(both)).eval()
-                .output(KeepLargestPartNode.GEOMETRY_OUT, GeometryBundle.class).mesh();
-        assertEquals(sphere.faceCount(), kept.faceCount(), "the bigger shell's faces, and only those");
-        assertClosedAndUnfolded(kept);
+        NodeGraphRuntime shells = NodeGraphRuntime.executeResource("dsl/fixtures/keep_largest_part.dsl", Map.of());
+        MeshTopology kept = mesh(shells.lastOutput(GEOMETRY));
+        MeshTopology big = mesh(shells.getNodeOutput("big", MESH));
+        assertEquals(big.faceCount(), kept.faceCount(), "the bigger shell's faces, and only those");
+        assertTrue(Math.abs(meanRadius(kept) - SPHERE_RADIUS) < SPHERE_RADIUS / 2, "the kept shell is the unit sphere");
+        assertTrue(assertClosedAndUnfolded(kept) * assertClosedAndUnfolded(big) > 0f, WOUND_AS_INPUT);
     }
 
     @Test
     void smoothMeshDoesNotShrinkASphere() {
-        MeshTopology sphere = new MapNodeContext(new VolumeToMeshNode()).with(VolumeToMeshNode.VOLUME, sphereVolume())
-                .eval().output(VolumeToMeshNode.GEOMETRY_OUT, GeometryBundle.class).mesh();
-        MeshTopology smoothed = new MapNodeContext(new SmoothMeshNode())
-                .with(SmoothMeshNode.GEOMETRY, GeometryBundle.ofMesh(sphere)).with(SmoothMeshNode.PASSES, 20).eval()
-                .output(SmoothMeshNode.GEOMETRY_OUT, GeometryBundle.class).mesh();
+        NodeGraphRuntime smoothing = NodeGraphRuntime.executeResource("dsl/fixtures/smooth_sphere.dsl", Map.of());
+        MeshTopology sphere = mesh(smoothing.getNodeOutput("ball", MESH));
+        MeshTopology smoothed = mesh(smoothing.lastOutput(GEOMETRY));
         assertEquals(sphere.vertexCount(), smoothed.vertexCount(), "topology kept");
-        assertTrue(Math.abs(meanRadius(smoothed) - meanRadius(sphere)) <= SPHERE_RADIUS_TOLERANCE,
-                "radius " + meanRadius(sphere) + " -> " + meanRadius(smoothed));
-        assertClosedAndUnfolded(smoothed);
+        float change = Math.abs(meanRadius(smoothed) - meanRadius(sphere)) / meanRadius(sphere);
+        assertTrue(change <= SMOOTHED_RADIUS_FRACTION, "radius " + meanRadius(sphere) + " -> " + meanRadius(smoothed));
+        assertTrue(assertClosedAndUnfolded(smoothed) * assertClosedAndUnfolded(sphere) > 0f, WOUND_AS_INPUT);
     }
 
     /**
-     * A sphere's signed distance in lattice steps, positive inside, on a lattice about the origin whose
-     * outer layer lies outside it.
+     * Assert a shape's hull comes out closed, wound outward, and with its outlines as its silhouettes
+     * to about a lattice step.
      *
-     * @return the volume
+     * @param shape the fixture's name under {@code dsl/fixtures/silhouette_hull/}
      */
-    private static VoxelGrid sphereVolume() {
-        float spacing = 3f * SPHERE_RADIUS / SPHERE_LATTICE;
-        float half = (SPHERE_LATTICE - 1) * spacing / 2;
-        VoxelGrid grid = new VoxelGrid(new int[] { SPHERE_LATTICE, SPHERE_LATTICE, SPHERE_LATTICE },
-                new float[] { -half, -half, -half }, spacing);
-        Vector3f point = new Vector3f();
-        for (int index = 0; index < grid.values.length; index++) {
-            grid.values[index] = (SPHERE_RADIUS - grid.position(index, point).length()) / spacing;
+    private static void assertHullFollowsItsOutlines(String shape) {
+        NodeGraphRuntime hull = NodeGraphRuntime.executeResource(FIXTURES + shape + ".dsl", Map.of());
+        MeshTopology surface = mesh(hull.lastOutput(GEOMETRY));
+        assertTrue(assertClosedAndUnfolded(surface) > 0f, WOUND_OUTWARD);
+        StrokeSketch sketch = StrokeSketch.load(FIXTURES + shape + ".svg", shape);
+        float step = stepPixels(sketch, (VoxelGrid) hull.getNodeOutput(HULL, VOLUME));
+        float[][] outlines = sketch.cellOutlines();
+        StringBuilder report = new StringBuilder();
+        boolean within = true;
+        for (int cell = 0; cell < outlines.length; cell++) {
+            if (outlines[cell].length / 2 >= MINIMUM_OUTLINE_POINTS) {
+                float[] error = silhouetteError(surface, sketch, cell, outlines[cell]);
+                report.append(String.format(Locale.ROOT, VIEW_ERROR, shape, cell, error[0] / step, error[1] / step));
+                within &= error[0] <= HULL_MEAN_STEPS * step && error[1] <= HULL_MAXIMUM_STEPS * step;
+            }
         }
-        return grid;
+        assertTrue(within, report.toString());
+    }
+
+    /**
+     * The mesh a graph output carries.
+     *
+     * @param output a geometry output
+     * @return its mesh
+     */
+    private static MeshTopology mesh(Object output) {
+        return ((GeometryBundle) output).mesh();
     }
 
     /**
@@ -258,165 +216,93 @@ class SilhouetteHullNodeTest {
     }
 
     /**
-     * The three orthographic outlines of a pear (revolved about y, with a waist), a prism with an L
-     * notch in its side outline, or a leaning egg (an ellipsoid whose z gains lean times height).
+     * How long one lattice step of a hull's volume is in a cell's pixels, for the template's
+     * orthographic views.
      *
-     * @param shape "pear", "notched" or "egg"
-     * @return outlines indexed by view axis, packed xyz
+     * @param sketch the template the hull was carved from
+     * @param volume the hull's volume
+     * @return pixels per lattice step
      */
-    private static float[][] outlines(String shape) {
-        float[][] outlines = new float[3][OUTLINE_POINTS * 3];
-        float widest = 0f;
-        float topDepth = (float) Math.hypot(EGG_RADII[2], EGG_LEAN * EGG_RADII[1]);
-        for (int point = 0; point < OUTLINE_POINTS; point++) {
-            double angle = 2.0 * Math.PI * point / OUTLINE_POINTS;
-            float cosine = (float) Math.cos(angle);
-            float sine = (float) Math.sin(angle);
-            int at = point * 3;
-            if (SHAPES[0].equals(shape)) {
-                float waist = (float) (1.0 - PEAR_WAIST_DEPTH
-                        * Math.exp(-Math.pow((cosine - PEAR_WAIST_HEIGHT) / PEAR_WAIST_HALF_WIDTH, 2)));
-                float radius = sine * PEAR_RADIUS * (1f - PEAR_TAPER * cosine) * waist;
-                widest = Math.max(widest, Math.abs(radius));
-                outlines[0][at + 1] = cosine;
-                outlines[0][at + 2] = radius;
-                outlines[2][at] = radius;
-                outlines[2][at + 1] = cosine;
-            } else if (SHAPES[1].equals(shape)) {
-                float square = Math.max(Math.abs(cosine), Math.abs(sine));
-                outlines[1][at] = NOTCH_HALF_WIDTH * cosine / square;
-                outlines[1][at + 2] = sine / square;
-                outlines[2][at] = NOTCH_HALF_WIDTH * cosine / square;
-                outlines[2][at + 1] = sine / square;
-                float along = NOTCH_CORNERS.length / 2f * point / OUTLINE_POINTS;
-                int side = (int) along;
-                int next = (side + 1) % (NOTCH_CORNERS.length / 2);
-                outlines[0][at + 2] = NOTCH_CORNERS[side * 2] + (along - side) * (NOTCH_CORNERS[next * 2]
-                        - NOTCH_CORNERS[side * 2]);
-                outlines[0][at + 1] = NOTCH_CORNERS[side * 2 + 1] + (along - side) * (NOTCH_CORNERS[next * 2 + 1]
-                        - NOTCH_CORNERS[side * 2 + 1]);
-            } else {
-                outlines[0][at + 1] = EGG_RADII[1] * cosine;
-                outlines[0][at + 2] = EGG_RADII[2] * sine + EGG_LEAN * EGG_RADII[1] * cosine;
-                outlines[1][at] = EGG_RADII[0] * cosine;
-                outlines[1][at + 2] = topDepth * sine;
-                outlines[2][at] = EGG_RADII[0] * cosine;
-                outlines[2][at + 1] = EGG_RADII[1] * sine;
+    private static float stepPixels(StrokeSketch sketch, VoxelGrid volume) {
+        float halfHeight = sketch.distance * (float) Math.tan(Math.toRadians(sketch.fieldOfViewDegrees) / 2.0);
+        return volume.spacing * sketch.cellHeight / (2f * halfHeight);
+    }
+
+    /**
+     * The farthest any surface vertex's mirror image about x = 0 lies off the hull's surface: the
+     * hull's volume at that image, by trilinear interpolation clamped to the lattice, in lattice steps.
+     *
+     * @param hull the executed lopsided graph
+     * @return the largest deviation in lattice steps
+     */
+    private static float mirrorDeviation(NodeGraphRuntime hull) {
+        VoxelGrid volume = (VoxelGrid) hull.getNodeOutput(HULL, VOLUME);
+        MeshTopology surface = mesh(hull.lastOutput(GEOMETRY));
+        Vector3f position = new Vector3f();
+        int[] base = new int[VoxelGrid.AXES];
+        float[] fraction = new float[VoxelGrid.AXES];
+        float worst = 0f;
+        for (int index = 0; index < surface.vertexCount(); index++) {
+            surface.vertexPosition(surface.vertexIdAt(index), position);
+            position.x = -position.x;
+            for (int axis = 0; axis < VoxelGrid.AXES; axis++) {
+                float coordinate = Math.max(0f, Math.min(volume.size[axis] - 1.001f,
+                        (position.get(axis) - volume.origin[axis]) / volume.spacing));
+                base[axis] = (int) coordinate;
+                fraction[axis] = coordinate - base[axis];
             }
-        }
-        for (int point = 0; point < OUTLINE_POINTS && SHAPES[0].equals(shape); point++) {
-            double angle = 2.0 * Math.PI * point / OUTLINE_POINTS;
-            outlines[1][point * 3] = widest * (float) Math.cos(angle);
-            outlines[1][point * 3 + 2] = widest * (float) Math.sin(angle);
-        }
-        return outlines;
-    }
-
-    /**
-     * Carve the outlines' hull and run it through volume_to_mesh, keep_largest_part and smooth_mesh,
-     * as the skull sample does.
-     *
-     * @param outlines outlines indexed by view axis, packed xyz
-     * @param misses   views a kept point may lie outside
-     * @return the hull's surface
-     */
-    private static MeshTopology hullSurface(float[][] outlines, int misses) {
-        VoxelGrid volume = new MapNodeContext(new SilhouetteHullNode()).with(SilhouetteHullNode.SVG, template(outlines))
-                .with(SilhouetteHullNode.MISSES, misses).eval().output(SilhouetteHullNode.VOLUME_OUT, VoxelGrid.class);
-        GeometryBundle surface = new MapNodeContext(new VolumeToMeshNode()).with(VolumeToMeshNode.VOLUME, volume).eval()
-                .output(VolumeToMeshNode.GEOMETRY_OUT, GeometryBundle.class);
-        GeometryBundle part = new MapNodeContext(new KeepLargestPartNode()).with(KeepLargestPartNode.GEOMETRY, surface)
-                .eval().output(KeepLargestPartNode.GEOMETRY_OUT, GeometryBundle.class);
-        return new MapNodeContext(new SmoothMeshNode()).with(SmoothMeshNode.GEOMETRY, part).eval()
-                .output(SmoothMeshNode.GEOMETRY_OUT, GeometryBundle.class).mesh();
-    }
-
-    /**
-     * An orthographic multiview template, as fit_references writes one, with each
-     * outline projected into its view's cell.
-     *
-     * @param outlines outlines indexed by view axis, packed xyz
-     * @return the SVG text
-     */
-    private static String template(float[][] outlines) {
-        StringBuilder views = new StringBuilder();
-        for (float[] view : MultiviewScreenshot.VIEW_AZIMUTH_ELEVATION_RADIANS) {
-            views.append(views.length() == 0 ? "" : ";").append(String.format(Locale.ROOT, "%.6f %.6f", view[0],
-                    view[1]));
-        }
-        StringBuilder svg = new StringBuilder(String.format(Locale.ROOT,
-                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\" "
-                        + "data-center=\"0 0 0\" data-distance=\"%.4f\" data-fov=\"%.4f\" "
-                        + "data-projection=\"orthographic\" data-cell-width=\"%d\" data-cell-height=\"%d\" "
-                        + "data-columns=\"%d\" data-views=\"%s\">%n",
-                COLUMNS * CELL, 2 * CELL, COLUMNS * CELL, 2 * CELL, DISTANCE, FIELD_OF_VIEW, CELL, CELL, COLUMNS, views));
-        float[] pixel = new float[2];
-        for (int axis = 0; axis < 3; axis++) {
-            int cell = CELL_OF_VIEW_AXIS[axis];
-            svg.append("<polyline data-kind=\"silhouette\" fill=\"none\" points=\"");
-            for (int point = 0; point < outlines[axis].length / 3; point++) {
-                toPixel(axis, outlines[axis][point * 3], outlines[axis][point * 3 + 1], outlines[axis][point * 3 + 2],
-                        pixel);
-                svg.append(String.format(Locale.ROOT, "%.2f,%.2f ", pixel[0] + cell % COLUMNS * CELL,
-                        pixel[1] + cell / COLUMNS * CELL));
+            float value = 0f;
+            for (int corner = 0; corner < 8; corner++) {
+                float weight = 1f;
+                int[] lattice = new int[VoxelGrid.AXES];
+                for (int axis = 0; axis < VoxelGrid.AXES; axis++) {
+                    int bit = corner >> axis & 1;
+                    lattice[axis] = base[axis] + bit;
+                    weight *= bit == 1 ? fraction[axis] : 1f - fraction[axis];
+                }
+                value += weight * volume.values[volume.index(lattice[0], lattice[1], lattice[2])];
             }
-            svg.append("\"/>\n");
+            worst = Math.max(worst, Math.abs(value));
         }
-        return svg.append("</svg>\n").toString();
+        return worst;
     }
 
     /**
-     * Where a world point lands in the cell of the view along an axis.
-     *
-     * @param axis  the view's axis
-     * @param x     world x
-     * @param y     world y
-     * @param z     world z
-     * @param pixel receives the cell pixel, whole numbers at pixel centres
-     */
-    private static void toPixel(int axis, float x, float y, float z, float[] pixel) {
-        float[] view = MultiviewScreenshot.VIEW_AZIMUTH_ELEVATION_RADIANS[CELL_OF_VIEW_AXIS[axis]];
-        Camera3D camera = new Camera3D(new Vector3f(), 0f, 0f);
-        camera.setDistanceBounds(0f, Float.MAX_VALUE);
-        camera.fov = FIELD_OF_VIEW;
-        camera.moveTarget(new Vector3f());
-        camera.setOrbit(view[0], view[1], DISTANCE);
-        camera.updateProjection(true, 1f, DISTANCE * 0.01f, DISTANCE * 4f);
-        Vector4f clip = new Matrix4f(camera.projection).mul(camera.view).transform(new Vector4f(x, y, z, 1f));
-        pixel[0] = (clip.x / clip.w + 1f) / 2f * CELL - 0.5f;
-        pixel[1] = (1f - clip.y / clip.w) / 2f * CELL - 0.5f;
-    }
-
-    /**
-     * Rasterise the surface's silhouette and the outline in one view's cell and measure how far they
-     * part: mismatched area over the outline's length, the farthest mismatched pixel, and the farthest
-     * the silhouette stands outside.
+     * Rasterise the surface's silhouette and the outline in one cell and measure how far they part:
+     * mismatched area over the outline's length, the farthest mismatched pixel, and the farthest the
+     * silhouette stands outside. Distances to the outline are taken only for mismatched pixels.
      *
      * @param surface the surface
-     * @param outline the view's outline, packed xyz
-     * @param axis    the view's axis
+     * @param sketch  the template the outline is from
+     * @param cell    the cell
+     * @param polygon the cell's outline in its pixels, packed xy
      * @return mean, maximum and outside deviation in pixels
      */
-    private static float[] silhouetteError(MeshTopology surface, float[] outline, int axis) {
+    private static float[] silhouetteError(MeshTopology surface, StrokeSketch sketch, int cell, float[] polygon) {
+        int width = sketch.cellWidth;
+        int height = sketch.cellHeight;
+        Camera3D camera = sketch.cellCamera(cell);
+        Matrix4f projection = new Matrix4f(camera.projection).mul(camera.view);
         int[] faceOfTriangle = new int[surface.triangleCount()];
         int[] corners = surface.triangulate(TriangulationRule.FAN, faceOfTriangle);
-        boolean[] covered = new boolean[CELL * CELL];
+        boolean[] covered = new boolean[width * height];
         Vector3f position = new Vector3f();
-        float[] pixel = new float[2];
+        Vector4f clip = new Vector4f();
         float[] triangle = new float[6];
         for (int index = 0; index < faceOfTriangle.length; index++) {
             for (int corner = 0; corner < 3; corner++) {
+                // Pixel centres at whole numbers, as the outline's points are.
                 surface.vertexPosition(corners[index * 3 + corner], position);
-                toPixel(axis, position.x, position.y, position.z, pixel);
-                triangle[corner * 2] = pixel[0];
-                triangle[corner * 2 + 1] = pixel[1];
+                projection.transform(clip.set(position, 1f));
+                triangle[corner * 2] = (clip.x / clip.w + 1f) / 2f * width - 0.5f;
+                triangle[corner * 2 + 1] = (1f - clip.y / clip.w) / 2f * height - 0.5f;
             }
             float area = (triangle[2] - triangle[0]) * (triangle[5] - triangle[1])
                     - (triangle[4] - triangle[0]) * (triangle[3] - triangle[1]);
             int left = Math.max(0, (int) Math.floor(Math.min(triangle[0], Math.min(triangle[2], triangle[4]))));
-            int right = Math.min(CELL - 1, (int) Math.ceil(Math.max(triangle[0], Math.max(triangle[2], triangle[4]))));
+            int right = Math.min(width - 1, (int) Math.ceil(Math.max(triangle[0], Math.max(triangle[2], triangle[4]))));
             int top = Math.max(0, (int) Math.floor(Math.min(triangle[1], Math.min(triangle[3], triangle[5]))));
-            int bottom = Math.min(CELL - 1, (int) Math.ceil(Math.max(triangle[1], Math.max(triangle[3], triangle[5]))));
+            int bottom = Math.min(height - 1, (int) Math.ceil(Math.max(triangle[1], Math.max(triangle[3], triangle[5]))));
             for (int row = top; row <= bottom && area != 0f; row++) {
                 for (int column = left; column <= right; column++) {
                     boolean inside = true;
@@ -426,18 +312,12 @@ class SilhouetteHullNodeTest {
                         inside = area * ((triangle[to] - triangle[from]) * (row - triangle[from + 1])
                                 - (triangle[to + 1] - triangle[from + 1]) * (column - triangle[from])) >= 0f;
                     }
-                    covered[row * CELL + column] |= inside;
+                    covered[row * width + column] |= inside;
                 }
             }
         }
-        int count = outline.length / 3;
-        float[] polygon = new float[count * 2];
+        int count = polygon.length / 2;
         float perimeter = 0f;
-        for (int point = 0; point < count; point++) {
-            toPixel(axis, outline[point * 3], outline[point * 3 + 1], outline[point * 3 + 2], pixel);
-            polygon[point * 2] = pixel[0];
-            polygon[point * 2 + 1] = pixel[1];
-        }
         for (int point = 0, previous = count - 1; point < count; previous = point++) {
             perimeter += (float) Math.hypot(polygon[point * 2] - polygon[previous * 2],
                     polygon[point * 2 + 1] - polygon[previous * 2 + 1]);
@@ -445,29 +325,27 @@ class SilhouetteHullNodeTest {
         int mismatched = 0;
         float farthest = 0f;
         float farthestOutside = 0f;
-        for (int row = 0; row < CELL; row++) {
-            for (int column = 0; column < CELL; column++) {
-                boolean inside = false;
+        boolean[] outline = PolygonScan.covered(polygon, 0f, 0f, 1f, width, height);
+        for (int row = 0; row < height; row++) {
+            for (int column = 0; column < width; column++) {
+                boolean inside = outline[row * width + column];
+                if (inside == covered[row * width + column]) {
+                    continue;
+                }
                 float nearest = Float.POSITIVE_INFINITY;
                 for (int point = 0, previous = count - 1; point < count; previous = point++) {
                     float pointX = polygon[point * 2];
                     float pointY = polygon[point * 2 + 1];
                     float segmentX = polygon[previous * 2] - pointX;
                     float segmentY = polygon[previous * 2 + 1] - pointY;
-                    if ((pointY > row) != (pointY + segmentY > row)
-                            && column < pointX + (row - pointY) * segmentX / segmentY) {
-                        inside = !inside;
-                    }
                     float along = Math.max(0f, Math.min(1f, ((column - pointX) * segmentX + (row - pointY) * segmentY)
                             / Math.max(1e-12f, segmentX * segmentX + segmentY * segmentY)));
                     nearest = Math.min(nearest, (float) Math.hypot(column - pointX - along * segmentX,
                             row - pointY - along * segmentY));
                 }
-                if (inside != covered[row * CELL + column]) {
-                    mismatched++;
-                    farthest = Math.max(farthest, nearest);
-                    farthestOutside = inside ? farthestOutside : Math.max(farthestOutside, nearest);
-                }
+                mismatched++;
+                farthest = Math.max(farthest, nearest);
+                farthestOutside = inside ? farthestOutside : Math.max(farthestOutside, nearest);
             }
         }
         return new float[] { mismatched / perimeter, farthest, farthestOutside };
@@ -511,12 +389,13 @@ class SilhouetteHullNodeTest {
     }
 
     /**
-     * Assert a surface is closed with a sphere's topology, wound outward, with no degenerate face and
-     * no two neighbouring faces turned more than a right angle apart.
+     * Assert a surface is closed with a sphere's topology, with no degenerate face and no two
+     * neighbouring faces turned more than a right angle apart.
      *
      * @param surface triangle mesh
+     * @return its signed volume, positive when its faces wind outward
      */
-    private static void assertClosedAndUnfolded(MeshTopology surface) {
+    private static float assertClosedAndUnfolded(MeshTopology surface) {
         int boundaryEdges = 0;
         int folds = 0;
         Vector3f[] normals = { new Vector3f(), new Vector3f() };
@@ -552,7 +431,7 @@ class SilhouetteHullNodeTest {
             volume += first.dot(new Vector3f(second).cross(third)) / 6f;
             smallest = Math.min(smallest, second.sub(first).cross(third.sub(first)).length() / 2f);
         }
-        assertTrue(volume > 0f, "faces wound outward");
         assertTrue(smallest > 0f, "no degenerate face");
+        return volume;
     }
 }

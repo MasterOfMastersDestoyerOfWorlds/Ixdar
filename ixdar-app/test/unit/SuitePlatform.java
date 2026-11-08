@@ -3,15 +3,15 @@ package unit;
 import org.junit.platform.launcher.LauncherSession;
 import org.junit.platform.launcher.LauncherSessionListener;
 
+import ixdar.numeric.sparse.chol.CholeskyBackend;
 import ixdar.platform.AutomationBackend;
 import ixdar.platform.Platforms;
 import ixdar.platform.gl.lwjgl.LwjglGL;
 import ixdar.platform.gl.lwjgl.LwjglPlatform;
 
 /**
- * Installs the desktop platform, registered through {@code META-INF/services}, before the first
- * test class loads, so tests take the desktop backends that ship. It opens no window, so it has no
- * automation server: there is no input to record, and a test must not bind a port.
+ * Before the first test class loads, installs the windowless desktop platform, without an
+ * automation server, and starts the native solver loading in the background as the window does.
  */
 public final class SuitePlatform implements LauncherSessionListener {
 
@@ -28,5 +28,6 @@ public final class SuitePlatform implements LauncherSessionListener {
                 return null;
             }
         }, new LwjglGL());
+        CholeskyBackend.preloadAsync();
     }
 }

@@ -1525,44 +1525,6 @@
       "responseHint": "{ok, accepted}"
     },
     {
-      "commandName": "rings-list",
-      "path": "/mesh/rings/list",
-      "method": "POST",
-      "description": "Rank the neck rings a mesh\u0027s skeleton proposes, most neck-like first.",
-      "sourceClass": "ixdar.automation.endpoints.ring.ListRings",
-      "sourcePath": "ixdar-app/src/main/java/ixdar/automation/endpoints/ring/ListRings.java",
-      "params": [
-        {
-          "name": "path",
-          "cliName": "path",
-          "type": "string",
-          "required": true,
-          "default": "",
-          "help": "Path to the mesh file to propose rings on.",
-          "example": "ixdar-app/test/resources/quadlayout/figure_8/fertility_in_tri.off"
-        },
-        {
-          "name": "resolution",
-          "cliName": "resolution",
-          "type": "int",
-          "required": false,
-          "default": "128",
-          "help": "Voxel resolution for the skeleton.",
-          "example": "128"
-        },
-        {
-          "name": "min_neckness",
-          "cliName": "min_neckness",
-          "type": "float",
-          "required": false,
-          "default": "0.6",
-          "help": "Neckness a ring must reach: the skeleton\u0027s local circumference over the ring\u0027s length.",
-          "example": "0.6"
-        }
-      ],
-      "responseHint": "{ok, path, resolution, ring_count, rings:[{ring, neckness, length, seed_length, centroid, edge_count, ...}], rejected:{...}}"
-    },
-    {
       "commandName": "screenshot",
       "path": "/ui/screenshot",
       "method": "POST",

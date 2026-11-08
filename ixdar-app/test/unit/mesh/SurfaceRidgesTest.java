@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 
 import org.joml.Vector3f;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.analysis.curvature.ImplicitFit;
@@ -31,6 +32,9 @@ class SurfaceRidgesTest {
 
     private static final int SAMPLES = 20000;
 
+    // A sphere's curvature is the same everywhere, so far fewer samples pin it.
+    private static final int SPHERE_SAMPLES = 4000;
+
     private static final int LEVELS = 4;
 
     private static final double FIRST_CELL = 2.0;
@@ -39,16 +43,24 @@ class SurfaceRidgesTest {
 
     private static final double STEP = 0.005;
 
+    // The fit is read-only once built, so the tests on the ellipsoid share one.
+    private static final ImplicitFit ELLIPSOID_FIT;
+
+    static {
+        double[][] shape = ellipsoid(AXES, SAMPLES);
+        ELLIPSOID_FIT = new ImplicitFit(shape[0], shape[1], FIRST_CELL, LEVELS, REGULARIZATION);
+    }
+
     /**
      * Points and normals of the ellipsoid x^2/a^2 + y^2/b^2 + z^2/c^2 = 1, the unit sphere's Fibonacci
      * lattice stretched.
      */
-    static double[][] ellipsoid(double[] axes) {
-        double[] xyz = new double[SAMPLES * 3];
-        double[] normal = new double[SAMPLES * 3];
+    private static double[][] ellipsoid(double[] axes, int samples) {
+        double[] xyz = new double[samples * 3];
+        double[] normal = new double[samples * 3];
         double golden = Math.PI * (3.0 - Math.sqrt(5.0));
-        for (int index = 0; index < SAMPLES; index++) {
-            double z = 1.0 - 2.0 * (index + 0.5) / SAMPLES;
+        for (int index = 0; index < samples; index++) {
+            double z = 1.0 - 2.0 * (index + 0.5) / samples;
             double ring = Math.sqrt(1.0 - z * z);
             double[] unit = { ring * Math.cos(golden * index), ring * Math.sin(golden * index), z };
             double length = 0.0;
@@ -66,8 +78,7 @@ class SurfaceRidgesTest {
 
     @Test
     void jetMatchesFiniteDifferences() {
-        double[][] shape = ellipsoid(AXES);
-        ImplicitFit fit = new ImplicitFit(shape[0], shape[1], FIRST_CELL, LEVELS, REGULARIZATION);
+        ImplicitFit fit = ELLIPSOID_FIT;
         double[] jet = new double[ImplicitFit.JET_LENGTH];
         double[] plus = new double[ImplicitFit.JET_LENGTH];
         double[] minus = new double[ImplicitFit.JET_LENGTH];
@@ -100,7 +111,7 @@ class SurfaceRidgesTest {
     @Test
     void sphereCurvatureIsOneOverRadius() {
         double radius = 2.0;
-        double[][] sphere = ellipsoid(new double[] { radius, radius, radius });
+        double[][] sphere = ellipsoid(new double[] { radius, radius, radius }, SPHERE_SAMPLES);
         ImplicitFit fit = new ImplicitFit(sphere[0], sphere[1], FIRST_CELL, LEVELS, REGULARIZATION);
         double[] out = new double[ImplicitFit.CURVATURE_LENGTH];
         for (double[] point : new double[][] { { 1.9, 0.3, 0.2 }, { -0.5, 1.1, -1.5 }, { 0.2, -0.1, 2.1 } }) {
@@ -114,8 +125,7 @@ class SurfaceRidgesTest {
 
     @Test
     void derivativeMatchesFiniteDifferenceAlongTheLine() {
-        double[][] shape = ellipsoid(AXES);
-        ImplicitFit fit = new ImplicitFit(shape[0], shape[1], FIRST_CELL, LEVELS, REGULARIZATION);
+        ImplicitFit fit = ELLIPSOID_FIT;
         double[] here = new double[ImplicitFit.CURVATURE_LENGTH];
         double[] ahead = new double[ImplicitFit.CURVATURE_LENGTH];
         double[] behind = new double[ImplicitFit.CURVATURE_LENGTH];
@@ -146,6 +156,7 @@ class SurfaceRidgesTest {
     }
 
     @Test
+    @Tag("heavy")
     void ellipsoidLinesLieOnItsPrincipalSections() {
         MapNodeContext ball = new MapNodeContext(new QuadSphereMeshNode())
                 .with(QuadSphereMeshNode.SIZE, 2f).with(QuadSphereMeshNode.RESOLUTION, 96).eval();

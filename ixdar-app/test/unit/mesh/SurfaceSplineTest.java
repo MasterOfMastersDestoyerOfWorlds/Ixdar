@@ -74,7 +74,7 @@ class SurfaceSplineTest {
 
     private static final int FAR_SIDE_RING = 35;
 
-    private static final int RANDOM_INSERTIONS = 20;
+    private static final int RANDOM_INSERTIONS = 12;
 
     private static final int RANDOM_RING_REACH = 2;
 

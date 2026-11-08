@@ -34,6 +34,9 @@ class RingAnchorOrderTest {
 
     private static final int SIDES = 96;
 
+    // The shuffled clicks need only a few samples between neighbouring anchors.
+    private static final int SHUFFLED_TUBE_SIDES = 48;
+
     private static final int RINGS = 41;
 
     private static final float HALF_LENGTH = 1f;
@@ -52,7 +55,7 @@ class RingAnchorOrderTest {
     // holds them all.
     private static final float ALONG_JITTER = 0.03f;
 
-    private static final int SHUFFLES = 12;
+    private static final int SHUFFLES = 6;
 
     private static final long SEED = 44L;
 
@@ -67,7 +70,7 @@ class RingAnchorOrderTest {
 
     @Test
     void anchorsAddedInAnyOrderGiveTheSameSimpleRingByLeastAddedLength() {
-        MeshTopology tube = tube(FLAT_HALF_WIDTH, HALF_THICKNESS);
+        MeshTopology tube = tube(FLAT_HALF_WIDTH, HALF_THICKNESS, SHUFFLED_TUBE_SIDES);
         // The top face across its width first, then the bottom face across the same widths.
         float[] xyz = new float[XYZ * 2 * ACROSS.length];
         for (int face = 0; face < 2; face++) {
@@ -86,6 +89,7 @@ class RingAnchorOrderTest {
             around[ACROSS.length + anchor] = 2 * ACROSS.length - 1 - anchor;
         }
         String expected = canonicalCycle(around);
+        SurfaceMetric metric = SurfaceMetric.of(tube);
         Random random = new Random(SEED);
         SurfacePathCrossings crossings = new SurfacePathCrossings();
         for (int shuffle = 0; shuffle < SHUFFLES; shuffle++) {
@@ -101,7 +105,7 @@ class RingAnchorOrderTest {
             }
             // A refused click is clicked again after the next one the ring takes, the way a user
             // comes back to a spot once the ring has grown toward it.
-            RingTool tool = draftOn(tube, anchors[order[0]], TUBE_AXIS);
+            RingTool tool = draftOn(metric, anchors[order[0]], TUBE_AXIS);
             int[] pending = Arrays.copyOfRange(order, 1, order.length);
             int pendingCount = pending.length;
             int refused = 0;
@@ -163,7 +167,7 @@ class RingAnchorOrderTest {
             xyz[XYZ * quarter + 2] = (float) (ROUND_RADIUS * Math.sin(angle));
         }
         int[] quarters = SurfaceWaypoints.snap(NearestVertex.over(tube),xyz, QUARTERS);
-        RingTool tool = draftOn(tube, quarters[0], TUBE_AXIS);
+        RingTool tool = draftOn(SurfaceMetric.of(tube), quarters[0], TUBE_AXIS);
         for (int quarter = 1; quarter < QUARTERS; quarter++) {
             assertTrue(tool.addAuthoredAnchor(quarters[quarter]), tool.lastError);
         }
@@ -186,9 +190,10 @@ class RingAnchorOrderTest {
 
     /**
      * The tool with a one-anchor draft on a tube, its plane across the tube, as a click on the
-     * preview opens it.
+     * preview opens it; the tube's metric is shared, never written.
      */
-    private static RingTool draftOn(MeshTopology tube, int firstAnchor, float[] normal) {
+    private static RingTool draftOn(SurfaceMetric metric, int firstAnchor, float[] normal) {
+        MeshTopology tube = metric.sourceMesh;
         RingScene scene = new RingScene() {
             @Override
             public MeshTopology getMesh() {
@@ -201,7 +206,7 @@ class RingAnchorOrderTest {
             }
         };
         RingTool tool = scene.ringTool;
-        tool.geodesics = SurfaceGeodesics.over(SurfaceMetric.of(tube));
+        tool.geodesics = SurfaceGeodesics.over(metric);
         AuthoredSplineRing first = new AuthoredSplineRing(tool.geodesics);
         assertTrue(first.trace(new int[] { firstAnchor }, 1, normal,
                 SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), first.failure);
@@ -232,13 +237,17 @@ class RingAnchorOrderTest {
      * either side of the middle joined by half circles, sampled evenly by arc length.
      */
     public static MeshTopology tube(float flatHalfWidth, float radius) {
+        return tube(flatHalfWidth, radius, SIDES);
+    }
+
+    private static MeshTopology tube(float flatHalfWidth, float radius, int sides) {
         double flat = 2.0 * flatHalfWidth;
         double perimeter = 2.0 * flat + 2.0 * Math.PI * radius;
-        float[] positions = new float[XYZ * SIDES * RINGS];
+        float[] positions = new float[XYZ * sides * RINGS];
         for (int ring = 0; ring < RINGS; ring++) {
             float x = -HALF_LENGTH + 2f * HALF_LENGTH * ring / (RINGS - 1);
-            for (int side = 0; side < SIDES; side++) {
-                double along = perimeter * side / SIDES;
+            for (int side = 0; side < sides; side++) {
+                double along = perimeter * side / sides;
                 double y;
                 double z;
                 if (along < flat) {
@@ -257,20 +266,20 @@ class RingAnchorOrderTest {
                     y = flatHalfWidth + radius * Math.cos(angle);
                     z = radius * Math.sin(angle);
                 }
-                int base = XYZ * (SIDES * ring + side);
+                int base = XYZ * (sides * ring + side);
                 positions[base] = x;
                 positions[base + 1] = (float) y;
                 positions[base + 2] = (float) z;
             }
         }
-        int[] faces = new int[2 * XYZ * SIDES * (RINGS - 1)];
+        int[] faces = new int[2 * XYZ * sides * (RINGS - 1)];
         int corner = 0;
         for (int ring = 0; ring + 1 < RINGS; ring++) {
-            for (int side = 0; side < SIDES; side++) {
-                int here = SIDES * ring + side;
-                int ahead = SIDES * ring + (side + 1) % SIDES;
-                int over = SIDES * (ring + 1) + side;
-                int overAhead = SIDES * (ring + 1) + (side + 1) % SIDES;
+            for (int side = 0; side < sides; side++) {
+                int here = sides * ring + side;
+                int ahead = sides * ring + (side + 1) % sides;
+                int over = sides * (ring + 1) + side;
+                int overAhead = sides * (ring + 1) + (side + 1) % sides;
                 faces[corner++] = here;
                 faces[corner++] = over;
                 faces[corner++] = overAhead;

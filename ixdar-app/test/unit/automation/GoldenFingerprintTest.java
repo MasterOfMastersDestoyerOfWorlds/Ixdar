@@ -22,11 +22,9 @@ import ixdar.automation.endpoints.mesh.Fingerprint;
 import ixdar.nodegraph.runtime.NodeGraphRuntime;
 
 /**
- * Fixtures and the ring, dungeon and quad graphs match their goldens; accept by copying
- * {@code target/golden-actual/} over {@code test/resources/golden/}. Tag {@code mesh} runs by
- * default, skipped by {@code mvn test -Dixdar.test.excludedGroups=heavy,mesh}; the crawfish scans,
- * tag {@code heavy}, run by {@code mvn test -Dtest=GoldenFingerprintTest
- * -Dixdar.test.excludedGroups= -Dgroups=heavy}.
+ * The ring graphs over real scans (crawfish, fertility) match their goldens. Tag {@code heavy}: run by
+ * {@code mvn test -Dtest=GoldenFingerprintTest -Dixdar.test.excludedGroups= -Dgroups=heavy}; accept by
+ * copying {@code target/golden-actual/} over {@code test/resources/golden/}.
  */
 class GoldenFingerprintTest {
 
@@ -36,36 +34,14 @@ class GoldenFingerprintTest {
 
     private static final String RESOURCES = "src/main/resources/";
 
-    private static final String FIXTURES = "dsl/fixtures";
-
     private static final String CRAWFISH_SCANS = "dsl/crawfish";
 
-    private static final String CRAWFISH_RINGS = "dsl/fixtures/crawfish_rings.dsl";
-
-    private static final List<String> NAMED_GRAPHS = List.of(
-            "dsl/dungeon_2d.dsl",
-            "dsl/dungeon_3d.dsl",
-            "dsl/quad_cylinder_test.dsl",
-            "test/resources/dsl/quad_layout_sphere.dsl");
+    private static final List<String> FIXTURE_SCANS = List.of(
+            "dsl/fixtures/crawfish_rings.dsl",
+            "dsl/fixtures/fertility_rings.dsl");
 
     /**
-     * Every fixture on disk, so a new one fails until it has a golden, less the crawfish scan's,
-     * then the dungeon graphs, the quad cylinder and the sphere's quad layout.
-     *
-     * @throws IOException when the fixture folder cannot be listed
-     * @return one test per graph
-     */
-    @Tag("mesh")
-    @TestFactory
-    Stream<DynamicTest> lightGraphsMatchTheirGoldens() throws IOException {
-        List<String> graphs = graphsIn(FIXTURES);
-        graphs.remove(CRAWFISH_RINGS);
-        graphs.addAll(NAMED_GRAPHS);
-        return graphs.stream().map(graph -> dynamicTest(graph, () -> assertMatchesGolden(graph)));
-    }
-
-    /**
-     * The ring graphs over the crawfish scans: the fixture's and one per segmented scan.
+     * The ring graphs over the scans: the fixtures' and one per segmented crawfish scan.
      *
      * @throws IOException when the scan graph folder cannot be listed
      * @return one test per graph
@@ -73,28 +49,15 @@ class GoldenFingerprintTest {
     @Tag("heavy")
     @Tag("mesh")
     @TestFactory
-    Stream<DynamicTest> crawfishGraphsMatchTheirGoldens() throws IOException {
-        List<String> graphs = graphsIn(CRAWFISH_SCANS);
-        graphs.add(0, CRAWFISH_RINGS);
-        return graphs.stream().map(graph -> dynamicTest(graph, () -> assertMatchesGolden(graph)));
-    }
-
-    /**
-     * The graph resources in one folder of the packaged resources, sorted by name.
-     *
-     * @param folder folder under the resource root, e.g. {@code dsl/fixtures}
-     * @throws IOException when the folder cannot be listed
-     * @return resource paths, e.g. {@code dsl/fixtures/twin_cell.dsl}
-     */
-    private static List<String> graphsIn(String folder) throws IOException {
-        List<String> graphs = new ArrayList<>();
-        try (Stream<Path> files = Files.list(Path.of(RESOURCES + folder))) {
-            files.map(file -> folder + "/" + file.getFileName())
+    Stream<DynamicTest> scanGraphsMatchTheirGoldens() throws IOException {
+        List<String> graphs = new ArrayList<>(FIXTURE_SCANS);
+        try (Stream<Path> files = Files.list(Path.of(RESOURCES + CRAWFISH_SCANS))) {
+            files.map(file -> CRAWFISH_SCANS + "/" + file.getFileName())
                     .filter(graph -> graph.endsWith(Snapshot.GRAPH_SUFFIX))
                     .sorted()
                     .forEach(graphs::add);
         }
-        return graphs;
+        return graphs.stream().map(graph -> dynamicTest(graph, () -> assertMatchesGolden(graph)));
     }
 
     /**

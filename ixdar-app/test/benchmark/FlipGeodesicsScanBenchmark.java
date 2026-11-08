@@ -4,9 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Locale;
 
 import org.joml.Vector3f;
@@ -15,10 +12,6 @@ import org.junit.jupiter.api.Test;
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.io.MeshLoader;
 import ixdar.geometry.mesh.data.ops.MeshMergeByDistance;
-import ixdar.geometry.mesh.data.paths.geodesic.FlipGeodesics;
-import ixdar.geometry.mesh.data.paths.geodesic.GeodesicSeedPath;
-import ixdar.geometry.mesh.data.paths.geodesic.IntrinsicPathTracer;
-import ixdar.geometry.mesh.data.paths.geodesic.IntrinsicTriangulation;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceMetric;
 import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
@@ -30,10 +23,9 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.representation.ArrayMesh;
 import ixdar.geometry.mesh.data.representation.HalfEdgeMesh;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
-import ixdar.geometry.mesh.data.rings.SurfaceRing;
 
 /**
- * Times FlipOut, a ring row and the ring tool's hover frame on a full-resolution crawfish scan.
+ * Times the ring tool's hover frame on a full-resolution crawfish scan.
  *
  * <pre>
  * mvn test -pl ixdar-app -P test -Dtest=FlipGeodesicsScanBenchmark \
@@ -46,8 +38,6 @@ import ixdar.geometry.mesh.data.rings.SurfaceRing;
 public final class FlipGeodesicsScanBenchmark {
 
     private static final String MESH_PROPERTY = "benchmark.geodesicMesh";
-
-    private static final String SHELL_PROPERTY = "benchmark.shellObj";
 
     private static final String DEFAULT_MESH = "/home/acw/crawfish/IMG_4109.glb";
 
@@ -81,50 +71,6 @@ public final class FlipGeodesicsScanBenchmark {
     // welding coincident positions restores one surface (7 components, 460459 of 468350 vertices).
     private static final float WELD_DISTANCE = 1e-6f;
 
-    /**
-     * Times the leg and body loops through their seed, FlipOut and trace stages.
-     *
-     * @throws IOException if the scan cannot be read
-     */
-    @Test
-    public void tightenCrawfishLegLoop() throws IOException {
-        HalfEdgeMesh mesh = crawfishShell();
-
-        timeLoop("leg", mesh, LEG_WAYPOINTS);
-        timeLoop("body", mesh, BODY_WAYPOINTS);
-    }
-
-    /**
-     * The CRAW-23 ring row for one walking leg, on the shell rather than the raw scan: the ring
-     * scene refuses IMG_4109 itself until CRAW-26 repairs its non-manifold
-     * edges, so the row is produced here the way the timings above are.
-     *
-     * @throws IOException if the scan cannot be read
-     */
-    @Test
-    public void ringRowOnTheCrawfishLeg() throws IOException {
-        HalfEdgeMesh mesh = crawfishShell();
-        String shellPath = System.getProperty(SHELL_PROPERTY, "");
-        if (!shellPath.isEmpty()) {
-            writeObj(mesh, Path.of(shellPath));
-            System.out.printf("[ring] shell written to %s%n", shellPath);
-        }
-        float[] packed = new float[LEG_WAYPOINTS.length * POSITION_STRIDE];
-        for (int waypoint = 0; waypoint < LEG_WAYPOINTS.length; waypoint++) {
-            System.arraycopy(LEG_WAYPOINTS[waypoint], 0, packed, POSITION_STRIDE * waypoint,
-                    POSITION_STRIDE);
-        }
-
-        SurfaceRing ring = SurfaceRing.through(mesh, packed, LEG_WAYPOINTS.length, true, 0,
-                FlipGeodesics.UNBOUNDED_ITERATIONS);
-
-        System.out.printf(
-                "[ring] leg row: %d edges, length %.5f (seed %.5f), centroid %.5f, %.5f, %.5f, "
-                        + "fingerprint %s%n",
-                ring.marks.markedEdgeCount, ring.path.length, ring.seed.length,
-                ring.path.centroid[0], ring.path.centroid[1], ring.path.centroid[2],
-                EdgeMarks.fingerprint(mesh, ring.marks.markedByEdgeId));
-    }
 
     /**
      * Times the ring tool's hover frame — the girdling-plane search and the spline anchor fit that
@@ -268,107 +214,4 @@ public final class FlipGeodesicsScanBenchmark {
         return mesh;
     }
 
-    /**
-     * Times one seed loop through {@code ROUNDS} rounds and prints the warm-best stage split.
-     *
-     * @param name      label printed with every line of this loop's timings
-     * @param mesh      manifold scan surface the loop is tightened on
-     * @param waypoints surface points the seed walk passes through
-     */
-    private static void timeLoop(String name, HalfEdgeMesh mesh, float[][] waypoints) {
-        int[] waypointVertexIds = new int[waypoints.length];
-        NearestVertex grid = NearestVertex.over(mesh);
-        for (int index = 0; index < waypointVertexIds.length; index++) {
-            float[] point = waypoints[index];
-            waypointVertexIds[index] = grid.find(point[0], point[1], point[2]);
-        }
-
-        double bestSetupMillis = Double.POSITIVE_INFINITY;
-        double bestSeedMillis = Double.POSITIVE_INFINITY;
-        double bestFlipMillis = Double.POSITIVE_INFINITY;
-        double bestTraceMillis = Double.POSITIVE_INFINITY;
-        int seedEdges = 0;
-        int tightEdges = 0;
-        int tracePoints = 0;
-        double seedLength = 0.0;
-        double tightLength = 0.0;
-        long flips = 0;
-        for (int round = 0; round < ROUNDS; round++) {
-            long setupStart = System.nanoTime();
-            SurfaceMetric metric = SurfaceMetric.of(mesh);
-            IntrinsicTriangulation intrinsic = IntrinsicTriangulation.over(metric);
-            long setupEnd = System.nanoTime();
-            IntrinsicPathTracer tracer = IntrinsicPathTracer.over(metric);
-            long seedStart = System.nanoTime();
-            int[] seed = GeodesicSeedPath.throughVertices(intrinsic, waypointVertexIds, true);
-            long seedEnd = System.nanoTime();
-            FlipGeodesics flipper = new FlipGeodesics();
-            double seedTotal = intrinsic.chainLength(seed, seed.length);
-            long flipStart = System.nanoTime();
-            int[] tightened = flipper.shorten(intrinsic, seed, true,
-                    FlipGeodesics.UNBOUNDED_ITERATIONS);
-            long flipEnd = System.nanoTime();
-            TracedSurfacePath traced = tracer.trace(intrinsic, tightened, true);
-            long traceEnd = System.nanoTime();
-
-            System.out.printf(
-                    "[flip-geodesics] %s round %d: setup %.1f ms, seed %.1f ms, flipout %.2f ms, "
-                            + "trace %.2f ms (%d -> %d edges, %.5f -> %.5f, %d flips)%n",
-                    name, round, (setupEnd - setupStart) / NANOS_PER_MILLI,
-                    (seedEnd - seedStart) / NANOS_PER_MILLI,
-                    (flipEnd - flipStart) / NANOS_PER_MILLI,
-                    (traceEnd - flipEnd) / NANOS_PER_MILLI,
-                    seed.length, tightened.length, seedTotal, flipper.pathLength(),
-                    flipper.flipCount);
-            if (round < WARMUP_ROUNDS) {
-                continue;
-            }
-            bestSetupMillis = Math.min(bestSetupMillis, (setupEnd - setupStart) / NANOS_PER_MILLI);
-            bestSeedMillis = Math.min(bestSeedMillis, (seedEnd - seedStart) / NANOS_PER_MILLI);
-            bestFlipMillis = Math.min(bestFlipMillis, (flipEnd - flipStart) / NANOS_PER_MILLI);
-            bestTraceMillis = Math.min(bestTraceMillis, (traceEnd - flipEnd) / NANOS_PER_MILLI);
-            seedEdges = seed.length;
-            tightEdges = tightened.length;
-            tracePoints = traced.pointCount;
-            seedLength = seedTotal;
-            tightLength = flipper.pathLength();
-            flips = flipper.flipCount;
-        }
-
-        System.out.printf(
-                "[flip-geodesics] %s warm best: intrinsic setup %.1f ms, seed walk %.1f ms, "
-                        + "FlipOut %.2f ms, trace %.2f ms%n",
-                name, bestSetupMillis, bestSeedMillis, bestFlipMillis, bestTraceMillis);
-        System.out.printf(
-                "[flip-geodesics] %s loop: %d seed edges (%.5f) -> %d geodesic edges (%.5f), "
-                        + "%d flips, %d traced points%n",
-                name, seedEdges, seedLength, tightEdges, tightLength, flips, tracePoints);
-    }
-
-    /**
-     * Writes a mesh as a plain OBJ so the viewer scene can load the shell the ring was measured
-     * on, which the raw scan cannot be until CRAW-26 repairs its non-manifold edges.
-     *
-     * @param mesh mesh to write
-     * @param out  file to write it to
-     * @throws IOException if the file cannot be written
-     */
-    private static void writeObj(HalfEdgeMesh mesh, Path out) throws IOException {
-        Vector3f position = new Vector3f();
-        StringBuilder text = new StringBuilder();
-        for (int index = 0; index < mesh.vertexCount(); index++) {
-            mesh.vertexPosition(mesh.vertexIdAt(index), position);
-            text.append("v ").append(position.x).append(' ').append(position.y).append(' ')
-                    .append(position.z).append('\n');
-        }
-        for (int index = 0; index < mesh.faceCount(); index++) {
-            int faceId = mesh.faceIdAt(index);
-            text.append('f');
-            for (int corner = 0; corner < mesh.faceVertexCount(faceId); corner++) {
-                text.append(' ').append(mesh.faceVertexAt(faceId, corner) + 1);
-            }
-            text.append('\n');
-        }
-        Files.write(out, text.toString().getBytes(StandardCharsets.UTF_8));
-    }
 }

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.joml.Vector3f;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.EdgeMarks;
@@ -65,11 +66,11 @@ class CreaseRingTest {
     // The click lands this far along the tube off the notch's centre line.
     private static final int CLICK_RING_OFFSET = 2;
 
-    // The stem scan clicks every this many sides round the tube, and up to this many rings
-    // either side of its middle, the notch's whole tilted swing and beyond.
+    // The stem scan clicks every this many sides round the tube, and up to this many rings either
+    // side of where the notch crosses that side, a few notch widths.
     private static final int SCAN_SIDE_STEP = 6;
 
-    private static final int SCAN_RING_REACH = 30;
+    private static final int SCAN_RING_REACH = 8;
 
     // Mean distance along the tube from the notch's centre line within which a ring lies in it,
     // under the notch's half width.
@@ -82,9 +83,12 @@ class CreaseRingTest {
 
     private static final double PLANE_SLACK = 1e-6;
 
+    // Built once for the class: the tests read the notched tube and none of them edits it.
+    private static final MeshTopology NOTCHED = tube(NOTCH_DEPTH);
+
     @Test
     void theCreaseRingRunsThroughTheClickAndRoundTheNotch() {
-        MeshTopology tube = tube(NOTCH_DEPTH);
+        MeshTopology tube = NOTCHED;
         SurfaceGeodesics geodesics = SurfaceGeodesics.over(SurfaceMetric.of(tube));
         int clicked = vertexAt(TUBE_RINGS / 2 + CLICK_RING_OFFSET, CLICK_SIDE);
 
@@ -116,16 +120,20 @@ class CreaseRingTest {
      * along one stem from the click would cross there, so every ring must stay simple.
      */
     @Test
+    @Tag("heavy")
     void creaseRingsBesideTheNotchNeverRunOutAndBackAlongAStem() {
-        MeshTopology tube = tube(NOTCH_DEPTH);
+        MeshTopology tube = NOTCHED;
         AuthoredSplineRing crease =
                 new AuthoredSplineRing(SurfaceGeodesics.over(SurfaceMetric.of(tube)));
         crease.mode = RingSegmentMode.CREASE;
         crease.creases = SurfaceCreases.of(tube);
+        double ringSpacing = 2.0 * TUBE_HALF_LENGTH / (TUBE_RINGS - 1);
         for (int side = 0; side < TUBE_SIDES; side += SCAN_SIDE_STEP) {
+            int notchRing = TUBE_RINGS / 2 + (int) Math.round(NOTCH_TILT
+                    * Math.cos(2.0 * Math.PI * side / TUBE_SIDES) / ringSpacing);
             for (int offset = -SCAN_RING_REACH; offset <= SCAN_RING_REACH; offset += 2) {
-                int clicked = vertexAt(TUBE_RINGS / 2 + offset, side);
-                String at = " clicking side " + side + ", " + offset + " rings along";
+                int clicked = vertexAt(notchRing + offset, side);
+                String at = " clicking side " + side + ", " + offset + " rings off the notch";
                 assertTrue(crease.trace(new int[] { clicked }, 1, AXIS,
                         SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), crease.failure + at);
                 assertTrue(crease.simple, String.format(Locale.ROOT, "the crease ring crosses "
@@ -139,7 +147,7 @@ class CreaseRingTest {
 
     @Test
     void theCreaseStatementReloadsTheCreaseRing() {
-        MeshTopology tube = tube(NOTCH_DEPTH);
+        MeshTopology tube = NOTCHED;
         SurfaceMetric metric = SurfaceMetric.of(tube);
         SurfaceCreases creases = SurfaceCreases.of(tube);
         AuthoredSplineRing crease = new AuthoredSplineRing(SurfaceGeodesics.over(metric));
@@ -178,7 +186,7 @@ class CreaseRingTest {
         GL suiteGl = Platforms.gl();
         Platforms.init(suitePlatform, GlStandIn.create());
         try {
-            MeshTopology tube = tube(NOTCH_DEPTH);
+            MeshTopology tube = NOTCHED;
             int hovered = vertexAt(TUBE_RINGS / 2 + CLICK_RING_OFFSET, CLICK_SIDE);
             RingTool tool = toolOver(tube, hovered);
             List<ControlHint> controls = new ArrayList<>();

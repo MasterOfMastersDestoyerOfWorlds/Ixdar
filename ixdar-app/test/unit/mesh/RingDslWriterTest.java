@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -28,14 +27,11 @@ class RingDslWriterTest {
 
     private static final String CARRIER = "carrier = load_mesh(path=\"x.off\")\n";
 
-    private static final String CANDIDATES_ID = "rings";
+    // A statement whose id spells "rings" without being a ring.
+    private static final String RINGS_ID = "rings";
 
-    private static final String CANDIDATES = CARRIER + CANDIDATES_ID
-            + " = ring_candidates(geometry=carrier.geometry, resolution=128)\n";
-
-    private static final String UPSTREAM = "carrier.geometry";
-
-    private static final String GEOMETRY_PORT = ".geometry";
+    private static final String RINGS_GRAPH = CARRIER + RINGS_ID
+            + " = surface_metric(geometry=carrier.geometry)\n";
 
     private static final String FIRST_RING = "ring_00";
 
@@ -45,12 +41,9 @@ class RingDslWriterTest {
 
     private static final String FOURTH_RING = "ring_03";
 
-    private static final String CANDIDATES_OUTPUT = CANDIDATES_ID + GEOMETRY_PORT;
+    private static final String RINGS_OUTPUT = RINGS_ID + ".geometry";
 
     private static final String ELEVENTH_RING = "ring_10";
-
-    private static final Set<String> BLOCK_IDS =
-            Set.of(CANDIDATES_ID, FIRST_RING, SECOND_RING, THIRD_RING);
 
     private static final String AUTHORED_LABEL = "label=\"left_thigh\"";
 
@@ -70,11 +63,11 @@ class RingDslWriterTest {
     private static final String TRAILING_BLANK_LINES = "\n".repeat(400);
 
     @Test
-    void theMintedIdIsOnePastTheHighestNumberInTheFileAndIgnoresTheCandidateStatement() {
-        assertEquals(FIRST_RING, RingDslWriter.nextRingId(CANDIDATES),
-                "`rings = ring_candidates(...)` is not a ring number and must not be counted");
+    void theMintedIdIsOnePastTheHighestNumberInTheFileAndIgnoresTheRingsStatement() {
+        assertEquals(FIRST_RING, RingDslWriter.nextRingId(RINGS_GRAPH),
+                "`rings = ...` is not a ring number and must not be counted");
 
-        StringBuilder ten = new StringBuilder(CANDIDATES);
+        StringBuilder ten = new StringBuilder(RINGS_GRAPH);
         for (int ring = 0; ring < TEN_RINGS; ring++) {
             ten.append(String.format("ring_%02d = spline_ring(geometry=rings.geometry, "
                     + "points=\"0.000000,0.000000,0.000000\", label=\"ring_%02d\")%n", ring, ring));
@@ -120,7 +113,7 @@ class RingDslWriterTest {
 
     @Test
     void theWrittenStatementParsesBackUnderTheMintedRingId() {
-        String appended = RingDslWriter.appendSpline(CANDIDATES, SQUARE, SQUARE_ANCHORS);
+        String appended = RingDslWriter.appendSpline(RINGS_GRAPH, SQUARE, SQUARE_ANCHORS);
 
         List<PythonParser.ParsedNode> statements = PythonParser.parse(appended);
         assertEquals(FIRST_RING, statements.get(statements.size() - 1).id,
@@ -130,14 +123,14 @@ class RingDslWriterTest {
 
     @Test
     void oneSaveOfSeveralRingsMintsAnIdEachAndRewritesTheOneAlreadyWritten() {
-        String source = RingDslWriter.appendSpline(CANDIDATES, SQUARE, SQUARE_ANCHORS);
+        String source = RingDslWriter.appendSpline(RINGS_GRAPH, SQUARE, SQUARE_ANCHORS);
         String secondId = RingDslWriter.nextRingId(source);
         source = RingDslWriter.appendSpline(source, SQUARE, SQUARE_ANCHORS);
         assertEquals(SECOND_RING, secondId,
                 "a second ring saved in the same pass must not reuse the first ring's id");
 
         source = RingDslWriter.replaceSpline(source, FIRST_RING, MOVED_SQUARE, MOVED_ANCHORS);
-        int carrierStatements = PythonParser.parse(CANDIDATES).size();
+        int carrierStatements = PythonParser.parse(RINGS_GRAPH).size();
         List<PythonParser.ParsedNode> statements = PythonParser.parse(source);
         assertEquals(2, statements.size() - carrierStatements,
                 "the save wrote a statement per ring and no more");
@@ -178,7 +171,7 @@ class RingDslWriterTest {
 
     @Test
     void removingARingMidChainRewiresItsReaderAndRoundTripsThroughTheParser() {
-        String source = RingDslWriter.appendSpline(CANDIDATES, SQUARE, SQUARE_ANCHORS);
+        String source = RingDslWriter.appendSpline(RINGS_GRAPH, SQUARE, SQUARE_ANCHORS);
         source = RingDslWriter.appendSpline(source, SQUARE, SQUARE_ANCHORS);
         source = RingDslWriter.appendSpline(source, MOVED_SQUARE, MOVED_ANCHORS);
         assertTrue(source.contains("ring_01 = spline_ring(geometry=ring_00.geometry"), source);
@@ -189,11 +182,11 @@ class RingDslWriterTest {
         assertFalse(removed.contains(FIRST_RING + "."), "a reader still names the removed ring");
         assertTrue(removed.contains("ring_01 = spline_ring(geometry=rings.geometry"),
                 "the reader was not rewired to the removed ring's own input: " + removed);
-        assertEquals(source.replace("geometry=ring_00.geometry", "geometry=" + CANDIDATES_OUTPUT)
+        assertEquals(source.replace("geometry=ring_00.geometry", "geometry=" + RINGS_OUTPUT)
                 .replaceAll("(?m)^ring_00 = .*\\R", ""), removed,
                 "the removal changed more than the one line and its reader's input");
         List<PythonParser.ParsedNode> statements = PythonParser.parse(removed);
-        assertEquals(List.of("carrier", CANDIDATES_ID, SECOND_RING, THIRD_RING),
+        assertEquals(List.of("carrier", RINGS_ID, SECOND_RING, THIRD_RING),
                 statements.stream().map(statement -> statement.id).toList());
         assertEquals(FOURTH_RING, RingDslWriter.nextRingId(removed),
                 "the next ring took an id the file still holds");
@@ -205,7 +198,7 @@ class RingDslWriterTest {
 
     @Test
     void aRemovalWhoseReaderReadsAnotherPortIsRefused() {
-        String source = RingDslWriter.appendSpline(CANDIDATES, SQUARE, SQUARE_ANCHORS)
+        String source = RingDslWriter.appendSpline(RINGS_GRAPH, SQUARE, SQUARE_ANCHORS)
                 + "picked = mark_edges(geometry=rings.geometry, mask=ring_00.selection)\n";
 
         IllegalArgumentException refusal = assertThrows(IllegalArgumentException.class,
@@ -215,45 +208,6 @@ class RingDslWriterTest {
         assertThrows(IllegalArgumentException.class,
                 () -> RingDslWriter.remove(source, "ring_09"),
                 "removing an id the graph does not bind must be refused");
-    }
-
-    @Test
-    void freezingProposedRingsReplacesTheirLineAndUnfreezingWritesItBack() {
-        String candidatesLine = RingDslWriter.statementLine(CANDIDATES, CANDIDATES_ID);
-        String source = RingDslWriter.appendSpline(CANDIDATES, SQUARE, SQUARE_ANCHORS,
-                List.of(FIRST_RING, SECOND_RING, THIRD_RING));
-        String spline = RingDslWriter.statementLine(source, FOURTH_RING);
-        assertTrue(spline.contains(CANDIDATES_OUTPUT), spline);
-        List<String> block = List.of(
-                RingDslWriter.exactLoopStatement(FIRST_RING, UPSTREAM, SQUARE, SQUARE_ANCHORS),
-                RingDslWriter.exactLoopStatement(THIRD_RING, FIRST_RING + GEOMETRY_PORT,
-                        MOVED_SQUARE, MOVED_ANCHORS));
-
-        String frozen = RingDslWriter.replaceBlock(source, BLOCK_IDS, block, UPSTREAM,
-                THIRD_RING + GEOMETRY_PORT);
-
-        assertEquals(String.join(RingDslWriter.LINE_BREAK, CARRIER.strip(), block.get(0),
-                block.get(1), spline.replace(CANDIDATES_OUTPUT, THIRD_RING + GEOMETRY_PORT))
-                + RingDslWriter.LINE_BREAK, frozen);
-        assertTrue(block.get(0).contains("pin=true"), block.get(0));
-        PythonParser.ParsedNode loop = PythonParser.parse(frozen).get(1);
-        assertEquals("loop_through_points", loop.type);
-        assertEquals(FIRST_RING, loop.arguments.get(RingDslWriter.LABEL_ARGUMENT));
-        assertEquals(null, RingDslWriter.candidatesStatement(PythonParser.parse(frozen)));
-
-        String emptied = RingDslWriter.replaceBlock(frozen, BLOCK_IDS, List.of(), UPSTREAM,
-                UPSTREAM);
-        assertEquals(CARRIER + spline.replace(CANDIDATES_OUTPUT, UPSTREAM)
-                + RingDslWriter.LINE_BREAK, emptied,
-                "deleting every frozen ring left a ring statement or a dangling reader");
-
-        String rewrittenFromFrozen = RingDslWriter.replaceBlock(frozen, BLOCK_IDS,
-                List.of(candidatesLine), UPSTREAM, CANDIDATES_OUTPUT);
-        String rewrittenFromEmpty = RingDslWriter.replaceBlock(emptied, BLOCK_IDS,
-                List.of(candidatesLine), UPSTREAM, CANDIDATES_OUTPUT);
-        assertEquals(source, rewrittenFromFrozen, "unfreezing did not restore the original text");
-        assertEquals(source, rewrittenFromEmpty,
-                "unfreezing after every frozen ring was deleted did not restore the original text");
     }
 
     @Test

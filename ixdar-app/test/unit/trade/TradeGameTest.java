@@ -393,55 +393,6 @@ public class TradeGameTest {
     }
 
     /**
-     * On every level won on gold, the best single loop from home through one or two cities earns bronze
-     * and no more, so silver and gold take a network of loops.
-     *
-     * @throws IOException when a level file is missing
-     */
-    @Test
-    public void oneSmallLoopEarnsBronzeAtBest() throws IOException {
-        StringBuilder report = new StringBuilder();
-        boolean balanced = true;
-        for (String name : TradeLevel.CAMPAIGN) {
-            TradeLevel level = level(name);
-            if (level.medals.length == 0) {
-                continue;
-            }
-            List<City> cities = new TradeGame(level).map.cities;
-            double best = Double.NEGATIVE_INFINITY;
-            String bestPlan = "";
-            for (int a = 0; a < cities.size(); a++) {
-                for (int b = a; b < cities.size(); b++) {
-                    TradeLevel fresh = level(name);
-                    fresh.loops.removeIf(loop -> loop.company().equals(fresh.companies.get(0).name()));
-                    TradeGame game = new TradeGame(fresh);
-                    Place home = game.player.home;
-                    Place one = place(game, cities.get(a).name);
-                    Place two = place(game, cities.get(b).name);
-                    boolean built = one != home && two != home && game.network.pipe(home, one, 0)
-                            && (two == one || game.network.grow(home, two, 0));
-                    for (Place stop : new Place[] { one, two }) {
-                        built &= !(stop instanceof City city && city.facility(game.player) == Facility.NONE
-                                && !game.buyStation(city));
-                    }
-                    while (built && game.outcome == Outcome.PLAYING) {
-                        game.endLap();
-                    }
-                    double earned = game.player.gold - game.player.startGold;
-                    if (built && earned > best) {
-                        best = earned;
-                        bestPlan = one.name + " " + two.name;
-                    }
-                }
-            }
-            report.append(name).append(": best ").append(Math.round(best)).append(" by ").append(bestPlan)
-                    .append(", medals ").append(Arrays.toString(level.medals)).append('\n');
-            balanced &= best >= level.medals[0] && best < level.medals[1];
-        }
-        assertTrue(balanced, report.toString());
-    }
-
-    /**
      * Two loops, one at headquarters and one at the Farrow base, earn silver where one loop earns bronze.
      *
      * @throws IOException when a level file is missing

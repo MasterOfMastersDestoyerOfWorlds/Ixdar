@@ -18,6 +18,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -120,6 +121,14 @@ class SculptSyncTest {
     private static final Pattern POINTS = Pattern.compile("points=\"([^\"]*)\"");
 
     private static final Pattern POINT_INDICES = Pattern.compile("data-pts=\"([^\"]*)\"");
+
+    // Syncs and sculpts leave their base alone, so every test shares one.
+    private static final GeometryBundle BALL = new MapNodeContext(new MergeByDistanceNode())
+            .with(MergeByDistanceNode.GEOMETRY, new MapNodeContext(new QuadSphereMeshNode())
+                    .with(QuadSphereMeshNode.SIZE, 2f).with(QuadSphereMeshNode.RESOLUTION, 32).eval()
+                    .output(QuadSphereMeshNode.MESH, GeometryBundle.class))
+            .with(MergeByDistanceNode.DISTANCE, 1e-4f).eval()
+            .output(MergeByDistanceNode.GEOMETRY_OUT, GeometryBundle.class);
 
     @TempDir
     Path folder;
@@ -256,6 +265,7 @@ class SculptSyncTest {
     }
 
     @Test
+    @Tag("heavy")
     void aDrawingRegeneratedWithoutIdsKeepsItsIdsAndSculptsAsTheCameraLiftDoes() throws IOException {
         String drawing = ROOT + PIT + CHEEK + SVG_END + "\n";
         Path svg = layer(PIT + CHEEK);
@@ -431,12 +441,7 @@ class SculptSyncTest {
     }
 
     private static GeometryBundle sphere() {
-        MapNodeContext ball = new MapNodeContext(new QuadSphereMeshNode())
-                .with(QuadSphereMeshNode.SIZE, 2f).with(QuadSphereMeshNode.RESOLUTION, 48).eval();
-        return new MapNodeContext(new MergeByDistanceNode())
-                .with(MergeByDistanceNode.GEOMETRY, ball.output(QuadSphereMeshNode.MESH, GeometryBundle.class))
-                .with(MergeByDistanceNode.DISTANCE, 1e-4f).eval()
-                .output(MergeByDistanceNode.GEOMETRY_OUT, GeometryBundle.class);
+        return BALL;
     }
 
     private static GeometryBundle sculpt(GeometryBundle input, String svgPath) {

@@ -64,7 +64,7 @@ class OutlineTracingTest {
 
     private static final int[] CELLS = { 0, 1, 4, 6 };
 
-    private static final float[] PIXELS_PER_UNIT = { 180f, 95f, 240f, 130f };
+    private static final float[] PIXELS_PER_UNIT = { 120f, 75f, 160f, 100f };
 
     private static final int CELL_SIZE = 400;
 

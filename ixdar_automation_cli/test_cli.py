@@ -1103,7 +1103,6 @@ class CliTest(unittest.TestCase):
         self.assertIn("health", server_commands)
         self.assertIn("click", server_commands)
         self.assertIn("mesh-patches-decompose", server_commands)
-        self.assertIn("rings-list", server_commands)
         self.assertIn("record-start", server_commands)
         self.assertIn("mesh-overlay", server_commands)
 
@@ -1120,19 +1119,6 @@ class CliTest(unittest.TestCase):
         self.assertEqual(0, exit_code)
         request = urlopen.call_args.args[0]
         self.assertEqual("POST", request.method)
-
-    @patch("urllib.request.urlopen")
-    def test_rings_list_posts_the_mesh_path(self, urlopen):
-        urlopen.return_value = FakeResponse({"ok": True, "ring_count": 5, "rings": []})
-        exit_code = ixdar_cli.main(["rings-list", "--path", "fertility_in_tri.off",
-                                    "--min-neckness", "0.6"])
-        self.assertEqual(0, exit_code)
-        request = urlopen.call_args.args[0]
-        self.assertEqual("POST", request.method)
-        self.assertTrue(request.full_url.endswith("/mesh/rings/list"))
-        body = json.loads(request.data.decode("utf-8"))
-        self.assertEqual("fertility_in_tri.off", body["path"])
-        self.assertAlmostEqual(0.6, body["min_neckness"])
 
     def test_a_command_name_with_a_space_parses_as_a_group_subcommand(self):
         # No route declares a grouped name now, so the grouping is checked on a synthetic route.

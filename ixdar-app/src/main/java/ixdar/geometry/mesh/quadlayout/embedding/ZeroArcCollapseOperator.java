@@ -359,25 +359,6 @@ public final class ZeroArcCollapseOperator {
     }
 
     /**
-     * Re-embeds the end of one arc that sits on the moving node's vertex onto the
-     * node's new vertex; the path's end there is the one moved.
-     *
-     * @param arcId            arc whose end is being dragged
-     * @param movedCopyVertex  the moving node's old copy vertex, an endpoint of the
-     *                         arc's path
-     * @param targetCopyVertex the moving node's new copy vertex
-     * @throws IllegalStateException          when the arc's path does not end at the
-     *                                        moved vertex
-     * @throws ArrangementDiagnosticException when refinement still finds no edge
-     *                                        path
-     */
-    public void dragArcEndOntoVertex(int arcId, int movedCopyVertex, int targetCopyVertex) {
-        List<Integer> path = tmesh.arcs.get(arcId).path.copyVertexPath;
-        dragPathEnd(arcId, path.get(path.size() - 1) != movedCopyVertex, true, movedCopyVertex,
-                targetCopyVertex);
-    }
-
-    /**
      * Re-embeds one arc by Dijkstra from its fixed vertex, leaving through the
      * corner it held there, to the node's new vertex beside the arc dragged before
      * it. An arc closing into a loop routes from its middle vertex.

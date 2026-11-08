@@ -4332,98 +4332,6 @@
       "description": "Resamples curve polylines to uniform segment lengths, controlled by the length parameter."
     },
     {
-      "id": "ring_at_branch",
-      "category": "Selection",
-      "scopes": [
-        "mesh",
-        "dungeon"
-      ],
-      "inputs": [
-        {
-          "name": "geometry",
-          "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: the triangle mesh to cut. Output: the same bundle carrying the one ring in the _rings slot, its polyline as curve geometry and its edges marked `ring_00`.",
-          "defaultValue": null
-        },
-        {
-          "name": "branch",
-          "portType": "VECTOR3",
-          "description": "A point near the limb to cut, in surface coordinates; the skeleton branch with the nearest joint is the one cut. Branch numbers are not authored: they change with the voxel resolution, a point does not.",
-          "defaultValue": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-          }
-        },
-        {
-          "name": "t",
-          "portType": "FLOAT",
-          "description": "Fraction of the branch\u0027s length to cut at, 0 at its tip and 1 at the joint where it meets its parent. The plane only seeds the loop, so the tightened ring settles on the nearest constriction to that fraction.",
-          "defaultValue": 0.5
-        },
-        {
-          "name": "resolution",
-          "portType": "INT",
-          "description": "Voxel-grid resolution along the longest bounding-box axis for the skeleton; a branch too thin to appear at this resolution cannot be cut.",
-          "defaultValue": 128
-        }
-      ],
-      "outputs": [
-        {
-          "name": "geometry",
-          "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: the triangle mesh to cut. Output: the same bundle carrying the one ring in the _rings slot, its polyline as curve geometry and its edges marked `ring_00`."
-        },
-        {
-          "name": "selection",
-          "portType": "BOOLEAN",
-          "description": "Per-edge BoolField, true on the ring\u0027s conforming cycle."
-        }
-      ],
-      "description": "Cuts a cross-section ring across the TEASAR skeleton branch nearest an authored point, at a fraction of that branch\u0027s length: the plane there picks three surface points around the limb and FlipOut tightens the walk through them."
-    },
-    {
-      "id": "ring_candidates",
-      "category": "Selection",
-      "scopes": [
-        "mesh",
-        "dungeon"
-      ],
-      "inputs": [
-        {
-          "name": "geometry",
-          "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: the triangle mesh to propose rings on. Output: the same bundle carrying the ranked rings in the _rings slot, their polylines as curve geometry, and one edge-marks label `ring_NN` per ring, numbered in ranked order.",
-          "defaultValue": null
-        },
-        {
-          "name": "resolution",
-          "portType": "INT",
-          "description": "Voxel-grid resolution along the longest bounding-box axis for the skeleton. 128 resolves limb-scale branches; a scan with antenna-scale branches needs 256 or more, at cubic memory cost.",
-          "defaultValue": 128
-        },
-        {
-          "name": "min_neckness",
-          "portType": "FLOAT",
-          "description": "Neckness a ring must reach to be kept: the local circumference, 2*pi times the radius of the sphere inscribed at the ring\u0027s centroid, over the tightened loop\u0027s length. 1 girdles a tube exactly; below about 0.6 the loop wanders across a blend instead of pinching a neck.",
-          "defaultValue": 0.6
-        }
-      ],
-      "outputs": [
-        {
-          "name": "geometry",
-          "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: the triangle mesh to propose rings on. Output: the same bundle carrying the ranked rings in the _rings slot, their polylines as curve geometry, and one edge-marks label `ring_NN` per ring, numbered in ranked order."
-        },
-        {
-          "name": "selection",
-          "portType": "BOOLEAN",
-          "description": "Per-edge BoolField, true on every edge of every accepted ring\u0027s conforming cycle."
-        }
-      ],
-      "description": "Proposes neck loops automatically: every vertex joins its nearest TEASAR skeleton branch, each boundary between two branch regions seeds a loop, FlipOut tightens it, and loops that grew, collapsed or merged are dropped. Survivors are ranked by neckness, the local circumference over the loop\u0027s length."
-    },
-    {
       "id": "ring_regions",
       "category": "Selection",
       "scopes": [
@@ -4434,7 +4342,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: a surface carrying ring edge marks (spline_ring, loop_through_points, ring_candidates). Output: the same bundle with the regions in the _ring_regions slot and, when `tag` is set, the selection as a vertex tag.",
+          "description": "Input: a surface carrying ring edge marks (spline_ring, loop_through_points, spline_cut). Output: the same bundle with the regions in the _ring_regions slot and, when `tag` is set, the selection as a vertex tag.",
           "defaultValue": null
         },
         {
@@ -4460,7 +4368,7 @@
         {
           "name": "geometry",
           "portType": "GEOMETRY_BUNDLE",
-          "description": "Input: a surface carrying ring edge marks (spline_ring, loop_through_points, ring_candidates). Output: the same bundle with the regions in the _ring_regions slot and, when `tag` is set, the selection as a vertex tag."
+          "description": "Input: a surface carrying ring edge marks (spline_ring, loop_through_points, spline_cut). Output: the same bundle with the regions in the _ring_regions slot and, when `tag` is set, the selection as a vertex tag."
         },
         {
           "name": "region",
@@ -4662,45 +4570,6 @@
         }
       ],
       "description": "Produces a per-face boolean selection: true for faces whose normal dotted with a direction exceeds threshold (default 0.7)."
-    },
-    {
-      "id": "select_ring",
-      "category": "Selection",
-      "scopes": [
-        "mesh",
-        "dungeon"
-      ],
-      "inputs": [
-        {
-          "name": "rings",
-          "portType": "GEOMETRY_BUNDLE",
-          "description": "A bundle carrying ring candidates in the _rings slot, as `ring_candidates` or `ring_at_branch` leaves it.",
-          "defaultValue": null
-        },
-        {
-          "name": "point",
-          "portType": "VECTOR3",
-          "description": "Surface point naming the ring: the ring with the nearest polyline point wins, so a coordinate anywhere along the intended neck selects it.",
-          "defaultValue": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-          }
-        }
-      ],
-      "outputs": [
-        {
-          "name": "geometry",
-          "portType": "GEOMETRY_BUNDLE",
-          "description": "The input bundle with the picked ring alone in the _rings slot, its polyline as curve geometry, and its edges marked selected_ring; unchanged when the input carries no rings."
-        },
-        {
-          "name": "selection",
-          "portType": "BOOLEAN",
-          "description": "Per-edge BoolField, true on the picked ring\u0027s conforming cycle."
-        }
-      ],
-      "description": "Chooses the proposed ring whose tightened polyline passes nearest a surface point and republishes it alone, as curve geometry, as the `selected_ring` edge marks and as a per-edge selection."
     },
     {
       "id": "separate_geometry",
@@ -4975,6 +4844,42 @@
         }
       ],
       "description": "Volume from outlines traced in any cells of a multiview template: carves a lattice keeping points that all but `misses` views place inside their outline, rounds the carved hull by total-variation smoothing that every outline\u0027s rays still touch, and outputs its smoothed signed distance (positive inside) for volume_to_mesh at level 0."
+    },
+    {
+      "id": "skeleton",
+      "category": "Field \u0026 Data",
+      "scopes": [
+        "mesh",
+        "dungeon"
+      ],
+      "inputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: a closed surface; open boundaries leak the interior fill. Output: the same bundle with one open polyline per skeleton branch as curve geometry, each joint carrying its inscribed radius as the `radius` point attribute and each branch its length as the `length` curve attribute.",
+          "defaultValue": null
+        },
+        {
+          "name": "resolution",
+          "portType": "INT",
+          "description": "Voxel cells along the bounding box\u0027s longest side. A limb needs several voxels across to keep its branch, so thin parts need a finer grid, at cubic memory and time cost.",
+          "defaultValue": 128
+        },
+        {
+          "name": "branch_budget",
+          "portType": "INT",
+          "description": "Farthest-point extraction rounds to spend; rounds that find only a short spur still count, so this exceeds the branch count.",
+          "defaultValue": 50
+        }
+      ],
+      "outputs": [
+        {
+          "name": "geometry",
+          "portType": "GEOMETRY_BUNDLE",
+          "description": "Input: a closed surface; open boundaries leak the interior fill. Output: the same bundle with one open polyline per skeleton branch as curve geometry, each joint carrying its inscribed radius as the `radius` point attribute and each branch its length as the `length` curve attribute."
+        }
+      ],
+      "description": "Extracts the surface\u0027s curve skeleton with TEASAR: the interior is voxelized, each voxel\u0027s distance from the boundary computed, branches traced by a penalized Dijkstra from the deepest voxel to the farthest ones, and each branch simplified with Ramer-Douglas-Peucker. Branches shorter than 15 voxels are dropped."
     },
     {
       "id": "smooth_mesh",

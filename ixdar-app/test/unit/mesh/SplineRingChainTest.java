@@ -150,15 +150,15 @@ class SplineRingChainTest {
         String rebuilt = "sphere = icosphere(radius=1.0, subdivisions=4)\n"
                 + FIRST_LABEL + " = spline_ring(geometry=sphere.mesh, points=\"" + EQUATOR_POINT
                 + "\", label=\"" + FIRST_LABEL + "\")\n"
-                + "rings = ring_candidates(geometry=" + FIRST_LABEL + ".geometry)\n"
-                + SECOND_LABEL + " = spline_ring(geometry=rings.geometry, points=\""
+                + "repaired = repair_mesh(geometry=" + FIRST_LABEL + ".geometry)\n"
+                + SECOND_LABEL + " = spline_ring(geometry=repaired.geometry, points=\""
                 + MERIDIAN_POINT + "\", label=\"" + SECOND_LABEL + "\")\n";
         assertEquals("sphere = icosphere(radius=1.0, subdivisions=4)\n"
                 + "surface = surface_metric(geometry=sphere.mesh)\n"
                 + FIRST_LABEL + " = spline_ring(geometry=surface.geometry, metric=surface.metric, "
                 + "points=\"" + EQUATOR_POINT + "\", label=\"" + FIRST_LABEL + "\")\n"
-                + "rings = ring_candidates(geometry=" + FIRST_LABEL + ".geometry)\n"
-                + "surface_2 = surface_metric(geometry=rings.geometry)\n"
+                + "repaired = repair_mesh(geometry=" + FIRST_LABEL + ".geometry)\n"
+                + "surface_2 = surface_metric(geometry=repaired.geometry)\n"
                 + SECOND_LABEL + " = spline_ring(geometry=surface_2.geometry, "
                 + "metric=surface_2.metric, points=\"" + MERIDIAN_POINT + "\", label=\""
                 + SECOND_LABEL + "\")\n", RingDslWriter.wireRingInputs(rebuilt));

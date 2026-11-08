@@ -34,7 +34,7 @@ public final class ClosedRingTool extends RingSubTool {
 
     public static final float RING_HIT_PIXELS = 8f;
 
-    /** Skeleton and curvature the preview plane's normal comes from, cached per model. */
+    /** Curvature the preview plane's scan is seeded from, cached per model. */
     public final LimbAxis limbAxis = new LimbAxis();
 
     /** Euclidean length of the previewed spline. */
@@ -54,9 +54,6 @@ public final class ClosedRingTool extends RingSubTool {
 
     /** Limb axis estimated at the hit point, packed xyz. */
     public final float[] previewLimbAxis = new float[RingTool.COORDINATES_PER_POINT];
-
-    /** Whether the loop kept this frame came from the skeleton estimate or the curvature one. */
-    public boolean axisFromSkeleton;
 
     /** Confirmed ring under the cursor, which a click re-opens as the draft, or -1 for none. */
     public int hoveredRing = -1;
@@ -169,11 +166,10 @@ public final class ClosedRingTool extends RingSubTool {
                 : hoveredGraphRing != null ? "over graph ring " + hoveredGraphRing
                         + ": a click converts it into a draft" : "";
         String detail = !unfitted.isEmpty() ? unfitted : String.format(Locale.ROOT, "%d anchors, "
-                + "%d girdle edges, length %.5f, tolerance %.5f, deviation %.5f, %d geodesics%s%s",
+                + "%d girdle edges, length %.5f, tolerance %.5f, deviation %.5f, %d geodesics%s",
                 previewAnchorCount, previewGirdleEdgeCount, previewLength, previewTolerance,
                 previewDeviation, previewGeodesicCount,
-                previewAnchorCapReached ? ", anchor cap reached" : "",
-                axisFromSkeleton ? ", axis from the skeleton" : "");
+                previewAnchorCapReached ? ", anchor cap reached" : "");
         return new Preview(ringTool.previewHitPoint, ringTool.previewValid, ringTool.previewMillis,
                 detail);
     }
@@ -250,9 +246,7 @@ public final class ClosedRingTool extends RingSubTool {
         previewGirdleEdgeCount = 0;
         previewLength = 0.0;
         ringTool.previewSpline = null;
-        axisFromSkeleton = limbAxis.skeletonAxisAt(hitPoint[0], hitPoint[1], hitPoint[2],
-                limbDirection);
-        boolean seeded = axisFromSkeleton || limbAxis.curvatureAxisAt(faceId, limbDirection);
+        boolean seeded = limbAxis.curvatureAxisAt(faceId, limbDirection);
         if (seeded) {
             System.arraycopy(limbDirection, 0, previewLimbAxis, 0, RingTool.COORDINATES_PER_POINT);
         }

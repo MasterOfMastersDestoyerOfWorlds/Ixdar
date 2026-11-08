@@ -43,7 +43,6 @@ import ixdar.nodegraph.runtime.NodeGraphRuntime;
 import ixdar.nodegraph.nodes.data.SurfaceCreasesNode;
 import ixdar.nodegraph.nodes.data.SurfaceMetricNode;
 import ixdar.nodegraph.nodes.selection.LoopThroughPointsNode;
-import ixdar.nodegraph.nodes.selection.SelectRingNode;
 import ixdar.nodegraph.nodes.selection.SplineCutNode;
 import ixdar.nodegraph.nodes.selection.SplineRingNode;
 import ixdar.graphics.cameras.Camera3D;
@@ -98,8 +97,7 @@ public final class RingTool extends Tool {
     public static final String RING_LABEL_PREFIX = "ring";
 
     public static final String[] UNNUMBERED_RING_LABELS = {
-        LoopThroughPointsNode.DEFAULT_MARK_LABEL, SplineRingNode.DEFAULT_MARK_LABEL,
-        SelectRingNode.SELECTED_LABEL };
+        LoopThroughPointsNode.DEFAULT_MARK_LABEL, SplineRingNode.DEFAULT_MARK_LABEL };
 
     public static final int MAXIMUM_RING_DIGITS = 9;
 
@@ -147,27 +145,6 @@ public final class RingTool extends Tool {
      * next save removes any no confirmed ring holds any more, so the file matches memory.
      */
     public final Set<String> knownRingStatementIds = new HashSet<>();
-
-    /**
-     * Labels of the rings the graph's {@code ring_candidates} statement proposed, in rank order,
-     * which a save writes as one block; empty when the graph had no such statement.
-     */
-    public final List<String> candidateLabels = new ArrayList<>();
-
-    /** The ring each proposed label was given at load; a proposed ring is unedited while it is. */
-    public final Map<String, SurfaceSpline> candidateRingByLabel = new HashMap<>();
-
-    /**
-     * For each of {@link #candidateLabels}, the ring the working .dsl holds as last loaded or
-     * saved, or {@code null} where it holds none; a save is due while memory differs.
-     */
-    public final List<SurfaceSpline> writtenCandidateRings = new ArrayList<>();
-
-    /**
-     * The {@code ring_candidates} line the working .dsl held before its rings were frozen, written
-     * back when every proposed ring is live and unedited again, as after an undo.
-     */
-    public String candidatesLine;
 
     /** Whether the graph's rings changed since they were last given anchors. */
     public boolean graphRingsPending = true;
@@ -656,8 +633,8 @@ public final class RingTool extends Tool {
     }
 
     /**
-     * The number drawn beside each ring: its 0-based position in the overlay, so the first
-     * {@code ring_candidates} ring draws 0 and matches its {@code rings-list} row.
+     * The number drawn beside each ring: its 0-based position in the overlay, so the first graph
+     * ring draws 0.
      *
      * @param graphRingLabels the graph's ring mark labels, in statement order, drawn first
      * @param confirmedRingCount rings confirmed in the tool, drawn after the graph's in confirm
@@ -1489,37 +1466,11 @@ public final class RingTool extends Tool {
             }
         }
         for (ConfirmedRing ring : confirmedRings) {
-            if (!candidateLabels.contains(ring.sourceLabel) && (ring.unsaved || ring.deleted)) {
-                unsaved++;
-            }
-        }
-        List<SurfaceSpline> current = currentCandidateRings();
-        for (int candidate = 0; candidate < current.size(); candidate++) {
-            if (current.get(candidate) != writtenCandidateRings.get(candidate)) {
+            if (ring.unsaved || ring.deleted) {
                 unsaved++;
             }
         }
         return unsaved;
-    }
-
-    /**
-     * For each proposed label, the live ring standing for it now.
-     *
-     * @return one entry per {@link #candidateLabels} label: its confirmed ring, or {@code null}
-     *         where that ring is deleted
-     */
-    public List<SurfaceSpline> currentCandidateRings() {
-        List<SurfaceSpline> current = new ArrayList<>();
-        for (String label : candidateLabels) {
-            SurfaceSpline live = null;
-            for (ConfirmedRing ring : confirmedRings) {
-                if (label.equals(ring.sourceLabel) && !ring.deleted) {
-                    live = ring.spline;
-                }
-            }
-            current.add(live);
-        }
-        return current;
     }
 
     /**
@@ -1592,84 +1543,15 @@ public final class RingTool extends Tool {
                 return false;
             }
             Set<String> liveLabels = scene.ringMarksByLabel.keySet();
-            // The proposed rings are written as one block: the ring_candidates line while every
-            // one is live and unedited, otherwise each live ring frozen under its own label, an
-            // unedited one as its exact edge loop and an edited one as a spline ring.
-            List<SurfaceSpline> current = currentCandidateRings();
-            if (!current.equals(writtenCandidateRings)) {
-                PythonParser.ParsedNode candidates = RingDslWriter.candidatesStatement(
-                        PythonParser.parse(source));
-                if (candidates != null) {
-                    candidatesLine = RingDslWriter.statementLine(source, candidates.id);
-                }
-                if (candidatesLine == null) {
-                    throw new IllegalArgumentException("the working .dsl no longer holds the "
-                            + RingDslWriter.CANDIDATES_NODE
-                            + " statement the proposed rings came from");
-                }
-                PythonParser.ParsedNode original = PythonParser.parse(candidatesLine).get(0);
-                String upstream = RingDslWriter.geometryInput(original);
-                boolean unedited = true;
-                for (int candidate = 0; candidate < current.size(); candidate++) {
-                    unedited &= current.get(candidate)
-                            == candidateRingByLabel.get(candidateLabels.get(candidate));
-                    deleted += current.get(candidate) == null
-                            && writtenCandidateRings.get(candidate) != null ? 1 : 0;
-                }
-                List<String> block = new ArrayList<>();
-                String output = upstream;
-                if (unedited) {
-                    block.add(candidatesLine);
-                    output = original.id + "." + RingDslWriter.geometryPort(original.type);
-                }
-                for (int candidate = 0; !unedited && candidate < current.size(); candidate++) {
-                    SurfaceSpline ring = current.get(candidate);
-                    String label = candidateLabels.get(candidate);
-                    if (ring == null && !candidateRingByLabel.containsKey(label)) {
-                        throw new IllegalArgumentException("proposed ring " + label
-                                + " got no anchors at load, so freezing would drop it");
-                    }
-                    if (ring == null) {
-                        continue;
-                    }
-                    if (ring == candidateRingByLabel.get(label)) {
-                        int[] loop = EdgeMarks.orderedLoop(scene.halfEdgeSurface(),
-                                ring.marks.markedByEdgeId);
-                        if (loop.length == 0) {
-                            throw new IllegalArgumentException("proposed ring " + label
-                                    + " is not one closed edge loop, so it cannot be frozen");
-                        }
-                        block.add(RingDslWriter.exactLoopStatement(label, output,
-                                SurfaceWaypoints.resolvingPoints(
-                                        geodesics.metric.nearestVertex, loop, loop.length),
-                                loop.length));
-                    } else {
-                        ConfirmedRing edited = null;
-                        for (ConfirmedRing held : confirmedRings) {
-                            edited = edited == null && held.spline.equals(ring) ? held : edited;
-                        }
-                        int[] authored = edited.authoredVertexId;
-                        block.add(RingDslWriter.withMode(RingDslWriter.splineStatement(label,
-                                output, SurfaceWaypoints.resolvingPoints(
-                                        geodesics.metric.nearestVertex, authored,
-                                        authored.length),
-                                authored.length, edited.baseNormal), label, edited.mode));
-                    }
-                    output = label + "." + RingDslWriter.DEFAULT_UPSTREAM_PORT;
-                }
-                Set<String> blockIds = new HashSet<>(candidateLabels);
-                blockIds.add(original.id);
-                source = RingDslWriter.replaceBlock(source, blockIds, block, upstream, output);
-            }
             for (int ring = 0; ring < confirmedRings.size(); ring++) {
                 ConfirmedRing held = confirmedRings.get(ring);
                 savedId[ring] = held.statementId;
                 boolean deleting = held.deleted;
-                if (!held.unsaved && !deleting || candidateLabels.contains(held.sourceLabel)) {
+                if (!held.unsaved && !deleting) {
                     continue;
                 }
-                // A ring the file holds under another statement, such as a frozen proposed ring,
-                // is removed with it, or rewritten in its place as a spline ring.
+                // A ring the file holds under another statement, such as an exact edge loop, is
+                // removed with it, or rewritten in its place as a spline ring.
                 String sourceLabel = held.sourceLabel;
                 PythonParser.ParsedNode owner = null;
                 if (savedId[ring] == null && sourceLabel != null) {
@@ -1791,15 +1673,6 @@ public final class RingTool extends Tool {
         for (int ring = confirmedRings.size() - 1; ring >= 0; ring--) {
             ConfirmedRing held = confirmedRings.get(ring);
             String sourceLabel = held.sourceLabel;
-            if (candidateLabels.contains(sourceLabel)) {
-                // A proposed ring keeps its label, whichever form the block wrote it in.
-                held.unsaved = false;
-                if (held.deleted) {
-                    scene.ringMarksByLabel.remove(sourceLabel);
-                    confirmedRings.remove(ring);
-                }
-                continue;
-            }
             if (!held.unsaved && !held.deleted) {
                 continue;
             }
@@ -1825,9 +1698,6 @@ public final class RingTool extends Tool {
                 knownRingStatementIds.add(held.statementId);
             }
         }
-        List<SurfaceSpline> written = currentCandidateRings();
-        writtenCandidateRings.clear();
-        writtenCandidateRings.addAll(written);
         invalidateRings();
         lastRow = String.format(Locale.ROOT,
                 "saved %d ring(s) to %s: %d appended, %d rewritten in place, %d deleted",
@@ -1850,10 +1720,6 @@ public final class RingTool extends Tool {
         savedAuthoredByStatement.clear();
         savedNormalByStatement.clear();
         savedModeByStatement.clear();
-        candidateLabels.clear();
-        candidateRingByLabel.clear();
-        writtenCandidateRings.clear();
-        candidatesLine = null;
         if (confirmedRings.isEmpty()) {
             return;
         }
@@ -1892,11 +1758,10 @@ public final class RingTool extends Tool {
 
     /**
      * Turn each unowned graph ring into a confirmed ring: a statement's ring as the spline the
-     * graph traced for it, traced here only when the graph left none, or a proposed ring through
-     * fitted anchors.
+     * graph traced for it, traced here only when the graph left none, or any other marked loop
+     * through fitted anchors.
      *
      * @param surface the surface the graph's marks index
-     * @throws IllegalArgumentException when the graph has more than one ring_candidates node
      */
     public void adoptGraphRings(MeshTopology surface) {
         graphRingsPending = false;
@@ -1909,23 +1774,6 @@ public final class RingTool extends Tool {
         List<GraphNodeContext> statements = graph == null ? List.of() : graph.root.declared;
         int adopted = 0;
         List<String> refused = new ArrayList<>();
-        // A new graph either proposes rings itself, whose block the next freeze rewrites, or has
-        // none, and any frozen rings are then statements like any other.
-        int candidateStatements = 0;
-        for (GraphNodeContext statement : statements) {
-            if (RingDslWriter.CANDIDATES_NODE.equals(statement.type)) {
-                candidateStatements++;
-            }
-        }
-        if (candidateStatements > 1) {
-            throw new IllegalArgumentException("the working graph has more than one "
-                    + RingDslWriter.CANDIDATES_NODE + " statement, so a proposed ring has no one owner");
-        }
-        boolean proposes = candidateStatements == 1;
-        candidateLabels.clear();
-        candidateRingByLabel.clear();
-        writtenCandidateRings.clear();
-        candidatesLine = null;
         GeometryBundle graphOutput = scene.getGeometryBundle();
         for (Map.Entry<String, boolean[]> entry : scene.ringMarksByLabel.entrySet()) {
             String label = entry.getKey();
@@ -1934,11 +1782,6 @@ public final class RingTool extends Tool {
                 if (label.equals(labelled.inputSources.get(RingDslWriter.LABEL_ARGUMENT))) {
                     statement = labelled;
                 }
-            }
-            boolean proposed = proposes && statement == null;
-            if (proposed) {
-                candidateLabels.add(label);
-                writtenCandidateRings.add(null);
             }
             if (ringOfSourceLabel(label) >= 0 || convertedGraphLabels.contains(label)) {
                 continue;
@@ -2063,10 +1906,6 @@ public final class RingTool extends Tool {
                     normal == null ? written(anchored.planeNormal) : normal, anchored.mode,
                     spline ? statement.nodeAssignmentId() : null, false, label,
                     retired != null ? retired : nextRingSerial++, null));
-            if (proposed) {
-                candidateRingByLabel.put(label, traced);
-                writtenCandidateRings.set(candidateLabels.size() - 1, traced);
-            }
             adopted++;
         }
         if (adopted > 0 || !refused.isEmpty()) {
@@ -2368,10 +2207,10 @@ public final class RingTool extends Tool {
         LimbAxis limbAxis = closedRing.limbAxis;
         limbAxis.cacheFor(surface);
         Platforms.get().log(String.format(Locale.ROOT,
-                "[ring-tool] prepared %d faces: pick buffer, %s axis and the intrinsic "
-                        + "triangulation (mean edge %.5f) in %.0f ms",
-                surface.faceCount(), limbAxis.skeleton == null ? "curvature" : "skeleton",
-                geodesics.metric.meanEdgeLength, (System.nanoTime() - start) / 1e6));
+                "[ring-tool] prepared %d faces: pick buffer, curvature axis (%.0f ms) and the "
+                        + "intrinsic triangulation (mean edge %.5f) in %.0f ms",
+                surface.faceCount(), limbAxis.buildMillis, geodesics.metric.meanEdgeLength,
+                (System.nanoTime() - start) / 1e6));
     }
 
     /**

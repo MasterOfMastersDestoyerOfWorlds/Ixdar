@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.regex.Matcher;
 
 import org.joml.Vector3f;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
@@ -50,9 +51,10 @@ class StrokeKeyTest {
     private static final Vector3f CREASE_END = new Vector3f(1.3f, 1.25f, 0.6f).normalize();
 
     @Test
+    @Tag("heavy")
     void oneKnownDentComesBackAsOneFillOfAboutItsDepthAtItsPlace() {
         GeometryBundle base = sphere();
-        StrokeKey key = key(base, goal(base.mesh(), true));
+        StrokeKey key = key(base, goal(base.mesh(), true), 1, 5);
         AnchoredStroke first = key.keyByCount.get(0).strokes.get(0);
         float depth = depth(first);
         Vector3f centre = new Vector3f();
@@ -71,9 +73,10 @@ class StrokeKeyTest {
     }
 
     @Test
+    @Tag("heavy")
     void oneKnownCreaseComesBackAsOneChainAlongIt() {
         GeometryBundle base = sphere();
-        StrokeKey key = key(base, goal(base.mesh(), false));
+        StrokeKey key = key(base, goal(base.mesh(), false), 1);
         AnchoredStroke first = key.keyByCount.get(0).strokes.get(0);
         assertFalse(first.polygon, "the crease is a chain: " + first.attributes);
         assertTrue(depth(first) < 0f, "the chain is a valley: " + first.attributes);
@@ -96,11 +99,11 @@ class StrokeKeyTest {
                 + (alongHigh - alongLow) + " of " + length);
     }
 
-    private static StrokeKey key(GeometryBundle base, MeshTopology goal) {
+    private static StrokeKey key(GeometryBundle base, MeshTopology goal, int... counts) {
         StrokeKey key = new StrokeKey();
         key.symmetryAxis = -1;
         key.surfaceRounds = 1;
-        key.counts = new int[] { 1, 5 };
+        key.counts = counts;
         key.refineEvery = 5;
         key.compute(base, goal, null, StrokeSketch.parse(TEMPLATE, "test template"), null);
         return key;

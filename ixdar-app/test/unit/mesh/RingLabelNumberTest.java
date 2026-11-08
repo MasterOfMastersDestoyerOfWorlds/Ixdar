@@ -6,34 +6,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import ixdar.geometry.mesh.data.rings.RingCandidates;
 import ixdar.tools.ring.RingTool;
 
 /**
- * A ring's number is its position in the overlay, not anything its label spells, so a
- * {@code rings-list} row and the drawn ring agree whatever the labels are called.
+ * A ring's number is its position in the overlay, not anything its label spells, so the drawn
+ * number and the ring's place in the graph agree whatever the labels are called.
  */
 class RingLabelNumberTest {
 
-    /** Rows a candidate extraction is faked at, enough to cross the zero-padding boundary. */
+    // Enough graph rings to cross the zero-padding boundary.
     private static final int ROWS = 12;
 
-    /** Rings the tool confirms on top of a graph's, drawn after them in confirm order. */
     private static final int CONFIRMED = 2;
 
-    /** The label {@code spline_ring} leaves when a statement names none. */
+    // The label spline_ring leaves when a statement names none.
     private static final String SPLINE_RING = "spline_ring";
 
     @Test
-    void everyRingDrawsItsRingsListRowIndex() {
-        RingCandidates rings = new RingCandidates();
+    void everyRingDrawsItsPositionInTheGraph() {
         Map<String, boolean[]> marksByLabel = new LinkedHashMap<>();
         for (int ring = 0; ring < ROWS; ring++) {
-            String label = rings.markLabel(ring);
+            String label = String.format(Locale.ROOT, "ring_%02d", ring);
             assertTrue(RingTool.isRingLabel(label), label + " should draw as a ring");
             marksByLabel.put(label, new boolean[0]);
         }
@@ -79,7 +77,6 @@ class RingLabelNumberTest {
     void theNodesDefaultRingLabelsStillDrawThick() {
         assertTrue(RingTool.isRingLabel(SPLINE_RING));
         assertTrue(RingTool.isRingLabel("ring"));
-        assertTrue(RingTool.isRingLabel("selected_ring"));
         assertTrue(RingTool.isRingLabel("ring7"), "the writer's bare statement id is a ring");
     }
 

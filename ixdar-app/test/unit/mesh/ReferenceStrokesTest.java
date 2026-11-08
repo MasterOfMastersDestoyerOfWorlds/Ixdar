@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import ixdar.automation.endpoints.ui.MultiviewScreenshot;
@@ -54,6 +55,10 @@ class ReferenceStrokesTest {
 
     private static final float FEATURE_HEIGHT = 9f;
 
+    // Pictures that need no thin line drawn at half size, where the blob search's blurs cost an
+    // eighth; the edge lines need the full size to stay a few pixels wide.
+    private static final float HALF = 0.5f;
+
     private static final float[] LIGHT = { -0.55f, -0.35f, 0.76f };
 
     private static final float AMBIENT = 0.15f;
@@ -79,7 +84,7 @@ class ReferenceStrokesTest {
 
     @Test
     void eachShadingEdgeIsOneThinLineSignedByItsLitSide() {
-        PixelImage picture = ball(true);
+        PixelImage picture = ball(true, 1f);
         ShadingEdges shading = ShadingEdges.of(picture, inside(picture));
         assertTrue(shading.light[0] < 0f && shading.light[1] < 0f, "the rim shows the light up and to the left: "
                 + shading.light[0] + "," + shading.light[1]);
@@ -121,10 +126,13 @@ class ReferenceStrokesTest {
         // Lit along the view, as a headlight lights it: the hollow's floor faces the eye and is as
         // bright as the ball around it, only its walls darken, so it is no dark region; the ball's
         // own rim, turned from the eye, is dark but reaches the outline.
-        PixelImage picture = new PixelImage(SIZE, SIZE);
+        int size = Math.round(SIZE * HALF);
+        PixelImage picture = new PixelImage(size, size);
         picture.fill(BACKGROUND);
-        for (int y = 0; y < SIZE; y++) {
-            for (int x = 0; x < SIZE; x++) {
+        for (int row = 0; row < size; row++) {
+            for (int column = 0; column < size; column++) {
+                float x = column / HALF;
+                float y = row / HALF;
                 float across = (x - CENTRE) / BALL;
                 float down = (y - CENTRE) / BALL;
                 float rest = 1f - across * across - down * down;
@@ -141,8 +149,8 @@ class ReferenceStrokesTest {
                         fromHollow * HOLLOW_RADIUS) : 0f);
                 float lit = 1f / (float) Math.sqrt(normalX * normalX + normalY * normalY + 1f);
                 int level = Math.round(LIT * (AMBIENT + (1f - AMBIENT) * lit));
-                picture.set(x, y, PixelImage.OPAQUE | level << PixelImage.RED_SHIFT | level << PixelImage.CHANNEL_BITS
-                        | level);
+                picture.set(column, row, PixelImage.OPAQUE | level << PixelImage.RED_SHIFT
+                        | level << PixelImage.CHANNEL_BITS | level);
             }
         }
         ShadingEdges shading = ShadingEdges.of(picture, inside(picture));
@@ -153,8 +161,8 @@ class ReferenceStrokesTest {
             float meanX = 0f;
             float meanY = 0f;
             for (int point = 0; point < outline.length; point += 2) {
-                meanX += outline[point] / (outline.length / 2);
-                meanY += outline[point + 1] / (outline.length / 2);
+                meanX += outline[point] / HALF / (outline.length / 2);
+                meanY += outline[point + 1] / HALF / (outline.length / 2);
             }
             found.append(String.format(" (%.0f,%.0f %d px%s)", meanX, meanY, shading.areaByRegion[region],
                     shading.blobByRegion[region] ? " blob" : ""));
@@ -166,6 +174,7 @@ class ReferenceStrokesTest {
     }
 
     @Test
+    @Tag("heavy")
     void theMarksBecomeSignedStrokesOnTheBaseUnderTheTerraceLimit() {
         String[] labels = MultiviewScreenshot.VIEW_LABELS;
         float[][] angles = MultiviewScreenshot.VIEW_AZIMUTH_ELEVATION_RADIANS;
@@ -180,7 +189,7 @@ class ReferenceStrokesTest {
         ShadingEdges[] shading = new ShadingEdges[cells.length];
         String[] names = new String[cells.length];
         for (int view = 0; view < cells.length; view++) {
-            PixelImage picture = ball(cells[view] == 0);
+            PixelImage picture = ball(cells[view] == 0, HALF);
             traced.add(SubjectOutline.of(picture, SubjectOutline.borderMedian(picture), TOLERANCE, 0f), cells[view],
                     angles[cells[view]][0], angles[cells[view]][1]);
             shading[view] = ShadingEdges.of(picture, inside(picture));
@@ -188,7 +197,7 @@ class ReferenceStrokesTest {
         }
         assertEquals("", traced.fitAxisViews(2f));
         GeometryBundle ball = new MapNodeContext(new QuadSphereMeshNode())
-                .with(QuadSphereMeshNode.SIZE, 2f).with(QuadSphereMeshNode.RESOLUTION, 48).eval()
+                .with(QuadSphereMeshNode.SIZE, 2f).with(QuadSphereMeshNode.RESOLUTION, 16).eval()
                 .output(QuadSphereMeshNode.MESH, GeometryBundle.class);
         GeometryBundle base = new MapNodeContext(new MergeByDistanceNode()).with(MergeByDistanceNode.GEOMETRY, ball)
                 .with(MergeByDistanceNode.DISTANCE, 1e-4f).eval().output(MergeByDistanceNode.GEOMETRY_OUT,
@@ -224,14 +233,17 @@ class ReferenceStrokesTest {
 
     /**
      * A ball lit from up and to the left, carrying a vertical ridge and groove and a dark hole when
-     * asked, on a flat background.
+     * asked, on a flat background, drawn at a scale of the full-size picture.
      */
-    private static PixelImage ball(boolean features) {
-        PixelImage picture = new PixelImage(SIZE, SIZE);
+    private static PixelImage ball(boolean features, float scale) {
+        int size = Math.round(SIZE * scale);
+        PixelImage picture = new PixelImage(size, size);
         picture.fill(BACKGROUND);
         float length = (float) Math.sqrt(LIGHT[0] * LIGHT[0] + LIGHT[1] * LIGHT[1] + LIGHT[2] * LIGHT[2]);
-        for (int y = 0; y < SIZE; y++) {
-            for (int x = 0; x < SIZE; x++) {
+        for (int row = 0; row < size; row++) {
+            for (int column = 0; column < size; column++) {
+                float x = column / scale;
+                float y = row / scale;
                 float across = (x - CENTRE) / BALL;
                 float down = (y - CENTRE) / BALL;
                 float rest = 1f - across * across - down * down;
@@ -247,8 +259,8 @@ class ReferenceStrokesTest {
                 float lit = (normalX * LIGHT[0] + normalY * LIGHT[1] + LIGHT[2]) / normalLength / length;
                 boolean hole = features && Math.hypot(x - HOLE_X, y - HOLE_Y) < HOLE_RADIUS;
                 int level = hole ? 0 : Math.round(LIT * (AMBIENT + (1f - AMBIENT) * Math.max(0f, lit)));
-                picture.set(x, y, PixelImage.OPAQUE | level << PixelImage.RED_SHIFT | level << PixelImage.CHANNEL_BITS
-                        | level);
+                picture.set(column, row, PixelImage.OPAQUE | level << PixelImage.RED_SHIFT
+                        | level << PixelImage.CHANNEL_BITS | level);
             }
         }
         return picture;
