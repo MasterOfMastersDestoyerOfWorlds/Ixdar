@@ -377,6 +377,46 @@ class BisectorTest {
                 "the reloaded crease bisector runs along other edges");
     }
 
+    /**
+     * T on a re-opened crease bisector fits the geodesic bisector to its groove: anchors are added
+     * so it still bends with the groove, its two ends stay on their walls, and one undo brings the
+     * crease bisector back.
+     */
+    @Test
+    void tOnACreaseBisectorFitsAGeodesicOneThatStillFollowsTheGroove() {
+        MeshTopology grooved = tube(GROOVE_DEPTH);
+        RingTool tool = toolOn(grooved, null);
+        ring(tool, FIRST_RING_ROW);
+        ring(tool, SECOND_RING_ROW);
+        press(tool, Keys.K);
+        press(tool, Keys.T);
+        int crease = bisect(tool, vertex(FIRST_RING_ROW, TOP_SIDE),
+                vertex(SECOND_RING_ROW, TOP_SIDE));
+        int[] creaseAnchors = tool.confirmedRings.get(crease).authoredVertexId.clone();
+        boolean[] creaseEdges = tool.confirmedRings.get(crease).spline.marks.markedByEdgeId;
+        assertTrue(tool.reopenRing(crease), tool.lastError);
+        assertEquals(RingSegmentMode.CREASE, tool.draftMode);
+
+        press(tool, Keys.T);
+        assertEquals("", tool.lastError);
+        assertEquals(RingSegmentMode.GEODESIC, tool.draftMode, tool.lastRow);
+        int[] fitted = tool.draftAuthoredVertexId;
+        assertTrue(fitted.length > creaseAnchors.length, "T added no anchor: " + tool.lastRow);
+        assertEquals(creaseAnchors[0], fitted[0], "the first end left its wall");
+        assertEquals(creaseAnchors[creaseAnchors.length - 1], fitted[fitted.length - 1],
+                "the last end left its wall");
+        assertTrue(touches(grooved, tool.draft.marks.markedByEdgeId,
+                vertex(MIDDLE_ROW, TOP_SIDE + GROOVE_BEND)),
+                "the fitted geodesic bisector cuts across the groove: " + tool.lastRow);
+        assertTrue(tool.bisector.draftSimple, "the fitted bisector crosses itself");
+
+        assertTrue(tool.undo(), tool.lastError);
+        assertEquals(RingSegmentMode.CREASE, tool.draftMode, "undo kept the geodesic mode");
+        assertArrayEquals(creaseAnchors, tool.draftAuthoredVertexId);
+        assertArrayEquals(creaseEdges, tool.draft.marks.markedByEdgeId,
+                "undo did not restore the crease bisector");
+    }
+
     @Test
     void anUnsavedRingIsAWallAndTheBisectorSavesAndReloadsWithIt(@TempDir Path folder)
             throws IOException {

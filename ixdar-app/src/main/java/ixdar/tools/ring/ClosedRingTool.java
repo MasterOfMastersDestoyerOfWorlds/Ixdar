@@ -12,6 +12,7 @@ import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
+import ixdar.geometry.mesh.data.rings.GeodesicRefit;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.platform.input.Keys;
 import ixdar.scenes.ring.RingScene;
@@ -401,6 +402,30 @@ public final class ClosedRingTool extends RingSubTool {
     @Override
     public boolean retrace(int[] authored, boolean keepSimple) {
         return trace(authored, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH, keepSimple);
+    }
+
+    @Override
+    public GeodesicRefit refitGeodesic() {
+        holdDraft();
+        // The re-fit reads the crease path of a crease trace at the draft's own anchors, so it
+        // starts from a fresh one whatever the last trace was.
+        draftRing.mode = RingSegmentMode.CREASE;
+        long start = System.nanoTime();
+        int[] held = ringTool.draftAuthoredVertexId;
+        if (!draftRing.trace(held, held.length, ringTool.draftBaseNormal,
+                SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)
+                || !draftRing.refitGeodesic(ringTool.draftBaseNormal,
+                        SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH)) {
+            ringTool.lastError = "geodesic fit refused: " + draftRing.failure
+                    + " - the crease ring is unchanged";
+            return null;
+        }
+        ringTool.draftMode = RingSegmentMode.GEODESIC;
+        ringTool.draftAuthoredVertexId = draftRing.authoredVertexId;
+        ringTool.draft = SurfaceSpline.of(draftRing.tracer);
+        ringTool.draftDepth = SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH;
+        ringTool.draftMillis = (System.nanoTime() - start) / 1e6;
+        return draftRing.refit;
     }
 
     /**

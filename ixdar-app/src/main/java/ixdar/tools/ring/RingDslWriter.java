@@ -457,13 +457,19 @@ public final class RingDslWriter {
         String line = lines[target];
         int opening = tokenIndex(line, MODE_ARGUMENT, 0);
         if (opening >= 0) {
-            int closing = line.indexOf('"', opening + MODE_ARGUMENT.length()) + 1;
-            int cut = opening;
-            while (cut > 0 && line.charAt(cut - 1) == ' ') {
-                cut--;
+            line = withoutArgument(line, opening,
+                    line.indexOf('"', opening + MODE_ARGUMENT.length()) + 1);
+        }
+        // A geodesic ring reads no creases, so a ring T fitted as geodesic drops its creases input;
+        // the surface_creases statement stays for the crease rings still wired to it.
+        String creasesArgument = SplineRingNode.CREASES.name + "=";
+        int creases = mode == RingSegmentMode.GEODESIC ? tokenIndex(line, creasesArgument, 0) : -1;
+        if (creases >= 0) {
+            int end = creases + creasesArgument.length();
+            while (end < line.length() && line.charAt(end) != ',' && line.charAt(end) != ')') {
+                end++;
             }
-            cut -= cut > 0 && line.charAt(cut - 1) == ',' ? 1 : 0;
-            line = line.substring(0, cut) + line.substring(closing);
+            line = withoutArgument(line, creases, end);
         }
         if (mode != RingSegmentMode.GEODESIC) {
             int argument = Math.max(line.indexOf(NORMAL_ARGUMENT), line.indexOf(POINTS_ARGUMENT));
@@ -477,6 +483,23 @@ public final class RingDslWriter {
         }
         lines[target] = line;
         return String.join(LINE_BREAK, lines);
+    }
+
+    /**
+     * One statement line with an argument cut out, with the comma and spaces before it.
+     *
+     * @param line    the statement line
+     * @param opening where the argument's name starts
+     * @param closing just past the argument's value
+     * @return the line without it
+     */
+    private static String withoutArgument(String line, int opening, int closing) {
+        int cut = opening;
+        while (cut > 0 && line.charAt(cut - 1) == ' ') {
+            cut--;
+        }
+        cut -= cut > 0 && line.charAt(cut - 1) == ',' ? 1 : 0;
+        return line.substring(0, cut) + line.substring(closing);
     }
 
     /**

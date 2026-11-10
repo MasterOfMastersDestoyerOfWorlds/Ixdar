@@ -6,10 +6,12 @@ import java.util.Locale;
 
 import org.joml.Vector3f;
 
+import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.paths.query.SurfacePathCrossings;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSpline;
 import ixdar.geometry.mesh.data.paths.spline.SurfaceSplineTracer;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
+import ixdar.geometry.mesh.data.rings.GeodesicRefit;
 import ixdar.geometry.mesh.data.rings.RingAttachment;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.platform.Platforms;
@@ -386,6 +388,112 @@ public final class BisectorTool extends RingSubTool {
         ringTool.draftMillis = (System.nanoTime() - start) / 1e6;
         ringTool.invalidateRings();
         return true;
+    }
+
+    /**
+     * T on a crease bisector: the geodesic bisector following its crease path, its two wall ends
+     * kept and inner anchors added and dropped; a stretch of a closed ring has no crease path of
+     * its own and is refused.
+     *
+     * @return the re-fit, or {@code null} with the ring tool's last error saying why
+     */
+    @Override
+    public GeodesicRefit refitGeodesic() {
+        SurfaceSpline crease = ringTool.draft;
+        if (draftStretch == null && ringTool.draftMode != RingSegmentMode.CREASE
+                || crease == null || crease.path.pointCount < 2) {
+            ringTool.lastError = "geodesic fit refused: only a crease bisector or a stretch of a "
+                    + "ring re-fits as a geodesic bisector";
+            return null;
+        }
+        // A stretch of a ring is fitted the same way, to the path it has now, and is from then on
+        // a bisector of its own that follows its walls by its two ends.
+        int[] stretchBefore = draftStretch;
+        draftStretch = null;
+        long start = System.nanoTime();
+        TracedSurfacePath curve = crease.path;
+        double[] curveXyz = Arrays.copyOf(curve.positions,
+                RingTool.COORDINATES_PER_POINT * curve.pointCount);
+        int[] curveVertexId = Arrays.copyOf(curve.vertexId, curve.pointCount);
+        if (stretchBefore != null) {
+            // A stretch's traced path runs on past its walls; the part it keeps is its marked
+            // edges, walked here from the end that meets its start wall.
+            MeshTopology surface = ringTool.geodesics.mesh;
+            boolean[] marked = crease.marks.markedByEdgeId;
+            int[] tail = new int[crease.marks.markedEdgeCount];
+            int[] head = new int[tail.length];
+            int edges = 0;
+            for (int edgeId = 0; edgeId < marked.length && edges < tail.length; edgeId++) {
+                if (marked[edgeId]) {
+                    tail[edges] = surface.halfEdgeVertex(surface.edgeHalfEdge(edgeId));
+                    head[edges++] = surface.halfEdgeEndVertex(surface.edgeHalfEdge(edgeId));
+                }
+            }
+            surface.vertexPosition(stretchBefore[1], scratchPosition);
+            Vector3f end = new Vector3f();
+            int at = -1;
+            double nearest = Double.POSITIVE_INFINITY;
+            for (int edge = 0; edge < 2 * edges; edge++) {
+                int vertexId = edge < edges ? tail[edge] : head[edge - edges];
+                int degree = 0;
+                for (int other = 0; other < edges; other++) {
+                    degree += (tail[other] == vertexId ? 1 : 0) + (head[other] == vertexId ? 1 : 0);
+                }
+                double away = surface.vertexPosition(vertexId, end).distance(scratchPosition);
+                if (degree == 1 && away < nearest) {
+                    nearest = away;
+                    at = vertexId;
+                }
+            }
+            curveVertexId = new int[at < 0 ? 0 : edges + 1];
+            curveXyz = new double[RingTool.COORDINATES_PER_POINT * curveVertexId.length];
+            boolean[] walked = new boolean[edges];
+            for (int point = 0; point < curveVertexId.length; point++) {
+                curveVertexId[point] = at;
+                surface.vertexPosition(at, end);
+                curveXyz[RingTool.COORDINATES_PER_POINT * point] = end.x;
+                curveXyz[RingTool.COORDINATES_PER_POINT * point + 1] = end.y;
+                curveXyz[RingTool.COORDINATES_PER_POINT * point + 2] = end.z;
+                for (int edge = 0; edge < edges; edge++) {
+                    if (!walked[edge] && (tail[edge] == at || head[edge] == at)) {
+                        walked[edge] = true;
+                        at = tail[edge] == at ? head[edge] : tail[edge];
+                        break;
+                    }
+                }
+            }
+        }
+        if (curveVertexId.length < 2) {
+            draftStretch = stretchBefore;
+            ringTool.lastError = "geodesic fit refused: the stretch walls nothing to fit to";
+            return null;
+        }
+        GeodesicRefit refit = new GeodesicRefit();
+        boolean fitted = refit.refit(curveXyz, curveVertexId, false,
+                ringTool.draftAuthoredVertexId, ringTool.geodesics.metric.meanEdgeLength,
+                anchors -> {
+                    String errorBefore = ringTool.lastError;
+                    SurfaceSpline traced = traced(anchors.clone(), draftEnds,
+                            RingSegmentMode.GEODESIC, null);
+                    ringTool.lastError = errorBefore;
+                    boolean accepted = traced != null && traced.marks.markedEdgeCount > 0
+                            && (!draftSimple
+                                    || crossings.isSimple(ringTool.geodesics.mesh, traced.path));
+                    return accepted ? traced.path : null;
+                });
+        RingSegmentMode modeBefore = ringTool.draftMode;
+        ringTool.draftMode = RingSegmentMode.GEODESIC;
+        if (!fitted || !retrace(refit.anchors, true)) {
+            ringTool.draftMode = modeBefore;
+            draftStretch = stretchBefore;
+            ringTool.lastError = "geodesic fit refused: "
+                    + (fitted ? ringTool.lastError : refit.failure)
+                    + " - the crease bisector is unchanged";
+            return null;
+        }
+        refit.deviation = refit.deviationOf(ringTool.draft.path);
+        ringTool.draftMillis = (System.nanoTime() - start) / 1e6;
+        return refit;
     }
 
     /**

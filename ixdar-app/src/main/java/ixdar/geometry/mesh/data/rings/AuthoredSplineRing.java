@@ -94,6 +94,9 @@ public final class AuthoredSplineRing {
     /** Crease cost of the surface the crease mode follows, or {@code null} for none. */
     public SurfaceCreases creases;
 
+    /** The re-fit {@link #refitGeodesic} last ran: its anchors, tolerance and deviation. */
+    public final GeodesicRefit refit = new GeodesicRefit();
+
     private final float[] planePoint = new float[COORDINATES_PER_POINT];
     private final Vector3f position = new Vector3f();
     private final double[] spread = new double[PLANE_FIT_MATRIX_ENTRIES];
@@ -617,6 +620,42 @@ public final class AuthoredSplineRing {
         authoredVertexId = Arrays.copyOf(placed, held);
         simple = crossings.isSimple(mesh, tracer.tracedRing());
         return true;
+    }
+
+    /**
+     * Turn the crease ring just traced into the geodesic ring that follows its crease path, through
+     * anchors {@link #refit} adds where the geodesic spline strays and drops where it holds without
+     * them; the lead anchor stays. On failure the crease ring is traced back as it was.
+     *
+     * @param baseNormal the ring's base normal, as {@link #trace} takes it
+     * @param finalDepth bisections the finished ring is traced to
+     * @return true when the ring is now geodesic; {@link #failure} says why not otherwise
+     */
+    public boolean refitGeodesic(float[] baseNormal, int finalDepth) {
+        if (mode != RingSegmentMode.CREASE || authoredVertexId.length == 0
+                || referencePoints == 0) {
+            failure = "only a traced crease ring re-fits as a geodesic ring";
+            return false;
+        }
+        int[] creaseAnchors = authoredVertexId.clone();
+        boolean wasSimple = simple;
+        double[] curveXyz = Arrays.copyOf(cycleXyz, COORDINATES_PER_POINT * referencePoints);
+        int[] curveVertexId = Arrays.copyOf(referenceVertexId, referencePoints);
+        int[] start = Arrays.copyOf(tracer.anchorVertexId, tracer.anchorCount);
+        mode = RingSegmentMode.GEODESIC;
+        boolean fitted = refit.refit(curveXyz, curveVertexId, true, start,
+                tracer.geodesics.metric.meanEdgeLength,
+                anchors -> trace(anchors, anchors.length, baseNormal, SUPPORTING_FIT_DEPTH)
+                        && (simple || !wasSimple) ? tracer.tracedRing() : null);
+        if (fitted && trace(refit.anchors, refit.anchors.length, baseNormal, finalDepth)) {
+            refit.deviation = refit.deviationOf(tracer.tracedRing());
+            return true;
+        }
+        String reason = fitted ? failure : refit.failure;
+        mode = RingSegmentMode.CREASE;
+        trace(creaseAnchors, creaseAnchors.length, baseNormal, finalDepth);
+        failure = reason;
+        return false;
     }
 
     /**

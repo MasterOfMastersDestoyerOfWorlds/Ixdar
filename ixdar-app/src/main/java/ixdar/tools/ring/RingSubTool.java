@@ -1,5 +1,6 @@
 package ixdar.tools.ring;
 
+import ixdar.geometry.mesh.data.rings.GeodesicRefit;
 import ixdar.tools.Draft;
 import ixdar.tools.Tool;
 
@@ -39,6 +40,16 @@ public abstract class RingSubTool extends Tool {
      * @return true when the draft now runs through {@code authored}
      */
     public abstract boolean retrace(int[] authored, boolean keepSimple);
+
+    /**
+     * T on a crease draft: re-trace it as the geodesic draft that follows its crease path, anchors
+     * added where the geodesic spline strays and dropped where it holds without them, the draft's
+     * mode then geodesic; the ring tool records the edit.
+     *
+     * @return the re-fit, its anchors, tolerance and deviation; {@code null} with the ring tool's
+     *         last error saying why when the draft stays as it was
+     */
+    public abstract GeodesicRefit refitGeodesic();
 
     /**
      * One step of a drag: the selected anchor moves to a vertex, the draft re-traced; the whole

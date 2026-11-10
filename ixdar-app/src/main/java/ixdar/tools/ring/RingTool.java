@@ -26,6 +26,7 @@ import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.analysis.curvature.LimbAxis;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
+import ixdar.geometry.mesh.data.rings.GeodesicRefit;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.geometry.mesh.data.rings.SliverCollapse;
@@ -501,15 +502,38 @@ public final class RingTool extends Tool {
         controls.add(new ControlHint("confirm-draft", Keys.ENTER, "enter", "confirm draft",
                 refusalShown(() -> confirmDraft())));
         // T switches between the geodesic spline and the crease path: the open draft, as one
-        // edit, and the drafts clicks open from now on.
+        // edit, and the drafts clicks open from now on. A crease draft turns into the geodesic
+        // draft that follows its crease path, anchors added and dropped to fit it; a geodesic
+        // draft re-traces its own anchors as crease paths.
+        boolean refits = draft != null && draftMode == RingSegmentMode.CREASE;
         controls.add(new ControlHint("switch-mode", Keys.T, "T", "mode: "
                 + (draft != null ? draftMode : newDraftMode()).label
-                + ", switch to " + switchedMode().label, refusalShown(() -> {
+                + (refits ? ", fit to geodesic" : ", switch to " + switchedMode().label),
+                refusalShown(() -> {
             RingSegmentMode next = switchedMode();
             if (next == RingSegmentMode.CREASE && !readyCreases(scene.halfEdgeSurface())) {
                 return;
             }
-            if (draft != null) {
+            if (draft != null && draftMode == RingSegmentMode.CREASE) {
+                RingToolState stateBefore = new RingToolState(this);
+                int[] creaseAnchors = draftAuthoredVertexId;
+                GeodesicRefit refit = draftOwner.refitGeodesic();
+                if (refit == null) {
+                    return;
+                }
+                int added = 0;
+                for (int anchor : draftAuthoredVertexId) {
+                    added += Arrays.stream(creaseAnchors).anyMatch(held -> held == anchor) ? 0 : 1;
+                }
+                int dropped = creaseAnchors.length - (draftAuthoredVertexId.length - added);
+                selectedAnchorVertexId = -1;
+                invalidateRings();
+                recordEdit("geodesic fit", stateBefore);
+                reportDraft(String.format(Locale.ROOT, "fitted to its crease path as geodesic, %d "
+                        + "anchor(s) added and %d dropped, within %.4f of the crease path "
+                        + "(tolerance %.4f, %d traces)", added, dropped, refit.deviation,
+                        refit.tolerance, refit.traces));
+            } else if (draft != null) {
                 RingToolState stateBefore = new RingToolState(this);
                 RingSegmentMode previous = draftMode;
                 draftMode = next;
@@ -524,6 +548,45 @@ public final class RingTool extends Tool {
             }
             mode = next.ordinal();
             previewedFace = -1;
+            scene.refreshControls();
+        })));
+        // Shift+T does T's fit to every crease ring at once, each its own undoable edit; one the
+        // fit refuses stays as it was and is named in the row. Every stretch of a ring is fitted
+        // first, while the walls it is cut between still stand where it was cut: a stretch does
+        // not follow a wall that moves, a bisector fitted to it does. Other bisectors are left.
+        controls.add(new ControlHint("fit-all-geodesic", Keys.T, false, true, "shift+T",
+                "fit every crease ring to geodesic", refusalShown(() -> {
+            if (draft != null) {
+                lastError = "confirm or discard the open draft before fitting every ring";
+                return;
+            }
+            int fitted = 0;
+            List<String> kept = new ArrayList<>();
+            for (int ring = 0; ring < 2 * confirmedRings.size(); ring++) {
+                boolean stretches = ring < confirmedRings.size();
+                ConfirmedRing crease = confirmedRings.get(ring % confirmedRings.size());
+                if (crease.deleted || (stretches ? crease.bisectorStretch == null
+                        : crease.mode != RingSegmentMode.CREASE || crease.bisectorEnds != null)) {
+                    continue;
+                }
+                int index = ring % confirmedRings.size();
+                if (reopenRing(index) && draftOwner.refitGeodesic() != null && confirmDraft()) {
+                    fitted += stretches ? 0 : 1;
+                    // Confirming leaves here a bisector that could not follow the fitted ring.
+                    if (!lastError.isEmpty()) {
+                        kept.add(lastError);
+                    }
+                    continue;
+                }
+                kept.add(liveLabel(index) + " (" + lastError + ")");
+                if (draft != null) {
+                    discardDraft();
+                }
+            }
+            lastError = "";
+            lastRow = fitted + " crease ring(s) fitted as geodesic"
+                    + (kept.isEmpty() ? "" : ", left as they were: " + kept);
+            Platforms.get().log(LOG_PREFIX + lastRow);
             scene.refreshControls();
         })));
         activeSubTool.addControls(controls);

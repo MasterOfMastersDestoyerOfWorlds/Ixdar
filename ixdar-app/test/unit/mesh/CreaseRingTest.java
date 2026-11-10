@@ -2,6 +2,7 @@ package unit.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -16,6 +17,8 @@ import ixdar.geometry.mesh.data.bundle.EdgeMarks;
 import ixdar.geometry.mesh.data.bundle.GeometryBundle;
 import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.AuthoredSplineRing;
+import ixdar.geometry.mesh.data.rings.GeodesicRefit;
+import ixdar.geometry.mesh.data.paths.geodesic.TracedSurfacePath;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.geometry.mesh.data.paths.query.SurfaceCreases;
 import ixdar.geometry.mesh.data.paths.geodesic.SurfaceGeodesics;
@@ -82,6 +85,17 @@ class CreaseRingTest {
     private static final float[] AXIS = { 1f, 0f, 0f };
 
     private static final double PLANE_SLACK = 1e-6;
+
+    // The waved notch swings this far along the tube either way of the tilted one, at this many
+    // lobes round it, so no plane and no few geodesics follow it.
+    private static final double NOTCH_WAVE = 0.15;
+
+    private static final int WAVE_LOBES = 3;
+
+    private static final String GEODESIC_FIT_EDIT = "geodesic fit";
+
+    // Crease anchors crowded round the waved notch, more than its geodesic ring needs.
+    private static final int CROWDED_ANCHORS = 24;
 
     // Built once for the class: the tests read the notched tube and none of them edits it.
     private static final MeshTopology NOTCHED = tube(NOTCH_DEPTH);
@@ -213,14 +227,15 @@ class CreaseRingTest {
             assertEquals(RingSegmentMode.CREASE, tool.draftMode);
             assertTrue(meanOffNotch(tool.draft) < IN_NOTCH,
                     "the drafted ring left the notch");
-            SurfaceSpline groove = tool.draft;
             press(controls, Keys.T);
             assertEquals(RingSegmentMode.GEODESIC, tool.draftMode, tool.lastError);
             assertEquals(RingSegmentMode.GEODESIC, tool.newDraftMode(), "T left the next mode");
+            assertTrue(meanOffNotch(tool.draft) < IN_NOTCH, "the geodesic fit left the notch");
             press(controls, Keys.T);
             assertEquals(RingSegmentMode.CREASE, tool.draftMode, tool.lastError);
-            assertArrayEquals(groove.marks.markedByEdgeId, tool.draft.marks.markedByEdgeId,
-                    "switching the mode back did not restore the groove ring");
+            assertTrue(meanOffNotch(tool.draft) < IN_NOTCH,
+                    "switching the mode back left the notch");
+            SurfaceSpline groove = tool.draft;
 
             assertTrue(tool.confirmDraft(), tool.lastError);
             assertEquals(RingSegmentMode.CREASE, tool.confirmedRings.get(0).mode);
@@ -231,7 +246,7 @@ class CreaseRingTest {
             assertTrue(tool.undo(), tool.lastError);
             assertTrue(tool.undo(), tool.lastError);
             assertEquals(RingSegmentMode.CREASE, tool.draftMode, "undo lost the draft's mode");
-            for (String edit : new String[] { "segment mode crease", "segment mode geodesic",
+            for (String edit : new String[] { "segment mode crease", GEODESIC_FIT_EDIT,
                 "draft opened" }) {
                 assertEquals(edit, tool.history.nextUndoName());
                 assertTrue(tool.undo(), tool.lastError);
@@ -336,12 +351,20 @@ class CreaseRingTest {
      * {@code depth} round its tilted centre line; a negative depth raises a ridge instead.
      */
     private static MeshTopology tube(double depth) {
+        return wavedTube(depth, 0.0);
+    }
+
+    /**
+     * The notched tube with its notch waved along the tube by {@code wave} at
+     * {@link #WAVE_LOBES} lobes round it, a groove no plane follows.
+     */
+    private static MeshTopology wavedTube(double depth, double wave) {
         float[] positions = new float[XYZ * TUBE_SIDES * TUBE_RINGS];
         for (int ring = 0; ring < TUBE_RINGS; ring++) {
             double x = -TUBE_HALF_LENGTH + 2.0 * TUBE_HALF_LENGTH * ring / (TUBE_RINGS - 1);
             for (int side = 0; side < TUBE_SIDES; side++) {
                 double angle = 2.0 * Math.PI * side / TUBE_SIDES;
-                double fromNotch = (x - NOTCH_TILT * Math.cos(angle)) / NOTCH_WIDTH;
+                double fromNotch = (x - notchX(angle, wave)) / NOTCH_WIDTH;
                 double radius = TUBE_RADIUS - depth * Math.exp(-fromNotch * fromNotch);
                 int base = XYZ * (TUBE_SIDES * ring + side);
                 positions[base] = (float) x;
@@ -384,13 +407,206 @@ class CreaseRingTest {
 
     /** Mean distance along the tube from each traced point to the notch's centre line. */
     private static double meanOffNotch(SurfaceSpline spline) {
+        return meanOffWave(spline, 0.0);
+    }
+
+    /** Mean distance along the tube from each traced point to the waved notch's centre line. */
+    private static double meanOffWave(SurfaceSpline spline, double wave) {
         double[] polyline = spline.path.positions;
         int points = spline.path.pointCount;
         double total = 0.0;
         for (int point = 0; point < points; point++) {
             double angle = Math.atan2(polyline[XYZ * point + 2], polyline[XYZ * point + 1]);
-            total += Math.abs(polyline[XYZ * point] - NOTCH_TILT * Math.cos(angle));
+            total += Math.abs(polyline[XYZ * point] - notchX(angle, wave));
         }
         return total / points;
+    }
+
+    /** Where along the tube the notch's centre line runs at an angle round it. */
+    private static double notchX(double angle, double wave) {
+        return NOTCH_TILT * Math.cos(angle) + wave * Math.sin(WAVE_LOBES * angle);
+    }
+
+    // --- T on a crease draft fits the geodesic ring to the crease path (CRAW-94) ---
+
+    /**
+     * One click on the waved notch: the crease ring follows it, the geodesic ring through that one
+     * anchor cuts across, and the re-fit adds anchors until the geodesic ring follows the groove.
+     */
+    @Test
+    void theRefitAddsAnchorsUntilTheGeodesicRingFollowsTheWavedGroove() {
+        MeshTopology tube = wavedTube(NOTCH_DEPTH, NOTCH_WAVE);
+        AuthoredSplineRing ring = creaseRingOn(tube, new int[] { waveClick(tube, 0) });
+        double creaseOff = meanOffWave(SurfaceSpline.of(ring.tracer), NOTCH_WAVE);
+        assertTrue(ring.refitGeodesic(AXIS, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH),
+                ring.failure);
+        assertEquals(RingSegmentMode.GEODESIC, ring.mode);
+        double geodesicOff = meanOffWave(SurfaceSpline.of(ring.tracer), NOTCH_WAVE);
+        String measured = String.format(Locale.ROOT, "%d anchors, deviation %.4f, tolerance %.4f,"
+                + " crease ring %.4f and geodesic ring %.4f off the groove on average",
+                ring.authoredVertexId.length, ring.refit.deviation, ring.refit.tolerance, creaseOff,
+                geodesicOff);
+        assertTrue(ring.authoredVertexId.length > 1, "no anchor added: " + measured);
+        assertTrue(ring.refit.deviation <= ring.refit.tolerance, measured);
+        assertTrue(geodesicOff < IN_NOTCH, measured);
+        assertTrue(ring.simple, measured);
+        // The anchors alone carry the ring: a geodesic trace of them is the same ring.
+        AuthoredSplineRing reloaded = new AuthoredSplineRing(ring.tracer.geodesics);
+        assertTrue(reloaded.trace(ring.authoredVertexId, ring.authoredVertexId.length, AXIS,
+                SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), reloaded.failure);
+        assertArrayEquals(SurfaceSpline.of(ring.tracer).marks.markedByEdgeId,
+                SurfaceSpline.of(reloaded.tracer).marks.markedByEdgeId,
+                "the geodesic ring's anchors re-trace another ring");
+    }
+
+    /** Crowded crease anchors along the groove: the re-fit keeps far fewer, the lead first. */
+    @Test
+    void theRefitDropsAnchorsTheGeodesicRingDoesNotNeed() {
+        MeshTopology tube = wavedTube(NOTCH_DEPTH, NOTCH_WAVE);
+        int[] crowded = new int[CROWDED_ANCHORS];
+        for (int anchor = 0; anchor < CROWDED_ANCHORS; anchor++) {
+            crowded[anchor] = waveClick(tube, TUBE_SIDES * anchor / CROWDED_ANCHORS);
+        }
+        AuthoredSplineRing ring = creaseRingOn(tube, crowded);
+        assertEquals(CROWDED_ANCHORS, ring.authoredVertexId.length, "the crease ring lost anchors");
+        assertTrue(ring.refitGeodesic(AXIS, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH),
+                ring.failure);
+        String measured = String.format(Locale.ROOT, "%d anchors kept of %d, deviation %.4f, "
+                + "tolerance %.4f", ring.authoredVertexId.length, CROWDED_ANCHORS,
+                ring.refit.deviation, ring.refit.tolerance);
+        assertTrue(ring.authoredVertexId.length < CROWDED_ANCHORS, measured);
+        assertTrue(ring.refit.deviation <= ring.refit.tolerance, measured);
+        assertEquals(crowded[0], ring.authoredVertexId[0], "the lead anchor moved: " + measured);
+        assertTrue(meanOffWave(SurfaceSpline.of(ring.tracer), NOTCH_WAVE) < IN_NOTCH, measured);
+    }
+
+    /** A curve no spline the trace allows comes near: the re-fit refuses and says why. */
+    @Test
+    void theRefitRefusesWhenNoGeodesicSplineReachesTheTolerance() {
+        double[] square = { 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0 };
+        TracedSurfacePath far = new TracedSurfacePath(new double[] { 5, 5, 5, 6, 5, 5, 6, 6, 5 },
+                new int[] { -1, -1, -1 }, new int[] { -1, -1, -1 }, new double[3], 3, true);
+        GeodesicRefit refit = new GeodesicRefit();
+        assertFalse(refit.refit(square, new int[] { 10, 11, 12, 13 }, true, new int[] { 10 },
+                PLANE_SLACK, anchors -> far));
+        assertTrue(refit.failure.startsWith("no geodesic spline comes within"), refit.failure);
+        assertEquals(0, refit.anchors.length);
+    }
+
+    @Test
+    void aGeodesicRingIsNotRefitted() {
+        MeshTopology tube = NOTCHED;
+        AuthoredSplineRing ring = new AuthoredSplineRing(SurfaceGeodesics.over(SurfaceMetric.of(tube)));
+        assertTrue(ring.trace(new int[] { vertexAt(TUBE_RINGS / 2, CLICK_SIDE) }, 1, AXIS,
+                SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);
+        assertFalse(ring.refitGeodesic(AXIS, SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH));
+        assertEquals(RingSegmentMode.GEODESIC, ring.mode);
+    }
+
+    /**
+     * In the tool: T on a crease draft fits it as geodesic in one undoable edit, T back re-traces
+     * those anchors as crease paths, and a confirmed crease ring clicked open converts the same way.
+     */
+    @Test
+    void tOnACreaseDraftFitsTheGeodesicRingAsOneUndoableEdit() {
+        Platform suitePlatform = Platforms.get();
+        GL suiteGl = Platforms.gl();
+        Platforms.init(suitePlatform, GlStandIn.create());
+        try {
+            MeshTopology tube = tube(NOTCH_DEPTH);
+            RingTool tool = toolOver(tube, vertexAt(TUBE_RINGS / 2 + CLICK_RING_OFFSET,
+                    CLICK_SIDE));
+            List<ControlHint> controls = new ArrayList<>();
+            tool.addControls(controls);
+            press(controls, Keys.T);
+            tool.perFrame();
+            tool.requestClick();
+            tool.perFrame();
+            assertTrue(tool.draft != null, "the click drafted no ring: " + tool.lastError);
+            assertEquals(RingSegmentMode.CREASE, tool.draftMode);
+            SurfaceSpline crease = tool.draft;
+            int[] creaseAnchors = tool.draftAuthoredVertexId.clone();
+
+            controls.clear();
+            tool.addControls(controls);
+            assertTrue(labelOf(controls, Keys.T).contains("fit to geodesic"),
+                    labelOf(controls, Keys.T));
+            press(controls, Keys.T);
+            assertEquals("", tool.lastError);
+            assertEquals(RingSegmentMode.GEODESIC, tool.draftMode);
+            assertTrue(tool.draftAuthoredVertexId.length > creaseAnchors.length,
+                    "T added no anchor: " + tool.lastRow);
+            assertTrue(tool.lastRow.contains("anchor(s) added"), tool.lastRow);
+            assertTrue(meanOffNotch(tool.draft) < IN_NOTCH,
+                    "the fitted geodesic draft left the notch: " + tool.lastRow);
+            SurfaceSpline fitted = tool.draft;
+            int[] fittedAnchors = tool.draftAuthoredVertexId.clone();
+
+            assertEquals(GEODESIC_FIT_EDIT, tool.history.nextUndoName());
+            assertTrue(tool.undo(), tool.lastError);
+            assertEquals(RingSegmentMode.CREASE, tool.draftMode, "undo kept the geodesic mode");
+            assertArrayEquals(creaseAnchors, tool.draftAuthoredVertexId, "undo lost the anchors");
+            assertArrayEquals(crease.marks.markedByEdgeId, tool.draft.marks.markedByEdgeId,
+                    "undo did not restore the crease ring");
+            assertTrue(tool.redo(), tool.lastError);
+            assertEquals(RingSegmentMode.GEODESIC, tool.draftMode);
+            assertArrayEquals(fittedAnchors, tool.draftAuthoredVertexId, "redo lost the fit");
+            assertArrayEquals(fitted.marks.markedByEdgeId, tool.draft.marks.markedByEdgeId);
+
+            // Geodesic to crease keeps today's swap: the same anchors as crease paths.
+            controls.clear();
+            tool.addControls(controls);
+            press(controls, Keys.T);
+            assertEquals(RingSegmentMode.CREASE, tool.draftMode, tool.lastError);
+            assertArrayEquals(fittedAnchors, tool.draftAuthoredVertexId,
+                    "T to crease changed the anchors");
+            assertTrue(tool.undo(), tool.lastError);
+
+            // A confirmed crease ring clicked open converts too.
+            assertTrue(tool.undo(), tool.lastError);
+            assertTrue(tool.confirmDraft(), tool.lastError);
+            assertEquals(RingSegmentMode.CREASE, tool.confirmedRings.get(0).mode);
+            assertTrue(tool.reopenRing(0), tool.lastError);
+            controls.clear();
+            tool.addControls(controls);
+            press(controls, Keys.T);
+            assertEquals(RingSegmentMode.GEODESIC, tool.draftMode, tool.lastError);
+            assertArrayEquals(fittedAnchors, tool.draftAuthoredVertexId,
+                    "the reopened ring fitted other anchors than its draft did");
+            assertTrue(tool.confirmDraft(), tool.lastError);
+            assertEquals(RingSegmentMode.GEODESIC, tool.confirmedRings.get(0).mode);
+            assertArrayEquals(fitted.marks.markedByEdgeId,
+                    tool.confirmedRings.get(0).spline.marks.markedByEdgeId);
+        } finally {
+            Platforms.init(suitePlatform, suiteGl);
+        }
+    }
+
+    /** A crease ring through anchors on the surface, under the tube's axis. */
+    private static AuthoredSplineRing creaseRingOn(MeshTopology tube, int[] anchors) {
+        AuthoredSplineRing ring =
+                new AuthoredSplineRing(SurfaceGeodesics.over(SurfaceMetric.of(tube)));
+        ring.mode = RingSegmentMode.CREASE;
+        ring.creases = SurfaceCreases.of(tube);
+        assertTrue(ring.trace(anchors, anchors.length, AXIS,
+                SurfaceSplineTracer.DEFAULT_MAXIMUM_DEPTH), ring.failure);
+        return ring;
+    }
+
+    /** The vertex on one side of the tube nearest the waved notch's centre line. */
+    private static int waveClick(MeshTopology tube, int side) {
+        double x = notchX(2.0 * Math.PI * side / TUBE_SIDES, NOTCH_WAVE);
+        int ring = (int) Math.round((x + TUBE_HALF_LENGTH) * (TUBE_RINGS - 1)
+                / (2.0 * TUBE_HALF_LENGTH));
+        return vertexAt(ring, side);
+    }
+
+    private static String labelOf(List<ControlHint> controls, int keyCode) {
+        for (ControlHint hint : controls) {
+            if (hint.keyCode == keyCode && !hint.controlHeld) {
+                return hint.description;
+            }
+        }
+        throw new AssertionError("no control on key " + keyCode);
     }
 }

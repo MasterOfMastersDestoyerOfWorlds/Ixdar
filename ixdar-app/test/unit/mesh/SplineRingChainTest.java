@@ -143,6 +143,17 @@ class SplineRingChainTest {
         for (String label : new String[] { FIRST_LABEL, SECOND_LABEL }) {
             assertTrue(EdgeMarks.bools(wiredRun, label) != null, label + " left no marks");
         }
+
+        // A crease ring T fitted as geodesic loses its creases input; the other keeps the field.
+        String fitted = RingDslWriter.wireRingInputs(RingDslWriter.withMode(wired, FIRST_LABEL,
+                RingSegmentMode.GEODESIC));
+        assertEquals(wired.replace(creaseArguments + "points=\"" + EQUATOR_POINT + "\", normal=\""
+                + EQUATOR_NORMAL + "\", mode=\"crease\"", "metric=surface.metric, points=\""
+                + EQUATOR_POINT + "\", normal=\"" + EQUATOR_NORMAL + "\""), fitted);
+        GeometryBundle fittedRun = run(fitted);
+        for (String label : new String[] { FIRST_LABEL, SECOND_LABEL }) {
+            assertTrue(EdgeMarks.bools(fittedRun, label) != null, label + " left no marks");
+        }
     }
 
     @Test
