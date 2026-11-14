@@ -9,7 +9,6 @@ import ixdar.geometry.mesh.data.representation.MeshTopology;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.graphics.cameras.Camera3D;
 import ixdar.gui.terminal.Terminal;
-import ixdar.gui.ui.PaneTypes;
 import ixdar.platform.Platforms;
 import ixdar.scenes.main.Toggle;
 import ixdar.scenes.ring.RingScene;
@@ -147,7 +146,7 @@ public class SelectCommand extends TerminalCommand {
                 + regions.regionCount + " regions selected";
         Platforms.get().log(RingRegionTool.LOG_PREFIX + tool.lastRow + ", select=\"" + tool.selectQuery + "\"");
         terminal.history.addLine(tool.lastRow, terminal.scene.palette.linkText);
-        Toggle.setPanelFocus(PaneTypes.KnotView);
+        Toggle.setPanelFocus(Toggle.IsMainFocused);
         return null;
     }
 }

@@ -109,12 +109,31 @@ public class HyperString {
      *
      * @param word whitespace-separated text to append
      * @param c color for every word
+     * @return the first word appended, for {@link #joinWord}; {@code null} when {@code word} is
+     *         only spaces and appends nothing
      */
-    public void addWord(String word, Color c) {
+    public HyperWord addWord(String word, Color c) {
+        int first = words.size();
         for (String w : word.split(" ")) {
             addWord(w + " ", c, () -> {
             }, () -> {
             }, null);
+        }
+        return first < words.size() ? words.get(first) : null;
+    }
+
+    /**
+     * Append space-separated words kept on one row with every word from {@code from} on: a wrap
+     * moves them all to the next row together. A run wider than the view wraps word by word.
+     *
+     * @param from first word of the run, as {@link #addWord(String, Color)} returned it
+     * @param word whitespace-separated text to append
+     * @param c    color for every word
+     */
+    public void joinWord(HyperWord from, String word, Color c) {
+        addWord(word, c);
+        for (int index = words.indexOf(from) + 1; index < words.size(); index++) {
+            words.get(index).joinsPrevious = true;
         }
     }
 
@@ -365,6 +384,7 @@ public class HyperString {
         strMap.put(lines - 1, "");
     }
 
+
     /**
      * Compute the widest line's pixel width, also recording how many wrap
      * lines would be produced under the current {@link #charWrap} limit.
@@ -561,6 +581,9 @@ public class HyperString {
         float offset = 0;
         float charLength = 0;
         wrappedLines = 0;
+        // Whether the joined run the current word belongs to fits in the view, so its
+        // joined words never wrap on their own.
+        boolean groupFits = false;
         for (int j = idxStart; j < idxEnd; j++) {
             HyperWord w = words.get(j);
             ArrayList<HyperWord> subWords;
@@ -570,13 +593,30 @@ public class HyperString {
             } else {
                 subWords = w.subWords();
             }
+            boolean joined = w.wordAction == null && w.joinsPrevious && groupFits;
+            // A word starting a group asks whether the whole group fits on the row, not itself.
+            float groupWidth = 0;
+            int groupChars = 0;
+            for (int k = j; !joined && k < idxEnd; k++) {
+                HyperWord member = words.get(k);
+                if (k > j && (member.wordAction != null || !member.joinsPrevious)) {
+                    break;
+                }
+                groupWidth += scale * member.width;
+                groupChars += member.text == null ? 0 : member.text.size();
+            }
+            if (!joined) {
+                groupFits = w.wordAction == null && groupWidth <= camera.getWidth();
+            }
             for (HyperWord subWord : subWords) {
                 charLength += subWord.text.size();
                 float wordX = offset;
                 float wordWidth = scale * subWord.width;
+                float fitWidth = groupFits ? groupWidth : wordWidth;
+                float fitChars = groupFits ? charLength - subWord.text.size() + groupChars : charLength;
 
-                if (wrap && offset > 0
-                        && (wordX + wordWidth > camera.getWidth() || charLength > charWrap)) {
+                if (wrap && offset > 0 && !joined
+                        && (wordX + fitWidth > camera.getWidth() || fitChars > charWrap)) {
                     row++;
                     wrappedLines++;
                     offset = 0;
@@ -672,8 +712,8 @@ public class HyperString {
     }
 
     /**
-     * Append every word from {@code h} to this string, newlines preserved and a dynamic word kept
-     * dynamic.
+     * Append every word from {@code h} to this string, newlines preserved, a dynamic word kept
+     * dynamic and a {@link #joinWord} run kept together.
      *
      * @param h source string
      */
@@ -685,6 +725,7 @@ public class HyperString {
                 this.addDynamicWord(w.wordAction, w.color, w.hoverAction, w.clearHover, w.clickAction);
             } else {
                 this.addWord(w.charSequence.toString(), w.color, w.hoverAction, w.clearHover, w.clickAction);
+                getLastWord().joinsPrevious = w.joinsPrevious;
             }
         }
     }

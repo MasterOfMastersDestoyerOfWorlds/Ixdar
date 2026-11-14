@@ -24,7 +24,6 @@ import ixdar.automation.endpoints.ui.tools.Tools;
 import ixdar.geometry.mesh.data.rings.RingSegmentMode;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.terminal.commands.TerminalCommand;
-import ixdar.gui.ui.PaneTypes;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
@@ -338,7 +337,7 @@ class ToolInputReplyTest {
 
             @Override
             public String[] run(String[] args, int startIdx, Terminal terminal) {
-                Toggle.setPanelFocus(PaneTypes.KnotView);
+                Toggle.setPanelFocus(Toggle.IsMainFocused);
                 return null;
             }
         });

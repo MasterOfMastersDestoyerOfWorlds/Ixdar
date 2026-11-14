@@ -187,6 +187,7 @@ public abstract class ModelScene extends Scene {
         sceneTerminal = new Terminal(terminalRoot(), this);
         Terminal.current = sceneTerminal;
         sceneModelMenu = new SceneModelMenu(this);
+        showToolbar = true;
         initPanes();
         refreshControls();
         initModel();

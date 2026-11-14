@@ -14,11 +14,9 @@ import ixdar.annotations.geometry.GeometryRegistry_Geometries;
 
 import ixdar.platform.Compat;
 import ixdar.geometry.tsp.input.PointCollection;
-import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.ColorLerp;
+import ixdar.gui.Pane;
 import ixdar.gui.terminal.commands.TerminalCommand;
-import ixdar.gui.ui.PaneTypes;
-import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.file.TextFile;
 import ixdar.platform.input.Keys;
@@ -28,9 +26,9 @@ import ixdar.scenes.main.Toggle;
 /**
  * The editor's interactive REPL: keeps the command and point-collection registries,
  * tokenises and dispatches input lines through the matching {@link TerminalCommand},
- * and renders the scrollable history plus current prompt into a {@link HyperString}.
+ * and shows the scrollable history plus current prompt as its pane's rows.
  */
-public class Terminal {
+public class Terminal extends Pane {
 
     public static final String VIEW_TERMINAL = "TERMINAL";
 
@@ -82,12 +80,6 @@ public class Terminal {
     /** The scene this terminal belongs to, which every command typed into it runs against. */
     public final Scene scene;
 
-    /**
-     * The box the history and prompt scroll in, holding them as last drawn; the scene lays its
-     * bounds out as the terminal's view and subscribes it, and a click in it focuses the terminal.
-     */
-    public final MenuScrollBox scrollBox;
-
     ArrayList<String> commandHistory;
     String storedCommandLine;
     int commandHistoryIdx;
@@ -104,9 +96,8 @@ public class Terminal {
      * @param scene the scene the terminal belongs to
      */
     public Terminal(TextFile file, Scene scene) {
+        super(VIEW_TERMINAL, scene::terminalShown, Toggle.IsTerminalFocused);
         this.scene = scene;
-        this.scrollBox = new MenuScrollBox(VIEW_TERMINAL, () -> scene.terminalShown(),
-                () -> Toggle.setPanelFocus(PaneTypes.Terminal));
         initState();
         this.directory = new File(file.path).getParent();
         this.loadedFile = file;
@@ -121,9 +112,8 @@ public class Terminal {
      * @param scene the scene the terminal belongs to
      */
     public Terminal(String directory, Scene scene) {
+        super(VIEW_TERMINAL, scene::terminalShown, Toggle.IsTerminalFocused);
         this.scene = scene;
-        this.scrollBox = new MenuScrollBox(VIEW_TERMINAL, () -> scene.terminalShown(),
-                () -> Toggle.setPanelFocus(PaneTypes.Terminal));
         initState();
         this.directory = directory;
         this.loadedFile = null;
@@ -296,12 +286,13 @@ public class Terminal {
     }
 
     /**
-     * Render the terminal in {@link #scrollBox}: {@link #history} plus the current command line
-     * (or its instruction placeholder if empty), scrolled to the prompt after each Enter.
+     * {@link #history} plus the current command line, or its instruction placeholder while empty;
+     * the box scrolls to the prompt after each Enter.
      *
-     * @param camera 2D camera whose view is moved to the box
+     * @return the terminal's rows, wrapped to its width
      */
-    public void draw(Camera2D camera) {
+    @Override
+    public HyperString rows() {
         HyperString commandHyperString = new HyperString();
         commandHyperString.addHyperString(history);
         commandHyperString.newLine();
@@ -312,8 +303,7 @@ public class Terminal {
             commandHyperString.addWord(commandLine);
         }
         commandHyperString.wrap();
-        scrollBox.text = commandHyperString;
-        scrollBox.draw(camera);
+        return commandHyperString;
     }
 
     /**

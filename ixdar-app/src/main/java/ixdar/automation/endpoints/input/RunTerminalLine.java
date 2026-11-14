@@ -18,7 +18,6 @@ import ixdar.automation.AutomationEndpoint;
 import ixdar.automation.InputSettle;
 import ixdar.input.KeyGuy;
 import ixdar.platform.input.Keys;
-import ixdar.gui.ui.PaneTypes;
 
 @AutomationRouteAnnotation(path = "input/terminal", method = APIMethod.POST)
 public class RunTerminalLine extends AutomationEndpoint implements AutomationRoute {
@@ -58,7 +57,7 @@ public class RunTerminalLine extends AutomationEndpoint implements AutomationRou
                     return failure("No active terminal");
                 }
                 appliedDuringFrame[0] = Clock.framesRendered();
-                Toggle.setPanelFocus(PaneTypes.Terminal);
+                Toggle.setPanelFocus(Toggle.IsTerminalFocused);
                 List<String> before = terminal.history.plainLines();
                 typeLine(keys, line);
                 keys.keyCallback(0L, Keys.ENTER, 0, Keys.ACTION_PRESS, 0);

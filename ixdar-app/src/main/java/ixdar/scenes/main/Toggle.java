@@ -1,6 +1,5 @@
 package ixdar.scenes.main;
 
-import ixdar.gui.ui.PaneTypes;
 import ixdar.gui.ui.actions.Action;
 
 public enum Toggle {
@@ -74,15 +73,15 @@ public enum Toggle {
     }
 
     /**
-     * Set the {@code IsMainFocused} / {@code IsInfoFocused} / {@code IsTerminalFocused} toggles
-     * so exactly one is true based on which pane just took focus.
+     * Turn on the focus toggle of the pane that just took focus and the other focus toggles off.
      *
-     * @param focusedPanel pane that should become focused; others become unfocused
+     * @param focusedPanel {@code IsMainFocused}, {@code IsInfoFocused} or {@code IsTerminalFocused};
+     *                     {@code null} leaves every pane unfocused
      */
-    public static void setPanelFocus(PaneTypes focusedPanel) {
-        IsMainFocused.value = focusedPanel == PaneTypes.KnotView;
-        IsInfoFocused.value = focusedPanel == PaneTypes.Info;
-        IsTerminalFocused.value = focusedPanel == PaneTypes.Terminal;
+    public static void setPanelFocus(Toggle focusedPanel) {
+        IsMainFocused.value = focusedPanel == IsMainFocused;
+        IsInfoFocused.value = focusedPanel == IsInfoFocused;
+        IsTerminalFocused.value = focusedPanel == IsTerminalFocused;
     }
 
     /**

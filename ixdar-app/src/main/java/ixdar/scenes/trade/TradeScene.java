@@ -429,7 +429,6 @@ public class TradeScene extends Scene {
             outcomeDialog.draw(this, width - panelWidth, height);
         }
         toolbar.draw(this, width);
-        errorToasts.perFrame();
         errorToasts.draw(mapCamera, height - topBarBottom);
         lapAnimation.drawCoins(this);
         drawTooltip(mapCamera);

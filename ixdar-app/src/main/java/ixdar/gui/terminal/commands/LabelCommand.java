@@ -5,7 +5,6 @@ import ixdar.annotations.command.Subsystem;
 import ixdar.geometry.mesh.data.labels.MeshLabels;
 import ixdar.geometry.mesh.data.rings.RingRegions;
 import ixdar.gui.terminal.Terminal;
-import ixdar.gui.ui.PaneTypes;
 import ixdar.platform.Platforms;
 import ixdar.scenes.main.Toggle;
 import ixdar.tools.regions.RegionLayer;
@@ -116,7 +115,7 @@ public class LabelCommand extends TerminalCommand {
         tool.lastRow = "named " + named + " region(s) " + name + "; unsaved";
         Platforms.get().log(RingRegionTool.LOG_PREFIX + tool.lastRow);
         terminal.history.addLine(tool.lastRow, terminal.scene.palette.linkText);
-        Toggle.setPanelFocus(PaneTypes.KnotView);
+        Toggle.setPanelFocus(Toggle.IsMainFocused);
         return null;
     }
 }

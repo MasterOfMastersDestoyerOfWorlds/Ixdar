@@ -35,7 +35,6 @@ import ixdar.graphics.render.text.Font;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.Drawing;
 import ixdar.gui.ui.InfoPane;
-import ixdar.gui.ui.PaneTypes;
 import ixdar.gui.ui.menu.MenuBox;
 import ixdar.gui.ui.menu.MenuScrollBox;
 import ixdar.platform.Platforms;
@@ -69,7 +68,6 @@ public class MainScene extends Scene {
     public static final String VIEW_MAIN = "MAIN";
     public static final String VIEW_RIGHT_TOP = "RIGHT_TOP";
     public static final String VIEW_RIGHT_BOTTOM = "RIGHT_BOTTOM";
-    public static final String VIEW_BOTTOM = "BOTTOM";
     public static final int RIGHT_PANEL_SIZE = 195;
     public static final int BOTTOM_PANEL_SIZE = 195;
     public static final int MAIN_VIEW_OFFSET_X = 0;
@@ -116,7 +114,7 @@ public class MainScene extends Scene {
     public boolean showHoverSegment;
     public ColorLerp hoverSegmentColor;
     public Terminal terminal;
-    public InfoPane info = new InfoPane(VIEW_RIGHT_TOP, () -> active);
+    public InfoPane info = new InfoPane(VIEW_RIGHT_TOP, this);
     public Grid grid;
     public SDFTexture logo;
     public Font font;
@@ -161,7 +159,7 @@ public class MainScene extends Scene {
         editorCamera.resetTarget = () -> showHoverKnot ? hoverKnot
                 : activeTool == freeTool ? freeTool.selectedKnot() : null;
 
-        Toggle.setPanelFocus(PaneTypes.KnotView);
+        Toggle.setPanelFocus(Toggle.IsMainFocused);
         grid = pointSetPath.grid;
         mouse.camera = editorCamera;
         CanvasScroll editorScroll = new CanvasScroll(editorCamera, false, () -> active);
@@ -184,28 +182,19 @@ public class MainScene extends Scene {
                     int ww = Platforms.get().getFrameBufferWidth();
                     b.update(ww - RIGHT_PANEL_SIZE, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
                 }, VIEW_RIGHT_BOTTOM));
-        Bounds rightTop = info.scrollBox.bounds;
-        rightTop.setUpdateCallback(b -> {
+        info.place(views, b -> {
             int ww = Platforms.get().getFrameBufferWidth();
             int wh = Platforms.get().getFrameBufferHeight();
             b.update(ww - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, RIGHT_PANEL_SIZE, wh - BOTTOM_PANEL_SIZE);
         });
-        rightTop.recalc();
-        views.put(VIEW_RIGHT_TOP, rightTop);
-        Bounds bottom = terminal.scrollBox.bounds;
-        bottom.setUpdateCallback(b -> {
+        terminal.place(views, b -> {
             int ww = Platforms.get().getFrameBufferWidth();
             b.update(0, 0, ww - RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE);
         });
-        bottom.recalc();
-        views.put(VIEW_BOTTOM, bottom);
         views.put(VIEW_TOOLTIP, tooltipBounds());
 
         editorCamera.initCamera(views, VIEW_MAIN);
-        PointerDispatcher pointer = PointerDispatcher.current();
-        pointer.subscribe(rightTop, info.scrollBox);
-        pointer.subscribe(bottom, terminal.scrollBox);
-        pointer.subscribe(views.get(VIEW_MAIN), editorScroll);
+        PointerDispatcher.current().subscribe(views.get(VIEW_MAIN), editorScroll);
         DistanceMatrix d = pointSetPath.d;
         if (pointSetPath.d == null) {
             d = new DistanceMatrix(pointSetPath.ps);
@@ -434,7 +423,7 @@ public class MainScene extends Scene {
         if (!active) {
             return;
         }
-        if (inView(mouse.normalizedPosX, mouse.normalizedPosY) == PaneTypes.KnotView) {
+        if (inView(mouse.normalizedPosX, mouse.normalizedPosY) == Toggle.IsMainFocused) {
             activeTool.onHover(mouse.normalizedPosX, mouse.normalizedPosY);
         } else {
             activeTool.clearHover();
@@ -451,12 +440,12 @@ public class MainScene extends Scene {
      */
     @Override
     public void viewClicked(float windowX, float windowY, int button) {
-        PaneTypes pane = inView(mouse.normalizedPosX, mouse.normalizedPosY);
+        Toggle pane = inView(mouse.normalizedPosX, mouse.normalizedPosY);
         Toggle.setPanelFocus(pane);
         if (manifoldKnot == null || !active) {
             return;
         }
-        if (pane == PaneTypes.KnotView) {
+        if (pane == Toggle.IsMainFocused) {
             activeTool.onClick(mouse.normalizedPosX, mouse.normalizedPosY);
         }
     }
@@ -599,10 +588,7 @@ public class MainScene extends Scene {
             camera.updateView(VIEW_RIGHT_BOTTOM);
             logo.draw(0, 0, RIGHT_PANEL_SIZE, BOTTOM_PANEL_SIZE, palette.accent, camera);
 
-            camera.updateView(VIEW_RIGHT_TOP);
-            info.draw(camera, activeTool, this);
-
-            camera.updateView(VIEW_BOTTOM);
+            info.draw(camera);
             terminal.draw(camera);
 
             drawTooltip(camera);
@@ -759,14 +745,14 @@ public class MainScene extends Scene {
     }
 
     /**
-     * Classify the framebuffer point {@code (x, y)} into one of the four panes
-     * (knot view, terminal, info, logo) of the editor laid out in the current framebuffer.
+     * The focus toggle of the editor pane under the framebuffer point {@code (x, y)}: the knot
+     * view's, the terminal's or the info pane's.
      *
      * @param x framebuffer x in pixels
      * @param y framebuffer y in pixels, y up
-     * @return the {@link PaneTypes} containing the point, or {@link PaneTypes#None}
+     * @return that pane's focus toggle, or {@code null} over the logo or outside every pane
      */
-    public static PaneTypes inView(float x, float y) {
+    public static Toggle inView(float x, float y) {
         int mainViewWidth = Platforms.get().getFrameBufferWidth() - RIGHT_PANEL_SIZE;
         int mainViewHeight = Platforms.get().getFrameBufferHeight() - BOTTOM_PANEL_SIZE;
         boolean inMainViewRightBound = x < mainViewWidth + MAIN_VIEW_OFFSET_X;
@@ -774,15 +760,13 @@ public class MainScene extends Scene {
         boolean inMainViewLowerBound = y > MAIN_VIEW_OFFSET_Y;
         boolean inMainViewUpperBound = y < mainViewHeight + MAIN_VIEW_OFFSET_Y;
         if (inMainViewLeftBound && inMainViewRightBound && inMainViewLowerBound && inMainViewUpperBound) {
-            return PaneTypes.KnotView;
-        } else if (!inMainViewLowerBound && !inMainViewRightBound) {
-            return PaneTypes.Logo;
+            return Toggle.IsMainFocused;
         } else if (!inMainViewLowerBound && inMainViewRightBound && inMainViewLeftBound) {
-            return PaneTypes.Terminal;
+            return Toggle.IsTerminalFocused;
         } else if (inMainViewLowerBound && inMainViewUpperBound && !inMainViewRightBound) {
-            return PaneTypes.Info;
+            return Toggle.IsInfoFocused;
         }
-        return PaneTypes.None;
+        return null;
     }
 
     /**

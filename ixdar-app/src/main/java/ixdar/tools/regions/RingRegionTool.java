@@ -25,7 +25,6 @@ import ixdar.graphics.render.color.Palette;
 import ixdar.graphics.render.model.HalfEdgeMeshRuntime;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.terminal.commands.LabelCommand;
-import ixdar.gui.ui.PaneTypes;
 import ixdar.platform.Platforms;
 import ixdar.automation.AutomationPortFile;
 import ixdar.platform.input.Keys;
@@ -192,7 +191,7 @@ public final class RingRegionTool extends Tool {
                     lastError = "";
                     lastRow = "naming " + selectedCount() + " region(s): type the part name, "
                             + "then Enter";
-                    Toggle.setPanelFocus(PaneTypes.Terminal);
+                    Toggle.setPanelFocus(Toggle.IsTerminalFocused);
                     terminal.type(LabelCommand.cmd);
                     terminal.keyPress(Keys.SPACE, 0, false);
                 }));

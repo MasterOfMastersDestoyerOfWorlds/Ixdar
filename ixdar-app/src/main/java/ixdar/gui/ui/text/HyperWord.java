@@ -29,6 +29,11 @@ public class HyperWord {
     /** Whether a click on the word does something: whether it was built with a {@link #clickAction}. */
     public boolean clickable;
     public boolean newLine = false;
+    /**
+     * Whether a wrap never falls between this word and the one before, so the two move to a new
+     * row together; set by {@link HyperString#joinWord}. Only static words join.
+     */
+    public boolean joinsPrevious;
     public float yScreenOffset;
     public float xScreenOffset;
     public float rowHeight;

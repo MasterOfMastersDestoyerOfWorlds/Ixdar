@@ -77,8 +77,15 @@ public final class ErrorToasts {
         }
     }
 
-    /** Drop every refusal whose colour has faded out; runs once a frame. */
-    public void perFrame() {
+    /**
+     * Drop every refusal that has faded out, then draw the rest one per row from the top left in
+     * their fading colours, starting on the first row wholly below {@code topInset}. Runs once a
+     * frame.
+     *
+     * @param screen   the 2D camera the overlay text is drawn through
+     * @param topInset height in pixels of a strip the scene keeps at the top, such as a bar; 0 for none
+     */
+    public void draw(Camera2D screen, float topInset) {
         for (int toast = messages.size() - 1; toast >= 0; toast--) {
             if (colors.get(toast).finished()) {
                 messages.remove(toast);
@@ -86,25 +93,6 @@ public final class ErrorToasts {
                 colors.remove(toast);
             }
         }
-    }
-
-    /**
-     * Draw the shown refusals one per row from the top left, each in its fading colour.
-     *
-     * @param screen the 2D camera the overlay text is drawn through
-     */
-    public void draw(Camera2D screen) {
-        draw(screen, 0f);
-    }
-
-    /**
-     * Draw the shown refusals one per row from the top left, starting on the first row wholly below a
-     * strip the scene keeps at the top, such as a bar.
-     *
-     * @param screen   the 2D camera the overlay text is drawn through
-     * @param topInset height in pixels of the strip at the top to stay below
-     */
-    public void draw(Camera2D screen, float topInset) {
         if (messages.isEmpty() || screen == null) {
             return;
         }

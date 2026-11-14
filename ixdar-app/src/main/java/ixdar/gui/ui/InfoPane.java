@@ -1,10 +1,7 @@
 package ixdar.gui.ui;
 
-import java.util.function.BooleanSupplier;
-
-import ixdar.graphics.cameras.Camera2D;
 import ixdar.graphics.render.color.Palette;
-import ixdar.gui.ui.menu.MenuScrollBox;
+import ixdar.gui.Pane;
 import ixdar.gui.ui.text.HyperString;
 import ixdar.platform.Clock;
 import ixdar.scenes.Scene;
@@ -14,36 +11,33 @@ import ixdar.tools.Tool;
 
 /**
  * The editor's info pane: the frame rate, the active tool's name and info, then the controls
- * listing, scrolling together in one {@link MenuScrollBox}.
+ * listing, scrolling together in the pane's box. A click in it focuses it.
  */
-public class InfoPane {
+public class InfoPane extends Pane {
+
+    /** The scene whose active tool and controls the pane lists. */
+    public final Scene scene;
 
     /**
-     * The box the pane's rows scroll in, holding them as last drawn; the scene lays its bounds out
-     * as the pane's view and subscribes it, and a click in it focuses the pane.
-     */
-    public final MenuScrollBox scrollBox;
-
-    /**
-     * Build an empty info pane whose box's bounds carry {@code viewId}.
+     * Build an empty info pane over {@code scene}, shown while the scene is active.
      *
      * @param viewId view id of the pane's bounds
-     * @param shown whether the pane's scene is on screen, so the box takes the wheel
+     * @param scene  the scene whose active tool and controls are listed
      */
-    public InfoPane(String viewId, BooleanSupplier shown) {
-        this.scrollBox = new MenuScrollBox(viewId, shown, () -> Toggle.setPanelFocus(PaneTypes.Info));
+    public InfoPane(String viewId, Scene scene) {
+        super(viewId, () -> scene.active, Toggle.IsInfoFocused);
+        this.scene = scene;
     }
 
     /**
-     * Render the info pane stacked from the top at the box's scroll: the frame rate and the active
-     * tool's name, the tool's {@link Tool#info}, then the scene's controls listing.
+     * The rows stacked from the top: the frame rate and the active tool's name, the tool's
+     * {@link Tool#info}, then the scene's controls, one row per key under each section's heading.
      *
-     * @param camera   2D camera whose view is moved to the pane's box
-     * @param tool     the active tool, whose info is shown
-     * @param scene    the scene whose controls are listed, one row per key under each section's
-     *                 heading
+     * @return the pane's rows, wrapped to its width
      */
-    public void draw(Camera2D camera, Tool tool, Scene scene) {
+    @Override
+    public HyperString rows() {
+        Tool tool = scene.activeTool;
         HyperString rows = new HyperString();
         rows.addWord("FPS:" + Clock.fps());
         rows.newLine();
@@ -65,7 +59,6 @@ public class InfoPane {
             }
         }
         rows.wrap();
-        scrollBox.text = rows;
-        scrollBox.draw(camera);
+        return rows;
     }
 }

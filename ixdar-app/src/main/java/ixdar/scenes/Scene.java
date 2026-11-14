@@ -24,7 +24,7 @@ import ixdar.graphics.render.sdf.ShaderDrawable;
 import ixdar.graphics.render.shaders.ShaderProgram;
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.ui.Drawing;
-import ixdar.gui.ui.PaneTypes;
+import ixdar.gui.ui.ToolbarPane;
 import ixdar.gui.ui.actions.Action;
 import ixdar.gui.ui.code.ShaderCodePane;
 import ixdar.gui.ui.menu.MenuBox;
@@ -53,8 +53,6 @@ public abstract class Scene extends SceneDrawable {
 
 
     public static final String DEFAULT_VIEW = "MAIN";
-
-    public static final String VIEW_SCENE_TERMINAL = "SCENE_TERMINAL";
 
     public static final int TERMINAL_PANEL_HEIGHT = 300;
 
@@ -161,6 +159,16 @@ public abstract class Scene extends SceneDrawable {
      * a shader program.
      */
     public ColorBox chromeBackground;
+
+    /**
+     * Whether the scene draws the toolbar: the active tool's name and its controls, each key with
+     * what it does, along the bottom of the view on top of the terminal. Off unless a scene turns
+     * it on.
+     */
+    public boolean showToolbar;
+
+    /** The toolbar, drawn while {@link #showToolbar} is on; {@link #initPanes} lays it out. */
+    public final ToolbarPane toolbarPane = new ToolbarPane(this);
 
     /** Dark box behind the tooltip, built on its first draw on the render thread. */
     public ColorBox tooltipBackground;
@@ -386,17 +394,15 @@ public abstract class Scene extends SceneDrawable {
     }
 
     /**
-     * Lay the terminal's scroll box out as the bottom terminal strip view and subscribe it for the
-     * wheel and the presses on it. Subclasses that add their own panes override this and chain
-     * {@code super.initPanes()}.
+     * Lay the terminal out as the bottom strip and the toolbar on top of it, or on the window's
+     * bottom edge while the terminal is hidden. Subclasses that add their own panes override this
+     * and chain {@code super.initPanes()}.
      */
     public void initPanes() {
-        Bounds terminalBounds = sceneTerminal.scrollBox.bounds;
-        terminalBounds.setUpdateCallback(bounds -> bounds.update(0, 0,
+        sceneTerminal.place(webViews, bounds -> bounds.update(0, 0,
                 Platforms.get().getFrameBufferWidth(), TERMINAL_PANEL_HEIGHT));
-        terminalBounds.recalc();
-        webViews.put(VIEW_SCENE_TERMINAL, terminalBounds);
-        PointerDispatcher.current().subscribe(terminalBounds, sceneTerminal.scrollBox);
+        toolbarPane.place(webViews, bounds -> bounds.update(0, terminalShown() ? TERMINAL_PANEL_HEIGHT : 0,
+                Platforms.get().getFrameBufferWidth(), Math.max(1, toolbarPane.scrollBox.rowsUsed) * Drawing.FONT_HEIGHT_PIXELS));
     }
 
     /**
@@ -442,11 +448,10 @@ public abstract class Scene extends SceneDrawable {
         if (codePane != null) {
             codePane.draw(camera2D);
         }
-        if (sceneTerminal != null && terminalShown()) {
-            camera2D.updateView(VIEW_SCENE_TERMINAL);
-            chromeBackground.draw(palette.background, camera2D);
+        if (sceneTerminal != null) {
             sceneTerminal.draw(camera2D);
         }
+        toolbarPane.draw(camera2D);
         camera2D.resetView();
     }
 
@@ -564,7 +569,7 @@ public abstract class Scene extends SceneDrawable {
         controls.add(
                 new ControlHint("toggle-terminal", Keys.GRAVE, "~", "toggle the terminal", () -> {
                     boolean focusTerminal = !Toggle.IsTerminalFocused.value;
-                    Toggle.setPanelFocus(focusTerminal ? PaneTypes.Terminal : PaneTypes.KnotView);
+                    Toggle.setPanelFocus(focusTerminal ? Toggle.IsTerminalFocused : Toggle.IsMainFocused);
                 }));
     }
 

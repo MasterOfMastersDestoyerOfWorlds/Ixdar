@@ -7,7 +7,6 @@ import ixdar.annotations.command.CommandAnnotation;
 import ixdar.annotations.command.Subsystem;
 import ixdar.automation.endpoints.ui.SelectionBounds;
 import ixdar.gui.terminal.Terminal;
-import ixdar.gui.ui.PaneTypes;
 import ixdar.scenes.main.Toggle;
 import ixdar.scenes.ring.RingScene;
 import ixdar.tools.regions.RegionLayer;
@@ -98,7 +97,7 @@ public class RingDeleteCommand extends TerminalCommand {
             return null;
         }
         terminal.history.addLine(rings.lastRow, terminal.scene.palette.linkText);
-        Toggle.setPanelFocus(PaneTypes.KnotView);
+        Toggle.setPanelFocus(Toggle.IsMainFocused);
         return null;
     }
 }

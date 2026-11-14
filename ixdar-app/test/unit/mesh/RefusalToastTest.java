@@ -99,10 +99,10 @@ class RefusalToastTest {
                 toasts.messages.get(1));
 
         toasts.colors.get(1).startSeconds -= ErrorToasts.FADE_SECONDS;
-        scene.updateScene();
+        toasts.draw(null, 0f);
 
         assertEquals(List.of(RingTool.NO_DRAFT_TO_DISCARD), toasts.messages,
-                "the toast older than the fade dropped");
+                "the draw dropped the toast older than the fade");
     }
 
     @Test

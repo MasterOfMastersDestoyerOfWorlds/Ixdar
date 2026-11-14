@@ -85,6 +85,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
         // The viewer's own look, put back once every view is read.
         String[] savedLook = new String[1];
         boolean[] savedHeadlight = new boolean[1];
+        boolean[] savedToolbar = new boolean[1];
         try {
             float[][] views = VIEW_AZIMUTH_ELEVATION_RADIANS;
             String[] labels = VIEW_LABELS;
@@ -137,6 +138,9 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
                 framed.addProperty(StrokeSketch.ORTHOGRAPHIC, mvs.isOrthographic());
                 savedLook[0] = mvs.looks.picked.id;
                 savedHeadlight[0] = mvs.headlight;
+                // The cells show the model alone: the toolbar would repeat in every one.
+                savedToolbar[0] = mvs.showToolbar;
+                mvs.showToolbar = false;
                 mvs.setLook(look.id, headlight);
                 return framed;
             });
@@ -344,6 +348,7 @@ public class MultiviewScreenshot extends AutomationEndpoint implements Automatio
             runtime.runOnMainThread(() -> {
                 if (savedLook[0] != null && runtime.canvas instanceof MeshNodeViewerScene mvs) {
                     mvs.setLook(savedLook[0], savedHeadlight[0]);
+                    mvs.showToolbar = savedToolbar[0];
                 }
                 return new JsonObject();
             });

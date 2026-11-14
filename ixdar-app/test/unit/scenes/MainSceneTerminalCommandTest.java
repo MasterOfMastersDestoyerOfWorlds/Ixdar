@@ -24,7 +24,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import ixdar.gui.terminal.Terminal;
 import ixdar.gui.terminal.commands.TerminalCommand;
-import ixdar.gui.ui.PaneTypes;
 import ixdar.gui.ui.text.HyperWord;
 import ixdar.platform.Platform;
 import ixdar.platform.Platforms;
@@ -347,7 +346,7 @@ class MainSceneTerminalCommandTest {
         editor.setTools();
         editor.switchTool(editor.defaultTool);
         editor.switchTool(editor.neighborViewTool);
-        Toggle.setPanelFocus(PaneTypes.KnotView);
+        Toggle.setPanelFocus(Toggle.IsMainFocused);
         Toggle.DrawCutMatch.value = false;
         Toggle.DrawKnotGradient.value = false;
         return editor;

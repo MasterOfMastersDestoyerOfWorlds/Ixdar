@@ -248,7 +248,6 @@ public class RingScene extends MeshNodeViewerScene {
         cameraStill = camera.view.equals(lastFrameView);
         lastFrameView.set(camera.view);
         regionLayer.perFrame();
-        errorToasts.perFrame();
         shownLabels.clear();
         hoveredRingNumber = null;
         if (showNumbers && ringsShown()) {
@@ -444,7 +443,7 @@ public class RingScene extends MeshNodeViewerScene {
                         + halfWidth, mouse.normalizedPosY, LABEL_ROW_PIXELS, camera2D);
             }
         }
-        errorToasts.draw(camera2D);
+        errorToasts.draw(camera2D, 0f);
     }
 
     /**
